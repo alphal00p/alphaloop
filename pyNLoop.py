@@ -74,6 +74,18 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 'n_loops'   :   1,
                 'n_legs'    :   4,
                 'masses'    :   [100., 0., 0., 0.]
+            },
+        'box1L_onshell_massless' : 
+            {   'class'     :   nloop_integrands.box1L_onshell_massless,
+                'n_loops'   :   1,
+                'n_legs'    :   4,
+                'masses'    :   [0., 0., 0., 0.]
+            },
+        'box1L_Babis' : 
+            {   'class'     :   nloop_integrands.box1L_Babis,
+                'n_loops'   :   1,
+                'n_legs'    :   4,
+                'masses'    :   [0., 0., 0., 0.]
             }
     }
     
@@ -104,6 +116,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         
         if not self.validate_pySecDec_installation(pySecDec_root_path):
             raise pyNLoopInvalidCmd('PySecDec installation appears to be non-standard (i.e. standalone).')
+
         
         return pySecDec_root_path
         
@@ -117,6 +130,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'parallelization'   :   'multicore'
         }
         super(pyNLoopInterface, self).__init__(*args, **opts)
+
+        # Temporary force pySecDec dependencies to be used
+        os.environ['PATH']= os.environ['PATH']+':'+pjoin(self.pyNLoop_options['pySecDec_path'], 'bin')
 
     def do_set_pyNLoop_option(self, line):
         """ Logic for setting pyNLoop options."""
@@ -291,8 +307,11 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         
         # For loop calculations, it customary to consider all legs outgoing, so we must
         # flip the initial states directions.
-        random_PS_point[1] = -random_PS_point[1]
-        random_PS_point[2] = -random_PS_point[2]      
+        for i in random_PS_point:
+            if i <= 2:
+                continue
+            random_PS_point[i] = -random_PS_point[i]
+
         # For debugging you can easily print out the chosen PS point as follows:
         #misc.sprint(str(random_PS_point))
    

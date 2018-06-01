@@ -86,7 +86,6 @@ class pySecDecIntegrator(integrators.VirtualIntegrator):
         #logger.info("Starting integration of loop integrand '%s' with pySecDec ..."%
         #                                                      self.integrand.nice_string())
         with misc.Silence(active = self.options['verbosity']==0):
-            misc.sprint(self.integrand.integrand_parameters_values)
             str_integral_without_prefactor, str_prefactor, str_integral_with_prefactor = \
               pySecDec_integral(real_parameters=self.integrand.integrand_parameters_values)
         
