@@ -13,6 +13,9 @@ import sys
 import shutil
 import re
 import random
+import sympy
+
+from distutils.version import LooseVersion, StrictVersion
 
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 import madgraph
@@ -31,12 +34,17 @@ from madgraph.integrator.vegas3_integrator import Vegas3Integrator
 # import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 
 import nloop_integrands
+import pysecdec_integrator
 
 
 logger = logging.getLogger('pyNLoop.Interface')
 
 pjoin = os.path.join
 template_dir = pjoin(plugin_path, 'Templates')
+
+EPSM2 = u'\u03B5\u207B\u00b2'.encode('utf-8')
+EPSM1 = u'\u03B5\u207B\u00b9'.encode('utf-8')
+
 
 class pyNLoopInterfaceError(MadGraph5Error):
     """ Error for the pyNLoop plugin """
@@ -60,20 +68,56 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 'n_loops'   :   1,
                 'n_legs'    :   4,
                 'masses'    :   [100., 200., 300., 400.]
+            },
+        'box1L' : 
+            {   'class'     :   nloop_integrands.box1L,
+                'n_loops'   :   1,
+                'n_legs'    :   4,
+                'masses'    :   [100., 0., 0., 0.]
             }
     }
     
+    def validate_pySecDec_installation(self, pysecdec_path):
+        
+        necessary_lib_files = ['libcuba.a','libgsl.a','libgslcblas.a']
+        for lib in necessary_lib_files:
+            if not os.path.isfile(pjoin(pysecdec_path,'lib',lib)):
+                return False
+        necessary_bin_files = ['tform','form','gsl-config']
+        for exe in necessary_bin_files:
+            if not os.path.isfile(pjoin(pysecdec_path,'bin',exe)):
+                return False
+        return True
+    
+    def find_pySecDec_path(self):
+        try:
+            import pySecDec
+        except ImportError:
+            raise pyNLoopInvalidCmd(
+                'pyNLoop could not successfully import the pySecDec module.\n'+
+                'Make sure it is specified in your $PYTHONPATH.')
+        pySecDec_root_path = os.path.abspath(
+                  pjoin(os.path.dirname(pySecDec.__file__), os.path.pardir,os.path.pardir))
+        
+        if LooseVersion(pySecDec.__version__) < LooseVersion("1.3.1"):
+            raise pyNLoopInvalidCmd('Detected pySecDec version = %s but minimum required is 1.3.1')
+        
+        if not self.validate_pySecDec_installation(pySecDec_root_path):
+            raise pyNLoopInvalidCmd('PySecDec installation appears to be non-standard (i.e. standalone).')
+        
+        return pySecDec_root_path
+        
     def __init__(self, *args, **opts):
         """ Define attributes of this class."""
         
         self.pyNLoop_options = {
             # At first, we will limit ourselves to using a built-in distribution of pySecDec.
-            'pySecDec_path'     :   'built_in',
-            'integrator'        :   'Vegas3',
+            'pySecDec_path'     :   self.find_pySecDec_path(),
+            'integrator'        :   'auto',
             'parallelization'   :   'multicore'
         }
         super(pyNLoopInterface, self).__init__(*args, **opts)
-        
+
     def do_set_pyNLoop_option(self, line):
         """ Logic for setting pyNLoop options."""
 
@@ -81,8 +125,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         key, value = args[:2]
  
         if key == 'integrator':
-            if value not in ['Vegas3']:
-                raise pyNLoopInvalidCmd("pyNLoop only supports Vegas3 integrator for now.")
+            if value not in ['Vegas3','pySecDec','auto']:
+                raise pyNLoopInvalidCmd(
+"pyNLoop only supports Vegas3 and pySecDec integrator for now (or automatically set with value 'auto').")
         
         elif key == 'parallelization':
             if value not in ['cluster', 'multicore']:
@@ -117,7 +162,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 import multiprocessing
                 if not options_to_pass_to_cluster['nb_core']:
                     options_to_pass_to_cluster['nb_core'] = multiprocessing.cpu_count()
-                logger.info('Using %d CPU cores' % options_to_pass_to_cluster['nb_core'])
+                #logger.info('Using %d CPU cores' % options_to_pass_to_cluster['nb_core'])
             except ImportError:
                 options_to_pass_to_cluster['nb_core'] = 1
                 logger.warning('Impossible to detect the number of cores, therefore using one only.\n'+
@@ -137,11 +182,13 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'batch_size'            : 1000,
             'verbosity'             : 1,
             'nb_CPU_cores'          : None,
-            'phase_computed'        : 'Real',
+            'phase_computed'        : 'All',
             'survey_n_iterations'   : 10,
             'survey_n_points'       : 2000,
             'refine_n_iterations'   : 10,
-            'refine_n_points'       : 1000
+            'refine_n_points'       : 1000,
+            'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
+            'force'                 : False
         }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -183,11 +230,23 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s'%(key,value))
                 options[key] = parsed_float
 
+            elif key in ['force']:
+                parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
+                options[key] = parsed_bool
+
+            elif key in ['output_folder']:
+                if os.path.isabs(value):
+                    options[key] = value
+                else:
+                    options[key] = pjoin(MG5DIR,value)                
+
             elif key == 'phase_computed':
                 if value.upper() in ['REAL','R','RE']:
                     options[key] == 'Real'
                 elif value.upper() in ['IMAGINARY','I','IM']:
                     options[key] == 'Imaginary'
+                elif value.upper() in ['ALL','A']:
+                    options[key] == 'All'
                 else:
                     raise pyNLoopInvalidCmd("The phase computed can only be 'Real' or 'Imaginary'.")
 
@@ -244,7 +303,24 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Data-structure for specifying a topology to be determined 
             topology           =   chosen_topology_name,
         )
+        
+        # Output low-level integrand code if necessary:
+        n_loop_integrand.output(
+            options['output_folder'], verbosity=options['verbosity'], force=options['force'])
 
+        # Choose the integrator
+        if self.pyNLoop_options['integrator'] == 'auto':
+            integrator_name = n_loop_integrand._supported_integrators[0]
+        else:
+            if self.pyNLoop_options['integrator'] not in n_loop_integrand._supported_integrators:
+                integrator_name = n_loop_integrand._supported_integrators[0]
+                logger.warning(
+    "Specified integrator '%s' is not supported by integrand '%s'. Using '%s' instead."%
+     (self.pyNLoop_options['integrator'], n_loop_integrand.nice_string(), integrator_name))
+            else:
+                integrator_name = self.pyNLoop_options['integrator']
+             
+        # Generic option for all integrators
         cluster = self.get_cluster(force_nb_cpu_cores=options['nb_CPU_cores'])
         integration_options = {
             'cluster'               :   cluster,
@@ -254,36 +330,88 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'survey_n_iterations'   :   options['survey_n_iterations'],
             'survey_n_points'       :   options['survey_n_points'],
             'refine_n_iterations'   :   options['refine_n_iterations'],
-            'refine_n_points'       :   options['refine_n_points']
+            'refine_n_points'       :   options['refine_n_points'],
+            'pySecDec_path'         :   self.pyNLoop_options['pySecDec_path']
         }
-        # Launch the integration
-        if self.pyNLoop_options['integrator']=='Vegas3':
+                
+        if integrator_name=='Vegas3':
             integrator = Vegas3Integrator(n_loop_integrand, **integration_options)
+        elif integrator_name=='pySecDec':
+            integrator = pysecdec_integrator.pySecDecIntegrator(n_loop_integrand, **integration_options)
         else:
-            raise NotImplementedError
+            raise pyNLoopInterfaceError("Integrator '%s' not implemented."%integrator_name)
         
         # We are now finally ready to integrate :)
-        logger.info("="*100)        
-        logger.info('{:^100}'.format("Starting integration, lay down and enjoy..."),'$MG:color:GREEN')
-        logger.info("="*100)
+        logger.info("="*150)        
+        logger.info('{:^150}'.format("Starting integration, lay down and enjoy..."))
+        logger.info("="*150)
 
-        xsec, error = integrator.integrate()
+        amplitude, error = integrator.integrate()
+        # Make sure to cast the result to a sympy expression
+        amplitude, error = self.cast_result_to_sympy_expression(amplitude, error)
 
         run_output_path = MG5DIR
-        if MPI_RANK==0:       
-            logger.info("="*100)
-            logger.info('{:^100}'.format("Loop integral result with integrator '%s':"%integrator.get_name()),'$MG:color:GREEN')
-            logger.info('{:^100}'.format("%.5e +/- %.2e"%(xsec, error)),'$MG:color:BLUE')
-            logger.info("="*100+"\n")
+        if MPI_RANK==0:
+            logger.info("="*150)
+            logger.info('{:^150}'.format("Integral of '%s' with integrator '%s':"%(n_loop_integrand.nice_string(), integrator.get_name())))
+            logger.info('')
+            logger.info(' '*15+'(%-50s)     +/- (%-50s)'%(amplitude.coeff('eps',0), error.coeff('eps',0)))
+            logger.info(' '*13+'+ (%-50s) %s +/- (%-50s) %s'%(amplitude.coeff('eps',-1), EPSM1, error.coeff('eps',-1), EPSM1))
+            logger.info(' '*13+'+ (%-50s) %s +/- (%-50s) %s'%(amplitude.coeff('eps',-2), EPSM2, error.coeff('eps',-2), EPSM2))
+            logger.info('')
+            logger.info("="*150+"\n")
            
             # Write the result in 'cross_sections.dat' of the result directory
-            xsec_summary = open(pjoin(run_output_path,'numerical_loop_integration.dat'),'w')
-            xsec_summary_lines = []        
-            xsec_summary_lines.append('%-30s%-30s%-30s'%('','Loop integral result','MC uncertainty'))
-            xsec_summary_lines.append('%-30s%-30s%-30s'%('Total','%.8e'%xsec,'%.3e'%error))
-            xsec_summary.write('\n'.join(xsec_summary_lines))
-            xsec_summary.close()
-        
+            self.dump_result_to_file(
+                            pjoin(options['output_folder'],'result.dat'), amplitude, error)
+
+    def dump_result_to_file(self, path, amplitude, error):
+        res_summary = open(path,'w')
+        res_summary_lines = []        
+        res_summary_lines.append(('%-30s'*7)%('',
+            'O(eps^0) Re','O(eps^0) Im',
+            'O(eps^-1) Re','O(eps^-1) Im',     
+            'O(eps^-2) Re','O(eps^-2) Im'))
+        res_summary_lines.append(('%-30s'*7)%('Result',
+            amplitude.coeff('eps',0).coeff('I',0),
+            amplitude.coeff('eps',0).coeff('I',1),
+            amplitude.coeff('eps',-1).coeff('I',0),
+            amplitude.coeff('eps',-1).coeff('I',1),
+            amplitude.coeff('eps',-2).coeff('I',0),
+            amplitude.coeff('eps',-2).coeff('I',1),                
+        ))
+        res_summary_lines.append(('%-30s'*7)%('MC error',
+            error.coeff('eps',0).coeff('I',0),
+            error.coeff('eps',0).coeff('I',1),
+            error.coeff('eps',-1).coeff('I',0),
+            error.coeff('eps',-1).coeff('I',1),
+            error.coeff('eps',-2).coeff('I',0),
+            error.coeff('eps',-2).coeff('I',1),                
+        ))
+        res_summary.write('\n'.join(res_summary_lines))
+        res_summary.close()
+      
+    def sympy_to_nice_string(self, sp):        
+        return '%-10s + %-10s + %-10s'%(
+                '(%s)'%sp.coeff('eps',0),
+                '(%s) %s +/- (%s) %s'%(sp.coeff('eps',-1), EPSM1), 
+                '(%s) %s'%(sp.coeff('eps',-2), EPSM2) )
+
+    def cast_result_to_sympy_expression(self, amplitude, error):
+        if isinstance(amplitude, float):
+            return sympy.sympify('%.16e + 0.*I'%amplitude), sympy.sympify('%.16e + 0.*I'%error)
+        elif isinstance(amplitude, tuple):
+            return sympy.sympify('%.16e + %.16e*I'%amplitude), sympy.sympify('.16e + %.16e*I'%error)
+        elif isinstance(amplitude, list):
+            return sympy.sympify('%.16e + %.16e*I'%amplitude[0]+
+                                 '(%.16e + %.16e*I)*eps**-1'%amplitude[1]+
+                                 '(%.16e + %.16e*I)*eps**-2'%amplitude[2]),\
+                   sympy.sympify('%.16e + %.16e*I'%error[0]+
+                                 '(%.16e + %.16e*I)*eps**-1'%error[1]+
+                                 '(%.16e + %.16e*I)*eps**-2'%error[2])
+        else:
+            return amplitude, error
+
     ######################################################################
     #
     # Example of the implementation of a trivial function 'hello_world'
