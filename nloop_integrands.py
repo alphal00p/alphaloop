@@ -160,9 +160,10 @@ class box1L_Babis(NLoopIntegrand):
             loop_momenta=['k1'],
             external_momenta=['p1', 'p2', 'p3', 'p4'],
             Lorentz_indices=['mu', 'mu1', 'mu2', 'mu3',
-                             'mu4', 'mu5', 'mu6', 'mu7', 'mu8'],
-            propagators=['k1**2', '(k1+p2)**2', '(k1+p2+p3)**2', '(k1-p1)**2'],
-            powerlist=[1, 1, 1, 1],
+                             'mu4', 'mu5', 'mu6', 'mu7', 'mu8', 'mu9'],
+            propagators=['k1**2', '(k1+p2)**2', '(k1+p2+p3)**2',
+                         '(k1-p1)**2', '-(k1(mu7)*p2(mu7))/s', '1-(k1(mu8)*p2(mu8))/s', 's/2-k1**2'],
+            powerlist=[1, 1, 1, 1, 1, 1, 1],
             numerator='1-'+self.get_counterterms(),
             replacement_rules=[('p1*p1', 0),
                                ('p2*p2', 0),
@@ -203,12 +204,11 @@ class box1L_Babis(NLoopIntegrand):
 
         softs = '(%s+%s)/t + (%s+%s)/s' % (As[0], As[2], As[1], As[3])
 
-        # we choose p4 as the reference vector
-        # TODO: the numerator does not seem to support 1/(p1(mu)*p4(mu))...
-        def x1f(
-            x1, x2): return '-k1({0})*p4({0})/(p1({1})*p4({1}))'.format(x1, x2)
+        # we choose p2 as the reference vector
+        # p1.p2 = s/2
+        def x1f(x1): return '-2*k1({0})*p2({0})/s'.format(x1)
 
-        AsC = [x % (x1f('mu1', 'mu2'), x1f('mu3', 'mu4')) for x in
+        AsC = [x % (x1f('mu1'), x1f('mu2')) for x in
                ('%s*%s*p1(mu)*p1(mu)',
                 '(%s*p1(mu)+p2(mu))*(%s*p1(mu)+p2(mu))',
                 '(%s*p1(mu)+p2(mu)+p3(mu))*(%s*p1(mu)+p2(mu)+p3(mu))',
@@ -218,10 +218,10 @@ class box1L_Babis(NLoopIntegrand):
         softcol = '(%s+%s)/t + (%s+%s)/s' % (AsC[0], AsC[2], AsC[1], AsC[3])
 
         # we set mu^2=s/2 and make sure we have a common denominator
-        cols = '-(s/2/(s/2-%s)*(%s)*%s*%s/(s*t*%s*(1-%s)))' % (
-            As[0], softcol, As[2], As[3], x1f('mu5', 'mu6'), x1f('mu7', 'mu8'))
+        cols = '-(s/2*(%s)*%s*%s)/s/t' % (
+            softcol, '(k1(mu3)+p2(mu3)+p3(mu3))*(k1(mu3)+p2(mu3)+p3(mu3))', '(k1(mu4)-p1(mu4))*(k1(mu4)-p1(mu4))')
 
-        return '((%s)-(%s))' % (softs, cols)
+        return '((%s)*(%s)*(%s)*(%s)-(%s))' % (softs, '-(k1(mu5)*p2(mu5))/s', '1+(k1(mu5)*p2(mu5))/s', 's/2-k1(mu9)*k1(mu9)', cols)
 
     def output(self, output_folder, verbosity=0, **opts):
         """ Possibly output some low-level code representation of the integrand to make
