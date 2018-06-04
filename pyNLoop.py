@@ -42,8 +42,21 @@ logger = logging.getLogger('pyNLoop.Interface')
 pjoin = os.path.join
 template_dir = pjoin(plugin_path, 'Templates')
 
-EPSM2 = u'\u03B5\u207B\u00b2'.encode('utf-8')
-EPSM1 = u'\u03B5\u207B\u00b9'.encode('utf-8')
+utf8_exp_chars = {
+            1 : u'\u00b9',
+            2 : u'\u00b2',
+            3 : u'\u00b3',
+            4 : u'\u2074',
+            5 : u'\u2075',
+            6 : u'\u2076',
+            7 : u'\u2077',
+            8 : u'\u2078',
+            9 : u'\u2079',
+            0 : u'\u2070',
+            '-' : u'\u207B',
+            }
+EPSILONS= { -i : (u'\u03B5\u207B%s'%utf8_exp_chars[i]).encode('utf-8') for i in range(1,9) }
+EPSILONS.update({ i : (u'\u03B5%s'%utf8_exp_chars[i]).encode('utf-8') for i in range(1,9) })
 
 
 class pyNLoopInterfaceError(MadGraph5Error):
@@ -81,8 +94,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 'n_legs'    :   4,
                 'masses'    :   [0., 0., 0., 0.]
             },
-        'box1L_Babis' : 
-            {   'class'     :   nloop_integrands.box1L_Babis,
+        'box1L_subtracted' : 
+            {   'class'     :   nloop_integrands.box1L_subtracted,
                 'n_loops'   :   1,
                 'n_legs'    :   4,
                 'masses'    :   [0., 0., 0., 0.]
@@ -374,47 +387,35 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             logger.info("="*150)
             logger.info('{:^150}'.format("Integral of '%s' with integrator '%s':"%(n_loop_integrand.nice_string(), integrator.get_name())))
             logger.info('')
-            logger.info(' '*15+'(%-50s)     +/- (%-50s)'%(amplitude.coeff('eps',0), error.coeff('eps',0)))
-            logger.info(' '*13+'+ (%-50s) %s +/- (%-50s) %s'%(amplitude.coeff('eps',-1), EPSM1, error.coeff('eps',-1), EPSM1))
-            logger.info(' '*13+'+ (%-50s) %s +/- (%-50s) %s'%(amplitude.coeff('eps',-2), EPSM2, error.coeff('eps',-2), EPSM2))
+            logger.info(' '*15+'(%-56s)     +/- (%-60s)'%(amplitude.coeff('eps',0), error.coeff('eps',0)))
+            for eps_index in range(1,n_loop_integrand.n_loops*2+1):
+                logger.info(' '*13+'+ (%-56s) %s +/- (%-60s) %s'%(amplitude.coeff('eps',-eps_index), 
+                                  EPSILONS[-eps_index], error.coeff('eps',-eps_index), EPSILONS[-eps_index]))
             logger.info('')
             logger.info("="*150+"\n")
            
             # Write the result in 'cross_sections.dat' of the result directory
             self.dump_result_to_file(
-                            pjoin(options['output_folder'],'result.dat'), amplitude, error)
+                pjoin(options['output_folder'],'result.dat'), n_loop_integrand.n_loops, amplitude, error)
 
-    def dump_result_to_file(self, path, amplitude, error):
+    def dump_result_to_file(self, path, n_loops, amplitude, error):
         res_summary = open(path,'w')
         res_summary_lines = []        
-        res_summary_lines.append(('%-30s'*7)%('',
-            'O(eps^0) Re','O(eps^0) Im',
-            'O(eps^-1) Re','O(eps^-1) Im',     
-            'O(eps^-2) Re','O(eps^-2) Im'))
-        res_summary_lines.append(('%-30s'*7)%('Result',
-            amplitude.coeff('eps',0).coeff('I',0),
-            amplitude.coeff('eps',0).coeff('I',1),
-            amplitude.coeff('eps',-1).coeff('I',0),
-            amplitude.coeff('eps',-1).coeff('I',1),
-            amplitude.coeff('eps',-2).coeff('I',0),
-            amplitude.coeff('eps',-2).coeff('I',1),                
+        res_summary_lines.append(('%-30s'*(n_loops*4+3))%tuple(
+            ['','O(eps^0) Re','O(eps^0) Im']+sum([['O(eps^-%d) Re'%eps_index,'O(eps^-%d) Im'%eps_index] 
+                                                 for eps_index in range(1,n_loops*2+1)],[])))
+        res_summary_lines.append(('%-30s'*(n_loops*4+3))%tuple(
+           ['Result', amplitude.coeff('eps',0).coeff('I',0), amplitude.coeff('eps',0).coeff('I',1) ]+
+           sum([[amplitude.coeff('eps',-eps_index).coeff('I',0), amplitude.coeff('eps',-eps_index).coeff('I',1)]
+                                                  for eps_index in range(1,n_loops*2+1) ],[])   
         ))
-        res_summary_lines.append(('%-30s'*7)%('MC error',
-            error.coeff('eps',0).coeff('I',0),
-            error.coeff('eps',0).coeff('I',1),
-            error.coeff('eps',-1).coeff('I',0),
-            error.coeff('eps',-1).coeff('I',1),
-            error.coeff('eps',-2).coeff('I',0),
-            error.coeff('eps',-2).coeff('I',1),                
+        res_summary_lines.append(('%-30s'*(n_loops*4+3))%tuple(
+           ['MC error', error.coeff('eps',0).coeff('I',0), error.coeff('eps',0).coeff('I',1) ]+
+           sum([[error.coeff('eps',-eps_index).coeff('I',0), error.coeff('eps',-eps_index).coeff('I',1)]
+                                                  for eps_index in range(1,n_loops*2+1) ],[])   
         ))
         res_summary.write('\n'.join(res_summary_lines))
         res_summary.close()
-      
-    def sympy_to_nice_string(self, sp):        
-        return '%-10s + %-10s + %-10s'%(
-                '(%s)'%sp.coeff('eps',0),
-                '(%s) %s +/- (%s) %s'%(sp.coeff('eps',-1), EPSM1), 
-                '(%s) %s'%(sp.coeff('eps',-2), EPSM2) )
 
     def cast_result_to_sympy_expression(self, amplitude, error):
         if isinstance(amplitude, float):

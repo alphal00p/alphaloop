@@ -58,18 +58,18 @@ class pySecDecIntegrator(integrators.VirtualIntegrator):
         
         for lib in necessary_lib:
             ln(pjoin(self.pySecDec_path,'lib',lib),
-               pjoin(self.integrand.output_folder,'pySecDecLoopPackage'))
+               pjoin(self.integrand.output_folder,self.integrand._pySecDecOutputName))
         for include in necessary_include:
             ln(pjoin(self.pySecDec_path,'include',include),
-               pjoin(self.integrand.output_folder,'pySecDecLoopPackage'))
+               pjoin(self.integrand.output_folder,self.integrand._pySecDecOutputName))
         
         # Now we can hopefully successfully compile
         misc.compile(arg=[], 
-                     cwd=pjoin(self.integrand.output_folder,'pySecDecLoopPackage'), 
+                     cwd=pjoin(self.integrand.output_folder,self.integrand._pySecDecOutputName), 
                      mode = 'cpp', nb_core=1)
 
         if not os.path.isfile(pjoin(self.integrand.output_folder,
-                                   'pySecDecLoopPackage','pySecDecLoopPackage_pylink.so')):
+            self.integrand._pySecDecOutputName,'%s_pylink.so'%self.integrand._pySecDecOutputName)):
             raise pySecDecIntegratorError('Could not successfully compile pySecDec output.')
     
     def integrate(self):
@@ -77,7 +77,7 @@ class pySecDecIntegrator(integrators.VirtualIntegrator):
 
         # Load c++ library
         pySecDec_integral = pySecDecIntegralLibrary(pjoin(self.integrand.output_folder,
-                                    'pySecDecLoopPackage','pySecDecLoopPackage_pylink.so'))
+            self.integrand._pySecDecOutputName,'%s_pylink.so'%self.integrand._pySecDecOutputName))
         
         # Choose an integrator
         pySecDec_integral.use_Vegas(flags=2) # ``flags=2``: verbose --> see Cuba manual
