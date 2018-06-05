@@ -336,74 +336,114 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             topology           =   chosen_topology_name,
         )
         
-        # Output low-level integrand code if necessary:
-        n_loop_integrand.output(
-            options['output_folder'], verbosity=options['verbosity'], force=options['force'])
+        all_integrands = [n_loop_integrand,]+n_loop_integrand.get_integrated_counterterms()
 
-        # Choose the integrator
-        if self.pyNLoop_options['integrator'] == 'auto':
-            integrator_name = n_loop_integrand._supported_integrators[0]
-        else:
-            if self.pyNLoop_options['integrator'] not in n_loop_integrand._supported_integrators:
-                integrator_name = n_loop_integrand._supported_integrators[0]
-                logger.warning(
-    "Specified integrator '%s' is not supported by integrand '%s'. Using '%s' instead."%
-     (self.pyNLoop_options['integrator'], n_loop_integrand.nice_string(), integrator_name))
+        all_integrands_amplitude = sympy.sympify('0')
+        all_integrands_error = sympy.sympify('0')
+
+        res_summary = None
+        for i_integrand, loop_integrand in enumerate(all_integrands):
+            
+            logger.info("Processing integrand %s ..."%loop_integrand.nice_string())
+            
+            # Output low-level integrands code if necessary.
+            # For integrands beyond the first, always force.
+            loop_integrand.output(
+                options['output_folder'], verbosity=options['verbosity'], 
+                force = (i_integrand>0 or options['force']) )
+    
+            if i_integrand==0:
+                res_summary = open(pjoin(options['output_folder'],'result.dat'),'w')
+                res_summary_lines = []        
+                res_summary_lines.append(('%-30s'*(n_loop_integrand.n_loops*4+3))%tuple(
+                    ['','O(eps^0) Re','O(eps^0) Im']+sum([['O(eps^-%d) Re'%eps_index,'O(eps^-%d) Im'%eps_index] 
+                                    for eps_index in range(1,n_loop_integrand.n_loops*2+1)],[])))
+                res_summary_lines.append('')
+                res_summary.write('\n'.join(res_summary_lines))
+
+            # Choose the integrator
+            if self.pyNLoop_options['integrator'] == 'auto':
+                integrator_name = loop_integrand._supported_integrators[0]
             else:
-                integrator_name = self.pyNLoop_options['integrator']
-             
-        # Generic option for all integrators
-        cluster = self.get_cluster(force_nb_cpu_cores=options['nb_CPU_cores'])
-        integration_options = {
-            'cluster'               :   cluster,
-            'target_accuracy'       :   options['target_accuracy'],
-            'batch_size'            :   options['batch_size'],
-            'verbosity'             :   options['verbosity'],
-            'survey_n_iterations'   :   options['survey_n_iterations'],
-            'survey_n_points'       :   options['survey_n_points'],
-            'refine_n_iterations'   :   options['refine_n_iterations'],
-            'refine_n_points'       :   options['refine_n_points'],
-            'pySecDec_path'         :   self.pyNLoop_options['pySecDec_path']
-        }
-                
-        if integrator_name=='Vegas3':
-            integrator = Vegas3Integrator(n_loop_integrand, **integration_options)
-        elif integrator_name=='pySecDec':
-            integrator = pysecdec_integrator.pySecDecIntegrator(n_loop_integrand, **integration_options)
-        else:
-            raise pyNLoopInterfaceError("Integrator '%s' not implemented."%integrator_name)
+                if self.pyNLoop_options['integrator'] not in loop_integrand._supported_integrators:
+                    integrator_name = loop_integrand._supported_integrators[0]
+                    logger.warning(
+        "Specified integrator '%s' is not supported by integrand '%s'. Using '%s' instead."%
+         (self.pyNLoop_options['integrator'], loop_integrand.nice_string(), integrator_name))
+                else:
+                    integrator_name = self.pyNLoop_options['integrator']
+                 
+            # Generic option for all integrators
+            cluster = self.get_cluster(force_nb_cpu_cores=options['nb_CPU_cores'])
+            integration_options = {
+                'cluster'               :   cluster,
+                'target_accuracy'       :   options['target_accuracy'],
+                'batch_size'            :   options['batch_size'],
+                'verbosity'             :   options['verbosity'],
+                'survey_n_iterations'   :   options['survey_n_iterations'],
+                'survey_n_points'       :   options['survey_n_points'],
+                'refine_n_iterations'   :   options['refine_n_iterations'],
+                'refine_n_points'       :   options['refine_n_points'],
+                'pySecDec_path'         :   self.pyNLoop_options['pySecDec_path']
+            }
+                    
+            if integrator_name=='Vegas3':
+                integrator = Vegas3Integrator(loop_integrand, **integration_options)
+            elif integrator_name=='pySecDec':
+                integrator = pysecdec_integrator.pySecDecIntegrator(loop_integrand, **integration_options)
+            else:
+                raise pyNLoopInterfaceError("Integrator '%s' not implemented."%integrator_name)
+            
+            # We are now finally ready to integrate :)
+            logger.info("="*150)        
+            logger.info('{:^150}'.format("Starting integration of %s with integrator %s, lay down and enjoy..."%(
+                                                            loop_integrand.nice_string(), integrator.get_name())))
+            logger.info("="*150)
+    
+            amplitude, error = integrator.integrate()
+            # Make sure to cast the result to a sympy expression
+            amplitude, error = self.cast_result_to_sympy_expression(amplitude, error)
+    
+            # Aggregate this result to existing ones
+            all_integrands_amplitude += amplitude
+            all_integrands_error += error
+            
+            run_output_path = MG5DIR
+            self.print_results(loop_integrand, integrator, amplitude, error)
+            
+            # Write the result in 'cross_sections.dat' of the result directory
+            self.dump_result_to_file(
+                res_summary, loop_integrand.n_loops, amplitude, error, loop_integrand.nice_string())
+
+
+        # Now close the result summary file after having reported the aggregated results
+        self.print_results(all_integrands[0], integrator, 
+                all_integrands_amplitude, all_integrands_error, label='Aggregated results')
+        # Write the result in 'cross_sections.dat' of the result directory
+        self.dump_result_to_file(res_summary, all_integrands[0].n_loops, 
+                      all_integrands_amplitude, all_integrands_error, 'Aggregated results')
+        res_summary.close()
+
+    def print_results(self, loop_integrand, integrator, amplitude, error, label=None):
+        """ Print to screen the results for that particular amplitude evaluation and its MC error."""
         
-        # We are now finally ready to integrate :)
-        logger.info("="*150)        
-        logger.info('{:^150}'.format("Starting integration, lay down and enjoy..."))
-        logger.info("="*150)
-
-        amplitude, error = integrator.integrate()
-        # Make sure to cast the result to a sympy expression
-        amplitude, error = self.cast_result_to_sympy_expression(amplitude, error)
-
-        run_output_path = MG5DIR
         if MPI_RANK==0:
             logger.info("="*150)
-            logger.info('{:^150}'.format("Integral of '%s' with integrator '%s':"%(n_loop_integrand.nice_string(), integrator.get_name())))
+            if label is None:
+                logger.info('{:^150}'.format("Integral of '%s' with integrator '%s':"%(loop_integrand.nice_string(), integrator.get_name())))
+            else:
+                logger.info('{:^150}'.format(label))
             logger.info('')
             logger.info(' '*15+'(%-56s)     +/- (%-60s)'%(amplitude.coeff('eps',0), error.coeff('eps',0)))
-            for eps_index in range(1,n_loop_integrand.n_loops*2+1):
+            for eps_index in range(1,loop_integrand.n_loops*2+1):
                 logger.info(' '*13+'+ (%-56s) %s +/- (%-60s) %s'%(amplitude.coeff('eps',-eps_index), 
                                   EPSILONS[-eps_index], error.coeff('eps',-eps_index), EPSILONS[-eps_index]))
             logger.info('')
             logger.info("="*150+"\n")
-           
-            # Write the result in 'cross_sections.dat' of the result directory
-            self.dump_result_to_file(
-                pjoin(options['output_folder'],'result.dat'), n_loop_integrand.n_loops, amplitude, error)
 
-    def dump_result_to_file(self, path, n_loops, amplitude, error):
-        res_summary = open(path,'w')
-        res_summary_lines = []        
-        res_summary_lines.append(('%-30s'*(n_loops*4+3))%tuple(
-            ['','O(eps^0) Re','O(eps^0) Im']+sum([['O(eps^-%d) Re'%eps_index,'O(eps^-%d) Im'%eps_index] 
-                                                 for eps_index in range(1,n_loops*2+1)],[])))
+    def dump_result_to_file(self, stream, n_loops, amplitude, error, title):
+        
+        res_summary_lines = ['contribution_name = %s'%title]
         res_summary_lines.append(('%-30s'*(n_loops*4+3))%tuple(
            ['Result', amplitude.coeff('eps',0).coeff('I',0), amplitude.coeff('eps',0).coeff('I',1) ]+
            sum([[amplitude.coeff('eps',-eps_index).coeff('I',0), amplitude.coeff('eps',-eps_index).coeff('I',1)]
@@ -414,9 +454,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
            sum([[error.coeff('eps',-eps_index).coeff('I',0), error.coeff('eps',-eps_index).coeff('I',1)]
                                                   for eps_index in range(1,n_loops*2+1) ],[])   
         ))
-        res_summary.write('\n'.join(res_summary_lines))
-        res_summary.close()
-
+        stream.write('\n'.join(res_summary_lines))
+        
     def cast_result_to_sympy_expression(self, amplitude, error):
         if isinstance(amplitude, float):
             return sympy.sympify('%.16e + 0.*I'%amplitude), sympy.sympify('%.16e + 0.*I'%error)

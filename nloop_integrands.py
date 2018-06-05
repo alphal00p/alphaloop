@@ -18,6 +18,8 @@ import madgraph.various.misc as misc
 
 logger = logging.getLogger('pyNLoop.Integrand')
 
+pjoin = os.path.join
+
 import pySecDec
 from pySecDec.loop_integral import loop_package as pySecDec_loop_package
 
@@ -26,6 +28,9 @@ class NLoopIntegrand(integrands.VirtualIntegrand):
 
     # Specify here which integrator this integrand supports
     _supported_integrators = ['Vegas3', 'pySecDec']
+    
+    # Of course only relevant for integrands suited for the pySecDec integrator
+    _pySecDecOutputName    = None
 
     def __init__(self,
                  dimensions=None,
@@ -51,8 +56,7 @@ class NLoopIntegrand(integrands.VirtualIntegrand):
 
         super(NLoopIntegrand, self).__init__(dimensions=dimensions, **opts)
 
-        self.dimension_name_to_position = {
-            d.name: i for i, d in enumerate(dimensions)}
+        self.dimension_name_to_position = {d.name: i for i, d in enumerate(dimensions)}
 
         self.n_loops = 1
         self.external_momenta = external_momenta
@@ -103,17 +107,20 @@ class IntegratedCounterterm(object):
             self.integrated_CT_name = opts.pop('integrated_CT_name')
         else:
             self.integrated_CT_name = 'generic_integrated_CT'
-        super(IntegratedCounterterm, self).__init__(self, *args, **opts)
-
+        return opts
+    
     def nice_string(self):
         """ Short string representation of this integrand. Add as a suffix the name of 
         this integrated counterterm to the name as there can be several integrated CT per loop."""
-        return '%s @ %s'%(self.__class__.__name__, self.integrated_CT_name)
+        return '%s@%s'%(self.__class__.__name__, self.integrated_CT_name)
+        
 
 class HardCodedOffshellScalarBox(NLoopIntegrand):
 
     # We plan on being able to use pySecDec integrator only for this case
     _supported_integrators = ['pySecDec']
+
+    _pySecDecOutputName    = 'pySecDecLoopPackage'
 
     def __init__(self,
                  n_loops=1,
@@ -150,6 +157,8 @@ class box1L(NLoopIntegrand):
 
     # We plan on being able to use pySecDec integrator only for this case
     _supported_integrators = ['pySecDec']
+    
+    _pySecDecOutputName    = 'pySecDecLoopPackage'
 
     def __init__(self,
                  n_loops=1,
@@ -252,6 +261,8 @@ class box1L_onshell_massless(NLoopIntegrand):
 
     # We plan on being able to use pySecDec integrator only for this case
     _supported_integrators = ['pySecDec']
+
+    _pySecDecOutputName    = 'pySecDecLoopPackage'
 
     def __init__(self,
                  n_loops=1,
@@ -378,7 +389,7 @@ class box1L_subtracted(NLoopIntegrand):
     # We plan on being able to use pySecDec integrator only for this case
     _supported_integrators = ['pySecDec']
 
-    _pySecDecOutputName         = 'pySecDecLoopPackage_subtracted'
+    _pySecDecOutputName    = 'pySecDecLoopPackage_subtracted'
 
     def __init__(self,
                  n_loops=1,
@@ -411,6 +422,7 @@ class box1L_subtracted(NLoopIntegrand):
     def define_loop_integrand(self):
         """ Define the pySecDecObjects identifying the loop integrand."""
 
+        """
         self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromPropagators(
 
             loop_momenta        =   ['k1'],
@@ -432,6 +444,27 @@ class box1L_subtracted(NLoopIntegrand):
             regulator           =   'eps',
             regulator_power     =   0,
             dimensionality      =   '4-2*eps',
+        )
+"""
+
+        self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromGraph(
+            internal_lines=[[0, [1, 2]], [0, [2, 3]],
+                            [0, [3, 4]], [0, [4, 1]]],
+            external_lines=[['p1', 1], ['p2', 2], ['p3', 3], ['p4', 4]],
+            replacement_rules=[
+                ('p1*p1', 0),
+                ('p2*p2', 0),
+                ('p3*p3', 0),
+                ('p4*p4', 0),
+                ('p3*p2', 't/2'),
+                ('p1*p2', 's/2'),
+                ('p1*p4', 't/2'),
+                ('p2*p4', '-t/2-s/2'),
+                ('p3*p4', 's/2')
+            ],
+            regulator='eps',
+            regulator_power=0,
+            dimensionality='4-2*eps',
         )
 
         self.integrand_parameters = ['s', 't']
@@ -501,7 +534,9 @@ class box1L_subtracted(NLoopIntegrand):
         """ Possibly output some low-level code representation of the integrand to make
         its evaluation faster."""
 
-        if not super(box1L_subtracted, self).output(output_folder, **opts):
+        super(box1L_subtracted, self).output(output_folder, **opts)
+        
+        if os.path.exists(pjoin(output_folder, self._pySecDecOutputName)):
             return False
 
         logger.info("Generating pySecDec output for integrand '%s' ..." %
@@ -534,17 +569,19 @@ class box1L_subtracted(NLoopIntegrand):
 
         raise NotImplementedError
     
-class box1L_integrated_CT(box1L_subtracted, IntegratedCounterterm):
+class box1L_integrated_CT(IntegratedCounterterm, box1L_subtracted):
 
     _pySecDecOutputName = 'pySecDecLoopPackage_integratedCT'
     
     def __init__(self, *args, **opts):
-        super(box1L_integrated_CT, self).__init__(*args, **opts)
+        opts = IntegratedCounterterm.__init__(self, *args, **opts)
+        box1L_subtracted.__init__(self, *args, **opts)
             
     def define_loop_integrand(self):
 
         # The definition below for now simply corresponds to the original box1L
         # It is just a token for performing structural tests for now.
+        """
         self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromPropagators(
 
             loop_momenta        =   ['k1'],
@@ -566,6 +603,26 @@ class box1L_integrated_CT(box1L_subtracted, IntegratedCounterterm):
             regulator_power     =   0,
             dimensionality      =   '4-2*eps',
 
+        )
+"""
+        self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromGraph(
+            internal_lines=[[0, [1, 2]], [0, [2, 3]],
+                            [0, [3, 4]], [0, [4, 1]]],
+            external_lines=[['p1', 1], ['p2', 2], ['p3', 3], ['p4', 4]],
+            replacement_rules=[
+                ('p1*p1', 0),
+                ('p2*p2', 0),
+                ('p3*p3', 0),
+                ('p4*p4', 0),
+                ('p3*p2', 't/2'),
+                ('p1*p2', 's/2'),
+                ('p1*p4', 't/2'),
+                ('p2*p4', '-t/2-s/2'),
+                ('p3*p4', 's/2')
+            ],
+            regulator='eps',
+            regulator_power=0,
+            dimensionality='4-2*eps',
         )
 
         self.integrand_parameters = ['s', 't']
