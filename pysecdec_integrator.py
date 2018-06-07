@@ -43,7 +43,7 @@ class pySecDecIntegrator(integrators.VirtualIntegrator):
         
         self.pySecDec_path = pySecDec_path
         self.options       = dict(opts)
-        
+
         # On initialization, compile already
         logger.info("Compiling pySecDec output of integrand '%s' ..."%self.integrand.nice_string())
         self.compile_pySecDec_package()
@@ -80,8 +80,13 @@ class pySecDecIntegrator(integrators.VirtualIntegrator):
             self.integrand._pySecDecOutputName,'%s_pylink.so'%self.integrand._pySecDecOutputName))
         
         # Choose an integrator
-        pySecDec_integral.use_Vegas(flags=2) # ``flags=2``: verbose --> see Cuba manual
-        
+        pySecDec_integral.use_Vegas(
+                flags   = 2,  # ``flags=2``: verbose --> see Cuba manual
+                epsrel  = self.options['target_accuracy'], 
+                # epsabs  = 1e-07, 
+                maxeval = int(1e7)
+        )
+    
         # Integrate
         #logger.info("Starting integration of loop integrand '%s' with pySecDec ..."%
         #                                                      self.integrand.nice_string())

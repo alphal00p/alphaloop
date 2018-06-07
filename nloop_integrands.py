@@ -306,9 +306,9 @@ class box1L_onshell_massless(NLoopIntegrand):
                 ('p2*p4', '-t/2-s/2'),
                 ('p3*p4', 's/2')
             ],
-            regulator='eps',
-            regulator_power=0,
-            dimensionality='4-2*eps',
+#            regulator='eps',
+#            regulator_power=0,
+#            dimensionality='4-2*eps',
         )
         self.integrand_parameters = ['s', 't']
 
@@ -422,7 +422,7 @@ class box1L_subtracted(NLoopIntegrand):
     def define_loop_integrand(self):
         """ Define the pySecDecObjects identifying the loop integrand."""
 
-        """
+        
         self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromPropagators(
 
             loop_momenta        =   ['k1'],
@@ -432,7 +432,7 @@ class box1L_subtracted(NLoopIntegrand):
             propagators         =   ['k1**2', '(k1+p2)**2', '(k1+p2+p3)**2',
                                      '(k1-p1)**2', '-(k1(mu7)*p2(mu7))/s', '1-(k1(mu8)*p2(mu8))/s', 's/2-k1**2'],
             powerlist           =   [1, 1, 1, 1, 1, 1, 1],
-            numerator           =   '1' + '-%s'%self.get_local_counterterms(),
+            numerator           =   '1' + '-(%s)'%self.get_local_counterterms(),
             replacement_rules   =   [  ('p1*p1', 0),
                                        ('p2*p2', 0),
                                        ('p3*p3', 0),
@@ -445,8 +445,8 @@ class box1L_subtracted(NLoopIntegrand):
             regulator_power     =   0,
             dimensionality      =   '4-2*eps',
         )
-"""
 
+        """
         self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromGraph(
             internal_lines=[[0, [1, 2]], [0, [2, 3]],
                             [0, [3, 4]], [0, [4, 1]]],
@@ -466,7 +466,7 @@ class box1L_subtracted(NLoopIntegrand):
             regulator_power=0,
             dimensionality='4-2*eps',
         )
-
+"""
         self.integrand_parameters = ['s', 't']
 
         self.integrand_parameters_values = [
@@ -475,7 +475,7 @@ class box1L_subtracted(NLoopIntegrand):
             self.external_momenta[1].dot(self.external_momenta[1]),
             # Let's hardcode a mass for now until we figure out how we want to specify the
             # topology
-            1.0
+            0.0
         ]
 
         # Normally we should use the above, but as a quick hack to exactly match the
@@ -515,7 +515,7 @@ class box1L_subtracted(NLoopIntegrand):
     def get_integrated_counterterms(self):
         """ Return instances of n_loop integrands corresponding to the integrated counterpart
         of the local counterterms used here."""
-        
+        return []
         # For now simply pass along the same information as this loop integrand, but eventually
         # this will be refined, especially the topology.
         return [
@@ -539,8 +539,9 @@ class box1L_subtracted(NLoopIntegrand):
         if os.path.exists(pjoin(output_folder, self._pySecDecOutputName)):
             return False
 
-        logger.info("Generating pySecDec output for integrand '%s' ..." %
-                    self.nice_string())
+        logger.info("Generating pySecDec output for integrand '%s' ..." %self.nice_string())
+        logger.info("in folder '%s' ..." %pjoin(output_folder, self._pySecDecOutputName))
+        
         with misc.chdir(self.output_folder) as cwd:
             with misc.Silence(active=(verbosity == 0)):
                 pySecDec_loop_package(
@@ -576,12 +577,16 @@ class box1L_integrated_CT(IntegratedCounterterm, box1L_subtracted):
     def __init__(self, *args, **opts):
         opts = IntegratedCounterterm.__init__(self, *args, **opts)
         box1L_subtracted.__init__(self, *args, **opts)
+        
+        # Rename the pySecDec output folder so as to avoid conflict when outputting
+        # multiple integrated CT.
+        self._pySecDecOutputName += '__%s'%self.integrated_CT_name
             
     def define_loop_integrand(self):
 
         # The definition below for now simply corresponds to the original box1L
         # It is just a token for performing structural tests for now.
-        """
+
         self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromPropagators(
 
             loop_momenta        =   ['k1'],
@@ -604,7 +609,8 @@ class box1L_integrated_CT(IntegratedCounterterm, box1L_subtracted):
             dimensionality      =   '4-2*eps',
 
         )
-"""
+
+        """
         self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromGraph(
             internal_lines=[[0, [1, 2]], [0, [2, 3]],
                             [0, [3, 4]], [0, [4, 1]]],
@@ -624,6 +630,78 @@ class box1L_integrated_CT(IntegratedCounterterm, box1L_subtracted):
             regulator_power=0,
             dimensionality='4-2*eps',
         )
+"""
+        self.integrand_parameters = ['s', 't']
+
+        self.integrand_parameters_values = [
+            2.*self.external_momenta[3].dot(self.external_momenta[4]),
+            2.*self.external_momenta[3].dot(self.external_momenta[2]),
+            self.external_momenta[1].dot(self.external_momenta[1]),
+            # Let's hardcode a mass for now until we figure out how we want to specify the
+            # topology
+            0.0
+        ]
+
+        # Normally we should use the above, but as a quick hack to exactly match the
+        # result from the canonical pySecDec example, we will use the inputs below
+        self.integrand_parameters_values = [4.0, -0.75]
+        
+###########################################################################################
+#
+# First example of a local + integrated VH Attempt
+#
+###########################################################################################
+class box1L_subtracted_VH(box1L_subtracted):
+    # We plan on being able to use pySecDec integrator only for this case
+    _supported_integrators = ['pySecDec']
+
+    _pySecDecOutputName    = 'pySecDecLoopPackage_subtracted'
+
+    def __init__(self,
+                 n_loops=1,
+                 external_momenta=vectors.LorentzVectorDict(),
+                 phase_computed='Real',
+                 # Data-structure for specifying a topology to be determined
+                 topology=None,
+                 **opts):
+
+        # I am copying here all options just to make it explicit that could be used here as well.
+        super(box1L_subtracted_VH, self).__init__(
+            n_loops=n_loops,
+            external_momenta=external_momenta,
+            phase_computed=phase_computed,
+            # Data-structure for specifying a topology to be determined
+            topology=topology,
+            **opts
+        )
+
+        self.define_loop_integrand()
+
+    def define_loop_integrand(self):
+        """ Define the pySecDecObjects identifying the loop integrand."""
+
+        
+        self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromPropagators(
+
+            loop_momenta        =   ['k1'],
+            external_momenta    =   ['p1', 'p2', 'p3', 'p4'],
+            Lorentz_indices     =   ['mu',],
+            propagators         =   ['k1**2', '(k1+p2)**2', '(k1+p2+p3)**2','(k1-p1)**2'],
+            powerlist           =   [1, 1, 1, 1],
+            numerator           =   '1' + '-(%s)'%self.get_local_counterterms(),
+            replacement_rules   =   [  ('p1*p1', 0),
+                                       ('p2*p2', 0),
+                                       ('p3*p3', 0),
+                                       ('p4*p4', 0),
+                                       ('p1*p2', 's/2'),
+                                       ('p2*p3', 't/2'),
+                                       ('p1*p3', '-t/2-s/2'),
+                                       ('mur**2', 's/2'),
+                                    ],
+            regulator           =   'eps',
+            regulator_power     =   0,
+            dimensionality      =   '4-2*eps',
+        )
 
         self.integrand_parameters = ['s', 't']
 
@@ -633,10 +711,118 @@ class box1L_integrated_CT(IntegratedCounterterm, box1L_subtracted):
             self.external_momenta[1].dot(self.external_momenta[1]),
             # Let's hardcode a mass for now until we figure out how we want to specify the
             # topology
-            1.0
+            0.0
         ]
 
         # Normally we should use the above, but as a quick hack to exactly match the
         # result from the canonical pySecDec example, we will use the inputs below
         self.integrand_parameters_values = [4.0, -0.75]
-        
+
+    def get_local_counterterms(self):
+        """ Get counterterms to the current loop integrand."""
+
+        As = ['k1(mu)*k1(mu)',
+              '(k1(mu)+p2(mu))*(k1(mu)+p2(mu))',
+              '(k1(mu)+p2(mu)+p3(mu))*(k1(mu)+p2(mu)+p3(mu))',
+              '(k1(mu)-p1(mu))*(k1(mu)-p1(mu))'
+              ]
+
+        softs = '(%s+%s)/t + (%s+%s)/s' % (As[0], As[2], As[1], As[3])
+
+        return softs
+
+    def get_integrated_counterterms(self):
+        """ Return instances of n_loop integrands corresponding to the integrated counterpart
+        of the local counterterms used here."""
+        integrated_CT_options = {
+                'n_loops'                   : self.n_loops,
+                'external_momenta'          : self.external_momenta,
+                'phase_computed'            : self.phase_computed,
+                # Data-structure for specifying a topology to be determined
+                'topology'                  : self.topology,
+                # Additional name for identifying this particular integrated CT
+                'integrated_CT_name'        : 'TBD',
+                'soft_propagator'           : 'TBD'
+        }
+        integrated_CT_options_A1 = dict(integrated_CT_options)
+        integrated_CT_options_A1['integrated_CT_name'] = 'softA1'
+        integrated_CT_options_A1['soft_propagator']    = 'A1'
+        integrated_CT_options_A2 = dict(integrated_CT_options)
+        integrated_CT_options_A2['integrated_CT_name'] = 'softA2'
+        integrated_CT_options_A2['soft_propagator']    = 'A2'
+        integrated_CT_options_A3 = dict(integrated_CT_options)
+        integrated_CT_options_A3['integrated_CT_name'] = 'softA3'
+        integrated_CT_options_A3['soft_propagator']    = 'A3'
+        integrated_CT_options_A4 = dict(integrated_CT_options)
+        integrated_CT_options_A4['integrated_CT_name'] = 'softA4'
+        integrated_CT_options_A4['soft_propagator']    = 'A4'
+        return [
+            box1L_integrated_CT_VH(**integrated_CT_options_A1), 
+            box1L_integrated_CT_VH(**integrated_CT_options_A2),
+            box1L_integrated_CT_VH(**integrated_CT_options_A3),
+            box1L_integrated_CT_VH(**integrated_CT_options_A4),           
+        ]
+
+class box1L_integrated_CT_VH(box1L_integrated_CT):
+
+    def __init__(self, *args, **opts):
+        if 'soft_propagator' not in opts and opts['soft_propagator'] not in ['A1','A2','A3','A4']:
+            raise BaseException("The option 'soft_propagator' must be specified to the class box1L_integrated_CT_VH.")
+        self.soft_propagator = opts.pop('soft_propagator')    
+        super(box1L_integrated_CT_VH, self).__init__(*args, **opts)
+
+    def define_loop_integrand(self):
+
+        propagators = None
+        numerator = None
+        if self.soft_propagator == 'A1':
+            propagators = ['(k1+p2)**2','(k1+p2+p3)**2','(k1-p1)**2']
+            numerator   = '1/t'
+        elif self.soft_propagator == 'A2':
+            propagators = ['k1**2','(k1+p2+p3)**2','(k1-p1)**2']
+            numerator   = '1/s'
+        elif self.soft_propagator == 'A3':
+            propagators = ['k1**2','(k1+p2)**2','(k1-p1)**2']
+            numerator   = '1/t'
+        elif self.soft_propagator == 'A4':
+            propagators = ['k1**2','(k1+p2)**2', '(k1+p2+p3)**2']
+            numerator   = '1/s'
+
+        # The definition below for now simply corresponds to the original box1L
+        # It is just a token for performing structural tests for now.
+        self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromPropagators(
+
+            loop_momenta        =   ['k1'],
+            external_momenta    =   ['p1', 'p2', 'p3', 'p4'],
+            Lorentz_indices     =   ['mu',],
+            propagators         =   propagators,
+            powerlist           =   [1,1,1],
+            numerator           =   numerator,
+            replacement_rules   =   [  ('p1*p1', 0),
+                                       ('p2*p2', 0),
+                                       ('p3*p3', 0),
+                                       ('p4*p4', 0),
+                                       ('p1*p2', 's/2'),
+                                       ('p2*p3', 't/2'),
+                                       ('p1*p3', '-t/2-s/2'),
+                                       ('mur**2', 's/2'),
+                                    ],
+            regulator           =   'eps',
+            regulator_power     =   0,
+            dimensionality      =   '4-2*eps',
+        )        
+
+        self.integrand_parameters = ['s', 't']
+
+        self.integrand_parameters_values = [
+            2.*self.external_momenta[3].dot(self.external_momenta[4]),
+            2.*self.external_momenta[3].dot(self.external_momenta[2]),
+            self.external_momenta[1].dot(self.external_momenta[1]),
+            # Let's hardcode a mass for now until we figure out how we want to specify the
+            # topology
+            0.0
+        ]
+
+        # Normally we should use the above, but as a quick hack to exactly match the
+        # result from the canonical pySecDec example, we will use the inputs below
+        self.integrand_parameters_values = [4.0, -0.75]

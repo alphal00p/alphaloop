@@ -99,6 +99,12 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 'n_loops'   :   1,
                 'n_legs'    :   4,
                 'masses'    :   [0., 0., 0., 0.]
+            },
+        'box1L_subtracted_VH' : 
+            {   'class'     :   nloop_integrands.box1L_subtracted_VH,
+                'n_loops'   :   1,
+                'n_legs'    :   4,
+                'masses'    :   [0., 0., 0., 0.]
             }
     }
     
@@ -416,9 +422,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 res_summary, loop_integrand.n_loops, amplitude, error, loop_integrand.nice_string())
 
 
-        # Now close the result summary file after having reported the aggregated results
-        self.print_results(all_integrands[0], integrator, 
-                all_integrands_amplitude, all_integrands_error, label='Aggregated results')
+        if len(all_integrands)>1:
+            # Now close the result summary file after having reported the aggregated results
+            self.print_results(all_integrands[0], integrator, 
+                    all_integrands_amplitude, all_integrands_error, label='Aggregated results')
         # Write the result in 'cross_sections.dat' of the result directory
         self.dump_result_to_file(res_summary, all_integrands[0].n_loops, 
                       all_integrands_amplitude, all_integrands_error, 'Aggregated results')
