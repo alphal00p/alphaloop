@@ -15,6 +15,7 @@ import logging
 import madgraph.integrator.vectors as vectors
 import madgraph.integrator.integrands as integrands
 import madgraph.various.misc as misc
+import loop_momenta_generator
 
 logger = logging.getLogger('pyNLoop.Integrand')
 
@@ -826,3 +827,85 @@ class box1L_integrated_CT_VH(box1L_integrated_CT):
         # Normally we should use the above, but as a quick hack to exactly match the
         # result from the canonical pySecDec example, we will use the inputs below
         self.integrand_parameters_values = [4.0, -0.75]
+
+###########################################################################################
+#
+# First example of a one-loop diagram integrated directly in momentum space
+#
+###########################################################################################
+
+class box1L_direct_integration(NLoopIntegrand):
+
+    # We plan on being able to use pySecDec integrator only for this case
+    _supported_integrators = ['Vegas3']
+
+    def __init__(self,
+                 n_loops            = 1,
+                 external_momenta   = vectors.LorentzVectorDict(),
+                 phase_computed     = 'Real',
+                 # Data-structure for specifying a topology to be determined
+                 topology           = None,
+                 **opts):
+
+        # Create the dimensions for integrating directly in momentum space.
+        # The rescaling from the unit hypercube to infinity will be performed directly
+        # in the loop momentum generator.
+        component_names = {0:'E', 1:'x', 2:'y', 3:'z'}
+        dimensions = integrands.DimensionList([
+            integrands.ContinuousDimension(
+                'k1_%s' % component_names[i], lower_bound=0.0, upper_bound=1.0)
+            for i in range(0,4)])
+
+        # I am copying here all options just to make it explicit that could be used here as well.
+        super(box1L_direct_integration, self).__init__(
+            dimensions          = dimensions,
+            n_loops             = n_loops,
+            external_momenta    = external_momenta,
+            phase_computed      = phase_computed,
+            topology            = topology,
+            **opts
+        )
+
+        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator(topology, self.external_momenta)
+        self.define_loop_integrand(topology)
+
+    def define_loop_integrand(self, topology):
+        """Possibly generates new instance attributes book-keeping some representation of the loop integrand."""
+
+        # Eventually we should extract the loop propagator masses from the topology supplied but for now we will
+        # simply hardcode it
+        self.loop_propagator_masses = [0.,]*4
+
+    def output(self, output_folder, verbosity=0, **opts):
+        """ Possibly output some low-level code representation of the integrand to make
+        its evaluation faster."""
+
+        # We will use a native python implementation for now
+        pass
+        #super(box1L_direct_integration, self).output(output_folder, **opts)
+
+        return False
+
+    def get_integrated_counterterms(self):
+        """ In case local numerical subtraction is employed, then the integrand of the
+        correpsonding integrated counterterms must be returned as well."""
+
+        # An empty list with no instances of IntegratedCounterterm for now.
+        return []
+
+    def __call__(self, continuous_inputs, discrete_inputs, **opts):
+        """ Actual evaluation of the loop integrand."""
+
+        # Let's put a dummy example for now
+        k1_E = continuous_inputs[self.dimension_name_to_position['k1_E']]
+        k1_x = continuous_inputs[self.dimension_name_to_position['k1_x']]
+        k1_y = continuous_inputs[self.dimension_name_to_position['k1_y']]
+        k1_z = continuous_inputs[self.dimension_name_to_position['k1_z']]
+
+        l_mom = self.loop_momentum_generator.generate_loop_momenta((k1_E,k1_x,k1_y,k1_z))
+
+        # Return a dummy function for now
+        if self.phase_computed == 'Real':
+            return (1./l_mom.dot(l_mom)).real
+        else:
+            return (1. / l_mom.dot(l_mom)).imag
