@@ -9,6 +9,7 @@
 
 import logging
 import madgraph.integrator.vectors as vectors
+from math import sqrt
 
 from madgraph import InvalidCmd, MadGraph5Error
 
@@ -51,6 +52,28 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                 "The function 'generate_loop_momenta' class '%s' requires exactly 4" % self.__class__.__name__ +
                 " input random variables in [0., 1.].")
         rv = random_variables
+
+        Pplus = self.findP(self.external_momenta)
+        Pmin = self.findP(self.external_momenta, plus=False)
+        muP = sqrt((Pmin - Pplus).square())  # characteristic scale
+
+        sqrtS = 1  # TODO: determine the centre-of-mass energy
+        M3 = 0.035*max(muP, sqrtS)
+
+        cplus, cmin = 1, 1
+        # TODO: k_i is the ith propagator, so rv - q_i?
+        for qi, mi in zip(self.external_momenta, self.loop_propagator_masses):
+            # note the sign reversal
+            cplus *= self.h_delta(-1, rv - qi, mi, M3)
+            cmin *= self.h_delta(1, rv - qi, mi, M3)
+
+        kplus = rv - Pplus
+        kmin = rv - Pmin
+        kext = vectors.LorentzVector([-cplus*kplus[0] - cmin*kmin[0],
+                                      cplus*kplus[1] + cmin*kmin[1],
+                                      cplus*kplus[2] + cmin*kmin[2],
+                                      cplus*kplus[3] + cmin*kmin[3]])
+
         # Return some dummy momentum for now for test purposes
         return vectors.LorentzVector([
             rv[0]*(1.+2.j),
@@ -101,3 +124,22 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             del newvec[smallest[1]]
             vecs = newvec
         return vecs[0]
+
+    def h_delta(self, sign, k, m, M):
+        """The three helper functions h_delta-, h_delta+, and h_delta0, indicated
+           by `sign`.
+        """
+        if sign == 0:
+            v = (abs(k[0]) - sqrt(k.rho2() + m))**2
+        else:
+            v = (sign * k[0] - sqrt(k.rho2() + m))**2
+        return v / (v + M)
+
+    def h_theta(self, t, M):
+        if t < 0:
+            return 0.
+        else:
+            return t / (t + M)
+
+    def g(self, k, gamma, M):
+        gamma * M / (k[0] * k[0] + k.rho2() + M)
