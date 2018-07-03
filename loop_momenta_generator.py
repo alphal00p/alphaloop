@@ -59,13 +59,14 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         sqrtS = 1  # TODO: determine the centre-of-mass energy
         M3 = 0.035*max(muP, sqrtS)
+        M1 = 0.035*sqrtS
 
         cplus, cmin = 1, 1
-        # TODO: k_i is the ith propagator, so rv - q_i?
+        # k_i is the ith propagator, so rv - q_i
         for qi, mi in zip(self.external_momenta, self.loop_propagator_masses):
             # note the sign reversal
-            cplus *= self.h_delta(-1, rv - qi, mi, M3)
-            cmin *= self.h_delta(1, rv - qi, mi, M3)
+            cplus *= self.h_delta(-1, rv - qi, mi * mi, M3 * M3)
+            cmin *= self.h_delta(1, rv - qi, mi * mi, M3 * M3)
 
         kplus = rv - Pplus
         kmin = rv - Pmin
@@ -74,13 +75,57 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                                       cplus*kplus[2] + cmin*kmin[2],
                                       cplus*kplus[3] + cmin*kmin[3]])
 
-        # Return some dummy momentum for now for test purposes
-        return vectors.LorentzVector([
-            rv[0]*(1.+2.j),
-            rv[1]*(2.+4.j),
-            rv[2]*(3.+6.j),
-            rv[3]*(4.+8.j)]
-        )
+        kcentre = 0.5*(kplus + kmin)
+        gamma1 = 0.7
+        M2 = 0.7 * max(muP, sqrtS)
+
+        v = [[0 if i == j else 0.5*(qi+qj - (mi-mj)/sqrt((qi-qj).square())*(qi-qj))
+              for i, (qi, mi) in enumerate(zip(self.external_momenta, self.loop_propagator_masses))]
+             for j, (qj, mj) in enumerate(zip(self.external_momenta, self.loop_propagator_masses))]
+
+        def d(i, l, q, m):
+            if l == i and m[l] == 0:
+                return 1
+            if (q[i] - q[l]).square() == 0 and q[i][0] < q[l][0] and m[l] == 0:
+                return self.h_delta(1, rv - q[l],  m[l] * m[l], M1 * M1)
+            if (q[i] - q[l]).square() == 0 and q[i][0] > q[l][0] and m[l] == 0:
+                return self.h_delta(-1, rv - q[l], m[l] * m[l], M1 * M1)
+            return max(self.h_delta(0, rv - q[l], m[l] * m[l], M1 * M1), self.h_theta(-2 * (rv - q[l]).dot(rv - q[i]), M1*M1))
+
+        def d2(i, j, l, q, m):
+            return self.h_theta((q[i]-q[j]).square() - (m[i]+m[j])**2, M1*M1) * \
+                max(self.h_delta(0, rv - q[l], m[l] * m[l], M1 * M1),
+                    self.h_theta(-2 * (rv - q[l]).dot(rv - v[i, j]), M1*M1))
+
+        # construct the coefficients
+        n = len(self.external_momenta)
+        f = self.g(kcentre, gamma1, M2 * M2)
+        c = [f for _ in range(n)]
+        c2 = [[f for _ in range(n)]
+              for _ in range(n)]
+
+        kint = 0
+        for i in range(n):
+            for l in range(n):  # note: in paper l starts at 1
+                c[i] *= d(i, l, self.external_momenta,
+                          self.loop_propagator_masses)
+
+                for j in range(i + 1, n):
+                    c2[i][j] *= d2(i, j, l, self.external_momenta,
+                                   self.loop_propagator_masses)
+
+            kint += - c[i] * (rv - self.external_momenta[i])  # massless part
+
+            for j in range(i + 1, n):
+                # two hyperboloids
+                kint += - c2[i, j] * (rv - v[i, j])
+
+            # TODO: the soft part is missing
+
+        # TODO: compute lambda
+        lambda_cycle = 1
+
+        return lambda_cycle * (kint + kext)
 
     def test_deformation(self):
         """ Validation function that tests that the deformation yields a complex part of each denominator with the right
