@@ -866,6 +866,11 @@ class box1L_direct_integration(NLoopIntegrand):
             **opts
         )
 
+        # For now, to avoid having any momentum back to back, boost them out of the center of mass rest frame.
+        boost_vector = (self.external_momenta[1]+2.0*self.external_momenta[2]).boostVector()
+        for p in self.external_momenta.values():
+            p.boost(-boost_vector)
+
         self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator(topology, self.external_momenta)
         self.define_loop_integrand(topology)
 
@@ -903,11 +908,18 @@ class box1L_direct_integration(NLoopIntegrand):
         k1_z = continuous_inputs[self.dimension_name_to_position['k1_z']]
 
         l_moms, jacobian_weight = self.loop_momentum_generator.generate_loop_momenta((k1_E,k1_x,k1_y,k1_z))
-
         l_mom = l_moms[0]
+
+        numerator = 1.
+
+        p_i = self.external_momenta.to_list()
+        denominator =  ( l_mom - p_i[0]).square() - self.loop_propagator_masses[0]**2
+        denominator *= ( l_mom - p_i[0] - p_i[1] ).square() - self.loop_propagator_masses[1]**2
+        denominator *= ( l_mom - p_i[0] - p_i[1] - p_i[2] ).square() - self.loop_propagator_masses[2]**2
+        denominator *= ( l_mom ).square() - self.loop_propagator_masses[3]**2
 
         # Return a dummy function for now
         if self.phase_computed == 'Real':
-            return jacobian_weight*(1./l_mom.dot(l_mom)).real
+            return jacobian_weight*( numerator / denominator ).real
         else:
-            return jacobian_weight*(1. / l_mom.dot(l_mom)).imag
+            return jacobian_weight*( numerator / denominator ).imag

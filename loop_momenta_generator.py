@@ -9,17 +9,22 @@
 
 import logging
 import madgraph.integrator.vectors as vectors
-from math import sqrt
-
+from math import sqrt, cos, sin
 from madgraph import InvalidCmd, MadGraph5Error
-
-logger = logging.getLogger('pyNLoop.LoopMomentaGenerator')
-
 
 class LoopMomentaGeneratorError(MadGraph5Error):
     """ Error for the LoopMomentaGenerator class suite."""
     pass
 
+try:
+    import numdifftools as nd
+    import numpy as np
+    import numpy.linalg as linalg
+except ImportError:
+    raise LoopMomentaGeneratorError("The loop momenta generator requires the numdifftools python package for"+
+                                    " the numerical computation of derivatives.")
+
+logger = logging.getLogger('pyNLoop.LoopMomentaGenerator')
 
 class LoopMomentaGenerator(object):
     """ Class for recursively using OneLoopMomentumGenerator for generaring several complex-valued loop momenta
@@ -59,7 +64,12 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         self.sqrt_S = sqrt(sum(v for i, v in enumerate(self.external_momenta) if i<=1).square())
 
-        self.P_plus = self.findP(plus=True)
+        # Define the q_i's defined from the external momenta as:
+        self.q_i    = [self.external_momenta[0],]
+        for i, p_i in enumerate(self.external_momenta[1:]):
+            self.q_i.append(self.q_i[i]+p_i)
+
+        self.P_plus  = self.findP(plus=True)
         self.P_minus = self.findP(plus=False)
 
         # Characteristic scale of the process
@@ -74,12 +84,14 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         """ Maps a set of four random variables in the unit hyperbox to an infinite dimensional cube that corresponds
          to the original loop momentum integration space."""
 
-        # TODO: analytically compute this trivial jacobian
+        # Analytically compute this trivial jacobian
+        # dk / dr = -1 / ( 2 * ( r - 1/2. )**2 )
         jacobian = 1.
+        for rv in random_variables:
+            jacobian *= 1. / (2. * (rv - 0.5)**2 )
 
         return [ vectors.LorentzVector([1./(0.5*(rv -1)) for rv in random_variables[i:i+4]])
                                                         for i in range(0, len(random_variables), 4) ], jacobian
-
     def generate_loop_momenta(self, random_variables):
         """ From the random variables passed in argument, this the d one-loop four-momentum in the form
          of a LorentzVector."""
@@ -93,14 +105,26 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         deformed_k_loops, defomation_jacobian = self.apply_deformation(k_loops)
 
+        print("Returning k_deformed= \n    %s\nwith jacobian: %f"%(
+            '\n    '.join('%s'%ki for ki in deformed_k_loops[0]),
+            remapping_weight*defomation_jacobian))
         return deformed_k_loops, remapping_weight*defomation_jacobian
 
     def apply_deformation(self, loop_momenta):
         """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz
         4-vector, along with the corresponding jacobian computed numerically."""
 
-        # TODO: use autograd to compute the jacobian
-        jacobian_weight = 1.
+        # First use numdifftool to compute the jacobian matrix
+        def wrapped_function(loop_momentum):
+            return np.r_[self.deform_loop_momenta([vectors.LorentzVector(loop_momentum),])[0]]
+
+        local_point = list(loop_momenta[0])
+        jacobian, info = nd.Jacobian(wrapped_function, full_output=True)(local_point)
+        if np.max(info.error_estimate) > 1.e-3:
+            logger.warning("Large error of %f encountered in the numerical evaluation of the Jacobian for the inputs: %s"%
+                                                                    (np.max(info.error_estimate), str(loop_momenta[0])))
+        # And now compute the determinant
+        jacobian_weight = abs(linalg.det(jacobian))
 
         deformed_k_loops = self.deform_loop_momenta(loop_momenta)
 
@@ -117,7 +141,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         c_plus, c_minus = 1, 1
         # k_i is the ith propagator, so k_loop - q_i
-        for qi, mi in zip(self.external_momenta, self.loop_propagator_masses):
+        for qi, mi in zip(self.q_i, self.loop_propagator_masses):
             # note the sign reversal
             c_plus *= self.h_delta(-1, k_loop - qi, mi * mi, self.M3 * self.M3)
             c_minus *= self.h_delta(1, k_loop - qi, mi * mi, self.M3 * self.M3)
@@ -130,13 +154,11 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                                           - c_plus*k_plus[3] - c_minus*k_minus[3]   ])
 
         k_centre = 0.5*(k_plus + k_minus)
-        self.gamma1   = 0.7
-        self.M2 = 0.7 * max(self.mu_P, self.sqrt_S)
 
         # Warning, it may be that the square root needs an absolute value
         #v = [[0 if i == j else 0.5*(qi+qj - (mi-mj)/sqrt((qi-qj).square())*(qi-qj))
-        #      for i, (qi, mi) in enumerate(zip(self.external_momenta, self.loop_propagator_masses))]
-        #     for j, (qj, mj) in enumerate(zip(self.external_momenta, self.loop_propagator_masses))]
+        #      for i, (qi, mi) in enumerate(zip(self.q_i, self.loop_propagator_masses))]
+        #     for j, (qj, mj) in enumerate(zip(self.q_i, self.loop_propagator_masses))]
 
         def d(i, l, q, m):
             if l == i and m[l] == 0:
@@ -154,7 +176,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                     self.h_theta(-2 * (k_loop - q[l]).dot(k_loop - v[i, j]), self.M1**2))
 
         # construct the coefficients
-        n = len(self.external_momenta)
+        n = len(self.q_i)
         f = self.g(k_centre, self.gamma1, self.M2 * self.M2)
         c = [f,]*n
         c2 = [[f,]*n,]*n
@@ -162,13 +184,13 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         k_int = 0
         for i in range(n):
             for l in range(n):  # note: in paper l starts at 1
-                c[i] *= d(i, l, self.external_momenta, self.loop_propagator_masses)
+                c[i] *= d(i, l, self.q_i, self.loop_propagator_masses)
 
                 # Deformation taking care of massive hyperbolae
                 #for j in range(i + 1, n):
-                #    c2[i][j] *= d2(i, j, l, self.external_momenta, self.loop_propagator_masses)
+                #    c2[i][j] *= d2(i, j, l, self.q_i, self.loop_propagator_masses)
 
-            k_int += - c[i] * (k_loop - self.external_momenta[i])  # massless part
+            k_int += - c[i] * (k_loop - self.q_i[i])  # massless part
 
             # Deformation taking care of two hyperbolaes
             #for j in range(i + 1, n):
@@ -181,7 +203,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         deformed_k_loop = k_loop + 1j * lambda_cycle * (k_int + k_ext)
 
-        #print('Starting k_loop:',k_loop)
+        #print('Started with k_loop:',k_loop)
         #print('Deformed k_loop:', deformed_k_loop)
 
         return [deformed_k_loop,]
@@ -197,8 +219,21 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         if not `plus`.
         """
 
-        vecs = self.external_momenta.to_list()
-        while len(vecs) > 1:
+        # helper function
+        def Z(x, y):
+            # WARNING: watchout for configurations with input momenta that are back-to-back as then rho2() is zero
+            n = 1.0 / y.rho2()
+            if plus:
+                return 0.5 * vectors.LorentzVector([x[0] - n * y.square() + n * y[0] ** 2,
+                                                    x[1] + n * y[0] * y[1], x[2] + n * y[0] * y[2],
+                                                    x[3] + n * y[0] * y[3]])
+            else:
+                return 0.5 * vectors.LorentzVector([x[0] + n * y.square() - n * y[0] ** 2,
+                                                    x[1] - n * y[0] * y[1], x[2] - n * y[0] * y[2],
+                                                    x[3] - n * y[0] * y[3]])
+
+        vecs = list(self.q_i)
+        while True:
             # filter all vectors that are in the forward/backward light-cone of another vector
             newvec = []
             for i, v in enumerate(vecs):
@@ -209,24 +244,19 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                     # this vector is space-like relative to all others
                     newvec.append(v)
 
-            assert (len(newvec)>0), "The list of vectors left for computing P_plus/P_minus should never be empty"
+            vecs = newvec
+            if len(vecs) <= 1:
+                break
+
             # find the pair with the smallest space-like seperation
-            space_sep = [(i, i+j+1, -(v1-v2).square()) for i, v1 in enumerate(newvec) for j, v2 in enumerate(newvec[i+1:])]
+            space_sep = [(i, i+j+1, -(v1-v2).square()) for i, v1 in enumerate(vecs) for j, v2 in enumerate(vecs[i+1:])]
             smallest = min(space_sep, key=lambda x: x[2])
 
-            def Z(x, y):
-                n = 1.0 / y.rho2()
-                if plus:
-                    return 0.5 * vectors.LorentzVector([x[0] - n*y.square() + n*y[0]**2,
-                                                        x[1] + n*y[0]*y[1], x[2] + n*y[0]*y[2], x[3] + n*y[0]*y[3]])
-                else:
-                    return 0.5 * vectors.LorentzVector([x[0] + n*y.square() - n*y[0]**2,
-                                                        x[1] - n*y[0]*y[1], x[2] - n*y[0]*y[2], x[3] - n*y[0]*y[3]])
-
             # replace first vector and drop the second
-            newvec[smallest[0]] = Z( newvec[smallest[0]] + newvec[smallest[1]], newvec[smallest[0]] - newvec[smallest[1]])
-            del newvec[smallest[1]]
-            vecs = newvec
+            vecs[smallest[0]] = Z( vecs[smallest[0]] + vecs[smallest[1]], vecs[smallest[0]] - vecs[smallest[1]])
+            del vecs[smallest[1]]
+            if len(vecs) <= 1:
+                break
 
         return vecs[0]
 
