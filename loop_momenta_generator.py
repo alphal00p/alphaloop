@@ -77,7 +77,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         # TODO: analytically compute this trivial jacobian
         jacobian = 1.
 
-        return [ vectors.LorentzVector([1./(0.5*(rv -1)) for rv in random_variables[i:i+4]]),
+        return [ vectors.LorentzVector([1./(0.5*(rv -1)) for rv in random_variables[i:i+4]])
                                                         for i in range(0, len(random_variables), 4) ], jacobian
 
     def generate_loop_momenta(self, random_variables):

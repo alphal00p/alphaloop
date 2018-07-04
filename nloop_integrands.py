@@ -902,7 +902,7 @@ class box1L_direct_integration(NLoopIntegrand):
         k1_y = continuous_inputs[self.dimension_name_to_position['k1_y']]
         k1_z = continuous_inputs[self.dimension_name_to_position['k1_z']]
 
-        jacobian_weight, l_moms = self.loop_momentum_generator.generate_loop_momenta((k1_E,k1_x,k1_y,k1_z))
+        l_moms, jacobian_weight = self.loop_momentum_generator.generate_loop_momenta((k1_E,k1_x,k1_y,k1_z))
 
         l_mom = l_moms[0]
 
