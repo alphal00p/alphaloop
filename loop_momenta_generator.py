@@ -35,13 +35,46 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
     """ Class for generating a complex-valued one-loop momentum from random variables in the unit hypercube,
     following a deformation that ensures that all propagators are evaluated in the physical region."""
 
+    contour_hyper_parameters = {
+        'self.M1_factor'     :   0.035,
+        'self.M2_factor'     :   0.7,
+        'self.M3_factor'     :   0.035,
+        'self.gamma1'        :   0.7,
+        'self.M3_factor'     :   0.035,
+    }
+
     def __init__(self, topology, external_momenta, **opts):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
         must be generated."""
 
-        self.external_momenta = external_momenta
+        self.external_momenta = external_momenta.to_list()
+
+        self.define_global_quantities_for_contour_defomration()
+
         # Eventually this information must be extracted from the topology, for now it is hard-coded.
         self.loop_propagator_masses = [0., ]*4
+
+    def define_global_quantities_for_contour_defomration(self):
+        """Define some global quantities independent of the loop momenta and useful for computing the deformed contour."""
+
+        self.sqrt_S = sqrt(sum(v for i, v in enumerate(self.external_momenta) if i<=1).square())
+
+        self.P_plus = self.findP(plus=True)
+        self.P_minus = self.findP(plus=False)
+
+        # Characteristic scale of the process
+        self.mu_P = sqrt((self.P_minus - self.P_plus).square())
+
+        self.M1     = self.contour_hyper_parameters['self.M1_factor'] * self.sqrt_S
+        self.M2     = self.contour_hyper_parameters['self.M2_factor'] * max(self.mu_P, self.sqrt_S)
+        self.M3     = self.contour_hyper_parameters['self.M3_factor'] * max(self.mu_P, self.sqrt_S)
+        self.gamma1 = self.contour_hyper_parameters['self.gamma1']
+
+    def map_to_infinite_hyperbox(self, random_variables):
+        """ Maps a set of four random variables in the unit hyperbox to an infinite dimensional cube that corresponds
+         to the original loop momentum integration space."""
+
+        return vectors.LorentzVector([1./(0.5*(rv -1)) for rv in random_variables])
 
     def generate_loop_momenta(self, random_variables):
         """ From the random variables passed in argument, this the deform one-loop four-momentum in the form
@@ -51,123 +84,122 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             raise LoopMomentaGeneratorError(
                 "The function 'generate_loop_momenta' class '%s' requires exactly 4" % self.__class__.__name__ +
                 " input random variables in [0., 1.].")
-        rv = random_variables
 
-        Pplus = self.findP(self.external_momenta)
-        Pmin = self.findP(self.external_momenta, plus=False)
-        muP = sqrt((Pmin - Pplus).square())  # characteristic scale
+        k_loop = self.map_to_infinite_hyperbox(random_variables)
 
-        sqrtS = 1  # TODO: determine the centre-of-mass energy
-        M3 = 0.035*max(muP, sqrtS)
-        M1 = 0.035*sqrtS
-
-        cplus, cmin = 1, 1
-        # k_i is the ith propagator, so rv - q_i
+        c_plus, c_minus = 1, 1
+        # k_i is the ith propagator, so k_loop - q_i
         for qi, mi in zip(self.external_momenta, self.loop_propagator_masses):
             # note the sign reversal
-            cplus *= self.h_delta(-1, rv - qi, mi * mi, M3 * M3)
-            cmin *= self.h_delta(1, rv - qi, mi * mi, M3 * M3)
+            c_plus *= self.h_delta(-1, k_loop - qi, mi * mi, self.M3 * self.M3)
+            c_minus *= self.h_delta(1, k_loop - qi, mi * mi, self.M3 * self.M3)
 
-        kplus = rv - Pplus
-        kmin = rv - Pmin
-        kext = vectors.LorentzVector([-cplus*kplus[0] - cmin*kmin[0],
-                                      cplus*kplus[1] + cmin*kmin[1],
-                                      cplus*kplus[2] + cmin*kmin[2],
-                                      cplus*kplus[3] + cmin*kmin[3]])
+        k_plus = k_loop - self.P_plus
+        k_minus  = k_loop - self.P_minus
+        k_ext  = vectors.LorentzVector([     c_plus*k_plus[0] + c_minus*k_minus[0],
+                                          - c_plus*k_plus[1] - c_minus*k_minus[1],
+                                          - c_plus*k_plus[2] - c_minus*k_minus[2],
+                                          - c_plus*k_plus[3] - c_minus*k_minus[3]   ])
 
-        kcentre = 0.5*(kplus + kmin)
-        gamma1 = 0.7
-        M2 = 0.7 * max(muP, sqrtS)
+        k_centre = 0.5*(k_plus + k_minus)
+        self.gamma1   = 0.7
+        self.M2 = 0.7 * max(self.mu_P, self.sqrt_S)
 
-        v = [[0 if i == j else 0.5*(qi+qj - (mi-mj)/sqrt((qi-qj).square())*(qi-qj))
-              for i, (qi, mi) in enumerate(zip(self.external_momenta, self.loop_propagator_masses))]
-             for j, (qj, mj) in enumerate(zip(self.external_momenta, self.loop_propagator_masses))]
+        # Warning, it may be that the square root needs an absolute value
+        #v = [[0 if i == j else 0.5*(qi+qj - (mi-mj)/sqrt((qi-qj).square())*(qi-qj))
+        #      for i, (qi, mi) in enumerate(zip(self.external_momenta, self.loop_propagator_masses))]
+        #     for j, (qj, mj) in enumerate(zip(self.external_momenta, self.loop_propagator_masses))]
 
         def d(i, l, q, m):
             if l == i and m[l] == 0:
                 return 1
             if (q[i] - q[l]).square() == 0 and q[i][0] < q[l][0] and m[l] == 0:
-                return self.h_delta(1, rv - q[l],  m[l] * m[l], M1 * M1)
+                return self.h_delta(1, k_loop - q[l],  m[l] * m[l], self.M1**2)
             if (q[i] - q[l]).square() == 0 and q[i][0] > q[l][0] and m[l] == 0:
-                return self.h_delta(-1, rv - q[l], m[l] * m[l], M1 * M1)
-            return max(self.h_delta(0, rv - q[l], m[l] * m[l], M1 * M1), self.h_theta(-2 * (rv - q[l]).dot(rv - q[i]), M1*M1))
+                return self.h_delta(-1, k_loop - q[l], m[l] * m[l], self.M1**2)
+            return max(self.h_delta(0, k_loop - q[l], m[l] * m[l], self.M1**2),
+                       self.h_theta(-2 * (k_loop - q[l]).dot(k_loop - q[i]), self.M1**2) )
 
         def d2(i, j, l, q, m):
-            return self.h_theta((q[i]-q[j]).square() - (m[i]+m[j])**2, M1*M1) * \
-                max(self.h_delta(0, rv - q[l], m[l] * m[l], M1 * M1),
-                    self.h_theta(-2 * (rv - q[l]).dot(rv - v[i, j]), M1*M1))
+            return self.h_theta((q[i]-q[j]).square() - (m[i]+m[j])**2, self.M1**2) * \
+                max(self.h_delta(0, k_loop - q[l], m[l] * m[l], self.M1**2),
+                    self.h_theta(-2 * (k_loop - q[l]).dot(k_loop - v[i, j]), self.M1**2))
 
         # construct the coefficients
         n = len(self.external_momenta)
-        f = self.g(kcentre, gamma1, M2 * M2)
-        c = [f for _ in range(n)]
-        c2 = [[f for _ in range(n)]
-              for _ in range(n)]
+        f = self.g(k_centre, self.gamma1, self.M2 * self.M2)
+        c = [f,]*n
+        c2 = [[f,]*n,]*n
 
-        kint = 0
+        k_int = 0
         for i in range(n):
             for l in range(n):  # note: in paper l starts at 1
-                c[i] *= d(i, l, self.external_momenta,
-                          self.loop_propagator_masses)
+                c[i] *= d(i, l, self.external_momenta, self.loop_propagator_masses)
 
-                for j in range(i + 1, n):
-                    c2[i][j] *= d2(i, j, l, self.external_momenta,
-                                   self.loop_propagator_masses)
+                # Deformation taking care of massive hyperbolae
+                #for j in range(i + 1, n):
+                #    c2[i][j] *= d2(i, j, l, self.external_momenta, self.loop_propagator_masses)
 
-            kint += - c[i] * (rv - self.external_momenta[i])  # massless part
+            k_int += - c[i] * (k_loop - self.external_momenta[i])  # massless part
 
-            for j in range(i + 1, n):
-                # two hyperboloids
-                kint += - c2[i, j] * (rv - v[i, j])
+            # Deformation taking care of two hyperbolaes
+            #for j in range(i + 1, n):
+            #    k_int += - c2[i][j] * (k_loop - v[i][j])
 
             # TODO: the soft part is missing
 
         # TODO: compute lambda
         lambda_cycle = 1
 
-        return lambda_cycle * (kint + kext)
+        deformed_k_loop = k_loop + 1j * lambda_cycle * (k_int + k_ext)
+
+        #print('Starting k_loop:',k_loop)
+        #print('Deformed k_loop:', deformed_k_loop)
+
+        return deformed_k_loop
 
     def test_deformation(self):
         """ Validation function that tests that the deformation yields a complex part of each denominator with the right
         sign when approaching the point where this denominator becomes onshell."""
         pass
 
-    def findP(self, qs, plus=True):
+    def findP(self, plus=True):
         """Find a vector P such that all external momenta `qs` are in
         the forward lightcone of P if `plus`, or are in the backwards lightcone
         if not `plus`.
         """
-        vecs = [v for v in qs]
+
+        vecs = self.external_momenta.to_list()
         while len(vecs) > 1:
             # filter all vectors that are in the forward/backward light-cone of another vector
             newvec = []
             for i, v in enumerate(vecs):
                 for v1 in vecs[i + 1:]:
-                    if (v-v1).square() < 0 and ((plus and v[0] > v1[0]) or (not plus and v[0] < v1[0])):
+                    if (v-v1).square() > 0 and ((plus and v[0] > v1[0]) or (not plus and v[0] < v1[0])):
                         break
                 else:
                     # this vector is space-like relative to all others
                     newvec.append(v)
 
+            assert (len(newvec)>0), "The list of vectors left for computing P_plus/P_minus should never be empty"
             # find the pair with the smallest space-like seperation
-            space_sep = [(i, j, -(newvec[i]-newvec[j]).square()) for i in range(newvec)
-                         for j in range(i+1, newvec)]
+            space_sep = [(i, i+j+1, -(v1-v2).square()) for i, v1 in enumerate(newvec) for j, v2 in enumerate(newvec[i+1:])]
             smallest = min(space_sep, key=lambda x: x[2])
 
             def Z(x, y):
                 n = 1.0 / y.rho2()
                 if plus:
-                    return 0.5 * vectors.LorentzVector([x[0] + n*y.square() - n*y[0]**2,
-                                                        x[1] - n*y[0]*y[1], x[2] - n*y[0]*y[2], x[3] - n*y[0]*y[3]])
-                else:
                     return 0.5 * vectors.LorentzVector([x[0] - n*y.square() + n*y[0]**2,
                                                         x[1] + n*y[0]*y[1], x[2] + n*y[0]*y[2], x[3] + n*y[0]*y[3]])
+                else:
+                    return 0.5 * vectors.LorentzVector([x[0] + n*y.square() - n*y[0]**2,
+                                                        x[1] - n*y[0]*y[1], x[2] - n*y[0]*y[2], x[3] - n*y[0]*y[3]])
 
             # replace first vector and drop the second
-            newvec[smallest[0]] = Z(
-                newvec[smallest[0]] + newvec[smallest[1]], newvec[smallest[0]] - newvec[smallest[1]])
+            newvec[smallest[0]] = Z( newvec[smallest[0]] + newvec[smallest[1]], newvec[smallest[0]] - newvec[smallest[1]])
             del newvec[smallest[1]]
             vecs = newvec
+
         return vecs[0]
 
     def h_delta(self, sign, k, m, M):
@@ -187,4 +219,4 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             return t / (t + M)
 
     def g(self, k, gamma, M):
-        gamma * M / (k[0] * k[0] + k.rho2() + M)
+        return gamma * M / (k[0] * k[0] + k.rho2() + M)
