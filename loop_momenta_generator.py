@@ -74,10 +74,14 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         """ Maps a set of four random variables in the unit hyperbox to an infinite dimensional cube that corresponds
          to the original loop momentum integration space."""
 
-        return vectors.LorentzVector([1./(0.5*(rv -1)) for rv in random_variables])
+        # TODO: analytically compute this trivial jacobian
+        jacobian = 1.
+
+        return [ vectors.LorentzVector([1./(0.5*(rv -1)) for rv in random_variables[i:i+4]]),
+                                                        for i in range(0, len(random_variables), 4) ], jacobian
 
     def generate_loop_momenta(self, random_variables):
-        """ From the random variables passed in argument, this the deform one-loop four-momentum in the form
+        """ From the random variables passed in argument, this the d one-loop four-momentum in the form
          of a LorentzVector."""
 
         if len(random_variables) != 4 or any((r > 1. or r < 0.) for r in random_variables):
@@ -85,7 +89,31 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                 "The function 'generate_loop_momenta' class '%s' requires exactly 4" % self.__class__.__name__ +
                 " input random variables in [0., 1.].")
 
-        k_loop = self.map_to_infinite_hyperbox(random_variables)
+        k_loops, remapping_weight = self.map_to_infinite_hyperbox(random_variables)
+
+        deformed_k_loops, defomation_jacobian = self.apply_deformation(k_loops)
+
+        return deformed_k_loops, remapping_weight*defomation_jacobian
+
+    def apply_deformation(self, loop_momenta):
+        """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz
+        4-vector, along with the corresponding jacobian computed numerically."""
+
+        # TODO: use autograd to compute the jacobian
+        jacobian_weight = 1.
+
+        deformed_k_loops = self.deform_loop_momenta(loop_momenta)
+
+        return deformed_k_loops, jacobian_weight
+
+    def deform_loop_momenta(self, loop_momenta):
+        """ This function deforms the starting loop momentum passed in argument and returns it as a Lorentz
+        4-vector. In the implementation of this class, we consider a single loop."""
+
+
+        # A single loop for now
+        assert len(loop_momenta)==1, "This class %s can only handle a single loop momentum"%self.__class__.__name__
+        k_loop = loop_momenta[0]
 
         c_plus, c_minus = 1, 1
         # k_i is the ith propagator, so k_loop - q_i
@@ -156,7 +184,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         #print('Starting k_loop:',k_loop)
         #print('Deformed k_loop:', deformed_k_loop)
 
-        return deformed_k_loop
+        return [deformed_k_loop,]
 
     def test_deformation(self):
         """ Validation function that tests that the deformation yields a complex part of each denominator with the right

@@ -902,10 +902,12 @@ class box1L_direct_integration(NLoopIntegrand):
         k1_y = continuous_inputs[self.dimension_name_to_position['k1_y']]
         k1_z = continuous_inputs[self.dimension_name_to_position['k1_z']]
 
-        l_mom = self.loop_momentum_generator.generate_loop_momenta((k1_E,k1_x,k1_y,k1_z))
+        jacobian_weight, l_moms = self.loop_momentum_generator.generate_loop_momenta((k1_E,k1_x,k1_y,k1_z))
+
+        l_mom = l_moms[0]
 
         # Return a dummy function for now
         if self.phase_computed == 'Real':
-            return (1./l_mom.dot(l_mom)).real
+            return jacobian_weight*(1./l_mom.dot(l_mom)).real
         else:
-            return (1. / l_mom.dot(l_mom)).imag
+            return jacobian_weight*(1. / l_mom.dot(l_mom)).imag
