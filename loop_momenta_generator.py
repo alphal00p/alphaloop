@@ -15,7 +15,9 @@ from madgraph import InvalidCmd, MadGraph5Error
 
 # Suppress harmless lapack warning
 import warnings
-warnings.filterwarnings(action="ignore", module="scipy", message="^internal gelsd")
+warnings.filterwarnings(action="ignore", module="scipy",
+                        message="^internal gelsd")
+
 
 class LoopMomentaGeneratorError(MadGraph5Error):
     """ Error for the LoopMomentaGenerator class suite."""
@@ -106,10 +108,10 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         # dk / dr = -1 / ( 2 * ( r - 1/2. )**2 )
         jacobian = 1.
         for rv in random_variables:
-            jacobian *= ( (1. / rv**2) + (1 / ((rv -1.)**2)) )
+            jacobian *= ((1. / rv**2) + (1 / ((rv - 1.)**2)))
 
-        return [ vectors.LorentzVector([ ((1./(1.-rv)) - 1./rv) for rv in random_variables[i:i+4]])
-                                                        for i in range(0, len(random_variables), 4) ], jacobian
+        return [vectors.LorentzVector([((1./(1.-rv)) - 1./rv) for rv in random_variables[i:i+4]])
+                for i in range(0, len(random_variables), 4)], jacobian
 
     def generate_loop_momenta(self, random_variables):
         """ From the random variables passed in argument, this returns the one-loop four-momentum in the form
@@ -139,15 +141,16 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             return np.r_[self.deform_loop_momenta([vectors.LorentzVector(loop_momentum), ])[0]]
 
         local_point = list(loop_momenta[0])
-        jacobian, info = nd.Jacobian(wrapped_function, full_output=True)(local_point)
+        jacobian, info = nd.Jacobian(
+            wrapped_function, full_output=True)(local_point)
 
         # And now compute the determinant
         jacobian_weight = abs(linalg.det(jacobian))
 
         if np.max(info.error_estimate) > 1.e-3:
             logger.warning(
-            "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s"%
-                                                  (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
+                "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s" %
+                (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
 
         deformed_k_loops = self.deform_loop_momenta(loop_momenta)
 
@@ -205,6 +208,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         c2 = [[f, ]*n, ]*n
         da_plus = [1, ]*len(self.soft_vectors)
         da_min = [1, ]*len(self.soft_vectors)
+        ca = [f, ]*len(self.soft_vectors)
 
         k_int = 0
         for i in range(n):
@@ -230,10 +234,29 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         # Add the soft part
         # for a, ka in enumerate(self.soft_vectors):
-        #    k_int += f * (da_plus[a] - da_min[a]) * ka
+        #    c[a] *= da_plus[a] - da_min[a]
+        #    k_int += c[a] * ka
 
-        # TODO: compute lambda
-        lambda_cycle = 1
+        # compute lambda
+        k0 = k_int + k_ext
+        lambda_cycle = 1  # maximum lambda value
+
+        for j in range(n):
+            xj = (k0.dot(k_loop - self.q_i[j]) / k0.square())**2
+            yj = (
+                (k_loop - self.q_i[j]).square() - self.loop_propagator_masses[j]**2) / k0.square()**2
+
+            if 2 * xj < yj:
+                lambda_cycle = min(lambda_cycle, sqrt(yj / 4))
+            elif yj < 0:
+                lambda_cycle = min(lambda_cycle, sqrt(xj - yj/2))
+            else:
+                lambda_cycle = min(lambda_cycle, sqrt(xj - yj/4))
+
+        N = sum(c)  # + sum(sum(x) for x in c2) + sum(abs(x) for x in ca)
+        lambda_cycle = min(lambda_cycle, 1/(4 * N))
+
+        # TODO: bound lambda by imaginary part of UV scale
 
         deformed_k_loop = k_loop + 1j * lambda_cycle * (k_int + k_ext)
 
@@ -336,10 +359,12 @@ class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
                 "The function 'generate_loop_momenta' class '%s' requires exactly 4" % self.__class__.__name__ +
                 " input random variables in [0., 1.].")
 
-        k_loops, remapping_weight = self.map_to_infinite_hyperbox(random_variables)
+        k_loops, remapping_weight = self.map_to_infinite_hyperbox(
+            random_variables)
 
         #misc.sprint("Returning k= \n    %s\nwith jacobian: %f"%('\n    '.join('%s'%ki for ki in k_loops[0]),remapping_weight))
         return k_loops, remapping_weight
+
 
 class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
     """ One loop momentum generator which only applies the conformal map but no deformation. """
@@ -358,19 +383,20 @@ class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
             return np.r_[self.deform_loop_momenta([vectors.LorentzVector(loop_momentum), ])[0]]
 
         local_point = list(loop_momenta[0])
-        jacobian, info = nd.Jacobian(wrapped_function, full_output=True)(local_point)
+        jacobian, info = nd.Jacobian(
+            wrapped_function, full_output=True)(local_point)
 
         # And now compute the determinant
         jacobian_weight = abs(linalg.det(jacobian))
 
         if np.max(info.error_estimate) > 1.e-3:
             logger.warning(
-            "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s"%
-                                                  (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
+                "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s" %
+                (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
 
         deformed_k_loops = self.deform_loop_momenta(loop_momenta)
 
-        #misc.sprint("jacobian_weight=%f"%jacobian_weight)
+        # misc.sprint("jacobian_weight=%f"%jacobian_weight)
         return deformed_k_loops, jacobian_weight
 
     def deform_loop_momenta(self, loop_momenta):
@@ -387,10 +413,10 @@ class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
         scaling_factor = 0.1e-1
 
         deformed_k_loop = k_loop+1j * scaling_factor * vectors.LorentzVector([
-            k_loop[0] * ( cos( k_loop[0]**2/euclidian_product ) ),
-            k_loop[1] * ( k_loop[1]**2/euclidian_product ),
-            k_loop[2] * ( sin( k_loop[2]**2/euclidian_product ) ),
-            k_loop[3] * ( (k_loop[3]**2/euclidian_product)**2 ),
+            k_loop[0] * (cos(k_loop[0]**2/euclidian_product)),
+            k_loop[1] * (k_loop[1]**2/euclidian_product),
+            k_loop[2] * (sin(k_loop[2]**2/euclidian_product)),
+            k_loop[3] * ((k_loop[3]**2/euclidian_product)**2),
         ])
 
 #        deformed_k_loop = k_loop+1j * scaling_factor * vectors.LorentzVector([
