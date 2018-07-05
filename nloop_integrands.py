@@ -8,6 +8,7 @@
 #####################################################
 
 import math
+import cmath
 import shutil
 import os
 import logging
@@ -871,7 +872,8 @@ class box1L_direct_integration(NLoopIntegrand):
         for p in self.external_momenta.values():
             p.boost(-boost_vector)
 
-        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator(topology, self.external_momenta)
+#        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator(topology, self.external_momenta)
+        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
         self.define_loop_integrand(topology)
 
     def define_loop_integrand(self, topology):
@@ -918,8 +920,32 @@ class box1L_direct_integration(NLoopIntegrand):
         denominator *= ( l_mom - p_i[0] - p_i[1] - p_i[2] ).square() - self.loop_propagator_masses[2]**2
         denominator *= ( l_mom ).square() - self.loop_propagator_masses[3]**2
 
+        integrand_box = numerator / denominator
+
+        # Here are some dummy function to try in order to test the phase-space volume
+        euclidian_product = sum(l_mom[i]**2 for i in range(4))
+        # Number 1:
+        #    Warning, this function still has pole in the complex plane, so it may run into issue if the path happens
+        #    to wander around it (and Vegas3 may push it there). For d>2, we have
+        #
+        #    analytical_result_d_gt_2 = math.pi**3 * (1./d) * (Mass_scale**4) * (regulator**( (2./d)-1 )) * (1./math.sin(2.*math.pi/d))
+        #
+        #    for d = 2, we have:
+        #    analytical_result_d_eq_2 = -(1./2) * math.pi**2 * math.log(M_regulator)
+        #
+        Mass_scale  = 100.
+        regulator   = 50.
+        d           = 3
+        #
+        # with the above parameter, the analytical result then reads for:
+        #  Mass_scale = 100. result --> 3.2394732409401247722*10^8
+        #  Mass_scale = 1.   result --> 3.2394732409401247722
+        integrand_example_1   = (1. / ( (euclidian_product/(Mass_scale**2))**d + regulator))
+
         # Return a dummy function for now
         if self.phase_computed == 'Real':
-            return jacobian_weight*( numerator / denominator ).real
+            #misc.sprint("Returning real part: %f"%(jacobian_weight * integrand_example_1.real))
+            return jacobian_weight * integrand_example_1.real
         else:
-            return jacobian_weight*( numerator / denominator ).imag
+            #misc.sprint("Returning complex part: %f"%(jacobian_weight * integrand_example_1.imag))
+            return jacobian_weight * integrand_example_1.imag

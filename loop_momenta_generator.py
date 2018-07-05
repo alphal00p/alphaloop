@@ -9,6 +9,7 @@
 
 import logging
 import madgraph.integrator.vectors as vectors
+import madgraph.various.misc as misc
 from math import sqrt, cos, sin
 from madgraph import InvalidCmd, MadGraph5Error
 
@@ -88,13 +89,14 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         # dk / dr = -1 / ( 2 * ( r - 1/2. )**2 )
         jacobian = 1.
         for rv in random_variables:
-            jacobian *= 1. / (2. * (rv - 0.5)**2 )
+            jacobian *= ( (1. / rv**2) + (1 / ((rv -1.)**2)) )
 
-        return [ vectors.LorentzVector([1./(0.5*(rv -1)) for rv in random_variables[i:i+4]])
+        return [ vectors.LorentzVector([ ((1./(1.-rv)) - 1./rv) for rv in random_variables[i:i+4]])
                                                         for i in range(0, len(random_variables), 4) ], jacobian
+
     def generate_loop_momenta(self, random_variables):
-        """ From the random variables passed in argument, this the d one-loop four-momentum in the form
-         of a LorentzVector."""
+        """ From the random variables passed in argument, this returns the one-loop four-momentum in the form
+         of a list of a single LorentzVector, together with the jacobian of the deformation and conformal map."""
 
         if len(random_variables) != 4 or any((r > 1. or r < 0.) for r in random_variables):
             raise LoopMomentaGeneratorError(
@@ -105,9 +107,9 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         deformed_k_loops, defomation_jacobian = self.apply_deformation(k_loops)
 
-        print("Returning k_deformed= \n    %s\nwith jacobian: %f"%(
-            '\n    '.join('%s'%ki for ki in deformed_k_loops[0]),
-            remapping_weight*defomation_jacobian))
+#        misc.sprint("Returning k_deformed= \n    %s\nwith jacobian: %f"%(
+#            '\n    '.join('%s'%ki for ki in deformed_k_loops[0]),
+#            remapping_weight*defomation_jacobian))
         return deformed_k_loops, remapping_weight*defomation_jacobian
 
     def apply_deformation(self, loop_momenta):
@@ -120,11 +122,14 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         local_point = list(loop_momenta[0])
         jacobian, info = nd.Jacobian(wrapped_function, full_output=True)(local_point)
-        if np.max(info.error_estimate) > 1.e-3:
-            logger.warning("Large error of %f encountered in the numerical evaluation of the Jacobian for the inputs: %s"%
-                                                                    (np.max(info.error_estimate), str(loop_momenta[0])))
+
         # And now compute the determinant
         jacobian_weight = abs(linalg.det(jacobian))
+
+        if np.max(info.error_estimate) > 1.e-3:
+            logger.warning(
+            "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s"%
+                                                  (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
 
         deformed_k_loops = self.deform_loop_momenta(loop_momenta)
 
@@ -203,8 +208,8 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         deformed_k_loop = k_loop + 1j * lambda_cycle * (k_int + k_ext)
 
-        #print('Started with k_loop:',k_loop)
-        #print('Deformed k_loop:', deformed_k_loop)
+        #misc.sprint('Started with k_loop:',k_loop)
+        #misc.sprint('Deformed k_loop:', deformed_k_loop)
 
         return [deformed_k_loop,]
 
@@ -278,3 +283,25 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
     def g(self, k, gamma, M):
         return gamma * M / (k[0] * k[0] + k.rho2() + M)
+
+
+class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
+    """ One loop momentum generator which only applies the conformal map but no deformation. """
+
+    def define_global_quantities_for_contour_defomration(self):
+        """Nothing to do in this case. Move along."""
+        pass
+
+    def generate_loop_momenta(self, random_variables):
+        """ From the random variables passed in argument, this returns the one-loop four-momentum in the form
+         of a list of a single LorentzVector, together with the jacobian of the conformal map."""
+
+        if len(random_variables) != 4 or any((r > 1. or r < 0.) for r in random_variables):
+            raise LoopMomentaGeneratorError(
+                "The function 'generate_loop_momenta' class '%s' requires exactly 4" % self.__class__.__name__ +
+                " input random variables in [0., 1.].")
+
+        k_loops, remapping_weight = self.map_to_infinite_hyperbox(random_variables)
+
+        #misc.sprint("Returning k= \n    %s\nwith jacobian: %f"%('\n    '.join('%s'%ki for ki in k_loops[0]),remapping_weight))
+        return k_loops, remapping_weight

@@ -400,6 +400,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             }
                     
             if integrator_name=='Vegas3':
+                if options['phase_computed']=='All':
+                    logger.warning('Vegas3 integrator cannot simultaneously integrate the real and imaginary part of'+
+                              " the loop for now. The user's choice 'All' for 'phase_computed' is reverted to 'Real'.")
+                    loop_integrand.phase_computed = 'Real'
                 integrator = Vegas3Integrator(loop_integrand, **integration_options)
             elif integrator_name=='pySecDec':
                 integrator = pysecdec_integrator.pySecDecIntegrator(loop_integrand, **integration_options)
