@@ -872,8 +872,10 @@ class box1L_direct_integration(NLoopIntegrand):
         for p in self.external_momenta.values():
             p.boost(-boost_vector)
 
+#        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
+        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator(topology, self.external_momenta)
-        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
+
         self.define_loop_integrand(topology)
 
     def define_loop_integrand(self, topology):

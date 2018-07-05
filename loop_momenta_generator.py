@@ -10,9 +10,12 @@
 import logging
 import madgraph.integrator.vectors as vectors
 import madgraph.various.misc as misc
-from math import sqrt, cos, sin
+from math import sqrt, cos, sin, exp
 from madgraph import InvalidCmd, MadGraph5Error
 
+# Suppress harmless lapack warning
+import warnings
+warnings.filterwarnings(action="ignore", module="scipy", message="^internal gelsd")
 
 class LoopMomentaGeneratorError(MadGraph5Error):
     """ Error for the LoopMomentaGenerator class suite."""
@@ -337,3 +340,66 @@ class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
 
         #misc.sprint("Returning k= \n    %s\nwith jacobian: %f"%('\n    '.join('%s'%ki for ki in k_loops[0]),remapping_weight))
         return k_loops, remapping_weight
+
+class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
+    """ One loop momentum generator which only applies the conformal map but no deformation. """
+
+    def define_global_quantities_for_contour_defomration(self):
+        """Nothing to do in this case. Move along."""
+        pass
+
+    def apply_deformation(self, loop_momenta):
+        """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz
+        4-vector, along with the corresponding jacobian computed numerically.
+        This is a carbon copy of the function in the mother class, overloaded here only to allow further debug statements."""
+
+        # First use numdifftool to compute the jacobian matrix
+        def wrapped_function(loop_momentum):
+            return np.r_[self.deform_loop_momenta([vectors.LorentzVector(loop_momentum), ])[0]]
+
+        local_point = list(loop_momenta[0])
+        jacobian, info = nd.Jacobian(wrapped_function, full_output=True)(local_point)
+
+        # And now compute the determinant
+        jacobian_weight = abs(linalg.det(jacobian))
+
+        if np.max(info.error_estimate) > 1.e-3:
+            logger.warning(
+            "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s"%
+                                                  (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
+
+        deformed_k_loops = self.deform_loop_momenta(loop_momenta)
+
+        #misc.sprint("jacobian_weight=%f"%jacobian_weight)
+        return deformed_k_loops, jacobian_weight
+
+    def deform_loop_momenta(self, loop_momenta):
+        """ This function deforms the starting loop momentum passed in argument and returns it as a Lorentz
+        4-vector. In the implementation of this class, we consider a single loop."""
+
+        # A single loop for now
+        assert len(
+            loop_momenta) == 1, "This class %s can only handle a single loop momentum" % self.__class__.__name__
+        k_loop = loop_momenta[0]
+
+        euclidian_product = sum(k_loop[i]**2 for i in range(4))
+
+        scaling_factor = 0.1e-1
+
+        deformed_k_loop = k_loop+1j * scaling_factor * vectors.LorentzVector([
+            k_loop[0] * ( cos( k_loop[0]**2/euclidian_product ) ),
+            k_loop[1] * ( k_loop[1]**2/euclidian_product ),
+            k_loop[2] * ( sin( k_loop[2]**2/euclidian_product ) ),
+            k_loop[3] * ( (k_loop[3]**2/euclidian_product)**2 ),
+        ])
+
+#        deformed_k_loop = k_loop+1j * scaling_factor * vectors.LorentzVector([
+#            k_loop[0] * ( 1. ),
+#            k_loop[1] * ( 2. ),
+#            k_loop[2] * ( 3. ),
+#            k_loop[3] * ( 4. ),
+#        ])
+
+#        deformed_k_loop = k_loop
+
+        return [deformed_k_loop, ]
