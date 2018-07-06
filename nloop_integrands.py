@@ -868,13 +868,13 @@ class box1L_direct_integration(NLoopIntegrand):
         )
 
         # For now, to avoid having any momentum back to back, boost them out of the center of mass rest frame.
-        boost_vector = (self.external_momenta[1]+2.0*self.external_momenta[2]).boostVector()
-        for p in self.external_momenta.values():
-            p.boost(-boost_vector)
+#        boost_vector = (self.external_momenta[1]+2.0*self.external_momenta[2]).boostVector()
+#        for p in self.external_momenta.values():
+#            p.boost(-boost_vector)
 
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
-        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
-#        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator(topology, self.external_momenta)
+#        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
+        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator(topology, self.external_momenta)
 
         self.define_loop_integrand(topology)
 
@@ -946,8 +946,8 @@ class box1L_direct_integration(NLoopIntegrand):
 
         # Return a dummy function for now
         if self.phase_computed == 'Real':
-            #misc.sprint("Returning real part: %f"%(jacobian_weight * integrand_example_1.real))
+            misc.sprint("Returning real part: %f"%(jacobian_weight * integrand_example_1.real))
             return jacobian_weight * integrand_example_1.real
         else:
-            #misc.sprint("Returning complex part: %f"%(jacobian_weight * integrand_example_1.imag))
+            misc.sprint("Returning complex part: %f"%(jacobian_weight * integrand_example_1.imag))
             return jacobian_weight * integrand_example_1.imag

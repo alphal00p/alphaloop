@@ -79,9 +79,11 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         self.q_i = [self.external_momenta[0], ]
         for i, p_i in enumerate(self.external_momenta[1:]):
             self.q_i.append(self.q_i[i]+p_i)
+        # The last one must be identically equal to zero by energy-momentu, conservation
+        self.q_i[-1] = vectors.LorentzVector([0.,0.,0.,0.])
 
-        self.P_plus = self.findP(plus=True)
-        self.P_minus = self.findP(plus=False)
+        self.P_plus = self.find_P(plus=True)
+        self.P_minus = self.find_P(plus=False)
 
         # Characteristic scale of the process
         self.mu_P = sqrt((self.P_minus - self.P_plus).square())
@@ -270,7 +272,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         sign when approaching the point where this denominator becomes onshell."""
         pass
 
-    def findP(self, plus=True):
+    def find_P(self, plus=True):
         """Find a vector P such that all external momenta `qs` are in
         the forward lightcone of P if `plus`, or are in the backwards lightcone
         if not `plus`.
@@ -298,7 +300,8 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             # filter all vectors that are in the forward/backward light-cone of another vector
             newvec = []
             for i, v in enumerate(vecs):
-                for v1 in vecs[i + 1:]:
+                for j, v1 in enumerate(vecs):
+                    if i==j: continue
                     if (v-v1).square() > 0 and ((plus and v[0] > v1[0]) or (not plus and v[0] < v1[0])):
                         break
                 else:
@@ -306,6 +309,8 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                     newvec.append(v)
 
             vecs = newvec
+            if len(vecs)==0:
+                raise LoopMomentaGeneratorError("Failed to determine P_{+/-}.")
             if len(vecs) <= 1:
                 break
 
@@ -410,7 +415,14 @@ class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
 
         euclidian_product = sum(k_loop[i]**2 for i in range(4))
 
-        scaling_factor = 0.1e-1
+        scaling_factor = 10.
+
+#        deformed_k_loop = k_loop+1j * scaling_factor * vectors.LorentzVector([
+#            k_loop[0] * ( cos( k_loop[0]**2/euclidian_product ) ),
+#            k_loop[1] * ( k_loop[1]**2/euclidian_product ),
+#            k_loop[2] * ( sin( k_loop[2]**2/euclidian_product ) ),
+#            k_loop[3] * ( (k_loop[3]**2/euclidian_product)**2 ),
+#        ])
 
         deformed_k_loop = k_loop+1j * scaling_factor * vectors.LorentzVector([
             k_loop[0] * (cos(k_loop[0]**2/euclidian_product)),
