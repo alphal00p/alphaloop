@@ -946,8 +946,8 @@ class box1L_direct_integration(NLoopIntegrand):
 
         # Return a dummy function for now
         if self.phase_computed == 'Real':
-            misc.sprint("Returning real part: %f"%(jacobian_weight * integrand_example_1.real))
+            #misc.sprint("Returning real part: %f"%(jacobian_weight * integrand_example_1.real))
             return jacobian_weight * integrand_example_1.real
         else:
-            misc.sprint("Returning complex part: %f"%(jacobian_weight * integrand_example_1.imag))
+            #misc.sprint("Returning complex part: %f"%(jacobian_weight * integrand_example_1.imag))
             return jacobian_weight * integrand_example_1.imag
