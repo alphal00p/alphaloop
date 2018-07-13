@@ -2,8 +2,8 @@ CXX=g++ -std=c++11 -O3
 
 #Cuba
 CUBA_METHOD=1 #1:Vegas 2:Suave 3:Divone 4:Cuhre
-MY_LIB=/usr/local/Cellar/cuba/4.2/lib/	
-MY_INC=/usr/local/Cellar/cuba/4.2/include/	
+MY_LIB=/Users/valentin/Documents/HEP_softs/Cuba-4.2/lib
+MY_INC=/Users/valentin/Documents/HEP_softs/Cuba-4.2/include
 
 #Scattering Angle
 SCATTERING_ANGLE=M_PI/2.

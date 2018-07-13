@@ -43,7 +43,7 @@ class LoopMomentaGenerator(object):
     def __init__(self, topology, **opts):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
         must be generated."""
-
+        pass
 
 class OneLoopMomentumGenerator(LoopMomentaGenerator):
     """ Class for generating a complex-valued one-loop momentum from random variables in the unit hypercube,
@@ -79,7 +79,8 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         self.q_i = [self.external_momenta[0], ]
         for i, p_i in enumerate(self.external_momenta[1:]):
             self.q_i.append(self.q_i[i]+p_i)
-        # The last one must be identically equal to zero by energy-momentu, conservation
+
+        # The last one must be identically equal to zero by energy-momentum, conservation
         self.q_i[-1] = vectors.LorentzVector([0.,0.,0.,0.])
 
         self.P_plus = self.find_P(plus=True)
