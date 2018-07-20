@@ -3,7 +3,7 @@
 #  Source file of the pyNLoop GGVV MG5aMC plugin.   #
 #  Use only with consent of its authors.            #
 #                                                   #
-#  author: Valentin Hirschi, Ben Ruij               #
+#  author: Valentin Hirschi, Ben Ruijl              #
 #                                                   #
 #####################################################
 
@@ -14,6 +14,9 @@ import shutil
 import re
 import random
 import sympy
+import math
+
+import matplotlib.pyplot as plt
 
 from distutils.version import LooseVersion, StrictVersion
 
@@ -25,6 +28,7 @@ import madgraph.interface.extended_cmd as cmd
 import madgraph.interface.madgraph_interface as madgraph_interface
 import madgraph.various.misc as misc
 import madgraph.various.cluster as cluster
+import madgraph.integrator.vectors as vectors
 
 from madgraph.iolibs.files import cp, ln, mv
 
@@ -211,6 +215,85 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         'run in multicore.')
 
             return cluster.MultiCore(**options_to_pass_to_cluster)
+
+    def do_plot_deformation(self, line):
+        """ Command for plotting the deformation along a given axis for a loop Feynman diagram."""
+        
+        args = self.split_arg(line)
+        args, options = self.parse_integrate_loop_options(args)
+        
+        
+        # For debugging you can easily print out the options as follows:
+        #misc.sprint(options)
+        
+        if options['seed']:
+            random.seed(options['seed'])
+
+        chosen_topology_name = args[0]
+        if chosen_topology_name not in self._hardcoded_topologies:
+            raise InvalidCmd('For now, pyNLoop only support the specification of the'+
+            ' following hardcoded topologies: %s'%(','.join(self._hardcoded_topologies.keys())))
+        
+        chosen_topology = self._hardcoded_topologies[chosen_topology_name]
+        
+        # Now generate the external momenta randomly, as this is the only mode we support
+        # for now.
+        phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
+            chosen_topology['masses'][:2], chosen_topology['masses'][2:],
+            [options['sqrt_s']/2.,options['sqrt_s']/2.],
+            beam_types=(1,1)
+        )
+        
+        # Specifying None to get a random PS point
+        random_PS_point, wgt, x1, x2 = phase_space_generator.get_PS_point(None)
+        # Use the dictionary representation of the PS Point
+        random_PS_point = random_PS_point.to_dict()
+        
+        # For loop calculations, it customary to consider all legs outgoing, so we must
+        # flip the initial states directions.
+        for i in random_PS_point:
+            if i <= 2:
+                continue
+            random_PS_point[i] = -random_PS_point[i]
+
+        # For debugging you can easily print out the chosen PS point as follows:
+        #misc.sprint(str(random_PS_point))
+   
+        n_loop_integrand = chosen_topology['class'](
+            n_loops            =   chosen_topology['n_loops'],
+            external_momenta   =   random_PS_point,
+            phase_computed     =   options['phase_computed'],
+            # Data-structure for specifying a topology to be determined 
+            topology           =   chosen_topology_name,
+        )
+
+        # take a random vector
+        ref_vec = vectors.LorentzVector([0.5,0.1,0.2,0.3])
+        misc.sprint("Reference vector:" + str(ref_vec))
+
+        # now sample NUM_POINTS points and compute the deformation
+        NUM_POINTS = 50
+        points = [ref_vec * i / float(NUM_POINTS) for i in range(1,NUM_POINTS)]
+        #misc.sprint("Sample points:" + str(points))
+
+        points = [n_loop_integrand.loop_momentum_generator.generate_loop_momenta(p) for p in points]
+
+        deformed_points, jacobians = zip(*points)
+        deformed_points = [d[0] for d in deformed_points]
+
+        # map the deformed points back to the unit?
+        #deformed_mapped_unit = [n_loop_integrand.loop_momentum_generator.map_from_infinite_hyperbox(d) for d in deformed_points]
+
+        # the deformation should not have changed the real components
+
+        x = [ i / float(NUM_POINTS) for i in range(1, NUM_POINTS) ]
+
+        # get the distance on the imaginary axis.
+        # TODO: at the moment this is euclidean
+        y = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
+        plt.plot(x, y)
+        plt.show()
+
         
     def parse_integrate_loop_options(self, args):
         """ Parsing arguments/options passed to the command integrate_loop."""

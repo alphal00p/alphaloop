@@ -3,7 +3,7 @@
 #  Source file of the pyNLoop GGVV MG5aMC plugin.   #
 #  Use only with consent of its authors.            #
 #                                                   #
-#  author: Valentin Hirschi, Ben Ruij               #
+#  author: Valentin Hirschi, Ben Ruijl              #
 #                                                   #
 #####################################################
 
@@ -115,6 +115,12 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         return [vectors.LorentzVector([((1./(1.-rv)) - 1./rv) for rv in random_variables[i:i+4]])
                 for i in range(0, len(random_variables), 4)], jacobian
+
+    def map_from_infinite_hyperbox(self, random_variables):
+        """ Maps a set of four random variables in the infinite hyperbox to the unit cube."""
+
+        return [vectors.LorentzVector([(-2+rv+sqrt(4+rv**2))/2/rv for rv in random_variables[i:i+4]])
+                for i in range(0, len(random_variables), 4)]
 
     def generate_loop_momenta(self, random_variables):
         """ From the random variables passed in argument, this returns the one-loop four-momentum in the form
