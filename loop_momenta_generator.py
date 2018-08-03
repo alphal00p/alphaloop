@@ -288,19 +288,19 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         # helper function
         def Z(x, y):
             # WARNING: watchout for configurations with input momenta that are back-to-back as then rho2() is zero
-            n = 1.0 / y.rho2()
+            n = 1.0 / sqrt(y.rho2())
             if plus:
-                return 0.5 * vectors.LorentzVector([x[0] - n * y.square() + n * y[0] ** 2,
-                                                    x[1] + n * y[0] *
-                                                    y[1], x[2] + n *
-                                                    y[0] * y[2],
-                                                    x[3] + n * y[0] * y[3]])
-            else:
                 return 0.5 * vectors.LorentzVector([x[0] + n * y.square() - n * y[0] ** 2,
                                                     x[1] - n * y[0] *
                                                     y[1], x[2] - n *
                                                     y[0] * y[2],
                                                     x[3] - n * y[0] * y[3]])
+            else:
+                return 0.5 * vectors.LorentzVector([x[0] - n * y.square() + n * y[0] ** 2,
+                                                    x[1] + n * y[0] *
+                                                    y[1], x[2] + n *
+                                                    y[0] * y[2],
+                                                    x[3] + n * y[0] * y[3]])
 
         vecs = list(self.q_i)
         while True:

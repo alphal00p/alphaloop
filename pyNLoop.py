@@ -272,7 +272,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         misc.sprint("Reference vector:" + str(ref_vec))
 
         # now sample NUM_POINTS points and compute the deformation
-        NUM_POINTS = 50
+        NUM_POINTS = 100
         points = [ref_vec * i / float(NUM_POINTS) for i in range(1,NUM_POINTS)]
         #misc.sprint("Sample points:" + str(points))
 
@@ -290,8 +290,12 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # get the distance on the imaginary axis.
         # TODO: at the moment this is euclidean
-        y = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
-        plt.plot(x, y)
+        for i in range(4):
+            plt.plot(x, [d[i].imag for d in deformed_points], label='comp {}'.format(i))
+
+        dist = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
+        plt.plot(x, dist, linewidth=2.0, label='Distance')
+        plt.legend(loc='upper right')
         plt.show()
 
         
