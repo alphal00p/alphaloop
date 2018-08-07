@@ -269,11 +269,21 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # take a random vector
         ref_vec = vectors.LorentzVector([1.0-1.0e-05,0.1,0.2,0.3])*0.01
+
+        # normalize the largest component to 1
+        ref_vec = ref_vec / max(ref_vec)
         misc.sprint("Reference vector:" + str(ref_vec))
 
+        # compute the positions of the poles on the ref vec line
+        # TODO: add mass
+        poles = [k / ref_vec.square() for qi in n_loop_integrand.loop_momentum_generator.q_i 
+                    for k in [ref_vec.dot(qi) + math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square()), ref_vec.dot(qi) - math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square())]
+                    if ref_vec.dot(qi)**2 >= ref_vec.square() * qi.square()]
+        misc.sprint("Poles: %s"%poles)
+
         # now sample NUM_POINTS points and compute the deformation
-        NUM_POINTS = 500
-        points = [ vectors.LorentzVector([1.0-1.0e-05,0.1,0.2,0.3])*0.99+(ref_vec * i / float(NUM_POINTS)) for i in range(1,NUM_POINTS)]
+        NUM_POINTS = 50
+        points = [ (ref_vec * i / float(NUM_POINTS)) for i in range(1,NUM_POINTS)]
 
         #misc.sprint("Sample points:" + str(points))
 
@@ -293,12 +303,18 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         x = [ i / float(NUM_POINTS) for i in range(1, NUM_POINTS) ]
 
         # get the distance on the imaginary axis.
-        # TODO: at the moment this is euclidean
         for i in range(4):
             plt.plot(x, [d[i].imag for d in deformed_points], label='comp {}'.format(i))
 
         dist = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
         plt.plot(x, dist, linewidth=2.0, label='Distance')
+
+        # plot the poles
+        polemapped = [-2/(-2+p-math.sqrt(4+p**2)) for p in poles]
+        misc.sprint("Poles mapped: %s"%polemapped)
+        for p in polemapped:
+            plt.plot(p, 0, marker='o', markersize=3, color="red")
+
         plt.legend(loc='upper right')
         plt.show()
 

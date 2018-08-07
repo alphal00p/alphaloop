@@ -119,7 +119,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
     def map_from_infinite_hyperbox(self, random_variables):
         """ Maps a set of four random variables in the infinite hyperbox to the unit cube."""
 
-        return [vectors.LorentzVector([(-2+rv+sqrt(4+rv**2))/2/rv for rv in random_variables[i:i+4]])
+        return [vectors.LorentzVector([-2/(-2+rv-math.sqrt(4+rv**2)) for rv in random_variables[i:i+4]])
                 for i in range(0, len(random_variables), 4)]
 
     def generate_loop_momenta(self, random_variables):
