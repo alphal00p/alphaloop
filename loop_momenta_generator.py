@@ -253,14 +253,14 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         for j in range(n):
             xj = (k0.dot(k_loop - self.q_i[j]) / k0.square())**2
             yj = (
-                (k_loop - self.q_i[j]).square() - self.loop_propagator_masses[j]**2) / k0.square()**2
+                (k_loop - self.q_i[j]).square() - self.loop_propagator_masses[j]**2) / k0.square()
 
             if 2 * xj < yj:
-                lambda_cycle = min(lambda_cycle, sqrt(yj / 4))
+                lambda_cycle = min(lambda_cycle, sqrt(yj / 4.))
             elif yj < 0:
-                lambda_cycle = min(lambda_cycle, sqrt(xj - yj/2))
+                lambda_cycle = min(lambda_cycle, sqrt(xj - yj/2.))
             else:
-                lambda_cycle = min(lambda_cycle, sqrt(xj - yj/4))
+                lambda_cycle = min(lambda_cycle, sqrt(xj - yj/4.))
 
         N = sum(c)  # + sum(sum(x) for x in c2) + sum(abs(x) for x in ca)
         lambda_cycle = min(lambda_cycle, 1/(4 * N))

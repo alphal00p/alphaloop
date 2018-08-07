@@ -243,7 +243,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             [options['sqrt_s']/2.,options['sqrt_s']/2.],
             beam_types=(1,1)
         )
-        
+
         # Specifying None to get a random PS point
         random_PS_point, wgt, x1, x2 = phase_space_generator.get_PS_point(None)
         # Use the dictionary representation of the PS Point
@@ -268,17 +268,21 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         )
 
         # take a random vector
-        ref_vec = vectors.LorentzVector([0.5,0.1,0.2,0.3])
+        ref_vec = vectors.LorentzVector([1.0-1.0e-05,0.1,0.2,0.3])*0.01
         misc.sprint("Reference vector:" + str(ref_vec))
 
         # now sample NUM_POINTS points and compute the deformation
-        NUM_POINTS = 100
-        points = [ref_vec * i / float(NUM_POINTS) for i in range(1,NUM_POINTS)]
+        NUM_POINTS = 500
+        points = [ vectors.LorentzVector([1.0-1.0e-05,0.1,0.2,0.3])*0.99+(ref_vec * i / float(NUM_POINTS)) for i in range(1,NUM_POINTS)]
+
         #misc.sprint("Sample points:" + str(points))
 
-        points = [n_loop_integrand.loop_momentum_generator.generate_loop_momenta(p) for p in points]
+        misc.sprint("Last 5 points: %s"%(str([str(p) for p in points[-5:]])))
+        deformed_points = [n_loop_integrand.loop_momentum_generator.generate_loop_momenta(p) for p in points]
 
-        deformed_points, jacobians = zip(*points)
+        deformed_points, jacobians = zip(*deformed_points)
+        misc.sprint("Last 5 deformed points: %s"%(str([str(p) for p in deformed_points[-5:]])))
+
         deformed_points = [d[0] for d in deformed_points]
 
         # map the deformed points back to the unit?
