@@ -13,7 +13,7 @@ DIdeform::R4vector p2({0.5,-0.5, 0.0, 0.0});
 DIdeform::R4vector p3({0.5, 0.5 * std::cos(ROTATION_ANGLE ), 0.5 * std::sin(ROTATION_ANGLE), 0.0});
 
 
-//ofstream file("points.txt",ios::out);
+ofstream file("points.txt",ios::out);
 
 int Integrand(const int *ndim, const cubareal xx[],
 	      const int *ncomp, cubareal ff[], void *userdata) {
@@ -58,7 +58,7 @@ int Integrand(const int *ndim, const cubareal xx[],
   my_real factor = 1.;
   
   //Numeric Jacobian
-  /*my_real eps = sqrt(std::numeric_limits<my_real>::epsilon());
+  my_real eps = sqrt(std::numeric_limits<my_real>::epsilon());
   std::vector<std::vector<my_comp>> grad(4, std::vector<my_comp>(4, 0.));
   std::vector<DIdeform::R4vector> ev(4);
   for (int mu = 0; mu < 4; mu++)
@@ -84,7 +84,7 @@ int Integrand(const int *ndim, const cubareal xx[],
   }
   Njacobian = abs(DIdeform::Determinant(grad));
   
-  if (abs((Njacobian - deformation_jacobian) / deformation_jacobian) > 0.1)
+  if (abs((Njacobian - deformation_jacobian) / deformation_jacobian) > 0.05)
   {
     file << "{"
          << l(0) << ","
@@ -101,8 +101,8 @@ int Integrand(const int *ndim, const cubareal xx[],
  // if (abs(Njacobian - jacobian) > .1)
  //   cout << "BOOM" << endl;
   //deformation_jacobian = Njacobian;
-*/
-  if (true)
+
+  if (!true)
   {
     jacobian = hypercube_jacobian * deformation_jacobian;
     
@@ -123,7 +123,7 @@ int Integrand(const int *ndim, const cubareal xx[],
   else
   {
     jacobian = hypercube_jacobian * deformation_jacobian;
-    f = jacobian * 1. / (pow((ell * ell.dual()) / pow(100, 2), 3) + 50.);
+    f = jacobian * 1. / (pow((ell * ell.dual()) / pow(1, 2), 3) + 50.);
   }
 
   f_real = f.real() * factor;

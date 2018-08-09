@@ -68,7 +68,6 @@ namespace DIdeform{
 
   //Map the hypercube to the momentum space
   R4vector hypcub_mapping(std::vector<my_real> x);
-  //my_real hypcub_jacobian(R4vector& x);
   my_real hypcub_jacobian(std::vector<my_real> x);
   
   my_comp Determinant(const std::vector<std::vector<my_comp> > & bb);
@@ -170,7 +169,8 @@ namespace DIdeform{
     //Derivatives
     
     //Constructor Function
-    void set_PpPm(std::vector<DIdeform::R4vector> & Qs);
+    void set_PpPm(std::vector<R4vector> & Qs);
+    void set_global_var();
     //void Find_Topology();
     
   public:

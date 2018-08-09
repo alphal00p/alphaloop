@@ -41,7 +41,7 @@ if [ $# -eq 2 ]; then
 else
     g++ -std=c++11 -O3 $MY_CFUN.cpp -c -I$MY_INC
 fi
-g++ -std=c++11 -O3 DCD.cpp -c -I$MY_INC 
+g++ -std=c++11 -O3 -fPIC DCD.cpp -c -I$MY_INC 
 
 #Compile Cuba
 g++ -std=c++11 -O4 $CUBA_CFUN -D CUBA_WHAT=$CUBA_METHOD -I$MY_INC -L$MY_LIB -lcuba $MY_CFUN.o DCD.o
