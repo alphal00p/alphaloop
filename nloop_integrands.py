@@ -118,45 +118,6 @@ class IntegratedCounterterm(object):
         """ Short string representation of this integrand. Add as a suffix the name of 
         this integrated counterterm to the name as there can be several integrated CT per loop."""
         return '%s@%s'%(self.__class__.__name__, self.integrated_CT_name)
-        
-
-class HardCodedOffshellScalarBox(NLoopIntegrand):
-
-    # We plan on being able to use pySecDec integrator only for this case
-    _supported_integrators = ['pySecDec']
-
-    _pySecDecOutputName    = 'pySecDecLoopPackage'
-
-    def __init__(self,
-                 n_loops=1,
-                 external_momenta=vectors.LorentzVectorDict(),
-                 phase_computed='Real',
-                 # Data-structure for specifying a topology to be determined
-                 topology=None,
-                 **opts):
-
-        # Create the Feynman parameters dimensions. As we intend to use the pySecDec integrator
-        # this has little relevance anyway.
-        dimensions = integrands.DimensionList([
-            integrands.ContinuousDimension(
-                'x%d' % (i_prop+1), lower_bound=0.0, upper_bound=1.0)
-            for i_prop in range(len(external_momenta))])
-
-        # I am copying here all options just to make it explicit that could be used here as well.
-        super(HardCodedOffshellScalarBox, self).__init__(
-            dimensions=dimensions,
-            n_loops=n_loops,
-            external_momenta=external_momenta,
-            phase_computed=phase_computed,
-            # Data-structure for specifying a topology to be determined
-            topology=topology,
-            **opts
-        )
-
-    def __call__(self, continuous_inputs, discrete_inputs, **opts):
-        """ Actual evaluation of the call."""
-
-        raise NotImplementedError
 
 class box1L(NLoopIntegrand):
 
@@ -262,6 +223,111 @@ class box1L(NLoopIntegrand):
         raise NotImplementedError
 
 
+class box1L_offshell_massless(NLoopIntegrand):
+
+    # We plan on being able to use pySecDec integrator only for this case
+    _supported_integrators = ['pySecDec']
+
+    _pySecDecOutputName    = 'pySecDecLoopPackage'
+
+    def __init__(self,
+                 n_loops=1,
+                 external_momenta=vectors.LorentzVectorDict(),
+                 phase_computed='All',
+                 # Data-structure for specifying a topology to be determined
+                 topology=None,
+                 **opts):
+
+        # Create the Feynman parameters dimensions. As we intend to use the pySecDec integrator
+        # this has little relevance anyway.
+        dimensions = integrands.DimensionList([
+            integrands.ContinuousDimension(
+                'x%d' % (i_prop+1), lower_bound=0.0, upper_bound=1.0)
+            for i_prop in range(len(external_momenta))])
+
+        # I am copying here all options just to make it explicit that could be used here as well.
+        super(box1L_offshell_massless, self).__init__(
+            dimensions=dimensions,
+            n_loops=n_loops,
+            external_momenta=external_momenta,
+            phase_computed=phase_computed,
+            # Data-structure for specifying a topology to be determined
+            topology=topology,
+            **opts
+        )
+
+        # Now generate the pySecDec loop integrand object
+        self.pySecDec_loop_integrand = pySecDec.loop_integral.LoopIntegralFromGraph(
+            internal_lines=[[0, [1, 2]], [0, [2, 3]],
+                            [0, [3, 4]], [0, [4, 1]]],
+            external_lines=[['p1', 1], ['p2', 2], ['p3', 3], ['p4', 4]],
+            replacement_rules=[
+                ('p1*p1', 'p1p1'),
+                ('p2*p2', 'p2p2'),
+                ('p3*p3', 'p3p3'),
+                ('p4*p4', 'p4p4'),
+                ('p3*p2', 'p3p2'),
+                ('p1*p2', 'p1p2'),
+                ('p1*p4', 'p1p4'),
+                ('p2*p4', 'p2p4'),
+                ('p3*p4', 'p3p4')
+            ],
+#            regulator='eps',
+#            regulator_power=0,
+#            dimensionality='4-2*eps',
+        )
+        self.integrand_parameters = ['p1p1','p2p2','p3p3','p4p4',
+                                     'p3p2','p1p2','p1p4','p2p4','p3p4']
+
+        self.integrand_parameters_values = [
+            self.external_momenta[1].dot(self.external_momenta[1]),
+            self.external_momenta[2].dot(self.external_momenta[2]),
+            self.external_momenta[3].dot(self.external_momenta[3]),
+            self.external_momenta[4].dot(self.external_momenta[4]),
+            self.external_momenta[3].dot(self.external_momenta[2]),
+            self.external_momenta[1].dot(self.external_momenta[2]),
+            self.external_momenta[1].dot(self.external_momenta[4]),
+            self.external_momenta[2].dot(self.external_momenta[4]),
+            self.external_momenta[3].dot(self.external_momenta[4])
+        ]
+
+    def output(self, output_folder, verbosity=0, **opts):
+        """ Possibly output some low-level code representation of the integrand to make
+        its evaluation faster."""
+
+        if not super(box1L_offshell_massless, self).output(output_folder, **opts):
+            return False
+
+        logger.info("Generating pySecDec output for integrand '%s' ..." %
+                    self.nice_string())
+        with misc.chdir(self.output_folder) as cwd:
+            with misc.Silence(active=(verbosity == 0)):
+                pySecDec_loop_package(
+                    name='pySecDecLoopPackage',
+                    loop_integral=self.pySecDec_loop_integrand,
+                    real_parameters=self.integrand_parameters,
+                    # the highest order of the final epsilon expansion --> change this value to whatever you think is appropriate
+                    requested_order=0,
+                    # the optimization level to use in FORM (can be 0, 1, 2, 3)
+                    form_optimization_level=2,
+                    # the WorkSpace parameter for FORM
+                    form_work_space='100M',
+                    # the method to be used for the sector decomposition
+                    # valid values are ``iterative`` or ``geometric`` or ``geometric_ku``
+                    decomposition_method='iterative',
+                    # if you choose ``geometric[_ku]`` and 'normaliz' is not in your
+                    # $PATH, you can set the path to the 'normaliz' command-line
+                    # executable here
+                    # normaliz_executable='/path/to/normaliz',
+                )
+
+        return True
+
+    def __call__(self, continuous_inputs, discrete_inputs, **opts):
+        """ Actual evaluation of the call."""
+
+        raise NotImplementedError
+
 class box1L_onshell_massless(NLoopIntegrand):
 
     # We plan on being able to use pySecDec integrator only for this case
@@ -272,7 +338,7 @@ class box1L_onshell_massless(NLoopIntegrand):
     def __init__(self,
                  n_loops=1,
                  external_momenta=vectors.LorentzVectorDict(),
-                 phase_computed='Real',
+                 phase_computed='All',
                  # Data-structure for specifying a topology to be determined
                  topology=None,
                  **opts):

@@ -85,8 +85,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 'n_legs'    :   4,
                 'masses'    :   [100., 200., 300., 400.]
             },
-        'scalar_box_full_offshell' : 
-            {   'class'     :   nloop_integrands.HardCodedOffshellScalarBox,
+        'box1L_offshell_massless' :
+            {   'class'     :   nloop_integrands.box1L_offshell_massless,
                 'n_loops'   :   1,
                 'n_legs'    :   4,
                 'masses'    :   [100., 200., 300., 400.]
@@ -568,7 +568,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         random_PS_point, wgt, x1, x2 = phase_space_generator.get_PS_point(None)
         # Use the dictionary representation of the PS Point
         random_PS_point = random_PS_point.to_dict()
-        
+
         # For loop calculations, it customary to consider all legs outgoing, so we must
         # flip the initial states directions.
         for i in random_PS_point:
@@ -604,7 +604,11 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     
             if i_integrand==0:
                 res_summary = open(pjoin(options['output_folder'],'result.dat'),'w')
-                res_summary_lines = []        
+                res_summary_lines = ['PS point considered:']
+                res_summary_lines.append('%-3s %s'%('#', ' '.join('%-30s'%comp for comp in ['E','p_x','p_y','p_z'])))
+                for i_leg, momentum in random_PS_point.items():
+                    res_summary_lines.append('%-3d %s'%(i_leg, ' '.join('%-30.16e'%comp for comp in momentum)))
+                res_summary_lines.append('')
                 res_summary_lines.append(('%-30s'*(n_loop_integrand.n_loops*4+3))%tuple(
                     ['','O(eps^0) Re','O(eps^0) Im']+sum([['O(eps^-%d) Re'%eps_index,'O(eps^-%d) Im'%eps_index] 
                                     for eps_index in range(1,n_loop_integrand.n_loops*2+1)],[])))
@@ -669,13 +673,15 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.dump_result_to_file(
                 res_summary, loop_integrand.n_loops, amplitude, error, loop_integrand.nice_string())
 
-
+        logger.info("")
+        logger.info("PS point considered in this run:\n%s" % str(random_PS_point))
+        logger.info("")
         if len(all_integrands)>1:
             # Now close the result summary file after having reported the aggregated results
-            self.print_results(all_integrands[0], integrator, 
+            self.print_results(all_integrands[0], integrator,
                     all_integrands_amplitude, all_integrands_error, label='Aggregated results')
         # Write the result in 'cross_sections.dat' of the result directory
-        self.dump_result_to_file(res_summary, all_integrands[0].n_loops, 
+        self.dump_result_to_file(res_summary, all_integrands[0].n_loops,
                       all_integrands_amplitude, all_integrands_error, 'Aggregated results')
         res_summary.close()
 
