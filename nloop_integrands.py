@@ -22,8 +22,11 @@ logger = logging.getLogger('pyNLoop.Integrand')
 
 pjoin = os.path.join
 
-import pySecDec
-from pySecDec.loop_integral import loop_package as pySecDec_loop_package
+try:
+    import pySecDec
+    from pySecDec.loop_integral import loop_package as pySecDec_loop_package
+except ImportError:
+    logger.warning("Import of pySecDec fails; you will not be able integrate loops depending on this integrator.")
 
 class NLoopIntegrand(integrands.VirtualIntegrand):
     """ Class for implementing an N-loop integrand."""
@@ -834,7 +837,6 @@ class box1L_integrated_CT_VH(box1L_integrated_CT):
 # First example of a one-loop diagram integrated directly in momentum space
 #
 ###########################################################################################
-
 class box1L_direct_integration(NLoopIntegrand):
 
     # We plan on being able to use pySecDec integrator only for this case
@@ -872,9 +874,14 @@ class box1L_direct_integration(NLoopIntegrand):
 #        for p in self.external_momenta.values():
 #            p.boost(-boost_vector)
 
+        default_loop_momentum_generator_class = loop_momenta_generator.OneLoopMomentumGenerator
+        loop_momentum_generator_class = opts.get('loop_momentum_generator_class', default_loop_momentum_generator_class)
+        if loop_momentum_generator_class is None:
+            loop_momentum_generator_class = default_loop_momentum_generator_class
+
+        self.loop_momentum_generator = loop_momentum_generator_class(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
-        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator(topology, self.external_momenta)
 
         self.define_loop_integrand(topology)
 

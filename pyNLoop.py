@@ -15,6 +15,7 @@ import re
 import random
 import sympy
 import math
+import copy
 
 import matplotlib.pyplot as plt
 
@@ -38,6 +39,7 @@ from madgraph.integrator.vegas3_integrator import Vegas3Integrator
 # import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 
 import nloop_integrands
+import loop_momenta_generator
 import pysecdec_integrator
 
 
@@ -65,9 +67,11 @@ EPSILONS.update({ i : (u'\u03B5%s'%utf8_exp_chars[i]).encode('utf-8') for i in r
 
 class pyNLoopInterfaceError(MadGraph5Error):
     """ Error for the pyNLoop plugin """
+    pass
 
 class pyNLoopInvalidCmd(InvalidCmd):
     """ Invalid command issued to the pyNLoop interface. """
+    pass
 
 class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     """ Interface for steering the generation/output of pyNLoop.
@@ -220,9 +224,13 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         """ Command for plotting the deformation along a given axis for a loop Feynman diagram."""
         
         args = self.split_arg(line)
-        args, options = self.parse_integrate_loop_options(args)
-        
-        
+        args, options = self.parse_plot_deformation_options(args)
+
+
+        # take a random vector
+        ref_vec  = options['reference_vector']
+        n_points = options['n_points']
+
         # For debugging you can easily print out the options as follows:
         #misc.sprint(options)
         
@@ -252,62 +260,71 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # For loop calculations, it customary to consider all legs outgoing, so we must
         # flip the initial states directions.
         for i in random_PS_point:
-            if i <= 2:
+            if i > 2:
                 continue
             random_PS_point[i] = -random_PS_point[i]
 
         # For debugging you can easily print out the chosen PS point as follows:
         #misc.sprint(str(random_PS_point))
-   
-        n_loop_integrand = chosen_topology['class'](
-            n_loops            =   chosen_topology['n_loops'],
-            external_momenta   =   random_PS_point,
-            phase_computed     =   options['phase_computed'],
-            # Data-structure for specifying a topology to be determined 
-            topology           =   chosen_topology_name,
-        )
-
-        # take a random vector
-        ref_vec = vectors.LorentzVector([1.0-1.0e-05,0.1,0.2,0.3])*0.01
 
         # normalize the largest component to 1
         ref_vec = ref_vec / max(ref_vec)
-        misc.sprint("Reference vector:" + str(ref_vec))
+#        misc.sprint("Reference vector:" + str(ref_vec))
 
         # compute the positions of the poles on the ref vec line
         # TODO: add mass
         poles = [k / ref_vec.square() for qi in n_loop_integrand.loop_momentum_generator.q_i 
                     for k in [ref_vec.dot(qi) + math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square()), ref_vec.dot(qi) - math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square())]
                     if ref_vec.dot(qi)**2 >= ref_vec.square() * qi.square()]
-        misc.sprint("Poles: %s"%poles)
+#        misc.sprint("Poles: %s"%poles)
 
-        # now sample NUM_POINTS points and compute the deformation
-        NUM_POINTS = 50
-        points = [ (ref_vec * i / float(NUM_POINTS)) for i in range(1,NUM_POINTS)]
+        # now sample n_points points and compute the deformation
+        points = [ (ref_vec * i / float(n_points)) for i in range(1,n_points)]
 
-        #misc.sprint("Sample points:" + str(points))
+        n_loop_integrand = chosen_topology['class'](
+            n_loops            =   chosen_topology['n_loops'],
+            external_momenta   =   random_PS_point,
+            phase_computed     =   options['phase_computed'],
+            # Data-structure for specifying a topology to be determined
+            topology           =   chosen_topology_name,
+        )
 
-        misc.sprint("Last 5 points: %s"%(str([str(p) for p in points[-5:]])))
-        deformed_points = [n_loop_integrand.loop_momentum_generator.generate_loop_momenta(p) for p in points]
+        all_n_loop_integrands = []
+        for loop_momenta_generator_class in options['loop_momenta_generator_classes']:
+            all_n_loop_integrands.append( (
+                loop_momenta_generator_class if loop_momenta_generator_class == 'default'
+                                              else loop_momenta_generator_class.__name__ ,
+                chosen_topology['class'](
+                    n_loops=chosen_topology['n_loops'],
+                    external_momenta=random_PS_point,
+                    phase_computed=options['phase_computed'],
+                    # Data-structure for specifying a topology to be determined
+                    topology=chosen_topology_name,
+                    loop_momentum_generator_class =  (
+                        None if loop_momenta_generator_class == 'default'
+                             else loop_momenta_generator_class)
+            ) )
 
-        deformed_points, jacobians = zip(*deformed_points)
-        misc.sprint("Last 5 deformed points: %s"%(str([str(p) for p in deformed_points[-5:]])))
+        x_entries = [i / float(n_points) for i in range(1, n_points)]
 
-        deformed_points = [d[0] for d in deformed_points]
+        for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
+            deformed_points = [n_loop_integrand.loop_momentum_generator.generate_loop_momenta(p) for p in points]
+            deformed_points, jacobians = zip(*deformed_points)
+#           misc.sprint("Last 5 points: %s"%(',\n'.join([str(p) for p in points[-5:]])))
+#           misc.sprint("Last 5 deformed points: %s"%(',\n'.join([str(p) for p in deformed_points[-5:]])))
+            # Make sure to save here only the first momentum for now
+            deformed_points = [d[0] for d in deformed_points]
 
-        # map the deformed points back to the unit?
-        #deformed_mapped_unit = [n_loop_integrand.loop_momentum_generator.map_from_infinite_hyperbox(d) for d in deformed_points]
+            # Note that the deformation should not have changed the real components
+            # get the distance on the imaginary axis.
+            for i_comp in range(4):
+                if i_comp not in options['components_to_plot']:
+                    continue
+                plt.plot(x_entries, [d[i].imag for d in deformed_points],
+                         label='component #%d @%s'%(i_comp,lm_generator_name))
 
-        # the deformation should not have changed the real components
-
-        x = [ i / float(NUM_POINTS) for i in range(1, NUM_POINTS) ]
-
-        # get the distance on the imaginary axis.
-        for i in range(4):
-            plt.plot(x, [d[i].imag for d in deformed_points], label='comp {}'.format(i))
-
-        dist = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
-        plt.plot(x, dist, linewidth=2.0, label='Distance')
+            dist = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
+            plt.plot(x, dist, linewidth=2.0, label='Distance')
 
         # plot the poles
         polemapped = [-2/(-2+p-math.sqrt(4+p**2)) for p in poles]
@@ -318,25 +335,105 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         plt.legend(loc='upper right')
         plt.show()
 
-        
     def parse_integrate_loop_options(self, args):
         """ Parsing arguments/options passed to the command integrate_loop."""
 
+        options = {
+            'PS_point': 'random',
+            'seed': None,
+            'sqrt_s': 1000.0,
+            'target_accuracy': 1.0e-3,
+            'batch_size': 1000,
+            'verbosity': 1,
+            'nb_CPU_cores': None,
+            'phase_computed': 'All',
+            'survey_n_iterations': 10,
+            'survey_n_points': 2000,
+            'refine_n_iterations': 10,
+            'refine_n_points': 1000,
+            'output_folder': pjoin(MG5DIR, 'MyPyNLoop_output'),
+            'force': False
+        }
+
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args) > 0:
+                opt_args[-1] += ' %s' % arg
+            else:
+                new_args.append(arg)
+
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=')
+            except:
+                key, value = arg, None
+            key = key[2:]
+
+            if key == 'PS_point':
+                if value not in ['random', ]:
+                    raise pyNLoopInvalidCmd('For now, pyNLoops only support the ' +
+                                            'specification of a random PS point')
+                options[key] = value
+
+            elif key in ['seed', 'batch_size', 'verbosity', 'nb_CPU_cores',
+                         'survey_n_iterations', 'survey_n_points', 'refine_n_iterations', 'refine_n_points']:
+                try:
+                    parsed_int = int(value)
+                except ValueError:
+                    raise pyNLoopInvalidCmd('Cannot parse specified %s integer: %s' % (key, value))
+                options[key] = parsed_int
+
+            elif key in ['sqrt_s', 'target_accuracy']:
+                try:
+                    parsed_float = float(value)
+                except ValueError:
+                    raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s' % (key, value))
+                options[key] = parsed_float
+
+            elif key in ['force']:
+                parsed_bool = (value is None) or (value.upper() in ['T', 'TRUE', 'ON', 'Y'])
+                options[key] = parsed_bool
+
+            elif key in ['output_folder']:
+                if os.path.isabs(value):
+                    options[key] = value
+                else:
+                    options[key] = pjoin(MG5DIR, value)
+
+            elif key == 'phase_computed':
+                if value.upper() in ['REAL', 'R', 'RE']:
+                    options[key] == 'Real'
+                elif value.upper() in ['IMAGINARY', 'I', 'IM']:
+                    options[key] == 'Imaginary'
+                elif value.upper() in ['ALL', 'A']:
+                    options[key] == 'All'
+                else:
+                    raise pyNLoopInvalidCmd("The phase computed can only be 'Real' or 'Imaginary'.")
+
+            else:
+                raise pyNLoopInvalidCmd("Unrecognized option for command integrated loop: %s" % key +
+                                        "\nAvailable commands are: %s" % (' '.join('--%s' % k for k in options)))
+
+        return new_args, options
+
+    def parse_plot_deformation_options(self, args):
+        """ Parsing arguments/options passed to the command integrate_loop."""
+
         options = { 
-            'PS_point'              : 'random',
             'seed'                  : None,
             'sqrt_s'                : 1000.0,
-            'target_accuracy'       : 1.0e-3,
-            'batch_size'            : 1000,
             'verbosity'             : 1,
-            'nb_CPU_cores'          : None,
-            'phase_computed'        : 'All',
-            'survey_n_iterations'   : 10,
-            'survey_n_points'       : 2000,
-            'refine_n_iterations'   : 10,
-            'refine_n_points'       : 1000,
             'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
-            'force'                 : False
+            'force'                 : False,
+            'phase_computed'        : 'All',
+            'reference_vector'      : vectors.LorentzVector([1.0,0.1,0.2,0.3]),
+            'loop_momenta_generator_classes' : ['default'],
+            'n_points'              : 100,
+            'components_to_plot'    : [0,1,2,3]
         }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -356,22 +453,40 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             except:
                 key, value = arg, None
             key = key[2:]
-   
-            if key == 'PS_point':
-                if value not in ['random',]:
-                    raise pyNLoopInvalidCmd('For now, pyNLoops only support the '+
-                                                      'specification of a random PS point')
-                options[key] = value
 
-            elif key in ['seed','batch_size','verbosity','nb_CPU_cores', 
-                         'survey_n_iterations','survey_n_points','refine_n_iterations','refine_n_points']:
+            if key in ['seed','verbosity','nb_CPU_cores', 'n_points']:
                 try:
                     parsed_int = int(value)
                 except ValueError:
                     raise pyNLoopInvalidCmd('Cannot parse specified %s integer: %s'%(key,value))
                 options[key] = parsed_int
 
-            elif key in ['sqrt_s','target_accuracy']:
+            elif key in ['reference_vector', 'rv']:
+                try:
+                    ref_vec = tuple(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                if len(ref_vec)!=4:
+                    raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
+                options['reference_vector'] = vectors.LorentzVector(ref_vec)
+
+            elif key in ['loop_momenta_generator_classes', 'lmgc']:
+                try:
+                    lmgc_names = list(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                lmgc = []
+                for class_name in lmgc_names:
+                    if class_name=='default':
+                        lmgc.append(class_name)
+                    else:
+                        try:
+                            lmgc.append(eval('loop_momenta_generator.%s'%class_name))
+                        except:
+                            raise pyNLoopInvalidCmd("Loop momentum generator class '%s' not reckognized."%class_name)
+                options['loop_momenta_generator_classes'] = lmgc
+
+            elif key in ['sqrt_s']:
                 try:
                     parsed_float = float(value)
                 except ValueError:
@@ -386,20 +501,20 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 if os.path.isabs(value):
                     options[key] = value
                 else:
-                    options[key] = pjoin(MG5DIR,value)                
+                    options[key] = pjoin(MG5DIR,value)
 
             elif key == 'phase_computed':
-                if value.upper() in ['REAL','R','RE']:
+                if value.upper() in ['REAL', 'R', 'RE']:
                     options[key] == 'Real'
-                elif value.upper() in ['IMAGINARY','I','IM']:
+                elif value.upper() in ['IMAGINARY', 'I', 'IM']:
                     options[key] == 'Imaginary'
-                elif value.upper() in ['ALL','A']:
+                elif value.upper() in ['ALL', 'A']:
                     options[key] == 'All'
                 else:
                     raise pyNLoopInvalidCmd("The phase computed can only be 'Real' or 'Imaginary'.")
 
             else:
-                raise pyNLoopInvalidCmd("Unrecognized option for command integrated loop: %s"%key+
+                raise pyNLoopInvalidCmd("Unrecognized option for command plot deformation: %s"%key+
                       "\nAvailable commands are: %s"%(' '.join('--%s'%k for k in options)))
 
         return new_args, options
@@ -409,7 +524,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         
         args = self.split_arg(line)
         args, options = self.parse_integrate_loop_options(args)
-        
         
         # For debugging you can easily print out the options as follows:
         #misc.sprint(options)
@@ -440,13 +554,12 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # For loop calculations, it customary to consider all legs outgoing, so we must
         # flip the initial states directions.
         for i in random_PS_point:
-            if i <= 2:
+            if i > 2:
                 continue
             random_PS_point[i] = -random_PS_point[i]
 
         # For debugging you can easily print out the chosen PS point as follows:
-        #misc.sprint(str(random_PS_point))
-   
+#        misc.sprint(str(random_PS_point))
         n_loop_integrand = chosen_topology['class'](
             n_loops            =   chosen_topology['n_loops'],
             external_momenta   =   random_PS_point,

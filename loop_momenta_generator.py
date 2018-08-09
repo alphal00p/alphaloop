@@ -7,11 +7,15 @@
 #                                                   #
 #####################################################
 
+import os
 import logging
 import madgraph.integrator.vectors as vectors
 import madgraph.various.misc as misc
 from math import sqrt, cos, sin, exp
 from madgraph import InvalidCmd, MadGraph5Error
+from pyNLoop import plugin_path
+
+import ctypes
 
 # Suppress harmless lapack warning
 import warnings
@@ -34,6 +38,7 @@ except ImportError:
 
 logger = logging.getLogger('pyNLoop.LoopMomentaGenerator')
 
+pjoin = os.path.join
 
 class LoopMomentaGenerator(object):
     """ Class for recursively using OneLoopMomentumGenerator for generaring several complex-valued loop momenta
@@ -76,12 +81,12 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             self.external_momenta) if i <= 1).square())
 
         # Define the q_i's defined from the external momenta as:
-        self.q_i = [self.external_momenta[0], ]
+        self.q_is = [self.external_momenta[0], ]
         for i, p_i in enumerate(self.external_momenta[1:]):
-            self.q_i.append(self.q_i[i]+p_i)
+            self.q_is.append(self.q_is[i]+p_i)
 
         # The last one must be identically equal to zero by energy-momentum, conservation
-        self.q_i[-1] = vectors.LorentzVector([0.,0.,0.,0.])
+        self.q_is[-1] = vectors.LorentzVector([0.,0.,0.,0.])
 
         self.P_plus = self.find_P(plus=True)
         self.P_minus = self.find_P(plus=False)
@@ -154,7 +159,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             wrapped_function, full_output=True)(local_point)
 
         # And now compute the determinant
-        jacobian_weight = abs(linalg.det(jacobian))
+        jacobian_weight = linalg.det(jacobian)
 
         if np.max(info.error_estimate) > 1.e-3:
             logger.warning(
@@ -176,7 +181,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         c_plus, c_minus = 1, 1
         # k_i is the ith propagator, so k_loop - q_i
-        for qi, mi in zip(self.q_i, self.loop_propagator_masses):
+        for qi, mi in zip(self.q_is, self.loop_propagator_masses):
             # note the sign reversal
             c_plus *= self.h_delta(-1, k_loop - qi, mi * mi, self.M3 * self.M3)
             c_minus *= self.h_delta(1, k_loop - qi, mi * mi, self.M3 * self.M3)
@@ -192,8 +197,8 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         # Warning, it may be that the square root needs an absolute value
         # v = [[0 if i == j else 0.5*(qi+qj - (mi-mj)/sqrt((qi-qj).square())*(qi-qj))
-        #      for i, (qi, mi) in enumerate(zip(self.q_i, self.loop_propagator_masses))]
-        #     for j, (qj, mj) in enumerate(zip(self.q_i, self.loop_propagator_masses))]
+        #      for i, (qi, mi) in enumerate(zip(self.q_is, self.loop_propagator_masses))]
+        #     for j, (qj, mj) in enumerate(zip(self.q_is, self.loop_propagator_masses))]
 
         def d(i, l, q, m):
             if l == i and m[l] == 0:
@@ -211,7 +216,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                     self.h_theta(-2 * (k_loop - q[l]).dot(k_loop - v[i, j]), self.M1**2))
 
         # construct the coefficients
-        n = len(self.q_i)
+        n = len(self.q_is)
         f = self.g(k_centre, self.gamma1, self.M2 * self.M2)
         c = [f, ]*n
         c2 = [[f, ]*n, ]*n
@@ -222,13 +227,13 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         k_int = 0
         for i in range(n):
             for l in range(n):  # note: in paper l starts at 1
-                c[i] *= d(i, l, self.q_i, self.loop_propagator_masses)
+                c[i] *= d(i, l, self.q_is, self.loop_propagator_masses)
 
                 # Deformation taking care of massive hyperbola
                 # for j in range(i + 1, n):
-                #    c2[i][j] *= d2(i, j, l, self.q_i, self.loop_propagator_masses)
+                #    c2[i][j] *= d2(i, j, l, self.q_is, self.loop_propagator_masses)
 
-            k_int += - c[i] * (k_loop - self.q_i[i])  # massless part
+            k_int += - c[i] * (k_loop - self.q_is[i])  # massless part
 
             # Deformation taking care of two hyperbolae
             # for j in range(i + 1, n):
@@ -236,10 +241,10 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
             # Deformation for more than two hyperbolae
             # for a, ka in enumerate(self.soft_vectors):
-            #    da_plus[a] = max(self.h_delta(0, k_loop - self.q_i[l], self.loop_propagator_masses[l]**2, self.gamma2 * self.M1**2),
-            #                     self.h_theta(ka.dot(2*(k_loop - self.q_i[l])), self.gamma2 * self.M1**2))
-            #    da_min[a] = max(self.h_delta(0, k_loop - self.q_i[l], self.loop_propagator_masses[l]**2, self.gamma2 * self.M1**2),
-            #                    self.h_theta(-ka.dot(2*(k_loop - self.q_i[l])), self.gamma2 * self.M1**2))
+            #    da_plus[a] = max(self.h_delta(0, k_loop - self.q_is[l], self.loop_propagator_masses[l]**2, self.gamma2 * self.M1**2),
+            #                     self.h_theta(ka.dot(2*(k_loop - self.q_is[l])), self.gamma2 * self.M1**2))
+            #    da_min[a] = max(self.h_delta(0, k_loop - self.q_is[l], self.loop_propagator_masses[l]**2, self.gamma2 * self.M1**2),
+            #                    self.h_theta(-ka.dot(2*(k_loop - self.q_is[l])), self.gamma2 * self.M1**2))
 
         # Add the soft part
         # for a, ka in enumerate(self.soft_vectors):
@@ -251,9 +256,9 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         lambda_cycle = 1  # maximum lambda value
 
         for j in range(n):
-            xj = (k0.dot(k_loop - self.q_i[j]) / k0.square())**2
+            xj = (k0.dot(k_loop - self.q_is[j]) / k0.square())**2
             yj = (
-                (k_loop - self.q_i[j]).square() - self.loop_propagator_masses[j]**2) / k0.square()
+                (k_loop - self.q_is[j]).square() - self.loop_propagator_masses[j]**2) / k0.square()
 
             if 2 * xj < yj:
                 lambda_cycle = min(lambda_cycle, sqrt(yj / 4.))
@@ -302,7 +307,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                                                     y[0] * y[2],
                                                     x[3] + n * y[0] * y[3]])
 
-        vecs = list(self.q_i)
+        vecs = list(self.q_is)
         while True:
             # filter all vectors that are in the forward/backward light-cone of another vector
             newvec = []
@@ -377,6 +382,160 @@ class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
         #misc.sprint("Returning k= \n    %s\nwith jacobian: %f"%('\n    '.join('%s'%ki for ki in k_loops[0]),remapping_weight))
         return k_loops, remapping_weight
 
+class DeformationCPPinterface(object):
+
+    def __init__(self, path):
+        self._hook = self.get_hook(path)
+
+    def get_hook(self, path):
+        """Build, start and return the C++ interface."""
+
+        self.compile_CPP_deformation_library(path)
+
+        hook = ctypes.CDLL("./DCD_interface.so")
+        # append Q
+        hook.append_Q.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
+        hook.append_Q.restype  = (ctypes.c_int);
+        # feed P+ and P-
+        hook.set_Pp.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
+        hook.set_Pm.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
+        hook.set_Pp.restype  = (ctypes.c_int);
+        hook.set_Pm.restype  = (ctypes.c_int);
+        # init class
+        hook.init.argtypes = ();
+        hook.init.restype  = (ctypes.c_int);
+        # delete previous defined class
+        hook.clear.argtypes = ();
+        hook.clear.restype  = (ctypes.c_void_p);
+        # get the array
+        hook.get_deformed_loop_momentum.argtypes = ()
+        hook.get_deformed_loop_momentum.restype = (ctypes.POINTER(ctypes.c_double))
+        # get jacobian
+        hook.get_jacobian.argtypes = ()
+        hook.get_jacobian.restype  = (ctypes.c_double)
+        # get the array
+        hook.deform_loop_momentum.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
+        hook.deform_loop_momentum.restype  = (ctypes.c_int)
+
+        return hook
+
+    def compile_CPP_deformation_library(self, path):
+        """Compiles the C++ deformation library if necessary."""
+
+        if not os.path.isfile(path, 'DCD_interface.so'):
+            misc.compile(arg=[], cwd=path)
+
+        if not os.path.isfile(path, 'DCD_interface.so'):
+            raise LoopMomentaGeneratorError("Could no compile C++ deformation source code in %s with command 'make'."%path)
+
+    #
+    # Wrapper around all functions exposed in the C++ library
+    #
+    # ==================================================================================================================
+    def register_q_i(self, q):
+        dim = len(q)
+        array_type = ctypes.c_double * dim
+        return self._hook.append_Q(array_type(*q), dim)
+
+    def set_P_plus_and_P_minus(self, P_plus, P_minus):
+        array_type = ctypes.c_double * 4
+        return_val = []
+        # set P+
+        dim = len(P_plus)
+        return_val += [self._hook.set_Pp(array_type(*P_plus), dim)]
+        # set P-
+        dim = len(P_minus)
+        return_val += [self._hook.set_Pm(array_type(*P_minus), dim)]
+        return max(return_val)
+    def deform_loop_momentum(self, k):
+        dim = len(k)
+        array_type = ctypes.c_double * dim
+        return self._hook.deform_loop_momentum(array_type(*k), dim)
+    def get_deformed_loop_momentum(self):
+        array_pointer = ctypes.cast(self._hook.get_deformed_loop_momentum(), ctypes.POINTER(ctypes.c_double * 8))
+        array = np.frombuffer(array_pointer.contents)
+        return [x + y * 1j for x, y in zip(array[:4], array[4:])]
+    def get_jacobian(self):
+        return self._hook.get_jacobian()
+    def init(self):
+        return self._hook.init()
+    def clear(self):
+        return self._hook.clear()
+    # ==================================================================================================================
+
+class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
+    """ One loop momentum generator which uses the CPP implementation of Weinzierl's deformation in the back-end. """
+
+    _CPP_Weinzierl_src = pjoin(plugin_path,'Weinzierl')
+    _compute_jacobian_numerically = False
+
+    def __init__(self, topology, external_momenta, **opts):
+        """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
+        must be generated."""
+        super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
+
+        self._cpp_interface = DeformationCPPinterface(_CPP_Weinzierl_src)
+        self._cpp_interface.init()
+
+    def __delete__(self):
+        """Clean-up duty when this instance is destroyed."""
+        self._cpp_interface.clear()
+
+    def define_global_quantities_for_contour_deformation(self, *args, **opts):
+        """Nothing to do in this case. Move along."""
+        super(OneLoopMomentumGenerator_WeinzierlCPP,self).define_global_quantities_for_contour_deformation(*args, **opts)
+
+        # Propagate some of this global information to the underlying C++ library
+        for q_i in self.q_is:
+            self.add_q_i_to_interface(q_i)
+        self.set_P_plus_and_P_minus_in_interface(self.P_plus, self.P_minus)
+
+    def apply_deformation(self, loop_momenta):
+        """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz
+        4-vector, along with the corresponding jacobian possibly computed numerically."""
+
+        deformed_k_loops, analytical_jacobian_weight = self.deform_loop_momenta(loop_momenta)
+
+        numerical_jacobian_weight = None
+        if self._compute_jacobian_numerically:
+            # First use numdifftool to compute the jacobian matrix
+            def wrapped_function(loop_momentum):
+                return np.r_[self.deform_loop_momenta([vectors.LorentzVector(loop_momentum), ])[0][0]]
+
+            local_point = list(loop_momenta[0])
+            numerical_jacobian, info = nd.Jacobian(wrapped_function, full_output=True)(local_point)
+
+            # And now compute the determinant
+            numerical_jacobian_weight = abs(linalg.det(numerical_jacobian))
+
+            if np.max(info.error_estimate) > 1.e-3:
+                logger.warning(
+                    "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s" %
+                    (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
+
+        if self._compute_jacobian_numerically:
+            logger.debug('Jacobian comparison: analytical = %.16e vs numerical = %.16e'%(analytical_jacobian_weight, numerical_jacobian_weight))
+            jacobian_weight = numerical_jacobian_weight
+        else:
+            jacobian_weight = analytical_jacobian_weight
+
+        # misc.sprint("jacobian_weight=%f"%jacobian_weight)
+        return deformed_k_loops, jacobian_weight
+
+    def deform_loop_momenta(self, loop_momenta):
+        """ This function deforms the starting loop momentum (in the infinite hypercube) passed in argument and using
+        the C++ implementation of Weinzierl's path deformation. It then returns the deformed path as a Lorentz
+        4-vector, along with the Jacobian numerically computed.
+        In the implementation of this class, we consider a single loop."""
+
+        # A single loop for now
+        assert len(
+            loop_momenta) == 1, "This class %s can only handle a single loop momentum" % self.__class__.__name__
+
+        self._cpp_interface.deform_loop_momentum(list(loop_momenta[0]))
+
+        return [ vectors.LorentzVector(self._cpp_interface.get_deformed_loop_momentum()), ], \
+               self._cpp_interface.get_jacobian()
 
 class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
     """ One loop momentum generator which only applies the conformal map but no deformation. """
