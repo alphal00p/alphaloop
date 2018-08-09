@@ -116,16 +116,16 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         # dk / dr = -1 / ( 2 * ( r - 1/2. )**2 )
         jacobian = 1.
         for rv in random_variables:
-            jacobian *= ((1. / rv**2) + (1 / ((rv - 1.)**2)))
+            jacobian *= self.mu_P*((1. / rv**2) + (1 / ((rv - 1.)**2)))
 
-        return [vectors.LorentzVector([((1./(1.-rv)) - 1./rv) for rv in random_variables[i:i+4]])
+        return [vectors.LorentzVector([((1./(1.-rv)) - 1./rv)*self.mu_P for rv in random_variables[i:i+4]])
                 for i in range(0, len(random_variables), 4)], jacobian
 
-    def map_from_infinite_hyperbox(self, random_variables):
+    def map_from_infinite_hyperbox(self, k_momenta):
         """ Maps a set of four random variables in the infinite hyperbox to the unit cube."""
 
-        return [vectors.LorentzVector([-2/(-2+rv-math.sqrt(4+rv**2)) for rv in random_variables[i:i+4]])
-                for i in range(0, len(random_variables), 4)]
+        # To mimick the input of map_to_infinite_hyperbox, let's return a flat list
+        return [-2./(-2.+(k_comp/self.mu_P)-math.sqrt(4.+(k_comp/self.mu_P)**2)) for k_momentum in k_momenta for k_comp in k_momentum]
 
     def generate_loop_momenta(self, random_variables):
         """ From the random variables passed in argument, this returns the one-loop four-momentum in the form
