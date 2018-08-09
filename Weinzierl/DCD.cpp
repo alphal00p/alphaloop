@@ -271,10 +271,8 @@ DIdeform::ContourDeform::ContourDeform(std::vector<DIdeform::R4vector> &Qs)
     exit(1);
   }
 
-  #ifndef _PySTUFF_
   //Compute P+ and P-
   set_PpPm(Qs);
-  #endif 
   //Compute Misq
   set_global_var();
 
@@ -285,33 +283,108 @@ DIdeform::ContourDeform::ContourDeform(std::vector<DIdeform::R4vector> &Qs)
   std::vector<my_real>(4, 0.).swap(gradlambda);
 }
 
+bool DIdeform::ContourDeform::get_PpPm(short int plus_or_minus, std::vector<DIdeform::R4vector> &qs)
+{
+  int size = qs.size();
+  if (size == 1)
+    return true;
+
+  //Remove vectors that lies in the forward/backward light-cone of another
+  DIdeform::R4vector qij;
+  std::vector<DIdeform::R4vector>::iterator pos;
+  for (int i = 0; i < size; i++)
+  {
+    for (int j = i+1; j < size; j++)
+    {
+      qij = qs[i] - qs[j];
+      if (qij * qij >= 0.0)
+      {
+        if (plus_or_minus * qij(0) < 0.0){
+          qs.erase(qs.begin() + j );
+          j--;
+        }
+        else{
+          qs.erase(qs.begin() + i);
+          j--;
+        }
+        if( --size == 1 ) return true;
+      }
+    }
+  }
+
+  //Find the pair with the smallest space-like separation
+  int pos_i=0,pos_j=0;
+  my_real sp;
+  for (int i = 0; i < size; i++)
+  {
+    for (int j = i + 1; j < size; j++)
+    {
+      qij = qs[i] - qs[j];
+      if (i == 0 && j == 1)
+      {
+        sp = - qij * qij;
+        pos_i = i;
+        pos_j = j;
+      }
+      else if (sp > - qij * qij)
+      {
+        sp = - qij * qij;
+        pos_i = i;
+        pos_j = j;
+      }
+    }
+  }
+
+  //Update qs
+  if (plus_or_minus == +1)
+    qs[pos_i] = zp(qs[pos_i] + qs[pos_j], qs[pos_i] - qs[pos_j]);
+  if (plus_or_minus == -1)
+    qs[pos_i] = zm(qs[pos_i] + qs[pos_j], qs[pos_i] - qs[pos_j]);
+  qs.erase(qs.begin() + pos_j);
+  
+  //Repeat
+  get_PpPm(plus_or_minus,qs);
+}
 void DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
 {
-  //Note that this definition is valid only for massless momenta
-  Pp = zp(qi[A] + qi[0], qi[A] - qi[0]);
-  Pm = zm(qi[A - 1] + qi[legs - 1], qi[A - 1] - qi[legs - 1]);
+  // //Note that this definition is valid only for massless momenta
+  // Pp = zp(qi[A] + qi[0], qi[A] - qi[0]);
+  // Pm = zm(qi[A - 1] + qi[legs - 1], qi[A - 1] - qi[legs - 1]);
+
+  std::vector<DIdeform::R4vector> qs;
+  qs = Qs;
+  get_PpPm(+1, qs);
+  Pp = qs[0];
+
+  qs = Qs;
+  get_PpPm(-1, qs);
+  Pm = qs[0];
 
   //Check the validity of Pp and Pm
+  my_real eps = std::numeric_limits<my_real>::epsilon();
   DIdeform::R4vector vv;
   for (int i = 0; i < 4; i++)
   {
     vv = Qs[i] - Pp;
-    if (vv * vv < 0.0 || vv(0) < 0.0)
+    if (vv * vv + eps < 0.0 || vv(0) < 0.0)
     {
       std::printf("The build of P+ has failed. One of the Qs is not in its forward light-cone\n");
+      std::printf("Value: %.10e, v(0): %.10e\n", vv*vv,vv(0));
       exit(1);
     }
     vv = Qs[i] - Pm;
     if (vv * vv < 0.0 || vv(0) > 0.0)
     {
       std::printf("The build of P- has failed. One of the Qs is not in its forward light-cone\n");
+      std::printf("Value: %.10e, v(0): %.10e\n", vv*vv,vv(0));
       exit(1);
     }
   }
 }
 
-void DIdeform::ContourDeform::set_global_var(){
-//Center of mass energy squared
+void DIdeform::ContourDeform::set_global_var()
+{
+  //Center of mass energy squared
   Ecmsq = (pi[0] + pi[A]) * (pi[0] + pi[A]);
   mu_P = (Pm - Pp) * (Pm - Pp);
 
@@ -319,12 +392,11 @@ void DIdeform::ContourDeform::set_global_var(){
   M1sq = pow(M1f, 2) * Ecmsq;
   M2sq = pow(M2f, 2) * std::max(mu_P, Ecmsq);
   M3sq = pow(M3f, 2) * std::max(mu_P, Ecmsq);
-  
+
   //Set orthogonal vectors ei's
   std::vector<DIdeform::R4vector>(4).swap(ei);
   for (int mu = 0; mu < 4; mu++)
     ei[mu][mu] = E_soft * sqrt(Ecmsq);
-
 }
 
 /*==========================================================
@@ -460,15 +532,21 @@ DIdeform::R4vector DIdeform::ContourDeform::zp(DIdeform::R4vector x, DIdeform::R
   my_real Ey = y(0);                        //Energy part of y
   my_real vymod = sqrt(pow(Ey, 2) - y * y); //Modulus of the vector part of y
 
-  return 0.5 * (x + (1. / vymod) * ((y * y) * g0mu - Ey * y));
+  if (vymod == 0.0)
+    return 0.5 * x;
+  else
+    return 0.5 * (x + (1. / vymod) * ((y * y) * g0mu - Ey * y));
 }
 
 DIdeform::R4vector DIdeform::ContourDeform::zm(DIdeform::R4vector x, DIdeform::R4vector y)
 {
   my_real Ey = y(0);                        //Energy part of y
   my_real vymod = sqrt(pow(Ey, 2) - y * y); //Modulus of the vector part of y
-
-  return 0.5 * (x - (1. / vymod) * ((y * y) * g0mu - Ey * y));
+  
+  if (vymod == 0.0)
+    return 0.5 * x;
+  else
+    return 0.5 * (x - (1. / vymod) * ((y * y) * g0mu - Ey * y));
 }
 
 void DIdeform::ContourDeform::set_k_ext()
@@ -1008,9 +1086,9 @@ my_comp DIdeform::Determinant(const std::vector<std::vector<my_comp>> &bb)
 
 int main()
 {
-  DIdeform::R4vector p1({0.5, 0.5, 0.0, 0.0});
-  DIdeform::R4vector p2({0.5, -0.5, 0.0, 0.0});
-  DIdeform::R4vector p3({0.5, 0.0, 0.5, 0.0});
+  DIdeform::R4vector p1({0.5, 0.5, 0.0, 1.0});
+  DIdeform::R4vector p2({0.5,-0.5, 0.0,-2.0});
+  DIdeform::R4vector p3({0.5,-10.0, 0.5, -4.0});
 
   std::vector<DIdeform::R4vector> Qs(4);
   Qs[0] = Qs[0];
