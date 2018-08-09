@@ -13,9 +13,10 @@ extern "C"
 
     //Deformer outputs
     DIdeform::C4vector deformed_loop_momentum;
-    my_real pyLoop[8];
     my_comp deformation_jacobian;
-
+    double pyLoop[8];
+    double jacobian[2];
+    
     //First one needs to give the Qs
     int append_Q(double v[], int d)
     {
@@ -110,9 +111,10 @@ extern "C"
     }
 
     //Get the deformation
-    double get_jacobian()
+    double* get_jacobian()
     {
-        double jacobian = abs(deformation_jacobian);
+        jacobian[0] = deformation_jacobian.real();
+        jacobian[1] = deformation_jacobian.imag();
         return jacobian;
     }
 

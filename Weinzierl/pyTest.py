@@ -21,7 +21,7 @@ _deformer.get_deformed_loop_momentum.argtypes = ()
 _deformer.get_deformed_loop_momentum.restype = (ctypes.POINTER(ctypes.c_double))
 #get jacobian
 _deformer.get_jacobian.argtypes = ()
-_deformer.get_jacobian.restype  = (ctypes.c_double)
+_deformer.get_jacobian.restype  = (ctypes.POINTER(ctypes.c_double))
 #get the array 
 _deformer.deform_loop_momentum.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
 _deformer.deform_loop_momentum.restype  = (ctypes.c_int)
@@ -55,7 +55,9 @@ def get_deformed_loop_momentum():
     array = np.frombuffer(array_pointer.contents)
     return [x + y*1j  for x, y in zip(array[:4],array[4:])]
 def get_jacobian():
-    return _deformer.get_jacobian()        
+    array_pointer = ctypes.cast(_deformer.get_jacobian(),ctypes.POINTER(ctypes.c_double * 2))
+    array = np.frombuffer(array_pointer.contents)
+    return array[0] + array[1]*1j         
 
 def init():
     return _deformer.init()
@@ -79,7 +81,7 @@ if __name__ == "__main__":
     #SET UP DEFORMER
     for q in qs:
         append_Q(q)
-    set_Ppm(P_plus,P_minus)
+    #set_Ppm(P_plus,P_minus)
     init()
     
     #USE IT FOR AS MANY LOOP MOMENTA AS YOU WISH
