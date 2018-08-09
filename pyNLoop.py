@@ -303,7 +303,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     loop_momentum_generator_class =  (
                         None if loop_momenta_generator_class == 'default'
                              else loop_momenta_generator_class)
-            ) )
+            ) ))
 
         x_entries = [i / float(n_points) for i in range(1, n_points)]
 
@@ -433,7 +433,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'reference_vector'      : vectors.LorentzVector([1.0,0.1,0.2,0.3]),
             'loop_momenta_generator_classes' : ['default'],
             'n_points'              : 100,
-            'components_to_plot'    : [0,1,2,3]
+            'items_to_plot'         : (0,1,2,3,'d')
         }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -469,6 +469,13 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 if len(ref_vec)!=4:
                     raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
                 options['reference_vector'] = vectors.LorentzVector(ref_vec)
+
+            elif key=='items_to_plot':
+                try:
+                    comps = tuple(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse items to plot: %s"%value)
+                options['items_to_plot'] = comps
 
             elif key in ['loop_momenta_generator_classes', 'lmgc']:
                 try:
