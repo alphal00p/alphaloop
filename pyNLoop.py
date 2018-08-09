@@ -30,6 +30,7 @@ import madgraph.interface.madgraph_interface as madgraph_interface
 import madgraph.various.misc as misc
 import madgraph.various.cluster as cluster
 import madgraph.integrator.vectors as vectors
+import madgraph.various.progressbar as pbar
 
 from madgraph.iolibs.files import cp, ln, mv
 
@@ -271,23 +272,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         ref_vec = ref_vec / max(ref_vec)
 #        misc.sprint("Reference vector:" + str(ref_vec))
 
-        # compute the positions of the poles on the ref vec line
-        # TODO: add mass
-        poles = [k / ref_vec.square() for qi in n_loop_integrand.loop_momentum_generator.q_i 
-                    for k in [ref_vec.dot(qi) + math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square()), ref_vec.dot(qi) - math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square())]
-                    if ref_vec.dot(qi)**2 >= ref_vec.square() * qi.square()]
-#        misc.sprint("Poles: %s"%poles)
-
-        # now sample n_points points and compute the deformation
-        points = [ (ref_vec * i / float(n_points)) for i in range(1,n_points)]
-
-        n_loop_integrand = chosen_topology['class'](
-            n_loops            =   chosen_topology['n_loops'],
-            external_momenta   =   random_PS_point,
-            phase_computed     =   options['phase_computed'],
-            # Data-structure for specifying a topology to be determined
-            topology           =   chosen_topology_name,
-        )
+        x_entries = [i / float(n_points) for i in range(1, n_points)]
 
         all_n_loop_integrands = []
         for loop_momenta_generator_class in options['loop_momenta_generator_classes']:
@@ -305,11 +290,42 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                              else loop_momenta_generator_class)
             ) ))
 
-        x_entries = [i / float(n_points) for i in range(1, n_points)]
+        if any(item in options['items_to_plot'] for item in ['p','poles']):
+            # compute the positions of the poles on the ref vec line
+            # TODO: add mass
+            poles = [k / ref_vec.square() for qi in all_n_loop_integrands[0][1].loop_momentum_generator.q_is
+                        for k in [ref_vec.dot(qi) + math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square()), ref_vec.dot(qi) - math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square())]
+                        if ref_vec.dot(qi)**2 >= ref_vec.square() * qi.square()]
+    #        misc.sprint("Poles: %s"%poles)
+            # plot the poles
+            polemapped = [-2/(-2+p-math.sqrt(4+p**2)) for p in poles]
+    #        misc.sprint("Poles mapped: %s"%polemapped)
+            for p in polemapped:
+                plt.plot(p, 0, marker='o', markersize=3, color="red")
+
+        # now sample n_points points and compute the deformation
+        points = [ (ref_vec * i / float(n_points)) for i in range(1,n_points)]
 
         for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
-            deformed_points = [n_loop_integrand.loop_momentum_generator.generate_loop_momenta(p) for p in points]
-            deformed_points, jacobians = zip(*deformed_points)
+
+            deformed_points = []
+            jacobians = []
+            widgets = ["Loop deformation for generator %s :"%lm_generator_name,
+                pbar.Percentage(), ' ', pbar.Bar(),' ', pbar.ETA(), ' ',
+                pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
+            progress_bar = pbar.ProgressBar(widgets=widgets, maxval=len(points), fd=sys.stdout)
+#           progress_bar = None
+            if progress_bar:
+                progress_bar.start()
+            for i_point, p in enumerate(points):
+                dp, jac = n_loop_integrand.loop_momentum_generator.generate_loop_momenta(p)
+                deformed_points.append(dp)
+                jacobians.append(jac)
+                if progress_bar:
+                    progress_bar.update(i_point)
+            if progress_bar:
+                progress_bar.finish()
+
 #           misc.sprint("Last 5 points: %s"%(',\n'.join([str(p) for p in points[-5:]])))
 #           misc.sprint("Last 5 deformed points: %s"%(',\n'.join([str(p) for p in deformed_points[-5:]])))
             # Make sure to save here only the first momentum for now
@@ -318,19 +334,14 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Note that the deformation should not have changed the real components
             # get the distance on the imaginary axis.
             for i_comp in range(4):
-                if i_comp not in options['components_to_plot']:
+                if i_comp not in options['items_to_plot']:
                     continue
                 plt.plot(x_entries, [d[i].imag for d in deformed_points],
                          label='component #%d @%s'%(i_comp,lm_generator_name))
 
-            dist = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
-            plt.plot(x, dist, linewidth=2.0, label='Distance')
-
-        # plot the poles
-        polemapped = [-2/(-2+p-math.sqrt(4+p**2)) for p in poles]
-        misc.sprint("Poles mapped: %s"%polemapped)
-        for p in polemapped:
-            plt.plot(p, 0, marker='o', markersize=3, color="red")
+            if any(item in options['items_to_plot'] for item in ['d','distance']):
+                dist = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
+                plt.plot(x_entries, dist, linewidth=2.0, label='distance @%s'%lm_generator_name)
 
         plt.legend(loc='upper right')
         plt.show()
@@ -433,7 +444,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'reference_vector'      : vectors.LorentzVector([1.0,0.1,0.2,0.3]),
             'loop_momenta_generator_classes' : ['default'],
             'n_points'              : 100,
-            'items_to_plot'         : (0,1,2,3,'d')
+            'items_to_plot'         : (0,1,2,3,'distance','poles')
         }
         
         # First combine all value of the options (starting with '--') separated by a space

@@ -384,6 +384,8 @@ class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
 
 class DeformationCPPinterface(object):
 
+    _debug_cpp = True
+
     def __init__(self, path):
         self._hook = self.get_hook(path)
 
@@ -392,7 +394,7 @@ class DeformationCPPinterface(object):
 
         self.compile_CPP_deformation_library(path)
 
-        hook = ctypes.CDLL("./DCD_interface.so")
+        hook = ctypes.CDLL(pjoin(path,'./DCD_interface.so'))
         # append Q
         hook.append_Q.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
         hook.append_Q.restype  = (ctypes.c_int);
@@ -422,10 +424,11 @@ class DeformationCPPinterface(object):
     def compile_CPP_deformation_library(self, path):
         """Compiles the C++ deformation library if necessary."""
 
-        if not os.path.isfile(path, 'DCD_interface.so'):
+        if not os.path.isfile(pjoin(path, 'DCD_interface.so')):
+            logger.info('Now compiling shared library DCD_interface.so in path %s'%path)
             misc.compile(arg=[], cwd=path)
 
-        if not os.path.isfile(path, 'DCD_interface.so'):
+        if not os.path.isfile(pjoin(path, 'DCD_interface.so')):
             raise LoopMomentaGeneratorError("Could no compile C++ deformation source code in %s with command 'make'."%path)
 
     #
@@ -433,11 +436,13 @@ class DeformationCPPinterface(object):
     #
     # ==================================================================================================================
     def register_q_i(self, q):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In register_q_i with q=%s'%str(q))
         dim = len(q)
         array_type = ctypes.c_double * dim
         return self._hook.append_Q(array_type(*q), dim)
 
     def set_P_plus_and_P_minus(self, P_plus, P_minus):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In set_P_plus_and_P_minus with P_plus=%s, P_minus=%s'%(str(P_plus),str(P_minus)))
         array_type = ctypes.c_double * 4
         return_val = []
         # set P+
@@ -448,18 +453,23 @@ class DeformationCPPinterface(object):
         return_val += [self._hook.set_Pm(array_type(*P_minus), dim)]
         return max(return_val)
     def deform_loop_momentum(self, k):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In deform_loop_momentum with k=%s'%(str(k)))
         dim = len(k)
         array_type = ctypes.c_double * dim
         return self._hook.deform_loop_momentum(array_type(*k), dim)
     def get_deformed_loop_momentum(self):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In get_deformed_loop_momentum')
         array_pointer = ctypes.cast(self._hook.get_deformed_loop_momentum(), ctypes.POINTER(ctypes.c_double * 8))
         array = np.frombuffer(array_pointer.contents)
         return [x + y * 1j for x, y in zip(array[:4], array[4:])]
     def get_jacobian(self):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In get_jacobian')
         return self._hook.get_jacobian()
     def init(self):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In init')
         return self._hook.init()
     def clear(self):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In clear')
         return self._hook.clear()
     # ==================================================================================================================
 
@@ -472,10 +482,11 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
     def __init__(self, topology, external_momenta, **opts):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
         must be generated."""
-        super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
 
-        self._cpp_interface = DeformationCPPinterface(_CPP_Weinzierl_src)
+        self._cpp_interface = DeformationCPPinterface(self._CPP_Weinzierl_src)
         self._cpp_interface.init()
+
+        super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
 
     def __delete__(self):
         """Clean-up duty when this instance is destroyed."""
@@ -487,8 +498,8 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
 
         # Propagate some of this global information to the underlying C++ library
         for q_i in self.q_is:
-            self.add_q_i_to_interface(q_i)
-        self.set_P_plus_and_P_minus_in_interface(self.P_plus, self.P_minus)
+            self._cpp_interface.register_q_i(q_i)
+        self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
 
     def apply_deformation(self, loop_momenta):
         """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz

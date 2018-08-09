@@ -850,6 +850,14 @@ class box1L_direct_integration(NLoopIntegrand):
                  topology           = None,
                  **opts):
 
+        # Offer the possibility of specifying the class implementing the loop momentum deformation
+        if 'loop_momentum_generator_class' in opts:
+            loop_momentum_generator_class = opts.pop('loop_momentum_generator_class')
+        else:
+            loop_momentum_generator_class = None
+        if loop_momentum_generator_class is None:
+            loop_momentum_generator_class = loop_momenta_generator.OneLoopMomentumGenerator
+
         # Create the dimensions for integrating directly in momentum space.
         # The rescaling from the unit hypercube to infinity will be performed directly
         # in the loop momentum generator.
@@ -873,11 +881,6 @@ class box1L_direct_integration(NLoopIntegrand):
 #        boost_vector = (self.external_momenta[1]+2.0*self.external_momenta[2]).boostVector()
 #        for p in self.external_momenta.values():
 #            p.boost(-boost_vector)
-
-        default_loop_momentum_generator_class = loop_momenta_generator.OneLoopMomentumGenerator
-        loop_momentum_generator_class = opts.get('loop_momentum_generator_class', default_loop_momentum_generator_class)
-        if loop_momentum_generator_class is None:
-            loop_momentum_generator_class = default_loop_momentum_generator_class
 
         self.loop_momentum_generator = loop_momentum_generator_class(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
