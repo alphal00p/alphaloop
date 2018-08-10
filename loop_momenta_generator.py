@@ -384,7 +384,7 @@ class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
 
 class DeformationCPPinterface(object):
 
-    _debug_cpp = True
+    _debug_cpp = False
 
     def __init__(self, path):
         self._hook = self.get_hook(path)
@@ -414,7 +414,7 @@ class DeformationCPPinterface(object):
         hook.get_deformed_loop_momentum.restype = (ctypes.POINTER(ctypes.c_double))
         # get jacobian
         hook.get_jacobian.argtypes = ()
-        hook.get_jacobian.restype  = (ctypes.c_double)
+        hook.get_jacobian.restype = (ctypes.POINTER(ctypes.c_double))
         # get the array
         hook.deform_loop_momentum.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
         hook.deform_loop_momentum.restype  = (ctypes.c_int)
@@ -441,6 +441,12 @@ class DeformationCPPinterface(object):
         array_type = ctypes.c_double * dim
         return self._hook.append_Q(array_type(*q), dim)
 
+    def set_q_is(self, q_is):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In set_q_is with q_is=%s'%str(q_is))
+        for q_i in q_is:
+            self.register_q_i(q_i)
+        self.init()
+
     def set_P_plus_and_P_minus(self, P_plus, P_minus):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In set_P_plus_and_P_minus with P_plus=%s, P_minus=%s'%(str(P_plus),str(P_minus)))
         array_type = ctypes.c_double * 4
@@ -464,7 +470,8 @@ class DeformationCPPinterface(object):
         return [x + y * 1j for x, y in zip(array[:4], array[4:])]
     def get_jacobian(self):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In get_jacobian')
-        return self._hook.get_jacobian()
+        jacobian = self._hook.get_jacobian()
+        return jacobian[0] + jacobian[1] * 1j
     def init(self):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In init')
         return self._hook.init()
@@ -484,7 +491,6 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         must be generated."""
 
         self._cpp_interface = DeformationCPPinterface(self._CPP_Weinzierl_src)
-        self._cpp_interface.init()
 
         super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
 
@@ -497,8 +503,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         super(OneLoopMomentumGenerator_WeinzierlCPP,self).define_global_quantities_for_contour_deformation(*args, **opts)
 
         # Propagate some of this global information to the underlying C++ library
-        for q_i in self.q_is:
-            self._cpp_interface.register_q_i(q_i)
+        self._cpp_interface.set_q_is(self.q_is)
         self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
 
     def apply_deformation(self, loop_momenta):
@@ -517,7 +522,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
             numerical_jacobian, info = nd.Jacobian(wrapped_function, full_output=True)(local_point)
 
             # And now compute the determinant
-            numerical_jacobian_weight = abs(linalg.det(numerical_jacobian))
+            numerical_jacobian_weight = linalg.det(numerical_jacobian)
 
             if np.max(info.error_estimate) > 1.e-3:
                 logger.warning(
@@ -525,7 +530,9 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
                     (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
 
         if self._compute_jacobian_numerically:
-            logger.debug('Jacobian comparison: analytical = %.16e vs numerical = %.16e'%(analytical_jacobian_weight, numerical_jacobian_weight))
+            logger.debug('Jacobian comparison: analytical = %.16e + %.16ei vs numerical = %.16e + %.16ei'%(
+                analytical_jacobian_weight.real, analytical_jacobian_weight.imag,
+                numerical_jacobian_weight.real, numerical_jacobian_weight.imag))
             jacobian_weight = numerical_jacobian_weight
         else:
             jacobian_weight = analytical_jacobian_weight
@@ -569,7 +576,7 @@ class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
             wrapped_function, full_output=True)(local_point)
 
         # And now compute the determinant
-        jacobian_weight = abs(linalg.det(jacobian))
+        jacobian_weight = linalg.det(jacobian)
 
         if np.max(info.error_estimate) > 1.e-3:
             logger.warning(
