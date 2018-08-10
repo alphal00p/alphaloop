@@ -106,7 +106,7 @@ extern "C"
         deformer->loop_momentum(loop_momentum);
         deformer->deform(deformed_loop_momentum,
                          deformation_jacobian);
-        std::cout << deformed_loop_momentum << std::endl;
+
         return 0;
     }
 
