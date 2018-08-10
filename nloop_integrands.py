@@ -262,33 +262,30 @@ class box1L_offshell_massless(NLoopIntegrand):
                             [0, [3, 4]], [0, [4, 1]]],
             external_lines=[['p1', 1], ['p2', 2], ['p3', 3], ['p4', 4]],
             replacement_rules=[
-                ('p1*p1', 'p1p1'),
-                ('p2*p2', 'p2p2'),
-                ('p3*p3', 'p3p3'),
-                ('p4*p4', 'p4p4'),
-                ('p3*p2', 'p3p2'),
-                ('p1*p2', 'p1p2'),
-                ('p1*p4', 'p1p4'),
-                ('p2*p4', 'p2p4'),
-                ('p3*p4', 'p3p4')
+                        ('p1*p1', 's1'),
+                        ('p2*p2', 's2'),
+                        ('p3*p3', 's3'),
+                        ('p4*p4', 's4'),
+                        ('p1*p2', 's/2-s1/2-s2/2'), # s direct
+                        ('p1*p3', 's2/2+s4/2-t/2-s/2'), # u -> sum masses - s - t
+                        ('p1*p4', 't/2-s1/2-s4/2'), # t direct
+                        ('p2*p3', 't/2-s2/2-s3/2'), # t direct
+                        ('p2*p4', 's1/2+s3/2-t/2-s/2'), # u -> sum masses - s - t
+                        ('p3*p4', 's/2-s3/2-s4/2'), # s direct
             ],
 #            regulator='eps',
 #            regulator_power=0,
 #            dimensionality='4-2*eps',
         )
-        self.integrand_parameters = ['p1p1','p2p2','p3p3','p4p4',
-                                     'p3p2','p1p2','p1p4','p2p4','p3p4']
+        self.integrand_parameters =  ['s','t','s1','s2','s3','s4']
 
         self.integrand_parameters_values = [
-            self.external_momenta[1].dot(self.external_momenta[1]),
+            (self.external_momenta[1] + self.external_momenta[2]).square(), # s
+            (self.external_momenta[2] + self.external_momenta[3]).square(), # t
+            self.external_momenta[1].dot(self.external_momenta[1]), # s1
             self.external_momenta[2].dot(self.external_momenta[2]),
             self.external_momenta[3].dot(self.external_momenta[3]),
             self.external_momenta[4].dot(self.external_momenta[4]),
-            self.external_momenta[3].dot(self.external_momenta[2]),
-            self.external_momenta[1].dot(self.external_momenta[2]),
-            self.external_momenta[1].dot(self.external_momenta[4]),
-            self.external_momenta[2].dot(self.external_momenta[4]),
-            self.external_momenta[3].dot(self.external_momenta[4])
         ]
 
     def output(self, output_folder, verbosity=0, **opts):
