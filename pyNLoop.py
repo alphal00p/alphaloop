@@ -284,9 +284,15 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             ref_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
         else:
             ref_vec  = options['reference_vector']
+        if isinstance(options['offset_vector'], str) and options['offset_vector']=='random':
+            offset_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
+        else:
+            offset_vec  = options['offset_vector']
         # Make sure the vector has norm of sqrt_s
         ref_vec = (ref_vec / sum(k**2 for k in ref_vec))*options['sqrt_s']
+        offset_vec = offset_vec * options['sqrt_s']
         logger.info('Reference vector used: %s'%str(ref_vec))
+        logger.info('Offset_vec vector used: %s'%str(offset_vec))
 
         n_points = options['n_points']
 
@@ -322,17 +328,17 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for i_prop, q_i in enumerate(lmg.q_is):
                 mass_prop = all_n_loop_integrands[0][1].loop_propagator_masses[i_prop]
                 # Now solve for the scaling value of the ref_vector that sends this propagator onshell
-                scales_onshell = find_offshell_scaling(ref_vec, q_i, mass_prop)
+                scales_onshell = find_offshell_scaling(ref_vec, q_i-offset_vec, mass_prop)
                 for scale_onshell in scales_onshell:
-#                    misc.sprint((scale_onshell*ref_vec-q_i).square()-mass_prop**2)
-                    dp = lmg.deform_loop_momenta([scale_onshell*ref_vec,])[0]
+#                    misc.sprint((offset_vec+scale_onshell*ref_vec-q_i).square()-mass_prop**2)
+                    dp = lmg.deform_loop_momenta([offset_vec+scale_onshell*ref_vec,])[0]
                     denominator = (dp-q_i).square()-mass_prop**2
                     imaginary_part_on_poles.append(denominator.imag)
                 # Map back this scale onto the unit domain
                 for scale_onshell in scales_onshell:
                     poles.append(map_from_infinity(scale_onshell))
 
-            misc.sprint(imaginary_part_on_poles)
+#            misc.sprint(imaginary_part_on_poles)
             # Make sure imaginary part is of the dimensionality of the momentum (not squared).
             imaginary_part_on_poles = [math.sqrt(abs(ipp))*(-1. if ipp < 0. else 1.)
                                                                                  for ipp in imaginary_part_on_poles]
@@ -346,12 +352,12 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
 #           misc.sprint("Poles mapped: %s"%poles)
             for p, ipp in zip(poles,imaginary_part_on_poles):
-                y_location = 0. if options['normalization'] is 'None' else 1.
+                y_location = 0. if (options['normalization'] is 'None' and not options['log_axis']) else 1.
                 plt.plot(p, y_location, marker='o', markersize=3, color="red")
                 plt.plot([p, p], [y_location, y_location+ipp], 'k-', lw=2, color="red")
 
         # now sample n_points points and compute the deformation
-        points = [ ref_vec * map_to_infinity(x) for x in x_entries]
+        points = [ offset_vec + ref_vec * map_to_infinity(x) for x in x_entries]
         normalizations = [1.,]*n_points
         if options['normalization']=='distance_real':
             normalizations = [ math.sqrt(sum(k_i**2 for k_i in p)) for p in points ]
@@ -390,7 +396,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if any(item in options['items_to_plot'] for item in ['d','distance']):
                 dist = [ math.sqrt(sum(di.imag**2 for di in d))/normalizations[i_point] for i_point, d in enumerate(deformed_points)]
                 plt.plot(x_entries, dist, linewidth=2.0, label='distance @%s'%lm_generator_name)
-
+        if options['log_axis']:
+            plt.semilogy()
         plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3)
         plt.show()
 
@@ -489,12 +496,14 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
             'force'                 : False,
             'phase_computed'        : 'All',
-            'reference_vector'      : vectors.LorentzVector([1.0,0.1,0.2,0.3]),
+            'reference_vector'      : 'random',
+            'offset_vector'         : vectors.LorentzVector([0., 0., 0., 0.]),
             'loop_momenta_generator_classes' : ['default'],
             'n_points'              : 100,
             'items_to_plot'         : (0,1,2,3,'distance','poles'),
             'range'                 : (0.,1.),
             'normalization'         : 'None',
+            'log_axis'              : False,
         }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -522,7 +531,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd('Cannot parse specified %s integer: %s'%(key,value))
                 options[key] = parsed_int
 
-            elif key in ['reference_vector', 'rv']:
+            elif key in ['reference_vector', 'offset_vector']:
                 if value.lower() in ['random','r']:
                     options['reference_vector'] = 'random'
                 else:
@@ -532,7 +541,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
                     if len(ref_vec)!=4:
                         raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
-                    options['reference_vector'] = vectors.LorentzVector(ref_vec)
+                    options[key] = vectors.LorentzVector(ref_vec)
 
             elif key=='range':
                 try:
@@ -573,7 +582,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s'%(key,value))
                 options[key] = parsed_float
 
-            elif key in ['force']:
+            elif key in ['force','log_axis']:
                 parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
                 options[key] = parsed_bool
 
