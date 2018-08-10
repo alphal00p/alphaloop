@@ -118,16 +118,19 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         for rv in random_variables:
             jacobian *= self.mu_P*((1. / rv**2) + (1 / ((rv - 1.)**2)))
 
-        res = [vectors.LorentzVector([((1./(1.-rv)) - 1./rv)*self.mu_P for rv in random_variables[i:i+4]])
+        return [vectors.LorentzVector([((1./(1.-rv)) - 1./rv)*self.mu_P for rv in random_variables[i:i+4]])
                 for i in range(0, len(random_variables), 4)], jacobian
-
-        return res
 
     def map_from_infinite_hyperbox(self, k_momenta):
         """ Maps a set of four random variables in the infinite hyperbox to the unit cube."""
 
         # To mimick the input of map_to_infinite_hyperbox, let's return a flat list
-        return [-2./(-2.+(k_comp/self.mu_P)-math.sqrt(4.+(k_comp/self.mu_P)**2)) for k_momentum in k_momenta for k_comp in k_momentum]
+        return [self.map_scalar_from_infinite_hyperbox(k_comp) for k_momentum in k_momenta for k_comp in k_momentum]
+
+    def map_scalar_from_infinite_hyperbox(self, scalar):
+        """ Maps a scalar on the infinite line to the unit domain."""
+
+        return -2./(-2.+(scalar/self.mu_P)-sqrt(4.+(scalar/self.mu_P)**2))
 
     def generate_loop_momenta(self, random_variables):
         """ From the random variables passed in argument, this returns the one-loop four-momentum in the form
@@ -512,7 +515,8 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz
         4-vector, along with the corresponding jacobian possibly computed numerically."""
 
-        deformed_k_loops, analytical_jacobian_weight = self.deform_loop_momenta(loop_momenta)
+        deformed_k_loops = self.deform_loop_momenta(loop_momenta)
+        analytical_jacobian_weight = self._cpp_interface.get_jacobian()
 
         numerical_jacobian_weight = None
         if self._compute_jacobian_numerically:
@@ -554,8 +558,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
 
         self._cpp_interface.deform_loop_momentum(list(loop_momenta[0]))
 
-        return [ vectors.LorentzVector(self._cpp_interface.get_deformed_loop_momentum()), ], \
-               self._cpp_interface.get_jacobian()
+        return [ vectors.LorentzVector(self._cpp_interface.get_deformed_loop_momentum()), ]
 
 class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
     """ One loop momentum generator which only applies the conformal map but no deformation. """

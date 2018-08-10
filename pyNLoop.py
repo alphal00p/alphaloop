@@ -223,18 +223,69 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
     def do_plot_deformation(self, line):
         """ Command for plotting the deformation along a given axis for a loop Feynman diagram."""
-        
+
+        def map_to_infinity(x):
+            return ((1./(1.-x)) - 1./x)
+        def map_from_infinity(x):
+            return -2./(-2.+x-math.sqrt(4.+x**2))
+        def find_offshell_scaling(rv, q_i, mass):
+            """ Find the value of the scaling of the reference vector q_i which sends this propagator (q_i, mass) onshell."""
+
+            m_sq = mass**2
+            q_i_vec_sq = q_i[1]**2 + q_i[2]**2 + q_i[3]**2
+            rv_vec_sq = rv[1]**2 + rv[2]**2 + rv[3]**2
+            q_i_vec_dot_rv_vec = q_i[1]*rv[1] + q_i[2]*rv[2] + q_i[3]*rv[3]
+            delta = rv[0]**2*(m_sq+q_i_vec_sq) - 2.*rv[0]*q_i[0]*q_i_vec_dot_rv_vec - \
+                                                           rv_vec_sq*(m_sq-q_i[0]**2+q_i_vec_sq) + q_i_vec_dot_rv_vec**2
+            if delta < 0.:
+                return []
+
+            return [
+                (rv[0]*q_i[0] - q_i_vec_dot_rv_vec + math.sqrt(delta))/(rv[0]**2-rv_vec_sq),
+                (rv[0]*q_i[0] - q_i_vec_dot_rv_vec - math.sqrt(delta))/(rv[0]**2-rv_vec_sq)
+            ]
+
         args = self.split_arg(line)
         args, options = self.parse_plot_deformation_options(args)
 
         if options['seed']:
             random.seed(options['seed'])
 
+        chosen_topology_name = args[0]
+        if chosen_topology_name not in self._hardcoded_topologies:
+            raise InvalidCmd('For now, pyNLoop only support the specification of the' +
+                             ' following hardcoded topologies: %s' % (','.join(self._hardcoded_topologies.keys())))
+
+        chosen_topology = self._hardcoded_topologies[chosen_topology_name]
+
+        # Now generate the external momenta randomly, as this is the only mode we support
+        # for now.
+        phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
+            chosen_topology['masses'][:2], chosen_topology['masses'][2:],
+            [options['sqrt_s'] / 2., options['sqrt_s'] / 2.],
+            beam_types=(1, 1)
+        )
+
+        # Specifying None to get a random PS point
+        random_PS_point, wgt, x1, x2 = phase_space_generator.get_PS_point(None)
+        # Use the dictionary representation of the PS Point
+        random_PS_point = random_PS_point.to_dict()
+
+        # For loop calculations, it customary to consider all legs outgoing, so we must
+        # flip the initial states directions.
+        for i in random_PS_point:
+            if i > 2:
+                continue
+            random_PS_point[i] = -random_PS_point[i]
+        logger.info('PS point considered:\n%s' % str(random_PS_point))
+
         # take a random vector
         if isinstance(options['reference_vector'], str) and options['reference_vector']=='random':
             ref_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
         else:
             ref_vec  = options['reference_vector']
+        # Make sure the vector has norm of sqrt_s
+        ref_vec = (ref_vec / sum(k**2 for k in ref_vec))*options['sqrt_s']
         logger.info('Reference vector used: %s'%str(ref_vec))
 
         n_points = options['n_points']
@@ -243,40 +294,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         #misc.sprint(options)
 
         scaling_range = options['range']
-
-        chosen_topology_name = args[0]
-        if chosen_topology_name not in self._hardcoded_topologies:
-            raise InvalidCmd('For now, pyNLoop only support the specification of the'+
-            ' following hardcoded topologies: %s'%(','.join(self._hardcoded_topologies.keys())))
-        
-        chosen_topology = self._hardcoded_topologies[chosen_topology_name]
-        
-        # Now generate the external momenta randomly, as this is the only mode we support
-        # for now.
-        phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
-            chosen_topology['masses'][:2], chosen_topology['masses'][2:],
-            [options['sqrt_s']/2.,options['sqrt_s']/2.],
-            beam_types=(1,1)
-        )
-
-        # Specifying None to get a random PS point
-        random_PS_point, wgt, x1, x2 = phase_space_generator.get_PS_point(None)
-        # Use the dictionary representation of the PS Point
-        random_PS_point = random_PS_point.to_dict()
-        
-        # For loop calculations, it customary to consider all legs outgoing, so we must
-        # flip the initial states directions.
-        for i in random_PS_point:
-            if i > 2:
-                continue
-            random_PS_point[i] = -random_PS_point[i]
-
-        # For debugging you can easily print out the chosen PS point as follows:
-        #misc.sprint(str(random_PS_point))
-
-        # normalize the largest component to 1
-        ref_vec = ref_vec / max(ref_vec)
-#        misc.sprint("Reference vector:" + str(ref_vec))
 
         x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
 
@@ -296,25 +313,45 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                              else loop_momenta_generator_class)
             ) ))
 
+        lmg = all_n_loop_integrands[0][1].loop_momentum_generator
         if any(item in options['items_to_plot'] for item in ['p','poles']):
             # compute the positions of the poles on the ref vec line
-            # TODO: add mass
-            poles = [k / ref_vec.square() for qi in all_n_loop_integrands[0][1].loop_momentum_generator.q_is
-                        for k in [ref_vec.dot(qi) + math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square()), ref_vec.dot(qi) - math.sqrt(ref_vec.dot(qi)**2 - ref_vec.square() * qi.square())]
-                        if ref_vec.dot(qi)**2 >= ref_vec.square() * qi.square()]
-    #        misc.sprint("Poles: %s"%poles)
-            # plot the poles
-            polemapped = [-2/(-2+p-math.sqrt(4+p**2)) for p in poles]
-    #        misc.sprint("Poles mapped: %s"%polemapped)
-            for p in polemapped:
-                plt.plot(p, 0, marker='o', markersize=3, color="red")
+            poles = []
+            imaginary_part_on_poles = []
+            # Scale by one-fourth to avoid infinity
+            for i_prop, q_i in enumerate(lmg.q_is):
+                mass_prop = all_n_loop_integrands[0][1].loop_propagator_masses[i_prop]
+                # Now solve for the scaling value of the ref_vector that sends this propagator onshell
+                scales_onshell = find_offshell_scaling(ref_vec, q_i, mass_prop)
+                for scale_onshell in scales_onshell:
+#                    misc.sprint((scale_onshell*ref_vec-q_i).square()-mass_prop**2)
+                    dp = lmg.deform_loop_momenta([scale_onshell*ref_vec,])[0]
+                    denominator = (dp-q_i).square()-mass_prop**2
+                    imaginary_part_on_poles.append(denominator.imag)
+            misc.sprint(imaginary_part_on_poles)
+            # Make sure imaginary part is of the dimensionality of the momentum (not squared).
+            imaginary_part_on_poles = [math.sqrt(abs(ipp))*(-1. if ipp < 0. else 1.)
+                                                                                 for ipp in imaginary_part_on_poles]
+            # Normalize to the biggest imaginary part
+            normalization_ipp = max(abs(ipp) for ipp in imaginary_part_on_poles)
+            if options['normalization'] != 'None':
+                imaginary_part_on_poles = [(ipp/normalization_ipp)**(0.01) for ipp in imaginary_part_on_poles]
+            if any(ipp<0. for ipp in imaginary_part_on_poles):
+                logger.warning('The deformation leads to a negative imaginary part on some poles : %s'%imaginary_part_on_poles)
+            # Map back this scale onto the unit domain
+            for scale_onshell in scales_onshell:
+                poles.append(map_from_infinity(scale_onshell))
+#           misc.sprint("Poles mapped: %s"%poles)
+            for p, ipp in zip(poles,imaginary_part_on_poles):
+                y_location = 0. if options['normalization'] is 'None' else 1.
+                plt.plot(p, y_location, marker='o', markersize=3, color="red")
+                plt.plot([p, y_location], [p, y_location+ipp], 'k-', lw=2, color="red")
 
         # now sample n_points points and compute the deformation
-        points = [ ref_vec * x for x in x_entries]
+        points = [ ref_vec * map_to_infinity(x) for x in x_entries]
         normalizations = [1.,]*n_points
         if options['normalization']=='distance_real':
-            normalizations = [ math.sqrt(sum(k_i**2 for k_i in
-                   all_n_loop_integrands[0][1].loop_momentum_generator.map_to_infinite_hyperbox(list(p))[0][0])) for p in points ]
+            normalizations = [ math.sqrt(sum(k_i**2 for k_i in p)) for p in points ]
 
         # Make sure the normalization is capped to be minimum 1.0
         normalizations = [max(n,1.0e-99) for n in normalizations]
@@ -322,7 +359,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
 
             deformed_points = []
-            jacobians = []
             widgets = ["Loop deformation for generator %s :"%lm_generator_name,
                 pbar.Percentage(), ' ', pbar.Bar(),' ', pbar.ETA(), ' ',
                 pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
@@ -331,9 +367,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if progress_bar:
                 progress_bar.start()
             for i_point, p in enumerate(points):
-                dp, jac = n_loop_integrand.loop_momentum_generator.generate_loop_momenta(p)
-                deformed_points.append(dp)
-                jacobians.append(jac)
+                deformed_points.append(n_loop_integrand.loop_momentum_generator.deform_loop_momenta([p,])[0])
                 if progress_bar:
                     progress_bar.update(i_point)
             if progress_bar:
@@ -341,8 +375,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
 #           misc.sprint("Last 5 points: %s"%(',\n'.join([str(p) for p in points[-5:]])))
 #           misc.sprint("Last 5 deformed points: %s"%(',\n'.join([str(p) for p in deformed_points[-5:]])))
-            # Make sure to save here only the first momentum for now
-            deformed_points = [d[0] for d in deformed_points]
 
             # Note that the deformation should not have changed the real components
             # get the distance on the imaginary axis.
