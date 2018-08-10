@@ -199,14 +199,14 @@ my_comp DIdeform::C4vector::operator*(const DIdeform::C4vector &rhs)
 /*==========================================================
   =                   Hypercube mapping
   ==========================================================*/
-my_real alpha = 100.;
+my_real alpha = 1.0e+02;
 
 DIdeform::R4vector DIdeform::hypcub_mapping(std::vector<my_real> x)
 {
   DIdeform::R4vector momentum;
   for (int mu = 0; mu < 4; mu++)
       momentum[mu] = alpha * log(x[mu] / (1 - x[mu]));
-    //momentum[mu] = alpha * (1. / (1. - x[mu]) - 1. / x[mu]);
+      //momentum[mu] = alpha * (1. / (1. - x[mu]) - 1. / x[mu]);
 
   return momentum;
 }
@@ -216,7 +216,7 @@ my_real DIdeform::hypcub_jacobian(std::vector<my_real> x)
 {
   my_real jacobian = 1.;
   for (int mu = 0; mu < 4; mu++)
-      jacobian = jacobian * (alpha / (x[mu] * (1 - x[mu])));
+    jacobian = jacobian * (alpha / (x[mu] * (1 - x[mu])));
     //jacobian = jacobian * alpha * (1. / pow(x[mu], 2) + 1. / pow(1. - x[mu], 2));
   return jacobian;
 }
@@ -275,7 +275,7 @@ DIdeform::ContourDeform::ContourDeform(std::vector<DIdeform::R4vector> &Qs)
   set_PpPm(Qs);
   //Compute Misq
   set_global_var();
-
+  //std::printf("mu_P: %.5e\n",mu_P);
   //Resize grad varibales
   std::vector<std::vector<my_real>>(4, std::vector<my_real>(4, 0.)).swap(gradk_int);
   std::vector<std::vector<my_real>>(4, std::vector<my_real>(4, 0.)).swap(gradk_ext);
@@ -410,7 +410,7 @@ void DIdeform::ContourDeform::set_global_var()
 void DIdeform::ContourDeform::loop_momentum(DIdeform::R4vector &loopmomentum)
 {
   l = loopmomentum;
-
+  
   //Set l-qi
   std::vector<DIdeform::R4vector>(legs).swap(lqi);
   for (int i = 0; i < legs; i++)
@@ -1116,7 +1116,7 @@ int main()
   }
 
   //DIdeform::R4vector l({0.5, 0.5, 0.5, 0.5});
-  DIdeform::R4vector l({-98.98989898989899, -998.99899899899901, -498.99799599198394, -332.33032430625207});
+  DIdeform::R4vector l({-96518.69521385277, -974059.78677852161, -486540.90951631521, -324033.96315526153});
   //DIdeform::R4vector l({0.371187,0.367224,-0.0345374,-0.0480211});
   //DIdeform::R4vector l({1652e+10, 4500e+10, 2315e+10, 4521e+10});
   DIdeform::ContourDeform contour(Qs);

@@ -2,11 +2,15 @@ CXX = g++
 
 # Cuba
 CUBA_METHOD = 1 #1:Vegas 2:Suave 3:Divone 4:Cuhre
-CUBA_LIB = /Users/valentin/Documents/HEP_softs/Cuba-4.2/lib
-CUBA_INC = /Users/valentin/Documents/HEP_softs/Cuba-4.2/include
 
-LIB_FLAG = -L$(CUBA_LIB)
-INC_FLAG = -I$(CUBA_INC)
+AND_CUBA_LIB = /home/andrea/Programs/Cuba-4.2/
+AND_CUBA_INC = /home/andrea/Programs/Cuba-4.2/
+
+VAL_CUBA_LIB = /Users/valentin/Documents/HEP_softs/Cuba-4.2/lib
+VAL_CUBA_INC = /Users/valentin/Documents/HEP_softs/Cuba-4.2/include
+
+LIB_FLAG = -L$(AND_CUBA_LIB) -L$(VAL_CUBA_LIB)
+INC_FLAG = -I$(AND_CUBA_INC) -I$(VAL_CUBA_INC)
 
 # Scattering Angle
 SCATTERING_ANGLE=M_PI/2.
@@ -26,8 +30,8 @@ all: $(EXEC)
 DCDtest: DCD.cpp 
 	$(CXX) $(CXXFLAGS) -D _DCD_MAIN_ $^ -o $@
 
-cuba_integrate: cuba_integrand.o DI_PathDef.o cuba_integrate.o
-	$(CXX) $(CXXFLAGS) -D CUBA_WHAT=$CUBA_METHOD $(INC_FLAG) $(LIB_FLAG) -o $@ $(LFLAGS) $^
+cuba_integrate: cuba_integrand.o DCD.o cuba_integrate.o
+	$(CXX) $(CXXFLAGS) $(INC_FLAG) $(LIB_FLAG) -o $@ $^ $(LFLAGS)
 
 #####################################
 # Shared Library:
@@ -39,7 +43,7 @@ DCD_interface.so: DCD_interface.o DCD.o
 
 #cuba integrator
 cuba_integrate.o : cuba.c
-	$(CXX) $(CXXFLAGS) -c $^ -o $@ $(INC_FLAG)
+	$(CXX) $(CXXFLAGS) -D CUBA_WHAT=$(CUBA_METHOD) -c $^ -o $@ $(INC_FLAG)
 #function to be integrated
 cuba_integrand.o : cuba_integrand.cpp
 	$(CXX) $(CXXFLAGS) -D ROTATION_ANGLE=$(SCATTERING_ANGLE) -c $^ -o $@ $(INC_FLAG)
