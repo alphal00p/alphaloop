@@ -229,7 +229,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
 
         # take a random vector
-        ref_vec  = options['reference_vector']
+        if isinstance(options['reference_vector'], str) and options['reference_vector']=='random':
+            ref_vec  = options['reference_vector']
+        else:
+            ref_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
         n_points = options['n_points']
 
         # For debugging you can easily print out the options as follows:
@@ -473,13 +476,16 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 options[key] = parsed_int
 
             elif key in ['reference_vector', 'rv']:
-                try:
-                    ref_vec = tuple(eval(value))
-                except:
-                    raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
-                if len(ref_vec)!=4:
-                    raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
-                options['reference_vector'] = vectors.LorentzVector(ref_vec)
+                if value.lower() in ['random','r']:
+                    options['reference_vector'] = 'random'
+                else:
+                    try:
+                        ref_vec = tuple(eval(value))
+                    except:
+                        raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                    if len(ref_vec)!=4:
+                        raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
+                    options['reference_vector'] = vectors.LorentzVector(ref_vec)
 
             elif key=='items_to_plot':
                 try:
