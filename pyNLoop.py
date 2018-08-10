@@ -328,6 +328,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     dp = lmg.deform_loop_momenta([scale_onshell*ref_vec,])[0]
                     denominator = (dp-q_i).square()-mass_prop**2
                     imaginary_part_on_poles.append(denominator.imag)
+                # Map back this scale onto the unit domain
+                for scale_onshell in scales_onshell:
+                    poles.append(map_from_infinity(scale_onshell))
+
             misc.sprint(imaginary_part_on_poles)
             # Make sure imaginary part is of the dimensionality of the momentum (not squared).
             imaginary_part_on_poles = [math.sqrt(abs(ipp))*(-1. if ipp < 0. else 1.)
@@ -335,17 +339,16 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Normalize to the biggest imaginary part
             normalization_ipp = max(abs(ipp) for ipp in imaginary_part_on_poles)
             if options['normalization'] != 'None':
-                imaginary_part_on_poles = [(ipp/normalization_ipp)**(0.01) for ipp in imaginary_part_on_poles]
+                dampening_power = 0.5
+                imaginary_part_on_poles = [(ipp/normalization_ipp)**dampening_power for ipp in imaginary_part_on_poles]
             if any(ipp<0. for ipp in imaginary_part_on_poles):
-                logger.warning('The deformation leads to a negative imaginary part on some poles : %s'%imaginary_part_on_poles)
-            # Map back this scale onto the unit domain
-            for scale_onshell in scales_onshell:
-                poles.append(map_from_infinity(scale_onshell))
+                logger.warning('The deformation leads to a negative imaginary part on some poles! : %s'%imaginary_part_on_poles)
+
 #           misc.sprint("Poles mapped: %s"%poles)
             for p, ipp in zip(poles,imaginary_part_on_poles):
                 y_location = 0. if options['normalization'] is 'None' else 1.
                 plt.plot(p, y_location, marker='o', markersize=3, color="red")
-                plt.plot([p, y_location], [p, y_location+ipp], 'k-', lw=2, color="red")
+                plt.plot([p, p], [y_location, y_location+ipp], 'k-', lw=2, color="red")
 
         # now sample n_points points and compute the deformation
         points = [ ref_vec * map_to_infinity(x) for x in x_entries]
