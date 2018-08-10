@@ -227,19 +227,22 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         args = self.split_arg(line)
         args, options = self.parse_plot_deformation_options(args)
 
+        if options['seed']:
+            random.seed(options['seed'])
 
         # take a random vector
         if isinstance(options['reference_vector'], str) and options['reference_vector']=='random':
-            ref_vec  = options['reference_vector']
-        else:
             ref_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
+        else:
+            ref_vec  = options['reference_vector']
+        logger.info('Reference vector used: %s'%str(ref_vec))
+
         n_points = options['n_points']
 
         # For debugging you can easily print out the options as follows:
         #misc.sprint(options)
-        
-        if options['seed']:
-            random.seed(options['seed'])
+
+        scaling_range = options['range']
 
         chosen_topology_name = args[0]
         if chosen_topology_name not in self._hardcoded_topologies:
@@ -275,7 +278,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         ref_vec = ref_vec / max(ref_vec)
 #        misc.sprint("Reference vector:" + str(ref_vec))
 
-        x_entries = [i / float(n_points) for i in range(1, n_points)]
+        x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
 
         all_n_loop_integrands = []
         for loop_momenta_generator_class in options['loop_momenta_generator_classes']:
@@ -307,7 +310,14 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 plt.plot(p, 0, marker='o', markersize=3, color="red")
 
         # now sample n_points points and compute the deformation
-        points = [ (ref_vec * i / float(n_points)) for i in range(1,n_points)]
+        points = [ ref_vec * x for x in x_entries]
+        normalizations = [1.,]*n_points
+        if options['normalization']=='distance_real':
+            normalizations = [ math.sqrt(sum(k_i**2 for k_i in
+                   all_n_loop_integrands[0][1].loop_momentum_generator.map_to_infinite_hyperbox(list(p))[0][0])) for p in points ]
+
+        # Make sure the normalization is capped to be minimum 1.0
+        normalizations = [max(n,1.0e-99) for n in normalizations]
 
         for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
 
@@ -339,14 +349,14 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for i_comp in range(4):
                 if i_comp not in options['items_to_plot']:
                     continue
-                plt.plot(x_entries, [d[i].imag for d in deformed_points],
+                plt.plot(x_entries, [d[i_comp].imag/normalizations[i_point] for i_point, d in enumerate(deformed_points)],
                          label='component #%d @%s'%(i_comp,lm_generator_name))
 
             if any(item in options['items_to_plot'] for item in ['d','distance']):
-                dist = [ math.sqrt(sum(di.imag**2 for di in d)) for d in deformed_points]
+                dist = [ math.sqrt(sum(di.imag**2 for di in d))/normalizations[i_point] for i_point, d in enumerate(deformed_points)]
                 plt.plot(x_entries, dist, linewidth=2.0, label='distance @%s'%lm_generator_name)
 
-        plt.legend(loc='upper right')
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3)
         plt.show()
 
     def parse_integrate_loop_options(self, args):
@@ -447,7 +457,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'reference_vector'      : vectors.LorentzVector([1.0,0.1,0.2,0.3]),
             'loop_momenta_generator_classes' : ['default'],
             'n_points'              : 100,
-            'items_to_plot'         : (0,1,2,3,'distance','poles')
+            'items_to_plot'         : (0,1,2,3,'distance','poles'),
+            'range'                 : (0.,1.),
+            'normalization'         : 'None',
         }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -486,6 +498,15 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if len(ref_vec)!=4:
                         raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
                     options['reference_vector'] = vectors.LorentzVector(ref_vec)
+
+            elif key=='range':
+                try:
+                    range = tuple(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                if len(range)!=2:
+                    raise pyNLoopInvalidCmd("Range must be a list of length 2, not %d"%len(range))
+                options['range'] = range
 
             elif key=='items_to_plot':
                 try:
@@ -526,6 +547,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     options[key] = value
                 else:
                     options[key] = pjoin(MG5DIR,value)
+
+            elif key in ['normalization']:
+                options['normalization'] = value
 
             elif key == 'phase_computed':
                 if value.upper() in ['REAL', 'R', 'RE']:

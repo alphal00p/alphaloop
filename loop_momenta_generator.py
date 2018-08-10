@@ -118,8 +118,10 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         for rv in random_variables:
             jacobian *= self.mu_P*((1. / rv**2) + (1 / ((rv - 1.)**2)))
 
-        return [vectors.LorentzVector([((1./(1.-rv)) - 1./rv)*self.mu_P for rv in random_variables[i:i+4]])
+        res = [vectors.LorentzVector([((1./(1.-rv)) - 1./rv)*self.mu_P for rv in random_variables[i:i+4]])
                 for i in range(0, len(random_variables), 4)], jacobian
+
+        return res
 
     def map_from_infinite_hyperbox(self, k_momenta):
         """ Maps a set of four random variables in the infinite hyperbox to the unit cube."""
