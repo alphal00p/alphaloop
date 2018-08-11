@@ -54,18 +54,16 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
     """ Class for generating a complex-valued one-loop momentum from random variables in the unit hypercube,
     following a deformation that ensures that all propagators are evaluated in the physical region."""
 
-    _conformal_mapping_option_ = "log"
-
     contour_hyper_parameters = {
-        'self.M1_factor':   0.035,
-        'self.M2_factor':   0.7,
-        'self.M3_factor':   0.035,
-        'self.gamma1':   0.7,
-        'self.gamma2':   0.008,
-        'self.Esoft_factor':   0.003,
+        'M1_factor'    :   0.035,
+        'M2_factor'    :   0.7,
+        'M3_factor'    :   0.035,
+        'gamma1'       :   0.7,
+        'gamma2'       :   0.008,
+        'Esoft_factor' :   0.003,
     }
 
-    def __init__(self, topology, external_momenta, **opts):
+    def __init__(self, topology, external_momenta, conformal_mapping_choice='log', **opts):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
         must be generated."""
 
@@ -73,7 +71,15 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         self.define_global_quantities_for_contour_deformation()
 
+        self.conformal_mapping_choice = conformal_mapping_choice
+
+        # Adjust conformal hyperparameters if specified.
+        for opt in opts:
+            if opt in self.contour_hyper_parameters:
+                self.contour_hyper_parameters[opt] = opts[opt]
+
         # Eventually this information must be extracted from the topology, for now it is hard-coded.
+        self.topology = topology
         self.loop_propagator_masses = [0., ]*4
 
     def define_global_quantities_for_contour_deformation(self):
@@ -99,14 +105,14 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         # Characteristic scale of the process
         self.mu_P = sqrt((self.P_minus - self.P_plus).square())
 
-        self.M1 = self.contour_hyper_parameters['self.M1_factor'] * self.sqrt_S
-        self.M2 = self.contour_hyper_parameters['self.M2_factor'] * max(
+        self.M1 = self.contour_hyper_parameters['M1_factor'] * self.sqrt_S
+        self.M2 = self.contour_hyper_parameters['M2_factor'] * max(
             self.mu_P, self.sqrt_S)
-        self.M3 = self.contour_hyper_parameters['self.M3_factor'] * max(
+        self.M3 = self.contour_hyper_parameters['M3_factor'] * max(
             self.mu_P, self.sqrt_S)
-        self.gamma1 = self.contour_hyper_parameters['self.gamma1']
-        self.gamma2 = self.contour_hyper_parameters['self.gamma2']
-        self.Esoft = self.contour_hyper_parameters['self.Esoft_factor'] * self.sqrt_S
+        self.gamma1 = self.contour_hyper_parameters['gamma1']
+        self.gamma2 = self.contour_hyper_parameters['gamma2']
+        self.Esoft = self.contour_hyper_parameters['Esoft_factor'] * self.sqrt_S
 
         self.soft_vectors = [self.Esoft * vectors.LorentzVector([1, 0, 0, 0]),
                              self.Esoft * vectors.LorentzVector([0, 1, 0, 0]),
@@ -128,15 +134,19 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
     def map_scalar_to_infinite_hyperbox(self, scalar):
 
-        if self._conformal_mapping_option_ == "log":
+        if self.conformal_mapping_choice == "log":
 
             jacobian = self.mu_P / (scalar * (1 - scalar))
             value = np.log(scalar / (1. - scalar)) * self.mu_P
 
-        else: #"linear"
+        elif self.conformal_mapping_choice == "lin":
 
             jacobian = self.mu_P * ((1. / scalar ** 2) + (1 / ((scalar - 1.) ** 2)))
             value = ((1. / (1. - scalar)) - 1. / rv) * self.mu_P
+
+        else:
+
+            raise LoopMomentaGeneratorError("Conformal mapping named '%s' is not supported."%self.conformal_mapping_choice)
 
         return value, jacobian
 
@@ -149,11 +159,15 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
     def map_scalar_from_infinite_hyperbox(self, scalar):
         """ Maps a scalar on the infinite line to the unit domain."""
 
-        if self._conformal_mapping_option_ == "log":
+        if self.conformal_mapping_choice == "log":
             return exp(scalar / self.mu_P) / (1 + exp(scalar / self.mu_P))
 
-        else: #"linear"
+        elif self.conformal_mapping_choice == "lin":
             return -2./(-2.+(scalar/self.mu_P)-sqrt(4.+(scalar/self.mu_P)**2))
+
+        else:
+            raise LoopMomentaGeneratorError(
+                "Conformal mapping named '%s' is not supported." % self.conformal_mapping_choice)
 
     def generate_loop_momenta(self, random_variables):
         """ From the random variables passed in argument, this returns the one-loop four-momentum in the form

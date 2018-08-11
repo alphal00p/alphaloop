@@ -245,6 +245,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 (rv[0]*q_i[0] - q_i_vec_dot_rv_vec - math.sqrt(delta))/(rv[0]**2-rv_vec_sq)
             ]
 
+        ###########################################
+        # Generate overall quantities for the test
+        ###########################################
+
         args = self.split_arg(line)
         args, options = self.parse_plot_deformation_options(args)
 
@@ -311,20 +315,21 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 chosen_topology['class'](
                     n_loops=chosen_topology['n_loops'],
                     external_momenta=random_PS_point,
-                    phase_computed=options['phase_computed'],
                     # Data-structure for specifying a topology to be determined
                     topology=chosen_topology_name,
-                    loop_momentum_generator_class =  (
-                        None if loop_momenta_generator_class == 'default'
-                             else loop_momenta_generator_class)
+                    loop_momenta_generator_class = loop_momenta_generator_class,
+                    **options
             ) ))
+
+        ################
+        # Analyze poles
+        ################
 
         lmg = all_n_loop_integrands[0][1].loop_momentum_generator
         if any(item in options['items_to_plot'] for item in ['p','poles']):
             # compute the positions of the poles on the ref vec line
             poles = []
             imaginary_part_on_poles = []
-            # Scale by one-fourth to avoid infinity
             for i_prop, q_i in enumerate(lmg.q_is):
                 mass_prop = all_n_loop_integrands[0][1].loop_propagator_masses[i_prop]
                 # Now solve for the scaling value of the ref_vector that sends this propagator onshell
@@ -352,9 +357,13 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
 #           misc.sprint("Poles mapped: %s"%poles)
             for p, ipp in zip(poles,imaginary_part_on_poles):
-                y_location = 0. if (options['normalization'] is 'None' and not options['log_axis']) else 1.
+                y_location = 0. if not options['log_axis'] else 1.
                 plt.plot(p, y_location, marker='o', markersize=3, color="red")
                 plt.plot([p, p], [y_location, y_location+ipp], 'k-', lw=2, color="red")
+
+        #################################
+        # Now generate the plotting data
+        #################################
 
         # now sample n_points points and compute the deformation
         points = [ offset_vec + ref_vec * map_to_infinity(x) for x in x_entries]
@@ -368,6 +377,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
 
             deformed_points = []
+            jacobians       = []
             widgets = ["Loop deformation for generator %s :"%lm_generator_name,
                 pbar.Percentage(), ' ', pbar.Bar(),' ', pbar.ETA(), ' ',
                 pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
@@ -376,7 +386,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if progress_bar:
                 progress_bar.start()
             for i_point, p in enumerate(points):
-                deformed_points.append(n_loop_integrand.loop_momentum_generator.deform_loop_momenta([p,])[0])
+                res = n_loop_integrand.loop_momentum_generator.apply_deformation([p, ])
+                deformed_points.append(res[0][0])
+                jacobians.append(res[1])
                 if progress_bar:
                     progress_bar.update(i_point)
             if progress_bar:
@@ -396,6 +408,67 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if any(item in options['items_to_plot'] for item in ['d','distance']):
                 dist = [ math.sqrt(sum(di.imag**2 for di in d))/normalizations[i_point] for i_point, d in enumerate(deformed_points)]
                 plt.plot(x_entries, dist, linewidth=2.0, label='distance @%s'%lm_generator_name)
+
+            # Also add the integrand
+            if any(item in options['items_to_plot'] for item in ['integrand_real','integrand_imag','integrand_abs']):
+                integrands = (all_n_loop_integrands[0][1]([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=jac )
+                                                                           for dp,jac in zip(deformed_points,jacobians))
+                # Normalize to the largest value of the integrand encountered
+                if 'integrand_real' in options['items_to_plot']:
+                    integrand_reals = [itg.real for itg in integrands]
+                    max_integrand_real = max(integrand_reals)
+                    integrand_reals = [itg/max_integrand_real for itg in integrand_reals]
+                    plt.plot(x_entries,integrand_reals, label='integrand_real @%s'%lm_generator_name)
+                if 'integrand_imag' in options['items_to_plot']:
+                    integrand_imags = [itg.imag for itg in integrands]
+                    max_integrand_imag = max(integrand_imags)
+                    integrand_imags = [itg/max_integrand_imag for itg in integrand_imags]
+                    plt.plot(x_entries,integrand_imags, label='integrand_imag @%s'%lm_generator_name)
+                if 'integrand_abs' in options['items_to_plot']:
+                    integrand_abss = [abs(itg) for itg in integrands]
+                    max_integrand_abss = max(integrand_abss)
+                    integrand_abss = [itg/max_integrand_abss for itg in integrand_abss]
+                    plt.plot(x_entries,integrand_abss, label='integrand_abs @%s'%lm_generator_name)
+            if any(item in options['items_to_plot'] for item in [
+                                               'integrand_no_jac_real','integrand_no_jac_imag','integrand_no_jac_abs']):
+                integrands = (all_n_loop_integrands[0][1]([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=1.0 )
+                                                                           for dp,jac in zip(deformed_points,jacobians))
+                # Normalize to the largest value of the integrand encountered
+                if 'integrand_no_jac_real' in options['items_to_plot']:
+                    integrand_reals = [itg.real for itg in integrands]
+                    max_integrand_real = max(integrand_reals)
+                    integrand_reals = [itg/max_integrand_real for itg in integrand_reals]
+                    plt.plot(x_entries,integrand_reals, label='integrand_no_jac_real @%s'%lm_generator_name)
+                if 'integrand_no_jac_imag' in options['items_to_plot']:
+                    integrand_imags = [itg.imag for itg in integrands]
+                    max_integrand_imag = max(integrand_imags)
+                    integrand_imags = [itg/max_integrand_imag for itg in integrand_imags]
+                    plt.plot(x_entries,integrand_imags, label='integrand_no_jac_imag @%s'%lm_generator_name)
+                if 'integrand_no_jac_abs' in options['items_to_plot']:
+                    integrand_abss = [abs(itg) for itg in integrands]
+                    max_integrand_abss = max(integrand_abss)
+                    integrand_abss = [itg/max_integrand_abss for itg in integrand_abss]
+                    plt.plot(x_entries,integrand_abss, label='integrand_no_jac_abs @%s'%lm_generator_name)
+            if any(item in options['items_to_plot'] for item in ['jac_real','jac_imag','jac_abs']):
+                # Normalize to the largest value of the integrand encountered
+                if 'jac_real' in options['items_to_plot']:
+                    jacobian_reals = [jac.real for jac in jacobians]
+                    max_jacobian_real = max(jacobian_reals)
+                    jacobian_reals = [jac/max_jacobian_real for jac in jacobian_reals]
+                    plt.plot(x_entries,jacobian_reals, label='jac_real @%s'%lm_generator_name)
+                if 'jac_imag' in options['items_to_plot']:
+                    jacobian_imags = [jac.imag for jac in jacobians]
+                    max_jacobian_imag = max(jacobian_imags)
+                    jacobian_imags = [jac/max_jacobian_imag for jac in jacobian_imags]
+                    plt.plot(x_entries,jacobian_imags, label='jac_imag @%s'%lm_generator_name)
+                if 'jac_abs' in options['items_to_plot']:
+                    jacobian_abss = [abs(jac) for jac in jacobians]
+                    max_jacobian_abss = max(jacobian_abss)
+                    jacobian_abss = [jac/max_jacobian_abss for jac in jacobian_abss]
+                    plt.plot(x_entries,jacobian_abss, label='jac_abs @%s'%lm_generator_name)
+
+
+
         if options['log_axis']:
             plt.semilogy()
         plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3)
@@ -418,7 +491,16 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'refine_n_iterations': 10,
             'refine_n_points': 1000,
             'output_folder': pjoin(MG5DIR, 'MyPyNLoop_output'),
-            'force': False
+            'force': False,
+            'loop_momenta_generator_class': None,
+            # Hyperparameters of the deformation
+            'conformal_mapping_choice' : 'log',
+            'M1_factor'     : 0.035,
+            'M2_factor'     : 0.7,
+            'M3_factor'     : 0.035,
+            'gamma1'        : 0.7,
+            'gamma2'        : 0.008,
+            'Esoft_factor'  : 0.003,
         }
 
         # First combine all value of the options (starting with '--') separated by a space
@@ -445,6 +527,18 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             'specification of a random PS point')
                 options[key] = value
 
+            elif key in ['M1_factor', 'M2_factor', 'M3_factor', 'gamma1', 'gamma2', 'Esoft_factor']:
+                try:
+                    options[key] = float(value)
+                except ValueError:
+                    raise pyNLoopInvalidCmd('Cannot set deformation parameter %s to %s.'%(key, value))
+
+            elif key=='conformal_mapping_choice':
+                _valid_conformal_mapping_choices=['lin','log']
+                if value.lower() not in _valid_conformal_mapping_choices:
+                    raise pyNLoopInvalidCmd('Conformal mapping choice can only be one of: %s'%_valid_conformal_mapping_choices)
+                options[key] = value.lower()
+
             elif key in ['seed', 'batch_size', 'verbosity', 'nb_CPU_cores',
                          'survey_n_iterations', 'survey_n_points', 'refine_n_iterations', 'refine_n_points']:
                 try:
@@ -452,6 +546,13 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 except ValueError:
                     raise pyNLoopInvalidCmd('Cannot parse specified %s integer: %s' % (key, value))
                 options[key] = parsed_int
+
+            elif key in ['loop_momenta_generator_class','lmgc']:
+                try:
+                    lmgc = eval('loop_momenta_generator.%s'%value)
+                except:
+                    raise pyNLoopInvalidCmd("Loop momentum generator class '%s' not reckognized."%value)
+                options['loop_momenta_generator_class'] = lmgc
 
             elif key in ['sqrt_s', 'target_accuracy']:
                 try:
@@ -498,12 +599,22 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'phase_computed'        : 'All',
             'reference_vector'      : 'random',
             'offset_vector'         : vectors.LorentzVector([0., 0., 0., 0.]),
-            'loop_momenta_generator_classes' : ['default'],
+            'loop_momenta_generator_classes' : [None,],
             'n_points'              : 100,
             'items_to_plot'         : (0,1,2,3,'distance','poles'),
             'range'                 : (0.,1.),
             'normalization'         : 'None',
             'log_axis'              : False,
+            # When 'test' is on, a battery of tests is performed instead of the plotting of the deformation
+            'test'                  : False,
+            # Hyperparameters of the deformation
+            'conformal_mapping_choice': 'log',
+            'M1_factor'             : 0.035,
+            'M2_factor'             : 0.7,
+            'M3_factor'             : 0.035,
+            'gamma1'                : 0.7,
+            'gamma2'                : 0.008,
+            'Esoft_factor'          : 0.003,
         }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -530,6 +641,18 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 except ValueError:
                     raise pyNLoopInvalidCmd('Cannot parse specified %s integer: %s'%(key,value))
                 options[key] = parsed_int
+
+            elif key in ['M1_factor', 'M2_factor', 'M3_factor', 'gamma1', 'gamma2', 'Esoft_factor']:
+                try:
+                    options[key] = float(value)
+                except ValueError:
+                    raise pyNLoopInvalidCmd('Cannot set deformation parameter %s to %s.'%(key, value))
+
+            elif key=='conformal_mapping_choice':
+                _valid_conformal_mapping_choices=['lin','log']
+                if value.lower() not in _valid_conformal_mapping_choices:
+                    raise pyNLoopInvalidCmd('Conformal mapping choice can only be one of: %s'%_valid_conformal_mapping_choices)
+                options[key] = value.lower()
 
             elif key in ['reference_vector', 'offset_vector']:
                 if value.lower() in ['random','r']:
@@ -567,7 +690,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 lmgc = []
                 for class_name in lmgc_names:
                     if class_name=='default':
-                        lmgc.append(class_name)
+                        lmgc.append(None)
                     else:
                         try:
                             lmgc.append(eval('loop_momenta_generator.%s'%class_name))
@@ -582,7 +705,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s'%(key,value))
                 options[key] = parsed_float
 
-            elif key in ['force','log_axis']:
+            elif key in ['force','log_axis','test']:
                 parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
                 options[key] = parsed_bool
 
@@ -593,6 +716,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     options[key] = pjoin(MG5DIR,value)
 
             elif key in ['normalization']:
+                _normalization_modes_supported = ['distance_real',]
+                if value not in _normalization_modes_supported:
+                    raise pyNLoopInvalidCmd('Normalization modes supported are %s, not %s'%(_normalization_modes_supported, value))
                 options['normalization'] = value
 
             elif key == 'phase_computed':
@@ -655,9 +781,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         n_loop_integrand = chosen_topology['class'](
             n_loops            =   chosen_topology['n_loops'],
             external_momenta   =   random_PS_point,
-            phase_computed     =   options['phase_computed'],
-            # Data-structure for specifying a topology to be determined 
+            # Data-structure for specifying a topology to be determined
             topology           =   chosen_topology_name,
+            **options
         )
         
         all_integrands = [n_loop_integrand,]+n_loop_integrand.get_integrated_counterterms()

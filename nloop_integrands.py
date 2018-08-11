@@ -59,7 +59,7 @@ class NLoopIntegrand(integrands.VirtualIntegrand):
                     'l%d_z' % i_loop, lower_bound=0.0, upper_bound=1.0),
             ] for i_loop in range(1, n_loops+1)], []))
 
-        super(NLoopIntegrand, self).__init__(dimensions=dimensions, **opts)
+        super(NLoopIntegrand, self).__init__(dimensions=dimensions)
 
         self.dimension_name_to_position = {d.name: i for i, d in enumerate(dimensions)}
 
@@ -945,7 +945,8 @@ class box1L_direct_integration(NLoopIntegrand):
 #        for p in self.external_momenta.values():
 #            p.boost(-boost_vector)
 
-        self.loop_momentum_generator = loop_momentum_generator_class(topology, self.external_momenta)
+
+        self.loop_momentum_generator = loop_momentum_generator_class( topology, self.external_momenta, **opts)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
 
@@ -978,14 +979,20 @@ class box1L_direct_integration(NLoopIntegrand):
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Actual evaluation of the loop integrand."""
 
-        # Let's put a dummy example for now
-        k1_E = continuous_inputs[self.dimension_name_to_position['k1_E']]
-        k1_x = continuous_inputs[self.dimension_name_to_position['k1_x']]
-        k1_y = continuous_inputs[self.dimension_name_to_position['k1_y']]
-        k1_z = continuous_inputs[self.dimension_name_to_position['k1_z']]
+        if 'input_already_in_infinite_hyperbox' not in opts:
+            # Let's put a dummy example for now
+            k1_E = continuous_inputs[self.dimension_name_to_position['k1_E']]
+            k1_x = continuous_inputs[self.dimension_name_to_position['k1_x']]
+            k1_y = continuous_inputs[self.dimension_name_to_position['k1_y']]
+            k1_z = continuous_inputs[self.dimension_name_to_position['k1_z']]
 
-        l_moms, jacobian_weight = self.loop_momentum_generator.generate_loop_momenta((k1_E,k1_x,k1_y,k1_z))
-        l_mom = l_moms[0]
+            l_moms, jacobian_weight = self.loop_momentum_generator.generate_loop_momenta((k1_E,k1_x,k1_y,k1_z))
+            l_mom = l_moms[0]
+        else:
+            # In this case 'continuous_inputs' will be the list of loop momenta
+            l_moms           = continuous_inputs
+            l_mom            = l_moms[0]
+            jacobian_weight  = opts['jacobian']
 
         numerator = 1.
         denominator = 1.
