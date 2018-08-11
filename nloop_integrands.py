@@ -988,12 +988,9 @@ class box1L_direct_integration(NLoopIntegrand):
         l_mom = l_moms[0]
 
         numerator = 1.
-
-        p_i = self.external_momenta.to_list()
-        denominator =  ( l_mom - p_i[0]).square() - self.loop_propagator_masses[0]**2
-        denominator *= ( l_mom - p_i[0] - p_i[1] ).square() - self.loop_propagator_masses[1]**2
-        denominator *= ( l_mom - p_i[0] - p_i[1] - p_i[2] ).square() - self.loop_propagator_masses[2]**2
-        denominator *= ( l_mom ).square() - self.loop_propagator_masses[3]**2
+        denominator = 1.
+        for i, q_i in  enumerate(self.loop_momentum_generator.q_is):
+            denominator *= (l_mom - q_i).square() - self.loop_propagator_masses[i] ** 2
 
         integrand_box = numerator / denominator
 
@@ -1020,7 +1017,7 @@ class box1L_direct_integration(NLoopIntegrand):
         # Return a dummy function for now
         if self.phase_computed == 'Real':
             #misc.sprint("Returning real part: %f"%(jacobian_weight * integrand_example_1.real))
-            return (jacobian_weight * integrand_box).real
+            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).real
         else:
             #misc.sprint("Returning complex part: %f"%(jacobian_weight * integrand_example_1.imag))
-            return (jacobian_weight * integrand_box).imag
+            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag
