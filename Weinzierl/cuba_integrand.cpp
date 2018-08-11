@@ -6,8 +6,8 @@
 #define ROTATION_ANGLE M_PI/2.
 #endif
 
-#define WHITCH_INTEGRAND 1 //0:box_6d, 1:box_offshell, 2:test_function
-#define SEED 2 
+#define WHITCH_INTEGRAND 1 //0:box_6d, 1:box_offshell, 2:box_subtracted, 3:test_function
+#define SEED 33
 
 using namespace std;
 
@@ -57,7 +57,7 @@ int Integrand(const int *ndim, const cubareal xx[],
     alpha = sqrt(contour.mu_P);
     l = DIdeform::hypcub_mapping({k0, k1, k2, k3});
     hypercube_jacobian = DIdeform::hypcub_jacobian({k0, k1, k2, k3});
-
+    
     contour.loop_momentum(l);
     contour.deform(ell, deformation_jacobian);
 
@@ -112,18 +112,50 @@ int Integrand(const int *ndim, const cubareal xx[],
       denominator = denominator * (prop_mom * prop_mom);
     }
     my_comp ii(0.0,1.0);
-    f = /*1e10 */(1.0/ii/pow(M_PI,2)) * jacobian / denominator;
+    f = /*1e10 */ (1.0/ii/pow(M_PI,2)) * jacobian  / denominator;
   }
   break;
   
-  /* === TEST INTEGRAL === */
+  /* === BOX SUBTRACTED === */
   case 2: 
+  {
+    //Denominator
+    my_comp denominator = 1.;
+    for (int i = 0; i < 4; i++)
+    {
+      for (int mu = 0; mu < 4; mu++)
+        prop_mom[mu] = ell(mu) - Qs[i](mu);
+      denominator = denominator * (prop_mom * prop_mom);
+    }
+    
+    //Regulator
+    my_comp F;
+    my_real s12, s23;
+
+    s12 = (p1 + p2) * (p1 + p2);
+    s23 = (p2 + p3) * (p2 + p3);
+    for (int i = 0; i < 4; i++)
+    {
+      for (int mu = 0; mu < 4; mu++)
+        prop_mom[mu] = ell(mu) - Qs[i](mu);
+      if (i % 2 == 0)
+        F += (prop_mom * prop_mom) / s23;
+      else
+        F += (prop_mom * prop_mom) / s12;
+    }
+
+    f = /*1e10 */ F * jacobian / denominator;
+  }
+  break;
+
+    /* === TEST INTEGRAL === */
+  case 3:
   {
     f = jacobian * 1. / (pow((ell * ell.dual()) / pow(1, 2), 3) + 50.);
   }
   break;
   }
-
+  
   f_real = f.real();
   f_imag = f.imag();
 
@@ -131,7 +163,8 @@ int Integrand(const int *ndim, const cubareal xx[],
 }
 
 //Phasespace points
-void PS_points(DIdeform::R4vector& p1,DIdeform::R4vector& p2,DIdeform::R4vector& p3,DIdeform::R4vector& p4,int seed){
+void PS_points(DIdeform::R4vector &p1, DIdeform::R4vector &p2, DIdeform::R4vector &p3, DIdeform::R4vector &p4, int seed)
+{
   switch (seed)
   {
   case 666:
@@ -168,9 +201,9 @@ default:
 {
   //Angular seeds
   p1 = DIdeform::R4vector({-0.5, -0.5, 0.0, 0.0});
-  p2 = DIdeform::R4vector({-0.5, 0.5, 0.0, 0.0});
-  p3 = DIdeform::R4vector({0.5, -0.5 * std::cos(ROTATION_ANGLE), -0.5 * std::sin(ROTATION_ANGLE), 0.0});
-  p4 = DIdeform::R4vector({0.5, 0.5 * std::cos(ROTATION_ANGLE), 0.5 * std::sin(ROTATION_ANGLE), 0.0});
+  p2 = DIdeform::R4vector({-0.5,  0.5, 0.0, 0.0});
+  p3 = DIdeform::R4vector({ 0.5, -0.5 * std::cos(ROTATION_ANGLE), -0.5 * std::sin(ROTATION_ANGLE), 0.0});
+  p4 = DIdeform::R4vector({ 0.5,  0.5 * std::cos(ROTATION_ANGLE),  0.5 * std::sin(ROTATION_ANGLE), 0.0});
 }
 break;
   }
