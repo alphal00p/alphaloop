@@ -54,6 +54,8 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
     """ Class for generating a complex-valued one-loop momentum from random variables in the unit hypercube,
     following a deformation that ensures that all propagators are evaluated in the physical region."""
 
+    _conformal_mapping_option_ = "log"
+
     contour_hyper_parameters = {
         'self.M1_factor':   0.035,
         'self.M2_factor':   0.7,
@@ -88,6 +90,9 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         # The last one must be identically equal to zero by energy-momentum, conservation
         self.q_is[-1] = vectors.LorentzVector([0.,0.,0.,0.])
 
+        # Shift the loop momentum
+        self.q_is = [q - self.external_momenta[0] for q in self.q_is]
+
         self.P_plus = self.find_P(plus=True)
         self.P_minus = self.find_P(plus=False)
 
@@ -112,14 +117,28 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         """ Maps a set of four random variables in the unit hyperbox to an infinite dimensional cube that corresponds
          to the original loop momentum integration space."""
 
-        # Analytically compute this trivial jacobian
-        # dk / dr = -1 / ( 2 * ( r - 1/2. )**2 )
         jacobian = 1.
-        for rv in random_variables:
-            jacobian *= self.mu_P*((1. / rv**2) + (1 / ((rv - 1.)**2)))
+        mapped_momentum = []
+        for i in range(0, len(random_variables), 4):
+            res = [self.map_scalar_to_infinite_hyperbox(rv) for rv in random_variables[i:i+4] ]
+            mapped_momentum += [vectors.LorentzVector([v[0] for v in res])]
+            jacobian *= np.prod([v[1] for v in res])
 
-        return [vectors.LorentzVector([((1./(1.-rv)) - 1./rv)*self.mu_P for rv in random_variables[i:i+4]])
-                for i in range(0, len(random_variables), 4)], jacobian
+        return mapped_momentum, jacobian
+
+    def map_scalar_to_infinite_hyperbox(self, scalar):
+
+        if self._conformal_mapping_option_ == "log":
+
+            jacobian = self.mu_P / (scalar * (1 - scalar))
+            value = np.log(scalar / (1. - scalar)) * self.mu_P
+
+        else: #"linear"
+
+            jacobian = self.mu_P * ((1. / scalar ** 2) + (1 / ((scalar - 1.) ** 2)))
+            value = ((1. / (1. - scalar)) - 1. / rv) * self.mu_P
+
+        return value, jacobian
 
     def map_from_infinite_hyperbox(self, k_momenta):
         """ Maps a set of four random variables in the infinite hyperbox to the unit cube."""
@@ -130,7 +149,11 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
     def map_scalar_from_infinite_hyperbox(self, scalar):
         """ Maps a scalar on the infinite line to the unit domain."""
 
-        return -2./(-2.+(scalar/self.mu_P)-sqrt(4.+(scalar/self.mu_P)**2))
+        if self._conformal_mapping_option_ == "log":
+            return exp(scalar / self.mu_P) / (1 + exp(scalar / self.mu_P))
+
+        else: #"linear"
+            return -2./(-2.+(scalar/self.mu_P)-sqrt(4.+(scalar/self.mu_P)**2))
 
     def generate_loop_momenta(self, random_variables):
         """ From the random variables passed in argument, this returns the one-loop four-momentum in the form
@@ -522,7 +545,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         if self._compute_jacobian_numerically:
             # First use numdifftool to compute the jacobian matrix
             def wrapped_function(loop_momentum):
-                return np.r_[self.deform_loop_momenta([vectors.LorentzVector(loop_momentum), ])[0][0]]
+                return np.r_[self.deform_loop_momenta([vectors.LorentzVector(loop_momentum), ])[0]]
 
             local_point = list(loop_momenta[0])
             numerical_jacobian, info = nd.Jacobian(wrapped_function, full_output=True)(local_point)
@@ -531,7 +554,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
             numerical_jacobian_weight = linalg.det(numerical_jacobian)
 
             if np.max(info.error_estimate) > 1.e-3:
-                logger.warning(
+                logger.warningdenominator(
                     "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s" %
                     (np.max(info.error_estimate), jacobian_weight, str(loop_momenta[0])))
 
