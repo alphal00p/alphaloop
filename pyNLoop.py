@@ -357,7 +357,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     # Now solve for the scaling value of the ref_vector that sends this propagator onshell
                     scales_onshell = find_offshell_scaling(ref_vec, q_i-offset_vec, mass_prop)
                     for scale_onshell in scales_onshell:
-    #                    misc.sprint((offset_vec+scale_onshell*ref_vec-q_i).square()-mass_prop**2)
+#                        misc.sprint((offset_vec+scale_onshell*ref_vec-q_i).square()-mass_prop**2)
                         dp = lmg.deform_loop_momenta([offset_vec+scale_onshell*ref_vec,])[0]
                         denominator = (dp-q_i).square()-mass_prop**2
                         imaginary_part_on_poles.append(denominator.imag)
@@ -365,36 +365,36 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     for scale_onshell in scales_onshell:
                         poles.append(map_from_infinity(scale_onshell))
 
-    #            misc.sprint(imaginary_part_on_poles)
-                # Make sure imaginary part is of the dimensionality of the momentum (not squared).
-                imaginary_part_on_poles = [math.sqrt(abs(ipp))*(-1. if ipp < 0. else 1.)
-                                                                                     for ipp in imaginary_part_on_poles]
-                # Normalize to the biggest imaginary part
-                normalization_ipp = max(abs(ipp) for ipp in imaginary_part_on_poles)
-                if options['normalization'] != 'None':
-                    dampening_power = 0.5
-                    imaginary_part_on_poles = [(ipp/normalization_ipp)**dampening_power for ipp in imaginary_part_on_poles]
+#                misc.sprint(len(imaginary_part_on_poles))
+                if len(imaginary_part_on_poles)>0:
+#                    misc.sprint(imaginary_part_on_poles)
+                    # Make sure imaginary part is of the dimensionality of the momentum (not squared).
+                    imaginary_part_on_poles = [math.sqrt(abs(ipp))*(-1. if ipp < 0. else 1.)
+                                                                                         for ipp in imaginary_part_on_poles]
+                    # Normalize to the biggest imaginary part
+                    normalization_ipp = max(abs(ipp) for ipp in imaginary_part_on_poles)
+                    if options['normalization'] != 'None':
+                        dampening_power = 0.5
+                        imaginary_part_on_poles = [(ipp/normalization_ipp)**dampening_power for ipp in imaginary_part_on_poles]
 
-                if any(ipp<0. for ipp in imaginary_part_on_poles):
+                    if any(ipp<0. for ipp in imaginary_part_on_poles):
+                        if not options['test']:
+                                logger.warning('The deformation leads to a negative imaginary part on some poles! : %s'%imaginary_part_on_poles)
+                        else:
+                            logger.critical('A test on the deformation %s failed!'%(all_n_loop_integrands[0][0]))
+                            logger.critical('Imaginary part of the onshell propagators for that point: %s'%str(imaginary_part_on_poles))
+                            logger.critical('This was the #%d test with seed %d.'%(n_tests_done, options['seed']))
+                            logger.critical('External PS point:\n %s'%str(random_PS_point))
+                            logger.critical('Reference vector used: %s'%str(ref_vec))
+                            logger.critical('Offset vector used: %s'%str(offset_vec))
+                            return
+
+#                   misc.sprint("Poles mapped: %s"%poles)
                     if not options['test']:
-                            logger.warning('The deformation leads to a negative imaginary part on some poles! : %s'%imaginary_part_on_poles)
-                    else:
-                        logger.critical('A test on the deformation %s failed!'%(all_n_loop_integrands[0][0]))
-                        logger.critical('Imaginary part of the onshell propagators for that point: %s'%str(imaginary_part_on_poles))
-                        logger.critical('This was the #%d test with seed %d.'%(n_tests_done, options['seed']))
-                        logger.critical('External PS point:\n %s'%str(random_PS_point))
-                        logger.critical('Reference vector used: %s'%str(ref_vec))
-                        logger.critical('Offset vector used: %s'%str(offset_vec))
-                        logger.critical('Onshell solutions:\n%s'%('\n'.join(str(offset_vec+scale_onshell*ref_vec) for
-                                                                                          scale_onshell in scales_onshell)))
-                        return
-
-    #           misc.sprint("Poles mapped: %s"%poles)
-                if not options['test']:
-                    for p, ipp in zip(poles,imaginary_part_on_poles):
-                        y_location = 0. if not options['log_axis'] else 1.
-                        plt.plot(p, y_location, marker='o', markersize=3, color="red")
-                        plt.plot([p, p], [y_location, y_location+ipp], 'k-', lw=2, color="red")
+                        for p, ipp in zip(poles,imaginary_part_on_poles):
+                            y_location = 0. if not options['log_axis'] else 1.
+                            plt.plot(p, y_location, marker='o', markersize=3, color="red")
+                            plt.plot([p, p], [y_location, y_location+ipp], 'k-', lw=2, color="red")
 
         if progress_bar:
             progress_bar.finish()
@@ -640,7 +640,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'force'                 : False,
             'phase_computed'        : 'All',
             'reference_vector'      : 'random',
-            'offset_vector'         : vectors.LorentzVector([0., 0., 0., 0.]),
+            'offset_vector'         : 'random',
             'loop_momenta_generator_classes' : [None,],
             'n_points'              : 100,
             'items_to_plot'         : (0,1,2,3,'distance','poles'),
