@@ -270,96 +270,138 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             beam_types=(1, 1)
         )
 
-        # Specifying None to get a random PS point
-        random_PS_point, wgt, x1, x2 = phase_space_generator.get_PS_point(None)
-        # Use the dictionary representation of the PS Point
-        random_PS_point = random_PS_point.to_dict()
-
-        # For loop calculations, it customary to consider all legs outgoing, so we must
-        # flip the initial states directions.
-        for i in random_PS_point:
-            if i > 2:
-                continue
-            random_PS_point[i] = -random_PS_point[i]
-        logger.info('PS point considered:\n%s' % str(random_PS_point))
-
-        # take a random vector
-        if isinstance(options['reference_vector'], str) and options['reference_vector']=='random':
-            ref_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
-        else:
-            ref_vec  = options['reference_vector']
-        if isinstance(options['offset_vector'], str) and options['offset_vector']=='random':
-            offset_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
-        else:
-            offset_vec  = options['offset_vector']
-        # Make sure the vector has norm of sqrt_s
-        ref_vec = (ref_vec / sum(k**2 for k in ref_vec))*options['sqrt_s']
-        offset_vec = offset_vec * options['sqrt_s']
-        logger.info('Reference vector used: %s'%str(ref_vec))
-        logger.info('Offset_vec vector used: %s'%str(offset_vec))
-
-        n_points = options['n_points']
-
-        # For debugging you can easily print out the options as follows:
-        #misc.sprint(options)
-
-        scaling_range = options['range']
-
-        x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
-
+        random_PS_point = None
         all_n_loop_integrands = []
-        for loop_momenta_generator_class in options['loop_momenta_generator_classes']:
-            all_n_loop_integrands.append( (
-                loop_momenta_generator_class if loop_momenta_generator_class == 'default'
-                                              else loop_momenta_generator_class.__name__ ,
-                chosen_topology['class'](
-                    n_loops=chosen_topology['n_loops'],
-                    external_momenta=random_PS_point,
-                    # Data-structure for specifying a topology to be determined
-                    topology=chosen_topology_name,
-                    loop_momenta_generator_class = loop_momenta_generator_class,
-                    **options
-            ) ))
+        n_tests_done    = 0
+        first           = True
+        if options['test']:
+            widgets = ["Performing deformation test :",
+                       pbar.Percentage(), ' ', pbar.Bar(), ' ', pbar.ETA(), ' ',
+                       pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
+            progress_bar = pbar.ProgressBar(widgets=widgets, maxval=options['n_points'], fd=sys.stdout)
+#           progress_bar = None
+            if progress_bar:
+                progress_bar.start()
+        else:
+            progress_bar = None
+        while (first or (n_tests_done < options['n_points'] and options['test'])):
+            first = False
+            if progress_bar:
+                progress_bar.update(n_tests_done)
+            n_tests_done += 1
+            if random_PS_point is None or (not options['keep_PS_point_fixed']):
+                # Specifying None to get a random PS point
+                random_PS_point, wgt, x1, x2 = phase_space_generator.get_PS_point(None)
+                # Use the dictionary representation of the PS Point
+                random_PS_point = random_PS_point.to_dict()
 
-        ################
-        # Analyze poles
-        ################
+                # For loop calculations, it customary to consider all legs outgoing, so we must
+                # flip the initial states directions.
+                for i in random_PS_point:
+                    if i > 2:
+                        continue
+                    random_PS_point[i] = -random_PS_point[i]
+                if not options['test'] or options['keep_PS_point_fixed']:
+                    logger.info('PS point considered:\n%s' % str(random_PS_point))
 
-        lmg = all_n_loop_integrands[0][1].loop_momentum_generator
-        if any(item in options['items_to_plot'] for item in ['p','poles']):
-            # compute the positions of the poles on the ref vec line
-            poles = []
-            imaginary_part_on_poles = []
-            for i_prop, q_i in enumerate(lmg.q_is):
-                mass_prop = all_n_loop_integrands[0][1].loop_propagator_masses[i_prop]
-                # Now solve for the scaling value of the ref_vector that sends this propagator onshell
-                scales_onshell = find_offshell_scaling(ref_vec, q_i-offset_vec, mass_prop)
-                for scale_onshell in scales_onshell:
-#                    misc.sprint((offset_vec+scale_onshell*ref_vec-q_i).square()-mass_prop**2)
-                    dp = lmg.deform_loop_momenta([offset_vec+scale_onshell*ref_vec,])[0]
-                    denominator = (dp-q_i).square()-mass_prop**2
-                    imaginary_part_on_poles.append(denominator.imag)
-                # Map back this scale onto the unit domain
-                for scale_onshell in scales_onshell:
-                    poles.append(map_from_infinity(scale_onshell))
+            # take a random vector
+            if isinstance(options['reference_vector'], str) and options['reference_vector']=='random':
+                ref_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
+            else:
+                ref_vec  = options['reference_vector']
+            if isinstance(options['offset_vector'], str) and options['offset_vector']=='random':
+                offset_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
+            else:
+                offset_vec  = options['offset_vector']
+            # Make sure the vector has norm of sqrt_s
+            ref_vec = (ref_vec / sum(k**2 for k in ref_vec))*options['sqrt_s']
+            offset_vec = offset_vec * options['sqrt_s']
+            if not options['test']:
+                logger.info('Reference vector used: %s'%str(ref_vec))
+                logger.info('Offset_vec vector used: %s'%str(offset_vec))
 
-#            misc.sprint(imaginary_part_on_poles)
-            # Make sure imaginary part is of the dimensionality of the momentum (not squared).
-            imaginary_part_on_poles = [math.sqrt(abs(ipp))*(-1. if ipp < 0. else 1.)
-                                                                                 for ipp in imaginary_part_on_poles]
-            # Normalize to the biggest imaginary part
-            normalization_ipp = max(abs(ipp) for ipp in imaginary_part_on_poles)
-            if options['normalization'] != 'None':
-                dampening_power = 0.5
-                imaginary_part_on_poles = [(ipp/normalization_ipp)**dampening_power for ipp in imaginary_part_on_poles]
-            if any(ipp<0. for ipp in imaginary_part_on_poles):
-                logger.warning('The deformation leads to a negative imaginary part on some poles! : %s'%imaginary_part_on_poles)
+            n_points = options['n_points']
 
-#           misc.sprint("Poles mapped: %s"%poles)
-            for p, ipp in zip(poles,imaginary_part_on_poles):
-                y_location = 0. if not options['log_axis'] else 1.
-                plt.plot(p, y_location, marker='o', markersize=3, color="red")
-                plt.plot([p, p], [y_location, y_location+ipp], 'k-', lw=2, color="red")
+            # For debugging you can easily print out the options as follows:
+            #misc.sprint(options)
+
+            scaling_range = options['range']
+
+            x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
+
+            if len(all_n_loop_integrands)==0 or (not options['keep_PS_point_fixed']):
+                for loop_momenta_generator_class in options['loop_momenta_generator_classes']:
+                    all_n_loop_integrands.append( (
+                        loop_momenta_generator_class if loop_momenta_generator_class == 'default'
+                                                      else loop_momenta_generator_class.__name__ ,
+                        chosen_topology['class'](
+                            n_loops=chosen_topology['n_loops'],
+                            external_momenta=random_PS_point,
+                            # Data-structure for specifying a topology to be determined
+                            topology=chosen_topology_name,
+                            loop_momenta_generator_class = loop_momenta_generator_class,
+                            **options
+                    ) ))
+
+            ################
+            # Analyze poles
+            ################
+
+            lmg = all_n_loop_integrands[0][1].loop_momentum_generator
+            if any(item in options['items_to_plot'] for item in ['p','poles']):
+                # compute the positions of the poles on the ref vec line
+                poles = []
+                imaginary_part_on_poles = []
+                for i_prop, q_i in enumerate(lmg.q_is):
+                    mass_prop = all_n_loop_integrands[0][1].loop_propagator_masses[i_prop]
+                    # Now solve for the scaling value of the ref_vector that sends this propagator onshell
+                    scales_onshell = find_offshell_scaling(ref_vec, q_i-offset_vec, mass_prop)
+                    for scale_onshell in scales_onshell:
+    #                    misc.sprint((offset_vec+scale_onshell*ref_vec-q_i).square()-mass_prop**2)
+                        dp = lmg.deform_loop_momenta([offset_vec+scale_onshell*ref_vec,])[0]
+                        denominator = (dp-q_i).square()-mass_prop**2
+                        imaginary_part_on_poles.append(denominator.imag)
+                    # Map back this scale onto the unit domain
+                    for scale_onshell in scales_onshell:
+                        poles.append(map_from_infinity(scale_onshell))
+
+    #            misc.sprint(imaginary_part_on_poles)
+                # Make sure imaginary part is of the dimensionality of the momentum (not squared).
+                imaginary_part_on_poles = [math.sqrt(abs(ipp))*(-1. if ipp < 0. else 1.)
+                                                                                     for ipp in imaginary_part_on_poles]
+                # Normalize to the biggest imaginary part
+                normalization_ipp = max(abs(ipp) for ipp in imaginary_part_on_poles)
+                if options['normalization'] != 'None':
+                    dampening_power = 0.5
+                    imaginary_part_on_poles = [(ipp/normalization_ipp)**dampening_power for ipp in imaginary_part_on_poles]
+
+                if any(ipp<0. for ipp in imaginary_part_on_poles):
+                    if not options['test']:
+                            logger.warning('The deformation leads to a negative imaginary part on some poles! : %s'%imaginary_part_on_poles)
+                    else:
+                        logger.critical('A test on the deformation %s failed!'%(all_n_loop_integrands[0][0]))
+                        logger.critical('Imaginary part of the onshell propagators for that point: %s'%str(imaginary_part_on_poles))
+                        logger.critical('This was the #%d test with seed %d.'%(n_tests_done, options['seed']))
+                        logger.critical('External PS point:\n %s'%str(random_PS_point))
+                        logger.critical('Reference vector used: %s'%str(ref_vec))
+                        logger.critical('Offset vector used: %s'%str(offset_vec))
+                        logger.critical('Onshell solutions:\n%s'%('\n'.join(str(offset_vec+scale_onshell*ref_vec) for
+                                                                                          scale_onshell in scales_onshell)))
+                        return
+
+    #           misc.sprint("Poles mapped: %s"%poles)
+                if not options['test']:
+                    for p, ipp in zip(poles,imaginary_part_on_poles):
+                        y_location = 0. if not options['log_axis'] else 1.
+                        plt.plot(p, y_location, marker='o', markersize=3, color="red")
+                        plt.plot([p, p], [y_location, y_location+ipp], 'k-', lw=2, color="red")
+
+        if progress_bar:
+            progress_bar.finish()
+        if options['test']:
+            logger.info('A total of %d tests on the deformation %s were successfully performed.'%(
+                                                                       options['n_points'], all_n_loop_integrands[0][0]))
+            return
 
         #################################
         # Now generate the plotting data
@@ -607,6 +649,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'log_axis'              : False,
             # When 'test' is on, a battery of tests is performed instead of the plotting of the deformation
             'test'                  : False,
+            'keep_PS_point_fixed'   : False,
             # Hyperparameters of the deformation
             'conformal_mapping_choice': 'log',
             'M1_factor'             : 0.035,
@@ -705,7 +748,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s'%(key,value))
                 options[key] = parsed_float
 
-            elif key in ['force','log_axis','test']:
+            elif key in ['force','log_axis','test','keep_PS_point_fixed']:
                 parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
                 options[key] = parsed_bool
 
