@@ -270,6 +270,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             beam_types=(1, 1)
         )
 
+        n_points = options['n_points']
+
         random_PS_point = None
         all_n_loop_integrands = []
         n_tests_done    = 0
@@ -278,13 +280,15 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             widgets = ["Performing deformation test :",
                        pbar.Percentage(), ' ', pbar.Bar(), ' ', pbar.ETA(), ' ',
                        pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
-            progress_bar = pbar.ProgressBar(widgets=widgets, maxval=options['n_points'], fd=sys.stdout)
+            progress_bar = pbar.ProgressBar(widgets=widgets, maxval=n_points, fd=sys.stdout)
 #           progress_bar = None
             if progress_bar:
                 progress_bar.start()
         else:
             progress_bar = None
-        while (first or (n_tests_done < options['n_points'] and options['test'])):
+
+        # Now loop over many tests to be performed with random ref vectors and loop external kinematics
+        while (first or (n_tests_done < n_points and options['test'])):
             first = False
             if progress_bar:
                 progress_bar.update(n_tests_done)
@@ -320,16 +324,11 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 logger.info('Reference vector used: %s'%str(ref_vec))
                 logger.info('Offset_vec vector used: %s'%str(offset_vec))
 
-            n_points = options['n_points']
-
             # For debugging you can easily print out the options as follows:
             #misc.sprint(options)
 
-            scaling_range = options['range']
-
-            x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
-
             if len(all_n_loop_integrands)==0 or (not options['keep_PS_point_fixed']):
+                all_n_loop_integrands = []
                 for loop_momenta_generator_class in options['loop_momenta_generator_classes']:
                     all_n_loop_integrands.append( (
                         loop_momenta_generator_class if loop_momenta_generator_class == 'default'
@@ -406,6 +405,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         #################################
         # Now generate the plotting data
         #################################
+        scaling_range = options['range']
+        x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
 
         # now sample n_points points and compute the deformation
         points = [ offset_vec + ref_vec * map_to_infinity(x) for x in x_entries]
