@@ -359,7 +359,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 #                        misc.sprint((offset_vec+scale_onshell*ref_vec-q_i).square()-mass_prop**2)
                         dp = lmg.deform_loop_momenta([offset_vec+scale_onshell*ref_vec,])[0]
                         denominator = (dp-q_i).square()-mass_prop**2
-                        imaginary_part_on_poles.append(denominator.imag+1.e99)
+                        imaginary_part_on_poles.append(denominator.imag)
                     # Map back this scale onto the unit domain
                     for scale_onshell in scales_onshell:
                         poles.append(map_from_infinity(scale_onshell))
