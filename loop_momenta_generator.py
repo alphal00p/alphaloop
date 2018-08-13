@@ -142,7 +142,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         elif self.conformal_mapping_choice == "lin":
 
             jacobian = self.mu_P * ((1. / scalar ** 2) + (1 / ((scalar - 1.) ** 2)))
-            value = ((1. / (1. - scalar)) - 1. / rv) * self.mu_P
+            value = ((1. / (1. - scalar)) - 1. / scalar) * self.mu_P
 
         else:
 
