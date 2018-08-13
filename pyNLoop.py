@@ -416,7 +416,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # Make sure the normalization is capped to be minimum 1.0
         normalizations = [max(n,1.0e-99) for n in normalizations]
-
+        all_deformed_points = []
+        all_jacobians       = []
         for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
 
             deformed_points = []
@@ -436,6 +437,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     progress_bar.update(i_point)
             if progress_bar:
                 progress_bar.finish()
+            all_deformed_points.append(deformed_points)
+            all_jacobians.append(jacobians)
 
 #           misc.sprint("Last 5 points: %s"%(',\n'.join([str(p) for p in points[-5:]])))
 #           misc.sprint("Last 5 deformed points: %s"%(',\n'.join([str(p) for p in deformed_points[-5:]])))
@@ -510,7 +513,57 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     jacobian_abss = [jac/max_jacobian_abss for jac in jacobian_abss]
                     plt.plot(x_entries,jacobian_abss, label='jac_abs @%s'%lm_generator_name)
 
-
+        # Plot relative difference of deformation, normalized to its max
+        if len(all_n_loop_integrands)>1 and any((isinstance(item, str) and item.startswith('difference')) for item
+                                                                                           in options['items_to_plot']):
+            relative_deformation_differences = []
+            relative_jacobian_differences    = []
+            n_lmg = len(all_n_loop_integrands)
+            for i_point in range(len(all_deformed_points[0])):
+                if 'difference_deformation' in options['items_to_plot']:
+                    data_for_deformation_difference = []
+                    for i_component in range(4):
+                        data_for_deformation_difference.append(
+                            [all_deformed_points[i_lmg][i_point][i_component].real for i_lmg in range(n_lmg) ] )
+                        data_for_deformation_difference.append(
+                            [all_deformed_points[i_lmg][i_point][i_component].imag for i_lmg in range(n_lmg)] )
+                    if options['normalization']:
+                        relative_deformation_differences.append(max(
+                            [(max(k) - min(k))/(0.5*((abs(max(k))+abs(min(k))) if (abs(max(k))+abs(min(k)))>0. else 1.))
+                                                                            for k in data_for_deformation_difference ]))
+                    else:
+                        relative_deformation_differences.append(max(
+                                                            [(max(k) - min(k)) for k in data_for_deformation_difference ]))
+                if 'difference_jacobian' in options['items_to_plot']:
+                    data_for_jacobian_difference = []
+                    data_for_jacobian_difference.append([all_jacobians[i_lmg][i_point].real for i_lmg in range(n_lmg)])
+                    data_for_jacobian_difference.append([all_jacobians[i_lmg][i_point].imag for i_lmg in range(n_lmg)])
+                    if options['normalization']:
+                        relative_jacobian_differences.append(max(
+                            [(max(k) - min(k))/(0.5*((abs(max(k))+abs(min(k))) if (abs(max(k))+abs(min(k)))>0. else 1.))
+                                                                            for k in data_for_jacobian_difference ]))
+                    else:
+                        relative_jacobian_differences.append(max(
+                                                            [(max(k) - min(k)) for k in data_for_jacobian_difference ]))
+            # Further normalize if asked for.
+            if options['normalization']:
+                if 'difference_deformation' in options['items_to_plot']:
+                    max_diff = max(relative_deformation_differences)
+                    if max_diff > 0.:
+                        relative_deformation_differences = [d/max_diff for d in relative_deformation_differences]
+                    plt.plot(x_entries, relative_deformation_differences, label='Rel. deform. diff. %s' % (
+                                                                        '( x%.3e )'%max_diff if max_diff > 0. else 'ZERO' ))
+                if 'difference_jacobian' in options['items_to_plot']:
+                    max_diff = max(relative_jacobian_differences)
+                    if max_diff > 0.:
+                        relative_jacobian_differences = [d/max_diff for d in relative_jacobian_differences]
+                    plt.plot(x_entries, relative_jacobian_differences, label='Rel. jacobian diff. %s' % (
+                                                                        '( x%.3e )'%max_diff if max_diff > 0. else 'ZERO' ))
+            else:
+                if 'difference_deformation' in options['items_to_plot']:
+                    plt.plot(x_entries, relative_deformation_difference, label='Deform. diff.')
+                if 'difference_jacobian' in options['items_to_plot']:
+                    plt.plot(x_entries, relative_jacobian_differences, label='Jacobian diff.')
 
         if options['log_axis']:
             plt.semilogy()
