@@ -567,8 +567,25 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if options['log_axis']:
             plt.semilogy()
-        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3)
-        plt.show()
+        legend = plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3)
+        if options['save_plot'] not in ['',None]:
+            extension = os.path.basename(options['save_plot']).split('.')
+            if len(extension)==1:
+                extension = None
+            else:
+                extension = extension[-1]
+            if extension is None:
+                extension = 'svg'
+                options['save_plot'] += '.'+extension
+            logger.info("Saving plot to '%s'."%options['save_plot'])
+            if extension=='svg':
+                plt.savefig(options['save_plot'], bbox_extra_artists=(legend,), bbox_inches='tight')
+            else:
+                plt.savefig(options['save_plot'], dpi=500, bbox_extra_artists=(legend,), bbox_inches='tight')
+        if options['show_plot']:
+            plt.show()
+        else:
+            logger.info("Display of the plot skipped according to user's request.")
 
     def parse_integrate_loop_options(self, args):
         """ Parsing arguments/options passed to the command integrate_loop."""
@@ -703,7 +720,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'log_axis'              : False,
             # When 'test' is on, a battery of tests is performed instead of the plotting of the deformation
             'test'                  : False,
+            'test_timing'           : False,
             'keep_PS_point_fixed'   : False,
+            'show_plot'             : True,
+            'save_plot'             : '',
             # Hyperparameters of the deformation
             'conformal_mapping_choice': 'log',
             'M1_factor'             : 0.035,
@@ -802,17 +822,19 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s'%(key,value))
                 options[key] = parsed_float
 
-            elif key in ['force','log_axis','test','keep_PS_point_fixed']:
+            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','test_timing']:
                 parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
                 options[key] = parsed_bool
 
-            elif key in ['output_folder']:
+            elif key in ['output_folder','save_plot']:
                 if os.path.isabs(value):
                     options[key] = value
                 else:
                     options[key] = pjoin(MG5DIR,value)
 
             elif key in ['normalization']:
+                if value is None:
+                    value = 'distance_real'
                 _normalization_modes_supported = ['distance_real',]
                 if value not in _normalization_modes_supported:
                     raise pyNLoopInvalidCmd('Normalization modes supported are %s, not %s'%(_normalization_modes_supported, value))
