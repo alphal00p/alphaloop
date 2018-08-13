@@ -81,18 +81,15 @@ extern "C"
         //If Qs has not been initialized return 1
         if (Qs.size() < 3)
             return 1;
+
+        if (!external_Pp || !external_Pm)
+            return 2;
+
         //create the deformer
         deformer = new DIdeform::ContourDeform(Qs);
-
-        //overwrite P+- when necessary
-        if (external_Pp && external_Pm)
-        {
-            deformer->Pp = Pp;
-            deformer->Pm = Pm;
-            deformer->set_global_var();
-        }
-        else
-            return 2;
+        deformer->Pp = Pp;
+        deformer->Pm = Pm;
+        deformer->set_global_var();
 
         return 0;
     }

@@ -404,7 +404,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
     """ One loop momentum generator which only applies the conformal map but no deformation. """
 
-    def define_global_quantities_for_contour_defomration(self):
+    def define_global_quantities_for_contour_deformation(self):
         """Nothing to do in this case. Move along."""
         pass
 
@@ -485,8 +485,8 @@ class DeformationCPPinterface(object):
     def set_q_is(self, q_is):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In set_q_is with q_is=%s'%str(q_is))
         for q_i in q_is:
-            self.register_q_i(q_i)
-        self.init()
+            if self.register_q_i(q_i) != 0:
+                raise LoopMomentaGeneratorError('Error registering Qs')
 
     def set_P_plus_and_P_minus(self, P_plus, P_minus):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In set_P_plus_and_P_minus with P_plus=%s, P_minus=%s'%(str(P_plus),str(P_minus)))
@@ -498,12 +498,18 @@ class DeformationCPPinterface(object):
         # set P-
         dim = len(P_minus)
         return_val += [self._hook.set_Pm(array_type(*P_minus), dim)]
-        return max(return_val)
+
+        err = max(return_val)
+        if err != 0:
+            raise LoopMomentaGeneratorError('Error setting P+ or P-:')
+
     def deform_loop_momentum(self, k):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In deform_loop_momentum with k=%s'%(str(k)))
         dim = len(k)
         array_type = ctypes.c_double * dim
-        return self._hook.deform_loop_momentum(array_type(*k), dim)
+        err =  self._hook.deform_loop_momentum(array_type(*k), dim)
+        if err != 0:
+            raise LoopMomentaGeneratorError('Error deforming:%s'%str(err))
     def get_deformed_loop_momentum(self):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In get_deformed_loop_momentum')
         array_pointer = ctypes.cast(self._hook.get_deformed_loop_momentum(), ctypes.POINTER(ctypes.c_double * 8))
@@ -549,6 +555,11 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         # Propagate some of this global information to the underlying C++ library
         self._cpp_interface.set_q_is(self.q_is)
         self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
+
+        # Now that all quantities are set, we initialize
+        err = self._cpp_interface.init()
+        if err != 0:
+            raise LoopMomentaGeneratorError('Error initializing: %s'%str(err))
 
     def apply_deformation(self, loop_momenta):
         """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz
@@ -601,7 +612,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
 class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
     """ One loop momentum generator which only applies the conformal map but no deformation. """
 
-    def define_global_quantities_for_contour_defomration(self):
+    def define_global_quantities_for_contour_deformation(self):
         """Nothing to do in this case. Move along."""
         pass
 
