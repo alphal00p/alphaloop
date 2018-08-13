@@ -57,8 +57,8 @@ cuba_integrand.o : cuba_integrand.cpp
 DCD.o: DCD.cpp DCD.h
 	$(CXX) $(CXXFLAGS) -fPIC -D _PySTUFF_ -c $< -o $@ 
 #C Wrap for python
-DCD_interface.o: DCD_interface.cpp
-	$(CXX) $(CXXFLAGS) -fPIC -c $^ -o $@ 
+DCD_interface.o: DCD_interface.cpp DCD_interface.h
+	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@ 
 
 clean :
 	-rm -f ${SRC}*.o
