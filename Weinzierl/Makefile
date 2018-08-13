@@ -1,7 +1,8 @@
 # Compilers:                                                                                                                                              
-ifeq ($(OS),Linux)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
   CXX=g++
-else ifeq ($(OS),Darwin)
+else ifeq ($(UNAME_S),Darwin)
   CXX=clang++
 endif
 

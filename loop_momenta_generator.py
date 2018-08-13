@@ -431,9 +431,9 @@ class DeformationCPPinterface(object):
     def compile_CPP_deformation_library(path):
         """Compiles the C++ deformation library if necessary."""
 
-        if not os.path.isfile(pjoin(path, 'DCD_interface.so')):
-            logger.info('Now compiling shared library DCD_interface.so in path %s'%path)
-            misc.compile(arg=[], cwd=path)
+        #if not os.path.isfile(pjoin(path, 'DCD_interface.so')):
+        logger.info('Now compiling shared library DCD_interface.so in path %s'%path)
+        misc.compile(arg=[], cwd=path)
 
         if not os.path.isfile(pjoin(path, 'DCD_interface.so')):
             raise LoopMomentaGeneratorError("Could no compile C++ deformation source code in %s with command 'make'."%path)
