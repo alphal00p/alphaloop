@@ -98,7 +98,7 @@ extern "C"
     int deform_loop_momentum(double l[], int d)
     {
         //Check if deformer exists
-        if (deformer != NULL)
+        if (deformer == NULL)
             return 99;
         
         //Check dimension
