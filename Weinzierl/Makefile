@@ -1,4 +1,9 @@
-CXX = clang++
+# Compilers:                                                                                                                                              
+ifeq ($(OS),Linux)
+  CXX=g++
+else ifeq ($(OS),Darwin)
+  CXX=clang++
+endif
 
 # Cuba
 CUBA_METHOD = 1 #1:Vegas 2:Suave 3:Divone 4:Cuhre
@@ -48,8 +53,8 @@ cuba_integrate.o : cuba.c
 cuba_integrand.o : cuba_integrand.cpp
 	$(CXX) $(CXXFLAGS) -D ROTATION_ANGLE=$(SCATTERING_ANGLE) -c $^ -o $@ $(INC_FLAG)
 #path deformation for direct integration
-DCD.o: DCD.cpp
-	$(CXX) $(CXXFLAGS) -fPIC -D _PySTUFF_ -c $^ -o $@ 
+DCD.o: DCD.cpp DCD.h
+	$(CXX) $(CXXFLAGS) -fPIC -D _PySTUFF_ -c $< -o $@ 
 #C Wrap for python
 DCD_interface.o: DCD_interface.cpp
 	$(CXX) $(CXXFLAGS) -fPIC -c $^ -o $@ 
