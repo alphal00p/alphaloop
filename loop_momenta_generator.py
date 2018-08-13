@@ -428,6 +428,11 @@ class DeformationCPPinterface(object):
     _debug_cpp = False
     _CPP_Weinzierl_src = pjoin(plugin_path,'Weinzierl')
 
+    _valid_hyper_parameters = {
+        'M1_factor' : 1,
+    }
+
+
     def compile_CPP_deformation_library(path):
         """Compiles the C++ deformation library if necessary."""
 

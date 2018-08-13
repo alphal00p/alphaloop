@@ -15,6 +15,8 @@ import re
 import random
 import sympy
 import math
+import timeit
+import functools
 import copy
 
 import matplotlib.pyplot as plt
@@ -341,6 +343,23 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             loop_momenta_generator_class = loop_momenta_generator_class,
                             **options
                     ) ))
+
+            ###############################
+            # Do timing tests if asked for
+            ###############################
+            if options['test_timing']:
+                for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
+                    if options['test_timing']=='deformation':
+                        function_to_test =  lambda: n_loop_integrand.loop_momentum_generator.generate_loop_momenta([random.random() for _ in range(4)])
+                    elif options['test_timing']=='integrand':
+                        function_to_test = lambda: n_loop_integrand([random.random() for _ in range(4)], [])
+                    else:
+                        raise pyNLoopInterfaceError("The timing test can only be performed on integrand' or 'deformation'.")
+                    performance = min(timeit.repeat(functools.partial(function_to_test),
+                                                        number=options['n_points'], repeat=3))/float(options['n_points'])
+                    logger.info('Performance of %s for loop momenta generator %s : %.3e s / deformation.'%(
+                                                                  options['test_timing'],lm_generator_name,performance))
+                return
 
             ################
             # Analyze poles
@@ -720,7 +739,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'log_axis'              : False,
             # When 'test' is on, a battery of tests is performed instead of the plotting of the deformation
             'test'                  : False,
-            'test_timing'           : False,
+            'test_timing'           : None,
             'keep_PS_point_fixed'   : False,
             'show_plot'             : True,
             'save_plot'             : '',
@@ -822,7 +841,17 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s'%(key,value))
                 options[key] = parsed_float
 
-            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','test_timing']:
+            elif key in ['test_timing']:
+                if value.lower() in ['integrand','deformation']:
+                    options[key] = value.lower()
+                elif value is None:
+                    options[key] = 'deformation'
+                elif value.lower() in ['f','false']:
+                    options[key] = False
+                else:
+                    raise pyNLoopInvalidCmd("Option 'test_timing' can only take values in ['integrand','deformation','False'], not %s"%value)
+
+            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot']:
                 parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
                 options[key] = parsed_bool
 
