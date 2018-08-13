@@ -10,7 +10,7 @@ Direct Contour Deformation from Sebastian Becker and Stefan Weinzierl
 #include <vector>
 #include <complex>
 #include <limits>
-#include <math.h>
+#include <cmath>
 
 //using namespace std;
 #define for4mu for(int mu=0; mu<4; mu++)

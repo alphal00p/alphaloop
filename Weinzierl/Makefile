@@ -1,4 +1,4 @@
-CXX = g++
+CXX = clang++
 
 # Cuba
 CUBA_METHOD = 1 #1:Vegas 2:Suave 3:Divone 4:Cuhre
