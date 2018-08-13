@@ -331,16 +331,17 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             if len(all_n_loop_integrands)==0 or (not options['keep_PS_point_fixed']):
                 all_n_loop_integrands = []
-                for loop_momenta_generator_class in options['loop_momenta_generator_classes']:
+                for loop_momenta_generator_class, loop_momenta_generator_options in options['loop_momenta_generators']:
                     all_n_loop_integrands.append( (
-                        loop_momenta_generator_class if loop_momenta_generator_class == 'default'
-                                                      else loop_momenta_generator_class.__name__ ,
+                        'default' if loop_momenta_generator_class is None
+                                      else loop_momenta_generator_class.__name__+'@'+str(loop_momenta_generator_options),
                         chosen_topology['class'](
                             n_loops=chosen_topology['n_loops'],
                             external_momenta=random_PS_point,
                             # Data-structure for specifying a topology to be determined
                             topology=chosen_topology_name,
                             loop_momenta_generator_class = loop_momenta_generator_class,
+                            loop_momenta_generator_options = loop_momenta_generator_options,
                             **options
                     ) ))
 
@@ -441,7 +442,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             deformed_points = []
             jacobians       = []
-            widgets = ["Loop deformation for generator %s :"%lm_generator_name,
+            widgets = ["Loop deformation for generator %s :"%lm_generator_name.split('@')[0],
                 pbar.Percentage(), ' ', pbar.Bar(),' ', pbar.ETA(), ' ',
                 pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
             progress_bar = pbar.ProgressBar(widgets=widgets, maxval=len(points), fd=sys.stdout)
@@ -624,15 +625,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'refine_n_points': 1000,
             'output_folder': pjoin(MG5DIR, 'MyPyNLoop_output'),
             'force': False,
-            'loop_momenta_generator_class': None,
-            # Hyperparameters of the deformation
-            'conformal_mapping_choice' : 'log',
-            'M1_factor'     : 0.035,
-            'M2_factor'     : 0.7,
-            'M3_factor'     : 0.035,
-            'gamma1'        : 0.7,
-            'gamma2'        : 0.008,
-            'Esoft_factor'  : 0.003,
+            'loop_momenta_generator': self.parse_lmgc_specification('default'),
         }
 
         # First combine all value of the options (starting with '--') separated by a space
@@ -659,18 +652,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             'specification of a random PS point')
                 options[key] = value
 
-            elif key in ['M1_factor', 'M2_factor', 'M3_factor', 'gamma1', 'gamma2', 'Esoft_factor']:
-                try:
-                    options[key] = float(value)
-                except ValueError:
-                    raise pyNLoopInvalidCmd('Cannot set deformation parameter %s to %s.'%(key, value))
-
-            elif key=='conformal_mapping_choice':
-                _valid_conformal_mapping_choices=['lin','log']
-                if value.lower() not in _valid_conformal_mapping_choices:
-                    raise pyNLoopInvalidCmd('Conformal mapping choice can only be one of: %s'%_valid_conformal_mapping_choices)
-                options[key] = value.lower()
-
             elif key in ['seed', 'batch_size', 'verbosity', 'nb_CPU_cores',
                          'survey_n_iterations', 'survey_n_points', 'refine_n_iterations', 'refine_n_points']:
                 try:
@@ -680,11 +661,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 options[key] = parsed_int
 
             elif key in ['loop_momenta_generator_class','lmgc']:
-                try:
-                    lmgc = eval('loop_momenta_generator.%s'%value)
-                except:
-                    raise pyNLoopInvalidCmd("Loop momentum generator class '%s' not reckognized."%value)
-                options['loop_momenta_generator_class'] = lmgc
+                options['loop_momenta_generator'] = self.parse_lmgc_specification(value)
 
             elif key in ['sqrt_s', 'target_accuracy']:
                 try:
@@ -719,6 +696,46 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         return new_args, options
 
+    def parse_lmgc_specification(self, specs):
+        """ Given a specification of the loop momenta generator class with the format:
+
+                <loop_momenta_generator_class_name>@{'option_a' : value_for_option_a, 'option_b' : value_for_option_b, etc... }
+
+        returns a tuple (loop_momenta_generator_class, options_to_pass_during_instantiation)
+        """
+
+        # Hyperparameters of the deformation
+        default_loop_momenta_generator_options = {
+            'conformal_mapping_choice'  : 'log',
+            'M1'                        : 0.035,
+            'M2'                        : 0.7,
+            'M3'                        : 0.035,
+            'Gamma1'                    : 0.7,
+            'Gamma2'                    : 0.008,
+            'Esoft'                     : 0.003,
+        }
+
+        if specs == 'default':
+            return None, default_loop_momenta_generator_options
+        else:
+            try:
+                lmgc_name, user_lmgc_options = specs.split('@')
+            except ValueError:
+                lmgc_name    = specs
+                user_lmgc_options = {}
+
+            try:
+                user_lmgc_options = eval(user_lmgc_options)
+            except:
+                raise pyNLoopInvalidCmd("Loop momenta generator options %s could not be parsed." % user_lmgc_options)
+            try:
+                lmgc_class = eval('loop_momenta_generator.%s' % lmgc_name)
+            except:
+                raise pyNLoopInvalidCmd("Loop momentum generator class '%s' not reckognized." % lmgc_name)
+            lmgc_options = dict(default_loop_momenta_generator_options)
+            lmgc_options.update(user_lmgc_options)
+            return (lmgc_class, lmgc_options)
+
     def parse_plot_deformation_options(self, args):
         """ Parsing arguments/options passed to the command integrate_loop."""
 
@@ -731,7 +748,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'phase_computed'        : 'All',
             'reference_vector'      : 'random',
             'offset_vector'         : 'random',
-            'loop_momenta_generator_classes' : [None,],
+            'loop_momenta_generators' : [self.parse_lmgc_specification('default'),],
             'n_points'              : 100,
             'items_to_plot'         : (0,1,2,3,'distance','poles'),
             'range'                 : (0.,1.),
@@ -742,15 +759,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'test_timing'           : None,
             'keep_PS_point_fixed'   : False,
             'show_plot'             : True,
-            'save_plot'             : '',
-            # Hyperparameters of the deformation
-            'conformal_mapping_choice': 'log',
-            'M1_factor'             : 0.035,
-            'M2_factor'             : 0.7,
-            'M3_factor'             : 0.035,
-            'gamma1'                : 0.7,
-            'gamma2'                : 0.008,
-            'Esoft_factor'          : 0.003,
+            'save_plot'             : ''
         }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -777,18 +786,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 except ValueError:
                     raise pyNLoopInvalidCmd('Cannot parse specified %s integer: %s'%(key,value))
                 options[key] = parsed_int
-
-            elif key in ['M1_factor', 'M2_factor', 'M3_factor', 'gamma1', 'gamma2', 'Esoft_factor']:
-                try:
-                    options[key] = float(value)
-                except ValueError:
-                    raise pyNLoopInvalidCmd('Cannot set deformation parameter %s to %s.'%(key, value))
-
-            elif key=='conformal_mapping_choice':
-                _valid_conformal_mapping_choices=['lin','log']
-                if value.lower() not in _valid_conformal_mapping_choices:
-                    raise pyNLoopInvalidCmd('Conformal mapping choice can only be one of: %s'%_valid_conformal_mapping_choices)
-                options[key] = value.lower()
 
             elif key in ['reference_vector', 'offset_vector']:
                 if value.lower() in ['random','r']:
@@ -823,16 +820,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     lmgc_names = list(eval(value))
                 except:
                     raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
-                lmgc = []
-                for class_name in lmgc_names:
-                    if class_name=='default':
-                        lmgc.append(None)
-                    else:
-                        try:
-                            lmgc.append(eval('loop_momenta_generator.%s'%class_name))
-                        except:
-                            raise pyNLoopInvalidCmd("Loop momentum generator class '%s' not reckognized."%class_name)
-                options['loop_momenta_generator_classes'] = lmgc
+                lmgcs = []
+                for lmgc_specification in lmgc_names:
+                    lmgcs.append(self.parse_lmgc_specification(lmgc_specification))
+                options['loop_momenta_generators'] = lmgcs
 
             elif key in ['sqrt_s']:
                 try:
@@ -931,7 +922,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             external_momenta   =   random_PS_point,
             # Data-structure for specifying a topology to be determined
             topology           =   chosen_topology_name,
-            **options
+            loop_momenta_generator_class = options['loop_momenta_generator'][0],
+            loop_momenta_generator_options = options['loop_momenta_generator'][1],
+            **opts
         )
         
         all_integrands = [n_loop_integrand,]+n_loop_integrand.get_integrated_counterterms()

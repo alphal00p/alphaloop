@@ -55,12 +55,12 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
     following a deformation that ensures that all propagators are evaluated in the physical region."""
 
     contour_hyper_parameters = {
-        'M1_factor'    :   0.035,
-        'M2_factor'    :   0.7,
-        'M3_factor'    :   0.035,
-        'gamma1'       :   0.7,
-        'gamma2'       :   0.008,
-        'Esoft_factor' :   0.003,
+        'M1'        :   0.035,
+        'M2'        :   0.7,
+        'M3'        :   0.035,
+        'Gamma1'    :   0.7,
+        'Gamma2'    :   0.008,
+        'Esoft'     :   0.003,
     }
 
     def __init__(self, topology, external_momenta, conformal_mapping_choice='log', **opts):
@@ -77,6 +77,8 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         for opt in opts:
             if opt in self.contour_hyper_parameters:
                 self.contour_hyper_parameters[opt] = opts[opt]
+            else:
+                logger.warning("Option '%s' not reckognized in class '%s'."%(opt, self.__class__.__name__))
 
         # Eventually this information must be extracted from the topology, for now it is hard-coded.
         self.topology = topology
@@ -105,14 +107,12 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         # Characteristic scale of the process
         self.mu_P = sqrt((self.P_minus - self.P_plus).square())
 
-        self.M1 = self.contour_hyper_parameters['M1_factor'] * self.sqrt_S
-        self.M2 = self.contour_hyper_parameters['M2_factor'] * max(
-            self.mu_P, self.sqrt_S)
-        self.M3 = self.contour_hyper_parameters['M3_factor'] * max(
-            self.mu_P, self.sqrt_S)
-        self.gamma1 = self.contour_hyper_parameters['gamma1']
-        self.gamma2 = self.contour_hyper_parameters['gamma2']
-        self.Esoft = self.contour_hyper_parameters['Esoft_factor'] * self.sqrt_S
+        self.M1 = self.contour_hyper_parameters['M1'] * self.sqrt_S
+        self.M2 = self.contour_hyper_parameters['M2'] * max(self.mu_P, self.sqrt_S)
+        self.M3 = self.contour_hyper_parameters['M3'] * max(self.mu_P, self.sqrt_S)
+        self.gamma1 = self.contour_hyper_parameters['Gamma1']
+        self.gamma2 = self.contour_hyper_parameters['Gamma2']
+        self.Esoft = self.contour_hyper_parameters['Esoft'] * self.sqrt_S
 
         self.soft_vectors = [self.Esoft * vectors.LorentzVector([1, 0, 0, 0]),
                              self.Esoft * vectors.LorentzVector([0, 1, 0, 0]),
@@ -428,8 +428,13 @@ class DeformationCPPinterface(object):
     _debug_cpp = False
     _CPP_Weinzierl_src = pjoin(plugin_path,'Weinzierl')
 
+    # List valid hyperparameters and their ID
     _valid_hyper_parameters = {
-        'M1_factor' : 1,
+        'M1'        : 0,
+        'M2'        : 1,
+        'M3'        : 2,
+        'Gamma1'    : 3,
+        'Gamma2'    : 4,
     }
 
 
@@ -469,6 +474,11 @@ class DeformationCPPinterface(object):
     # get the array
     _hook.deform_loop_momentum.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
     _hook.deform_loop_momentum.restype  = (ctypes.c_int)
+    # set options
+    _hook.set_factor_double.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_double),ctypes.c_int)
+    _hook.set_factor_double.restype  = (ctypes.c_int)
+    _hook.set_factor_int.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_int),ctypes.c_int)
+    _hook.set_factor_int.restype  = (ctypes.c_int)
 
     def __init__(self):
         self.clear()
@@ -486,6 +496,24 @@ class DeformationCPPinterface(object):
         dim = len(q)
         array_type = ctypes.c_double * dim
         return self._hook.append_Q(array_type(*q), dim)
+
+    def set_option(self, option_name, option_values):
+        if option_name not in self._valid_hyper_parameters:
+            raise LoopMomentaGeneratorError("Deformation option '%s' not reckognized."%option_name)
+        option_ID = self._valid_hyper_parameters[option_name]
+        if not isinstance(option_values,(list,tuple)):
+            option_values = [option_values,]
+        dim = len(option_values)
+        if isinstance(option_values[0], int):
+            array_type = ctypes.c_int * dim
+            return_code = self._hook.set_factor_int(option_ID, array_type(*option_values), dim)
+        elif isinstance(option_values[0], float):
+            array_type = ctypes.c_double * dim
+            return_code = self._hook.set_factor_double(option_ID, array_type(*option_values), dim)
+        else:
+            raise LoopMomentaGeneratorError("Unsupported type of option : '%s' set to '%s'."%(option_name,str(option_values)))
+        if return_code != 0:
+            raise LoopMomentaGeneratorError("Error when setting option '%s' to '%s'."%(option_name,str(option_values)))
 
     def set_q_is(self, q_is):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In set_q_is with q_is=%s'%str(q_is))
@@ -548,6 +576,12 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         self._cpp_interface = DeformationCPPinterface()
 
         super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
+
+        for opt, value in opts.items():
+            try:
+                self._cpp_interface.set_option(opt, value)
+            except LoopMomentaGeneratorError:
+                logger.warning("Option '%s' not reckognized in class '%s'."%(opt, self.__class__.__name__))
 
     def __delete__(self):
         """Clean-up duty when this instance is destroyed."""

@@ -911,6 +911,8 @@ class box1L_direct_integration(NLoopIntegrand):
                  phase_computed     = 'Real',
                  # Data-structure for specifying a topology to be determined
                  topology           = None,
+                 loop_momenta_generator_class = None,
+                 loop_momenta_generator_options = {},
                  **opts):
 
         # Offer the possibility of specifying the class implementing the loop momentum deformation
@@ -946,7 +948,8 @@ class box1L_direct_integration(NLoopIntegrand):
 #            p.boost(-boost_vector)
 
 
-        self.loop_momentum_generator = loop_momenta_generator_class( topology, self.external_momenta, **opts)
+        self.loop_momentum_generator = loop_momenta_generator_class( topology,
+                                                                self.external_momenta, **loop_momenta_generator_options)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
 
