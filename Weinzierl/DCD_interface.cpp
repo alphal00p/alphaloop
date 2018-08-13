@@ -3,7 +3,7 @@
 extern "C"
 {
     //Deformer
-    DIdeform::ContourDeform *deformer;
+    DIdeform::ContourDeform *deformer = NULL;
 
     //Deformer arguments
     std::vector<DIdeform::R4vector> Qs;
@@ -74,6 +74,10 @@ extern "C"
      */
     int init()
     {
+        //Check if deformer exists
+        if (deformer != NULL)
+            return 99;
+        
         //If Qs has not been initialized return 1
         if (Qs.size() < 3)
             return 1;
@@ -96,6 +100,10 @@ extern "C"
     //Create the deformation
     int deform_loop_momentum(double l[], int d)
     {
+        //Check if deformer exists
+        if (deformer != NULL)
+            return 99;
+        
         //Check dimension
         if (d != 4)
             return 1;
@@ -137,11 +145,13 @@ extern "C"
     void clear()
     {
         //Free momory allocated to class element
-        delete deformer;
+        if (deformer != NULL)
+            delete deformer;
+        deformer = NULL;
         //Reset variable for new call
         external_Pp = false;
         external_Pm = false;
         //Clear Qs vector
-        std::vector<DIdeform::R4vector>().swap(Qs);
+        Qs.clear();
     }
 }
