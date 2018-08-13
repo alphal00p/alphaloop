@@ -281,7 +281,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                        pbar.Percentage(), ' ', pbar.Bar(), ' ', pbar.ETA(), ' ',
                        pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
             progress_bar = pbar.ProgressBar(widgets=widgets, maxval=n_points, fd=sys.stdout)
-#           progress_bar = None
+#            progress_bar = None
             if progress_bar:
                 progress_bar.start()
         else:
@@ -347,7 +347,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             ################
 
             lmg = all_n_loop_integrands[0][1].loop_momentum_generator
-            if any(item in options['items_to_plot'] for item in ['p','poles']):
+            if (options['test'] or any(item in options['items_to_plot'] for item in ['p','poles'])):
                 # compute the positions of the poles on the ref vec line
                 poles = []
                 imaginary_part_on_poles = []
@@ -359,7 +359,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 #                        misc.sprint((offset_vec+scale_onshell*ref_vec-q_i).square()-mass_prop**2)
                         dp = lmg.deform_loop_momenta([offset_vec+scale_onshell*ref_vec,])[0]
                         denominator = (dp-q_i).square()-mass_prop**2
-                        imaginary_part_on_poles.append(denominator.imag)
+                        imaginary_part_on_poles.append(denominator.imag+1.e99)
                     # Map back this scale onto the unit domain
                     for scale_onshell in scales_onshell:
                         poles.append(map_from_infinity(scale_onshell))

@@ -220,7 +220,6 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         assert len(
             loop_momenta) == 1, "This class %s can only handle a single loop momentum" % self.__class__.__name__
         k_loop = loop_momenta[0]
-
         c_plus, c_minus = 1, 1
         # k_i is the ith propagator, so k_loop - q_i
         for qi, mi in zip(self.q_is, self.loop_propagator_masses):
@@ -586,8 +585,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
     def deform_loop_momenta(self, loop_momenta):
         """ This function deforms the starting loop momentum (in the infinite hypercube) passed in argument and using
         the C++ implementation of Weinzierl's path deformation. It then returns the deformed path as a Lorentz
-        4-vector, along with the Jacobian numerically computed.
-        In the implementation of this class, we consider a single loop."""
+        4-vector, along with the Jacobian numerically computed. In the implementation of this class, we consider a single loop."""
 
         # A single loop for now
         assert len(
