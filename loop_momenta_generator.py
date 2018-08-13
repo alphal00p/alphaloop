@@ -426,43 +426,9 @@ class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
 class DeformationCPPinterface(object):
 
     _debug_cpp = False
+    _CPP_Weinzierl_src = pjoin(plugin_path,'Weinzierl')
 
-    def __init__(self, path):
-        self._hook = self.get_hook(path)
-
-    def get_hook(self, path):
-        """Build, start and return the C++ interface."""
-
-        self.compile_CPP_deformation_library(path)
-
-        hook = ctypes.CDLL(pjoin(path,'./DCD_interface.so'))
-        # append Q
-        hook.append_Q.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
-        hook.append_Q.restype  = (ctypes.c_int);
-        # feed P+ and P-
-        hook.set_Pp.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
-        hook.set_Pm.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
-        hook.set_Pp.restype  = (ctypes.c_int);
-        hook.set_Pm.restype  = (ctypes.c_int);
-        # init class
-        hook.init.argtypes = ();
-        hook.init.restype  = (ctypes.c_int);
-        # delete previous defined class
-        hook.clear.argtypes = ();
-        hook.clear.restype  = (ctypes.c_void_p);
-        # get the array
-        hook.get_deformed_loop_momentum.argtypes = ()
-        hook.get_deformed_loop_momentum.restype = (ctypes.POINTER(ctypes.c_double))
-        # get jacobian
-        hook.get_jacobian.argtypes = ()
-        hook.get_jacobian.restype = (ctypes.POINTER(ctypes.c_double))
-        # get the array
-        hook.deform_loop_momentum.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
-        hook.deform_loop_momentum.restype  = (ctypes.c_int)
-
-        return hook
-
-    def compile_CPP_deformation_library(self, path):
+    def compile_CPP_deformation_library(path):
         """Compiles the C++ deformation library if necessary."""
 
         if not os.path.isfile(pjoin(path, 'DCD_interface.so')):
@@ -471,6 +437,40 @@ class DeformationCPPinterface(object):
 
         if not os.path.isfile(pjoin(path, 'DCD_interface.so')):
             raise LoopMomentaGeneratorError("Could no compile C++ deformation source code in %s with command 'make'."%path)
+
+    compile_CPP_deformation_library(_CPP_Weinzierl_src)
+
+    _hook = ctypes.CDLL(pjoin(_CPP_Weinzierl_src,'DCD_interface.so'))
+    # append Q
+    _hook.append_Q.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
+    _hook.append_Q.restype  = (ctypes.c_int);
+    # feed P+ and P-
+    _hook.set_Pp.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
+    _hook.set_Pm.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
+    _hook.set_Pp.restype  = (ctypes.c_int);
+    _hook.set_Pm.restype  = (ctypes.c_int);
+    # init class
+    _hook.init.argtypes = ();
+    _hook.init.restype  = (ctypes.c_int);
+    # delete previous defined class
+    _hook.clear.argtypes = ();
+    _hook.clear.restype  = (ctypes.c_void_p);
+    # get the array
+    _hook.get_deformed_loop_momentum.argtypes = ()
+    _hook.get_deformed_loop_momentum.restype = (ctypes.POINTER(ctypes.c_double))
+    # get jacobian
+    _hook.get_jacobian.argtypes = ()
+    _hook.get_jacobian.restype = (ctypes.POINTER(ctypes.c_double))
+    # get the array
+    _hook.deform_loop_momentum.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
+    _hook.deform_loop_momentum.restype  = (ctypes.c_int)
+
+    def __init__(self):
+        self.clear()
+
+    def get_hook(self):
+        """Build, start and return the C++ interface."""
+        return self._hook
 
     #
     # Wrapper around all functions exposed in the C++ library
@@ -521,17 +521,20 @@ class DeformationCPPinterface(object):
         return self._hook.clear()
     # ==================================================================================================================
 
+    def __delete__(self):
+        """Clean-up duty when this instance is destroyed."""
+        self.clear()
+
 class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
     """ One loop momentum generator which uses the CPP implementation of Weinzierl's deformation in the back-end. """
 
-    _CPP_Weinzierl_src = pjoin(plugin_path,'Weinzierl')
     _compute_jacobian_numerically = False
 
     def __init__(self, topology, external_momenta, **opts):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
         must be generated."""
 
-        self._cpp_interface = DeformationCPPinterface(self._CPP_Weinzierl_src)
+        self._cpp_interface = DeformationCPPinterface()
 
         super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
 
