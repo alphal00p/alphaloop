@@ -916,10 +916,6 @@ class box1L_direct_integration(NLoopIntegrand):
                  **opts):
 
         # Offer the possibility of specifying the class implementing the loop momentum deformation
-        if 'loop_momenta_generator_class' in opts:
-            loop_momenta_generator_class = opts.pop('loop_momenta_generator_class')
-        else:
-            loop_momenta_generator_class = None
         if loop_momenta_generator_class is None:
             loop_momenta_generator_class = loop_momenta_generator.OneLoopMomentumGenerator_WeinzierlCPP
 
