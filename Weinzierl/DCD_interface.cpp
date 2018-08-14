@@ -18,7 +18,7 @@ extern "C"
     //Deformer arguments
     std::vector<DIdeform::R4vector> Qs;
     DIdeform::R4vector Pp, Pm, loop_momentum;
-    double M1_factor, M2_factor, M3_factor;
+    double M1_factor, M2_factor, M3_factor, M4_factor;
     double gamma1, gamma2;
     
     //Additional arguments flags
@@ -27,6 +27,7 @@ extern "C"
     bool external_M1 = false;
     bool external_M2 = false;
     bool external_M3 = false;
+    bool external_M4 = false;
     bool external_gamma1 = false;
     bool external_gamma2 = false;
 
@@ -53,6 +54,9 @@ extern "C"
        
         case _OP_M3_FACTOR:
             return set_M(v, d, M3_factor,external_M3);
+       
+        case _OP_M4_FACTOR:
+            return set_M(v, d, M4_factor,external_M4);
        
         case _OP_GAMMA1_FACTOR:
             return set_gamma(v, d, gamma1, external_gamma1);
@@ -170,7 +174,8 @@ extern "C"
         //overwrite P+- when necessary
         if (external_Pp || external_Pm ||
             external_M1 || external_M2 ||
-            external_M3 || external_gamma1 || external_gamma2)
+            external_M3 || external_M4 ||
+            external_gamma1 || external_gamma2)
         {
             if (external_Pp)
                 deformer->Pp = Pp;
@@ -182,6 +187,8 @@ extern "C"
                 deformer->M2f = M2_factor;
             if (external_M3)
                 deformer->M3f = M3_factor;
+            if (external_M4)
+                deformer->M4f = M4_factor;
             if (external_gamma1)
                 deformer->gamma1 = gamma1;
             if (external_gamma2)
@@ -256,6 +263,7 @@ extern "C"
         external_M1 = false;
         external_M2 = false;
         external_M3 = false;
+        external_M4 = false;
         external_gamma1 = false;
         external_gamma2 = false;
         

@@ -433,6 +433,7 @@ class DeformationCPPinterface(object):
         'M1'        : 11,
         'M2'        : 12,
         'M3'        : 13,
+        'M4'        : 14,
         'Gamma1'    : 21,
         'Gamma2'    : 22,
     }

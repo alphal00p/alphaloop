@@ -7,6 +7,7 @@
 #define _OP_M1_FACTOR 11
 #define _OP_M2_FACTOR 12
 #define _OP_M3_FACTOR 13
+#define _OP_M4_FACTOR 14
 
 #define _OP_GAMMA1_FACTOR 21
 #define _OP_GAMMA2_FACTOR 22

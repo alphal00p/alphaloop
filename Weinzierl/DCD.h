@@ -85,11 +85,11 @@ namespace DIdeform
     int legs; // Number of external legs
 
     //Global variables
-    my_real M1f = 0.035, M2f = 0.7, M3f = 0.035;
+    my_real M1f = 0.035, M2f = 0.7, M3f = 0.035, M4f = 0.035;
     my_real gamma1 = 0.7;
     my_real gamma2 = 0.008;
     my_real E_soft = 0.03;
-    my_real Ecmsq, mu_P, M1sq, M2sq, M3sq, M5sq;
+    my_real Ecmsq, mu_P, M1sq, M2sq, M3sq, M4sq;
 
     //Auxiliary vectors
     R4vector Pp, kp; //zp(qa+q0, qa-q0)

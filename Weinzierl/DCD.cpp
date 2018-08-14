@@ -397,10 +397,10 @@ void DIdeform::ContourDeform::set_global_var()
   mu_P = (Pm - Pp) * (Pm - Pp);
 
   //Set M1sq and M2sq
-  M1sq = std::pow(M1f, 2) * Ecmsq;
+  M1sq = std::pow(M1f, 2) * Ecmsq; 
   M2sq = std::pow(M2f, 2) * std::max(mu_P, Ecmsq);
   M3sq = std::pow(M3f, 2) * std::max(mu_P, Ecmsq);
-  M5sq = 1.0 * M1sq;
+  M4sq = std::pow(M4f, 2) * Ecmsq;
 
   //Set orthogonal vectors ei's
   std::vector<DIdeform::R4vector>(4).swap(ei);
@@ -645,7 +645,7 @@ my_real DIdeform::ContourDeform::dij(int i, int j)
     return hm(lqi[j], msq, M1sq);
   }
   else //Otherwise
-    return std::max(h0(lqi[j], msq, M1sq), ht(-2 * (lqi[j] * lqi[i]), M5sq));
+    return std::max(h0(lqi[j], msq, M1sq), ht(-2 * (lqi[j] * lqi[i]), M4sq));
 }
 
 my_real DIdeform::ContourDeform::dijk(int i, int j, int k)
@@ -657,7 +657,7 @@ my_real DIdeform::ContourDeform::dijk(int i, int j, int k)
   DIdeform::R4vector lvij = l - vij(i, j);
   my_real zij = qij * qij - std::pow(mi[i] + mi[j], 2);
 
-  return ht(zij, M5sq) * std::max(h0(lqi[k], msq, M1sq), ht(-2 * (lqi[k] * lvij), M5sq));
+  return ht(zij, M4sq) * std::max(h0(lqi[k], msq, M1sq), ht(-2 * (lqi[k] * lvij), M4sq));
 }
 
 my_real DIdeform::ContourDeform::ci(int i)
@@ -743,10 +743,10 @@ DIdeform::R4vector DIdeform::ContourDeform::gradlogdij(int i, int j)
   }
   else
   { //Otherwise
-    if (h0(lqi[j], msq, M1sq) > ht(-2 * (lqi[j] * lqi[i]), M5sq))
+    if (h0(lqi[j], msq, M1sq) > ht(-2 * (lqi[j] * lqi[i]), M4sq))
       grad = gradlogh0(lqi[j], msq, M1sq);
     else
-      grad = dloght(-2 * (lqi[j] * lqi[i]), M5sq) *
+      grad = dloght(-2 * (lqi[j] * lqi[i]), M4sq) *
              (-2) * (lqi[j].dual() + lqi[i].dual());
   }
 
@@ -763,10 +763,10 @@ DIdeform::R4vector DIdeform::ContourDeform::gradlogdijk(int i, int j, int k)
   my_real zij = qij * qij - std::pow(mi[i] + mi[j], 2);
 
   DIdeform::R4vector grad; // At the moment is a zero vector
-  if (h0(lqi[k], msq, M1sq) > ht(-2 * (lqi[k] * lvij), M1sq))
+  if (h0(lqi[k], msq, M1sq) > ht(-2 * (lqi[k] * lvij), M4sq))
     grad = gradlogh0(lqi[k], msq, M1sq);
   else
-    grad = dloght(-2 * (lqi[k] * lvij), M1sq) * (-2) * (lqi[k].dual() + lvij.dual());
+    grad = dloght(-2 * (lqi[k] * lvij), M4sq) * (-2) * (lqi[k].dual() + lvij.dual());
 
   return grad;
 }
