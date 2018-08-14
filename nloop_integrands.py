@@ -993,16 +993,16 @@ class box1L_direct_integration(NLoopIntegrand):
             l_mom            = l_moms[0]
             jacobian_weight  = opts['jacobian']
 
+        #misc.sprint((k1_E,k1_x,k1_y,k1_z), l_mom, jacobian_weight)
         numerator = 1.
         denominator = 1.
         for i, q_i in  enumerate(self.loop_momentum_generator.q_is):
             denominator *= (l_mom - q_i).square() - self.loop_propagator_masses[i] ** 2
         if abs(denominator)==0:
-            logger.warning('Exactly on-shell denominator encountered. Skipping this point.')
+            logger.critical('Exactly on-shell denominator encountered. Skipping this point.')
             return 0.
 
         integrand_box = numerator / denominator
-
         # Here are some dummy function to try in order to test the phase-space volume
         euclidian_product = sum(l_mom[i]**2 for i in range(4))
         # Number 1:
@@ -1025,8 +1025,8 @@ class box1L_direct_integration(NLoopIntegrand):
 
         # Return a dummy function for now
         if self.phase_computed == 'Real':
-            #misc.sprint("Returning real part: %f"%(jacobian_weight * integrand_example_1.real))
+            #misc.sprint("Returning real part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).real))
             return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).real
-        else:
-            #misc.sprint("Returning complex part: %f"%(jacobian_weight * integrand_example_1.imag))
+        elif self.phase_computed == 'Imaginary':
+            #misc.sprint("Returning complex part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag))
             return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag

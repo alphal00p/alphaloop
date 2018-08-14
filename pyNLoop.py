@@ -672,7 +672,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'sqrt_s': 1000.0,
             'verbosity': 1,
             'nb_CPU_cores': None,
-            'phase_computed': 'All',
+            'phase_computed': 'Real',
             'output_folder': pjoin(MG5DIR, 'MyPyNLoop_output'),
             'force': False,
             'loop_momenta_generator': self.parse_lmgc_specification('default'),
@@ -732,11 +732,11 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             elif key == 'phase_computed':
                 if value.upper() in ['REAL', 'R', 'RE']:
-                    options[key] == 'Real'
+                    options[key] = 'Real'
                 elif value.upper() in ['IMAGINARY', 'I', 'IM']:
-                    options[key] == 'Imaginary'
+                    options[key] = 'Imaginary'
                 elif value.upper() in ['ALL', 'A']:
-                    options[key] == 'All'
+                    options[key] = 'All'
                 else:
                     raise pyNLoopInvalidCmd("The phase computed can only be 'Real' or 'Imaginary'.")
 
@@ -967,6 +967,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # For debugging you can easily print out the chosen PS point as follows:
 #        misc.sprint(str(random_PS_point))
+        misc.sprint(options)
         n_loop_integrand = chosen_topology['class'](
             n_loops            =   chosen_topology['n_loops'],
             external_momenta   =   random_PS_point,
