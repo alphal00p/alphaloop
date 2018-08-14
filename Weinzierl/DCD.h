@@ -167,7 +167,8 @@ namespace DIdeform
     //Derivatives
 
     //Constructor Function
-    bool set_PpPm(std::vector<R4vector> &Qs);
+    void set_PpPm(std::vector<R4vector> &Qs);
+    bool test_PpPm(std::vector<R4vector> &Qs);
     void get_PpPm(short int plus_or_minus, std::vector<R4vector> &qs);
     void set_global_var();
     //void Find_Topology();

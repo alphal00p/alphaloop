@@ -5,6 +5,7 @@
  * The error are coded as follows:
  * 
  *    return 1   -> wrong dimension for the input
+ *    return 5   -> P+ and/or P- are not well defined
  *    return 99  -> No function found for the corresponding option
  *    return 101 -> deformer has not been created.
  * 
@@ -194,6 +195,7 @@ extern "C"
             if (external_gamma2)
                 deformer->gamma2 = gamma2;
             deformer->set_global_var();
+            if(!deformer->test_PpPm(Qs)) return ;
         }
 
         //std::printf("M1_factor:\t%f   |   ", deformer->M1f);

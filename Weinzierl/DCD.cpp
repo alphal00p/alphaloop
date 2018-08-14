@@ -272,7 +272,10 @@ DIdeform::ContourDeform::ContourDeform(std::vector<DIdeform::R4vector> &Qs)
   }
 
   //Compute P+ and P-
-  if (!set_PpPm(Qs))
+  set_PpPm(Qs);
+  
+  //Test the validity of Pp and Pm
+  if(test_PpPm(Qs))
     exit(1);
 
   //Compute Misq
@@ -350,7 +353,7 @@ void DIdeform::ContourDeform::get_PpPm(short int plus_or_minus, std::vector<DIde
   get_PpPm(plus_or_minus, qs);
 }
 
-bool DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
+void DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
 {
   // //Note that this definition is valid only for massless momenta
   // Pp = zp(qi[A] + qi[0], qi[A] - qi[0]);
@@ -364,13 +367,39 @@ bool DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
   qs = Qs;
   get_PpPm(-1, qs);
   Pm = qs[0];
+}
 
+bool DIdeform::ContourDeform::test_PpPm(std::vector<DIdeform::R4vector> &Qs){
   //Check the validity of Pp and Pm
+  bool test_pass = false;
   my_real eps = std::numeric_limits<my_real>::epsilon();
   DIdeform::R4vector vv;
+  
+  //Run TEST
   for (int i = 0; i < 4; i++)
   {
     vv = Qs[i] - Pp;
+    if (vv * vv + eps < 0.0 || vv(0) < 0.0)
+    test_pass = false;
+
+    vv = Qs[i] - Pm;
+    if (vv * vv < 0.0 || vv(0) > 0.0)
+    test_pass = false;
+  }
+
+  if(test_pass) return test_pass;
+  
+  //Move P+ and P-
+  DIdeform::R4vector r = 0.5 * (Pm-Pp);
+  DIdeform::R4vector center = 0.5 * (Pm+Pp);
+  my_real push_size = .01;
+  Pp =center - (1.0 + push_size)*r;
+  Pm =center + (1.0 + push_size)*r; 
+
+  //Check Again
+  for (int i = 0; i < 4; i++)
+    {
+        vv = Qs[i] - Pp;
     if (vv * vv + eps < 0.0 || vv(0) < 0.0)
     {
       std::printf("The build of P+ has failed. One of the Qs is not in its forward light-cone\n");
