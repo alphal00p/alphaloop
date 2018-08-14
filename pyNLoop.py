@@ -670,6 +670,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 if 'difference_jacobian' in options['items_to_plot']:
                     plt.plot(x_entries, relative_jacobian_differences, label='Jacobian diff.')
 
+        plt.xlim(options['range'])
         if options['log_axis']:
             plt.semilogy()
         legend = plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3)
