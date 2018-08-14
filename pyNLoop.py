@@ -388,18 +388,24 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if len(all_n_loop_integrands)==0 or (not options['keep_PS_point_fixed']):
                 all_n_loop_integrands = []
                 for loop_momenta_generator_class, loop_momenta_generator_options in options['loop_momenta_generators']:
+                    integrand_options = {
+                        'n_loops'                       : chosen_topology['n_loops'],
+                        'external_momenta'              : random_PS_point,
+                        # Data-structure for specifying a topology to be determined
+                        'topology'                       : chosen_topology_name,
+                        'loop_momenta_generator_class'   : loop_momenta_generator_class,
+                        'loop_momenta_generator_options' : loop_momenta_generator_options,
+                    }
+                    for opt, value in options.items():
+                        if opt=='loop_momenta_generators':
+                            continue
+                        integrand_options[opt] = value
                     all_n_loop_integrands.append( (
                         'default' if loop_momenta_generator_class is None
                                       else loop_momenta_generator_class.__name__+'@'+str(loop_momenta_generator_options),
-                        chosen_topology['class'](
-                            n_loops=chosen_topology['n_loops'],
-                            external_momenta=random_PS_point,
-                            # Data-structure for specifying a topology to be determined
-                            topology=chosen_topology_name,
-                            loop_momenta_generator_class = loop_momenta_generator_class,
-                            loop_momenta_generator_options = loop_momenta_generator_options,
-                            **options
-                    ) ))
+                        chosen_topology['class'],
+                        integrand_options
+                    ))
 
             ###############################
             # Do timing tests if asked for
@@ -422,13 +428,14 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Analyze poles
             ################
 
-            lmg = all_n_loop_integrands[0][1].loop_momentum_generator
+            first_integrand = all_n_loop_integrands[0][1](**all_n_loop_integrands[0][2])
+            lmg = first_integrand.loop_momentum_generator
             if (options['test'] or any(item in options['items_to_plot'] for item in ['p','poles'])):
                 # compute the positions of the poles on the ref vec line
                 poles = []
                 imaginary_part_on_poles = []
                 for i_prop, q_i in enumerate(lmg.q_is):
-                    mass_prop = all_n_loop_integrands[0][1].loop_propagator_masses[i_prop]
+                    mass_prop = first_integrand.loop_propagator_masses[i_prop]
                     # Now solve for the scaling value of the ref_vector that sends this propagator onshell
                     scales_onshell = find_offshell_scaling(ref_vec, q_i-offset_vec, mass_prop)
                     for scale_onshell in scales_onshell:
@@ -494,8 +501,12 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         normalizations = [max(n,1.0e-99) for n in normalizations]
         all_deformed_points = []
         all_jacobians       = []
-        for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
-
+        for i_integrand, (lm_generator_name, n_loop_integrand_class, n_loop_integrand_options) in enumerate(all_n_loop_integrands):
+            # Recoer or build the n_loop_integrand instance
+            if i_integrand==0:
+                n_loop_integrand = first_integrand
+            else:
+                n_loop_integrand = n_loop_integrand_class(**n_loop_integrand_options)
             deformed_points = []
             jacobians       = []
             widgets = ["Loop deformation for generator %s :"%lm_generator_name.split('@')[0],
