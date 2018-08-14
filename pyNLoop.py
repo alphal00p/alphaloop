@@ -44,7 +44,10 @@ from madgraph.integrator.pyCubaIntegrator import pyCubaIntegrator
 
 import nloop_integrands
 import loop_momenta_generator
-import pysecdec_integrator
+try:
+    import pysecdec_integrator
+except ImportError:
+    logger.warning("Import of pySecDec fails; you will not be able integrate loops depending on this integrator.")
 
 
 logger = logging.getLogger('pyNLoop.Interface')
