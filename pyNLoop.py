@@ -38,6 +38,7 @@ from madgraph.iolibs.files import cp, ln, mv
 
 import madgraph.integrator.phase_space_generators as phase_space_generators
 from madgraph.integrator.vegas3_integrator import Vegas3Integrator
+from madgraph.integrator.pyCubaIntegrator import pyCubaIntegrator
 # It will be nice to experiment with Thomas Hahn's integrators too later
 # import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 
@@ -165,27 +166,82 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'integrator'        :   'auto',
             'parallelization'   :   'multicore'
         }
+        # Generic option for all integrators
+        self.integrator_options = {
+            # For Vegas3
+            'target_accuracy'       : 1.0e-3,
+            'batch_size'            : 1000,
+            'verbosity'             : 1,
+            'survey_n_iterations'   : 10,
+            'survey_n_points'       : 10000,
+            'refine_n_iterations'   : 1,
+            'refine_n_points'       : 100000,
+            # For Cuba, see pyCubaIntegrator constructor for the list.
+        }
+
         super(pyNLoopInterface, self).__init__(*args, **opts)
 
         # Temporary force pySecDec dependencies to be used
         os.environ['PATH']= os.environ['PATH']+':'+pjoin(self.pyNLoop_options['pySecDec_path'], 'bin')
 
+    def parse_set_pyNLoop_option(self, args):
+        """ Parsing arguments/options passed to the command set_pyNLoop option."""
+
+        options = { }
+
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args) > 0:
+                opt_args[-1] += ' %s' % arg
+            else:
+                new_args.append(arg)
+
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=')
+            except:
+                key, value = arg, None
+            key = key[2:]
+
+            # All options are declared valid in this contex
+            options[key] = eval(str(value))
+
+        return new_args, options
+
+    def do_display_pyNLoop_option(self, line):
+        """ Display pyNLoop options"""
+        logger.info('%sGeneral pyNLoop options%s'%(misc.bcolors.GREEN, misc.bcolors.ENDC))
+        logger.info('%s-----------------------%s'%(misc.bcolors.GREEN, misc.bcolors.ENDC))
+        for opt in sorted(self.pyNLoop_options.keys()):
+            logger.info('%-30s : %s'%(opt, str(self.pyNLoop_options[opt])))
+        logger.info('%sIntegrator options%s'%(misc.bcolors.GREEN, misc.bcolors.ENDC))
+        logger.info('%s------------------%s'%(misc.bcolors.GREEN, misc.bcolors.ENDC))
+        for opt in sorted(self.integrator_options.keys()):
+            logger.info('%-30s : %s'%(opt, str(self.integrator_options[opt])))
+
     def do_set_pyNLoop_option(self, line):
         """ Logic for setting pyNLoop options."""
 
         args = self.split_arg(line)
+        args, options = self.parse_set_pyNLoop_option(args)
         key, value = args[:2]
- 
+
         if key == 'integrator':
-            if value not in ['Vegas3','pySecDec','auto']:
+            if value not in ['Vegas3','pySecDec','Cuba','auto']:
                 raise pyNLoopInvalidCmd(
 "pyNLoop only supports Vegas3 and pySecDec integrator for now (or automatically set with value 'auto').")
-        
+            self.pyNLoop_options['integrator'] = value
+            self.integrator_options.update(options)
+
         elif key == 'parallelization':
             if value not in ['cluster', 'multicore']:
                 raise pyNLoopInvalidCmd("pyNLoop only supports parallelization "+
                                                         "modes 'cluser' and 'multicore'.")
-
+            self.pyNLoop_options['parallelization'] = value
         else:
             raise pyNLoopInvalidCmd("Unrecognized pyNLoop option: %s"%key)
         
@@ -614,15 +670,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'PS_point': 'random',
             'seed': None,
             'sqrt_s': 1000.0,
-            'target_accuracy': 1.0e-3,
-            'batch_size': 1000,
             'verbosity': 1,
             'nb_CPU_cores': None,
             'phase_computed': 'All',
-            'survey_n_iterations': 10,
-            'survey_n_points': 2000,
-            'refine_n_iterations': 10,
-            'refine_n_points': 1000,
             'output_folder': pjoin(MG5DIR, 'MyPyNLoop_output'),
             'force': False,
             'loop_momenta_generator': self.parse_lmgc_specification('default'),
@@ -924,7 +974,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             topology           =   chosen_topology_name,
             loop_momenta_generator_class = options['loop_momenta_generator'][0],
             loop_momenta_generator_options = options['loop_momenta_generator'][1],
-            **opts
+            **options
         )
         
         all_integrands = [n_loop_integrand,]+n_loop_integrand.get_integrated_counterterms()
@@ -968,28 +1018,23 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 else:
                     integrator_name = self.pyNLoop_options['integrator']
                  
-            # Generic option for all integrators
-            cluster = self.get_cluster(force_nb_cpu_cores=options['nb_CPU_cores'])
-            integration_options = {
-                'cluster'               :   cluster,
-                'target_accuracy'       :   options['target_accuracy'],
-                'batch_size'            :   options['batch_size'],
-                'verbosity'             :   options['verbosity'],
-                'survey_n_iterations'   :   options['survey_n_iterations'],
-                'survey_n_points'       :   options['survey_n_points'],
-                'refine_n_iterations'   :   options['refine_n_iterations'],
-                'refine_n_points'       :   options['refine_n_points'],
-                'pySecDec_path'         :   self.pyNLoop_options['pySecDec_path']
-            }
-                    
+            # Now set the integrator options
+            integrator_options = dict(self.integrator_options)
+            for opt, value in options.items():
+                if opt in integrator_options:
+                    integrator_options[opt] = value
+            integrator_options['cluster'] = self.get_cluster(force_nb_cpu_cores=options['nb_CPU_cores'])
+            integrator_options['pySecDec_path'] = self.pyNLoop_options['pySecDec_path']
             if integrator_name=='Vegas3':
                 if options['phase_computed']=='All':
                     logger.warning('Vegas3 integrator cannot simultaneously integrate the real and imaginary part of'+
                               " the loop for now. The user's choice 'All' for 'phase_computed' is reverted to 'Real'.")
                     loop_integrand.phase_computed = 'Real'
-                integrator = Vegas3Integrator(loop_integrand, **integration_options)
+                integrator = Vegas3Integrator(loop_integrand, **integrator_options)
             elif integrator_name=='pySecDec':
-                integrator = pysecdec_integrator.pySecDecIntegrator(loop_integrand, **integration_options)
+                integrator = pysecdec_integrator.pySecDecIntegrator(loop_integrand, **integrator_options)
+            elif integrator_name=='Cuba':
+                integrator = pyCubaIntegrator(loop_integrand, **integrator_options)
             else:
                 raise pyNLoopInterfaceError("Integrator '%s' not implemented."%integrator_name)
             

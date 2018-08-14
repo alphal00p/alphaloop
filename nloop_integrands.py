@@ -903,7 +903,7 @@ class box1L_integrated_CT_VH(box1L_integrated_CT):
 class box1L_direct_integration(NLoopIntegrand):
 
     # We plan on being able to use pySecDec integrator only for this case
-    _supported_integrators = ['Vegas3']
+    _supported_integrators = ['Vegas3','Cuba']
 
     def __init__(self,
                  n_loops            = 1,
@@ -997,6 +997,9 @@ class box1L_direct_integration(NLoopIntegrand):
         denominator = 1.
         for i, q_i in  enumerate(self.loop_momentum_generator.q_is):
             denominator *= (l_mom - q_i).square() - self.loop_propagator_masses[i] ** 2
+        if abs(denominator)==0:
+            logger.warning('Exactly on-shell denominator encountered. Skipping this point.')
+            return 0.
 
         integrand_box = numerator / denominator
 
