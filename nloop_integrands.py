@@ -968,8 +968,8 @@ class box1L_direct_integration(NLoopIntegrand):
         its evaluation faster."""
 
         # We will use a native python implementation for now
-        pass
-        #super(box1L_direct_integration, self).output(output_folder, **opts)
+        opts['force'] = True
+        super(box1L_direct_integration, self).output(output_folder, **opts)
 
         return False
 
