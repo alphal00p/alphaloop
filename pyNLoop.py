@@ -144,9 +144,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         try:
             import pySecDec
         except ImportError:
-            raise pyNLoopInvalidCmd(
+            logger.warning(
                 'pyNLoop could not successfully import the pySecDec module.\n'+
                 'Make sure it is specified in your $PYTHONPATH.')
+            return ''
         pySecDec_root_path = os.path.abspath(
                   pjoin(os.path.dirname(pySecDec.__file__), os.path.pardir,os.path.pardir))
         
