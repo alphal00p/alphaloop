@@ -44,13 +44,12 @@ from madgraph.integrator.pyCubaIntegrator import pyCubaIntegrator
 
 import nloop_integrands
 import loop_momenta_generator
+
+logger = logging.getLogger('pyNLoop.Interface')
 try:
     import pysecdec_integrator
 except ImportError:
     logger.warning("Import of pySecDec fails; you will not be able integrate loops depending on this integrator.")
-
-
-logger = logging.getLogger('pyNLoop.Interface')
 
 pjoin = os.path.join
 template_dir = pjoin(plugin_path, 'Templates')
