@@ -371,7 +371,7 @@ void DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
 
 bool DIdeform::ContourDeform::test_PpPm(std::vector<DIdeform::R4vector> &Qs){
   //Check the validity of Pp and Pm
-  bool test_pass = false;
+  bool test_pass = true;
   my_real eps = std::numeric_limits<my_real>::epsilon();
   DIdeform::R4vector vv;
   
@@ -380,11 +380,11 @@ bool DIdeform::ContourDeform::test_PpPm(std::vector<DIdeform::R4vector> &Qs){
   {
     vv = Qs[i] - Pp;
     if (vv * vv + eps < 0.0 || vv(0) < 0.0)
-    test_pass = false;
+      test_pass = false;
 
     vv = Qs[i] - Pm;
     if (vv * vv < 0.0 || vv(0) > 0.0)
-    test_pass = false;
+      test_pass = false;
   }
 
   if(test_pass) return test_pass;
@@ -392,7 +392,7 @@ bool DIdeform::ContourDeform::test_PpPm(std::vector<DIdeform::R4vector> &Qs){
   //Move P+ and P-
   DIdeform::R4vector r = 0.5 * (Pm-Pp);
   DIdeform::R4vector center = 0.5 * (Pm+Pp);
-  my_real push_size = .01;
+  my_real push_size = 1.0e-10;
   Pp =center - (1.0 + push_size)*r;
   Pm =center + (1.0 + push_size)*r; 
 
@@ -416,7 +416,6 @@ bool DIdeform::ContourDeform::test_PpPm(std::vector<DIdeform::R4vector> &Qs){
       return false;
     }
   }
-  std::printf("Little push for Pp and Pm was needed.\n");
   return true;
 }
 
