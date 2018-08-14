@@ -205,8 +205,8 @@ DIdeform::R4vector DIdeform::hypcub_mapping(std::vector<my_real> x)
 {
   DIdeform::R4vector momentum;
   for (int mu = 0; mu < 4; mu++)
-      momentum[mu] = alpha * log(x[mu] / (1 - x[mu]));
-      //momentum[mu] = alpha * (1. / (1. - x[mu]) - 1. / x[mu]);
+    momentum[mu] = alpha * log(x[mu] / (1 - x[mu]));
+  //momentum[mu] = alpha * (1. / (1. - x[mu]) - 1. / x[mu]);
 
   return momentum;
 }
@@ -217,7 +217,7 @@ my_real DIdeform::hypcub_jacobian(std::vector<my_real> x)
   my_real jacobian = 1.;
   for (int mu = 0; mu < 4; mu++)
     jacobian = jacobian * (alpha / (x[mu] * (1 - x[mu])));
-    //jacobian = jacobian * alpha * (1. / pow(x[mu], 2) + 1. / pow(1. - x[mu], 2));
+  //jacobian = jacobian * alpha * (1. / std::pow(x[mu], 2) + 1. / std::pow(1. - x[mu], 2));
   return jacobian;
 }
 
@@ -272,10 +272,12 @@ DIdeform::ContourDeform::ContourDeform(std::vector<DIdeform::R4vector> &Qs)
   }
 
   //Compute P+ and P-
-  set_PpPm(Qs);
+  if (!set_PpPm(Qs))
+    exit(1);
+
   //Compute Misq
   set_global_var();
-  //std::printf("mu_P: %.5e\n",mu_P);
+
   //Resize grad varibales
   std::vector<std::vector<my_real>>(4, std::vector<my_real>(4, 0.)).swap(gradk_int);
   std::vector<std::vector<my_real>>(4, std::vector<my_real>(4, 0.)).swap(gradk_ext);
@@ -283,11 +285,11 @@ DIdeform::ContourDeform::ContourDeform(std::vector<DIdeform::R4vector> &Qs)
   std::vector<my_real>(4, 0.).swap(gradlambda);
 }
 
-bool DIdeform::ContourDeform::get_PpPm(short int plus_or_minus, std::vector<DIdeform::R4vector> &qs)
+void DIdeform::ContourDeform::get_PpPm(short int plus_or_minus, std::vector<DIdeform::R4vector> &qs)
 {
   int size = qs.size();
   if (size == 1)
-    return true;
+    return;
 
   //Remove vectors that lies in the forward/backward light-cone of another
   DIdeform::R4vector qij;
@@ -307,10 +309,10 @@ bool DIdeform::ContourDeform::get_PpPm(short int plus_or_minus, std::vector<DIde
         else
         {
           qs.erase(qs.begin() + i);
-          j=i;
+          j = i;
         }
         if (--size == 1)
-          return true;
+          return;
       }
     }
   }
@@ -347,7 +349,8 @@ bool DIdeform::ContourDeform::get_PpPm(short int plus_or_minus, std::vector<DIde
   //Repeat
   get_PpPm(plus_or_minus, qs);
 }
-void DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
+
+bool DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
 {
   // //Note that this definition is valid only for massless momenta
   // Pp = zp(qi[A] + qi[0], qi[A] - qi[0]);
@@ -361,7 +364,7 @@ void DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
   qs = Qs;
   get_PpPm(-1, qs);
   Pm = qs[0];
-  
+
   //Check the validity of Pp and Pm
   my_real eps = std::numeric_limits<my_real>::epsilon();
   DIdeform::R4vector vv;
@@ -373,7 +376,7 @@ void DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
       std::printf("The build of P+ has failed. One of the Qs is not in its forward light-cone\n");
       std::printf("\tValue: %.10e, v(0): %.10e\n", vv * vv, vv(0));
       std::cout << "\t" << Pp << std::endl;
-      exit(1);
+      return false;
     }
     vv = Qs[i] - Pm;
     if (vv * vv < 0.0 || vv(0) > 0.0)
@@ -381,9 +384,10 @@ void DIdeform::ContourDeform::set_PpPm(std::vector<DIdeform::R4vector> &Qs)
       std::printf("The build of P- has failed. One of the Qs is not in its forward light-cone\n");
       std::printf("\tValue: %.10e, v(0): %.10e\n", vv * vv, vv(0));
       std::cout << "\t" << Pm << std::endl;
-      exit(1);
+      return false;
     }
   }
+  return true;
 }
 
 void DIdeform::ContourDeform::set_global_var()
@@ -393,14 +397,15 @@ void DIdeform::ContourDeform::set_global_var()
   mu_P = (Pm - Pp) * (Pm - Pp);
 
   //Set M1sq and M2sq
-  M1sq = pow(M1f, 2) * Ecmsq;
-  M2sq = pow(M2f, 2) * std::max(mu_P, Ecmsq);
-  M3sq = pow(M3f, 2) * std::max(mu_P, Ecmsq);
+  M1sq = std::pow(M1f, 2) * Ecmsq;
+  M2sq = std::pow(M2f, 2) * std::max(mu_P, Ecmsq);
+  M3sq = std::pow(M3f, 2) * std::max(mu_P, Ecmsq);
+  M5sq = 1.0 * M1sq;
 
   //Set orthogonal vectors ei's
   std::vector<DIdeform::R4vector>(4).swap(ei);
   for (int mu = 0; mu < 4; mu++)
-    ei[mu][mu] = E_soft * sqrt(Ecmsq);
+    ei[mu][mu] = E_soft * std::sqrt(Ecmsq);
 }
 
 /*==========================================================
@@ -410,7 +415,7 @@ void DIdeform::ContourDeform::set_global_var()
 void DIdeform::ContourDeform::loop_momentum(DIdeform::R4vector &loopmomentum)
 {
   l = loopmomentum;
-  
+
   //Set l-qi
   std::vector<DIdeform::R4vector>(legs).swap(lqi);
   for (int i = 0; i < legs; i++)
@@ -451,8 +456,8 @@ void DIdeform::ContourDeform::deform(DIdeform::C4vector &k, my_comp &jacobian)
 my_real DIdeform::ContourDeform::hp(DIdeform::R4vector &k, my_real msq, my_real Msq)
 {
   my_real Ek = k(0);                 //energy part of k
-  my_real vksq = pow(Ek, 2) - k * k; //vector part of k squared
-  my_real val = pow(+Ek - sqrt(vksq + msq), 2);
+  my_real vksq = std::pow(Ek, 2) - k * k; //vector part of k squared
+  my_real val = std::pow(+Ek - std::sqrt(vksq + msq), 2);
 
   return val / (val + Msq);
 }
@@ -460,16 +465,16 @@ my_real DIdeform::ContourDeform::hp(DIdeform::R4vector &k, my_real msq, my_real 
 my_real DIdeform::ContourDeform::hm(DIdeform::R4vector &k, my_real msq, my_real Msq)
 {
   my_real Ek = k(0);                 //energy part of k
-  my_real vksq = pow(Ek, 2) - k * k; //vector part of k squared
-  my_real val = pow(-Ek - sqrt(vksq + msq), 2);
+  my_real vksq = std::pow(Ek, 2) - k * k; //vector part of k squared
+  my_real val = std::pow(-Ek - std::sqrt(vksq + msq), 2);
 
   return val / (val + Msq);
 }
 my_real DIdeform::ContourDeform::h0(DIdeform::R4vector &k, my_real msq, my_real Msq)
 {
   my_real Ek = k(0);                 //energy part of k
-  my_real vksq = pow(Ek, 2) - k * k; //vector part of k squared
-  my_real val = pow(abs(Ek) - sqrt(vksq + msq), 2);
+  my_real vksq = std::pow(Ek, 2) - k * k; //vector part of k squared
+  my_real val = std::pow(std::abs(Ek) - std::sqrt(vksq + msq), 2);
 
   return val / (val + Msq);
 }
@@ -486,39 +491,39 @@ my_real DIdeform::ContourDeform::ht(my_real t, my_real Msq)
 DIdeform::R4vector DIdeform::ContourDeform::gradloghp(DIdeform::R4vector &k, my_real msq, my_real Msq)
 {
   my_real Ek = k(0);                 //energy part of k
-  my_real vksq = pow(Ek, 2) - k * k; //vector part of k squared
-  my_real w = +Ek - sqrt(vksq + msq);
+  my_real vksq = std::pow(Ek, 2) - k * k; //vector part of k squared
+  my_real w = +Ek - std::sqrt(vksq + msq);
 
-  DIdeform::R4vector gradw = -(1. / sqrt(vksq + msq)) * k;
+  DIdeform::R4vector gradw = -(1. / std::sqrt(vksq + msq)) * k;
   gradw[0] = +1.;
 
-  DIdeform::R4vector grad = 2.0 * Msq / w / (pow(w, 2) + Msq) * gradw;
+  DIdeform::R4vector grad = 2.0 * Msq / w / (std::pow(w, 2) + Msq) * gradw;
   return grad;
 }
 
 DIdeform::R4vector DIdeform::ContourDeform::gradloghm(DIdeform::R4vector &k, my_real msq, my_real Msq)
 {
   my_real Ek = k(0);                 //energy part of k
-  my_real vksq = pow(Ek, 2) - k * k; //vector part of k squared
-  my_real w = -Ek - sqrt(vksq + msq);
+  my_real vksq = std::pow(Ek, 2) - k * k; //vector part of k squared
+  my_real w = -Ek - std::sqrt(vksq + msq);
 
-  DIdeform::R4vector gradw = -(1. / sqrt(vksq + msq)) * k;
+  DIdeform::R4vector gradw = -(1. / std::sqrt(vksq + msq)) * k;
   gradw[0] = -1.;
 
-  DIdeform::R4vector grad = 2.0 * Msq / w / (pow(w, 2) + Msq) * gradw;
+  DIdeform::R4vector grad = 2.0 * Msq / w / (std::pow(w, 2) + Msq) * gradw;
   return grad;
 }
 
 DIdeform::R4vector DIdeform::ContourDeform::gradlogh0(DIdeform::R4vector &k, my_real msq, my_real Msq)
 {
   my_real Ek = k(0);                 //energy part of k
-  my_real vksq = pow(Ek, 2) - k * k; //vector part of k squared
-  my_real w = abs(Ek) - sqrt(vksq + msq);
+  my_real vksq = std::pow(Ek, 2) - k * k; //vector part of k squared
+  my_real w = std::abs(Ek) - std::sqrt(vksq + msq);
 
-  DIdeform::R4vector gradw = -(1. / sqrt(vksq + msq)) * k;
+  DIdeform::R4vector gradw = -(1. / std::sqrt(vksq + msq)) * k;
   gradw[0] = Ek > 0 ? +1. : -1.;
 
-  DIdeform::R4vector grad = 2.0 * Msq / w / (pow(w, 2) + Msq) * gradw;
+  DIdeform::R4vector grad = 2.0 * Msq / w / (std::pow(w, 2) + Msq) * gradw;
   return grad;
 }
 
@@ -534,7 +539,7 @@ my_real DIdeform::ContourDeform::dloght(my_real t, my_real Msq)
 DIdeform::R4vector DIdeform::ContourDeform::zp(DIdeform::R4vector x, DIdeform::R4vector y)
 {
   my_real Ey = y(0);                        //Energy part of y
-  my_real vymod = sqrt(pow(Ey, 2) - y * y); //Modulus of the vector part of y
+  my_real vymod = std::sqrt(std::pow(Ey, 2) - y * y); //Modulus of the vector part of y
 
   if (vymod == 0.0)
     return 0.5 * x;
@@ -545,7 +550,7 @@ DIdeform::R4vector DIdeform::ContourDeform::zp(DIdeform::R4vector x, DIdeform::R
 DIdeform::R4vector DIdeform::ContourDeform::zm(DIdeform::R4vector x, DIdeform::R4vector y)
 {
   my_real Ey = y(0);                        //Energy part of y
-  my_real vymod = sqrt(pow(Ey, 2) - y * y); //Modulus of the vector part of y
+  my_real vymod = std::sqrt(std::pow(Ey, 2) - y * y); //Modulus of the vector part of y
 
   if (vymod == 0.0)
     return 0.5 * x;
@@ -560,8 +565,8 @@ void DIdeform::ContourDeform::set_k_ext()
   cm = 1.;
   for (int i = 0; i < legs; i++)
   {
-    cp = cp * hm(lqi[i], pow(mi[i], 2), M3sq);
-    cm = cm * hp(lqi[i], pow(mi[i], 2), M3sq);
+    cp = cp * hm(lqi[i], std::pow(mi[i], 2), M3sq);
+    cm = cm * hp(lqi[i], std::pow(mi[i], 2), M3sq);
   }
   //k_ext
   //k_ext=(cp*kp+cm*km).dual();
@@ -579,8 +584,8 @@ void DIdeform::ContourDeform::set_gradk_ext()
 
   for (int i = 0; i < legs; i++)
   {
-    gradcp = gradcp + gradloghm(lqi[i], pow(mi[i], 2), M3sq);
-    gradcm = gradcm + gradloghp(lqi[i], pow(mi[i], 2), M3sq);
+    gradcp = gradcp + gradloghm(lqi[i], std::pow(mi[i], 2), M3sq);
+    gradcm = gradcm + gradloghp(lqi[i], std::pow(mi[i], 2), M3sq);
   }
   //Using c+ and c- set from set_k_ext
   gradcp = cp * gradcp;
@@ -621,7 +626,7 @@ my_real DIdeform::ContourDeform::dij(int i, int j)
 {
   DIdeform::R4vector qij = qi[i] - qi[j];
   my_real eps = std::numeric_limits<my_real>::epsilon();
-  my_real msq = pow(mi[j], 2);
+  my_real msq = std::pow(mi[j], 2);
 
   if (msq <= eps && i == j)
   { //Case 1
@@ -629,30 +634,30 @@ my_real DIdeform::ContourDeform::dij(int i, int j)
   }
   else if (msq <= eps && //Case 2
            qij(0) <= 0.0 &&
-           abs(qij * qij) <= eps)
+           std::abs(qij * qij) <= eps)
   {
     return hp(lqi[j], msq, M1sq);
   }
   else if (msq <= eps && //Case 3
            qij(0) > 0.0 &&
-           abs(qij * qij) <= eps)
+           std::abs(qij * qij) <= eps)
   {
     return hm(lqi[j], msq, M1sq);
   }
   else //Otherwise
-    return std::max(h0(lqi[j], msq, M1sq), ht(-2 * (lqi[j] * lqi[i]), M1sq));
+    return std::max(h0(lqi[j], msq, M1sq), ht(-2 * (lqi[j] * lqi[i]), M5sq));
 }
 
 my_real DIdeform::ContourDeform::dijk(int i, int j, int k)
 {
   DIdeform::R4vector qij = qi[i] - qi[j];
   my_real eps = std::numeric_limits<my_real>::epsilon();
-  my_real msq = pow(mi[k], 2);
+  my_real msq = std::pow(mi[k], 2);
 
   DIdeform::R4vector lvij = l - vij(i, j);
-  my_real zij = qij * qij - pow(mi[i] + mi[j], 2);
+  my_real zij = qij * qij - std::pow(mi[i] + mi[j], 2);
 
-  return ht(zij, M1sq) * std::max(h0(lqi[k], msq, M1sq), ht(-2 * (lqi[k] * lvij), M1sq));
+  return ht(zij, M5sq) * std::max(h0(lqi[k], msq, M1sq), ht(-2 * (lqi[k] * lvij), M5sq));
 }
 
 my_real DIdeform::ContourDeform::ci(int i)
@@ -679,7 +684,7 @@ DIdeform::R4vector DIdeform::ContourDeform::vij(int i, int j)
 {
   DIdeform::R4vector qij = qi[i] - qi[j];
 
-  return 0.5 * (qi[i] + qi[j] - ((mi[i] - mi[j]) / sqrt(qij * qij)) * qij);
+  return 0.5 * (qi[i] + qi[j] - ((mi[i] - mi[j]) / std::sqrt(qij * qij)) * qij);
 }
 
 void DIdeform::ContourDeform::set_k_int()
@@ -717,7 +722,7 @@ DIdeform::R4vector DIdeform::ContourDeform::gradlogdij(int i, int j)
 {
   DIdeform::R4vector qij = qi[i] - qi[j];
   my_real eps = std::numeric_limits<my_real>::epsilon();
-  my_real msq = pow(mi[j], 2);
+  my_real msq = std::pow(mi[j], 2);
 
   DIdeform::R4vector grad; // At the moment is a zero vector
 
@@ -726,22 +731,22 @@ DIdeform::R4vector DIdeform::ContourDeform::gradlogdij(int i, int j)
   }
   else if (msq <= eps && //Case 2
            qij(0) <= 0.0 &&
-           abs(qij * qij) <= eps)
+           std::abs(qij * qij) <= eps)
   {
     grad = gradloghp(lqi[j], msq, M1sq);
   }
   else if (msq <= eps && //Case 3
            qij(0) > 0.0 &&
-           abs(qij * qij) <= eps)
+           std::abs(qij * qij) <= eps)
   {
     grad = gradloghm(lqi[j], msq, M1sq);
   }
   else
   { //Otherwise
-    if (h0(lqi[j], msq, M1sq) > ht(-2 * (lqi[j] * lqi[i]), M1sq))
+    if (h0(lqi[j], msq, M1sq) > ht(-2 * (lqi[j] * lqi[i]), M5sq))
       grad = gradlogh0(lqi[j], msq, M1sq);
     else
-      grad = dloght(-2 * (lqi[j] * lqi[i]), M1sq) *
+      grad = dloght(-2 * (lqi[j] * lqi[i]), M5sq) *
              (-2) * (lqi[j].dual() + lqi[i].dual());
   }
 
@@ -752,10 +757,10 @@ DIdeform::R4vector DIdeform::ContourDeform::gradlogdijk(int i, int j, int k)
 {
   DIdeform::R4vector qij = qi[i] - qi[j];
   my_real eps = std::numeric_limits<my_real>::epsilon();
-  my_real msq = pow(mi[k], 2);
+  my_real msq = std::pow(mi[k], 2);
 
   DIdeform::R4vector lvij = l - vij(i, j);
-  my_real zij = qij * qij - pow(mi[i] + mi[j], 2);
+  my_real zij = qij * qij - std::pow(mi[i] + mi[j], 2);
 
   DIdeform::R4vector grad; // At the moment is a zero vector
   if (h0(lqi[k], msq, M1sq) > ht(-2 * (lqi[k] * lvij), M1sq))
@@ -835,12 +840,12 @@ void DIdeform::ContourDeform::set_k0()
 
 my_real DIdeform::ContourDeform::Xi(int i)
 {
-  return pow((k0 * lqi[i]) / (k0 * k0), 2);
+  return std::pow((k0 * lqi[i]) / (k0 * k0), 2);
 }
 
 my_real DIdeform::ContourDeform::Yi(int i)
 {
-  return (lqi[i] * lqi[i] - pow(mi[i], 2)) / (k0 * k0);
+  return (lqi[i] * lqi[i] - std::pow(mi[i], 2)) / (k0 * k0);
 }
 
 my_real DIdeform::ContourDeform::lambda_i(int i)
@@ -850,11 +855,11 @@ my_real DIdeform::ContourDeform::lambda_i(int i)
   my_real yi = Yi(i);
 
   if (2 * xi < yi)
-    lambdai = sqrt(yi / 4.);
+    lambdai = std::sqrt(yi / 4.);
   else if (yi < 0)
-    lambdai = sqrt(xi - yi / 2.);
+    lambdai = std::sqrt(xi - yi / 2.);
   else if (yi < 2 * xi)
-    lambdai = sqrt(xi - yi / 4.);
+    lambdai = std::sqrt(xi - yi / 4.);
 
   return lambdai;
 }
@@ -935,7 +940,7 @@ DIdeform::R4vector DIdeform::ContourDeform::gradXi(int i)
 
 DIdeform::R4vector DIdeform::ContourDeform::gradYi(int i)
 {
-  my_real w = (lqi[i] * lqi[i] - pow(mi[i], 2));
+  my_real w = (lqi[i] * lqi[i] - std::pow(mi[i], 2));
   my_real k0sq = k0 * k0;
 
   DIdeform::R4vector grad;
@@ -978,7 +983,7 @@ DIdeform::R4vector DIdeform::ContourDeform::gradlambda_coll()
   for (int i = 0; i < legs; i++)
     gradC = gradC + ci(i) * gradlogci(i);
 
-  return -4.0 * pow(lambda_coll(), 2) * gradC;
+  return -4.0 * std::pow(lambda_coll(), 2) * gradC;
 }
 /*--------------- END - Class ContourDefrom   --------------------*/
 
@@ -1011,8 +1016,8 @@ my_comp DIdeform::Determinant(const std::vector<std::vector<my_comp>> &bb)
     aamax = 0;
     for (j = 0; j < dimension; j++)
     {
-      if (abs(aa[i][j]) > aamax)
-        aamax = abs(aa[i][j]);
+      if (std::abs(aa[i][j]) > aamax)
+        aamax = std::abs(aa[i][j]);
     }
     // Set a flag to check if the determinant is zero.
     if (aamax == 0)
@@ -1040,7 +1045,7 @@ my_comp DIdeform::Determinant(const std::vector<std::vector<my_comp>> &bb)
           sum = sum - aa[i][k] * aa[k][j];
         aa[i][j] = sum;
         // Figure of merit for the pivot.
-        dumr = vv[i] * abs(sum);
+        dumr = vv[i] * std::abs(sum);
         // Is it better than the best so far?
         if (dumr >= aamax)
         {
@@ -1099,10 +1104,6 @@ int main()
   DIdeform::R4vector p4({5.2341401721203044e+02, 3.3466005003229913e+02, 1.3177690342268895e+00, 4.4307423883444024e+01});
 
   std::vector<DIdeform::R4vector> Qs(4);
-  //Qs[0] = Qs[0];
-  //Qs[1] = -p2;
-  //Qs[2] = p1 - p3;
-  //Qs[3] = p1;
 
   Qs[0] = p1;
   Qs[1] = Qs[0] + p2;
@@ -1115,10 +1116,11 @@ int main()
     std::cout << "Q[" << i << "]" << Qs[i] << std::endl;
   }
 
-  //DIdeform::R4vector l({0.5, 0.5, 0.5, 0.5});
-  DIdeform::R4vector l({-96518.69521385277, -974059.78677852161, -486540.90951631521, -324033.96315526153});
-  //DIdeform::R4vector l({0.371187,0.367224,-0.0345374,-0.0480211});
-  //DIdeform::R4vector l({1652e+10, 4500e+10, 2315e+10, 4521e+10});
+  DIdeform::R4vector ref_vec({0.1, 0.2, 0.3, 0.4});
+  ref_vec = 1.0 / 0.4 * ref_vec;
+  //for(int i=0; i<10; i++){
+  //DIdeform::R4vector l = (0.4+double(i)/10.0)* ref_vec;
+  DIdeform::R4vector l({+0.225, +0.45, +0.675, +0.9});
   DIdeform::ContourDeform contour(Qs);
   contour.loop_momentum(l);
 
@@ -1128,12 +1130,12 @@ int main()
 
   std::cout << "Pp:\t" << contour.Pp << std::endl;
   std::cout << "Pm:\t" << contour.Pm << std::endl;
-  
-  std::cout << "l:\t" << l << std::endl;
+
+  std::cout << "\nl:\t" << l << std::endl;
   std::cout << "ell:\t" << ell << std::endl;
   std::cout << "J:\t" << jacobian << std::endl;
 
-  my_real eps = sqrt(std::numeric_limits<my_real>::epsilon());
+  my_real eps = std::sqrt(std::numeric_limits<my_real>::epsilon());
   std::vector<std::vector<my_comp>> grad(4, std::vector<my_comp>(4, 0.));
   std::vector<DIdeform::R4vector> ev(4);
   for (int mu = 0; mu < 4; mu++)
@@ -1159,18 +1161,17 @@ int main()
     }
   }
 
-std::cout << "NJ:\t" << DIdeform::Determinant(grad) << std::endl;
-
-/*
-  std::cout << "g(kc): " << contour.g(contour.k_center, contour.M2sq) << std::endl;
-  std::cout << "cp: " << contour.cp << " " << contour.Pp << std::endl;
-  std::cout << "cm: " << contour.cm << " " << contour.Pm << std::endl;
-  for (int i = 0; i < 4; i++)
-  {
-    std::cout << "c" << i << ": " << contour.ci(i) << std::endl;
-    std::cout << "x" << i << ": " << contour.Xi(i) << std::endl;
-    std::cout << "y" << i << ": " << contour.Yi(i) << std::endl;
-    std::cout << std::endl;
+  std::cout << "NJ:\t" << DIdeform::Determinant(grad) << std::endl;
+  //  }
+  /*std::cout << "g(kc): " << contour.g(contour.k_center, contour.M2sq) << std::endl;
+std::cout << "cp: " << contour.cp << " " << contour.Pp << std::endl;
+std::cout << "cm: " << contour.cm << " " << contour.Pm << std::endl;
+for (int i = 0; i < 4; i++)
+{
+  std::cout << "c" << i << ": " << contour.ci(i) << std::endl;
+  std::cout << "x" << i << ": " << contour.Xi(i) << std::endl;
+  std::cout << "y" << i << ": " << contour.Yi(i) << std::endl;
+  std::cout << std::endl;
   }
   my_comp denominator = 1.;
   DIdeform::C4vector prop_mom;
@@ -1183,7 +1184,7 @@ std::cout << "NJ:\t" << DIdeform::Determinant(grad) << std::endl;
   }
    
   //Numerator
-  my_comp r = pow(ell(3), 2);
+  my_comp r = std::pow(ell(3), 2);
   std::cout << jacobian * r / denominator << std::endl;
 
   my_real x, dx;
