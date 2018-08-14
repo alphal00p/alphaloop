@@ -602,8 +602,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     plt.plot(x_entries,integrand_imags, label='integrand_no_jac_imag @%s'%lm_generator_name)
                 if 'integrand_no_jac_abs' in options['items_to_plot']:
                     integrand_abss = [abs(itg) for itg in integrands]
-                    max_integrand_imag = max(integrand_abss)
-                    if max_integrand_imag > 0.:
+                    max_integrand_abss = max(integrand_abss)
+                    if max_integrand_abss > 0.:
                         integrand_abss = [itg/max_integrand_abss for itg in integrand_abss]
                     plt.plot(x_entries,integrand_abss, label='integrand_no_jac_abs @%s'%lm_generator_name)
             if any(item in options['items_to_plot'] for item in ['jac_real','jac_imag','jac_abs']):
