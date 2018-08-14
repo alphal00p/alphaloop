@@ -21,7 +21,7 @@ extern "C"
     DIdeform::R4vector Pp, Pm, loop_momentum;
     double M1_factor, M2_factor, M3_factor, M4_factor;
     double gamma1, gamma2;
-    
+
     //Additional arguments flags
     bool external_Pp = false;
     bool external_Pm = false;
@@ -37,34 +37,63 @@ extern "C"
     my_comp deformation_jacobian;
     double pyLoop[8];
     double jacobian[2];
-    
-    
+
     //set factors using option ids (python function)
-    int set_factor_int(short int op_id , int v[], int d){
+    int set_factor_int(short int op_id, int v[], int d)
+    {
         return 99;
     }
-    
-    int set_factor_double(short int op_id, double v[],int d){
+
+    int set_factor_double(short int op_id, double v[], int d)
+    {
         switch (op_id)
         {
         case _OP_M1_FACTOR:
-            return set_M(v, d, M1_factor,external_M1);
-       
+        {
+            if (deformer == NULL)
+                return set_M(v, d, M1_factor, external_M1);
+            else
+                return update_M(v, d, deformer->M1f);
+        }
         case _OP_M2_FACTOR:
-            return set_M(v, d, M2_factor,external_M2);
-       
+        {
+            if (deformer == NULL)
+                return set_M(v, d, M2_factor, external_M2);
+            else
+                return update_M(v, d, deformer->M2f);
+        }
+
         case _OP_M3_FACTOR:
-            return set_M(v, d, M3_factor,external_M3);
-       
+        {
+            if (deformer == NULL)
+                return set_M(v, d, M3_factor, external_M3);
+            else
+                return update_M(v, d, deformer->M3f);
+        }
+
         case _OP_M4_FACTOR:
-            return set_M(v, d, M4_factor,external_M4);
-       
+        {
+            if (deformer == NULL)
+                return set_M(v, d, M4_factor, external_M4);
+            else
+                return update_M(v, d, deformer->M4f);
+        }
+
         case _OP_GAMMA1_FACTOR:
-            return set_gamma(v, d, gamma1, external_gamma1);
-       
+        {
+            if (deformer == NULL)
+                return set_gamma(v, d, gamma1, external_gamma1);
+            else
+                return update_gamma(v, d, deformer->gamma1);
+        }
+
         case _OP_GAMMA2_FACTOR:
-            return set_gamma(v, d, gamma2, external_gamma2);
-       
+        {
+            if (deformer == NULL)
+                return set_gamma(v, d, gamma2, external_gamma2);
+            else
+                return update_gamma(v, d, deformer->gamma2);
+        }
         default:
             return 99;
         };
@@ -85,8 +114,10 @@ extern "C"
         if (deformer == NULL)
             external_Pp = true;
         else
+        {
+            deformer->Pp = Pp;
             deformer->set_global_var();
-
+        }
         return 0;
     }
 
@@ -103,8 +134,10 @@ extern "C"
         if (deformer == NULL)
             external_Pm = true;
         else
+        {
+            deformer->Pm = Pm;
             deformer->set_global_var();
-
+        }
         return 0;
     }
 
@@ -114,12 +147,19 @@ extern "C"
         if (d != 1)
             return 1;
         M = v[0];
-        
-        //If deformer exists set new M, otherwise do it later
+        external_M = true;
+
+        return 0;
+    }
+
+    int update_M(double v[], int d, my_real &deformer_M)
+    {
         if (deformer == NULL)
-            external_M = true;
-        else
-            deformer->set_global_var();
+            return 101;
+        if (d != 1)
+            return 1;
+        deformer_M = v[0];
+
         return 0;
     }
 
@@ -129,12 +169,19 @@ extern "C"
         if (d != 1)
             return 1;
         gamma = v[0];
+        external_gamma = true;
 
+        return 0;
+    }
+    int update_gamma(double v[], int d, my_real &deformer_gamma)
+    {
         //If deformer exists set new gamma, otherwise do it later
         if (deformer == NULL)
-            external_gamma = true;
-        else
-            deformer->set_global_var();
+            return 101;
+        if (d != 0)
+            return 1;
+        deformer_gamma = v[0];
+
         return 0;
     }
 
@@ -195,14 +242,16 @@ extern "C"
             if (external_gamma2)
                 deformer->gamma2 = gamma2;
             deformer->set_global_var();
-            if(!deformer->test_PpPm(Qs)) return 5;
+            if (!deformer->test_PpPm(Qs))
+                return 5;
         }
 
         //std::printf("M1_factor:\t%f   |   ", deformer->M1f);
         //std::printf("M2_factor:\t%f   |   ", deformer->M2f);
         //std::printf("M3_factor:\t%f\n", deformer->M3f);
+        //std::printf("M4_factor:\t%f   |   ", deformer->M4f);
         //std::printf("gamma1:   \t%f   |   ", deformer->gamma1);
-        //std::printf("gamma2:   \t%f   |\n", deformer->gamma2);
+        //std::printf("gamma2:   \t%f   \n", deformer->gamma2);
         return 0;
     }
 
@@ -268,7 +317,7 @@ extern "C"
         external_M4 = false;
         external_gamma1 = false;
         external_gamma2 = false;
-        
+
         //Clear Qs vector
         Qs.clear();
     }

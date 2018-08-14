@@ -29,7 +29,9 @@ extern "C"
   
   //set factors function (internal)
   int set_M(double v[], int d, double & M, bool & external_M);
+  int update_M(double v[], int d, my_real & deformer_M);
   int set_gamma(double v[], int d, double & gamma, bool & external_gamma);
+  int update_gamma(double v[], int d, my_real & deformer_gamma);
   
   //First one needs to give the Qs
   int append_Q(double v[], int d);
