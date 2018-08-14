@@ -493,9 +493,9 @@ class DeformationCPPinterface(object):
     def __init__(self, q_is):
         self.clear()
         self.set_q_is(q_is)
-#        error = self.init()
-#        if error != 0:
-#            raise LoopMomentaGeneratorError('Error initializing: %d' % error)
+        error = self.init()
+        if error != 0:
+            raise LoopMomentaGeneratorError('Error initializing: %d' % error)
 
     def get_hook(self):
         """Build, start and return the C++ interface."""
@@ -605,7 +605,6 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
         # Set global deformation options in C++
         self.set_deformation_options_in_CPP(opts)
-        self._cpp_interface.init()
 
     def set_deformation_options(self, deformation_opts):
         """Set the deformation options of the python implementation"""
