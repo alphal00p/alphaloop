@@ -772,7 +772,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 lmgc_name, user_lmgc_options = specs.split('@')
             except ValueError:
                 lmgc_name    = specs
-                user_lmgc_options = {}
+                user_lmgc_options = '{}'
 
             try:
                 user_lmgc_options = eval(user_lmgc_options)
@@ -967,7 +967,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # For debugging you can easily print out the chosen PS point as follows:
 #        misc.sprint(str(random_PS_point))
-        misc.sprint(options)
         n_loop_integrand = chosen_topology['class'](
             n_loops            =   chosen_topology['n_loops'],
             external_momenta   =   random_PS_point,
