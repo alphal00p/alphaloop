@@ -178,7 +178,7 @@ extern "C"
         //If deformer exists set new gamma, otherwise do it later
         if (deformer == NULL)
             return 101;
-        if (d != 0)
+        if (d != 1)
             return 1;
         deformer_gamma = v[0];
 
