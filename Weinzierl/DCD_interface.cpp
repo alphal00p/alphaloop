@@ -75,7 +75,12 @@ extern "C"
 
         for (int i = 0; i < 4; i++)
             Pp[i] = v[i];
-        external_Pp = true;
+
+        //If deformer exists set new P+, otherwise do it later
+        if (deformer == NULL)
+            external_Pp = true;
+        else
+            deformer->set_global_var();
 
         return 0;
     }
@@ -88,29 +93,45 @@ extern "C"
 
         for (int i = 0; i < 4; i++)
             Pm[i] = v[i];
-        external_Pm = true;
+
+        //If deformer exists set new P-, otherwise do it later
+        if (deformer == NULL)
+            external_Pm = true;
+        else
+            deformer->set_global_var();
 
         return 0;
     }
 
-    int set_M(double v[], int d, double & M, bool & external_M)
+    int set_M(double v[], int d, double &M, bool &external_M)
     {
+        //Check if there is only 1 input
         if (d != 1)
             return 1;
         M = v[0];
-        external_M = true;
+        
+        //If deformer exists set new M, otherwise do it later
+        if (deformer == NULL)
+            external_M = true;
+        else
+            deformer->set_global_var();
         return 0;
     }
 
-    int set_gamma(double v[], int d, double & gamma, bool & external_gamma){
-        //Check if there are 3 inputs
-        if(d != 1)
+    int set_gamma(double v[], int d, double &gamma, bool &external_gamma)
+    {
+        //Check if there are 1 inputs
+        if (d != 1)
             return 1;
         gamma = v[0];
-        external_gamma = true;
+
+        //If deformer exists set new gamma, otherwise do it later
+        if (deformer == NULL)
+            external_gamma = true;
+        else
+            deformer->set_global_var();
         return 0;
     }
-
 
     //First one needs to give the Qs
     int append_Q(double v[], int d)
@@ -145,7 +166,7 @@ extern "C"
 
         //create the deformer
         deformer = new DIdeform::ContourDeform(Qs);
-        
+
         //overwrite P+- when necessary
         if (external_Pp || external_Pm ||
             external_M1 || external_M2 ||
