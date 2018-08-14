@@ -116,6 +116,8 @@ extern "C"
         else
         {
             deformer->Pp = Pp;
+            if (!deformer->test_PpPm(Qs))
+                return 5;
             deformer->set_global_var();
         }
         return 0;
@@ -136,6 +138,8 @@ extern "C"
         else
         {
             deformer->Pm = Pm;
+            if (!deformer->test_PpPm(Qs))
+                return 5;
             deformer->set_global_var();
         }
         return 0;
@@ -159,7 +163,7 @@ extern "C"
         if (d != 1)
             return 1;
         deformer_M = v[0];
-
+        deformer->set_global_var();
         return 0;
     }
 
@@ -181,7 +185,7 @@ extern "C"
         if (d != 1)
             return 1;
         deformer_gamma = v[0];
-
+        deformer->set_global_var();
         return 0;
     }
 
