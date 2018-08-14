@@ -490,8 +490,12 @@ class DeformationCPPinterface(object):
     _hook.set_factor_int.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_int),ctypes.c_int)
     _hook.set_factor_int.restype  = (ctypes.c_int)
 
-    def __init__(self):
+    def __init__(self, q_is):
         self.clear()
+        self.set_q_is(q_is)
+#        error = self.init()
+#        if error != 0:
+#            raise LoopMomentaGeneratorError('Error initializing: %d' % error)
 
     def get_hook(self):
         """Build, start and return the C++ interface."""
@@ -593,22 +597,26 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
         must be generated."""
 
-        self._cpp_interface = DeformationCPPinterface()
 
         super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
 
-        # Now that all quantities are set, we initialize
-        err = self._cpp_interface.init()
-        if err != 0:
-            raise LoopMomentaGeneratorError('Error initializing: %s'%str(err))
+        self._cpp_interface = DeformationCPPinterface(self.q_is)
+        # Now set P_plus and P_minus from the ones computed in Python (optional)
+        self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
+        # Set global deformation options in C++
+        self.set_deformation_options_in_CPP(opts)
+        self._cpp_interface.init()
 
     def set_deformation_options(self, deformation_opts):
-        """Broadcast the deformation options to CPP."""
+        """Set the deformation options of the python implementation"""
 
         # Also set them for Python
         for opt in deformation_opts:
             if opt in self.contour_hyper_parameters:
                 self.contour_hyper_parameters[opt] = deformation_opts[opt]
+
+    def set_deformation_options_in_CPP(self, deformation_opts):
+        """Broadcast the deformation options to CPP."""
 
         for opt, value in deformation_opts.items():
             try:
@@ -628,8 +636,8 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         super(OneLoopMomentumGenerator_WeinzierlCPP,self).define_global_quantities_for_contour_deformation(*args, **opts)
 
         # Propagate some of this global information to the underlying C++ library
-        self._cpp_interface.set_q_is(self.q_is)
-        self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
+#        self._cpp_interface.set_q_is(self.q_is)
+#        self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
 
     def apply_deformation(self, loop_momenta):
         """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz
