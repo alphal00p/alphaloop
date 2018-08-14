@@ -416,11 +416,21 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         integrand_options
                     ))
 
+
+            first_integrand = all_n_loop_integrands[0][1](**all_n_loop_integrands[0][2])
+            lmg = first_integrand.loop_momentum_generator
+
             ###############################
             # Do timing tests if asked for
             ###############################
             if options['test_timing']:
-                for lm_generator_name, n_loop_integrand in all_n_loop_integrands:
+                for i_integrand, (lm_generator_name, n_loop_integrand_class, n_loop_integrand_options) in enumerate(
+                        all_n_loop_integrands):
+                    # Recover or build the n_loop_integrand instance
+                    if i_integrand == 0:
+                        n_loop_integrand = first_integrand
+                    else:
+                        n_loop_integrand = n_loop_integrand_class(**n_loop_integrand_options)
                     if options['test_timing']=='deformation':
                         function_to_test =  lambda: n_loop_integrand.loop_momentum_generator.generate_loop_momenta([random.random() for _ in range(4)])
                     elif options['test_timing']=='integrand':
@@ -436,9 +446,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             ################
             # Analyze poles
             ################
-
-            first_integrand = all_n_loop_integrands[0][1](**all_n_loop_integrands[0][2])
-            lmg = first_integrand.loop_momentum_generator
             if (options['test'] or any(item in options['items_to_plot'] for item in ['p','poles'])):
                 # compute the positions of the poles on the ref vec line
                 poles = []
@@ -905,10 +912,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 options[key] = parsed_float
 
             elif key in ['test_timing']:
-                if value.lower() in ['integrand','deformation']:
-                    options[key] = value.lower()
-                elif value is None:
+                if value is None:
                     options[key] = 'deformation'
+                elif value.lower() in ['integrand','deformation']:
+                    options[key] = value.lower()
                 elif value.lower() in ['f','false']:
                     options[key] = False
                 else:
