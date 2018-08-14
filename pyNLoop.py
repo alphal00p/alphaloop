@@ -20,6 +20,7 @@ import functools
 import copy
 
 import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 
 from distutils.version import LooseVersion, StrictVersion
 
@@ -682,7 +683,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         plt.xlim(options['range'])
         if options['log_axis']:
             plt.semilogy()
-        legend = plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3)
+        fontP = FontProperties()
+        fontP.set_size('small')
+        legend = plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, prop=fontP)
         if options['save_plot'] not in ['',None]:
             extension = os.path.basename(options['save_plot']).split('.')
             if len(extension)==1:
@@ -698,6 +701,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             else:
                 plt.savefig(options['save_plot'], dpi=500, bbox_extra_artists=(legend,), bbox_inches='tight')
         if options['show_plot']:
+            plt.tight_layout(rect=(0,0,1,0.75))
             plt.show()
         else:
             logger.info("Display of the plot skipped according to user's request.")
