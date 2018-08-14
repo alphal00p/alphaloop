@@ -186,7 +186,6 @@ extern "C"
                 deformer->gamma1 = gamma1;
             if (external_gamma2)
                 deformer->gamma2 = gamma2;
-
             deformer->set_global_var();
         }
 

@@ -588,13 +588,13 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
 
         self._cpp_interface = DeformationCPPinterface()
 
-        super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
-
         for opt, value in opts.items():
             try:
                 self._cpp_interface.set_option(opt, value)
             except LoopMomentaGeneratorError:
                 logger.warning("Option '%s' not reckognized in class '%s'."%(opt, self.__class__.__name__))
+
+        super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
 
     def __delete__(self):
         """Clean-up duty when this instance is destroyed."""
