@@ -72,6 +72,7 @@ class NLoopIntegrand(integrands.VirtualIntegrand):
         self.external_momenta = external_momenta
         self.phase_computed = phase_computed
         self.topology = topology
+        self.integral_scaling = 1.0 # scaling of the integral
 
     def get_integrated_counterterms(self):
         """ In case local numerical subtraction is employed, then the integrand of the
@@ -650,7 +651,10 @@ class box1L_integrated_CT(IntegratedCounterterm, box1L_subtracted):
     def __init__(self, *args, **opts):
         opts = IntegratedCounterterm.__init__(self, *args, **opts)
         box1L_subtracted.__init__(self, *args, **opts)
-        
+
+        if 'integral_scaling' in opts:
+            self.integral_scaling = opts.pop('integral_scaling')
+
         # Rename the pySecDec output folder so as to avoid conflict when outputting
         # multiple integrated CT.
         self._pySecDecOutputName += '__%s'%self.integrated_CT_name
@@ -748,6 +752,11 @@ class box1L_subtracted_VH(box1L_subtracted):
             **opts
         )
 
+        # scale the external momenta to a secdec-friendly range
+        max_external_momenta = max(abs(ki) for k in self.external_momenta.to_list() for ki in k)
+        self.external_momenta = vectors.LorentzVectorDict({k: v / max_external_momenta for k,v in self.external_momenta.items()})
+        self.integral_scaling = (1 / max_external_momenta )**4
+
         self.define_loop_integrand()
 
     def define_loop_integrand(self):
@@ -769,7 +778,6 @@ class box1L_subtracted_VH(box1L_subtracted):
                                        ('p1*p2', 's/2'),
                                        ('p2*p3', 't/2'),
                                        ('p1*p3', '-t/2-s/2'),
-                                       ('mur**2', 's/2'),
                                     ],
             regulator           =   'eps',
             regulator_power     =   0,
@@ -781,15 +789,7 @@ class box1L_subtracted_VH(box1L_subtracted):
         self.integrand_parameters_values = [
             2.*self.external_momenta[3].dot(self.external_momenta[4]),
             2.*self.external_momenta[3].dot(self.external_momenta[2]),
-            self.external_momenta[1].dot(self.external_momenta[1]),
-            # Let's hardcode a mass for now until we figure out how we want to specify the
-            # topology
-            0.0
         ]
-
-        # Normally we should use the above, but as a quick hack to exactly match the
-        # result from the canonical pySecDec example, we will use the inputs below
-        self.integrand_parameters_values = [4.0, -0.75]
 
     def get_local_counterterms(self):
         """ Get counterterms to the current loop integrand."""
@@ -810,6 +810,7 @@ class box1L_subtracted_VH(box1L_subtracted):
         integrated_CT_options = {
                 'n_loops'                   : self.n_loops,
                 'external_momenta'          : self.external_momenta,
+                'integral_scaling'          : self.integral_scaling,
                 'phase_computed'            : self.phase_computed,
                 # Data-structure for specifying a topology to be determined
                 'topology'                  : self.topology,
@@ -841,7 +842,7 @@ class box1L_integrated_CT_VH(box1L_integrated_CT):
     def __init__(self, *args, **opts):
         if 'soft_propagator' not in opts and opts['soft_propagator'] not in ['A1','A2','A3','A4']:
             raise BaseException("The option 'soft_propagator' must be specified to the class box1L_integrated_CT_VH.")
-        self.soft_propagator = opts.pop('soft_propagator')    
+        self.soft_propagator = opts.pop('soft_propagator')
         super(box1L_integrated_CT_VH, self).__init__(*args, **opts)
 
     def define_loop_integrand(self):
@@ -878,7 +879,6 @@ class box1L_integrated_CT_VH(box1L_integrated_CT):
                                        ('p1*p2', 's/2'),
                                        ('p2*p3', 't/2'),
                                        ('p1*p3', '-t/2-s/2'),
-                                       ('mur**2', 's/2'),
                                     ],
             regulator           =   'eps',
             regulator_power     =   0,
@@ -890,15 +890,7 @@ class box1L_integrated_CT_VH(box1L_integrated_CT):
         self.integrand_parameters_values = [
             2.*self.external_momenta[3].dot(self.external_momenta[4]),
             2.*self.external_momenta[3].dot(self.external_momenta[2]),
-            self.external_momenta[1].dot(self.external_momenta[1]),
-            # Let's hardcode a mass for now until we figure out how we want to specify the
-            # topology
-            0.0
         ]
-
-        # Normally we should use the above, but as a quick hack to exactly match the
-        # result from the canonical pySecDec example, we will use the inputs below
-        self.integrand_parameters_values = [4.0, -0.75]
 
 ###########################################################################################
 #

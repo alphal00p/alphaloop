@@ -110,4 +110,4 @@ class pySecDecIntegrator(integrators.VirtualIntegrator):
         integral_without_prefactor_err = sp.sympify(
             str_integral_without_prefactor.replace('+/-','*value+error*')).expand().coeff('error')
         
-        return integral_with_prefactor, integral_with_prefactor_err
+        return integral_with_prefactor * self.integrand.integral_scaling, integral_with_prefactor_err * self.integrand.integral_scaling
