@@ -980,6 +980,11 @@ class box1L_direct_integration(NLoopIntegrand):
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Actual evaluation of the loop integrand."""
 
+        # In the plot_deformation command we must be able to call the integrand while overriding the phase-choice.
+        user_phase_choice = None
+        if 'phase' in opts:
+            user_phase_choice = opts.pop('phase')
+
         if 'input_already_in_infinite_hyperbox' not in opts:
             # Let's put a dummy example for now
             k1_E = continuous_inputs[self.dimension_name_to_position['k1_E']]
@@ -1026,12 +1031,19 @@ class box1L_direct_integration(NLoopIntegrand):
         integrand_example_1   = (1. / ( (euclidian_product/(Mass_scale**2))**d + regulator))
 
         # Return a dummy function for now
-        if self.phase_computed == 'Real':
+        if user_phase_choice is None:
+            chosen_phase = self.phase_computed
+        else:
+            chosen_phase = user_phase_choice
+        if chosen_phase == 'Real':
             #misc.sprint("Returning real part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).real))
             return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).real
-        elif self.phase_computed == 'Imaginary':
+        elif chosen_phase == 'Imaginary':
             #misc.sprint("Returning complex part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag))
             return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag
+        elif chosen_phase == 'All':
+            #misc.sprint("Returning complex part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag))
+            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box)
         else:
             raise IntegrandError("Unsupported phase computed option specified: %s"%self.phase_computed)
 

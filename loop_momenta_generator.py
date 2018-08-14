@@ -74,15 +74,19 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         self.conformal_mapping_choice = conformal_mapping_choice
 
         # Adjust conformal hyperparameters if specified.
-        for opt in opts:
-            if opt in self.contour_hyper_parameters:
-                self.contour_hyper_parameters[opt] = opts[opt]
-            else:
-                logger.warning("Option '%s' not reckognized in class '%s'."%(opt, self.__class__.__name__))
+        self.set_deformation_options(opts)
 
         # Eventually this information must be extracted from the topology, for now it is hard-coded.
         self.topology = topology
         self.loop_propagator_masses = [0., ]*4
+
+    def set_deformation_options(self, deformation_opts):
+        """Set the deformation options."""
+        for opt in deformation_opts:
+            if opt in self.contour_hyper_parameters:
+                self.contour_hyper_parameters[opt] = deformation_opts[opt]
+            else:
+                logger.warning("Option '%s' not reckognized in class '%s'."%(opt, self.__class__.__name__))
 
     def define_global_quantities_for_contour_deformation(self):
         """Define some global quantities independent of the loop momenta and useful for computing the deformed contour."""
@@ -591,16 +595,29 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
 
         self._cpp_interface = DeformationCPPinterface()
 
-        for opt, value in opts.items():
+        super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
+
+        # Now that all quantities are set, we initialize
+        err = self._cpp_interface.init()
+        if err != 0:
+            raise LoopMomentaGeneratorError('Error initializing: %s'%str(err))
+
+    def set_deformation_options(self, deformation_opts):
+        """Broadcast the deformation options to CPP."""
+
+        # Also set them for Python
+        for opt in deformation_opts:
+            if opt in self.contour_hyper_parameters:
+                self.contour_hyper_parameters[opt] = deformation_opts[opt]
+
+        for opt, value in deformation_opts.items():
             try:
                 self._cpp_interface.set_option(opt, value)
-            except LoopMomentaGeneratorError:
+            except LoopMomentaGeneratorError as e:
                 if opt not in self._options_not_reckognized_warned:
-                    logger.warning("Option '%s' not reckognized in class '%s'. This message will only appear once."%
-                                                                                         (opt, self.__class__.__name__))
+                    logger.warning("Option '%s' not reckognized in class '%s' (Error: %s). This message will only appear once."%
+                                                                                    (opt, self.__class__.__name__, str(e)))
                     self._options_not_reckognized_warned.append(opt)
-
-        super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
 
     def __delete__(self):
         """Clean-up duty when this instance is destroyed."""
@@ -613,11 +630,6 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         # Propagate some of this global information to the underlying C++ library
         self._cpp_interface.set_q_is(self.q_is)
         self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
-
-        # Now that all quantities are set, we initialize
-        err = self._cpp_interface.init()
-        if err != 0:
-            raise LoopMomentaGeneratorError('Error initializing: %s'%str(err))
 
     def apply_deformation(self, loop_momenta):
         """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz

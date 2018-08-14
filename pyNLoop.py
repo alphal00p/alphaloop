@@ -562,60 +562,69 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Also add the integrand (Any integrand would do for the evaluation since the deformation should be irrelevant,
             #  so we pick the first here)
             if any(item in options['items_to_plot'] for item in ['integrand_real','integrand_imag','integrand_abs']):
-                integrands = [first_integrand([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=jac )
+                integrands = [first_integrand([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=jac, phase='All' )
                                                                            for dp,jac in zip(deformed_points,jacobians)]
                 # Normalize to the largest value of the integrand encountered
                 if 'integrand_real' in options['items_to_plot']:
                     integrand_reals = [itg.real for itg in integrands]
                     max_integrand_real = max(integrand_reals)
-                    integrand_reals = [itg/max_integrand_real for itg in integrand_reals]
+                    if max_integrand_real > 0.:
+                        integrand_reals = [itg/max_integrand_real for itg in integrand_reals]
                     plt.plot(x_entries,integrand_reals, label='integrand_real @%s'%lm_generator_name)
                 if 'integrand_imag' in options['items_to_plot']:
                     integrand_imags = [itg.imag for itg in integrands]
                     max_integrand_imag = max(integrand_imags)
-                    integrand_imags = [itg/max_integrand_imag for itg in integrand_imags]
+                    if max_integrand_imag > 0.:
+                        integrand_imags = [itg/max_integrand_imag for itg in integrand_imags]
                     plt.plot(x_entries,integrand_imags, label='integrand_imag @%s'%lm_generator_name)
                 if 'integrand_abs' in options['items_to_plot']:
                     integrand_abss = [abs(itg) for itg in integrands]
                     max_integrand_abss = max(integrand_abss)
-                    integrand_abss = [itg/max_integrand_abss for itg in integrand_abss]
+                    if max_integrand_abss > 0.:
+                        integrand_abss = [itg/max_integrand_abss for itg in integrand_abss]
                     plt.plot(x_entries,integrand_abss, label='integrand_abs @%s'%lm_generator_name)
             if any(item in options['items_to_plot'] for item in [
                                                'integrand_no_jac_real','integrand_no_jac_imag','integrand_no_jac_abs']):
-                integrands = [first_integrand([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=1.0 )
+                integrands = [first_integrand([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=1.0, phase='All' )
                                                                            for dp,jac in zip(deformed_points,jacobians)]
                 # Normalize to the largest value of the integrand encountered
                 if 'integrand_no_jac_real' in options['items_to_plot']:
                     integrand_reals = [itg.real for itg in integrands]
                     max_integrand_real = max(integrand_reals)
-                    integrand_reals = [itg/max_integrand_real for itg in integrand_reals]
+                    if integrand_reals > 0.:
+                        integrand_reals = [itg/max_integrand_real for itg in integrand_reals]
                     plt.plot(x_entries,integrand_reals, label='integrand_no_jac_real @%s'%lm_generator_name)
                 if 'integrand_no_jac_imag' in options['items_to_plot']:
                     integrand_imags = [itg.imag for itg in integrands]
                     max_integrand_imag = max(integrand_imags)
-                    integrand_imags = [itg/max_integrand_imag for itg in integrand_imags]
+                    if max_integrand_imag > 0.:
+                        integrand_imags = [itg/max_integrand_imag for itg in integrand_imags]
                     plt.plot(x_entries,integrand_imags, label='integrand_no_jac_imag @%s'%lm_generator_name)
                 if 'integrand_no_jac_abs' in options['items_to_plot']:
                     integrand_abss = [abs(itg) for itg in integrands]
-                    max_integrand_abss = max(integrand_abss)
-                    integrand_abss = [itg/max_integrand_abss for itg in integrand_abss]
+                    max_integrand_imag = max(integrand_abss)
+                    if max_integrand_imag > 0.:
+                        integrand_abss = [itg/max_integrand_abss for itg in integrand_abss]
                     plt.plot(x_entries,integrand_abss, label='integrand_no_jac_abs @%s'%lm_generator_name)
             if any(item in options['items_to_plot'] for item in ['jac_real','jac_imag','jac_abs']):
                 # Normalize to the largest value of the integrand encountered
                 if 'jac_real' in options['items_to_plot']:
                     jacobian_reals = [jac.real for jac in jacobians]
                     max_jacobian_real = max(jacobian_reals)
-                    jacobian_reals = [jac/max_jacobian_real for jac in jacobian_reals]
+                    if max_jacobian_real>0.:
+                        jacobian_reals = [jac/max_jacobian_real for jac in jacobian_reals]
                     plt.plot(x_entries,jacobian_reals, label='jac_real @%s'%lm_generator_name)
                 if 'jac_imag' in options['items_to_plot']:
                     jacobian_imags = [jac.imag for jac in jacobians]
                     max_jacobian_imag = max(jacobian_imags)
-                    jacobian_imags = [jac/max_jacobian_imag for jac in jacobian_imags]
+                    if max_jacobian_imag > 0.:
+                        jacobian_imags = [jac/max_jacobian_imag for jac in jacobian_imags]
                     plt.plot(x_entries,jacobian_imags, label='jac_imag @%s'%lm_generator_name)
                 if 'jac_abs' in options['items_to_plot']:
                     jacobian_abss = [abs(jac) for jac in jacobians]
                     max_jacobian_abss = max(jacobian_abss)
-                    jacobian_abss = [jac/max_jacobian_abss for jac in jacobian_abss]
+                    if max_jacobian_abss > 0.:
+                        jacobian_abss = [jac/max_jacobian_abss for jac in jacobian_abss]
                     plt.plot(x_entries,jacobian_abss, label='jac_abs @%s'%lm_generator_name)
 
         # Plot relative difference of deformation, normalized to its max
@@ -790,6 +799,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'M1'                        : 0.035,
             'M2'                        : 0.7,
             'M3'                        : 0.035,
+            'M4'                        : 0.035,
             'Gamma1'                    : 0.7,
             'Gamma2'                    : 0.008,
             'Esoft'                     : 0.003,
