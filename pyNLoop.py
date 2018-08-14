@@ -457,7 +457,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     normalization_ipp = max(abs(ipp) for ipp in imaginary_part_on_poles)
                     if options['normalization'] != 'None':
                         dampening_power = 0.5
-                        imaginary_part_on_poles = [(ipp/normalization_ipp)**dampening_power for ipp in imaginary_part_on_poles]
+                        imaginary_part_on_poles = [((abs(ipp)/normalization_ipp)**dampening_power)*(-1. if ipp < 0. else 1.)
+                                                                                     for ipp in imaginary_part_on_poles]
 
                     if any(ipp<0. for ipp in imaginary_part_on_poles):
                         if not options['test']:
@@ -502,7 +503,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         all_deformed_points = []
         all_jacobians       = []
         for i_integrand, (lm_generator_name, n_loop_integrand_class, n_loop_integrand_options) in enumerate(all_n_loop_integrands):
-            # Recoer or build the n_loop_integrand instance
+            # Recover or build the n_loop_integrand instance
             if i_integrand==0:
                 n_loop_integrand = first_integrand
             else:
@@ -542,10 +543,11 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 dist = [ math.sqrt(sum(di.imag**2 for di in d))/normalizations[i_point] for i_point, d in enumerate(deformed_points)]
                 plt.plot(x_entries, dist, linewidth=2.0, label='distance @%s'%lm_generator_name)
 
-            # Also add the integrand
+            # Also add the integrand (Any integrand would do for the evaluation since the deformation should be irrelevant,
+            #  so we pick the first here)
             if any(item in options['items_to_plot'] for item in ['integrand_real','integrand_imag','integrand_abs']):
-                integrands = (all_n_loop_integrands[0][1]([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=jac )
-                                                                           for dp,jac in zip(deformed_points,jacobians))
+                integrands = [first_integrand([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=jac )
+                                                                           for dp,jac in zip(deformed_points,jacobians)]
                 # Normalize to the largest value of the integrand encountered
                 if 'integrand_real' in options['items_to_plot']:
                     integrand_reals = [itg.real for itg in integrands]
@@ -564,8 +566,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     plt.plot(x_entries,integrand_abss, label='integrand_abs @%s'%lm_generator_name)
             if any(item in options['items_to_plot'] for item in [
                                                'integrand_no_jac_real','integrand_no_jac_imag','integrand_no_jac_abs']):
-                integrands = (all_n_loop_integrands[0][1]([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=1.0 )
-                                                                           for dp,jac in zip(deformed_points,jacobians))
+                integrands = [first_integrand([dp,], [], input_already_in_infinite_hyperbox=True, jacobian=1.0 )
+                                                                           for dp,jac in zip(deformed_points,jacobians)]
                 # Normalize to the largest value of the integrand encountered
                 if 'integrand_no_jac_real' in options['items_to_plot']:
                     integrand_reals = [itg.real for itg in integrands]
@@ -806,7 +808,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'verbosity'             : 1,
             'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
             'force'                 : False,
-            'phase_computed'        : 'All',
+            'phase_computed'        : 'Real',
             'reference_vector'      : 'random',
             'offset_vector'         : 'random',
             'loop_momenta_generators' : [self.parse_lmgc_specification('default'),],

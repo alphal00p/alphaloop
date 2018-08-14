@@ -582,6 +582,8 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
 
     _compute_jacobian_numerically = False
 
+    _options_not_reckognized_warned = []
+
     def __init__(self, topology, external_momenta, **opts):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
         must be generated."""
@@ -592,7 +594,10 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
             try:
                 self._cpp_interface.set_option(opt, value)
             except LoopMomentaGeneratorError:
-                logger.warning("Option '%s' not reckognized in class '%s'."%(opt, self.__class__.__name__))
+                if opt not in self._options_not_reckognized_warned:
+                    logger.warning("Option '%s' not reckognized in class '%s'. This message will only appear once."%
+                                                                                         (opt, self.__class__.__name__))
+                    self._options_not_reckognized_warned.append(opt)
 
         super(OneLoopMomentumGenerator_WeinzierlCPP, self).__init__(topology, external_momenta, **opts)
 

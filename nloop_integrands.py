@@ -17,10 +17,15 @@ import madgraph.integrator.vectors as vectors
 import madgraph.integrator.integrands as integrands
 import madgraph.various.misc as misc
 import loop_momenta_generator
+from madgraph import InvalidCmd, MadGraph5Error
 
 logger = logging.getLogger('pyNLoop.Integrand')
 
 pjoin = os.path.join
+
+class IntegrandError(MadGraph5Error):
+    """ Error for the LoopMomentaGenerator class suite."""
+    pass
 
 try:
     import pySecDec
@@ -993,7 +998,6 @@ class box1L_direct_integration(NLoopIntegrand):
             l_mom            = l_moms[0]
             jacobian_weight  = opts['jacobian']
 
-        #misc.sprint((k1_E,k1_x,k1_y,k1_z), l_mom, jacobian_weight)
         numerator = 1.
         denominator = 1.
         for i, q_i in  enumerate(self.loop_momentum_generator.q_is):
@@ -1030,3 +1034,5 @@ class box1L_direct_integration(NLoopIntegrand):
         elif self.phase_computed == 'Imaginary':
             #misc.sprint("Returning complex part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag))
             return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag
+        else:
+            raise IntegrandError("Unsupported phase computed option specified: %s"%self.phase_computed)
