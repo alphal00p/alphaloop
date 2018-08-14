@@ -972,6 +972,11 @@ class box1L_direct_integration(NLoopIntegrand):
         # An empty list with no instances of IntegratedCounterterm for now.
         return []
 
+    def get_local_counterterms(self, l_mom):
+        """ Get counterterms to the current loop integrand."""
+
+        return 0.
+
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Actual evaluation of the loop integrand."""
 
@@ -998,7 +1003,8 @@ class box1L_direct_integration(NLoopIntegrand):
             logger.critical('Exactly on-shell denominator encountered. Skipping this point.')
             return 0.
 
-        integrand_box = numerator / denominator
+        integrand_box = (numerator / denominator) - self.get_local_counterterms(l_mom)
+
         # Here are some dummy function to try in order to test the phase-space volume
         euclidian_product = sum(l_mom[i]**2 for i in range(4))
         # Number 1:
@@ -1028,3 +1034,19 @@ class box1L_direct_integration(NLoopIntegrand):
             return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag
         else:
             raise IntegrandError("Unsupported phase computed option specified: %s"%self.phase_computed)
+
+class box1L_direct_integration_subtracted(box1L_direct_integration):
+    """ Implementation of the box1L with external momenta massless and onshell, using subtraction."""
+
+    def get_local_counterterms(self, l_mom):
+        """ Get counterterms to the current loop integrand."""
+
+        s = 2.*self.external_momenta[3].dot(self.external_momenta[4])
+        t = 2.*self.external_momenta[3].dot(self.external_momenta[2])
+        denoms = [((l_mom - q_i).square() - self.loop_propagator_masses[i_prop] ** 2) for i_prop, q_i in
+                                                                           enumerate(self.loop_momentum_generator.q_is)]
+        denoms_product = 1.
+        for d in denoms:
+            denoms_product *= d
+
+        return ( ( denoms[0]+denoms[2] ) / t + ( denoms[1]+denoms[3] ) / s ) / denoms_product

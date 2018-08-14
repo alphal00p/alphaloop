@@ -126,6 +126,12 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
              'n_legs'   : 4,
              'masses'   : [100., 200., 300., 400.]
              },
+        'box1L_direct_integration_subtracted':
+            {'class'    : nloop_integrands.box1L_direct_integration_subtracted,
+             'n_loops'  : 1,
+             'n_legs'   : 4,
+             'masses'   : [0., 0., 0., 0.]
+             },
     }
     
     def validate_pySecDec_installation(self, pysecdec_path):
