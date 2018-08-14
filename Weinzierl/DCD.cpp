@@ -275,7 +275,7 @@ DIdeform::ContourDeform::ContourDeform(std::vector<DIdeform::R4vector> &Qs)
   set_PpPm(Qs);
   
   //Test the validity of Pp and Pm
-  if(test_PpPm(Qs))
+  if(!test_PpPm(Qs))
     exit(1);
 
   //Compute Misq
@@ -416,7 +416,7 @@ bool DIdeform::ContourDeform::test_PpPm(std::vector<DIdeform::R4vector> &Qs){
       return false;
     }
   }
-  std::printf("Little push was needed.\n");
+  std::printf("Little push for Pp and Pm was needed.\n");
   return true;
 }
 
