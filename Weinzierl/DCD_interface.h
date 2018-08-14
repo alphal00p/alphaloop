@@ -4,11 +4,12 @@
 #include "DCD.h"
 
 
-#define _OP_M1_FACTOR 0
-#define _OP_M2_FACTOR 1
-#define _OP_M3_FACTOR 2
-#define _OP_GAMMA1_FACTOR 3
-#define _OP_GAMMA2_FACTOR 4
+#define _OP_M1_FACTOR 11
+#define _OP_M2_FACTOR 12
+#define _OP_M3_FACTOR 13
+
+#define _OP_GAMMA1_FACTOR 21
+#define _OP_GAMMA2_FACTOR 22
 
 /***********************************************************
  * The error are coded as follows:

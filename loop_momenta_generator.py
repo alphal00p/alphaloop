@@ -430,11 +430,11 @@ class DeformationCPPinterface(object):
 
     # List valid hyperparameters and their ID
     _valid_hyper_parameters = {
-        'M1'        : 0,
-        'M2'        : 1,
-        'M3'        : 2,
-        'Gamma1'    : 3,
-        'Gamma2'    : 4,
+        'M1'        : 11,
+        'M2'        : 12,
+        'M3'        : 13,
+        'Gamma1'    : 21,
+        'Gamma2'    : 22,
     }
 
 
@@ -459,6 +459,11 @@ class DeformationCPPinterface(object):
     _hook.set_Pm.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
     _hook.set_Pp.restype  = (ctypes.c_int);
     _hook.set_Pm.restype  = (ctypes.c_int);
+    # set optional factors
+    _hook.set_factor_int.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.c_int);
+    _hook.set_factor_double.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.c_int);
+    _hook.set_factor_int.restype = (ctypes.c_int);
+    _hook.set_factor_double.restype = (ctypes.c_int);
     # init class
     _hook.init.argtypes = ();
     _hook.init.restype  = (ctypes.c_int);
@@ -535,6 +540,14 @@ class DeformationCPPinterface(object):
         err = max(return_val)
         if err != 0:
             raise LoopMomentaGeneratorError('Error setting P+ or P-:')
+
+    def set_factors(self, opt, value):
+        opt_id = 0
+        if opt in self._valid_hyper_parameters:
+            opt_id = self.contour_hyper_parameters[opt]
+        dim = len(value)
+        array_type = ctypes.c_double * dim
+        return self._hook.set_factor_double(opt_id, array_type(*value), dim)
 
     def deform_loop_momentum(self, k):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In deform_loop_momentum with k=%s'%(str(k)))

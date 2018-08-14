@@ -168,6 +168,12 @@ extern "C"
 
             deformer->set_global_var();
         }
+
+        //std::printf("M1_factor:\t%f   |   ", deformer->M1f);
+        //std::printf("M2_factor:\t%f   |   ", deformer->M2f);
+        //std::printf("M3_factor:\t%f\n", deformer->M3f);
+        //std::printf("gamma1:   \t%f   |   ", deformer->gamma1);
+        //std::printf("gamma2:   \t%f   |\n", deformer->gamma2);
         return 0;
     }
 
