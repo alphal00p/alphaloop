@@ -195,7 +195,7 @@ extern "C"
             if (external_gamma2)
                 deformer->gamma2 = gamma2;
             deformer->set_global_var();
-            if(!deformer->test_PpPm(Qs)) return ;
+            if(!deformer->test_PpPm(Qs)) return 5;
         }
 
         //std::printf("M1_factor:\t%f   |   ", deformer->M1f);

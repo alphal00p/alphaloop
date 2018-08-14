@@ -416,6 +416,7 @@ bool DIdeform::ContourDeform::test_PpPm(std::vector<DIdeform::R4vector> &Qs){
       return false;
     }
   }
+  std::printf("Little push was needed.\n");
   return true;
 }
 
