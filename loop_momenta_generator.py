@@ -107,6 +107,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         self.P_plus = self.find_P(plus=True)
         self.P_minus = self.find_P(plus=False)
+        self.test_P_plus_and_P_minus()
 
         # Characteristic scale of the process
         self.mu_P = sqrt((self.P_minus - self.P_plus).square())
@@ -384,6 +385,36 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                 break
 
         return vecs[0]
+
+    def test_P_plus_and_P_minus(self):
+        def Test_P(plus=True):
+            test_passed = True;
+            if plus:
+                for q in self.q_is:
+                    v = q-self.P_plus
+                    test_passed = test_passed and v.square() > 0 and v[0] > 0
+            else:
+                for q in self.q_is:
+                    v = q - self.P_minus
+                    test_passed = test_passed and v.square() > 0 and v[0] < 0
+            return test_passed
+
+        if Test_P(True) and Test_P(False):
+            return True
+        else:
+            "If the test has failed then we push P+ and P- further out"
+            center = .5 * (self.P_plus + self.P_minus)
+            radius = .5 * (self.P_plus - self.P_minus)
+            push_size = 1.0E-10
+            print (1.0+push_size)
+            self.P_plus  = center + (1.0 + push_size) * radius
+            self.P_minus = center - (1.0 + push_size) * radius
+
+        if Test_P(True) and Test_P(False):
+            return True
+        else:
+            misc.sprint("Not all Qs lie in the forward/backward light cone of P+/P-")
+            return False
 
     def h_delta(self, sign, k, m, M):
         """The three helper functions h_delta-, h_delta+, and h_delta0, indicated
