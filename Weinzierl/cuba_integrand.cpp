@@ -3,14 +3,15 @@
 #include <fstream>
 
 #ifndef ROTATION_ANGLE
-#define ROTATION_ANGLE M_PI/2.
+#define ROTATION_ANGLE M_PI/8.
 #endif
 
-#define WHITCH_INTEGRAND 1 //0:box_6d, 1:box_offshell, 2:box_subtracted, 3:test_function
-#define SEED 33
+#define WHITCH_INTEGRAND 2 //0:box_6d, 1:box_offshell, 2:box_subtracted, 3:test_function
+#define PS_SEED 22
 
 using namespace std;
 
+my_comp ii(0.0, 1.0);
 DIdeform::R4vector p1, p2, p3, p4;
 extern my_real alpha;
 
@@ -38,7 +39,7 @@ int Integrand(const int *ndim, const cubareal xx[],
     my_comp Njacobian;
     my_comp jacobian;
 
-    PS_points(p1,p2,p3,p4,SEED);
+    PS_points(p1,p2,p3,p4,PS_SEED);
     std::vector<DIdeform::R4vector> Qs(4);
 
     Qs[0] = p1;
@@ -48,13 +49,16 @@ int Integrand(const int *ndim, const cubareal xx[],
 
     DIdeform::R4vector shift(Qs[0]);
     for (int i = 0; i < 4; i++)
-      Qs[i] = Qs[i] - shift;
+      Qs[i] = Qs[i] - 0.0 * shift;
 
     DIdeform::ContourDeform contour(Qs);
     contour.lambda_max = 1.0;
-    
+
+ // cout << k0 << endl;
+ //  std::printf("{%f, %f, %f, %f}\n",k0,k1,k2,k3);
+ //  exit(1); 
     //Variable map
-    alpha = sqrt(contour.mu_P);
+    alpha = std::sqrt(contour.mu_P);
     l = DIdeform::hypcub_mapping({k0, k1, k2, k3});
     hypercube_jacobian = DIdeform::hypcub_jacobian({k0, k1, k2, k3});
     
@@ -66,7 +70,7 @@ int Integrand(const int *ndim, const cubareal xx[],
 
     //Check agreement with Numeric Jacobian
     /*Njacobian = numeric_jacobian(contour, l);
-    if (abs((Njacobian - deformation_jacobian) / deformation_jacobian) > 0.05)
+    if (std::abs((Njacobian - deformation_jacobian) / deformation_jacobian) > 0.05)
     {
       char s_point[100];
       std::sprintf(s_point, "{%+.5e, %+.5e, %+.5e, %+.5e}",
@@ -94,7 +98,7 @@ int Integrand(const int *ndim, const cubareal xx[],
       denominator = denominator * (prop_mom * prop_mom);
     }
     //Numerator
-    my_comp r = pow(ell(3), 2);
+    my_comp r = std::pow(ell(3), 2);
     factor = (4.0 * M_PI) / 2.0;
     f = factor * jacobian * r / denominator;
   }
@@ -111,8 +115,7 @@ int Integrand(const int *ndim, const cubareal xx[],
         prop_mom[mu] = ell(mu) - Qs[i](mu);
       denominator = denominator * (prop_mom * prop_mom);
     }
-    my_comp ii(0.0,1.0);
-    f = /*1e10 */ (1.0/ii/pow(M_PI,2)) * jacobian  / denominator;
+    f = /*1e10 */ (1.0/ii/std::pow(M_PI,2)) * jacobian  / denominator;
   }
   break;
   
@@ -129,29 +132,24 @@ int Integrand(const int *ndim, const cubareal xx[],
     }
     
     //Regulator
-    my_comp F;
-    my_real s12, s23;
-
-    s12 = (p1 + p2) * (p1 + p2);
-    s23 = (p2 + p3) * (p2 + p3);
+    my_comp F=1;
+    my_real sij;
     for (int i = 0; i < 4; i++)
     {
       for (int mu = 0; mu < 4; mu++)
-        prop_mom[mu] = ell(mu) - Qs[i](mu);
-      if (i % 2 == 0)
-        F += (prop_mom * prop_mom) / s23;
-      else
-        F += (prop_mom * prop_mom) / s12;
+        prop_mom[mu] = ell(mu) - Qs[(i+0)%4](mu);
+      sij = (Qs[i % 2] - Qs[i % 2 + 2]) * (Qs[i % 2] - Qs[i % 2 + 2]);
+      F -= (prop_mom * prop_mom) / sij;
     }
 
-    f = /*1e10 */ F * jacobian / denominator;
+    f = /*1e10 */ (1.0/ii/std::pow(M_PI,2)) * F * jacobian / denominator;
   }
   break;
 
     /* === TEST INTEGRAL === */
   case 3:
   {
-    f = jacobian * 1. / (pow((ell * ell.dual()) / pow(1, 2), 3) + 50.);
+    f = jacobian * 1. / (std::pow((ell * ell.dual()) / std::pow(1, 2), 3) + 50.);
   }
   break;
   }
@@ -167,7 +165,7 @@ void PS_points(DIdeform::R4vector &p1, DIdeform::R4vector &p2, DIdeform::R4vecto
 {
   switch (seed)
   {
-  case 666:
+  case 1666:
   {
     //seed 666
     p1 = DIdeform::R4vector({-4.7213384875835902e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, -4.6142211817746778e+02});
@@ -177,9 +175,9 @@ void PS_points(DIdeform::R4vector &p1, DIdeform::R4vector &p2, DIdeform::R4vecto
   }
   break;
 
-  case 2:
+  case 12:
   {
-    //seeds 2
+    //seeds 2 massive
     p1 = DIdeform::R4vector({-4.7809952420694083e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, -4.6752449673455959e+02});
     p2 = DIdeform::R4vector({-5.0850678957797919e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, 4.6752449673455959e+02});
     p3 = DIdeform::R4vector({4.5782801395958194e+02, 1.3758384614384497e+02, 8.1217573038820291e+01, -3.0672606911725950e+02});
@@ -187,25 +185,44 @@ void PS_points(DIdeform::R4vector &p1, DIdeform::R4vector &p2, DIdeform::R4vecto
   }
   break;
 
-case 33:
-{
-  //seed 33
-  p1 = DIdeform::R4vector({-4.3403531061888162e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, -4.2235843884552497e+02});
-  p2 = DIdeform::R4vector({-4.6731857534665693e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, 4.2235843884552497e+02});
-  p3 = DIdeform::R4vector({4.1184646746703140e+02, -3.7233508163465089e+01, 2.1500619135292814e+02, 1.7889526632871485e+02});
-  p4 = DIdeform::R4vector({4.8950741849850709e+02, 3.7233508163465089e+01, -2.1500619135292814e+02, -1.7889526632871485e+02});
-}
-break;
+  case 22:
+  {
+    //seeds 2 massless
+    p1 = DIdeform::R4vector({-4.8678217388064405e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, -4.8678217388064405e+02});
+    p2 = DIdeform::R4vector({-4.8678217388064405e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, 4.8678217388064405e+02});
+    p3 = DIdeform::R4vector({4.8678217388064405e+02, 1.9365322696179936e+02, 1.1431607376733305e+02, -4.3172577844468481e+02});
+    p4 = DIdeform::R4vector({4.8678217388064405e+02, -1.9365322696179936e+02, -1.1431607376733305e+02, 4.3172577844468481e+02});
+  }
+  break;
 
-default:
-{
-  //Angular seeds
-  p1 = DIdeform::R4vector({-0.5, -0.5, 0.0, 0.0});
-  p2 = DIdeform::R4vector({-0.5,  0.5, 0.0, 0.0});
-  p3 = DIdeform::R4vector({ 0.5, -0.5 * std::cos(ROTATION_ANGLE), -0.5 * std::sin(ROTATION_ANGLE), 0.0});
-  p4 = DIdeform::R4vector({ 0.5,  0.5 * std::cos(ROTATION_ANGLE),  0.5 * std::sin(ROTATION_ANGLE), 0.0});
-}
-break;
+  case 133:
+  {
+    //seed 33 massive
+    p1 = DIdeform::R4vector({-4.3403531061888162e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, -4.2235843884552497e+02});
+    p2 = DIdeform::R4vector({-4.6731857534665693e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, 4.2235843884552497e+02});
+    p3 = DIdeform::R4vector({4.1184646746703140e+02, -3.7233508163465089e+01, 2.1500619135292814e+02, 1.7889526632871485e+02});
+    p4 = DIdeform::R4vector({4.8950741849850709e+02, 3.7233508163465089e+01, -2.1500619135292814e+02, -1.7889526632871485e+02});
+  }
+  break;
+  case 233:
+  {
+    //seed 33 massless
+    p1 = DIdeform::R4vector({-3.9756551766525951e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, -3.9756551766525951e+02});
+    p2 = DIdeform::R4vector({-3.9756551766525951e+02, -0.0000000000000000e+00, -0.0000000000000000e+00, 3.9756551766525951e+02});
+    p3 = DIdeform::R4vector({3.9756551766525951e+02, -5.2461217332126608e+01, 3.0293912899098285e+02, 2.5205960731275806e+02});
+    p4 = DIdeform::R4vector({3.9756551766525951e+02, 5.2461217332126608e+01, -3.0293912899098285e+02, -2.5205960731275806e+02});
+  }
+  break;
+
+  default:
+  {
+    //Angular seeds
+    p1 = DIdeform::R4vector({-0.5, -0.5, 0.0, 0.0});
+    p2 = DIdeform::R4vector({-0.5, 0.5, 0.0, 0.0});
+    p3 = DIdeform::R4vector({0.5, -0.5 * std::cos(ROTATION_ANGLE), -0.5 * std::sin(ROTATION_ANGLE), 0.0});
+    p4 = DIdeform::R4vector({0.5, 0.5 * std::cos(ROTATION_ANGLE), 0.5 * std::sin(ROTATION_ANGLE), 0.0});
+  }
+  break;
   }
 }
 
@@ -214,7 +231,7 @@ my_comp numeric_jacobian(DIdeform::ContourDeform &deformer, DIdeform::R4vector l
 {
   my_comp Njacobian;
 
-  my_real eps = sqrt(std::numeric_limits<my_real>::epsilon());
+  my_real eps = std::sqrt(std::numeric_limits<my_real>::epsilon());
   std::vector<std::vector<my_comp>> grad(4, std::vector<my_comp>(4, 0.));
   std::vector<DIdeform::R4vector> ev(4);
   for (int mu = 0; mu < 4; mu++)
