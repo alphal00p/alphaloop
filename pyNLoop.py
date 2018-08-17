@@ -245,7 +245,11 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise pyNLoopInvalidCmd(
 "pyNLoop only supports Vegas3 and pySecDec integrator for now (or automatically set with value 'auto').")
             self.pyNLoop_options['integrator'] = value
-            self.integrator_options.update(options)
+            for opt, opt_value in options.items():
+                if opt=='nb_core':
+                    self.do_set('nb_core %d'%opt_value)
+                else:
+                    self.integrator_options[opt] = opt_value
 
         elif key == 'parallelization':
             if value not in ['cluster', 'multicore']:
@@ -1067,7 +1071,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for opt, value in options.items():
                 if opt in integrator_options:
                     integrator_options[opt] = value
-            integrator_options['cluster'] = self.get_cluster(force_nb_cpu_cores=options['nb_CPU_cores'])
+            integrator_options['cluster'] = self.get_cluster(force_nb_cpu_cores=int(self.options['nb_core']))
             integrator_options['pySecDec_path'] = self.pyNLoop_options['pySecDec_path']
             if integrator_name=='Vegas3':
                 if options['phase_computed']=='All':

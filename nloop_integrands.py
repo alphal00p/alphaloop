@@ -1001,9 +1001,12 @@ class box1L_direct_integration(NLoopIntegrand):
             jacobian_weight  = opts['jacobian']
 
         numerator = 1.
+
+        denoms = [((l_mom - q_i).square() - self.loop_propagator_masses[i_prop] ** 2) for i_prop, q_i in
+                                                                           enumerate(self.loop_momentum_generator.q_is)]
         denominator = 1.
-        for i, q_i in  enumerate(self.loop_momentum_generator.q_is):
-            denominator *= (l_mom - q_i).square() - self.loop_propagator_masses[i] ** 2
+        for d in denoms:
+            denominator *= d
         if abs(denominator)==0:
             logger.critical('Exactly on-shell denominator encountered. Skipping this point.')
             return 0.
@@ -1028,22 +1031,37 @@ class box1L_direct_integration(NLoopIntegrand):
         # with the above parameter, the analytical result then reads for:
         #  Mass_scale = 100. result --> 3.2394732409401247722*10^8
         #  Mass_scale = 1.   result --> 3.2394732409401247722
-        integrand_example_1   = (1. / ( (euclidian_product/(Mass_scale**2))**d + regulator))
+        integrand_example_1 = (1. / ( (euclidian_product/(Mass_scale**2))**d + regulator))
 
         # Return a dummy function for now
         if user_phase_choice is None:
             chosen_phase = self.phase_computed
         else:
             chosen_phase = user_phase_choice
+
+        ############################################
+        # Multi-channeling attempts
+        ############################################
+        import itertools
+        inverse_denoms = [1./d for d in denoms]
+        MC_factor = sum(inverse_denoms[c[0]] for c in itertools.combinations(range(len(inverse_denoms)),1))
+        #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]] for c in itertools.combinations(range(len(inverse_denoms)),2))
+        #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]]*inverse_denoms[c[2]] for c in itertools.combinations(range(len(inverse_denoms)),3))
+
+        #MC_factor = 1. / MC_factor
+        MC_factor = 1.
+
+        ############################################
+
         if chosen_phase == 'Real':
             #misc.sprint("Returning real part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).real))
-            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).real
+            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box * MC_factor).real
         elif chosen_phase == 'Imaginary':
             #misc.sprint("Returning complex part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag))
-            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag
+            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box * MC_factor).imag
         elif chosen_phase == 'All':
             #misc.sprint("Returning complex part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag))
-            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box)
+            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box * MC_factor)
         else:
             raise IntegrandError("Unsupported phase computed option specified: %s"%self.phase_computed)
 
