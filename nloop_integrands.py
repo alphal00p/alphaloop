@@ -1000,38 +1000,59 @@ class box1L_direct_integration(NLoopIntegrand):
             l_mom            = l_moms[0]
             jacobian_weight  = opts['jacobian']
 
-        numerator = 1.
+        chosen_integrand = 'box'
+        if chosen_integrand=='validation':
+            # Here are some dummy function to try in order to test the phase-space volume
+            euclidian_product = sum(l_mom[i] ** 2 for i in range(4))
+            # Number 1:
+            #    Warning, this function still has pole in the complex plane, so it may run into issue if the path happens
+            #    to wander around it (and Vegas3 may push it there). For d>2, we have
+            #
+            #    analytical_result_d_gt_2 = math.pi**3 * (1./d) * (Mass_scale**4) * (regulator**( (2./d)-1 )) * (1./math.sin(2.*math.pi/d))
+            #
+            #    for d = 2, we have:
+            #    analytical_result_d_eq_2 = -(1./2) * math.pi**2 * math.log(M_regulator)
+            #
+            Mass_scale = 1.
+            regulator = 50.
+            d = 3
+            #
+            # with the above parameter, the analytical result then reads for:
+            #  Mass_scale = 100. result --> 3.2394732409401247722*10^8
+            #  Mass_scale = 1.   result --> 3.2394732409401247722
+            integrand = (1. / ((euclidian_product / (Mass_scale ** 2)) ** d + regulator))
 
-        denoms = [((l_mom - q_i).square() - self.loop_propagator_masses[i_prop] ** 2) for i_prop, q_i in
-                                                                           enumerate(self.loop_momentum_generator.q_is)]
-        denominator = 1.
-        for d in denoms:
-            denominator *= d
-        if abs(denominator)==0:
-            logger.critical('Exactly on-shell denominator encountered. Skipping this point.')
-            return 0.
+        if chosen_integrand=='box':
+            numerator = 1.
 
-        integrand_box = (numerator / denominator) - self.get_local_counterterms(l_mom)
+            denoms = [((l_mom - q_i).square() - self.loop_propagator_masses[i_prop] ** 2) for i_prop, q_i in
+                                                                               enumerate(self.loop_momentum_generator.q_is)]
+            denominator = 1.
+            for d in denoms:
+                denominator *= d
+            if abs(denominator)==0.:
+                logger.critical('Exactly on-shell denominator encountered. Skipping this point.')
+                return 0.
 
-        # Here are some dummy function to try in order to test the phase-space volume
-        euclidian_product = sum(l_mom[i]**2 for i in range(4))
-        # Number 1:
-        #    Warning, this function still has pole in the complex plane, so it may run into issue if the path happens
-        #    to wander around it (and Vegas3 may push it there). For d>2, we have
-        #
-        #    analytical_result_d_gt_2 = math.pi**3 * (1./d) * (Mass_scale**4) * (regulator**( (2./d)-1 )) * (1./math.sin(2.*math.pi/d))
-        #
-        #    for d = 2, we have:
-        #    analytical_result_d_eq_2 = -(1./2) * math.pi**2 * math.log(M_regulator)
-        #
-        Mass_scale  = 100.
-        regulator   = 50.
-        d           = 3
-        #
-        # with the above parameter, the analytical result then reads for:
-        #  Mass_scale = 100. result --> 3.2394732409401247722*10^8
-        #  Mass_scale = 1.   result --> 3.2394732409401247722
-        integrand_example_1 = (1. / ( (euclidian_product/(Mass_scale**2))**d + regulator))
+            integrand = (numerator / denominator)
+            integrand -= self.get_local_counterterms(l_mom)
+            # Normalize the loop integral properly
+            integrand *= (-1.j / math.pi ** 2)
+
+            ############################################
+            # Multi-channeling attempts
+            ############################################
+            import itertools
+            inverse_denoms = [1./d for d in denoms]
+            MC_factor = sum(inverse_denoms[c[0]]**4 for c in itertools.combinations(range(len(inverse_denoms)),1))
+            #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]] for c in itertools.combinations(range(len(inverse_denoms)),2))
+            #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]]*inverse_denoms[c[2]] for c in itertools.combinations(range(len(inverse_denoms)),3))
+
+            #MC_factor = 1. / MC_factor
+            #MC_factor = inverse_denoms[0]**4 / MC_factor
+            MC_factor = 1.
+            integrand *= MC_factor
+            ############################################
 
         # Return a dummy function for now
         if user_phase_choice is None:
@@ -1039,31 +1060,18 @@ class box1L_direct_integration(NLoopIntegrand):
         else:
             chosen_phase = user_phase_choice
 
-        ############################################
-        # Multi-channeling attempts
-        ############################################
-        import itertools
-        inverse_denoms = [1./d for d in denoms]
-        MC_factor = sum(inverse_denoms[c[0]] for c in itertools.combinations(range(len(inverse_denoms)),1))
-        #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]] for c in itertools.combinations(range(len(inverse_denoms)),2))
-        #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]]*inverse_denoms[c[2]] for c in itertools.combinations(range(len(inverse_denoms)),3))
-
-        #MC_factor = 1. / MC_factor
-        MC_factor = 1.
-
-        ############################################
-
         if chosen_phase == 'Real':
             #misc.sprint("Returning real part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).real))
-            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box * MC_factor).real
+            res = ( jacobian_weight * integrand).real
         elif chosen_phase == 'Imaginary':
             #misc.sprint("Returning complex part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag))
-            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box * MC_factor).imag
+            res = ( jacobian_weight * integrand).imag
         elif chosen_phase == 'All':
             #misc.sprint("Returning complex part: %e"%(( (-1.j/math.pi**2) * jacobian_weight * integrand_box).imag))
-            return ( (-1.j/math.pi**2) * jacobian_weight * integrand_box * MC_factor)
+            res = ( jacobian_weight * integrand)
         else:
             raise IntegrandError("Unsupported phase computed option specified: %s"%self.phase_computed)
+        return res
 
 class box1L_direct_integration_subtracted(box1L_direct_integration):
     """ Implementation of the box1L with external momenta massless and onshell, using subtraction."""

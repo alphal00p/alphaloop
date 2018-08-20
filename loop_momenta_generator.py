@@ -11,7 +11,7 @@ import os
 import logging
 import madgraph.integrator.vectors as vectors
 import madgraph.various.misc as misc
-from math import sqrt, cos, sin, exp
+from math import sqrt, cos, sin, exp, pi
 from madgraph import InvalidCmd, MadGraph5Error
 from pyNLoop import plugin_path
 
@@ -63,7 +63,10 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         'Esoft'     :   0.003,
     }
 
-    def __init__(self, topology, external_momenta, conformal_mapping_choice='log', **opts):
+    def __init__(self, topology, external_momenta,
+                conformal_mapping_choice='log',
+                use_light_cone_and_spherical_coordinates = False,
+                 **opts):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
         must be generated."""
 
@@ -72,6 +75,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         self.define_global_quantities_for_contour_deformation()
 
         self.conformal_mapping_choice = conformal_mapping_choice
+        self.use_light_cone_and_spherical_coordinates = use_light_cone_and_spherical_coordinates
 
         # Adjust conformal hyperparameters if specified.
         self.set_deformation_options(opts)
@@ -124,28 +128,56 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                              self.Esoft * vectors.LorentzVector([0, 0, 1, 0]),
                              self.Esoft * vectors.LorentzVector([0, 0, 0, 1])]
 
+
     def map_to_infinite_hyperbox(self, random_variables):
         """ Maps a set of four random variables in the unit hyperbox to an infinite dimensional cube that corresponds
          to the original loop momentum integration space."""
 
         jacobian = 1.
-        mapped_momentum = []
-        for i in range(0, len(random_variables), 4):
-            res = [self.map_scalar_to_infinite_hyperbox(rv) for rv in random_variables[i:i+4] ]
-            mapped_momentum += [vectors.LorentzVector([v[0] for v in res])]
-            jacobian *= np.prod([v[1] for v in res])
+        mapped_momenta = []
 
-        return mapped_momentum, jacobian
+        if not self.use_light_cone_and_spherical_coordinates:
+            for i in range(0, len(random_variables), 4):
+                res = [self.map_scalar_to_infinite_hyperbox(rv) for rv in random_variables[i:i+4] ]
+                mapped_momenta += [vectors.LorentzVector([v[0] for v in res])]
+                jacobian *= np.prod([v[1] for v in res])
+        else:
+            for i in range(0, len(random_variables), 4):
+                rv_i = random_variables[i:i + 4]
+                # First generate k+ = 1/2 * (k0 + kv) and k- = 1/2 * (k0 - kv)
+                k_plus, jac_k_plus =  self.map_scalar_to_infinite_hyperbox(rv_i[0])
+                jacobian *= jac_k_plus
+                k_minus, jac_k_minus = self.map_scalar_to_infinite_hyperbox(rv_i[1])
+                jacobian *= jac_k_minus
+                # Adjust the jacobian to account for the the re-parametrization of k0 and kz into k+ and k-
+                jacobian *= 2.
+                # Now generate the two angular coordinates
+                # Theta goes from 0 to pi/2, since we allow k_z to be negative
+                theta = rv_i[2]*(pi/2.)
+                # While phi covers the azimuthal angle
+                phi = rv_i[3]*(2.*pi)
+                # Adjuste the Jacobian accordingly
+                jacobian *= pi**2
+                # We can now compute each component of the loop momentum
+                kv = k_plus-k_minus
+                mapped_momenta.append(vectors.LorentzVector([
+                    k_plus+k_minus,
+                    kv * sin(theta) * cos(phi),
+                    kv * sin(theta) * sin(phi),
+                    kv * cos(theta)
+                ]))
+                # Adjust the Jacobian in regard of our use of spherical coordinates
+                jacobian *= kv**2 * sin(theta)
+
+        return mapped_momenta, jacobian
 
     def map_scalar_to_infinite_hyperbox(self, scalar):
 
         if self.conformal_mapping_choice == "log":
-
             jacobian = self.mu_P / (scalar * (1 - scalar))
             value = np.log(scalar / (1. - scalar)) * self.mu_P
 
         elif self.conformal_mapping_choice == "lin":
-
             jacobian = self.mu_P * ((1. / scalar ** 2) + (1 / ((scalar - 1.) ** 2)))
             value = ((1. / (1. - scalar)) - 1. / scalar) * self.mu_P
 
@@ -441,6 +473,7 @@ class OneLoopMomentumGenerator_NoDeformation(OneLoopMomentumGenerator):
 
     def define_global_quantities_for_contour_deformation(self):
         """Nothing to do in this case. Move along."""
+        self.mu_P = 1.
         pass
 
     def generate_loop_momenta(self, random_variables):
@@ -721,8 +754,8 @@ class OneLoopMomentumGenerator_SimpleDeformation(OneLoopMomentumGenerator):
     """ One loop momentum generator which only applies the conformal map but no deformation. """
 
     def define_global_quantities_for_contour_deformation(self):
-        """Nothing to do in this case. Move along."""
-        pass
+        """Almost nothing to do in this case. Move along."""
+        self.mu_P = 1.
 
     def apply_deformation(self, loop_momenta):
         """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz
