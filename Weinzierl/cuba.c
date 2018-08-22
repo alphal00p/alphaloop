@@ -77,6 +77,7 @@ void print_help(const char * op, const char * description){
 }
 int which_integrand;
 int ch_id;
+DIdeform::ContourDeform * deformer;
 
 int main(int argc, char **argv)
 {
@@ -169,16 +170,18 @@ int main(int argc, char **argv)
 	Qs[1] = Qs[0] + p2;
 	Qs[2] = Qs[1] + p3;
 	Qs[3] = 0.0 * Qs[3];
-
-	DIdeform::R4vector shift(Qs[0]);
+	
+	DIdeform::R4vector shift(Qs[ch_id]);
 	for (int i = 0; i < 4; i++)
 		Qs[i] = Qs[i] - shift;
 
-	/*DIdeform::ContourDeform contour(Qs);
-	contour.lambda_max = 1.0;
-	contour.M4f = 0.35;
-	contour.set_global_var();
-		*/
+	deformer = new DIdeform::ContourDeform(Qs);
+	deformer->lambda_max = 1.0;
+	deformer->M4f = 0.35;
+	//deformer->M4f *= 1.0* (1.0 - ps_angle / M_PI) + 10.0 * ps_angle / M_PI;
+	printf("M4f = %.5f\n",deformer->M4f);
+	deformer->set_global_var();
+
 	//Integrator name is converted to all upper cases
 	std::transform(integrator_name.begin(), integrator_name.end(), integrator_name.begin(), ::toupper);
 	printf("----------------- Integrate using %s -----------------\n", integrator_name.c_str());
@@ -190,48 +193,54 @@ int main(int argc, char **argv)
 			  MINEVAL, maxeval, nstart, nincrease, nbatch,
 			  GRIDNO, STATEFILE, SPIN,
 			  &neval, &fail, integral, error, prob);
-}
-else if (integrator_name.compare("SUAVE") == 0)
-{
-	Suave(NDIM, NCOMP, Integrand, USERDATA, NVEC,
-		  epsrel, EPSABS, verbose | LAST, SEED,
-		  MINEVAL, maxeval, NNEW, NMIN, FLATNESS,
-		  STATEFILE, SPIN,
-		  &nregions, &neval, &fail, integral, error, prob);
-}
-else if (integrator_name.compare("DIVONNE") == 0)
-{
-	Divonne(NDIM, NCOMP, Integrand, USERDATA, NVEC,
-			epsrel, EPSABS, verbose, SEED,
-			MINEVAL, maxeval, KEY1, KEY2, KEY3, MAXPASS,
-			BORDER, MAXCHISQ, MINDEVIATION,
-			NGIVEN, LDXGIVEN, NULL, NEXTRA, NULL,
-			STATEFILE, SPIN,
-			&nregions, &neval, &fail, integral, error, prob);
-}
-else if (integrator_name.compare("CUHRE") == 0)
-{
-	Cuhre(NDIM, NCOMP, Integrand, USERDATA, NVEC,
-		  epsrel, EPSABS, verbose | LAST,
-		  MINEVAL, maxeval, KEY,
-		  STATEFILE, SPIN,
-		  &nregions, &neval, &fail, integral, error, prob);
-}
+	}
+	else if (integrator_name.compare("SUAVE") == 0)
+	{
+		Suave(NDIM, NCOMP, Integrand, USERDATA, NVEC,
+			  epsrel, EPSABS, verbose | LAST, SEED,
+			  MINEVAL, maxeval, NNEW, NMIN, FLATNESS,
+			  STATEFILE, SPIN,
+			  &nregions, &neval, &fail, integral, error, prob);
+	}
+	else if (integrator_name.compare("DIVONNE") == 0)
+	{
+		Divonne(NDIM, NCOMP, Integrand, USERDATA, NVEC,
+				epsrel, EPSABS, verbose, SEED,
+				MINEVAL, maxeval, KEY1, KEY2, KEY3, MAXPASS,
+				BORDER, MAXCHISQ, MINDEVIATION,
+				NGIVEN, LDXGIVEN, NULL, NEXTRA, NULL,
+				STATEFILE, SPIN,
+				&nregions, &neval, &fail, integral, error, prob);
+	}
+	else if (integrator_name.compare("CUHRE") == 0)
+	{
+		Cuhre(NDIM, NCOMP, Integrand, USERDATA, NVEC,
+			  epsrel, EPSABS, verbose | LAST,
+			  MINEVAL, maxeval, KEY,
+			  STATEFILE, SPIN,
+			  &nregions, &neval, &fail, integral, error, prob);
+	}
+	
+	//Drop deformer
+	delete deformer;
 
-//Print results
-printf("%s RESULT:\tneval %d\tfail %d\n",
-	   integrator_name.c_str(), neval, fail);
-for (comp = 0; comp < NCOMP; ++comp)
-	printf("%s RESULT:\t%.8g +- %.8g\tp = %.3g\n",
-		   integrator_name.c_str(),
-		   (double)integral[comp], (double)error[comp], (double)prob[comp]);
+	//Print results
+	std::cout << std::endl;
+	std::cout << std::setfill ('=') << std::setw (60) << "" << std::endl;
+	printf("\n %s RESULT:\tneval %d\tfail %d\n",
+		   integrator_name.c_str(), neval, fail);
+	for (comp = 0; comp < NCOMP; ++comp)
+		printf(" %s RESULT:\t%.8g +- %.8g\tp = %.3g\n",
+			   integrator_name.c_str(),
+			   (double)integral[comp], (double)error[comp], (double)prob[comp]);
+	std::cout << std::endl;
+	std::cout << std::setfill ('=') << std::setw (60) << "" << std::endl;
 
-printf("\nFrendly Output:\n");
-printf("\t    ( %+.8e %+.8e I )\n",
-	   (double)integral[0], (double)integral[1]);
-printf("\t+/- (  %.8e +%.8e I )\n",
-	   (double)error[0], (double)error[1]);
+	printf("\nCopyPaste Output:\n");
+	printf("\t    ( %+.8e %+.8e I )\n",
+		   (double)integral[0], (double)integral[1]);
+	printf("\t+/- (  %.8e +%.8e I )\n",
+		   (double)error[0], (double)error[1]);
 
-return 0;
+	return 0;
 }
-

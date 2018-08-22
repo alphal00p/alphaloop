@@ -16,8 +16,10 @@ my_comp deformation_jacobian;
 my_comp Njacobian;
 my_comp jacobian;
 
-extern int which_integrand; //0:box_6d, 1:box_offshell, 2:box_subtracted, 3:test_function
+ //Defined in cuba.c 
+extern int which_integrand;
 extern std::vector<DIdeform::R4vector> Qs;
+extern DIdeform::ContourDeform * deformer;
 //ofstream file("points.txt", ios::out);
 
 void PS_points(DIdeform::R4vector &, DIdeform::R4vector &, DIdeform::R4vector &, DIdeform::R4vector &, int seed = 0);
@@ -34,21 +36,14 @@ int Integrand(const int *ndim, const cubareal xx[],
 #define f_real ff[0]
 #define f_imag ff[1]
 
-	DIdeform::ContourDeform contour(Qs);
-	contour.lambda_max = 1.0;
-//	contour.M4f = 0.35;
-//	contour.set_global_var();
 
-  // cout << k0 << endl;
-  //  std::printf("{%f, %f, %f, %f}\n",k0,k1,k2,k3);
-  //  exit(1);
-  //Variable map
-  alpha = std::sqrt(contour.mu_P);
+  alpha = std::sqrt(deformer->mu_P);
+  
   l = DIdeform::hypcub_mapping({k0, k1, k2, k3});
   hypercube_jacobian = DIdeform::hypcub_jacobian({k0, k1, k2, k3});
 
-  contour.loop_momentum(l);
-  contour.deform(ell, deformation_jacobian);
+  deformer->loop_momentum(l);
+  deformer->deform(ell, deformation_jacobian);
 
   my_comp function;
   my_real factor = 1.;
