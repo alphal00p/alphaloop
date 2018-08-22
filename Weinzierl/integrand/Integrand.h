@@ -6,5 +6,6 @@ namespace cuba_integrand
 my_comp box1L_6d(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs);
 my_comp box1L_offshell(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs);
 my_comp box1L_subtracted(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs);
+my_comp box1L_subtracted_ch(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs, int ch_id);
 
 };//namespace Integrand

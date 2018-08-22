@@ -84,4 +84,48 @@ my_comp box1L_subtracted(C4vector &ell, std::vector<R4vector> &Qs)
     return factor * F / denominator;
 }
 
+
+/* One loop box with on-shell external momenta 
+ * The poles have been removed by the subtraction term
+ * (1-A13/s - A24/t)
+ * Channel options
+ * */
+my_comp box1L_subtracted_ch(C4vector &ell, std::vector<R4vector> &Qs, int ch_id)
+{
+    C4vector prop_mom;
+    my_comp factor = 1.0 / ii / std::pow(M_PI, 2);
+
+    //Denominator
+    my_comp denominator = 1.;
+    for (int i = 0; i < 4; i++)
+    {
+        for (int mu = 0; mu < 4; mu++)
+            prop_mom[mu] = ell(mu) - Qs[i](mu);
+        denominator = denominator * (prop_mom * prop_mom);
+    }
+
+    //Regulator
+    my_comp F = 1;
+    my_real sij;
+    for (int i = 0; i < 4; i++)
+    {
+        for (int mu = 0; mu < 4; mu++)
+            prop_mom[mu] = ell(mu) - Qs[(i + 0) % 4](mu);
+        sij = (Qs[i % 2] - Qs[i % 2 + 2]) * (Qs[i % 2] - Qs[i % 2 + 2]);
+        F -= (prop_mom * prop_mom) / sij;
+    }
+    
+    //Channelling 
+    my_comp MC_factor=0.0;
+    for (int i = 0; i < 4; i++)
+    {
+        for (int mu = 0; mu < 4; mu++)
+            prop_mom[mu] = ell(mu) - Qs[i](mu);
+        MC_factor += std::pow(prop_mom * prop_mom, 4);
+        if (i == ch_id)
+            factor *= pow(prop_mom * prop_mom,4);
+    }
+
+    return factor * F / denominator / MC_factor;
+}
 }; //namespace Integrand

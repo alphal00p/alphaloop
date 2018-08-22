@@ -34,8 +34,10 @@ int Integrand(const int *ndim, const cubareal xx[],
 #define f_real ff[0]
 #define f_imag ff[1]
 
-  DIdeform::ContourDeform contour(Qs);
-  contour.lambda_max = 1.0;
+	DIdeform::ContourDeform contour(Qs);
+	contour.lambda_max = 1.0;
+//	contour.M4f = 0.35;
+//	contour.set_global_var();
 
   // cout << k0 << endl;
   //  std::printf("{%f, %f, %f, %f}\n",k0,k1,k2,k3);
@@ -82,6 +84,10 @@ int Integrand(const int *ndim, const cubareal xx[],
 
   /* === BOX SUBTRACTED === */
   case 2:
+    function *= cuba_integrand::box1L_subtracted(ell, Qs);
+    break;
+  /* === BOX SUBTRACTED === */
+  case 3:
     function *= cuba_integrand::box1L_subtracted(ell, Qs);
     break;
   };

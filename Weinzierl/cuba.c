@@ -39,7 +39,7 @@ extern int Integrand(const int *ndim, const cubareal xx[],
 #define USERDATA NULL
 #define NVEC 1
 #define EPSREL 5.e-3
-#define EPSABS 1.0e-15
+#define EPSABS 1.0e-20
 #define VERBOSE 2 //2
 #define LAST 4
 #define SEED 10
@@ -76,6 +76,7 @@ void print_help(const char * op, const char * description){
 	std::cout << description << std::endl;
 }
 int which_integrand;
+int ch_id;
 
 int main(int argc, char **argv)
 {
@@ -100,15 +101,17 @@ int main(int argc, char **argv)
 	integrand_function["box1L_6d"] = 0;
 	integrand_function["box1L_offshell"] = 1;
 	integrand_function["box1L_subtracted"] = 2;
+	integrand_function["box1L_subtracted_ch"] = 3;
 
 	po::options_description desc("Allowed options");
 	desc.add_options()
 	("help,h", "produce help message.")
 	/*Integrand options*/
 	("seed", po::value<int>(&ps_seed)->default_value(0), "choose seed for phase space point.")
-	("angle", po::value<double>(&ps_angle)->implicit_value(M_PI/2.0), "set scattering angle for seed=0")
-	("pi_angle", po::value<double>(&ps_angle)->implicit_value(1.0)->default_value(0.5),"set scattering angle as multiple of pi")
+	("angle", po::value<double>(&ps_angle)->default_value(M_PI/2.0), "set scattering angle for seed=0")
+	("pi_angle", po::value<double>(&ps_angle),"set scattering angle as multiple of pi")
 	("integrand,i", po::value<std::string>(&integrand_name)->implicit_value("")->default_value("box1L_6d"), "choose integrand, call it with no argument to see possible arguments")
+	("ch_id", po::value<int>(&ch_id)->implicit_value(0)->default_value(0), "choose integrand, call it with no argument to see possible arguments")
 	/*Cuba options*/
 	("integrator,I",po::value<std::string>(&integrator_name)->implicit_value("")->default_value("Vegas"),"choose cuba integrator among Vega, Cuhre, Divonne, Suave.")
 	("maxeval", po::value<int>(&maxeval)->default_value(MAXEVAL), "set cuba MAXEVAL")
@@ -171,6 +174,11 @@ int main(int argc, char **argv)
 	for (int i = 0; i < 4; i++)
 		Qs[i] = Qs[i] - shift;
 
+	/*DIdeform::ContourDeform contour(Qs);
+	contour.lambda_max = 1.0;
+	contour.M4f = 0.35;
+	contour.set_global_var();
+		*/
 	//Integrator name is converted to all upper cases
 	std::transform(integrator_name.begin(), integrator_name.end(), integrator_name.begin(), ::toupper);
 	printf("----------------- Integrate using %s -----------------\n", integrator_name.c_str());
