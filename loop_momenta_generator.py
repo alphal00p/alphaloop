@@ -90,7 +90,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             if opt in self.contour_hyper_parameters:
                 self.contour_hyper_parameters[opt] = deformation_opts[opt]
             else:
-                logger.warning("Option '%s' not reckognized in class '%s'."%(opt, self.__class__.__name__))
+                logger.warning("Option '%s' not recognized in class '%s'."%(opt, self.__class__.__name__))
 
     def define_global_quantities_for_contour_deformation(self):
         """Define some global quantities independent of the loop momenta and useful for computing the deformed contour."""
@@ -577,7 +577,7 @@ class DeformationCPPinterface(object):
 
     def set_option(self, option_name, option_values):
         if option_name not in self._valid_hyper_parameters:
-            raise LoopMomentaGeneratorError("Deformation option '%s' not reckognized."%option_name)
+            raise LoopMomentaGeneratorError("Deformation option '%s' not recognized."%option_name)
         option_ID = self._valid_hyper_parameters[option_name]
         if not isinstance(option_values,(list,tuple)):
             option_values = [option_values,]
@@ -655,7 +655,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
 
     _compute_jacobian_numerically = False
 
-    _options_not_reckognized_warned = []
+    _options_not_recognized_warned = []
 
     def __init__(self, topology, external_momenta, **opts):
         """ Instantiate the class, specifying various aspects of the one-loop topology for which the deformation
@@ -685,10 +685,10 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
             try:
                 self._cpp_interface.set_option(opt, value)
             except LoopMomentaGeneratorError as e:
-                if opt not in self._options_not_reckognized_warned:
-                    logger.warning("Option '%s' not reckognized in class '%s' (Error: %s). This message will only appear once."%
+                if opt not in self._options_not_recognized_warned:
+                    logger.warning("Option '%s' not recognized in class '%s' (Error: %s). This message will only appear once."%
                                                                                     (opt, self.__class__.__name__, str(e)))
-                    self._options_not_reckognized_warned.append(opt)
+                    self._options_not_recognized_warned.append(opt)
 
     def __delete__(self):
         """Clean-up duty when this instance is destroyed."""

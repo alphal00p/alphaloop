@@ -18,6 +18,7 @@ import madgraph.integrator.integrands as integrands
 import madgraph.various.misc as misc
 import loop_momenta_generator
 from madgraph import InvalidCmd, MadGraph5Error
+import itertools
 
 logger = logging.getLogger('pyNLoop.Integrand')
 
@@ -902,6 +903,8 @@ class box1L_direct_integration(NLoopIntegrand):
     # We plan on being able to use pySecDec integrator only for this case
     _supported_integrators = ['Vegas3','Cuba']
 
+    NORMALIZATION_FACTOR =  (-1.j / math.pi ** 2)
+
     def __init__(self,
                  n_loops            = 1,
                  external_momenta   = vectors.LorentzVectorDict(),
@@ -934,6 +937,11 @@ class box1L_direct_integration(NLoopIntegrand):
             topology            = topology,
             **opts
         )
+
+        self.channel = None
+        if 'channel' in opts:
+            self.channel = opts['channel']
+            misc.sprint("Using channel {}", self.channel)
 
         # For now, to avoid having any momentum back to back, boost them out of the center of mass rest frame.
 #        boost_vector = (self.external_momenta[1]+2.0*self.external_momenta[2]).boostVector()
@@ -1025,8 +1033,13 @@ class box1L_direct_integration(NLoopIntegrand):
         if chosen_integrand=='box':
             numerator = 1.
 
+            if self.channel is not None:
+                # shift the loop momentum such that the selected propagator is simply 1/k^2
+                l_mom = l_mom + self.loop_momentum_generator.q_is[self.channel] + \
+                    vectors.LorentzVector([-l_mom[0] + cmath.sqrt(l_mom[0]*l_mom[0] + self.loop_propagator_masses[self.channel]**2),0.,0.,0.])
+
             denoms = [((l_mom - q_i).square() - self.loop_propagator_masses[i_prop] ** 2) for i_prop, q_i in
-                                                                               enumerate(self.loop_momentum_generator.q_is)]
+                                                                            enumerate(self.loop_momentum_generator.q_is)]
             denominator = 1.
             for d in denoms:
                 denominator *= d
@@ -1037,21 +1050,21 @@ class box1L_direct_integration(NLoopIntegrand):
             integrand = (numerator / denominator)
             integrand -= self.get_local_counterterms(l_mom)
             # Normalize the loop integral properly
-            integrand *= (-1.j / math.pi ** 2)
+            integrand *= self.NORMALIZATION_FACTOR
 
             ############################################
-            # Multi-channeling attempts
+            # Multi-channeling
             ############################################
-            import itertools
-            inverse_denoms = [1./d for d in denoms]
-            MC_factor = sum(inverse_denoms[c[0]]**4 for c in itertools.combinations(range(len(inverse_denoms)),1))
-            #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]] for c in itertools.combinations(range(len(inverse_denoms)),2))
-            #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]]*inverse_denoms[c[2]] for c in itertools.combinations(range(len(inverse_denoms)),3))
+            if self.channel is not None:
+                assert(self.channel >= 0 and self.channel < len(denoms))
+                inverse_denoms = [1./d for d in denoms]
 
-            #MC_factor = 1. / MC_factor
-            #MC_factor = inverse_denoms[0]**4 / MC_factor
-            MC_factor = 1.
-            integrand *= MC_factor
+                # TODO: take abs of the denoms to prevent cancellations?
+                MC_factor = sum(d**4 for d in inverse_denoms)
+                #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]] for c in itertools.combinations(range(len(inverse_denoms)),2))
+                #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]]*inverse_denoms[c[2]] for c in itertools.combinations(range(len(inverse_denoms)),3))
+                MC_factor = inverse_denoms[self.channel]**4 / MC_factor
+                integrand *= MC_factor
             ############################################
 
         # Return a dummy function for now

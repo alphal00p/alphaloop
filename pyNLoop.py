@@ -717,6 +717,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'PS_point': 'random',
             'seed': None,
             'sqrt_s': 1000.0,
+            'channel': None,
             'verbosity': 1,
             'nb_CPU_cores': None,
             'phase_computed': 'Real',
@@ -749,7 +750,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             'specification of a random PS point')
                 options[key] = value
 
-            elif key in ['seed', 'batch_size', 'verbosity', 'nb_CPU_cores',
+            elif key in ['seed', 'batch_size', 'verbosity', 'nb_CPU_cores', 'channel',
                          'survey_n_iterations', 'survey_n_points', 'refine_n_iterations', 'refine_n_points']:
                 try:
                     parsed_int = int(value)
@@ -829,7 +830,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             try:
                 lmgc_class = eval('loop_momenta_generator.%s' % lmgc_name)
             except:
-                raise pyNLoopInvalidCmd("Loop momentum generator class '%s' not reckognized." % lmgc_name)
+                raise pyNLoopInvalidCmd("Loop momentum generator class '%s' not recognized." % lmgc_name)
             lmgc_options = dict(default_loop_momenta_generator_options)
             lmgc_options.update(user_lmgc_options)
             return (lmgc_class, lmgc_options)
