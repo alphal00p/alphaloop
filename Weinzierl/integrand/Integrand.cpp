@@ -5,8 +5,6 @@
 
 using namespace std;
 
-extern my_real alpha;
-
 DIdeform::R4vector l;
 DIdeform::C4vector prop_mom;
 DIdeform::C4vector ell;
@@ -18,6 +16,7 @@ my_comp jacobian;
 
  //Defined in cuba.c 
 extern int which_integrand;
+extern int ch_id;
 extern std::vector<DIdeform::R4vector> Qs;
 extern DIdeform::ContourDeform * deformer;
 //ofstream file("points.txt", ios::out);
@@ -37,8 +36,6 @@ int Integrand(const int *ndim, const cubareal xx[],
 #define f_imag ff[1]
 
 
-  alpha = std::sqrt(deformer->mu_P);
-  
   l = DIdeform::hypcub_mapping({k0, k1, k2, k3});
   hypercube_jacobian = DIdeform::hypcub_jacobian({k0, k1, k2, k3});
 
@@ -72,18 +69,24 @@ int Integrand(const int *ndim, const cubareal xx[],
     function *= cuba_integrand::box1L_6d(ell, Qs);
     break;
 
-  /* === BOX OFFSHELL === */
+  /* === BOX OFF-SHELL === */
   case 1:
     function *= cuba_integrand::box1L_offshell(ell, Qs);
     break;
 
-  /* === BOX SUBTRACTED === */
+  /* === BOX ALL ON-SHELL SUBTRACTED === */
   case 2:
     function *= cuba_integrand::box1L_subtracted(ell, Qs);
     break;
-  /* === BOX SUBTRACTED === */
+   /* === BOX ALL ON-SHELL SUBTRACTED === */
+ 
   case 3:
-    function *= cuba_integrand::box1L_subtracted(ell, Qs);
+    function *= cuba_integrand::box1L_subtracted_ch(ell, Qs,ch_id);
+    break;
+  /* === BOX ONE OFF-SHELL SUBTRACTED === */
+ 
+  case 4:
+    function *= cuba_integrand::box1L_one_offshell_subtracted(ell, Qs,deformer->mu_UVsq);
     break;
   };
   

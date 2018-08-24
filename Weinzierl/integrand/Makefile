@@ -13,7 +13,7 @@ EXEC = box1L.o Integrand.o
 
 all: $(EXEC)
 
-%.o : %.cpp
+%.o : %.cpp Integrand.h ../src/DCD.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@ $(INC_FLAG)
 clean :
 	-rm -f ${SRC}*.o
