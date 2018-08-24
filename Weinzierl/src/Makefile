@@ -9,11 +9,11 @@ endif
 # Compiler flags:
 CXXFLAGS = -std=c++11 -O3
 
-SOURCE = DCD_interface.o DCD.o
+SOURCE = DCD_interface.o DCD.o RC4vector.o
 
 all: $(SOURCE)
 
-%.o : %.cpp %.h
+%.o : %.cpp DCD.h
 	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@
 clean :
 	-rm -f ${SRC}*.o
