@@ -1,224 +1,48 @@
 #include "DCD.h"
 
 /*==========================================================
-  =                    Real 4-vector  
-  ==========================================================*/
-
-//Constructor
-DIdeform::R4vector::R4vector()
-{
-  std::vector<my_real>(4, 0.).swap(v);
-}
-
-DIdeform::R4vector::R4vector(const std::vector<my_real> &w)
-{
-  if (w.size() != 4)
-  {
-    printf("R4vector needs to be initialized with a 4d vector\n");
-    exit(1);
-  }
-  v = w;
-}
-
-//Vector functions
-my_real &DIdeform::R4vector::operator[](const int mu)
-{
-  return this->v.at(mu);
-}
-
-const my_real &DIdeform::R4vector::operator()(const int mu) const
-{
-  return this->v.at(mu);
-}
-
-DIdeform::R4vector DIdeform::R4vector::dual() const
-{
-  std::vector<my_real> dual_v(4);
-  dual_v[0] = (*this)(0);
-  for (int mu = 1; mu < 4; mu++)
-    dual_v[mu] = -(*this)(mu);
-  return dual_v;
-}
-
-//Operators
-DIdeform::R4vector DIdeform::R4vector::operator+(const DIdeform::R4vector &rhs)
-{
-  std::vector<my_real> result(4);
-  for (int mu = 0; mu < 4; mu++)
-    result[mu] = (*this)(mu) + rhs(mu);
-  return result;
-}
-
-DIdeform::R4vector DIdeform::R4vector::operator-()
-{
-  std::vector<my_real> negative(4, 0.);
-  for (int mu = 0; mu < 4; mu++)
-    negative[mu] = -(*this)(mu);
-  return negative;
-}
-
-DIdeform::R4vector DIdeform::R4vector::operator-(const DIdeform::R4vector &rhs)
-{
-  std::vector<my_real> result(4);
-  for (int mu = 0; mu < 4; mu++)
-    result[mu] = (*this)(mu)-rhs(mu);
-  return result;
-}
-
-DIdeform::R4vector DIdeform::operator*(const my_real a, const DIdeform::R4vector &w)
-{
-  std::vector<my_real> result(4);
-  for (int mu = 0; mu < 4; mu++)
-    result[mu] = a * w(mu);
-  return result;
-}
-
-std::ostream &DIdeform::operator<<(std::ostream &os, DIdeform::R4vector rhs)
-{
-  os << "[";
-  for (int mu = 0; mu < 4; mu++)
-  {
-    if (rhs(mu) > 0.0)
-      os << "+";
-    os << rhs(mu);
-    if (mu < 3)
-      os << ", ";
-  }
-  os << "]";
-  return os;
-}
-
-//Scalar product with metric (+,-,-,-)
-my_real DIdeform::R4vector::operator*(const DIdeform::R4vector &rhs)
-{
-  my_real result = (*this)(0) * rhs(0);
-  for (int mu = 1; mu < 4; mu++)
-    result -= (*this)(mu)*rhs(mu);
-  return result;
-}
-/*--------------- End Real 4-vector --------------------*/
-
-/*==========================================================
-  =                  Complex 4-vector
-  ==========================================================*/
-
-//Constructor
-DIdeform::C4vector::C4vector()
-{
-  std::vector<my_comp>(4, 0.).swap(v);
-}
-
-DIdeform::C4vector::C4vector(const std::vector<my_comp> &w)
-{
-  if (w.size() != 4)
-  {
-    printf("R4vector needs to be initialized with a 4d vector\n");
-    exit(1);
-  }
-  v = w;
-}
-
-//Vector functions
-my_comp &DIdeform::C4vector::operator[](const int mu)
-{
-  return this->v.at(mu);
-}
-
-const my_comp &DIdeform::C4vector::operator()(const int mu) const
-{
-  return this->v.at(mu);
-}
-
-DIdeform::C4vector DIdeform::C4vector::dual() const
-{
-  std::vector<my_comp> dual_v(4);
-  dual_v[0] = (*this)(0);
-  for (int mu = 1; mu < 4; mu++)
-    dual_v[mu] = -(*this)(mu);
-  return dual_v;
-}
-
-//Operators
-DIdeform::C4vector DIdeform::C4vector::operator+(const DIdeform::C4vector &rhs)
-{
-  std::vector<my_comp> result(4);
-  for (int mu = 0; mu < 4; mu++)
-    result[mu] = (*this)(mu) + rhs(mu);
-  return result;
-}
-
-DIdeform::C4vector DIdeform::C4vector::operator-()
-{
-  std::vector<my_comp> negative(4, 0.);
-  my_comp zero(0., 0.);
-  for (int mu = 0; mu < 4; mu++)
-    negative[mu] = zero - (*this)(mu);
-  return negative;
-}
-
-DIdeform::C4vector DIdeform::C4vector::operator-(const DIdeform::C4vector &rhs)
-{
-  std::vector<my_comp> result(4);
-  for (int mu = 0; mu < 4; mu++)
-    result[mu] = (*this)(mu)-rhs(mu);
-  return result;
-}
-
-DIdeform::C4vector DIdeform::operator*(const my_comp a, const DIdeform::C4vector &w)
-{
-  std::vector<my_comp> result(4);
-  for (int mu = 0; mu < 4; mu++)
-    result[mu] = a * w(mu);
-  return result;
-}
-
-std::ostream &DIdeform::operator<<(std::ostream &os, DIdeform::C4vector rhs)
-{
-  os << "[";
-  for (int mu = 0; mu < 4; mu++)
-  {
-    os << rhs(mu);
-    if (mu < 3)
-      os << ", ";
-  }
-  os << "]";
-  return os;
-}
-
-//Scalar product with metric (+,-,-,-)
-my_comp DIdeform::C4vector::operator*(const DIdeform::C4vector &rhs)
-{
-  my_comp result = (*this)(0) * rhs(0);
-  for (int mu = 1; mu < 4; mu++)
-    result -= (*this)(mu)*rhs(mu);
-  return result;
-}
-
-/*--------------- End Complex 4-vector --------------------*/
-
-/*==========================================================
   =                   Hypercube mapping
   ==========================================================*/
 my_real alpha = 1.0e+02;
+short int which_hypercube_map = 0;
 
 DIdeform::R4vector DIdeform::hypcub_mapping(std::vector<my_real> x)
 {
   DIdeform::R4vector momentum;
-  for (int mu = 0; mu < 4; mu++)
-    momentum[mu] = alpha * log(x[mu] / (1 - x[mu]));
-  //momentum[mu] = alpha * (1. / (1. - x[mu]) - 1. / x[mu]);
-
-  return momentum;
+  switch (which_hypercube_map)
+  {
+  case 0: //log
+    for (int mu = 0; mu < 4; mu++)
+      momentum[mu] = alpha * log(x[mu] / (1 - x[mu]));
+    return momentum;
+  case 1: //lin
+    for (int mu = 0; mu < 4; mu++)
+      momentum[mu] = alpha * (1. / (1. - x[mu]) - 1. / x[mu]);
+    return momentum;
+  default:
+    printf("No valid option for the hypercub mapping!\n");
+    exit(1);
+  }
 }
 
 //my_real DIdeform::hypcub_jacobian(DIdeform::R4vector& x){
 my_real DIdeform::hypcub_jacobian(std::vector<my_real> x)
 {
   my_real jacobian = 1.;
-  for (int mu = 0; mu < 4; mu++)
-    jacobian = jacobian * (alpha / (x[mu] * (1 - x[mu])));
-  //jacobian = jacobian * alpha * (1. / std::pow(x[mu], 2) + 1. / std::pow(1. - x[mu], 2));
-  return jacobian;
+  switch (which_hypercube_map)
+  {
+  case 0: //log
+    for (int mu = 0; mu < 4; mu++)
+      jacobian = jacobian * (alpha / (x[mu] * (1 - x[mu])));
+    return jacobian;
+  case 1: //lin
+    for (int mu = 0; mu < 4; mu++)
+      jacobian = jacobian * alpha * (1. / std::pow(x[mu], 2) + 1. / std::pow(1. - x[mu], 2));
+    return jacobian;
+  default:
+    printf("No valid option for the hypercub mapping!\n");
+    exit(1);
+  }
 }
 
 /*--------------- End Hypercube mapping --------------------*/
@@ -901,6 +725,12 @@ my_real DIdeform::ContourDeform::lambda_coll()
     C += ci(i);
 
   return 1 / (4. * C);
+}
+
+my_real DIdeform::ContourDeform::lambda_UV(){
+    //TODO: unterstand what kbar stands for
+    //TODO: write derivative
+    return 1;
 }
 
 void DIdeform::ContourDeform::set_lambda()

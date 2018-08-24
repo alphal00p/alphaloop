@@ -30,11 +30,13 @@ namespace DIdeform
     my_real &operator[](const int mu);
     const my_real &operator()(const int mu) const;
     R4vector dual() const;
+    my_real square() const;
 
-    R4vector operator+(const R4vector &);
+    //Operator
+    R4vector operator+(const R4vector &) const;
     R4vector operator-();
-    R4vector operator-(const R4vector &);
-    my_real operator*(const R4vector &);
+    R4vector operator-(const R4vector &) const;
+    my_real operator*(const R4vector &) const;
     R4vector operator=(const std::vector<my_real> &);
   };
 
@@ -52,16 +54,30 @@ namespace DIdeform
     my_comp &operator[](const int mu);
     const my_comp &operator()(const int mu) const;
     C4vector dual() const;
+    my_comp square() const;
 
-    C4vector operator+(const C4vector &);
+    //Operator
+    C4vector operator+(const C4vector &) const;
     C4vector operator-();
-    C4vector operator-(const C4vector &);
-    my_comp operator*(const C4vector &);
+    C4vector operator-(const C4vector &) const;
+    my_comp operator*(const C4vector &) const;
     C4vector operator=(const std::vector<my_comp> &);
   };
 
   C4vector operator*(const my_comp, const C4vector &);
   std::ostream &operator<<(std::ostream &os, DIdeform::C4vector rhs);
+  
+  //Mixed operator C4vector R4vector
+  C4vector operator*(const my_comp, const R4vector &);
+  
+  C4vector operator+(const R4vector &, const C4vector &);
+  C4vector operator+(const C4vector &, const R4vector &);
+  
+  C4vector operator-(const R4vector &, const C4vector &);
+  C4vector operator-(const C4vector &, const R4vector &);
+    
+  my_comp operator*(const R4vector &, const C4vector &);
+  my_comp operator*(const C4vector &, const R4vector &);
 
   //Map the hypercube to the momentum space
   R4vector hypcub_mapping(std::vector<my_real> x);
@@ -90,6 +106,7 @@ namespace DIdeform
     my_real gamma2 = 0.008;
     my_real E_soft = 0.03;
     my_real Ecmsq, mu_P, M1sq, M2sq, M3sq, M4sq;
+    my_comp mu_UVsq = my_comp(0.0, 1.0);
 
     //Auxiliary vectors
     R4vector Pp, kp; //zp(qa+q0, qa-q0)
@@ -156,6 +173,7 @@ namespace DIdeform
     my_real Yi(int i);
     my_real lambda_i(int i);
     my_real lambda_coll();
+    my_real lambda_UV();
     //my_real lambda_uv(int i);
     void set_lambda();
 
