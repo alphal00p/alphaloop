@@ -29,7 +29,7 @@ LFLAGS = -lcuba -lboost_program_options
 # Compiler flags:
 CXXFLAGS = -std=c++11 -O3
 
-SOURCE = src/DCD.o 
+SOURCE = src/DCD.o src/RC4vector.o
 PY_LIB = src/DCD_interface.o
 INTEGRAND = integrand/box1L.o integrand/Integrand.o 
 
