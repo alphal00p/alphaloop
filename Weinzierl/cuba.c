@@ -129,7 +129,7 @@ int main(int argc, char **argv)
 	
 	//Change internal variables
 	deformer->lambda_max = 1.0;
-	deformer->M4f = 0.35;
+	//deformer->M4f = 0.035;
 	deformer->set_global_var();
 	
 	//Set cuba_integrad global variables
@@ -284,7 +284,7 @@ void set_options(int argc, char **argv)
 	Qs[2] = Qs[1] + p3;
 	Qs[3] = 0.0 * Qs[3];
 	
-	DIdeform::R4vector shift(Qs[ch_id]);
+	DIdeform::R4vector shift(Qs[0]);
 	for (int i = 0; i < 4; i++)
 		Qs[i] = Qs[i] - shift;
 

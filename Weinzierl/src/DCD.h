@@ -106,7 +106,7 @@ namespace DIdeform
     my_real gamma2 = 0.008;
     my_real E_soft = 0.03;
     my_real Ecmsq, mu_P, M1sq, M2sq, M3sq, M4sq;
-    my_comp mu_UVsq = my_comp(0.0, 1.0);
+    my_comp mu_UVsq = my_comp(0.0, -1e5);
 
     //Auxiliary vectors
     R4vector Pp, kp; //zp(qa+q0, qa-q0)

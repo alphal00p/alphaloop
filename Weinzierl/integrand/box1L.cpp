@@ -8,6 +8,10 @@ extern my_real s12,s23;
 //Imaginary I
 my_comp ii(0.0, 1.0);
 
+//Collinear auxiliary vectors
+DIdeform::R4vector eta1({1, 1, 0, 0});
+DIdeform::R4vector eta2({1, -1, 0, 0});
+
 /* One loop box if 6-dimension.
  * Two dimensions are integrated out analyticly in the rest frame 
  * where
@@ -19,7 +23,7 @@ my_comp ii(0.0, 1.0);
  * */
 my_comp box1L_6d(C4vector &ell, std::vector<R4vector> &Qs)
 {
-//    C4vector prop_mom;
+    //    C4vector prop_mom;
     my_real factor = (4.0 * M_PI) / 2.0;
 
     //Denominator
@@ -96,11 +100,15 @@ my_comp box1L_subtracted(C4vector &ell, std::vector<R4vector> &Qs)
 
     //Channelling 
     my_comp MC_factor=0.0;
-    for (int i = 0; i < 4; i++)
+    my_comp MC_subfactor=1.0;
+    for (int i = 0; i < 2; i++)
     {
-        MC_factor += std::pow((ell - Qs[i]).square(), 4);
+        MC_subfactor = 1.0;
+        for (int j = i; j <= i + 1; j++)
+            MC_subfactor *= std::abs((ell - Qs[j % 4]).square());
+        MC_factor += std::pow(MC_subfactor,2);
         if (i == ch_id)
-            factor *= pow((ell - Qs[i]).square(), 4);
+            factor *= std::pow(MC_subfactor,2);
     }
     return factor * F / denominator / MC_factor;
 }
@@ -119,26 +127,28 @@ inline my_comp box1L_collinear_term(bool x_xbar,
                                     const my_comp &mu2)
 {
     //True: compute with x otherwise with 1-x
-    DIdeform::R4vector eta({1,-1,0,0});
     DIdeform::R4vector p=q2-q1;
     //TODO: global s and t, ideally sij and sij_inv
     my_comp cFactor=1.0/s12/s23;
     
     //Divide by x or 1-x
+    DIdeform::R4vector eta;
+    eta = eta1 * p != 0 ? eta1 : eta2; 
+
     my_comp x = (eta * ell)/(eta * p);
-    x = x_xbar ? x : 1.0-x;
+    x = x_xbar ? x : 1.0 - x;
     cFactor *= 1.0 / x;
-    
+
     //Divide by A1 A2
     my_comp A1, A2;
     A1 = (ell - q1).square();
-    cFactor *=1.0/A1;
-    
+    cFactor *= 1.0 / A1;
+
     A2 = (ell - q2).square();
-    cFactor *=1.0/A2;
-    
+    cFactor *= 1.0 / A2;
+
     //UV factor
-    cFactor *= mu2/(mu2 +A1); 
+    cFactor *= mu2 / (mu2 + A1);
 
     return cFactor;
     }
@@ -156,7 +166,7 @@ my_comp box1L_one_offshell_subtracted(C4vector &ell, std::vector<R4vector> &Qs, 
     //Soft Regulator
     my_comp soft_F = 1;
     my_real sij;
-    for (int i = 1; i < 4; i++)
+    for (int i = 2; i < 4; i++)
     { //As for the massless box but without A0
         sij = (Qs[i % 2] - Qs[i % 2 + 2]).square();
         soft_F -= (ell - Qs[i]).square() / sij;
@@ -165,9 +175,8 @@ my_comp box1L_one_offshell_subtracted(C4vector &ell, std::vector<R4vector> &Qs, 
     //Collinear
     DIdeform::R4vector p;
     my_comp coll_F = 0;
-    coll_F -= box1L_collinear_term(false, Qs[0],Qs[1], ell, mu_UVsq);
-    coll_F -= box1L_collinear_term(true , Qs[1],Qs[2], ell, mu_UVsq);
-        
+    coll_F -= box1L_collinear_term(true , Qs[3], Qs[0], ell, mu_UVsq);
+    coll_F -= box1L_collinear_term(false, Qs[1], Qs[2], ell, mu_UVsq);
     return factor * (soft_F / denominator - coll_F);
     }
 
