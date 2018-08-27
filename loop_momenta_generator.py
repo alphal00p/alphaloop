@@ -504,6 +504,7 @@ class DeformationCPPinterface(object):
         'M4'        : 14,
         'Gamma1'    : 21,
         'Gamma2'    : 22,
+        'Mapping'   : 31
     }
 
 
@@ -545,6 +546,9 @@ class DeformationCPPinterface(object):
     # get jacobian
     _hook.get_jacobian.argtypes = ()
     _hook.get_jacobian.restype = (ctypes.POINTER(ctypes.c_double))
+    # get the mapping
+    _hook.hypcub_mapping.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int,ctypes.POINTER(ctypes.c_double),ctypes.c_int)
+    _hook.hypcub_mapping.restype  = (ctypes.POINTER(ctypes.c_double))
     # get the array
     _hook.deform_loop_momentum.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
     _hook.deform_loop_momentum.restype  = (ctypes.c_int)
@@ -622,6 +626,16 @@ class DeformationCPPinterface(object):
         array_type = ctypes.c_double * dim
         return self._hook.set_factor_double(opt_id, array_type(*value), dim)
 
+    def hypcub_mapping(self, x, channel):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In  hypcub_mappingwith x=%s'%(str(x)))
+        dim = len(x)
+        array_type = ctypes.c_double * dim
+        jac = ctypes.c_double(0.)
+
+        array_pointer = ctypes.cast(self._hook.hypcub_mapping(array_type(*x), dim, ctypes.byref(jac), channel), ctypes.POINTER(ctypes.c_double * 4))
+        array = np.frombuffer(array_pointer.contents)
+        return (array, jac.value)
+
     def deform_loop_momentum(self, k):
         if self._debug_cpp: logger.debug(self.__class__.__name__+': In deform_loop_momentum with k=%s'%(str(k)))
         dim = len(k)
@@ -681,6 +695,13 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
     def set_deformation_options_in_CPP(self, deformation_opts):
         """Broadcast the deformation options to CPP."""
 
+        if self.conformal_mapping_choice == "log":
+            self._cpp_interface.set_option("Mapping", 0)
+        if self.conformal_mapping_choice == "lin":
+            self._cpp_interface.set_option("Mapping", 1)
+        if self.conformal_mapping_choice == "weinzierl":
+            self._cpp_interface.set_option("Mapping", 2)
+
         for opt, value in deformation_opts.items():
             try:
                 self._cpp_interface.set_option(opt, value)
@@ -701,6 +722,11 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         # Propagate some of this global information to the underlying C++ library
 #        self._cpp_interface.set_q_is(self.q_is)
 #        self._cpp_interface.set_P_plus_and_P_minus(self.P_plus, self.P_minus)
+
+
+    def map_to_infinite_hyperbox(self, random_variables):
+        var, jac = self._cpp_interface.hypcub_mapping(random_variables, self.channel)
+        return ([var], jac)
 
     def apply_deformation(self, loop_momenta):
         """ This function delegates the deformation of the starting loop momenta passed in argument, and returns it as a Lorentz

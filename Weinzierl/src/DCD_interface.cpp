@@ -21,6 +21,7 @@ extern "C"
     DIdeform::R4vector Pp, Pm, loop_momentum;
     double M1_factor, M2_factor, M3_factor, M4_factor;
     double gamma1, gamma2;
+    int mapping;
 
     //Additional arguments flags
     bool external_Pp = false;
@@ -31,6 +32,7 @@ extern "C"
     bool external_M4 = false;
     bool external_gamma1 = false;
     bool external_gamma2 = false;
+    bool external_mapping = false;
 
     //Deformer outputs
     DIdeform::C4vector deformed_loop_momentum;
@@ -41,7 +43,18 @@ extern "C"
     //set factors using option ids (python function)
     int set_factor_int(short int op_id, int v[], int d)
     {
-        return 99;
+        switch (op_id) 
+        {
+            case _OP_MAPPING:
+            {
+                if (deformer == NULL)
+                    return set_mapping(v, d, mapping, external_mapping);
+                else
+                    return update_mapping(v, d, deformer->which_hypercube_map);
+            }
+            default:
+                return 99;
+        }
     }
 
     int set_factor_double(short int op_id, double v[], int d)
@@ -167,6 +180,29 @@ extern "C"
         return 0;
     }
 
+    int set_mapping(int v[], int d, int &mapping, bool &external_mapping)
+    {
+        //Check if there are 1 inputs
+        if (d != 1)
+            return 1;
+        mapping = v[0];
+        external_mapping = true;
+
+        return 0;
+    }
+    int update_mapping(int v[], int d, short int& deformer_mapping)
+    {
+        //If deformer exists set new gamma, otherwise do it later
+        if (deformer == NULL)
+            return 101;
+        if (d != 1)
+            return 1;
+        deformer_mapping = v[0];
+        deformer->set_global_var();
+        return 0;
+    }
+
+
     int set_gamma(double v[], int d, double &gamma, bool &external_gamma)
     {
         //Check if there are 1 inputs
@@ -227,7 +263,7 @@ extern "C"
         if (external_Pp || external_Pm ||
             external_M1 || external_M2 ||
             external_M3 || external_M4 ||
-            external_gamma1 || external_gamma2)
+            external_gamma1 || external_gamma2 || external_mapping)
         {
             if (external_Pp)
                 deformer->Pp = Pp;
@@ -245,6 +281,8 @@ extern "C"
                 deformer->gamma1 = gamma1;
             if (external_gamma2)
                 deformer->gamma2 = gamma2;
+            if (external_mapping)
+                deformer->which_hypercube_map = mapping;
             deformer->set_global_var();
             if (!deformer->test_PpPm(Qs))
                 return 5;
@@ -257,6 +295,20 @@ extern "C"
         //std::printf("gamma1:   \t%f   |   ", deformer->gamma1);
         //std::printf("gamma2:   \t%f   \n", deformer->gamma2);
         return 0;
+    }
+
+    double* hypcub_mapping(double x[], int d, double* jacobian, int channel)
+    {
+
+        std::vector<my_real> xv(x, x + d); // TODO: check it takes d steps of length double!
+        DIdeform::R4vector v = deformer->hypcub_mapping(xv, jacobian, channel);
+
+        for (int i = 0; i < 4; i++)
+        {
+            pyLoop[i] = v[i];
+        }
+
+        return pyLoop;
     }
 
     //Create the deformation
@@ -321,6 +373,7 @@ extern "C"
         external_M4 = false;
         external_gamma1 = false;
         external_gamma2 = false;
+        external_mapping = false;
 
         //Clear Qs vector
         Qs.clear();

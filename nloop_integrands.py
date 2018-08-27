@@ -19,6 +19,7 @@ import madgraph.various.misc as misc
 import loop_momenta_generator
 from madgraph import InvalidCmd, MadGraph5Error
 import itertools
+import numpy as np
 
 logger = logging.getLogger('pyNLoop.Integrand')
 
@@ -938,11 +939,6 @@ class box1L_direct_integration(NLoopIntegrand):
             **opts
         )
 
-        self.channel = None
-        if 'channel' in opts:
-            self.channel = opts['channel']
-            misc.sprint("Using channel {}", self.channel)
-
         # For now, to avoid having any momentum back to back, boost them out of the center of mass rest frame.
 #        boost_vector = (self.external_momenta[1]+2.0*self.external_momenta[2]).boostVector()
 #        for p in self.external_momenta.values():
@@ -953,6 +949,12 @@ class box1L_direct_integration(NLoopIntegrand):
                                                                 self.external_momenta, **loop_momenta_generator_options)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
+
+        self.channel = None
+        if 'channel' in opts:
+            self.channel = opts['channel']
+            misc.sprint("Using channel {}", self.channel)
+        self.loop_momentum_generator.channel = self.channel
 
         self.define_loop_integrand(topology)
 
@@ -1033,11 +1035,6 @@ class box1L_direct_integration(NLoopIntegrand):
         if chosen_integrand=='box':
             numerator = 1.
 
-            if self.channel is not None:
-                # shift the loop momentum such that the selected propagator is simply 1/k^2
-                l_mom = l_mom + self.loop_momentum_generator.q_is[self.channel] + \
-                    vectors.LorentzVector([-l_mom[0] + cmath.sqrt(l_mom[0]*l_mom[0] + self.loop_propagator_masses[self.channel]**2),0.,0.,0.])
-
             denoms = [((l_mom - q_i).square() - self.loop_propagator_masses[i_prop] ** 2) for i_prop, q_i in
                                                                             enumerate(self.loop_momentum_generator.q_is)]
             denominator = 1.
@@ -1056,14 +1053,11 @@ class box1L_direct_integration(NLoopIntegrand):
             # Multi-channeling
             ############################################
             if self.channel is not None:
-                assert(self.channel >= 0 and self.channel < len(denoms))
-                inverse_denoms = [1./d for d in denoms]
-
-                # TODO: take abs of the denoms to prevent cancellations?
-                MC_factor = sum(d**4 for d in inverse_denoms)
-                #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]] for c in itertools.combinations(range(len(inverse_denoms)),2))
-                #MC_factor += sum(inverse_denoms[c[0]]*inverse_denoms[c[1]]*inverse_denoms[c[2]] for c in itertools.combinations(range(len(inverse_denoms)),3))
-                MC_factor = inverse_denoms[self.channel]**4 / MC_factor
+                assert(self.channel >= 0 and self.channel + 1 < len(denoms))
+                alpha = 2
+                channels = [1 / ( np.absolute((l_mom - self.loop_momentum_generator.q_is[i]).square()) * np.absolute((l_mom - self.loop_momentum_generator.q_is[i + 1]).square()))**alpha  for i in range(0, 
+                    len(denoms) - 1)]
+                MC_factor = channels[self.channel] / sum(channels)
                 integrand *= MC_factor
             ############################################
 

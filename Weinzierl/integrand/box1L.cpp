@@ -98,19 +98,21 @@ my_comp box1L_subtracted(C4vector &ell, std::vector<R4vector> &Qs)
         F -= (ell - Qs[i]).square() / sij;
     }
 
-    //Channelling 
+    //Channelling a la Weinzierl
     my_comp MC_factor=0.0;
-    my_comp MC_subfactor=1.0;
-    for (int i = 0; i < 2; i++)
+    my_comp tmp = 0;
+    for (int i = 0; i < 3; i++)
     {
-        MC_subfactor = 1.0;
-        for (int j = i; j <= i + 1; j++)
-            MC_subfactor *= std::abs((ell - Qs[j % 4]).square());
-        MC_factor += std::pow(MC_subfactor,2);
-        if (i == ch_id)
-            factor *= std::pow(MC_subfactor,2);
+        tmp = std::abs((ell - Qs[i]).square()) * std::abs((ell - Qs[i + 1]).square());
+        MC_factor += tmp;
+
+        if (i == ch_id) {
+            factor /= tmp;
+            factor /= tmp;
+        }
     }
-    return factor * F / denominator / MC_factor;
+
+    return factor * F / denominator / MC_factor / MC_factor;
 }
 
 /* One loop box with one off-shell external momenta 

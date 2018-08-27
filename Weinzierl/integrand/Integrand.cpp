@@ -36,9 +36,7 @@ int Integrand(const int *ndim, const cubareal xx[],
 #define f_imag ff[1]
 
 
-  l = DIdeform::hypcub_mapping({k0, k1, k2, k3});
-  hypercube_jacobian = DIdeform::hypcub_jacobian({k0, k1, k2, k3});
-
+  l = deformer->hypcub_mapping({k0, k1, k2, k3}, *hypercube_jacobian, ch_id);
   deformer->loop_momentum(l);
   deformer->deform(ell, deformation_jacobian);
 
