@@ -332,6 +332,17 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if options['seed']:
             random.seed(options['seed'])
 
+        # Some sanity checks on the inputs
+        if options['test']:
+            if options['integration_space']:
+                logger.warning('The deformation test is always performed directly in the physical loop momentum space.')
+                options['integration_space'] = False
+
+        if options['integration_space']:
+            if any(item in options['items_to_plot'] for item in ['p','poles']):
+                logger.warning('Poles will not be rendered when requiring to probe directly the space of integration variables.')
+                options['items_to_plot'] = tuple( item for item in options['items_to_plot'] if item not in ['poles','p'])
+
         chosen_topology_name = args[0]
         if chosen_topology_name not in self._hardcoded_topologies:
             raise InvalidCmd('For now, pyNLoop only support the specification of the' +
@@ -394,9 +405,20 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 offset_vec  = vectors.LorentzVector([random.random(),random.random(),random.random(),random.random()])
             else:
                 offset_vec  = options['offset_vector']
-            # Make sure the vector has norm of sqrt_s
-            ref_vec = (ref_vec / sum(k**2 for k in ref_vec))*options['sqrt_s']
-            offset_vec = offset_vec * options['sqrt_s']
+            # Make sure that the reference vector has each component normalized to its maximum one
+            # This is to emphasize that its norm is irrelevant and only its direction matters, this is because
+            # we will probe the region from -inf to +inf along this direction when working in the direct loop momentum
+            # space
+            ref_vec /= max(abs(k) for k in ref_vec)
+            # Rescale the reference vector with sqrt_s if it does not live in the integration variable space
+            if not options['integration_space']:
+                ref_vec *= options['sqrt_s']
+                offset_vec *= options['sqrt_s']
+            else:
+                # When working directly in the integration variable space, make sure that the offset vector also has
+                # a maximum value for each of its components that is at most one.
+                offset_vec /= max(max(abs(k) for k in offset_vec),1.0)
+
             if not options['test']:
                 logger.info('Reference vector used: %s'%str(ref_vec))
                 logger.info('Offset_vec vector used: %s'%str(offset_vec))
@@ -518,14 +540,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         scaling_range = options['range']
         x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
 
-        # now sample n_points points and compute the deformation
-        points = [ offset_vec + ref_vec * map_to_infinity(x) for x in x_entries]
-        normalizations = [1.,]*n_points
-        if options['normalization']=='distance_real':
-            normalizations = [ math.sqrt(sum(k_i**2 for k_i in p)) for p in points ]
-
-        # Make sure the normalization is capped to be minimum 1.0
-        normalizations = [max(n,1.0e-99) for n in normalizations]
         all_deformed_points = []
         all_jacobians       = []
         for i_integrand, (lm_generator_name, n_loop_integrand_class, n_loop_integrand_options) in enumerate(all_n_loop_integrands):
@@ -534,8 +548,51 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 n_loop_integrand = first_integrand
             else:
                 n_loop_integrand = n_loop_integrand_class(**n_loop_integrand_options)
+
+            # List the jacobians for all points for this integrand
+            jacobians       = [1.0,]*len(x_entries)
+
+            # now sample n_points points and compute the deformation
+            if options['integration_space']:
+                # We will probe the integration space within the unit hyperbox following this line:
+                #          y_vec = offset_vec + scaling * ref_vec
+                # And we want the parameter 'scaling' to be in [0,1] with 0 corresponding to one intersection of this
+                # line with the unit hyperbox (call it point 'A') and 1 corresponding to the other intersection with the
+                # unit hyperbox (call it point 'B'). We therefore proceed here to computing the min and max value of this
+                # scaling so as to remap it to the interval [0,1].
+                min_scale, max_scale = None, None
+                for o, r in zip(offset_vec, ref_vec):
+                    # Intersections with the planes defined by some y_vec component being 0. or 1.
+                    if r==0.:
+                        continue
+                    intersections = sorted( [(component_value - o) / r for component_value in [0., 1.]] )
+                    if min_scale is None or intersections[0] > min_scale:
+                        min_scale = intersections[0]
+                    if max_scale is None or intersections[1] < max_scale:
+                        max_scale = intersections[1]
+
+                if min_scale is None or max_scale is None or max_scale-min_scale <= 0.:
+                    raise pyNLoopInterfaceError('Could not compute the scaling to apply in the integration space.')
+                points_in_integration_space = [offset_vec + ref_vec * ( min_scale + x* (max_scale - min_scale)) for x in x_entries]
+                # Then use the conformal map of the loop momentum generator of the integrand
+                points = []
+                for i, p in enumerate(points_in_integration_space):
+                    #misc.sprint('Point before: %s'%str(p))
+                    loop_momenta, conformal_jac = n_loop_integrand.loop_momentum_generator.map_to_infinite_hyperbox(p)
+                    jacobians[i] *= conformal_jac
+                    points.append(loop_momenta[0])
+                    #misc.sprint('Point after: %s'%str(loop_momenta[0]))
+            else:
+                points = [offset_vec + ref_vec * map_to_infinity(x) for x in x_entries]
+
+            normalizations = [1., ] * n_points
+            if options['normalization'] == 'distance_real':
+                normalizations = [math.sqrt(sum(k_i ** 2 for k_i in p)) for p in points]
+
+            # Make sure the normalization is capped to be minimum 1.0
+            normalizations = [max(n, 1.0e-99) for n in normalizations]
+
             deformed_points = []
-            jacobians       = []
             widgets = ["Loop deformation for generator %s :"%lm_generator_name.split('@')[0],
                 pbar.Percentage(), ' ', pbar.Bar(),' ', pbar.ETA(), ' ',
                 pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
@@ -546,7 +603,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for i_point, p in enumerate(points):
                 res = n_loop_integrand.loop_momentum_generator.apply_deformation([p, ])
                 deformed_points.append(res[0][0])
-                jacobians.append(res[1])
+                jacobians[i_point] *= res[1]
                 if progress_bar:
                     progress_bar.update(i_point)
             if progress_bar:
@@ -859,6 +916,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'normalization'         : 'None',
             'log_axis'              : False,
             'channel'               : None,
+            'integration_space'     : False,
             # When 'test' is on, a battery of tests is performed instead of the plotting of the deformation
             'test'                  : False,
             'test_timing'           : None,
@@ -924,7 +982,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 try:
                     lmgc_names = list(eval(value))
                 except:
-                    raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                    raise pyNLoopInvalidCmd("Cannot parse loop momentum generator class specification: %s"%str(value))
                 lmgcs = []
                 for lmgc_specification in lmgc_names:
                     lmgcs.append(self.parse_lmgc_specification(lmgc_specification))
@@ -947,7 +1005,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 else:
                     raise pyNLoopInvalidCmd("Option 'test_timing' can only take values in ['integrand','deformation','False'], not %s"%value)
 
-            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot']:
+            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','integration_space']:
                 parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
                 options[key] = parsed_bool
 

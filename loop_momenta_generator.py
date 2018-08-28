@@ -725,7 +725,11 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         else:
             self._cpp_interface.set_option("Channel_ID", -1)
 
+        non_generic_or_unsupported_options_for_CPP_interface = ['conformal_mapping_choice', 'Esoft', 'channel']
+
         for opt, value in deformation_opts.items():
+            if opt in non_generic_or_unsupported_options_for_CPP_interface:
+                continue
             try:
                 self._cpp_interface.set_option(opt, value)
             except LoopMomentaGeneratorError as e:
