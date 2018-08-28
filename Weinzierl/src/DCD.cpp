@@ -5,35 +5,36 @@
   ==========================================================*/
 my_real alpha = 1.0e+02;
 
-DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_real> x, my_real* jacobian)
+DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_real> x, my_real& jacobian)
 {
   if (this->channel_id < 0) {
     printf("Weinzierl mapping requires the specification of an integration channel.");
     exit(1);
   }
   DIdeform::R4vector &p = this->pi[this->channel_id + 1];
-  my_real p_abs = sqrt( p[0]*p[0] + p[1]*p[1] + p[2]*p[2] + p[3]*p[3]);
+  my_real p_abs = std::sqrt(p*p.dual());
 
   my_real cos_theta_1 = p[0] / p_abs;
-  my_real sin_theta_1 = sqrt(1 - cos_theta_1);
+  my_real sin_theta_1 = std::sqrt(1 - pow(cos_theta_1,2));
+  
+  my_real cos_theta_2 = p[1] == 0 ? 0.0 : 1.0 / std::sqrt(1.0 + (p[2] * p[2] + p[3] * p[3])/(p[1] * p[1]));
+  my_real sin_theta_2 = p[1] == 0 ? 1.0 : std::sqrt(p[2] * p[2] + p[3] * p[3]) / p[1] * cos_theta_2;
 
-  my_real cos_theta_2 = 1 / sqrt(1 + (p[2] * p[2] + p[3] * p[3]) / (p[1] * p[1]));
-  my_real sin_theta_2 = sqrt(p[2] * p[2] + p[3] * p[3]) / p[1] * cos_theta_2;
-
-  my_real cos_phi_3 = 1 / sqrt(1 + p[3] * p[3] / (p[2] * p[2]));
-  my_real sin_phi_3 = p[3] * p[3] / (p[2] * p[2]) * cos_phi_3;
+  my_real cos_phi_3 = p[2] == 0 ? 0.0 : 1.0 / std::sqrt(1 + p[3] * p[3] / (p[2] * p[2]));
+  my_real sin_phi_3 = p[2] == 0 ? 1.0 : p[3] / p[2] * cos_phi_3;
 
   // construct the x-dependent part
-  my_real rho = log(1 + sqrt(this->Ecmsq) / p_abs * tan( M_PI_2 * x[0]));
+  my_real rho = std::log(1 + std::sqrt(this->Ecmsq) / p_abs * std::tan( M_PI_2 * x[0]));
   my_real xi = M_PI * x[1];
-  my_real ep = sinh(rho) * sin(xi);
-  my_real theta = x[2] < 0 ? acos((1 + ep) * pow((1 + ep)/ep, -2 * x[2])) - ep : acos(ep - (1 + ep) * pow((1 + ep)/ep, -2 * (1 - x[2])));
+  my_real ep = std::sinh(rho) * std::sin(xi);
+  my_real theta = x[2] < 0.5 ? std::acos((1 + ep) * std::pow((1 + ep) / ep, -2 * x[2])) - ep
+                             : std::acos(ep - (1 + ep) * std::pow((1 + ep) / ep, -2 * (1 - x[2])));
   my_real phi = M_PI * 2 * x[3];
-
-  my_real k0 = cosh(rho) * cos(xi);
-  my_real k1 = ep * cos(theta);
-  my_real k2 = ep * sin(theta) * cos(phi);
-  my_real k3 = ep * sin(theta) * sin(phi);
+  
+  my_real k0 = std::cosh(rho) * std::cos(xi);
+  my_real k1 = ep * std::cos(theta);
+  my_real k2 = ep * std::sin(theta) * std::cos(phi);
+  my_real k3 = ep * std::sin(theta) * std::sin(phi);
 
   DIdeform::R4vector k = DIdeform::R4vector({
     k0*cos_theta_1 - k1*sin_theta_1, 
@@ -45,19 +46,20 @@ DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_rea
   k = this->qi[this->channel_id] + 0.5 * p + k;
 
   // Compute the Jacobian
-  my_real jac = 1.0/16.0 * p_abs * p_abs * p_abs * p_abs * ep * ep * sin(theta) * (sinh(rho) * sinh(rho) + sin(xi) * sin(xi));
-  jac *= M_PI_2 * (this->Ecmsq/p_abs/p_abs + pow(pow(M_E, rho) - 1, 2)) / ( sqrt(this->Ecmsq) / p_abs * pow(M_E, rho) ) * 
-         M_PI * 2 * (ep + abs(cos(theta)))/ sin(theta) * log((1 + ep)/ep) * 2 * M_PI;
+  my_real jac = 1.0/16.0 * p_abs * p_abs * p_abs * p_abs * ep * ep * std::sin(theta) * (std::sinh(rho) * std::sinh(rho) + std::sin(xi) * std::sin(xi));
+  jac *= M_PI_2 * (this->Ecmsq / p_abs / p_abs + pow(pow(M_E, rho) - 1, 2)) / (std::sqrt(this->Ecmsq) / p_abs * std::pow(M_E, rho)) *
+         M_PI *
+         2 * (ep + std::abs(std::cos(theta))) / std::sin(theta) * std::log((1 + ep) / ep) *
+         2 * M_PI;
 
-
-  *jacobian = jac;
+  jacobian = jac;
   return k;
 }
 
-DIdeform::R4vector DIdeform::ContourDeform::hypcub_mapping(std::vector<my_real> x, my_real* jacobian)
+DIdeform::R4vector DIdeform::ContourDeform::hypcub_mapping(std::vector<my_real> x, my_real& jacobian)
 {
   DIdeform::R4vector momentum;
-  *jacobian = 1;
+  jacobian = 1;
   switch (which_hypercube_map)
   {
   case 0: //log
@@ -65,7 +67,7 @@ DIdeform::R4vector DIdeform::ContourDeform::hypcub_mapping(std::vector<my_real> 
       momentum[mu] = alpha * log(x[mu] / (1 - x[mu]));
 
     for (int mu = 0; mu < 4; mu++)
-      *jacobian = *jacobian * (alpha / (x[mu] * (1 - x[mu])));
+      jacobian = jacobian * (alpha / (x[mu] * (1 - x[mu])));
 
     return momentum;
   case 1: //lin
@@ -73,7 +75,7 @@ DIdeform::R4vector DIdeform::ContourDeform::hypcub_mapping(std::vector<my_real> 
       momentum[mu] = alpha * (1. / (1. - x[mu]) - 1. / x[mu]);
 
     for (int mu = 0; mu < 4; mu++)
-      *jacobian = *jacobian * alpha * (1. / std::pow(x[mu], 2) + 1. / std::pow(1. - x[mu], 2));
+    jacobian = jacobian * alpha * (1. / std::pow(x[mu], 2) + 1. / std::pow(1. - x[mu], 2));
     return momentum;
   case 2: // weinzierl
     return weinzierl_mapping(x, jacobian);

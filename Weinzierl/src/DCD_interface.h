@@ -51,7 +51,7 @@ extern "C"
   // Set up the deforme with the above settings
   int init();
 
-  double* hypcub_mapping(double x[], int d, double* jacobian);
+  double* hypcub_mapping(double x[], int d, double& jacobian);
 
   // Apply deformation for one given loop momentum point
   int deform_loop_momentum(double l[], int d);

@@ -9,7 +9,7 @@ DIdeform::R4vector l;
 DIdeform::C4vector prop_mom;
 DIdeform::C4vector ell;
 
-my_comp hypercube_jacobian;
+my_real hypercube_jacobian;
 my_comp deformation_jacobian;
 my_comp Njacobian;
 my_comp jacobian;
@@ -36,7 +36,7 @@ int Integrand(const int *ndim, const cubareal xx[],
 #define f_imag ff[1]
 
 
-  l = deformer->hypcub_mapping({k0, k1, k2, k3}, *hypercube_jacobian, ch_id);
+  l = deformer->hypcub_mapping({k0, k1, k2, k3}, hypercube_jacobian);
   deformer->loop_momentum(l);
   deformer->deform(ell, deformation_jacobian);
 

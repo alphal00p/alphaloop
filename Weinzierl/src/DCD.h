@@ -184,7 +184,8 @@ namespace DIdeform
     R4vector gradlambda_i(int i);
     R4vector gradlambda_coll();
 
-    R4vector weinzierl_mapping(std::vector<my_real> x, my_real* jacobian);
+    //Conformal Mapping
+    R4vector weinzierl_mapping(std::vector<my_real> x, my_real& jacobian);
 
     //Derivatives
 
@@ -207,7 +208,9 @@ namespace DIdeform
 
     //Constructor
     ContourDeform(std::vector<R4vector> &);
-    R4vector hypcub_mapping(std::vector<my_real> x, my_real* jacobian);
+    
+    //Callable Functions
+    R4vector hypcub_mapping(std::vector<my_real> x, my_real& jacobian);
     void loop_momentum(R4vector &loopmomentum);
     void deform(C4vector &k, my_comp &jacobian);
   };

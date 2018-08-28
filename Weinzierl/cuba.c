@@ -114,6 +114,7 @@ int main(int argc, char **argv)
 	//Map name aliases
 	hypercube_function["log"] = 0;
 	hypercube_function["lin"] = 1;
+	hypercube_function["weinzierl"]=2;
 	//Integrand name aliases
 	integrand_function["box1L_6d"] = 0;
 	integrand_function["box1L_offshell"] = 1;
@@ -242,30 +243,6 @@ void set_options(int argc, char **argv)
 		ps_angle = M_PI * ps_angle;
 	}
 
-	if (hypercube_function.find(hypercube_map_name) == hypercube_function.end())
-	{
-		printf("\033[1;31mNo mapping found with name %s\033[0m\nAllowed options are:\n", hypercube_map_name.c_str());
-		print_map_values(hypercube_function);
-		exit(1);
-	}
-	else
-	{
-		printf("\nSelect mapping\t-> %s\n", hypercube_map_name.c_str());
-		which_hypercube_map = hypercube_function[hypercube_map_name];
-	}
-
-	if (integrand_function.find(integrand_name) == integrand_function.end())
-	{
-		printf("\033[1;31mNo integrand found with name %s\033[0m\nAllowed options are:\n", integrand_name.c_str());
-		print_map_values(integrand_function);
-		exit(1);
-	}
-	else
-	{
-		printf("Select integral\t-> %s\n", integrand_name.c_str());
-		which_integrand = integrand_function[integrand_name];
-	}
-
 	printf("Select seed\t-> %d\n", ps_seed);
 	if (ps_seed == 0)
 		printf("Select scattering angle\t-> %.10f\n", ps_angle);
@@ -290,4 +267,30 @@ void set_options(int argc, char **argv)
 
 	deformer = new DIdeform::ContourDeform(Qs);
 	
+	//All other options (Now deformer has been created)	
+	if (hypercube_function.find(hypercube_map_name) == hypercube_function.end())
+	{
+		printf("\033[1;31mNo mapping found with name %s\033[0m\nAllowed options are:\n", hypercube_map_name.c_str());
+		print_map_values(hypercube_function);
+		exit(1);
+	}
+	else
+	{
+		printf("\nSelect mapping\t-> %s\n", hypercube_map_name.c_str());
+		deformer->which_hypercube_map = hypercube_function[hypercube_map_name];
+	}
+
+	if (integrand_function.find(integrand_name) == integrand_function.end())
+	{
+		printf("\033[1;31mNo integrand found with name %s\033[0m\nAllowed options are:\n", integrand_name.c_str());
+		print_map_values(integrand_function);
+		exit(1);
+	}
+	else
+	{
+		printf("Select integral\t-> %s\n", integrand_name.c_str());
+		which_integrand = integrand_function[integrand_name];
+	}
+
+	deformer->channel_id = ch_id;
 }

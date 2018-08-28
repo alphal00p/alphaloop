@@ -230,7 +230,6 @@ extern "C"
         if (d != 1)
             return 1;
         deformer_channel_id = v[0];
-        deformer->set_global_var();
         return 0;
     }
 
@@ -330,7 +329,7 @@ extern "C"
         return 0;
     }
 
-    double* hypcub_mapping(double x[], int d, double* jacobian)
+    double* hypcub_mapping(double x[], int d, double& jacobian)
     {
 
         std::vector<my_real> xv(x, x + d); // TODO: check it takes d steps of length double!
