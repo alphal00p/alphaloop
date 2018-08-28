@@ -108,6 +108,7 @@ namespace DIdeform
     my_real Ecmsq, mu_P, M1sq, M2sq, M3sq, M4sq;
     my_comp mu_UVsq = my_comp(0.0, -1e5);
     short int which_hypercube_map = 0;
+    short int channel_id = -1;
 
     //Auxiliary vectors
     R4vector Pp, kp; //zp(qa+q0, qa-q0)
@@ -183,7 +184,7 @@ namespace DIdeform
     R4vector gradlambda_i(int i);
     R4vector gradlambda_coll();
 
-    R4vector weinzierl_mapping(std::vector<my_real> x, my_real* jacobian, int channel);
+    R4vector weinzierl_mapping(std::vector<my_real> x, my_real* jacobian);
 
     //Derivatives
 
@@ -206,7 +207,7 @@ namespace DIdeform
 
     //Constructor
     ContourDeform(std::vector<R4vector> &);
-    R4vector hypcub_mapping(std::vector<my_real> x, my_real* jacobian, int channel);
+    R4vector hypcub_mapping(std::vector<my_real> x, my_real* jacobian);
     void loop_momentum(R4vector &loopmomentum);
     void deform(C4vector &k, my_comp &jacobian);
   };

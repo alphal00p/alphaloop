@@ -22,6 +22,7 @@ extern "C"
     double M1_factor, M2_factor, M3_factor, M4_factor;
     double gamma1, gamma2;
     int mapping;
+    int channel_id;
 
     //Additional arguments flags
     bool external_Pp = false;
@@ -33,6 +34,7 @@ extern "C"
     bool external_gamma1 = false;
     bool external_gamma2 = false;
     bool external_mapping = false;
+    bool external_channel_id = false;
 
     //Deformer outputs
     DIdeform::C4vector deformed_loop_momentum;
@@ -51,6 +53,13 @@ extern "C"
                     return set_mapping(v, d, mapping, external_mapping);
                 else
                     return update_mapping(v, d, deformer->which_hypercube_map);
+            }
+            case _OP_CHANNEL_ID:
+            {
+                if (deformer == NULL)
+                    return set_channel_id(v, d, channel_id, external_channel_id);
+                else
+                    return update_channel_id(v, d, deformer->channel_id);
             }
             default:
                 return 99;
@@ -107,6 +116,7 @@ extern "C"
             else
                 return update_gamma(v, d, deformer->gamma2);
         }
+
         default:
             return 99;
         };
@@ -202,6 +212,27 @@ extern "C"
         return 0;
     }
 
+    int set_channel_id(int v[], int d, int &channel_id, bool &external_channel_id)
+    {
+        //Check if there are 1 inputs
+        if (d != 1)
+            return 1;
+        channel_id = v[0];
+        external_channel_id = true;
+
+        return 0;
+    }
+    int update_channel_id(int v[], int d, short int& deformer_channel_id)
+    {
+        //If deformer exists set new gamma, otherwise do it later
+        if (deformer == NULL)
+            return 101;
+        if (d != 1)
+            return 1;
+        deformer_channel_id = v[0];
+        deformer->set_global_var();
+        return 0;
+    }
 
     int set_gamma(double v[], int d, double &gamma, bool &external_gamma)
     {
@@ -283,6 +314,8 @@ extern "C"
                 deformer->gamma2 = gamma2;
             if (external_mapping)
                 deformer->which_hypercube_map = mapping;
+            if (external_channel_id)
+                deformer->channel_id = channel_id;
             deformer->set_global_var();
             if (!deformer->test_PpPm(Qs))
                 return 5;
@@ -297,11 +330,11 @@ extern "C"
         return 0;
     }
 
-    double* hypcub_mapping(double x[], int d, double* jacobian, int channel)
+    double* hypcub_mapping(double x[], int d, double* jacobian)
     {
 
         std::vector<my_real> xv(x, x + d); // TODO: check it takes d steps of length double!
-        DIdeform::R4vector v = deformer->hypcub_mapping(xv, jacobian, channel);
+        DIdeform::R4vector v = deformer->hypcub_mapping(xv, jacobian);
 
         for (int i = 0; i < 4; i++)
         {
@@ -374,6 +407,7 @@ extern "C"
         external_gamma1 = false;
         external_gamma2 = false;
         external_mapping = false;
+        external_channel_id = false;
 
         //Clear Qs vector
         Qs.clear();

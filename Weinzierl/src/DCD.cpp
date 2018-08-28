@@ -5,9 +5,13 @@
   ==========================================================*/
 my_real alpha = 1.0e+02;
 
-DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_real> x, my_real* jacobian, int channel)
+DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_real> x, my_real* jacobian)
 {
-  DIdeform::R4vector &p = this->pi[channel + 1];
+  if (this->channel_id < 0) {
+    printf("Weinzierl mapping requires the specification of an integration channel.");
+    exit(1);
+  }
+  DIdeform::R4vector &p = this->pi[this->channel_id + 1];
   my_real p_abs = sqrt( p[0]*p[0] + p[1]*p[1] + p[2]*p[2] + p[3]*p[3]);
 
   my_real cos_theta_1 = p[0] / p_abs;
@@ -38,7 +42,7 @@ DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_rea
     k3*cos_phi_3 + k2*cos_theta_2*sin_phi_3 + k1*cos_theta_1*sin_theta_2*sin_phi_3 + k0*sin_theta_1*sin_theta_2*sin_phi_3
   });
 
-  k = this->qi[channel] + 0.5 * p + k;
+  k = this->qi[this->channel_id] + 0.5 * p + k;
 
   // Compute the Jacobian
   my_real jac = 1.0/16.0 * p_abs * p_abs * p_abs * p_abs * ep * ep * sin(theta) * (sinh(rho) * sinh(rho) + sin(xi) * sin(xi));
@@ -50,7 +54,7 @@ DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_rea
   return k;
 }
 
-DIdeform::R4vector DIdeform::ContourDeform::hypcub_mapping(std::vector<my_real> x, my_real* jacobian, int channel)
+DIdeform::R4vector DIdeform::ContourDeform::hypcub_mapping(std::vector<my_real> x, my_real* jacobian)
 {
   DIdeform::R4vector momentum;
   *jacobian = 1;
@@ -72,7 +76,7 @@ DIdeform::R4vector DIdeform::ContourDeform::hypcub_mapping(std::vector<my_real> 
       *jacobian = *jacobian * alpha * (1. / std::pow(x[mu], 2) + 1. / std::pow(1. - x[mu], 2));
     return momentum;
   case 2: // weinzierl
-    return weinzierl_mapping(x, jacobian, channel);
+    return weinzierl_mapping(x, jacobian);
   default:
     printf("No valid option for the hypercub mapping!\n");
     exit(1);

@@ -914,6 +914,7 @@ class box1L_direct_integration(NLoopIntegrand):
                  topology           = None,
                  loop_momenta_generator_class = None,
                  loop_momenta_generator_options = {},
+                 channel = None,
                  **opts):
 
         # Offer the possibility of specifying the class implementing the loop momentum deformation
@@ -944,17 +945,18 @@ class box1L_direct_integration(NLoopIntegrand):
 #        for p in self.external_momenta.values():
 #            p.boost(-boost_vector)
 
+        #
+
+        self.channel = channel
+        if self.channel:
+            logger.info("Integrand %s, on channel %d"%(self.__class__.__name__, self.channel))
+        # Add the channel to the loop momentum generator options
+        loop_momenta_generator_options['channel'] = self.channel
 
         self.loop_momentum_generator = loop_momenta_generator_class( topology,
                                                                 self.external_momenta, **loop_momenta_generator_options)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
-
-        self.channel = None
-        if 'channel' in opts:
-            self.channel = opts['channel']
-            misc.sprint("Using channel {}", self.channel)
-        self.loop_momentum_generator.channel = self.channel
 
         self.define_loop_integrand(topology)
 
@@ -1052,11 +1054,13 @@ class box1L_direct_integration(NLoopIntegrand):
             ############################################
             # Multi-channeling
             ############################################
-            if self.channel is not None:
-                assert(self.channel >= 0 and self.channel + 1 < len(denoms))
+            def compute_channel_weight(channel_id):
                 alpha = 2
-                channels = [1 / ( np.absolute((l_mom - self.loop_momentum_generator.q_is[i]).square()) * np.absolute((l_mom - self.loop_momentum_generator.q_is[i + 1]).square()))**alpha  for i in range(0, 
-                    len(denoms) - 1)]
+                return (np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id]).square()) *
+                               np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id + 1]).square()))**alpha
+            if self.channel is not None and self.channel >=0:
+                assert(self.channel + 1 < len(denoms))
+                channels = [1 / compute_channel_weight(i)  for i in range(0,len(denoms) - 1)]
                 MC_factor = channels[self.channel] / sum(channels)
                 integrand *= MC_factor
             ############################################
@@ -1078,6 +1082,14 @@ class box1L_direct_integration(NLoopIntegrand):
             res = ( jacobian_weight * integrand)
         else:
             raise IntegrandError("Unsupported phase computed option specified: %s"%self.phase_computed)
+
+        if math.isnan(res):
+            logger.warning('Integrand produced NaN result. Returning zero instead.'+
+                                               ' Input random variables from the integrator: %s'%str(continuous_inputs))
+            #raise IntegrandError('Integrand produced NaN result. Returning zero instead.'+
+            #                                   ' Input random variables from the integrator: %s'%str(continuous_inputs))
+            res = 0.
+
         return res
 
 class box1L_direct_integration_subtracted(box1L_direct_integration):

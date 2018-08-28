@@ -27,6 +27,8 @@ from distutils.version import LooseVersion, StrictVersion
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 import madgraph
 
+import multiprocessing
+
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite, MPI_RANK, MPI_SIZE, MPI_ACTIVE
 import madgraph.interface.extended_cmd as cmd
 import madgraph.interface.madgraph_interface as madgraph_interface
@@ -194,6 +196,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # Temporary force pySecDec dependencies to be used
         os.environ['PATH']= os.environ['PATH']+':'+pjoin(self.pyNLoop_options['pySecDec_path'], 'bin')
 
+        if self.options['nb_core'] is None:
+            n_cpus = multiprocessing.cpu_count()
+            logger.info("The Madgraph5_aMC@NLO option 'nb_core' is not set. PyNLoop automatically sets this option to %d."%n_cpus)
+
     def parse_set_pyNLoop_option(self, args):
         """ Parsing arguments/options passed to the command set_pyNLoop option."""
 
@@ -235,7 +241,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
     def do_set_pyNLoop_option(self, line):
         """ Logic for setting pyNLoop options."""
-
         args = self.split_arg(line)
         args, options = self.parse_set_pyNLoop_option(args)
         key, value = args[:2]
@@ -853,6 +858,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'range'                 : (0.,1.),
             'normalization'         : 'None',
             'log_axis'              : False,
+            'channel'               : None,
             # When 'test' is on, a battery of tests is performed instead of the plotting of the deformation
             'test'                  : False,
             'test_timing'           : None,
@@ -879,7 +885,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 key, value = arg, None
             key = key[2:]
 
-            if key in ['seed','verbosity','nb_CPU_cores', 'n_points']:
+            if key in ['seed','verbosity','nb_CPU_cores', 'n_points', 'channel']:
                 try:
                     parsed_int = int(value)
                 except ValueError:

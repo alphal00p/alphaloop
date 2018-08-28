@@ -13,6 +13,7 @@
 #define _OP_GAMMA2_FACTOR 22
 
 #define _OP_MAPPING 31
+#define _OP_CHANNEL_ID 41
 
 /***********************************************************
  * The error are coded as follows:
@@ -37,7 +38,9 @@ extern "C"
 
   int set_mapping(int v[], int d, int &mapping, bool &external_mapping);
   int update_mapping(int v[], int d, short int& deformer_mapping);
-  
+  int set_channel_id(int v[], int d, int &channel, bool &external_channel_id);
+  int update_channel_id(int v[], int d, short int& channel_id);
+
   //First one needs to give the Qs
   int append_Q(double v[], int d);
   
@@ -48,7 +51,7 @@ extern "C"
   // Set up the deforme with the above settings
   int init();
 
-  double* hypcub_mapping(double x[], int d, double* jacobian, int channel);
+  double* hypcub_mapping(double x[], int d, double* jacobian);
 
   // Apply deformation for one given loop momentum point
   int deform_loop_momentum(double l[], int d);
