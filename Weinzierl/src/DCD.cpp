@@ -27,7 +27,7 @@ DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_rea
   my_real rho = std::log(1 + std::sqrt(this->Ecmsq) / p_abs * std::tan( M_PI_2 * x[0]));
   my_real xi = M_PI * x[1];
   my_real ep = std::sinh(rho) * std::sin(xi);
-  my_real theta = x[2] < 0.5 ? std::acos((1 + ep) * std::pow((1 + ep) / ep, -2 * x[2])) - ep
+  my_real theta = x[2] < 0.5 ? std::acos((1 + ep) * std::pow((1 + ep) / ep, -2 * x[2]) - ep)
                              : std::acos(ep - (1 + ep) * std::pow((1 + ep) / ep, -2 * (1 - x[2])));
   my_real phi = M_PI * 2 * x[3];
   
