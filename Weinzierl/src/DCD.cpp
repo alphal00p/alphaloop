@@ -43,7 +43,7 @@ DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_rea
     k3*cos_phi_3 + k2*cos_theta_2*sin_phi_3 + k1*cos_theta_1*sin_theta_2*sin_phi_3 + k0*sin_theta_1*sin_theta_2*sin_phi_3
   });
 
-  k = this->qi[this->channel_id] + 0.5 * p + k;
+  k = this->qi[this->channel_id] + 0.5 * p + 0.5 * p_abs * k;
 
   // Compute the Jacobian
   my_real jac = 1.0/16.0 * p_abs * p_abs * p_abs * p_abs * ep * ep * std::sin(theta) * (std::sinh(rho) * std::sinh(rho) + std::sin(xi) * std::sin(xi));
