@@ -1086,7 +1086,7 @@ class box1L_direct_integration(NLoopIntegrand):
         else:
             raise IntegrandError("Unsupported phase computed option specified: %s"%self.phase_computed)
 
-        if math.isnan(res):
+        if math.isnan(res.real) or math.isnan(res.imag):
             if 'input_already_in_infinite_hyperbox' not in opts:
                 logger.warning('Integrand produced NaN result. Returning zero instead.'+
                                                ' Input random variables from the integrator: %s'%str(continuous_inputs))
