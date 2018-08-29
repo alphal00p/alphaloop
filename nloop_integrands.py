@@ -1044,7 +1044,9 @@ class box1L_direct_integration(NLoopIntegrand):
             for d in denoms:
                 denominator *= d
             if abs(denominator)==0.:
-                logger.critical('Exactly on-shell denominator encountered. Skipping this point.')
+                logger.critical('Exactly on-shell denominator encountered with the following inputs:'+
+                                '\n%s\nand resulting deformed loop momentum:\n%s\nSkipping this point.'%(
+                                    str(continuous_inputs), str(l_mom) ))
                 return 0.
 
             integrand = (numerator / denominator)

@@ -587,9 +587,12 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 for i, p in enumerate(points_in_integration_space):
                     #misc.sprint('Point before: %s'%str(p))
                     loop_momenta, conformal_jac = n_loop_integrand.loop_momentum_generator.map_to_infinite_hyperbox(p)
+                    #misc.sprint('Point after: %s'%str(loop_momenta[0]))
                     jacobians[i] *= conformal_jac
                     points.append(list(loop_momenta[0]))
-                    #misc.sprint('Point after: %s'%str(loop_momenta[0]))
+                    if any(math.isnan(c) or math.isinf(c) for c in loop_momenta[0]):
+                        raise pyNLoopInterfaceError('The conformal map failed to correctly map the following input point:\n'+
+                                                                        str(p)+'\nIt returned:\n%s'%str(loop_momenta[0]))
             else:
                 points = [offset_vec + ref_vec * map_to_infinity(x) for x in x_entries]
 
