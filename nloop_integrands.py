@@ -1085,8 +1085,12 @@ class box1L_direct_integration(NLoopIntegrand):
             raise IntegrandError("Unsupported phase computed option specified: %s"%self.phase_computed)
 
         if math.isnan(res):
-            logger.warning('Integrand produced NaN result. Returning zero instead.'+
+            if 'input_already_in_infinite_hyperbox' not in opts:
+                logger.warning('Integrand produced NaN result. Returning zero instead.'+
                                                ' Input random variables from the integrator: %s'%str(continuous_inputs))
+            else:
+                logger.warning('Integrand produced NaN result. Returning zero instead.'+
+                                                 ' Complex momentum passed to the integrand: %s'%str(continuous_inputs))
             #raise IntegrandError('Integrand produced NaN result. Returning zero instead.'+
             #                                   ' Input random variables from the integrator: %s'%str(continuous_inputs))
             res = 0.

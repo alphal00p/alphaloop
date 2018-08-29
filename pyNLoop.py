@@ -537,7 +537,15 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # Now generate the plotting data
         #################################
         scaling_range = options['range']
-        x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
+        if options['scale_progression']=='linear':
+            x_entries = [scaling_range[0]+ (i / float(n_points))*(scaling_range[1]-scaling_range[0]) for i in range(1, n_points)]
+        elif options['scale_progression']=='exponential':
+            # Scale exponentially dense close towards scaling_range[0]
+            x_entries = [scaling_range[0]+ 0.5*(10.**(-10.*(i/float(n_points//2))))*(scaling_range[1]-scaling_range[0]) for i in range(n_points//2,0,-1)]
+            # Scale exponentially dense close towards scaling_range[1]
+            x_entries.extend([scaling_range[0]+ 0.5+0.5*(1.-10.**(-10.*(i/float(n_points//2))))*(scaling_range[1]-scaling_range[0]) for i in range(0, n_points//2)])
+        else:
+            raise pyNLoopInterfaceError("Value '%s' for scaling progression not supported.")
 
         all_deformed_points = []
         all_jacobians       = []
@@ -573,13 +581,14 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 if min_scale is None or max_scale is None or max_scale-min_scale <= 0.:
                     raise pyNLoopInterfaceError('Could not compute the scaling to apply in the integration space.')
                 points_in_integration_space = [offset_vec + ref_vec * ( min_scale + x* (max_scale - min_scale)) for x in x_entries]
+
                 # Then use the conformal map of the loop momentum generator of the integrand
                 points = []
                 for i, p in enumerate(points_in_integration_space):
                     #misc.sprint('Point before: %s'%str(p))
                     loop_momenta, conformal_jac = n_loop_integrand.loop_momentum_generator.map_to_infinite_hyperbox(p)
                     jacobians[i] *= conformal_jac
-                    points.append(loop_momenta[0])
+                    points.append(list(loop_momenta[0]))
                     #misc.sprint('Point after: %s'%str(loop_momenta[0]))
             else:
                 points = [offset_vec + ref_vec * map_to_infinity(x) for x in x_entries]
@@ -746,8 +755,14 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     plt.plot(x_entries, relative_jacobian_differences, label='Jacobian diff.')
 
         plt.xlim(options['range'])
+        xlabel = r'$\lambda$'
+        if options['integration_space']:
+            xlabel += '@IntegrationVariablesSpace'
+        xlabel += ' [%s progression]'%options['scale_progression']
+        plt.xlabel(xlabel)
         if options['log_axis']:
             plt.semilogy()
+
         fontP = FontProperties()
         fontP.set_size('small')
         legend = plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, prop=fontP)
@@ -916,6 +931,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'log_axis'              : False,
             'channel'               : None,
             'integration_space'     : False,
+            'scale_progression'     : 'linear',
             # When 'test' is on, a battery of tests is performed instead of the plotting of the deformation
             'test'                  : False,
             'test_timing'           : None,
@@ -960,6 +976,13 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if len(ref_vec)!=4:
                         raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
                     options[key] = vectors.LorentzVector(ref_vec)
+
+            elif key=='scale_progression':
+                if value not in ['linear','exponential']:
+                    raise pyNLoopInvalidCmd("The values for the option 'scale_progression' can only be in "+
+                                                                             "['linear','exponential'], not %s." %value)
+                else:
+                    options[key] = value
 
             elif key=='range':
                 try:
