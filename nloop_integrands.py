@@ -955,6 +955,7 @@ class box1L_direct_integration(NLoopIntegrand):
 
         self.loop_momentum_generator = loop_momenta_generator_class( topology,
                                                                 self.external_momenta, **loop_momenta_generator_options)
+
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
 

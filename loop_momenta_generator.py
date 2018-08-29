@@ -72,12 +72,12 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         must be generated."""
 
         self.external_momenta = external_momenta.to_list()
-
         self.define_global_quantities_for_contour_deformation()
 
         self.conformal_mapping_choice = conformal_mapping_choice
         self.use_light_cone_and_spherical_coordinates = use_light_cone_and_spherical_coordinates
         self.channel = channel
+
 
         # Adjust conformal hyperparameters if specified.
         self.set_deformation_options(opts)
@@ -105,15 +105,17 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         for i, p_i in enumerate(self.external_momenta[1:]):
             self.q_is.append(self.q_is[i]+p_i)
 
-        # Apply a shift to the q_i's:
-        channel_number = 2
-        shift=vectors.LorentzVector()
-        for i in range(1,channel_number):
-            shift -= self.external_momenta[i]
-        for i, q_i in enumerate(self.q_is):
-            self.q_is[i] = q_i + shift
-        # Now put back the propagator with q_i == 0 first
-        self.q_is = self.q_is[channel_number-1:] + self.q_is[:channel_number-1]
+        # Hook to apply a shift to the q_i's for experiments:
+        apply_shift = -1
+        if apply_shift > 0:
+            shift=vectors.LorentzVector()
+            for i in range(1,apply_shift):
+                shift -= self.external_momenta[i]
+            for i, q_i in enumerate(self.q_is):
+                self.q_is[i] = q_i + shift
+
+            # Apply the shift, namely put back the propagator with q_i == 0 first
+            self.q_is = self.q_is[apply_shift-1:] + self.q_is[:apply_shift-1]
 
         # The last one must be identically equal to zero by energy-momentum, conservation
         self.q_is[-1] = vectors.LorentzVector([0.,0.,0.,0.])
@@ -123,6 +125,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
 
         self.P_plus = self.find_P(plus=True)
         self.P_minus = self.find_P(plus=False)
+
         self.test_P_plus_and_P_minus()
 
         # Characteristic scale of the process
@@ -139,7 +142,6 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
                              self.Esoft * vectors.LorentzVector([0, 1, 0, 0]),
                              self.Esoft * vectors.LorentzVector([0, 0, 1, 0]),
                              self.Esoft * vectors.LorentzVector([0, 0, 0, 1])]
-
 
     def map_to_infinite_hyperbox(self, random_variables):
         """ Maps a set of four random variables in the unit hyperbox to an infinite dimensional cube that corresponds
@@ -446,11 +448,10 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
         if Test_P(True) and Test_P(False):
             return True
         else:
-            "If the test has failed then we push P+ and P- further out"
+            # If the test has failed then we push P+ and P- further out
             center = .5 * (self.P_plus + self.P_minus)
             radius = .5 * (self.P_plus - self.P_minus)
             push_size = 1.0E-10
-            print (1.0+push_size)
             self.P_plus  = center + (1.0 + push_size) * radius
             self.P_minus = center - (1.0 + push_size) * radius
 

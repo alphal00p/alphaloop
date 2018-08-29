@@ -448,7 +448,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         integrand_options
                     ))
 
-
             first_integrand = all_n_loop_integrands[0][1](**all_n_loop_integrands[0][2])
             lmg = first_integrand.loop_momentum_generator
 
