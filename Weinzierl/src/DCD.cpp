@@ -11,6 +11,7 @@ DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_rea
     printf("Weinzierl mapping requires the specification of an integration channel.");
     exit(1);
   }
+
   DIdeform::R4vector &p = this->pi[this->channel_id + 1];
   my_real p_abs = std::sqrt(p*p.dual());
 
