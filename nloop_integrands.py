@@ -1059,10 +1059,8 @@ class box1L_direct_integration(NLoopIntegrand):
             ############################################
             def compute_channel_weight(channel_id):
                 alpha = 2
-                diffA = l_mom - self.loop_momentum_generator.q_is[channel_id]
-                diffB = l_mom - self.loop_momentum_generator.q_is[channel_id + 1]
-                return ( (diffA[0]**2+diffA.rho2()) * (diffB[0]**2+diffB.rho2()) )**alpha
-
+                return ( np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id]).square()) *
+                         np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id + 1]).square()) )**alpha
             if self.channel is not None and self.channel >=0:
                 assert(self.channel + 1 < len(denoms))
                 channels = [1 / compute_channel_weight(i)  for i in range(0,len(denoms) - 1)]
