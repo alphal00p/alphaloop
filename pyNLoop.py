@@ -543,7 +543,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Scale exponentially dense close towards scaling_range[0]
             x_entries = [scaling_range[0]+ 0.5*(10.**(-10.*(i/float(n_points//2))))*(scaling_range[1]-scaling_range[0]) for i in range(n_points//2,0,-1)]
             # Scale exponentially dense close towards scaling_range[1]
-            x_entries.extend([scaling_range[0]+ 0.5+0.5*(1.-10.**(-10.*(i/float(n_points//2))))*(scaling_range[1]-scaling_range[0]) for i in range(0, n_points//2)])
+            x_entries.extend([scaling_range[0]+ 0.5*(2.-10.**(-10.*(i/float(n_points//2))))*(scaling_range[1]-scaling_range[0]) for i in range(0, n_points//2)])
         else:
             raise pyNLoopInterfaceError("Value '%s' for scaling progression not supported.")
 
@@ -614,7 +614,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for i_point, p in enumerate(points):
                 res = n_loop_integrand.loop_momentum_generator.apply_deformation([p, ])
                 deformed_points.append(res[0][0])
+                #misc.sprint('Before:',res[1], jacobians[i_point])
                 jacobians[i_point] *= res[1]
+                #misc.sprint('After:',jacobians[i_point])
                 if progress_bar:
                     progress_bar.update(i_point)
             if progress_bar:

@@ -1048,9 +1048,9 @@ class box1L_direct_integration(NLoopIntegrand):
                                 '\n%s\nand resulting deformed loop momentum:\n%s\nSkipping this point.'%(
                                     str(continuous_inputs), str(l_mom) ))
                 return 0.
-
             integrand = (numerator / denominator)
             integrand -= self.get_local_counterterms(l_mom)
+
             # Normalize the loop integral properly
             integrand *= self.NORMALIZATION_FACTOR
 
