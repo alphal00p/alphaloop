@@ -20,6 +20,8 @@ import loop_momenta_generator
 from madgraph import InvalidCmd, MadGraph5Error
 import itertools
 import numpy as np
+from pyNLoop import plugin_path
+import ctypes
 
 logger = logging.getLogger('pyNLoop.Integrand')
 
@@ -914,6 +916,7 @@ class box1L_direct_integration(NLoopIntegrand):
                  topology           = None,
                  loop_momenta_generator_class = None,
                  loop_momenta_generator_options = {},
+                 cpp_integrand = False,
                  channel = None,
                  **opts):
 
@@ -955,6 +958,13 @@ class box1L_direct_integration(NLoopIntegrand):
 
         self.loop_momentum_generator = loop_momenta_generator_class( topology,
                                                                 self.external_momenta, **loop_momenta_generator_options)
+
+        self.integrand_cpp_interface = None
+        if cpp_integrand:
+            self.integrand_cpp_interface = IntegrandCPPinterface(topology, self.external_momenta)
+            if self.channel is not None:
+                self.integrand_cpp_interface.set_option('CHANNEL_ID', self.channel)
+            self.integrand_cpp_interface.set_option('UVSQ', self.loop_momentum_generator.sqrt_S**4)
 
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
@@ -1114,3 +1124,97 @@ class box1L_direct_integration_subtracted(box1L_direct_integration):
             denoms_product *= d
 
         return ( ( denoms[0]+denoms[2] ) / t + ( denoms[1]+denoms[3] ) / s ) / denoms_product
+
+
+class IntegrandCPPinterface(object):
+
+    _debug_cpp = False
+    _CPP_Weinzierl_src = pjoin(plugin_path,'Weinzierl')
+
+    # List valid hyperparameters and their ID
+    _valid_parameters = {
+        'INTEGRAND_ID' : 1,
+        'CHANNEL_ID' : 2,
+        'UVSQ': 3,
+    }
+
+    _topo_map = {
+        'box1L_direct_integration_subtracted': 3
+    }
+
+    def compile_CPP_deformation_library(path):
+        """Compiles the C++ deformation library if necessary."""
+
+        logger.info('Now compiling shared library integrand_interface.so in path %s'%path)
+        misc.compile(arg=[], cwd=path)
+
+        if not os.path.isfile(pjoin(path, 'integrand_interface.so')):
+            raise IntegrandError("Could no compile C++ deformation source code in %s with command 'make'."%path)
+
+    compile_CPP_deformation_library(_CPP_Weinzierl_src)
+
+    _hook = ctypes.CDLL(pjoin(_CPP_Weinzierl_src,'integrand_interface.so'))
+    # append Q and reset Q
+    _hook.append_Q.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
+    _hook.append_Q.restype  = (ctypes.c_int)
+    _hook.reset_Q.argtypes = ()
+    _hook.reset_Q.restype  = ()
+    # set optional factors
+    _hook.set_factor_int.argtypes = (ctypes.c_int, ctypes.c_int)
+    _hook.set_factor_int.restype = (ctypes.c_int)
+    _hook.set_factor_complex.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.c_int)
+    _hook.set_factor_complex.restype = (ctypes.c_int)
+    # evaluate
+    _hook.evaluate.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
+    _hook.evaluate.restype  = (ctypes.c_int)
+
+
+    def __init__(self, topology, qs):
+        if topology not in self._topo_map:
+            raise IntegrandError("Integrand {} not implemented in C++".format(topology))
+
+        self.set_option('INTEGRAND_ID', self._topo_map[topology])
+        self.reset_qs()
+        self.set_qs(qs)
+
+    def get_hook(self):
+        """Build, start and return the C++ interface."""
+        return self._hook
+
+    #
+    # Wrapper around all functions exposed in the C++ library
+    #
+    # ==================================================================================================================
+    def reset_qs(self):
+        self._hook.reset_Q()
+
+    def register_qs(self, q):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In register_qs with q=%s'%str(q))
+        dim = len(q)
+        array_type = ctypes.c_double * dim
+        return self._hook.append_Q(array_type(*q), dim)
+
+    def set_option(self, option_name, option_values):
+        if option_name not in self._valid_parameters:
+            raise IntegrandError("Integrand option '%s' not recognized."%option_name)
+        option_ID = self._valid_parameters[option_name]
+
+        if isinstance(option_values, int):
+            return_code = self._hook.set_factor_int(option_ID, option_values)
+        elif isinstance(option_values, complex):
+            return_code = self._hook.set_factor_double(option_ID, option_values.real, option_values.imag)
+        else:
+            raise IntegrandError("Unsupported type of option : '%s' set to '%s'."%(option_name,str(option_values)))
+        if return_code != 0:
+            raise IntegrandError("Error when setting option '%s' to '%s'."%(option_name,str(option_values)))
+
+    def set_qs(self, qs):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In set_q_is with q_is=%s'%str(qs))
+        for q_i in qs:
+            if self.register_qs(q_i) != 0:
+                raise IntegrandError('Error registering Qs')
+
+    def evaluate(self, loop_momenta):
+        dim = len(loop_momenta)
+        array_type = ctypes.c_double * dim
+        return self._hook.evaluate(array_type(*loop_momenta), dim)

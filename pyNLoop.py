@@ -798,6 +798,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'seed': None,
             'sqrt_s': 1000.0,
             'channel': None,
+            'cpp_integrand': False,
             'verbosity': 1,
             'nb_CPU_cores': None,
             'phase_computed': 'Real',
@@ -840,7 +841,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             elif key in ['loop_momenta_generator_class','lmgc']:
                 options['loop_momenta_generator'] = self.parse_lmgc_specification(value)
-
             elif key in ['sqrt_s', 'target_accuracy']:
                 try:
                     parsed_float = float(value)
@@ -848,7 +848,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s' % (key, value))
                 options[key] = parsed_float
 
-            elif key in ['force']:
+            elif key in ['force', 'cpp_integrand']:
                 parsed_bool = (value is None) or (value.upper() in ['T', 'TRUE', 'ON', 'Y'])
                 options[key] = parsed_bool
 
