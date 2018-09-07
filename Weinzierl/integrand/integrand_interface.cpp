@@ -1,6 +1,10 @@
 #include "DCD.h"
+#include "integrand_interface.h"
 
-namespace cuba_integrand
+extern "C"
+{
+
+namespace cpp_integrand
 {
 //box1L
 my_comp box1L_6d(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs);
@@ -15,10 +19,6 @@ int integrand_id;
 int channel_id;
 my_comp mu_UVsq;
 std::vector<DIdeform::R4vector> Qs;
-
-#define _OP_INTEGRAND_ID 1
-#define _OP_CHANNEL_ID 2
-#define _OP_UVSQ 3
 
 int set_factor_int(short int op_id, int value)
 {
@@ -42,8 +42,8 @@ int set_factor_complex(short int op_id, double real, double imag)
     switch (op_id) 
     {
         case _OP_UVSQ:
-          mu_UVsq.real = real;
-          mu_UVsq.imag = imag;
+          mu_UVsq.real(real);
+          mu_UVsq.imag(imag);
           return 0;
         default:
           return 99;
@@ -73,8 +73,8 @@ int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_r
 
   DIdeform::C4vector ell;
   for (int i = 0; i < 4; i++) {
-    ell[i].real = loop_momentum_real[i];
-    ell[i].imag = loop_momentum_imag[i];
+    ell[i].real(loop_momentum_real[i]);
+    ell[i].imag(loop_momentum_imag[i]);
   }
 
   my_comp function;
@@ -82,27 +82,27 @@ int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_r
   {
   /* === BOX 6d === */
   case 0:
-    function = cuba_integrand::box1L_6d(ell, Qs);
+    function = cpp_integrand::box1L_6d(ell, Qs);
     break;
 
   /* === BOX OFF-SHELL === */
   case 1:
-    function = cuba_integrand::box1L_offshell(ell, Qs);
+    function = cpp_integrand::box1L_offshell(ell, Qs);
     break;
 
   /* === BOX ALL ON-SHELL SUBTRACTED === */
   case 2:
-    function = cuba_integrand::box1L_subtracted(ell, Qs);
+    function = cpp_integrand::box1L_subtracted(ell, Qs);
     break;
    /* === BOX ALL ON-SHELL SUBTRACTED === */
  
   case 3:
-    function = cuba_integrand::box1L_subtracted_ch(ell, Qs, channel_id);
+    function = cpp_integrand::box1L_subtracted_ch(ell, Qs, channel_id);
     break;
   /* === BOX ONE OFF-SHELL SUBTRACTED === */
  
   case 4:
-    function = cuba_integrand::box1L_one_offshell_subtracted(ell, Qs, mu_UVsq);
+    function = cpp_integrand::box1L_one_offshell_subtracted(ell, Qs, mu_UVsq);
     break;
   default:
     return 1;
@@ -112,4 +112,6 @@ int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_r
   f_imag = function.imag();
 
   return 0;
+}
+
 }

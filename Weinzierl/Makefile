@@ -31,7 +31,8 @@ CXXFLAGS = -std=c++11 -O3
 
 SOURCE = src/DCD.o src/RC4vector.o
 PY_LIB = src/DCD_interface.o
-INTEGRAND = integrand/box1L.o integrand/Integrand.o 
+INTEGRAND = integrand/box1L.o integrand/Integrand.o
+INTEGRAND_INTERFACE = integrand/integrand_interface.o src/DCD.o src/RC4vector.o integrand/box1L.o
 
 EXEC = DCD_interface.so
 
@@ -50,6 +51,9 @@ cuba_integrate: cuba.c $(INTEGRAND) $(SOURCE)
 DCD_interface.so: $(PY_LIB) $(SOURCE)
 	$(CXX) $(CXXFLAGS) $(PY_LIB) $(SOURCE) -fPIC -shared -o $@ 
 
+integrand_interface.so: $(INTEGRAND_INTERFACE)
+	$(CXX) $(CXXFLAGS) $(PY_LIB)  $(INTEGRAND_INTERFACE) -fPIC -shared -o $@ 
+
 
 #####################################
 # Create Links:
@@ -57,7 +61,7 @@ DCD_interface.so: $(PY_LIB) $(SOURCE)
 src/%.o: src/%.cpp src/%.h
 	$(MAKE) -C ./src/ 
 
-integrand/%.o: integrand/%.cpp integrand/Integrand.h
+integrand/%.o: integrand/%.cpp integrand/Integrand.h integrand/integrand_interface.h
 	$(MAKE) -C ./integrand/
 
 #####################################

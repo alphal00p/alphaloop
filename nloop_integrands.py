@@ -1146,27 +1146,27 @@ class IntegrandCPPinterface(object):
         'box1L_direct_integration_subtracted': 3
     }
 
-    def compile_CPP_deformation_library(path):
-        """Compiles the C++ deformation library if necessary."""
+    def compile_CPP_integrand_library(path):
+        """Compiles the C++ integrand library if necessary."""
 
         logger.info('Now compiling shared library integrand_interface.so in path %s'%path)
-        misc.compile(arg=[], cwd=path)
+        misc.compile(arg=['integrand_interface.so'], cwd=path)
 
         if not os.path.isfile(pjoin(path, 'integrand_interface.so')):
-            raise IntegrandError("Could no compile C++ deformation source code in %s with command 'make'."%path)
+            raise IntegrandError("Could no compile C++ integrand source code in %s with command 'make'."%path)
 
-    compile_CPP_deformation_library(_CPP_Weinzierl_src)
+    compile_CPP_integrand_library(_CPP_Weinzierl_src)
 
     _hook = ctypes.CDLL(pjoin(_CPP_Weinzierl_src,'integrand_interface.so'))
     # append Q and reset Q
     _hook.append_Q.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
     _hook.append_Q.restype  = (ctypes.c_int)
     _hook.reset_Q.argtypes = ()
-    _hook.reset_Q.restype  = ()
+    _hook.reset_Q.restype  = (ctypes.c_void_p)
     # set optional factors
     _hook.set_factor_int.argtypes = (ctypes.c_int, ctypes.c_int)
     _hook.set_factor_int.restype = (ctypes.c_int)
-    _hook.set_factor_complex.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.c_int)
+    _hook.set_factor_complex.argtypes = (ctypes.c_int, ctypes.c_double, ctypes.c_double)
     _hook.set_factor_complex.restype = (ctypes.c_int)
     # evaluate
     _hook.evaluate.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.POINTER(ctypes.c_double),ctypes.c_int, ctypes.c_double, ctypes.c_double)
@@ -1225,9 +1225,9 @@ class IntegrandCPPinterface(object):
         dim = len(loop_momenta)
         array_type = ctypes.c_double * dim
 
-        factor_real = 0.
-        factor_imag = 0.
-        return_code = self._hook.evaluate(array_type(*real_loop_momenta), array_type(*imag_loop_momenta), dim, factor_real, factor_imag)
+        factor_real = ctypes.c_double(0.)
+        factor_imag = ctypes.c_double(0.)
+        return_code = self._hook.evaluate(array_type(*real_loop_momenta), array_type(*imag_loop_momenta), dim, ctypes.byref(factor_real), ctypes.byref(factor_imag))
         if return_code != 0:
             raise IntegrandError("Error during evaluation of C++ integrand")
-        return complex(factor_real, factor_imag)
+        return complex(factor_real.value, factor_imag.value)

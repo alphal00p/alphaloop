@@ -64,27 +64,27 @@ int Integrand(const int *ndim, const cubareal xx[],
   {
   /* === BOX 6d === */
   case 0:
-    function *= cuba_integrand::box1L_6d(ell, Qs);
+    function *= cpp_integrand::box1L_6d(ell, Qs);
     break;
 
   /* === BOX OFF-SHELL === */
   case 1:
-    function *= cuba_integrand::box1L_offshell(ell, Qs);
+    function *= cpp_integrand::box1L_offshell(ell, Qs);
     break;
 
   /* === BOX ALL ON-SHELL SUBTRACTED === */
   case 2:
-    function *= cuba_integrand::box1L_subtracted(ell, Qs);
+    function *= cpp_integrand::box1L_subtracted(ell, Qs);
     break;
    /* === BOX ALL ON-SHELL SUBTRACTED === */
  
   case 3:
-    function *= cuba_integrand::box1L_subtracted_ch(ell, Qs,ch_id);
+    function *= cpp_integrand::box1L_subtracted_ch(ell, Qs,ch_id);
     break;
   /* === BOX ONE OFF-SHELL SUBTRACTED === */
  
   case 4:
-    function *= cuba_integrand::box1L_one_offshell_subtracted(ell, Qs,deformer->mu_UVsq);
+    function *= cpp_integrand::box1L_one_offshell_subtracted(ell, Qs,deformer->mu_UVsq);
     break;
   };
   
