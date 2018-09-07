@@ -964,7 +964,7 @@ class box1L_direct_integration(NLoopIntegrand):
             self.integrand_cpp_interface = IntegrandCPPinterface(topology, self.external_momenta)
             if self.channel is not None:
                 self.integrand_cpp_interface.set_option('CHANNEL_ID', self.channel)
-            self.integrand_cpp_interface.set_option('UVSQ', self.loop_momentum_generator.sqrt_S**4)
+            self.integrand_cpp_interface.set_option('UVSQ', self.loop_momentum_generator.sqrt_S**4) # FIXME: not correct, should be -10^5*i_
 
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
@@ -1046,37 +1046,41 @@ class box1L_direct_integration(NLoopIntegrand):
             integrand = (1. / ((euclidian_product / (Mass_scale ** 2)) ** d + regulator))
 
         if chosen_integrand=='box':
-            numerator = 1.
 
-            denoms = [((l_mom - q_i).square() - self.loop_propagator_masses[i_prop] ** 2) for i_prop, q_i in
-                                                                            enumerate(self.loop_momentum_generator.q_is)]
-            denominator = 1.
-            for d in denoms:
-                denominator *= d
-            if abs(denominator)==0.:
-                logger.critical('Exactly on-shell denominator encountered with the following inputs:'+
-                                '\n%s\nand resulting deformed loop momentum:\n%s\nSkipping this point.'%(
-                                    str(continuous_inputs), str(l_mom) ))
-                return 0.
-            integrand = (numerator / denominator)
-            integrand -= self.get_local_counterterms(l_mom)
+            if self.integrand_cpp_interface:
+                integrand = self.integrand_cpp_interface.evaluate(l_mom)
+            else:
+                numerator = 1.
 
-            # Normalize the loop integral properly
-            integrand *= self.NORMALIZATION_FACTOR
+                denoms = [((l_mom - q_i).square() - self.loop_propagator_masses[i_prop] ** 2) for i_prop, q_i in
+                                                                                enumerate(self.loop_momentum_generator.q_is)]
+                denominator = 1.
+                for d in denoms:
+                    denominator *= d
+                if abs(denominator)==0.:
+                    logger.critical('Exactly on-shell denominator encountered with the following inputs:'+
+                                    '\n%s\nand resulting deformed loop momentum:\n%s\nSkipping this point.'%(
+                                        str(continuous_inputs), str(l_mom) ))
+                    return 0.
+                integrand = (numerator / denominator)
+                integrand -= self.get_local_counterterms(l_mom)
 
-            ############################################
-            # Multi-channeling
-            ############################################
-            def compute_channel_weight(channel_id):
-                alpha = 2
-                return ( np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id]).square()) *
-                         np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id + 1]).square()) )**alpha
-            if self.channel is not None and self.channel >=0:
-                assert(self.channel + 1 < len(denoms))
-                channels = [1 / compute_channel_weight(i)  for i in range(0,len(denoms) - 1)]
-                MC_factor = channels[self.channel] / sum(channels)
-                integrand *= MC_factor
-            ############################################
+                # Normalize the loop integral properly
+                integrand *= self.NORMALIZATION_FACTOR
+
+                ############################################
+                # Multi-channeling
+                ############################################
+                def compute_channel_weight(channel_id):
+                    alpha = 2
+                    return ( np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id]).square()) *
+                            np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id + 1]).square()) )**alpha
+                if self.channel is not None and self.channel >=0:
+                    assert(self.channel + 1 < len(denoms))
+                    channels = [1 / compute_channel_weight(i)  for i in range(0,len(denoms) - 1)]
+                    MC_factor = channels[self.channel] / sum(channels)
+                    integrand *= MC_factor
+                ############################################
 
         # Return a dummy function for now
         if user_phase_choice is None:
@@ -1165,7 +1169,7 @@ class IntegrandCPPinterface(object):
     _hook.set_factor_complex.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.c_int)
     _hook.set_factor_complex.restype = (ctypes.c_int)
     # evaluate
-    _hook.evaluate.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int)
+    _hook.evaluate.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.POINTER(ctypes.c_double),ctypes.c_int, ctypes.c_double, ctypes.c_double)
     _hook.evaluate.restype  = (ctypes.c_int)
 
 
@@ -1202,7 +1206,7 @@ class IntegrandCPPinterface(object):
         if isinstance(option_values, int):
             return_code = self._hook.set_factor_int(option_ID, option_values)
         elif isinstance(option_values, complex):
-            return_code = self._hook.set_factor_double(option_ID, option_values.real, option_values.imag)
+            return_code = self._hook.set_factor_complex(option_ID, option_values.real, option_values.imag)
         else:
             raise IntegrandError("Unsupported type of option : '%s' set to '%s'."%(option_name,str(option_values)))
         if return_code != 0:
@@ -1215,6 +1219,15 @@ class IntegrandCPPinterface(object):
                 raise IntegrandError('Error registering Qs')
 
     def evaluate(self, loop_momenta):
+        real_loop_momenta = [l.real for l in loop_momenta]
+        imag_loop_momenta = [l.imag for l in loop_momenta]
+
         dim = len(loop_momenta)
         array_type = ctypes.c_double * dim
-        return self._hook.evaluate(array_type(*loop_momenta), dim)
+
+        factor_real = 0.
+        factor_imag = 0.
+        return_code = self._hook.evaluate(array_type(*real_loop_momenta), array_type(*imag_loop_momenta), dim, factor_real, factor_imag)
+        if return_code != 0:
+            raise IntegrandError("Error during evaluation of C++ integrand")
+        return complex(factor_real, factor_imag)

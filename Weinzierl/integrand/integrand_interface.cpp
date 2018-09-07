@@ -63,17 +63,18 @@ int append_Q(double v[])
   return 0;
 }
 
-int reset_Q()
+void reset_Q()
 {
   Qs.clear();
 }
 
-int evaluate(double* loop_momentum, double& f_real, double& f_imag)
+int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_real, double& f_imag)
 {
 
   DIdeform::C4vector ell;
   for (int i = 0; i < 4; i++) {
-    ell[i] = loop_momentum[i];
+    ell[i].real = loop_momentum_real[i];
+    ell[i].imag = loop_momentum_imag[i];
   }
 
   my_comp function;
