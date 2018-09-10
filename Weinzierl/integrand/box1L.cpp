@@ -2,7 +2,7 @@
 
 using namespace DIdeform;
 
-namespace cuba_integrand
+namespace cpp_integrand
 {
 extern my_real s12,s23;
 //Imaginary I

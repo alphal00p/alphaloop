@@ -52,7 +52,7 @@ DCD_interface.so: $(PY_LIB) $(SOURCE)
 	$(CXX) $(CXXFLAGS) $(PY_LIB) $(SOURCE) -fPIC -shared -o $@ 
 
 integrand_interface.so: $(INTEGRAND_INTERFACE)
-	$(CXX) $(CXXFLAGS) $(PY_LIB)  $(INTEGRAND_INTERFACE) -fPIC -shared -o $@ 
+	$(CXX) $(CXXFLAGS) $(INTEGRAND_INTERFACE) -fPIC -shared -o $@ 
 
 
 #####################################

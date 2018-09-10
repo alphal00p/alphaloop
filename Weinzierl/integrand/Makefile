@@ -9,11 +9,14 @@ endif
 # Compiler flags:
 CXXFLAGS = -std=c++11 -O3
 
-EXEC = box1L.o Integrand.o integrand_interface.o
+EXEC = box1L.o integrand_interface.o
 
 all: $(EXEC)
 
-%.o : %.cpp Integrand.h ../src/DCD.h integrand_interface.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@ $(INC_FLAG)
+integrand_interface.o : integrand_interface.cpp ../src/DCD.h integrand_interface.h
+	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@ $(INC_FLAG)
+
+%.o : %.cpp ../src/DCD.h
+	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@ $(INC_FLAG)
 clean :
 	-rm -f ${SRC}*.o
