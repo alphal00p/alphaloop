@@ -961,10 +961,13 @@ class box1L_direct_integration(NLoopIntegrand):
 
         self.integrand_cpp_interface = None
         if cpp_integrand:
-            self.integrand_cpp_interface = IntegrandCPPinterface(topology, self.external_momenta)
+            self.integrand_cpp_interface = IntegrandCPPinterface(topology, self.loop_momentum_generator.q_is)
             if self.channel is not None:
                 self.integrand_cpp_interface.set_option('CHANNEL_ID', self.channel)
-            self.integrand_cpp_interface.set_option('UVSQ', self.loop_momentum_generator.sqrt_S**4) # FIXME: not correct, should be -10^5*i_
+            self.integrand_cpp_interface.set_option('UVSQ', -1.e3j * self.loop_momentum_generator.sqrt_S)
+            self.integrand_cpp_interface.set_option('S12', (self.external_momenta[1] + self.external_momenta[2]).square())
+            self.integrand_cpp_interface.set_option('S23', (self.external_momenta[2] + self.external_momenta[3]).square())
+
 
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
 #        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
@@ -1048,7 +1051,7 @@ class box1L_direct_integration(NLoopIntegrand):
         if chosen_integrand=='box':
 
             if self.integrand_cpp_interface:
-                integrand = self.integrand_cpp_interface.evaluate(l_mom)
+                integrand = self.integrand_cpp_interface.evaluate(l_mom) * self.NORMALIZATION_FACTOR
             else:
                 numerator = 1.
 
@@ -1140,10 +1143,13 @@ class IntegrandCPPinterface(object):
         'INTEGRAND_ID' : 1,
         'CHANNEL_ID' : 2,
         'UVSQ': 3,
+        'S12': 4,
+        'S23': 5
     }
 
     _topo_map = {
-        'box1L_direct_integration_subtracted': 3
+        'box1L_direct_integration_subtracted': 3,
+        'box1L_direct_integration_one_offshell_subtracted': 4
     }
 
     def compile_CPP_integrand_library(path):
@@ -1169,7 +1175,7 @@ class IntegrandCPPinterface(object):
     _hook.set_factor_complex.argtypes = (ctypes.c_int, ctypes.c_double, ctypes.c_double)
     _hook.set_factor_complex.restype = (ctypes.c_int)
     # evaluate
-    _hook.evaluate.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.POINTER(ctypes.c_double),ctypes.c_int, ctypes.c_double, ctypes.c_double)
+    _hook.evaluate.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double))
     _hook.evaluate.restype  = (ctypes.c_int)
 
 
@@ -1207,6 +1213,8 @@ class IntegrandCPPinterface(object):
             return_code = self._hook.set_factor_int(option_ID, option_values)
         elif isinstance(option_values, complex):
             return_code = self._hook.set_factor_complex(option_ID, option_values.real, option_values.imag)
+        elif isinstance(option_values, float):
+            return_code = self._hook.set_factor_complex(option_ID, option_values, 0.)
         else:
             raise IntegrandError("Unsupported type of option : '%s' set to '%s'."%(option_name,str(option_values)))
         if return_code != 0:
@@ -1227,7 +1235,7 @@ class IntegrandCPPinterface(object):
 
         factor_real = ctypes.c_double(0.)
         factor_imag = ctypes.c_double(0.)
-        return_code = self._hook.evaluate(array_type(*real_loop_momenta), array_type(*imag_loop_momenta), dim, ctypes.byref(factor_real), ctypes.byref(factor_imag))
+        return_code = self._hook.evaluate(array_type(*real_loop_momenta), array_type(*imag_loop_momenta), ctypes.byref(factor_real), ctypes.byref(factor_imag))
         if return_code != 0:
             raise IntegrandError("Error during evaluation of C++ integrand")
         return complex(factor_real.value, factor_imag.value)

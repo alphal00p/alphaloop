@@ -7,16 +7,16 @@ else ifeq ($(UNAME_S),Darwin)
 endif
 
 # Compiler flags:
-CXXFLAGS = -std=c++11 -O3
+CXXFLAGS = -std=c++11 -O3 -fPIC 
 
 EXEC = box1L.o integrand_interface.o
 
 all: $(EXEC)
 
 integrand_interface.o : integrand_interface.cpp ../src/DCD.h integrand_interface.h
-	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@ $(INC_FLAG)
+	$(CXX) $(CXXFLAGS) -c $< -o $@ $(INC_FLAG)
 
 %.o : %.cpp ../src/DCD.h
-	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@ $(INC_FLAG)
+	$(CXX) $(CXXFLAGS) -c $< -o $@ $(INC_FLAG)
 clean :
 	-rm -f ${SRC}*.o

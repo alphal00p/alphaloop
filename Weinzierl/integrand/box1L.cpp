@@ -1,10 +1,7 @@
-#include "Integrand.h"
+#include "box1L.h"
 
 using namespace DIdeform;
 
-namespace cpp_integrand
-{
-extern my_real s12,s23;
 //Imaginary I
 my_comp ii(0.0, 1.0);
 
@@ -126,7 +123,9 @@ inline my_comp box1L_collinear_term(bool x_xbar,
                                     const DIdeform::R4vector &q1,
                                     const DIdeform::R4vector &q2,
                                     const DIdeform::C4vector &ell,
-                                    const my_comp &mu2)
+                                    const my_comp &mu2,
+                                    const my_comp &s12,
+                                    const my_comp &s23)
 {
     //True: compute with x otherwise with 1-x
     DIdeform::R4vector p=q2-q1;
@@ -155,7 +154,7 @@ inline my_comp box1L_collinear_term(bool x_xbar,
     return cFactor;
     }
 
-my_comp box1L_one_offshell_subtracted(C4vector &ell, std::vector<R4vector> &Qs, my_comp& mu_UVsq)
+my_comp box1L_one_offshell_subtracted(C4vector &ell, std::vector<R4vector> &Qs, my_comp& mu_UVsq, my_comp& s12,  my_comp& s23)
 {
     C4vector prop_mom;
     my_comp factor = 1.0 / ii / std::pow(M_PI, 2);
@@ -177,10 +176,8 @@ my_comp box1L_one_offshell_subtracted(C4vector &ell, std::vector<R4vector> &Qs, 
     //Collinear
     DIdeform::R4vector p;
     my_comp coll_F = 0;
-    coll_F -= box1L_collinear_term(true , Qs[3], Qs[0], ell, mu_UVsq);
-    coll_F -= box1L_collinear_term(false, Qs[1], Qs[2], ell, mu_UVsq);
+    coll_F -= box1L_collinear_term(true , Qs[3], Qs[0], ell, mu_UVsq, s12, s23);
+    coll_F -= box1L_collinear_term(false, Qs[1], Qs[2], ell, mu_UVsq, s12, s23);
     return factor * (soft_F / denominator - coll_F);
     }
 
-
-}; //namespace Integrand

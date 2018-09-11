@@ -4,20 +4,9 @@
 extern "C"
 {
 
-namespace cpp_integrand
-{
-//box1L
-my_comp box1L_6d(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs);
-my_comp box1L_offshell(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs);
-my_comp box1L_subtracted(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs);
-my_comp box1L_subtracted_ch(DIdeform::C4vector &ell, std::vector<DIdeform::R4vector> &Qs, int ch_id);
-my_comp box1L_one_offshell_subtracted(DIdeform::C4vector & ell, std::vector<DIdeform::R4vector> & Qs, my_comp& mu_UVsq);
-
-};
-
 int integrand_id;
 int channel_id;
-my_comp mu_UVsq;
+my_comp mu_UVsq, s12, s23;
 std::vector<DIdeform::R4vector> Qs;
 
 int set_factor_int(short int op_id, int value)
@@ -44,6 +33,14 @@ int set_factor_complex(short int op_id, double real, double imag)
         case _OP_UVSQ:
           mu_UVsq.real(real);
           mu_UVsq.imag(imag);
+          return 0;
+        case _OP_S12:
+          s12.real(real);
+          s12.imag(imag);
+          return 0;
+        case _OP_S23:
+          s23.real(real);
+          s23.imag(imag);
           return 0;
         default:
           return 99;
@@ -82,27 +79,27 @@ int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_r
   {
   /* === BOX 6d === */
   case 0:
-    function = cpp_integrand::box1L_6d(ell, Qs);
+    function = box1L_6d(ell, Qs);
     break;
 
   /* === BOX OFF-SHELL === */
   case 1:
-    function = cpp_integrand::box1L_offshell(ell, Qs);
+    function = box1L_offshell(ell, Qs);
     break;
 
   /* === BOX ALL ON-SHELL SUBTRACTED === */
   case 2:
-    function = cpp_integrand::box1L_subtracted(ell, Qs);
+    function = box1L_subtracted(ell, Qs);
     break;
    /* === BOX ALL ON-SHELL SUBTRACTED === */
  
   case 3:
-    function = cpp_integrand::box1L_subtracted_ch(ell, Qs, channel_id);
+    function = box1L_subtracted_ch(ell, Qs, channel_id);
     break;
   /* === BOX ONE OFF-SHELL SUBTRACTED === */
  
   case 4:
-    function = cpp_integrand::box1L_one_offshell_subtracted(ell, Qs, mu_UVsq);
+    function = box1L_one_offshell_subtracted(ell, Qs, mu_UVsq, s12, s23);
     break;
   default:
     return 1;

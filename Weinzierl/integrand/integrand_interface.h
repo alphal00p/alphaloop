@@ -2,10 +2,13 @@
 #define _INTEGRAND_INTERFACE_H_
 
 #include "DCD.h"
+#include "box1L.h"
 
 #define _OP_INTEGRAND_ID 1
 #define _OP_CHANNEL_ID 2
 #define _OP_UVSQ 3
+#define _OP_S12 4
+#define _OP_S23 5
 
 
 extern "C"
