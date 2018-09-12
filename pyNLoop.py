@@ -921,6 +921,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         options = { 
             'seed'                  : None,
             'sqrt_s'                : 1000.0,
+            'cpp_integrand'         : False,
             'verbosity'             : 1,
             'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
             'force'                 : False,
@@ -1031,7 +1032,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 else:
                     raise pyNLoopInvalidCmd("Option 'test_timing' can only take values in ['integrand','deformation','False'], not %s"%value)
 
-            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','integration_space']:
+            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','integration_space','cpp_integrand']:
                 parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
                 options[key] = parsed_bool
 

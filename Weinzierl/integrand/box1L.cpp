@@ -100,16 +100,16 @@ my_comp box1L_subtracted(C4vector &ell, std::vector<R4vector> &Qs)
     my_comp tmp = 0;
     for (int i = 0; i < 3; i++)
     {
-        tmp = std::abs((ell - Qs[i]).square()) * std::abs((ell - Qs[i + 1]).square());
-        MC_factor += tmp;
+        tmp = 1.0 / (std::abs((ell - Qs[i]).square()) * std::abs((ell - Qs[i + 1]).square()));
+        MC_factor += tmp * tmp;
 
         if (i == ch_id) {
-            factor /= tmp;
-            factor /= tmp;
+            factor *= tmp;
+            factor *= tmp;
         }
     }
 
-    return factor * F / denominator / MC_factor / MC_factor;
+    return factor * F / denominator / MC_factor;
 }
 
 /* One loop box with one off-shell external momenta 

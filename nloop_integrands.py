@@ -1051,7 +1051,7 @@ class box1L_direct_integration(NLoopIntegrand):
         if chosen_integrand=='box':
 
             if self.integrand_cpp_interface:
-                integrand = self.integrand_cpp_interface.evaluate(l_mom) * self.NORMALIZATION_FACTOR
+                integrand = self.integrand_cpp_interface.evaluate(l_mom)
             else:
                 numerator = 1.
 

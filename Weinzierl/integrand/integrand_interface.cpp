@@ -104,7 +104,7 @@ int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_r
   default:
     return 1;
   };
-  
+
   f_real = function.real();
   f_imag = function.imag();
 
