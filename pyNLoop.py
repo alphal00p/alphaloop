@@ -855,6 +855,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         results, errors = [], []
         results_analytic = []
 
+        res_summary = open(pjoin(options['output_folder'],'scattering_angle.dat'),'w')
+        res_summary.write('Integral {} with channel {}:\n'.format(chosen_topology_name, options['channel']))
+        res_summary.write('Theta\t\tPhi\t\t\t{}\t\t\t\t\tError\n'.format(options['phase_computed']))
+
         n_tests_done = 0
         theta_range = options['range']
         thetas = [ theta_range[0] + (theta_range[1] - theta_range[0]) * i / float(n_points) for i in range(n_points) ]
@@ -956,8 +960,16 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                          '%.16e'%results[-1] if options['compute_numerical_result'] else 'N/A',
                          '%.2e'%errors[-1] if options['compute_numerical_result'] else 'N/A' ))
 
+            res_summary.write('{:.3f}\t\t{:.3f}\t\t{}\t\t{}\t\t{}\n'.format(theta, phi,
+                    results[-1] if options['compute_numerical_result'] else 0.,
+                    errors[-1] if options['compute_numerical_result'] else 0.,
+                    results_analytic[-1] if avh_oneloop_hook else 0.)
+            )
+
         if progress_bar:
             progress_bar.finish()
+
+        res_summary.close()
 
         logger.debug('Results:\nanalytic: %s\ncentral value: %s\nMC error: %s'%(results_analytic,results, errors))
         all_handles = []
@@ -968,6 +980,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         plt.legend(handles=all_handles)
         plt.xlabel('theta/pi')
         plt.ylabel('Amplitude (%s part)'%options['phase_computed'])
+
+
         plt.title('Channel {} of {}'.format(options['channel'], chosen_topology_name))
         plt.show()
 
@@ -983,16 +997,15 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
             'loop_momenta_generator' : self.parse_lmgc_specification('default'),
             'phase_computed'        : 'Real',
-            'range'                 : (0.,math.pi * 0.99),
+            'range'                 : (0., math.pi * 0.99),
             'n_points'              : 10,
-            'range'                 : (0.,1.),
             'channel'               : None,
             'show_plot'             : True,
             'save_plot'             : '',
             'compute_analytic_result': True,
             'compute_numerical_result': True,
         }
-        
+
         # First combine all value of the options (starting with '--') separated by a space
         opt_args = []
         new_args = []
