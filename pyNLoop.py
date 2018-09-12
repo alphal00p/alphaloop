@@ -1082,7 +1082,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise pyNLoopInvalidCmd("Cannot parse loop momentum generator class specification: %s"%str(value))
                 options['loop_momenta_generator'] = self.parse_lmgc_specification(lmgc_name)
 
-            elif key in ['sqrt_s']:
+            elif key in ['sqrt_s', 'phi']:
                 try:
                     parsed_float = float(value)
                 except ValueError:
