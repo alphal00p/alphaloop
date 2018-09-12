@@ -1,6 +1,6 @@
 #####################################################
 #                                                   #
-#  Source file of the pyNLoop GGVV MG5aMC plugin.   #
+#  Source file of the pyNLoop MG5aMC plugin.   #
 #  Use only with consent of its authors.            #
 #                                                   #
 #  author: Valentin Hirschi, Ben Ruijl              #
@@ -46,6 +46,7 @@ from madgraph.integrator.pyCubaIntegrator import pyCubaIntegrator
 # import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 
 import nloop_integrands
+import utils
 import loop_momenta_generator
 
 logger = logging.getLogger('pyNLoop.Interface')
@@ -810,6 +811,12 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if options['channel'] is None:
             options['channel'] = 0
 
+        if options['phase_computed'] not in ['Real','Imaginary']:
+            raise InvalidCmd("Command 'do_plot_box_scattering_angle' only allows option 'phase_computed' to be 'Real' or 'Imaginary'.")
+
+        if all((not options[opt]) for opt in ['compute_numerical_result','compute_analytic_result']):
+            raise InvalidCmd("The command 'do_plot_box_scattering_angle' must be instructed to compute at least the numerical or analytical result.")
+
         chosen_topology_name = args[0]
         if chosen_topology_name not in self._hardcoded_topologies:
             raise InvalidCmd('For now, pyNLoop only support the specification of the' +
@@ -827,13 +834,26 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         widgets = ["Performing deformation test :",
                     pbar.Percentage(), ' ', pbar.Bar(), ' ', pbar.ETA(), ' ',
                     pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
-        progress_bar = pbar.ProgressBar(widgets=widgets, maxval=n_points, fd=sys.stdout)
+
+        if options['verbosity'] == 0:
+            progress_bar = pbar.ProgressBar(widgets=widgets, maxval=n_points, fd=sys.stdout)
+        else:
+            progress_bar = None
 
         if progress_bar:
             progress_bar.start()
 
+        # Initialize a hook to OneLOop in order to gather the analytic results
+        avh_oneloop_hook = None
+        if options['compute_analytic_result']:
+            avh_oneloop_hook = utils.AVHOneLOopHook(heptools_install_dir=self.options['heptools_install_dir'])
+            if not avh_oneloop_hook.is_available():
+                logger.warning('AVH OneLOop library could not be properly loaded. Analytic results will not be available.')
+                avh_oneloop_hook = None
+
         # loop over the angle theta
         results, errors = [], []
+        results_analytic = []
 
         n_tests_done = 0
         theta_range = options['range']
@@ -864,7 +884,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     continue
                 external_momenta[i] = -external_momenta[i]
 
-            misc.sprint(external_momenta)
+            if options['verbosity'] > 0:
+                logger.debug('External momentum configuration probed for angle theta=%f*pi is:\n%s'%
+                                                                                         (theta, str(external_momenta)))
 
             loop_momenta_generator_class, loop_momenta_generator_options = options['loop_momenta_generator']
             integrand_options = {
@@ -879,7 +901,6 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 if opt=='loop_momenta_generator':
                         continue
                 integrand_options[opt] = value
-
 
             loop_integrand = chosen_topology['class'](**integrand_options)
 
@@ -914,21 +935,39 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 integrator = pyCubaIntegrator(loop_integrand, **integrator_options)
             else:
                 raise pyNLoopInterfaceError("Integrator '%s' not implemented."%integrator_name)
-            
-            amplitude, error = integrator.integrate()
 
-            results.append(amplitude)
-            errors.append(error)
+            if options['compute_numerical_result']:
+                with misc.Silence(active = options['verbosity'] <= 1):
+                    amplitude, error = integrator.integrate()
+                results.append(amplitude)
+                errors.append(error)
 
-            misc.sprint(amplitude, error)
+            # Now compute the analytical result for this point
+            if avh_oneloop_hook:
+                analytic_res_real, analytic_res_real_imag = avh_oneloop_hook.compute_one_loop_box(external_momenta)
+                if options['phase_computed'] == 'Real':
+                    results_analytic.append(analytic_res_real[0])
+                elif options['phase_computed'] == 'Imaginary':
+                    results_analytic.append(analytic_res_real_imag[0])
+
+            if options['verbosity'] > 0:
+                logger.debug('Results obtained for the PS point above:\nAnalytic: %s\npyNLoop : %s\nMC_error: %s'%
+                        ('%.16e'%results_analytic[-1] if avh_oneloop_hook else 'N/A',
+                         '%.16e'%results[-1] if options['compute_numerical_result'] else 'N/A',
+                         '%.2e'%errors[-1] if options['compute_numerical_result'] else 'N/A' ))
 
         if progress_bar:
             progress_bar.finish()
 
-        misc.sprint(results, errors)
-
-        plt.errorbar(x=thetas, y=results, yerr=errors)
-        plt.xlabel('theta')
+        logger.debug('Results:\nanalytic: %s\ncentral value: %s\nMC error: %s'%(results_analytic,results, errors))
+        all_handles = []
+        if options['compute_numerical_result']:
+            all_handles.append(plt.errorbar(x=thetas, y=results, yerr=errors, label='pyNLoop'))
+        if avh_oneloop_hook:
+            all_handles.append(plt.errorbar(x=thetas, y=results_analytic, yerr=[0.,]*len(results_analytic), label='oneLOop'))
+        plt.legend(handles=all_handles)
+        plt.xlabel('theta/pi')
+        plt.ylabel('Amplitude (%s part)'%options['phase_computed'])
         plt.title('Channel {} of {}'.format(options['channel'], chosen_topology_name))
         plt.show()
 
@@ -949,7 +988,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'range'                 : (0.,1.),
             'channel'               : None,
             'show_plot'             : True,
-            'save_plot'             : ''
+            'save_plot'             : '',
+            'compute_analytic_result': True,
+            'compute_numerical_result': True,
         }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -1036,7 +1077,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 else:
                     raise pyNLoopInvalidCmd("Option 'test_timing' can only take values in ['integrand','deformation','False'], not %s"%value)
 
-            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','integration_space','cpp_integrand']:
+            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','integration_space',
+                         'cpp_integrand','compute_analytic_result','compute_numerical_result']:
                 parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
                 options[key] = parsed_bool
 
