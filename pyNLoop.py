@@ -987,7 +987,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if avh_oneloop_hook:
             all_handles.append(plt.errorbar(x=thetas, y=results_analytic, yerr=[0.,]*len(results_analytic), label='oneLOop'))
         plt.legend(handles=all_handles)
-        plt.xlabel('theta/pi')
+        plt.xlabel('theta')
         plt.ylabel('Amplitude (%s part)'%options['phase_computed'])
 
 
@@ -1000,7 +1000,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         options = { 
             'seed'                  : None,
             'sqrt_s'                : 1000.0,
-            'phi'                   : math.pi / 2,
+            'phi'                   : math.pi / 4.,
             'cpp_integrand'         : False,
             'verbosity'             : 1,
             'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
