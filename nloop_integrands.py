@@ -1133,6 +1133,16 @@ class box1L_direct_integration_subtracted(box1L_direct_integration):
         return ( ( denoms[0]+denoms[2] ) / t + ( denoms[1]+denoms[3] ) / s ) / denoms_product
 
 
+class box1L_direct_integration_one_offshell_subtracted(box1L_direct_integration_subtracted):
+
+    def __init__(self, *args, **opts):
+        """ Here, we only need to make sure that the CPP integrand is used."""
+        super(box1L_direct_integration_one_offshell_subtracted, self).__init__(*args, **opts)
+
+        if not self.integrand_cpp_interface:
+            raise IntegrandError("The class %s requires the CPP integrand option to be enabled."%
+                                                                        self.__class__.__name__)
+
 class IntegrandCPPinterface(object):
 
     _debug_cpp = False
