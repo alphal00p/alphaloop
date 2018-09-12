@@ -845,6 +845,15 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # Initialize a hook to OneLOop in order to gather the analytic results
         avh_oneloop_hook = None
+
+        _topology_names_without_analytic_result = []
+        if chosen_topology_name in _topology_names_without_analytic_result:
+            if options['compute_analytic_result']:
+                logger.warning("Analytic result for the chosen topology '%s' not available, so that "%chosen_topology_name+
+                               " the computation of analytic results will now be disabled.")
+                options['compute_analytic_result'] = False
+
+
         if options['compute_analytic_result']:
             avh_oneloop_hook = utils.AVHOneLOopHook(heptools_install_dir=self.options['heptools_install_dir'])
             if not avh_oneloop_hook.is_available():
