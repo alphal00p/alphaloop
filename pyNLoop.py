@@ -801,6 +801,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if options['seed']:
             random.seed(options['seed'])
 
+        if options['channel'] is None:
+            options['channel'] = 0
+
         chosen_topology_name = args[0]
         if chosen_topology_name not in self._hardcoded_topologies:
             raise InvalidCmd('For now, pyNLoop only support the specification of the' +
@@ -920,6 +923,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         plt.errorbar(x=thetas, y=results, yerr=errors)
         plt.xlabel('theta')
+        plt.title('Channel {} of {}'.format(options['channel'], chosen_topology_name))
         plt.show()
 
     def parse_plot_box_scattering_angle_options(self, args):
