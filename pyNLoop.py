@@ -199,6 +199,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if self.options['nb_core'] is None:
             n_cpus = multiprocessing.cpu_count()
             logger.info("The Madgraph5_aMC@NLO option 'nb_core' is not set. PyNLoop automatically sets this option to %d."%n_cpus)
+            self.do_set('nb_core %d'%n_cpus)
 
     def parse_set_pyNLoop_option(self, args):
         """ Parsing arguments/options passed to the command set_pyNLoop option."""
@@ -789,6 +790,426 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             plt.show()
         else:
             logger.info("Display of the plot skipped according to user's request.")
+
+
+    def do_plot_box_scattering_angle(self, line):
+        """ Command for plotting the integral over the scattering angle theta, for a given phi."""
+
+        args = self.split_arg(line)
+        args, options = self.parse_plot_box_scattering_angle_options(args)
+
+        if options['seed']:
+            random.seed(options['seed'])
+
+        chosen_topology_name = args[0]
+        if chosen_topology_name not in self._hardcoded_topologies:
+            raise InvalidCmd('For now, pyNLoop only support the specification of the' +
+                             ' following hardcoded topologies: %s' % (','.join(self._hardcoded_topologies.keys())))
+
+        chosen_topology = self._hardcoded_topologies[chosen_topology_name]
+        M1 = chosen_topology['masses'][0]
+        M2 = chosen_topology['masses'][1]
+        M3 = chosen_topology['masses'][2]
+        M4 = chosen_topology['masses'][3]
+
+        n_points = options['n_points']
+
+        # create progress bar
+        widgets = ["Performing deformation test :",
+                    pbar.Percentage(), ' ', pbar.Bar(), ' ', pbar.ETA(), ' ',
+                    pbar.Counter(format='%(value)d/%(max_value)d'), ' ']
+        progress_bar = pbar.ProgressBar(widgets=widgets, maxval=n_points, fd=sys.stdout)
+
+        if progress_bar:
+            progress_bar.start()
+
+        # loop over the angle theta
+        results, errors = [], []
+
+        n_tests_done = 0
+        theta_range = options['range']
+        thetas = [ theta_range[0] + (theta_range[1] - theta_range[0]) * i / float(n_points) for i in range(n_points) ]
+        while n_tests_done < n_points:
+            theta = thetas[n_tests_done]
+
+            if progress_bar:
+                progress_bar.update(n_tests_done)
+            n_tests_done += 1
+
+            # generate the phase space point
+            sqrtS = options['sqrt_s']
+            phi = options['phi']
+
+            pz = math.sqrt((sqrtS - M1 - M2)*(sqrtS + M1 - M2)*(sqrtS - M1 + M2)*(sqrtS + M1 + M2))/(2.*sqrtS)
+            pf = math.sqrt((sqrtS - M3 - M4)*(sqrtS + M3 - M4)*(sqrtS - M3 + M4)*(sqrtS + M3 + M4))/(2.*sqrtS)
+            ps1 = vectors.LorentzVector([math.sqrt(M1**2 + pz**2), 0, 0, pz])
+            ps2 = vectors.LorentzVector([math.sqrt(M2**2 + pz**2), 0, 0, -pz])
+            ps3 = vectors.LorentzVector([math.sqrt(M3**2 + pf**2), pf*math.cos(phi)*math.sin(theta), pf*math.sin(phi)*math.sin(theta), pf*math.cos(theta)])
+            ps4 = vectors.LorentzVector([math.sqrt(M4**2 + pf**2), -(pf*math.cos(phi)*math.sin(theta)), -(pf*math.sin(phi)*math.sin(theta)), -(pf*math.cos(theta))])
+            external_momenta = vectors.LorentzVectorList([ps1, ps2, ps3, ps4]).to_dict()
+
+            # For loop calculations, it customary to consider all legs outgoing, so we must
+            # flip the initial states directions.
+            for i in external_momenta:
+                if i > 2:
+                    continue
+                external_momenta[i] = -external_momenta[i]
+
+            misc.sprint(external_momenta)
+
+            loop_momenta_generator_class, loop_momenta_generator_options = options['loop_momenta_generator']
+            integrand_options = {
+                'n_loops'                       : chosen_topology['n_loops'],
+                'external_momenta'              : external_momenta,
+                # Data-structure for specifying a topology to be determined
+                'topology'                       : chosen_topology_name,
+                'loop_momenta_generator_class'   : loop_momenta_generator_class,
+                'loop_momenta_generator_options' : loop_momenta_generator_options,
+            }
+            for opt, value in options.items():
+                if opt=='loop_momenta_generator':
+                        continue
+                integrand_options[opt] = value
+
+
+            loop_integrand = chosen_topology['class'](**integrand_options)
+
+            # Choose the integrator
+            if self.pyNLoop_options['integrator'] == 'auto':
+                integrator_name = loop_integrand._supported_integrators[0]
+            else:
+                if self.pyNLoop_options['integrator'] not in loop_integrand._supported_integrators:
+                    integrator_name = loop_integrand._supported_integrators[0]
+                    logger.warning(
+        "Specified integrator '%s' is not supported by integrand '%s'. Using '%s' instead."%
+         (self.pyNLoop_options['integrator'], loop_integrand.nice_string(), integrator_name))
+                else:
+                    integrator_name = self.pyNLoop_options['integrator']
+                 
+            # Now set the integrator options
+            integrator_options = dict(self.integrator_options)
+            for opt, value in options.items():
+                if opt in integrator_options:
+                    integrator_options[opt] = value
+            integrator_options['cluster'] = self.get_cluster(force_nb_cpu_cores=int(self.options['nb_core']))
+            integrator_options['pySecDec_path'] = self.pyNLoop_options['pySecDec_path']
+            if integrator_name=='Vegas3':
+                if options['phase_computed']=='All':
+                    logger.warning('Vegas3 integrator cannot simultaneously integrate the real and imaginary part of'+
+                              " the loop for now. The user's choice 'All' for 'phase_computed' is reverted to 'Real'.")
+                    loop_integrand.phase_computed = 'Real'
+                integrator = Vegas3Integrator(loop_integrand, **integrator_options)
+            elif integrator_name=='pySecDec':
+                integrator = pysecdec_integrator.pySecDecIntegrator(loop_integrand, **integrator_options)
+            elif integrator_name=='Cuba':
+                integrator = pyCubaIntegrator(loop_integrand, **integrator_options)
+            else:
+                raise pyNLoopInterfaceError("Integrator '%s' not implemented."%integrator_name)
+            
+            amplitude, error = integrator.integrate()
+
+            results.append(amplitude)
+            errors.append(error)
+
+            misc.sprint(amplitude, error)
+
+        if progress_bar:
+            progress_bar.finish()
+
+        misc.sprint(results, errors)
+
+        plt.errorbar(x=thetas, y=results, yerr=errors)
+        plt.xlabel('theta')
+        plt.show()
+
+    def parse_plot_box_scattering_angle_options(self, args):
+        """ Parsing arguments/options passed to the command plot_box_scattering_angle."""
+
+        options = { 
+            'seed'                  : None,
+            'sqrt_s'                : 1000.0,
+            'phi'                   : math.pi / 2,
+            'cpp_integrand'         : False,
+            'verbosity'             : 1,
+            'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
+            'loop_momenta_generator' : self.parse_lmgc_specification('default'),
+            'phase_computed'        : 'Real',
+            'range'                 : (0.,math.pi * 0.99),
+            'n_points'              : 10,
+            'range'                 : (0.,1.),
+            'channel'               : None,
+            'show_plot'             : True,
+            'save_plot'             : ''
+        }
+        
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args)>0:
+                opt_args[-1] += ' %s'%arg
+            else:
+                new_args.append(arg)
+        
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=')
+            except:
+                key, value = arg, None
+            key = key[2:]
+
+            if key in ['seed','verbosity','nb_CPU_cores', 'n_points', 'channel']:
+                try:
+                    parsed_int = int(value)
+                except ValueError:
+                    raise pyNLoopInvalidCmd('Cannot parse specified %s integer: %s'%(key,value))
+                options[key] = parsed_int
+
+            elif key in ['reference_vector', 'offset_vector']:
+                if value.lower() in ['random','r']:
+                    options['reference_vector'] = 'random'
+                else:
+                    try:
+                        ref_vec = tuple(eval(value))
+                    except:
+                        raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                    if len(ref_vec)!=4:
+                        raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
+                    options[key] = vectors.LorentzVector(ref_vec)
+
+            elif key=='scale_progression':
+                if value not in ['linear','exponential']:
+                    raise pyNLoopInvalidCmd("The values for the option 'scale_progression' can only be in "+
+                                                                             "['linear','exponential'], not %s." %value)
+                else:
+                    options[key] = value
+
+            elif key=='range':
+                try:
+                    range = tuple(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                if len(range)!=2:
+                    raise pyNLoopInvalidCmd("Range must be a list of length 2, not %d"%len(range))
+                options['range'] = range
+
+            elif key=='items_to_plot':
+                try:
+                    comps = tuple(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse items to plot: %s"%value)
+                options['items_to_plot'] = comps
+
+            elif key in ['loop_momenta_generator_classes', 'lmgc']:
+                try:
+                    lmgc_name = eval(value)
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse loop momentum generator class specification: %s"%str(value))
+                options['loop_momenta_generator'] = self.parse_lmgc_specification(lmgc_name)
+
+            elif key in ['sqrt_s']:
+                try:
+                    parsed_float = float(value)
+                except ValueError:
+                    raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s'%(key,value))
+                options[key] = parsed_float
+
+            elif key in ['test_timing']:
+                if value is None:
+                    options[key] = 'deformation'
+                elif value.lower() in ['integrand','deformation']:
+                    options[key] = value.lower()
+                elif value.lower() in ['f','false']:
+                    options[key] = False
+                else:
+                    raise pyNLoopInvalidCmd("Option 'test_timing' can only take values in ['integrand','deformation','False'], not %s"%value)
+
+            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','integration_space','cpp_integrand']:
+                parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
+                options[key] = parsed_bool
+
+            elif key in ['output_folder','save_plot']:
+                if os.path.isabs(value):
+                    options[key] = value
+                else:
+                    options[key] = pjoin(MG5DIR,value)
+
+            elif key in ['normalization']:
+                if value is None:
+                    value = 'distance_real'
+                _normalization_modes_supported = ['distance_real',]
+                if value not in _normalization_modes_supported:
+                    raise pyNLoopInvalidCmd('Normalization modes supported are %s, not %s'%(_normalization_modes_supported, value))
+                options['normalization'] = value
+
+            elif key == 'phase_computed':
+                if value.upper() in ['REAL', 'R', 'RE']:
+                    options[key] == 'Real'
+                elif value.upper() in ['IMAGINARY', 'I', 'IM']:
+                    options[key] == 'Imaginary'
+                elif value.upper() in ['ALL', 'A']:
+                    options[key] == 'All'
+                else:
+                    raise pyNLoopInvalidCmd("The phase computed can only be 'Real' or 'Imaginary'.")
+
+            else:
+                raise pyNLoopInvalidCmd("Unrecognized option for command plot deformation: %s"%key+
+                      "\nAvailable commands are: %s"%(' '.join('--%s'%k for k in options)))
+
+        return new_args, options
+
+    def parse_plot_deformation_options(self, args):
+        """ Parsing arguments/options passed to the command plot_deformation."""
+
+        options = { 
+            'seed'                  : None,
+            'sqrt_s'                : 1000.0,
+            'cpp_integrand'         : False,
+            'verbosity'             : 1,
+            'output_folder'         : pjoin(MG5DIR,'MyPyNLoop_output'),
+            'force'                 : False,
+            'phase_computed'        : 'Real',
+            'reference_vector'      : 'random',
+            'offset_vector'         : 'random',
+            'loop_momenta_generators' : [self.parse_lmgc_specification('default'),],
+            'n_points'              : 100,
+            'items_to_plot'         : (0,1,2,3,'distance','poles'),
+            'range'                 : (0.,1.),
+            'normalization'         : 'None',
+            'log_axis'              : False,
+            'channel'               : None,
+            'integration_space'     : False,
+            'scale_progression'     : 'linear',
+            # When 'test' is on, a battery of tests is performed instead of the plotting of the deformation
+            'test'                  : False,
+            'test_timing'           : None,
+            'keep_PS_point_fixed'   : False,
+            'show_plot'             : True,
+            'save_plot'             : ''
+        }
+        
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args)>0:
+                opt_args[-1] += ' %s'%arg
+            else:
+                new_args.append(arg)
+        
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=')
+            except:
+                key, value = arg, None
+            key = key[2:]
+
+            if key in ['seed','verbosity','nb_CPU_cores', 'n_points', 'channel']:
+                try:
+                    parsed_int = int(value)
+                except ValueError:
+                    raise pyNLoopInvalidCmd('Cannot parse specified %s integer: %s'%(key,value))
+                options[key] = parsed_int
+
+            elif key in ['reference_vector', 'offset_vector']:
+                if value.lower() in ['random','r']:
+                    options['reference_vector'] = 'random'
+                else:
+                    try:
+                        ref_vec = tuple(eval(value))
+                    except:
+                        raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                    if len(ref_vec)!=4:
+                        raise pyNLoopInvalidCmd("Reference vector must be of length 4, not %d"%len(ref_vec))
+                    options[key] = vectors.LorentzVector(ref_vec)
+
+            elif key=='scale_progression':
+                if value not in ['linear','exponential']:
+                    raise pyNLoopInvalidCmd("The values for the option 'scale_progression' can only be in "+
+                                                                             "['linear','exponential'], not %s." %value)
+                else:
+                    options[key] = value
+
+            elif key=='range':
+                try:
+                    range = tuple(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse reference vector specification: %s"%str(value))
+                if len(range)!=2:
+                    raise pyNLoopInvalidCmd("Range must be a list of length 2, not %d"%len(range))
+                options['range'] = range
+
+            elif key=='items_to_plot':
+                try:
+                    comps = tuple(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse items to plot: %s"%value)
+                options['items_to_plot'] = comps
+
+            elif key in ['loop_momenta_generator_classes', 'lmgc']:
+                try:
+                    lmgc_names = list(eval(value))
+                except:
+                    raise pyNLoopInvalidCmd("Cannot parse loop momentum generator class specification: %s"%str(value))
+                lmgcs = []
+                for lmgc_specification in lmgc_names:
+                    lmgcs.append(self.parse_lmgc_specification(lmgc_specification))
+                options['loop_momenta_generators'] = lmgcs
+
+            elif key in ['sqrt_s']:
+                try:
+                    parsed_float = float(value)
+                except ValueError:
+                    raise pyNLoopInvalidCmd('Cannot parse specified %s float: %s'%(key,value))
+                options[key] = parsed_float
+
+            elif key in ['test_timing']:
+                if value is None:
+                    options[key] = 'deformation'
+                elif value.lower() in ['integrand','deformation']:
+                    options[key] = value.lower()
+                elif value.lower() in ['f','false']:
+                    options[key] = False
+                else:
+                    raise pyNLoopInvalidCmd("Option 'test_timing' can only take values in ['integrand','deformation','False'], not %s"%value)
+
+            elif key in ['force','log_axis','test','keep_PS_point_fixed','show_plot','integration_space','cpp_integrand']:
+                parsed_bool = (value is None) or (value.upper() in ['T','TRUE','ON','Y'])
+                options[key] = parsed_bool
+
+            elif key in ['output_folder','save_plot']:
+                if os.path.isabs(value):
+                    options[key] = value
+                else:
+                    options[key] = pjoin(MG5DIR,value)
+
+            elif key in ['normalization']:
+                if value is None:
+                    value = 'distance_real'
+                _normalization_modes_supported = ['distance_real',]
+                if value not in _normalization_modes_supported:
+                    raise pyNLoopInvalidCmd('Normalization modes supported are %s, not %s'%(_normalization_modes_supported, value))
+                options['normalization'] = value
+
+            elif key == 'phase_computed':
+                if value.upper() in ['REAL', 'R', 'RE']:
+                    options[key] == 'Real'
+                elif value.upper() in ['IMAGINARY', 'I', 'IM']:
+                    options[key] == 'Imaginary'
+                elif value.upper() in ['ALL', 'A']:
+                    options[key] == 'All'
+                else:
+                    raise pyNLoopInvalidCmd("The phase computed can only be 'Real' or 'Imaginary'.")
+
+            else:
+                raise pyNLoopInvalidCmd("Unrecognized option for command plot deformation: %s"%key+
+                      "\nAvailable commands are: %s"%(' '.join('--%s'%k for k in options)))
+
+        return new_args, options
 
     def parse_integrate_loop_options(self, args):
         """ Parsing arguments/options passed to the command integrate_loop."""
