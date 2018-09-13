@@ -855,7 +855,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
 
         if options['compute_analytic_result']:
-            avh_oneloop_hook = utils.AVHOneLOopHook(heptools_install_dir=self.options['heptools_install_dir'])
+            avh_oneloop_hook = utils.AVHOneLOopHook(heptools_install_dir=
+                                 self.options['heptools_install_dir'] if 'heptools_install_dir' in self.options else None)
             if not avh_oneloop_hook.is_available():
                 logger.warning('AVH OneLOop library could not be properly loaded. Analytic results will not be available.')
                 avh_oneloop_hook = None
