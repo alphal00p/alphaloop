@@ -84,7 +84,7 @@ int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_r
 
   /* === BOX OFF-SHELL === */
   case 1:
-    function = box1L_offshell(ell, Qs);
+    function = box1L_offshell(ell, Qs, channel_id);
     break;
 
   /* === BOX ALL ON-SHELL SUBTRACTED === */

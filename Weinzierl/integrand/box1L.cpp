@@ -33,7 +33,7 @@ my_comp box1L_6d(C4vector &ell, std::vector<R4vector> &Qs)
 }
 
 /* One loop box with off-shell external momenta */
-my_comp box1L_offshell(C4vector &ell, std::vector<R4vector> &Qs)
+my_comp box1L_offshell(C4vector &ell, std::vector<R4vector> &Qs, int ch_id)
 {
     C4vector prop_mom;
     my_comp factor = 1.0 / ii / std::pow(M_PI, 2);
@@ -42,6 +42,27 @@ my_comp box1L_offshell(C4vector &ell, std::vector<R4vector> &Qs)
     my_comp denominator = 1.;
     for (int i = 0; i < 4; i++)
         denominator *= (ell - Qs[i]).square();
+
+    if (ch_id >= 0 && ch_id < 3) {
+        //Channelling a la Weinzierl
+        my_comp MC_factor=0.0;
+        my_comp tmp = 0;
+        for (int i = 0; i < 3; i++)
+        {
+            tmp = 1.0 / (std::abs((ell - Qs[i]).square()) * std::abs((ell - Qs[i + 1]).square()));
+            MC_factor += tmp * tmp;
+
+            if (i == ch_id) {
+                factor *= tmp;
+                factor *= tmp;
+            }
+        }
+
+        return factor / denominator / MC_factor;
+    } else {
+        return factor / denominator;
+    }
+
 
     return factor / denominator;
 }
