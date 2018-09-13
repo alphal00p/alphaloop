@@ -46,7 +46,6 @@ from madgraph.integrator.pyCubaIntegrator import pyCubaIntegrator
 # import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 
 import nloop_integrands
-import utils
 import loop_momenta_generator
 
 logger = logging.getLogger('pyNLoop.Interface')
@@ -840,24 +839,91 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if progress_bar:
             progress_bar.start()
 
+        channels = [0,1,2] if options['channel'] is None else [options['channel'],]
+        integrands_for_channel  = {}
+        integrators_for_channel = {}
+
+        # Generate a dummy_PS_point just for the instantiation
+        phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
+            chosen_topology['masses'][:2], chosen_topology['masses'][2:],
+            [options['sqrt_s'] / 2., options['sqrt_s'] / 2.],
+            beam_types=(1, 1)
+        )
+        # Specifying None to get a random PS point just for the instantiation of the integrands.
+        dummy_PS_point, wgt, x1, x2 = phase_space_generator.get_PS_point(None)
+        # Use the dictionary representation of the PS Point
+        dummy_PS_point = dummy_PS_point.to_dict()
+        # For loop calculations, it customary to consider all legs outgoing, so we must
+        # flip the initial states directions.
+        for i in dummy_PS_point:
+            if i > 2:
+                continue
+            dummy_PS_point[i] = -dummy_PS_point[i]
+
+        for channel in channels:
+            # Instantiate one integrator per channel
+            loop_momenta_generator_class, loop_momenta_generator_options = options['loop_momenta_generator']
+            integrand_options = {
+                'n_loops': chosen_topology['n_loops'],
+                'external_momenta': dummy_PS_point,
+                # Data-structure for specifying a topology to be determined
+                'topology': chosen_topology_name,
+                'loop_momenta_generator_class': loop_momenta_generator_class,
+                'loop_momenta_generator_options': loop_momenta_generator_options,
+            }
+            for opt, value in options.items():
+                if opt == 'loop_momenta_generator':
+                    continue
+                integrand_options[opt] = value
+
+            integrand_options['channel'] = channel
+
+            loop_integrand = chosen_topology['class'](**integrand_options)
+            integrands_for_channel[channel] = loop_integrand
+
+            # Choose the integrator
+            if self.pyNLoop_options['integrator'] == 'auto':
+                integrator_name = loop_integrand._supported_integrators[0]
+            else:
+                if self.pyNLoop_options['integrator'] not in loop_integrand._supported_integrators:
+                    integrator_name = loop_integrand._supported_integrators[0]
+                    logger.warning(
+                        "Specified integrator '%s' is not supported by integrand '%s'. Using '%s' instead." %
+                        (self.pyNLoop_options['integrator'], loop_integrand.nice_string(), integrator_name))
+                else:
+                    integrator_name = self.pyNLoop_options['integrator']
+
+            # Now set the integrator options
+            integrator_options = dict(self.integrator_options)
+            for opt, value in options.items():
+                if opt in integrator_options:
+                    integrator_options[opt] = value
+            integrator_options['cluster'] = self.get_cluster(force_nb_cpu_cores=int(self.options['nb_core']))
+            integrator_options['pySecDec_path'] = self.pyNLoop_options['pySecDec_path']
+            if integrator_name == 'Vegas3':
+                if options['phase_computed'] == 'All':
+                    logger.warning('Vegas3 integrator cannot simultaneously integrate the real and imaginary part of' +
+                                   " the loop for now. The user's choice 'All' for 'phase_computed' is reverted to 'Real'.")
+                    loop_integrand.phase_computed = 'Real'
+                integrator = Vegas3Integrator(loop_integrand, **integrator_options)
+            elif integrator_name == 'pySecDec':
+                integrator = pysecdec_integrator.pySecDecIntegrator(loop_integrand, **integrator_options)
+            elif integrator_name == 'Cuba':
+                integrator = pyCubaIntegrator(loop_integrand, **integrator_options)
+            else:
+                raise pyNLoopInterfaceError("Integrator '%s' not implemented." % integrator_name)
+            integrators_for_channel[channel] = integrator
+
         # Initialize a hook to OneLOop in order to gather the analytic results
-        avh_oneloop_hook = None
-
-        _topology_names_without_analytic_result = []
-        if chosen_topology_name in _topology_names_without_analytic_result:
-            if options['compute_analytic_result']:
-                logger.warning("Analytic result for the chosen topology '%s' not available, so that "%chosen_topology_name+
-                               " the computation of analytic results will now be disabled.")
-                options['compute_analytic_result'] = False
-
-
+        analytic_results_available = False
+        first_integrand = integrands_for_channel.values()[0]
         if options['compute_analytic_result']:
-            avh_oneloop_hook = utils.AVHOneLOopHook(heptools_install_dir=
-                                 self.options['heptools_install_dir'] if 'heptools_install_dir' in self.options else None,
-                                 f2py_compiler = self.options['f2py_compiler'] if self.options['f2py_compiler'] else 'f2py')
-            if not avh_oneloop_hook.is_available():
+            first_integrand.setup_analytic_computation(self)
+            if not first_integrand.is_analytic_result_available():
                 logger.warning('AVH OneLOop library could not be properly loaded. Analytic results will not be available.')
-                avh_oneloop_hook = None
+                analytic_results_available = False
+            else:
+                analytic_results_available = True
 
         # loop over the angle theta
         results, errors = [], []
@@ -897,67 +963,18 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 external_momenta[i] = -external_momenta[i]
 
             if options['verbosity'] > 0:
-                logger.debug('External momentum configuration probed for angle theta=%f*pi is:\n%s'%
+                logger.debug('External momentum configuration probed for angle theta=%f is:\n%s'%
                                                                                          (theta, str(external_momenta)))
 
             if options['compute_numerical_result']:
-                channels = [0,1,2] if options['channel'] is None else [options['channel']]
-
                 summed_result = 0
                 summed_error = 0
                 for channel in channels:
-                    loop_momenta_generator_class, loop_momenta_generator_options = options['loop_momenta_generator']
-                    integrand_options = {
-                        'n_loops'                       : chosen_topology['n_loops'],
-                        'external_momenta'              : external_momenta,
-                        # Data-structure for specifying a topology to be determined
-                        'topology'                       : chosen_topology_name,
-                        'loop_momenta_generator_class'   : loop_momenta_generator_class,
-                        'loop_momenta_generator_options' : loop_momenta_generator_options,
-                    }
-                    for opt, value in options.items():
-                        if opt=='loop_momenta_generator':
-                                continue
-                        integrand_options[opt] = value
 
-                    integrand_options['channel'] = channel
-
-                    loop_integrand = chosen_topology['class'](**integrand_options)
-
-                    # Choose the integrator
-                    if self.pyNLoop_options['integrator'] == 'auto':
-                        integrator_name = loop_integrand._supported_integrators[0]
-                    else:
-                        if self.pyNLoop_options['integrator'] not in loop_integrand._supported_integrators:
-                            integrator_name = loop_integrand._supported_integrators[0]
-                            logger.warning(
-                            "Specified integrator '%s' is not supported by integrand '%s'. Using '%s' instead."%
-                            (self.pyNLoop_options['integrator'], loop_integrand.nice_string(), integrator_name))
-                        else:
-                            integrator_name = self.pyNLoop_options['integrator']
-
-                    # Now set the integrator options
-                    integrator_options = dict(self.integrator_options)
-                    for opt, value in options.items():
-                        if opt in integrator_options:
-                            integrator_options[opt] = value
-                    integrator_options['cluster'] = self.get_cluster(force_nb_cpu_cores=int(self.options['nb_core']))
-                    integrator_options['pySecDec_path'] = self.pyNLoop_options['pySecDec_path']
-                    if integrator_name=='Vegas3':
-                        if options['phase_computed']=='All':
-                            logger.warning('Vegas3 integrator cannot simultaneously integrate the real and imaginary part of'+
-                                    " the loop for now. The user's choice 'All' for 'phase_computed' is reverted to 'Real'.")
-                            loop_integrand.phase_computed = 'Real'
-                        integrator = Vegas3Integrator(loop_integrand, **integrator_options)
-                    elif integrator_name=='pySecDec':
-                        integrator = pysecdec_integrator.pySecDecIntegrator(loop_integrand, **integrator_options)
-                    elif integrator_name=='Cuba':
-                        integrator = pyCubaIntegrator(loop_integrand, **integrator_options)
-                    else:
-                        raise pyNLoopInterfaceError("Integrator '%s' not implemented."%integrator_name)
-
+                    # Assign the new kinematic configuration
+                    integrands_for_channel[channel].assign_kinematic_configuration(external_momenta)
                     with misc.Silence(active = options['verbosity'] <= 1):
-                        amplitude, error = integrator.integrate()
+                        amplitude, error = integrators_for_channel[channel].integrate()
 
                     if options['verbosity'] > 0:
                         logger.debug('Amplitude for channel {}: {} +/- {}'.format(channel, amplitude, error))
@@ -967,8 +984,8 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 errors.append(math.sqrt(summed_error))
 
             # Now compute the analytical result for this point
-            if avh_oneloop_hook:
-                analytic_res_real, analytic_res_real_imag = avh_oneloop_hook.compute_one_loop_box(external_momenta)
+            if analytic_results_available:
+                analytic_res_real, analytic_res_real_imag = first_integrand.get_analytic_result(external_momenta)
                 if options['phase_computed'] == 'Real':
                     results_analytic.append(analytic_res_real[0])
                 elif options['phase_computed'] == 'Imaginary':
@@ -976,14 +993,14 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             if options['verbosity'] > 0:
                 logger.debug('Results obtained for the PS point above:\nAnalytic: %s\npyNLoop : %s\nMC_error: %s'%
-                        ('%.16e'%results_analytic[-1] if avh_oneloop_hook else 'N/A',
+                        ('%.16e'%results_analytic[-1] if analytic_results_available else 'N/A',
                          '%.16e'%results[-1] if options['compute_numerical_result'] else 'N/A',
                          '%.2e'%errors[-1] if options['compute_numerical_result'] else 'N/A' ))
 
             res_summary.write('{:.3f}\t\t{:.3f}\t\t{}\t\t{}\t\t{}\n'.format(theta, phi,
                     results[-1] if options['compute_numerical_result'] else 0.,
                     errors[-1] if options['compute_numerical_result'] else 0.,
-                    results_analytic[-1] if avh_oneloop_hook else 0.)
+                    results_analytic[-1] if analytic_results_available else 0.)
             )
 
         if progress_bar:
@@ -995,7 +1012,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         all_handles = []
         if options['compute_numerical_result']:
             all_handles.append(plt.errorbar(x=thetas, y=results, yerr=errors, label='pyNLoop'))
-        if avh_oneloop_hook:
+        if analytic_results_available:
             all_handles.append(plt.errorbar(x=thetas, y=results_analytic, yerr=[0.,]*len(results_analytic), label='oneLOop'))
         plt.legend(handles=all_handles)
         plt.xlabel('theta')

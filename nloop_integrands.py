@@ -23,6 +23,8 @@ import numpy as np
 from pyNLoop import plugin_path
 import ctypes
 
+import utils
+
 logger = logging.getLogger('pyNLoop.Integrand')
 
 pjoin = os.path.join
@@ -78,6 +80,11 @@ class NLoopIntegrand(integrands.VirtualIntegrand):
         self.topology = topology
         self.integral_scaling = 1.0 # scaling of the integral
 
+    def assign_kinematic_configuration(self, PS_point):
+        """ Function allowing to redefine a new kinematic configuration, re-instantiating what must be re-instantiated."""
+        raise NotImplementedError("Daughter integrand classes must define the function 'assign_kinematic_configuration' for"+
+                                  " it to be available, as the actions that must be taken here are particular to each.")
+
     def get_integrated_counterterms(self):
         """ In case local numerical subtraction is employed, then the integrand of the
         correpsonding integrated counterterms must be returned as well."""
@@ -113,6 +120,17 @@ class NLoopIntegrand(integrands.VirtualIntegrand):
         """ Actual evaluation of the call."""
 
         raise NotImplementedError
+
+    # Handling of the analytic result. By default, set it non-available
+    def setup_analytic_computation(self, pyNLoop_command, *args, **opts):
+        """ Performs tasks possibly necessary (like loading a library) for computing the analytic result"""
+        pass
+    def is_analytic_result_available(self, *args, **opts):
+        """ Checks if an analytical result exists for this integrand."""
+        return False
+    def get_analytic_result(self, PS_point, *args, **opts):
+        """ Return the real and imaginary part of the analytical result."""
+        raise NotImplementedError('Analytic result apparently not available for integrand %s.'%self.nice_string())
 
 class IntegratedCounterterm(object):
     """ Container class from which integrated counterterms inherit."""
@@ -949,6 +967,7 @@ class box1L_direct_integration(NLoopIntegrand):
 #            p.boost(-boost_vector)
 
         #
+        self.cpp_integrand = cpp_integrand
 
         self.channel = channel
         if self.channel:
@@ -956,23 +975,50 @@ class box1L_direct_integration(NLoopIntegrand):
         # Add the channel to the loop momentum generator options
         loop_momenta_generator_options['channel'] = self.channel
 
-        self.loop_momentum_generator = loop_momenta_generator_class( topology,
-                                                                self.external_momenta, **loop_momenta_generator_options)
+
+        self.loop_momenta_generator_class = loop_momenta_generator_class
+        self.loop_momenta_generator_options = loop_momenta_generator_options
+        self.assign_kinematic_configuration(self.external_momenta)
+
+    def assign_kinematic_configuration(self, PS_point):
+        """ Function allowing to redefine a new kinematic configuration, re-instantiating what must be re-instantiated."""
+        self.external_momenta = PS_point
+        self.loop_momentum_generator = self.loop_momenta_generator_class( self.topology,
+                                                        self.external_momenta, **self.loop_momenta_generator_options)
 
         self.integrand_cpp_interface = None
-        if cpp_integrand:
-            self.integrand_cpp_interface = IntegrandCPPinterface(topology, self.loop_momentum_generator.q_is)
+        if self.cpp_integrand:
+            self.integrand_cpp_interface = IntegrandCPPinterface(self.topology, self.loop_momentum_generator.q_is)
             if self.channel is not None:
                 self.integrand_cpp_interface.set_option('CHANNEL_ID', self.channel)
             self.integrand_cpp_interface.set_option('UVSQ', -1.e3j * self.loop_momentum_generator.sqrt_S)
             self.integrand_cpp_interface.set_option('S12', (self.external_momenta[1] + self.external_momenta[2]).square())
             self.integrand_cpp_interface.set_option('S23', (self.external_momenta[2] + self.external_momenta[3]).square())
 
+        self.define_loop_integrand(self.topology)
 
-#        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_NoDeformation(topology, self.external_momenta)
-#        self.loop_momentum_generator = loop_momenta_generator.OneLoopMomentumGenerator_SimpleDeformation(topology, self.external_momenta)
+    def setup_analytic_computation(self, pyNLoop_command, *args, **opts):
+        """ Performs tasks possibly necessary (like loading a library) for computing the analytic result"""
 
-        self.define_loop_integrand(topology)
+        self.avh_oneloop_hook = utils.AVHOneLOopHook(heptools_install_dir=
+            pyNLoop_command.options['heptools_install_dir'] if 'heptools_install_dir' in pyNLoop_command.options else None,
+            f2py_compiler=pyNLoop_command.options['f2py_compiler'] if pyNLoop_command.options['f2py_compiler'] else 'f2py')
+
+        if not self.avh_oneloop_hook.is_available():
+            logger.warning('AVH OneLOop library could not be properly loaded. '+
+                                          'Analytic results for integrand %s will not be available.'%self.nice_string())
+            self.avh_oneloop_hook = None
+
+    def is_analytic_result_available(self, *args, **opts):
+        """ Checks if an analytical result exists for this integrand."""
+        return (self.avh_oneloop_hook is not None)
+
+    def get_analytic_result(self, PS_point, *args, **opts):
+        """ Return the real and imaginary part of the analytical result."""
+        if not self.is_analytic_result_available():
+            raise IntegrandError('Analytic computation for integrand %s is not available.'%self.nice_string())
+        with misc.Silence():
+            return self.avh_oneloop_hook.compute_one_loop_box(PS_point, loop_propagator_masses = self.loop_propagator_masses)
 
     def define_loop_integrand(self, topology):
         """Possibly generates new instance attributes book-keeping some representation of the loop integrand."""
@@ -1119,6 +1165,16 @@ class box1L_direct_integration(NLoopIntegrand):
 class box1L_direct_integration_subtracted(box1L_direct_integration):
     """ Implementation of the box1L with external momenta massless and onshell, using subtraction."""
 
+    def setup_analytic_computation(self, pyNLoop_command, *args, **opts):
+        """ Performs tasks possibly necessary (like loading a library) for computing the analytic result"""
+        pass
+    def is_analytic_result_available(self, *args, **opts):
+        """ Checks if an analytical result exists for this integrand."""
+        return False
+    def get_analytic_result(self, PS_point, *args, **opts):
+        """ Return the real and imaginary part of the analytical result."""
+        raise NotImplementedError('Analytic result apparently not available for integrand %s.'%self.nice_string())
+
     def get_local_counterterms(self, l_mom):
         """ Get counterterms to the current loop integrand."""
 
@@ -1134,6 +1190,16 @@ class box1L_direct_integration_subtracted(box1L_direct_integration):
 
 
 class box1L_direct_integration_one_offshell_subtracted(box1L_direct_integration_subtracted):
+
+    def setup_analytic_computation(self, pyNLoop_command, *args, **opts):
+        """ Performs tasks possibly necessary (like loading a library) for computing the analytic result"""
+        pass
+    def is_analytic_result_available(self, *args, **opts):
+        """ Checks if an analytical result exists for this integrand."""
+        return False
+    def get_analytic_result(self, PS_point, *args, **opts):
+        """ Return the real and imaginary part of the analytical result."""
+        raise NotImplementedError('Analytic result apparently not available for integrand %s.'%self.nice_string())
 
     def __init__(self, *args, **opts):
         """ Here, we only need to make sure that the CPP integrand is used."""
