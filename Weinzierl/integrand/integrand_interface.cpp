@@ -91,7 +91,7 @@ int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_r
   case 2:
     function = box1L_subtracted(ell, Qs);
     break;
-   /* === BOX ALL ON-SHELL SUBTRACTED === */
+   /* === BOX ALL ON-SHELL SUBTRACTED WITH CHANNELS === */
  
   case 3:
     function = box1L_subtracted_ch(ell, Qs, channel_id);
