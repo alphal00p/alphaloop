@@ -53,7 +53,7 @@ def find_one_loop_path(heptools_install_dir=None):
 
 class AVHOneLOopHook(object):
 
-    def __init__(self, hook_path=None, OneLOop_lib_path=None, OneLOop_include_path=None, heptools_install_dir=None):
+    def __init__(self, hook_path=None, OneLOop_lib_path=None, OneLOop_include_path=None, heptools_install_dir=None, f2py_compiler='f2py'):
         """ Given the path of both the hook interface and of the OneLOop library, this instantiates an object
         ready to compute arbitrary scalar loops."""
 
@@ -89,7 +89,8 @@ class AVHOneLOopHook(object):
             logger.info('Now compiling shared library pyAVH_OneLOop_hook.so in path %s'%hook_path)
             misc.compile(arg=['pyAVH_OneLOop_hook.so',
                               'ONELOOP_LIB_PATH=%s'%OneLOop_lib_path,
-                              'ONELOOP_INC_PATH=%s'%OneLOop_include_path], cwd=hook_path)
+                              'ONELOOP_INC_PATH=%s'%OneLOop_include_path,
+                              'F2PY=%s'%f2py_compiler], cwd=hook_path)
 
 
             if os.path.dirname(hook_path) not in sys.path:
