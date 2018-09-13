@@ -147,8 +147,8 @@ class AVHOneLOopHook(object):
         p_sq2 = PS_point[2].square()
         p_sq3 = PS_point[3].square()
         p_sq4 = PS_point[4].square()
-        p_12  = PS_point[1].dot(PS_point[2])
-        p_23  = PS_point[2].dot(PS_point[3])
+        p_12  = (PS_point[1] + PS_point[2]).square()
+        p_23  = (PS_point[2] + PS_point[3]).square()
         m1, m2 , m3 , m4 = loop_propagator_masses
 
         result = self.avh_oneloop_hook.compute_one_loop_box(p_sq1,p_sq2,p_sq3,p_sq4,p_12,p_23,m1,m2,m3,m4)
