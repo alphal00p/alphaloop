@@ -1020,6 +1020,10 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             plt.title('{}'.format(chosen_topology_name))
         else:
             plt.title('Channel {} of {}'.format(options['channel'], chosen_topology_name))
+
+        if options['log_axis']:
+            plt.yscale('log')
+
         plt.show()
 
     def parse_plot_box_scattering_angle_options(self, args):
@@ -1037,6 +1041,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'range'                 : (0., math.pi * 0.99),
             'n_points'              : 10,
             'channel'               : None,
+            'log_axis'              : False,
             'show_plot'             : True,
             'save_plot'             : '',
             'compute_analytic_result': True,
