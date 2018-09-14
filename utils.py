@@ -140,9 +140,9 @@ class AVHOneLOopHook(object):
 
         if self.avh_oneloop_hook is None:
             logger.warning('The AVHOneLOopHook could not be properly loaded. Returning dummy zero result then.')
-            return base_objects.EpsilonExpansion({  0 : 0.+0.j,
-                                                   -1 : 0. + 0.j,
-                                                   -2 : 0. + 0.j   })
+            return base_objects.EpsilonExpansion({0: 0., -1: 0., -2: 0.}), \
+                   base_objects.EpsilonExpansion({0: 0., -1: 0., -2: 0.})
+
         p_sq1 = PS_point[1].square()
         p_sq2 = PS_point[2].square()
         p_sq3 = PS_point[3].square()
@@ -153,11 +153,27 @@ class AVHOneLOopHook(object):
 
         result = self.avh_oneloop_hook.compute_one_loop_box(p_sq1,p_sq2,p_sq3,p_sq4,p_12,p_23,m1,m2,m3,m4)
 
-        return base_objects.EpsilonExpansion({0: result[0].real, -1: result[1].real, -2: result[2].real}), \
-               base_objects.EpsilonExpansion({0: result[0].imag, -1: result[1].imag, -2: result[2].imag})
+        return base_objects.EpsilonExpansion({0: float(result[0].real), -1: float(result[1].real), -2: float(result[2].real)}), \
+               base_objects.EpsilonExpansion({0: float(result[0].imag), -1: float(result[1].imag), -2: float(result[2].imag)})
 
     def compute_one_loop_triangle(self, PS_point, loop_propagator_masses=(0.,0.,0.)):
-        raise NotImplementedError('Function compute_one_loop_triangle not implemented yet.')
+        """ Computes an arbitrary triangle from the PS_point and loop_propagator_masses specified.
+        Returns two epsilon expansion, one for the real part and one for the imaginary part."""
+
+        if self.avh_oneloop_hook is None:
+            logger.warning('The AVHOneLOopHook could not be properly loaded. Returning dummy zero result then.')
+            return base_objects.EpsilonExpansion({0: 0., -1: 0., -2: 0.}), \
+                   base_objects.EpsilonExpansion({0: 0., -1: 0., -2: 0.})
+
+        p_sq1 = PS_point[1].square()
+        p_sq2 = PS_point[2].square()
+        p_sq3 = PS_point[3].square()
+        m1, m2 , m3 = loop_propagator_masses
+
+        result = self.avh_oneloop_hook.compute_one_loop_triangle(p_sq1,p_sq2,p_sq3,m1,m2,m3)
+
+        return base_objects.EpsilonExpansion({0: float(result[0].real), -1: float(result[1].real), -2: float(result[2].real)}), \
+               base_objects.EpsilonExpansion({0: float(result[0].imag), -1: float(result[1].imag), -2: float(result[2].imag)})
 
     def compute_one_loop_bubble(self, PS_point, loop_propagator_masses=(0.,0.)):
         raise NotImplementedError('Function compute_one_loop_bubble not implemented yet.')

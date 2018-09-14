@@ -1168,13 +1168,54 @@ class box1L_direct_integration_subtracted(box1L_direct_integration):
 
     def setup_analytic_computation(self, pyNLoop_command, *args, **opts):
         """ Performs tasks possibly necessary (like loading a library) for computing the analytic result"""
-        pass
+
+        self.avh_oneloop_hook = utils.AVHOneLOopHook(heptools_install_dir=
+            pyNLoop_command.options['heptools_install_dir'] if 'heptools_install_dir' in pyNLoop_command.options else None,
+            f2py_compiler=pyNLoop_command.options['f2py_compiler'] if pyNLoop_command.options['f2py_compiler'] else 'f2py')
+
+        if not self.avh_oneloop_hook.is_available():
+            logger.warning('AVH OneLOop library could not be properly loaded. '+
+                                          'Analytic results for integrand %s will not be available.'%self.nice_string())
+            self.avh_oneloop_hook = None
+
     def is_analytic_result_available(self, *args, **opts):
         """ Checks if an analytical result exists for this integrand."""
-        return False
+        return ((self.avh_oneloop_hook is not None) and all(m==0. for m in self.loop_propagator_masses))
+
     def get_analytic_result(self, PS_point, *args, **opts):
         """ Return the real and imaginary part of the analytical result."""
-        raise NotImplementedError('Analytic result apparently not available for integrand %s.'%self.nice_string())
+
+        if not self.is_analytic_result_available():
+            raise IntegrandError('Analytic computation for integrand %s is not available.'%self.nice_string())
+
+        # First compute the box
+        box_res_re, box_res_im = None, None
+        with misc.Silence():
+            box_res_re, box_res_im = self.avh_oneloop_hook.compute_one_loop_box(PS_point, loop_propagator_masses = (0.,0.,0.,0.))
+
+        # Now subtract the pinched boxes, aka triangles
+        s = (PS_point[3] + PS_point[4]).square()
+        t = (PS_point[3] + PS_point[2]).square()
+
+        with misc.Silence():
+            tri_res_re, tri_res_im = self.avh_oneloop_hook.compute_one_loop_triangle( vectors.LorentzVectorDict(
+                       { 1:PS_point[2], 2:PS_point[3], 3:(PS_point[1]+PS_point[4]) } ), loop_propagator_masses = (0.,0.,0.))
+            box_res_re -= tri_res_re * (1. / s)
+            box_res_im -= tri_res_im * (1. / s)
+            tri_res_re, tri_res_im = self.avh_oneloop_hook.compute_one_loop_triangle( vectors.LorentzVectorDict(
+                       { 1:PS_point[1], 2:PS_point[4], 3:(PS_point[2]+PS_point[3]) } ), loop_propagator_masses = (0.,0.,0.))
+            box_res_re -= tri_res_re * (1. / s)
+            box_res_im -= tri_res_im * (1. / s)
+            tri_res_re, tri_res_im = self.avh_oneloop_hook.compute_one_loop_triangle( vectors.LorentzVectorDict(
+                       { 1:PS_point[1], 2:PS_point[2], 3:(PS_point[3]+PS_point[4]) } ), loop_propagator_masses = (0.,0.,0.))
+            box_res_re -= tri_res_re * (1. / t)
+            box_res_im -= tri_res_im * (1. / t)
+            tri_res_re, tri_res_im = self.avh_oneloop_hook.compute_one_loop_triangle( vectors.LorentzVectorDict(
+                       { 1:PS_point[3], 2:PS_point[4], 3:(PS_point[1]+PS_point[2]) } ), loop_propagator_masses = (0.,0.,0.))
+            box_res_re -= tri_res_re * (1. / t)
+            box_res_im -= tri_res_im * (1. / t)
+
+        return box_res_re, box_res_im
 
     def get_local_counterterms(self, l_mom):
         """ Get counterterms to the current loop integrand."""
