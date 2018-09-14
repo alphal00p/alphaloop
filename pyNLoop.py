@@ -1556,6 +1556,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     logger.warning('Vegas3 integrator cannot simultaneously integrate the real and imaginary part of'+
                               " the loop for now. The user's choice 'All' for 'phase_computed' is reverted to 'Real'.")
                     loop_integrand.phase_computed = 'Real'
+                    options['phase_computed'] = 'Real'
                 integrator = Vegas3Integrator(loop_integrand, **integrator_options)
             elif integrator_name=='pySecDec':
                 integrator = pysecdec_integrator.pySecDecIntegrator(loop_integrand, **integrator_options)
@@ -1595,10 +1596,11 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             analytical_result = None
             if analytic_results_available:
                 analytic_res_real, analytic_res_imag = loop_integrand.get_analytic_result(random_PS_point)
+
                 if options['phase_computed'] == 'Real':
-                    analytical_result = analytic_res_real[0]
+                    analytical_result = analytic_res_real
                 elif options['phase_computed'] == 'Imaginary':
-                    analytical_result = analytic_res_imag[0]
+                    analytical_result = analytic_res_imag
 
    
             # Aggregate this result to existing ones
@@ -1606,7 +1608,7 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             all_integrands_error += error
             
             run_output_path = MG5DIR
-            self.print_results(loop_integrand, integrator, amplitude, error, analytic=analytical_result, channel=options['channel'])
+            self.print_results(loop_integrand, integrator, amplitude, error, options['phase_computed'], analytic=analytical_result, channel=options['channel'])
 
             # Write the result in 'cross_sections.dat' of the result directory
             self.dump_result_to_file(
@@ -1618,22 +1620,22 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if len(all_integrands)>1:
             # Now close the result summary file after having reported the aggregated results
             self.print_results(all_integrands[0], integrator,
-                    all_integrands_amplitude, all_integrands_error, label='Aggregated results')
+                    all_integrands_amplitude, all_integrands_error, options['phase_computed'], label='Aggregated results for phase %s' % options['phase_computed'])
         # Write the result in 'cross_sections.dat' of the result directory
         self.dump_result_to_file(res_summary, all_integrands[0].n_loops,
                       all_integrands_amplitude, all_integrands_error, 'Aggregated results')
         res_summary.close()
 
-    def print_results(self, loop_integrand, integrator, amplitude, error, label=None, analytic=None, channel=None):
+    def print_results(self, loop_integrand, integrator, amplitude, error, phase, label=None, analytic=None, channel=None,):
         """ Print to screen the results for that particular amplitude evaluation and its MC error."""
         
         if MPI_RANK==0:
             logger.info("="*150)
             if label is None:
                 if channel is not None and channel > 0:
-                    logger.info('{:^150}'.format("Integral of '%s' (channel %s) with integrator '%s':"%(loop_integrand.nice_string(), channel, integrator.get_name())))
+                    logger.info('{:^150}'.format("Integral of '%s' (channel %s, %s phase) with integrator '%s':"%(loop_integrand.nice_string(), channel, phase, integrator.get_name())))
                 else:
-                    logger.info('{:^150}'.format("Integral of '%s' with integrator '%s':"%(loop_integrand.nice_string(), integrator.get_name())))
+                    logger.info('{:^150}'.format("Integral of '%s' (%s phase) with integrator '%s':"%(loop_integrand.nice_string(), phase, integrator.get_name())))
             else:
                 logger.info('{:^150}'.format(label))
             logger.info('')
@@ -1644,7 +1646,9 @@ class pyNLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             logger.info('')
 
             if analytic is not None:
-                logger.info('Analytical:    (%-56s)' % analytic)
+                logger.info('Analytical:    (%-56s)' % analytic[0])
+                for eps_index in range(1,loop_integrand.n_loops*2+1):
+                    logger.info(' '*15 + '(%-56s) %s' % (analytic[-eps_index], EPSILONS[-eps_index]))
             logger.info("="*150+"\n")
 
     def dump_result_to_file(self, stream, n_loops, amplitude, error, title):
