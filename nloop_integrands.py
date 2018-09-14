@@ -978,19 +978,20 @@ class box1L_direct_integration(NLoopIntegrand):
 
         self.loop_momenta_generator_class = loop_momenta_generator_class
         self.loop_momenta_generator_options = loop_momenta_generator_options
-        self.assign_kinematic_configuration(self.external_momenta)
+        self.assign_kinematic_configuration(self.external_momenta, self.channel)
 
-    def assign_kinematic_configuration(self, PS_point):
+    def assign_kinematic_configuration(self, PS_point, channel):
         """ Function allowing to redefine a new kinematic configuration, re-instantiating what must be re-instantiated."""
+        self.channel = channel
         self.external_momenta = PS_point
+        self.loop_momenta_generator_options['channel'] = channel
         self.loop_momentum_generator = self.loop_momenta_generator_class( self.topology,
                                                         self.external_momenta, **self.loop_momenta_generator_options)
 
         self.integrand_cpp_interface = None
         if self.cpp_integrand:
             self.integrand_cpp_interface = IntegrandCPPinterface(self.topology, self.loop_momentum_generator.q_is)
-            if self.channel is not None:
-                self.integrand_cpp_interface.set_option('CHANNEL_ID', self.channel)
+            self.integrand_cpp_interface.set_option('CHANNEL_ID', -1 if self.channel is None else self.channel)
             self.integrand_cpp_interface.set_option('UVSQ', -1.e3j * self.loop_momentum_generator.sqrt_S)
             self.integrand_cpp_interface.set_option('S12', (self.external_momenta[1] + self.external_momenta[2]).square())
             self.integrand_cpp_interface.set_option('S23', (self.external_momenta[2] + self.external_momenta[3]).square())

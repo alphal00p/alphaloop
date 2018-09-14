@@ -4,8 +4,8 @@
 extern "C"
 {
 
-int integrand_id;
-int channel_id;
+int integrand_id = 0;
+int channel_id = -1;
 my_comp mu_UVsq, s12, s23;
 std::vector<DIdeform::R4vector> Qs;
 
