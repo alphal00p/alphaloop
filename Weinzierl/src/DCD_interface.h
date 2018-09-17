@@ -14,6 +14,7 @@
 
 #define _OP_MAPPING 31
 #define _OP_CHANNEL_ID 41
+#define _OP_MU_UV_SQ 51
 
 /***********************************************************
  * The error are coded as follows:
@@ -40,6 +41,9 @@ extern "C"
   int update_mapping(int v[], int d, short int& deformer_mapping);
   int set_channel_id(int v[], int d, int &channel, bool &external_channel_id);
   int update_channel_id(int v[], int d, short int& channel_id);
+
+  int set_UV_offset(double v[], int d);
+  int set_mu_UV(double v[], int d);
 
   //First one needs to give the Qs
   int append_Q(double v[], int d);

@@ -106,7 +106,7 @@ namespace DIdeform
     my_real gamma2 = 0.008;
     my_real E_soft = 0.03;
     my_real Ecmsq, mu_P, M1sq, M2sq, M3sq, M4sq;
-    my_comp mu_UVsq = my_comp(0.0, -1e5);
+    my_comp mu_UVsq = my_comp(0.0, -1e5); // should scale with problem
     short int which_hypercube_map = 0;
     short int channel_id = -1;
 
@@ -183,6 +183,7 @@ namespace DIdeform
     R4vector gradYi(int i);
     R4vector gradlambda_i(int i);
     R4vector gradlambda_coll();
+    R4vector gradlambda_UV();
 
     //Conformal Mapping
     R4vector weinzierl_mapping(std::vector<my_real> x, my_real& jacobian);
@@ -198,6 +199,7 @@ namespace DIdeform
 
   public:
     R4vector l; //loop momentum
+    R4vector UV_offset;
 
     std::vector<R4vector> qi;  // qi are given as input
     std::vector<R4vector> pi;  // pi are the external momenta

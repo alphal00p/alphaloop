@@ -769,9 +769,13 @@ my_real DIdeform::ContourDeform::lambda_coll()
 }
 
 my_real DIdeform::ContourDeform::lambda_UV(){
-    //TODO: unterstand what kbar stands for
-    //TODO: write derivative
-    return 1;
+    my_real b = 4 * ((l - UV_offset) * k0);
+    if (b > mu_UVsq.imag()) {
+      return 1;
+    } else {
+      return mu_UVsq.imag() / b;
+    }
+
 }
 
 void DIdeform::ContourDeform::set_lambda()
@@ -807,6 +811,16 @@ void DIdeform::ContourDeform::set_lambda()
     which = 4;
     lambda = lambda_tmp;
     grad = gradlambda_coll();
+    for (int mu = 0; mu < 4; mu++)
+    {
+      gradlambda[mu] = grad(mu);
+    }
+  }
+
+  lambda_tmp = lambda_UV();
+  if (lambda_tmp < lambda) {
+    lambda = lambda_tmp;
+    grad = gradlambda_UV();
     for (int mu = 0; mu < 4; mu++)
     {
       gradlambda[mu] = grad(mu);
@@ -885,6 +899,17 @@ DIdeform::R4vector DIdeform::ContourDeform::gradlambda_coll()
 
   return -4.0 * std::pow(lambda_coll(), 2) * gradC;
 }
+
+DIdeform::R4vector DIdeform::ContourDeform::gradlambda_UV()
+{
+    my_real b = 4 * ((l - UV_offset) * k0);
+    if (b > mu_UVsq.imag()) {
+      return R4vector();
+    } else {
+      return -4*mu_UVsq.imag() / (b * b) * k0;
+    }
+}
+
 /*--------------- END - Class ContourDefrom   --------------------*/
 
 // Function Determinant(M,d).

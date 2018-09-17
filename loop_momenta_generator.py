@@ -518,7 +518,8 @@ class DeformationCPPinterface(object):
         'Gamma1'    : 21,
         'Gamma2'    : 22,
         'Mapping'   : 31,
-        'Channel_ID': 41
+        'Channel_ID': 41,
+        'mu_UV_sq'  : 51,
     }
 
 
@@ -538,6 +539,9 @@ class DeformationCPPinterface(object):
     # append Q
     _hook.append_Q.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
     _hook.append_Q.restype  = (ctypes.c_int);
+    # set UV offset
+    _hook.set_UV_offset.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
+    _hook.set_UV_offset.restype  = (ctypes.c_int);
     # feed P+ and P-
     _hook.set_Pp.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
     _hook.set_Pm.argtypes = (ctypes.POINTER(ctypes.c_double),ctypes.c_int);
@@ -592,6 +596,12 @@ class DeformationCPPinterface(object):
         dim = len(q)
         array_type = ctypes.c_double * dim
         return self._hook.append_Q(array_type(*q), dim)
+
+    def set_UV_offset(self, q):
+        if self._debug_cpp: logger.debug(self.__class__.__name__+': In set_UV_offset with q=%s'%str(q))
+        dim = len(q)
+        array_type = ctypes.c_double * dim
+        return self._hook.set_UV_offset(array_type(*q), dim)
 
     def set_option(self, option_name, option_values):
         if option_name not in self._valid_hyper_parameters:

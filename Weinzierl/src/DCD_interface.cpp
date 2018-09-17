@@ -18,11 +18,12 @@ extern "C"
 
     //Deformer arguments
     std::vector<DIdeform::R4vector> Qs;
-    DIdeform::R4vector Pp, Pm, loop_momentum;
+    DIdeform::R4vector Pp, Pm, loop_momentum, UV_offset;
     double M1_factor, M2_factor, M3_factor, M4_factor;
     double gamma1, gamma2;
     int mapping;
     int channel_id;
+    double mu_UV;
 
     //Additional arguments flags
     bool external_Pp = false;
@@ -35,6 +36,7 @@ extern "C"
     bool external_gamma2 = false;
     bool external_mapping = false;
     bool external_channel_id = false;
+    bool external_mu_uv = false;
 
     //Deformer outputs
     DIdeform::C4vector deformed_loop_momentum;
@@ -115,6 +117,11 @@ extern "C"
                 return set_gamma(v, d, gamma2, external_gamma2);
             else
                 return update_gamma(v, d, deformer->gamma2);
+        }
+
+        case _OP_MU_UV_SQ:
+        {
+            return set_mu_UV(v, d);
         }
 
         default:
@@ -243,6 +250,7 @@ extern "C"
 
         return 0;
     }
+
     int update_gamma(double v[], int d, my_real &deformer_gamma)
     {
         //If deformer exists set new gamma, otherwise do it later
@@ -252,6 +260,20 @@ extern "C"
             return 1;
         deformer_gamma = v[0];
         deformer->set_global_var();
+        return 0;
+    }
+
+    int set_mu_UV(double v[], int d)
+    {
+        if (d != 1)
+            return 1;
+
+        mu_UV = v[0];
+        if (deformer != NULL) {
+            deformer->mu_UVsq = my_comp(0.0, mu_UV);
+        }
+
+        external_mu_uv = true;
         return 0;
     }
 
@@ -272,6 +294,25 @@ extern "C"
 
         return 0;
     }
+
+    int set_UV_offset(double v[], int d)
+    {
+        //Check dimension
+        if (d != 4)
+            return 1;
+
+        for (int i = 0; i < 4; i++)
+        {
+            UV_offset[i] = v[i];
+        }
+
+        if (deformer != NULL) {
+            deformer->UV_offset = UV_offset;
+        }
+
+        return 0;
+    }
+
     /*
      * This function needs the Qs vectors from the propagators
      * and the P+ and P- vector the the external deformation=
@@ -311,6 +352,8 @@ extern "C"
                 deformer->gamma1 = gamma1;
             if (external_gamma2)
                 deformer->gamma2 = gamma2;
+            if (external_mu_uv)
+                deformer->mu_UVsq = my_comp(0.0, mu_UV);
             if (external_mapping)
                 deformer->which_hypercube_map = mapping;
             if (external_channel_id)
@@ -319,6 +362,8 @@ extern "C"
             if (!deformer->test_PpPm(Qs))
                 return 5;
         }
+
+        deformer->UV_offset = UV_offset;
 
         //std::printf("M1_factor:\t%f   |   ", deformer->M1f);
         //std::printf("M2_factor:\t%f   |   ", deformer->M2f);
