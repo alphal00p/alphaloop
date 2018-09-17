@@ -300,6 +300,13 @@ void DIdeform::ContourDeform::set_global_var()
   std::vector<DIdeform::R4vector>(4).swap(ei);
   for (int mu = 0; mu < 4; mu++)
     ei[mu][mu] = E_soft * std::sqrt(Ecmsq);
+
+  // set the UV offset to have the fastest drop-off
+  UV_offset = R4vector();
+  for (int i = 0; i < legs; i++) {
+    UV_offset = UV_offset + qi[i];
+  }
+  UV_offset = 1.0 / my_real(legs) * UV_offset;
 }
 
 /*==========================================================

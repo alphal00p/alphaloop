@@ -8,6 +8,7 @@ int integrand_id = 0;
 int channel_id = -1;
 my_comp mu_UVsq, s12, s23;
 std::vector<DIdeform::R4vector> Qs;
+DIdeform::R4vector UV_offset;
 
 int set_factor_int(short int op_id, int value)
 {
@@ -100,6 +101,12 @@ int evaluate(double* loop_momentum_real, double* loop_momentum_imag, double& f_r
  
   case 4:
     function = box1L_one_offshell_subtracted(ell, Qs, mu_UVsq, s12, s23);
+    break;
+
+   /* === BOX ALL ON-SHELL SUBTRACTED WITH CHANNELS AND UV SUPPRESSION === */
+ 
+  case 5:
+    function = box1L_subtracted_ch_uv_int(ell, Qs, channel_id, mu_UVsq);
     break;
   default:
     return 1;

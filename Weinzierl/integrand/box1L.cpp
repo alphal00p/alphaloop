@@ -137,6 +137,55 @@ my_comp box1L_subtracted(C4vector &ell, std::vector<R4vector> &Qs)
     }
 }
 
+ my_comp box1L_subtracted_ch_uv_int(C4vector &ell, std::vector<R4vector> &Qs, int ch_id, my_comp& mu_UVsq)
+{
+    my_comp factor = 1.0 / ii / std::pow(M_PI, 2);
+
+    // compute the UV offset
+    R4vector UV_offset;
+    for (int i = 0; i < 4; i++) {
+        UV_offset = UV_offset + Qs[i];
+    }
+    UV_offset = 1.0 / 4.0 * UV_offset;
+
+    //Denominator
+    my_comp denominator = 1.;
+    my_comp uv_denominator = 1.;
+    for (int i = 0; i < 4; i++) {
+        denominator *= (ell - Qs[i]).square();
+        uv_denominator *= (ell - UV_offset).square() - mu_UVsq;
+    }
+
+    //Regulator
+    my_comp F = 1;
+    my_real sij;
+    for (int i = 0; i < 4; i++)
+    {
+        sij = (Qs[i % 2] - Qs[i % 2 + 2]).square();
+        F -= (ell - Qs[i]).square() / sij;
+    }
+
+    if (ch_id >= 0 && ch_id < 3) {
+        //Channelling a la Weinzierl
+        my_comp MC_factor=0.0;
+        my_comp tmp = 0;
+        for (int i = 0; i < 3; i++)
+        {
+            tmp = 1.0 / (std::abs((ell - Qs[i]).square()) * std::abs((ell - Qs[i + 1]).square()));
+            MC_factor += tmp * tmp;
+
+            if (i == ch_id) {
+                factor *= tmp;
+                factor *= tmp;
+            }
+        }
+
+        return factor * (F / denominator - F / uv_denominator) / MC_factor;
+    } else {
+        return factor * (F / denominator - F / uv_denominator);
+    }
+}
+
 /* One loop box with one off-shell external momenta 
  * The poles have been removed by the subtraction term
  * I = (1-A13/s - A24/t)/(A1 A2 A3 A4) 

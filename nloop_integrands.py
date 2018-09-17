@@ -1268,7 +1268,8 @@ class IntegrandCPPinterface(object):
     _topo_map = {
         'box1L_direct_integration': 1,
         'box1L_direct_integration_subtracted': 3,
-        'box1L_direct_integration_one_offshell_subtracted': 4
+        'box1L_direct_integration_one_offshell_subtracted': 4,
+        'box1L_direct_integration_subtracted_uv_int': 5,
     }
 
     def compile_CPP_integrand_library(path):
