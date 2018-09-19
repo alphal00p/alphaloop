@@ -1,0 +1,18 @@
+[package]
+name = "integrand"
+version = "0.1.0"
+authors = ["Ben Ruijl <benruyl@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "integrand"
+crate-type = ["cdylib"]
+
+[dependencies.cpython]
+git = "https://github.com/dgrunwald/rust-cpython"
+version = "0.2"
+features = ["extension-module"]
+
+[dependencies]
+vector = { path = "../vector" }
+num = "0.2"

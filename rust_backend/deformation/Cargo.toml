@@ -1,0 +1,8 @@
+[package]
+name = "deformation"
+version = "0.1.0"
+authors = ["Ben Ruijl <benruyl@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+vector = { path = "../vector" }
