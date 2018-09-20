@@ -18,7 +18,7 @@ py_module_initializer!(integrand, initintegrand, PyInit_integrand, |py, m| {
 py_class!(class Integrand |py| {
     data integrand: RefCell<integrands::Integrand>;
 
-    def __new__(_cls, id: &str, channel: i32, region: i32, mu_sq: f64) -> PyResult<Integrand> {
+    def __new__(_cls, id: &str, channel: usize, region: usize, mu_sq: f64) -> PyResult<Integrand> {
         let int = integrands::Integrand::new(id, channel, region, mu_sq).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         Integrand::create_instance(py, RefCell::new(int))
     }
@@ -44,7 +44,7 @@ py_class!(class Integrand |py| {
         Ok(true)
     }
 
-    def set_channel(&self, channel: i32) -> PyResult<bool> {
+    def set_channel(&self, channel: usize) -> PyResult<bool> {
         self.integrand(py).borrow_mut().channel = channel;
         Ok(true)
     }

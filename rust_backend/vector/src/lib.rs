@@ -52,7 +52,7 @@ impl<T: Field> LorentzVector<T> {
     }
 
     pub fn dot(&self, other: &LorentzVector<T>) -> T {
-        self.x0 * other.x0 + self.x1 * other.x1 + self.x2 * other.x2 + self.x3 * other.x3
+        self.x1 * other.x1 + self.x2 * other.x2 + self.x3 * other.x3 - self.x0 * other.x0
     }
 }
 
