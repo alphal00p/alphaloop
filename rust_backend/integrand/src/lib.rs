@@ -37,7 +37,7 @@ py_class!(class Integrand |py| {
                 return Err(PyErr::new::<exc::ValueError, _>(py, "Momentum does not have 4 components"));
             }
 
-            qs.push(vector::LorentzVector::from(m));
+            qs.push(vector::LorentzVector::from_vec(m));
         }
 
         self.integrand(py).borrow_mut().qs = qs;
@@ -59,7 +59,7 @@ py_class!(class Integrand |py| {
             return Err(PyErr::new::<exc::ValueError, _>(py, "Loop momentum does not have 4 components"));
         }
 
-        let res = self.integrand(py).borrow().evaluate(&vector::LorentzVector::from(m)).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+        let res = self.integrand(py).borrow().evaluate(&vector::LorentzVector::from_vec(m)).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         Ok((res.re, res.im))
     }
 });

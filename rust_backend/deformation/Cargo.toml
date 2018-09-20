@@ -2,7 +2,22 @@
 name = "deformation"
 version = "0.1.0"
 authors = ["Ben Ruijl <benruyl@gmail.com>"]
-edition = "2018"
+
+[lib]
+name = "deformation"
+crate-type = ["cdylib"]
+
+[target.x86_64-apple-darwin]
+rustflags = [
+  "-C", "link-arg=-undefined",
+  "-C", "link-arg=dynamic_lookup",
+]
+
+[dependencies.cpython]
+git = "https://github.com/dgrunwald/rust-cpython"
+version = "0.2"
+features = ["extension-module"]
 
 [dependencies]
 vector = { path = "../vector" }
+num = "0.2"

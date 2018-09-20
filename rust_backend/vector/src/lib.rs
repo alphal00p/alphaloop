@@ -1,18 +1,19 @@
 extern crate num;
 
-use std::ops::{Add, Mul, Sub};
 use std::fmt::{Debug, Display};
+use std::ops::{Add, Mul, Sub};
 
 type Complex = num::Complex<f64>;
 
-pub trait Field where
-    Self: Mul<Self, Output=Self>,
-    Self: Add<Self, Output=Self>,
-    Self: Sub<Self, Output=Self>,
+pub trait Field
+where
+    Self: Mul<Self, Output = Self>,
+    Self: Add<Self, Output = Self>,
+    Self: Sub<Self, Output = Self>,
     Self: Copy,
     Self: Default,
     Self: Debug,
-    Self: Display
+    Self: Display,
 {
 }
 
@@ -21,89 +22,99 @@ impl Field for Complex {}
 
 #[derive(Debug, Clone)]
 pub struct LorentzVector<T: Field> {
-    x0: T,
-    x1: T,
-    x2: T,
-    x3: T,
+    pub t: T,
+    pub x: T,
+    pub y: T,
+    pub z: T,
 }
 
 impl<T: Field> LorentzVector<T> {
     pub fn new() -> LorentzVector<T> {
         LorentzVector {
-            x0: T::default(),
-            x1: T::default(),
-            x2: T::default(),
-            x3: T::default(),
+            t: T::default(),
+            x: T::default(),
+            y: T::default(),
+            z: T::default(),
         }
     }
 
-    pub fn from(v: Vec<T>) -> LorentzVector<T> {
+    pub fn from(t: T, x: T, y: T, z: T) -> LorentzVector<T> {
+        LorentzVector { t, x, y, z }
+    }
+
+    pub fn from_vec(v: Vec<T>) -> LorentzVector<T> {
         let (t, x, y, z) = (v[0], v[1], v[2], v[3]);
         LorentzVector {
-            x0: t,
-            x1: x,
-            x2: y,
-            x3: z
+            t: t,
+            x: x,
+            y: y,
+            z: z,
         }
     }
 
     pub fn square(&self) -> T {
-        self.x1 * self.x1 + self.x2 * self.x2 + self.x3 * self.x3 - self.x0 * self.x0
+        self.x * self.x + self.y * self.y + self.z * self.z - self.t * self.t
     }
 
     pub fn dot(&self, other: &LorentzVector<T>) -> T {
-        self.x1 * other.x1 + self.x2 * other.x2 + self.x3 * other.x3 - self.x0 * other.x0
+        self.x * other.x + self.y * other.y + self.z * other.z - self.t * other.t
     }
 }
 
-impl<T: Field> Add<&LorentzVector<T>> for &LorentzVector<T> {
+impl<'a, T: Field> Add<&'a LorentzVector<T>> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
-    fn add(self, other: &LorentzVector<T>) -> LorentzVector<T> {
+    fn add(self, other: &'a LorentzVector<T>) -> LorentzVector<T> {
         LorentzVector {
-            x0: self.x0 + other.x0,
-            x1: self.x1 + other.x1,
-            x2: self.x2 + other.x2,
-            x3: self.x3 + other.x3,
+            t: self.t + other.t,
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
         }
     }
 }
 
-impl<T: Field> Sub<&LorentzVector<T>> for &LorentzVector<T> {
+impl<'a, T: Field> Sub<&'a LorentzVector<T>> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
-    fn sub(self, other: &LorentzVector<T>) -> LorentzVector<T> {
+    fn sub(self, other: &'a LorentzVector<T>) -> LorentzVector<T> {
         LorentzVector {
-            x0: self.x0 - other.x0,
-            x1: self.x1 - other.x1,
-            x2: self.x2 - other.x2,
-            x3: self.x3 - other.x3,
+            t: self.t - other.t,
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
         }
     }
 }
 
-impl<T: Field> Mul<T> for &LorentzVector<T> {
+impl<'a, T: Field> Mul<T> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
     fn mul(self, other: T) -> LorentzVector<T> {
         LorentzVector {
-            x0: self.x0 * other,
-            x1: self.x1 * other,
-            x2: self.x2 * other,
-            x3: self.x3 * other,
+            t: self.t * other,
+            x: self.x * other,
+            y: self.y * other,
+            z: self.z * other,
         }
     }
 }
 
-impl Sub<&LorentzVector<f64>> for &LorentzVector<Complex> {
+impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
     type Output = LorentzVector<Complex>;
 
-    fn sub(self, other: &LorentzVector<f64>) -> LorentzVector<Complex> {
+    fn sub(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
         LorentzVector {
-            x0: self.x0 - other.x0,
-            x1: self.x1 - other.x1,
-            x2: self.x2 - other.x2,
-            x3: self.x3 - other.x2,
+            t: self.t - other.t,
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.y,
         }
+    }
+}
+
+impl LorentzVector<f64> {
+    pub fn spatial_distance(&self) -> f64 {
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 }

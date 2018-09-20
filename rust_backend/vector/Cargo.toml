@@ -2,7 +2,6 @@
 name = "vector"
 version = "0.1.0"
 authors = ["Ben Ruijl <benruyl@gmail.com>"]
-edition = "2018"
 
 [dependencies]
 num = "0.2"

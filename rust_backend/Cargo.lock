@@ -25,6 +25,8 @@ dependencies = [
 name = "deformation"
 version = "0.1.0"
 dependencies = [
+ "cpython 0.2.0 (git+https://github.com/dgrunwald/rust-cpython)",
+ "num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "vector 0.1.0",
 ]
 
