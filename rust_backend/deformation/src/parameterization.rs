@@ -1,4 +1,3 @@
-use deformation::Deformer;
 use num::traits::FloatConst;
 use vector::LorentzVector;
 
@@ -17,6 +16,21 @@ pub struct Parameterizer {
 }
 
 impl Parameterizer {
+    pub fn new(e_cm_sq: f64, channel: usize) -> Result<Parameterizer, &'static str> {
+        Ok(Parameterizer {
+            e_cm_sq,
+            channel,
+            qs: Vec::with_capacity(4),
+            alpha: 2.0,
+            mode: ParameterizationMode::Weinzierl,
+        })
+    }
+
+    /// Set new qs and update all parameters accordingly.
+    pub fn set_qs(&mut self, qs: Vec<LorentzVector<f64>>) {
+        self.qs = qs;
+    }
+
     /// Map a vector in the unit hypercube to the infinite hypercube.
     /// Also compute the Jacobian.
     pub fn map(&self, mom: &LorentzVector<f64>) -> Result<(LorentzVector<f64>, f64), &str> {
