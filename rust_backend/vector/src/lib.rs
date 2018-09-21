@@ -1,7 +1,7 @@
 extern crate num;
 
 use std::fmt::{Debug, Display};
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Sub, Index};
 
 type Complex = num::Complex<f64>;
 
@@ -53,11 +53,25 @@ impl<T: Field> LorentzVector<T> {
     }
 
     pub fn square(&self) -> T {
-        self.x * self.x + self.y * self.y + self.z * self.z - self.t * self.t
+        self.t * self.t - self.x * self.x - self.y * self.y - self.z * self.z
     }
 
     pub fn dot(&self, other: &LorentzVector<T>) -> T {
-        self.x * other.x + self.y * other.y + self.z * other.z - self.t * other.t
+        self.t * other.t - self.x * other.x - self.y * other.y - self.z * other.z
+    }
+
+    pub fn spatial_squared(&self) -> T {
+        (self.x * self.x + self.y * self.y + self.z * self.z)
+    }
+
+    pub fn map<F>(&self, map: F) -> LorentzVector<T> where
+        F: Fn(T) -> T {
+        LorentzVector {
+            t: map(self.t),
+            x: map(self.x),
+            y: map(self.y),
+            z: map(self.z)
+        }
     }
 }
 
@@ -113,8 +127,44 @@ impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
     }
 }
 
+impl<T: Field> Index<usize> for LorentzVector<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &T {
+        match index {
+            0 => &self.t,
+            1 => &self.x,
+            2 => &self.y,
+            3 => &self.z,
+            _ => panic!("Index is not between 0 and 3")
+        }
+    }
+}
+
 impl LorentzVector<f64> {
     pub fn spatial_distance(&self) -> f64 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    }
+
+    pub fn euclidean_distance(&self) -> f64 {
+        (self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    }
+
+    pub fn to_complex(&self, real: bool) -> LorentzVector<Complex> {
+        if real {
+            LorentzVector {
+                t: Complex::new(self.t, 0.0),
+                x: Complex::new(self.x, 0.0),
+                y: Complex::new(self.y, 0.0),
+                z: Complex::new(self.z, 0.0),
+            }
+        } else {
+            LorentzVector {
+                t: Complex::new(0.0, self.t),
+                x: Complex::new(0.0, self.x),
+                y: Complex::new(0.0, self.y),
+                z: Complex::new(0.0, self.z),
+            }
+        }
     }
 }

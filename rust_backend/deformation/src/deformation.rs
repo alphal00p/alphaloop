@@ -5,7 +5,8 @@ use vector::LorentzVector;
 type Complex = num::Complex<f64>;
 
 pub struct Deformer {
-    pub qs: Vec<LorentzVector<f64>>,
+    qs: Vec<LorentzVector<f64>>,
+    masses: Vec<f64>,
     p_plus: LorentzVector<f64>,
     p_min: LorentzVector<f64>,
     e_cm_sq: f64,
@@ -27,6 +28,7 @@ impl Deformer {
     pub fn new(e_cm_sq: f64) -> Result<Deformer, &'static str> {
         Ok(Deformer {
             qs: Vec::with_capacity(4),
+            masses: Vec::with_capacity(4),
             p_plus: LorentzVector::new(),
             p_min: LorentzVector::new(),
             e_cm_sq,
@@ -49,14 +51,30 @@ impl Deformer {
     pub fn set_qs(&mut self, qs: Vec<LorentzVector<f64>>) {
         self.qs = qs;
 
+        if self.masses.len() != self.qs.len() {
+            self.masses = vec![0.0; self.qs.len()];
+        }
+
         self.p_plus = self.compute_p(true);
         self.p_min = self.compute_p(false);
         self.mu_p = (&self.p_min - &self.p_plus).square();
 
         self.m1_sq = self.m1_fac * self.m1_fac * self.e_cm_sq;
-        self.m2_sq = self.m1_fac * self.m1_fac * (if self.mu_p > self.e_cm_sq { self.mu_p } else { self.e_cm_sq });
-        self.m3_sq = self.m1_fac * self.m1_fac * (if self.mu_p > self.e_cm_sq { self.mu_p } else { self.e_cm_sq });
-        self.m4_sq = self.m1_fac * self.m1_fac * self.e_cm_sq;
+        self.m2_sq = self.m2_fac
+            * self.m2_fac
+            * (if self.mu_p > self.e_cm_sq {
+                self.mu_p
+            } else {
+                self.e_cm_sq
+            });
+        self.m3_sq = self.m3_fac
+            * self.m3_fac
+            * (if self.mu_p > self.e_cm_sq {
+                self.mu_p
+            } else {
+                self.e_cm_sq
+            });
+        self.m4_sq = self.m4_fac * self.m4_fac * self.e_cm_sq;
     }
 
     ///Find a vector P such that all external momenta `qs` are in
@@ -144,7 +162,123 @@ impl Deformer {
         orig_vec.pop().unwrap()
     }
 
+    /// The three helper functions h_delta-, h_delta+, and h_delta0, indicated by `sign`.
+    fn h_delta(sign: i32, k: &LorentzVector<f64>, mass: f64, m: f64) -> f64 {
+        let v = if sign == 0 {
+            (k.t.abs() - (k.spatial_squared() + mass).sqrt()).powi(2)
+        } else {
+            (sign as f64 * k.t.abs() - (k.spatial_squared() + mass).sqrt()).powi(2)
+        };
+        v / (v + m)
+    }
+
+    fn h_theta(t: f64, m: f64) -> f64 {
+        if t <= 0.0 {
+            0.0
+        } else {
+            t / (t + m)
+        }
+    }
+
+    fn g(k: &LorentzVector<f64>, gamma: f64, m: f64) -> f64 {
+        gamma * m / (k.t * k.t + k.spatial_squared() + m)
+    }
+
+    fn d(&self, mom: &LorentzVector<f64>, i: usize, l: usize) -> f64 {
+        if self.masses[l] == 0.0 {
+            if l == i {
+                return 1.0;
+            }
+
+            if (&self.qs[i] - &self.qs[l]).square() == 0.0 {
+                if self.qs[i].t < self.qs[l].t {
+                    return Deformer::h_delta(1, &(mom - &self.qs[l]), 0.0, self.m1_sq);
+                } else {
+                    return Deformer::h_delta(-1, &(mom - &self.qs[l]), 0.0, self.m1_sq);
+                }
+            }
+        }
+
+        let hd = Deformer::h_delta(
+            0,
+            &(mom - &self.qs[l]),
+            self.masses[l] * self.masses[l],
+            self.m1_sq,
+        );
+        let ht = Deformer::h_theta(
+            -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
+            self.m1_sq,
+        );
+        if hd > ht {
+            hd
+        } else {
+            ht
+        }
+    }
+
     pub fn deform(&self, mom: &LorentzVector<f64>) -> Result<LorentzVector<Complex>, &str> {
-        Err("not implemented")
+        let (mut c_plus, mut c_minus) = (1.0, 1.0);
+
+        for (qi, mi) in self.qs.iter().zip(&self.masses) {
+            // note the sign reversal
+            c_plus *= Deformer::h_delta(-1, &(mom - qi), mi * mi, self.m3_sq);
+            c_minus *= Deformer::h_delta(1, &(mom - qi), mi * mi, self.m3_sq);
+        }
+
+        let k_plus = mom - &self.p_plus;
+        let k_minus = mom - &self.p_min;
+        let k_ext = LorentzVector::from(
+            c_plus * k_plus.t + c_minus * k_minus.t,
+            -c_plus * k_plus.x - c_minus * k_minus.x,
+            -c_plus * k_plus.y - c_minus * k_minus.y,
+            -c_plus * k_plus.z - c_minus * k_minus.z,
+        );
+        let k_centre = &(&k_plus + &k_minus) * 0.5;
+
+        // TODO: cache qi= mom-qs[i]?
+
+        let n = self.qs.len();
+        let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
+        let mut c = vec![f; n];
+
+        let mut k_int = LorentzVector::new();
+        for i in 0..n {
+            for l in 0..n {
+                // note: in paper l starts at 1
+                c[i] *= Deformer::d(self, mom, i, l);
+            }
+
+            k_int = &k_int + &(&(mom - &self.qs[i]) * -c[i]); // massless part
+        }
+
+        let k0 = &k_int + &k_ext;
+        let mut lambda_cycle = 1.0; // maximum lambda value
+
+        for j in 0..n {
+            let xj = (k0.dot(&(mom - &self.qs[j])) / k0.square()).powi(2);
+            let yj = ((mom - &self.qs[j]).square() - self.masses[j].powi(2)) / k0.square();
+
+            if 2.0 * xj < yj {
+                if (yj / 4.0).sqrt() < lambda_cycle {
+                    lambda_cycle = (yj / 4.0).sqrt();
+                }
+            } else if yj < 0.0 {
+                if (xj - yj / 2.0).sqrt() < lambda_cycle {
+                    lambda_cycle = (xj - yj / 2.0).sqrt();
+                }
+            } else {
+                if (xj - yj / 4.0).sqrt() < lambda_cycle {
+                    lambda_cycle = (xj - yj / 4.0).sqrt();
+                }
+            };
+        }
+
+        let n1 : f64 = c.iter().sum();
+        // TODO: bound lambda by imaginary part of UV scale
+        if 1.0 / (4.0 * n1) < lambda_cycle {
+            lambda_cycle = 1.0 / (4.0 * n1);
+        }
+
+        Ok(&mom.to_complex(true) + &(&(&k_int + &k_ext) * lambda_cycle).to_complex(false))
     }
 }

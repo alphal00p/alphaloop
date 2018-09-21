@@ -1,13 +1,11 @@
 #[macro_use] extern crate cpython;
 extern crate num;
 extern crate vector;
-use cpython::{PyResult, PyList, ObjectProtocol, PyErr, exc};
+use cpython::{PyResult, PyList, PyErr, exc};
 use std::cell::RefCell;
 
 mod deformation;
 mod parameterization;
-
-type Complex = num::Complex<f64>;
 
 // add bindings to the generated python module
 py_module_initializer!(deformation, initdeformation, PyInit_deformation, |py, m| {
