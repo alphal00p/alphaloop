@@ -1,6 +1,7 @@
 use num;
 use std::mem;
 use vector::LorentzVector;
+use REGION_EXT;
 
 type Complex = num::Complex<f64>;
 
@@ -22,10 +23,13 @@ pub struct Deformer {
     gamma1: f64,
     gamma2: f64,
     e_soft: f64,
+    region: usize,
+    mu_sq: Complex,
+    uv_shift: LorentzVector<f64>,
 }
 
 impl Deformer {
-    pub fn new(e_cm_sq: f64) -> Result<Deformer, &'static str> {
+    pub fn new(e_cm_sq: f64, mu_sq: f64, region: usize) -> Result<Deformer, &'static str> {
         Ok(Deformer {
             qs: Vec::with_capacity(4),
             masses: Vec::with_capacity(4),
@@ -44,6 +48,9 @@ impl Deformer {
             gamma1: 0.7,
             gamma2: 0.008,
             e_soft: 0.03,
+            mu_sq: Complex::new(0.0, mu_sq),
+            uv_shift: LorentzVector::new(),
+            region,
         })
     }
 
@@ -54,6 +61,12 @@ impl Deformer {
         if self.masses.len() != self.qs.len() {
             self.masses = vec![0.0; self.qs.len()];
         }
+
+        self.uv_shift = LorentzVector::new();
+        for q in &self.qs {
+            self.uv_shift = &self.uv_shift + &q;
+        }
+        self.uv_shift = &self.uv_shift * (1.0 / (self.qs.len() as f64));
 
         self.p_plus = self.compute_p(true);
         self.p_min = self.compute_p(false);
@@ -216,7 +229,10 @@ impl Deformer {
         }
     }
 
-    pub fn deform(&self, mom: &LorentzVector<f64>) -> Result<LorentzVector<Complex>, &str> {
+    fn deform_int(
+        &self,
+        mom: &LorentzVector<f64>,
+    ) -> Result<(LorentzVector<Complex>, Complex), &str> {
         let (mut c_plus, mut c_minus) = (1.0, 1.0);
 
         for (qi, mi) in self.qs.iter().zip(&self.masses) {
@@ -273,12 +289,46 @@ impl Deformer {
             };
         }
 
-        let n1 : f64 = c.iter().sum();
-        // TODO: bound lambda by imaginary part of UV scale
-        if 1.0 / (4.0 * n1) < lambda_cycle {
-            lambda_cycle = 1.0 / (4.0 * n1);
+        let n1: f64 = c.iter().sum();
+        lambda_cycle = 1.0 / (4.0 * n1);
+        if 1.0 / (4.0 * n1) < lambda_cycle {}
+
+        let uv_fac = 4.0 * (mom - &self.uv_shift).dot(&k0);
+        if uv_fac > self.mu_sq.im {
+            if lambda_cycle > self.mu_sq.im / uv_fac {
+                lambda_cycle = self.mu_sq.im / uv_fac;
+            }
         }
 
-        Ok(&mom.to_complex(true) + &(&(&k_int + &k_ext) * lambda_cycle).to_complex(false))
+        let k = &mom.to_complex(true) + &(&(&k_int + &k_ext) * lambda_cycle).to_complex(false);
+
+        // TODO: implement jacobian analytically or numerically with multi-loop support
+        let jac = Complex::new(1.0, 0.0);
+        Ok((k, jac))
+    }
+
+    fn deform_ext(
+        &self,
+        mom: &LorentzVector<f64>,
+    ) -> Result<(LorentzVector<Complex>, Complex), &str> {
+        let k = LorentzVector::from(
+            Complex::new(mom.t, mom.t - self.uv_shift.t),
+            Complex::new(mom.x, -mom.x - self.uv_shift.x),
+            Complex::new(mom.y, -mom.y - self.uv_shift.y),
+            Complex::new(mom.z, -mom.z - self.uv_shift.z),
+        );
+
+        Ok((k, -Complex::new(0.0, -4.0)))
+    }
+
+    pub fn deform(
+        &self,
+        mom: &LorentzVector<f64>,
+    ) -> Result<(LorentzVector<Complex>, Complex), &str> {
+        if self.region == REGION_EXT {
+            self.deform_ext(mom)
+        } else {
+            self.deform_int(mom)
+        }
     }
 }

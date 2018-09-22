@@ -8,6 +8,10 @@ use std::cell::RefCell;
 mod deformation;
 mod parameterization;
 
+pub const REGION_ALL: usize = 0;
+pub const REGION_EXT: usize = 1;
+pub const REGION_INT: usize = 2;
+
 // add bindings to the generated python module
 py_module_initializer!(deformation, initdeformation, PyInit_deformation, |py, m| {
     m.add(py, "__doc__", "Contour deformation")?;
@@ -19,8 +23,8 @@ py_module_initializer!(deformation, initdeformation, PyInit_deformation, |py, m|
 py_class!(class Deformation |py| {
     data deformer: RefCell<deformation::Deformer>;
 
-    def __new__(_cls, e_cm_sq: f64, qs_py: PyList) -> PyResult<Deformation> {
-        let int = deformation::Deformer::new(e_cm_sq).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+    def __new__(_cls, e_cm_sq: f64, mu_sq: f64, region: usize, qs_py: PyList) -> PyResult<Deformation> {
+        let int = deformation::Deformer::new(e_cm_sq, mu_sq, region).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         let r = Deformation::create_instance(py, RefCell::new(int))?;
         r.set_qs(py, qs_py)?;
         Ok(r)
@@ -47,7 +51,7 @@ py_class!(class Deformation |py| {
         Ok(true)
     }
 
-    def deform(&self, momentum: PyList) -> PyResult<Vec<(f64, f64)>> {
+    def deform(&self, momentum: PyList) -> PyResult<(Vec<(f64, f64)>, f64, f64)> {
         let mut m: Vec<f64> = Vec::with_capacity(4);
         for x in momentum.iter(py) {
             m.push(x.extract(py)?);
@@ -57,16 +61,16 @@ py_class!(class Deformation |py| {
             return Err(PyErr::new::<exc::ValueError, _>(py, "Loop momentum does not have 4 components"));
         }
 
-        let res = self.deformer(py).borrow().deform(&vector::LorentzVector::from_vec(m)).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
-        Ok(vec![(res.t.re, res.t.im), (res.x.re, res.x.im), (res.y.re, res.y.im), (res.z.re, res.z.im)])
+        let (res, jac) = self.deformer(py).borrow().deform(&vector::LorentzVector::from_vec(m)).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+        Ok((vec![(res.t.re, res.t.im), (res.x.re, res.x.im), (res.y.re, res.y.im), (res.z.re, res.z.im)], jac.re, jac.im))
     }
 });
 
 py_class!(class Parameterization |py| {
     data parameterizer: RefCell<parameterization::Parameterizer>;
 
-    def __new__(_cls, e_cm_sq: f64, channel: usize, qs_py: PyList) -> PyResult<Parameterization> {
-        let int = parameterization::Parameterizer::new(e_cm_sq, channel).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+    def __new__(_cls, e_cm_sq: f64, region: usize, channel: usize, qs_py: PyList) -> PyResult<Parameterization> {
+        let int = parameterization::Parameterizer::new(e_cm_sq, region, channel).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         let r = Parameterization::create_instance(py, RefCell::new(int))?;
         r.set_qs(py, qs_py)?;
         Ok(r)
