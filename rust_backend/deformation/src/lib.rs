@@ -7,10 +7,13 @@ use std::cell::RefCell;
 
 mod deformation;
 mod parameterization;
+mod utils;
 
 pub const REGION_ALL: usize = 0;
 pub const REGION_EXT: usize = 1;
 pub const REGION_INT: usize = 2;
+
+type Complex = num::Complex<f64>;
 
 // add bindings to the generated python module
 py_module_initializer!(deformation, initdeformation, PyInit_deformation, |py, m| {
@@ -23,8 +26,9 @@ py_module_initializer!(deformation, initdeformation, PyInit_deformation, |py, m|
 py_class!(class Deformation |py| {
     data deformer: RefCell<deformation::Deformer>;
 
-    def __new__(_cls, e_cm_sq: f64, mu_sq: f64, region: usize, qs_py: PyList) -> PyResult<Deformation> {
-        let int = deformation::Deformer::new(e_cm_sq, mu_sq, region).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+    def __new__(_cls, e_cm_sq: f64, mu_sq: f64, region: usize, qs_py: PyList, masses: Vec<f64>) -> PyResult<Deformation> {
+        let int = deformation::Deformer::new(e_cm_sq, mu_sq, region, masses)
+                    .map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         let r = Deformation::create_instance(py, RefCell::new(int))?;
         r.set_qs(py, qs_py)?;
         Ok(r)

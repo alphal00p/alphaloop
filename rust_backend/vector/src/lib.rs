@@ -1,7 +1,7 @@
 extern crate num;
 
 use std::fmt::{Debug, Display};
-use std::ops::{Add, Mul, Sub, Index};
+use std::ops::{Add, Index, Mul, Neg, Sub};
 
 type Complex = num::Complex<f64>;
 
@@ -10,6 +10,7 @@ where
     Self: Mul<Self, Output = Self>,
     Self: Add<Self, Output = Self>,
     Self: Sub<Self, Output = Self>,
+    Self: Neg<Output = Self>,
     Self: Copy,
     Self: Default,
     Self: Debug,
@@ -52,6 +53,15 @@ impl<T: Field> LorentzVector<T> {
         }
     }
 
+    pub fn dual(&self) -> LorentzVector<T> {
+        LorentzVector {
+            t: self.t,
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+
     pub fn square(&self) -> T {
         self.t * self.t - self.x * self.x - self.y * self.y - self.z * self.z
     }
@@ -61,16 +71,22 @@ impl<T: Field> LorentzVector<T> {
     }
 
     pub fn spatial_squared(&self) -> T {
-        (self.x * self.x + self.y * self.y + self.z * self.z)
+        self.x * self.x + self.y * self.y + self.z * self.z
     }
 
-    pub fn map<F>(&self, map: F) -> LorentzVector<T> where
-        F: Fn(T) -> T {
+    pub fn euclidean_square(&self) -> T {
+        self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
+    pub fn map<F>(&self, map: F) -> LorentzVector<T>
+    where
+        F: Fn(T) -> T,
+    {
         LorentzVector {
             t: map(self.t),
             x: map(self.x),
             y: map(self.y),
-            z: map(self.z)
+            z: map(self.z),
         }
     }
 }
@@ -136,7 +152,7 @@ impl<T: Field> Index<usize> for LorentzVector<T> {
             1 => &self.x,
             2 => &self.y,
             3 => &self.z,
-            _ => panic!("Index is not between 0 and 3")
+            _ => panic!("Index is not between 0 and 3"),
         }
     }
 }

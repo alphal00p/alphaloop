@@ -1,9 +1,7 @@
-use num;
 use std::mem;
 use vector::LorentzVector;
+use Complex;
 use REGION_EXT;
-
-type Complex = num::Complex<f64>;
 
 pub struct Deformer {
     qs: Vec<LorentzVector<f64>>,
@@ -29,10 +27,15 @@ pub struct Deformer {
 }
 
 impl Deformer {
-    pub fn new(e_cm_sq: f64, mu_sq: f64, region: usize) -> Result<Deformer, &'static str> {
+    pub fn new(
+        e_cm_sq: f64,
+        mu_sq: f64,
+        region: usize,
+        masses: Vec<f64>,
+    ) -> Result<Deformer, &'static str> {
         Ok(Deformer {
             qs: Vec::with_capacity(4),
-            masses: Vec::with_capacity(4),
+            masses,
             p_plus: LorentzVector::new(),
             p_min: LorentzVector::new(),
             e_cm_sq,
@@ -180,9 +183,30 @@ impl Deformer {
         let v = if sign == 0 {
             (k.t.abs() - (k.spatial_squared() + mass).sqrt()).powi(2)
         } else {
-            (sign as f64 * k.t.abs() - (k.spatial_squared() + mass).sqrt()).powi(2)
+            (sign as f64 * k.t - (k.spatial_squared() + mass).sqrt()).powi(2)
         };
         v / (v + m)
+    }
+
+    /// Derivative of h_delta wrt ln k
+    fn h_delta_ln_grad(sign: i32, k: &LorentzVector<f64>, mass: f64, m: f64) -> LorentzVector<f64> {
+        let w = (k.spatial_squared() + mass).sqrt();
+        let mut w_grad = k * (-1.0 / w);
+
+        let w1 = if sign == 0 {
+            if k.t > 0.0 {
+                w_grad.t = 1.0;
+            } else {
+                w_grad.t = -1.0;
+            }
+
+            k.t.abs() + w
+        } else {
+            w_grad.t = sign as f64;
+            sign as f64 * k.t + w
+        };
+
+        &w_grad * (2.0 * m / w1 / (w1 * w1 + m))
     }
 
     fn h_theta(t: f64, m: f64) -> f64 {
@@ -193,21 +217,42 @@ impl Deformer {
         }
     }
 
+    /// Derivative of h_theta wrt ln t
+    fn h_theta_ln_grad(t: f64, m: f64) -> f64 {
+        if t <= 0.0 {
+            0.0
+        } else {
+            m / t / (t + m)
+        }
+    }
+
     fn g(k: &LorentzVector<f64>, gamma: f64, m: f64) -> f64 {
         gamma * m / (k.t * k.t + k.spatial_squared() + m)
     }
 
-    fn d(&self, mom: &LorentzVector<f64>, i: usize, l: usize) -> f64 {
+    /// Derivative of h_theta wrt ln k
+    fn g_ln_grad(k: &LorentzVector<f64>, m: f64) -> LorentzVector<f64> {
+        k * (-2.0 / (k.euclidean_square() + m))
+    }
+
+    /// Return d and the log partial derivative
+    fn d(&self, mom: &LorentzVector<f64>, i: usize, l: usize) -> (f64, LorentzVector<f64>) {
         if self.masses[l] == 0.0 {
             if l == i {
-                return 1.0;
+                return (1.0, LorentzVector::new());
             }
 
             if (&self.qs[i] - &self.qs[l]).square() == 0.0 {
                 if self.qs[i].t < self.qs[l].t {
-                    return Deformer::h_delta(1, &(mom - &self.qs[l]), 0.0, self.m1_sq);
+                    return (
+                        Deformer::h_delta(1, &(mom - &self.qs[l]), 0.0, self.m1_sq),
+                        Deformer::h_delta_ln_grad(1, &(mom - &self.qs[l]), 0.0, self.m1_sq),
+                    );
                 } else {
-                    return Deformer::h_delta(-1, &(mom - &self.qs[l]), 0.0, self.m1_sq);
+                    return (
+                        Deformer::h_delta(-1, &(mom - &self.qs[l]), 0.0, self.m1_sq),
+                        Deformer::h_delta_ln_grad(-1, &(mom - &self.qs[l]), 0.0, self.m1_sq),
+                    );
                 }
             }
         }
@@ -223,9 +268,24 @@ impl Deformer {
             self.m1_sq,
         );
         if hd > ht {
-            hd
+            (
+                hd,
+                Deformer::h_delta_ln_grad(
+                    0,
+                    &(mom - &self.qs[l]),
+                    self.masses[l] * self.masses[l],
+                    self.m1_sq,
+                ),
+            )
         } else {
-            ht
+            (
+                ht,
+                &(&self.qs[l].dual() + &self.qs[i].dual())
+                    * (-2.0 * Deformer::h_theta_ln_grad(
+                        -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
+                        self.m1_sq,
+                    )),
+            )
         }
     }
 
@@ -234,12 +294,21 @@ impl Deformer {
         mom: &LorentzVector<f64>,
     ) -> Result<(LorentzVector<Complex>, Complex), &str> {
         let (mut c_plus, mut c_minus) = (1.0, 1.0);
+        let (mut c_plus_grad, mut c_minus_grad) = (LorentzVector::new(), LorentzVector::new());
 
         for (qi, mi) in self.qs.iter().zip(&self.masses) {
             // note the sign reversal
             c_plus *= Deformer::h_delta(-1, &(mom - qi), mi * mi, self.m3_sq);
             c_minus *= Deformer::h_delta(1, &(mom - qi), mi * mi, self.m3_sq);
+
+            c_plus_grad =
+                &c_plus_grad + &Deformer::h_delta_ln_grad(-1, &(mom - qi), mi * mi, self.m3_sq);
+            c_minus_grad =
+                &c_minus_grad + &Deformer::h_delta_ln_grad(1, &(mom - qi), mi * mi, self.m3_sq);
         }
+
+        c_plus_grad = &c_plus_grad * c_plus;
+        c_minus_grad = &c_minus_grad * c_minus;
 
         let k_plus = mom - &self.p_plus;
         let k_minus = mom - &self.p_min;
@@ -249,6 +318,18 @@ impl Deformer {
             -c_plus * k_plus.y - c_minus * k_minus.y,
             -c_plus * k_plus.z - c_minus * k_minus.z,
         );
+
+        let mut k_ext_grad = [[0.0; 4]; 4];
+        let metric_diag = [1.0, -1.0, -1.0, -1.0];
+        for i in 0..4 {
+            k_ext_grad[i][i] = metric_diag[i] * (c_plus + c_minus);
+            for j in 0..4 {
+                k_ext_grad[i][j] += metric_diag[i] * c_plus_grad[j] * k_plus[i]
+                    + metric_diag[i] * c_minus_grad[j] * k_minus[i];
+            }
+        }
+
+        // internal part
         let k_centre = &(&k_plus + &k_minus) * 0.5;
 
         // TODO: cache qi= mom-qs[i]?
@@ -261,7 +342,7 @@ impl Deformer {
         for i in 0..n {
             for l in 0..n {
                 // note: in paper l starts at 1
-                c[i] *= Deformer::d(self, mom, i, l);
+                c[i] *= Deformer::d(self, mom, i, l).0;
             }
 
             k_int = &k_int + &(&(mom - &self.qs[i]) * -c[i]); // massless part

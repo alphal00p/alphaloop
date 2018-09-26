@@ -69,8 +69,7 @@ impl Parameterizer {
         }
 
         // TODO: cache x-independent block
-        // TODO: check if this is the correct p
-        let p = &self.qs[self.channel + 1] - &self.qs[self.channel];
+        let p = &self.qs[self.channel] - &self.qs[self.channel - 1];
         let p_abs = p.euclidean_distance();
 
         let cos_theta_1 = p.t / p_abs;
