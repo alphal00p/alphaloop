@@ -1,7 +1,7 @@
 extern crate num;
 
 use std::fmt::{Debug, Display};
-use std::ops::{Add, Index, Mul, Neg, Sub};
+use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 
 type Complex = num::Complex<f64>;
 
@@ -152,6 +152,18 @@ impl<T: Field> Index<usize> for LorentzVector<T> {
             1 => &self.x,
             2 => &self.y,
             3 => &self.z,
+            _ => panic!("Index is not between 0 and 3"),
+        }
+    }
+}
+
+impl<T: Field> IndexMut<usize> for LorentzVector<T> {
+    fn index_mut(&mut self, index: usize) -> &mut T {
+        match index {
+            0 => &mut self.t,
+            1 => &mut self.x,
+            2 => &mut self.y,
+            3 => &mut self.z,
             _ => panic!("Index is not between 0 and 3"),
         }
     }

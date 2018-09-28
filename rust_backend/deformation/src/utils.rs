@@ -2,7 +2,7 @@ use Complex;
 
 /// Calculate the determinant of any complex-valued input matrix using LU-decomposition.
 /// Original C-code by W. Gong and D.E. Soper.
-pub fn determinant(bb: &Vec<Vec<Complex>>) -> Complex {
+pub fn determinant(bb: &[[Complex; 4]; 4]) -> Complex {
     // Define matrix related variables.
     let dimension = bb[0].len();
     let maxsize = dimension - 1;

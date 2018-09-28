@@ -1,4 +1,5 @@
 use std::mem;
+use utils::determinant;
 use vector::LorentzVector;
 use Complex;
 use REGION_EXT;
@@ -319,12 +320,12 @@ impl Deformer {
             -c_plus * k_plus.z - c_minus * k_minus.z,
         );
 
-        let mut k_ext_grad = [[0.0; 4]; 4];
+        let mut k_grad = [[0.0; 4]; 4];
         let metric_diag = [1.0, -1.0, -1.0, -1.0];
         for i in 0..4 {
-            k_ext_grad[i][i] = metric_diag[i] * (c_plus + c_minus);
+            k_grad[i][i] = metric_diag[i] * (c_plus + c_minus);
             for j in 0..4 {
-                k_ext_grad[i][j] += metric_diag[i] * c_plus_grad[j] * k_plus[i]
+                k_grad[i][j] += metric_diag[i] * c_plus_grad[j] * k_plus[i]
                     + metric_diag[i] * c_minus_grad[j] * k_minus[i];
             }
         }
@@ -337,54 +338,129 @@ impl Deformer {
         let n = self.qs.len();
         let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
         let mut c = vec![f; n];
+        let f_grad = Deformer::g_ln_grad(&k_centre, self.m2_sq);
+        let mut c_grad = vec![f_grad; n];
 
         let mut k_int = LorentzVector::new();
         for i in 0..n {
             for l in 0..n {
                 // note: in paper l starts at 1
-                c[i] *= Deformer::d(self, mom, i, l).0;
+                let (c_c, c_grad_c) = Deformer::d(self, mom, i, l);
+                c[i] *= c_c;
+                c_grad[i] = &c_grad[i] + &c_grad_c;
             }
 
-            k_int = &k_int + &(&(mom - &self.qs[i]) * -c[i]); // massless part
+            // add the internal contribution to the jacobian
+            c_grad[i] = &c_grad[i] * c[i];
+            let l = mom - &self.qs[i];
+
+            for mu in 0..4 {
+                k_grad[mu][mu] += -c[i];
+
+                for nu in 0..4 {
+                    k_grad[mu][nu] += l[mu] * -c_grad[i][nu];
+                }
+            }
+
+            k_int = &k_int + &(&l * -c[i]); // massless part
         }
 
         let k0 = &k_int + &k_ext;
-        let mut lambda_cycle = 1.0; // maximum lambda value
+        let mut lambda_cycle_sq = 1.0; // maximum lambda value
+        let mut lambda_grad = LorentzVector::new();
 
         for j in 0..n {
-            let xj = (k0.dot(&(mom - &self.qs[j])) / k0.square()).powi(2);
-            let yj = ((mom - &self.qs[j]).square() - self.masses[j].powi(2)) / k0.square();
+            let k0_sq = k0.square();
+            let lj = mom - &self.qs[j];
+            let k0_lqj = k0.dot(&lj);
+            let w = lj.square() - self.masses[j].powi(2);
+
+            let xj = (k0_lqj / k0_sq).powi(2);
+            let yj = w / k0_sq;
+
+            let mut xj_grad = LorentzVector::new();
+            let mut yj_grad = LorentzVector::new();
+
+            for mu in 0..4
+            {
+                xj_grad[mu] += metric_diag[mu] * 2.0 / k0_lqj * k0[mu];
+                yj_grad[mu] += metric_diag[mu] * 2.0 / w * lj[mu];
+                for nu in 0..4
+                {
+                xj_grad[mu] += metric_diag[nu] * (-4.0 / k0_sq *k0[nu] + 2.0 / k0_lqj*lj[nu]) * k_grad[nu][mu];
+                yj_grad[mu] += metric_diag[nu] * -2.0 / k0_sq * k0[nu] * k_grad[nu][mu];
+                }
+            }
+            xj_grad = &xj_grad * xj;
+            yj_grad = &yj_grad * yj;
+
 
             if 2.0 * xj < yj {
-                if (yj / 4.0).sqrt() < lambda_cycle {
-                    lambda_cycle = (yj / 4.0).sqrt();
+                if yj / 4.0 < lambda_cycle_sq {
+                    lambda_cycle_sq = yj * 0.25;
+                    lambda_grad = &yj_grad * 0.25;
                 }
             } else if yj < 0.0 {
-                if (xj - yj / 2.0).sqrt() < lambda_cycle {
-                    lambda_cycle = (xj - yj / 2.0).sqrt();
+                if xj - yj / 2.0 < lambda_cycle_sq {
+                    lambda_cycle_sq = xj - yj * 0.5;
+                    lambda_grad = &xj_grad - &(&yj_grad * 0.5);
                 }
             } else {
-                if (xj - yj / 4.0).sqrt() < lambda_cycle {
-                    lambda_cycle = (xj - yj / 4.0).sqrt();
+                if xj - yj / 4.0 < lambda_cycle_sq {
+                    lambda_cycle_sq = xj - yj * 0.25;
+                    lambda_grad = &xj_grad - &(&yj_grad * 0.25);
                 }
-            };
-        }
-
-        let n1: f64 = c.iter().sum();
-        lambda_cycle = 1.0 / (4.0 * n1);
-        if 1.0 / (4.0 * n1) < lambda_cycle {}
-
-        let uv_fac = 4.0 * (mom - &self.uv_shift).dot(&k0);
-        if uv_fac > self.mu_sq.im {
-            if lambda_cycle > self.mu_sq.im / uv_fac {
-                lambda_cycle = self.mu_sq.im / uv_fac;
             }
         }
 
-        let k = &mom.to_complex(true) + &(&(&k_int + &k_ext) * lambda_cycle).to_complex(false);
+        let mut lambda_cycle = lambda_cycle_sq.sqrt();
+        lambda_grad = &lambda_grad * (0.5 / lambda_cycle);
 
-        // TODO: implement jacobian analytically or numerically with multi-loop support
-        let jac = Complex::new(1.0, 0.0);
+        // collinear contribution
+        let n1: f64 = c.iter().sum();
+        if 1.0 / (4.0 * n1) < lambda_cycle {
+            lambda_cycle = 1.0 / (4.0 * n1);
+
+            lambda_grad = LorentzVector::new();
+            for x in &c_grad {
+                lambda_grad = &lambda_grad + x;
+            }
+
+            lambda_grad = &lambda_grad * (-4.0 * lambda_cycle * lambda_cycle);
+        }
+
+        let l = mom - &self.uv_shift;
+        let uv_fac = 4.0 * l.dot(&k0);
+        if uv_fac > self.mu_sq.im {
+            if lambda_cycle > self.mu_sq.im / uv_fac {
+                lambda_cycle = self.mu_sq.im / uv_fac;
+
+                lambda_grad = k0.dual();
+                for mu in 0..4 {
+                    for nu in 0..4 {
+                        // TODO: check if the indices are correct!
+                        lambda_grad[mu] += metric_diag[nu] * k_grad[nu][mu] * l[nu];
+                    }
+                }
+
+                lambda_grad = &lambda_grad * (-4.0 * self.mu_sq.im / uv_fac / uv_fac);
+            }
+        }
+
+        let k = &mom.to_complex(true) + &(&k0 * lambda_cycle).to_complex(false);
+
+        let mut grad = [[Complex::new(0.0, 0.0); 4]; 4];
+        for mu in 0..4 {
+            grad[mu][mu] += Complex::new(1.0, 0.0);
+            for nu in 0..4 {
+                grad[mu][nu] += Complex::new(
+                    0.0,
+                    lambda_cycle * k_grad[mu][nu] + lambda_grad[nu] * k0[mu],
+                );
+            }
+        }
+
+        let jac = determinant(&grad);
         Ok((k, jac))
     }
 

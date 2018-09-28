@@ -909,12 +909,22 @@ DIdeform::R4vector DIdeform::ContourDeform::gradlambda_coll()
 
 DIdeform::R4vector DIdeform::ContourDeform::gradlambda_UV()
 {
-    my_real b = 4 * ((l - UV_offset) * k0);
-    if (b > mu_UVsq.imag()) {
-      return R4vector();
-    } else {
-      return -4*mu_UVsq.imag() / (b * b) * k0;
+  // FIXME: this is wrong!
+  my_real b = 4 * ((l - UV_offset) * k0);
+  DIdeform::R4vector grad;
+  if (b > mu_UVsq.imag()) {
+    return grad;
+  } else {
+    grad = k0.dual();
+    for (int mu = 0; mu < 4; mu++) {
+        for (int nu = 0; nu < 4; nu++) {
+            // TODO: check if the indices are correct!
+            grad[mu] += gmunu[nu] * gradk0[nu][mu] * (l - UV_offset)[nu];
+        }
     }
+
+    return -4*mu_UVsq.imag() / (b * b) * grad;
+  }
 }
 
 /*--------------- END - Class ContourDefrom   --------------------*/
