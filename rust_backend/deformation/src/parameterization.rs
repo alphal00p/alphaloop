@@ -69,7 +69,7 @@ impl Parameterizer {
         }
 
         // TODO: cache x-independent block
-        let p = &self.qs[self.channel] - &self.qs[self.channel - 1];
+        let p = &self.qs[self.channel + 1] - &self.qs[self.channel];
         let p_abs = p.euclidean_distance();
 
         let cos_theta_1 = p.t / p_abs;
@@ -78,7 +78,7 @@ impl Parameterizer {
         let cos_theta_2 = if p.x == 0.0 {
             0.0
         } else {
-            1.0 / (1.0 + (p.y * p.y + p.z * p.z).sqrt() / (p.x * p.x))
+            1.0 / (1.0 + (p.y * p.y + p.z * p.z) / (p.x * p.x)).sqrt()
         };
         let sin_theta_2 = if p.x == 0.0 {
             1.0
