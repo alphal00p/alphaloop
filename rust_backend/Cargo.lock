@@ -18,7 +18,7 @@ source = "git+https://github.com/dgrunwald/rust-cpython#78df48952f279dd5937c9b5b
 dependencies = [
  "libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "python3-sys 0.2.0 (git+https://github.com/dgrunwald/rust-cpython)",
+ "python27-sys 0.2.0 (git+https://github.com/dgrunwald/rust-cpython)",
 ]
 
 [[package]]
@@ -125,7 +125,7 @@ version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "python3-sys"
+name = "python27-sys"
 version = "0.2.0"
 source = "git+https://github.com/dgrunwald/rust-cpython#78df48952f279dd5937c9b5b945e1c37d0b107db"
 dependencies = [
@@ -197,7 +197,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum num-iter 0.1.37 (registry+https://github.com/rust-lang/crates.io-index)" = "af3fdbbc3291a5464dc57b03860ec37ca6bf915ed6ee385e7c6c052c422b2124"
 "checksum num-rational 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4e96f040177bb3da242b5b1ecf3f54b5d5af3efbbfb18608977a5d2767b22f10"
 "checksum num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0b3a5d7cc97d6d30d8b9bc8fa19bf45349ffe46241e8816f50f62f6d6aaabee1"
-"checksum python3-sys 0.2.0 (git+https://github.com/dgrunwald/rust-cpython)" = "<none>"
+"checksum python27-sys 0.2.0 (git+https://github.com/dgrunwald/rust-cpython)" = "<none>"
 "checksum regex 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "2069749032ea3ec200ca51e4a31df41759190a88edca0d2d86ee8bedf7073341"
 "checksum regex-syntax 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "747ba3b235651f6e2f67dfa8bcdcd073ddb7c243cb21c442fc12395dfcac212d"
 "checksum thread_local 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c6b53e329000edc2b34dbe8545fd20e55a333362d0a321909685a19bd28c3f1b"

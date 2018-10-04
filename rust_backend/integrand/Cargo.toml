@@ -10,7 +10,8 @@ crate-type = ["cdylib"]
 [dependencies.cpython]
 git = "https://github.com/dgrunwald/rust-cpython"
 version = "0.2"
-features = ["extension-module"]
+default-features = false
+features = ["python27-sys"]
 
 [dependencies]
 vector = { path = "../vector" }
