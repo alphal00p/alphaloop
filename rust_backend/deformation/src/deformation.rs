@@ -281,7 +281,7 @@ impl Deformer {
         } else {
             (
                 ht,
-                &(&self.qs[l].dual() + &self.qs[i].dual())
+                &(&(mom - &self.qs[l]).dual() + &(mom - &self.qs[i]).dual())
                     * (-2.0 * Deformer::h_theta_ln_grad(
                         -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
                         self.m1_sq,
