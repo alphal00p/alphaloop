@@ -105,7 +105,7 @@ namespace DIdeform
     my_real gamma1 = 0.7;
     my_real gamma2 = 0.008;
     my_real E_soft = 0.03;
-    my_real Ecmsq, mu_P, M1sq, M2sq, M3sq, M4sq;
+    my_real Ecmsq, mu_Psq, M1sq, M2sq, M3sq, M4sq;
     my_comp mu_UVsq = my_comp(0.0, -1e5); // should scale with problem
     short int which_hypercube_map = 0;
     short int channel_id = -1;

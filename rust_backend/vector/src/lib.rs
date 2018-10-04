@@ -138,7 +138,7 @@ impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
             t: self.t - other.t,
             x: self.x - other.x,
             y: self.y - other.y,
-            z: self.z - other.y,
+            z: self.z - other.z,
         }
     }
 }

@@ -31,7 +31,7 @@ DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_rea
   my_real theta = x[2] < 0.5 ? std::acos((1 + ep) * std::pow((1 + ep) / ep, -2 * x[2]) - ep)
                              : std::acos(ep - (1 + ep) * std::pow((1 + ep) / ep, -2 * (1 - x[2])));
   my_real phi = M_PI * 2 * x[3];
-  
+
   my_real k0 = std::cosh(rho) * std::cos(xi);
   my_real k1 = ep * std::cos(theta);
   my_real k2 = ep * std::sin(theta) * std::cos(phi);
@@ -288,12 +288,12 @@ void DIdeform::ContourDeform::set_global_var()
 {
   //Center of mass energy squared
   Ecmsq = (pi[0] + pi[A]) * (pi[0] + pi[A]);
-  mu_P = (Pm - Pp) * (Pm - Pp);
+  mu_Psq = (Pm - Pp) * (Pm - Pp);
 
   //Set M1sq and M2sq
   M1sq = std::pow(M1f, 2) * Ecmsq; 
-  M2sq = std::pow(M2f, 2) * std::max(mu_P, Ecmsq);
-  M3sq = std::pow(M3f, 2) * std::max(mu_P, Ecmsq);
+  M2sq = std::pow(M2f, 2) * std::max(mu_Psq, Ecmsq);
+  M3sq = std::pow(M3f, 2) * std::max(mu_Psq, Ecmsq);
   M4sq = std::pow(M4f, 2) * Ecmsq;
 
   //Set orthogonal vectors ei's

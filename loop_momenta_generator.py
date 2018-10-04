@@ -406,7 +406,7 @@ class OneLoopMomentumGenerator(LoopMomentaGenerator):
             for i, v in enumerate(vecs):
                 for j, v1 in enumerate(vecs):
                     if i==j: continue
-                    if (v-v1).square() > 0 and ((plus and v[0] > v1[0]) or (not plus and v[0] < v1[0])):
+                    if (v-v1).square() >= 0 and ((plus and v[0] > v1[0]) or (not plus and v[0] < v1[0])):
                         break
                 else:
                     # this vector is space-like relative to all others

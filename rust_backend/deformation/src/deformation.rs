@@ -10,7 +10,7 @@ pub struct Deformer {
     p_plus: LorentzVector<f64>,
     p_min: LorentzVector<f64>,
     e_cm_sq: f64,
-    mu_p: f64,
+    mu_p_sq: f64,
     m1_fac: f64,
     m2_fac: f64,
     m3_fac: f64,
@@ -40,7 +40,7 @@ impl Deformer {
             p_plus: LorentzVector::new(),
             p_min: LorentzVector::new(),
             e_cm_sq,
-            mu_p: 0.0,
+            mu_p_sq: 0.0,
             m1_fac: 0.035,
             m2_fac: 0.7,
             m3_fac: 0.035,
@@ -74,20 +74,20 @@ impl Deformer {
 
         self.p_plus = self.compute_p(true);
         self.p_min = self.compute_p(false);
-        self.mu_p = (&self.p_min - &self.p_plus).square();
+        self.mu_p_sq = (&self.p_min - &self.p_plus).square();
 
         self.m1_sq = self.m1_fac * self.m1_fac * self.e_cm_sq;
         self.m2_sq = self.m2_fac
             * self.m2_fac
-            * (if self.mu_p > self.e_cm_sq {
-                self.mu_p
+            * (if self.mu_p_sq > self.e_cm_sq {
+                self.mu_p_sq
             } else {
                 self.e_cm_sq
             });
         self.m3_sq = self.m3_fac
             * self.m3_fac
-            * (if self.mu_p > self.e_cm_sq {
-                self.mu_p
+            * (if self.mu_p_sq > self.e_cm_sq {
+                self.mu_p_sq
             } else {
                 self.e_cm_sq
             });
@@ -120,7 +120,7 @@ impl Deformer {
             }
         }
 
-        let mut orig_vec = self.qs.clone();
+        let mut orig_vec : Vec<_> = self.qs.clone();
         let mut filtered_vec = vec![];
         loop {
             // filter all vectors that are in the forward/backward light-cone of another vector
@@ -130,7 +130,7 @@ impl Deformer {
                     if i == j {
                         continue;
                     }
-                    if (v - v1).square() > 0.0 && ((plus && v.t > v1.t) || (!plus && v.t < v1.t)) {
+                    if (v - v1).square() >= 0.0 && ((plus && v.t > v1.t) || (!plus && v.t < v1.t)) {
                         spacelike = false;
                         break;
                     }
@@ -148,15 +148,15 @@ impl Deformer {
                 break;
             }
 
-            // find the pair with the smallest space-like seperation
-            let (mut first, mut sec, mut min_sep) = (0, 0, 0.0);
+            // find the pair with the smallest space-like separation
+            let (mut first, mut sec, mut min_sep) = (0, 1, 0.0);
             for (i, v1) in filtered_vec.iter().enumerate() {
-                for (j, v2) in filtered_vec.iter().enumerate() {
+                for (j, v2) in filtered_vec[i + 1..].iter().enumerate() {
                     let sep = -(v1 - v2).square();
                     if min_sep == 0.0 || sep <= min_sep {
                         min_sep = sep;
                         first = i;
-                        sec = j;
+                        sec = i + j + 1;
                     }
                 }
             }
@@ -430,7 +430,7 @@ impl Deformer {
 
         let l = mom - &self.uv_shift;
         let uv_fac = 4.0 * l.dot(&k0);
-        if uv_fac > self.mu_sq.im {
+        if uv_fac <= self.mu_sq.im {
             if lambda_cycle > self.mu_sq.im / uv_fac {
                 lambda_cycle = self.mu_sq.im / uv_fac;
 
