@@ -128,7 +128,6 @@ impl Deformer {
                 let mut spacelike = true;
                 for (j, v1) in orig_vec.iter().enumerate() {
                     if i == j {
-                        spacelike = false;
                         continue;
                     }
                     if (v - v1).square() > 0.0 && ((plus && v.t > v1.t) || (!plus && v.t < v1.t)) {
@@ -170,6 +169,7 @@ impl Deformer {
             );
             filtered_vec.swap_remove(sec);
             mem::swap(&mut orig_vec, &mut filtered_vec);
+            filtered_vec.clear();
             if orig_vec.len() == 1 {
                 break;
             }
@@ -381,19 +381,18 @@ impl Deformer {
             let mut xj_grad = LorentzVector::new();
             let mut yj_grad = LorentzVector::new();
 
-            for mu in 0..4
-            {
+            for mu in 0..4 {
                 xj_grad[mu] += metric_diag[mu] * 2.0 / k0_lqj * k0[mu];
                 yj_grad[mu] += metric_diag[mu] * 2.0 / w * lj[mu];
-                for nu in 0..4
-                {
-                xj_grad[mu] += metric_diag[nu] * (-4.0 / k0_sq *k0[nu] + 2.0 / k0_lqj*lj[nu]) * k_grad[nu][mu];
-                yj_grad[mu] += metric_diag[nu] * -2.0 / k0_sq * k0[nu] * k_grad[nu][mu];
+                for nu in 0..4 {
+                    xj_grad[mu] += metric_diag[nu]
+                        * (-4.0 / k0_sq * k0[nu] + 2.0 / k0_lqj * lj[nu])
+                        * k_grad[nu][mu];
+                    yj_grad[mu] += metric_diag[nu] * -2.0 / k0_sq * k0[nu] * k_grad[nu][mu];
                 }
             }
             xj_grad = &xj_grad * xj;
             yj_grad = &yj_grad * yj;
-
 
             if 2.0 * xj < yj {
                 if yj / 4.0 < lambda_cycle_sq {

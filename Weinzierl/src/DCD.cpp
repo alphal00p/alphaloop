@@ -936,7 +936,6 @@ my_comp DIdeform::Determinant(const std::vector<std::vector<my_comp>> &bb)
 {
   // Define matrix related variables.
   int dimension = bb.at(0).size();
-  int maxsize = dimension - 1;
   static const my_comp one(1.0, 0.0);
   my_comp determinant;
   int indx[dimension], d;
@@ -949,7 +948,7 @@ my_comp DIdeform::Determinant(const std::vector<std::vector<my_comp>> &bb)
   int i, imax, j, k, flag = 1;
   my_comp dumc, sum;
   my_real aamax, dumr;
-  my_real vv[maxsize];
+  my_real vv[dimension];
   // Initialize the parity parameter.
   d = 1;
   // Get the implicit scaling information.

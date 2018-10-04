@@ -5,7 +5,6 @@ use Complex;
 pub fn determinant(bb: &[[Complex; 4]; 4]) -> Complex {
     // Define matrix related variables.
     let dimension = bb[0].len();
-    let maxsize = dimension - 1;
     let mut determinant = Complex::new(1.0, 0.0);
     let mut indx = vec![0; dimension];
     let mut d = 1; // initialize parity parameter
@@ -21,7 +20,7 @@ pub fn determinant(bb: &[[Complex; 4]; 4]) -> Complex {
 
     let mut aamax;
     let mut dumr;
-    let mut vv = vec![0.0; maxsize];
+    let mut vv = vec![0.0; dimension];
 
     // Get the implicit scaling information.
     for i in 0..dimension {
