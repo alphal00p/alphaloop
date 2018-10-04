@@ -201,10 +201,10 @@ impl Deformer {
                 w_grad.t = -1.0;
             }
 
-            k.t.abs() + w
+            k.t.abs() - w
         } else {
             w_grad.t = sign as f64;
-            sign as f64 * k.t + w
+            sign as f64 * k.t - w
         };
 
         &w_grad * (2.0 * m / w1 / (w1 * w1 + m))
