@@ -15,11 +15,12 @@ import loop_momenta_generator
 import nloop_integrands
 
 import time
-from math import sqrt
+from math import sqrt, pi
 
 import numdifftools as nd
 import numpy as np
 import numpy.linalg as linalg
+from mpmath import polylog, ln
 
 import madgraph.integrator.vectors as vectors
 
@@ -114,6 +115,32 @@ def deform(loop_momenta):
     k_2 = k_mapped + lambda_overall * k_2 * 1j
 
     return [x for x in k_1] + [x for x in k_2]
+
+
+def doublebox_analytic(k1, k2, k3, k4):
+    # from http://www.higgs.de/~davyd/preprints/ud1.pdf
+    def lmbda(x, y):
+        return sqrt((1.-x-y)**2 - 4. * x * y)
+
+    def rho(x, y):
+        return 2. / (1. - x - y + lmbda(x, y))
+
+    s = (k1 + k2)**2
+    t = (k2 + k3)**2
+
+    x = k1**2 * k3**2 / float(s * t)
+    y = k2**2 * k4**2 / float(s * t)
+
+    if x < 0 or y < 0:
+        print("Warning: analytical contituation of ln needs to be performed!")
+
+    l = lmbda(x, y)
+    r = rho(x, y)
+    rx = r * x
+    ry = r * y
+
+    return - t * (pi**2*1j/(s*t))**2 / l * (6. * (polylog(4, -rx) + polylog(4, -ry)) + 3 * ln(y/x)*(polylog(3, -rx) - polylog(3, -ry)) + 0.5*ln(y/x)**2*(polylog(2, -rx)+polylog(2, -ry))
+                                            + 0.25*ln(rx)**2*ln(ry)**2 + pi**2/2.*ln(rx)*ln(ry) + pi**2/12*ln(y/x)**2 + 7 * pi**4/60.)
 
 
 for _ in range(N):
