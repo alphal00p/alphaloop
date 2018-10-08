@@ -68,7 +68,7 @@ impl Deformer {
 
         self.uv_shift = LorentzVector::new();
         for q in &self.qs {
-            self.uv_shift = &self.uv_shift + &q;
+            self.uv_shift = &self.uv_shift + q;
         }
         self.uv_shift = &self.uv_shift * (1.0 / (self.qs.len() as f64));
 
@@ -120,7 +120,7 @@ impl Deformer {
             }
         }
 
-        let mut orig_vec : Vec<_> = self.qs.clone();
+        let mut orig_vec: Vec<_> = self.qs.clone();
         let mut filtered_vec = vec![];
         loop {
             // filter all vectors that are in the forward/backward light-cone of another vector
@@ -362,10 +362,10 @@ impl Deformer {
                 }
             }
 
-            k_int = &k_int + &(&l * -c[i]); // massless part
+            k_int = k_int + &l * -c[i]; // massless part
         }
 
-        let k0 = &k_int + &k_ext;
+        let k0 = k_int + k_ext;
         let mut lambda_cycle_sq = 1.0; // maximum lambda value
         let mut lambda_grad = LorentzVector::new();
 

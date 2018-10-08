@@ -104,6 +104,24 @@ impl<'a, T: Field> Add<&'a LorentzVector<T>> for &'a LorentzVector<T> {
     }
 }
 
+impl<'a, T: Field> Add<LorentzVector<T>> for &'a LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    #[inline]
+    fn add(self, other: LorentzVector<T>) -> LorentzVector<T> {
+        self.add(&other)
+    }
+}
+
+impl<'a, T: Field> Add<LorentzVector<T>> for LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    #[inline]
+    fn add(self, other: LorentzVector<T>) -> LorentzVector<T> {
+        &self + &other
+    }
+}
+
 impl<'a, T: Field> Sub<&'a LorentzVector<T>> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
@@ -114,6 +132,24 @@ impl<'a, T: Field> Sub<&'a LorentzVector<T>> for &'a LorentzVector<T> {
             y: self.y - other.y,
             z: self.z - other.z,
         }
+    }
+}
+
+impl<'a, T: Field> Sub<LorentzVector<T>> for &'a LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    #[inline]
+    fn sub(self, other: LorentzVector<T>) -> LorentzVector<T> {
+        self.sub(&other)
+    }
+}
+
+impl<'a, T: Field> Sub<LorentzVector<T>> for LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    #[inline]
+    fn sub(self, other: LorentzVector<T>) -> LorentzVector<T> {
+        &self + &other
     }
 }
 
@@ -139,6 +175,32 @@ impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
             x: self.x - other.x,
             y: self.y - other.y,
             z: self.z - other.z,
+        }
+    }
+}
+
+impl<'a> Sub<&'a LorentzVector<f64>> for LorentzVector<Complex> {
+    type Output = LorentzVector<Complex>;
+
+    fn sub(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
+        LorentzVector {
+            t: self.t - other.t,
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
+}
+
+impl<'a> Add<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
+    type Output = LorentzVector<Complex>;
+
+    fn add(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
+        LorentzVector {
+            t: self.t + other.t,
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
         }
     }
 }

@@ -11,13 +11,18 @@ const OFF_SHELL_BOX: usize = 1;
 const ON_SHELL_BOX_SUBTRACTED: usize = 2;
 const ONE_OFF_SHELL_BOX_SUBTRACTED: usize = 3;
 const ON_SHELL_BOX_SUBTRACTED_UV_INT: usize = 4;
+const OFF_SHELL_PENTAGON: usize = 5;
+const OFF_SHELL_HEXAGON: usize = 6;
+const OFF_SHELL_DOUBLE_BOX: usize = 7;
 
 pub struct Integrand {
-    pub integrand_id: usize,
-    pub channel: usize,
-    pub region: usize,
-    pub mu_sq: Complex,
-    pub qs: Vec<LorentzVector<f64>>,
+    integrand_id: usize,
+    channel: usize,
+    region: usize,
+    mu_sq: Complex,
+    qs: Vec<LorentzVector<f64>>,
+    ext: Vec<LorentzVector<f64>>,
+    shift: LorentzVector<f64>,
 }
 
 impl Integrand {
@@ -29,9 +34,12 @@ impl Integrand {
     ) -> Result<Integrand, &str> {
         let integrand_id = match integrand_name {
             "box1L_direct_integration" => OFF_SHELL_BOX,
+            "pentagon1L_direct_integration" => OFF_SHELL_PENTAGON,
+            "hexagon1L_direct_integration" => OFF_SHELL_HEXAGON,
             "box1L_direct_integration_subtracted" => ON_SHELL_BOX_SUBTRACTED,
             "box1L_direct_integration_one_offshell_subtracted" => ONE_OFF_SHELL_BOX_SUBTRACTED,
             "box1L_direct_integration_subtracted_uv_int" => ON_SHELL_BOX_SUBTRACTED_UV_INT,
+            "box2L_direct_integration" => OFF_SHELL_DOUBLE_BOX,
             _ => return Err("Unknown integrand"),
         };
 
@@ -41,35 +49,50 @@ impl Integrand {
             region,
             mu_sq: Complex::new(0.0, mu_sq),
             qs: Vec::with_capacity(4),
+            ext: Vec::with_capacity(4),
+            shift: LorentzVector::new(),
         })
     }
 
-    pub fn evaluate(&self, mom: &LorentzVector<Complex>) -> Result<Complex, &str> {
-        match self.integrand_id {
-            OFF_SHELL_BOX | ON_SHELL_BOX_SUBTRACTED => {
-                if self.qs.len() != 4 {
-                    return Err("Four Qs are required for the box");
-                }
+    pub fn set_channel(&mut self, channel: usize) {
+        self.channel = channel;
+    }
 
+    pub fn set_externals(&mut self, ext: Vec<LorentzVector<f64>>) {
+        self.ext = ext;
+
+        // compute the qs for one-loop computations
+        self.qs.clear();
+        self.qs.push(LorentzVector::new());
+        for (i, e) in self.ext[1..].iter().enumerate() {
+            let r = &self.qs[i] + e;
+            self.qs.push(r);
+        }
+
+        // compute the shift
+        self.shift = LorentzVector::new();
+        for q in &self.qs {
+            self.shift = &self.shift + q;
+        }
+        self.shift = &self.shift * 0.25;
+    }
+
+    pub fn evaluate(&self, mom: &[LorentzVector<Complex>]) -> Result<Complex, &str> {
+        match self.integrand_id {
+            OFF_SHELL_BOX | ON_SHELL_BOX_SUBTRACTED | OFF_SHELL_PENTAGON | OFF_SHELL_HEXAGON => {
                 let mut factor = Complex::new(0.0, -f64::FRAC_1_PI() * f64::FRAC_1_PI());
 
                 let mut denominator = Complex::new(1.0, 0.0);
 
                 if self.region == REGION_ALL || self.region == REGION_INT {
                     for q in &self.qs {
-                        denominator *= (mom - q).square();
+                        denominator *= (&mom[0] - q).square();
                     }
                 }
 
                 if self.region != REGION_ALL {
-                    // TODO: cache
-                    let mut shift = LorentzVector::new();
-                    for q in &self.qs {
-                        shift = &shift + q;
-                    }
-                    shift = &shift * 0.25;
-                    let mut d = (mom - &shift).square() - self.mu_sq;
-                    d = d.powf(4.0);
+                    let mut d = (&mom[0] - &self.shift).square() - self.mu_sq;
+                    d = d.powf(self.qs.len() as f64); // TODO: use powi when it is implemented
 
                     if self.region == REGION_EXT {
                         denominator = d;
@@ -85,17 +108,19 @@ impl Integrand {
                     for i in 0..4 {
                         // TODO: cache
                         invariant = (&self.qs[i % 2] - &self.qs[i % 2 + 2]).square();
-                        ct -= (mom - &self.qs[i]).square() / invariant;
+                        ct -= (&mom[0] - &self.qs[i]).square() / invariant;
                     }
                     factor *= ct;
                 }
 
-                if self.channel > 0 && self.channel <= 3 {
+                if self.channel > 0 && self.channel <= self.qs.len() - 1 {
                     let mut mc_factor = Complex::default();
                     let mut tmp;
 
                     for (i, q) in self.qs.windows(2).enumerate() {
-                        tmp = 1.0 / ((mom - &q[0]).square().norm() * (mom - &q[1]).square().norm());
+                        tmp = 1.0
+                            / ((&mom[0] - &q[0]).square().norm()
+                                * (&mom[0] - &q[1]).square().norm());
                         mc_factor += tmp * tmp;
 
                         if i == self.channel as usize {
@@ -107,6 +132,19 @@ impl Integrand {
                 } else {
                     Ok(factor / denominator)
                 }
+            }
+            OFF_SHELL_DOUBLE_BOX => {
+                let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
+                let (k, l) = (&mom[0], &mom[1]);
+
+                let denominator = k.square()
+                    * l.square()
+                    * (k - l).square()
+                    * (k - l - &self.ext[1]).square()
+                    * (k - &self.ext[1] - &self.ext[2]).square()
+                    * (k + &self.ext[0]).square();
+
+                Ok(factor / denominator)
             }
             _ => Err("Integrand is not implemented yet"),
         }

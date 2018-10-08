@@ -80,6 +80,11 @@ py_class!(class Parameterization |py| {
         Ok(r)
     }
 
+    def set_mode(&self, mode: &str) -> PyResult<bool> {
+        self.parameterizer(py).borrow_mut().set_mode(mode).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+        Ok(true)
+    }
+
     def set_qs(&self, qs_py: PyList) -> PyResult<bool> {
         // TODO: support Python LorentzVector?
         let mut qs: Vec<vector::LorentzVector<f64>> = Vec::with_capacity(4);

@@ -29,6 +29,16 @@ impl Parameterizer {
         })
     }
 
+    pub fn set_mode(&mut self, mode: &str) -> Result<(), &'static str> {
+        match mode {
+            "log" => self.mode = ParameterizationMode::Log,
+            "linear" => self.mode = ParameterizationMode::Linear,
+            "weinzierl" => self.mode = ParameterizationMode::Weinzierl,
+            _ => return Err("Unknown parameterization mode"),
+        }
+        Ok(())
+    }
+
     /// Set new qs and update all parameters accordingly.
     pub fn set_qs(&mut self, qs: Vec<LorentzVector<f64>>) {
         self.qs = qs;
