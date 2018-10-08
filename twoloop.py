@@ -15,9 +15,13 @@ import loop_momenta_generator
 import nloop_integrands
 
 import time
+from math import sqrt
+
+import numdifftools as nd
+import numpy as np
+import numpy.linalg as linalg
 
 import madgraph.integrator.vectors as vectors
-
 
 channel = 0
 mu_sq = -1e-5
@@ -48,23 +52,10 @@ N = 10
 
 random.seed(123)
 
-for _ in range(N):
-    # first loop momentum
-    k = [random.random(), random.random(),
-         random.random(), random.random()]
 
-    # second loop momentum
-    l = [random.random(), random.random(),
-         random.random(), random.random()]
-
-    # TODO: does the per-channel treatment still make sense?
-    # should we do channels over the two-loop integral?
-    parameterization.set_mode("log")
-    k_mapped, jac_k = parameterization.map(k)
-    l_mapped, jac_l = parameterization.map(l)
-
-    k_mapped = vectors.LorentzVector(k_mapped)
-    l_mapped = vectors.LorentzVector(l_mapped)
+def deform(loop_momenta):
+    k_mapped = vectors.LorentzVector(loop_momenta[:4])
+    l_mapped = vectors.LorentzVector(loop_momenta[4:])
 
     # for the shift of 1/l^2
     a = l_mapped - k_mapped
@@ -75,7 +66,7 @@ for _ in range(N):
 
     deformation.set_qs([[x for x in e] for e in C12_qs])
     mapped_r, jac_real, jac_imag = deformation.deform([x for x in k_mapped])
-    C12_k = [imag for real, imag in mapped_r] # just take the imaginary part
+    C12_k = [imag for real, imag in mapped_r]  # just take the imaginary part
 
     # cycle 23 with k = k + 2l
     C23_qs = [vectors.LorentzVector(), -k_mapped, -k_mapped + external_momenta[1],
@@ -101,17 +92,68 @@ for _ in range(N):
     # should we use C12_l instead?
     k_2 = vectors.LorentzVector(C12_k) + vectors.LorentzVector(C23_k)
 
-    # TODO: compute overall lambda
-    lambda_overall = 1
+    lambda_overall = 1  # maximum lambda value
+    ks = [k_1, k_2]
+    lmom = [k_mapped, l_mapped]
 
-    k_1 = k_mapped + lambda_overall * k_1 *1j
-    k_2 = k_mapped + lambda_overall * k_2 *1j
+    # TODO: the paper suggests the loop is over the propagators
+    # but we only have two deformed ks instead of 7 and their propagator is simply 1/k^2
+    for j in range(2):
+        xj = (ks[j].dot(lmom[j]) / ks[j].square())**2
+        yj = (
+            (lmom[j]).square() - masses[j]**2) / ks[j].square()
 
-    # TODO: numerical Jacobian
+        if 2 * xj < yj:
+            lambda_overall = min(lambda_overall, sqrt(yj / 4.))
+        elif yj < 0:
+            lambda_overall = min(lambda_overall, sqrt(xj - yj/2.))
+        else:
+            lambda_overall = min(lambda_overall, sqrt(xj - yj/4.))
+
+    k_1 = k_mapped + lambda_overall * k_1 * 1j
+    k_2 = k_mapped + lambda_overall * k_2 * 1j
+
+    return [x for x in k_1] + [x for x in k_2]
+
+
+for _ in range(N):
+    # first loop momentum
+    k = [random.random(), random.random(),
+         random.random(), random.random()]
+
+    # second loop momentum
+    l = [random.random(), random.random(),
+         random.random(), random.random()]
+
+    # TODO: does the per-channel treatment still make sense?
+    # should we do channels over the two-loop integral?
+    parameterization.set_mode("log")
+    k_mapped, jac_k = parameterization.map(k)
+    l_mapped, jac_l = parameterization.map(l)
+
+    ks = deform(k_mapped + l_mapped)
+
+    # compute numerical Jacobian
+    def wrapped_function(loop_momenta):
+        return np.r_[deform(loop_momenta)]
+
+    local_point = k_mapped + l_mapped
+    numerical_jacobian, info = nd.Jacobian(
+        wrapped_function, full_output=True)(local_point)
+
+    # And now compute the determinant
+    numerical_jacobian_weight = linalg.det(numerical_jacobian)
+
+    if np.max(info.error_estimate) > 1.e-3:
+        print(
+            "Large error of %f (for which det(jac)=%f) encountered in the numerical evaluation of the Jacobian for the inputs: %s" %
+            (np.max(info.error_estimate), numerical_jacobian_weight, str(local_point)))
 
     # integrate the two-loop
-    out_real, out_imag = doublebox.evaluate([[k_1[0], k_1[1],k_1[2], k_1[3]], [k_2[0], k_2[1], k_2[2], k_2[3]]])
-    print('Out', complex(out_real, out_imag))
+    out_real, out_imag = doublebox.evaluate([ks[:4], ks[4:]])
 
+    result = complex(out_real) * numerical_jacobian_weight * jac_k * jac_l
+
+    print('Out', result)
 
 print('Time', time.time() - t)
