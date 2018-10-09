@@ -145,6 +145,7 @@ impl Deformer {
                 panic!("Failed to determine P_{+/-}.");
             }
             if filtered_vec.len() == 1 {
+                orig_vec = filtered_vec;
                 break;
             }
 
