@@ -1,5 +1,6 @@
+use std::f64::EPSILON;
 use std::mem;
-use utils::determinant;
+use utils::{determinant, determinant8};
 use vector::LorentzVector;
 use Complex;
 use REGION_EXT;
@@ -585,5 +586,52 @@ impl Deformer {
         let k_2_full = &((&k_2 * lambda).to_complex(false)) + k;
 
         Ok((k_1_full, k_2_full))
+    }
+
+    pub fn numerical_jacobian_doublebox(
+        &mut self,
+        k: &LorentzVector<f64>,
+        l: &LorentzVector<f64>,
+        center: (&LorentzVector<Complex>, &LorentzVector<Complex>),
+    ) -> Complex {
+        let eps = EPSILON.sqrt();
+        let mut grad = [[Complex::new(0., 0.); 8]; 8];
+
+        let mut dir = [
+            LorentzVector::new(),
+            LorentzVector::new(),
+            LorentzVector::new(),
+            LorentzVector::new(),
+        ];
+        for (i, x) in dir.iter_mut().enumerate() {
+            x[i] = 1.0;
+        }
+
+        for i in 0..8 {
+            let mut ep = eps;
+            let mut k_n = k.clone();
+            let mut l_n = l.clone();
+            if i < 4 {
+                if k_n[i] > 1.0 {
+                    ep = k_n[i] * eps;
+                }
+                k_n = k_n + &dir[i] * ep;
+            } else {
+                if l_n[i - 4] > 1.0 {
+                    ep = l_n[i - 4] * eps;
+                }
+                l_n = l_n + &dir[i - 4] * ep;
+            }
+
+            let (res_k, res_l) = self.deform_doublebox(&k_n, &l_n).unwrap();
+            let delta_k = (res_k - center.0) * Complex::new(1. / ep, 0.);
+            let delta_l = (res_l - center.1) * Complex::new(1. / ep, 0.);
+            for j in 0..4 {
+                grad[i][j] = delta_k[j];
+                grad[i][j + 4] = delta_l[j];
+            }
+        }
+
+        determinant8(&grad)
     }
 }

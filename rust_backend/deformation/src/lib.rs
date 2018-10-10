@@ -90,7 +90,7 @@ py_class!(class Deformation |py| {
         Ok(true)
     }
 
-    def deform_doublebox(&self, momenta: PyList) -> PyResult<Vec<(f64, f64)>> {
+    def deform_doublebox(&self, momenta: PyList) -> PyResult<(Vec<(f64, f64)>, f64, f64)> {
         let mut qs: Vec<vector::LorentzVector<f64>> = Vec::with_capacity(4);
 
         for mom in momenta.iter(py) {
@@ -106,7 +106,12 @@ py_class!(class Deformation |py| {
             qs.push(vector::LorentzVector::from_vec(m));
         }
         let (k, l) = self.deformer(py).borrow_mut().deform_doublebox(&qs[0], &qs[1]).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
-        Ok(vec![(k.t.re, k.t.im), (k.x.re, k.x.im), (k.y.re, k.y.im), (k.z.re, k.z.im), (l.t.re, l.t.im), (l.x.re, l.x.im), (l.y.re, l.y.im), (l.z.re, l.z.im)])
+
+
+        // compute jacobian
+        let jac = self.deformer(py).borrow_mut().numerical_jacobian_doublebox(&qs[0], &qs[1], (&k, &l));
+
+        Ok((vec![(k.t.re, k.t.im), (k.x.re, k.x.im), (k.y.re, k.y.im), (k.z.re, k.z.im), (l.t.re, l.t.im), (l.x.re, l.x.im), (l.y.re, l.y.im), (l.z.re, l.z.im)], jac.re, jac.im))
     }
 });
 

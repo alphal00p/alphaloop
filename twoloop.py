@@ -16,6 +16,7 @@ import nloop_integrands
 
 import time
 from math import sqrt, pi
+import logging
 
 import numdifftools as nd
 import numpy as np
@@ -27,6 +28,8 @@ import madgraph.integrator.phase_space_generators as phase_space_generators
 from madgraph.integrator.vegas3_integrator import Vegas3Integrator
 import madgraph.integrator.integrands as integrands
 from madgraph.various.cluster import MultiCore
+
+logger = logging.getLogger('doublebox')
 
 
 class DoubleBox(integrands.VirtualIntegrand):
@@ -164,16 +167,18 @@ class DoubleBox(integrands.VirtualIntegrand):
         numerical_jacobian_weight = 1.
         ks = k_mapped + l_mapped
 
-        if True:
-            #ks = self.deform(k_mapped + l_mapped)
-            ks = [complex(*x) for x in self.deformation.deform_doublebox(
-                [[x for x in ks[:4]], [x for x in ks[4:]]])]
+        (ksv, jac_real, jac_imag) = self.deformation.deform_doublebox(
+            [[x for x in ks[:4]], [x for x in ks[4:]]])
 
+        ks = [complex(*x) for x in ksv]
+        jac = complex(jac_real, jac_imag)
+
+        if False:
             # compute numerical Jacobian
             def wrapped_function(loop_momenta):
                 # return np.r_[self.deform(loop_momenta)]
                 return np.r_[[complex(*x) for x in self.deformation.deform_doublebox(
-                    [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])]]
+                    [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])[0]]]
 
             local_point = k_mapped + l_mapped
 
@@ -183,6 +188,9 @@ class DoubleBox(integrands.VirtualIntegrand):
 
             # And now compute the determinant
             numerical_jacobian_weight = linalg.det(numerical_jacobian)
+
+            # print the two jacobians
+            print(jac, numerical_jacobian_weight)
 
             # NOTE: This happens a lot!
             # if np.max(info.error_estimate) > 1.e-3:
@@ -194,7 +202,7 @@ class DoubleBox(integrands.VirtualIntegrand):
         out_real, out_imag = self.integrand.evaluate([ks[:4], ks[4:]])
 
         result = complex(out_real, out_imag) * \
-            numerical_jacobian_weight * jac_k * jac_l
+            jac * jac_k * jac_l
         return result
 
     def integrate(self, sqrt_s, masses):
@@ -235,8 +243,8 @@ class DoubleBox(integrands.VirtualIntegrand):
                                       for e in self.external_momenta])
 
         # TODO: set sensible options
-        integrator = Vegas3Integrator(self, verbosity=1, cluster=MultiCore(
-            4), survey_n_points=10000, survey_n_iterations=10, refine_n_points=20000, refine_n_iterations=5)
+        integrator = Vegas3Integrator(self, verbosity=2, cluster=MultiCore(
+            4), survey_n_points=100000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
 
         amplitude, error = integrator.integrate()
         print("Result: %s +/ %s" % (amplitude, error))
@@ -336,5 +344,5 @@ class DummyIntegrand():
 
 random.seed(123)
 d = DoubleBox()
-#d.sample_points()
+# d.sample_points()
 d.integrate(1000., [100., 200., 300., 400.])
