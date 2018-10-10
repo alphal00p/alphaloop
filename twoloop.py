@@ -65,6 +65,7 @@ class DoubleBox(integrands.VirtualIntegrand):
         return self.evaluate([x for x in continuous_inputs[:4]], [x for x in continuous_inputs[4:]]).real
 
     def deform(self, loop_momenta):
+        """ This function is only used to check the Rust implementation """
         k_mapped = vectors.LorentzVector(loop_momenta[:4])
         l_mapped = vectors.LorentzVector(loop_momenta[4:])
 
@@ -146,6 +147,12 @@ class DoubleBox(integrands.VirtualIntegrand):
         k_1 = k_mapped + lambda_overall * k_1 * 1j
         k_2 = k_mapped + lambda_overall * k_2 * 1j
 
+        rust_res = [complex(*x) for x in self.deformation.deform_doublebox(
+            [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])]
+
+        print('R: %s' % rust_res)
+        print('P: %s' % ([x for x in k_1] + [x for x in k_2]))
+
         return [x for x in k_1] + [x for x in k_2]
 
     def evaluate(self, k, l):
@@ -158,11 +165,15 @@ class DoubleBox(integrands.VirtualIntegrand):
         ks = k_mapped + l_mapped
 
         if True:
-            ks = self.deform(k_mapped + l_mapped)
+            #ks = self.deform(k_mapped + l_mapped)
+            ks = [complex(*x) for x in self.deformation.deform_doublebox(
+                [[x for x in ks[:4]], [x for x in ks[4:]]])]
 
             # compute numerical Jacobian
             def wrapped_function(loop_momenta):
-                return np.r_[self.deform(loop_momenta)]
+                # return np.r_[self.deform(loop_momenta)]
+                return np.r_[[complex(*x) for x in self.deformation.deform_doublebox(
+                    [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])]]
 
             local_point = k_mapped + l_mapped
 
@@ -217,6 +228,9 @@ class DoubleBox(integrands.VirtualIntegrand):
         self.deformation = deformation.Deformation(
             e_cm_sq=sqrt_s**2, mu_sq=self.mu_sq, region=0, qs_py=[[v for v in q] for q in self.external_momenta], masses=self.internal_masses)
 
+        self.deformation.set_external_momenta([[x for x in e]
+                                               for e in self.external_momenta])
+
         self.integrand.set_externals([[x for x in e]
                                       for e in self.external_momenta])
 
@@ -248,11 +262,14 @@ class DoubleBox(integrands.VirtualIntegrand):
         self.deformation = deformation.Deformation(
             e_cm_sq=e_cm_sq, mu_sq=self.mu_sq, region=0, qs_py=qs, masses=masses)
 
+        self.deformation.set_external_momenta([[x for x in e]
+                                               for e in self.external_momenta])
+
         self.integrand.set_externals([[x for x in e]
                                       for e in external_momenta])
 
         t = time.time()
-        N = 30
+        N = 3000
 
         random.seed(123)
 
@@ -265,7 +282,9 @@ class DoubleBox(integrands.VirtualIntegrand):
             l = [random.random(), random.random(),
                  random.random(), random.random()]
 
-            print('Out', self.evaluate(k, l))
+            r = self.evaluate(k, l)
+
+            #print('Out', self.evaluate(k, l))
 
         print('Time', time.time() - t)
 
@@ -317,5 +336,5 @@ class DummyIntegrand():
 
 random.seed(123)
 d = DoubleBox()
-# d.sample_points()
+#d.sample_points()
 d.integrate(1000., [100., 200., 300., 400.])

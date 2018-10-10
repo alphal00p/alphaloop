@@ -68,6 +68,46 @@ py_class!(class Deformation |py| {
         let (res, jac) = self.deformer(py).borrow().deform(&vector::LorentzVector::from_vec(m)).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         Ok((vec![(res.t.re, res.t.im), (res.x.re, res.x.im), (res.y.re, res.y.im), (res.z.re, res.z.im)], jac.re, jac.im))
     }
+
+    def set_external_momenta(&self, ext_py: PyList) -> PyResult<bool> {
+        // TODO: support Python LorentzVector?
+        let mut ext: Vec<vector::LorentzVector<f64>> = Vec::with_capacity(4);
+
+        for mom in ext_py.iter(py) {
+            let mut m: Vec<f64> = Vec::with_capacity(4);
+            for x in mom.extract::<PyList>(py)?.iter(py) {
+                m.push(x.extract(py)?);
+            }
+
+            if m.len() != 4 {
+                return Err(PyErr::new::<exc::ValueError, _>(py, "Momentum does not have 4 components"));
+            }
+
+            ext.push(vector::LorentzVector::from_vec(m));
+        }
+
+        self.deformer(py).borrow_mut().set_external_momenta(ext);
+        Ok(true)
+    }
+
+    def deform_doublebox(&self, momenta: PyList) -> PyResult<Vec<(f64, f64)>> {
+        let mut qs: Vec<vector::LorentzVector<f64>> = Vec::with_capacity(4);
+
+        for mom in momenta.iter(py) {
+            let mut m: Vec<f64> = Vec::with_capacity(4);
+            for x in mom.extract::<PyList>(py)?.iter(py) {
+                m.push(x.extract(py)?);
+            }
+
+            if m.len() != 4 {
+                return Err(PyErr::new::<exc::ValueError, _>(py, "Momentum does not have 4 components"));
+            }
+
+            qs.push(vector::LorentzVector::from_vec(m));
+        }
+        let (k, l) = self.deformer(py).borrow_mut().deform_doublebox(&qs[0], &qs[1]).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+        Ok(vec![(k.t.re, k.t.im), (k.x.re, k.x.im), (k.y.re, k.y.im), (k.z.re, k.z.im), (l.t.re, l.t.im), (l.x.re, l.x.im), (l.y.re, l.y.im), (l.z.re, l.z.im)])
+    }
 });
 
 py_class!(class Parameterization |py| {

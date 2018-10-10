@@ -91,6 +91,32 @@ impl<T: Field> LorentzVector<T> {
     }
 }
 
+impl<'a, T: Field> Neg for &'a LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    fn neg(self) -> LorentzVector<T> {
+        LorentzVector {
+            t: -self.t,
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
+
+impl<'a, T: Field> Neg for LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    fn neg(self) -> LorentzVector<T> {
+        LorentzVector {
+            t: -self.t,
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
+
 impl<'a, T: Field> Add<&'a LorentzVector<T>> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
@@ -110,6 +136,15 @@ impl<'a, T: Field> Add<LorentzVector<T>> for &'a LorentzVector<T> {
     #[inline]
     fn add(self, other: LorentzVector<T>) -> LorentzVector<T> {
         self.add(&other)
+    }
+}
+
+impl<'a, T: Field> Add<&'a LorentzVector<T>> for LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    #[inline]
+    fn add(self, other: &'a LorentzVector<T>) -> LorentzVector<T> {
+        &self + other
     }
 }
 
@@ -149,11 +184,33 @@ impl<'a, T: Field> Sub<LorentzVector<T>> for LorentzVector<T> {
 
     #[inline]
     fn sub(self, other: LorentzVector<T>) -> LorentzVector<T> {
-        &self + &other
+        &self - &other
+    }
+}
+
+impl<'a, T: Field> Sub<&'a LorentzVector<T>> for LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    #[inline]
+    fn sub(self, other: &'a LorentzVector<T>) -> LorentzVector<T> {
+        &self - other
     }
 }
 
 impl<'a, T: Field> Mul<T> for &'a LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    fn mul(self, other: T) -> LorentzVector<T> {
+        LorentzVector {
+            t: self.t * other,
+            x: self.x * other,
+            y: self.y * other,
+            z: self.z * other,
+        }
+    }
+}
+
+impl<'a, T: Field> Mul<T> for LorentzVector<T> {
     type Output = LorentzVector<T>;
 
     fn mul(self, other: T) -> LorentzVector<T> {
@@ -255,6 +312,26 @@ impl LorentzVector<f64> {
                 y: Complex::new(0.0, self.y),
                 z: Complex::new(0.0, self.z),
             }
+        }
+    }
+}
+
+impl LorentzVector<Complex> {
+    pub fn real(&self) -> LorentzVector<f64> {
+        LorentzVector {
+            t: self.t.re,
+            x: self.x.re,
+            y: self.y.re,
+            z: self.z.re
+        }
+    }
+
+    pub fn imag(&self) -> LorentzVector<f64> {
+        LorentzVector {
+            t: self.t.im,
+            x: self.x.im,
+            y: self.y.im,
+            z: self.z.im
         }
     }
 }
