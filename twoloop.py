@@ -96,8 +96,8 @@ class DoubleBox(integrands.VirtualIntegrand):
 
         # cycle C23(l), going with the momentum direction
         # TODO: check
-        C23_qs = [vectors.LorentzVector(), -k_mapped + self.external_momenta[1] + self.external_momenta[2],
-                  -k_mapped + self.external_momenta[1], -k_mapped]
+        C23_qs = [vectors.LorentzVector(), k_mapped - self.external_momenta[1] - self.external_momenta[2],
+                  k_mapped - self.external_momenta[1], k_mapped]
 
         self.deformation.set_qs([[x for x in e] for e in C23_qs])
         mapped_r, jac_real, jac_imag = self.deformation.deform(
