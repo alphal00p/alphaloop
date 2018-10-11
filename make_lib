@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Compilers:                                                                                                                                              
+UNAME_S=$(uname -s)
+PWD=$(pwd)
+
+case ${UNAME_S} in
+    Linux*)
+	SO_DEFORM=target/release/libintegrand.so
+	SO_INTEGRATE=target/release/libintegrand.so;;
+    Darwin*)
+	SO_DEFORM=target/release/libintegrand.dylib
+	SO_INTEGRATE=target/release/libintegrand.dylib;;
+    *)
+	echo "UNKNOWN:${UNAME_S}"
+	exit 0
+esac
+
+#Build libraries for python 
+cd rust_backend/
+cargo build --release
+
+#Rename them to be called from MadGraph
+cp ${SO_DEFORM} deform.so
+cp ${SO_INTEGRATE} integrate.so 
+
