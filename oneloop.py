@@ -55,7 +55,7 @@ class Box(integrands.VirtualIntegrand):
 
         # set up a configuration
         self.channel = 0
-        self.mu_sq = -1e9
+        self.mu_sq = -1e6
 
         self.parameterization = None
         self.deformation = None
@@ -71,8 +71,8 @@ class Box(integrands.VirtualIntegrand):
     def evaluate(self, k):
         if True:
             # TODO: also sample -k_mapped in external region
-            r1 = self.evaluate_region(k, 1)
-            r2 = self.evaluate_region(k, 2)
+            r1 = self.evaluate_region(k, 1) # external
+            r2 = self.evaluate_region(k, 2) # internal
             return r1 + r2
         else:
             return self.evaluate_region(k, 0)

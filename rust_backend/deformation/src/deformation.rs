@@ -514,7 +514,7 @@ impl Deformer {
             Complex::new(mom.z, -mom.z - self.uv_shift.z),
         );
 
-        Ok((k, -Complex::new(0.0, -4.0)))
+        Ok((k, Complex::new(0.0, -4.0)))
     }
 
     pub fn deform(
