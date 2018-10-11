@@ -5,6 +5,33 @@ use vector::LorentzVector;
 use Complex;
 use REGION_EXT;
 
+const DIRECTIONS: [LorentzVector<f64>; 4] = [
+    LorentzVector {
+        t: 1.0,
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    },
+    LorentzVector {
+        t: 0.0,
+        x: 1.0,
+        y: 0.0,
+        z: 0.0,
+    },
+    LorentzVector {
+        t: 0.0,
+        x: 0.0,
+        y: 1.0,
+        z: 0.0,
+    },
+    LorentzVector {
+        t: 0.0,
+        x: 0.0,
+        y: 0.0,
+        z: 1.0,
+    },
+];
+
 pub struct Deformer {
     qs: Vec<LorentzVector<f64>>,
     ext: Vec<LorentzVector<f64>>, // external momenta
@@ -64,6 +91,10 @@ impl Deformer {
     /// Set external momenta. Only used for the double box at the moment.
     pub fn set_external_momenta(&mut self, ext: Vec<LorentzVector<f64>>) {
         self.ext = ext;
+    }
+
+    pub fn set_region(&mut self, region: usize) {
+        self.region = region;
     }
 
     /// Set new qs and update all parameters accordingly.
@@ -597,16 +628,6 @@ impl Deformer {
         let eps = EPSILON.sqrt();
         let mut grad = [[Complex::new(0., 0.); 8]; 8];
 
-        let mut dir = [
-            LorentzVector::new(),
-            LorentzVector::new(),
-            LorentzVector::new(),
-            LorentzVector::new(),
-        ];
-        for (i, x) in dir.iter_mut().enumerate() {
-            x[i] = 1.0;
-        }
-
         for i in 0..8 {
             let mut ep = eps;
             let mut k_n = k.clone();
@@ -615,12 +636,12 @@ impl Deformer {
                 if k_n[i] > 1.0 {
                     ep = k_n[i] * eps;
                 }
-                k_n = k_n + &dir[i] * ep;
+                k_n = k_n + &DIRECTIONS[i] * ep;
             } else {
                 if l_n[i - 4] > 1.0 {
                     ep = l_n[i - 4] * eps;
                 }
-                l_n = l_n + &dir[i - 4] * ep;
+                l_n = l_n + &DIRECTIONS[i - 4] * ep;
             }
 
             let (res_k, res_l) = self.deform_doublebox(&k_n, &l_n).unwrap();
@@ -633,5 +654,51 @@ impl Deformer {
         }
 
         determinant8(&grad)
+    }
+
+    pub fn numerical_jacobian_center_doublebox(
+        &mut self,
+        k: &LorentzVector<f64>,
+        l: &LorentzVector<f64>,
+        center: (&LorentzVector<Complex>, &LorentzVector<Complex>),
+    ) -> (Complex, Complex) {
+        let eps = EPSILON.sqrt();
+        let mut grad = [[Complex::new(0., 0.); 8]; 8];
+
+        for i in 0..8 {
+            let mut ep = eps;
+            let mut k_n = k.clone();
+            let mut l_n = l.clone();
+            let mut k_p = k.clone();
+            let mut l_p = l.clone();
+            if i < 4 {
+                if k_n[i] > 1.0 {
+                    ep = k_n[i] * eps;
+                }
+                k_n = k_n - &DIRECTIONS[i] * ep;
+                k_p = k_p - &DIRECTIONS[i] * ep;
+            } else {
+                if l_n[i - 4] > 1.0 {
+                    ep = l_n[i - 4] * eps;
+                }
+                l_n = l_n - &DIRECTIONS[i - 4] * ep;
+                l_p = l_p + &DIRECTIONS[i - 4] * ep;
+            }
+
+            let (res_n_k, res_n_l) = self.deform_doublebox(&k_n, &l_n).unwrap();
+            let (res_p_k, res_p_l) = self.deform_doublebox(&k_p, &l_p).unwrap();
+            let delta_k = (res_p_k - res_n_k) * Complex::new(1. / ep / 2., 0.);
+            let delta_l = (res_p_l - res_n_l) * Complex::new(1. / ep / 2., 0.);
+
+            // TODO: component-wise error
+            //let rel_error_k = max((res_p_k - center[0]).abs(), (res_n_k - center[0]).abs()) * ep / delta_k;
+            //let rel_error_l = max((res_p_l - center[1]).abs(), (res_n_l - center[1]).abs()) * ep / delta_l;
+            for j in 0..4 {
+                grad[i][j] = delta_k[j];
+                grad[i][j + 4] = delta_l[j];
+            }
+        }
+
+        (determinant8(&grad), Complex::new(0., 0.))
     }
 }

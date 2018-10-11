@@ -44,6 +44,10 @@ impl Parameterizer {
         self.qs = qs;
     }
 
+    pub fn set_region(&mut self, region: usize) {
+        self.region = region;
+    }
+
     fn map_weinzierl_ext(
         &self,
         mom: &LorentzVector<f64>,
@@ -66,7 +70,7 @@ impl Parameterizer {
 
         let jac = 2.0 * f64::PI() * f64::PI() * k_e * k_e / (mu1 * mu1)
             * (k_e.powi(4) + mu1.powi(4))
-            * sin_theta;
+            * sin_xi;
         Ok((k, jac))
     }
 

@@ -17,6 +17,7 @@ import nloop_integrands
 import time
 from math import sqrt, pi
 import logging
+import math
 
 import numdifftools as nd
 import numpy as np
@@ -26,6 +27,7 @@ from mpmath import polylog, ln
 import madgraph.integrator.vectors as vectors
 import madgraph.integrator.phase_space_generators as phase_space_generators
 from madgraph.integrator.vegas3_integrator import Vegas3Integrator
+from madgraph.integrator.pyCubaIntegrator import pyCubaIntegrator
 import madgraph.integrator.integrands as integrands
 from madgraph.various.cluster import MultiCore
 
@@ -53,7 +55,7 @@ class DoubleBox(integrands.VirtualIntegrand):
 
         # set up a configuration
         self.channel = 0
-        self.mu_sq = -1e-5
+        self.mu_sq = -1e9
 
         self.parameterization = None
         self.deformation = None
@@ -151,7 +153,7 @@ class DoubleBox(integrands.VirtualIntegrand):
         k_2 = k_mapped + lambda_overall * k_2 * 1j
 
         rust_res = [complex(*x) for x in self.deformation.deform_doublebox(
-            [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])]
+            [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])[0]]
 
         print('R: %s' % rust_res)
         print('P: %s' % ([x for x in k_1] + [x for x in k_2]))
@@ -159,14 +161,28 @@ class DoubleBox(integrands.VirtualIntegrand):
         return [x for x in k_1] + [x for x in k_2]
 
     def evaluate(self, k, l):
+        if False:
+            r1 = self.evaluate_region(k, l, 1)
+            r2 = self.evaluate_region(k, l, 2)
+            return r1 + r2
+        else:
+            return self.evaluate_region(k, l, 0)
+
+    def evaluate_region(self, k, l, region=0):
         # TODO: does the per-channel treatment still make sense?
         # should we do channels over the two-loop integral?
-        self.parameterization.set_mode("log")
+        if region == 1:
+            # external region
+            self.parameterization.set_mode("weinzierl")
+        else:
+            self.parameterization.set_mode("log")
+        self.parameterization.set_region(region)
         k_mapped, jac_k = self.parameterization.map(k)
         l_mapped, jac_l = self.parameterization.map(l)
         numerical_jacobian_weight = 1.
         ks = k_mapped + l_mapped
 
+        self.deformation.set_region(region)
         (ksv, jac_real, jac_imag) = self.deformation.deform_doublebox(
             [[x for x in ks[:4]], [x for x in ks[4:]]])
 
@@ -183,14 +199,14 @@ class DoubleBox(integrands.VirtualIntegrand):
             local_point = k_mapped + l_mapped
 
             # note: method=forward reduces the number of samples from 244 to 122
-            numerical_jacobian = nd.Jacobian(
-                wrapped_function, full_output=False, method='central')(local_point)
+            numerical_jacobian, info = nd.Jacobian(
+                wrapped_function, full_output=True, method='central')(local_point)
 
             # And now compute the determinant
             numerical_jacobian_weight = linalg.det(numerical_jacobian)
 
             # print the two jacobians
-            print(jac, numerical_jacobian_weight)
+            print(jac, numerical_jacobian_weight, np.max(info.error_estimate))
 
             # NOTE: This happens a lot!
             # if np.max(info.error_estimate) > 1.e-3:
@@ -199,10 +215,16 @@ class DoubleBox(integrands.VirtualIntegrand):
             #        (np.max(info.error_estimate), numerical_jacobian_weight, str(local_point)))
 
         # integrate the two-loop
+        self.integrand.set_region(region)
         out_real, out_imag = self.integrand.evaluate([ks[:4], ks[4:]])
 
         result = complex(out_real, out_imag) * \
             jac * jac_k * jac_l
+
+        # for Cuba, since it evaluates the boundaries
+        if math.isnan(result.real) or math.isnan(result.imag):
+            return complex(0, 0)
+
         return result
 
     def integrate(self, sqrt_s, masses):
@@ -244,7 +266,9 @@ class DoubleBox(integrands.VirtualIntegrand):
 
         # TODO: set sensible options
         integrator = Vegas3Integrator(self, verbosity=2, cluster=MultiCore(
-            4), survey_n_points=100000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
+            4), survey_n_points=2000000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
+
+        #integrator = pyCubaIntegrator(self, algorithm= 'Vegas', verbosity=2, target_accuracy=1.0e-3, max_eval=100000, n_start=1000, n_increase=1000, nb_core=4)
 
         amplitude, error = integrator.integrate()
         print("Result: %s +/ %s" % (amplitude, error))

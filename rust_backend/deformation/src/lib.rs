@@ -55,6 +55,11 @@ py_class!(class Deformation |py| {
         Ok(true)
     }
 
+    def set_region(&self, region: usize) -> PyResult<bool> {
+        self.deformer(py).borrow_mut().set_region(region);
+        Ok(true)
+    }
+
     def deform(&self, momentum: PyList) -> PyResult<(Vec<(f64, f64)>, f64, f64)> {
         let mut m: Vec<f64> = Vec::with_capacity(4);
         for x in momentum.iter(py) {
@@ -127,6 +132,11 @@ py_class!(class Parameterization |py| {
 
     def set_mode(&self, mode: &str) -> PyResult<bool> {
         self.parameterizer(py).borrow_mut().set_mode(mode).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+        Ok(true)
+    }
+
+    def set_region(&self, region: usize) -> PyResult<bool> {
+        self.parameterizer(py).borrow_mut().set_region(region);
         Ok(true)
     }
 

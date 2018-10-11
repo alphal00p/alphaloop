@@ -1,7 +1,9 @@
 [workspace]
-
 members = [
 	"vector",
 	"deformation",
 	"integrand",
 ]
+
+[profile.release]
+codegen-units = 1

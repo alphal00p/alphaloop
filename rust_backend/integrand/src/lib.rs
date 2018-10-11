@@ -50,6 +50,11 @@ py_class!(class Integrand |py| {
         Ok(true)
     }
 
+    def set_region(&self, region: usize) -> PyResult<bool> {
+        self.integrand(py).borrow_mut().set_region(region);
+        Ok(true)
+    }
+
     def evaluate(&self, loop_momenta: PyList) -> PyResult<(f64, f64)> {
         let mut moms = Vec::with_capacity(2);
 
