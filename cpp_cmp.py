@@ -19,8 +19,8 @@ import time
 import madgraph.integrator.vectors as vectors
 
 
-channel = 1
-mu_sq = -1e-5
+channel = 3
+mu_sq = -1e5
 qs = [[0., 0., 0., 0.], [-495., 0., 0., 495.],
       [5., 26.97011261, 42.00346171, 992.50208264], [505., 0., 0., 495.]]
 
@@ -90,4 +90,4 @@ for _ in range(N):
 print('Rust', time.time() - t)
 
 # print difference
-#print([0 if abs(a-b) < 1e-20 else a - b for a,b in zip(cpp_res, rust_res)])
+print([0 if abs(a-b) < 1e-20 else a - b for a, b in zip(cpp_res, rust_res)])

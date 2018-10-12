@@ -140,6 +140,11 @@ py_class!(class Parameterization |py| {
         Ok(true)
     }
 
+    def set_channel(&self, channel: usize) -> PyResult<bool> {
+        self.parameterizer(py).borrow_mut().set_channel(channel);
+        Ok(true)
+    }
+
     def set_qs(&self, qs_py: PyList) -> PyResult<bool> {
         // TODO: support Python LorentzVector?
         let mut qs: Vec<vector::LorentzVector<f64>> = Vec::with_capacity(4);

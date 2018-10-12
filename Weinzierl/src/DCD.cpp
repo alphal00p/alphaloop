@@ -12,7 +12,7 @@ DIdeform::R4vector DIdeform::ContourDeform::weinzierl_mapping(std::vector<my_rea
     exit(1);
   }
 
-  DIdeform::R4vector &p = this->pi[this->channel_id + 1];
+  DIdeform::R4vector &p = this->pi[this->channel_id + 1]; // note: channel id starts at 0 in C++ backend
   my_real p_abs = std::sqrt(p*p.dual());
 
   my_real cos_theta_1 = p[0] / p_abs;

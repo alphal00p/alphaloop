@@ -102,7 +102,8 @@ impl Integrand {
                     if self.region == REGION_EXT {
                         denominator = d;
                     } else {
-                        if d.is_finite() { // the d could overflow
+                        if d.is_finite() {
+                            // the d could overflow
                             factor *= 1.0 - denominator / d;
                         }
                     }
@@ -130,7 +131,7 @@ impl Integrand {
                                 * (&mom[0] - &q[1]).square().norm());
                         mc_factor += tmp * tmp;
 
-                        if i == self.channel as usize {
+                        if i + 1 == self.channel as usize {
                             factor *= tmp * tmp;
                         }
                     }

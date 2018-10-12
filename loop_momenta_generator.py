@@ -734,7 +734,7 @@ class OneLoopMomentumGenerator_WeinzierlCPP(OneLoopMomentumGenerator):
         if self.channel is not None:
             self._cpp_interface.set_option("Channel_ID", self.channel)
         else:
-            self._cpp_interface.set_option("Channel_ID", -1)
+            self._cpp_interface.set_option("Channel_ID", 0)
 
         non_generic_or_unsupported_options_for_CPP_interface = ['conformal_mapping_choice', 'Esoft', 'channel']
 

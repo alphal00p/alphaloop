@@ -19,7 +19,7 @@ int set_factor_int(short int op_id, int value)
           return 0;
         case _OP_CHANNEL_ID:
         {
-          channel_id = value;
+          channel_id = value - 1;  // in C++ the channel id starts at 0
           return 0;
         }
         default:

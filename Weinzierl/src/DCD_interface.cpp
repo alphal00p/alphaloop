@@ -224,7 +224,7 @@ extern "C"
         //Check if there are 1 inputs
         if (d != 1)
             return 1;
-        channel_id = v[0];
+        channel_id = v[0] - 1; // in C++ the channel id starts at 0
         external_channel_id = true;
 
         return 0;
@@ -236,7 +236,7 @@ extern "C"
             return 101;
         if (d != 1)
             return 1;
-        deformer_channel_id = v[0];
+        deformer_channel_id = v[0] - 1; // in C++ the channel id starts at 0
         return 0;
     }
 

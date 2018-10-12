@@ -991,7 +991,7 @@ class box1L_direct_integration(NLoopIntegrand):
         self.integrand_cpp_interface = None
         if self.cpp_integrand:
             self.integrand_cpp_interface = IntegrandCPPinterface(self.topology, self.loop_momentum_generator.q_is)
-            self.integrand_cpp_interface.set_option('CHANNEL_ID', -1 if self.channel is None else self.channel)
+            self.integrand_cpp_interface.set_option('CHANNEL_ID', 0 if self.channel is None else self.channel)
             self.integrand_cpp_interface.set_option('UVSQ', -1.e3j * self.loop_momentum_generator.sqrt_S)
             self.integrand_cpp_interface.set_option('S12', (self.external_momenta[1] + self.external_momenta[2]).square())
             self.integrand_cpp_interface.set_option('S23', (self.external_momenta[2] + self.external_momenta[3]).square())
@@ -1125,10 +1125,10 @@ class box1L_direct_integration(NLoopIntegrand):
                     alpha = 2
                     return ( np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id]).square()) *
                             np.absolute((l_mom - self.loop_momentum_generator.q_is[channel_id + 1]).square()) )**alpha
-                if self.channel is not None and self.channel >=0:
+                if self.channel is not None and self.channel > 0:
                     assert(self.channel + 1 < len(denoms))
                     channels = [1 / compute_channel_weight(i)  for i in range(0,len(denoms) - 1)]
-                    MC_factor = channels[self.channel] / sum(channels)
+                    MC_factor = channels[self.channel - 1] / sum(channels)
                     integrand *= MC_factor
                 ############################################
 

@@ -54,40 +54,65 @@ class Box(integrands.VirtualIntegrand):
             d.name: i for i, d in enumerate(dimensions)}
 
         # set up a configuration
-        self.channel = 0
-        self.mu_sq = -1e6
+        self.MULTI_CHANNEL = True
+        self.REGIONS = True
+        self.mu_sq = -1e8
 
         self.parameterization = None
         self.deformation = None
         self.internal_masses = [0., 0., 0., 0., 0., 0., 0.]
 
         self.integrand = integrand.Integrand(
-            "box1L_direct_integration", channel=self.channel, region=0, mu_sq=self.mu_sq)
+            "box1L_direct_integration", channel=0, region=0, mu_sq=self.mu_sq)
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         # compute the real phase for now
         return self.evaluate([x for x in continuous_inputs]).real
 
     def evaluate(self, k):
-        if True:
-            # TODO: also sample -k_mapped in external region
-            r1 = self.evaluate_region(k, 1) # external
-            r2 = self.evaluate_region(k, 2) # internal
-            return r1 + r2
-        else:
-            return self.evaluate_region(k, 0)
+        if self.REGIONS:
+            r1 = self.evaluate_region(k, region=1)  # external
+            # r1_neg = self.evaluate_region(k, 1, True) # external opposite direction
 
-    def evaluate_region(self, k, region=0):
+            if self.MULTI_CHANNEL:
+                # sum over channels
+                r2 = 0
+                for i in range(1, 4):
+                    # internal
+                    r2 += self.evaluate_region(k, region=2, channel=i)
+            else:
+                r2 = self.evaluate_region(k, region=2)
+
+            return r1 + r2
+            # return (r1 + r1_neg) / 2.0 + r2
+        else:
+            if self.MULTI_CHANNEL:
+                r = 0
+                for i in range(1, 4):
+                    r += self.evaluate_region(k, region=0, channel=i)
+                return r
+            else:
+                return self.evaluate_region(k, region=0)
+
+    def evaluate_region(self, k, region=0, minus=False, channel=0):
         # TODO: does the per-channel treatment still make sense?
         # should we do channels over the two-loop integral?
+
+        self.parameterization.set_channel(channel)
         if region == 1:
             # external region
             self.parameterization.set_mode("weinzierl")
         else:
-            # for now we don't do channels
-            self.parameterization.set_mode("log")
+            if channel == 0:
+                self.parameterization.set_mode("log")
+            else:
+                self.parameterization.set_mode("weinzierl")
         self.parameterization.set_region(region)
         k_mapped, jac_k = self.parameterization.map(k)
+
+        if minus:
+            k_mapped = [-x for x in k_mapped]
+            jac_k = -jac_k  # TODO: correct?
 
         self.deformation.set_region(region)
         (ksv, jac_real, jac_imag) = self.deformation.deform(
@@ -98,6 +123,7 @@ class Box(integrands.VirtualIntegrand):
 
         # integrate the two-loop
         self.integrand.set_region(region)
+        self.integrand.set_channel(channel)
         out_real, out_imag = self.integrand.evaluate([ks])
 
         result = complex(out_real, out_imag) * \
@@ -138,7 +164,7 @@ class Box(integrands.VirtualIntegrand):
 
         # defaults to Weinzierl mapping
         self.parameterization = deformation.Parameterization(
-            e_cm_sq=sqrt_s**2, region=0, channel=self.channel, qs_py=qs)
+            e_cm_sq=sqrt_s**2, region=0, channel=0, qs_py=qs)
 
         self.deformation = deformation.Deformation(
             e_cm_sq=sqrt_s**2, mu_sq=self.mu_sq, region=0, qs_py=qs, masses=self.internal_masses)

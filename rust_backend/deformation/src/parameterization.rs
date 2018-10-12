@@ -48,6 +48,10 @@ impl Parameterizer {
         self.region = region;
     }
 
+    pub fn set_channel(&mut self, channel: usize) {
+        self.channel = channel;
+    }
+
     fn map_weinzierl_ext(
         &self,
         mom: &LorentzVector<f64>,
@@ -78,12 +82,13 @@ impl Parameterizer {
         &self,
         mom: &LorentzVector<f64>,
     ) -> Result<(LorentzVector<f64>, f64), &str> {
+        // channel starts at 1
         if self.channel == 0 {
             return Err("A channel must be specified for Weinzierl's conformal map");
         }
 
         // TODO: cache x-independent block
-        let p = &self.qs[self.channel + 1] - &self.qs[self.channel];
+        let p = &self.qs[self.channel] - &self.qs[self.channel - 1];
         let p_abs = p.euclidean_distance();
 
         let cos_theta_1 = p.t / p_abs;
@@ -141,7 +146,7 @@ impl Parameterizer {
         );
 
         // TODO: add more operators to the vector so that we can remove &s
-        k = &self.qs[self.channel] + &(&(&p * 0.5) + &(&k * (0.5 * p_abs)));
+        k = &self.qs[self.channel - 1] + &(&(&p * 0.5) + &(&k * (0.5 * p_abs)));
 
         // Compute the Jacobian
         let mut jac = 1.0 / 16.0
