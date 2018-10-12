@@ -22,5 +22,5 @@ cargo build --release
 
 #Rename them to be called from MadGraph
 cp ${SO_DEFORM} deform.so
-cp ${SO_INTEGRATE} integrate.so 
+cp ${SO_INTEGRATE} integrand.so 
 
