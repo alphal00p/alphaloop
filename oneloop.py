@@ -177,12 +177,12 @@ class Box(integrands.VirtualIntegrand):
 
         # TODO: set sensible options
         integrator = Vegas3Integrator(self, verbosity=2, cluster=MultiCore(
-            4), survey_n_points=1000000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
+            4), survey_n_points=100000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
 
         #integrator = pyCubaIntegrator(self, algorithm= 'Vegas', verbosity=2, target_accuracy=1.0e-3, max_eval=100000, n_start=1000, n_increase=1000, nb_core=4)
 
         amplitude, error = integrator.integrate()
-        print("Result: %s +/ %s" % (amplitude, error))
+        print("Result: %s +/- %s" % (amplitude, error))
 
 
 random.seed(2)

@@ -1,10 +1,10 @@
 [package]
-name = "integrand"
+name = "integrator"
 version = "0.1.0"
 authors = ["Ben Ruijl <benruyl@gmail.com>"]
 
 [lib]
-name = "integrand"
+name = "integrator"
 crate-type = ["cdylib", "lib"]
 
 [dependencies.cpython]
@@ -15,4 +15,6 @@ features = ["python27-sys"]
 
 [dependencies]
 vector = { path = "../vector" }
+deformation = { path = "../deformation" }
+integrand = { path = "../integrand" }
 num = "0.2"

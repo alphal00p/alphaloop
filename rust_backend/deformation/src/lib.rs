@@ -5,8 +5,8 @@ extern crate vector;
 use cpython::{exc, PyErr, PyList, PyResult};
 use std::cell::RefCell;
 
-mod deformation;
-mod parameterization;
+pub mod deformation;
+pub mod parameterization;
 mod utils;
 
 pub const REGION_ALL: usize = 0;

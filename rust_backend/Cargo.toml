@@ -3,6 +3,7 @@ members = [
 	"vector",
 	"deformation",
 	"integrand",
+	"integrator"
 ]
 
 [profile.release]

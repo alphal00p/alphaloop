@@ -5,7 +5,7 @@ authors = ["Ben Ruijl <benruyl@gmail.com>"]
 
 [lib]
 name = "deformation"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
 
 [dependencies.cpython]
 git = "https://github.com/dgrunwald/rust-cpython"

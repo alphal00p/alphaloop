@@ -5,7 +5,7 @@ extern crate vector;
 use cpython::{PyResult, PyList, ObjectProtocol, PyErr, exc};
 use std::cell::RefCell;
 
-mod integrands;
+pub mod integrands;
 
 type Complex = num::Complex<f64>;
 
