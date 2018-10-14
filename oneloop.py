@@ -57,6 +57,7 @@ class Box(integrands.VirtualIntegrand):
         self.MULTI_CHANNEL = True
         self.REGIONS = True
         self.mu_sq = -1e8
+        self.MINUS_REGION = False
 
         self.parameterization = None
         self.deformation = None
@@ -70,34 +71,29 @@ class Box(integrands.VirtualIntegrand):
         return self.evaluate([x for x in continuous_inputs]).real
 
     def evaluate(self, k):
-        if self.REGIONS:
-            r1 = self.evaluate_region(k, region=1)  # external
-            # r1_neg = self.evaluate_region(k, 1, True) # external opposite direction
+        k_mapped, jac_k = self.parameterization.map(k)
 
-            if self.MULTI_CHANNEL:
-                # sum over channels
-                r2 = 0
-                for i in range(1, 4):
-                    # internal
-                    r2 += self.evaluate_region(k, region=2, channel=i)
-            else:
-                r2 = self.evaluate_region(k, region=2)
+        if self.MINUS_REGION:
+            k_mapped = [-x for x in k_mapped]
+            jac_k = -jac_k  # TODO: correct?
 
-            return r1 + r2
-            # return (r1 + r1_neg) / 2.0 + r2
-        else:
-            if self.MULTI_CHANNEL:
-                r = 0
-                for i in range(1, 4):
-                    r += self.evaluate_region(k, region=0, channel=i)
-                return r
-            else:
-                return self.evaluate_region(k, region=0)
+        (ksv, jac_real, jac_imag) = self.deformation.deform(
+            [x for x in k_mapped])
 
-    def evaluate_region(self, k, region=0, minus=False, channel=0):
-        # TODO: does the per-channel treatment still make sense?
-        # should we do channels over the two-loop integral?
+        ks = [complex(*x) for x in ksv]
+        jac = complex(jac_real, jac_imag)
 
+        out_real, out_imag = self.integrand.evaluate([ks])
+
+        result = complex(out_real, out_imag) * \
+            jac * jac_k
+
+        # for Cuba, since it evaluates the boundaries
+        if math.isnan(result.real) or math.isnan(result.imag):
+            return complex(0, 0)
+        return result
+
+    def evaluate_region(self, region=0, minus=False, channel=0):
         self.parameterization.set_channel(channel)
         if region == 1:
             # external region
@@ -107,33 +103,22 @@ class Box(integrands.VirtualIntegrand):
                 self.parameterization.set_mode("log")
             else:
                 self.parameterization.set_mode("weinzierl")
+
         self.parameterization.set_region(region)
-        k_mapped, jac_k = self.parameterization.map(k)
-
-        if minus:
-            k_mapped = [-x for x in k_mapped]
-            jac_k = -jac_k  # TODO: correct?
-
-        self.deformation.set_region(region)
-        (ksv, jac_real, jac_imag) = self.deformation.deform(
-            [x for x in k_mapped])
-
-        ks = [complex(*x) for x in ksv]
-        jac = complex(jac_real, jac_imag)
-
-        # integrate the two-loop
         self.integrand.set_region(region)
         self.integrand.set_channel(channel)
-        out_real, out_imag = self.integrand.evaluate([ks])
+        self.deformation.set_region(region)
+        self.MINUS_REGION = minus
 
-        result = complex(out_real, out_imag) * \
-            jac * jac_k
+        # TODO: set sensible options
+        integrator = Vegas3Integrator(self, verbosity=2, cluster=MultiCore(
+            4), survey_n_points=1000000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
+        # integrator = pyCubaIntegrator(self, algorithm= 'Vegas', verbosity=2, target_accuracy=1.0e-3, max_eval=100000, n_start=1000, n_increase=1000, nb_core=4)
 
-        # for Cuba, since it evaluates the boundaries
-        if math.isnan(result.real) or math.isnan(result.imag):
-            return complex(0, 0)
-
-        return result
+        amplitude, error = integrator.integrate()
+        print("Result for region %s and channel %s: %s +/- %s" %
+              (region, channel, amplitude, error))
+        return (amplitude, error)
 
     def integrate(self, sqrt_s, masses):
         phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
@@ -157,8 +142,10 @@ class Box(integrands.VirtualIntegrand):
 
         # compute qs
         qs = [vectors.LorentzVector()]
-        for i, x in enumerate(self.external_momenta[:-1]):
+        for i, x in enumerate(self.external_momenta[1:]):
             qs.append(qs[i] + x)
+
+        print(qs)
 
         qs = [[x for x in y] for y in qs]
 
@@ -175,14 +162,34 @@ class Box(integrands.VirtualIntegrand):
         self.integrand.set_externals([[x for x in e]
                                       for e in self.external_momenta])
 
-        # TODO: set sensible options
-        integrator = Vegas3Integrator(self, verbosity=2, cluster=MultiCore(
-            4), survey_n_points=100000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
+        amplitude, error = 0., 0.
+        if self.REGIONS:
+            amplitude, error = self.evaluate_region(region=1)  # external
+            # r1_neg = self.evaluate_region(k, 1, True) # external opposite direction
 
-        #integrator = pyCubaIntegrator(self, algorithm= 'Vegas', verbosity=2, target_accuracy=1.0e-3, max_eval=100000, n_start=1000, n_increase=1000, nb_core=4)
+            if self.MULTI_CHANNEL:
+                # sum over channels
+                for i in range(1, 4):
+                    # internal
+                    a2, e2 = self.evaluate_region(region=2, channel=i)
+                    amplitude += a2
+                    error = sqrt(e2**2 + error**2)
+            else:
+                a2, e2 = self.evaluate_region(region=2)
+                amplitude += a2
+                error = sqrt(e2**2 + error**2)
+            # return (r1 + r1_neg) / 2.0 + r2
+        else:
+            if self.MULTI_CHANNEL:
+                for i in range(1, 4):
+                    a2, e2 = self.evaluate_region(region=0, channel=i)
+                    amplitude += a2
+                    error = sqrt(e2**2 + error**2)
+            else:
+                amplitude, error = self.evaluate_region(region=0)
 
-        amplitude, error = integrator.integrate()
         print("Result: %s +/- %s" % (amplitude, error))
+        return amplitude, error
 
 
 random.seed(2)
