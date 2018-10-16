@@ -147,25 +147,13 @@ impl Integrand {
 
                 let mut denominator = Complex::new(1.0, 0.0);
 
-                if self.region == REGION_ALL || self.region == REGION_INT {
-                    denominator = k.square()
+                denominator = k.square()
                         * l.square()
                         * (k - l).square()
                         * (k - l - &self.ext[1]).square()
+                        * (k - l - &self.ext[1] - &self.ext[2]).square()
                         * (k - &self.ext[1] - &self.ext[2]).square()
                         * (k + &self.ext[0]).square();
-                }
-
-                if self.region != REGION_ALL {
-                    let mut d = (&mom[0] + &mom[1] - &self.shift).square() - self.mu_sq; // FIXME: is this ok? the shift definitely isn't
-                    d = d.powf(self.qs.len() as f64); // TODO: use powi when it is implemented
-
-                    if self.region == REGION_EXT {
-                        denominator = d;
-                    } else {
-                        factor *= 1.0 - denominator / d;
-                    }
-                }
 
                 Ok(factor / denominator)
             }
