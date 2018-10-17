@@ -6,11 +6,11 @@ PWD=$(pwd)
 
 case ${UNAME_S} in
     Linux*)
-	SO_DEFORM=target/release/libdeformation.so
+	SO_DEFORMATION=target/release/libdeformation.so
 	SO_INTEGRATOR=target/release/libintegrator.so
 	SO_INTEGRAND=target/release/libintegrand.so;;
     Darwin*)
-	SO_DEFORM=target/release/libdeformation.dylib
+	SO_DEFORMATION=target/release/libdeformation.dylib
 	SO_INTEGRATOR=target/release/libintegrator.dylib
 	SO_INTEGRAND=target/release/libintegrand.dylib;;
     *)
@@ -23,7 +23,7 @@ cd rust_backend/
 cargo build --release
 
 #Rename them to be called from MadGraph
-cp ${SO_DEFORM} deform.so
+cp ${SO_DEFORMATION} deformation.so
 cp ${SO_INTEGRAND} integrand.so
 cp ${SO_INTEGRATOR} integrator.so
 
