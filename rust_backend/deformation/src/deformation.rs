@@ -113,6 +113,8 @@ impl Deformer {
 
         self.p_plus = self.compute_p(true);
         self.p_min = self.compute_p(false);
+        self.shift_and_check_p();
+
         self.mu_p_sq = (&self.p_min - &self.p_plus).square();
 
         self.m1_sq = self.m1_fac * self.m1_fac * self.e_cm_sq;
@@ -214,10 +216,35 @@ impl Deformer {
                 break;
             }
         }
-
+        
         assert!(orig_vec.len() == 1);
         orig_vec.pop().unwrap()
-    }
+   }
+    
+    /// Shift P+ and P- outward and check if their new values fulfills P^2 >= 0.0 and (+/-) * P+/-.t <= 0.0  
+    /// This is necessary to counterbalance numerical error arising in the exact algorithm
+    fn shift_and_check_p(&mut self){
+        
+        //Perform the shift
+        let r = ( &self.p_min - &self.p_plus) * 0.5;
+        let center = ( &self.p_min + &self.p_plus) * 0.5;
+        let shift_size = 1.0e-10;
+
+        self.p_min = &center + &r * (1.0 + shift_size);
+        self.p_plus = &center - &r * (1.0 + shift_size);
+
+        //Check if P+/- has all the qs in its backward/forward light-cone
+        let mut pq_diff;
+        for q in &self.qs {
+            pq_diff = &self.p_plus - q;
+            assert!(pq_diff.square()>= 0.0 && pq_diff.t <= 0.0, 
+            "P_plus is not corretly defined! P.t = {0}, P^2 = {1}", pq_diff.t,pq_diff.square());
+            
+            pq_diff = &self.p_min - q;
+            assert!(pq_diff.square()>= 0.0 && pq_diff.t >= 0.0, 
+            "P_minus is not corretly define! P.t = {0}, P^2 = {1}", pq_diff.t,pq_diff.square());
+        }
+    } 
 
     /// The three helper functions h_delta-, h_delta+, and h_delta0, indicated by `sign`.
     fn h_delta(sign: i32, k: &LorentzVector<f64>, mass: f64, m: f64) -> f64 {
