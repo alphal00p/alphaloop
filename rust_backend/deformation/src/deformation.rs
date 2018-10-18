@@ -216,18 +216,17 @@ impl Deformer {
                 break;
             }
         }
-        
+
         assert!(orig_vec.len() == 1);
         orig_vec.pop().unwrap()
-   }
-    
+    }
+
     /// Shift P+ and P- outward and check if their new values fulfills P^2 >= 0.0 and (+/-) * P+/-.t <= 0.0  
     /// This is necessary to counterbalance numerical error arising in the exact algorithm
-    fn shift_and_check_p(&mut self){
-        
+    fn shift_and_check_p(&mut self) {
         //Perform the shift
-        let r = ( &self.p_min - &self.p_plus) * 0.5;
-        let center = ( &self.p_min + &self.p_plus) * 0.5;
+        let r = (&self.p_min - &self.p_plus) * 0.5;
+        let center = (&self.p_min + &self.p_plus) * 0.5;
         let shift_size = 1.0e-10;
 
         self.p_min = &center + &r * (1.0 + shift_size);
@@ -237,14 +236,22 @@ impl Deformer {
         let mut pq_diff;
         for q in &self.qs {
             pq_diff = &self.p_plus - q;
-            assert!(pq_diff.square()>= 0.0 && pq_diff.t <= 0.0, 
-            "P_plus is not corretly defined! P.t = {0}, P^2 = {1}", pq_diff.t,pq_diff.square());
-            
+            assert!(
+                pq_diff.square() >= 0.0 && pq_diff.t <= 0.0,
+                "P_plus is not corretly defined! P.t = {0}, P^2 = {1}",
+                pq_diff.t,
+                pq_diff.square()
+            );
+
             pq_diff = &self.p_min - q;
-            assert!(pq_diff.square()>= 0.0 && pq_diff.t >= 0.0, 
-            "P_minus is not corretly define! P.t = {0}, P^2 = {1}", pq_diff.t,pq_diff.square());
+            assert!(
+                pq_diff.square() >= 0.0 && pq_diff.t >= 0.0,
+                "P_minus is not corretly define! P.t = {0}, P^2 = {1}",
+                pq_diff.t,
+                pq_diff.square()
+            );
         }
-    } 
+    }
 
     /// The three helper functions h_delta-, h_delta+, and h_delta0, indicated by `sign`.
     fn h_delta(sign: i32, k: &LorentzVector<f64>, mass: f64, m: f64) -> f64 {
@@ -646,6 +653,32 @@ impl Deformer {
         Ok((k_1_full, k_2_full))
     }
 
+
+    pub fn numerical_jacobian(
+        &self,
+        k: &LorentzVector<f64>,
+        center: &LorentzVector<Complex>,
+    ) -> Complex {
+        let eps = EPSILON.sqrt();
+        let mut grad = [[Complex::new(0., 0.); 4]; 4];
+
+        for i in 0..4 {
+            let mut ep = eps;
+            if k[i] > 1.0 {
+                ep = k[i] * eps;
+            }
+            let k_p = k + &DIRECTIONS[i] * ep;
+
+            let (res_k, _) = self.deform(&k_p).unwrap();
+            let delta_k = (res_k - center) * Complex::new(1. / ep, 0.);
+            for j in 0..4 {
+                grad[i][j] = delta_k[j];
+            }
+        }
+
+        determinant(&grad)
+    }
+
     pub fn numerical_jacobian_doublebox(
         &mut self,
         k: &LorentzVector<f64>,
@@ -694,26 +727,29 @@ impl Deformer {
 
         for i in 0..8 {
             let mut ep = eps;
-            let mut k_n = k.clone();
-            let mut l_n = l.clone();
-            let mut k_p = k.clone();
-            let mut l_p = l.clone();
-            if i < 4 {
-                if k_n[i] > 1.0 {
-                    ep = k_n[i] * eps;
-                }
-                k_n = k_n - &DIRECTIONS[i] * ep;
-                k_p = k_p - &DIRECTIONS[i] * ep;
-            } else {
-                if l_n[i - 4] > 1.0 {
-                    ep = l_n[i - 4] * eps;
-                }
-                l_n = l_n - &DIRECTIONS[i - 4] * ep;
-                l_p = l_p + &DIRECTIONS[i - 4] * ep;
-            }
 
-            let (res_n_k, res_n_l) = self.deform_doublebox(&k_n, &l_n).unwrap();
-            let (res_p_k, res_p_l) = self.deform_doublebox(&k_p, &l_p).unwrap();
+            let (res_n_k, res_n_l, res_p_k, res_p_l) = if i < 4 {
+                if k[i].abs() > 1.0 {
+                    ep = k[i].abs() * eps;
+                }
+                let k_n = k - &DIRECTIONS[i] * ep;
+                let k_p = k + &DIRECTIONS[i] * ep;
+
+                let (res_n_k, res_n_l) = self.deform_doublebox(&k_n, l).unwrap();
+                let (res_p_k, res_p_l) = self.deform_doublebox(&k_p, l).unwrap();
+                (res_n_k, res_n_l, res_p_k, res_p_l)
+            } else {
+                if l[i - 4].abs() > 1.0 {
+                    ep = l[i - 4].abs() * eps;
+                }
+                let l_n = l - &DIRECTIONS[i - 4] * ep;
+                let l_p = l + &DIRECTIONS[i - 4] * ep;
+
+                let (res_n_k, res_n_l) = self.deform_doublebox(k, &l_n).unwrap();
+                let (res_p_k, res_p_l) = self.deform_doublebox(k, &l_p).unwrap();
+                (res_n_k, res_n_l, res_p_k, res_p_l)
+            };
+
             let delta_k = (res_p_k - res_n_k) * Complex::new(1. / ep / 2., 0.);
             let delta_l = (res_p_l - res_n_l) * Complex::new(1. / ep / 2., 0.);
 

@@ -1,5 +1,6 @@
 extern crate num;
 
+use std::fmt;
 use std::fmt::{Debug, Display};
 use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 
@@ -27,6 +28,12 @@ pub struct LorentzVector<T: Field> {
     pub x: T,
     pub y: T,
     pub z: T,
+}
+
+impl<T: Field> Display for LorentzVector<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(t:{}, x:{}, y:{}, z:{})", self.t, self.x, self.y, self.z)
+    }
 }
 
 impl<T: Field> LorentzVector<T> {
