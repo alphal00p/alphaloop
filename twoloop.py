@@ -31,11 +31,14 @@ from madgraph.integrator.pyCubaIntegrator import pyCubaIntegrator
 import madgraph.integrator.integrands as integrands
 from madgraph.various.cluster import MultiCore
 
-logger = logging.getLogger('doublebox')
+logger = logging.getLogger('TwoLoopIntegral')
+
+DOUBLE_BOX = 0
+DOUBLE_TRIANGLE = 1
 
 
-class DoubleBox(integrands.VirtualIntegrand):
-    def __init__(self):
+class TwoLoopIntegral(integrands.VirtualIntegrand):
+    def __init__(self, topology):
         n_loops = 2
         dimensions = integrands.DimensionList(sum([[
             integrands.ContinuousDimension(
@@ -48,7 +51,7 @@ class DoubleBox(integrands.VirtualIntegrand):
                 'l%d_z' % i_loop, lower_bound=0.0, upper_bound=1.0),
         ] for i_loop in range(1, n_loops+1)], []))
 
-        super(DoubleBox, self).__init__(dimensions=dimensions)
+        super(TwoLoopIntegral, self).__init__(dimensions=dimensions)
 
         self.dimension_name_to_position = {
             d.name: i for i, d in enumerate(dimensions)}
@@ -57,20 +60,28 @@ class DoubleBox(integrands.VirtualIntegrand):
         self.channel = 0
         self.mu_sq = -1e9
 
+        self.topology = topology
         self.parameterization = None
         self.deformation = None
-        self.internal_masses = [0., 0., 0., 0., 0., 0., 0.]
+
+        if self.topology == DOUBLE_BOX:
+            self.internal_masses = [0., 0., 0., 0., 0., 0., 0.]
+            self.integrand = integrand.Integrand(
+                "box2L_direct_integration", channel=0, region=0, mu_sq=self.mu_sq)
+        else:
+            self.internal_masses = [0., 0., 0., 0, 0.]
+            self.integrand = integrand.Integrand(
+                "triangle2L_direct_integration", channel=0, region=0, mu_sq=self.mu_sq)
 
         #self.integrand = DummyIntegrand()
-        self.integrand = integrand.Integrand(
-            "box2L_direct_integration", channel=self.channel, region=0, mu_sq=self.mu_sq)
+
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         # compute the real phase for now
         return self.evaluate([x for x in continuous_inputs[:4]], [x for x in continuous_inputs[4:]]).real
 
     def deform(self, loop_momenta):
-        """ This function is only used to check the Rust implementation """
+        """ This function is only used to check the Rust implementation of the double box """
         k_mapped = vectors.LorentzVector(loop_momenta[:4])
         l_mapped = vectors.LorentzVector(loop_momenta[4:])
 
@@ -152,7 +163,7 @@ class DoubleBox(integrands.VirtualIntegrand):
         k_1 = k_mapped + lambda_overall * k_1 * 1j
         k_2 = k_mapped + lambda_overall * k_2 * 1j
 
-        rust_res = [complex(*x) for x in self.deformation.deform_doublebox(
+        rust_res = [complex(*x) for x in self.deformation.deform_two_loops(self.topology,
             [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])[0]]
 
         print('R: %s' % rust_res)
@@ -160,40 +171,24 @@ class DoubleBox(integrands.VirtualIntegrand):
 
         return [x for x in k_1] + [x for x in k_2]
 
-    def evaluate(self, k, l):
-        if False:
-            r1 = self.evaluate_region(k, l, 1)
-            r2 = self.evaluate_region(k, l, 2)
-            return r1 + r2
-        else:
-            return self.evaluate_region(k, l, 0)
 
-    def evaluate_region(self, k, l, region=0):
-        # TODO: does the per-channel treatment still make sense?
-        # should we do channels over the two-loop integral?
-        if region == 1:
-            # external region
-            self.parameterization.set_mode("weinzierl")
-        else:
-            self.parameterization.set_mode("log")
-        self.parameterization.set_region(region)
+    def evaluate(self, k, l):
         k_mapped, jac_k = self.parameterization.map(k)
         l_mapped, jac_l = self.parameterization.map(l)
         numerical_jacobian_weight = 1.
         ks = k_mapped + l_mapped
 
-        self.deformation.set_region(region)
-        (ksv, jac_real, jac_imag) = self.deformation.deform_doublebox(
+        (ksv, jac_real, jac_imag, jac_central_real, jac_central_imag) = self.deformation.deform_two_loops(self.topology,
             [[x for x in ks[:4]], [x for x in ks[4:]]])
 
         ks = [complex(*x) for x in ksv]
         jac = complex(jac_real, jac_imag)
 
         if False:
-            # compute numerical Jacobian
+            # compute numerical Jacobian in Python
             def wrapped_function(loop_momenta):
                 # return np.r_[self.deform(loop_momenta)]
-                return np.r_[[complex(*x) for x in self.deformation.deform_doublebox(
+                return np.r_[[complex(*x) for x in self.deformation._two_loops(self.topology,
                     [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])[0]]]
 
             local_point = k_mapped + l_mapped
@@ -214,8 +209,8 @@ class DoubleBox(integrands.VirtualIntegrand):
             #        "Large error of %f (for which det(jac)=%s) encountered in the numerical evaluation of the Jacobian for the inputs: %s" %
             #        (np.max(info.error_estimate), numerical_jacobian_weight, str(local_point)))
 
-        # integrate the two-loop
-        self.integrand.set_region(region)
+
+        # integrate the two-loop integrand
         out_real, out_imag = self.integrand.evaluate([ks[:4], ks[4:]])
 
         result = complex(out_real, out_imag) * \
@@ -227,33 +222,45 @@ class DoubleBox(integrands.VirtualIntegrand):
 
         return result
 
-    def integrate(self, sqrt_s, masses):
-        phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
-            masses[:2], masses[2:],
-            [sqrt_s/2., sqrt_s/2.],
-            beam_types=(1, 1)
-        )
+    def integrate(self, sqrt_s):
+        if self.topology == DOUBLE_BOX:
+            masses = [100., 200., 300., 400.]
 
-        # Specifying None to get a random PS point
-        random_PS_point, _, _, _ = phase_space_generator.get_PS_point(None)
-        random_PS_point = random_PS_point.to_dict()
+            phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
+                masses[:2], masses[2:],
+                [sqrt_s/2., sqrt_s/2.],
+                beam_types=(1, 1)
+            )
 
-        for i in random_PS_point:
-            if i > 2:
-                continue
-            random_PS_point[i] = -random_PS_point[i]
+            # Specifying None to get a random PS point
+            random_PS_point, _, _, _ = phase_space_generator.get_PS_point(None)
+            random_PS_point = random_PS_point.to_dict()
 
-        print(random_PS_point)
+            for i in random_PS_point:
+                if i > 2:
+                    continue
+                random_PS_point[i] = -random_PS_point[i]
 
-        self.external_momenta = [random_PS_point[x] for x in range(1, 5)]
+            print(random_PS_point)
 
-        print("Analytic result: %s" %
-              self.doublebox_analytic(*self.external_momenta))
+            self.external_momenta = [random_PS_point[x] for x in range(1, 5)]
+
+        else:
+            # hardcoded for now
+            # TODO: check if e_cm is sqrt_s
+            self.external_momenta = [vectors.LorentzVector([sqrt_s + 1.3758384614384497e+02 + 8.1217573038820291e+01 -3.0672606911725950e+02,
+                1.3758384614384497e+02, 8.1217573038820291e+01, -3.0672606911725950e+02])]
+
+
+        if self.topology == 0:
+            print("Analytic result: %s" %
+                self.TwoLoopIntegral_analytic(*self.external_momenta))
 
         # defaults to Weinzierl mapping
         # set dummy qs
         self.parameterization = deformation.Parameterization(
             e_cm_sq=sqrt_s**2, region=0, channel=self.channel, qs_py=[[v for v in q] for q in self.external_momenta])
+        self.parameterization.set_mode("log")
 
         self.deformation = deformation.Deformation(
             e_cm_sq=sqrt_s**2, mu_sq=self.mu_sq, region=0, qs_py=[[v for v in q] for q in self.external_momenta], masses=self.internal_masses)
@@ -266,7 +273,7 @@ class DoubleBox(integrands.VirtualIntegrand):
 
         # TODO: set sensible options
         integrator = Vegas3Integrator(self, verbosity=2, cluster=MultiCore(
-            4), survey_n_points=2000000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
+            4), survey_n_points=200000, survey_n_iterations=10, refine_n_points=200000, refine_n_iterations=5)
 
         #integrator = pyCubaIntegrator(self, algorithm= 'Vegas', verbosity=2, target_accuracy=1.0e-3, max_eval=100000, n_start=1000, n_increase=1000, nb_core=4)
 
@@ -290,6 +297,7 @@ class DoubleBox(integrands.VirtualIntegrand):
         # defaults to Weinzierl mapping
         self.parameterization = deformation.Parameterization(
             e_cm_sq=e_cm_sq, region=0, channel=self.channel, qs_py=qs)
+        self.parameterization.set_mode("log")
 
         self.deformation = deformation.Deformation(
             e_cm_sq=e_cm_sq, mu_sq=self.mu_sq, region=0, qs_py=qs, masses=masses)
@@ -366,7 +374,7 @@ class DummyIntegrand():
         return (integrand, 0.)
 
 
-random.seed(123)
-d = DoubleBox()
+random.seed(2)
+d = TwoLoopIntegral(DOUBLE_TRIANGLE)
 # d.sample_points()
-d.integrate(1000., [100., 200., 300., 400.])
+d.integrate(1000.)

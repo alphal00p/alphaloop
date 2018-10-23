@@ -23,7 +23,7 @@ impl Parameterizer {
             e_cm_sq,
             channel,
             qs: Vec::with_capacity(4),
-            alpha: 2.0,
+            alpha: e_cm_sq.sqrt(), // a natural value for alpha is likely e_cm
             mode: ParameterizationMode::Weinzierl,
             region,
         })
