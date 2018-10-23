@@ -248,8 +248,9 @@ class TwoLoopIntegral(integrands.VirtualIntegrand):
         else:
             # hardcoded for now
             # TODO: check if e_cm is sqrt_s
-            self.external_momenta = [vectors.LorentzVector([sqrt_s + 1.3758384614384497e+02 + 8.1217573038820291e+01 -3.0672606911725950e+02,
+            self.external_momenta = [vectors.LorentzVector([sqrt(sqrt_s**2 + 1.3758384614384497e+02**2 + 8.1217573038820291e+01**2  + 3.0672606911725950e+02**2),
                 1.3758384614384497e+02, 8.1217573038820291e+01, -3.0672606911725950e+02])]
+            print("Q = %s" % self.external_momenta[0])
 
 
         if self.topology == 0:
