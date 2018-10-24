@@ -133,7 +133,8 @@ py_class!(class Deformation |py| {
         // compute jacobian
         let jac = self.deformer(py).borrow_mut().numerical_jacobian_two_loops(id, &qs[0], &qs[1], (&k, &l));
 
-        let jac_central = self.deformer(py).borrow_mut().numerical_jacobian_center_two_loops(id, &qs[0], &qs[1], (&k, &l)).0;
+        //let jac_central = self.deformer(py).borrow_mut().numerical_jacobian_center_two_loops(id, &qs[0], &qs[1], (&k, &l)).0;
+        let jac_central = Complex::new(0., 0.);
 
         Ok((vec![(k.t.re, k.t.im), (k.x.re, k.x.im), (k.y.re, k.y.im), (k.z.re, k.z.im), (l.t.re, l.t.im), (l.x.re, l.x.im), (l.y.re, l.y.im), (l.z.re, l.z.im)], jac.re, jac.im,
             jac_central.re, jac_central.im))

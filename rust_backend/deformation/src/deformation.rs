@@ -230,7 +230,7 @@ impl Deformer {
         //Perform the shift
         let r = (&self.p_min - &self.p_plus) * 0.5;
         let center = (&self.p_min + &self.p_plus) * 0.5;
-        let shift_size = 1.0e-10;
+        let shift_size = 1.0e-8;
 
         self.p_min = &center + &r * (1.0 + shift_size);
         self.p_plus = &center - &r * (1.0 + shift_size);
@@ -241,7 +241,7 @@ impl Deformer {
             pq_diff = &self.p_plus - q;
             assert!(
                 pq_diff.square() >= 0.0 && pq_diff.t <= 0.0,
-                "P_plus is not corretly defined! P.t = {0}, P^2 = {1}",
+                "P_plus is not correctly defined! P.t = {0}, P^2 = {1}",
                 pq_diff.t,
                 pq_diff.square()
             );
@@ -249,7 +249,7 @@ impl Deformer {
             pq_diff = &self.p_min - q;
             assert!(
                 pq_diff.square() >= 0.0 && pq_diff.t >= 0.0,
-                "P_minus is not corretly define! P.t = {0}, P^2 = {1}",
+                "P_minus is not correctly defined! P.t = {0}, P^2 = {1}",
                 pq_diff.t,
                 pq_diff.square()
             );
