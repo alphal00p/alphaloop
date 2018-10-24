@@ -255,7 +255,7 @@ class TwoLoopIntegral(integrands.VirtualIntegrand):
 
         if self.topology == 0:
             print("Analytic result: %s" %
-                self.TwoLoopIntegral_analytic(*self.external_momenta))
+                self.doublebox_analytic(*self.external_momenta))
 
         # defaults to Weinzierl mapping
         # set dummy qs
@@ -376,6 +376,6 @@ class DummyIntegrand():
 
 
 random.seed(2)
-d = TwoLoopIntegral(DOUBLE_TRIANGLE)
+d = TwoLoopIntegral(DOUBLE_BOX)
 # d.sample_points()
 d.integrate(1000.)

@@ -646,7 +646,7 @@ impl Deformer {
         let lambda = lambda_sq.sqrt();
 
         let k_1_full = &((&k_1 * lambda).to_complex(false)) + k;
-        let k_2_full = &((&k_2 * lambda).to_complex(false)) + k;
+        let k_2_full = &((&k_2 * lambda).to_complex(false)) + l;
 
         Ok((k_1_full, k_2_full))
     }
@@ -737,7 +737,7 @@ impl Deformer {
         let lambda = lambda_sq.sqrt();
 
         let k_1_full = &((&k_1 * lambda).to_complex(false)) + k;
-        let k_2_full = &((&k_2 * lambda).to_complex(false)) + k;
+        let k_2_full = &((&k_2 * lambda).to_complex(false)) + l;
 
         Ok((k_1_full, k_2_full))
     }
