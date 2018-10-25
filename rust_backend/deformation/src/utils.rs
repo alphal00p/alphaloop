@@ -5,9 +5,9 @@ use Complex;
 
 pub fn determinant(bb: &[[Complex;4];4]) -> Complex {
     // Define matrix related variables.
-    let dimension = bb[0].len();
+    let dimension = 4;
     let mut determinant = Complex::new(1.0, 0.0);
-    let mut indx = vec![0; dimension];
+    let mut indx = [0; 4];
     let mut d = 1; // initialize parity parameter
 
     // Inintialize the matrix to be decomposed with the transferred matrix b.
@@ -21,14 +21,15 @@ pub fn determinant(bb: &[[Complex;4];4]) -> Complex {
 
     let mut aamax;
     let mut dumr;
-    let mut vv = vec![0.0; dimension];
+    let mut vv = [0.0; 4];
 
     // Get the implicit scaling information.
     for i in 0..dimension {
         aamax = 0.0;
         for j in 0..dimension {
-            if (aa[i][j]).norm() > aamax {
-                aamax = aa[i][j].norm();
+            let r = aa[i][j].norm_sqr();
+            if r > aamax {
+                aamax = r;
             }
         }
         // Set a flag to check if the determinant is zero.
@@ -56,7 +57,7 @@ pub fn determinant(bb: &[[Complex;4];4]) -> Complex {
                 }
                 aa[i][j] = sum;
                 // Figure of merit for the pivot.
-                dumr = vv[i] * sum.norm();
+                dumr = vv[i] * sum.norm_sqr();
                 // Is it better than the best so far?
                 if dumr >= aamax {
                     imax = i;
@@ -101,9 +102,9 @@ pub fn determinant(bb: &[[Complex;4];4]) -> Complex {
 // TODO: prevent the copy-paste
 pub fn determinant8(bb: &[[Complex;8];8]) -> Complex {
     // Define matrix related variables.
-    let dimension = bb[0].len();
+    let dimension = 8;
     let mut determinant = Complex::new(1.0, 0.0);
-    let mut indx = vec![0; dimension];
+    let mut indx = [0; 8];
     let mut d = 1; // initialize parity parameter
 
     // Inintialize the matrix to be decomposed with the transferred matrix b.
@@ -117,14 +118,15 @@ pub fn determinant8(bb: &[[Complex;8];8]) -> Complex {
 
     let mut aamax;
     let mut dumr;
-    let mut vv = vec![0.0; dimension];
+    let mut vv = [0.0; 8];
 
     // Get the implicit scaling information.
     for i in 0..dimension {
         aamax = 0.0;
         for j in 0..dimension {
-            if (aa[i][j]).norm() > aamax {
-                aamax = aa[i][j].norm();
+            let r = aa[i][j].norm_sqr();
+            if r > aamax {
+                aamax = r;
             }
         }
         // Set a flag to check if the determinant is zero.
@@ -152,7 +154,7 @@ pub fn determinant8(bb: &[[Complex;8];8]) -> Complex {
                 }
                 aa[i][j] = sum;
                 // Figure of merit for the pivot.
-                dumr = vv[i] * sum.norm();
+                dumr = vv[i] * sum.norm_sqr();
                 // Is it better than the best so far?
                 if dumr >= aamax {
                     imax = i;

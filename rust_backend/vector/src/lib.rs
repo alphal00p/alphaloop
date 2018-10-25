@@ -32,11 +32,16 @@ pub struct LorentzVector<T: Field> {
 
 impl<T: Field> Display for LorentzVector<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "(t:{}, x:{}, y:{}, z:{})", self.t, self.x, self.y, self.z)
+        write!(
+            f,
+            "(t:{}, x:{}, y:{}, z:{})",
+            self.t, self.x, self.y, self.z
+        )
     }
 }
 
 impl<T: Field> LorentzVector<T> {
+    #[inline]
     pub fn new() -> LorentzVector<T> {
         LorentzVector {
             t: T::default(),
@@ -46,10 +51,12 @@ impl<T: Field> LorentzVector<T> {
         }
     }
 
+    #[inline]
     pub fn from(t: T, x: T, y: T, z: T) -> LorentzVector<T> {
         LorentzVector { t, x, y, z }
     }
 
+    #[inline]
     pub fn from_slice(v: &[T]) -> LorentzVector<T> {
         let (t, x, y, z) = (v[0], v[1], v[2], v[3]);
         LorentzVector {
@@ -60,6 +67,7 @@ impl<T: Field> LorentzVector<T> {
         }
     }
 
+    #[inline]
     pub fn from_vec(v: Vec<T>) -> LorentzVector<T> {
         let (t, x, y, z) = (v[0], v[1], v[2], v[3]);
         LorentzVector {
@@ -70,6 +78,7 @@ impl<T: Field> LorentzVector<T> {
         }
     }
 
+    #[inline]
     pub fn dual(&self) -> LorentzVector<T> {
         LorentzVector {
             t: self.t,
@@ -79,18 +88,22 @@ impl<T: Field> LorentzVector<T> {
         }
     }
 
+    #[inline]
     pub fn square(&self) -> T {
         self.t * self.t - self.x * self.x - self.y * self.y - self.z * self.z
     }
 
+    #[inline]
     pub fn dot(&self, other: &LorentzVector<T>) -> T {
         self.t * other.t - self.x * other.x - self.y * other.y - self.z * other.z
     }
 
+    #[inline]
     pub fn spatial_squared(&self) -> T {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
+    #[inline]
     pub fn euclidean_square(&self) -> T {
         self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z
     }
@@ -111,6 +124,7 @@ impl<T: Field> LorentzVector<T> {
 impl<'a, T: Field> Neg for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
+    #[inline]
     fn neg(self) -> LorentzVector<T> {
         LorentzVector {
             t: -self.t,
@@ -124,6 +138,7 @@ impl<'a, T: Field> Neg for &'a LorentzVector<T> {
 impl<'a, T: Field> Neg for LorentzVector<T> {
     type Output = LorentzVector<T>;
 
+    #[inline]
     fn neg(self) -> LorentzVector<T> {
         LorentzVector {
             t: -self.t,
@@ -137,6 +152,7 @@ impl<'a, T: Field> Neg for LorentzVector<T> {
 impl<'a, T: Field> Add<&'a LorentzVector<T>> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
+    #[inline]
     fn add(self, other: &'a LorentzVector<T>) -> LorentzVector<T> {
         LorentzVector {
             t: self.t + other.t,
@@ -177,6 +193,7 @@ impl<'a, T: Field> Add<LorentzVector<T>> for LorentzVector<T> {
 impl<'a, T: Field> Sub<&'a LorentzVector<T>> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
+    #[inline]
     fn sub(self, other: &'a LorentzVector<T>) -> LorentzVector<T> {
         LorentzVector {
             t: self.t - other.t,
@@ -230,6 +247,7 @@ impl<'a, T: Field> Mul<T> for &'a LorentzVector<T> {
 impl<'a, T: Field> Mul<T> for LorentzVector<T> {
     type Output = LorentzVector<T>;
 
+    #[inline]
     fn mul(self, other: T) -> LorentzVector<T> {
         LorentzVector {
             t: self.t * other,
@@ -243,6 +261,7 @@ impl<'a, T: Field> Mul<T> for LorentzVector<T> {
 impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
     type Output = LorentzVector<Complex>;
 
+    #[inline]
     fn sub(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
         LorentzVector {
             t: self.t - other.t,
@@ -255,7 +274,8 @@ impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
 
 impl<'a> Sub<&'a LorentzVector<f64>> for LorentzVector<Complex> {
     type Output = LorentzVector<Complex>;
-
+    
+    #[inline]
     fn sub(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
         LorentzVector {
             t: self.t - other.t,
@@ -269,6 +289,7 @@ impl<'a> Sub<&'a LorentzVector<f64>> for LorentzVector<Complex> {
 impl<'a> Add<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
     type Output = LorentzVector<Complex>;
 
+    #[inline]
     fn add(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
         LorentzVector {
             t: self.t + other.t,
@@ -282,6 +303,7 @@ impl<'a> Add<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
 impl<T: Field> Index<usize> for LorentzVector<T> {
     type Output = T;
 
+    #[inline]
     fn index(&self, index: usize) -> &T {
         match index {
             0 => &self.t,
@@ -294,6 +316,7 @@ impl<T: Field> Index<usize> for LorentzVector<T> {
 }
 
 impl<T: Field> IndexMut<usize> for LorentzVector<T> {
+    #[inline]
     fn index_mut(&mut self, index: usize) -> &mut T {
         match index {
             0 => &mut self.t,
@@ -306,14 +329,17 @@ impl<T: Field> IndexMut<usize> for LorentzVector<T> {
 }
 
 impl LorentzVector<f64> {
+    #[inline]
     pub fn spatial_distance(&self) -> f64 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
+    #[inline]
     pub fn euclidean_distance(&self) -> f64 {
         (self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
+    #[inline]
     pub fn to_complex(&self, real: bool) -> LorentzVector<Complex> {
         if real {
             LorentzVector {
@@ -334,21 +360,23 @@ impl LorentzVector<f64> {
 }
 
 impl LorentzVector<Complex> {
+    #[inline]
     pub fn real(&self) -> LorentzVector<f64> {
         LorentzVector {
             t: self.t.re,
             x: self.x.re,
             y: self.y.re,
-            z: self.z.re
+            z: self.z.re,
         }
     }
 
+    #[inline]
     pub fn imag(&self) -> LorentzVector<f64> {
         LorentzVector {
             t: self.t.im,
             x: self.x.im,
             y: self.y.im,
-            z: self.z.im
+            z: self.z.im,
         }
     }
 }
