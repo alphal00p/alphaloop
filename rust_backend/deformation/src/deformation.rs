@@ -5,8 +5,8 @@ use vector::LorentzVector;
 use Complex;
 use REGION_EXT;
 
-const DOUBLE_BOX_ID: usize = 0;
-const DOUBLE_TRIANGLE_ID: usize = 1;
+pub const DOUBLE_BOX_ID: usize = 0;
+pub const DOUBLE_TRIANGLE_ID: usize = 1;
 
 const DIRECTIONS: [LorentzVector<f64>; 4] = [
     LorentzVector {
@@ -144,6 +144,7 @@ impl Deformer {
     ///if not `plus`.
     fn compute_p(&self, plus: bool) -> LorentzVector<f64> {
         /// Interpolate between vectors
+        #[inline]
         fn z(a: LorentzVector<f64>, b: LorentzVector<f64>, plus: bool) -> LorentzVector<f64> {
             if b.euclidean_square() < 1e-9 {
                 return a;
@@ -245,17 +246,19 @@ impl Deformer {
             pq_diff = &self.p_plus - q;
             assert!(
                 pq_diff.square() >= 0.0 && pq_diff.t <= 0.0,
-                "P_plus is not correctly defined! P.t = {0}, P^2 = {1}",
+                "P_plus is not correctly defined! P.t = {0}, P^2 = {1}, qs = {2:?}",
                 pq_diff.t,
-                pq_diff.square()
+                pq_diff.square(),
+                self.qs,
             );
 
             pq_diff = &self.p_min - q;
             assert!(
                 pq_diff.square() >= 0.0 && pq_diff.t >= 0.0,
-                "P_minus is not correctly defined! P.t = {0}, P^2 = {1}",
+                "P_minus is not correctly defined! P.t = {0}, P^2 = {1}, qs = {2:?}",
                 pq_diff.t,
-                pq_diff.square()
+                pq_diff.square(),
+                self.qs
             );
         }
     }
@@ -544,6 +547,95 @@ impl Deformer {
         Ok((k, jac))
     }
 
+    fn deform_int_no_jacobian(
+        &self,
+        mom: &LorentzVector<f64>,
+    ) -> Result<LorentzVector<Complex>, &str> {
+        let (mut c_plus, mut c_minus) = (1.0, 1.0);
+
+        for (qi, mi) in self.qs.iter().zip(&self.masses) {
+            // note the sign reversal
+            c_plus *= Deformer::h_delta(-1, &(mom - qi), mi * mi, self.m3_sq);
+            c_minus *= Deformer::h_delta(1, &(mom - qi), mi * mi, self.m3_sq);
+        }
+
+        let k_plus = mom - &self.p_plus;
+        let k_minus = mom - &self.p_min;
+        let k_ext = LorentzVector::from(
+            c_plus * k_plus.t + c_minus * k_minus.t,
+            -c_plus * k_plus.x - c_minus * k_minus.x,
+            -c_plus * k_plus.y - c_minus * k_minus.y,
+            -c_plus * k_plus.z - c_minus * k_minus.z,
+        );
+
+        // internal part
+        let k_centre = &(&k_plus + &k_minus) * 0.5;
+
+        // TODO: cache qi= mom-qs[i]?
+
+        let n = self.qs.len();
+        let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
+        let mut c = vec![f; n];
+
+        let mut k_int = LorentzVector::new();
+        for i in 0..n {
+            for l in 0..n {
+                // note: in paper l starts at 1
+                let (c_c, c_grad_c) = Deformer::d(self, mom, i, l);
+                c[i] *= c_c;
+            }
+
+            let l = mom - &self.qs[i];
+            k_int = k_int + &l * -c[i]; // massless part
+        }
+
+        let k0 = k_int + k_ext;
+        let mut lambda_cycle_sq = 1.0; // maximum lambda value
+
+        for j in 0..n {
+            let k0_sq = k0.square();
+            let lj = mom - &self.qs[j];
+            let k0_lqj = k0.dot(&lj);
+            let w = lj.square() - self.masses[j].powi(2);
+
+            let xj = (k0_lqj / k0_sq).powi(2);
+            let yj = w / k0_sq;
+
+            if 2.0 * xj < yj {
+                if yj / 4.0 < lambda_cycle_sq {
+                    lambda_cycle_sq = yj * 0.25;
+                }
+            } else if yj < 0.0 {
+                if xj - yj / 2.0 < lambda_cycle_sq {
+                    lambda_cycle_sq = xj - yj * 0.5;
+                }
+            } else {
+                if xj - yj / 4.0 < lambda_cycle_sq {
+                    lambda_cycle_sq = xj - yj * 0.25;
+                }
+            }
+        }
+
+        let mut lambda_cycle = lambda_cycle_sq.sqrt();
+
+        // collinear contribution
+        let n1: f64 = c.iter().sum();
+        if 1.0 / (4.0 * n1) < lambda_cycle {
+            lambda_cycle = 1.0 / (4.0 * n1);
+        }
+
+        let l = mom - &self.uv_shift;
+        let uv_fac = 4.0 * l.dot(&k0);
+        if uv_fac <= self.mu_sq.im {
+            if lambda_cycle > self.mu_sq.im / uv_fac {
+                lambda_cycle = self.mu_sq.im / uv_fac;
+            }
+        }
+
+        let k = &mom.to_complex(true) + &(&k0 * lambda_cycle).to_complex(false);
+        Ok(k)
+    }
+
     fn deform_ext(
         &self,
         mom: &LorentzVector<f64>,
@@ -558,6 +650,7 @@ impl Deformer {
         Ok((k, Complex::new(0.0, -4.0)))
     }
 
+    #[inline]
     pub fn deform(
         &self,
         mom: &LorentzVector<f64>,
@@ -594,16 +687,16 @@ impl Deformer {
         let mut c12_qs = [LorentzVector::new(), k - l, -&self.ext[0]];
 
         self.set_qs(&c12_qs);
-        let c12_k = self.deform(k).unwrap().0.imag(); // get the direction
+        let c12_k = self.deform_int_no_jacobian(k).unwrap().imag(); // get the direction
 
         c12_qs = [LorentzVector::new(), -k + l - &self.ext[0], -k + l];
 
         self.set_qs(&c12_qs);
-        let c12_l = self.deform(l).unwrap().0.imag();
+        let c12_l = self.deform_int_no_jacobian(l).unwrap().imag();
 
         let c23_qs = [LorentzVector::new(), k + &self.ext[0], k.clone()];
         self.set_qs(&c23_qs);
-        let c23_l = self.deform(l).unwrap().0.imag();
+        let c23_l = self.deform_int_no_jacobian(l).unwrap().imag();
 
         let c13_qs = [
             LorentzVector::new(),
@@ -612,7 +705,7 @@ impl Deformer {
             -&self.ext[0],
         ];
         self.set_qs(&c13_qs);
-        let c13_k = self.deform(k).unwrap().0.imag();
+        let c13_k = self.deform_int_no_jacobian(k).unwrap().imag();
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -671,7 +764,7 @@ impl Deformer {
         ];
 
         self.set_qs(&c12_qs);
-        let c12_k = self.deform(k).unwrap().0.imag(); // get the direction
+        let c12_k = self.deform_int_no_jacobian(k).unwrap().imag(); // get the direction
 
         c12_qs = [
             LorentzVector::new(),
@@ -681,7 +774,7 @@ impl Deformer {
         ];
 
         self.set_qs(&c12_qs);
-        let c12_l = self.deform(l).unwrap().0.imag();
+        let c12_l = self.deform_int_no_jacobian(l).unwrap().imag();
 
         let c23_qs = [
             LorentzVector::new(),
@@ -690,7 +783,7 @@ impl Deformer {
             k.clone(),
         ];
         self.set_qs(&c23_qs);
-        let c23_l = self.deform(l).unwrap().0.imag();
+        let c23_l = self.deform_int_no_jacobian(l).unwrap().imag();
 
         let c13_qs = [
             LorentzVector::new(),
@@ -701,7 +794,7 @@ impl Deformer {
             -&self.ext[0],
         ];
         self.set_qs(&c13_qs);
-        let c13_k = self.deform(k).unwrap().0.imag();
+        let c13_k = self.deform_int_no_jacobian(k).unwrap().imag();
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
