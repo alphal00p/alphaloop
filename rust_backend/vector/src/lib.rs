@@ -50,6 +50,16 @@ impl<T: Field> LorentzVector<T> {
         LorentzVector { t, x, y, z }
     }
 
+    pub fn from_slice(v: &[T]) -> LorentzVector<T> {
+        let (t, x, y, z) = (v[0], v[1], v[2], v[3]);
+        LorentzVector {
+            t: t,
+            x: x,
+            y: y,
+            z: z,
+        }
+    }
+
     pub fn from_vec(v: Vec<T>) -> LorentzVector<T> {
         let (t, x, y, z) = (v[0], v[1], v[2], v[3]);
         LorentzVector {

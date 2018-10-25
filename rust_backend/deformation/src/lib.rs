@@ -51,7 +51,7 @@ py_class!(class Deformation |py| {
             qs.push(vector::LorentzVector::from_vec(m));
         }
 
-        self.deformer(py).borrow_mut().set_qs(qs);
+        self.deformer(py).borrow_mut().set_qs(&qs);
         Ok(true)
     }
 
@@ -113,19 +113,12 @@ py_class!(class Deformation |py| {
     }
 
     def deform_two_loops(&self, id: usize, momenta: PyList) -> PyResult<(Vec<(f64, f64)>, f64, f64, f64, f64)> {
-        let mut qs: Vec<vector::LorentzVector<f64>> = Vec::with_capacity(4);
+        let mut qs = [vector::LorentzVector::new(), vector::LorentzVector::new()];
 
-        for mom in momenta.iter(py) {
-            let mut m: Vec<f64> = Vec::with_capacity(4);
-            for x in mom.extract::<PyList>(py)?.iter(py) {
-                m.push(x.extract(py)?);
+        for (i, mom) in momenta.iter(py).enumerate() {
+            for (j, x) in mom.extract::<PyList>(py)?.iter(py).enumerate() {
+                qs[i][j] = x.extract(py)?;
             }
-
-            if m.len() != 4 {
-                return Err(PyErr::new::<exc::ValueError, _>(py, "Momentum does not have 4 components"));
-            }
-
-            qs.push(vector::LorentzVector::from_vec(m));
         }
 
         let (k, l) = self.deformer(py).borrow_mut().deform_two_loops(id, &qs[0], &qs[1]).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;

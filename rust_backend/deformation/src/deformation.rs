@@ -67,7 +67,7 @@ impl Deformer {
         masses: Vec<f64>,
     ) -> Result<Deformer, &'static str> {
         Ok(Deformer {
-            qs: Vec::with_capacity(4),
+            qs: Vec::with_capacity(6),
             ext: Vec::with_capacity(4),
             masses,
             p_plus: LorentzVector::new(),
@@ -101,11 +101,12 @@ impl Deformer {
     }
 
     /// Set new qs and update all parameters accordingly.
-    pub fn set_qs(&mut self, qs: Vec<LorentzVector<f64>>) {
-        self.qs = qs;
+    pub fn set_qs(&mut self, qs: &[LorentzVector<f64>]) {
+        self.qs.clear();
+        self.qs.extend_from_slice(qs);
 
         if self.masses.len() != self.qs.len() {
-            self.masses = vec![0.0; self.qs.len()];
+            self.masses.resize(self.qs.len(), 0.);
         }
 
         self.uv_shift = LorentzVector::new();
@@ -165,7 +166,7 @@ impl Deformer {
         }
 
         let mut orig_vec: Vec<_> = self.qs.clone();
-        let mut filtered_vec = vec![];
+        let mut filtered_vec = Vec::with_capacity(orig_vec.len());
         loop {
             // filter all vectors that are in the forward/backward light-cone of another vector
             for (i, v) in orig_vec.iter().enumerate() {
@@ -587,27 +588,27 @@ impl Deformer {
         // compute the external momenta for the C12(k) cycle and express the qs in terms of that.
         // This is not a shift. We also set q[0] = 0 at the 1/k^2 line
         // k, l, k - l, k - l + p1, k + p1
-        let mut c12_qs = vec![LorentzVector::new(), k - l, -&self.ext[0]];
+        let mut c12_qs = [LorentzVector::new(), k - l, -&self.ext[0]];
 
-        self.set_qs(c12_qs);
+        self.set_qs(&c12_qs);
         let c12_k = self.deform(k).unwrap().0.imag(); // get the direction
 
-        c12_qs = vec![LorentzVector::new(), -k + l - &self.ext[0], -k + l];
+        c12_qs = [LorentzVector::new(), -k + l - &self.ext[0], -k + l];
 
-        self.set_qs(c12_qs);
+        self.set_qs(&c12_qs);
         let c12_l = self.deform(l).unwrap().0.imag();
 
-        let c23_qs = vec![LorentzVector::new(), k + &self.ext[0], k.clone()];
-        self.set_qs(c23_qs);
+        let c23_qs = [LorentzVector::new(), k + &self.ext[0], k.clone()];
+        self.set_qs(&c23_qs);
         let c23_l = self.deform(l).unwrap().0.imag();
 
-        let c13_qs = vec![
+        let c13_qs = [
             LorentzVector::new(),
             l.clone(),
             l - &self.ext[0],
             -&self.ext[0],
         ];
-        self.set_qs(c13_qs);
+        self.set_qs(&c13_qs);
         let c13_k = self.deform(k).unwrap().0.imag();
 
         let k_1 = c12_k + c13_k;
@@ -659,36 +660,36 @@ impl Deformer {
         // compute the external momenta for the C12(k) cycle and express the qs in terms of that.
         // This is not a shift. We also set q[0] = 0 at the 1/k^2 line
         // k, l, k - l, k - l - p2, k - l - p2 - p3, k - p2 - p3, k + p1
-        let mut c12_qs = vec![
+        let mut c12_qs = [
             LorentzVector::new(),
             k - l,
             &self.ext[1] + &self.ext[2],
             -&self.ext[0],
         ];
 
-        self.set_qs(c12_qs);
+        self.set_qs(&c12_qs);
         let c12_k = self.deform(k).unwrap().0.imag(); // get the direction
 
-        c12_qs = vec![
+        c12_qs = [
             LorentzVector::new(),
             -k + l + &self.ext[1] + &self.ext[2],
             -k + l - &self.ext[0],
             -k + l,
         ];
 
-        self.set_qs(c12_qs);
+        self.set_qs(&c12_qs);
         let c12_l = self.deform(l).unwrap().0.imag();
 
-        let c23_qs = vec![
+        let c23_qs = [
             LorentzVector::new(),
             k - &self.ext[1] - &self.ext[2],
             k - &self.ext[1],
             k.clone(),
         ];
-        self.set_qs(c23_qs);
+        self.set_qs(&c23_qs);
         let c23_l = self.deform(l).unwrap().0.imag();
 
-        let c13_qs = vec![
+        let c13_qs = [
             LorentzVector::new(),
             l.clone(),
             l + &self.ext[1],
@@ -696,7 +697,7 @@ impl Deformer {
             &self.ext[1] + &self.ext[2],
             -&self.ext[0],
         ];
-        self.set_qs(c13_qs);
+        self.set_qs(&c13_qs);
         let c13_k = self.deform(k).unwrap().0.imag();
 
         let k_1 = c12_k + c13_k;

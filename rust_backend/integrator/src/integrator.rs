@@ -34,7 +34,7 @@ impl Integrator {
 
         // TODO: for now the internal masses are assumed to be 0
         let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, vec![0.; qs.len()])?;
-        deformer.set_qs(qs.clone());
+        deformer.set_qs(&qs);
 
         let mut integrand = Integrand::new(name, 0, 0, mu_sq)?;
         integrand.set_externals(external_momenta);

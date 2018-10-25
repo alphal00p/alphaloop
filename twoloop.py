@@ -23,6 +23,7 @@ import numdifftools as nd
 import numpy as np
 import numpy.linalg as linalg
 from mpmath import polylog, ln
+from scipy.special import zeta
 
 import madgraph.integrator.vectors as vectors
 import madgraph.integrator.phase_space_generators as phase_space_generators
@@ -161,7 +162,7 @@ class TwoLoopIntegral(integrands.VirtualIntegrand):
                 lambda_overall = min(lambda_overall, sqrt(xj - yj/4.))
 
         k_1 = k_mapped + lambda_overall * k_1 * 1j
-        k_2 = k_mapped + lambda_overall * k_2 * 1j
+        k_2 = l_mapped + lambda_overall * k_2 * 1j
 
         rust_res = [complex(*x) for x in self.deformation.deform_two_loops(self.topology,
             [[x for x in loop_momenta[:4]], [x for x in loop_momenta[4:]]])[0]]
@@ -175,11 +176,9 @@ class TwoLoopIntegral(integrands.VirtualIntegrand):
     def evaluate(self, k, l):
         k_mapped, jac_k = self.parameterization.map(k)
         l_mapped, jac_l = self.parameterization.map(l)
-        numerical_jacobian_weight = 1.
-        ks = k_mapped + l_mapped
 
         (ksv, jac_real, jac_imag, jac_central_real, jac_central_imag) = self.deformation.deform_two_loops(self.topology,
-            [[x for x in ks[:4]], [x for x in ks[4:]]])
+            [k_mapped, l_mapped])
 
         ks = [complex(*x) for x in ksv]
         jac = complex(jac_real, jac_imag)
@@ -256,6 +255,9 @@ class TwoLoopIntegral(integrands.VirtualIntegrand):
         if self.topology == 0:
             print("Analytic result: %s" %
                 self.doublebox_analytic(*self.external_momenta))
+        else:
+            print("Analytic result: %s" %
+                self.doubletriangle_analytic(*self.external_momenta))
 
         # defaults to Weinzierl mapping
         # set dummy qs
@@ -353,6 +355,9 @@ class TwoLoopIntegral(integrands.VirtualIntegrand):
 
         return - t * (pi**2*1j/(s*t))**2 / l * (6. * (polylog(4, -rx) + polylog(4, -ry)) + 3 * ln(y/x)*(polylog(3, -rx) - polylog(3, -ry)) + 0.5*ln(y/x)**2*(polylog(2, -rx)+polylog(2, -ry))
                                                 + 0.25*ln_rx**2*ln_ry**2 + pi**2/2.*ln_rx*ln_ry + pi**2/12*ln(y/x)**2 + 7 * pi**4/60.)
+
+    def doubletriangle_analytic(self, k1):
+        return -(16. * pi**2)**-2 / k1.square() * 6. * zeta(3)
 
 
 class DummyIntegrand():
