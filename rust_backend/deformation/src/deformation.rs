@@ -145,7 +145,10 @@ impl Deformer {
     fn compute_p(&self, plus: bool) -> LorentzVector<f64> {
         /// Interpolate between vectors
         fn z(a: LorentzVector<f64>, b: LorentzVector<f64>, plus: bool) -> LorentzVector<f64> {
-            // WARNING: watch out for configurations with input momenta that are back-to-back as then the spatial distance is 0
+            if b.euclidean_square() < 1e-9 {
+                return a;
+            }
+
             let n = 1.0 / b.spatial_distance();
 
             if plus {
