@@ -38,6 +38,7 @@ pub struct Deformer {
     qs: Vec<LorentzVector<f64>>,
     ext: Vec<LorentzVector<f64>>, // external momenta
     masses: Vec<f64>,
+    p_buf: Vec<LorentzVector<f64>>, // buffer for p computation
     p_plus: LorentzVector<f64>,
     p_min: LorentzVector<f64>,
     e_cm_sq: f64,
@@ -69,6 +70,7 @@ impl Deformer {
             qs: Vec::with_capacity(6),
             ext: Vec::with_capacity(4),
             masses,
+            p_buf: Vec::with_capacity(6),
             p_plus: LorentzVector::new(),
             p_min: LorentzVector::new(),
             e_cm_sq,
@@ -141,7 +143,7 @@ impl Deformer {
     ///Find a vector P such that all external momenta `qs` are in
     ///the forward lightcone of P if `plus`, or are in the backwards lightcone
     ///if not `plus`.
-    fn compute_p(&self, plus: bool) -> LorentzVector<f64> {
+    fn compute_p(&mut self, plus: bool) -> LorentzVector<f64> {
         /// Interpolate between vectors
         #[inline]
         fn z(a: LorentzVector<f64>, b: LorentzVector<f64>, plus: bool) -> LorentzVector<f64> {
@@ -168,46 +170,53 @@ impl Deformer {
             }
         }
 
-        let mut orig_vec: Vec<_> = self.qs.clone();
+        self.p_buf.clear();
+        self.p_buf.extend_from_slice(&self.qs);
         let mut keep_map = [true; 10]; // we will not have more than 10 propagators
-        loop {
-            // filter all vectors that are in the forward/backward light-cone of another vector
-            for (i, v) in orig_vec.iter().enumerate() {
-                if keep_map[i] {
-                    for (j, v1) in orig_vec[i + 1..].iter().enumerate() {
-                        if keep_map[i + 1 + j] && (v - v1).square() >= 0.0 {
-                            keep_map[i] &= (plus && v.t <= v1.t) || (!plus && v.t >= v1.t);
-                            keep_map[i + 1 + j] &= (plus && v.t >= v1.t) || (!plus && v.t <= v1.t);
+        assert!(self.p_buf.len() < 10);
 
-                            if !keep_map[i] {
-                                break;
+        loop {
+            unsafe {
+                // filter all vectors that are in the forward/backward light-cone of another vector
+                for (i, v) in self.p_buf.iter().enumerate() {
+                    if *keep_map.get_unchecked(i) {
+                        for (j, v1) in self.p_buf[i + 1..].iter().enumerate() {
+                            if *keep_map.get_unchecked(i + 1 + j) && (v - v1).square() >= 0.0 {
+                                *keep_map.get_unchecked_mut(i) &=
+                                    (plus && v.t <= v1.t) || (!plus && v.t >= v1.t);
+                                *keep_map.get_unchecked_mut(i + 1 + j) &=
+                                    (plus && v.t >= v1.t) || (!plus && v.t <= v1.t);
+
+                                if !*keep_map.get_unchecked(i) {
+                                    break;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            let mut i = 0;
-            while i < orig_vec.len() {
-                if !keep_map[i] {
-                    orig_vec.swap_remove(i);
-                    keep_map[i] = keep_map[orig_vec.len()]
-                } else {
-                    i += 1;
+                let mut i = 0;
+                while i < self.p_buf.len() {
+                    if !keep_map.get_unchecked(i) {
+                        self.p_buf.swap_remove(i);
+                        *keep_map.get_unchecked_mut(i) = *keep_map.get_unchecked(self.p_buf.len());
+                    } else {
+                        i += 1;
+                    }
                 }
             }
 
-            if orig_vec.len() == 0 {
+            if self.p_buf.len() == 0 {
                 panic!("Failed to determine P_{+/-}.");
             }
-            if orig_vec.len() == 1 {
+            if self.p_buf.len() == 1 {
                 break;
             }
 
             // find the pair with the smallest space-like separation
             let (mut first, mut sec, mut min_sep) = (0, 1, 0.0);
-            for (i, v1) in orig_vec.iter().enumerate() {
-                for (j, v2) in orig_vec[i + 1..].iter().enumerate() {
+            for (i, v1) in self.p_buf.iter().enumerate() {
+                for (j, v2) in self.p_buf[i + 1..].iter().enumerate() {
                     let sep = -(v1 - v2).square();
                     if min_sep == 0.0 || sep <= min_sep {
                         min_sep = sep;
@@ -218,19 +227,19 @@ impl Deformer {
             }
 
             // replace first vector and drop the second
-            orig_vec[first] = z(
-                &orig_vec[first] + &orig_vec[sec],
-                &orig_vec[first] - &orig_vec[sec],
+            self.p_buf[first] = z(
+                &self.p_buf[first] + &self.p_buf[sec],
+                &self.p_buf[first] - &self.p_buf[sec],
                 plus,
             );
-            orig_vec.swap_remove(sec);
-            if orig_vec.len() == 1 {
+            self.p_buf.swap_remove(sec);
+            if self.p_buf.len() == 1 {
                 break;
             }
         }
 
-        assert!(orig_vec.len() == 1);
-        orig_vec.pop().unwrap()
+        assert!(self.p_buf.len() == 1);
+        self.p_buf.pop().unwrap()
     }
 
     /// Shift P+ and P- outward and check if their new values fulfills P^2 >= 0.0 and (+/-) * P+/-.t <= 0.0  
@@ -300,6 +309,7 @@ impl Deformer {
         &w_grad * (2.0 * m / w1 / (w1 * w1 + m))
     }
 
+    #[inline]
     fn h_theta(t: f64, m: f64) -> f64 {
         if t <= 0.0 {
             0.0
@@ -309,6 +319,7 @@ impl Deformer {
     }
 
     /// Derivative of h_theta wrt ln t
+    #[inline]
     fn h_theta_ln_grad(t: f64, m: f64) -> f64 {
         if t <= 0.0 {
             0.0
@@ -317,11 +328,13 @@ impl Deformer {
         }
     }
 
+    #[inline]
     fn g(k: &LorentzVector<f64>, gamma: f64, m: f64) -> f64 {
         gamma * m / (k.t * k.t + k.spatial_squared() + m)
     }
 
     /// Derivative of h_theta wrt ln k
+    #[inline]
     fn g_ln_grad(k: &LorentzVector<f64>, m: f64) -> LorentzVector<f64> {
         k * (-2.0 / (k.euclidean_square() + m))
     }
