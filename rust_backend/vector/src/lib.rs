@@ -30,6 +30,17 @@ pub struct LorentzVector<T: Field> {
     pub z: T,
 }
 
+impl<T: Field> Default for LorentzVector<T> {
+    fn default() -> LorentzVector<T> {
+        LorentzVector {
+            t: T::default(),
+            x: T::default(),
+            y: T::default(),
+            z: T::default(),
+        }        
+    }
+}
+
 impl<T: Field> Display for LorentzVector<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(

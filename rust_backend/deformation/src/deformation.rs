@@ -477,10 +477,11 @@ impl Deformer {
         // TODO: cache qi= mom-qs[i]?
 
         let n = self.qs.len();
+        assert!(n <= 10);
         let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
-        let mut c = vec![f; n];
+        let mut c = [f; 10];
         let f_grad = Deformer::g_ln_grad(&k_centre, self.m2_sq);
-        let mut c_grad = vec![f_grad; n];
+        let mut c_grad : [LorentzVector<f64>; 10] = Default::default();
 
         let mut k_int = LorentzVector::new();
         for i in 0..n {
@@ -631,8 +632,9 @@ impl Deformer {
         // TODO: cache qi= mom-qs[i]?
 
         let n = self.qs.len();
+        assert!(n <= 10);
         let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
-        let mut c = vec![f; n];
+        let mut c = [f; 10]; // use static array, for performance
 
         let mut k_int = LorentzVector::new();
         for i in 0..n {
