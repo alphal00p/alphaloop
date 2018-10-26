@@ -1,5 +1,4 @@
 use std::f64::EPSILON;
-use std::mem;
 use utils::{determinant, determinant8};
 use vector::LorentzVector;
 use Complex;
@@ -170,38 +169,45 @@ impl Deformer {
         }
 
         let mut orig_vec: Vec<_> = self.qs.clone();
-        let mut filtered_vec = Vec::with_capacity(orig_vec.len());
+        let mut keep_map = [true; 10]; // we will not have more than 10 propagators
         loop {
             // filter all vectors that are in the forward/backward light-cone of another vector
             for (i, v) in orig_vec.iter().enumerate() {
-                let mut spacelike = true;
-                for (j, v1) in orig_vec.iter().enumerate() {
-                    if i == j {
-                        continue;
+                if keep_map[i] {
+                    for (j, v1) in orig_vec[i + 1..].iter().enumerate() {
+                        if keep_map[i + 1 + j] && (v - v1).square() >= 0.0 {
+                            keep_map[i] &= (plus && v.t <= v1.t) || (!plus && v.t >= v1.t);
+                            keep_map[i + 1 + j] &= (plus && v.t >= v1.t) || (!plus && v.t <= v1.t);
+
+                            if !keep_map[i] {
+                                break;
+                            }
+                        }
                     }
-                    if (v - v1).square() >= 0.0 && ((plus && v.t > v1.t) || (!plus && v.t < v1.t)) {
-                        spacelike = false;
-                        break;
-                    }
-                }
-                if spacelike {
-                    // this vector is space-like relative to all others
-                    filtered_vec.push(v.clone())
                 }
             }
 
-            if filtered_vec.len() == 0 {
+            let mut i = 0;
+            while i < orig_vec.len() {
+                if !keep_map[i] {
+                    orig_vec.swap_remove(i);
+                    keep_map[i] = keep_map[orig_vec.len()]
+                } else {
+                    i += 1;
+                }
+            }
+
+            if orig_vec.len() == 0 {
                 panic!("Failed to determine P_{+/-}.");
             }
-            if filtered_vec.len() == 1 {
-                orig_vec = filtered_vec;
+            if orig_vec.len() == 1 {
                 break;
             }
 
             // find the pair with the smallest space-like separation
             let (mut first, mut sec, mut min_sep) = (0, 1, 0.0);
-            for (i, v1) in filtered_vec.iter().enumerate() {
-                for (j, v2) in filtered_vec[i + 1..].iter().enumerate() {
+            for (i, v1) in orig_vec.iter().enumerate() {
+                for (j, v2) in orig_vec[i + 1..].iter().enumerate() {
                     let sep = -(v1 - v2).square();
                     if min_sep == 0.0 || sep <= min_sep {
                         min_sep = sep;
@@ -212,14 +218,12 @@ impl Deformer {
             }
 
             // replace first vector and drop the second
-            filtered_vec[first] = z(
-                &filtered_vec[first] + &filtered_vec[sec],
-                &filtered_vec[first] - &filtered_vec[sec],
+            orig_vec[first] = z(
+                &orig_vec[first] + &orig_vec[sec],
+                &orig_vec[first] - &orig_vec[sec],
                 plus,
             );
-            filtered_vec.swap_remove(sec);
-            mem::swap(&mut orig_vec, &mut filtered_vec);
-            filtered_vec.clear();
+            orig_vec.swap_remove(sec);
             if orig_vec.len() == 1 {
                 break;
             }
@@ -244,22 +248,24 @@ impl Deformer {
         let mut pq_diff;
         for q in &self.qs {
             pq_diff = &self.p_plus - q;
-            assert!(
-                pq_diff.square() >= 0.0 && pq_diff.t <= 0.0,
-                "P_plus is not correctly defined! P.t = {0}, P^2 = {1}, qs = {2:?}",
-                pq_diff.t,
-                pq_diff.square(),
-                self.qs,
-            );
+            if pq_diff.t > 0.0 || pq_diff.square() < 0.0 {
+                panic!(
+                    "P_plus is not correctly defined! P.t = {0}, P^2 = {1}, qs = {2:?}",
+                    pq_diff.t,
+                    pq_diff.square(),
+                    self.qs
+                );
+            }
 
             pq_diff = &self.p_min - q;
-            assert!(
-                pq_diff.square() >= 0.0 && pq_diff.t >= 0.0,
-                "P_minus is not correctly defined! P.t = {0}, P^2 = {1}, qs = {2:?}",
-                pq_diff.t,
-                pq_diff.square(),
-                self.qs
-            );
+            if pq_diff.t < 0.0 || pq_diff.square() < 0.0 {
+                panic!(
+                    "P_minus is not correctly defined! P.t = {0}, P^2 = {1}, qs = {2:?}",
+                    pq_diff.t,
+                    pq_diff.square(),
+                    self.qs
+                );
+            }
         }
     }
 
@@ -321,7 +327,12 @@ impl Deformer {
     }
 
     /// Return d and the log partial derivative
-    fn d(&self, mom: &LorentzVector<f64>, i: usize, l: usize) -> (f64, LorentzVector<f64>) {
+    fn d_and_grad(
+        &self,
+        mom: &LorentzVector<f64>,
+        i: usize,
+        l: usize,
+    ) -> (f64, LorentzVector<f64>) {
         if self.masses[l] == 0.0 {
             if l == i {
                 return (1.0, LorentzVector::new());
@@ -371,6 +382,39 @@ impl Deformer {
                         self.m1_sq,
                     )),
             )
+        }
+    }
+
+    /// Return d
+    fn d(&self, mom: &LorentzVector<f64>, i: usize, l: usize) -> f64 {
+        if self.masses[l] == 0.0 {
+            if l == i {
+                return 1.0;
+            }
+
+            if (&self.qs[i] - &self.qs[l]).square() == 0.0 {
+                if self.qs[i].t < self.qs[l].t {
+                    return Deformer::h_delta(1, &(mom - &self.qs[l]), 0.0, self.m1_sq);
+                } else {
+                    return Deformer::h_delta(-1, &(mom - &self.qs[l]), 0.0, self.m1_sq);
+                }
+            }
+        }
+
+        let hd = Deformer::h_delta(
+            0,
+            &(mom - &self.qs[l]),
+            self.masses[l] * self.masses[l],
+            self.m1_sq,
+        );
+        let ht = Deformer::h_theta(
+            -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
+            self.m1_sq,
+        );
+        if hd > ht {
+            hd
+        } else {
+            ht
         }
     }
 
@@ -429,7 +473,7 @@ impl Deformer {
         for i in 0..n {
             for l in 0..n {
                 // note: in paper l starts at 1
-                let (c_c, c_grad_c) = Deformer::d(self, mom, i, l);
+                let (c_c, c_grad_c) = Deformer::d_and_grad(self, mom, i, l);
                 c[i] *= c_c;
                 c_grad[i] = &c_grad[i] + &c_grad_c;
             }
@@ -581,8 +625,7 @@ impl Deformer {
         for i in 0..n {
             for l in 0..n {
                 // note: in paper l starts at 1
-                let (c_c, c_grad_c) = Deformer::d(self, mom, i, l);
-                c[i] *= c_c;
+                c[i] *= Deformer::d(self, mom, i, l);
             }
 
             let l = mom - &self.qs[i];
