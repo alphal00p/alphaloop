@@ -1,12 +1,15 @@
 use deformation::deformation::Deformer;
+use deformation::deformation::{DOUBLE_BOX_ID, DOUBLE_TRIANGLE_ID};
 use deformation::parameterization::Parameterizer;
 use integrand::integrands::Integrand;
 use vector::LorentzVector;
 use {Complex, REGION_ALL, REGION_EXT, REGION_INT};
 
+#[derive(Clone)]
 pub struct Integrator {
     do_regions: bool,
     do_multichanneling: bool,
+    id: usize,
     parameterizer: Parameterizer,
     deformer: Deformer,
     integrand: Integrand,
@@ -21,7 +24,6 @@ impl Integrator {
         mu_sq: f64,
         external_momenta: Vec<LorentzVector<f64>>,
     ) -> Result<Integrator, &str> {
-        // TODO: compute qs and set qs!
         let mut qs = vec![LorentzVector::new()];
         let l = external_momenta.len() - 1;
         for (i, x) in external_momenta[..l].iter().enumerate() {
@@ -45,7 +47,54 @@ impl Integrator {
             parameterizer,
             deformer,
             integrand,
+            id: 0,
         })
+    }
+
+    pub fn new_two_loop(
+        id: usize,
+        e_cm_sq: f64,
+        mu_sq: f64,
+        external_momenta: Vec<LorentzVector<f64>>,
+    ) -> Integrator {
+        let mut parameterizer = Parameterizer::new(e_cm_sq, 0, 0).unwrap();
+        parameterizer.set_mode("log").unwrap();
+
+        let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, vec![0.; 7]).unwrap();
+
+        let mut integrand = match id {
+            DOUBLE_BOX_ID => Integrand::new("box2L_direct_integration", 0, 0, mu_sq).unwrap(),
+            DOUBLE_TRIANGLE_ID => {
+                Integrand::new("triangle2L_direct_integration", 0, 0, mu_sq).unwrap()
+            }
+            _ => unreachable!("Unknown id"),
+        };
+
+        integrand.set_externals(external_momenta.clone());
+        deformer.set_external_momenta(external_momenta);
+
+        Integrator {
+            do_regions: false,
+            do_multichanneling: false,
+            parameterizer,
+            deformer,
+            integrand,
+            id,
+        }
+    }
+
+    pub fn evaluate_two_loop(&mut self, k: &LorentzVector<f64>, l: &LorentzVector<f64>) -> Complex {
+        let (k_m, jac_k) = self.parameterizer.map(&k).unwrap();
+        let (l_m, jac_l) = self.parameterizer.map(&l).unwrap();
+
+        let d = self.deformer.deform_two_loops(self.id, &k_m, &l_m).unwrap();
+        let j = self
+            .deformer
+            .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
+
+        let v = self.integrand.evaluate(&[d.0, d.1]).unwrap();
+
+        v * j * jac_k * jac_l
     }
 
     pub fn evaluate(&mut self, k: &LorentzVector<f64>) -> Complex {

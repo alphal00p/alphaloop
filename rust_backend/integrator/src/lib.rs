@@ -4,16 +4,17 @@ extern crate deformation;
 extern crate integrand;
 extern crate num;
 extern crate vector;
+extern crate cuba;
 use cpython::{exc, PyErr, PyList, PyResult};
 use std::cell::RefCell;
-
-pub mod integrator;
 
 pub const REGION_ALL: usize = 0;
 pub const REGION_EXT: usize = 1;
 pub const REGION_INT: usize = 2;
 
 type Complex = num::Complex<f64>;
+
+pub mod integrator;
 
 // add bindings to the generated python module
 py_module_initializer!(integrator, initintegrator, PyInit_integrator, |py, m| {

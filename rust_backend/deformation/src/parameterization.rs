@@ -2,12 +2,14 @@ use num::traits::FloatConst;
 use vector::LorentzVector;
 use REGION_EXT;
 
+#[derive(Clone)]
 pub enum ParameterizationMode {
     Log,
     Linear,
     Weinzierl,
 }
 
+#[derive(Clone)]
 pub struct Parameterizer {
     mode: ParameterizationMode,
     alpha: f64, // scaling parameter

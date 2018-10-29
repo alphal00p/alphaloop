@@ -17,6 +17,7 @@ const OFF_SHELL_HEXAGON: usize = 6;
 const OFF_SHELL_DOUBLE_BOX: usize = 7;
 const OFF_SHELL_DOUBLE_TRIANGLE: usize = 8;
 
+#[derive(Clone)]
 pub struct Integrand {
     integrand_id: usize,
     channel: usize,

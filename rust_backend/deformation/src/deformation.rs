@@ -34,6 +34,7 @@ const DIRECTIONS: [LorentzVector<f64>; 4] = [
     },
 ];
 
+#[derive(Clone)]
 pub struct Deformer {
     qs: Vec<LorentzVector<f64>>,
     ext: Vec<LorentzVector<f64>>, // external momenta

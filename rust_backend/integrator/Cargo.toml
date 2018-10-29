@@ -18,3 +18,5 @@ vector = { path = "../vector" }
 deformation = { path = "../deformation" }
 integrand = { path = "../integrand" }
 num = "0.2"
+rand = "0.5"
+cuba = "0.1"
