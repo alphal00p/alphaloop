@@ -1,4 +1,6 @@
+use std::cmp::Ordering;
 use std::f64::EPSILON;
+use std::mem;
 use utils::{determinant, determinant8};
 use vector::LorentzVector;
 use Complex;
@@ -117,8 +119,9 @@ impl Deformer {
         }
         self.uv_shift = &self.uv_shift * (1.0 / (self.qs.len() as f64));
 
-        self.p_plus = self.compute_p(true);
-        self.p_min = self.compute_p(false);
+        let (p, m) = self.compute_ps();
+        self.p_plus = p; //self.compute_p(true);
+        self.p_min = m; //self.compute_p(false);
         self.shift_and_check_p();
 
         self.mu_p_sq = (&self.p_min - &self.p_plus).square();
@@ -141,10 +144,74 @@ impl Deformer {
         self.m4_sq = self.m4_fac * self.m4_fac * self.e_cm_sq;
     }
 
+    fn compute_ps(&mut self) -> (LorentzVector<f64>, LorentzVector<f64>) {
+        // 0: potentially spacelike
+        // 1: in forward lightcone of other vector
+        // 2: in backward lightcone of other vector
+        // 3: both in forward and backward lightcone (can be ignored)
+        let mut keep_map = [0u8; 10];
+        assert!(self.qs.len() < 10);
+
+        unsafe {
+            // filter all vectors that are in the forward/backward light-cone of another vector
+            for (i, v) in self.qs.iter().enumerate() {
+                if *keep_map.get_unchecked(i) != 3 {
+                    for (j, v1) in self.qs[i + 1..].iter().enumerate() {
+                        if *keep_map.get_unchecked(i + 1 + j) != 3 && (v - v1).square() >= 0.0 {
+                            match v.t.partial_cmp(&v1.t) {
+                                Some(Ordering::Equal) => {
+                                    //*keep_map.get_unchecked_mut(i) = 3;
+                                    //*keep_map.get_unchecked_mut(i + 1 + j) = 3;
+                                }
+                                Some(Ordering::Less) => {
+                                    *keep_map.get_unchecked_mut(i) |= 2;
+                                    *keep_map.get_unchecked_mut(i + 1 + j) |= 1;
+                                }
+                                Some(Ordering::Greater) => {
+                                    *keep_map.get_unchecked_mut(i) |= 1;
+                                    *keep_map.get_unchecked_mut(i + 1 + j) |= 2;
+                                }
+                                None => unreachable!(),
+                            }
+
+                            if *keep_map.get_unchecked(i) == 3 {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut p_buf = mem::replace(&mut self.p_buf, vec![]);
+
+        p_buf.clear();
+        for (x, i) in self.qs.iter().zip(&keep_map) {
+            if i & 1 == 0 {
+                p_buf.push(x.clone());
+            }
+        }
+
+        let p_plus = self.compute_p(&mut p_buf, true);
+
+        p_buf.clear();
+        for (x, i) in self.qs.iter().zip(&keep_map) {
+            if i & 2 == 0 {
+                p_buf.push(x.clone());
+            }
+        }
+
+        let p_minus = self.compute_p(&mut p_buf, false);
+
+        mem::swap(&mut self.p_buf, &mut p_buf);
+
+        (p_plus, p_minus)
+    }
+
     ///Find a vector P such that all external momenta `qs` are in
     ///the forward lightcone of P if `plus`, or are in the backwards lightcone
     ///if not `plus`.
-    fn compute_p(&mut self, plus: bool) -> LorentzVector<f64> {
+    fn compute_p(&self, qs: &mut Vec<LorentzVector<f64>>, plus: bool) -> LorentzVector<f64> {
         /// Interpolate between vectors
         #[inline]
         fn z(a: LorentzVector<f64>, b: LorentzVector<f64>, plus: bool) -> LorentzVector<f64> {
@@ -171,17 +238,43 @@ impl Deformer {
             }
         }
 
-        self.p_buf.clear();
-        self.p_buf.extend_from_slice(&self.qs);
         let mut keep_map = [true; 10]; // we will not have more than 10 propagators
-        assert!(self.p_buf.len() < 10);
-
+        assert!(qs.len() < 10);
         loop {
+            if qs.len() == 0 {
+                panic!("Failed to determine P_{+/-}.");
+            }
+            if qs.len() == 1 {
+                break;
+            }
+
+            // find the pair with the smallest space-like separation
+            let (mut first, mut sec, mut min_sep) = (0, 1, 0.0);
+            for (i, v1) in qs.iter().enumerate() {
+                for (j, v2) in qs[i + 1..].iter().enumerate() {
+                    let sep = -(v1 - v2).square();
+                    if min_sep == 0.0 || sep <= min_sep {
+                        min_sep = sep;
+                        first = i;
+                        sec = i + j + 1;
+                    }
+                }
+            }
+
+            // replace first vector and drop the second
+            qs[first] = z(&qs[first] + &qs[sec], &qs[first] - &qs[sec], plus);
+            qs.swap_remove(sec);
+            if qs.len() == 1 {
+                break;
+            }
+
+            //println!("LOOP with {} elements", qs.len());
+
             unsafe {
                 // filter all vectors that are in the forward/backward light-cone of another vector
-                for (i, v) in self.p_buf.iter().enumerate() {
+                for (i, v) in qs.iter().enumerate() {
                     if *keep_map.get_unchecked(i) {
-                        for (j, v1) in self.p_buf[i + 1..].iter().enumerate() {
+                        for (j, v1) in qs[i + 1..].iter().enumerate() {
                             if *keep_map.get_unchecked(i + 1 + j) && (v - v1).square() >= 0.0 {
                                 *keep_map.get_unchecked_mut(i) &=
                                     (plus && v.t <= v1.t) || (!plus && v.t >= v1.t);
@@ -197,50 +290,19 @@ impl Deformer {
                 }
 
                 let mut i = 0;
-                while i < self.p_buf.len() {
+                while i < qs.len() {
                     if !keep_map.get_unchecked(i) {
-                        self.p_buf.swap_remove(i);
-                        *keep_map.get_unchecked_mut(i) = *keep_map.get_unchecked(self.p_buf.len());
+                        qs.swap_remove(i);
+                        *keep_map.get_unchecked_mut(i) = *keep_map.get_unchecked(qs.len());
                     } else {
                         i += 1;
                     }
                 }
             }
-
-            if self.p_buf.len() == 0 {
-                panic!("Failed to determine P_{+/-}.");
-            }
-            if self.p_buf.len() == 1 {
-                break;
-            }
-
-            // find the pair with the smallest space-like separation
-            let (mut first, mut sec, mut min_sep) = (0, 1, 0.0);
-            for (i, v1) in self.p_buf.iter().enumerate() {
-                for (j, v2) in self.p_buf[i + 1..].iter().enumerate() {
-                    let sep = -(v1 - v2).square();
-                    if min_sep == 0.0 || sep <= min_sep {
-                        min_sep = sep;
-                        first = i;
-                        sec = i + j + 1;
-                    }
-                }
-            }
-
-            // replace first vector and drop the second
-            self.p_buf[first] = z(
-                &self.p_buf[first] + &self.p_buf[sec],
-                &self.p_buf[first] - &self.p_buf[sec],
-                plus,
-            );
-            self.p_buf.swap_remove(sec);
-            if self.p_buf.len() == 1 {
-                break;
-            }
         }
 
-        assert!(self.p_buf.len() == 1);
-        self.p_buf.pop().unwrap()
+        assert!(qs.len() == 1);
+        qs.pop().unwrap()
     }
 
     /// Shift P+ and P- outward and check if their new values fulfills P^2 >= 0.0 and (+/-) * P+/-.t <= 0.0  
