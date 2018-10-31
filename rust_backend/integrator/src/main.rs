@@ -67,8 +67,8 @@ fn triangle_box_integrator() -> Integrator {
     let e_cm_sq = 1.0;
     let external_momenta = vec![
         LorentzVector::from(1.0, 0., 0., 0.),
-        LorentzVector::from(19. / 32., 0., 0., 105f64.sqrt() / 32.),
-        LorentzVector::from(1. - 19. / 32., 0., 0., -105f64.sqrt() / 32.),
+        -LorentzVector::from(19. / 32., 0., 0., 105f64.sqrt() / 32.),
+        -LorentzVector::from(1. - 19. / 32., 0., 0., -105f64.sqrt() / 32.),
     ];
 
     println!(
