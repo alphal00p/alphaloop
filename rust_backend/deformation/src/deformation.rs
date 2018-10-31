@@ -561,12 +561,12 @@ impl Deformer {
         lambda_grad = &lambda_grad * (0.5 / lambda_cycle);
 
         // collinear contribution
-        let n1: f64 = c.iter().sum();
+        let n1: f64 = c[..n].iter().sum();
         if 1.0 / (4.0 * n1) < lambda_cycle {
             lambda_cycle = 1.0 / (4.0 * n1);
 
             lambda_grad = LorentzVector::new();
-            for x in &c_grad {
+            for x in &c_grad[..n] {
                 lambda_grad = &lambda_grad + x;
             }
 
@@ -681,7 +681,7 @@ impl Deformer {
         let mut lambda_cycle = lambda_cycle_sq.sqrt();
 
         // collinear contribution
-        let n1: f64 = c.iter().sum();
+        let n1: f64 = c[..n].iter().sum();
         if 1.0 / (4.0 * n1) < lambda_cycle {
             lambda_cycle = 1.0 / (4.0 * n1);
         }
