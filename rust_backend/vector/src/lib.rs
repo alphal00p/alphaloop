@@ -22,7 +22,7 @@ where
 impl Field for f64 {}
 impl Field for Complex {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct LorentzVector<T: Field> {
     pub t: T,
     pub x: T,
@@ -37,7 +37,7 @@ impl<T: Field> Default for LorentzVector<T> {
             x: T::default(),
             y: T::default(),
             z: T::default(),
-        }        
+        }
     }
 }
 
@@ -117,6 +117,11 @@ impl<T: Field> LorentzVector<T> {
     #[inline]
     pub fn euclidean_square(&self) -> T {
         self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
+    #[inline]
+    pub fn euclidean_dot(&self, other: &LorentzVector<T>) -> T {
+        self.t * other.t + self.x * other.x + self.y * other.y + self.z * other.z
     }
 
     pub fn map<F>(&self, map: F) -> LorentzVector<T>
@@ -285,7 +290,7 @@ impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
 
 impl<'a> Sub<&'a LorentzVector<f64>> for LorentzVector<Complex> {
     type Output = LorentzVector<Complex>;
-    
+
     #[inline]
     fn sub(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
         LorentzVector {

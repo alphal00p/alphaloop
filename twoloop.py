@@ -353,11 +353,36 @@ class TwoLoopIntegral(integrands.VirtualIntegrand):
         ln_rx = ln(rx) if x >= 0 else ln(-rx) + 1j * pi * np.sign(s*t)
         ln_ry = ln(ry) if y >= 0 else ln(-ry) + 1j * pi * np.sign(s*t)
 
-        return - t * (pi**2*1j/(s*t))**2 / l * (6. * (polylog(4, -rx) + polylog(4, -ry)) + 3 * ln(y/x)*(polylog(3, -rx) - polylog(3, -ry)) + 0.5*ln(y/x)**2*(polylog(2, -rx)+polylog(2, -ry))
+        # FIXME: does not reproduce Weinzierl yet
+        return - t * (1j/(16 * pi**2 * s*t))**2 / l * (6. * (polylog(4, -rx) + polylog(4, -ry)) + 3 * ln(y/x)*(polylog(3, -rx) - polylog(3, -ry)) + 0.5*ln(y/x)**2*(polylog(2, -rx)+polylog(2, -ry))
+                                                + 0.25*ln_rx**2*ln_ry**2 + pi**2/2.*ln_rx*ln_ry + pi**2/12*ln(y/x)**2 + 7 * pi**4/60.)
+
+    def trianglebox_analytic(self, k1, k2, k3):
+        # from http://www.higgs.de/~davyd/preprints/ud1.pdf
+        # note we define k1 to be incoming instead of p3
+        def lmbda(x, y):
+            return sqrt((1.-x-y)**2 - 4. * x * y)
+
+        def rho(x, y):
+            return 2. / (1. - x - y + lmbda(x, y))
+
+        k = k1.square()
+        x = k2.square() / k
+        y = k3.square() / k
+
+        l = lmbda(x, y)
+        r = rho(x, y)
+        rx = r * x
+        ry = r * y
+
+        ln_rx = ln(rx) if rx >= 0 else ln(-rx) + 1j * pi * np.sign(k)
+        ln_ry = ln(ry) if ry >= 0 else ln(-ry) + 1j * pi * np.sign(k)
+
+        return - (1j/( 16. * pi**2 * k))**2 / l * (6. * (polylog(4, -rx) + polylog(4, -ry)) + 3 * ln(y/x)*(polylog(3, -rx) - polylog(3, -ry)) + 0.5*ln(y/x)**2*(polylog(2, -rx)+polylog(2, -ry))
                                                 + 0.25*ln_rx**2*ln_ry**2 + pi**2/2.*ln_rx*ln_ry + pi**2/12*ln(y/x)**2 + 7 * pi**4/60.)
 
     def doubletriangle_analytic(self, k1):
-        return -(16. * pi**2)**-2 / k1.square() * 6. * zeta(3)
+        return 2**8 * pi**4 * -(16. * pi**2)**-2 / k1.square() * 6. * zeta(3)
 
 
 class DummyIntegrand():
@@ -380,7 +405,18 @@ class DummyIntegrand():
         return (integrand, 0.)
 
 
-random.seed(2)
+
+
+#random.seed(2)
 d = TwoLoopIntegral(DOUBLE_BOX)
 # d.sample_points()
 d.integrate(1000.)
+
+#print(d.trianglebox_analytic(vectors.LorentzVector([1., 0., 0., 0.]), vectors.LorentzVector([19./32., 0., 0., sqrt(105.) / 32.]), vectors.LorentzVector([1. - 19./32., 0., 0., -sqrt(105.) / 32.])))
+
+# should give −1.832·10−11
+print(d.trianglebox_analytic(vectors.LorentzVector([-90., 0., 0., 0.]), vectors.LorentzVector([39.7424,-14.1093,0.102709,20.4908]), vectors.LorentzVector([50.2576,14.1093,-0.102709, -20.4908])) )
+
+# should give −5.897·10−14
+print(d.doublebox_analytic(vectors.LorentzVector([-90., 0., 0., 0.]), vectors.LorentzVector([19.6586, -7.15252, -0.206016, 8.96383]), vectors.LorentzVector([26.874, 7.04203, -0.0501295, -12.9055]),\
+    vectors.LorentzVector([43.4674, 0.110491, 0.256146, 3.9417])))

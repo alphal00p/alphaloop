@@ -1,5 +1,5 @@
 use deformation::deformation::Deformer;
-use deformation::deformation::{DOUBLE_BOX_ID, DOUBLE_TRIANGLE_ID};
+use deformation::deformation::{DOUBLE_BOX_ID, DOUBLE_TRIANGLE_ID, TRIANGLE_BOX_ID};
 use deformation::parameterization::Parameterizer;
 use integrand::integrands::Integrand;
 use vector::LorentzVector;
@@ -67,6 +67,9 @@ impl Integrator {
             DOUBLE_TRIANGLE_ID => {
                 Integrand::new("triangle2L_direct_integration", 0, 0, mu_sq).unwrap()
             }
+            TRIANGLE_BOX_ID => {
+                Integrand::new("trianglebox_direct_integration", 0, 0, mu_sq).unwrap()
+            }
             _ => unreachable!("Unknown id"),
         };
 
@@ -95,6 +98,41 @@ impl Integrator {
         let v = self.integrand.evaluate(&[d.0, d.1]).unwrap();
 
         v * j * jac_k * jac_l
+    }
+
+    pub fn evaluate_two_loop_test_function(
+        &mut self,
+        k: &LorentzVector<f64>,
+        l: &LorentzVector<f64>,
+        do_deformation: bool,
+    ) -> Complex {
+        let (k_m, jac_k) = self.parameterizer.map(&k).unwrap();
+        let (l_m, jac_l) = self.parameterizer.map(&l).unwrap();
+
+        let (d, j) = if do_deformation {
+            let d = self.deformer.deform_two_loops(self.id, &k_m, &l_m).unwrap();
+            let j = self
+                .deformer
+                .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
+            (d, j)
+        } else {
+            (
+                (k_m.to_complex(true), l_m.to_complex(true)),
+                Complex::new(1., 0.),
+            )
+        };
+
+        // yields pi/400 for the euclidean and -pi/400 for the non-euclidean
+        let mu = Complex::new(0.0, -1.); // needs to be more than default -1e9
+        let mut factor = mu.im.powf(2. + 6.);
+        let mut denom = (d.0.square() - mu).powf(6.) * (d.1.square() - mu).powf(6.);
+
+        //println!("k={}, l={}, factor={:e}, inv_denom={:e}, j={:e}, j_k={:e}, j_l={:e}", d.0, d.1, factor, 1./denom, j, jac_k, jac_l);
+        //println!("{:e} {:e} {:e}", d.0.square(), d.0.square() - mu, (d.0.square() - mu).powf(8.));
+        //println!("{:e} {:e} {:e}", d.1.square(), d.1.square() - mu, (d.1.square() - mu).powf(8.));
+
+        // note that there is a precision issue for complex division!
+        factor / denom * j * jac_k * jac_l
     }
 
     pub fn evaluate(&mut self, k: &LorentzVector<f64>) -> Complex {

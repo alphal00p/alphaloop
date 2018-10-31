@@ -6,6 +6,7 @@ use REGION_EXT;
 
 pub const DOUBLE_BOX_ID: usize = 0;
 pub const DOUBLE_TRIANGLE_ID: usize = 1;
+pub const TRIANGLE_BOX_ID: usize = 2;
 
 const DIRECTIONS: [LorentzVector<f64>; 4] = [
     LorentzVector {
@@ -249,7 +250,7 @@ impl Deformer {
         //Perform the shift
         let r = (&self.p_min - &self.p_plus) * 0.5;
         let center = (&self.p_min + &self.p_plus) * 0.5;
-        let shift_size = 1.0e-8;
+        let shift_size = 1.0e-2;
 
         self.p_min = &center + &r * (1.0 + shift_size);
         self.p_plus = &center - &r * (1.0 + shift_size);
@@ -391,10 +392,11 @@ impl Deformer {
             (
                 ht,
                 &(&(mom - &self.qs[l]).dual() + &(mom - &self.qs[i]).dual())
-                    * (-2.0 * Deformer::h_theta_ln_grad(
-                        -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
-                        self.m1_sq,
-                    )),
+                    * (-2.0
+                        * Deformer::h_theta_ln_grad(
+                            -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
+                            self.m1_sq,
+                        )),
             )
         }
     }
@@ -482,7 +484,7 @@ impl Deformer {
         let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
         let mut c = [f; 10];
         let f_grad = Deformer::g_ln_grad(&k_centre, self.m2_sq);
-        let mut c_grad : [LorentzVector<f64>; 10] = Default::default();
+        let mut c_grad = [f_grad; 10];
 
         let mut k_int = LorentzVector::new();
         for i in 0..n {
@@ -609,6 +611,7 @@ impl Deformer {
     fn deform_int_no_jacobian(
         &self,
         mom: &LorentzVector<f64>,
+        check_uv: bool, // not necesary at 2 loops
     ) -> Result<LorentzVector<Complex>, &str> {
         let (mut c_plus, mut c_minus) = (1.0, 1.0);
 
@@ -683,11 +686,13 @@ impl Deformer {
             lambda_cycle = 1.0 / (4.0 * n1);
         }
 
-        let l = mom - &self.uv_shift;
-        let uv_fac = 4.0 * l.dot(&k0);
-        if uv_fac <= self.mu_sq.im {
-            if lambda_cycle > self.mu_sq.im / uv_fac {
-                lambda_cycle = self.mu_sq.im / uv_fac;
+        if check_uv {
+            let l = mom - &self.uv_shift;
+            let uv_fac = 4.0 * l.dot(&k0);
+            if uv_fac <= self.mu_sq.im {
+                if lambda_cycle > self.mu_sq.im / uv_fac {
+                    lambda_cycle = self.mu_sq.im / uv_fac;
+                }
             }
         }
 
@@ -731,8 +736,94 @@ impl Deformer {
         match id {
             DOUBLE_BOX_ID => self.deform_doublebox(k, l),
             DOUBLE_TRIANGLE_ID => self.deform_doubletriangle(k, l),
+            TRIANGLE_BOX_ID => self.deform_trianglebox(k, l),
             _ => Err("Unknown id"),
         }
+    }
+
+    fn deform_trianglebox(
+        &mut self,
+        k: &LorentzVector<f64>,
+        l: &LorentzVector<f64>,
+    ) -> Result<(LorentzVector<Complex>, LorentzVector<Complex>), &str> {
+        // compute the external momenta for the C12(k) cycle and express the qs in terms of that.
+        // This is not a shift. We also set q[0] = 0 at the 1/k^2 line
+        // k, l, k - l, k - l - p2, k - l + p1, k + p1
+        let mut c12_qs = [LorentzVector::new(), k - l, -&self.ext[0]];
+
+        self.set_qs(&c12_qs);
+        let c12_k = self.deform_int_no_jacobian(k, false).unwrap().imag(); // get the direction
+
+        c12_qs = [LorentzVector::new(), -k + l - &self.ext[0], -k + l];
+
+        self.set_qs(&c12_qs);
+        let c12_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
+
+        let c23_qs = [LorentzVector::new(), k + &self.ext[0], k - &self.ext[1]];
+        self.set_qs(&c23_qs);
+        let c23_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
+
+        let c13_qs = [
+            LorentzVector::new(),
+            l.clone(),
+            l + &self.ext[1],
+            l - &self.ext[0],
+            -&self.ext[0],
+        ];
+        self.set_qs(&c13_qs);
+        let c13_k = self.deform_int_no_jacobian(k, false).unwrap().imag();
+
+        let k_1 = c12_k + c13_k;
+        let k_2 = c12_l + c23_l;
+
+        let mut lambda_sq = 1.;
+
+        // propagators with substituted momenta split in real and imag
+        // k, l, k - l, k - l - p2, k - l + p1, k + p1
+        let props = [
+            (k.clone(), k_1.clone()),
+            (l.clone(), k_2.clone()),
+            (k - l, &k_1 - &k_2),
+            (k - l - &self.ext[1], &k_1 - &k_2),
+            (k - l + &self.ext[0], &k_1 - &k_2),
+            (k + &self.ext[0], k_1.clone()),
+        ];
+
+        for (qt, kt) in &props {
+            let xj = (kt.dot(qt) / kt.square()).powi(2);
+            let yj = (qt.square()) / kt.square(); // for the massless case
+
+            if 2.0 * xj < yj {
+                if yj / 4.0 < lambda_sq {
+                    lambda_sq = yj * 0.25;
+                }
+            } else if yj < 0.0 {
+                if xj - yj / 2.0 < lambda_sq {
+                    lambda_sq = xj - yj * 0.5;
+                }
+            } else {
+                if xj - yj / 4.0 < lambda_sq {
+                    lambda_sq = xj - yj * 0.25;
+                }
+            }
+        }
+
+        // we assume the UV propagators to be 1/(k^2+mu^2) and 1/(l^2+mu^2)
+        let mut lambda = lambda_sq.sqrt();
+
+        let uv_fac_k = 4.0 * k.dot(&k_1);
+        let uv_fac_l = 4.0 * l.dot(&k_2);
+        if uv_fac_k <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_k {
+            lambda = self.mu_sq.im / uv_fac_k;
+        }
+        if uv_fac_l <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_l {
+            lambda = self.mu_sq.im / uv_fac_l;
+        }
+
+        let k_1_full = &((&k_1 * lambda).to_complex(false)) + k;
+        let k_2_full = &((&k_2 * lambda).to_complex(false)) + l;
+
+        Ok((k_1_full, k_2_full))
     }
 
     fn deform_doubletriangle(
@@ -746,16 +837,16 @@ impl Deformer {
         let mut c12_qs = [LorentzVector::new(), k - l, -&self.ext[0]];
 
         self.set_qs(&c12_qs);
-        let c12_k = self.deform_int_no_jacobian(k).unwrap().imag(); // get the direction
+        let c12_k = self.deform_int_no_jacobian(k, false).unwrap().imag(); // get the direction
 
         c12_qs = [LorentzVector::new(), -k + l - &self.ext[0], -k + l];
 
         self.set_qs(&c12_qs);
-        let c12_l = self.deform_int_no_jacobian(l).unwrap().imag();
+        let c12_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
 
         let c23_qs = [LorentzVector::new(), k + &self.ext[0], k.clone()];
         self.set_qs(&c23_qs);
-        let c23_l = self.deform_int_no_jacobian(l).unwrap().imag();
+        let c23_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
 
         let c13_qs = [
             LorentzVector::new(),
@@ -764,7 +855,7 @@ impl Deformer {
             -&self.ext[0],
         ];
         self.set_qs(&c13_qs);
-        let c13_k = self.deform_int_no_jacobian(k).unwrap().imag();
+        let c13_k = self.deform_int_no_jacobian(k, false).unwrap().imag();
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -799,7 +890,18 @@ impl Deformer {
                 }
             }
         }
-        let lambda = lambda_sq.sqrt();
+
+        // we assume the UV propagators to be 1/(k^2+mu^2) and 1/(l^2+mu^2)
+        let mut lambda = lambda_sq.sqrt();
+
+        let uv_fac_k = 4.0 * k.dot(&k_1);
+        let uv_fac_l = 4.0 * l.dot(&k_2);
+        if uv_fac_k <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_k {
+            lambda = self.mu_sq.im / uv_fac_k;
+        }
+        if uv_fac_l <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_l {
+            lambda = self.mu_sq.im / uv_fac_l;
+        }
 
         let k_1_full = &((&k_1 * lambda).to_complex(false)) + k;
         let k_2_full = &((&k_2 * lambda).to_complex(false)) + l;
@@ -823,7 +925,7 @@ impl Deformer {
         ];
 
         self.set_qs(&c12_qs);
-        let c12_k = self.deform_int_no_jacobian(k).unwrap().imag(); // get the direction
+        let c12_k = self.deform_int_no_jacobian(k, false).unwrap().imag(); // get the direction
 
         c12_qs = [
             LorentzVector::new(),
@@ -833,7 +935,7 @@ impl Deformer {
         ];
 
         self.set_qs(&c12_qs);
-        let c12_l = self.deform_int_no_jacobian(l).unwrap().imag();
+        let c12_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
 
         let c23_qs = [
             LorentzVector::new(),
@@ -842,7 +944,7 @@ impl Deformer {
             k.clone(),
         ];
         self.set_qs(&c23_qs);
-        let c23_l = self.deform_int_no_jacobian(l).unwrap().imag();
+        let c23_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
 
         let c13_qs = [
             LorentzVector::new(),
@@ -853,7 +955,7 @@ impl Deformer {
             -&self.ext[0],
         ];
         self.set_qs(&c13_qs);
-        let c13_k = self.deform_int_no_jacobian(k).unwrap().imag();
+        let c13_k = self.deform_int_no_jacobian(k, false).unwrap().imag();
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -890,7 +992,18 @@ impl Deformer {
                 }
             }
         }
-        let lambda = lambda_sq.sqrt();
+
+        // we assume the UV propagators to be 1/(k^2+mu^2) and 1/(l^2+mu^2)
+        let mut lambda = lambda_sq.sqrt();
+
+        let uv_fac_k = 4.0 * k.dot(&k_1);
+        let uv_fac_l = 4.0 * l.dot(&k_2);
+        if uv_fac_k <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_k {
+            lambda = self.mu_sq.im / uv_fac_k;
+        }
+        if uv_fac_l <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_l {
+            lambda = self.mu_sq.im / uv_fac_l;
+        }
 
         let k_1_full = &((&k_1 * lambda).to_complex(false)) + k;
         let k_2_full = &((&k_2 * lambda).to_complex(false)) + l;

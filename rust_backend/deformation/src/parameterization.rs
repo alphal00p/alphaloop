@@ -59,7 +59,7 @@ impl Parameterizer {
         mom: &LorentzVector<f64>,
     ) -> Result<(LorentzVector<f64>, f64), &str> {
         // TODO: mu1 can be anything of the same order as self.e_cm_sq
-        let mu1 = self.e_cm_sq;
+        let mu1 = self.e_cm_sq.sqrt();
         let k_e = mu1 * (f64::FRAC_PI_2() * mom.t).tan().sqrt();
         let cos_xi = 1.0 - 2.0 * mom.x;
         let sin_xi = (1.0 - cos_xi * cos_xi).sqrt();
@@ -176,7 +176,7 @@ impl Parameterizer {
 
                 let mut jacobian = 1.0;
                 for i in 0..4 {
-                    jacobian *= self.alpha / (mom[i] * (1.0 - mom[i]));
+                    jacobian *= self.alpha / (mom[i] - mom[i] * mom[i]);
                 }
 
                 Ok((r, jacobian))
