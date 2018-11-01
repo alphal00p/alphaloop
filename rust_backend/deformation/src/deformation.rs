@@ -87,7 +87,7 @@ impl Deformer {
             m4_sq: 0.0,
             gamma1: 0.7,
             gamma2: 0.008,
-            e_soft: 0.03,
+            e_soft: 0.03 * e_cm_sq.sqrt(),
             mu_sq: Complex::new(0.0, mu_sq),
             uv_shift: LorentzVector::new(),
             region,
@@ -639,16 +639,78 @@ impl Deformer {
         assert!(n <= 10);
         let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
         let mut c = [f; 10]; // use static array, for performance
+        let mut c2 = [[f; 10]; 10];
+
+        let ka = [
+            LorentzVector::from(self.e_soft, 0., 0., 0.),
+            LorentzVector::from(0., self.e_soft, 0., 0.),
+            LorentzVector::from(0., 0., self.e_soft, 0.),
+            LorentzVector::from(0., 0., 0., self.e_soft),
+        ];
+        let mut ca = [f; 10];
 
         let mut k_int = LorentzVector::new();
         for i in 0..n {
             for l in 0..n {
                 // note: in paper l starts at 1
                 c[i] *= Deformer::d(self, mom, i, l);
+
+                let l1 = Deformer::h_delta(0, &(mom - &self.qs[l]), self.masses[l], self.m1_sq);
+                for j in i + 1..n {
+                    // note: specialized for internal masses=0
+                    c2[i][j] *= Deformer::h_theta((self.qs[i] - self.qs[j]).square(), self.m1_sq);
+
+                    let l2 = Deformer::h_theta(
+                        -2. * (mom - &self.qs[l]).dot(&(mom - self.qs[i] * 0.5 - self.qs[j] * 0.5)),
+                        self.m1_sq,
+                    );
+
+                    if l1 < l2 {
+                        c2[i][j] *= l2;
+                    } else {
+                        c2[i][j] *= l1;
+                    }
+                }
+            }
+
+            for j in i + 1..n {
+                k_int = k_int - (mom - self.qs[i] * 0.5 - self.qs[j] * 0.5) * c2[i][j];
             }
 
             let l = mom - &self.qs[i];
-            k_int = k_int + &l * -c[i]; // massless part
+            k_int = k_int + &l * -c[i];
+        }
+
+        // compute k_soft
+        for a in 0..4 {
+            let mut da_plus = 1.;
+            let mut da_min = 1.;
+            for l in 0..n {
+                let l1 = Deformer::h_delta(0, &(mom - &self.qs[l]), 0., self.gamma2 * self.m1_sq);
+                let lp2 = Deformer::h_theta(
+                    2. * (mom - &self.qs[l]).dot(&ka[a]),
+                    self.gamma2 * self.m1_sq,
+                );
+                let lm2 = Deformer::h_theta(
+                    -2. * (mom - &self.qs[l]).dot(&ka[a]),
+                    self.gamma2 * self.m1_sq,
+                );
+
+                if l1 < lp2 {
+                    da_plus *= lp2;
+                } else {
+                    da_plus *= l1;
+                }
+
+                if l1 < lm2 {
+                    da_min *= lm2;
+                } else {
+                    da_min *= l1;
+                }
+            }
+
+            ca[a] *= da_plus - da_min;
+            k_int = k_int + ka[a] * ca[a];
         }
 
         let k0 = k_int + k_ext;
@@ -681,7 +743,14 @@ impl Deformer {
         let mut lambda_cycle = lambda_cycle_sq.sqrt();
 
         // collinear contribution
-        let n1: f64 = c[..n].iter().sum();
+        let n1: f64 = c[..n].iter().sum::<f64>()
+            + c2[..n]
+                .iter()
+                .enumerate()
+                .map(|(i, x)| x[i + 1..n].iter().sum::<f64>())
+                .sum::<f64>()
+            + ca[..4].iter().map(|x| x.abs()).sum::<f64>();
+
         if 1.0 / (4.0 * n1) < lambda_cycle {
             lambda_cycle = 1.0 / (4.0 * n1);
         }
