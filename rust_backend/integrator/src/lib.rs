@@ -1,12 +1,12 @@
-#[macro_use]
-extern crate cpython;
+//#[macro_use]
+//extern crate cpython;
 extern crate deformation;
 extern crate integrand;
 extern crate num;
 extern crate vector;
 extern crate cuba;
-use cpython::{exc, PyErr, PyList, PyResult};
-use std::cell::RefCell;
+//use cpython::{exc, PyErr, PyList, PyResult};
+//use std::cell::RefCell;
 
 pub const REGION_ALL: usize = 0;
 pub const REGION_EXT: usize = 1;
@@ -14,7 +14,15 @@ pub const REGION_INT: usize = 2;
 
 type Complex = num::Complex<f64>;
 
-pub mod integrator;
+pub mod aggregator;
+pub mod evaluator;
+
+
+/*
+
+use evaluator::Evaluator;
+use aggregator::Aggregator;
+
 
 // add bindings to the generated python module
 py_module_initializer!(integrator, initintegrator, PyInit_integrator, |py, m| {
@@ -24,7 +32,7 @@ py_module_initializer!(integrator, initintegrator, PyInit_integrator, |py, m| {
 });
 
 py_class!(class Integrator |py| {
-    data integrator: RefCell<integrator::Integrator>;
+    data integrator: RefCell<Aggregator>;
 
     def __new__(_cls, name: &str, do_regions: bool, do_multichanneling: bool, e_cm_sq: f64, mu_sq: f64, ext_py: PyList) -> PyResult<Integrator> {
         let mut ext: Vec<vector::LorentzVector<f64>> = Vec::with_capacity(4);
@@ -41,6 +49,24 @@ py_class!(class Integrator |py| {
 
             ext.push(vector::LorentzVector::from_vec(m));
         }
+
+        let i = Evaluator::new("box1L_direct_integration", e_cm_sq, mu_sq, external_momenta);
+
+        let settings = IntegrationSettings {
+        cores,
+        samples,
+        param_mode: "linear".to_owned(),
+    };
+
+    let i = match matches.value_of("topology").unwrap() {
+        "box" => box_integrator(loops),
+        "triangle" => double_triangle_integrator(),
+        "trianglebox" => triangle_box_integrator(),
+        _ => unreachable!(),
+    };
+
+    let mut aggregator = Aggregator::new(loops, regions, multichanneling, i, settings);
+    let r = aggregator.aggregate();
 
         let int = integrator::Integrator::new(name, do_regions, do_multichanneling, e_cm_sq, mu_sq, ext)
                     .map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
@@ -61,3 +87,4 @@ py_class!(class Integrator |py| {
         Ok((r.re, r.im))
     }
 });
+*/

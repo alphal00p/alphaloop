@@ -15,41 +15,10 @@ use rand::prelude::*;
 use std::str::FromStr;
 use vector::LorentzVector;
 
-use cuba::{CubaIntegrator, CubaVerbosity};
-use integrator::integrator::Integrator;
+use integrator::aggregator::{Aggregator, IntegrationSettings};
+use integrator::evaluator::Evaluator;
 
-struct UserData {
-    evaluator: Vec<Integrator>, // one evaluator per core
-    running_max: f64,
-}
-
-#[inline]
-fn integrand(x: &[f64], f: &mut [f64], user_data: &mut UserData, _nvec: usize, core: i32) -> i32 {
-    // master is -1
-    let r = user_data.evaluator[(core + 1) as usize].evaluate_two_loop(
-        &LorentzVector::from_slice(&x[..4]),
-        &LorentzVector::from_slice(&x[4..]),
-    );
-
-    if r.is_finite() {
-        if r.re.abs() > user_data.running_max {
-            user_data.running_max = r.re.abs();
-            println!("max {:e}", r.re);
-        }
-
-        //println!("{:e}", r.re);
-        f[0] = r.re;
-    //f[1] = r.im;
-    } else {
-        println!("Bad point: {}", r);
-        f[0] = 0.;
-        //f[1] = 0.;
-    }
-
-    0
-}
-
-fn double_triangle_integrator() -> Integrator {
+fn double_triangle_integrator() -> Evaluator {
     let mu_sq = -1e9;
     let e_cm_sq = 1.0;
     let external_momenta = vec![LorentzVector::from(1.0, 0., 0., 0.)];
@@ -59,10 +28,10 @@ fn double_triangle_integrator() -> Integrator {
         external_momenta
     );
 
-    Integrator::new_two_loop(DOUBLE_TRIANGLE_ID, e_cm_sq, mu_sq, external_momenta)
+    Evaluator::new_two_loop(DOUBLE_TRIANGLE_ID, e_cm_sq, mu_sq, external_momenta)
 }
 
-fn triangle_box_integrator() -> Integrator {
+fn triangle_box_integrator() -> Evaluator {
     let mu_sq = -1e9;
     let e_cm_sq = 1.0;
     let external_momenta = vec![
@@ -71,17 +40,24 @@ fn triangle_box_integrator() -> Integrator {
         -LorentzVector::from(1. - 19. / 32., 0., 0., -105f64.sqrt() / 32.),
     ];
 
+    /*let external_momenta = vec![
+        LorentzVector::from(-90., 0., 0., 0.) * 0.01111,
+        LorentzVector::from(19.6586, -7.15252, -0.206016, 8.96383) * 0.01111,
+        LorentzVector::from(26.874, 7.04203, -0.0501295, -12.9055) * 0.01111,
+        LorentzVector::from(43.4674, 0.110491, 0.256146, 3.9417) * 0.01111,
+    ];*/
+
     println!(
         "Starting integration of triangle box with externals {:#?}",
         external_momenta
     );
 
-    Integrator::new_two_loop(TRIANGLE_BOX_ID, e_cm_sq, mu_sq, external_momenta)
+    Evaluator::new_two_loop(TRIANGLE_BOX_ID, e_cm_sq, mu_sq, external_momenta)
 }
 
-fn double_box_integrator() -> Integrator {
+fn box_integrator(loops: usize) -> Evaluator {
     let mu_sq = -1e9;
-    let e_cm_sq = 1.0;
+    let e_cm_sq = 0.947492;
 
     // seed 2
     let external_momenta = vec![
@@ -90,109 +66,42 @@ fn double_box_integrator() -> Integrator {
             -0.0000000000000000e+00,
             -0.0000000000000000e+00,
             -4.6752449673455959e+02,
-        ) * 0.0001,
+        ) * 0.001,
         LorentzVector::from(
             -5.0850678957797919e+02,
             -0.0000000000000000e+00,
             -0.0000000000000000e+00,
             4.6752449673455959e+02,
-        ) * 0.0001,
-        LorentzVector::from(
-            -5.0850678957797919e+02,
-            -0.0000000000000000e+00,
-            -0.0000000000000000e+00,
-            4.6752449673455959e+02,
-        ) * 0.0001,
+        ) * 0.001,
         LorentzVector::from(
             4.5782801395958194e+02,
             1.3758384614384497e+02,
             8.1217573038820291e+01,
             -3.0672606911725950e+02,
-        ) * 0.0001,
+        ) * 0.001,
         LorentzVector::from(
             5.2877829982533808e+02,
             -1.3758384614384497e+02,
             -8.1217573038820291e+01,
             3.0672606911725950e+02,
-        ) * 0.0001,
+        ) * 0.001,
     ];
 
-    println!(
-        "Starting integration of double box with externals {:#?}",
-        external_momenta
-    );
+    if loops == 1 {
+        println!(
+            "Starting integration of one-loop box with externals {:#?}",
+            external_momenta
+        );
 
-    Integrator::new_two_loop(DOUBLE_BOX_ID, e_cm_sq, mu_sq, external_momenta)
-}
+        Evaluator::new("box1L_direct_integration", e_cm_sq, mu_sq, external_momenta)
+    } else {
+        println!(
+            "Starting integration of double box with externals {:#?}",
+            external_momenta
+        );
 
-fn main() {
-    let matches = App::new("Feynman diagram integrator")
-        .version("0.1")
-        .about("Numerically integrate your favourite integrals")
-        .arg(
-            Arg::with_name("cores")
-                .short("c")
-                .long("cores")
-                .value_name("NUMCORES")
-                .default_value("4")
-                .help("Set the number of cores"),
-        )
-        .arg(
-            Arg::with_name("config")
-                .short("f")
-                .long("config")
-                .value_name("CONFIG_FILE")
-                .help("Set the configuration file"),
-        )
-        .arg(
-            Arg::with_name("bench")
-                .long("bench")
-                .help("Run a benchmark instead"),
-        )
-        .arg(
-            Arg::with_name("topology")
-                .short("t")
-                .long("topology")
-                .value_name("TOPOLOGY")
-                .default_value("box")
-                .possible_values(&["triangle", "box", "trianglebox"])
-                .help("Set the topology"),
-        )
-        .get_matches();
-
-    if matches.is_present("bench") {
-        performance_test();
-        return;
+        Evaluator::new_two_loop(DOUBLE_BOX_ID, e_cm_sq, mu_sq, external_momenta)
     }
-
-    let cores = usize::from_str(matches.value_of("cores").unwrap()).unwrap();
-
-    let mut ci = CubaIntegrator::new(integrand);
-    ci.set_epsabs(0.)
-        .set_mineval(10)
-        .set_nstart(10000)
-        .set_nincrease(50000)
-        .set_maxeval(600000000)
-        .set_pseudo_random(true)
-        .set_cores(cores, 1000);
-
-    let i = match matches.value_of("topology").unwrap() {
-        "box" => double_box_integrator(),
-        "triangle" => double_triangle_integrator(),
-        "trianglebox" => triangle_box_integrator(),
-        _ => unreachable!(),
-    };
-
-    let r = ci.vegas(
-        8,
-        1,
-        CubaVerbosity::Progress,
-        UserData {
-            evaluator: vec![i; cores + 1],
-            running_max: 0f64,
-        },
-    );
-    println!("{:#?}", r);
 }
 
 fn performance_test() {
@@ -238,4 +147,97 @@ fn performance_test() {
 
         integrand.evaluate(&[d.0, d.1]).unwrap();
     }
+}
+
+fn main() {
+    let matches = App::new("Feynman diagram integrator")
+        .version("0.1")
+        .about("Numerically integrate your favourite integrals")
+        .arg(
+            Arg::with_name("cores")
+                .short("c")
+                .long("cores")
+                .value_name("NUMCORES")
+                .default_value("4")
+                .help("Set the number of cores"),
+        )
+        .arg(
+            Arg::with_name("loops")
+                .short("l")
+                .long("loops")
+                .value_name("LOOPS")
+                .default_value("2")
+                .help("Set the number of loops (only used for the box)"),
+        )
+        .arg(
+            Arg::with_name("multichanneling")
+                .short("m")
+                .long("multichanneling")
+                .help("Use multichanneling"),
+        )
+        .arg(
+            Arg::with_name("regions")
+                .short("r")
+                .long("regions")
+                .help("Use regions"),
+        )
+        .arg(
+            Arg::with_name("samples")
+                .short("s")
+                .long("samples")
+                .value_name("SAMPLES")
+                .default_value("20000000")
+                .help("Number of samples per integration"),
+        )
+        .arg(
+            Arg::with_name("config")
+                .short("f")
+                .long("config")
+                .value_name("CONFIG_FILE")
+                .help("Set the configuration file"),
+        )
+        .arg(
+            Arg::with_name("bench")
+                .long("bench")
+                .help("Run a benchmark instead"),
+        )
+        .arg(
+            Arg::with_name("topology")
+                .short("t")
+                .long("topology")
+                .value_name("TOPOLOGY")
+                .default_value("box")
+                .possible_values(&["triangle", "box", "trianglebox"])
+                .help("Set the topology"),
+        )
+        .get_matches();
+
+    if matches.is_present("bench") {
+        performance_test();
+        return;
+    }
+
+    let cores = usize::from_str(matches.value_of("cores").unwrap()).unwrap();
+    let loops = usize::from_str(matches.value_of("loops").unwrap()).unwrap();
+    let samples = usize::from_str(matches.value_of("samples").unwrap()).unwrap();
+
+    let multichanneling = matches.is_present("multichanneling");
+    let regions = matches.is_present("regions");
+
+    let settings = IntegrationSettings {
+        cores,
+        samples,
+        param_mode: "linear".to_owned(),
+    };
+
+    let i = match matches.value_of("topology").unwrap() {
+        "box" => box_integrator(loops),
+        "triangle" => double_triangle_integrator(),
+        "trianglebox" => triangle_box_integrator(),
+        _ => unreachable!(),
+    };
+
+    let mut aggregator = Aggregator::new(loops, regions, multichanneling, i, settings);
+    let r = aggregator.aggregate();
+    println!("Result: {:e} +- {:e}", r.0, r.1);
 }
