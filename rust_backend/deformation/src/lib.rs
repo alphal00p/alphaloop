@@ -139,7 +139,7 @@ py_class!(class Parameterization |py| {
     data parameterizer: RefCell<parameterization::Parameterizer>;
 
     def __new__(_cls, e_cm_sq: f64, region: usize, channel: usize, qs_py: PyList) -> PyResult<Parameterization> {
-        let int = parameterization::Parameterizer::new(e_cm_sq, region, channel).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+        let int = parameterization::Parameterizer::new(e_cm_sq, None, region, channel).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         let r = Parameterization::create_instance(py, RefCell::new(int))?;
         r.set_qs(py, qs_py)?;
         Ok(r)

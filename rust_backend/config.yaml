@@ -1,0 +1,48 @@
+active_toplogy: box
+mu_sq: -1e9
+alpha: 1.0 # optional, defaults to sqrt(s)
+multi_channeling: false
+regions: false
+param_mode: log
+
+# integration settings
+min_eval: 10
+nstart: 10000
+nincrease: 5000
+max_eval: 1000000
+cores: 4
+pseudo_random: true
+
+
+# list of topologies
+topologies:
+    double-triangle:
+        loops: 2
+        e_cm_sq: 1.0
+        external_momenta: 
+            - [1.0, 0., 0., 0.]
+        id: 1 # deformation ID
+        name: ""
+    triangle-box:
+        loops: 2
+        e_cm_sq: 1.0
+        external_momenta:
+            - [1.0, 0.0, 0.0, 0.0]
+            - [-0.59375, -0.0, -0.0, -0.32021721143623744]
+            - [-0.40625, -0.0, -0.0, 0.32021721143623744]
+    box:
+        loops: 1
+        e_cm_sq: 0.947492
+        name: box1L_direct_integration
+        id: 0
+        external_momenta: &box_ext
+            - [-0.47809952420694085, 0, 0, -0.4675244967345596]
+            - [-0.5085067895779792, 0, 0, 0.4675244967345596]
+            - [0.45782801395958195, 0.13758384614384497, 0.0812175730388203, -0.3067260691172595]
+            - [0.5287782998253381, -0.13758384614384497, -0.0812175730388203, 0.3067260691172595]
+    double-box:
+        loops: 1
+        e_cm_sq: 0.947492
+        name: ""
+        id: 0
+        external_momenta: *box_ext     

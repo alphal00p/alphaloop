@@ -20,12 +20,12 @@ pub struct Parameterizer {
 }
 
 impl Parameterizer {
-    pub fn new(e_cm_sq: f64, region: usize, channel: usize) -> Result<Parameterizer, &'static str> {
+    pub fn new(e_cm_sq: f64, alpha: Option<f64>, region: usize, channel: usize) -> Result<Parameterizer, &'static str> {
         Ok(Parameterizer {
             e_cm_sq,
             channel,
             qs: Vec::with_capacity(4),
-            alpha: e_cm_sq.sqrt(), // a natural value for alpha is likely e_cm
+            alpha: alpha.unwrap_or(e_cm_sq.sqrt()),
             mode: ParameterizationMode::Weinzierl,
             region,
         })

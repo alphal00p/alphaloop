@@ -7,6 +7,33 @@ use Complex;
 
 const ONE_LOOP_ID: usize = 1000;
 
+#[derive(Debug, Deserialize)]
+pub struct Topology {
+    pub loops: usize,
+    e_cm_sq: f64,
+    external_momenta: Vec<Vec<f64>>,
+    #[serde(default)]
+    id: usize,
+    #[serde(default)]
+    name: String,
+}
+
+impl Topology {
+    pub fn build_evaluator(&self, mu_sq: f64, alpha: Option<f64>) -> Evaluator {
+        let ext = self
+            .external_momenta
+            .iter()
+            .map(|p| LorentzVector::from_slice(&p))
+            .collect();
+
+        match self.loops {
+            1 => Evaluator::new(&self.name, self.e_cm_sq, alpha, mu_sq, ext),
+            2 => Evaluator::new_two_loop(self.id, self.e_cm_sq, alpha, mu_sq, ext),
+            _ => unreachable!("Invalid number of loops"),
+        }
+    }
+}
+
 pub struct UserData {
     pub evaluator: Vec<Evaluator>, // one evaluator per core
     pub running_max: f64,
@@ -53,6 +80,7 @@ impl Evaluator {
     pub fn new(
         name: &str,
         e_cm_sq: f64,
+        alpha: Option<f64>,
         mu_sq: f64,
         external_momenta: Vec<LorentzVector<f64>>,
     ) -> Evaluator {
@@ -62,9 +90,7 @@ impl Evaluator {
             qs.push(r);
         }
 
-        println!("qs {:?}", qs);
-
-        let mut parameterizer = Parameterizer::new(e_cm_sq, 0, 0).unwrap();
+        let mut parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
         parameterizer.set_qs(qs.clone());
 
         // TODO: for now the internal masses are assumed to be 0
@@ -85,10 +111,11 @@ impl Evaluator {
     pub fn new_two_loop(
         id: usize,
         e_cm_sq: f64,
+        alpha: Option<f64>,
         mu_sq: f64,
         external_momenta: Vec<LorentzVector<f64>>,
     ) -> Evaluator {
-        let parameterizer = Parameterizer::new(e_cm_sq, 0, 0).unwrap();
+        let parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
 
         let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, vec![0.; 7]).unwrap();
 

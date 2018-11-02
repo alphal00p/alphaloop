@@ -5,6 +5,12 @@ extern crate integrand;
 extern crate num;
 extern crate vector;
 extern crate cuba;
+
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_yaml;
+
 //use cpython::{exc, PyErr, PyList, PyResult};
 //use std::cell::RefCell;
 

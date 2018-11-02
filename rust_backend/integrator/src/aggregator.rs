@@ -1,44 +1,77 @@
-use {REGION_ALL, REGION_EXT, REGION_INT};
+use std::collections::HashMap;
+use std::fs::File;
 
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
+use evaluator::{integrand, Evaluator, Topology, UserData};
+use {REGION_ALL, REGION_EXT, REGION_INT};
 
-use evaluator::{Evaluator, UserData, integrand};
-
-#[derive(Debug, Clone)]
-pub struct IntegrationSettings {
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub struct Settings {
+    pub active_topology: String,
+    pub mu_sq: f64,
+    pub multi_channeling: bool,
+    pub alpha: Option<f64>,
+    pub regions: bool,
+    pub min_eval: usize,
+    pub nstart: usize,
+    pub nincrease: usize,
+    pub max_eval: usize,
     pub cores: usize,
-    pub samples: usize,
+    pub pseudo_random: bool,
     pub param_mode: String,
+    pub topologies: HashMap<String, Topology>,
 }
 
-#[derive(Clone)]
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            active_topology: "box".to_owned(),
+            mu_sq: -1e9,
+            multi_channeling: false,
+            regions: false,
+            alpha: None,
+            min_eval: 10,
+            nstart: 1000,
+            nincrease: 500,
+            max_eval: 1000000,
+            cores: 4,
+            pseudo_random: true,
+            param_mode: "log".to_owned(),
+            topologies: HashMap::new(),
+        }
+    }
+}
+
+impl Settings {
+    pub fn from_file(filename: &str) -> Settings {
+        let f = File::open(filename).unwrap();
+        serde_yaml::from_reader(f).unwrap()
+    }
+}
+
 pub struct Aggregator {
     n_loops: usize,
     do_regions: bool,
     do_multichanneling: bool,
     evaluator: Evaluator,
-    settings: IntegrationSettings,
+    settings: Settings,
 }
 
 impl Aggregator {
-    pub fn new(
-        n_loops: usize,
-        do_regions: bool,
-        do_multichanneling: bool,
-        evaluator: Evaluator,
-        settings: IntegrationSettings,
-    ) -> Aggregator {
+    pub fn new(settings: Settings) -> Aggregator {
         Aggregator {
-            n_loops,
-            do_regions,
-            do_multichanneling,
-            evaluator,
+            n_loops: settings.topologies[&settings.active_topology].loops,
+            do_regions: settings.regions,
+            do_multichanneling: settings.multi_channeling,
+            evaluator: settings.topologies[&settings.active_topology]
+                .build_evaluator(settings.mu_sq, settings.alpha),
             settings,
         }
     }
 
     fn integrate(&mut self, region: usize, channel: usize) -> CubaResult {
-        println!("Integration region {} and channel {}", region, channel);
+        println!("Integration of {} with region {} and channel {}", self.settings.active_topology, region, channel);
 
         // create an evaluator
         let mut eval = self.evaluator.clone();
@@ -63,11 +96,11 @@ impl Aggregator {
 
         let mut ci = CubaIntegrator::new(integrand);
         ci.set_epsabs(0.)
-            .set_mineval(10)
-            .set_nstart(10000)
-            .set_nincrease(5000)
-            .set_maxeval(self.settings.samples as i32)
-            .set_pseudo_random(true)
+            .set_mineval(self.settings.min_eval as i32)
+            .set_nstart(self.settings.nstart as i32)
+            .set_nincrease(self.settings.nincrease as i32)
+            .set_maxeval(self.settings.max_eval as i32)
+            .set_pseudo_random(self.settings.pseudo_random)
             .set_cores(self.settings.cores, 1000);
 
         let r = ci.vegas(
