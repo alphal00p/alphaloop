@@ -1,15 +1,15 @@
 active_toplogy: box
 mu_sq: -1e9
-alpha: 1.0 # optional, defaults to sqrt(s)
+# alpha: 1.0 # optional, defaults to sqrt(s)
 multi_channeling: false
 regions: false
 param_mode: log
 
 # integration settings
 min_eval: 10
-nstart: 10000
+nstart: 100000
 nincrease: 5000
-max_eval: 1000000
+max_eval: 10000000
 cores: 4
 pseudo_random: true
 
@@ -41,7 +41,7 @@ topologies:
             - [0.45782801395958195, 0.13758384614384497, 0.0812175730388203, -0.3067260691172595]
             - [0.5287782998253381, -0.13758384614384497, -0.0812175730388203, 0.3067260691172595]
     double-box:
-        loops: 1
+        loops: 2
         e_cm_sq: 0.947492
         name: ""
         id: 0
