@@ -1,5 +1,7 @@
 use deformation::deformation::Deformer;
-use deformation::deformation::{DOUBLE_BOX_ID, DOUBLE_TRIANGLE_ID, TRIANGLE_BOX_ID};
+use deformation::deformation::{
+    DOUBLE_BOX_ID, DOUBLE_TRIANGLE_ID, TRIANGLE_BOX_ALTERNATIVE_ID, TRIANGLE_BOX_ID,
+};
 use deformation::parameterization::Parameterizer;
 use integrand::integrands::Integrand;
 use vector::LorentzVector;
@@ -126,6 +128,9 @@ impl Evaluator {
             }
             TRIANGLE_BOX_ID => {
                 Integrand::new("trianglebox_direct_integration", 0, 0, mu_sq).unwrap()
+            }
+            TRIANGLE_BOX_ALTERNATIVE_ID => {
+                Integrand::new("trianglebox_alternative_direct_integration", 0, 0, mu_sq).unwrap()
             }
             _ => unreachable!("Unknown id"),
         };

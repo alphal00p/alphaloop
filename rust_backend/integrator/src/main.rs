@@ -98,7 +98,13 @@ fn main() {
                 .short("t")
                 .long("topology")
                 .value_name("TOPOLOGY")
-                .possible_values(&["box", "double-triangle", "double-box", "triangle-box"])
+                .possible_values(&[
+                    "box",
+                    "double-triangle",
+                    "double-box",
+                    "triangle-box",
+                    "triangle-box-alternative",
+                ])
                 .help("Set the active topology"),
         )
         .get_matches();

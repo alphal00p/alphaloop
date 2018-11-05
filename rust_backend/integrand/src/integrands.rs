@@ -17,6 +17,7 @@ const OFF_SHELL_HEXAGON: usize = 6;
 const OFF_SHELL_DOUBLE_BOX: usize = 7;
 const OFF_SHELL_DOUBLE_TRIANGLE: usize = 8;
 const OFF_SHELL_TRIANGLE_BOX: usize = 9;
+const OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE: usize = 10;
 
 #[derive(Clone)]
 pub struct Integrand {
@@ -46,6 +47,7 @@ impl Integrand {
             "box2L_direct_integration" => OFF_SHELL_DOUBLE_BOX,
             "triangle2L_direct_integration" => OFF_SHELL_DOUBLE_TRIANGLE,
             "trianglebox_direct_integration" => OFF_SHELL_TRIANGLE_BOX,
+            "trianglebox_alternative_direct_integration" => OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE,
             _ => return Err("Unknown integrand"),
         };
 
@@ -181,6 +183,19 @@ impl Integrand {
                     * (k - l).square()
                     * (&(k - l) - &self.ext[1]).square()
                     * (&(k - l) + &self.ext[0]).square()
+                    * (k + &self.ext[0]).square();
+
+                Ok(factor / denominator)
+            }
+            OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE => {
+                let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
+                let (k, l) = (&mom[0], &mom[1]);
+
+                let denominator = k.square()
+                    * l.square()
+                    * (k - l).square()
+                    * (l - &self.ext[1]).square()
+                    * (l + &self.ext[0]).square()
                     * (k + &self.ext[0]).square();
 
                 Ok(factor / denominator)

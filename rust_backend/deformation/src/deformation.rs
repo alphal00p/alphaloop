@@ -7,6 +7,7 @@ use REGION_EXT;
 pub const DOUBLE_BOX_ID: usize = 0;
 pub const DOUBLE_TRIANGLE_ID: usize = 1;
 pub const TRIANGLE_BOX_ID: usize = 2;
+pub const TRIANGLE_BOX_ALTERNATIVE_ID: usize = 3;
 
 const DIRECTIONS: [LorentzVector<f64>; 4] = [
     LorentzVector {
@@ -806,8 +807,107 @@ impl Deformer {
             DOUBLE_BOX_ID => self.deform_doublebox(k, l),
             DOUBLE_TRIANGLE_ID => self.deform_doubletriangle(k, l),
             TRIANGLE_BOX_ID => self.deform_trianglebox(k, l),
+            TRIANGLE_BOX_ALTERNATIVE_ID => self.deform_trianglebox_alternative(k, l),
             _ => Err("Unknown id"),
         }
+    }
+
+    fn deform_trianglebox_alternative(
+        &mut self,
+        k: &LorentzVector<f64>,
+        l: &LorentzVector<f64>,
+    ) -> Result<(LorentzVector<Complex>, LorentzVector<Complex>), &str> {
+        // compute the external momenta for the C12(k) cycle and express the qs in terms of that.
+        // This is not a shift. We also set q[0] = 0 at the 1/k^2 line
+        // k, l, k - l, l - p2, l + p1, k + p1
+
+        //Compute c12
+        let mut c12_qs = [LorentzVector::new(), l.clone(), -&self.ext[0]];
+        self.set_qs(&c12_qs);
+        let c12_k = self.deform_int_no_jacobian(k, false).unwrap().imag(); // get the direction
+
+        //Compute c12
+        let mut c23_qs = [
+            LorentzVector::new(),
+            self.ext[1].clone(),
+            -&self.ext[0],
+            k.clone(),
+        ];
+        self.set_qs(&c23_qs);
+        let c23_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
+
+        //Compute c13
+        let c13_qs = [
+            LorentzVector::new(),
+            k - l,
+            k - l + &self.ext[1],
+            k - l - &self.ext[0],
+            -&self.ext[0],
+        ];
+        self.set_qs(&c13_qs);
+        let c13_k = self.deform_int_no_jacobian(l, false).unwrap().imag();
+
+        let c13_qs = [
+            LorentzVector::new(),
+            self.ext[0].clone(),
+            -&self.ext[1],
+            l - k - &self.ext[1],
+            l - k,
+        ];
+        self.set_qs(&c13_qs);
+        let c13_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
+
+        let k_1 = c12_k + c13_k;
+        let k_2 = c23_l + c13_l;
+
+        let mut lambda_sq = 1.;
+
+        // propagators with substituted momenta split in real and imag
+        // k, l, k - l, k - l - p2, k - l + p1, k + p1
+        let props = [
+            (k.clone(), k_1.clone()),
+            (l.clone(), k_2.clone()),
+            (k - l, &k_1 - &k_2),
+            (l - &self.ext[1], k_2.clone()),
+            (l + &self.ext[0], k_2.clone()),
+            (k + &self.ext[0], k_1.clone()),
+        ];
+
+        for (qt, kt) in &props {
+            let xj = (kt.dot(qt) / kt.square()).powi(2);
+            let yj = (qt.square()) / kt.square(); // for the massless case
+
+            if 2.0 * xj < yj {
+                if yj / 4.0 < lambda_sq {
+                    lambda_sq = yj * 0.25;
+                }
+            } else if yj < 0.0 {
+                if xj - yj / 2.0 < lambda_sq {
+                    lambda_sq = xj - yj * 0.5;
+                }
+            } else {
+                if xj - yj / 4.0 < lambda_sq {
+                    lambda_sq = xj - yj * 0.25;
+                }
+            }
+        }
+
+        // we assume the UV propagators to be 1/(k^2+mu^2) and 1/(l^2+mu^2)
+        let mut lambda = lambda_sq.sqrt();
+
+        let uv_fac_k = 4.0 * k.dot(&k_1);
+        let uv_fac_l = 4.0 * l.dot(&k_2);
+        if uv_fac_k <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_k {
+            lambda = self.mu_sq.im / uv_fac_k;
+        }
+        if uv_fac_l <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_l {
+            lambda = self.mu_sq.im / uv_fac_l;
+        }
+
+        let k_1_full = &((&k_1 * lambda).to_complex(false)) + k;
+        let k_2_full = &((&k_2 * lambda).to_complex(false)) + l;
+
+        Ok((k_1_full, k_2_full))
     }
 
     fn deform_trianglebox(
