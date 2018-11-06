@@ -16,3 +16,4 @@ features = ["python27-sys"]
 [dependencies]
 vector = { path = "../vector" }
 num = "0.2"
+arrayvec = "0.4.7"

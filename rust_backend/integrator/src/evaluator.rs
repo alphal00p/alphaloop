@@ -117,7 +117,7 @@ impl Evaluator {
         mu_sq: f64,
         external_momenta: Vec<LorentzVector<f64>>,
     ) -> Evaluator {
-        let parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
+        let mut parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
 
         let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, vec![0.; 7]).unwrap();
 
@@ -135,6 +135,14 @@ impl Evaluator {
             _ => unreachable!("Unknown id"),
         };
 
+        if id == TRIANGLE_BOX_ALTERNATIVE_ID {
+            parameterizer.set_qs(vec![
+                LorentzVector::new(),
+                external_momenta[0].clone(),
+                LorentzVector::new(),
+                external_momenta[1].clone(),
+            ]);
+        }
         integrand.set_externals(external_momenta.clone());
         deformer.set_external_momenta(external_momenta);
 
@@ -158,10 +166,17 @@ impl Evaluator {
 
             v * j * jac_k
         } else {
+            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
+                self.parameterizer.set_mode("weinzierl").unwrap();
+                self.parameterizer.set_channel(1);
+            }
             let (k_m, jac_k) = self
                 .parameterizer
                 .map(&LorentzVector::from_slice(&x[..4]))
                 .unwrap();
+            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
+                self.parameterizer.set_channel(3);
+            }
             let (l_m, jac_l) = self
                 .parameterizer
                 .map(&LorentzVector::from_slice(&x[4..]))

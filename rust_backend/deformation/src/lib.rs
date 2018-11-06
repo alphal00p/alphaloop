@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate cpython;
+extern crate arrayvec;
 extern crate num;
 extern crate vector;
 use cpython::{exc, PyErr, PyList, PyResult};
