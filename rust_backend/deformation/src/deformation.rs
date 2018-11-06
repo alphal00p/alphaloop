@@ -822,12 +822,12 @@ impl Deformer {
         // k, l, k - l, l - p2, l + p1, k + p1
 
         //Compute c12
-        let mut c12_qs = [LorentzVector::new(), l.clone(), -&self.ext[0]];
+        let c12_qs = [LorentzVector::new(), l.clone(), -&self.ext[0]];
         self.set_qs(&c12_qs);
         let c12_k = self.deform_int_no_jacobian(k, false).unwrap().imag(); // get the direction
 
         //Compute c23
-        let mut c23_qs = [
+        let c23_qs = [
             LorentzVector::new(),
             self.ext[1].clone(),
             -&self.ext[0],
@@ -928,7 +928,12 @@ impl Deformer {
         self.set_qs(&c12_qs);
         let c12_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
 
-        let c23_qs = [LorentzVector::new(), k + &self.ext[0], k - &self.ext[1]];
+        let c23_qs = [
+            LorentzVector::new(),
+            k + &self.ext[0],
+            k - &self.ext[1],
+            k.clone(),
+        ];
         self.set_qs(&c23_qs);
         let c23_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
 
