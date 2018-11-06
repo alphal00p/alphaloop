@@ -1092,46 +1092,50 @@ impl Deformer {
     ) -> Result<(LorentzVector<Complex>, LorentzVector<Complex>), &str> {
         // compute the external momenta for the C12(k) cycle and express the qs in terms of that.
         // This is not a shift. We also set q[0] = 0 at the 1/k^2 line
-        // k, l, k - l, k - l - p2, k - l - p2 - p3, k - p2 - p3, k + p1
-        let mut c12_qs = [
-            LorentzVector::new(),
-            k - l,
-            &self.ext[1] + &self.ext[2],
-            -&self.ext[0],
+        // k, l, k - l -p1, l - p2, l - p2 - p3, k + p4, k - p1
+        let momenta_12 = [
+            k.clone(),
+            k - &self.ext[0],
+            l.clone(),
+            l - &self.ext[1],
+            l - &self.ext[1] - &self.ext[2],
+            k + &self.ext[3],
+        ];
+        let momenta_13 = [
+            k.clone(),
+            k - &self.ext[0],
+            k - l - &self.ext[0],
+            k + &self.ext[3],
+        ];
+        let momenta_23 = [
+            l.clone(),
+            l - &self.ext[1],
+            l - &self.ext[1] - &self.ext[2],
+            l - k + &self.ext[0],
         ];
 
-        self.set_qs(&c12_qs);
-        let c12_k = self.deform_int_no_jacobian(k, false).unwrap().imag(); // get the direction
+        //Compute qs
+        let c12_qs_k: ArrayVec<[LorentzVector<f64>; 10]> =
+            momenta_12.iter().map(|mom| k - mom).collect();
+        let c12_qs_l: ArrayVec<[LorentzVector<f64>; 10]> =
+            momenta_12.iter().map(|mom| l - mom).collect();
+        let c13_qs_k: ArrayVec<[LorentzVector<f64>; 10]> =
+            momenta_13.iter().map(|mom| k - mom).collect();
+        let c23_qs_l: ArrayVec<[LorentzVector<f64>; 10]> =
+            momenta_23.iter().map(|mom| l - mom).collect();
 
-        c12_qs = [
-            LorentzVector::new(),
-            -k + l + &self.ext[1] + &self.ext[2],
-            -k + l - &self.ext[0],
-            -k + l,
-        ];
+        //Compute kappas
+        self.set_qs(&c12_qs_k);
+        let c12_k = self.deform_int_no_jacobian(k, false).unwrap().imag();
 
-        self.set_qs(&c12_qs);
+        self.set_qs(&c12_qs_l);
         let c12_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
 
-        let c23_qs = [
-            LorentzVector::new(),
-            k - &self.ext[1] - &self.ext[2],
-            k - &self.ext[1],
-            k.clone(),
-        ];
-        self.set_qs(&c23_qs);
-        let c23_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
+        self.set_qs(&c13_qs_k);
+        let c13_k = self.deform_int_no_jacobian(k, false).unwrap().imag(); // get the direction
 
-        let c13_qs = [
-            LorentzVector::new(),
-            l.clone(),
-            l + &self.ext[1],
-            l + &self.ext[1] + &self.ext[2],
-            &self.ext[1] + &self.ext[2],
-            -&self.ext[0],
-        ];
-        self.set_qs(&c13_qs);
-        let c13_k = self.deform_int_no_jacobian(k, false).unwrap().imag();
+        self.set_qs(&c23_qs_l);
+        let c23_l = self.deform_int_no_jacobian(l, false).unwrap().imag();
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -1143,11 +1147,11 @@ impl Deformer {
         let props = [
             (k.clone(), k_1.clone()),
             (l.clone(), k_2.clone()),
-            (k - l, &k_1 - &k_2),
-            (k - l - &self.ext[1], &k_1 - &k_2),
-            (k - l - &self.ext[1] - &self.ext[2], &k_1 - &k_2),
-            (k - &self.ext[1] - &self.ext[2], k_1.clone()),
-            (k + &self.ext[0], k_1.clone()),
+            (k - l - &self.ext[0], &k_1 - &k_2),
+            (l - &self.ext[1], k_2.clone()),
+            (l - &self.ext[1] - &self.ext[2], k_2.clone()),
+            (k + &self.ext[3], k_1.clone()),
+            (k - &self.ext[0], k_1.clone()),
         ];
 
         for (qt, kt) in &props {

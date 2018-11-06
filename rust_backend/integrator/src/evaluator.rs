@@ -135,7 +135,7 @@ impl Evaluator {
             _ => unreachable!("Unknown id"),
         };
 
-        if id == TRIANGLE_BOX_ALTERNATIVE_ID {
+        if id == TRIANGLE_BOX_ALTERNATIVE_ID || id == DOUBLE_BOX_ID {
             parameterizer.set_qs(vec![
                 LorentzVector::new(),
                 external_momenta[0].clone(),
@@ -166,7 +166,7 @@ impl Evaluator {
 
             v * j * jac_k
         } else {
-            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
+            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID || self.id == DOUBLE_BOX_ID {
                 self.parameterizer.set_mode("weinzierl").unwrap();
                 self.parameterizer.set_channel(1);
             }
@@ -174,7 +174,7 @@ impl Evaluator {
                 .parameterizer
                 .map(&LorentzVector::from_slice(&x[..4]))
                 .unwrap();
-            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
+            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID || self.id == DOUBLE_BOX_ID {
                 self.parameterizer.set_channel(3);
             }
             let (l_m, jac_l) = self

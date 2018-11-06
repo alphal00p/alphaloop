@@ -154,11 +154,11 @@ impl Integrand {
 
                 let denominator = k.square()
                     * l.square()
-                    * (k - l).square()
-                    * (k - l - &self.ext[1]).square()
-                    * (k - l - &self.ext[1] - &self.ext[2]).square()
-                    * (k - &self.ext[1] - &self.ext[2]).square()
-                    * (k + &self.ext[0]).square();
+                    * (k - l - &self.ext[0]).square()
+                    * (l - &self.ext[1]).square()
+                    * (l - &self.ext[1] - &self.ext[2]).square()
+                    * (k - &self.ext[0]).square()
+                    * (k + &self.ext[3]).square();
 
                 Ok(factor / denominator)
             }
