@@ -18,7 +18,7 @@ pub struct Settings {
     pub nincrease: usize,
     pub max_eval: usize,
     pub cores: usize,
-    pub pseudo_random: bool,
+    pub seed: i32,
     pub param_mode: String,
     pub topologies: HashMap<String, Topology>,
 }
@@ -36,7 +36,7 @@ impl Default for Settings {
             nincrease: 500,
             max_eval: 1000000,
             cores: 4,
-            pseudo_random: true,
+            seed: 0,
             param_mode: "log".to_owned(),
             topologies: HashMap::new(),
         }
@@ -100,13 +100,14 @@ impl Aggregator {
             .set_nstart(self.settings.nstart as i32)
             .set_nincrease(self.settings.nincrease as i32)
             .set_maxeval(self.settings.max_eval as i32)
-            .set_pseudo_random(self.settings.pseudo_random)
+            .set_seed(self.settings.seed as i32)
             .set_cores(self.settings.cores, 1000);
 
         let r = ci.vegas(
             4 * self.n_loops,
             1,
             CubaVerbosity::Progress,
+            0, // don't store the grid for now
             UserData {
                 evaluator: vec![eval; self.settings.cores + 1],
                 running_max: 0f64,

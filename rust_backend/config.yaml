@@ -11,7 +11,7 @@ nstart: 100000
 nincrease: 5000
 max_eval: 10000000
 cores: 4
-pseudo_random: true
+seed: 1 # use pseudo-random numbers
 
 
 # list of topologies
