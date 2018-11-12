@@ -2,13 +2,14 @@ extern crate num;
 
 use std::fmt;
 use std::fmt::{Debug, Display};
-use std::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
+use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 
 type Complex = num::Complex<f64>;
 
 pub trait Field
 where
     Self: Mul<Self, Output = Self>,
+    Self: Div<Self, Output = Self>,
     Self: Add<Self, Output = Self>,
     Self: Sub<Self, Output = Self>,
     Self: Neg<Output = Self>,
@@ -270,6 +271,33 @@ impl<'a, T: Field> Mul<T> for LorentzVector<T> {
             x: self.x * other,
             y: self.y * other,
             z: self.z * other,
+        }
+    }
+}
+
+impl<'a, T: Field> Div<T> for &'a LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    fn div(self, other: T) -> LorentzVector<T> {
+        LorentzVector {
+            t: self.t / other,
+            x: self.x / other,
+            y: self.y / other,
+            z: self.z / other,
+        }
+    }
+}
+
+impl<'a, T: Field> Div<T> for LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    #[inline]
+    fn div(self, other: T) -> LorentzVector<T> {
+        LorentzVector {
+            t: self.t / other,
+            x: self.x / other,
+            y: self.y / other,
+            z: self.z / other,
         }
     }
 }

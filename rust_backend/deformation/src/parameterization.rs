@@ -7,6 +7,7 @@ pub enum ParameterizationMode {
     Log,
     Linear,
     Weinzierl,
+    WeinzierlExternal,
 }
 
 #[derive(Clone)]
@@ -20,7 +21,12 @@ pub struct Parameterizer {
 }
 
 impl Parameterizer {
-    pub fn new(e_cm_sq: f64, alpha: Option<f64>, region: usize, channel: usize) -> Result<Parameterizer, &'static str> {
+    pub fn new(
+        e_cm_sq: f64,
+        alpha: Option<f64>,
+        region: usize,
+        channel: usize,
+    ) -> Result<Parameterizer, &'static str> {
         Ok(Parameterizer {
             e_cm_sq,
             channel,
@@ -36,6 +42,7 @@ impl Parameterizer {
             "log" => self.mode = ParameterizationMode::Log,
             "linear" => self.mode = ParameterizationMode::Linear,
             "weinzierl" => self.mode = ParameterizationMode::Weinzierl,
+            "weinzierl_ext" => self.mode = ParameterizationMode::WeinzierlExternal,
             _ => return Err("Unknown parameterization mode"),
         }
         Ok(())
@@ -199,6 +206,7 @@ impl Parameterizer {
                     self.map_weinzierl_int(mom)
                 }
             }
+            ParameterizationMode::WeinzierlExternal => self.map_weinzierl_ext(mom),
         }
     }
 }

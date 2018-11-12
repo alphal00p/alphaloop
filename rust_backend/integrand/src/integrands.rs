@@ -19,6 +19,7 @@ const OFF_SHELL_DOUBLE_BOX: usize = 7;
 const OFF_SHELL_DOUBLE_TRIANGLE: usize = 8;
 const OFF_SHELL_TRIANGLE_BOX: usize = 9;
 const OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE: usize = 10;
+const OFF_SHELL_CROSS_BOX: usize = 11;
 
 #[derive(Clone)]
 pub struct Integrand {
@@ -49,6 +50,7 @@ impl Integrand {
             "triangle2L_direct_integration" => OFF_SHELL_DOUBLE_TRIANGLE,
             "trianglebox_direct_integration" => OFF_SHELL_TRIANGLE_BOX,
             "trianglebox_alternative_direct_integration" => OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE,
+            "crossbox_direct_integration" => OFF_SHELL_CROSS_BOX,
             _ => return Err("Unknown integrand"),
         };
 
@@ -202,18 +204,30 @@ impl Integrand {
                 if self.channel > 0 {
                     let alpha = 3;
                     let mc_factor = l.square().norm().powi(alpha).inv()
-                            + (l + &self.ext[0]).square().norm().powi(alpha).inv();
+                        + (l + &self.ext[0]).square().norm().powi(alpha).inv();
 
                     if self.channel == 1 {
                         factor *= l.square().norm().powi(alpha).inv();
                     } else {
                         factor *= (l + &self.ext[0]).square().norm().powi(alpha).inv();
                     }
-                
+
                     Ok(factor / denominator / mc_factor)
                 } else {
                     Ok(factor / denominator)
                 }
+            }
+            OFF_SHELL_CROSS_BOX => {
+                let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
+                let (k, l) = (&mom[0], &mom[1]);
+
+                let denominator = k.square()
+                    * l.square()
+                    * (k - &self.ext[0]).square()
+                    * (&(k - l) - &self.ext[0] - &self.ext[1]).square()
+                    * (l - &self.ext[2]).square();
+
+                Ok(factor / denominator)
             }
             _ => Err("Integrand is not implemented yet"),
         }

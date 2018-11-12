@@ -3,7 +3,7 @@ mu_sq: -1e9
 # alpha: 1.0 # optional, defaults to sqrt(s)
 multi_channeling: false
 regions: false
-param_mode: log
+param_mode: weinzierl_ext
 
 # integration settings
 min_eval: 10
@@ -56,4 +56,10 @@ topologies:
         e_cm_sq: 0.947492
         name: ""
         id: 0
-        external_momenta: *box_ext     
+        external_momenta: *box_ext
+    cross-box:
+        loops: 2
+        e_cm_sq: 0.947492
+        name: ""
+        id: 4
+        external_momenta: *box_ext

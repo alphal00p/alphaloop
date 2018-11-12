@@ -104,6 +104,7 @@ fn main() {
                     "double-box",
                     "triangle-box",
                     "triangle-box-alternative",
+                    "cross-box"
                 ])
                 .help("Set the active topology"),
         )
