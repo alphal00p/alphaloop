@@ -141,6 +141,7 @@ impl Evaluator {
                 external_momenta[0].clone(),
                 LorentzVector::new(),
                 external_momenta[1].clone(),
+                &external_momenta[1] + &external_momenta[2],
             ]);
         }
         integrand.set_externals(external_momenta.clone());
@@ -175,6 +176,8 @@ impl Evaluator {
                 .map(&LorentzVector::from_slice(&x[..4]))
                 .unwrap();
             if self.id == TRIANGLE_BOX_ALTERNATIVE_ID || self.id == DOUBLE_BOX_ID {
+                // 3 here goes with integrand channel 1
+                // 4 here goes with integrand channel 2
                 self.parameterizer.set_channel(3);
             }
             let (l_m, jac_l) = self
@@ -186,6 +189,11 @@ impl Evaluator {
             let j = self
                 .deformer
                 .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
+
+            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
+                // disable two-loop channels for now
+                // self.integrand.set_channel(1);
+            }
 
             let v = self.integrand.evaluate(&[d.0, d.1]).unwrap();
 

@@ -2,6 +2,7 @@ use num;
 use num::traits::FloatConst;
 use vector::LorentzVector;
 type Complex = num::Complex<f64>;
+use num::traits::Inv;
 use std::f64;
 
 const REGION_ALL: usize = 0;
@@ -198,7 +199,21 @@ impl Integrand {
                     * (l + &self.ext[0]).square()
                     * (k - &self.ext[0]).square();
 
-                Ok(factor / denominator)
+                if self.channel > 0 {
+                    let alpha = 3;
+                    let mc_factor = l.square().norm().powi(alpha).inv()
+                            + (l + &self.ext[0]).square().norm().powi(alpha).inv();
+
+                    if self.channel == 1 {
+                        factor *= l.square().norm().powi(alpha).inv();
+                    } else {
+                        factor *= (l + &self.ext[0]).square().norm().powi(alpha).inv();
+                    }
+                
+                    Ok(factor / denominator / mc_factor)
+                } else {
+                    Ok(factor / denominator)
+                }
             }
             _ => Err("Integrand is not implemented yet"),
         }
