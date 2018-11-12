@@ -120,8 +120,8 @@ impl Deformer {
         }
         self.uv_shift = &self.uv_shift * (1.0 / (self.qs.len() as f64));
 
-        self.p_plus = self.compute_p(true);
-        self.p_min = self.compute_p(false);
+        self.p_plus = self.compute_p_alternative(true);
+        self.p_min = self.compute_p_alternative(false);
         self.shift_and_check_p();
 
         self.mu_p_sq = (&self.p_min - &self.p_plus).square();
@@ -144,36 +144,56 @@ impl Deformer {
         self.m4_sq = self.m4_fac * self.m4_fac * self.e_cm_sq;
     }
 
+    /// Interpolate between vectors
+    #[inline]
+    fn z(a: LorentzVector<f64>, b: LorentzVector<f64>, plus: bool) -> LorentzVector<f64> {
+        if b.euclidean_square() < 1e-9 {
+            return a;
+        }
+
+        let n = 1.0 / b.spatial_distance();
+
+        if plus {
+            &LorentzVector::from(
+                a.t + n * b.square() - n * b.t * b.t,
+                a.x - n * b.t * b.x,
+                a.y - n * b.t * b.y,
+                a.z - n * b.t * b.z,
+            ) * 0.5
+        } else {
+            &LorentzVector::from(
+                a.t - n * b.square() + n * b.t * b.t,
+                a.x + n * b.t * b.x,
+                a.y + n * b.t * b.y,
+                a.z + n * b.t * b.z,
+            ) * 0.5
+        }
+    }
+
+    ///Find a vector P such that all external momenta `qs` are in
+    ///the forward lightcone of P if `plus`, or are in the backwards lightcone
+    ///if not `plus`.
+    ///This function uses the algorithm from Becker's thesis
+    fn compute_p_alternative(&mut self, plus: bool) -> LorentzVector<f64> {
+        let mut p = self.qs[0].clone();
+
+        for q in &self.qs[1..] {
+            let s = (p - q).square();
+            if s <= 0. {
+                p = Deformer::z(p + q, p - q, plus);
+            } else {
+                if (plus && p.t > q.t) || (!plus && p.t < q.t) {
+                    p = q.clone();
+                }
+            }
+        }
+        p
+    }
+
     ///Find a vector P such that all external momenta `qs` are in
     ///the forward lightcone of P if `plus`, or are in the backwards lightcone
     ///if not `plus`.
     fn compute_p(&mut self, plus: bool) -> LorentzVector<f64> {
-        /// Interpolate between vectors
-        #[inline]
-        fn z(a: LorentzVector<f64>, b: LorentzVector<f64>, plus: bool) -> LorentzVector<f64> {
-            if b.euclidean_square() < 1e-9 {
-                return a;
-            }
-
-            let n = 1.0 / b.spatial_distance();
-
-            if plus {
-                &LorentzVector::from(
-                    a.t + n * b.square() - n * b.t * b.t,
-                    a.x - n * b.t * b.x,
-                    a.y - n * b.t * b.y,
-                    a.z - n * b.t * b.z,
-                ) * 0.5
-            } else {
-                &LorentzVector::from(
-                    a.t - n * b.square() + n * b.t * b.t,
-                    a.x + n * b.t * b.x,
-                    a.y + n * b.t * b.y,
-                    a.z + n * b.t * b.z,
-                ) * 0.5
-            }
-        }
-
         self.p_buf.clear();
         self.p_buf.extend_from_slice(&self.qs);
         let mut keep_map = [true; 10]; // we will not have more than 10 propagators
@@ -231,7 +251,7 @@ impl Deformer {
             }
 
             // replace first vector and drop the second
-            self.p_buf[first] = z(
+            self.p_buf[first] = Deformer::z(
                 &self.p_buf[first] + &self.p_buf[sec],
                 &self.p_buf[first] - &self.p_buf[sec],
                 plus,
@@ -263,9 +283,10 @@ impl Deformer {
             pq_diff = &self.p_plus - q;
             if pq_diff.t > 0.0 || pq_diff.square() < 0.0 {
                 panic!(
-                    "P_plus is not correctly defined! P.t = {0}, P^2 = {1}, qs = {2:?}",
+                    "P_plus is not correctly defined! (P-q).t = {}, (P-q)^2 = {}, P = {}, qs = {:#?}",
                     pq_diff.t,
                     pq_diff.square(),
+                    self.p_plus,
                     self.qs
                 );
             }
@@ -273,9 +294,10 @@ impl Deformer {
             pq_diff = &self.p_min - q;
             if pq_diff.t < 0.0 || pq_diff.square() < 0.0 {
                 panic!(
-                    "P_minus is not correctly defined! P.t = {0}, P^2 = {1}, qs = {2:?}",
+                    "P_minus is not correctly defined! (P-q).t = {}, (P-q)^2 = {}, P = {}, qs = {:#?}",
                     pq_diff.t,
                     pq_diff.square(),
+                    self.p_min,
                     self.qs
                 );
             }
@@ -334,7 +356,7 @@ impl Deformer {
 
     #[inline]
     fn g(k: &LorentzVector<f64>, gamma: f64, m: f64) -> f64 {
-        gamma * m / (k.t * k.t + k.spatial_squared() + m)
+        gamma * m / (k.euclidean_square() + m)
     }
 
     /// Derivative of h_theta wrt ln k
@@ -649,7 +671,8 @@ impl Deformer {
             LorentzVector::from(0., 0., self.e_soft, 0.),
             LorentzVector::from(0., 0., 0., self.e_soft),
         ];
-        let mut ca = [f; 10];
+        //let mut ca = [f; 4];
+        let mut ca = [0.; 4]; // disable the ca by default
 
         let mut k_int = LorentzVector::new();
         for i in 0..n {
@@ -676,11 +699,19 @@ impl Deformer {
             }
 
             for j in i + 1..n {
-                k_int = k_int - (mom - self.qs[i] * 0.5 - self.qs[j] * 0.5) * c2[i][j];
+                let zij = (self.qs[i] - self.qs[j]).square();
+                if zij > 0. {
+                    let ki = mom - self.qs[i];
+                    let kj = mom - self.qs[j];
+                    let vij = (self.qs[i] * kj.t - self.qs[j] * ki.t)
+                        * (1. / (self.qs[i].t - self.qs[j].t));
+                    k_int = k_int - (mom - vij) * c2[i][j] * (zij / (zij + self.m2_sq));
+                    // k_int = k_int - (mom - self.qs[i] * 0.5 - self.qs[j] * 0.5)
+                }
             }
 
             let l = mom - &self.qs[i];
-            k_int = k_int + &l * -c[i];
+            k_int = k_int + l * -c[i];
         }
 
         // compute k_soft
