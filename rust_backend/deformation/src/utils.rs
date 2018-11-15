@@ -1,8 +1,14 @@
 use Complex;
 
+#[inline]
+/// Invert with better precision
+fn finv(c: Complex) -> Complex {
+    let norm = c.norm();
+    c.conj() / norm / norm
+}
+
 /// Calculate the determinant of any complex-valued input matrix using LU-decomposition.
 /// Original C-code by W. Gong and D.E. Soper.
-
 pub fn determinant(bb: &[[Complex;4];4]) -> Complex {
     // Define matrix related variables.
     let dimension = 4;
@@ -175,7 +181,7 @@ pub fn determinant8(bb: &[[Complex;8];8]) -> Complex {
             }
             indx[j] = imax;
             if j + 1 != dimension {
-                dumc = 1.0 / aa[j][j];
+                dumc = finv(aa[j][j]);
                 for i in j + 1..dimension {
                     aa[i][j] = aa[i][j] * dumc;
                 }

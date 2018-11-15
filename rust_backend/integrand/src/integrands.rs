@@ -23,6 +23,14 @@ const OFF_SHELL_CROSS_BOX: usize = 11;
 const OFF_SHELL_DOUBLE_BOX_SB: usize = 12;
 
 
+#[inline]
+/// Invert with better precision
+fn finv(c: Complex) -> Complex {
+    let norm = c.norm();
+    c.conj() / norm / norm
+}
+
+
 #[derive(Clone)]
 pub struct Integrand {
     integrand_id: usize,
@@ -149,9 +157,9 @@ impl Integrand {
                         }
                     }
 
-                    Ok(factor / denominator / mc_factor)
+                    Ok(factor * finv(denominator) / mc_factor)
                 } else {
-                    Ok(factor / denominator)
+                    Ok(factor * finv(denominator))
                 }
             }
             OFF_SHELL_DOUBLE_BOX => {
@@ -166,7 +174,7 @@ impl Integrand {
                     * (k - &self.ext[0]).square()
                     * (k + &self.ext[3]).square();
 
-                Ok(factor / denominator)
+                Ok(factor * finv(denominator))
             }
             OFF_SHELL_DOUBLE_TRIANGLE => {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
@@ -178,7 +186,7 @@ impl Integrand {
                     * (&(k - l) + &self.ext[0]).square()
                     * (k + &self.ext[0]).square();
 
-                Ok(factor / denominator)
+                Ok(factor * finv(denominator))
             }
             OFF_SHELL_TRIANGLE_BOX => {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
@@ -191,7 +199,7 @@ impl Integrand {
                     * (&(k - l) + &self.ext[0]).square()
                     * (k + &self.ext[0]).square();
 
-                Ok(factor / denominator)
+                Ok(factor * finv(denominator))
             }
             OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE => {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
@@ -215,9 +223,9 @@ impl Integrand {
                         factor *= (l + &self.ext[0]).square().norm().powi(alpha).inv();
                     }
 
-                    Ok(factor / denominator / mc_factor)
+                    Ok(factor * finv(denominator) / mc_factor)
                 } else {
-                    Ok(factor / denominator)
+                    Ok(factor * finv(denominator))
                 }
             }
 
@@ -231,7 +239,7 @@ impl Integrand {
                     * (&(k - l) - &self.ext[0] - &self.ext[1]).square()
                     * (l - &self.ext[2]).square();
 
-                Ok(factor / denominator)
+                Ok(factor * finv(denominator))
             }
 
             OFF_SHELL_DOUBLE_BOX_SB => {
@@ -247,7 +255,7 @@ impl Integrand {
                     * (l).square()
                     * (l+p.2).square()
                     * (k-l).square();
-                Ok(factor / denominator)
+                Ok(factor * finv(denominator))
             }
 
             _ => Err("Integrand is not implemented yet"),

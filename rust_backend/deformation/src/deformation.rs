@@ -656,7 +656,7 @@ impl Deformer {
         );
 
         // internal part
-        let k_centre = &(&k_plus + &k_minus) * 0.5;
+        let k_centre = (k_plus + k_minus) * 0.5;
 
         // TODO: cache qi= mom-qs[i]?
 
@@ -1469,19 +1469,20 @@ impl Deformer {
     ) -> Complex {
         let eps = EPSILON.sqrt();
         let mut grad = [[Complex::new(0., 0.); 8]; 8];
+        let a = eps * 2.0; // cut-off for when the eps should not be scaled with the value of k
 
         for i in 0..8 {
             let mut ep = eps;
             let mut k_n = k.clone();
             let mut l_n = l.clone();
             if i < 4 {
-                if k_n[i] > 1.0 {
-                    ep = k_n[i] * eps;
+                if k_n[i].abs() > a {
+                    ep = k_n[i].abs() * eps;
                 }
                 k_n = k_n + &DIRECTIONS[i] * ep;
             } else {
-                if l_n[i - 4] > 1.0 {
-                    ep = l_n[i - 4] * eps;
+                if l_n[i - 4].abs() > a {
+                    ep = l_n[i - 4].abs() * eps;
                 }
                 l_n = l_n + &DIRECTIONS[i - 4] * ep;
             }
@@ -1507,12 +1508,13 @@ impl Deformer {
     ) -> (Complex, Complex) {
         let eps = EPSILON.sqrt();
         let mut grad = [[Complex::new(0., 0.); 8]; 8];
+        let a = eps * 2.0; // cut-off for when the eps should not be scaled with the value of k
 
         for i in 0..8 {
             let mut ep = eps;
 
             let (res_n_k, res_n_l, res_p_k, res_p_l) = if i < 4 {
-                if k[i].abs() > 1.0 {
+                if k[i].abs() > a {
                     ep = k[i].abs() * eps;
                 }
                 let k_n = k - &DIRECTIONS[i] * ep;
@@ -1522,7 +1524,7 @@ impl Deformer {
                 let (res_p_k, res_p_l) = self.deform_two_loops(id, &k_p, l).unwrap();
                 (res_n_k, res_n_l, res_p_k, res_p_l)
             } else {
-                if l[i - 4].abs() > 1.0 {
+                if l[i - 4].abs() > a {
                     ep = l[i - 4].abs() * eps;
                 }
                 let l_n = l - &DIRECTIONS[i - 4] * ep;
