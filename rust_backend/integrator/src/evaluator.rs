@@ -1,6 +1,6 @@
 use deformation::deformation::Deformer;
 use deformation::deformation::{
-    DOUBLE_BOX_ID, DOUBLE_TRIANGLE_ID, TRIANGLE_BOX_ALTERNATIVE_ID, TRIANGLE_BOX_ID, CROSS_BOX_ID,
+    DOUBLE_BOX_ID, DOUBLE_TRIANGLE_ID, TRIANGLE_BOX_ALTERNATIVE_ID, TRIANGLE_BOX_ID, CROSS_BOX_ID, DOUBLE_BOX_SB_ID
 };
 use deformation::parameterization::Parameterizer;
 use integrand::integrands::Integrand;
@@ -135,10 +135,13 @@ impl Evaluator {
             CROSS_BOX_ID => {
                 Integrand::new("crossbox_direct_integration", 0, 0, mu_sq).unwrap()
             }
+            DOUBLE_BOX_SB_ID => {
+                Integrand::new("box2L_direct_integration_SB", 0, 0, mu_sq).unwrap()
+            }
             _ => unreachable!("Unknown id"),
         };
 
-        if id == TRIANGLE_BOX_ALTERNATIVE_ID || id == DOUBLE_BOX_ID || id == CROSS_BOX_ID {
+        if id == TRIANGLE_BOX_ALTERNATIVE_ID || id == DOUBLE_BOX_ID || id == CROSS_BOX_ID || id == DOUBLE_BOX_SB_ID {
             parameterizer.set_qs(vec![
                 LorentzVector::new(),
                 external_momenta[0].clone(),
@@ -170,7 +173,7 @@ impl Evaluator {
 
             v * j * jac_k
         } else {
-            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID || self.id == DOUBLE_BOX_ID || self.id == CROSS_BOX_ID {
+            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID || self.id == DOUBLE_BOX_ID || self.id == CROSS_BOX_ID || self.id == DOUBLE_BOX_SB_ID {
                 self.parameterizer.set_mode("weinzierl").unwrap();
                 self.parameterizer.set_channel(1);
             }
@@ -183,7 +186,7 @@ impl Evaluator {
                 // 4 here goes with integrand channel 2
                 self.parameterizer.set_channel(3);
             }
-            if self.id == CROSS_BOX_ID {
+            if self.id == CROSS_BOX_ID || self.id == DOUBLE_BOX_SB_ID {
                 self.parameterizer.set_channel(4);
             }
             let (l_m, jac_l) = self

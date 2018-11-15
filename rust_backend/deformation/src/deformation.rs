@@ -10,6 +10,7 @@ pub const DOUBLE_TRIANGLE_ID: usize = 1;
 pub const TRIANGLE_BOX_ID: usize = 2;
 pub const TRIANGLE_BOX_ALTERNATIVE_ID: usize = 3;
 pub const CROSS_BOX_ID: usize = 4;
+pub const DOUBLE_BOX_SB_ID: usize = 5;
 
 const DIRECTIONS: [LorentzVector<f64>; 4] = [
     LorentzVector {
@@ -417,11 +418,10 @@ impl Deformer {
             (
                 ht,
                 &(&(mom - &self.qs[l]).dual() + &(mom - &self.qs[i]).dual())
-                    * (-2.0
-                        * Deformer::h_theta_ln_grad(
-                            -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
-                            self.m1_sq,
-                        )),
+                    * (-2.0 * Deformer::h_theta_ln_grad(
+                        -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
+                        self.m1_sq,
+                    )),
             )
         }
     }
@@ -842,6 +842,7 @@ impl Deformer {
             TRIANGLE_BOX_ID => self.deform_trianglebox(k, l),
             TRIANGLE_BOX_ALTERNATIVE_ID => self.deform_trianglebox_alternative(k, l),
             CROSS_BOX_ID => self.deform_crossbox(k, l),
+            DOUBLE_BOX_SB_ID => self.deform_doublebox_SB(k, l),
             _ => Err("Unknown id"),
         }
     }
@@ -1126,12 +1127,7 @@ impl Deformer {
         // compute the external momenta for the C12(k) cycle and express the qs in terms of that.
         // This is not a shift. We also set q[0] = 0 at the 1/k^2 line
         // k, l, k - p1 - p2 - l, k - p1, l - p3,
-        let momenta_12 = [
-            k.clone(),
-            k - &self.ext[0],
-            l.clone(),
-            l - &self.ext[2],
-        ];
+        let momenta_12 = [k.clone(), k - &self.ext[0], l.clone(), l - &self.ext[2]];
         let momenta_13 = [
             k.clone(),
             k - &self.ext[0],
@@ -1216,6 +1212,121 @@ impl Deformer {
         let k_2_full = &((&k_2 * lambda).to_complex(false)) + l;
 
         Ok((k_1_full, k_2_full))
+    }
+
+    fn deform_doublebox_SB(
+        &mut self,
+        k: &LorentzVector<f64>,
+        l: &LorentzVector<f64>,
+    ) -> Result<(LorentzVector<Complex>, LorentzVector<Complex>), &str> {
+        // First let us set up the momenta q's for all four lambda_cycles
+
+        let (cycle_12_qs, cycle_21_qs, cycle_13_qs, cycle_23_qs) = {
+            let p = [&self.ext[0], &self.ext[1], &self.ext[2], &self.ext[3]];
+            let zero_q = LorentzVector::<f64>::default();
+            let cycle_12_qs: ArrayVec<[LorentzVector<f64>; 6]> = ArrayVec::from([
+                -p[2],
+                -p[1] - p[2],
+                p[3].clone(),
+                k - l + p[3],
+                k - l,
+                k - l - p[2],
+            ]);
+            let cycle_21_qs: ArrayVec<[LorentzVector<f64>; 6]> = ArrayVec::from([
+                p[3].clone(),
+                zero_q.clone(),
+                -p[2],
+                l - k - p[2],
+                l - k - p[1] - p[2],
+                l - k + p[3],
+            ]);
+            let mut cycle_13_qs: ArrayVec<[LorentzVector<f64>; 6]> = ArrayVec::new();
+            cycle_13_qs.extend([-p[2], -p[1] - p[2], p[3].clone(), l.clone()].iter().cloned());
+            let mut cycle_23_qs: ArrayVec<[LorentzVector<f64>; 6]> = ArrayVec::new();
+            cycle_23_qs.extend([p[3].clone(), zero_q.clone(), -p[2], k.clone()].iter().cloned());
+            (cycle_12_qs, cycle_21_qs, cycle_13_qs, cycle_23_qs)
+        };
+
+        // Perform sanity check
+        /*
+        for (i, cycle_qs) in [&cycle_12_qs, &cycle_21_qs, &cycle_13_qs, &cycle_23_qs].iter().enumerate() {
+            let test_left = cycle_qs
+                .iter()
+                .fold(LorentzVector::default(), |a, b| a + b)
+                .euclidean_square()
+                .sqrt();
+            let test_right = 1.0e-10 * cycle_qs
+                .iter()
+                .map(|mom| mom.euclidean_square().sqrt())
+                .sum::<f64>();
+            assert!(
+                test_left < test_right,
+                "Incorrect definition of qs for cycle #{} ({:#?}). sum(qs) = {:?} > 1e-10*sum(|qs|) = {:?}",
+                i+1, cycle_qs,
+                test_left,
+                test_right,
+            );
+        }
+        */
+
+        // Now compute the corresponding Kappas
+        self.set_qs(&cycle_12_qs);
+        let cycle_12_kappa = self.deform_int_no_jacobian(k, false).unwrap().imag();
+        self.set_qs(&cycle_21_qs);
+        let cycle_21_kappa = self.deform_int_no_jacobian(l, false).unwrap().imag();
+        self.set_qs(&cycle_13_qs);
+        let cycle_13_kappa = self.deform_int_no_jacobian(k, false).unwrap().imag();
+        self.set_qs(&cycle_23_qs);
+        let cycle_23_kappa = self.deform_int_no_jacobian(l, false).unwrap().imag();
+
+        // Add the kappas of the cycles contributing to each loop momentum
+        let kappa_k = cycle_12_kappa + cycle_13_kappa;
+        let kappa_l = cycle_21_kappa + cycle_23_kappa;
+
+        // Now address the scaling of the deformation, a.k.a lambda determination
+        let mut lambda_sq = 1.0;
+
+        // Listing the propagators of the topology, separating the real and imaginary parts
+        let propagators = {
+            let p = (&self.ext[0], &self.ext[1], &self.ext[2], &self.ext[3]);
+            [   ( (k+p.2), kappa_k.clone() ),
+                ( (k+&(p.1+p.2)), kappa_k.clone() ),
+                ( (k-p.3), kappa_k.clone() ),
+                ( (l-p.3), kappa_l.clone() ),
+                ( l.clone(), kappa_l.clone() ),
+                ( (l+p.2), kappa_l.clone() ),
+                ( (k-l), (kappa_k-kappa_l) ),
+            ]
+        };
+
+        for (prop_real, prop_imag) in &propagators {
+            let xj = (prop_imag.dot(prop_real) / prop_imag.square()).powi(2);
+            // Warning, the line below is only correct for the massless case
+            let yj = (prop_real.square()) / prop_imag.square();
+
+            if 2.0 * xj < yj {
+                if yj / 4.0 < lambda_sq {
+                    lambda_sq = yj * 0.25;
+                }
+            } else if yj < 0.0 {
+                if xj - yj / 2.0 < lambda_sq {
+                    lambda_sq = xj - yj * 0.5;
+                }
+            } else {
+                if xj - yj / 4.0 < lambda_sq {
+                    lambda_sq = xj - yj * 0.25;
+                }
+            }
+        }
+
+        // UV rescaling is ignored for now
+        let mut lambda = lambda_sq.sqrt();
+
+        // Build the deformed momenta using the rescaled deformation
+        let k_deformed = &((kappa_k * lambda).to_complex(false)) + k;
+        let l_deformed = &((kappa_l * lambda).to_complex(false)) + l;
+
+        Ok((k_deformed, l_deformed))
     }
 
     fn deform_doublebox(

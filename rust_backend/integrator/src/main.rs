@@ -102,6 +102,7 @@ fn main() {
                     "box",
                     "double-triangle",
                     "double-box",
+                    "double-box-SB",
                     "triangle-box",
                     "triangle-box-alternative",
                     "cross-box"

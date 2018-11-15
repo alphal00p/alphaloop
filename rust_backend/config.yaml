@@ -57,6 +57,17 @@ topologies:
         name: ""
         id: 0
         external_momenta: *box_ext
+    double-box-SB:
+        # Analytical result quoted by SB (exactly real) : -1.43249e-7
+        loops: 2
+        e_cm_sq: 90.0
+        name: ""
+        id: 5
+        external_momenta:
+            - [19.6586, -7.15252, -0.206016, 8.96383]
+            - [26.874, 7.04203, -0.0501295, -12.9055]
+            - [43.4674, 0.11049, 0.2561455, 3.94167]
+            - [-90.0, 0.0, 0.0, 0.0]        
     cross-box:
         loops: 2
         e_cm_sq: 0.947492
