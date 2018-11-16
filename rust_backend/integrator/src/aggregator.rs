@@ -155,8 +155,8 @@ impl Aggregator {
                 let _ = std::fs::rename("vegas_saved_state.dat", "vegas_survey.dat");
                 println!("Survey grid files saved in file 'vegas_survey.dat'.");
 
-                let mut vegas_central_values: Vec<f64> = Vec::with_capacity(self.settings.refine_n_runs);
-                let mut vegas_errors: Vec<f64> = Vec::with_capacity(self.settings.refine_n_runs);
+                let mut vegas_central_values: Vec<Vec<f64>> = Vec::with_capacity(self.settings.refine_n_runs);
+                let mut vegas_errors: Vec<Vec<f64>> = Vec::with_capacity(self.settings.refine_n_runs);
 
                 // We can now start the self.settings.refine_n_runs independent runs
                 ci.set_nstart(self.settings.refine_n_points as i64)
@@ -188,20 +188,24 @@ impl Aggregator {
                     total_fails += refine_result.fail;
                     // Make sure to remove any saved state left over
                     let _ = std::fs::remove_file("vegas_saved_state.dat");
-                    vegas_central_values.push(refine_result.result[0]);
-                    vegas_errors.push(refine_result.error[0]);
+                    vegas_central_values.push(refine_result.result.clone());
+                    vegas_errors.push(refine_result.error.clone());
                     println!(">>> Refine result #{}: {:#?}", i_run+1, refine_result);
                 }
 
                 // Now combine the result
-                let mut combined_central : f64 = 0.;
-                let mut combined_error : f64 = 0.;
+                let mut combined_central : Vec<f64> = vec![0.;survey_result.result.len()];
+                let mut combined_error : Vec<f64> = vec![0.;survey_result.result.len()];
                 for (central, error) in vegas_central_values.iter().zip(vegas_errors.iter()) {
-                    combined_central += central / error.powi(2);
-                    combined_error += 1. / error.powi(2);
+                    for i_component in 0..central.len() {
+                        combined_central[i_component] += central[i_component] / error[i_component].powi(2);
+                        combined_error[i_component] += 1. / error[i_component].powi(2);
+                    }
                 }
-                combined_central /= combined_error;
-                combined_error = 1. / combined_error.sqrt();
+                for i_component in 0..combined_central.len() {
+                    combined_central[i_component] /= combined_error[i_component];
+                    combined_error[i_component] = 1. / combined_error[i_component].sqrt();
+                }
                 // Now return the corresponding CubaResult
                 // TODO: For now only the first integrand component is handled
                 // The corresponding probability is also not aggregated
@@ -209,9 +213,9 @@ impl Aggregator {
                     neval:  (self.settings.survey_n_points*self.settings.survey_n_iterations +
                             self.settings.refine_n_points*self.settings.refine_n_runs) as i64 ,
                     fail: total_fails,
-                    result: vec![combined_central,],
-                    error: vec![combined_error,],
-                    prob: vec![-1.,],
+                    result: combined_central.clone(),
+                    error: combined_error.clone(),
+                    prob: vec![-1.;combined_error.len()],
                 }
 
             } else {
