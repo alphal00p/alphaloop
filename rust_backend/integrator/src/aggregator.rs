@@ -96,11 +96,11 @@ impl Aggregator {
 
         let mut ci = CubaIntegrator::new(integrand);
         ci.set_epsabs(0.)
-            .set_mineval(self.settings.min_eval as i32)
-            .set_nstart(self.settings.nstart as i32)
-            .set_nincrease(self.settings.nincrease as i32)
-            .set_maxeval(self.settings.max_eval as i32)
-            .set_seed(self.settings.seed as i32)
+            .set_mineval(self.settings.min_eval as i64)
+            .set_nstart(self.settings.nstart as i64)
+            .set_nincrease(self.settings.nincrease as i64)
+            .set_maxeval(self.settings.max_eval as i64)
+            .set_seed(self.settings.seed)
             .set_cores(self.settings.cores, 1000);
 
         let r = ci.vegas(
