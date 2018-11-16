@@ -81,6 +81,34 @@ fn main() {
                 .help("Number of samples per integration"),
         )
         .arg(
+            Arg::with_name("survey_n_points")
+                .short("sn")
+                .long("survey_n_points")
+                .value_name("SURVEY_N_POINTS")
+                .help("Number of samples per survey iteration"),
+        )
+        .arg(
+            Arg::with_name("survey_n_iterations")
+                .short("si")
+                .long("survey_n_iterations")
+                .value_name("SURVEY_N_ITERATIONS")
+                .help("Number of iterations for the survey"),
+        )
+        .arg(
+            Arg::with_name("refine_n_points")
+                .short("rn")
+                .long("refine_n_points")
+                .value_name("REFINE_N_POINTS")
+                .help("Number of samples per refine run"),
+        )
+        .arg(
+            Arg::with_name("refine_n_runs")
+                .short("rr")
+                .long("refine_n_runs")
+                .value_name("REFINE_N_RUNS")
+                .help("Number of independent refine runs"),
+        )
+        .arg(
             Arg::with_name("config")
                 .short("f")
                 .long("config")
@@ -127,6 +155,22 @@ fn main() {
 
     if let Some(x) = matches.value_of("samples") {
         p.max_eval = usize::from_str(x).unwrap();
+    }
+
+    if let Some(x) = matches.value_of("survey_n_points") {
+        p.survey_n_points = usize::from_str(x).unwrap();
+    }
+
+    if let Some(x) = matches.value_of("survey_n_iterations") {
+        p.survey_n_iterations = usize::from_str(x).unwrap();
+    }
+
+    if let Some(x) = matches.value_of("refine_n_points") {
+        p.refine_n_points = usize::from_str(x).unwrap();
+    }
+
+    if let Some(x) = matches.value_of("refine_n_runs") {
+        p.refine_n_runs = usize::from_str(x).unwrap();
     }
 
     let mut aggregator = Aggregator::new(p);

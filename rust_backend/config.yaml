@@ -12,6 +12,12 @@ nincrease: 5000
 max_eval: 10000000
 cores: 4
 seed: 1 # use pseudo-random numbers
+# Parameters controlling the survey+refine stragey
+# Set refine_n_runs < 0 to disable it.
+refine_n_runs : 20
+refine_n_points : 10000000
+survey_n_iterations : 5
+survey_n_points : 10000000
 
 
 # list of topologies

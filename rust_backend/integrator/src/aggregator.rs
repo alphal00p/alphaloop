@@ -21,6 +21,10 @@ pub struct Settings {
     pub seed: i32,
     pub param_mode: String,
     pub topologies: HashMap<String, Topology>,
+    pub survey_n_iterations : usize,
+    pub survey_n_points : usize,
+    pub refine_n_runs : usize,
+    pub refine_n_points : usize,
 }
 
 impl Default for Settings {
@@ -39,6 +43,10 @@ impl Default for Settings {
             seed: 0,
             param_mode: "log".to_owned(),
             topologies: HashMap::new(),
+            survey_n_iterations : 5,
+            survey_n_points : 10000000,
+            refine_n_points : 10000000,
+            refine_n_runs : 20
         }
     }
 }
@@ -100,21 +108,129 @@ impl Aggregator {
             .set_nstart(self.settings.nstart as i64)
             .set_nincrease(self.settings.nincrease as i64)
             .set_maxeval(self.settings.max_eval as i64)
-            .set_seed(self.settings.seed)
-            .set_cores(self.settings.cores, 1000);
+            .set_seed(self.settings.seed as i32)
+            .set_cores(self.settings.cores, 1000)
+            .set_use_only_last_sample(false)
+            .set_save_state_file("vegas_saved_state.dat".to_string())
+            .set_keep_state_file(false)
+            .set_reset_vegas_integrator(false);
 
-        let r = ci.vegas(
-            4 * self.n_loops,
-            1,
-            CubaVerbosity::Progress,
-            0, // don't store the grid for now
-            UserData {
-                evaluator: vec![eval; self.settings.cores + 1],
-                running_max: 0f64,
-            },
-        );
-        println!("{:#?}", r);
-        r
+        let final_result = {
+            if self.settings.refine_n_runs > 0 {
+                
+                // Assign cuba flags according to this chosen survey+refine strategy
+                ci.set_save_state_file("vegas_saved_state.dat".to_string())
+                .set_keep_state_file(true)
+                .set_reset_vegas_integrator(true);
+
+                // First perform the survey, making sure that there is no previously existing file 
+                // "vegas_saved_state" or "vegas_survey.dat"
+                let _ = std::fs::remove_file("vegas_saved_state.dat");
+                let _ = std::fs::remove_file("vegas_survey.dat");
+
+                // Keep track of the total number of failed points
+                let mut total_fails = 0;
+
+                // Now we can run the survey, using the specified number of iterations and sample sampel points
+                println!(">>> Now running Vegas survey with {} iterations of {} points:",
+                        self.settings.survey_n_iterations, self.settings.survey_n_points);
+
+                ci.set_nstart(self.settings.survey_n_points as i64)
+                .set_nincrease(0 as i64)
+                .set_maxeval((self.settings.survey_n_iterations*self.settings.survey_n_points) as i64);
+                let survey_result = ci.vegas(
+                    4 * self.n_loops,
+                    1,
+                    CubaVerbosity::Progress,
+                    1, // Save grid in slot 1
+                    UserData {
+                        evaluator: vec![eval; self.settings.cores + 1],
+                        running_max: 0f64,
+                    },
+                );
+                total_fails += survey_result.fail;
+                println!(">>> Survey result : {:#?}", survey_result);
+                
+                // Now move the saved state created to file 'vegas_survey.dat'
+                let _ = std::fs::rename("vegas_saved_state.dat", "vegas_survey.dat");
+                println!("Survey grid files saved in file 'vegas_survey.dat'.");
+
+                let mut vegas_central_values: Vec<f64> = Vec::with_capacity(self.settings.refine_n_runs);
+                let mut vegas_errors: Vec<f64> = Vec::with_capacity(self.settings.refine_n_runs);
+
+                // We can now start the self.settings.refine_n_runs independent runs
+                ci.set_nstart(self.settings.refine_n_points as i64)
+                .set_nincrease(0_i64)
+                .set_maxeval(self.settings.refine_n_points as i64)
+                .set_reset_vegas_integrator(true)
+                .set_use_only_last_sample(true)
+                .set_keep_state_file(false);
+
+                for i_run in 0..self.settings.refine_n_runs {
+                    // Udate the seed
+                    ci.set_seed((self.settings.seed+(i_run as i32)+1) as i32);
+                    // Reinitialise the saved state to the survey grids
+                    let _ = std::fs::copy("vegas_survey.dat", "vegas_saved_state.dat");
+                    // create a new evaluator for each refine
+                    let mut eval = self.evaluator.clone();
+                    println!(">>> Now running Vegas refine run #{} with {} points:",
+                        i_run, self.settings.refine_n_points);
+                    let refine_result = ci.vegas(
+                        4 * self.n_loops,
+                        1,
+                        CubaVerbosity::Progress,
+                        0, // Do not save grids
+                        UserData {
+                            evaluator: vec![eval; self.settings.cores + 1],
+                            running_max: 0f64,
+                        },
+                    );
+                    total_fails += refine_result.fail;
+                    // Make sure to remove any saved state left over
+                    let _ = std::fs::remove_file("vegas_saved_state.dat");
+                    vegas_central_values.push(refine_result.result[0]);
+                    vegas_errors.push(refine_result.error[0]);
+                    println!(">>> Refine result #{}: {:#?}", i_run+1, refine_result);
+                }
+
+                // Now combine the result
+                let mut combined_central : f64 = 0.;
+                let mut combined_error : f64 = 0.;
+                for (central, error) in vegas_central_values.iter().zip(vegas_errors.iter()) {
+                    combined_central += central / error.powi(2);
+                    combined_error += 1. / error.powi(2);
+                }
+                combined_central /= combined_error;
+                combined_error = 1. / combined_error.sqrt();
+                // Now return the corresponding CubaResult
+                // TODO: For now only the first integrand component is handled
+                // The corresponding probability is also not aggregated
+                CubaResult {
+                    neval:  (self.settings.survey_n_points*self.settings.survey_n_iterations +
+                            self.settings.refine_n_points*self.settings.refine_n_runs) as i64 ,
+                    fail: total_fails,
+                    result: vec![combined_central,],
+                    error: vec![combined_error,],
+                    prob: vec![-1.,],
+                }
+
+            } else {
+
+                ci.vegas(
+                    4 * self.n_loops,
+                    1,
+                    CubaVerbosity::Progress,
+                    0, // Not saving the grid
+                    UserData {
+                        evaluator: vec![eval; self.settings.cores + 1],
+                        running_max: 0f64,
+                    },
+                )
+
+            }
+        };
+        println!(">>> Final integration result : {:#?}", final_result);
+        final_result
     }
 
     /// Aggregate the results from several integrations over regions and channels.

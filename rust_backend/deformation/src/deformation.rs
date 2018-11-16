@@ -1284,7 +1284,7 @@ impl Deformer {
         let kappa_l = cycle_21_kappa + cycle_23_kappa;
 
         // Now address the scaling of the deformation, a.k.a lambda determination
-        let mut lambda_sq = 1.0;
+        let mut lambda_sq : f64 = 1.0;
 
         // Listing the propagators of the topology, separating the real and imaginary parts
         let propagators = {
