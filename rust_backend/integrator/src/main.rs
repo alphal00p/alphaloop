@@ -21,7 +21,7 @@ fn performance_test() {
     // do a performance test
     let mu_sq = -1e9;
     let e_cm_sq = 1000. * 1000.;
-    let external_momenta = vec![LorentzVector::from(
+    let external_momenta = vec![LorentzVector::from_args(
         (e_cm_sq
             + 1.3758384614384497e+02_f64.powi(2)
             + 8.1217573038820291e+01_f64.powi(2)
@@ -45,8 +45,8 @@ fn performance_test() {
     let mut rng = thread_rng();
 
     for _ in 0..200000 {
-        let k = LorentzVector::from(rng.gen(), rng.gen(), rng.gen(), rng.gen());
-        let l = LorentzVector::from(rng.gen(), rng.gen(), rng.gen(), rng.gen());
+        let k = LorentzVector::from_args(rng.gen(), rng.gen(), rng.gen(), rng.gen());
+        let l = LorentzVector::from_args(rng.gen(), rng.gen(), rng.gen(), rng.gen());
 
         let (k_m, _jac_k) = parameterizer.map(&k).unwrap();
         let (l_m, _jac_l) = parameterizer.map(&l).unwrap();

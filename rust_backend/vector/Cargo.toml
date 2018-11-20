@@ -5,3 +5,4 @@ authors = ["Ben Ruijl <benruyl@gmail.com>"]
 
 [dependencies]
 num = "0.2"
+dual_num = { git = "https://github.com/benruijl/dual_num", branch="sum" }

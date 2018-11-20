@@ -3,6 +3,7 @@ extern crate cpython;
 extern crate arrayvec;
 extern crate num;
 extern crate vector;
+extern crate dual_num;
 use cpython::{exc, PyErr, PyList, PyResult};
 use std::cell::RefCell;
 

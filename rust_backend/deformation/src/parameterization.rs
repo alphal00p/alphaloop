@@ -74,7 +74,7 @@ impl Parameterizer {
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = 2.0 * f64::PI() * mom.z;
 
-        let k = LorentzVector::from(
+        let k = LorentzVector::from_args(
             k_e * cos_xi,
             k_e * sin_xi * sin_theta * phi.sin(),
             k_e * sin_xi * sin_theta * phi.cos(),
@@ -141,7 +141,7 @@ impl Parameterizer {
         let k2 = ep * theta.sin() * phi.cos();
         let k3 = ep * theta.sin() * phi.sin();
 
-        let mut k = LorentzVector::from(
+        let mut k = LorentzVector::from_args(
             k0 * cos_theta_1 - k1 * sin_theta_1,
             k1 * cos_theta_1 * cos_theta_2 + k0 * cos_theta_2 * sin_theta_1 - k2 * sin_theta_2,
             k2 * cos_theta_2 * cos_phi_3

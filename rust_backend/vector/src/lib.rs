@@ -1,19 +1,27 @@
+extern crate dual_num;
 extern crate num;
 
+use dual_num::Dual;
+use num::traits::Inv;
 use std::fmt;
 use std::fmt::{Debug, Display};
-use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
+use std::ops::{Add, Div, Index, IndexMut, Mul, MulAssign, Neg, Sub};
+use std::iter::Sum;
 
 type Complex = num::Complex<f64>;
 
 pub trait Field
 where
     Self: Mul<Self, Output = Self>,
+    Self: MulAssign<Self>,
     Self: Div<Self, Output = Self>,
     Self: Add<Self, Output = Self>,
     Self: Sub<Self, Output = Self>,
     Self: Neg<Output = Self>,
+    Self: Sum<Self>,
+    Self: PartialEq,
     Self: Copy,
+    Self: From<f64>,
     Self: Default,
     Self: Debug,
     Self: Display,
@@ -22,6 +30,23 @@ where
 
 impl Field for f64 {}
 impl Field for Complex {}
+impl Field for Dual<f64> {}
+
+/// A generalization of a field with the reals as a basic component, with partial ordering
+/// An example of a `RealField` is a dual.
+pub trait RealField
+where
+    Self: Field,
+    Self: PartialOrd,
+    Self: Mul<f64, Output = Self>,
+    Self: Add<f64, Output = Self>,
+    Self: Sub<f64, Output = Self>,
+    Self: Inv<Output = Self>,
+{
+}
+
+impl RealField for f64 {}
+impl RealField for Dual<f64> {}
 
 #[derive(Debug, Copy, Clone)]
 pub struct LorentzVector<T: Field> {
@@ -64,7 +89,7 @@ impl<T: Field> LorentzVector<T> {
     }
 
     #[inline]
-    pub fn from(t: T, x: T, y: T, z: T) -> LorentzVector<T> {
+    pub fn from_args(t: T, x: T, y: T, z: T) -> LorentzVector<T> {
         LorentzVector { t, x, y, z }
     }
 
@@ -251,6 +276,7 @@ impl<'a, T: Field> Sub<&'a LorentzVector<T>> for LorentzVector<T> {
 impl<'a, T: Field> Mul<T> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
+    #[inline]
     fn mul(self, other: T) -> LorentzVector<T> {
         LorentzVector {
             t: self.t * other,
@@ -278,6 +304,7 @@ impl<'a, T: Field> Mul<T> for LorentzVector<T> {
 impl<'a, T: Field> Div<T> for &'a LorentzVector<T> {
     type Output = LorentzVector<T>;
 
+    #[inline]
     fn div(self, other: T) -> LorentzVector<T> {
         LorentzVector {
             t: self.t / other,
@@ -298,6 +325,17 @@ impl<'a, T: Field> Div<T> for LorentzVector<T> {
             x: self.x / other,
             y: self.y / other,
             z: self.z / other,
+        }
+    }
+}
+
+impl<T: RealField> LorentzVector<T> {
+    pub fn from_f64(a: LorentzVector<f64>) -> Self {
+        LorentzVector {
+            t: From::from(a.t),
+            x: From::from(a.x),
+            y: From::from(a.y),
+            z: From::from(a.z),
         }
     }
 }
