@@ -10,6 +10,7 @@ use {REGION_ALL, REGION_EXT, REGION_INT};
 pub struct Settings {
     pub active_topology: String,
     pub mu_sq: f64,
+    pub dual: bool,
     pub multi_channeling: bool,
     pub alpha: Option<f64>,
     pub regions: bool,
@@ -32,6 +33,7 @@ impl Default for Settings {
         Settings {
             active_topology: "box".to_owned(),
             mu_sq: -1e9,
+            dual: true,
             multi_channeling: false,
             regions: false,
             alpha: None,
@@ -73,7 +75,7 @@ impl Aggregator {
             do_regions: settings.regions,
             do_multichanneling: settings.multi_channeling,
             evaluator: settings.topologies[&settings.active_topology]
-                .build_evaluator(settings.mu_sq, settings.alpha),
+                .build_evaluator(settings.mu_sq, settings.dual, settings.alpha),
             settings,
         }
     }

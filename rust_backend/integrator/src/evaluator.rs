@@ -1,6 +1,7 @@
 use deformation::deformation::Deformer;
 use deformation::deformation::{
-    DOUBLE_BOX_ID, DOUBLE_TRIANGLE_ID, TRIANGLE_BOX_ALTERNATIVE_ID, TRIANGLE_BOX_ID, CROSS_BOX_ID, DOUBLE_BOX_SB_ID
+    CROSS_BOX_ID, DOUBLE_BOX_ID, DOUBLE_BOX_SB_ID, DOUBLE_TRIANGLE_ID, TRIANGLE_BOX_ALTERNATIVE_ID,
+    TRIANGLE_BOX_ID,
 };
 use deformation::parameterization::Parameterizer;
 use integrand::integrands::Integrand;
@@ -21,7 +22,7 @@ pub struct Topology {
 }
 
 impl Topology {
-    pub fn build_evaluator(&self, mu_sq: f64, alpha: Option<f64>) -> Evaluator {
+    pub fn build_evaluator(&self, mu_sq: f64, dual: bool, alpha: Option<f64>) -> Evaluator {
         let ext = self
             .external_momenta
             .iter()
@@ -30,7 +31,7 @@ impl Topology {
 
         match self.loops {
             1 => Evaluator::new(&self.name, self.e_cm_sq, alpha, mu_sq, ext),
-            2 => Evaluator::new_two_loop(self.id, self.e_cm_sq, alpha, mu_sq, ext),
+            2 => Evaluator::new_two_loop(self.id, self.e_cm_sq, alpha, mu_sq, dual, ext),
             _ => unreachable!("Invalid number of loops"),
         }
     }
@@ -76,6 +77,7 @@ pub struct Evaluator {
     pub parameterizer: Parameterizer,
     pub deformer: Deformer<f64>,
     pub integrand: Integrand,
+    pub dual: bool,
 }
 
 impl Evaluator {
@@ -107,6 +109,7 @@ impl Evaluator {
             deformer,
             integrand,
             id: ONE_LOOP_ID,
+            dual: false,
         }
     }
 
@@ -115,6 +118,7 @@ impl Evaluator {
         e_cm_sq: f64,
         alpha: Option<f64>,
         mu_sq: f64,
+        dual: bool,
         external_momenta: Vec<LorentzVector<f64>>,
     ) -> Evaluator {
         let mut parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
@@ -132,16 +136,16 @@ impl Evaluator {
             TRIANGLE_BOX_ALTERNATIVE_ID => {
                 Integrand::new("trianglebox_alternative_direct_integration", 0, 0, mu_sq).unwrap()
             }
-            CROSS_BOX_ID => {
-                Integrand::new("crossbox_direct_integration", 0, 0, mu_sq).unwrap()
-            }
-            DOUBLE_BOX_SB_ID => {
-                Integrand::new("box2L_direct_integration_SB", 0, 0, mu_sq).unwrap()
-            }
+            CROSS_BOX_ID => Integrand::new("crossbox_direct_integration", 0, 0, mu_sq).unwrap(),
+            DOUBLE_BOX_SB_ID => Integrand::new("box2L_direct_integration_SB", 0, 0, mu_sq).unwrap(),
             _ => unreachable!("Unknown id"),
         };
 
-        if id == TRIANGLE_BOX_ALTERNATIVE_ID || id == DOUBLE_BOX_ID || id == CROSS_BOX_ID || id == DOUBLE_BOX_SB_ID {
+        if id == TRIANGLE_BOX_ALTERNATIVE_ID
+            || id == DOUBLE_BOX_ID
+            || id == CROSS_BOX_ID
+            || id == DOUBLE_BOX_SB_ID
+        {
             parameterizer.set_qs(vec![
                 LorentzVector::new(),
                 external_momenta[0].clone(),
@@ -159,6 +163,7 @@ impl Evaluator {
             deformer,
             integrand,
             id,
+            dual,
         }
     }
 
@@ -174,7 +179,11 @@ impl Evaluator {
 
             v * j * jac_k
         } else {
-            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID || self.id == DOUBLE_BOX_ID || self.id == CROSS_BOX_ID || self.id == DOUBLE_BOX_SB_ID {
+            if self.id == TRIANGLE_BOX_ALTERNATIVE_ID
+                || self.id == DOUBLE_BOX_ID
+                || self.id == CROSS_BOX_ID
+                || self.id == DOUBLE_BOX_SB_ID
+            {
                 self.parameterizer.set_mode("weinzierl").unwrap();
                 self.parameterizer.set_channel(1);
             }
@@ -195,15 +204,17 @@ impl Evaluator {
                 .map(&LorentzVector::from_slice(&x[4..]))
                 .unwrap();
 
-            let (d, j) = if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
+            let (d, j) = if self.dual {
                 // use the dual loop jacobian
-                let (kk, ll, j) = self.deformer.jacobian_using_dual_two_loops(self.id, &k_m, &l_m);
+                let (kk, ll, j) = self
+                    .deformer
+                    .jacobian_using_dual_two_loops(self.id, &k_m, &l_m);
                 ((kk, ll), j)
             } else {
                 let d = self.deformer.deform_two_loops(self.id, &k_m, &l_m).unwrap();
-                let j = self
-                    .deformer
-                    .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
+                let j =
+                    self.deformer
+                        .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
                 (d, j)
             };
 

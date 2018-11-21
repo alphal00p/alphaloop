@@ -1,5 +1,6 @@
 active_toplogy: box
 mu_sq: -1e9
+dual: true
 # alpha: 1.0 # optional, defaults to sqrt(s)
 multi_channeling: false
 regions: false

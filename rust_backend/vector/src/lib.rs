@@ -42,6 +42,7 @@ where
     Self: Mul<f64, Output = Self>,
     Self: Add<f64, Output = Self>,
     Self: Sub<f64, Output = Self>,
+    Self: Div<f64, Output = Self>,
     Self: PartialOrd<f64>,
     Self: Inv<Output = Self>,
 {
@@ -423,6 +424,7 @@ impl<T: Float + Field> LorentzVector<T> {
         (self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 }
+
 
 impl LorentzVector<f64> {
     #[inline]

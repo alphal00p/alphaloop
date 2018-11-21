@@ -141,6 +141,7 @@ fn main() {
 
     if matches.is_present("bench") {
         performance_test();
+        return;
     }
 
     let mut p = Settings::from_file(matches.value_of("config").unwrap());
