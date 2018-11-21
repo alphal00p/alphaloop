@@ -40,6 +40,7 @@ pub struct Integrand {
     qs: Vec<LorentzVector<f64>>,
     ext: Vec<LorentzVector<f64>>,
     shift: LorentzVector<f64>,
+    on_shell_flag: usize,
 }
 
 impl Integrand {
@@ -73,6 +74,7 @@ impl Integrand {
             qs: Vec::with_capacity(4),
             ext: Vec::with_capacity(4),
             shift: LorentzVector::new(),
+            on_shell_flag: 0,
         })
     }
 
@@ -86,6 +88,16 @@ impl Integrand {
 
     pub fn set_externals(&mut self, ext: Vec<LorentzVector<f64>>) {
         self.ext = ext;
+
+        // build bit-flags for the external momenta
+        // this will indicate which counterterms should be used
+        self.on_shell_flag = 0;
+
+        for (i, e) in self.ext.iter().enumerate() {
+            if e.square() == 0. {
+                self.on_shell_flag |= 2_usize.pow(i as u32);
+            }
+        }
 
         // compute the qs for one-loop computations
         self.qs.clear();
