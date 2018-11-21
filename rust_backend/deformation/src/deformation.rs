@@ -1,9 +1,9 @@
 use arrayvec::ArrayVec;
 use dual_num::Dual;
 use num::Float;
+use std::convert::From;
 use std::f64::EPSILON;
 use utils::{determinant, determinant8};
-use vector::Field;
 use vector::LorentzVector;
 use vector::RealField;
 use Complex;
@@ -44,58 +44,60 @@ const DIRECTIONS: [LorentzVector<f64>; 4] = [
 ];
 
 #[derive(Clone)]
-pub struct Deformer {
-    qs: Vec<LorentzVector<f64>>,
-    ext: Vec<LorentzVector<f64>>, // external momenta
-    masses: Vec<f64>,
-    p_buf: Vec<LorentzVector<f64>>, // buffer for p computation
-    p_plus: LorentzVector<f64>,
-    p_min: LorentzVector<f64>,
+pub struct Deformer<F: Float + RealField> {
+    qs: ArrayVec<[LorentzVector<F>; 10]>,
+    ext: ArrayVec<[LorentzVector<F>; 10]>, // external momenta
+    masses: ArrayVec<[f64; 10]>,
+    p_plus: LorentzVector<F>,
+    p_min: LorentzVector<F>,
     e_cm_sq: f64,
-    mu_p_sq: f64,
-    m1_fac: f64,
-    m2_fac: f64,
-    m3_fac: f64,
-    m4_fac: f64,
-    m1_sq: f64,
-    m2_sq: f64,
-    m3_sq: f64,
-    m4_sq: f64,
-    gamma1: f64,
-    gamma2: f64,
-    e_soft: f64,
+    mu_p_sq: F,
+    m1_fac: F,
+    m2_fac: F,
+    m3_fac: F,
+    m4_fac: F,
+    m1_sq: F,
+    m2_sq: F,
+    m3_sq: F,
+    m4_sq: F,
+    gamma1: F,
+    gamma2: F,
+    e_soft: F,
     region: usize,
     mu_sq: Complex,
-    uv_shift: LorentzVector<f64>,
+    uv_shift: LorentzVector<F>,
 }
 
-impl Deformer {
+impl<F: Float + RealField> Deformer<F> {
     pub fn new(
         e_cm_sq: f64,
         mu_sq: f64,
         region: usize,
-        masses: Vec<f64>,
-    ) -> Result<Deformer, &'static str> {
+        masses: &[f64],
+    ) -> Result<Deformer<F>, &'static str> {
         Ok(Deformer {
-            qs: Vec::with_capacity(6),
-            ext: Vec::with_capacity(4),
-            masses,
-            p_buf: Vec::with_capacity(6),
+            qs: ArrayVec::new(),
+            ext: ArrayVec::new(),
+            masses: {
+                let mut m = ArrayVec::new();
+                m.extend(masses.iter().cloned());
+                m
+            },
             p_plus: LorentzVector::new(),
             p_min: LorentzVector::new(),
             e_cm_sq,
-            mu_p_sq: 0.0,
-            m1_fac: 0.035,
-            m2_fac: 0.7,
-            m3_fac: 0.035,
-            m4_fac: 0.035,
-            m1_sq: 0.0,
-            m2_sq: 0.0,
-            m3_sq: 0.0,
-            m4_sq: 0.0,
-            gamma1: 0.7,
-            gamma2: 0.008,
-            e_soft: 0.03 * e_cm_sq.sqrt(),
+            mu_p_sq: From::from(0.0),
+            m1_fac: From::from(0.035),
+            m2_fac: From::from(0.7),
+            m3_fac: From::from(0.035),
+            m4_fac: From::from(0.035),
+            m1_sq: From::from(0.0),
+            m2_sq: From::from(0.0),
+            m3_sq: From::from(0.0),
+            m4_sq: From::from(0.0),
+            gamma1: From::from(0.7),
+            gamma2: From::from(0.008),
+            e_soft: From::from(0.03 * e_cm_sq.sqrt()),
             mu_sq: Complex::new(0.0, mu_sq),
             uv_shift: LorentzVector::new(),
             region,
@@ -103,31 +105,42 @@ impl Deformer {
     }
 
     /// Set external momenta. Only used for the double box at the moment.
-    pub fn set_external_momenta(&mut self, ext: Vec<LorentzVector<f64>>) {
-        self.ext = ext;
+    pub fn set_external_momenta_iter<T>(&mut self, ext: T)
+    where
+        T: Iterator<Item = LorentzVector<F>>,
+    {
+        self.ext.clear();
+        self.ext.extend(ext);
+    }
+
+    pub fn set_external_momenta(&mut self, ext: &[LorentzVector<F>]) {
+        self.set_external_momenta_iter(ext.iter().cloned());
     }
 
     pub fn set_region(&mut self, region: usize) {
         self.region = region;
     }
 
-    /// Set new qs and update all parameters accordingly.
-    pub fn set_qs(&mut self, qs: &[LorentzVector<f64>]) {
+    fn set_qs_iter<T>(&mut self, qs: T)
+    where
+        T: Iterator<Item = LorentzVector<F>>,
+    {
         self.qs.clear();
-        self.qs.extend_from_slice(qs);
+        self.qs.extend(qs);
 
-        if self.masses.len() != self.qs.len() {
-            self.masses.resize(self.qs.len(), 0.);
+        if self.masses.len() < self.qs.len() {
+            let ld = self.qs.len() - self.masses.len();
+            self.masses.extend((0..ld).map(|_| 0.));
         }
 
         self.uv_shift = LorentzVector::new();
         for q in &self.qs {
             self.uv_shift = &self.uv_shift + q;
         }
-        self.uv_shift = &self.uv_shift * (1.0 / (self.qs.len() as f64));
+        self.uv_shift = &self.uv_shift * From::from(1.0 / (self.qs.len() as f64));
 
-        self.p_plus = self.compute_p_alternative(true);
-        self.p_min = self.compute_p_alternative(false);
+        self.p_plus = self.compute_p(true);
+        self.p_min = self.compute_p(false);
         self.shift_and_check_p();
 
         self.mu_p_sq = (&self.p_min - &self.p_plus).square();
@@ -138,26 +151,31 @@ impl Deformer {
             * (if self.mu_p_sq > self.e_cm_sq {
                 self.mu_p_sq
             } else {
-                self.e_cm_sq
+                From::from(self.e_cm_sq)
             });
         self.m3_sq = self.m3_fac
             * self.m3_fac
             * (if self.mu_p_sq > self.e_cm_sq {
                 self.mu_p_sq
             } else {
-                self.e_cm_sq
+                From::from(self.e_cm_sq)
             });
         self.m4_sq = self.m4_fac * self.m4_fac * self.e_cm_sq;
     }
 
+    /// Set new qs and update all parameters accordingly.
+    pub fn set_qs(&mut self, qs: &[LorentzVector<F>]) {
+        self.set_qs_iter(qs.iter().cloned());
+    }
+
     /// Interpolate between vectors
     #[inline]
-    fn z(a: LorentzVector<f64>, b: LorentzVector<f64>, plus: bool) -> LorentzVector<f64> {
+    fn z(a: LorentzVector<F>, b: LorentzVector<F>, plus: bool) -> LorentzVector<F> {
         if b.euclidean_square() < 1e-9 {
             return a;
         }
 
-        let n = 1.0 / b.spatial_distance();
+        let n = b.spatial_distance().inv();
 
         if plus {
             &LorentzVector::from_args(
@@ -165,14 +183,14 @@ impl Deformer {
                 a.x - n * b.t * b.x,
                 a.y - n * b.t * b.y,
                 a.z - n * b.t * b.z,
-            ) * 0.5
+            ) * From::from(0.5)
         } else {
             &LorentzVector::from_args(
                 a.t - n * b.square() + n * b.t * b.t,
                 a.x + n * b.t * b.x,
                 a.y + n * b.t * b.y,
                 a.z + n * b.t * b.z,
-            ) * 0.5
+            ) * From::from(0.5)
         }
     }
 
@@ -180,7 +198,7 @@ impl Deformer {
     ///the forward lightcone of P if `plus`, or are in the backwards lightcone
     ///if not `plus`.
     ///This function uses the algorithm from Becker's thesis
-    fn compute_p_alternative(&mut self, plus: bool) -> LorentzVector<f64> {
+    fn compute_p(&mut self, plus: bool) -> LorentzVector<F> {
         let mut p = self.qs[0].clone();
 
         for q in &self.qs[1..] {
@@ -196,92 +214,16 @@ impl Deformer {
         p
     }
 
-    ///Find a vector P such that all external momenta `qs` are in
-    ///the forward lightcone of P if `plus`, or are in the backwards lightcone
-    ///if not `plus`.
-    fn compute_p(&mut self, plus: bool) -> LorentzVector<f64> {
-        self.p_buf.clear();
-        self.p_buf.extend_from_slice(&self.qs);
-        let mut keep_map = [true; 10]; // we will not have more than 10 propagators
-        assert!(self.p_buf.len() < 10);
-
-        loop {
-            unsafe {
-                // filter all vectors that are in the forward/backward light-cone of another vector
-                for (i, v) in self.p_buf.iter().enumerate() {
-                    if *keep_map.get_unchecked(i) {
-                        for (j, v1) in self.p_buf[i + 1..].iter().enumerate() {
-                            if *keep_map.get_unchecked(i + 1 + j) && (v - v1).square() >= 0.0 {
-                                *keep_map.get_unchecked_mut(i) &=
-                                    (plus && v.t <= v1.t) || (!plus && v.t >= v1.t);
-                                *keep_map.get_unchecked_mut(i + 1 + j) &=
-                                    (plus && v.t >= v1.t) || (!plus && v.t <= v1.t);
-
-                                if !*keep_map.get_unchecked(i) {
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let mut i = 0;
-                while i < self.p_buf.len() {
-                    if !keep_map.get_unchecked(i) {
-                        self.p_buf.swap_remove(i);
-                        *keep_map.get_unchecked_mut(i) = *keep_map.get_unchecked(self.p_buf.len());
-                    } else {
-                        i += 1;
-                    }
-                }
-            }
-
-            if self.p_buf.len() == 0 {
-                panic!("Failed to determine P_{+/-}.");
-            }
-            if self.p_buf.len() == 1 {
-                break;
-            }
-
-            // find the pair with the smallest space-like separation
-            let (mut first, mut sec, mut min_sep) = (0, 1, 0.0);
-            for (i, v1) in self.p_buf.iter().enumerate() {
-                for (j, v2) in self.p_buf[i + 1..].iter().enumerate() {
-                    let sep = -(v1 - v2).square();
-                    if min_sep == 0.0 || sep <= min_sep {
-                        min_sep = sep;
-                        first = i;
-                        sec = i + j + 1;
-                    }
-                }
-            }
-
-            // replace first vector and drop the second
-            self.p_buf[first] = Deformer::z(
-                &self.p_buf[first] + &self.p_buf[sec],
-                &self.p_buf[first] - &self.p_buf[sec],
-                plus,
-            );
-            self.p_buf.swap_remove(sec);
-            if self.p_buf.len() == 1 {
-                break;
-            }
-        }
-
-        assert!(self.p_buf.len() == 1);
-        self.p_buf.pop().unwrap()
-    }
-
     /// Shift P+ and P- outward and check if their new values fulfills P^2 >= 0.0 and (+/-) * P+/-.t <= 0.0  
     /// This is necessary to counterbalance numerical error arising in the exact algorithm
     fn shift_and_check_p(&mut self) {
         //Perform the shift
-        let r = (&self.p_min - &self.p_plus) * 0.5;
-        let center = (&self.p_min + &self.p_plus) * 0.5;
+        let r = (&self.p_min - &self.p_plus) * From::from(0.5);
+        let center = (&self.p_min + &self.p_plus) * From::from(0.5);
         let shift_size = 1.0e-2;
 
-        self.p_min = &center + &r * (1.0 + shift_size);
-        self.p_plus = &center - &r * (1.0 + shift_size);
+        self.p_min = &center + &r * From::from(1.0 + shift_size);
+        self.p_plus = &center - &r * From::from(1.0 + shift_size);
 
         //Check if P+/- has all the qs in its backward/forward light-cone
         let mut pq_diff;
@@ -311,16 +253,376 @@ impl Deformer {
     }
 
     /// The three helper functions h_delta-, h_delta+, and h_delta0, indicated by `sign`.
-    fn h_delta<T: Float + Field>(sign: i32, k: &LorentzVector<T>, mass: f64, m: f64) -> T {
+    fn h_delta(sign: i32, k: &LorentzVector<F>, mass: f64, m: F) -> F {
+        let a = k.spatial_squared() + <F as num::NumCast>::from(mass).unwrap();
         let v = if sign == 0 {
-            (k.t.abs() - (k.spatial_squared() + num::NumCast::from(mass).unwrap()).sqrt()).powi(2)
+            (k.t.abs() - a.sqrt()).powi(2)
         } else {
-            (k.t * num::NumCast::from(sign as f64).unwrap()
-                - (k.spatial_squared() + num::NumCast::from(mass).unwrap()).sqrt()).powi(2)
+            (k.t * <F as num::NumCast>::from(sign).unwrap() - a.sqrt()).powi(2)
         };
-        v / (v + num::NumCast::from(m).unwrap())
+        v / (v + m)
     }
 
+    #[inline]
+    fn h_theta(t: F, m: F) -> F {
+        if t <= 0. {
+            num::NumCast::from(0.).unwrap()
+        } else {
+            t / (t + m)
+        }
+    }
+
+    #[inline]
+    fn g(k: &LorentzVector<F>, gamma: F, m: F) -> F {
+        (k.euclidean_square() + m).inv() * gamma * m
+    }
+
+    /// Return d
+    fn d(&self, mom: &LorentzVector<F>, i: usize, l: usize) -> F {
+        if self.masses[l] == 0.0 {
+            if l == i {
+                return num::NumCast::from(1.0).unwrap();
+            }
+
+            if (&self.qs[i] - &self.qs[l]).square() == 0.0 {
+                let a: LorentzVector<F> = mom - self.qs[l];
+                if self.qs[i].t < self.qs[l].t {
+                    return Deformer::h_delta(1, &a, 0.0, self.m1_sq);
+                } else {
+                    return Deformer::h_delta(-1, &a, 0.0, self.m1_sq);
+                }
+            }
+        }
+
+        let a: LorentzVector<F> = mom - self.qs[l];
+        let hd = Deformer::h_delta(0, &a, self.masses[l] * self.masses[l], self.m1_sq);
+
+        let ht = Deformer::h_theta(a.dot(&(mom - self.qs[i])) * -2.0, self.m1_sq);
+        if hd > ht {
+            hd
+        } else {
+            ht
+        }
+    }
+
+    fn deform_int_no_jacobian(
+        &self,
+        mom: &LorentzVector<F>,
+        include_cij: bool,
+        include_ca: bool,
+        include_uv: bool,
+    ) -> LorentzVector<F> {
+        let (mut c_plus, mut c_minus): (F, F) = (
+            num::NumCast::from(1.0).unwrap(),
+            num::NumCast::from(1.0).unwrap(),
+        );
+
+        for (qi, mi) in self.qs.iter().zip(&self.masses) {
+            // note the sign reversal
+            c_plus *= Deformer::h_delta(-1, &(mom - qi), mi * mi, self.m3_sq);
+            c_minus *= Deformer::h_delta(1, &(mom - qi), mi * mi, self.m3_sq);
+        }
+
+        let k_plus = mom - self.p_plus;
+        let k_minus = mom - self.p_min;
+        let k_ext = LorentzVector::from_args(
+            c_plus * k_plus.t + c_minus * k_minus.t,
+            -c_plus * k_plus.x - c_minus * k_minus.x,
+            -c_plus * k_plus.y - c_minus * k_minus.y,
+            -c_plus * k_plus.z - c_minus * k_minus.z,
+        );
+
+        // internal part
+        let k_centre = (k_plus + k_minus) * num::NumCast::from(0.5).unwrap();
+
+        // TODO: cache qi= mom-qs[i]?
+
+        let n = self.qs.len();
+        assert!(n <= 10);
+        let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
+        let mut c = [f; 10]; // use static array, for performance
+
+        let mut c2 = if include_cij {
+            [[f; 10]; 10]
+        } else {
+            [[num::NumCast::from(0.).unwrap(); 10]; 10]
+        };
+
+        let nul = num::NumCast::from(0.).unwrap();
+        let ka = [
+            LorentzVector::from_args(self.e_soft, nul, nul, nul),
+            LorentzVector::from_args(nul, self.e_soft, nul, nul),
+            LorentzVector::from_args(nul, nul, self.e_soft, nul),
+            LorentzVector::from_args(nul, nul, nul, self.e_soft),
+        ];
+
+        let mut ca = if include_ca {
+            [f; 4]
+        } else {
+            [num::NumCast::from(0.).unwrap(); 4]
+        };
+
+        let mut k_int = LorentzVector::new();
+        for i in 0..n {
+            for l in 0..n {
+                // note: in paper l starts at 1
+                c[i] *= Deformer::d(self, mom, i, l);
+
+                let l1 = Deformer::h_delta(0, &(mom - self.qs[l]), self.masses[l], self.m1_sq);
+                for j in i + 1..n {
+                    // note: specialized for internal masses=0
+                    c2[i][j] *= Deformer::h_theta(
+                        num::NumCast::from((self.qs[i] - self.qs[j]).square()).unwrap(),
+                        self.m1_sq,
+                    );
+
+                    let a = <F as num::NumCast>::from(-2.).unwrap()
+                        * (mom - self.qs[l]).dot(
+                            &(mom
+                                - self.qs[i] * <F as num::NumCast>::from(0.5).unwrap()
+                                - self.qs[j] * <F as num::NumCast>::from(0.5).unwrap()),
+                        );
+                    let l2 = Deformer::h_theta(a, self.m1_sq);
+
+                    if l1 < l2 {
+                        c2[i][j] *= l2;
+                    } else {
+                        c2[i][j] *= l1;
+                    }
+                }
+            }
+
+            for j in i + 1..n {
+                let zij = (self.qs[i] - self.qs[j]).square();
+                if zij > 0. {
+                    let ki = mom - self.qs[i];
+                    let kj = mom - self.qs[j];
+                    let vij = (self.qs[i] * kj.t - self.qs[j] * ki.t)
+                        * (self.qs[i].t - self.qs[j].t).inv();
+                    k_int = k_int - (mom - vij) * c2[i][j] * (zij / (zij + self.m2_sq));
+                    // k_int = k_int - (mom - self.qs[i] * 0.5 - self.qs[j] * 0.5)
+                }
+            }
+
+            let l = mom - self.qs[i];
+            k_int = k_int + l * -c[i];
+        }
+
+        // compute k_soft
+        for a in 0..4 {
+            let mut da_plus: F = num::NumCast::from(1.).unwrap();
+            let mut da_min: F = num::NumCast::from(1.).unwrap();
+            for l in 0..n {
+                let l1 = Deformer::h_delta(0, &(mom - self.qs[l]), 0., self.gamma2 * self.m1_sq);
+                let lp2 = Deformer::h_theta(
+                    <F as num::NumCast>::from(2.).unwrap() * (mom - self.qs[l]).dot(&ka[a]),
+                    self.gamma2 * self.m1_sq,
+                );
+                let lm2 = Deformer::h_theta(
+                    <F as num::NumCast>::from(-2.).unwrap() * (mom - self.qs[l]).dot(&ka[a]),
+                    self.gamma2 * self.m1_sq,
+                );
+
+                if l1 < lp2 {
+                    da_plus *= lp2;
+                } else {
+                    da_plus *= l1;
+                }
+
+                if l1 < lm2 {
+                    da_min *= lm2;
+                } else {
+                    da_min *= l1;
+                }
+            }
+
+            ca[a] *= da_plus - da_min;
+            k_int = k_int + ka[a] * ca[a];
+        }
+
+        let k0 = k_int + k_ext;
+        let mut lambda_cycle_sq: F = num::NumCast::from(1.).unwrap(); // maximum lambda value
+
+        let mut restriction = 0;
+        for j in 0..n {
+            let k0_sq = k0.square();
+            let lj = mom - self.qs[j];
+            let k0_lqj = k0.dot(&lj);
+            let w = lj.square() - self.masses[j].powi(2);
+
+            let xj = (k0_lqj / k0_sq).powi(2);
+            let yj = w / k0_sq;
+
+            if <F as num::NumCast>::from(2.).unwrap() * xj < yj {
+                if yj * <F as num::NumCast>::from(0.25).unwrap() < lambda_cycle_sq {
+                    lambda_cycle_sq = yj * <F as num::NumCast>::from(0.25).unwrap();
+                    restriction = 1;
+                }
+            } else if yj < <F as num::NumCast>::from(0.0).unwrap() {
+                if xj - yj * <F as num::NumCast>::from(0.5).unwrap() < lambda_cycle_sq {
+                    lambda_cycle_sq = xj - yj * <F as num::NumCast>::from(0.5).unwrap();
+                    restriction = 2;
+                }
+            } else {
+                if xj - yj * <F as num::NumCast>::from(0.25).unwrap() < lambda_cycle_sq {
+                    lambda_cycle_sq = xj - yj * <F as num::NumCast>::from(0.25).unwrap();
+                    restriction = 3;
+                }
+            }
+        }
+
+        let mut lambda_cycle = lambda_cycle_sq.sqrt();
+
+        // collinear contribution
+        let n1: F = c[..n].iter().cloned().sum::<F>()
+            + c2[..n]
+                .iter()
+                .enumerate()
+                .map(|(i, x)| x[i + 1..n].iter().cloned().sum::<F>())
+                .sum::<F>()
+            + ca[..4].iter().map(|x| x.abs()).sum::<F>();
+
+        if <F as num::NumCast>::from(0.25).unwrap() / n1 < lambda_cycle {
+            if restriction == 1 {
+                // TODO: we are not near any collinear limit. We could consider not scaling the lambda down!
+                //println!("We are not near the collinear limit, yet we rescale lambda from {} to {}", lambda_cycle, 1.0 / (4.0 * n1));
+            }
+
+            lambda_cycle = <F as num::NumCast>::from(0.25).unwrap() / n1;
+        }
+
+        if include_uv {
+            let l = mom - self.uv_shift;
+            let uv_fac: F = l.dot(&k0) * <F as num::NumCast>::from(4.).unwrap();
+            if uv_fac <= self.mu_sq.im {
+                if lambda_cycle > <F as num::NumCast>::from(self.mu_sq.im).unwrap() / uv_fac {
+                    lambda_cycle = <F as num::NumCast>::from(self.mu_sq.im).unwrap() / uv_fac;
+                }
+            }
+        }
+
+        k0 * lambda_cycle
+    }
+
+    fn deform_two_loops_no_jac(
+        &mut self,
+        id: usize,
+        k: &LorentzVector<F>,
+        l: &LorentzVector<F>,
+    ) -> Result<(LorentzVector<F>, LorentzVector<F>), &str> {
+        match id {
+            //DOUBLE_BOX_ID => (self.deform_doublebox(k, l), Complex::default()),
+            //DOUBLE_TRIANGLE_ID => (self.deform_doubletriangle(k, l), Complex::default()),
+            //TRIANGLE_BOX_ID => (self.deform_trianglebox(k, l), Complex::default()),
+            TRIANGLE_BOX_ALTERNATIVE_ID => Ok(self.deform_trianglebox_alternative(k, l)),
+            //CROSS_BOX_ID => (self.deform_crossbox(k, l), Complex::default()),
+            //DOUBLE_BOX_SB_ID => (self.deform_doublebox_sb(k, l), Complex::default()),
+            _ => Err("Unknown id"),
+        }
+    }
+
+    fn deform_trianglebox_alternative(
+        &mut self,
+        k: &LorentzVector<F>,
+        l: &LorentzVector<F>,
+    ) -> (LorentzVector<F>, LorentzVector<F>) {
+        // compute the external momenta for the C12(k) cycle and express the qs in terms of that.
+        // This is not a shift. We also set q[0] = 0 at the 1/k^2 line
+        // k, l, k - l, l - p2, l + p1, k + p1
+        let momenta_12 = [
+            k.clone(),
+            k - self.ext[0],
+            l.clone(),
+            l - self.ext[1],
+            l + self.ext[0],
+        ];
+        let momenta_13 = [k - self.ext[0], k.clone(), k - l - self.ext[0]];
+        let momenta_23 = [
+            l.clone(),
+            l - self.ext[1],
+            l + self.ext[0],
+            l - k + self.ext[0],
+        ];
+
+        //Compute qs
+        let c12_qs_k: ArrayVec<[LorentzVector<F>; 10]> =
+            momenta_12.iter().map(|mom| k - mom).collect();
+        let c12_qs_l: ArrayVec<[LorentzVector<F>; 10]> =
+            momenta_12.iter().map(|mom| l - mom).collect();
+        let c13_qs_k: ArrayVec<[LorentzVector<F>; 10]> =
+            momenta_13.iter().map(|mom| k - mom).collect();
+        let c23_qs_l: ArrayVec<[LorentzVector<F>; 10]> =
+            momenta_23.iter().map(|mom| l - mom).collect();
+
+        //Compute kappas
+        self.set_qs(&c12_qs_k);
+        let c12_k = self.deform_int_no_jacobian(k, true, false, false);
+
+        self.set_qs(&c12_qs_l);
+        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
+
+        self.set_qs(&c13_qs_k);
+        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
+
+        self.set_qs(&c23_qs_l);
+        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
+
+        let k_1 = c12_k + c13_k;
+        let k_2 = c12_l + c23_l;
+
+        let mut lambda_sq = <F as num::NumCast>::from(1.).unwrap();
+
+        // propagators with substituted momenta split in real and imag
+        // k, l, k - l, k - l - p2, k - l + p1, k + p1
+        let props = [
+            (k.clone(), k_1.clone()),
+            (l.clone(), k_2.clone()),
+            (k - l - self.ext[0], &k_1 - &k_2),
+            (l - self.ext[1], k_2.clone()),
+            (l + self.ext[0], k_2.clone()),
+            (k - self.ext[0], k_1.clone()),
+        ];
+
+        for (qt, kt) in &props {
+            let xj = (kt.dot(qt) / kt.square()).powi(2);
+            let yj = (qt.square()) / kt.square(); // for the massless case
+
+            if <F as num::NumCast>::from(2.0).unwrap() * xj < yj {
+                if yj * <F as num::NumCast>::from(0.25).unwrap() < lambda_sq {
+                    lambda_sq = yj * <F as num::NumCast>::from(0.25).unwrap();
+                }
+            } else if yj < <F as num::NumCast>::from(0.0).unwrap() {
+                if xj - yj * <F as num::NumCast>::from(0.5).unwrap() < lambda_sq {
+                    lambda_sq = xj - yj * <F as num::NumCast>::from(0.5).unwrap();
+                }
+            } else {
+                if xj - yj * <F as num::NumCast>::from(0.25).unwrap() < lambda_sq {
+                    lambda_sq = xj - yj * <F as num::NumCast>::from(0.25).unwrap();
+                }
+            }
+        }
+
+        // we assume the UV propagators to be 1/(k^2+mu^2) and 1/(l^2+mu^2)
+        let mut lambda = lambda_sq.sqrt();
+
+        let uv_fac_k = <F as num::NumCast>::from(4.0).unwrap() * k.dot(&k_1);
+        let uv_fac_l = <F as num::NumCast>::from(4.0).unwrap() * l.dot(&k_2);
+        if uv_fac_k <= self.mu_sq.im
+            && lambda > <F as num::NumCast>::from(self.mu_sq.im).unwrap() / uv_fac_k
+        {
+            lambda = <F as num::NumCast>::from(self.mu_sq.im).unwrap() / uv_fac_k;
+        }
+        if uv_fac_l <= self.mu_sq.im
+            && lambda > <F as num::NumCast>::from(self.mu_sq.im).unwrap() / uv_fac_l
+        {
+            lambda = <F as num::NumCast>::from(self.mu_sq.im).unwrap() / uv_fac_l;
+        }
+
+        (k_1 * lambda, k_2 * lambda)
+    }
+}
+
+impl Deformer<f64> {
     /// Derivative of h_delta wrt ln k
     fn h_delta_ln_grad(sign: i32, k: &LorentzVector<f64>, mass: f64, m: f64) -> LorentzVector<f64> {
         let w = (k.spatial_squared() + mass).sqrt();
@@ -342,15 +644,6 @@ impl Deformer {
         &w_grad * (2.0 * m / w1 / (w1 * w1 + m))
     }
 
-    #[inline]
-    fn h_theta<T: Float + Field>(t: T, m: f64) -> T {
-        if t <= num::NumCast::from(0.).unwrap() {
-            num::NumCast::from(0.).unwrap()
-        } else {
-            t / (t + num::NumCast::from(m).unwrap())
-        }
-    }
-
     /// Derivative of h_theta wrt ln t
     #[inline]
     fn h_theta_ln_grad(t: f64, m: f64) -> f64 {
@@ -359,11 +652,6 @@ impl Deformer {
         } else {
             m / t / (t + m)
         }
-    }
-
-    #[inline]
-    fn g<T: Float + RealField>(k: &LorentzVector<T>, gamma: f64, m: f64) -> T {
-        (k.euclidean_square() + m).inv() * gamma * m
     }
 
     /// Derivative of h_theta wrt ln k
@@ -423,47 +711,12 @@ impl Deformer {
             (
                 ht,
                 &(&(mom - &self.qs[l]).dual() + &(mom - &self.qs[i]).dual())
-                    * (-2.0 * Deformer::h_theta_ln_grad(
-                        -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
-                        self.m1_sq,
-                    )),
+                    * (-2.0
+                        * Deformer::h_theta_ln_grad(
+                            -2.0 * (mom - &self.qs[l]).dot(&(mom - &self.qs[i])),
+                            self.m1_sq,
+                        )),
             )
-        }
-    }
-
-    /// Return d
-    fn d<T: Float + RealField>(&self, mom: &LorentzVector<T>, i: usize, l: usize) -> T {
-        if self.masses[l] == 0.0 {
-            if l == i {
-                return num::NumCast::from(1.0).unwrap();
-            }
-
-            if (&self.qs[i] - &self.qs[l]).square() == 0.0 {
-                let a: LorentzVector<T> = mom - LorentzVector::from_f64(self.qs[l]);
-                if self.qs[i].t < self.qs[l].t {
-                    return Deformer::h_delta(1, &a, 0.0, self.m1_sq);
-                } else {
-                    return Deformer::h_delta(-1, &a, 0.0, self.m1_sq);
-                }
-            }
-        }
-
-        let a: LorentzVector<T> = mom - LorentzVector::from_f64(self.qs[l]);
-        let hd = Deformer::h_delta(
-            0,
-            &a,
-            self.masses[l] * self.masses[l],
-            self.m1_sq,
-        );
-
-        let ht = Deformer::h_theta(
-            a.dot(&(mom - LorentzVector::from_f64(self.qs[i]))) * -2.0,
-            self.m1_sq,
-        );
-        if hd > ht {
-            hd
-        } else {
-            ht
         }
     }
 
@@ -643,201 +896,13 @@ impl Deformer {
         let (k_new, jac_dual) = self.jacobian_using_dual(mom);
 
         if (jac_dual.norm() - jac.norm()).abs() > 0.000001 {
-            println!("jac={}, jac_dual={}, k={}, k_new={}", jac, jac_dual, k, k_new);
+            println!(
+                "jac={}, jac_dual={}, k={}, k_new={}",
+                jac, jac_dual, k, k_new
+            );
         }
 
         Ok((k, jac))
-    }
-
-    fn deform_int_no_jacobian<T: Float + RealField>(
-        &self,
-        mom: &LorentzVector<T>,
-        check_uv: bool, // not necesary at 2 loops
-    ) -> LorentzVector<T> {
-        let (mut c_plus, mut c_minus): (T, T) = (
-            num::NumCast::from(1.0).unwrap(),
-            num::NumCast::from(1.0).unwrap(),
-        );
-
-        // convert the type of the external momenta
-        let mut qsa: ArrayVec<[LorentzVector<T>; 10]> = ArrayVec::default();
-        qsa.extend(self.qs.iter().map(|x| LorentzVector::from_f64(*x)));
-
-        for (qi, mi) in qsa.iter().zip(&self.masses) {
-            // note the sign reversal
-            c_plus *= Deformer::h_delta(-1, &(mom - qi), mi * mi, self.m3_sq);
-            c_minus *= Deformer::h_delta(1, &(mom - qi), mi * mi, self.m3_sq);
-        }
-
-        let k_plus = mom - LorentzVector::from_f64(self.p_plus);
-        let k_minus = mom - LorentzVector::from_f64(self.p_min);
-        let k_ext = LorentzVector::from_args(
-            c_plus * k_plus.t + c_minus * k_minus.t,
-            -c_plus * k_plus.x - c_minus * k_minus.x,
-            -c_plus * k_plus.y - c_minus * k_minus.y,
-            -c_plus * k_plus.z - c_minus * k_minus.z,
-        );
-
-        // internal part
-        let k_centre = (k_plus + k_minus) * num::NumCast::from(0.5).unwrap();
-
-        // TODO: cache qi= mom-qs[i]?
-
-        let n = self.qs.len();
-        assert!(n <= 10);
-        let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
-        let mut c = [f; 10]; // use static array, for performance
-                             //let mut c2 = [[f; 10]; 10]; // FIXME: to compare with 1-loop routine!
-        let mut c2 = [[num::NumCast::from(0.).unwrap(); 10]; 10];
-
-        let ka = [
-            LorentzVector::from_f64(LorentzVector::from_args(self.e_soft, 0., 0., 0.)),
-            LorentzVector::from_f64(LorentzVector::from_args(0., self.e_soft, 0., 0.)),
-            LorentzVector::from_f64(LorentzVector::from_args(0., 0., self.e_soft, 0.)),
-            LorentzVector::from_f64(LorentzVector::from_args(0., 0., 0., self.e_soft)),
-        ];
-        //let mut ca = [f; 4];
-        let mut ca = [num::NumCast::from(0.).unwrap(); 4]; // disable the ca by default
-
-        let mut k_int = LorentzVector::new();
-        for i in 0..n {
-            for l in 0..n {
-                // note: in paper l starts at 1
-                c[i] *= Deformer::d(self, mom, i, l);
-
-                let l1 = Deformer::h_delta(0, &(mom - qsa[l]), self.masses[l], self.m1_sq);
-                for j in i + 1..n {
-                    // note: specialized for internal masses=0
-                    c2[i][j] *= Deformer::h_theta(
-                        num::NumCast::from((self.qs[i] - self.qs[j]).square()).unwrap(),
-                        self.m1_sq,
-                    );
-
-                    let b: T = <T as num::NumCast>::from(-2.).unwrap();
-                    let a: T = b
-                        * (mom - qsa[l]).dot(
-                            &(mom - LorentzVector::from_f64(self.qs[i] * 0.5 - self.qs[j] * 0.5)),
-                        );
-                    let l2 = Deformer::h_theta(a, self.m1_sq);
-
-                    if l1 < l2 {
-                        c2[i][j] *= l2;
-                    } else {
-                        c2[i][j] *= l1;
-                    }
-                }
-            }
-
-            for j in i + 1..n {
-                let zij = (qsa[i] - qsa[j]).square();
-                if zij > num::NumCast::from(0.).unwrap() {
-                    let ki = mom - qsa[i];
-                    let kj = mom - qsa[j];
-                    let vij = (qsa[i] * kj.t - qsa[j] * ki.t) * (qsa[i].t - qsa[j].t).inv();
-                    k_int = k_int - (mom - vij) * c2[i][j] * (zij / (zij + self.m2_sq));
-                    // k_int = k_int - (mom - self.qs[i] * 0.5 - self.qs[j] * 0.5)
-                }
-            }
-
-            let l = mom - qsa[i];
-            k_int = k_int + l * -c[i];
-        }
-
-        // compute k_soft
-        for a in 0..4 {
-            let mut da_plus: T = num::NumCast::from(1.).unwrap();
-            let mut da_min: T = num::NumCast::from(1.).unwrap();
-            for l in 0..n {
-                let l1 = Deformer::h_delta(0, &(mom - qsa[l]), 0., self.gamma2 * self.m1_sq);
-                let lp2 = Deformer::h_theta(
-                    <T as num::NumCast>::from(2.).unwrap() * (mom - qsa[l]).dot(&ka[a]),
-                    self.gamma2 * self.m1_sq,
-                );
-                let lm2 = Deformer::h_theta(
-                    <T as num::NumCast>::from(-2.).unwrap() * (mom - qsa[l]).dot(&ka[a]),
-                    self.gamma2 * self.m1_sq,
-                );
-
-                if l1 < lp2 {
-                    da_plus *= lp2;
-                } else {
-                    da_plus *= l1;
-                }
-
-                if l1 < lm2 {
-                    da_min *= lm2;
-                } else {
-                    da_min *= l1;
-                }
-            }
-
-            ca[a] *= da_plus - da_min;
-            k_int = k_int + ka[a] * ca[a];
-        }
-
-        let k0 = k_int + k_ext;
-        let mut lambda_cycle_sq: T = num::NumCast::from(1.).unwrap(); // maximum lambda value
-
-        let mut restriction = 0;
-        for j in 0..n {
-            let k0_sq = k0.square();
-            let lj = mom - qsa[j];
-            let k0_lqj = k0.dot(&lj);
-            let w = lj.square() - self.masses[j].powi(2);
-
-            let xj = (k0_lqj / k0_sq).powi(2);
-            let yj = w / k0_sq;
-
-            if <T as num::NumCast>::from(2.).unwrap() * xj < yj {
-                if yj * <T as num::NumCast>::from(0.25).unwrap() < lambda_cycle_sq {
-                    lambda_cycle_sq = yj * <T as num::NumCast>::from(0.25).unwrap();
-                    restriction = 1;
-                }
-            } else if yj < <T as num::NumCast>::from(0.0).unwrap() {
-                if xj - yj * <T as num::NumCast>::from(0.5).unwrap() < lambda_cycle_sq {
-                    lambda_cycle_sq = xj - yj * <T as num::NumCast>::from(0.5).unwrap();
-                    restriction = 2;
-                }
-            } else {
-                if xj - yj * <T as num::NumCast>::from(0.25).unwrap() < lambda_cycle_sq {
-                    lambda_cycle_sq = xj - yj * <T as num::NumCast>::from(0.25).unwrap();
-                    restriction = 3;
-                }
-            }
-        }
-
-        let mut lambda_cycle = lambda_cycle_sq.sqrt();
-        
-
-        // collinear contribution
-        let n1: T = c[..n].iter().cloned().sum::<T>()
-            + c2[..n]
-                .iter()
-                .enumerate()
-                .map(|(i, x)| x[i + 1..n].iter().cloned().sum::<T>())
-                .sum::<T>()
-            + ca[..4].iter().map(|x| x.abs()).sum::<T>();
-
-        if <T as num::NumCast>::from(0.25).unwrap() / n1 < lambda_cycle {
-            if restriction == 1 {
-                // TODO: we are not near any collinear limit. We could consider not scaling the lambda down!
-                //println!("We are not near the collinear limit, yet we rescale lambda from {} to {}", lambda_cycle, 1.0 / (4.0 * n1));
-            }
-            
-            lambda_cycle = <T as num::NumCast>::from(0.25).unwrap() / n1;
-        }
-
-        if check_uv {
-            let l = mom - LorentzVector::from_f64(self.uv_shift);
-            let uv_fac: T = l.dot(&k0) * <T as num::NumCast>::from(4.).unwrap();
-            if uv_fac <= num::NumCast::from(self.mu_sq.im).unwrap() {
-                if lambda_cycle > <T as num::NumCast>::from(self.mu_sq.im).unwrap() / uv_fac {
-                    lambda_cycle = <T as num::NumCast>::from(self.mu_sq.im).unwrap() / uv_fac;
-                }
-            }
-        }
-
-        k0 * lambda_cycle
     }
 
     fn deform_ext(
@@ -877,110 +942,14 @@ impl Deformer {
             DOUBLE_BOX_ID => self.deform_doublebox(k, l),
             DOUBLE_TRIANGLE_ID => self.deform_doubletriangle(k, l),
             TRIANGLE_BOX_ID => self.deform_trianglebox(k, l),
-            TRIANGLE_BOX_ALTERNATIVE_ID => self.deform_trianglebox_alternative(k, l),
+            TRIANGLE_BOX_ALTERNATIVE_ID => {
+                let (kn, ln) = self.deform_trianglebox_alternative(k, l);
+                Ok((&kn.to_complex(false) + k, &ln.to_complex(false) + l))
+            }
             CROSS_BOX_ID => self.deform_crossbox(k, l),
-            DOUBLE_BOX_SB_ID => self.deform_doublebox_SB(k, l),
+            DOUBLE_BOX_SB_ID => self.deform_doublebox_sb(k, l),
             _ => Err("Unknown id"),
         }
-    }
-
-    fn deform_trianglebox_alternative(
-        &mut self,
-        k: &LorentzVector<f64>,
-        l: &LorentzVector<f64>,
-    ) -> Result<(LorentzVector<Complex>, LorentzVector<Complex>), &str> {
-        // compute the external momenta for the C12(k) cycle and express the qs in terms of that.
-        // This is not a shift. We also set q[0] = 0 at the 1/k^2 line
-        // k, l, k - l, l - p2, l + p1, k + p1
-        let momenta_12 = [
-            k.clone(),
-            k - &self.ext[0],
-            l.clone(),
-            l - &self.ext[1],
-            l + &self.ext[0],
-        ];
-        let momenta_13 = [k - &self.ext[0], k.clone(), k - l - &self.ext[0]];
-        let momenta_23 = [
-            l.clone(),
-            l - &self.ext[1],
-            l + &self.ext[0],
-            l - k + &self.ext[0],
-        ];
-
-        //Compute qs
-        let c12_qs_k: ArrayVec<[LorentzVector<f64>; 10]> =
-            momenta_12.iter().map(|mom| k - mom).collect();
-        let c12_qs_l: ArrayVec<[LorentzVector<f64>; 10]> =
-            momenta_12.iter().map(|mom| l - mom).collect();
-        let c13_qs_k: ArrayVec<[LorentzVector<f64>; 10]> =
-            momenta_13.iter().map(|mom| k - mom).collect();
-        let c23_qs_l: ArrayVec<[LorentzVector<f64>; 10]> =
-            momenta_23.iter().map(|mom| l - mom).collect();
-
-        //Compute kappas
-        self.set_qs(&c12_qs_k);
-        let c12_k = self.deform_int_no_jacobian(k, false);
-
-        self.set_qs(&c12_qs_l);
-        let c12_l = self.deform_int_no_jacobian(l, false);
-
-        self.set_qs(&c13_qs_k);
-        let c13_k = self.deform_int_no_jacobian(k, false); // get the direction
-
-        self.set_qs(&c23_qs_l);
-        let c23_l = self.deform_int_no_jacobian(l, false);
-
-        let k_1 = c12_k + c13_k;
-        let k_2 = c12_l + c23_l;
-
-        let mut lambda_sq = 1.;
-
-        // propagators with substituted momenta split in real and imag
-        // k, l, k - l, k - l - p2, k - l + p1, k + p1
-        let props = [
-            (k.clone(), k_1.clone()),
-            (l.clone(), k_2.clone()),
-            (k - l - &self.ext[0], &k_1 - &k_2),
-            (l - &self.ext[1], k_2.clone()),
-            (l + &self.ext[0], k_2.clone()),
-            (k - &self.ext[0], k_1.clone()),
-        ];
-
-        for (qt, kt) in &props {
-            let xj = (kt.dot(qt) / kt.square()).powi(2);
-            let yj = (qt.square()) / kt.square(); // for the massless case
-
-            if 2.0 * xj < yj {
-                if yj / 4.0 < lambda_sq {
-                    lambda_sq = yj * 0.25;
-                }
-            } else if yj < 0.0 {
-                if xj - yj / 2.0 < lambda_sq {
-                    lambda_sq = xj - yj * 0.5;
-                }
-            } else {
-                if xj - yj / 4.0 < lambda_sq {
-                    lambda_sq = xj - yj * 0.25;
-                }
-            }
-        }
-
-        // we assume the UV propagators to be 1/(k^2+mu^2) and 1/(l^2+mu^2)
-        let mut lambda = lambda_sq.sqrt();
-
-        let uv_fac_k = 4.0 * k.dot(&k_1);
-        let uv_fac_l = 4.0 * l.dot(&k_2);
-        if uv_fac_k <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_k {
-            lambda = self.mu_sq.im / uv_fac_k;
-        }
-        if uv_fac_l <= self.mu_sq.im && lambda > self.mu_sq.im / uv_fac_l {
-            lambda = self.mu_sq.im / uv_fac_l;
-        }
-
-        let k_1_full = &((&k_1 * lambda).to_complex(false)) + k;
-        let k_2_full = &((&k_2 * lambda).to_complex(false)) + l;
-
-        Ok((k_1_full, k_2_full))
     }
 
     fn deform_trianglebox(
@@ -994,12 +963,12 @@ impl Deformer {
         let mut c12_qs = [LorentzVector::new(), k - l, -&self.ext[0]];
 
         self.set_qs(&c12_qs);
-        let c12_k = self.deform_int_no_jacobian(k, false); // get the direction
+        let c12_k = self.deform_int_no_jacobian(k, true, false, false); // get the direction
 
         c12_qs = [LorentzVector::new(), -k + l - &self.ext[0], -k + l];
 
         self.set_qs(&c12_qs);
-        let c12_l = self.deform_int_no_jacobian(l, false);
+        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
 
         let c23_qs = [
             LorentzVector::new(),
@@ -1008,7 +977,7 @@ impl Deformer {
             k.clone(),
         ];
         self.set_qs(&c23_qs);
-        let c23_l = self.deform_int_no_jacobian(l, false);
+        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
 
         let c13_qs = [
             LorentzVector::new(),
@@ -1018,7 +987,7 @@ impl Deformer {
             -&self.ext[0],
         ];
         self.set_qs(&c13_qs);
-        let c13_k = self.deform_int_no_jacobian(k, false);
+        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -1084,16 +1053,16 @@ impl Deformer {
         let mut c12_qs = [LorentzVector::new(), k - l, -&self.ext[0]];
 
         self.set_qs(&c12_qs);
-        let c12_k = self.deform_int_no_jacobian(k, false); // get the direction
+        let c12_k = self.deform_int_no_jacobian(k, true, false, false); // get the direction
 
         c12_qs = [LorentzVector::new(), -k + l - &self.ext[0], -k + l];
 
         self.set_qs(&c12_qs);
-        let c12_l = self.deform_int_no_jacobian(l, false);
+        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
 
         let c23_qs = [LorentzVector::new(), k + &self.ext[0], k.clone()];
         self.set_qs(&c23_qs);
-        let c23_l = self.deform_int_no_jacobian(l, false);
+        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
 
         let c13_qs = [
             LorentzVector::new(),
@@ -1102,7 +1071,7 @@ impl Deformer {
             -&self.ext[0],
         ];
         self.set_qs(&c13_qs);
-        let c13_k = self.deform_int_no_jacobian(k, false);
+        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -1188,16 +1157,16 @@ impl Deformer {
 
         //Compute kappas
         self.set_qs(&c12_qs_k);
-        let c12_k = self.deform_int_no_jacobian(k, false);
+        let c12_k = self.deform_int_no_jacobian(k, true, false, false);
 
         self.set_qs(&c12_qs_l);
-        let c12_l = self.deform_int_no_jacobian(l, false);
+        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
 
         self.set_qs(&c13_qs_k);
-        let c13_k = self.deform_int_no_jacobian(k, false);
+        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
 
         self.set_qs(&c23_qs_l);
-        let c23_l = self.deform_int_no_jacobian(l, false);
+        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -1251,7 +1220,7 @@ impl Deformer {
         Ok((k_1_full, k_2_full))
     }
 
-    fn deform_doublebox_SB(
+    fn deform_doublebox_sb(
         &mut self,
         k: &LorentzVector<f64>,
         l: &LorentzVector<f64>,
@@ -1303,7 +1272,7 @@ impl Deformer {
             let test_right = 1.0e-10 * cycle_qs
                 .iter()
                 .map(|mom| mom.euclidean_square().sqrt())
-                .sum::<f64>();
+                .sum::<F>();
             assert!(
                 test_left < test_right,
                 "Incorrect definition of qs for cycle #{} ({:#?}). sum(qs) = {:?} > 1e-10*sum(|qs|) = {:?}",
@@ -1316,20 +1285,20 @@ impl Deformer {
 
         // Now compute the corresponding Kappas
         self.set_qs(&cycle_12_qs);
-        let cycle_12_kappa = self.deform_int_no_jacobian(k, false);
+        let cycle_12_kappa = self.deform_int_no_jacobian(k, true, false, false);
         self.set_qs(&cycle_21_qs);
-        let cycle_21_kappa = self.deform_int_no_jacobian(l, false);
+        let cycle_21_kappa = self.deform_int_no_jacobian(l, true, false, false);
         self.set_qs(&cycle_13_qs);
-        let cycle_13_kappa = self.deform_int_no_jacobian(k, false);
+        let cycle_13_kappa = self.deform_int_no_jacobian(k, true, false, false);
         self.set_qs(&cycle_23_qs);
-        let cycle_23_kappa = self.deform_int_no_jacobian(l, false);
+        let cycle_23_kappa = self.deform_int_no_jacobian(l, true, false, false);
 
         // Add the kappas of the cycles contributing to each loop momentum
         let kappa_k = cycle_12_kappa + cycle_13_kappa;
         let kappa_l = cycle_21_kappa + cycle_23_kappa;
 
         // Now address the scaling of the deformation, a.k.a lambda determination
-        let mut lambda_sq: f64 = 1.0;
+        let mut lambda_sq = 1.0;
 
         // Listing the propagators of the topology, separating the real and imaginary parts
         let propagators = {
@@ -1366,7 +1335,7 @@ impl Deformer {
         }
 
         // UV rescaling is ignored for now
-        let mut lambda = lambda_sq.sqrt();
+        let lambda = lambda_sq.sqrt();
 
         // Build the deformed momenta using the rescaled deformation
         let k_deformed = &((kappa_k * lambda).to_complex(false)) + k;
@@ -1416,16 +1385,16 @@ impl Deformer {
 
         //Compute kappas
         self.set_qs(&c12_qs_k);
-        let c12_k = self.deform_int_no_jacobian(k, false);
+        let c12_k = self.deform_int_no_jacobian(k, true, false, false);
 
         self.set_qs(&c12_qs_l);
-        let c12_l = self.deform_int_no_jacobian(l, false);
+        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
 
         self.set_qs(&c13_qs_k);
-        let c13_k = self.deform_int_no_jacobian(k, false); // get the direction
+        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
 
         self.set_qs(&c23_qs_l);
-        let c23_l = self.deform_int_no_jacobian(l, false);
+        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -1482,6 +1451,10 @@ impl Deformer {
     }
 
     pub fn jacobian_using_dual(&self, k: &LorentzVector<f64>) -> (LorentzVector<f64>, Complex) {
+        let mut dual_deformer: Deformer<Dual<f64>> =
+            Deformer::new(self.e_cm_sq, self.mu_sq.im, self.region, &self.masses).unwrap();
+        dual_deformer.set_qs_iter(self.qs.iter().map(|x| LorentzVector::from_f64(*x)));
+
         let mut grad = [[Complex::new(0., 0.); 4]; 4];
 
         let mut k_new = LorentzVector::new();
@@ -1492,9 +1465,15 @@ impl Deformer {
             let mut k_ep: LorentzVector<Dual<f64>> = LorentzVector::from_f64(*k);
             k_ep[i] = Dual::new(k[i], 1.0);
 
-            let res_k = self.deform_int_no_jacobian(&k_ep, true);
+            // disable cij and ca, like in the one-loop code
+            let res_k = dual_deformer.deform_int_no_jacobian(&k_ep, false, false, true);
 
-            k_new = LorentzVector::from_args(res_k[0].real(), res_k[1].real(), res_k[2].real(), res_k[3].real());
+            k_new = LorentzVector::from_args(
+                res_k[0].real(),
+                res_k[1].real(),
+                res_k[2].real(),
+                res_k[3].real(),
+            );
 
             for j in 0..4 {
                 grad[i][j] += Complex::new(0.0, res_k[j].dual());
@@ -1502,6 +1481,60 @@ impl Deformer {
         }
 
         (k_new, determinant(&grad))
+    }
+
+    pub fn jacobian_using_dual_two_loops(
+        &mut self,
+        id: usize,
+        k: &LorentzVector<f64>,
+        l: &LorentzVector<f64>,
+    ) -> (LorentzVector<Complex>, LorentzVector<Complex>, Complex) {
+        // create a deformer that works with dual numbers
+        let mut dual_deformer: Deformer<Dual<f64>> =
+            Deformer::new(self.e_cm_sq, self.mu_sq.im, self.region, &self.masses).unwrap();
+        dual_deformer
+            .set_external_momenta_iter(self.ext.iter().map(|x| LorentzVector::from_f64(*x)));
+
+        let mut grad = [[Complex::new(0., 0.); 8]; 8];
+
+        let mut k_dual: LorentzVector<Dual<f64>> = LorentzVector::from_f64(*k);
+        let mut l_dual: LorentzVector<Dual<f64>> = LorentzVector::from_f64(*l);
+
+        let mut k_res: LorentzVector<Dual<f64>> = LorentzVector::new();
+        let mut l_res: LorentzVector<Dual<f64>> = LorentzVector::new();
+        for i in 0..8 {
+            grad[i][i] += Complex::new(1., 0.); // for the real part
+
+            // we need to decide where to place the 1 for the ep
+            if i < 4 {
+                k_dual[i] = Dual::new(k[i], 1.0);
+            } else {
+                l_dual[i - 4] = Dual::new(l[i - 4], 1.0);
+            }
+
+            let (kr, lr) = dual_deformer
+                .deform_two_loops_no_jac(id, &k_dual, &l_dual)
+                .unwrap();
+            k_res = kr;
+            l_res = lr;
+
+            if i < 4 {
+                k_dual[i] = Dual::new(k[i], 0.0);
+            } else {
+                l_dual[i - 4] = Dual::new(l[i - 4], 0.0);
+            }
+
+            for j in 0..4 {
+                grad[i][j] += Complex::new(0.0, k_res[j].dual());
+                grad[i][j + 4] += Complex::new(0.0, l_res[j].dual());
+            }
+        }
+
+        (
+            &k_res.map(|x| x.real()).to_complex(false) + k,
+            &l_res.map(|x| x.real()).to_complex(false) + l,
+            determinant8(&grad),
+        )
     }
 
     pub fn numerical_jacobian(

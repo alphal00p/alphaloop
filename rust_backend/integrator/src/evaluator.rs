@@ -74,7 +74,7 @@ pub fn integrand(
 pub struct Evaluator {
     pub id: usize,
     pub parameterizer: Parameterizer,
-    pub deformer: Deformer,
+    pub deformer: Deformer<f64>,
     pub integrand: Integrand,
 }
 
@@ -96,7 +96,7 @@ impl Evaluator {
         parameterizer.set_qs(qs.clone());
 
         // TODO: for now the internal masses are assumed to be 0
-        let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, vec![0.; qs.len()]).unwrap();
+        let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, &vec![0.; qs.len()]).unwrap();
         deformer.set_qs(&qs);
 
         let mut integrand = Integrand::new(name, 0, 0, mu_sq).unwrap();
@@ -119,7 +119,7 @@ impl Evaluator {
     ) -> Evaluator {
         let mut parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
 
-        let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, vec![0.; 7]).unwrap();
+        let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, &[0.; 7]).unwrap();
 
         let mut integrand = match id {
             DOUBLE_BOX_ID => Integrand::new("box2L_direct_integration", 0, 0, mu_sq).unwrap(),
@@ -150,8 +150,9 @@ impl Evaluator {
                 &external_momenta[1] + &external_momenta[2],
             ]);
         }
+
+        deformer.set_external_momenta(&external_momenta);
         integrand.set_externals(external_momenta.clone());
-        deformer.set_external_momenta(external_momenta);
 
         Evaluator {
             parameterizer,
@@ -194,10 +195,17 @@ impl Evaluator {
                 .map(&LorentzVector::from_slice(&x[4..]))
                 .unwrap();
 
-            let d = self.deformer.deform_two_loops(self.id, &k_m, &l_m).unwrap();
-            let j = self
-                .deformer
-                .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
+            let (d, j) = if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
+                // use the dual loop jacobian
+                let (kk, ll, j) = self.deformer.jacobian_using_dual_two_loops(self.id, &k_m, &l_m);
+                ((kk, ll), j)
+            } else {
+                let d = self.deformer.deform_two_loops(self.id, &k_m, &l_m).unwrap();
+                let j = self
+                    .deformer
+                    .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
+                (d, j)
+            };
 
             if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
                 // disable two-loop channels for now

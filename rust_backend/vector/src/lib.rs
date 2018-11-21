@@ -1,6 +1,7 @@
 extern crate dual_num;
 extern crate num;
 
+use num::Float;
 use dual_num::Dual;
 use num::traits::Inv;
 use std::fmt;
@@ -41,6 +42,7 @@ where
     Self: Mul<f64, Output = Self>,
     Self: Add<f64, Output = Self>,
     Self: Sub<f64, Output = Self>,
+    Self: PartialOrd<f64>,
     Self: Inv<Output = Self>,
 {
 }
@@ -150,9 +152,9 @@ impl<T: Field> LorentzVector<T> {
         self.t * other.t + self.x * other.x + self.y * other.y + self.z * other.z
     }
 
-    pub fn map<F>(&self, map: F) -> LorentzVector<T>
+    pub fn map<F, U: Field>(&self, map: F) -> LorentzVector<U>
     where
-        F: Fn(T) -> T,
+        F: Fn(T) -> U,
     {
         LorentzVector {
             t: map(self.t),
@@ -410,17 +412,19 @@ impl<T: Field> IndexMut<usize> for LorentzVector<T> {
     }
 }
 
-impl LorentzVector<f64> {
+impl<T: Float + Field> LorentzVector<T> {
     #[inline]
-    pub fn spatial_distance(&self) -> f64 {
+    pub fn spatial_distance(&self) -> T {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
     #[inline]
-    pub fn euclidean_distance(&self) -> f64 {
+    pub fn euclidean_distance(&self) -> T {
         (self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
+}
 
+impl LorentzVector<f64> {
     #[inline]
     pub fn to_complex(&self, real: bool) -> LorentzVector<Complex> {
         if real {

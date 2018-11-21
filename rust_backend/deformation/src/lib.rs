@@ -26,10 +26,10 @@ py_module_initializer!(deformation, initdeformation, PyInit_deformation, |py, m|
 });
 
 py_class!(class Deformation |py| {
-    data deformer: RefCell<deformation::Deformer>;
+    data deformer: RefCell<deformation::Deformer<f64>>;
 
     def __new__(_cls, e_cm_sq: f64, mu_sq: f64, region: usize, qs_py: PyList, masses: Vec<f64>) -> PyResult<Deformation> {
-        let int = deformation::Deformer::new(e_cm_sq, mu_sq, region, masses)
+        let int = deformation::Deformer::new(e_cm_sq, mu_sq, region, &masses)
                     .map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         let r = Deformation::create_instance(py, RefCell::new(int))?;
         r.set_qs(py, qs_py)?;
@@ -110,7 +110,7 @@ py_class!(class Deformation |py| {
             ext.push(vector::LorentzVector::from_vec(m));
         }
 
-        self.deformer(py).borrow_mut().set_external_momenta(ext);
+        self.deformer(py).borrow_mut().set_external_momenta(&ext);
         Ok(true)
     }
 

@@ -36,11 +36,11 @@ fn performance_test() {
     parameterizer.set_mode("log").unwrap();
     parameterizer.set_qs(external_momenta.clone()); // should be Q
 
-    let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, vec![0.; external_momenta.len()]).unwrap();
+    let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, &vec![0.; external_momenta.len()]).unwrap();
     let mut integrand = Integrand::new("triangle2L_direct_integration", 0, 0, mu_sq).unwrap();
 
+    deformer.set_external_momenta(&external_momenta);
     integrand.set_externals(external_momenta.clone());
-    deformer.set_external_momenta(external_momenta);
 
     let mut rng = thread_rng();
 
