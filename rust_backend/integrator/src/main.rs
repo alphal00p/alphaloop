@@ -133,7 +133,7 @@ fn main() {
                     "double-box-SB",
                     "triangle-box",
                     "triangle-box-alternative",
-                    "cross-box"
+                    "diagonal-box"
                 ])
                 .help("Set the active topology"),
         )

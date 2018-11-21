@@ -19,7 +19,7 @@ const OFF_SHELL_DOUBLE_BOX: usize = 7;
 const OFF_SHELL_DOUBLE_TRIANGLE: usize = 8;
 const OFF_SHELL_TRIANGLE_BOX: usize = 9;
 const OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE: usize = 10;
-const OFF_SHELL_CROSS_BOX: usize = 11;
+const OFF_SHELL_DIAGONAL_BOX: usize = 11;
 const OFF_SHELL_DOUBLE_BOX_SB: usize = 12;
 
 
@@ -61,7 +61,7 @@ impl Integrand {
             "triangle2L_direct_integration" => OFF_SHELL_DOUBLE_TRIANGLE,
             "trianglebox_direct_integration" => OFF_SHELL_TRIANGLE_BOX,
             "trianglebox_alternative_direct_integration" => OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE,
-            "crossbox_direct_integration" => OFF_SHELL_CROSS_BOX,
+            "diagonalbox_direct_integration" => OFF_SHELL_DIAGONAL_BOX,
             "box2L_direct_integration_SB" => OFF_SHELL_DOUBLE_BOX_SB,
             _ => return Err("Unknown integrand"),
         };
@@ -241,7 +241,7 @@ impl Integrand {
                 }
             }
 
-            OFF_SHELL_CROSS_BOX => {
+            OFF_SHELL_DIAGONAL_BOX => {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
                 let (k, l) = (&mom[0], &mom[1]);
 

@@ -13,7 +13,7 @@ pub const DOUBLE_BOX_ID: usize = 0;
 pub const DOUBLE_TRIANGLE_ID: usize = 1;
 pub const TRIANGLE_BOX_ID: usize = 2;
 pub const TRIANGLE_BOX_ALTERNATIVE_ID: usize = 3;
-pub const CROSS_BOX_ID: usize = 4;
+pub const DIAGONAL_BOX_ID: usize = 4;
 pub const DOUBLE_BOX_SB_ID: usize = 5;
 
 const DIRECTIONS: [LorentzVector<f64>; 4] = [
@@ -516,7 +516,7 @@ impl<F: Float + RealField> Deformer<F> {
             DOUBLE_TRIANGLE_ID => Ok(self.deform_doubletriangle(k, l)),
             TRIANGLE_BOX_ID => Ok(self.deform_trianglebox(k, l)),
             TRIANGLE_BOX_ALTERNATIVE_ID => Ok(self.deform_trianglebox_alternative(k, l)),
-            CROSS_BOX_ID => Ok(self.deform_crossbox(k, l)),
+            DIAGONAL_BOX_ID => Ok(self.deform_diagonalbox(k, l)),
             DOUBLE_BOX_SB_ID => Ok(self.deform_doublebox_sb(k, l)),
             _ => Err("Unknown id"),
         }
@@ -734,7 +734,7 @@ impl<F: Float + RealField> Deformer<F> {
         (k_1 * lambda, k_2 * lambda)
     }
 
-    fn deform_crossbox(
+    fn deform_diagonalbox(
         &mut self,
         k: &LorentzVector<F>,
         l: &LorentzVector<F>,
@@ -1307,7 +1307,7 @@ impl Deformer<f64> {
             DOUBLE_TRIANGLE_ID => self.deform_doubletriangle(k, l),
             TRIANGLE_BOX_ID => self.deform_trianglebox(k, l),
             TRIANGLE_BOX_ALTERNATIVE_ID => self.deform_trianglebox_alternative(k, l),
-            CROSS_BOX_ID => self.deform_crossbox(k, l),
+            DIAGONAL_BOX_ID => self.deform_diagonalbox(k, l),
             DOUBLE_BOX_SB_ID => self.deform_doublebox_sb(k, l),
             _ => return Err("Unknown id"),
         };
