@@ -365,36 +365,40 @@ impl<F: Float + RealField> Deformer<F> {
                 // note: in paper l starts at 1
                 c[i] *= Deformer::d(self, mom, i, l);
 
-                let l1 = Deformer::h_delta(0, &(mom - self.qs[l]), self.masses[l], self.m1_sq);
-                for j in i + 1..n {
-                    // note: specialized for internal masses=0
-                    c2[i][j] *= Deformer::h_theta(
-                        num::NumCast::from((self.qs[i] - self.qs[j]).square()).unwrap(),
-                        self.m1_sq,
-                    );
+                if include_cij {
+                    let l1 = Deformer::h_delta(0, &(mom - self.qs[l]), self.masses[l], self.m1_sq);
+                    for j in i + 1..n {
+                        // note: specialized for internal masses=0
+                        c2[i][j] *= Deformer::h_theta(
+                            num::NumCast::from((self.qs[i] - self.qs[j]).square()).unwrap(),
+                            self.m1_sq,
+                        );
 
-                    let a = (mom - self.qs[l])
-                        .dot(&(mom - self.qs[i] * From::from(0.5) - self.qs[j] * From::from(0.5)))
-                        * -2.;
-                    let l2 = Deformer::h_theta(a, self.m1_sq);
+                        let a = (mom - self.qs[l]).dot(
+                            &(mom - self.qs[i] * From::from(0.5) - self.qs[j] * From::from(0.5)),
+                        ) * -2.;
+                        let l2 = Deformer::h_theta(a, self.m1_sq);
 
-                    if l1 < l2 {
-                        c2[i][j] *= l2;
-                    } else {
-                        c2[i][j] *= l1;
+                        if l1 < l2 {
+                            c2[i][j] *= l2;
+                        } else {
+                            c2[i][j] *= l1;
+                        }
                     }
                 }
             }
 
-            for j in i + 1..n {
-                let zij = (self.qs[i] - self.qs[j]).square();
-                if zij > 0. {
-                    let ki = mom - self.qs[i];
-                    let kj = mom - self.qs[j];
-                    let vij = (self.qs[i] * kj.t - self.qs[j] * ki.t)
-                        * (self.qs[i].t - self.qs[j].t).inv();
-                    k_int = k_int - (mom - vij) * c2[i][j] * (zij / (zij + self.m2_sq));
-                    // k_int = k_int - (mom - self.qs[i] * 0.5 - self.qs[j] * 0.5)
+            if include_cij {
+                for j in i + 1..n {
+                    let zij = (self.qs[i] - self.qs[j]).square();
+                    if zij > 0. {
+                        let ki = mom - self.qs[i];
+                        let kj = mom - self.qs[j];
+                        let vij = (self.qs[i] * kj.t - self.qs[j] * ki.t)
+                            * (self.qs[i].t - self.qs[j].t).inv();
+                        k_int = k_int - (mom - vij) * c2[i][j] * (zij / (zij + self.m2_sq));
+                        // k_int = k_int - (mom - self.qs[i] * 0.5 - self.qs[j] * 0.5)
+                    }
                 }
             }
 
@@ -403,35 +407,38 @@ impl<F: Float + RealField> Deformer<F> {
         }
 
         // compute k_soft
-        for a in 0..4 {
-            let mut da_plus: F = num::NumCast::from(1.).unwrap();
-            let mut da_min: F = num::NumCast::from(1.).unwrap();
-            for l in 0..n {
-                let l1 = Deformer::h_delta(0, &(mom - self.qs[l]), 0., self.gamma2 * self.m1_sq);
-                let lp2 = Deformer::h_theta(
-                    (mom - self.qs[l]).dot(&ka[a]) * 2.,
-                    self.gamma2 * self.m1_sq,
-                );
-                let lm2 = Deformer::h_theta(
-                    (mom - self.qs[l]).dot(&ka[a]) * -2.,
-                    self.gamma2 * self.m1_sq,
-                );
+        if include_ca {
+            for a in 0..4 {
+                let mut da_plus: F = num::NumCast::from(1.).unwrap();
+                let mut da_min: F = num::NumCast::from(1.).unwrap();
+                for l in 0..n {
+                    let l1 =
+                        Deformer::h_delta(0, &(mom - self.qs[l]), 0., self.gamma2 * self.m1_sq);
+                    let lp2 = Deformer::h_theta(
+                        (mom - self.qs[l]).dot(&ka[a]) * 2.,
+                        self.gamma2 * self.m1_sq,
+                    );
+                    let lm2 = Deformer::h_theta(
+                        (mom - self.qs[l]).dot(&ka[a]) * -2.,
+                        self.gamma2 * self.m1_sq,
+                    );
 
-                if l1 < lp2 {
-                    da_plus *= lp2;
-                } else {
-                    da_plus *= l1;
+                    if l1 < lp2 {
+                        da_plus *= lp2;
+                    } else {
+                        da_plus *= l1;
+                    }
+
+                    if l1 < lm2 {
+                        da_min *= lm2;
+                    } else {
+                        da_min *= l1;
+                    }
                 }
 
-                if l1 < lm2 {
-                    da_min *= lm2;
-                } else {
-                    da_min *= l1;
-                }
+                ca[a] *= da_plus - da_min;
+                k_int = k_int + ka[a] * ca[a];
             }
-
-            ca[a] *= da_plus - da_min;
-            k_int = k_int + ka[a] * ca[a];
         }
 
         let k0 = k_int + k_ext;
