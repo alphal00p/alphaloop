@@ -6,7 +6,7 @@ use dual_num::Dual;
 use num::traits::Inv;
 use std::fmt;
 use std::fmt::{Debug, Display};
-use std::ops::{Add, Div, Index, IndexMut, Mul, MulAssign, Neg, Sub};
+use std::ops::{Add, Div, Index, IndexMut, Mul, MulAssign, AddAssign, Neg, Sub};
 use std::iter::Sum;
 
 type Complex = num::Complex<f64>;
@@ -15,6 +15,7 @@ pub trait Field
 where
     Self: Mul<Self, Output = Self>,
     Self: MulAssign<Self>,
+    Self: AddAssign<Self>,
     Self: Div<Self, Output = Self>,
     Self: Add<Self, Output = Self>,
     Self: Sub<Self, Output = Self>,

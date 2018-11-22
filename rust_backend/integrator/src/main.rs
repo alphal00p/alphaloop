@@ -17,7 +17,7 @@ use vector::LorentzVector;
 
 use integrator::aggregator::{Aggregator, Settings};
 
-fn performance_test() {
+fn performance_test(settings: Settings) {
     // do a performance test
     let mu_sq = -1e9;
     let e_cm_sq = 1000. * 1000.;
@@ -51,12 +51,18 @@ fn performance_test() {
         let (k_m, _jac_k) = parameterizer.map(&k).unwrap();
         let (l_m, _jac_l) = parameterizer.map(&l).unwrap();
 
-        let d = deformer
-            .deform_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m)
-            .unwrap();
+        let d = if settings.dual {
+            let (kk, ll, _j) = deformer.jacobian_using_dual_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m);
+            (kk, ll)
+        } else {
+            let d = deformer
+                .deform_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m)
+                .unwrap();
 
-        let _j =
-            deformer.numerical_jacobian_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m, (&d.0, &d.1));
+            let _j =
+                deformer.numerical_jacobian_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m, (&d.0, &d.1));
+            d
+        };
 
         integrand.evaluate(&[d.0, d.1]).unwrap();
     }
@@ -133,18 +139,18 @@ fn main() {
                     "double-box-SB",
                     "triangle-box",
                     "triangle-box-alternative",
-                    "diagonal-box"
+                    "diagonal-box",
                 ])
                 .help("Set the active topology"),
         )
         .get_matches();
 
+    let mut p = Settings::from_file(matches.value_of("config").unwrap());
+
     if matches.is_present("bench") {
-        performance_test();
+        performance_test(p);
         return;
     }
-
-    let mut p = Settings::from_file(matches.value_of("config").unwrap());
 
     if let Some(x) = matches.value_of("topology") {
         p.active_topology = x.to_owned();
