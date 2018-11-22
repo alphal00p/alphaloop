@@ -510,7 +510,7 @@ impl<F: Float + RealField> Deformer<F> {
         id: usize,
         k: &LorentzVector<F>,
         l: &LorentzVector<F>,
-    ) -> Result<(LorentzVector<F>, LorentzVector<F>), &str> {
+    ) -> Result<(LorentzVector<F>, LorentzVector<F>), &'static str> {
         match id {
             DOUBLE_BOX_ID => Ok(self.deform_doublebox(k, l)),
             DOUBLE_TRIANGLE_ID => Ok(self.deform_doubletriangle(k, l)),
@@ -1087,7 +1087,7 @@ impl Deformer<f64> {
     fn deform_int(
         &self,
         mom: &LorentzVector<f64>,
-    ) -> Result<(LorentzVector<Complex>, Complex), &str> {
+    ) -> Result<(LorentzVector<Complex>, Complex), &'static str> {
         let (mut c_plus, mut c_minus) = (1.0, 1.0);
         let (mut c_plus_grad, mut c_minus_grad) = (LorentzVector::new(), LorentzVector::new());
 
@@ -1272,7 +1272,7 @@ impl Deformer<f64> {
     fn deform_ext(
         &self,
         mom: &LorentzVector<f64>,
-    ) -> Result<(LorentzVector<Complex>, Complex), &str> {
+    ) -> Result<(LorentzVector<Complex>, Complex), &'static str> {
         let k = LorentzVector::from_args(
             Complex::new(mom.t, mom.t - self.uv_shift.t),
             Complex::new(mom.x, -mom.x - self.uv_shift.x),
@@ -1287,7 +1287,7 @@ impl Deformer<f64> {
     pub fn deform(
         &self,
         mom: &LorentzVector<f64>,
-    ) -> Result<(LorentzVector<Complex>, Complex), &str> {
+    ) -> Result<(LorentzVector<Complex>, Complex), &'static str> {
         if self.region == REGION_EXT {
             self.deform_ext(mom)
         } else {
@@ -1301,7 +1301,7 @@ impl Deformer<f64> {
         id: usize,
         k: &LorentzVector<f64>,
         l: &LorentzVector<f64>,
-    ) -> Result<(LorentzVector<Complex>, LorentzVector<Complex>), &str> {
+    ) -> Result<(LorentzVector<Complex>, LorentzVector<Complex>), &'static str> {
         let (kd, ld) = match id {
             DOUBLE_BOX_ID => self.deform_doublebox(k, l),
             DOUBLE_TRIANGLE_ID => self.deform_doubletriangle(k, l),

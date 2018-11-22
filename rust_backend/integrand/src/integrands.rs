@@ -48,7 +48,7 @@ impl Integrand {
         channel: usize,
         region: usize,
         mu_sq: f64,
-    ) -> Result<Integrand, &str> {
+    ) -> Result<Integrand, &'static str> {
         let integrand_id = match integrand_name {
             "box1L_direct_integration" => OFF_SHELL_BOX,
             "pentagon1L_direct_integration" => OFF_SHELL_PENTAGON,
@@ -140,7 +140,7 @@ impl Integrand {
         self.shift = &self.shift * 0.25;
     }
 
-    pub fn evaluate(&self, mom: &[LorentzVector<Complex>]) -> Result<Complex, &str> {
+    pub fn evaluate(&self, mom: &[LorentzVector<Complex>]) -> Result<Complex, &'static str> {
         match self.integrand_id {
             OFF_SHELL_BOX | ON_SHELL_BOX_SUBTRACTED | OFF_SHELL_PENTAGON | OFF_SHELL_HEXAGON => {
                 let mut factor = Complex::new(0.0, -f64::FRAC_1_PI() * f64::FRAC_1_PI());
@@ -172,7 +172,6 @@ impl Integrand {
                     || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 15
                 {
                     let mut ct = Complex::new(1.0, 0.0);
-                    let mut invariant;
                     for i in 0..4 {
                         ct -= (&mom[0] - &self.qs[i]).square() / self.inv(2, 1 + 2 * (i % 2));
                     }

@@ -64,7 +64,7 @@ impl Parameterizer {
     fn map_weinzierl_ext(
         &self,
         mom: &LorentzVector<f64>,
-    ) -> Result<(LorentzVector<f64>, f64), &str> {
+    ) -> Result<(LorentzVector<f64>, f64), &'static str> {
         // TODO: mu1 can be anything of the same order as self.e_cm_sq
         let mu1 = self.e_cm_sq.sqrt();
         let k_e = mu1 * (f64::FRAC_PI_2() * mom.t).tan().sqrt();
@@ -90,7 +90,7 @@ impl Parameterizer {
     fn map_weinzierl_int(
         &self,
         mom: &LorentzVector<f64>,
-    ) -> Result<(LorentzVector<f64>, f64), &str> {
+    ) -> Result<(LorentzVector<f64>, f64), &'static str> {
         // channel starts at 1
         if self.channel == 0 {
             return Err("A channel must be specified for Weinzierl's conformal map");
@@ -176,7 +176,7 @@ impl Parameterizer {
 
     /// Map a vector in the unit hypercube to the infinite hypercube.
     /// Also compute the Jacobian.
-    pub fn map(&self, mom: &LorentzVector<f64>) -> Result<(LorentzVector<f64>, f64), &str> {
+    pub fn map(&self, mom: &LorentzVector<f64>) -> Result<(LorentzVector<f64>, f64), &'static str> {
         match self.mode {
             ParameterizationMode::Log => {
                 let r = mom.map(|x| self.alpha * (x / (1.0 - x)).ln());

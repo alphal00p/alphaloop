@@ -49,9 +49,9 @@ pub fn integrand(
     user_data: &mut UserData,
     _nvec: usize,
     core: i32,
-) -> i32 {
+) -> Result<(), &'static str> {
     // master is -1
-    let r = user_data.evaluator[(core + 1) as usize].evaluate(x);
+    let r = user_data.evaluator[(core + 1) as usize].evaluate(x)?;
 
     if r.is_finite() {
         if r.re.abs() > user_data.running_max {
@@ -68,7 +68,7 @@ pub fn integrand(
         //f[1] = 0.;
     }
 
-    0
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -169,30 +169,26 @@ impl Evaluator {
         }
     }
 
-    fn evaluate(&mut self, x: &[f64]) -> Complex {
+    fn evaluate(&mut self, x: &[f64]) -> Result<Complex, &'static str> {
         if self.id == ONE_LOOP_ID {
-            let (k_m, jac_k) = self
-                .parameterizer
-                .map(&LorentzVector::from_slice(x))
-                .unwrap();
+            let (k_m, jac_k) = self.parameterizer.map(&LorentzVector::from_slice(x))?;
 
-            let (d, j) = self.deformer.deform(&k_m).unwrap();
-            let v = self.integrand.evaluate(&[d]).unwrap();
+            let (d, j) = self.deformer.deform(&k_m)?;
+            let v = self.integrand.evaluate(&[d])?;
 
-            v * j * jac_k
+            Ok(v * j * jac_k)
         } else {
             if self.id == TRIANGLE_BOX_ALTERNATIVE_ID
                 || self.id == DOUBLE_BOX_ID
                 || self.id == DIAGONAL_BOX_ID
                 || self.id == DOUBLE_BOX_SB_ID
             {
-                self.parameterizer.set_mode("weinzierl").unwrap();
+                self.parameterizer.set_mode("weinzierl")?;
                 self.parameterizer.set_channel(1);
             }
             let (k_m, jac_k) = self
                 .parameterizer
-                .map(&LorentzVector::from_slice(&x[..4]))
-                .unwrap();
+                .map(&LorentzVector::from_slice(&x[..4]))?;
             if self.id == TRIANGLE_BOX_ALTERNATIVE_ID || self.id == DOUBLE_BOX_ID {
                 // 3 here goes with integrand channel 1
                 // 4 here goes with integrand channel 2
@@ -203,8 +199,7 @@ impl Evaluator {
             }
             let (l_m, jac_l) = self
                 .parameterizer
-                .map(&LorentzVector::from_slice(&x[4..]))
-                .unwrap();
+                .map(&LorentzVector::from_slice(&x[4..]))?;
 
             let (d, j) = if self.dual {
                 // use the dual loop jacobian
@@ -213,7 +208,7 @@ impl Evaluator {
                     .jacobian_using_dual_two_loops(self.id, &k_m, &l_m);
                 ((kk, ll), j)
             } else {
-                let d = self.deformer.deform_two_loops(self.id, &k_m, &l_m).unwrap();
+                let d = self.deformer.deform_two_loops(self.id, &k_m, &l_m)?;
                 let j =
                     self.deformer
                         .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
@@ -225,9 +220,9 @@ impl Evaluator {
                 // self.integrand.set_channel(1);
             }
 
-            let v = self.integrand.evaluate(&[d.0, d.1]).unwrap();
+            let v = self.integrand.evaluate(&[d.0, d.1])?;
 
-            v * j * jac_k * jac_l
+            Ok(v * j * jac_k * jac_l)
         }
     }
 
