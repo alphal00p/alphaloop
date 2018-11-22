@@ -22,14 +22,12 @@ const OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE: usize = 10;
 const OFF_SHELL_DIAGONAL_BOX: usize = 11;
 const OFF_SHELL_DOUBLE_BOX_SB: usize = 12;
 
-
 #[inline]
 /// Invert with better precision
 fn finv(c: Complex) -> Complex {
     let norm = c.norm();
     c.conj() / norm / norm
 }
-
 
 #[derive(Clone)]
 pub struct Integrand {
@@ -39,6 +37,7 @@ pub struct Integrand {
     mu_sq: Complex,
     qs: Vec<LorentzVector<f64>>,
     ext: Vec<LorentzVector<f64>>,
+    invs: Vec<f64>, // invariants
     shift: LorentzVector<f64>,
     on_shell_flag: usize,
 }
@@ -75,6 +74,7 @@ impl Integrand {
             ext: Vec::with_capacity(4),
             shift: LorentzVector::new(),
             on_shell_flag: 0,
+            invs: Vec::with_capacity(16),
         })
     }
 
@@ -84,6 +84,12 @@ impl Integrand {
 
     pub fn set_region(&mut self, region: usize) {
         self.region = region;
+    }
+
+    /// Get an invariant.
+    #[inline(always)]
+    fn inv(&self, i : usize, j: usize) -> f64 {
+        self.invs[i * self.ext.len() + j]
     }
 
     pub fn set_externals(&mut self, ext: Vec<LorentzVector<f64>>) {
@@ -96,6 +102,25 @@ impl Integrand {
         for (i, e) in self.ext.iter().enumerate() {
             if e.square() == 0. {
                 self.on_shell_flag |= 2_usize.pow(i as u32);
+            }
+        }
+
+        if self.on_shell_flag != 0 {
+            println!(
+                "Using subtraction terms for configuration {}",
+                self.on_shell_flag
+            );
+        }
+
+        // compute the invariants
+        self.invs.clear();
+        for (i, x) in self.ext.iter().enumerate() {
+            for (j, y) in self.ext.iter().enumerate() {
+                if i == j {
+                    self.invs.push(x.dot(y));
+                } else {
+                    self.invs.push((x + y).square());
+                }
             }
         }
 
@@ -143,13 +168,13 @@ impl Integrand {
                 }
 
                 // add the subtraction terms
-                if self.integrand_id == ON_SHELL_BOX_SUBTRACTED {
+                if self.integrand_id == ON_SHELL_BOX_SUBTRACTED
+                    || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 15
+                {
                     let mut ct = Complex::new(1.0, 0.0);
                     let mut invariant;
                     for i in 0..4 {
-                        // TODO: cache
-                        invariant = (&self.qs[i % 2] - &self.qs[i % 2 + 2]).square();
-                        ct -= (&mom[0] - &self.qs[i]).square() / invariant;
+                        ct -= (&mom[0] - &self.qs[i]).square() / self.inv(2, 1 + 2 * (i % 2));
                     }
                     factor *= ct;
                 }
@@ -255,18 +280,17 @@ impl Integrand {
             }
 
             OFF_SHELL_DOUBLE_BOX_SB => {
-                
                 // let factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
                 let factor = Complex::new(1.0, 0.0);
                 let (k, l) = (&mom[0], &mom[1]);
                 let p = (&self.ext[0], &self.ext[1], &self.ext[2], &self.ext[3]);
-                let denominator = (k+p.2).square()
-                    * (k+&(p.1+p.2)).square()
-                    * (k-p.3).square()
-                    * (l-p.3).square()
+                let denominator = (k + p.2).square()
+                    * (k + &(p.1 + p.2)).square()
+                    * (k - p.3).square()
+                    * (l - p.3).square()
                     * (l).square()
-                    * (l+p.2).square()
-                    * (k-l).square();
+                    * (l + p.2).square()
+                    * (k - l).square();
                 Ok(factor * finv(denominator))
             }
 
