@@ -293,18 +293,17 @@ impl Integrand {
 
                 //println!("Shell Flag: {:#b}", self.on_shell_flag);
                 match (
-                    self.on_shell_flag & (1 << 0) != 1,
-                    self.on_shell_flag & (1 << 1) != 1,
-                    self.on_shell_flag & (1 << 2) != 1,
-                    self.on_shell_flag & (1 << 3) != 1,
+                    self.on_shell_flag & (1 << 0) == 0,
+                    self.on_shell_flag & (1 << 1) == 0,
+                    self.on_shell_flag & (1 << 2) == 0,
+                    self.on_shell_flag & (1 << 3) == 0,
                 ) {
                     (false, false, false, false) => {
                         // p1,p2,p3,p4 : on-shell and p1,p3 : off-shell
                         Ok(factor * finv(denominator))
                     }
-                    (_, true, _, true) => {
+                    (true, _, true, _) => {
                         // p2,p4 : on-shell and p1,p3 : off-shell
-
                         //Collinear Limits
                         let x1 = Integrand::collinear_x(k, &self.ext[0]);
                         let x3 = Integrand::collinear_x(l, &self.ext[2]);
