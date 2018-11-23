@@ -333,7 +333,7 @@ impl Integrand {
                                     * (d3 - self.mu_sq)
                                     * (d4 - self.mu_sq),
                             ))
-                            / c13d5;
+                            * finv(c13d5);
 
                         Ok(factor * (finv(denominator) - c1 - c3 + c13))
                     }
