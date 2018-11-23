@@ -19,7 +19,7 @@ const OFF_SHELL_DOUBLE_BOX: usize = 7;
 const OFF_SHELL_DOUBLE_TRIANGLE: usize = 8;
 const OFF_SHELL_TRIANGLE_BOX: usize = 9;
 const OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE: usize = 10;
-const OFF_SHELL_DIAGONAL_BOX: usize = 11;
+const DIAGONAL_BOX: usize = 11;
 const OFF_SHELL_DOUBLE_BOX_SB: usize = 12;
 
 #[inline]
@@ -60,7 +60,7 @@ impl Integrand {
             "triangle2L_direct_integration" => OFF_SHELL_DOUBLE_TRIANGLE,
             "trianglebox_direct_integration" => OFF_SHELL_TRIANGLE_BOX,
             "trianglebox_alternative_direct_integration" => OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE,
-            "diagonalbox_direct_integration" => OFF_SHELL_DIAGONAL_BOX,
+            "diagonalbox_direct_integration" => DIAGONAL_BOX,
             "box2L_direct_integration_SB" => OFF_SHELL_DOUBLE_BOX_SB,
             _ => return Err("Unknown integrand"),
         };
@@ -88,22 +88,23 @@ impl Integrand {
 
     /// Get an invariant.
     #[inline(always)]
-    fn inv(&self, i : usize, j: usize) -> f64 {
+    fn inv(&self, i: usize, j: usize) -> f64 {
         self.invs[i * self.ext.len() + j]
+    }
+    // build bit-flags for the external momenta
+    // this will indicate which counterterms should be used
+    pub fn set_on_shell_flag(&mut self, flag: usize) {
+        //TODO: print proper warning
+        for (i, e) in self.ext.iter().enumerate() {
+            if e.square() == 0. && flag & (1 << i) == 0 {
+                println!("WARNING: External {} is an unflaged on-shell momentum!", i);
+            }
+        }
+        self.on_shell_flag = flag;
     }
 
     pub fn set_externals(&mut self, ext: Vec<LorentzVector<f64>>) {
         self.ext = ext;
-
-        // build bit-flags for the external momenta
-        // this will indicate which counterterms should be used
-        self.on_shell_flag = 0;
-
-        for (i, e) in self.ext.iter().enumerate() {
-            if e.square() == 0. {
-                self.on_shell_flag |= 2_usize.pow(i as u32);
-            }
-        }
 
         if self.on_shell_flag != 0 {
             println!(
@@ -138,6 +139,18 @@ impl Integrand {
             self.shift = &self.shift + q;
         }
         self.shift = &self.shift * 0.25;
+    }
+
+    #[inline]
+    //Compute the xi's for the collinear limits, here mom should always by on-shell
+    pub fn collinear_x(loopmom: &LorentzVector<Complex>, mom: &LorentzVector<f64>) -> f64 {
+        //TODO: Check if eta.dot(mom) is not zero
+        let eta = mom.dual();
+        (eta[0] * loopmom[0].re
+            - eta[1] * loopmom[1].re
+            - eta[2] * loopmom[2].re
+            - eta[3] * loopmom[3].re)
+            / eta.dot(mom)
     }
 
     pub fn evaluate(&self, mom: &[LorentzVector<Complex>]) -> Result<Complex, &'static str> {
@@ -265,17 +278,67 @@ impl Integrand {
                 }
             }
 
-            OFF_SHELL_DIAGONAL_BOX => {
+            DIAGONAL_BOX => {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
                 let (k, l) = (&mom[0], &mom[1]);
 
-                let denominator = k.square()
-                    * l.square()
-                    * (k - &self.ext[0]).square()
-                    * (&(k - l) - &self.ext[0] - &self.ext[1]).square()
-                    * (l - &self.ext[2]).square();
+                //Propagators
+                let d1 = k.square(); //A1
+                let d2 = (k - &self.ext[0]).square(); //A2
+                let d3 = l.square(); //A3
+                let d4 = (l - &self.ext[2]).square(); //A4
+                let d5 = ((k - l) - &self.ext[0] - &self.ext[1]).square(); //A5
 
-                Ok(factor * finv(denominator))
+                let denominator = d1 * d2 * d3 * d4 * d5;
+
+                //println!("Shell Flag: {:#b}", self.on_shell_flag);
+                match (
+                    self.on_shell_flag & (1 << 0) != 1,
+                    self.on_shell_flag & (1 << 1) != 1,
+                    self.on_shell_flag & (1 << 2) != 1,
+                    self.on_shell_flag & (1 << 3) != 1,
+                ) {
+                    (false, false, false, false) => {
+                        // p1,p2,p3,p4 : on-shell and p1,p3 : off-shell
+                        Ok(factor * finv(denominator))
+                    }
+                    (_, true, _, true) => {
+                        // p2,p4 : on-shell and p1,p3 : off-shell
+
+                        //Collinear Limits
+                        let x1 = Integrand::collinear_x(k, &self.ext[0]);
+                        let x3 = Integrand::collinear_x(l, &self.ext[2]);
+
+                        let k_c1 = self.ext[0] * x1;
+                        let l_c3 = self.ext[0] * x3;
+
+                        let c1d5 = (l - &k_c1 + &self.ext[0] + &self.ext[1]).square(); //A5
+                        let c3d5 = (k - &l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
+                        let c13d5 = (k_c1 - l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
+
+                        //Compute collinear counterterms
+                        //k -> x1 p1
+                        let c1 = (finv(d1 * d2) - finv((d1 - self.mu_sq) * (d2 - self.mu_sq)))
+                            * finv(d3 * d4 * c1d5);
+
+                        //l -> x3 p3
+                        let c3 = (finv(d3 * d4) - finv((d3 - self.mu_sq) * (d4 - self.mu_sq)))
+                            * finv(d1 * d2 * c3d5);
+
+                        //k -> x1 p1 and l -> x3 p3
+                        let c13 = (finv(d1 * d2 * d3 * d4)
+                            - finv(
+                                (d1 - self.mu_sq)
+                                    * (d2 - self.mu_sq)
+                                    * (d3 - self.mu_sq)
+                                    * (d4 - self.mu_sq),
+                            ))
+                            / c13d5;
+
+                        Ok(factor * (finv(denominator) - c1 - c3 + c13))
+                    }
+                    _ => Err("Unknown Subtracted Term for SUBTRACTED_DIAGONAL_BOX!"),
+                }
             }
 
             OFF_SHELL_DOUBLE_BOX_SB => {
