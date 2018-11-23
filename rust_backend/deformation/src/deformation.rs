@@ -779,7 +779,18 @@ impl<F: Float + RealField> Deformer<F> {
             (l - &self.ext[2], k_2.clone()),
         ];
 
-        let lambda = self.compute_overall_lambda(k, l, &k_1, &k_2, &props);
+        let mut lambda = self.compute_overall_lambda(k, l, &k_1, &k_2, &props);
+
+        // for the counterterms, we have two additional UV propagators
+        let uv_fac_k = (k - &self.ext[0]).dot(&k_1) * 4.0;
+        let uv_fac_l = (l - &self.ext[2]).dot(&k_2) * 4.0;
+        if uv_fac_k <= self.mu_sq.im && lambda > uv_fac_k.inv() * self.mu_sq.im {
+            lambda = uv_fac_k.inv() * self.mu_sq.im;
+        }
+        if uv_fac_l <= self.mu_sq.im && lambda > uv_fac_l.inv() * self.mu_sq.im {
+            lambda = uv_fac_l.inv() * self.mu_sq.im;
+        }
+
         (k_1 * lambda, k_2 * lambda)
     }
 
