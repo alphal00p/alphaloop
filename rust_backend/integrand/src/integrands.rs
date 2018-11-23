@@ -293,10 +293,10 @@ impl Integrand {
 
                 //println!("Shell Flag: {:#b}", self.on_shell_flag);
                 match (
-                    self.on_shell_flag & (1 << 0) == 0,
-                    self.on_shell_flag & (1 << 1) == 0,
-                    self.on_shell_flag & (1 << 2) == 0,
-                    self.on_shell_flag & (1 << 3) == 0,
+                    self.on_shell_flag & (1 << 0) != 0,
+                    self.on_shell_flag & (1 << 1) != 0,
+                    self.on_shell_flag & (1 << 2) != 0,
+                    self.on_shell_flag & (1 << 3) != 0,
                 ) {
                     (false, false, false, false) => {
                         // p1,p2,p3,p4 : on-shell and p1,p3 : off-shell
