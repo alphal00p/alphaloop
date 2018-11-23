@@ -79,7 +79,11 @@ pub fn integrand(
         f[0] = r.re;
     //f[1] = r.im;
     } else {
-        println!("Bad point: {}", r);
+        if x.iter().any(|v| *v == 0.0 as f64 || *v == 1.0 as f64) {
+            println!("Hitting the hypercube side");
+        } else {
+            println!("Bad point: {}", r);
+        }
         f[0] = 0.;
         //f[1] = 0.;
     }
