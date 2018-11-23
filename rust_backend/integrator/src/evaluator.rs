@@ -19,6 +19,8 @@ pub struct Topology {
     id: usize,
     #[serde(default)]
     name: String,
+    #[serde(default)]
+    on_shell_flag: usize,
 }
 
 impl Topology {
@@ -28,10 +30,24 @@ impl Topology {
             .iter()
             .map(|p| LorentzVector::from_slice(&p))
             .collect();
-
         match self.loops {
-            1 => Evaluator::new(&self.name, self.e_cm_sq, alpha, mu_sq, ext),
-            2 => Evaluator::new_two_loop(self.id, self.e_cm_sq, alpha, mu_sq, dual, ext),
+            1 => Evaluator::new(
+                &self.name,
+                self.e_cm_sq,
+                alpha,
+                mu_sq,
+                ext,
+                self.on_shell_flag,
+            ),
+            2 => Evaluator::new_two_loop(
+                self.id,
+                self.e_cm_sq,
+                alpha,
+                mu_sq,
+                dual,
+                ext,
+                self.on_shell_flag,
+            ),
             _ => unreachable!("Invalid number of loops"),
         }
     }
@@ -87,6 +103,7 @@ impl Evaluator {
         alpha: Option<f64>,
         mu_sq: f64,
         external_momenta: Vec<LorentzVector<f64>>,
+        on_shell_flag: usize,
     ) -> Evaluator {
         let mut qs = vec![LorentzVector::new()];
         for (i, x) in external_momenta[1..].iter().enumerate() {
@@ -103,6 +120,7 @@ impl Evaluator {
 
         let mut integrand = Integrand::new(name, 0, 0, mu_sq).unwrap();
         integrand.set_externals(external_momenta);
+        integrand.set_on_shell_flag(on_shell_flag);
 
         Evaluator {
             parameterizer,
@@ -120,6 +138,7 @@ impl Evaluator {
         mu_sq: f64,
         dual: bool,
         external_momenta: Vec<LorentzVector<f64>>,
+        on_shell_flag: usize,
     ) -> Evaluator {
         let mut parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
 
@@ -159,6 +178,7 @@ impl Evaluator {
 
         deformer.set_external_momenta(&external_momenta);
         integrand.set_externals(external_momenta.clone());
+        integrand.set_on_shell_flag(on_shell_flag);
 
         Evaluator {
             parameterizer,

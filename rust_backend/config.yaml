@@ -15,7 +15,7 @@ cores: 4
 seed: 1 # use pseudo-random numbers
 # Parameters controlling the survey+refine stragey
 # Set refine_n_runs < 0 to disable it.
-refine_n_runs : 20
+refine_n_runs : 0
 refine_n_points : 10000000
 survey_n_iterations : 5
 survey_n_points : 10000000
@@ -77,7 +77,17 @@ topologies:
             - [-90.0, 0.0, 0.0, 0.0]        
     diagonal-box:
         loops: 2
-        e_cm_sq: 0.947492
+        e_cm_sq: 1.0
         name: ""
         id: 4
-        external_momenta: *box_ext
+        on_shell_flag: 0b0101
+        external_momenta: &two_on_shell
+            - [-0.25, 0.09481243500084399, -0.21511622518687185, -0.08506239962851844]
+            - [-0.75, -0.09481243500084399, 0.21511622518687185, 0.08506239962851844]
+            - [0.4, -0.3036042046403518, -0.23365645549568875, -0.11501803219448077]
+            - [0.6000000000000001, 0.3036042046403518, 0.23365645549568875, 0.11501803219448077]
+        #external_momenta: 
+        #    - [-0.5, -0.5, 0.0, 0.0 ]  
+        #    - [-0.5, +0.5, 0.0, 0.0 ] 
+        #    - [+0.5, +0.25, +0.4330127018922193, 0.0 ] 
+        #    - [+0.5, +0.25, -0.4330127018922193, 0.0 ] 
