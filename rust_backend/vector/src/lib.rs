@@ -1,13 +1,13 @@
 extern crate dual_num;
 extern crate num;
 
-use num::Float;
 use dual_num::Dual;
 use num::traits::Inv;
+use num::Float;
 use std::fmt;
 use std::fmt::{Debug, Display};
-use std::ops::{Add, Div, Index, IndexMut, Mul, MulAssign, AddAssign, Neg, Sub};
 use std::iter::Sum;
+use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
 type Complex = num::Complex<f64>;
 
@@ -386,6 +386,20 @@ impl<'a> Add<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
     }
 }
 
+impl<'a> Add<&'a LorentzVector<f64>> for LorentzVector<Complex> {
+    type Output = LorentzVector<Complex>;
+
+    #[inline]
+    fn add(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
+        LorentzVector {
+            t: self.t + other.t,
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+}
+
 impl<T: Field> Index<usize> for LorentzVector<T> {
     type Output = T;
 
@@ -425,7 +439,6 @@ impl<T: Float + Field> LorentzVector<T> {
         (self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 }
-
 
 impl LorentzVector<f64> {
     #[inline]
