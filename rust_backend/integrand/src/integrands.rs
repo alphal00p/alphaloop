@@ -310,9 +310,9 @@ impl Integrand {
                         let x3 = Integrand::collinear_x(l, &self.ext[2]);
 
                         let k_c1 = self.ext[0] * x1;
-                        let l_c3 = self.ext[0] * x3;
+                        let l_c3 = self.ext[2] * x3;
 
-                        let c1d5 = (l - &k_c1 + &self.ext[0] + &self.ext[1]).square(); //A5
+                        let c1d5 = (l - &k_c1 + &self.ext[0] + &self.ext[1]).square(); //A5 (signs inverted, but square)
                         let c3d5 = (k - &l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
                         let c13d5 = (k_c1 - l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
 
