@@ -94,13 +94,14 @@ impl Integrand {
     // build bit-flags for the external momenta
     // this will indicate which counterterms should be used
     pub fn set_on_shell_flag(&mut self, flag: usize) {
-        //TODO: print proper warning
+        self.on_shell_flag = flag;
+        //TODO: Setting a threshould using the com energy
         for (i, e) in self.ext.iter().enumerate() {
-            if e.square() == 0. && flag & (1 << i) == 0 {
+            if e.square() == 0. && self.on_shell_flag & (1 << i) == 0 {
+                self.on_shell_flag |= 2_usize.pow(i as u32);
                 println!("WARNING: External {} is an unflaged on-shell momentum!", i);
             }
         }
-        self.on_shell_flag = flag;
     }
 
     pub fn set_externals(&mut self, ext: Vec<LorentzVector<f64>>) {
