@@ -92,23 +92,21 @@ impl Aggregator {
         );
 
         // create an evaluator
-        let mut eval = self.evaluator.clone();
-
-        eval.parameterizer.set_region(region);
-        eval.parameterizer.set_channel(channel);
-        eval.deformer.set_region(region);
-        eval.integrand.set_region(region);
-        eval.integrand.set_channel(channel);
+        self.evaluator.parameterizer.set_region(region);
+        self.evaluator.parameterizer.set_channel(channel);
+        self.evaluator.deformer.set_region(region);
+        self.evaluator.integrand.set_region(region);
+        self.evaluator.integrand.set_channel(channel);
 
         if region == REGION_EXT {
-            eval.parameterizer.set_mode("weinzierl").unwrap();
+            self.evaluator.parameterizer.set_mode("weinzierl").unwrap();
         } else {
             if channel == 0 {
-                eval.parameterizer
+                self.evaluator.parameterizer
                     .set_mode(&self.settings.param_mode)
                     .unwrap();
             } else {
-                eval.parameterizer.set_mode("weinzierl").unwrap();
+                self.evaluator.parameterizer.set_mode("weinzierl").unwrap();
             }
         }
 
@@ -151,6 +149,7 @@ impl Aggregator {
                     .set_maxeval(
                         (self.settings.survey_n_iterations * self.settings.survey_n_points) as i64,
                     );
+                let mut eval = self.evaluator.clone();
                 let survey_result = ci.vegas(
                     4 * self.n_loops,
                     1,
@@ -243,7 +242,7 @@ impl Aggregator {
                     CubaVerbosity::Progress,
                     0, // Not saving the grid
                     UserData {
-                        evaluator: vec![eval; self.settings.cores + 1],
+                        evaluator: vec![self.evaluator.clone(); self.settings.cores + 1],
                         running_max: 0f64,
                     },
                 )

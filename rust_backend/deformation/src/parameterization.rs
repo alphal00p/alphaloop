@@ -82,7 +82,7 @@ impl Parameterizer {
         );
 
         let jac = 2.0 * f64::PI() * f64::PI() * k_e * k_e / (mu1 * mu1)
-            * (k_e.powi(4) + mu1.powi(4))
+            * (k_e.powi(4) - mu1.powi(4))
             * sin_xi;
         Ok((k, jac))
     }
