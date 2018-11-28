@@ -54,16 +54,17 @@ pub struct Deformer<F: Float + RealField> {
     p_min: LorentzVector<F>,
     e_cm_sq: f64,
     mu_p_sq: F,
-    m1_fac: F,
-    m2_fac: F,
-    m3_fac: F,
-    m4_fac: F,
+    m1_fac: f64,
+    m2_fac: f64,
+    m3_fac: f64,
+    m4_fac: f64,
     m1_sq: F,
     m2_sq: F,
     m3_sq: F,
     m4_sq: F,
-    gamma1: F,
-    gamma2: F,
+    gamma1: f64,
+    gamma2: f64,
+    soft_fac: f64,
     e_soft: F,
     region: usize,
     mu_sq: Complex,
@@ -74,6 +75,13 @@ impl<F: Float + RealField> Deformer<F> {
     pub fn new(
         e_cm_sq: f64,
         mu_sq: f64,
+        m1_fac: f64,
+        m2_fac: f64,
+        m3_fac: f64,
+        m4_fac: f64,
+        gamma1: f64,
+        gamma2: f64,
+        soft_fac: f64,
         region: usize,
         masses: &[f64],
     ) -> Result<Deformer<F>, &'static str> {
@@ -89,17 +97,18 @@ impl<F: Float + RealField> Deformer<F> {
             p_min: LorentzVector::new(),
             e_cm_sq,
             mu_p_sq: From::from(0.0),
-            m1_fac: From::from(0.035),
-            m2_fac: From::from(0.7),
-            m3_fac: From::from(0.035),
-            m4_fac: From::from(0.035),
+            m1_fac,
+            m2_fac,
+            m3_fac,
+            m4_fac,
             m1_sq: From::from(0.0),
             m2_sq: From::from(0.0),
             m3_sq: From::from(0.0),
             m4_sq: From::from(0.0),
-            gamma1: From::from(0.7),
-            gamma2: From::from(0.008),
-            e_soft: From::from(0.03 * e_cm_sq.sqrt()),
+            gamma1,
+            gamma2,
+            soft_fac,
+            e_soft: From::from(soft_fac * e_cm_sq.sqrt()),
             mu_sq: Complex::new(0.0, mu_sq),
             uv_shift: LorentzVector::new(),
             region,
@@ -147,22 +156,20 @@ impl<F: Float + RealField> Deformer<F> {
 
         self.mu_p_sq = (&self.p_min - &self.p_plus).square();
 
-        self.m1_sq = self.m1_fac * self.m1_fac * self.e_cm_sq;
-        self.m2_sq = self.m2_fac
-            * self.m2_fac
-            * (if self.mu_p_sq > self.e_cm_sq {
-                self.mu_p_sq
-            } else {
-                From::from(self.e_cm_sq)
-            });
-        self.m3_sq = self.m3_fac
-            * self.m3_fac
-            * (if self.mu_p_sq > self.e_cm_sq {
-                self.mu_p_sq
-            } else {
-                From::from(self.e_cm_sq)
-            });
-        self.m4_sq = self.m4_fac * self.m4_fac * self.e_cm_sq;
+        self.m1_sq = From::from(self.m1_fac * self.m1_fac * self.e_cm_sq);
+        self.m2_sq = (if self.mu_p_sq > self.e_cm_sq {
+            self.mu_p_sq
+        } else {
+            From::from(self.e_cm_sq)
+        }) * self.m2_fac
+            * self.m2_fac;
+        self.m3_sq = (if self.mu_p_sq > self.e_cm_sq {
+            self.mu_p_sq
+        } else {
+            From::from(self.e_cm_sq)
+        }) * self.m3_fac
+            * self.m3_fac;
+        self.m4_sq = From::from(self.m4_fac * self.m4_fac * self.e_cm_sq);
     }
 
     /// Set new qs and update all parameters accordingly.
@@ -336,7 +343,7 @@ impl<F: Float + RealField> Deformer<F> {
 
         let n = self.qs.len();
         assert!(n <= Q_UB);
-        let f = Deformer::g(&k_centre, self.gamma1, self.m2_sq);
+        let f = Deformer::g(&k_centre, From::from(self.gamma1), self.m2_sq);
 
         // the sum of all the cs, used for lambda scaling
         let mut c_sum: F = From::from(0.);
@@ -409,14 +416,14 @@ impl<F: Float + RealField> Deformer<F> {
                 let mut da_min: F = num::NumCast::from(1.).unwrap();
                 for l in 0..n {
                     let l1 =
-                        Deformer::h_delta(0, &(mom - self.qs[l]), 0., self.gamma2 * self.m1_sq);
+                        Deformer::h_delta(0, &(mom - self.qs[l]), 0., self.m1_sq * self.gamma2);
                     let lp2 = Deformer::h_theta(
                         (mom - self.qs[l]).dot(&ka[a]) * 2.,
-                        self.gamma2 * self.m1_sq,
+                        self.m1_sq * self.gamma2,
                     );
                     let lm2 = Deformer::h_theta(
                         (mom - self.qs[l]).dot(&ka[a]) * -2.,
-                        self.gamma2 * self.m1_sq,
+                        self.m1_sq * self.gamma2,
                     );
 
                     if l1 < lp2 {
@@ -1316,8 +1323,20 @@ impl Deformer<f64> {
     }
 
     pub fn jacobian_using_dual(&self, k: &LorentzVector<f64>) -> (LorentzVector<f64>, Complex) {
-        let mut dual_deformer: Deformer<Dual<f64>> =
-            Deformer::new(self.e_cm_sq, self.mu_sq.im, self.region, &self.masses).unwrap();
+        let mut dual_deformer: Deformer<Dual<f64>> = Deformer::new(
+            self.e_cm_sq,
+            self.mu_sq.im,
+            self.m1_fac,
+            self.m2_fac,
+            self.m3_fac,
+            self.m4_fac,
+            self.gamma1,
+            self.gamma2,
+            self.soft_fac,
+            self.region,
+            &self.masses,
+        )
+        .unwrap();
         dual_deformer.set_qs_iter(self.qs.iter().map(|x| LorentzVector::from_f64(*x)));
 
         let mut grad = [[Complex::new(0., 0.); 4]; 4];
@@ -1355,8 +1374,20 @@ impl Deformer<f64> {
         l: &LorentzVector<f64>,
     ) -> (LorentzVector<Complex>, LorentzVector<Complex>, Complex) {
         // create a deformer that works with dual numbers
-        let mut dual_deformer: Deformer<Dual<f64>> =
-            Deformer::new(self.e_cm_sq, self.mu_sq.im, self.region, &self.masses).unwrap();
+        let mut dual_deformer: Deformer<Dual<f64>> = Deformer::new(
+            self.e_cm_sq,
+            self.mu_sq.im,
+            self.m1_fac,
+            self.m2_fac,
+            self.m3_fac,
+            self.m4_fac,
+            self.gamma1,
+            self.gamma2,
+            self.soft_fac,
+            self.region,
+            &self.masses,
+        )
+        .unwrap();
         dual_deformer
             .set_external_momenta_iter(self.ext.iter().map(|x| LorentzVector::from_f64(*x)));
 

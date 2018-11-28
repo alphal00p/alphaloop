@@ -6,6 +6,15 @@ multi_channeling: false
 regions: false
 param_mode: weinzierl_ext
 
+# deformation parameters
+m1_fac: 0.035
+m2_fac: 0.7
+m3_fac: 0.035
+m4_fac: 0.035
+gamma1: 0.7
+gamma2: 0.008
+soft_fac: 0.03
+
 # integration settings
 min_eval: 10
 nstart: 100000

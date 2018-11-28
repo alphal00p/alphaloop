@@ -36,7 +36,20 @@ fn performance_test(settings: Settings) {
     parameterizer.set_mode("log").unwrap();
     parameterizer.set_qs(external_momenta.clone()); // should be Q
 
-    let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, &vec![0.; external_momenta.len()]).unwrap();
+    let mut deformer = Deformer::new(
+        e_cm_sq,
+        mu_sq,
+        settings.m1_fac,
+        settings.m2_fac,
+        settings.m3_fac,
+        settings.m4_fac,
+        settings.gamma1,
+        settings.gamma2,
+        settings.soft_fac,
+        0,
+        &vec![0.; external_momenta.len()],
+    )
+    .unwrap();
     let mut integrand = Integrand::new("triangle2L_direct_integration", 0, 0, mu_sq).unwrap();
 
     deformer.set_external_momenta(&external_momenta);
@@ -52,7 +65,8 @@ fn performance_test(settings: Settings) {
         let (l_m, _jac_l) = parameterizer.map(&l).unwrap();
 
         let d = if settings.dual {
-            let (kk, ll, _j) = deformer.jacobian_using_dual_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m);
+            let (kk, ll, _j) =
+                deformer.jacobian_using_dual_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m);
             (kk, ll)
         } else {
             let d = deformer

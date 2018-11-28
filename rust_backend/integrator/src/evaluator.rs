@@ -1,3 +1,4 @@
+use aggregator::Settings;
 use deformation::deformation::Deformer;
 use deformation::deformation::{
     DIAGONAL_BOX_ID, DOUBLE_BOX_ID, DOUBLE_BOX_SB_ID, DOUBLE_TRIANGLE_ID,
@@ -24,30 +25,15 @@ pub struct Topology {
 }
 
 impl Topology {
-    pub fn build_evaluator(&self, mu_sq: f64, dual: bool, alpha: Option<f64>) -> Evaluator {
+    pub fn build_evaluator(&self, settings: &Settings) -> Evaluator {
         let ext = self
             .external_momenta
             .iter()
             .map(|p| LorentzVector::from_slice(&p))
             .collect();
         match self.loops {
-            1 => Evaluator::new(
-                &self.name,
-                self.e_cm_sq,
-                alpha,
-                mu_sq,
-                ext,
-                self.on_shell_flag,
-            ),
-            2 => Evaluator::new_two_loop(
-                self.id,
-                self.e_cm_sq,
-                alpha,
-                mu_sq,
-                dual,
-                ext,
-                self.on_shell_flag,
-            ),
+            1 => Evaluator::new(&self.name, self.e_cm_sq, settings, ext, self.on_shell_flag),
+            2 => Evaluator::new_two_loop(self.id, self.e_cm_sq, settings, ext, self.on_shell_flag),
             _ => unreachable!("Invalid number of loops"),
         }
     }
@@ -104,8 +90,7 @@ impl Evaluator {
     pub fn new(
         name: &str,
         e_cm_sq: f64,
-        alpha: Option<f64>,
-        mu_sq: f64,
+        settings: &Settings,
         external_momenta: Vec<LorentzVector<f64>>,
         on_shell_flag: usize,
     ) -> Evaluator {
@@ -115,14 +100,27 @@ impl Evaluator {
             qs.push(r);
         }
 
-        let mut parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
+        let mut parameterizer = Parameterizer::new(e_cm_sq, settings.alpha, 0, 0).unwrap();
         parameterizer.set_qs(qs.clone());
 
         // TODO: for now the internal masses are assumed to be 0
-        let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, &vec![0.; qs.len()]).unwrap();
+        let mut deformer = Deformer::new(
+            e_cm_sq,
+            settings.mu_sq,
+            settings.m1_fac,
+            settings.m2_fac,
+            settings.m3_fac,
+            settings.m4_fac,
+            settings.gamma1,
+            settings.gamma2,
+            settings.soft_fac,
+            0,
+            &vec![0.; qs.len()],
+        )
+        .unwrap();
         deformer.set_qs(&qs);
 
-        let mut integrand = Integrand::new(name, 0, 0, mu_sq).unwrap();
+        let mut integrand = Integrand::new(name, 0, 0, settings.mu_sq).unwrap();
         integrand.set_externals(external_momenta);
         integrand.set_on_shell_flag(on_shell_flag);
 
@@ -138,31 +136,50 @@ impl Evaluator {
     pub fn new_two_loop(
         id: usize,
         e_cm_sq: f64,
-        alpha: Option<f64>,
-        mu_sq: f64,
-        dual: bool,
+        settings: &Settings,
         external_momenta: Vec<LorentzVector<f64>>,
         on_shell_flag: usize,
     ) -> Evaluator {
-        let mut parameterizer = Parameterizer::new(e_cm_sq, alpha, 0, 0).unwrap();
+        let mut parameterizer = Parameterizer::new(e_cm_sq, settings.alpha, 0, 0).unwrap();
 
-        let mut deformer = Deformer::new(e_cm_sq, mu_sq, 0, &[0.; 7]).unwrap();
+        let mut deformer = Deformer::new(
+            e_cm_sq,
+            settings.mu_sq,
+            settings.m1_fac,
+            settings.m2_fac,
+            settings.m3_fac,
+            settings.m4_fac,
+            settings.gamma1,
+            settings.gamma2,
+            settings.soft_fac,
+            0,
+            &[0.; 7],
+        )
+        .unwrap();
 
         let mut integrand = match id {
-            DOUBLE_BOX_ID => Integrand::new("box2L_direct_integration", 0, 0, mu_sq).unwrap(),
+            DOUBLE_BOX_ID => {
+                Integrand::new("box2L_direct_integration", 0, 0, settings.mu_sq).unwrap()
+            }
             DOUBLE_TRIANGLE_ID => {
-                Integrand::new("triangle2L_direct_integration", 0, 0, mu_sq).unwrap()
+                Integrand::new("triangle2L_direct_integration", 0, 0, settings.mu_sq).unwrap()
             }
             TRIANGLE_BOX_ID => {
-                Integrand::new("trianglebox_direct_integration", 0, 0, mu_sq).unwrap()
+                Integrand::new("trianglebox_direct_integration", 0, 0, settings.mu_sq).unwrap()
             }
-            TRIANGLE_BOX_ALTERNATIVE_ID => {
-                Integrand::new("trianglebox_alternative_direct_integration", 0, 0, mu_sq).unwrap()
-            }
+            TRIANGLE_BOX_ALTERNATIVE_ID => Integrand::new(
+                "trianglebox_alternative_direct_integration",
+                0,
+                0,
+                settings.mu_sq,
+            )
+            .unwrap(),
             DIAGONAL_BOX_ID => {
-                Integrand::new("diagonalbox_direct_integration", 0, 0, mu_sq).unwrap()
+                Integrand::new("diagonalbox_direct_integration", 0, 0, settings.mu_sq).unwrap()
             }
-            DOUBLE_BOX_SB_ID => Integrand::new("box2L_direct_integration_SB", 0, 0, mu_sq).unwrap(),
+            DOUBLE_BOX_SB_ID => {
+                Integrand::new("box2L_direct_integration_SB", 0, 0, settings.mu_sq).unwrap()
+            }
             _ => unreachable!("Unknown id"),
         };
 
@@ -189,7 +206,7 @@ impl Evaluator {
             deformer,
             integrand,
             id,
-            dual,
+            dual: settings.dual,
         }
     }
 

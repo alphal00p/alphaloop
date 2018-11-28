@@ -27,6 +27,13 @@ pub struct Settings {
     pub survey_n_points: usize,
     pub refine_n_runs: usize,
     pub refine_n_points: usize,
+    pub m1_fac: f64,
+    pub m2_fac: f64,
+    pub m3_fac: f64,
+    pub m4_fac: f64,
+    pub gamma1: f64,
+    pub gamma2: f64,
+    pub soft_fac: f64,
 }
 
 impl Default for Settings {
@@ -51,6 +58,13 @@ impl Default for Settings {
             survey_n_points: 10000000,
             refine_n_points: 10000000,
             refine_n_runs: 20,
+            m1_fac: 0.035,
+            m2_fac: 0.7,
+            m3_fac: 0.035,
+            m4_fac: 0.035,
+            gamma1: 0.7,
+            gamma2: 0.008,
+            soft_fac: 0.03,
         }
     }
 }
@@ -76,11 +90,7 @@ impl Aggregator {
             n_loops: settings.topologies[&settings.active_topology].loops,
             do_regions: settings.regions,
             do_multichanneling: settings.multi_channeling,
-            evaluator: settings.topologies[&settings.active_topology].build_evaluator(
-                settings.mu_sq,
-                settings.dual,
-                settings.alpha,
-            ),
+            evaluator: settings.topologies[&settings.active_topology].build_evaluator(&settings),
             settings,
         }
     }
@@ -102,7 +112,8 @@ impl Aggregator {
             self.evaluator.parameterizer.set_mode("weinzierl").unwrap();
         } else {
             if channel == 0 {
-                self.evaluator.parameterizer
+                self.evaluator
+                    .parameterizer
                     .set_mode(&self.settings.param_mode)
                     .unwrap();
             } else {

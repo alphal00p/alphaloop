@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate cpython;
 extern crate arrayvec;
+extern crate dual_num;
 extern crate num;
 extern crate vector;
-extern crate dual_num;
 use cpython::{exc, PyErr, PyList, PyResult};
 use std::cell::RefCell;
 
@@ -28,8 +28,12 @@ py_module_initializer!(deformation, initdeformation, PyInit_deformation, |py, m|
 py_class!(class Deformation |py| {
     data deformer: RefCell<deformation::Deformer<f64>>;
 
-    def __new__(_cls, e_cm_sq: f64, mu_sq: f64, region: usize, qs_py: PyList, masses: Vec<f64>) -> PyResult<Deformation> {
-        let int = deformation::Deformer::new(e_cm_sq, mu_sq, region, &masses)
+    def __new__(_cls, e_cm_sq: f64, mu_sq: f64, m1_fac: f64,
+                m2_fac: f64, m3_fac: f64, m4_fac: f64, gamma1: f64, gamma2: f64,
+                soft_fac: f64, region: usize, qs_py: PyList, masses: Vec<f64>)
+    -> PyResult<Deformation> {
+        let int = deformation::Deformer::new(e_cm_sq, mu_sq, m1_fac,
+                        m2_fac, m3_fac, m4_fac, gamma1, gamma2, soft_fac, region, &masses)
                     .map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         let r = Deformation::create_instance(py, RefCell::new(int))?;
         r.set_qs(py, qs_py)?;
