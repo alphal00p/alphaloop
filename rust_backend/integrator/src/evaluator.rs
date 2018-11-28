@@ -129,7 +129,7 @@ impl Evaluator {
             deformer,
             integrand,
             id: ONE_LOOP_ID,
-            dual: false,
+            dual: settings.dual,
         }
     }
 
@@ -214,7 +214,13 @@ impl Evaluator {
         if self.id == ONE_LOOP_ID {
             let (k_m, jac_k) = self.parameterizer.map(&LorentzVector::from_slice(x))?;
 
-            let (d, j) = self.deformer.deform(&k_m)?;
+            let (d, j) = if self.dual {
+                let (kk, j) = self.deformer.jacobian_using_dual(&k_m, true);
+                (&kk.to_complex(false) + &k_m, j)
+            } else {
+                self.deformer.deform(&k_m)?
+            };
+
             let v = self.integrand.evaluate(&[d])?;
 
             Ok(v * j * jac_k)

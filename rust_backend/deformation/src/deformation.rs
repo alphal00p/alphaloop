@@ -156,6 +156,9 @@ impl<F: Float + RealField> Deformer<F> {
 
         self.mu_p_sq = (&self.p_min - &self.p_plus).square();
 
+        //println!("mu_p={}, e_cm_sq={}", self.mu_p_sq, self.e_cm_sq);
+        //self.mu_p_sq = From::from(self.e_cm_sq);
+
         self.m1_sq = From::from(self.m1_fac * self.m1_fac * self.e_cm_sq);
         self.m2_sq = (if self.mu_p_sq > self.e_cm_sq {
             self.mu_p_sq
@@ -367,33 +370,42 @@ impl<F: Float + RealField> Deformer<F> {
             for i in 0..n {
                 for j in i + 1..n {
                     let mut c = f;
-                    let q_diff = (self.qs[i] - self.qs[j]).square();
-                    let mij = mom - self.qs[i] * From::from(0.5) - self.qs[j] * From::from(0.5);
 
-                    for l in 0..n {
-                        let l1 =
-                            Deformer::h_delta(0, &(mom - self.qs[l]), self.masses[l], self.m1_sq);
-                        // note: specialized for internal masses=0
-                        c *= Deformer::h_theta(q_diff, self.m1_sq);
-
-                        let a = (mom - self.qs[l]).dot(&mij) * -2.;
-                        let l2 = Deformer::h_theta(a, self.m1_sq);
-
-                        if l1 < l2 {
-                            c *= l2;
-                        } else {
-                            c *= l1;
-                        }
-                    }
-
-                    let zij = q_diff;
+                    let zij = (self.qs[i] - self.qs[j]).square();
                     if zij > 0. {
-                        let ki = mom - self.qs[i];
-                        let kj = mom - self.qs[j];
-                        let vij = (self.qs[i] * kj.t - self.qs[j] * ki.t)
-                            * (self.qs[i].t - self.qs[j].t).inv();
-                        k_int = k_int - (mom - vij) * c * (zij / (zij + self.m2_sq));
-                        // k_int = k_int - (mom - self.qs[i] * 0.5 - self.qs[j] * 0.5)
+                        let kij = if true {
+                            // multi-loop paper approach
+                            // TODO: check if we should drop the ^n
+                            c *= Deformer::h_theta(zij, self.m1_sq).powi(n as i32);
+                            mom - self.qs[i] * From::from(0.5) - self.qs[j] * From::from(0.5)
+                        } else {
+                            // thesis approach
+                            let ki = mom - self.qs[i];
+                            let kj = mom - self.qs[j];
+                            (mom - (self.qs[i] * kj.t - self.qs[j] * ki.t)
+                                * (self.qs[i].t - self.qs[j].t).inv())
+                                * (zij / (zij + self.m2_sq))
+                        };
+
+                        for l in 0..n {
+                            let l1 = Deformer::h_delta(
+                                0,
+                                &(mom - self.qs[l]),
+                                self.masses[l],
+                                self.m1_sq,
+                            );
+
+                            let a = (mom - self.qs[l]).dot(&kij) * -2.;
+                            let l2 = Deformer::h_theta(a, self.m1_sq);
+
+                            if l1 < l2 {
+                                c *= l2;
+                            } else {
+                                c *= l1;
+                            }
+                        }
+
+                        k_int = k_int - kij * c;
                         c_sum += c;
                     }
                 }
@@ -448,7 +460,7 @@ impl<F: Float + RealField> Deformer<F> {
         let k0 = k_int + k_ext;
         let mut lambda_cycle_sq: F = From::from(1.); // maximum lambda value
 
-        let mut restriction = 0;
+        let mut restriction = false;
         for j in 0..n {
             let k0_sq = k0.square();
             let lj = mom - self.qs[j];
@@ -461,17 +473,16 @@ impl<F: Float + RealField> Deformer<F> {
             if xj * 2. < yj {
                 if yj * 0.25 < lambda_cycle_sq {
                     lambda_cycle_sq = yj * 0.25;
-                    restriction = 1;
                 }
             } else if yj < 0. {
                 if xj - yj * 0.5 < lambda_cycle_sq {
                     lambda_cycle_sq = xj - yj * 0.5;
-                    restriction = 2;
+                    restriction = true;
                 }
             } else {
                 if xj - yj * 0.25 < lambda_cycle_sq {
                     lambda_cycle_sq = xj - yj * 0.25;
-                    restriction = 3;
+                    restriction = true;
                 }
             }
         }
@@ -480,11 +491,12 @@ impl<F: Float + RealField> Deformer<F> {
 
         // collinear contribution
         if c_sum.inv() * 0.25 < lambda_cycle {
-            if restriction == 1 {
+            if restriction {
                 // TODO: we are not near any collinear limit. We could consider not scaling the lambda down!
-                //println!("We are not near the collinear limit, yet we rescale lambda from {} to {}", lambda_cycle, 1.0 / (4.0 * n1));
+                //println!("We are not near the collinear limit, yet we rescale lambda from {} to {}", lambda_cycle, c_sum.inv() * 0.25);
             }
 
+            //println!("Coll scaling from {} to {}", lambda_cycle, c_sum.inv() * 0.25);
             lambda_cycle = c_sum.inv() * 0.25;
         }
 
@@ -1264,13 +1276,19 @@ impl Deformer<f64> {
         let jac = determinant(&grad);
 
         // for testing
-        let (k_new, jac_dual) = self.jacobian_using_dual(mom);
+        if false {
+            let (k_new, jac_dual) = self.jacobian_using_dual(mom, false);
 
-        if (jac_dual.norm() - jac.norm()).abs() > 0.000001 {
-            println!(
-                "jac={}, jac_dual={}, k={}, k_new={}",
-                jac, jac_dual, k, k_new
-            );
+            if (k0 * lambda_cycle - k_new).square().abs() > 0.0001 {
+                println!("Different deformation: k={}, k_new={}", k0, k_new);
+            }
+
+            if (jac_dual.norm() - jac.norm()).abs() > 0.000001 {
+                println!(
+                    "jac={}, jac_dual={}, k={}, k_new={}",
+                    jac, jac_dual, k, k_new
+                );
+            }
         }
 
         Ok((k, jac))
@@ -1322,7 +1340,11 @@ impl Deformer<f64> {
         Ok((&kd.to_complex(false) + k, &ld.to_complex(false) + l))
     }
 
-    pub fn jacobian_using_dual(&self, k: &LorentzVector<f64>) -> (LorentzVector<f64>, Complex) {
+    pub fn jacobian_using_dual(
+        &self,
+        k: &LorentzVector<f64>,
+        use_cij: bool,
+    ) -> (LorentzVector<f64>, Complex) {
         let mut dual_deformer: Deformer<Dual<f64>> = Deformer::new(
             self.e_cm_sq,
             self.mu_sq.im,
@@ -1349,8 +1371,8 @@ impl Deformer<f64> {
             let mut k_ep: LorentzVector<Dual<f64>> = LorentzVector::from_f64(*k);
             k_ep[i] = Dual::new(k[i], 1.0);
 
-            // disable cij and ca, like in the one-loop code
-            let res_k = dual_deformer.deform_int_no_jacobian(&k_ep, false, false, true);
+            // disable ca, like in the one-loop code
+            let res_k = dual_deformer.deform_int_no_jacobian(&k_ep, use_cij, false, true);
 
             k_new = LorentzVector::from_args(
                 res_k[0].real(),
