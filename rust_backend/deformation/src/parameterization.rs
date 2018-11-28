@@ -14,7 +14,6 @@ pub enum ParameterizationMode {
 pub struct Parameterizer {
     mode: ParameterizationMode,
     alpha: f64, // scaling parameter
-    e_cm_sq: f64,
     channel: usize,
     qs: Vec<LorentzVector<f64>>,
     region: usize,
@@ -28,10 +27,9 @@ impl Parameterizer {
         channel: usize,
     ) -> Result<Parameterizer, &'static str> {
         Ok(Parameterizer {
-            e_cm_sq,
             channel,
             qs: Vec::with_capacity(4),
-            alpha: alpha.unwrap_or(e_cm_sq.sqrt()),
+            alpha: alpha.unwrap_or(1.0) * e_cm_sq.sqrt(),
             mode: ParameterizationMode::Weinzierl,
             region,
         })
@@ -65,9 +63,7 @@ impl Parameterizer {
         &self,
         mom: &LorentzVector<f64>,
     ) -> Result<(LorentzVector<f64>, f64), &'static str> {
-        // TODO: mu1 can be anything of the same order as self.e_cm_sq
-        let mu1 = self.e_cm_sq.sqrt();
-        let k_e = mu1 * (f64::FRAC_PI_2() * mom.t).tan().sqrt();
+        let k_e = self.alpha * (f64::FRAC_PI_2() * mom.t).tan().sqrt();
         let cos_xi = 1.0 - 2.0 * mom.x;
         let sin_xi = (1.0 - cos_xi * cos_xi).sqrt();
         let cos_theta = 1.0 - 2.0 * mom.y;
@@ -81,8 +77,8 @@ impl Parameterizer {
             k_e * sin_xi * cos_theta,
         );
 
-        let jac = 2.0 * f64::PI() * f64::PI() * k_e * k_e / (mu1 * mu1)
-            * (k_e.powi(4) + mu1.powi(4))
+        let jac = 2.0 * f64::PI() * f64::PI() * k_e * k_e / (self.alpha * self.alpha)
+            * (k_e.powi(4) + self.alpha.powi(4))
             * sin_xi;
         Ok((k, jac))
     }
@@ -126,7 +122,7 @@ impl Parameterizer {
         };
 
         // construct the x-dependent part
-        let rho = (1.0 + self.e_cm_sq.sqrt() / p_abs * (f64::FRAC_PI_2() * mom.t).tan()).ln();
+        let rho = (1.0 + self.alpha / p_abs * (f64::FRAC_PI_2() * mom.t).tan()).ln();
         let xi = f64::PI() * mom.x;
         let ep = rho.sinh() * xi.sin();
         let theta = if mom.y < 0.5 {
@@ -165,8 +161,8 @@ impl Parameterizer {
             * theta.sin()
             * (rho.sinh().powi(2) + xi.sin().powi(2));
         jac *= f64::FRAC_PI_2()
-            * (self.e_cm_sq / p_abs / p_abs + (f64::E().powf(rho) - 1.0).powi(2))
-            / (self.e_cm_sq.sqrt() / p_abs * f64::E().powf(rho));
+            * (self.alpha * self.alpha / p_abs / p_abs + (f64::E().powf(rho) - 1.0).powi(2))
+            / (self.alpha / p_abs * f64::E().powf(rho));
         jac *= f64::PI();
         jac *= 2.0 * (ep + theta.cos().abs()) / theta.sin() * ((1.0 + ep) / ep).ln();
         jac *= 2.0 * f64::PI();
