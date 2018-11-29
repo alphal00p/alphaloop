@@ -76,7 +76,7 @@ topologies:
     double-box-SB:
         # Analytical result quoted by SB (exactly real) : -1.43249e-7
         loops: 2
-        e_cm_sq: 90.0
+        e_cm_sq: 8100.0
         name: ""
         id: 5
         external_momenta:

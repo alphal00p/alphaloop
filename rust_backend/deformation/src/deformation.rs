@@ -230,12 +230,11 @@ impl<F: Float + RealField> Deformer<F> {
     /// This is necessary to counterbalance numerical error arising in the exact algorithm
     fn shift_and_check_p(&mut self) {
         //Perform the shift
-        let r = (&self.p_min - &self.p_plus) * From::from(0.5);
-        let center = (&self.p_min + &self.p_plus) * From::from(0.5);
-        let shift_size = 1.0e-2;
-
-        self.p_min = &center + &r * From::from(1.0 + shift_size);
-        self.p_plus = &center - &r * From::from(1.0 + shift_size);
+        let shift_size = 1e-8;
+        let r: F = (self.p_min.t - self.p_plus.t) * 0.5;
+        let center: F = (self.p_min.t + self.p_plus.t) * 0.5;
+        self.p_min.t = center + r * (1.0 + shift_size);
+        self.p_plus.t = center - r * (1.0 + shift_size);
 
         //Check if P+/- has all the qs in its backward/forward light-cone
         let mut pq_diff;
@@ -586,16 +585,16 @@ impl<F: Float + RealField> Deformer<F> {
         let mut c12_qs = [LorentzVector::new(), k - l, -&self.ext[0]];
 
         self.set_qs(&c12_qs);
-        let c12_k = self.deform_int_no_jacobian(k, true, false, false); // get the direction
+        let c12_k = self.deform_int_no_jacobian(k, false, false, false); // get the direction
 
         c12_qs = [LorentzVector::new(), -k + l - &self.ext[0], -k + l];
 
         self.set_qs(&c12_qs);
-        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c12_l = self.deform_int_no_jacobian(l, false, false, false);
 
         let c23_qs = [LorentzVector::new(), k + &self.ext[0], k.clone()];
         self.set_qs(&c23_qs);
-        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c23_l = self.deform_int_no_jacobian(l, false, false, false);
 
         let c13_qs = [
             LorentzVector::new(),
@@ -604,7 +603,7 @@ impl<F: Float + RealField> Deformer<F> {
             -&self.ext[0],
         ];
         self.set_qs(&c13_qs);
-        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
+        let c13_k = self.deform_int_no_jacobian(k, false, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -658,16 +657,16 @@ impl<F: Float + RealField> Deformer<F> {
 
         //Compute kappas
         self.set_qs(&c12_qs_k);
-        let c12_k = self.deform_int_no_jacobian(k, true, false, false);
+        let c12_k = self.deform_int_no_jacobian(k, false, false, false);
 
         self.set_qs(&c12_qs_l);
-        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c12_l = self.deform_int_no_jacobian(l, false, false, false);
 
         self.set_qs(&c13_qs_k);
-        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
+        let c13_k = self.deform_int_no_jacobian(k, false, false, false);
 
         self.set_qs(&c23_qs_l);
-        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c23_l = self.deform_int_no_jacobian(l, false, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -698,12 +697,12 @@ impl<F: Float + RealField> Deformer<F> {
         let mut c12_qs = [LorentzVector::new(), k - l, -&self.ext[0]];
 
         self.set_qs(&c12_qs);
-        let c12_k = self.deform_int_no_jacobian(k, true, false, false); // get the direction
+        let c12_k = self.deform_int_no_jacobian(k, false, false, false); // get the direction
 
         c12_qs = [LorentzVector::new(), -k + l - &self.ext[0], -k + l];
 
         self.set_qs(&c12_qs);
-        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c12_l = self.deform_int_no_jacobian(l, false, false, false);
 
         let c23_qs = [
             LorentzVector::new(),
@@ -712,7 +711,7 @@ impl<F: Float + RealField> Deformer<F> {
             k.clone(),
         ];
         self.set_qs(&c23_qs);
-        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c23_l = self.deform_int_no_jacobian(l, false, false, false);
 
         let c13_qs = [
             LorentzVector::new(),
@@ -722,7 +721,7 @@ impl<F: Float + RealField> Deformer<F> {
             -&self.ext[0],
         ];
         self.set_qs(&c13_qs);
-        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
+        let c13_k = self.deform_int_no_jacobian(k, false, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -774,16 +773,16 @@ impl<F: Float + RealField> Deformer<F> {
 
         //Compute kappas
         self.set_qs(&c12_qs_k);
-        let c12_k = self.deform_int_no_jacobian(k, true, false, false);
+        let c12_k = self.deform_int_no_jacobian(k, false, false, false);
 
         self.set_qs(&c12_qs_l);
-        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c12_l = self.deform_int_no_jacobian(l, false, false, false);
 
         self.set_qs(&c13_qs_k);
-        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
+        let c13_k = self.deform_int_no_jacobian(k, false, false, false);
 
         self.set_qs(&c23_qs_l);
-        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c23_l = self.deform_int_no_jacobian(l, false, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
@@ -878,13 +877,13 @@ impl<F: Float + RealField> Deformer<F> {
 
         // Now compute the corresponding Kappas
         self.set_qs(&cycle_12_qs);
-        let cycle_12_kappa = self.deform_int_no_jacobian(k, true, false, false);
+        let cycle_12_kappa = self.deform_int_no_jacobian(k, false, false, false);
         self.set_qs(&cycle_21_qs);
-        let cycle_21_kappa = self.deform_int_no_jacobian(l, true, false, false);
+        let cycle_21_kappa = self.deform_int_no_jacobian(l, false, false, false);
         self.set_qs(&cycle_13_qs);
-        let cycle_13_kappa = self.deform_int_no_jacobian(k, true, false, false);
+        let cycle_13_kappa = self.deform_int_no_jacobian(k, false, false, false);
         self.set_qs(&cycle_23_qs);
-        let cycle_23_kappa = self.deform_int_no_jacobian(l, true, false, false);
+        let cycle_23_kappa = self.deform_int_no_jacobian(l, false, false, false);
 
         // Add the kappas of the cycles contributing to each loop momentum
         let kappa_k = cycle_12_kappa + cycle_13_kappa;
@@ -974,16 +973,16 @@ impl<F: Float + RealField> Deformer<F> {
 
         //Compute kappas
         self.set_qs(&c12_qs_k);
-        let c12_k = self.deform_int_no_jacobian(k, true, false, false);
+        let c12_k = self.deform_int_no_jacobian(k, false, false, false);
 
         self.set_qs(&c12_qs_l);
-        let c12_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c12_l = self.deform_int_no_jacobian(l, false, false, false);
 
         self.set_qs(&c13_qs_k);
-        let c13_k = self.deform_int_no_jacobian(k, true, false, false);
+        let c13_k = self.deform_int_no_jacobian(k, false, false, false);
 
         self.set_qs(&c23_qs_l);
-        let c23_l = self.deform_int_no_jacobian(l, true, false, false);
+        let c23_l = self.deform_int_no_jacobian(l, false, false, false);
 
         let k_1 = c12_k + c13_k;
         let k_2 = c12_l + c23_l;
