@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+use dual_num::dual9::Dual9;
 use dual_num::Dual;
 use num::Float;
 use std::convert::From;
@@ -1386,6 +1387,63 @@ impl Deformer<f64> {
         }
 
         (k_new, determinant(&grad))
+    }
+
+    pub fn jacobian_using_dual9_two_loops(
+        &mut self,
+        id: usize,
+        k: &LorentzVector<f64>,
+        l: &LorentzVector<f64>,
+    ) -> (LorentzVector<Complex>, LorentzVector<Complex>, Complex) {
+        // compute with dual9
+        let mut dual9_deformer: Deformer<Dual9<f64>> = Deformer::new(
+            self.e_cm_sq,
+            self.mu_sq.im,
+            self.m1_fac,
+            self.m2_fac,
+            self.m3_fac,
+            self.m4_fac,
+            self.gamma1,
+            self.gamma2,
+            self.soft_fac,
+            self.region,
+            &self.masses,
+        ).unwrap();
+        dual9_deformer
+            .set_external_momenta_iter(self.ext.iter().map(|x| LorentzVector::from_f64(*x)));
+
+        let mut k_dual9: LorentzVector<Dual9<f64>> = LorentzVector::from_f64(*k);
+        let mut l_dual9: LorentzVector<Dual9<f64>> = LorentzVector::from_f64(*l);
+
+        for i in 0..8 {
+            if i < 4 {
+                k_dual9[i][i + 1] = 1.0;
+            } else {
+                l_dual9[i - 4][i + 1] = 1.0;
+            }
+        }
+
+        let (k_res, l_res) = dual9_deformer
+            .deform_two_loops_no_jac(id, &k_dual9, &l_dual9)
+            .unwrap();
+
+        let mut grad = [[Complex::new(0., 0.); 8]; 8];
+        for i in 0..8 {
+            grad[i][i] += Complex::new(1., 0.);
+            for j in 0..8 {
+                if i < 4 {
+                    grad[i][j] += Complex::new(0.0, k_res[i][j + 1]);
+                } else {
+                    grad[i][j] += Complex::new(0.0, l_res[i - 4][j + 1]);
+                }
+            }
+        }
+
+        (
+            &k_res.map(|x| x.real()).to_complex(false) + k,
+            &l_res.map(|x| x.real()).to_complex(false) + l,
+            determinant8(&grad),
+        )
     }
 
     pub fn jacobian_using_dual_two_loops(

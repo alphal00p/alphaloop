@@ -66,7 +66,7 @@ fn performance_test(settings: Settings) {
 
         let d = if settings.dual {
             let (kk, ll, _j) =
-                deformer.jacobian_using_dual_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m);
+                deformer.jacobian_using_dual9_two_loops(DOUBLE_TRIANGLE_ID, &k_m, &l_m);
             (kk, ll)
         } else {
             let d = deformer

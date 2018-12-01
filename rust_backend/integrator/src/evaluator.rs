@@ -252,7 +252,7 @@ impl Evaluator {
                 // use the dual loop jacobian
                 let (kk, ll, j) = self
                     .deformer
-                    .jacobian_using_dual_two_loops(self.id, &k_m, &l_m);
+                    .jacobian_using_dual9_two_loops(self.id, &k_m, &l_m);
                 ((kk, ll), j)
             } else {
                 let d = self.deformer.deform_two_loops(self.id, &k_m, &l_m)?;

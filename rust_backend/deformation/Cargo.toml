@@ -17,4 +17,4 @@ features = ["python27-sys"]
 vector = { path = "../vector" }
 num = "0.2"
 arrayvec = "0.4.7"
-dual_num = {git = "https://github.com/benruijl/dual_num", branch="sum" }
+dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dual9" }

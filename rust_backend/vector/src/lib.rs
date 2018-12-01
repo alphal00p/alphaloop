@@ -3,6 +3,7 @@ extern crate num;
 
 use dual_num::Dual;
 use num::traits::Inv;
+use dual_num::dual9::Dual9;
 use num::Float;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -33,6 +34,7 @@ where
 impl Field for f64 {}
 impl Field for Complex {}
 impl Field for Dual<f64> {}
+impl Field for Dual9<f64> {}
 
 /// A generalization of a field with the reals as a basic component, with partial ordering
 /// An example of a `RealField` is a dual.
@@ -51,6 +53,7 @@ where
 
 impl RealField for f64 {}
 impl RealField for Dual<f64> {}
+impl RealField for Dual9<f64> {}
 
 #[derive(Debug, Copy, Clone)]
 pub struct LorentzVector<T: Field> {
