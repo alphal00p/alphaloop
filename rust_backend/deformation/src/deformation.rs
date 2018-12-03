@@ -231,7 +231,7 @@ impl<F: Float + RealField> Deformer<F> {
     /// This is necessary to counterbalance numerical error arising in the exact algorithm
     fn shift_and_check_p(&mut self) {
         //Perform the shift
-        let shift_size = 1e-8;
+        let shift_size = 1e-2;
         let r: F = (self.p_min.t - self.p_plus.t) * 0.5;
         let center: F = (self.p_min.t + self.p_plus.t) * 0.5;
         self.p_min.t = center + r * (1.0 + shift_size);
@@ -308,13 +308,8 @@ impl<F: Float + RealField> Deformer<F> {
 
         let a: LorentzVector<F> = mom - self.qs[l];
         let hd = Deformer::h_delta(0, &a, self.masses[l] * self.masses[l], self.m1_sq);
-
         let ht = Deformer::h_theta(a.dot(&(mom - self.qs[i])) * -2.0, self.m1_sq);
-        if hd > ht {
-            hd
-        } else {
-            ht
-        }
+        hd.max(ht)
     }
 
     fn deform_int_no_jacobian(
@@ -398,11 +393,7 @@ impl<F: Float + RealField> Deformer<F> {
                             let a = (mom - self.qs[l]).dot(&kij) * -2.;
                             let l2 = Deformer::h_theta(a, self.m1_sq);
 
-                            if l1 < l2 {
-                                c *= l2;
-                            } else {
-                                c *= l1;
-                            }
+                            c *= l1.max(l2);
                         }
 
                         k_int = k_int - kij * c;
@@ -438,17 +429,8 @@ impl<F: Float + RealField> Deformer<F> {
                         self.m1_sq * self.gamma2,
                     );
 
-                    if l1 < lp2 {
-                        da_plus *= lp2;
-                    } else {
-                        da_plus *= l1;
-                    }
-
-                    if l1 < lm2 {
-                        da_min *= lm2;
-                    } else {
-                        da_min *= l1;
-                    }
+                    da_plus *= l1.max(lp2);
+                    da_min *= l1.max(lm2);
                 }
 
                 c *= da_plus - da_min;

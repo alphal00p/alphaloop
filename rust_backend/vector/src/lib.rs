@@ -21,6 +21,7 @@ where
     Self: Add<Self, Output = Self>,
     Self: Sub<Self, Output = Self>,
     Self: Neg<Output = Self>,
+    Self: Inv<Output = Self>,
     Self: Sum<Self>,
     Self: PartialEq,
     Self: Copy,
@@ -313,12 +314,8 @@ impl<'a, T: Field> Div<T> for &'a LorentzVector<T> {
 
     #[inline]
     fn div(self, other: T) -> LorentzVector<T> {
-        LorentzVector {
-            t: self.t / other,
-            x: self.x / other,
-            y: self.y / other,
-            z: self.z / other,
-        }
+        let o = other.inv();
+        self * o
     }
 }
 
@@ -327,12 +324,8 @@ impl<'a, T: Field> Div<T> for LorentzVector<T> {
 
     #[inline]
     fn div(self, other: T) -> LorentzVector<T> {
-        LorentzVector {
-            t: self.t / other,
-            x: self.x / other,
-            y: self.y / other,
-            z: self.z / other,
-        }
+        let o = other.inv();
+        self * o
     }
 }
 
