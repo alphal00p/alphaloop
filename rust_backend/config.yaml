@@ -16,6 +16,7 @@ gamma2: 0.008
 soft_fac: 0.03
 
 # integration settings
+#state_filename: state.dat # write and load from a state file with a custom name
 min_eval: 10
 nstart: 100000
 nincrease: 5000

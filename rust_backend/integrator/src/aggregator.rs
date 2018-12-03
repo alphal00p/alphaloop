@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
+use std::io::{BufWriter, Write};
 
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 use evaluator::{integrand, Evaluator, Topology, UserData};
@@ -22,6 +23,7 @@ pub struct Settings {
     pub cores: usize,
     pub seed: i32,
     pub param_mode: String,
+    pub state_filename: Option<String>,
     pub topologies: HashMap<String, Topology>,
     pub survey_n_iterations: usize,
     pub survey_n_points: usize,
@@ -52,7 +54,8 @@ impl Default for Settings {
             max_eval: 1000000,
             cores: 4,
             seed: 0,
-            param_mode: "log".to_owned(),
+            state_filename: None,
+            param_mode: "weinzierl".to_owned(),
             topologies: HashMap::new(),
             survey_n_iterations: 5,
             survey_n_points: 10000000,
@@ -76,22 +79,51 @@ impl Settings {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct CubaResultDef {
+    pub neval: i64,
+    pub fail: i32,
+    pub result: Vec<f64>,
+    pub error: Vec<f64>,
+    pub prob: Vec<f64>,
+}
+
+impl CubaResultDef {
+    fn new(o: &CubaResult) -> CubaResultDef {
+        CubaResultDef {
+            neval: o.neval,
+            fail: o.fail,
+            result: o.result.clone(),
+            error: o.error.clone(),
+            prob: o.prob.clone(),
+        }
+    }
+}
+
 pub struct Aggregator {
     n_loops: usize,
     do_regions: bool,
     do_multichanneling: bool,
     evaluator: Evaluator,
     settings: Settings,
+    result_file: BufWriter<File>,
 }
 
 impl Aggregator {
     pub fn new(settings: Settings) -> Aggregator {
+        let f = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(settings.active_topology.clone() + "_res.dat")
+            .expect("Unable to create result file");
+
         Aggregator {
             n_loops: settings.topologies[&settings.active_topology].loops,
             do_regions: settings.regions,
             do_multichanneling: settings.multi_channeling,
             evaluator: settings.topologies[&settings.active_topology].build_evaluator(&settings),
             settings,
+            result_file: BufWriter::new(f),
         }
     }
 
@@ -121,6 +153,13 @@ impl Aggregator {
             }
         }
 
+        let state_filename = if let Some(ref name) = self.settings.state_filename {
+            name.clone()
+        } else {
+            self.settings.active_topology.clone() + "_state.dat"
+        };
+        let survey_filename = self.settings.active_topology.clone() + "_survey.dat";
+
         let mut ci = CubaIntegrator::new(integrand);
         ci.set_epsabs(0.)
             .set_mineval(self.settings.min_eval as i64)
@@ -130,21 +169,20 @@ impl Aggregator {
             .set_seed(self.settings.seed as i32)
             .set_cores(self.settings.cores, 1000)
             .set_use_only_last_sample(false)
-            .set_save_state_file("vegas_saved_state.dat".to_string())
+            .set_save_state_file(state_filename.clone())
             .set_keep_state_file(false)
             .set_reset_vegas_integrator(false);
 
         let final_result = {
             if self.settings.refine_n_runs > 0 {
                 // Assign cuba flags according to this chosen survey+refine strategy
-                ci.set_save_state_file("vegas_saved_state.dat".to_string())
+                ci.set_save_state_file(state_filename.clone())
                     .set_keep_state_file(true)
                     .set_reset_vegas_integrator(true);
 
                 // First perform the survey, making sure that there is no previously existing file
-                // "vegas_saved_state" or "vegas_survey.dat"
-                let _ = std::fs::remove_file("vegas_saved_state.dat");
-                let _ = std::fs::remove_file("vegas_survey.dat");
+                let _ = std::fs::remove_file(&state_filename);
+                let _ = std::fs::remove_file(&survey_filename);
 
                 // Keep track of the total number of failed points
                 let mut total_fails = 0;
@@ -174,9 +212,9 @@ impl Aggregator {
                 total_fails += survey_result.fail;
                 println!(">>> Survey result : {:#?}", survey_result);
 
-                // Now move the saved state created to file 'vegas_survey.dat'
-                let _ = std::fs::rename("vegas_saved_state.dat", "vegas_survey.dat");
-                println!("Survey grid files saved in file 'vegas_survey.dat'.");
+                // Now move the saved state
+                let _ = std::fs::rename(&state_filename, &survey_filename);
+                println!("Survey grid files saved in file {}", survey_filename);
 
                 let mut vegas_central_values: Vec<Vec<f64>> =
                     Vec::with_capacity(self.settings.refine_n_runs);
@@ -195,7 +233,7 @@ impl Aggregator {
                     // Udate the seed
                     ci.set_seed((self.settings.seed + (i_run as i32) + 1) as i32);
                     // Reinitialise the saved state to the survey grids
-                    let _ = std::fs::copy("vegas_survey.dat", "vegas_saved_state.dat");
+                    let _ = std::fs::copy(&survey_filename, &state_filename);
                     // create a new evaluator for each refine
                     let mut eval = self.evaluator.clone();
                     println!(
@@ -214,7 +252,7 @@ impl Aggregator {
                     );
                     total_fails += refine_result.fail;
                     // Make sure to remove any saved state left over
-                    let _ = std::fs::remove_file("vegas_saved_state.dat");
+                    let _ = std::fs::remove_file(&state_filename);
                     vegas_central_values.push(refine_result.result.clone());
                     vegas_errors.push(refine_result.error.clone());
                     println!(">>> Refine result #{}: {:#?}", i_run + 1, refine_result);
@@ -260,6 +298,16 @@ impl Aggregator {
             }
         };
         println!(">>> Final integration result : {:#?}", final_result);
+
+        // write the result to a file
+        writeln!(
+            &mut self.result_file,
+            "{}",
+            serde_yaml::to_string(&CubaResultDef::new(&final_result)).unwrap()
+        )
+        .unwrap();
+        writeln!(&mut self.result_file, "...").unwrap(); // write end-marker, for easy streaming
+
         final_result
     }
 
