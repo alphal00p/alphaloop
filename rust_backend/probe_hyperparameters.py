@@ -184,21 +184,26 @@ class ResultsAnalyser(object):
             print('%-50s%.3e +- %.3e'%('Default -> ',default_result[1]['result'][0],default_result[1]['error'][0]))
         print('-'*40)            
         for param in all_params:
-            sorted_param_values = sorted([r for r in self.results if param in r[0]], key=lambda el: el[1]['error'][0]) 
-            print("First %d optimal values for parameter '%s':"%(n_optimal_to_show, param))
+            sorted_param_values = sorted(
+                ( [r for r in self.results if param in r[0]]+
+                  [({param : self.default_configuration[param] },default_result[1])]),
+                key=lambda el: el[1]['error'][0])
+            print("First %d optimal values for parameter '%s':"%(min(n_optimal_to_show,len(sorted_param_values)), param))
             for i_optimal, result in enumerate(sorted_param_values[:n_optimal_to_show]):
                 print("%-30s%-20s -> %.3e +- %.3e"%(
-                    '  | optimal values #%d: '%i_optimal,
+                    '  | ranked #%d%s: '%(
+                        i_optimal+1, ' @DEFAULT' if result[0][param]==self.default_configuration[param] else ''),
                     ', '.join('%s=%g'%(p,result[0][p]) for p in sorted(result[0].keys()) ),
                     result[1]['result'][0],
                     result[1]['error'][0]
                 ))
         print('-'*80)
-        print("Overall %d best results:"%n_optimal_to_show)
-        sorted_all_param_values = sorted(self.results, key=lambda el: el[1]['error'][0]) 
+        sorted_all_param_values = sorted(self.results, key=lambda el: el[1]['error'][0])
+        print("Overall %d best results:"%min(n_optimal_to_show,len(sorted_all_param_values)))
         for i_optimal, result in enumerate(sorted_all_param_values[:n_optimal_to_show]):
             print("%-30s%-20s -> %.3e +- %.3e"%(
-                '  | optimal values #%d: '%i_optimal,
+                '  | ranked #%d%s: '%(
+                    i_optimal+1, ' @DEFAULT' if len(result[0]) == 0 else ''),
                 ', '.join('%s=%g'%(p,result[0][p]) for p in sorted(result[0].keys()) ),
                 result[1]['result'][0],
                 result[1]['error'][0]
