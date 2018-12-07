@@ -15,8 +15,8 @@ class HyperParamProber(object):
     
     _DUMMY_VEGAS_STATE_FILE_PATH = 'dummy_vegas_state_file.dat'
     def __init__(self, 
-                 rust_config_file_path = pjoin(os.getcwd(),'config.yaml'),
-                 rust_executable_path = pjoin(os.getcwd(),'target','release','integrator'),
+                 rust_config_file_path = pjoin(os.getcwd(),'rust_backend','config.yaml'),
+                 rust_executable_path = pjoin(os.getcwd(),'rust_backend','target','release','integrator'),
                  topology = 'box',
                  log_stream = None,
                  additional_run_options = None
@@ -242,7 +242,7 @@ if __name__ == '__main__':
                      'seed'       : 1,
                      'refine_n_runs' : 0
                  }
-    rust_config_file_path = pjoin(os.getcwd(),'config.yaml')
+    rust_config_file_path = pjoin(os.getcwd(),'rust_backend','config.yaml')
     topology = 'box'
     n_optimal_to_show = 5
     load_results_from = None
