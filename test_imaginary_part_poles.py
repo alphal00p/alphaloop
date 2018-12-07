@@ -16,6 +16,9 @@ import yaml
 from yaml import Loader, Dumper
 from pprint import pprint
 
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
+
 import madgraph.integrator.vectors as vectors
 
 try:
@@ -124,7 +127,6 @@ class Topology(object):
 
         if topology_name!='double-box-SB':
             raise BaseException('Only topology double-box-SB supported for now.')
-
         self.propagators    = self.get_double_box_SB_propagators()
 
     def get_RUST_topology_ID(self):
@@ -223,6 +225,7 @@ class PoleScanner(object):
         # Promote the t-values (in [0,1]) to tuples (t, \lambda(t)) where \lambda(t) is their equivalent
         # on the infinite segment [-inf, inf]
         self.t_values           = [(t, PoleScanner.map_to_infinity(t)) for t in t_values]
+
         self.fixed_t_values     = [(t, PoleScanner.map_to_infinity(t)) for t in fixed_t_values]
 
         self.deformation_configuration = deformation_configuration
@@ -289,7 +292,7 @@ class PoleScanner(object):
 
                 # Now scan various values
                 for t, lambda_value in self.t_values:
-                    lambda_onshell_values = [l for (t,l) in self.fixed_t_values]
+                    lambda_onshell_values = [l for (_,l) in self.fixed_t_values]
                     # Adjust the lambda to vary to current value
                     lambda_onshell_values[varying_lambda_index] = lambda_value
 
@@ -381,6 +384,23 @@ class ResultsAnalyser(object):
                         print('    Loop momentum #%d : %s'%(i_l, lm))
         return found_problem
 
+    def generate_plots(self):
+
+        plt.title('Onshell propagators test')
+        plt.ylabel('Imaginary part')
+        plt.xlabel('t')
+        plt.yscale('log')
+
+        # Generate the line data for each propagator
+        propagator_lines = [ ('Prop. %s@%d'%entry['propagator_id'], zip(
+              *[(t_value, prop_imag_part) for (t_value, lambda_values), prop_imag_part in entry['pole_imaginary_parts']]
+            )) for entry in self.scan_results ]
+
+        for line_name, (x_data, y_data) in propagator_lines:
+            plt.plot(x_data, y_data, label=line_name)
+        plt.legend()
+        plt.show()
+
     def analyse(self, n_optimal_to_show=5):
 
         print('='*80)
@@ -392,6 +412,7 @@ class ResultsAnalyser(object):
         else:
             print('ERROR:: Some imaginary part of onshell propagators tests were found to be negative. The deformation is likely wrong.')
         print('='*80)
+        self.generate_plots()
 
 def load_results_from_yaml(log_file_path):
     """Load a full-fledged scan from a yaml dump"""
@@ -551,5 +572,5 @@ if __name__ == '__main__':
                 print('Number of test scans performed: %d'%n_loops_performed)
 
         except KeyboardInterrupt:
-            print('Run aborted by user. Number of test scans performed: %d' % n_loops_performed)
+            print('Run aborted by user. Number of test scans performed so far: %d' % n_loops_performed)
             break
