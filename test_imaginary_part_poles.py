@@ -237,7 +237,8 @@ class PoleScanner(object):
                     'offset_vectors'    :   [[float(v) for v in vec] for vec in self.offset_vectors],
                     'deformation_configuration' : deformation_configuration
         }
-        if log_stream is not None:
+        self.log_stream = log_stream
+        if self.log_stream is not None:
             log_stream.write(yaml.dump([('configuration', self.configuration ),], Dumper=Dumper))
 
         # Now setup the deformation
@@ -342,7 +343,7 @@ class PoleScanner(object):
                     #    print('WARNING: An onshell propagator evaluates to a negative imaginary part!:\n%s'%str(one_result))
 
                 # Save the result into the logstream if specified
-                if log_stream is not None:
+                if self.log_stream is not None:
                     log_stream.write(yaml.dump([( 'propagator_result', one_result ), ], Dumper=Dumper))
                 all_results.append(one_result)
 
@@ -457,7 +458,9 @@ if __name__ == '__main__':
     # If specified to None, then a random PS Point is generated.
     #PS_point            = None #TOIMPLEMENT
     load_results_from   = None
-    save_results_to     = pjoin(os.getcwd(),'poles_imaginary_part_scan.yaml')
+    # Turn off the logging by default as it slows us down unnecessarily
+    save_results_to     = None
+    # save_results_to     = pjoin(os.getcwd(),'poles_imaginary_part_scan.yaml')
     config_file_path    = pjoin(os.getcwd(),'rust_backend','config.yaml')
 
     for prog_option in prog_options:
@@ -532,7 +535,10 @@ if __name__ == '__main__':
             direction_vectors = [vec*(1.0/max(abs(v) for v in vec)) for vec in direction_vectors]
 
             if load_results_from is None:
-                log_stream = open(save_results_to,'w')
+                if save_results_to is not None:
+                    log_stream = open(save_results_to,'w')
+                else:
+                    log_stream = None
                 scanner = PoleScanner(
                     log_stream              =   log_stream,
                     topology                =   topology,
@@ -546,8 +552,9 @@ if __name__ == '__main__':
                 start_time = time.time()
                 test_results = scanner.scan(propagators=propagators)
                 test_results['run_time'] = time.time()-start_time
-                log_stream.write(yaml.dump([('run_time', test_results['run_time']), ], Dumper=Dumper))
-                log_stream.close()
+                if log_stream is not None:
+                    log_stream.write(yaml.dump([('run_time', test_results['run_time']), ], Dumper=Dumper))
+                    log_stream.close()
             else:
                 try:
                     test_results = load_results_from_yaml(load_results_from)
