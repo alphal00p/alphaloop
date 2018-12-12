@@ -84,6 +84,7 @@ pub struct Evaluator {
     pub deformer: Deformer<f64>,
     pub integrand: Integrand,
     pub dual: bool,
+    pub deform_eps: f64,
 }
 
 impl Evaluator {
@@ -130,6 +131,7 @@ impl Evaluator {
             integrand,
             id: ONE_LOOP_ID,
             dual: settings.dual,
+            deform_eps: settings.deform_eps,
         }
     }
 
@@ -207,6 +209,7 @@ impl Evaluator {
             integrand,
             id,
             dual: settings.dual,
+            deform_eps: settings.deform_eps,
         }
     }
 
@@ -261,6 +264,15 @@ impl Evaluator {
                         .numerical_jacobian_two_loops(self.id, &k_m, &l_m, (&d.0, &d.1));
                 (d, j)
             };
+
+            if self.deform_eps > 0. {
+                let deform_magnitude = (d.0.imag().euclidean_square()
+                    + d.1.imag().euclidean_square())
+                    / (k_m.euclidean_square() + l_m.euclidean_square());
+                if deform_magnitude < self.deform_eps {
+                    return Ok(Complex::default());
+                }
+            }
 
             if self.id == TRIANGLE_BOX_ALTERNATIVE_ID {
                 // disable two-loop channels for now

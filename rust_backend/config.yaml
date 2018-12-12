@@ -5,6 +5,7 @@ dual: true
 multi_channeling: false
 regions: false
 param_mode: weinzierl_ext
+deform_eps: 0.0
 
 # deformation parameters
 m1_fac: 0.035

@@ -36,6 +36,7 @@ pub struct Settings {
     pub gamma1: f64,
     pub gamma2: f64,
     pub soft_fac: f64,
+    pub deform_eps: f64,
 }
 
 impl Default for Settings {
@@ -68,6 +69,7 @@ impl Default for Settings {
             gamma1: 0.7,
             gamma2: 0.008,
             soft_fac: 0.03,
+            deform_eps: 0.,
         }
     }
 }
