@@ -200,4 +200,19 @@ py_class!(class Parameterization |py| {
         let (k, jac) = self.parameterizer(py).borrow().map(&vector::LorentzVector::from_vec(m)).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         Ok((vec![k.t, k.x, k.y, k.z], jac))
     }
+
+    def inv_map(&self, momentum: PyList) -> PyResult<(Vec<f64>, f64)> {
+        let mut m: Vec<f64> = Vec::with_capacity(4);
+        for x in momentum.iter(py) {
+            m.push(x.extract(py)?);
+        }
+
+        if m.len() != 4 {
+            return Err(PyErr::new::<exc::ValueError, _>(py, "Loop momentum does not have 4 components"));
+        }
+
+        let (k, jac) = self.parameterizer(py).borrow().inv_map(&vector::LorentzVector::from_vec(m)).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+        Ok((vec![k.t, k.x, k.y, k.z], jac))
+    }
+
 });

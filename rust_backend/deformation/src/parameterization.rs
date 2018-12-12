@@ -205,4 +205,45 @@ impl Parameterizer {
             ParameterizationMode::WeinzierlExternal => self.map_weinzierl_ext(mom),
         }
     }
+
+    fn inv_map_weinzierl_ext(
+        &self,
+        mom: &LorentzVector<f64>,
+    ) -> Result<(LorentzVector<f64>, f64), &'static str> {
+        let m1_sq = mom[0] * mom[0];
+        let k_r_sq = mom[1] * mom[1] + mom[2] * mom[2] + mom[3] * mom[3];
+        let k_r = k_r_sq.sqrt();
+        let cos_xi = 1. / (1. + k_r_sq / m1_sq).sqrt();
+
+        let u0 = f64::FRAC_2_PI() * ((m1_sq + k_r_sq) / (self.alpha * self.alpha)).atan();
+        let u1 = 0.5 * (1.0 - cos_xi * mom[0].signum());
+        let u2 = 0.5 * (1. - mom[3] / k_r);
+        let u3 = if mom[1] < 0. {
+            1.0 + 0.5 * f64::FRAC_1_PI() * f64::atan2(mom[1], mom[2])
+        } else {
+            0.5 * f64::FRAC_1_PI() * f64::atan2(mom[1], mom[2])
+        };
+
+        let k = LorentzVector::from_args(u0, u1, u2, u3);
+
+        let sin_xi = k_r / mom[0].abs() * cos_xi;
+        let k_e = k_r / sin_xi;
+        let jac = 2.0 * f64::PI() * f64::PI() * k_e * k_e / (self.alpha * self.alpha)
+            * (k_e.powi(4) + self.alpha.powi(4))
+            * sin_xi;
+        Ok((k, jac))
+    }
+
+    /// Map a vector in from the infinite hypercube back to the unit hypercube.
+    /// Also computes the Jacobian going from the unit hypercube to the infinite hypercube
+    /// (so the non-inverted one).
+    pub fn inv_map(
+        &self,
+        mom: &LorentzVector<f64>,
+    ) -> Result<(LorentzVector<f64>, f64), &'static str> {
+        match self.mode {
+            ParameterizationMode::WeinzierlExternal => self.inv_map_weinzierl_ext(mom),
+            _ => Err("Inverse mapping is only implemented for Weinzierl external"),
+        }
+    }
 }
