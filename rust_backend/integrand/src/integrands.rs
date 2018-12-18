@@ -99,9 +99,10 @@ impl Integrand {
         for (i, e) in self.ext.iter().enumerate() {
             if e.square() == 0. && self.on_shell_flag & (1 << i) == 0 {
                 self.on_shell_flag |= 2_usize.pow(i as u32);
-                println!("WARNING: External {} is an unflaged on-shell momentum!", i);
+                println!("WARNING: External {} is an unflagged on-shell momentum!", i);
             }
         }
+        println!("Final on-shell flag: {}", self.on_shell_flag);
     }
 
     pub fn set_externals(&mut self, ext: Vec<LorentzVector<f64>>) {
@@ -144,14 +145,32 @@ impl Integrand {
 
     #[inline]
     //Compute the xi's for the collinear limits, here mom should always by on-shell
-    pub fn collinear_x(loopmom: &LorentzVector<Complex>, mom: &LorentzVector<f64>) -> f64 {
-        //TODO: Check if eta.dot(mom) is not zero
+    fn collinear_x(loopmom: &LorentzVector<Complex>, mom: &LorentzVector<f64>) -> f64 {
         let eta = mom.dual();
         (eta[0] * loopmom[0].re
             - eta[1] * loopmom[1].re
             - eta[2] * loopmom[2].re
             - eta[3] * loopmom[3].re)
             / eta.dot(mom)
+    }
+
+    fn collinear_factor(
+        &self,
+        xbar: bool,
+        q1: &LorentzVector<f64>,
+        q2: &LorentzVector<f64>,
+        loopmom: &LorentzVector<Complex>,
+    ) -> Complex {
+        let mut factor = Complex::new(1.0 / self.inv(0, 1) / self.inv(1, 2), 0.);
+        let mut x = Integrand::collinear_x(loopmom, &(q2 - q1));
+        if xbar {
+            x = 1.0 - x;
+        }
+        factor /= x;
+
+        let a1 = (loopmom - q1).square();
+        factor *= a1.inv() * (loopmom - q2).square().inv();
+        factor * self.mu_sq * (self.mu_sq + a1).inv()
     }
 
     pub fn evaluate(&self, mom: &[LorentzVector<Complex>]) -> Result<Complex, &'static str> {
@@ -182,14 +201,27 @@ impl Integrand {
                 }
 
                 // add the subtraction terms
+                let mut soft_ct = Complex::new(1.0, 0.0);
                 if self.integrand_id == ON_SHELL_BOX_SUBTRACTED
                     || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 15
                 {
-                    let mut ct = Complex::new(1.0, 0.0);
                     for i in 0..4 {
-                        ct -= (&mom[0] - &self.qs[i]).square() / self.inv(2, 1 + 2 * (i % 2));
+                        soft_ct -= (&mom[0] - &self.qs[i]).square() / self.inv(2, 1 + 2 * (i % 2));
                     }
-                    factor *= ct;
+                }
+
+                let mut coll_ct = Complex::default();
+                if self.integrand_id == ONE_OFF_SHELL_BOX_SUBTRACTED
+                    || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 14
+                {
+                    // ext[0] is off-shell and needs to be skipped
+                    for i in 2..4 {
+                        soft_ct -= (&mom[0] - &self.qs[i]).square() / self.inv(2, 1 + 2 * (i % 2));
+                    }
+
+                    coll_ct = -self.collinear_factor(false, &self.qs[3], &self.qs[0], &mom[0])
+                        - self.collinear_factor(true, &self.qs[1], &self.qs[2], &mom[0]);
+                    println!("soft={}, col={}, 1/denom={}", soft_ct, coll_ct, finv(denominator));
                 }
 
                 if self.channel > 0 && self.channel <= self.qs.len() - 1 {
@@ -207,9 +239,9 @@ impl Integrand {
                         }
                     }
 
-                    Ok(factor * finv(denominator) / mc_factor)
+                    Ok(factor / mc_factor * (soft_ct * finv(denominator) - coll_ct))
                 } else {
-                    Ok(factor * finv(denominator))
+                    Ok(factor * (soft_ct * finv(denominator) - coll_ct))
                 }
             }
             OFF_SHELL_DOUBLE_BOX => {
