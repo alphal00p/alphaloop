@@ -50,6 +50,11 @@ py_class!(class Integrand |py| {
         Ok(true)
     }
 
+    def set_on_shell_flag(&self, onshell_flag: usize) -> PyResult<bool> {
+        self.integrand(py).borrow_mut().set_on_shell_flag(onshell_flag);
+        Ok(true)
+    }
+
     def set_region(&self, region: usize) -> PyResult<bool> {
         self.integrand(py).borrow_mut().set_region(region);
         Ok(true)

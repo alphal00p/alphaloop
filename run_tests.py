@@ -23,6 +23,7 @@ import madgraph.integrator.vectors as vectors
 
 try:
     import deformation
+    import integrand
 except ImportError:
     raise BaseException(
         "Could not import the rust back-end 'deformation' module. Compile it first with:"
@@ -126,8 +127,10 @@ class Topology(object):
         self.PS_point       = PS_point
 
         if topology_name!='double-box-SB':
-            raise BaseException('Only topology double-box-SB supported for now.')
-        self.propagators    = self.get_double_box_SB_propagators()
+            print('WARNING: The propagators are defined only for the double-box-SB topology for now.')
+            self.propagators    = None
+        else:
+            self.propagators    = self.get_double_box_SB_propagators()
 
     def get_RUST_topology_ID(self):
         try:
@@ -137,7 +140,10 @@ class Topology(object):
                                 "Consider adding it manually in the _RUST_TOPOLOGY_MAP dictionary.")
 
     def get_masses_sq(self):
-        return [p.m_sq for p in self.propagators]
+        if self.propagators:
+            return [p.m_sq for p in self.propagators]
+        else:
+            return None
 
     def get_qs(self):
         return []
@@ -209,6 +215,8 @@ class LimitScanner(object):
                  offset_vectors     =   None,
                  t_values           =   None,
                  deformation_configuration = None,
+                 integrand_name     =   'box2L_direct_integration_SB',
+                 on_shell_flag      =   None,
                 ):
 
         self.PS_point = PS_point
@@ -224,13 +232,24 @@ class LimitScanner(object):
             'PS_point': [[float(v) for v in vec] for vec in self.PS_point],
             'direction_vectors': [[float(v) for v in vec] for vec in self.direction_vectors],
             'offset_vectors': [[float(v) for v in vec] for vec in self.offset_vectors],
-            'deformation_configuration': deformation_configuration
+            'deformation_configuration': deformation_configuration,
+            'on_shell_flag' : on_shell_flag,
+            'integrand_name' : integrand_name
         }
         self.log_stream = log_stream
         if self.log_stream is not None:
             log_stream.write(yaml.dump([('configuration', self.configuration), ], Dumper=Dumper))
 
+        # Now compute the Q's, used in the one-loop case only
+        qs = [vectors.LorentzVector()]
+        for i, v in enumerate(self.PS_point[1:]):
+            qs.append(qs[i] + v)
+
         # Now setup the deformation
+        masses_squared = self.topology.get_masses_sq()
+        if masses_squared is None:
+            # Then hard-code the masses squared
+            masses_squared = [0., 0., 0., 0.]
         self.deformation = deformation.Deformation(
             e_cm_sq=float(self.topology.get_e_cm_sq()),
             mu_sq=float(self.deformation_configuration['mu_sq']),
@@ -243,8 +262,8 @@ class LimitScanner(object):
             soft_fac=float(self.deformation_configuration['soft_fac']),
             region=0,
             # For double-box-SB the q's are computed internally, we only want to set the externals here
-            qs_py=[[0.] * 4] * 7,
-            masses=[float(math.sqrt(m_sq)) for m_sq in self.topology.get_masses_sq()]
+            qs_py=[[x for x in y] for y in qs],
+            masses=[float(math.sqrt(m_sq)) for m_sq in masses_squared]
         )
         self.deformation.set_external_momenta([[v for v in vec] for vec in self.PS_point])
 
@@ -252,6 +271,14 @@ class LimitScanner(object):
         self.parameterization = deformation.Parameterization(
                                 e_cm_sq=self.topology.get_e_cm_sq(), region=0, channel=0, qs_py=[[0.]*4]*7)
         self.parameterization.set_mode('weinzierl_ext')
+
+        self.integrand = integrand.Integrand(id=integrand_name, channel=0, region=0,
+                                                            mu_sq=float(self.deformation_configuration['mu_sq']))
+        # This will also correctly compute the q's, necessary in the one-loop case
+        self.integrand.set_externals([[v for v in vec] for vec in self.PS_point])
+
+        if on_shell_flag is not None:
+            self.integrand.set_on_shell_flag(on_shell_flag)
 
     def scan(self):
         all_results = []
@@ -269,22 +296,42 @@ class LimitScanner(object):
                 random_variables, this_lm_parametrisation_jacobian = self.parameterization.inv_map([v for v in lm])
                 parametrisation_jacobian *= this_lm_parametrisation_jacobian
 
-            # Apply the deformation
-            deformed_momenta, deformation_jac_real, deformation_jac_imag, _, _ = self.deformation.deform_two_loops(
-                self.topology.get_RUST_topology_ID(),
-                [[v for v in loop_momenta[0]], [v for v in loop_momenta[1]]])
-            deformation_jacobian = complex(deformation_jac_real, deformation_jac_imag)
+            if len(loop_momenta)==1:
+                # Apply the deformation
+                deformed_momenta, deformation_jac_real, deformation_jac_imag = self.deformation.deform(
+                    [v for v in loop_momenta[0]] )
+                deformation_jacobian = complex(deformation_jac_real, deformation_jac_imag)
 
-            deformed_momenta = [complex(*x) for x in deformed_momenta]
-            deformed_momenta_real = [vectors.LorentzVector([x.real for x in deformed_momenta[:4]]),
-                                     vectors.LorentzVector([x.real for x in deformed_momenta[4:]])]
-            deformed_momenta_imag = [vectors.LorentzVector([x.imag for x in deformed_momenta[:4]]),
-                                     vectors.LorentzVector([x.imag for x in deformed_momenta[4:]])]
+                deformed_momenta = [complex(*x) for x in deformed_momenta]
 
-            # Now evaluate the integrand
-            integrand = complex(1.0, 0.0)
-            for prop in self.topology.propagators:
-                integrand *= prop.evaluate(deformed_momenta_real, deformed_momenta_imag)
+                integrand_real, integrand_imag = self.integrand.evaluate([deformed_momenta,])
+                integrand = complex(integrand_real, integrand_imag)
+
+            elif len(loop_momenta)==2:
+                # Apply the deformation
+                deformed_momenta, deformation_jac_real, deformation_jac_imag, _, _ = self.deformation.deform_two_loops(
+                    self.topology.get_RUST_topology_ID(),
+                    [[v for v in loop_momenta[0]], [v for v in loop_momenta[1]]])
+                deformation_jacobian = complex(deformation_jac_real, deformation_jac_imag)
+
+                deformed_momenta = [complex(*x) for x in deformed_momenta]
+
+                compute_integrand_in_python = False
+                if compute_integrand_in_python:
+                    deformed_momenta_real = [vectors.LorentzVector([x.real for x in deformed_momenta[:4]]),
+                                             vectors.LorentzVector([x.real for x in deformed_momenta[4:]])]
+                    deformed_momenta_imag = [vectors.LorentzVector([x.imag for x in deformed_momenta[:4]]),
+                                             vectors.LorentzVector([x.imag for x in deformed_momenta[4:]])]
+
+                    # Now evaluate the integrand
+                    integrand = complex(1.0, 0.0)
+                    for prop in self.topology.propagators:
+                        integrand *= prop.evaluate(deformed_momenta_real, deformed_momenta_imag)
+                else:
+                    integrand_real, integrand_imag = self.integrand.evaluate([deformed_momenta[:4],deformed_momenta[4:]])
+                    integrand = complex(integrand_real, integrand_imag)
+            else:
+                raise BaseException('Number of loop momenta not supported: %d'%len(loop_momenta))
 
             one_result['parametrisation_jacobian'] = parametrisation_jacobian
             one_result['deformation_jacobian']     = deformation_jacobian
@@ -653,6 +700,9 @@ if __name__ == '__main__':
     # save_results_to     = pjoin(os.getcwd(),'poles_imaginary_part_scan.yaml')
     config_file_path    = pjoin(os.getcwd(),'rust_backend','config.yaml')
 
+    integrand_name      = 'box2L_direct_integration_SB'
+    on_shell_flag       = None
+
     # Whether to show the imaginary and/or real part of the weights in the limit test
     analysis_options = {}
 
@@ -675,6 +725,11 @@ if __name__ == '__main__':
             config_file_path = option_value
         elif option_name in ['seed','s']:
             random.seed(eval(option_value))
+        elif option_name in ['PS_point', 'ps']:
+            option_eval = eval(option_value)
+            PS_point = vectors.LorentzVectorList()
+            for v in option_eval:
+                PS_point.append(vectors.LorentzVector(v))
         elif option_name in ['direction_vectors','d']:
             # A vector set to None means it will be randomly chosen
             direction_vectors = [ (vectors.LorentzVector(vec) if vec is not None else vec) for vec in eval(option_value) ]
@@ -710,6 +765,10 @@ if __name__ == '__main__':
             save_results_to = option_value
         elif option_name in ['loop','l']:
             do_loop = eval(option_value)
+        elif option_name in ['integrand_name','in']:
+            integrand_name = option_value
+        elif option_name in ['on_shell_flag','osf']:
+            on_shell_flag = eval(option_value)
         elif option_name in ['analysis_options','ao']:
             analysis_options = eval(option_value)
         else:
@@ -771,7 +830,9 @@ if __name__ == '__main__':
                         direction_vectors       =   direction_vectors,
                         offset_vectors          =   offset_vectors,
                         t_values                =   t_values,
-                        deformation_configuration = deformation_configuration
+                        deformation_configuration = deformation_configuration,
+                        integrand_name          =   integrand_name,
+                        on_shell_flag           =   on_shell_flag
                     )
                 start_time = time.time()
                 if test_name == 'pole_check':
