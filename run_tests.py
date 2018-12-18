@@ -198,6 +198,111 @@ class Topology(object):
             )
         ]
 
+
+class LimitScanner(object):
+
+    def __init__(self,
+                 log_stream         =   None,
+                 topology           =   'double-box-SB',
+                 PS_point           =   None,
+                 direction_vectors  =   None,
+                 offset_vectors     =   None,
+                 t_values           =   None,
+                 deformation_configuration = None,
+                ):
+
+        self.PS_point = PS_point
+        self.topology = Topology(topology_name=topology, PS_point=self.PS_point)
+        self.direction_vectors = direction_vectors
+        self.offset_vectors = offset_vectors
+        self.t_values = t_values
+
+        self.deformation_configuration = deformation_configuration
+        # Now save the default yaml configuration to the log stream if specified.
+        self.configuration = {
+            'topology': self.topology.name,
+            'PS_point': [[float(v) for v in vec] for vec in self.PS_point],
+            'direction_vectors': [[float(v) for v in vec] for vec in self.direction_vectors],
+            'offset_vectors': [[float(v) for v in vec] for vec in self.offset_vectors],
+            'deformation_configuration': deformation_configuration
+        }
+        self.log_stream = log_stream
+        if self.log_stream is not None:
+            log_stream.write(yaml.dump([('configuration', self.configuration), ], Dumper=Dumper))
+
+        # Now setup the deformation
+        self.deformation = deformation.Deformation(
+            e_cm_sq=float(self.topology.get_e_cm_sq()),
+            mu_sq=float(self.deformation_configuration['mu_sq']),
+            m1_fac=float(self.deformation_configuration['m1_fac']),
+            m2_fac=float(self.deformation_configuration['m2_fac']),
+            m3_fac=float(self.deformation_configuration['m3_fac']),
+            m4_fac=float(self.deformation_configuration['m4_fac']),
+            gamma1=float(self.deformation_configuration['gamma1']),
+            gamma2=float(self.deformation_configuration['gamma2']),
+            soft_fac=float(self.deformation_configuration['soft_fac']),
+            region=0,
+            # For double-box-SB the q's are computed internally, we only want to set the externals here
+            qs_py=[[0.] * 4] * 7,
+            masses=[float(math.sqrt(m_sq)) for m_sq in self.topology.get_masses_sq()]
+        )
+        self.deformation.set_external_momenta([[v for v in vec] for vec in self.PS_point])
+
+        # For Weinzierl's external parametrisation, the qs_py are irrelevant.
+        self.parameterization = deformation.Parameterization(
+                                e_cm_sq=self.topology.get_e_cm_sq(), region=0, channel=0, qs_py=[[0.]*4]*7)
+        self.parameterization.set_mode('weinzierl_ext')
+
+    def scan(self):
+        all_results = []
+
+        for t in self.t_values:
+
+            one_result = {
+                't_value': t,
+            }
+
+            loop_momenta = [dir_vec * t + off_vec for dir_vec, off_vec in zip(self.direction_vectors, self.offset_vectors)]
+            # Obtain the jacobian from the parametrisation
+            parametrisation_jacobian = 1.
+            for lm in loop_momenta:
+                random_variables, this_lm_parametrisation_jacobian = self.parameterization.inv_map([v for v in lm])
+                parametrisation_jacobian *= this_lm_parametrisation_jacobian
+
+            # Apply the deformation
+            deformed_momenta, deformation_jac_real, deformation_jac_imag, _, _ = self.deformation.deform_two_loops(
+                self.topology.get_RUST_topology_ID(),
+                [[v for v in loop_momenta[0]], [v for v in loop_momenta[1]]])
+            deformation_jacobian = complex(deformation_jac_real, deformation_jac_imag)
+
+            deformed_momenta = [complex(*x) for x in deformed_momenta]
+            deformed_momenta_real = [vectors.LorentzVector([x.real for x in deformed_momenta[:4]]),
+                                     vectors.LorentzVector([x.real for x in deformed_momenta[4:]])]
+            deformed_momenta_imag = [vectors.LorentzVector([x.imag for x in deformed_momenta[:4]]),
+                                     vectors.LorentzVector([x.imag for x in deformed_momenta[4:]])]
+
+            # Now evaluate the integrand
+            integrand = complex(1.0, 0.0)
+            for prop in self.topology.propagators:
+                integrand *= prop.evaluate(deformed_momenta_real, deformed_momenta_imag)
+
+            one_result['parametrisation_jacobian'] = parametrisation_jacobian
+            one_result['deformation_jacobian']     = deformation_jacobian
+            one_result['integrand_value']          = integrand
+            one_result['point_weight']             = integrand*deformation_jacobian*parametrisation_jacobian
+
+            all_results.append(one_result)
+
+        # Save the result into the logstream if specified
+        if self.log_stream is not None:
+            log_stream.write(yaml.dump([( 'scan_results', all_results ), ], Dumper=Dumper))
+
+        return {
+            'configuration': self.configuration,
+            'scan_results': all_results
+        }
+
+
 class PoleScanner(object):
 
     @staticmethod
@@ -352,7 +457,88 @@ class PoleScanner(object):
             'scan_results'  : all_results
         }
 
-class ResultsAnalyser(object):
+class LimitResultsAnalyser(object):
+    def __init__(self, results):
+        # Each entry of the scan_results has the following format:
+        ###    {
+        ###     't_value' : <parameter_t_float_value>,
+        ###     'parametrisation_jacobian': <parametrisation_jacobian_float_value>,
+        ###     'deformation_jacobian': <deformation_jacobian_complex_value>,
+        ###     'integrand_value': <integrand_value_complex_value>,
+        ###     'point_weight': <point_weight_complex_value>,
+        ###     ]
+        ###    }
+        self.scan_results   = results['scan_results']
+        self.configuration  = results['configuration']
+        self.direction_vectors = [ vectors.LorentzVector(lv) for lv in self.configuration['direction_vectors'] ]
+        self.offset_vectors    = [ vectors.LorentzVector(ov) for ov in self.configuration['offset_vectors'] ]
+        self.run_time       = results['run_time']
+
+
+    def generate_plots(self, show_real=True, show_imag=False, normalise=True,
+                       entries_to_plot = ['parametrisation_jacobian','deformation_jacobian','integrand_value','point_weight'],
+                       log_y_scale = True,
+                       log_x_scale = False):
+
+        plt.title('Approaching limit test')
+        plt.ylabel('Normalised weight')
+        plt.xlabel('t')
+        if log_y_scale:
+            plt.yscale('log')
+        if log_x_scale:
+            plt.xscale('log')
+
+        # Generate several lines to plot
+        propagator_lines = []
+        entries = entries_to_plot
+        labels_map = {
+            'deformation_jacobian' : 'deform. jac.',
+            'parametrisation_jacobian' : 'param. jac.',
+            'integrand_value' : 'integrand',
+            'point_weight' : 'total wgt.'
+        }
+        if show_real:
+            propagator_lines.append( ( labels_map['parametrisation_jacobian'],
+                (       [v['t_value'] for v in self.scan_results],
+                        [abs(v['parametrisation_jacobian']) for v in self.scan_results]
+                ) )
+            )
+            propagator_lines.extend([ ('Real '+labels_map[entry],
+                (       [v['t_value'] for v in self.scan_results],
+                        [abs(v[entry].real) for v in self.scan_results]
+                ) ) for entry in entries if entry!='parametrisation_jacobian' ]
+            )
+        if show_imag:
+            propagator_lines.extend([('Cmplx ' + labels_map[entry],
+                                      ([v['t_value'] for v in self.scan_results],
+                                       [abs(v[entry].imag) for v in self.scan_results]
+                                       )) for entry in entries if entry != 'parametrisation_jacobian']
+                                    )
+
+        for line_name, (x_data, y_data) in propagator_lines:
+            if normalise:
+                max_y_data = max(y_data)
+                if max_y_data > 0.:
+                    y_data = [ y/float(max_y_data) for y in y_data ]
+            plt.plot(x_data, y_data, label=line_name)
+        plt.legend()
+        plt.show()
+
+    def analyse(self, **opts):
+
+        print('='*80)
+        print("run time: %.3e [h]"%(self.run_time/3600.0))
+        print('-'*80)
+        print('Approaching the following limit:')
+        for i, ov in enumerate(self.offset_vectors):
+            print('   Loop momentum #%d : %s'%(i+1, str(ov)))
+        print('From the following directions:')
+        for i, dv in enumerate(self.direction_vectors):
+            print('   Direction #%d     : %s'%(i+1, str(dv)))
+        print('='*80)
+        self.generate_plots(**opts)
+
+class PoleResultsAnalyser(object):
     
     def __init__(self, results):
         # Each entry of the scan_results has the following format:
@@ -374,7 +560,7 @@ class ResultsAnalyser(object):
             for (t_value, lambda_values), prop_imag_part in entry['pole_imaginary_parts']:
                 if prop_imag_part is None:
                     continue
-                if prop_imag_part <= 0.:
+                if prop_imag_part < 0.:
                     found_problem += 1
                     loop_momenta = [dir_vec*lam + off_vec for dir_vec,lam,off_vec in
                                         zip(self.direction_vectors, lambda_values, self.offset_vectors)]
@@ -402,7 +588,7 @@ class ResultsAnalyser(object):
         plt.legend()
         plt.show()
 
-    def analyse(self, n_optimal_to_show=5):
+    def analyse(self, **opts):
 
         print('='*80)
         print("run time: %.3e [h]"%(self.run_time/3600.0))
@@ -426,7 +612,8 @@ def load_results_from_yaml(log_file_path):
             scan_results.append(entry_value)
             continue
         processed_data[entry_name] = entry_value
-    processed_data['scan_results'] = scan_results
+    if 'scan_results' not in processed_data:
+        processed_data['scan_results'] = scan_results
     return processed_data
 
 if __name__ == '__main__':
@@ -434,12 +621,15 @@ if __name__ == '__main__':
     prog_options = ' '.join(sys.argv[1:]).split('--')
 
     topology            = 'double-box-SB'
+    test_name           = 'pole_check'
+    _supported_tests    = ['pole_check','limit_check']
     # Default values assume a two-loop topology
     # None means chosen at random
     direction_vectors   = [None,None]
     offset_vectors      = [None,None]
     t_n_points          = 100
     t_range             = [0.,1.0]
+    t_values_steps      = 'linear'
     # If Non, it will be assigned to a default later on
     t_values            = None
     fixed_t_values      = [0.5, 0.5]
@@ -463,6 +653,9 @@ if __name__ == '__main__':
     # save_results_to     = pjoin(os.getcwd(),'poles_imaginary_part_scan.yaml')
     config_file_path    = pjoin(os.getcwd(),'rust_backend','config.yaml')
 
+    # Whether to show the imaginary and/or real part of the weights in the limit test
+    analysis_options = {}
+
     for prog_option in prog_options:
         if prog_option.strip()=='':
             continue
@@ -471,7 +664,12 @@ if __name__ == '__main__':
         except ValueError:
             option_name, option_value = prog_option, None
 
-        if option_name in ['topology','t']:
+        if option_name in ['name','n']:
+            if option_value.lower() not in _supported_tests:
+                raise BaseException("Test name '%s' not recognized. Must be in %s"%(
+                                              option_value.lower(), _supported_tests))
+            test_name = option_value.lower()
+        elif option_name in ['topology','t']:
             topology = option_value
         elif option_name in ['config_file_path', 'c']:
             config_file_path = option_value
@@ -486,6 +684,10 @@ if __name__ == '__main__':
         elif option_name in ['t_values','tv']:
             # The ranges must be iterable of floats or None to select the default iterable.
             t_values = eval(option_value)
+        elif option_name in ['t_values_steps','tvs']:
+            if option_value not in ['linear','exponential']:
+                raise BaseException("The only allowed values of the t values steps are 'linear' or 'exponential'.")
+            t_values_steps = option_value
         elif option_name in ['t_range','tr']:
             t_range = eval(option_value)
         elif option_name in ['t_n_points','tn']:
@@ -508,8 +710,10 @@ if __name__ == '__main__':
             save_results_to = option_value
         elif option_name in ['loop','l']:
             do_loop = eval(option_value)
+        elif option_name in ['analysis_options','ao']:
+            analysis_options = eval(option_value)
         else:
-            raise BaseException("Parameter '%s' not reckognised."%option_name)
+            raise BaseException("Option '%s' not reckognised."%option_name)
 
     try:
         deformation_configuration = yaml.load(open(config_file_path, 'r'), Loader=Loader)
@@ -519,7 +723,16 @@ if __name__ == '__main__':
 
     # Generate the list of t_values if None
     if t_values is None:
-        t_values = [ ( t_range[0]+ ( ( (t_range[1]-t_range[0]) / float(t_n_points+1)) * i ) ) for i in range(1, t_n_points+1)]
+        if test_name == 'pole_check':
+            if t_values_steps == 'linear':
+                t_values = [ ( t_range[0]+ ( ( (t_range[1]-t_range[0]) / float(t_n_points+1)) * i ) ) for i in range(1, t_n_points+1)]
+            elif t_values_steps == 'exponential':
+                t_values = [ ( t_range[1] - ( (t_range[1]-t_range[0]) * 10.**(-float(i)) ) ) for i in range(t_n_points)]
+        elif test_name == 'limit_check':
+            if t_values_steps == 'linear':
+                t_values = [ ( t_range[1] - ( ( (t_range[1]-t_range[0]) / float(t_n_points+1)) * i ) ) for i in range(1, t_n_points+1)]
+            elif t_values_steps == 'exponential':
+                t_values = [ ( t_range[0] + ( (t_range[1]-t_range[0]) * 10.**(-float(i)) ) ) for i in range(t_n_points)]
 
     n_loops_performed = 0
     while True:
@@ -539,18 +752,32 @@ if __name__ == '__main__':
                     log_stream = open(save_results_to,'w')
                 else:
                     log_stream = None
-                scanner = PoleScanner(
-                    log_stream              =   log_stream,
-                    topology                =   topology,
-                    PS_point                =   PS_point,
-                    direction_vectors       =   direction_vectors,
-                    offset_vectors          =   offset_vectors,
-                    t_values                =   t_values,
-                    fixed_t_values          =   fixed_t_values,
-                    deformation_configuration = deformation_configuration
-                )
+                if test_name == 'pole_check':
+                    scanner = PoleScanner(
+                        log_stream              =   log_stream,
+                        topology                =   topology,
+                        PS_point                =   PS_point,
+                        direction_vectors       =   direction_vectors,
+                        offset_vectors          =   offset_vectors,
+                        t_values                =   t_values,
+                        fixed_t_values          =   fixed_t_values,
+                        deformation_configuration = deformation_configuration
+                    )
+                elif test_name == 'limit_check':
+                    scanner = LimitScanner(
+                        log_stream              =   log_stream,
+                        topology                =   topology,
+                        PS_point                =   PS_point,
+                        direction_vectors       =   direction_vectors,
+                        offset_vectors          =   offset_vectors,
+                        t_values                =   t_values,
+                        deformation_configuration = deformation_configuration
+                    )
                 start_time = time.time()
-                test_results = scanner.scan(propagators=propagators)
+                if test_name == 'pole_check':
+                    test_results = scanner.scan(propagators=propagators)
+                elif test_name == 'limit_check':
+                    test_results = scanner.scan()
                 test_results['run_time'] = time.time()-start_time
                 if log_stream is not None:
                     log_stream.write(yaml.dump([('run_time', test_results['run_time']), ], Dumper=Dumper))
@@ -564,13 +791,16 @@ if __name__ == '__main__':
                     raise e
 
             #pprint(test_results)
-            analyser = ResultsAnalyser(test_results)
+            if test_name == 'pole_check':
+                analyser = PoleResultsAnalyser(test_results)
+            elif test_name == 'limit_check':
+                analyser = LimitResultsAnalyser(test_results)
 
             n_loops_performed += 1
             if do_loop is not None:
                 analyser.test_imaginary_parts_in_scan()
             else:
-                analyser.analyse()
+                analyser.analyse(**analysis_options)
 
             if (do_loop is None) or (do_loop is not None and do_loop > 0 and n_loops_performed>=do_loop):
                 break

@@ -1,4 +1,4 @@
-class Topology:
+class Topology(object):
     def __init__(self, num_vertices, edge_map):
         self.num_vertices = num_vertices
         self.edge_map = edge_map
