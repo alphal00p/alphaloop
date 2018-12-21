@@ -186,7 +186,7 @@ impl Integrand {
                 }
 
                 // add the subtraction terms
-                let mut soft_ct =  Complex::default();
+                let mut soft_ct = Complex::default();
                 if self.integrand_id == ON_SHELL_BOX_SUBTRACTED
                     || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 15
                 {
@@ -201,21 +201,23 @@ impl Integrand {
                     || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 14
                 {
                     let (s, t, m) = (self.inv(0, 1), self.inv(1, 2), self.inv(0, 0));
-                    soft_ct = 1.0 - (&mom[0] - &self.qs[1]).square() / s - (&mom[0] - &self.qs[2]).square() / t;
+                    soft_ct = 1.0
+                        - (&mom[0] - &self.qs[1]).square() / s
+                        - (&mom[0] - &self.qs[2]).square() / t;
 
                     // TODO: add more UV propagators in deformation?
-                    let x2 = Integrand::collinear_x(&mom[0], &self.qs[1]);
-                    let x3 = Integrand::collinear_x(&mom[0], &self.qs[2]);
-                    let x4 = Integrand::collinear_x(&mom[0], &self.qs[3]);
-                    coll_ct -= (1. - m / s) / (t * (x2 * s + (1.0 + x2) * m))
+                    let x2 = Integrand::collinear_x(&mom[0], &self.ext[1]);
+                    let x3 = Integrand::collinear_x(&mom[0], &self.ext[2]);
+                    let x4 = Integrand::collinear_x(&mom[0], &self.ext[3]);
+                    coll_ct -= (1. + m / s) / (t * (x2 * s + (1.0 - x2) * m))
                         * (&mom[0] - &self.qs[2]).square()
                         * (&mom[0] - &self.qs[3]).square();
-                    coll_ct -= m / t / (t * ((1.0 - x3) * s - x3 * m))
+                    coll_ct -= m / s / (t * ((1.0 - x3) * s - x3 * m))
+                        * (&mom[0] - &self.qs[0]).square()
+                        * (&mom[0] - &self.qs[3]).square();
+                    coll_ct -= (1. - m / t) / (s * ((1.0 - x4) * t + x4 * m))
                         * (&mom[0] - &self.qs[0]).square()
                         * (&mom[0] - &self.qs[1]).square();
-                    coll_ct -= (1. - m / t) / (s * ((1.0 - x4) * s + x4 * m))
-                        * (&mom[0] - &self.qs[1]).square()
-                        * (&mom[0] - &self.qs[2]).square();
                 }
 
                 if self.channel > 0 && self.channel <= self.qs.len() - 1 {
