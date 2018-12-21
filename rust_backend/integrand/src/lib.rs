@@ -60,7 +60,7 @@ py_class!(class Integrand |py| {
         Ok(true)
     }
 
-    def evaluate(&self, loop_momenta: PyList) -> PyResult<(f64, f64)> {
+    def evaluate(&self, loop_momenta: PyList) -> PyResult<(f64, f64, f64, f64, f64, f64)> {
         let mut moms = Vec::with_capacity(2);
 
         for m_py in loop_momenta.iter(py) {
@@ -77,6 +77,6 @@ py_class!(class Integrand |py| {
         }
 
         let res = self.integrand(py).borrow().evaluate(&moms).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
-        Ok((res.re, res.im))
+        Ok((res.0.re, res.0.im, res.1.re, res.1.im, res.2.re, res.2.im))
     }
 });

@@ -9,6 +9,13 @@ use integrand::integrands::Integrand;
 use vector::LorentzVector;
 use Complex;
 
+#[inline]
+/// Invert with better precision
+fn finv(c: Complex) -> Complex {
+    let norm = c.norm();
+    c.conj() / norm / norm
+}
+
 const ONE_LOOP_ID: usize = 1000;
 
 #[derive(Debug, Deserialize)]
@@ -224,9 +231,9 @@ impl Evaluator {
                 self.deformer.deform(&k_m)?
             };
 
-            let v = self.integrand.evaluate(&[d])?;
+            let (num, ct, den) = self.integrand.evaluate(&[d])?;
 
-            Ok(v * j * jac_k)
+            Ok((num + ct) * finv(den) * j * jac_k)
         } else {
             if self.id == TRIANGLE_BOX_ALTERNATIVE_ID
                 || self.id == DOUBLE_BOX_ID
@@ -279,9 +286,9 @@ impl Evaluator {
                 // self.integrand.set_channel(1);
             }
 
-            let v = self.integrand.evaluate(&[d.0, d.1])?;
+            let (num, ct, den) = self.integrand.evaluate(&[d.0, d.1])?;
 
-            Ok(v * j * jac_k * jac_l)
+            Ok((num + ct) * finv(den) * j * jac_k * jac_l)
         }
     }
 

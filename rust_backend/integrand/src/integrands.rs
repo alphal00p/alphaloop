@@ -154,26 +154,11 @@ impl Integrand {
             / eta.dot(mom)
     }
 
-    fn collinear_factor(
+    /// Return tuple `(num, CT, den)` where `(num + CT) / den` is the result of the evaluation.
+    pub fn evaluate(
         &self,
-        xbar: bool,
-        q1: &LorentzVector<f64>,
-        q2: &LorentzVector<f64>,
-        loopmom: &LorentzVector<Complex>,
-    ) -> Complex {
-        let mut factor = Complex::new(1.0 / self.inv(0, 1) / self.inv(1, 2), 0.);
-        let mut x = Integrand::collinear_x(loopmom, &(q2 - q1));
-        if xbar {
-            x = 1.0 - x;
-        }
-        factor /= x;
-
-        let a1 = (loopmom - q1).square();
-        factor *= a1.inv() * (loopmom - q2).square().inv();
-        factor * self.mu_sq * (self.mu_sq + a1).inv()
-    }
-
-    pub fn evaluate(&self, mom: &[LorentzVector<Complex>]) -> Result<Complex, &'static str> {
+        mom: &[LorentzVector<Complex>],
+    ) -> Result<(Complex, Complex, Complex), &'static str> {
         match self.integrand_id {
             OFF_SHELL_BOX | ON_SHELL_BOX_SUBTRACTED | OFF_SHELL_PENTAGON | OFF_SHELL_HEXAGON => {
                 let mut factor = Complex::new(0.0, -f64::FRAC_1_PI() * f64::FRAC_1_PI());
@@ -201,10 +186,11 @@ impl Integrand {
                 }
 
                 // add the subtraction terms
-                let mut soft_ct = Complex::new(1.0, 0.0);
+                let mut soft_ct =  Complex::default();
                 if self.integrand_id == ON_SHELL_BOX_SUBTRACTED
                     || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 15
                 {
+                    soft_ct = Complex::new(1., 0.);
                     for i in 0..4 {
                         soft_ct -= (&mom[0] - &self.qs[i]).square() / self.inv(2, 1 + 2 * (i % 2));
                     }
@@ -214,14 +200,22 @@ impl Integrand {
                 if self.integrand_id == ONE_OFF_SHELL_BOX_SUBTRACTED
                     || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 14
                 {
-                    // ext[0] is off-shell and needs to be skipped
-                    for i in 2..4 {
-                        soft_ct -= (&mom[0] - &self.qs[i]).square() / self.inv(2, 1 + 2 * (i % 2));
-                    }
+                    let (s, t, m) = (self.inv(0, 1), self.inv(1, 2), self.inv(0, 0));
+                    soft_ct = 1.0 - (&mom[0] - &self.qs[1]).square() / s - (&mom[0] - &self.qs[2]).square() / t;
 
-                    coll_ct = -self.collinear_factor(false, &self.qs[3], &self.qs[0], &mom[0])
-                        - self.collinear_factor(true, &self.qs[1], &self.qs[2], &mom[0]);
-                    println!("soft={}, col={}, 1/denom={}", soft_ct, coll_ct, finv(denominator));
+                    // TODO: add more UV propagators in deformation?
+                    let x2 = Integrand::collinear_x(&mom[0], &self.qs[1]);
+                    let x3 = Integrand::collinear_x(&mom[0], &self.qs[2]);
+                    let x4 = Integrand::collinear_x(&mom[0], &self.qs[3]);
+                    coll_ct -= (1. - m / s) / (t * (x2 * s + (1.0 + x2) * m))
+                        * (&mom[0] - &self.qs[2]).square()
+                        * (&mom[0] - &self.qs[3]).square();
+                    coll_ct -= m / t / (t * ((1.0 - x3) * s - x3 * m))
+                        * (&mom[0] - &self.qs[0]).square()
+                        * (&mom[0] - &self.qs[1]).square();
+                    coll_ct -= (1. - m / t) / (s * ((1.0 - x4) * s + x4 * m))
+                        * (&mom[0] - &self.qs[1]).square()
+                        * (&mom[0] - &self.qs[2]).square();
                 }
 
                 if self.channel > 0 && self.channel <= self.qs.len() - 1 {
@@ -239,9 +233,13 @@ impl Integrand {
                         }
                     }
 
-                    Ok(factor / mc_factor * (soft_ct * finv(denominator) - coll_ct))
+                    Ok((
+                        factor / mc_factor,
+                        factor / mc_factor * (soft_ct - coll_ct),
+                        denominator,
+                    ))
                 } else {
-                    Ok(factor * (soft_ct * finv(denominator) - coll_ct))
+                    Ok((factor, factor * (soft_ct - coll_ct), denominator))
                 }
             }
             OFF_SHELL_DOUBLE_BOX => {
@@ -256,7 +254,7 @@ impl Integrand {
                     * (k - &self.ext[0]).square()
                     * (k + &self.ext[3]).square();
 
-                Ok(factor * finv(denominator))
+                Ok((factor, Complex::default(), denominator))
             }
             OFF_SHELL_DOUBLE_TRIANGLE => {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
@@ -268,7 +266,7 @@ impl Integrand {
                     * (&(k - l) + &self.ext[0]).square()
                     * (k + &self.ext[0]).square();
 
-                Ok(factor * finv(denominator))
+                Ok((factor, Complex::default(), denominator))
             }
             OFF_SHELL_TRIANGLE_BOX => {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
@@ -281,7 +279,7 @@ impl Integrand {
                     * (&(k - l) + &self.ext[0]).square()
                     * (k + &self.ext[0]).square();
 
-                Ok(factor * finv(denominator))
+                Ok((factor, Complex::default(), denominator))
             }
             OFF_SHELL_TRIANGLE_BOX_ALTERNATIVE => {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
@@ -305,9 +303,9 @@ impl Integrand {
                         factor *= (l + &self.ext[0]).square().norm().powi(alpha).inv();
                     }
 
-                    Ok(factor * finv(denominator) / mc_factor)
+                    Ok((factor / mc_factor, Complex::default(), denominator))
                 } else {
-                    Ok(factor * finv(denominator))
+                    Ok((factor, Complex::default(), denominator))
                 }
             }
 
@@ -333,7 +331,7 @@ impl Integrand {
                 ) {
                     (false, false, false, false) => {
                         // p1,p2,p3,p4 : on-shell and p1,p3 : off-shell
-                        Ok(factor * finv(denominator))
+                        Ok((factor, Complex::default(), denominator))
                     }
                     (true, _, true, _) => {
                         // p2,p4 : on-shell and p1,p3 : off-shell
@@ -367,7 +365,7 @@ impl Integrand {
                             ))
                             / c13d5;
 
-                        Ok(factor * (finv(denominator) - c1 - c3 + c13))
+                        Ok((factor, factor * (-c1 - c3 + c13), denominator))
                     }
                     _ => Err("Unknown Subtracted Term for SUBTRACTED_DIAGONAL_BOX!"),
                 }
@@ -385,7 +383,7 @@ impl Integrand {
                     * (l).square()
                     * (l + p.2).square()
                     * (k - l).square();
-                Ok(factor * finv(denominator))
+                Ok((factor, Complex::default(), denominator))
             }
 
             _ => Err("Integrand is not implemented yet"),
