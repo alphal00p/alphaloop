@@ -443,8 +443,8 @@ impl<F: Float + RealField> Deformer<F> {
         let mut lambda_cycle_sq: F = From::from(1.); // maximum lambda value
 
         let mut restriction = false;
+        let k0_sq = k0.square();
         for j in 0..n {
-            let k0_sq = k0.square();
             let lj = mom - self.qs[j];
             let k0_lqj = k0.dot(&lj);
             let w = lj.square() - self.masses[j].powi(2);
