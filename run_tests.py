@@ -304,8 +304,11 @@ class LimitScanner(object):
 
                 deformed_momenta = [complex(*x) for x in deformed_momenta]
 
-                integrand_real, integrand_imag = self.integrand.evaluate([deformed_momenta,])
-                integrand = complex(integrand_real, integrand_imag)
+                num_re, num_im, ct_re, ct_im, denom_re, denom_im = self.integrand.evaluate([deformed_momenta,])
+                numerator = complex(num_re, num_im)
+                ct = complex(ct_re, ct_im)
+                denominator = complex(denom_re, denom_im)
+                integrand = (numerator + ct) / denominator
 
             elif len(loop_momenta)==2:
                 # Apply the deformation
@@ -327,15 +330,26 @@ class LimitScanner(object):
                     integrand = complex(1.0, 0.0)
                     for prop in self.topology.propagators:
                         integrand *= prop.evaluate(deformed_momenta_real, deformed_momenta_imag)
+                    numerator   = complex(1.0, 0.0)
+                    ct          = complex(1.0, 0.0)
+                    denominator = complex(1.0, 0.0)
                 else:
-                    integrand_real, integrand_imag = self.integrand.evaluate([deformed_momenta[:4],deformed_momenta[4:]])
-                    integrand = complex(integrand_real, integrand_imag)
+                    num_re, num_im, ct_re, ct_im, denom_re, denom_im =\
+                                                    self.integrand.evaluate([deformed_momenta[:4],deformed_momenta[4:]])
+                    numerator   = complex(num_re, num_im)
+                    ct          = complex(ct_re, ct_im)
+                    denominator = complex(denom_re, denom_im)
+                    integrand = (numerator+ct)/denominator
+
             else:
                 raise BaseException('Number of loop momenta not supported: %d'%len(loop_momenta))
 
             one_result['parametrisation_jacobian'] = parametrisation_jacobian
             one_result['deformation_jacobian']     = deformation_jacobian
             one_result['integrand_value']          = integrand
+            one_result['counterterterms']          = ct
+            one_result['numerator']                = numerator
+            one_result['denominator']              = denominator
             one_result['point_weight']             = integrand*deformation_jacobian*parametrisation_jacobian
 
             all_results.append(one_result)
@@ -523,11 +537,14 @@ class LimitResultsAnalyser(object):
 
 
     def generate_plots(self, show_real=True, show_imag=False, normalise=True,
-                       entries_to_plot = ['parametrisation_jacobian','deformation_jacobian','integrand_value','point_weight'],
+                       entries_to_plot = ['parametrisation_jacobian','deformation_jacobian',
+                                          'integrand_value','point_weight','CT/num'],
                        log_y_scale = True,
                        log_x_scale = False):
 
-        plt.title('Approaching limit test')
+        plt.title('Test approaching limit: %s'%(
+            ', '.join('(%s)'%(','.join('%.2f'%vi for vi in v)) for v in self.offset_vectors)
+        ))
         plt.ylabel('Normalised weight')
         plt.xlabel('t')
         if log_y_scale:
@@ -536,8 +553,8 @@ class LimitResultsAnalyser(object):
             plt.xscale('log')
 
         # Generate several lines to plot
-        propagator_lines = []
-        entries = entries_to_plot
+        lines = []
+        entries = [e for e in entries_to_plot if e!='CT/num']
         labels_map = {
             'deformation_jacobian' : 'deform. jac.',
             'parametrisation_jacobian' : 'param. jac.',
@@ -545,29 +562,46 @@ class LimitResultsAnalyser(object):
             'point_weight' : 'total wgt.'
         }
         if show_real:
-            propagator_lines.append( ( labels_map['parametrisation_jacobian'],
+            lines.append( ( labels_map['parametrisation_jacobian'],
                 (       [v['t_value'] for v in self.scan_results],
                         [abs(v['parametrisation_jacobian']) for v in self.scan_results]
                 ) )
             )
-            propagator_lines.extend([ ('Real '+labels_map[entry],
+            lines.extend([ ('Real '+labels_map[entry],
                 (       [v['t_value'] for v in self.scan_results],
                         [abs(v[entry].real) for v in self.scan_results]
                 ) ) for entry in entries if entry!='parametrisation_jacobian' ]
             )
         if show_imag:
-            propagator_lines.extend([('Cmplx ' + labels_map[entry],
+            lines.extend([('Cmplx ' + labels_map[entry],
                                       ([v['t_value'] for v in self.scan_results],
                                        [abs(v[entry].imag) for v in self.scan_results]
                                        )) for entry in entries if entry != 'parametrisation_jacobian']
                                     )
 
-        for line_name, (x_data, y_data) in propagator_lines:
+        for line_name, (x_data, y_data) in lines:
             if normalise:
                 max_y_data = max(y_data)
                 if max_y_data > 0.:
                     y_data = [ y/float(max_y_data) for y in y_data ]
+
+        # Add the ratio CT/num plot
+        if 'CT/num' in entries_to_plot:
+            if show_real:
+                lines.append(('Real CT/num',
+                              ([v['t_value'] for v in self.scan_results],
+                               [abs(v['counterterterms'] / v['numerator']).real for v in self.scan_results]
+                               ))
+                             )
+            if show_imag:
+                lines.append(('Real CT/num',
+                              ([v['t_value'] for v in self.scan_results],
+                               [abs(v['counterterterms'] / v['numerator']).imag for v in self.scan_results]
+                               ))
+                             )
+        for line_name, (x_data, y_data) in lines:
             plt.plot(x_data, y_data, label=line_name)
+
         plt.legend()
         plt.show()
 
@@ -582,6 +616,14 @@ class LimitResultsAnalyser(object):
         print('From the following directions:')
         for i, dv in enumerate(self.direction_vectors):
             print('   Direction #%d     : %s'%(i+1, str(dv)))
+        print('Last 5 ratios CT/num:')
+        for v in self.scan_results[-5:]:
+            print(v['numerator'])
+            #print(v['counterterterms'])
+            print('| t=%-10.3f -> CT/num=%.5f +i* %.5f'%(
+                v['t_value'],
+                (v['counterterterms']/v['numerator']).real,
+                (v['counterterterms']/v['numerator']).imag))
         print('='*80)
         self.generate_plots(**opts)
 
