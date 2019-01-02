@@ -145,12 +145,9 @@ impl Integrand {
 
     #[inline]
     //Compute the xi's for the collinear limits, here mom should always by on-shell
-    fn collinear_x(loopmom: &LorentzVector<Complex>, mom: &LorentzVector<f64>) -> f64 {
+    fn collinear_x(loopmom: &LorentzVector<Complex>, mom: &LorentzVector<f64>) -> Complex {
         let eta = mom.dual();
-        (eta[0] * loopmom[0].re
-            - eta[1] * loopmom[1].re
-            - eta[2] * loopmom[2].re
-            - eta[3] * loopmom[3].re)
+        (eta[0] * loopmom[0] - eta[1] * loopmom[1] - eta[2] * loopmom[2] - eta[3] * loopmom[3])
             / eta.dot(mom)
     }
 
@@ -206,20 +203,15 @@ impl Integrand {
                         - (&mom[0] - &self.qs[3]).square() / s;
 
                     // TODO: add more UV propagators in deformation?
-                    let x2 = Integrand::collinear_x(&mom[0], &self.ext[1]);
-                    let x3 = Integrand::collinear_x(&mom[0], &self.ext[2]);
-                    let x4 = Integrand::collinear_x(&mom[0], &self.ext[3]);
-                    coll_ct -= (1. - m / s) / (t * (x2 * s + (1.0 - x2) * m))
+                    let x2 = Integrand::collinear_x(&(&mom[0] - &self.qs[0]), &self.ext[1]);
+                    let x4 = Integrand::collinear_x(&(&mom[0] - &self.qs[2]), &self.ext[3]);
+
+                    coll_ct += (1. - m / s) / (t * (x2 * s + (1.0 - x2) * m))
                         * (&mom[0] - &self.qs[2]).square()
                         * (&mom[0] - &self.qs[3]).square()
                         * self.mu_sq
                         / (self.mu_sq - (&mom[0] - &self.qs[1]).square());
-                    coll_ct -= m / s / (t * ((1.0 - x3) * s - x3 * m))
-                        * (&mom[0] - &self.qs[0]).square()
-                        * (&mom[0] - &self.qs[3]).square()
-                        * self.mu_sq
-                        / (self.mu_sq - (&mom[0] - &self.qs[1]).square());
-                    coll_ct -= (1. - m / t) / (s * ((1.0 - x4) * t + x4 * m))
+                    coll_ct += (1. - m / t) / (s * ((1.0 - x4) * t + x4 * m))
                         * (&mom[0] - &self.qs[0]).square()
                         * (&mom[0] - &self.qs[1]).square()
                         * self.mu_sq
@@ -347,8 +339,8 @@ impl Integrand {
                         let x1 = Integrand::collinear_x(k, &self.ext[0]);
                         let x3 = Integrand::collinear_x(l, &self.ext[2]);
 
-                        let k_c1 = self.ext[0] * x1;
-                        let l_c3 = self.ext[2] * x3;
+                        let k_c1 = self.ext[0].to_complex(true) * x1;
+                        let l_c3 = self.ext[2].to_complex(true) * x3;
 
                         let c1d5 = (l - &k_c1 + &self.ext[0] + &self.ext[1]).square(); //A5 (signs inverted, but square)
                         let c3d5 = (k - &l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
