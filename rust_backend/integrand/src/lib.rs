@@ -19,8 +19,8 @@ py_module_initializer!(integrand, initintegrand, PyInit_integrand, |py, m| {
 py_class!(class Integrand |py| {
     data integrand: RefCell<integrands::Integrand>;
 
-    def __new__(_cls, id: &str, channel: usize, region: usize, mu_sq: f64) -> PyResult<Integrand> {
-        let int = integrands::Integrand::new(id, channel, region, mu_sq).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
+    def __new__(_cls, id: &str, channel: usize, region: usize, mu_sq: f64, tau: f64) -> PyResult<Integrand> {
+        let int = integrands::Integrand::new(id, channel, region, mu_sq, tau).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         Integrand::create_instance(py, RefCell::new(int))
     }
 

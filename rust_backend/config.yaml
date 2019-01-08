@@ -6,6 +6,7 @@ multi_channeling: false
 regions: false
 param_mode: weinzierl_ext
 deform_eps: 0.0
+tau: 0. # filter for when we get too close to propagators
 
 # deformation parameters
 m1_fac: 0.035

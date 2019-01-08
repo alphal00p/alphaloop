@@ -40,6 +40,7 @@ pub struct Integrand {
     invs: Vec<f64>, // invariants
     shift: LorentzVector<f64>,
     on_shell_flag: usize,
+    tau: f64,
 }
 
 impl Integrand {
@@ -48,6 +49,7 @@ impl Integrand {
         channel: usize,
         region: usize,
         mu_sq: f64,
+        tau: f64,
     ) -> Result<Integrand, &'static str> {
         let integrand_id = match integrand_name {
             "box1L_direct_integration" => OFF_SHELL_BOX,
@@ -75,6 +77,7 @@ impl Integrand {
             shift: LorentzVector::new(),
             on_shell_flag: 0,
             invs: Vec::with_capacity(16),
+            tau,
         })
     }
 
@@ -161,15 +164,16 @@ impl Integrand {
                 let mut factor = Complex::new(0.0, -f64::FRAC_1_PI() * f64::FRAC_1_PI());
 
                 let mut denominator = Complex::new(1.0, 0.0);
+                let k = &mom[0];
 
                 if self.region == REGION_ALL || self.region == REGION_INT {
                     for q in &self.qs {
-                        denominator *= (&mom[0] - q).square();
+                        denominator *= (k - q).square();
                     }
                 }
 
                 if self.region != REGION_ALL {
-                    let mut d = (&mom[0] - &self.shift).square() - self.mu_sq;
+                    let mut d = (k - &self.shift).square() - self.mu_sq;
                     d = d.powf(self.qs.len() as f64); // TODO: use powi when it is implemented
 
                     if self.region == REGION_EXT {
@@ -182,16 +186,30 @@ impl Integrand {
                     }
                 }
 
+                // set propagators to 0 if we get too close to them
+                if self.tau > 0. {
+                    for q in &self.qs {
+                        let f = (k.real() - q).square().abs() / self.inv(0, 1).abs();
+                        if f < self.tau {
+                            return Ok((
+                                Complex::new(1., 0.),
+                                Complex::new(-1., 0.),
+                                Complex::new(1., 0.),
+                            ));
+                        }
+                    }
+                }
+
                 // add the subtraction terms
                 let mut soft_ct = Complex::default();
                 if self.integrand_id == ON_SHELL_BOX_SUBTRACTED
                     || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 15
                 {
                     let (s, t) = (self.inv(0, 1), self.inv(1, 2));
-                    soft_ct = -(&mom[0] - &self.qs[0]).square() / t
-                        - (&mom[0] - &self.qs[1]).square() / s
-                        - (&mom[0] - &self.qs[2]).square() / t
-                        - (&mom[0] - &self.qs[3]).square() / s;
+                    soft_ct = -(k - &self.qs[0]).square() / t
+                        - (k - &self.qs[1]).square() / s
+                        - (k - &self.qs[2]).square() / t
+                        - (k - &self.qs[3]).square() / s;
                 }
 
                 let mut coll_ct = Complex::default();
@@ -199,23 +217,60 @@ impl Integrand {
                     || self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 14
                 {
                     let (s, t, m) = (self.inv(0, 1), self.inv(1, 2), self.inv(0, 0));
-                    soft_ct = -(&mom[0] - &self.qs[0]).square() / t
-                        - (&mom[0] - &self.qs[3]).square() / s;
+                    soft_ct = -(k - &self.qs[0]).square() / t - (k - &self.qs[3]).square() / s;
 
-                    // TODO: add more UV propagators in deformation?
-                    let x2 = Integrand::collinear_x(&(&mom[0] - &self.qs[0]), &self.ext[1]);
-                    let x4 = Integrand::collinear_x(&(&mom[0] - &self.qs[2]), &self.ext[3]);
+                    let x2 = Integrand::collinear_x(&(k - &self.qs[0]), &self.ext[1]);
+                    let x4 = Integrand::collinear_x(&(k - &self.qs[2]), &self.ext[3]);
 
-                    coll_ct += (1. - m / s) / (t * (x2 * s + (1.0 - x2) * m))
-                        * (&mom[0] - &self.qs[2]).square()
-                        * (&mom[0] - &self.qs[3]).square()
+                    coll_ct += (1. - m / s)
+                        * finv(t * (x2 * s + (1.0 - x2) * m))
+                        * (k - &self.qs[2]).square()
+                        * (k - &self.qs[3]).square()
                         * self.mu_sq
-                        / (self.mu_sq - (&mom[0] - &self.qs[1]).square());
-                    coll_ct += (1. - m / t) / (s * ((1.0 - x4) * t + x4 * m))
-                        * (&mom[0] - &self.qs[0]).square()
-                        * (&mom[0] - &self.qs[1]).square()
+                        * finv(self.mu_sq - (k - &self.qs[1]).square());
+                    coll_ct += (1. - m / t)
+                        * finv(s * ((1.0 - x4) * t + x4 * m))
+                        * (k - &self.qs[0]).square()
+                        * (k - &self.qs[1]).square()
                         * self.mu_sq
-                        / (self.mu_sq - (&mom[0] - &self.qs[2]).square());
+                        * finv(self.mu_sq - (k - &self.qs[2]).square());
+
+                    if self.tau > 0. {
+                        let col_1 =
+                            (t * (x2.re * s + (1.0 - x2.re) * m)).abs() / self.inv(0, 1).abs();
+                        let col_2 =
+                            (s * ((1.0 - x4.re) * t + x4.re * m)).abs() / self.inv(0, 1).abs();
+
+                        if col_1 < self.tau || col_2 < self.tau {
+                            return Ok((
+                                Complex::new(1., 0.),
+                                Complex::new(-1., 0.),
+                                Complex::new(1., 0.),
+                            ));
+                        }
+                    }
+                }
+
+                if self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 8 {
+                    let (s, t, m1, m2, m3) = (
+                        self.inv(0, 1),
+                        self.inv(1, 2),
+                        self.inv(0, 0),
+                        self.inv(1, 1),
+                        self.inv(2, 2),
+                    );
+
+                    let x4 = Integrand::collinear_x(&(k - &self.qs[2]), &self.ext[3]);
+
+                    coll_ct += finv((x4 * (m1 + m2) + (1. - x4) * t) * (x4 * s - (1. - x4) * m3))
+                        * (k - &self.qs[0]).square()
+                        * (k - &self.qs[1]).square()
+                        * self.mu_sq
+                        * finv(self.mu_sq - (k - &self.qs[2]).square());
+                }
+
+                if !finv(denominator).is_finite() || !coll_ct.is_finite() {
+                    println!("Bad point: k={}", k);
                 }
 
                 if self.channel > 0 && self.channel <= self.qs.len() - 1 {
@@ -223,9 +278,7 @@ impl Integrand {
                     let mut tmp;
 
                     for (i, q) in self.qs.windows(2).enumerate() {
-                        tmp = 1.0
-                            / ((&mom[0] - &q[0]).square().norm()
-                                * (&mom[0] - &q[1]).square().norm());
+                        tmp = 1.0 / ((k - &q[0]).square().norm() * (k - &q[1]).square().norm());
                         mc_factor += tmp * tmp;
 
                         if i + 1 == self.channel as usize {

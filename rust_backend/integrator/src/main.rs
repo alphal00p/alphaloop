@@ -50,7 +50,7 @@ fn performance_test(settings: Settings) {
         &vec![0.; external_momenta.len()],
     )
     .unwrap();
-    let mut integrand = Integrand::new("triangle2L_direct_integration", 0, 0, mu_sq).unwrap();
+    let mut integrand = Integrand::new("triangle2L_direct_integration", 0, 0, mu_sq, 0.).unwrap();
 
     deformer.set_external_momenta(&external_momenta);
     integrand.set_externals(external_momenta.clone());

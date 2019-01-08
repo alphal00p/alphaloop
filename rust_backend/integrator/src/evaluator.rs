@@ -128,7 +128,7 @@ impl Evaluator {
         .unwrap();
         deformer.set_qs(&qs);
 
-        let mut integrand = Integrand::new(name, 0, 0, settings.mu_sq).unwrap();
+        let mut integrand = Integrand::new(name, 0, 0, settings.mu_sq, settings.tau).unwrap();
         integrand.set_externals(external_momenta);
         integrand.set_on_shell_flag(on_shell_flag);
 
@@ -168,26 +168,27 @@ impl Evaluator {
 
         let mut integrand = match id {
             DOUBLE_BOX_ID => {
-                Integrand::new("box2L_direct_integration", 0, 0, settings.mu_sq).unwrap()
+                Integrand::new("box2L_direct_integration", 0, 0, settings.mu_sq, settings.tau).unwrap()
             }
             DOUBLE_TRIANGLE_ID => {
-                Integrand::new("triangle2L_direct_integration", 0, 0, settings.mu_sq).unwrap()
+                Integrand::new("triangle2L_direct_integration", 0, 0, settings.mu_sq, settings.tau).unwrap()
             }
             TRIANGLE_BOX_ID => {
-                Integrand::new("trianglebox_direct_integration", 0, 0, settings.mu_sq).unwrap()
+                Integrand::new("trianglebox_direct_integration", 0, 0, settings.mu_sq, settings.tau).unwrap()
             }
             TRIANGLE_BOX_ALTERNATIVE_ID => Integrand::new(
                 "trianglebox_alternative_direct_integration",
                 0,
                 0,
                 settings.mu_sq,
+                settings.tau,
             )
             .unwrap(),
             DIAGONAL_BOX_ID => {
-                Integrand::new("diagonalbox_direct_integration", 0, 0, settings.mu_sq).unwrap()
+                Integrand::new("diagonalbox_direct_integration", 0, 0, settings.mu_sq, settings.tau).unwrap()
             }
             DOUBLE_BOX_SB_ID => {
-                Integrand::new("box2L_direct_integration_SB", 0, 0, settings.mu_sq).unwrap()
+                Integrand::new("box2L_direct_integration_SB", 0, 0, settings.mu_sq, settings.tau).unwrap()
             }
             _ => unreachable!("Unknown id"),
         };
