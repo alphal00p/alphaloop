@@ -20,7 +20,8 @@ esac
 
 #Build libraries for python 
 cd rust_backend/
-cargo build --release
+#cargo build --release
+cargo build
 
 #Rename them to be called from MadGraph
 cp ${SO_DEFORMATION} deformation.so

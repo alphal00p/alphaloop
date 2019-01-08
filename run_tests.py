@@ -207,6 +207,8 @@ class Topology(object):
 
 class LimitScanner(object):
 
+    _USE_INVERSE_PARAMETRISATION = False
+
     def __init__(self,
                  log_stream         =   None,
                  topology           =   'double-box-SB',
@@ -273,8 +275,7 @@ class LimitScanner(object):
         self.parameterization.set_mode('weinzierl_ext')
 
         self.integrand = integrand.Integrand(id=integrand_name, channel=0, region=0,
-                                                            mu_sq=float(self.deformation_configuration['mu_sq'],
-                                                            tau=0.))
+                                                            mu_sq=float(self.deformation_configuration['mu_sq']) )
         # This will also correctly compute the q's, necessary in the one-loop case
         self.integrand.set_externals([[v for v in vec] for vec in self.PS_point])
 
@@ -289,13 +290,54 @@ class LimitScanner(object):
             one_result = {
                 't_value': t,
             }
-
-            loop_momenta = [dir_vec * t + off_vec for dir_vec, off_vec in zip(self.direction_vectors, self.offset_vectors)]
-            # Obtain the jacobian from the parametrisation
+            for dir_vec in self.direction_vectors:
+                if any(v_el > 1. or v_el < 0. for v_el in dir_vec):
+                    print('ERROR: When specifying the direction with which to approach the limit, use the following format:')
+                    print('')
+                    print('           direction_vector = [rho, xi, theta, phi]')
+                    print('')
+                    print('       with rho, xi, theta, phi all in the [0,1]')
+                    print('       Instead, you specified: %s'%str(dir_vec))
+                    sys.exit(1)
+            
+#            loop_momenta = [dir_vec * t + off_vec for dir_vec, off_vec in zip(self.direction_vectors, self.offset_vectors)]
+#            # Obtain the jacobian from the parametrisation
+#            parametrisation_jacobian = 1.
+#            for lm in loop_momenta:
+#                random_variables, this_lm_parametrisation_jacobian = self.parameterization.inv_map([v for v in lm])
+#                parametrisation_jacobian *= this_lm_parametrisation_jacobian
             parametrisation_jacobian = 1.
-            for lm in loop_momenta:
-                random_variables, this_lm_parametrisation_jacobian = self.parameterization.inv_map([v for v in lm])
-                parametrisation_jacobian *= this_lm_parametrisation_jacobian
+            loop_momenta             = []
+            for dir_vec, off_vec in zip(self.direction_vectors, self.offset_vectors):
+                if self._USE_INVERSE_PARAMETRISATION:
+                    # First find which random variables return the offset specified
+                    random_variables, direct_jacobian = self.parameterization.inv_map([v for v in off_vec])
+                    # Verify that this is indeed correct:
+                    loop_momentum, reverse_jacobian = self.parameterization.map([r for r in random_variables])
+                    for i, l_el in enumerate(loop_momentum):
+                        test_value = (abs(l_el - off_vec[i])/max(abs(off_vec[i]),1.0e-12))
+                        if (abs(l_el - off_vec[i])/max(abs(off_vec[i]),1.0e-12))>1.e-12:
+                            print('WARNING: Incorrect bidirection parametrisation: %.3e > 1.e-12, original=%.16e, reconstructed=%.16e'%
+                              (test_value,off_vec[i],l_el))
+                    test_value = (abs(direct_jacobian - reverse_jacobian)/max(direct_jacobian,1.0e-12))
+                    if test_value>1.e-12:
+                        print('WARNING: Incorrect bidirection parametrisation jacobian: %.3e > 1.e-12, original=%.16e, reconstructed=%.16e'%(
+                            test_value,direct_jacobian,reverse_jacobian))
+                    new_point_random_variables = [ r + ((1.-r)*d*t if d>=0. else r*d*t) for r,d in zip(random_variables,dir_vec) ]
+                    loop_momentum, this_lm_parametrisation_jacobian = self.parameterization.map(new_point_random_variables)
+                    loop_momenta.append(vectors.LorentzVector(loop_momentum))
+                    parametrisation_jacobian *= this_lm_parametrisation_jacobian
+                else:
+                    # When not using the inverse parametrisation, we will simply use Weinzierl parametrisation with an origin at the
+                    # offset and then scan using rho with the angles fixed using the last three entries of the direction vector.
+                    # As a check that this is what the user wants, we verify that the first entry of the direction vector is indeed 0.
+                    if dir_vec[0]!=0.:
+                        print('ERROR: When not using the inverse parametrisation, you must supply a direction vector whose first entry is 0.!')
+                        sys.exit(1)
+                    new_point_random_variables = [t, dir_vec[1], dir_vec[2], dir_vec[3]]
+                    loop_momentum, this_lm_parametrisation_jacobian = self.parameterization.map(new_point_random_variables)
+                    loop_momenta.append(off_vec + vectors.LorentzVector(loop_momentum))
+                    parametrisation_jacobian *= this_lm_parametrisation_jacobian
 
             if len(loop_momenta)==1:
                 # Apply the deformation
@@ -310,6 +352,7 @@ class LimitScanner(object):
                 ct = complex(ct_re, ct_im)
                 denominator = complex(denom_re, denom_im)
                 integrand = (numerator + ct) / denominator
+                integrand_no_ct = (numerator) / denominator
 
             elif len(loop_momenta)==2:
                 # Apply the deformation
@@ -340,7 +383,8 @@ class LimitScanner(object):
                     numerator   = complex(num_re, num_im)
                     ct          = complex(ct_re, ct_im)
                     denominator = complex(denom_re, denom_im)
-                    integrand = (numerator+ct)/denominator
+                integrand = (numerator+ct)/denominator
+                integrand_no_ct = (numerator)/denominator                
 
             else:
                 raise BaseException('Number of loop momenta not supported: %d'%len(loop_momenta))
@@ -352,6 +396,7 @@ class LimitScanner(object):
             one_result['numerator']                = numerator
             one_result['denominator']              = denominator
             one_result['point_weight']             = integrand*deformation_jacobian*parametrisation_jacobian
+            one_result['point_weight_no_ct']       = integrand_no_ct*deformation_jacobian*parametrisation_jacobian            
 
             all_results.append(one_result)
 
@@ -528,6 +573,7 @@ class LimitResultsAnalyser(object):
         ###     'deformation_jacobian': <deformation_jacobian_complex_value>,
         ###     'integrand_value': <integrand_value_complex_value>,
         ###     'point_weight': <point_weight_complex_value>,
+        ###     'point_weight_no_ct': <point_weight_no_ct_complex_value>,
         ###     ]
         ###    }
         self.scan_results   = results['scan_results']
@@ -539,7 +585,7 @@ class LimitResultsAnalyser(object):
 
     def generate_plots(self, show_real=True, show_imag=False, normalise=True,
                        entries_to_plot = ['parametrisation_jacobian','deformation_jacobian',
-                                          'integrand_value','point_weight','CT/num'],
+                                          'integrand_value','point_weight','point_weight_no_ct','CT/num'],
                        log_y_scale = True,
                        log_x_scale = False):
 
@@ -560,14 +606,16 @@ class LimitResultsAnalyser(object):
             'deformation_jacobian' : 'deform. jac.',
             'parametrisation_jacobian' : 'param. jac.',
             'integrand_value' : 'integrand',
-            'point_weight' : 'total wgt.'
+            'point_weight' : 'total wgt.',
+            'point_weight_no_ct' : 'total wgt. no CT',
         }
         if show_real:
-            lines.append( ( labels_map['parametrisation_jacobian'],
-                (       [v['t_value'] for v in self.scan_results],
-                        [abs(v['parametrisation_jacobian']) for v in self.scan_results]
-                ) )
-            )
+            if 'parametrisation_jacobian' in entries:
+                lines.append( ( labels_map['parametrisation_jacobian'],
+                    (       [v['t_value'] for v in self.scan_results],
+                            [abs(v['parametrisation_jacobian']) for v in self.scan_results]
+                    ) )
+                )
             lines.extend([ ('Real '+labels_map[entry],
                 (       [v['t_value'] for v in self.scan_results],
                         [abs(v[entry].real) for v in self.scan_results]
@@ -579,7 +627,11 @@ class LimitResultsAnalyser(object):
                                        [abs(v[entry].imag) for v in self.scan_results]
                                        )) for entry in entries if entry != 'parametrisation_jacobian']
                                     )
-
+        for ln, lv in lines:
+            if any(lvel<0 for lvel in lv[1]):
+                print('WARNING: Negative x-values found for line "%s"'%ln)
+            if all(lvel==0. for lvel in lv[1]):
+                print('WARNING: All x-values for line "%s" are zero.'%ln)            
         for line_name, (x_data, y_data) in lines:
             if normalise:
                 max_y_data = max(y_data)
@@ -589,15 +641,15 @@ class LimitResultsAnalyser(object):
         # Add the ratio CT/num plot
         if 'CT/num' in entries_to_plot:
             if show_real:
-                lines.append(('Real CT/num',
+                lines.append(('Real (1.+CT/num)',
                               ([v['t_value'] for v in self.scan_results],
-                               [abs(v['counterterterms'] / v['numerator']).real for v in self.scan_results]
+                               [abs((1. + (v['counterterterms'] / v['numerator'])).real) for v in self.scan_results]
                                ))
                              )
             if show_imag:
-                lines.append(('Real CT/num',
+                lines.append(('Imag CT/num',
                               ([v['t_value'] for v in self.scan_results],
-                               [abs(v['counterterterms'] / v['numerator']).imag for v in self.scan_results]
+                               [abs((v['counterterterms'] / v['numerator']).imag) for v in self.scan_results]
                                ))
                              )
         for line_name, (x_data, y_data) in lines:
@@ -617,14 +669,30 @@ class LimitResultsAnalyser(object):
         print('From the following directions:')
         for i, dv in enumerate(self.direction_vectors):
             print('   Direction #%d     : %s'%(i+1, str(dv)))
-        print('Last 5 ratios CT/num:')
+        print('Last 5 (1+CT/num):')
         for v in self.scan_results[-5:]:
-            print(v['numerator'])
+            #print(v['numerator'])
             #print(v['counterterterms'])
-            print('| t=%-10.3f -> CT/num=%.5f +i* %.5f'%(
+            print('| t=%-10.3e -> (1+CT/num)=%.5e +i* %.5e'%(
                 v['t_value'],
-                (v['counterterterms']/v['numerator']).real,
-                (v['counterterterms']/v['numerator']).imag))
+                (1.+v['counterterterms']/v['numerator']).real,
+                (1.+v['counterterterms']/v['numerator']).imag))
+        print('Last 5 total integrand (incl. jacobian):')
+        for v in self.scan_results[-5:]:
+            print('| t=%-10.3e -> total_integrand=%.5e +i* %.5e'%(
+                v['t_value'], v['point_weight'].real, v['point_weight'].imag))
+        print('Last 5 total integrand without CT (incl. jacobian):')
+        for v in self.scan_results[-5:]:
+            print('| t=%-10.3e -> total_integrand=%.5e +i* %.5e'%(
+                v['t_value'], v['point_weight_no_ct'].real, v['point_weight_no_ct'].imag))
+        print('Last 5 total integrand (incl. jacobian) * (t**0.5):')
+        for v in self.scan_results[-5:]:
+            print('| t=%-10.3e -> total_integrand=%.5e +i* %.5e'%(
+                v['t_value'], (v['point_weight']*(v['t_value']**0.5)).real,( v['point_weight']*(v['t_value']**0.5)).imag))
+        print('Last 5 total integrand without CT (incl. jacobian) * (t**0.5):')
+        for v in self.scan_results[-5:]:
+            print('| t=%-10.3e -> total_integrand=%.5e +i* %.5e'%(
+                v['t_value'], (v['point_weight_no_ct']*(v['t_value']**0.5)).real,( v['point_weight_no_ct']*(v['t_value']**0.5)).imag))
         print('='*80)
         self.generate_plots(**opts)
 
@@ -846,8 +914,9 @@ if __name__ == '__main__':
             offset_vectors = [
                 (vec if vec is not None else vectors.LorentzVector([(random.random() - 0.5) * 2 for _ in range(4)]))
                 for vec in offset_vectors]
-            # Normalise the direction vectors
-            direction_vectors = [vec*(1.0/max(abs(v) for v in vec)) for vec in direction_vectors]
+            # Normalise the direction vectors if doing a pole check
+            if test_name == 'pole_check':
+                direction_vectors = [vec*(1.0/max(abs(v) for v in vec)) for vec in direction_vectors]
 
             if load_results_from is None:
                 if save_results_to is not None:
