@@ -275,7 +275,8 @@ class LimitScanner(object):
         self.parameterization.set_mode('weinzierl_ext')
 
         self.integrand = integrand.Integrand(id=integrand_name, channel=0, region=0,
-                                                            mu_sq=float(self.deformation_configuration['mu_sq']) )
+                                            mu_sq=float(self.deformation_configuration['mu_sq']), 
+                                            tau=float(self.deformation_configuration['tau']) )
         # This will also correctly compute the q's, necessary in the one-loop case
         self.integrand.set_externals([[v for v in vec] for vec in self.PS_point])
 
