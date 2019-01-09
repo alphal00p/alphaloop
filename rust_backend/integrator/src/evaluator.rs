@@ -226,9 +226,10 @@ impl Evaluator {
             let (k_m, jac_k) = self.parameterizer.map(&LorentzVector::from_slice(x))?;
 
             let (d, j) = if self.dual {
-                let (kk, j) = self.deformer.jacobian_using_dual(&k_m, false);
+                let (kk, j) = self.deformer.jacobian_using_dual(&k_m, true);
                 (&kk.to_complex(false) + &k_m, j)
             } else {
+                // note: no cij here
                 self.deformer.deform(&k_m)?
             };
 

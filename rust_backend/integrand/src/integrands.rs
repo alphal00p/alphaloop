@@ -252,21 +252,33 @@ impl Integrand {
                 }
 
                 if self.integrand_id == OFF_SHELL_BOX && self.on_shell_flag == 8 {
-                    let (s, t, m1, m2, m3) = (
+                    let (s, t, m1, m3) = (
                         self.inv(0, 1),
                         self.inv(1, 2),
                         self.inv(0, 0),
-                        self.inv(1, 1),
                         self.inv(2, 2),
                     );
 
                     let x4 = Integrand::collinear_x(&(k - &self.qs[2]), &self.ext[3]);
 
-                    coll_ct += finv((x4 * (m1 + m2) + (1. - x4) * t) * (x4 * s - (1. - x4) * m3))
+                    coll_ct += finv((x4 * m1 + (1. - x4) * t) * (x4 * s + (1. - x4) * m3))
                         * (k - &self.qs[0]).square()
                         * (k - &self.qs[1]).square()
                         * self.mu_sq
                         * finv(self.mu_sq - (k - &self.qs[2]).square());
+
+                    if self.tau > 0. {
+                        let col_1 = (x4.re * m1 + (1. - x4.re) * t).abs() / self.inv(0, 1).abs();
+                        let col_2 = (x4.re * s + (1. - x4.re) * m3).abs() / self.inv(0, 1).abs();
+
+                        if col_1 < self.tau || col_2 < self.tau {
+                            return Ok((
+                                Complex::new(1., 0.),
+                                Complex::new(-1., 0.),
+                                Complex::new(1., 0.),
+                            ));
+                        }
+                    }
                 }
 
                 if !finv(denominator).is_finite() || !coll_ct.is_finite() {
