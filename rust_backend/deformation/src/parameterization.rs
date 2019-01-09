@@ -217,6 +217,12 @@ impl Parameterizer {
 
         let u0 = f64::FRAC_2_PI() * ((m1_sq + k_r_sq) / (self.alpha * self.alpha)).atan();
         let u1 = 0.5 * (1.0 - cos_xi * mom[0].signum());
+
+        // cover the degenerate case
+        if k_r_sq == 0. {
+            return Ok((LorentzVector::from_args(u0, u1, 0., 0.), 0.));
+        }
+
         let u2 = 0.5 * (1. - mom[3] / k_r);
         let u3 = if mom[1] < 0. {
             1.0 + 0.5 * f64::FRAC_1_PI() * f64::atan2(mom[1], mom[2])
