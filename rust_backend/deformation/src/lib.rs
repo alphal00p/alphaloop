@@ -66,7 +66,7 @@ py_class!(class Deformation |py| {
         Ok(true)
     }
 
-    def deform(&self, momentum: PyList) -> PyResult<(Vec<(f64, f64)>, f64, f64)> {
+    def deform_analytic(&self, momentum: PyList) -> PyResult<(Vec<(f64, f64)>, f64, f64)> {
         let mut m: Vec<f64> = Vec::with_capacity(4);
         for x in momentum.iter(py) {
             m.push(x.extract(py)?);
@@ -78,6 +78,21 @@ py_class!(class Deformation |py| {
 
         let (res, jac) = self.deformer(py).borrow().deform(&vector::LorentzVector::from_vec(m)).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
         Ok((vec![(res.t.re, res.t.im), (res.x.re, res.x.im), (res.y.re, res.y.im), (res.z.re, res.z.im)], jac.re, jac.im))
+    }
+
+    def deform(&self, momentum: PyList) -> PyResult<(Vec<(f64, f64)>, f64, f64)> {
+        let mut m: Vec<f64> = Vec::with_capacity(4);
+        for x in momentum.iter(py) {
+            m.push(x.extract(py)?);
+        }
+
+        if m.len() != 4 {
+            return Err(PyErr::new::<exc::ValueError, _>(py, "Loop momentum does not have 4 components"));
+        }
+
+        let k = vector::LorentzVector::from_vec(m);
+        let (res, jac) = self.deformer(py).borrow().jacobian_using_dual(&k, true);
+        Ok((vec![(k.t, res.t), (k.x, res.x), (k.y, res.y), (k.z, res.z)], jac.re, jac.im))
     }
 
     // return analytical and numerical jacobian
@@ -127,16 +142,10 @@ py_class!(class Deformation |py| {
             }
         }
 
-        let (k, l) = self.deformer(py).borrow_mut().deform_two_loops(id, &qs[0], &qs[1]).map_err(|m| PyErr::new::<exc::ValueError, _>(py, m))?;
-
-        // compute jacobian
-        let jac = self.deformer(py).borrow_mut().numerical_jacobian_two_loops(id, &qs[0], &qs[1], (&k, &l));
-
-        //let jac_central = self.deformer(py).borrow_mut().numerical_jacobian_center_two_loops(id, &qs[0], &qs[1], (&k, &l)).0;
-        let jac_central = Complex::new(0., 0.);
+        let (k, l ,jac) = self.deformer(py).borrow_mut().jacobian_using_dual9_two_loops(id, &qs[0], &qs[1]);
 
         Ok((vec![(k.t.re, k.t.im), (k.x.re, k.x.im), (k.y.re, k.y.im), (k.z.re, k.z.im), (l.t.re, l.t.im), (l.x.re, l.x.im), (l.y.re, l.y.im), (l.z.re, l.z.im)], jac.re, jac.im,
-            jac_central.re, jac_central.im))
+            jac.re, jac.im))
     }
 
 });
