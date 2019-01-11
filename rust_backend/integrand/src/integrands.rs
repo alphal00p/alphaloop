@@ -386,8 +386,6 @@ impl Integrand {
                 let d5 = ((k - l) - &self.ext[0] - &self.ext[1]).square(); //A5
 
                 let denominator = d1 * d2 * d3 * d4 * d5;
-
-                //println!("Shell Flag: {:#b}", self.on_shell_flag);
                 match (
                     self.on_shell_flag & (1 << 0) != 0,
                     self.on_shell_flag & (1 << 1) != 0,
@@ -395,12 +393,11 @@ impl Integrand {
                     self.on_shell_flag & (1 << 3) != 0,
                 ) {
                     (false, false, false, false) => {
-                        // p1,p2,p3,p4 : on-shell and p1,p3 : off-shell
+                        // all off-shell
                         Ok((factor, Complex::default(), denominator))
                     }
                     (true, _, true, _) => {
-                        // p2,p4 : on-shell and p1,p3 : off-shell
-                        //Collinear Limits
+                        // p1, p3 on shell
                         let x1 = Integrand::collinear_x(k, &self.ext[0]);
                         let x3 = Integrand::collinear_x(l, &self.ext[2]);
 
@@ -411,26 +408,31 @@ impl Integrand {
                         let c3d5 = (k - &l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
                         let c13d5 = (k_c1 - l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
 
-                        //Compute collinear counterterms
-                        //k -> x1 p1
-                        let c1 = (finv(d1 * d2) - finv((d1 - self.mu_sq) * (d2 - self.mu_sq)))
-                            * finv(d3 * d4 * c1d5);
+                        //k -> x1 p2
+                        let c1 = (1. - d1 * d2 * finv((d1 - self.mu_sq) * (d2 - self.mu_sq)))
+                            * d5
+                            * finv(c1d5);
 
                         //l -> x3 p3
-                        let c3 = (finv(d3 * d4) - finv((d3 - self.mu_sq) * (d4 - self.mu_sq)))
-                            * finv(d1 * d2 * c3d5);
+                        let c3 = (1. - d3 * d4 * finv((d3 - self.mu_sq) * (d4 - self.mu_sq)))
+                            * d5
+                            * finv(c3d5);
 
                         //k -> x1 p1 and l -> x3 p3
-                        let c13 = (finv(d1 * d2 * d3 * d4)
-                            - finv(
-                                (d1 - self.mu_sq)
-                                    * (d2 - self.mu_sq)
-                                    * (d3 - self.mu_sq)
-                                    * (d4 - self.mu_sq),
-                            ))
-                            / c13d5;
+                        let c13 = (1. - d1 * d2 * finv((d1 - self.mu_sq) * (d2 - self.mu_sq)))
+                            * (1. - d3 * d4 * finv((d3 - self.mu_sq) * (d4 - self.mu_sq)))
+                            * d5
+                            * finv(c13d5); // make sure the precision is the same
 
-                        Ok((factor, factor * (-c1 - c3 + c13), denominator))
+                        let ct = -c1 - c3 + c13;
+                        if !finv(denominator).is_finite() {
+                            if ct.norm() <= 0.99 || ct.norm() >= 1.01 {
+                                println!("Bad point: k={}, l={}, ct={}", k, l, -c1 - c3 + c13);
+                            }
+                            Ok((factor, factor * ct, Complex::new(1., 0.)))
+                        } else {
+                            Ok((factor, factor * ct, denominator))
+                        }
                     }
                     _ => Err("Unknown Subtracted Term for SUBTRACTED_DIAGONAL_BOX!"),
                 }
