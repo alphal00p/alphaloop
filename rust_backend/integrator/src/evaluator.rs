@@ -49,6 +49,7 @@ impl Topology {
 pub struct UserData {
     pub evaluator: Vec<Evaluator>, // one evaluator per core
     pub running_max: f64,
+    pub input: Vec<f64>, // input padded with fixed parameters
 }
 
 #[inline]
@@ -59,8 +60,10 @@ pub fn integrand(
     _nvec: usize,
     core: i32,
 ) -> Result<(), &'static str> {
+    user_data.input[..x.len()].copy_from_slice(x);
+
     // master is -1
-    let r = user_data.evaluator[(core + 1) as usize].evaluate(x)?;
+    let r = user_data.evaluator[(core + 1) as usize].evaluate(&user_data.input)?;
 
     if r.is_finite() {
         if r.re.abs() > user_data.running_max {

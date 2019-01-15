@@ -408,21 +408,14 @@ impl Integrand {
                         let c3d5 = (k - &l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
                         let c13d5 = (k_c1 - l_c3 - &self.ext[0] - &self.ext[1]).square(); //A5
 
-                        //k -> x1 p2
-                        let c1 = (1. - d1 * d2 * finv((d1 - self.mu_sq) * (d2 - self.mu_sq)))
-                            * d5
-                            * finv(c1d5);
+                        let d1r = 1. - d1 * finv(d1 - self.mu_sq);
+                        let d2r = 1. - d2 * finv(d2 - self.mu_sq);
+                        let d3r = 1. - d3 * finv(d3 - self.mu_sq);
+                        let d4r = 1. - d4 * finv(d4 - self.mu_sq);
 
-                        //l -> x3 p3
-                        let c3 = (1. - d3 * d4 * finv((d3 - self.mu_sq) * (d4 - self.mu_sq)))
-                            * d5
-                            * finv(c3d5);
-
-                        //k -> x1 p1 and l -> x3 p3
-                        let c13 = (1. - d1 * d2 * finv((d1 - self.mu_sq) * (d2 - self.mu_sq)))
-                            * (1. - d3 * d4 * finv((d3 - self.mu_sq) * (d4 - self.mu_sq)))
-                            * d5
-                            * finv(c13d5); // make sure the precision is the same
+                        let c1 = d1r * d2r * d5 * finv(c1d5);
+                        let c3 = d3r * d4r * d5 * finv(c3d5);
+                        let c13 = d1r * d2r * d3r * d4r * d5 * finv(c13d5);
 
                         let ct = -c1 - c3 + c13;
                         if !finv(denominator).is_finite() {

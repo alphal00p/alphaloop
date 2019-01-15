@@ -38,6 +38,7 @@ pub struct Settings {
     pub soft_fac: f64,
     pub deform_eps: f64,
     pub tau: f64,
+    pub fixed_parameters: Vec<f64>,
 }
 
 impl Default for Settings {
@@ -72,6 +73,7 @@ impl Default for Settings {
             soft_fac: 0.03,
             deform_eps: 0.,
             tau: 0.,
+            fixed_parameters: vec![],
         }
     }
 }
@@ -177,6 +179,9 @@ impl Aggregator {
             .set_keep_state_file(false)
             .set_reset_vegas_integrator(false);
 
+        let mut input = vec![0.; 4 * self.n_loops - self.settings.fixed_parameters.len()];
+        input.extend(&self.settings.fixed_parameters);
+
         let final_result = {
             if self.settings.refine_n_runs > 0 {
                 // Assign cuba flags according to this chosen survey+refine strategy
@@ -211,6 +216,7 @@ impl Aggregator {
                     UserData {
                         evaluator: vec![eval; self.settings.cores + 1],
                         running_max: 0f64,
+                        input: input.clone(),
                     },
                 );
                 total_fails += survey_result.fail;
@@ -252,6 +258,7 @@ impl Aggregator {
                         UserData {
                             evaluator: vec![eval; self.settings.cores + 1],
                             running_max: 0f64,
+                            input: input.clone(),
                         },
                     );
                     total_fails += refine_result.fail;
@@ -290,13 +297,14 @@ impl Aggregator {
                 }
             } else {
                 ci.vegas(
-                    4 * self.n_loops,
+                    4 * self.n_loops - self.settings.fixed_parameters.len(),
                     1,
                     CubaVerbosity::Progress,
                     0, // Not saving the grid
                     UserData {
                         evaluator: vec![self.evaluator.clone(); self.settings.cores + 1],
                         running_max: 0f64,
+                        input: input.clone(),
                     },
                 )
             }
