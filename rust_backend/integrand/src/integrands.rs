@@ -378,6 +378,13 @@ impl Integrand {
                 let mut factor = Complex::new(-f64::FRAC_1_PI().powi(4), 0.0);
                 let (k, l) = (&mom[0], &mom[1]);
 
+                if self.region == REGION_EXT {
+                    let d = ((k - &(&self.ext[0] / 2.)).square() - self.mu_sq).powf(2.)
+                        * ((k - l - &self.ext[0] - &self.ext[1]).square() - self.mu_sq)
+                        * ((k - &(&self.ext[2] / 2.)).square() - self.mu_sq).powf(2.);
+                    return Ok((factor, Complex::default(), d));
+                }
+
                 //Propagators
                 let d1 = k.square(); //A1
                 let d2 = (k - &self.ext[0]).square(); //A2
@@ -386,6 +393,14 @@ impl Integrand {
                 let d5 = ((k - l) - &self.ext[0] - &self.ext[1]).square(); //A5
 
                 let denominator = d1 * d2 * d3 * d4 * d5;
+
+                if self.region == REGION_INT {
+                    let d = ((k - &(&self.ext[0] / 2.)).square() - self.mu_sq).powf(2.)
+                        * ((k - l - &self.ext[0] - &self.ext[1]).square() - self.mu_sq)
+                        * ((k - &(&self.ext[2] / 2.)).square() - self.mu_sq).powf(2.);
+                    factor *= 1.0 - denominator * finv(d);
+                }
+
                 match (
                     self.on_shell_flag & (1 << 0) != 0,
                     self.on_shell_flag & (1 << 1) != 0,
