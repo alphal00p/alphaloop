@@ -802,6 +802,20 @@ impl<F: Float + RealField> Deformer<F> {
             lambda = uv_fac_l.inv() * self.mu_sq.im;
         }
 
+        // for the region factor, we have three additional UV propagators
+        let uv_fac_k = (k - self.ext[0] * From::from(0.5)).dot(&k_1) * 4.0;
+        let uv_fac_l = (l - self.ext[2] * From::from(0.5)).dot(&k_2) * 4.0;
+        let uv_fac_d = (k - l - self.ext[0] - self.ext[1]).dot(&(k_1 - k_2)) * 4.0;
+        if uv_fac_k <= self.mu_sq.im && lambda > uv_fac_k.inv() * self.mu_sq.im {
+            lambda = uv_fac_k.inv() * self.mu_sq.im;
+        }
+        if uv_fac_l <= self.mu_sq.im && lambda > uv_fac_l.inv() * self.mu_sq.im {
+            lambda = uv_fac_l.inv() * self.mu_sq.im;
+        }
+        if uv_fac_d <= self.mu_sq.im && lambda > uv_fac_d.inv() * self.mu_sq.im {
+            lambda = uv_fac_d.inv() * self.mu_sq.im;
+        }
+
         (k_1 * lambda, k_2 * lambda)
     }
 
