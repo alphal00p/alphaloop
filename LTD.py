@@ -5,14 +5,15 @@ class LTD:
 	def __init__(self,config_string):
 		self.p_i, self.m_i = self.__select_config(config_string)
 		self.scale = self.__get_scale()
-		self.tolerance = 1e-13
+		self.tolerance = 1e-7
 		self.k_i = self.__get_k_i()
 		self.n = len(self.k_i)
 		self.dim = len(self.k_i[0]) - 1
 		self.sing_matrix = self.__find_singularity_matrix()
 		self.lambda_ij,self.A_ij = self.__set_deformation(1.,1e-1,show=True)
-		self.overall_lambda = 1.
-		self.current_min_lambda = self.overall_lambda
+		self.overall_lambda = .05
+		print 'My overall scaling = ', self.overall_lambda
+		self.curr_max_lambda = self.overall_lambda
 	
 	def __select_config(self,s):
 		if s == '3d_bub':
@@ -29,11 +30,17 @@ class LTD:
 			factor = np.pi**(3./2.)/(2*np.pi)**len(p_i[0])
 			analytic = lambda s: factor*np.pi**(3./2.)/sqrt_s
 			print 'analytic: ', analytic(s)
+		elif s == '3d_test':
+			m1 = 10.
+			m2 = 50.
+			p1 = np.array([1,3,7])
+			p_i = [p1]
+			m_i = [m1,m2]
 		elif s == 'test':
 			m1 = m2 = 0.
 			m3 = 1.
-			p1 = np.array([-2,0,0,5])
-			p2 = np.array([-3,0,0,2])
+			p1 = np.array([-2,0.1,0,.1])
+			p2 = np.array([3,0,0,4])
 			p_i = [p1,p2]
 			m_i = [m1,m2,m3]
 		elif s == 'neg_s_triangle':
@@ -110,6 +117,32 @@ class LTD:
 			m1 = m2 = m3 = m4 = 9.82998
 			p_i = [p1,p2,p3]
 			m_i = [m1,m2,m3,m4]
+		elif s == 'P8':
+			p1 = np.array([98.04093,77.37405,30.53434,-81.88155])
+			p2 = np.array([73.67657,-53.78754,13.69987,14.20439])
+			p3 = np.array([68.14197,-36.48119,59.89499,-81.79030])
+			m1 = 81.44869
+			m2 = 94.39003
+			m3 = 57.53145
+			m4 = 0.40190
+			p_i = [p1,p2,p3]
+			m_i = [m1,m2,m3,m4]
+		elif s == 'P9':
+			p1 = np.array([76.50219,-72.36197,10.95225,-99.79612])
+			p2 = np.array([99.02723,27.27133,-25.11907,86.10825])
+			p3 = np.array([64.19420,13.10011,18.37737,-29.16095])
+			m1 = m2 = 37.77809
+			m3 = m4 = 36.84323
+			p_i = [p1,p2,p3]
+			m_i = [m1,m2,m3,m4]
+		elif s == 'P10':
+			p1 = np.array([13.62303,-64.20757,-17.59085,-8.81785])
+			p2 = np.array([96.67650,89.65623,-18.47276,40.73203])
+			p3 = np.array([66.21913,-39.49917,3.640139,-82.31669])
+			m1 = m3 = 64.67282
+			m2 = m4 = 51.13181
+			p_i = [p1,p2,p3]
+			m_i = [m1,m2,m3,m4]	
 		else:
 			print "No configuration with name ", s, " found." 
 			return None, None
@@ -135,12 +168,12 @@ class LTD:
 	
 	def __get_scale(self):
 		p_posE = [p for p in self.p_i if p[0] > 0.]
+		assert(len(p_posE)!=0)
 		if -sum(self.p_i)[0] > 0.:
 			p_posE += [-sum(self.p_i)]
 		p_sum = sum(p_posE)
 		s = p_sum[0]**2 - self.norm(p_sum[1:])**2
 		scale = np.sqrt(abs(s))
-		assert(scale > 0.)
 		print 'scale = ', scale
 		return scale
 		
@@ -270,9 +303,10 @@ class LTD:
 	
 		kappa = np.sum(np.sum(kappa_ij,axis=0),axis=0)
 		l_contour = l_space + 1j*self.overall_lambda*kappa
-	
-		#self.current_min_lambda = self.find_min_overall_scaling(l_space,kappa)
-
+		
+		self.find_curr_max_scaling(l_space,kappa)
+		self.find_root_exp_max_scaling(l_space,kappa,exp_factor=0.1)
+		
 		jac = np.sum(np.sum(jac_ij,axis=0),axis=0)
 		full_jac = np.diag(np.ones(self.dim))+1j*self.overall_lambda*jac
 		det_jac = np.linalg.det(full_jac)
@@ -338,9 +372,11 @@ class LTD:
 		l = n*(np.dot(n,k)) + cos_theta*np.cross(np.cross(n,k),n)+np.sqrt(1.-cos_theta**2)*np.cross(n,k)
 		return l
 	
-	def ff_intersect(self,k_a,m_a,k_b,m_b):
+	def generate_point_on_ff_intersect(self,k_a,m_a,k_b,m_b):
+		"""	generate random point on ff intersection (hyperboloid) """
 		# REMEMBER FOCI ARE AT -k_a and -k_b respectively
 		# is SYMMETRIC in k_a,m_a,k_b,m_b = k_b,m_b,k_a,m_a
+		
 		# reducing the general case to to the case when k_ba0 > 0
 		if (k_b[0]-k_a[0]) < 0:
 			k_a,m_a,k_b,m_b = k_b,m_b,k_a,m_a
@@ -350,50 +386,75 @@ class LTD:
 		
 		cos_theta = 2*(np.random.rand(1)[0])-1.
 	
-		q_b0p = lambda q_a: np.sqrt(q_a**2+ self.norm(k_baspace)**2 + 2*self.norm(k_baspace)*q_a*cos_theta+m_b**2)
-		q_a0p = lambda q_a: np.sqrt(q_a**2+m_a**2)
-		denominator = lambda q_a: q_a0p(q_a) - q_b0p(q_a) + k_ba0
-	
 		# solve A l^2 + B l + C = 0
 		C = k_ba0**4 + (self.norm(k_baspace)**2 -m_a**2+m_b**2)**2 - 2*k_ba0**2*(self.norm(k_baspace)**2 +m_a**2+m_b**2)
 		B = 4.*cos_theta*self.norm(k_baspace)*(self.norm(k_baspace)**2 - k_ba0**2 - m_a**2 + m_b**2)
 		A = -4*(k_ba0**2-cos_theta**2*self.norm(k_baspace)**2)
-	
+		
 		absq_aplus = (-B + np.sqrt(B**2-4*A*C))/(2*A)
 		absq_aminus = (-B - np.sqrt(B**2-4*A*C))/(2*A)
 		
-		cond1 = lambda absq_a: q_a0p(absq_a) - q_b0p(absq_a) < 0. #because k_ba0 > 0
-		cond2 = lambda absq_a: absq_a >= 0. #magnitude obviously > 0
-		valid_solution = lambda absq_a: cond1(absq_a) and cond2(absq_a)
-	
-		absq_a = absq_aplus
-		if not valid_solution(absq_a):
-			absq_a	= absq_aminus
-			if not valid_solution(absq_a):
-				print 'No forward-forward intersection with random cos_theta = ',cos_theta
-				return np.array([None,None,None])
-		elif (absq_aplus != absq_aminus) and valid_solution(absq_aplus) and valid_solution(absq_aminus):
-			print 'Two solutions found, this is suspicious.'
-	
-		if self.norm(k_baspace) != 0.:
-			n_kbaspace = k_baspace/self.norm(k_baspace)
+		q_b0p = lambda q_a: np.sqrt(q_a**2+ self.norm(k_baspace)**2 + 2*self.norm(k_baspace)*q_a*cos_theta+m_b**2)
+		q_a0p = lambda q_a: np.sqrt(q_a**2+m_a**2)
+		denominator = lambda q_a: q_a0p(q_a) - q_b0p(q_a) + k_ba0
+		
+		ness_cond = lambda absq_a: absq_a >= 0. #magnitude obviously > 0
+		suff_cond = lambda absq_a: abs(denominator(absq_a)) < self.tolerance*self.scale
+		is_solution = lambda absq_a: ness_cond(absq_a) and suff_cond(absq_a)
+		
+		if is_solution(absq_aplus) and is_solution(absq_aminus) and absq_aplus != absq_aminus:
+			print 'Two solutions found, this is suspicious. We pick the first one.'
+		if is_solution(absq_aplus):
+			absq_a = absq_aplus
+		elif is_solution(absq_aminus):
+			absq_a = absq_aminus
 		else:
-			n_kbaspace = np.random.rand(3)
-		# n is perpendicular to k
-		n1, n2 = np.random.rand(2)
-		n = np.array([n1,n2,-(n_kbaspace[0]*n1+n_kbaspace[1]*n2)/n_kbaspace[2]])
-		n = n/self.norm(n)
-		q_aspace = self.rot(n_kbaspace,n,cos_theta)*absq_a
+			print 'No forward-forward intersection found with random cos_theta = ',cos_theta
+			return np.array([None,None,None])
+	
+		q_aspace = self.generate_fixed_SP_vector(absq_a,k_baspace,cos_theta)
 		l = q_aspace - k_a[1:]
 	
-		print 'cos_theta = ', cos_theta
-		print 'absq_a = ', absq_a
+		# check total
+		total_cond = self.q_0p(l+k_a[1:],m_a) - self.q_0p(l+k_b[1:],m_b)+k_ba0 < self.tolerance*self.scale
+		assert(total_cond)
 		return l
 	
-	def fb_intersect(self,k_a,m_a,k_b,m_b):
+	def generate_fixed_SP_vector(self,magnitude,dir,cos_theta):
+		""" generates a (random in dim>2) vector q with length magnitude, so that
+			the scalar product q*dir = magnitude*abs(dir)*cos_theta """
+		if self.norm(dir) != 0.:
+			n_dir = dir/self.norm(dir)
+		else:
+			n_dir = np.random.rand(self.dim)
+			n_dir = n_dir/self.norm(n_dir)
+		
+		if self.dim == 3:
+			# n is perpendicular to k
+			n_a, n_b = np.random.rand(2)
+			c = np.where(n_dir != 0.)[0][0]
+			a,b = [i for i in xrange(self.dim) if i != c]
+			n = np.empty(3)
+			n[a] = n_a
+			n[b] = n_b
+			n[c] = -(n_dir[a]*n_a+n_dir[b]*n_b)/n_dir[c]
+			n = n/self.norm(n)
+			q = self.rot(n_dir,n,cos_theta)*magnitude
+		elif self.dim == 2:
+			q = np.array([n_dir[0]*cos_theta - n_dir[1]*np.sqrt(1-cos_theta**2),
+					n_dir[0]*np.sqrt(1-cos_theta**2) + n_dir[1]*cos_theta])
+			q *= magnitude
+
+		# check rotation
+		rot_cond = np.abs(np.dot(q,dir) - cos_theta*self.norm(dir)*magnitude) < self.tolerance*self.scale**2
+		assert(rot_cond)
+		return q
+	
+	def generate_point_on_fb_intersect(self,k_a,m_a,k_b,m_b):
+		""" generate random point on fb intersection (ellipsoid) """
 		# REMEMBER FOCI ARE AT -k_a and -k_b respectively
+		# solve q_0p(q_a,m_a) + q_0p(q_b,m_b) + k_ba0 = 0 for abs(q_a) depending on cos_theta, the angle between q_a,q_b
 		# NOT SYMMETRIC in k_a,m_a,k_b,m_b = k_b,m_b,k_a,m_a
-		dim = len(k_a[1:])
 		k_ba = k_b-k_a
 		if k_ba[0] > 0.:
 			print 'No forward-backward intersection for k_ba0 =',k_ba[0]
@@ -403,10 +464,6 @@ class LTD:
 
 		cos_theta = 2*(np.random.rand(1)[0])-1.
 	
-		q_b0p = lambda q_a: np.sqrt(q_a**2 + self.norm(k_baspace)**2+ 2*self.norm(k_baspace)*q_a*cos_theta+m_b**2)
-		q_a0p = lambda q_a: np.sqrt(q_a**2+m_a**2)
-		denominator = lambda q_a: q_a0p(q_a) + q_b0p(q_a) + k_ba0
-	
 		# solve A l^2 + B l + C = 0
 		C = k_ba0**4 + (self.norm(k_baspace)**2 -m_a**2+m_b**2)**2 - 2*k_ba0**2*(self.norm(k_baspace)**2 +m_a**2+m_b**2)
 		B = 4.*cos_theta*self.norm(k_baspace)*(self.norm(k_baspace)**2 - k_ba0**2 - m_a**2 + m_b**2)
@@ -415,63 +472,38 @@ class LTD:
 		absq_aplus = (-B + np.sqrt(B**2-4*A*C))/(2*A)
 		absq_aminus = (-B - np.sqrt(B**2-4*A*C))/(2*A)
 	
-		ness_cond = lambda absq_a: absq_a > 0. # necessary condition magnitude obviously > 0
-	
-		absq_a = absq_aplus
-		if not ness_cond(absq_a):
+		q_b0p = lambda q_a: np.sqrt(q_a**2+ self.norm(k_baspace)**2 + 2*self.norm(k_baspace)*q_a*cos_theta+m_b**2)
+		q_a0p = lambda q_a: np.sqrt(q_a**2+m_a**2)
+		denominator = lambda q_a: q_a0p(q_a) + q_b0p(q_a) + k_ba0
+		
+		ness_cond = lambda absq_a: absq_a >= 0. # necessary condition magnitude obviously > 0
+		suff_cond = lambda absq_a: abs(denominator(absq_a)) < self.tolerance*self.scale
+		is_solution = lambda absq_a: ness_cond(absq_a) and suff_cond(absq_a)
+		
+		if is_solution(absq_aplus) and is_solution(absq_aminus) and absq_aplus != absq_aminus:
+			print 'Two solutions found, this is suspicious. We pick the first one.'
+		if is_solution(absq_aplus):
+			absq_a = absq_aplus
+		elif is_solution(absq_aminus):
 			absq_a = absq_aminus
-			if not ness_cond(absq_a):
-				print 'No forward-backward intersection found.'
-				return
-		elif ness_cond(absq_aplus) and ness_cond(absq_aminus):
-			print 'Two solutions found, this is suspicious.'
-	
-		if self.norm(k_baspace) != 0.:
-			n_k_baspace = k_baspace/self.norm(k_baspace)
 		else:
-			n_k_baspace = np.random.rand(dim)
-			n_k_baspace = n_k_baspace/self.norm(n_k_baspace)
+			print 'No forward-backward intersection found.'
+			return np.array([None,None,None])
 		
-		if dim == 3:
-			# n is perpendicular to k
-			n1, n2 = np.random.rand(2)
-			if n_k_baspace[2] != 0:
-				n = np.array([n1,n2,-(n_k_baspace[0]*n1+n_k_baspace[1]*n2)/n_k_baspace[2]])
-			elif n_k_baspace[1] != 0:
-				n = np.array([n1,-(n_k_baspace[0]*n1+n_k_baspace[2]*n2)/n_k_baspace[1],n2])
-			elif n_k_baspace[0] != 0:
-				n = np.array([-(n_k_baspace[1]*n1+n_k_baspace[2]*n2)/n_k_baspace[0],n1,n2])
-			n = n/self.norm(n)
-			q_aspace = self.rot(n_k_baspace,n,cos_theta)*absq_a
-		elif dim == 2:
-			if n_k_baspace[0] != 0:
-				q_aspace = np.array([(absq_a*cos_theta - n_k_baspace[1])/n_k_baspace[0],1.])
-			elif n_k_baspace[1] != 0:
-				q_aspace = np.array([1.,(absq_a*cos_theta - n_k_baspace[0])/n_k_baspace[1]])
-			q_aspace = q_aspace/self.norm(q_aspace)*absq_a
-
-		# check rotation
-		rot_cond = np.abs(np.dot(q_aspace,k_baspace)/absq_a - cos_theta*self.norm(k_baspace)) < self.tolerance*self.scale
-		if not rot_cond:
-			print 'zero1 = ', zero1
-
+		q_aspace = self.generate_fixed_SP_vector(absq_a,k_baspace,cos_theta)
 		l = q_aspace - k_a[1:]
-	
-		# check total
-		suff_cond = self.q_0p(l+k_a[1:],m_a) + self.q_0p(l+k_b[1:],m_b)+k_ba0 < self.tolerance*self.scale
-		if not suff_cond:
-			print 'cos_theta = ', cos_theta
-			print 'absq_a = ', absq_a
-			print 'zero2 = ', zero2
-			print 'self.scale = ', self.scale
 		
+		# check total
+		total_cond = self.q_0p(l+k_a[1:],m_a) + self.q_0p(l+k_b[1:],m_b)+k_ba0 < self.tolerance*self.scale
+		assert(total_cond)
 		return l
 	
-	def test_intersections(self):
+	def test_sign_on_fb_intersect(self):
+		"""test sign on all ellipsoid intersections"""
 		eps_sing = []
 		for i in xrange(self.n):
 			for j in xrange(self.n):
-				if j > i:
+				if j != i:
 					if self.sing_matrix[i,j] == 'E':
 						eps_sing += [[i,j]]
 	
@@ -483,75 +515,120 @@ class LTD:
 			k_b = self.k_i[which_b]
 			m_b = self.m_i[which_b]
 			k_bf0 = k_b[0]-k_f[0]
-			#old_scale = np.sqrt(self.norm((k_f+k_b)[1:])**2 + (k_f+k_b)[0]**2)
 	
 			for i in xrange(1000):
-				# NO DEFORMATION
-				l_space = self.fb_intersect(k_f,m_f,k_b,m_b)
-				q_fspace = l_space + k_f[1:]
-				q_bspace = l_space + k_b[1:]
-				dual_prop = self.inv_G_D(self.q_0p(q_fspace,m_f),self.q_0p(q_bspace,m_b),k_bf0)
-				#fb_dual = self.dual_function(which_f,l_space)
-				if not (dual_prop < self.tolerance*self.scale**2):
-					print 'dual_prop ', dual_prop
-					#print 'fb_dual ', fb_dual
-
-				# DEFORMATION
+				l_space = self.generate_point_on_fb_intersect(k_f,m_f,k_b,m_b)
+				if any(x == None for x in l_space):
+					print 'Sign test failed'
+					return
 				l_space, wgt = self.deform_contour(l_space,wgt=1.)
 				q_fspace = l_space + k_f[1:]
 				q_bspace = l_space + k_b[1:]
 				dual_prop = self.inv_G_D(self.q_0p(q_fspace,m_f),self.q_0p(q_bspace,m_b),k_bf0)
-				fb_dual = self.dual_function(which_f,l_space)
+				# ASSERT
 				if not (np.sign(dual_prop.imag) == -1*np.sign(k_bf0)):
 					print 'dual_prop ', dual_prop
-					print 'fb_dual ', fb_dual
+		print 'Sign test successful'
 		return
 	
-	def find_min_overall_scaling(self,l_space,kappa):
+	def update_curr_max_scaling(self,X_j,Y_j):
+		if 2*X_j.real < Y_j.real:
+			lambda_j_squared = Y_j/4.
+		elif 0 < Y_j.real < 2*X_j.real:
+			lambda_j_squared = X_j - Y_j/4.
+		elif Y_j.real < 0:
+			lambda_j_squared = X_j - Y_j/2.
+		elif Y_j.real == 0:
+			return
+		lambda_j = np.sqrt(lambda_j_squared)
+		assert(lambda_j.imag == 0.)
+		lambda_j = lambda_j.real
+		if lambda_j < self.curr_max_lambda:
+			self.curr_max_lambda = lambda_j
+			print 'Required max. scaling currently', self.curr_max_lambda
+		return
+	
+	def solve_quadr_eq(self,A,B,C):
+		sqrt_X_j = 1j*B/(2.*A) #we need this for the sign
+		X_j = sqrt_X_j**2
+		Y_j = -C/A
+		lambda_p = 1j*sqrt_X_j + np.sqrt(Y_j-X_j)
+		lambda_m = 1j*sqrt_X_j - np.sqrt(Y_j-X_j)
+		return lambda_p, lambda_m, X_j, Y_j
+	
+	def find_curr_max_scaling(self,l_space,kappa):
 		for i in xrange(self.n):
 			for j in xrange(self.n):
-				if j != i:
+				if j == i: # "propagator" coming from delta function cut
+					q_a = self.k_i[i][1:] + l_space
+					m_a = self.m_i[i]
+					A = -self.norm(kappa)**2 #REAL
+					B = 2j*np.dot(q_a,kappa) #IMAGINARY
+					C = self.norm(q_a)**2 + m_a**2 #REAL
+					prop = lambda x: self.q_0p(q_a+1j*x*kappa,m_a)	
+					cond = lambda x: abs(prop(x).real) < self.tolerance*self.scale and abs(prop(x).imag) < self.tolerance*self.scale
+				else: # Dual propagators
 					q_a = self.k_i[i][1:] + l_space
 					q_b = self.k_i[j][1:] + l_space
 					k_ba0 = self.k_i[j][0]-self.k_i[i][0]
 					m_a = self.m_i[i]
 					m_b = self.m_i[j]
-					C1 = self.norm(q_a)**2 + m_a**2 + k_ba0**2 - q_b**2 - m_b**2
+					C1 = self.norm(q_a)**2 + m_a**2 + k_ba0**2 - self.norm(q_b)**2 - m_b**2
 					B1 = 2*1j*np.dot(q_a-q_b,kappa)
-					A = B1**2/(4.*k_ba0**2) + self.norm(kappa)**2
-					B = 2*B1*C1/(4.*k_ba0**2) - 2*1j*np.dot(q_a,kappa)
-					C = C1**2/(4.*k_ba0**2) - self.norm(q_a)**2 - m_a**2
+					A = B1**2 + 4.*k_ba0**2*self.norm(kappa)**2 #symmetric, REAL
+					B = 2*B1*C1 - 4.*k_ba0**2*2j*np.dot(q_a,kappa) #not symmetric but seems to be if kappa small, IMAGINARY
+					C = C1**2 - 4.*k_ba0**2*(self.norm(q_a)**2 + m_a**2) #not symmetric but seems to be if kappa small, REAL
+					prop = lambda x: (self.q_0p(q_a+1j*x*kappa,m_a) + k_ba0)**2 - (self.q_0p(q_b+1j*x*kappa,m_b))**2
+					alt_prop = lambda x: (self.q_0p(q_a+1j*x*kappa,m_a) - k_ba0)**2 - (self.q_0p(q_b+1j*x*kappa,m_b))**2
+					cond = lambda x: abs(prop(x).real) < self.tolerance*self.scale**2 and abs(prop(x).imag) < self.tolerance*self.scale**2
+					alt_cond = lambda x: abs(alt_prop(x).real) < self.tolerance*self.scale**2 and abs(alt_prop(x).imag) < self.tolerance*self.scale**2
+				
+				assert(A.imag == 0)
+				assert(B.real == 0)
+				assert(C.imag == 0)
 					
-					if A !=0.:
-						lambda_p = (-B + np.sqrt(B**2-4.*A*C))/(2.*A)
-						lambda_m = (-B - np.sqrt(B**2-4.*A*C))/(2.*A)
-						#print lambda_p
-						#print lambda_m
+				if abs(A.real) > 1e-50*self.scale**2:
+					lambda_p, lambda_m, X_j, Y_j = self.solve_quadr_eq(A,B,C)
+				else:
+					continue
+				
+				is_large = lambda x: abs(x) > self.curr_max_lambda				
+				if is_large(lambda_p) and is_large(lambda_m):
+					continue
+				else:
+					if cond(lambda_p) or cond(lambda_m):
+						self.update_curr_max_scaling(X_j,Y_j)
 					else:
-						return
+						continue
+		return
 	
-					#check
-					prop = lambda x: (np.sqrt(self.norm(q_a+1j*x*kappa)**2 + m_a**2) + k_ba0)**2 - (self.norm(q_b+1j*x*kappa)**2 + m_b**2)
-	
-					final_lambda = lambda_p
-					if (prop(lambda_p).real < 1. and prop(lambda_p).imag < 1.) or (prop(lambda_m).real < 1. and prop(lambda_m).imag < 1.):
-						print prop(lambda_p), prop(lambda_m)
-						print lambda_p, lambda_m
-					if prop(lambda_p) != 0.:
-						final_lambda = lambda_m
-						if prop(final_lambda) != 0.:
-							#print 'No Solutions for Lambda.'
-							return
-					if prop(lambda_p) == 0. and prop(lambda_m) == 0.:
-						print 'Two Solutions for Lambda.'
-					print final_lambda
+	def find_root_exp_max_scaling(self,l_space,kappa,exp_factor=0.1):
+		for exp_f in [exp_factor,-exp_factor]: # expand factor negative gives different solutions but is also valid
+			for i in xrange(self.n):
+				q_a = self.k_i[i][1:] + l_space
+				m_a = self.m_i[i]
+				A = -self.norm(kappa)**2
+				B = -2j*np.dot(q_a,kappa)/exp_f
+				C = self.norm(q_a)**2 + m_a**2
+			
+				if abs(A.real) > 1e-50*self.scale**2:
+					lambda_p, lambda_m, X_j, Y_j = self.solve_quadr_eq(A,B,C)
+				else:
+					continue
+				
+				is_large = lambda x: abs(x) > self.curr_max_lambda
+				prop = lambda x: self.norm(q_a)**2 + m_a**2 - x**2*self.norm(kappa)**2 - x*2j*np.dot(q_a,kappa)/exp_f
+				cond = lambda x: abs(prop(x).real) < self.tolerance*self.scale**2 and abs(prop(x).imag) < self.tolerance*self.scale**2
+
+				assert(cond(lambda_p) and cond(lambda_m))
 					
-					if final_lambda.real < self.current_min_lambda:
-						min_lambda = final_lambda
-						print 'min_lambda', min_lambda
-			return min_lambda
-	
-	
+				if is_large(lambda_p) and is_large(lambda_m):
+					continue
+				else:
+					self.update_curr_max_scaling(X_j,Y_j)
+		return
+		
+			
 if __name__ == "__main__":
 
 	import numpy as np
@@ -568,13 +645,23 @@ if __name__ == "__main__":
 	stop
 	"""
 	
-	my_LTD = LTD('P3')
-	my_LTD.test_intersections()
+	my_LTD = LTD('P4')
+	my_LTD.test_sign_on_fb_intersect()
 	
-	#pair = [0,2]
+	"""
+	for x in xrange(1):
+		l_space, wgt = my_LTD.get_integration_point(np.random.rand(my_LTD.dim))
+		l_contour, wgt = my_LTD.deform_contour(l_space,wgt)
+		kappa = -1j*(l_contour-l_space)/my_LTD.overall_lambda
+		my_LTD.find_min_overall_scaling(l_space,kappa)
+	print my_LTD.curr_max_lambda
+	stop
+	"""
+	
+	#pair = [0,1]
 	#k_a, m_a, k_b, m_b = my_LTD.k_i[pair[0]],my_LTD.m_i[pair[0]],my_LTD.k_i[pair[1]],my_LTD.m_i[pair[1]]
-	#l = my_LTD.ff_intersect(k_a,m_a,k_b,m_b)
-	
+	#l = my_LTD.generate_point_on_fb_intersect(k_a,m_a,k_b,m_b)
+
 	all_duals = range(my_LTD.n)
 	integr = lambda x: my_LTD.dual_integrand(x,which_duals=all_duals)
 	
@@ -589,7 +676,7 @@ if __name__ == "__main__":
 	
 	#integr = lambda x: my_LTD.gaussian_integrand(x)
 	
-	result = my_LTD.integrate(integr,N_refine=1000,share_grid=False)
+	result = my_LTD.integrate(integr,N_refine=10000,share_grid=False)
 	
 	print '='*(2*36+7)
 	print 'I = ', result[0], '+ i',result[1] 
