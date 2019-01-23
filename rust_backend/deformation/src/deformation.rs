@@ -1,6 +1,5 @@
 use arrayvec::ArrayVec;
-use dual_num::dual9::Dual9;
-use dual_num::Dual;
+use dual_num::{Dual, DualN, U9};
 use num::Float;
 use std::convert::From;
 use std::f64::EPSILON;
@@ -9,6 +8,8 @@ use vector::LorentzVector;
 use vector::RealField;
 use Complex;
 use REGION_EXT;
+
+pub type Dual9<T> = DualN<T, U9>;
 
 pub const Q_UB: usize = 8; // upper bound for number of propagators
 

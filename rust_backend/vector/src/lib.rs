@@ -1,9 +1,8 @@
 extern crate dual_num;
 extern crate num;
 
-use dual_num::Dual;
+use dual_num::{Allocator, DefaultAllocator, Dim, DimName, DualN, Owned};
 use num::traits::Inv;
-use dual_num::dual9::Dual9;
 use num::Float;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -34,8 +33,13 @@ where
 
 impl Field for f64 {}
 impl Field for Complex {}
-impl Field for Dual<f64> {}
-impl Field for Dual9<f64> {}
+impl<U> Field for DualN<f64, U>
+where
+    U: Dim + DimName,
+    DefaultAllocator: Allocator<f64, U>,
+    Owned<f64, U>: Copy,
+{
+}
 
 /// A generalization of a field with the reals as a basic component, with partial ordering
 /// An example of a `RealField` is a dual.
@@ -53,8 +57,13 @@ where
 }
 
 impl RealField for f64 {}
-impl RealField for Dual<f64> {}
-impl RealField for Dual9<f64> {}
+impl<U> RealField for DualN<f64, U>
+where
+    U: Dim + DimName,
+    DefaultAllocator: Allocator<f64, U>,
+    Owned<f64, U>: Copy,
+{
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct LorentzVector<T: Field> {
