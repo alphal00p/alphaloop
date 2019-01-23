@@ -1,0 +1,13 @@
+[package]
+name = "ltd"
+version = "0.1.0"
+authors = ["Ben Ruijl <benruyl@gmail.com>"]
+
+[dependencies]
+vector = { path = "../vector" }
+num = "0.2"
+arrayvec = "0.4.7"
+dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dualn" }
+cuba = "^0.1.9"
+nalgebra = "*"
+num-traits = "*"
