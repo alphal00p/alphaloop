@@ -157,7 +157,7 @@ impl LTD {
     pub fn deform(&self, x: Vector3<f64>) -> (Vector3<f64>, Complex) {
         let mut dual_x = x.map(|y| Dual4::from_real(y));
         for (i, x) in dual_x.iter_mut().enumerate() {
-            x[i] = 1.0;
+            x[i + 1] = 1.0;
         }
 
         // TODO: store in struct
