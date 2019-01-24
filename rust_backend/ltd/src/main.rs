@@ -27,8 +27,8 @@ type Complex = num::Complex<f64>;
 /// It is the basic component of LTD.
 #[derive(Debug, Clone)]
 pub struct LoopLine {
-    loop_momenta: ArrayVec<[(usize, bool); MAX_LOOP]>,
-    q_and_mass: Vec<(LorentzVector<f64>, f64)>,
+    pub loop_momenta: ArrayVec<[(usize, bool); MAX_LOOP]>,
+    pub q_and_mass: Vec<(LorentzVector<f64>, f64)>,
 }
 
 impl LoopLine {
@@ -66,6 +66,27 @@ impl LoopLine {
     #[inline]
     pub fn inv_g_d_dual(q_i0p: Dual4, q_j0p: Dual4, k_ji0: Dual4) -> Dual4 {
         (q_i0p + k_ji0) * (q_i0p + k_ji0) - q_j0p * q_j0p
+    }
+
+    // Evaluate loop line with a Feynman prescription
+    pub fn evaluate_feynman(&self, loop_momenta_values: &[Vector3<Complex>]) -> Complex {
+        let mut loop_momenta_eval = Vector3::zeros();
+        for &(index, sign) in self.loop_momenta.iter() {
+            if sign {
+                loop_momenta_eval += loop_momenta_values[index];
+            } else {
+                loop_momenta_eval -= loop_momenta_values[index];
+            }
+        }
+
+        // TODO: what are we supposed to do?
+        let mut denom = Complex::new(1., 0.);
+        for (q, m) in self.q_and_mass.iter() {
+            let p = loop_momenta_eval + LoopLine::spatial_vec(&q.to_complex(true));
+            denom *= p.dot(&p) + m * m;
+        }
+
+        1. / denom
     }
 
     /// Apply LTD to a loop line
@@ -272,25 +293,64 @@ impl LTD {
         }
     }
 
+    fn deform_two_loops(&self, x: &[f64]) -> (Vector3<f64>, Vector3<f64>, Complex) {
+        (Vector3::zeros(), Vector3::zeros(), Complex::new(1., 0.))
+    }
+
     #[inline]
     pub fn evaluate(&self, x: &[f64], deform: bool) -> Complex {
-        match self.loop_lines.len() {
+        match x.len() / 3 {
             1 => {
                 let (l_space, jac) = self.parameterize(x);
-                let l_vec = Vector3::from_row_slice(&l_space);
+                let l = Vector3::from_row_slice(&l_space);
 
                 let loop_line = self.loop_lines.first().unwrap();
                 let (kappa, def_jac) = if deform {
-                    loop_line.deform(self.e_cm, &[l_vec])
+                    loop_line.deform(self.e_cm, &[l])
                 } else {
                     (Vector3::zeros(), Complex::new(1., 0.))
                 };
 
-                let k = l_vec.map(|x| Complex::new(x, 0.)) + kappa.map(|x| Complex::new(0., x));
+                let k = l.map(|x| Complex::new(x, 0.)) + kappa.map(|x| Complex::new(0., x));
                 let res = loop_line.evaluate(&[k]);
                 res * jac * def_jac
             }
-            2 => unimplemented!("Two-loop LTD will be added soon!"),
+            2 => {
+                let (l_space, jac1) = self.parameterize(&x[..3]);
+                let l1 = Vector3::from_row_slice(&l_space);
+                let (l_space, jac2) = self.parameterize(&x[3..]);
+                let l2 = Vector3::from_row_slice(&l_space);
+
+                let (kappa1, kappa2, def_jac) = if deform {
+                    self.deform_two_loops(x)
+                } else {
+                    (Vector3::zeros(), Vector3::zeros(), Complex::new(1., 0.))
+                };
+
+                let k1 = l1.map(|x| Complex::new(x, 0.)) + kappa1.map(|x| Complex::new(0., x));
+                let k2 = l2.map(|x| Complex::new(x, 0.)) + kappa2.map(|x| Complex::new(0., x));
+
+                // by convention, loop line 1 only has k1 and loop line 2 only has k2
+                let (ll1, ll2, ll3) = (
+                    &self.loop_lines[0],
+                    &self.loop_lines[1],
+                    &self.loop_lines[2],
+                );
+                assert!(
+                    ll1.loop_momenta.len() == 1
+                        && ll1.loop_momenta[0] == (0, true)
+                        && ll2.loop_momenta.len() == 1
+                        && ll2.loop_momenta[0] == (1, true)
+                );
+
+                let res = ll1.evaluate(&[k1, k2]) * ll2.evaluate(&[k1, k2]) * ll3.evaluate(&[k1, k2]) // triple cut
+                + ll1.evaluate(&[-k1, k2]) * ll2.evaluate(&[k1, k2]) * ll3.evaluate(&[k1, k2]) // triple cut with sign flip
+                + ll1.evaluate(&[k1, k2]) * ll2.evaluate(&[k1, k2]) * ll3.evaluate_feynman(&[k1, k2]) // dual cut
+                + ll1.evaluate_feynman(&[-k1, k2]) * ll2.evaluate(&[k1, k2]) * ll3.evaluate(&[k1, k2]) // dual cut with (unnecessary) sign flip
+                + ll1.evaluate(&[-k1, k2]) * ll2.evaluate_feynman(&[k1, k2]) * ll3.evaluate(&[k1, k2]); // dual cut with sign flip
+
+                res * jac1 * jac2 * def_jac
+            }
             x => unimplemented!("LTD for {} loops is not supported yet", x),
         }
     }
@@ -325,10 +385,10 @@ fn main() {
         .set_seed(1)
         .set_cores(cores, 1000);
 
-    let (e_cm, loop_lines) = topologies::create_topology("P7");
+    let (loops, e_cm, loop_lines) = topologies::create_topology("double-triangle");
 
     let r = ci.vegas(
-        3,
+        3 * loops,
         1,
         CubaVerbosity::Progress,
         0,
