@@ -13,37 +13,176 @@ use num_traits::Float;
 use std::f64::consts::PI;
 use vector::{Field, LorentzVector};
 
+mod topologies;
 mod utils;
 
 const MAX_DIM: usize = 4;
+const MAX_PROP: usize = 6;
+const MAX_LOOP: usize = 2;
 
 type Dual4 = DualN<f64, U4>;
 type Complex = num::Complex<f64>;
 
+/// A loop line are all propagators with the same loop-momenta in it.
+/// It is the basic component of LTD.
+#[derive(Debug, Clone)]
+pub struct LoopLine {
+    loop_momenta: ArrayVec<[(usize, bool); MAX_LOOP]>,
+    q_and_mass: Vec<(LorentzVector<f64>, f64)>,
+}
+
+impl LoopLine {
+    pub fn new(
+        loop_momenta: &[(usize, bool)],
+        q_and_mass: Vec<(LorentzVector<f64>, f64)>,
+    ) -> LoopLine {
+        let lt: ArrayVec<[(usize, bool); MAX_LOOP]> = loop_momenta.iter().cloned().collect();
+        LoopLine {
+            loop_momenta: lt,
+            q_and_mass,
+        }
+    }
+
+    #[inline]
+    fn spatial_vec<T: Field + 'static>(a: &LorentzVector<T>) -> Vector3<T> {
+        Vector3::new(a.x, a.y, a.z)
+    }
+
+    #[inline]
+    pub fn q_plus(qi: &Vector3<Complex>, mass: f64) -> Complex {
+        (qi.dot(qi) + mass * mass).sqrt()
+    }
+
+    #[inline]
+    pub fn inv_g_d(q_i0p: Complex, q_j0p: Complex, k_ji0: Complex) -> Complex {
+        (q_i0p + k_ji0) * (q_i0p + k_ji0) - q_j0p * q_j0p
+    }
+
+    #[inline]
+    pub fn q_plus_dual(qi: &Vector3<Dual4>, mass: f64) -> Dual4 {
+        (qi.dot(qi) + mass * mass).sqrt()
+    }
+
+    #[inline]
+    pub fn inv_g_d_dual(q_i0p: Dual4, q_j0p: Dual4, k_ji0: Dual4) -> Dual4 {
+        (q_i0p + k_ji0) * (q_i0p + k_ji0) - q_j0p * q_j0p
+    }
+
+    /// Apply LTD to a loop line
+    pub fn evaluate(&self, loop_momenta_values: &[Vector3<Complex>]) -> Complex {
+        let mut loop_momenta_eval = Vector3::zeros();
+        for &(index, sign) in self.loop_momenta.iter() {
+            if sign {
+                loop_momenta_eval += loop_momenta_values[index];
+            } else {
+                loop_momenta_eval -= loop_momenta_values[index];
+            }
+        }
+
+        let ki_spatial: ArrayVec<[_; MAX_PROP]> = self
+            .q_and_mass
+            .iter()
+            .map(|(x, _mass)| LoopLine::spatial_vec(&x.to_complex(true)) + loop_momenta_eval)
+            .collect();
+        let ki_plus: ArrayVec<[_; MAX_PROP]> = ki_spatial
+            .iter()
+            .zip(&self.q_and_mass)
+            .map(|(x, (_q, m))| LoopLine::q_plus(x, *m))
+            .collect();
+
+        let mut res = Complex::new(0., 0.);
+        for index in 0..self.q_and_mass.len() {
+            let mut denom = Complex::new(1., 0.);
+            for (i, ((q, _mass), qplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
+                if i != index {
+                    denom *= LoopLine::inv_g_d(
+                        ki_plus[index],
+                        *qplus,
+                        Complex::new(q[0] - self.q_and_mass[index].0[0], 0.),
+                    );
+                } else {
+                    denom *= 2. * ki_plus[index];
+                }
+            }
+            res += Complex::new(0., -2. * PI) / denom;
+        }
+
+        let factor = Complex::new(0., -1. / (2. * PI).powi(loop_momenta_eval.len() as i32 + 1));
+        factor * res
+    }
+
+    /// Compute the deformation vector and the deformation Jacobian wrt the loop momentum
+    /// in the loop line
+    pub fn deform(
+        &self,
+        e_cm: f64,
+        loop_momenta_values: &[Vector3<f64>],
+    ) -> (Vector3<f64>, Complex) {
+        let mut loop_momenta_eval = Vector3::zeros();
+        for &(index, sign) in self.loop_momenta.iter() {
+            if sign {
+                loop_momenta_eval += loop_momenta_values[index];
+            } else {
+                loop_momenta_eval -= loop_momenta_values[index];
+            }
+        }
+
+        let mut dual_x = loop_momenta_eval.map(|y| Dual4::from_real(y));
+        for (i, x) in dual_x.iter_mut().enumerate() {
+            x[i + 1] = 1.0;
+        }
+
+        let ki_spatial: ArrayVec<[_; MAX_PROP]> = self
+            .q_and_mass
+            .iter()
+            .map(|(x, _mass)| x.map(|y| Dual4::from_real(y)))
+            .map(|x| LoopLine::spatial_vec(&x) + dual_x)
+            .collect();
+        let ki_plus: ArrayVec<[_; MAX_PROP]> = ki_spatial
+            .iter()
+            .zip(&self.q_and_mass)
+            .map(|(x, (_q, m))| LoopLine::q_plus_dual(x, *m))
+            .collect();
+
+        let dirs: ArrayVec<[_; MAX_PROP]> =
+            ki_spatial.iter().map(|x| x / x.dot(x).sqrt()).collect();
+        let lambda = 0.06;
+        let aij = 0.01;
+
+        // TODO: we are deforming too much
+        let mut kappa = Vector3::zeros();
+        for (i, ((d, _m), dplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
+            for (j, ((p, _m), pplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
+                if i != j {
+                    let inv = LoopLine::inv_g_d_dual(*dplus, *pplus, Dual4::from_real(p[0] - d[0]));
+                    let e = (-inv * inv / (aij * e_cm.powi(4))).exp();
+                    kappa += -(dirs[i] + dirs[j]) * e * Dual4::from_real(lambda);
+                }
+            }
+        }
+
+        let mut jac_mat = [[Complex::new(0., 0.); 3]; 3];
+        for (i, k) in kappa.iter().enumerate() {
+            jac_mat[i][i] = Complex::new(1., 0.);
+            for (j, kd) in k.iter().skip(1).enumerate() {
+                jac_mat[i][j] += Complex::new(0., *kd);
+            }
+        }
+
+        let jac = utils::determinant(&jac_mat);
+        (kappa.map(|x| x.real()), jac)
+    }
+}
+
 #[derive(Debug, Clone)]
 struct LTD {
     e_cm: f64,
-    ext: Vec<LorentzVector<f64>>,
-    qs: Vec<LorentzVector<f64>>,
-    mass: Vec<f64>,
+    loop_lines: Vec<LoopLine>,
 }
 
 impl LTD {
-    pub fn new(ext: &[LorentzVector<f64>], mass: &[f64]) -> LTD {
-        let mut qs = vec![LorentzVector::default()];
-        for e in &ext[1..] {
-            let n = qs.last().unwrap() + e;
-            qs.push(n);
-        }
-
-        let e_cm = (ext[0] + ext[1]).square().abs().sqrt();
-
-        LTD {
-            e_cm,
-            ext: ext.to_vec(),
-            qs: qs,
-            mass: mass.to_vec(),
-        }
+    pub fn new(e_cm: f64, loop_lines: Vec<LoopLine>) -> LTD {
+        LTD { e_cm, loop_lines }
     }
 
     /// Map from unit hypercube to infinite hypercube in N-d
@@ -78,128 +217,27 @@ impl LTD {
         }
     }
 
-    fn spatial_vec<T: Field + 'static>(a: &LorentzVector<T>) -> Vector3<T> {
-        Vector3::new(a.x, a.y, a.z)
-    }
-
     #[inline]
-    pub fn q_plus(&self, qi: &Vector3<Complex>, mass: f64) -> Complex {
-        (qi.dot(qi) + mass * mass).sqrt()
-    }
+    pub fn evaluate(&self, x: &[f64], deform: bool) -> Complex {
+        match self.loop_lines.len() {
+            1 => {
+                let (l_space, jac) = self.parameterize(x);
+                let l_vec = Vector3::from_row_slice(&l_space);
 
-    #[inline]
-    pub fn q_plus_dual(&self, qi: &Vector3<Dual4>, mass: f64) -> Dual4 {
-        (qi.dot(qi) + mass * mass).sqrt()
-    }
+                let loop_line = self.loop_lines.first().unwrap();
+                let (kappa, def_jac) = if deform {
+                    loop_line.deform(self.e_cm, &[l_vec])
+                } else {
+                    (Vector3::zeros(), Complex::new(1., 0.))
+                };
 
-    #[inline]
-    pub fn inv_g_d(&self, q_i0p: Complex, q_j0p: Complex, k_ji0: Complex) -> Complex {
-        (q_i0p + k_ji0) * (q_i0p + k_ji0) - q_j0p * q_j0p
-    }
-
-    #[inline]
-    pub fn inv_g_d_dual(&self, q_i0p: Dual4, q_j0p: Dual4, k_ji0: Dual4) -> Dual4 {
-        (q_i0p + k_ji0) * (q_i0p + k_ji0) - q_j0p * q_j0p
-    }
-
-    pub fn evaluate_dual(&self, index: usize, loop_momentum: &Vector3<Complex>) -> Complex {
-        // FIXME: don't collect
-        let ki_spatial: Vec<_> = self
-            .qs
-            .iter()
-            .map(|x| LTD::spatial_vec(&x.to_complex(true)) + loop_momentum)
-            .collect();
-        let ki_plus: Vec<_> = ki_spatial
-            .iter()
-            .zip(&self.mass)
-            .map(|(x, m)| self.q_plus(x, *m))
-            .collect();
-
-        let residue_factor = Complex::new(0., -2. * PI);
-        let mut denom = Complex::new(1., 0.);
-        for (i, (q, qplus)) in self.qs.iter().zip(ki_plus.iter()).enumerate() {
-            if i != index {
-                denom *= self.inv_g_d(
-                    ki_plus[index],
-                    *qplus,
-                    Complex::new(q[0] - self.qs[index][0], 0.),
-                );
-            } else {
-                denom *= 2. * ki_plus[index];
+                let k = l_vec.map(|x| Complex::new(x, 0.)) + kappa.map(|x| Complex::new(0., x));
+                let res = loop_line.evaluate(&[k]);
+                res * jac * def_jac
             }
+            2 => unimplemented!("Two-loop LTD will be added soon!"),
+            x => unimplemented!("LTD for {} loops is not supported yet", x),
         }
-
-        residue_factor / denom
-    }
-
-    #[inline]
-    pub fn evaluate_dual_integrand(&self, x: &[f64], deform: bool) -> Complex {
-        let (l_space, jac) = self.parameterize(x);
-        let l_vec = Vector3::from_row_slice(&l_space);
-
-        let (kappa, def_jac) = if deform {
-            self.deform(l_vec)
-        } else {
-            (Vector3::zeros(), Complex::new(1., 0.))
-        };
-
-        let k = l_vec.map(|x| Complex::new(x, 0.)) + kappa.map(|x| Complex::new(0., x));
-
-        let mut res = Complex::new(0., 0.);
-        for i in 0..self.qs.len() {
-            res += self.evaluate_dual(i, &k);
-        }
-        let factor = Complex::new(0., -1. / (2. * PI).powi(x.len() as i32 + 1));
-        factor * res * jac * def_jac
-    }
-
-    /// Compute the deformation vector and the deformation Jacobian
-    pub fn deform(&self, x: Vector3<f64>) -> (Vector3<f64>, Complex) {
-        let mut dual_x = x.map(|y| Dual4::from_real(y));
-        for (i, x) in dual_x.iter_mut().enumerate() {
-            x[i + 1] = 1.0;
-        }
-
-        // TODO: store in struct
-        let ki_spatial: Vec<_> = self
-            .qs
-            .iter()
-            .map(|x| x.map(|y| Dual4::from_real(y)))
-            .map(|x| LTD::spatial_vec(&x) + dual_x)
-            .collect();
-
-        let ki_plus: Vec<_> = ki_spatial
-            .iter()
-            .zip(&self.mass)
-            .map(|(x, m)| self.q_plus_dual(&x, *m))
-            .collect();
-
-        let dirs: Vec<_> = ki_spatial.iter().map(|x| x / x.dot(x).sqrt()).collect();
-        let lambda = 0.1;
-        let aij = 0.1;
-
-        // TODO: we are deforming too much
-        let mut kappa = Vector3::zeros();
-        for (i, (d, dplus)) in self.qs.iter().zip(ki_plus.iter()).enumerate() {
-            for (j, (p, pplus)) in self.qs.iter().zip(ki_plus.iter()).enumerate() {
-                if i != j {
-                    let inv = self.inv_g_d_dual(*dplus, *pplus, Dual4::from_real(p[0] - d[0]));
-                    let e = (-inv * inv / (aij * self.e_cm.powi(4))).exp();
-                    kappa += -(dirs[i] + dirs[j]) * e * Dual4::from_real(lambda);
-                }
-            }
-        }
-
-        let mut jac_mat = [[Complex::new(0., 0.); 3]; 3];
-        for (i, k) in kappa.iter().enumerate() {
-            jac_mat[i][i] = Complex::new(1., 0.);
-            for (j, kd) in k.iter().skip(1).enumerate() {
-                jac_mat[i][j] += Complex::new(0., *kd);
-            }
-        }
-
-        let jac = utils::determinant(&jac_mat);
-        (kappa.map(|x| x.real()), jac)
     }
 }
 
@@ -216,48 +254,23 @@ fn integrand(
     _nvec: usize,
     core: i32,
 ) -> Result<(), &'static str> {
-    let res = user_data.ltd[(core + 1) as usize].evaluate_dual_integrand(x, true);
+    let res = user_data.ltd[(core + 1) as usize].evaluate(x, true);
     f[0] = res.re;
     Ok(())
 }
 
 fn main() {
     let mut ci = CubaIntegrator::new(integrand);
-    let cores = 1;
+    let cores = 4;
     ci.set_mineval(10)
         .set_nstart(1000000)
-        .set_maxeval(10000000)
+        .set_maxeval(100000000)
         .set_epsabs(0.)
         .set_epsrel(1e-15)
         .set_seed(1)
         .set_cores(cores, 1000);
 
-    let topology = "P1";
-    let (ext, mass) = match topology {
-        "P1" => {
-            // does not need deformation
-            let p1 = LorentzVector::from_args(5.23923, -4.18858, 0.74966, -3.05669);
-            let p2 = LorentzVector::from_args(6.99881, -2.93659, 5.03338, 3.87619);
-            let m = 7.73358;
-            (vec![p1, p2, -p1 - p2], vec![m, m, m])
-        }
-        "P5" => {
-            // does not need deformation
-            let p1 = LorentzVector::from_args(31.54872, -322.40325, 300.53015, -385.58013);
-            let p2 = LorentzVector::from_args(103.90430, 202.00974, -451.27794, -435.12848);
-            let p3 = LorentzVector::from_args(294.76653, 252.88958, 447.09194, 311.71630);
-            let m = 4.68481;
-            (vec![p1, p2, p3, -p1 - p2 - p3], vec![m; 4])
-        }
-        "P3" => {
-            //P3 in https://arxiv.org/pdf/1510.00187.pdf
-            let p1 = LorentzVector::from_args(10.51284, 6.89159, -7.40660, -2.85795);
-            let p2 = LorentzVector::from_args(6.45709, 2.46635, 5.84093, 1.22257);
-            let m = 0.52559;
-            (vec![p1, p2, -p1 - p2], vec![m; 3])
-        }
-        x => unimplemented!("Unknown topology {}", x),
-    };
+    let (e_cm, loop_lines) = topologies::create_topology("P1");
 
     let r = ci.vegas(
         3,
@@ -265,7 +278,7 @@ fn main() {
         CubaVerbosity::Progress,
         0,
         UserData {
-            ltd: vec![LTD::new(&ext, &mass); cores + 1],
+            ltd: vec![LTD::new(e_cm, loop_lines.clone()); cores + 1],
         },
     );
     println!("{:#?}", r);
