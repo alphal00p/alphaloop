@@ -60,6 +60,20 @@ pub fn create_topology(topology: &str) -> (f64, Vec<LoopLine>) {
             let ll = build_loop_line(&[(0, true)], vec![p1, p2, -p1 - p2], vec![m1, m2, m3]);
             (e_cm, vec![ll])
         }
+        "P7" => {
+            let p1 = LorentzVector::from_args(62.80274, -49.71968, -5.53340, -79.44048);
+            let p2 = LorentzVector::from_args(48.59375, -1.65847, 34.91140, 71.89564);
+            let p3 = LorentzVector::from_args(76.75934, -19.14334, -17.10279, 30.22959);
+            let m = 9.82998;
+
+            let e_cm = (p1 + p2).square().abs().sqrt();
+            let ll = build_loop_line(
+                &[(0, true)],
+                vec![p1, p2, p3, -p1 - p2 - p3],
+                vec![m, m, m, m],
+            );
+            (e_cm, vec![ll])
+        }
         x => unimplemented!("Unknown topology {}", x),
     }
 }

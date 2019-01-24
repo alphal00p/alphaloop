@@ -11,7 +11,7 @@ use dual_num::{DualN, U4};
 use na::Vector3;
 use num_traits::Float;
 use std::f64::consts::PI;
-use vector::{Field, LorentzVector};
+use vector::{Field, LorentzVector, RealField};
 
 mod topologies;
 mod utils;
@@ -111,6 +111,17 @@ impl LoopLine {
         factor * res
     }
 
+    #[inline]
+    fn compute_lambda_factor<T: Field + RealField>(x: T, y: T) -> T {
+        if x * 2. < y {
+            y * 0.25
+        } else if y < 0. {
+            x - y * 0.5
+        } else {
+            x - y * 0.25
+        }
+    }
+
     /// Compute the deformation vector and the deformation Jacobian wrt the loop momentum
     /// in the loop line
     pub fn deform(
@@ -146,20 +157,64 @@ impl LoopLine {
 
         let dirs: ArrayVec<[_; MAX_PROP]> =
             ki_spatial.iter().map(|x| x / x.dot(x).sqrt()).collect();
-        let lambda = 0.06;
         let aij = 0.01;
 
         // TODO: we are deforming too much
+        // TODO: add lambda per kappa_i?
         let mut kappa = Vector3::zeros();
         for (i, ((d, _m), dplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
             for (j, ((p, _m), pplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
                 if i != j {
                     let inv = LoopLine::inv_g_d_dual(*dplus, *pplus, Dual4::from_real(p[0] - d[0]));
                     let e = (-inv * inv / (aij * e_cm.powi(4))).exp();
-                    kappa += -(dirs[i] + dirs[j]) * e * Dual4::from_real(lambda);
+                    kappa += -(dirs[i] + dirs[j]) * e;
                 }
             }
         }
+
+        // now determine the global lambda scaling
+        let mut lambda_sq = Dual4::from_real(1.);
+        for (i, (((q_cut, _mass_cut), ki_s_cut), &ki_plus_cut)) in self
+            .q_and_mass
+            .iter()
+            .zip(ki_spatial.iter())
+            .zip(ki_plus.iter())
+            .enumerate()
+        {
+            for (j, (((q_dual, _mass_dual), ki_s_dual), &ki_plus_dual)) in self
+                .q_and_mass
+                .iter()
+                .zip(ki_spatial.iter())
+                .zip(ki_plus.iter())
+                .enumerate()
+            {
+                let (a, b, c) = if i == j {
+                    // "propagator" coming from delta function cut
+                    let a = -kappa.dot(&kappa);
+                    let b = ki_s_cut.dot(&kappa) * 2.;
+                    let c = ki_plus_cut * ki_plus_cut;
+                    (a, b, c)
+                } else {
+                    let e = (q_dual[0] - q_cut[0]).powi(2);
+                    let c1 = ki_plus_cut * ki_plus_cut + e - ki_plus_dual * ki_plus_dual;
+                    let b1 = (ki_s_cut - ki_s_dual).dot(&kappa) * 2.0;
+                    let a = -b1 * b1 + kappa.dot(&kappa) * e * 4.;
+                    let b = b1 * c1 * 2. - ki_s_cut.dot(&kappa) * e * 8.;
+                    let c = c1 * c1 - ki_plus_cut * ki_plus_cut * e * 4.;
+                    (a, b, c)
+                };
+
+                let x = b * b / (a * a * 4.);
+                let y = -c / a;
+                let ls = LoopLine::compute_lambda_factor(x, y);
+
+                if ls < lambda_sq {
+                    lambda_sq = ls;
+                }
+            }
+        }
+
+        kappa *= lambda_sq.sqrt();
 
         let mut jac_mat = [[Complex::new(0., 0.); 3]; 3];
         for (i, k) in kappa.iter().enumerate() {
@@ -270,7 +325,7 @@ fn main() {
         .set_seed(1)
         .set_cores(cores, 1000);
 
-    let (e_cm, loop_lines) = topologies::create_topology("P1");
+    let (e_cm, loop_lines) = topologies::create_topology("P7");
 
     let r = ci.vegas(
         3,
