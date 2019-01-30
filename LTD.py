@@ -11,7 +11,7 @@ class LTD:
 		self.sing_matrix = self.__find_singularity_matrix()
 		self.ellips_sing = self.__get_ellipsoid_singularities()
 		self.lambda_ij,self.A_ij = self.__set_deformation(1.,1e1)
-		self.max_scaling = 1e1
+		self.max_scaling = 1e-1
 		print 'Max. deformation scaling = ', self.max_scaling
 		self.curr_min_scaling = self.max_scaling
 	
@@ -328,7 +328,8 @@ class LTD:
 					print 'Per point rescaling with analytical jacobian is not implemented!'
 		else:
 			kappa *= self.max_scaling
-			jac *= self.max_scaling
+			if not numerical_jac:
+				jac *= self.max_scaling
 
 		if numerical_jac:
 			full_jac = adipy.jacobian(l_space + 1j*kappa)
@@ -667,7 +668,7 @@ if __name__ == "__main__":
 	#integr([0.3,0.5,0.9])
 	#stop
 
-	result = my_LTD.integrate(integr,N_refine=30000,share_grid=False)
+	result = my_LTD.integrate(integr,N_refine=1000,share_grid=False)
 	
 	print '='*(2*36+7)
 	print 'I = ', result[0], '+ i',result[1]
