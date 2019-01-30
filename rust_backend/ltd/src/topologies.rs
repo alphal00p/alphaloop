@@ -5,19 +5,23 @@ pub fn build_loop_line(
     loop_momenta: &[(usize, bool)],
     ext: Vec<LorentzVector<f64>>,
     mass: Vec<f64>,
-    is_loop: bool,
+    compute_qs: bool,
 ) -> LoopLine {
-    // convention of Dario
-    let mut qs = vec![ext[0]];
-    if ext.len() > 1 {
-        for e in &ext[1..ext.len() - 1] {
-            let n = qs.last().unwrap() + e;
-            qs.push(n);
+    let qs = if compute_qs {
+        // convention of Dario
+        let mut qs = vec![ext[0]];
+        if ext.len() > 1 {
+            for e in &ext[1..ext.len() - 1] {
+                let n = qs.last().unwrap() + e;
+                qs.push(n);
+            }
         }
-    }
-    if is_loop {
         qs.push(LorentzVector::default());
-    }
+        qs
+    } else {
+        // externals are already summed
+        ext
+    };
 
     let q_and_mass: Vec<_> = qs.into_iter().zip(mass.into_iter()).collect();
 
@@ -102,7 +106,12 @@ pub fn create_topology(topology: &str) -> (usize, f64, Vec<LoopLine>) {
                 vec![m, m],
                 false,
             );
-            let ll3 = build_loop_line(&[(0, true), (1, true)], vec![LorentzVector::default()], vec![m], false);
+            let ll3 = build_loop_line(
+                &[(0, true), (1, true)],
+                vec![LorentzVector::default()],
+                vec![m],
+                false,
+            );
             (2, e_cm, vec![ll1, ll2, ll3])
         }
         x => unimplemented!("Unknown topology {}", x),
