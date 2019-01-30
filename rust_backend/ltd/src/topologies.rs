@@ -102,7 +102,7 @@ pub fn create_topology(topology: &str) -> (usize, f64, Vec<LoopLine>) {
                 vec![m, m],
                 false,
             );
-            let ll3 = build_loop_line(&[(0, true), (1, false)], vec![-p], vec![m], false);
+            let ll3 = build_loop_line(&[(0, true), (1, true)], vec![LorentzVector::default()], vec![m], false);
             (2, e_cm, vec![ll1, ll2, ll3])
         }
         x => unimplemented!("Unknown topology {}", x),

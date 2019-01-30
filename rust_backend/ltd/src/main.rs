@@ -69,7 +69,7 @@ impl LoopLine {
     }
 
     // Evaluate loop line with Lorentz vectors and an optional cut index
-    pub fn evaluate_feynman(
+    pub fn evaluate_4d(
         &self,
         cut_index: i32,
         loop_momenta_values: &[LorentzVector<Complex>],
@@ -89,6 +89,8 @@ impl LoopLine {
                 denom *= (loop_momenta_eval + q).square() - m * m;
             } else {
                 // FIXME: what to do for triple cut?
+                // It should be 1/(l_vec+ - l_vec-) where
+                // l_vec+- is the solution of the vector part solving the triple cut
                 denom *= 2. * (loop_momenta_eval.t + q.t);
             }
         }
@@ -303,8 +305,7 @@ impl LTD {
     fn deform_two_loops(
         &self,
         ll: &[LoopLine],
-        cut_indices: &[i32],
-        x: &[LorentzVector<f64>],
+        loop_momenta: &[LorentzVector<f64>],
     ) -> (LorentzVector<f64>, LorentzVector<f64>, Complex) {
         (
             LorentzVector::new(),
@@ -323,12 +324,15 @@ impl LTD {
         assert!(cut_indices.len() == 3); // only two loops for now
 
         // by convention, loop line 1 only has +-k1 and loop line 2 only has k2
+        // and k3=k1+k2
         let (ll1, ll2, ll3) = (&ll[0], &ll[1], &ll[2]);
         assert!(
             ll1.loop_momenta.len() == 1
                 && ll1.loop_momenta[0].0 == 0
                 && ll2.loop_momenta.len() == 1
                 && ll2.loop_momenta[0] == (1, true)
+                && ll3.loop_momenta[0] == (0, true)
+                && ll3.loop_momenta[1] == (1, true)
         );
 
         // generate the spatial parts of k and l
@@ -370,7 +374,6 @@ impl LTD {
             (-1, c2, c3) if c2 > -1 && c3 > -1 => {
                 let (q, m) = ll2.q_and_mass[c2 as usize];
                 k2[0] = -q.t + ((k2 + q).spatial_squared() + m * m).sqrt();
-
                 let (q, m) = ll3.q_and_mass[c3 as usize];
                 k1[0] = -k2.t - q.t + ((k1 + k2 + q).spatial_squared() + m * m).sqrt();
             }
@@ -388,8 +391,11 @@ impl LTD {
             }
             (c1, c2, c3) if c1 > -1 && c2 > -1 && c3 > -1 => {
                 // triple cut case
+                let (q1, m1) = ll1.q_and_mass[c1 as usize];
                 let (q2, m2) = ll2.q_and_mass[c2 as usize];
                 let (q3, m3) = ll3.q_and_mass[c3 as usize];
+
+                k1[0] = -q1.t + ((k1 + q1).spatial_squared() + m1 * m1).sqrt();
 
                 let r = k1 + q3;
                 let k = q2.square() - r.square() - m2 * m2 - m3 * m3;
@@ -399,7 +405,12 @@ impl LTD {
                 let a = (k2r / r.t).powi(2) - 1.;
                 let b = 2. * k2r * q2.t / r.t - k * k2r / r.t / r.t - 2. * k2.spatial_dot(&q2);
                 let c = k * k / (4. * r.t * r.t) - k * q2.t / r.t + q2.square() - m2 * m2;
-                let radius2 = (-b + (b * b - 4. * a * c).sqrt()) / (2. * a); // new radius
+                let d = b * b - 4. * a * c;
+                if d < 0. {
+                    return (ArrayVec::from([k1, k2]), 0.);
+                }
+                let radius2 = (-b + d.sqrt()) / (2. * a); // new radius
+                jac *= radius2 * radius2;
 
                 k2.x *= radius2;
                 k2.y *= radius2;
@@ -433,10 +444,10 @@ impl LTD {
             2 => {
                 // all LTD cuts at two-loops for k, l, and k+l
                 // 1 means positive cut, 0 means no cut and -1 negative cut
-                let options = [[1, 1, 0], [0, 1, 1], [-1, 0, 1], [1, 1, 1], [-1, 1, 1]];
+                let cut_structures = [[1, 1, 0], [0, 1, 1], [-1, 0, 1], [1, 1, 1], [-1, 1, 1]];
 
                 let mut result = Complex::default();
-                for o in &options {
+                for o in &cut_structures {
                     // set the loop line directions for this configuration
                     let mut ll = self.loop_lines.clone();
                     for (i, &loopline_cut) in o.iter().enumerate() {
@@ -449,7 +460,6 @@ impl LTD {
 
                     // TODO: cartesian product iterator
                     let mut cut_indices = [-1; 3];
-                    let mut res = Complex::new(1., 0.);
                     for (i, _c1) in ll[0].q_and_mass.iter().enumerate() {
                         for (j, _c2) in ll[1].q_and_mass.iter().enumerate() {
                             for (k, _c3) in ll[2].q_and_mass.iter().enumerate() {
@@ -466,24 +476,38 @@ impl LTD {
                                 let (momenta, par_jac) =
                                     self.parameterize_with_delta(&ll, &cut_indices, x);
 
+                                if par_jac == 0. {
+                                    continue;
+                                }
+
                                 // deform
                                 let (kappa1, kappa2, def_jac) =
-                                    self.deform_two_loops(&ll, &cut_indices, &momenta);
+                                    self.deform_two_loops(&ll, &momenta);
                                 let k1 = momenta[0].map(|x| Complex::new(x, 0.))
                                     + kappa1.map(|x| Complex::new(0., x));
                                 let k2 = momenta[1].map(|x| Complex::new(x, 0.))
                                     + kappa2.map(|x| Complex::new(0., x));
 
                                 // evaluate
+                                let mut res = par_jac * def_jac;
                                 for (l, &c) in ll.iter().zip(cut_indices.iter()) {
-                                    res *= l.evaluate_feynman(c, &[k1, k2]) * par_jac * def_jac;
+                                    res *= l.evaluate_4d(c, &[k1, k2]);
                                 }
+
+                                if !res.is_finite() {
+                                    println!(
+                                        "Bad result: k={}, l={}, par_jac={}, x={:?}, res={}",
+                                        momenta[0], momenta[1], par_jac, x, res
+                                    );
+                                }
+
+                                result += res;
                             }
                         }
                     }
-                    result += res;
                 }
 
+                // TODO: normalize
                 result
             }
             x => unimplemented!("LTD for {} loops is not supported yet", x),
@@ -494,6 +518,7 @@ impl LTD {
 #[derive(Debug)]
 struct UserData {
     ltd: Vec<LTD>,
+    sample_count: usize,
 }
 
 #[inline(always)]
@@ -505,7 +530,15 @@ fn integrand(
     core: i32,
 ) -> Result<(), &'static str> {
     let res = user_data.ltd[(core + 1) as usize].evaluate(x, true);
-    f[0] = res.re;
+    user_data.sample_count += 1;
+
+    if res.re.is_finite() {
+        f[0] = res.re;
+    } else {
+        println!("Bad point: {:?}", x);
+        f[0] = 0.;
+    }
+
     Ok(())
 }
 
@@ -520,7 +553,7 @@ fn main() {
         .set_seed(1)
         .set_cores(cores, 1000);
 
-    let (loops, e_cm, loop_lines) = topologies::create_topology("P7");
+    let (loops, e_cm, loop_lines) = topologies::create_topology("double-triangle");
 
     let r = ci.vegas(
         3 * loops,
@@ -529,6 +562,7 @@ fn main() {
         0,
         UserData {
             ltd: vec![LTD::new(e_cm, loop_lines.clone()); cores + 1],
+            sample_count: 0,
         },
     );
     println!("{:#?}", r);
