@@ -29,6 +29,7 @@ type Complex = num::Complex<f64>;
 pub struct LoopLine {
     pub loop_momenta: ArrayVec<[(usize, bool); MAX_LOOP]>,
     pub q_and_mass: Vec<(LorentzVector<f64>, f64)>,
+    singularity_matrix: Vec<bool>,
 }
 
 impl LoopLine {
@@ -37,9 +38,24 @@ impl LoopLine {
         q_and_mass: Vec<(LorentzVector<f64>, f64)>,
     ) -> LoopLine {
         let lt: ArrayVec<[(usize, bool); MAX_LOOP]> = loop_momenta.iter().cloned().collect();
+
+        let mut singularity_matrix = Vec::with_capacity(q_and_mass.len() * q_and_mass.len());
+        for (i, (d, mi)) in q_and_mass.iter().enumerate() {
+            for (j, (p, mj)) in q_and_mass.iter().enumerate() {
+                // register all ellipsoid singularities
+                // note: at two loops this matrix is no longer a constant
+                let k_ji = p - d;
+                singularity_matrix
+                    .push(i != j && k_ji.square() - (mi + mj) * (mi + mj) > 0. && k_ji.t < 0.);
+            }
+        }
+
+        println!("Singularity matrix: {:#?}", singularity_matrix);
+
         LoopLine {
             loop_momenta: lt,
             q_and_mass,
+            singularity_matrix,
         }
     }
 
@@ -189,15 +205,19 @@ impl LoopLine {
             ki_spatial.iter().map(|x| x / x.dot(x).sqrt()).collect();
         let aij = 0.01;
 
-        // TODO: we are deforming too much
         // TODO: add lambda per kappa_i?
+        // TODO: split integration into groups
         let mut kappa = Vector3::zeros();
-        for (i, ((d, _m), dplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
-            for (j, ((p, _m), pplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
+        for (i, ((d, _mi), dplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
+            for (j, ((p, _mj), pplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
                 if i != j {
-                    let inv = LoopLine::inv_g_d_dual(*dplus, *pplus, Dual4::from_real(p[0] - d[0]));
-                    let e = (-inv * inv / (aij * e_cm.powi(4))).exp();
-                    kappa += -(dirs[i] + dirs[j]) * e;
+                    // only deform if this combination is an ellipsoid singularity
+                    if self.singularity_matrix[i * self.q_and_mass.len() + j] {
+                        let inv =
+                            LoopLine::inv_g_d_dual(*dplus, *pplus, Dual4::from_real(p[0] - d[0]));
+                        let e = (-inv * inv / (aij * e_cm.powi(4))).exp();
+                        kappa += -(dirs[i] + dirs[j]) * e;
+                    }
                 }
             }
         }
@@ -553,7 +573,7 @@ fn main() {
         .set_seed(1)
         .set_cores(cores, 1000);
 
-    let (loops, e_cm, loop_lines) = topologies::create_topology("double-triangle");
+    let (loops, e_cm, loop_lines) = topologies::create_topology("P7");
 
     let r = ci.vegas(
         3 * loops,
