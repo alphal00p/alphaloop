@@ -4,16 +4,16 @@ class LTD:
 	
 	def __init__(self,config_string):
 		self.p_i, self.m_i = self.__select_config(config_string)
+		self.n,self.dim = [len(self.m_i), len(self.p_i[0]) - 1]
 		self.scale = self.__get_scale()
 		self.tolerance = 1e-7
 		self.k_i = self.__get_k_i()
-		self.n = len(self.k_i)
-		self.dim = len(self.k_i[0]) - 1
 		self.sing_matrix = self.__find_singularity_matrix()
-		self.lambda_ij,self.A_ij = self.__set_deformation(1.,1e-1,show=True)
-		self.overall_lambda = 0.1
-		print 'My overall scaling = ', self.overall_lambda
-		self.curr_max_lambda = self.overall_lambda
+		self.ellips_sing = self.__get_ellipsoid_singularities()
+		self.lambda_ij,self.A_ij = self.__set_deformation(1.,1e1)
+		self.max_scaling = 1e1
+		print 'Max. deformation scaling = ', self.max_scaling
+		self.curr_min_scaling = self.max_scaling
 	
 	def __select_config(self,s):
 		if s == '3d_bub':
@@ -180,32 +180,38 @@ class LTD:
 					k_ji = self.k_i[j]-self.k_i[i]
 					if k_ji[0]**2 - self.norm(k_ji[1:])**2 - (self.m_i[j]+self.m_i[i])**2 > 0. and k_ji[0] < 0.:
 						sing_matrix[i,j] = 'E'
-					elif k_ji[0]**2 - self.norm(k_ji[1:])**2 - (self.m_i[j]+self.m_i[i])**2 < 0.:
+					elif k_ji[0]**2 - self.norm(k_ji[1:])**2 - (self.m_i[j]-self.m_i[i])**2 < 0.:
 						sing_matrix[i,j] = 'H'
-					elif k_ji[0]**2 - self.norm(k_ji[1:])**2 - (self.m_i[j]+self.m_i[i])**2 == 0.:
-						sing_matrix[i,j] = 'c' #collinear
 					else:
 						sing_matrix[i,j] = '0'
 				else:
 					sing_matrix[i,i] = '0'
 		print 'Singularity Matrix = \n', sing_matrix
 		return sing_matrix
-		
-	def __set_deformation(self,l,A,show=True):
+
+	def __get_ellipsoid_singularities(self):	
+		ellips_sing = []
+		for i in xrange(self.n):
+			for j in xrange(self.n):
+				if j != i:
+					if self.sing_matrix[i,j] == 'E':
+						ellips_sing += [[i,j]]
+		return ellips_sing
+
+	def __set_deformation(self,l,A):
 		assert(A>0.)
-		lambda_ij = -1.*(numpy.ones([self.n,self.n]) - numpy.diag(numpy.ones([self.n])))
+		lambda_ij = numpy.ones([self.n,self.n]) - numpy.diag(numpy.ones([self.n]))
 		A_ij = numpy.ones([self.n,self.n])
 		lambda_ij *= l
 		A_ij *= A
-		if show:
-			print 'lambda_ij ~ ', l
-			print 'A_ij ~ ', A
+		print 'lambda_ij ~ ', l
+		print 'A_ij ~ ', A
 		return lambda_ij, A_ij
 	
 	def norm(self,q):
 		"""for complex and real q arrays
 		not the same as numpy.linalg.norm for complex numbers!!"""
-		return adipy.sqrt(numpy.sum(q**2))
+		return adipy.sqrt(numpy.sum([q_i*q_i for q_i in q]))
 
 	def q_0p(self,q_space,m):
 		on_f_shell = adipy.sqrt(self.norm(q_space)**2 + m**2)
@@ -218,6 +224,12 @@ class LTD:
 	def G(self,q_j,m_j):
 		denominator = (q_j[0]**2-self.norm(q_j[1:])**2-m_j**2)
 		return 1./denominator
+
+	def get_dual_vector(self,vec):
+		vec_dual = [0.]*self.dim
+		for i in xrange(self.dim):
+			vec_dual[i] = adipy.ad(vec[i], numpy.array([0. if j !=i  else 1. for j in xrange(self.dim)]))
+		return vec_dual
 
 	def dual_function(self,which,l_space):
 		# Resiude at q_i0p[which]
@@ -232,7 +244,10 @@ class LTD:
 		return residue_factor*delta_factor*numpy.prod(propagators)
 	
 	def parametrize_numerical(self,random):
-		random = adipy.ad(random)
+		random_dual = [0.]*self.dim
+		for i in xrange(self.dim):
+			random_dual[i] = adipy.ad(random[i], numpy.array([0. if j !=i  else 1. for j in xrange(self.dim)]))
+		random = random_dual
 		radius = self.scale*random[0]/(1.-random[0])
 		phi = 2*numpy.pi*random[1]
 		if len(random)==3:	
@@ -262,94 +277,68 @@ class LTD:
 			l_space = radius*numpy.array([numpy.cos(phi), numpy.sin(phi)])
 			wgt *= radius
 		return l_space, wgt
-	
-	def deform_contour_numerical(self,l_space):
-		""" Pick  lambda_ij < 0 and 0 on diag, A_ij > 0 """
-		assert(all(i == 0. for i in numpy.diag(self.lambda_ij)))
-		if all(i == 0. for i in self.lambda_ij.flatten()):
-			return l_space, 1.
-			
-		l_space_dual = [0.]*self.dim
-		for i in xrange(self.dim):
-			l_space_dual[i] = adipy.ad(l_space[i], numpy.array([0. if j !=i  else 1. for j in xrange(self.dim)]))
-		
-		q_ispace = [l_space_dual+k[1:] for k in self.k_i]
-		q_i0p = [self.q_0p(q_space,self.m_i[i]) for i,q_space in enumerate(q_ispace)]
-		
-		inv_G_D_ij = [[0. for i in xrange(self.n)] for i in xrange(self.n)]
-		kappa_ij = [[[0. for i in xrange(self.dim)] for i in xrange(self.n)] for i in xrange(self.n)]
-		surpr_ij = [[0. for i in xrange(self.n)] for i in xrange(self.n)]
-		dir_ij = [[[0. for i in xrange(self.dim)] for i in xrange(self.n)] for i in xrange(self.n)]
-		
-		dir_i = numpy.array([q_space/self.norm(q_space) for q_space in q_ispace])
 
-		for i in xrange(self.n):
-			for j in xrange(self.n):
-				if i != j:
-					inv_G_D_ij[i][j]  = self.inv_G_D(q_i0p[i],q_i0p[j],self.k_i[j][0] - self.k_i[i][0])
-					surpr_ij[i][j] = adipy.exp(-inv_G_D_ij[i][j]**2/(self.A_ij[i,j]*self.scale**4))
-					dir_ij[i][j] = dir_i[i] + dir_i[j]
-					kappa_ij[i][j] =  self.lambda_ij[i][j]*dir_ij[i][j]*surpr_ij[i][j]	
+	def get_kappa_ab(self,l_space,a,b):
+		""" returns deformation direction accodring to ellipsoid with foci -k_i[a] & -k_i[b] """ 
+		q_aspace,q_bspace = [l_space+k[1:] for k in [self.k_i[a],self.k_i[b]]]
+		q_a0p, q_b0p = [self.q_0p(q_space,m) for q_space,m in zip([q_aspace,q_bspace],[self.m_i[a],self.m_i[b]])]
+		dir_a, dir_b = [q_space/self.norm(q_space) for q_space in [q_aspace,q_bspace]]
+		inv_G_D_ab = self.inv_G_D(q_a0p,q_b0p,self.k_i[b][0] - self.k_i[a][0])
+		surpr_ab = adipy.exp(-inv_G_D_ab**2/(self.A_ij[a,b]*self.scale**4))
+		kappa_ab = -1.*self.lambda_ij[a][b]*(dir_a+dir_b)*surpr_ab
+		if not isinstance(l_space[0],adipy.ad):
+			jac_dir_a,jac_dir_b = [(-numpy.dot(d.reshape(self.dim,1),d.reshape(1,self.dim))
+										+numpy.diag(numpy.ones(self.dim)))/self.norm(q_space) for q_space,d in zip([q_aspace,q_bspace],[dir_a,dir_b])]
+			jac_surpr_ab = 2.*((q_a0p + (self.k_i[b][0] - self.k_i[a][0]))*q_aspace/q_a0p-q_bspace)
+			jac_surpr_ab *= -2.*inv_G_D_ab*surpr_ab/(self.A_ij[a,b]*self.scale**4)
+			jac_ab = -1.*self.lambda_ij[a][b]*((jac_dir_a+jac_dir_b)*surpr_ab
+									+ numpy.dot((dir_a+dir_b).reshape(self.dim,1),jac_surpr_ab.reshape(1,self.dim)))
+			return kappa_ab,jac_ab
+		else:
+			return kappa_ab
+
+	def deform_contour(self,l_space, numerical_jac = True, per_point_rescale = True):
+		if numerical_jac:
+			l_space = self.get_dual_vector(l_space)
+		else:
+			jac = numpy.zeros([self.dim,self.dim])
 		
-		kappa = numpy.sum(numpy.sum(kappa_ij,axis=0),axis=0)
-		l_contour = l_space_dual + 1j*self.overall_lambda*kappa
-		jac = adipy.jacobian(l_contour)
-		det_jac = numpy.linalg.det(jac)
+		kappa = 0.
+
+		for i,j in self.ellips_sing:
+			if numerical_jac:
+				kappa += self.get_kappa_ab(l_space,i,j)
+			else:
+				kappa_ab,jac_ab = self.get_kappa_ab(l_space,i,j)	
+				kappa += kappa_ab
+				jac += jac_ab
 		
-		l_contour = numpy.array([l.nom for l in l_contour])
-		kappa = numpy.array([kapp.nom for kapp in kappa])
-		
-		self.find_curr_max_scaling(l_space,kappa)
-		self.find_root_exp_max_scaling(l_space,kappa,exp_factor=0.1)
-		
-		return l_contour, det_jac
-			
-	def deform_contour_analytic(self,l_space):
-		""" Pick  lambda_ij < 0 and 0 on diag, A_ij > 0 """
-		assert(all(i == 0. for i in numpy.diag(self.lambda_ij)))
-		if all(i == 0. for i in self.lambda_ij.flatten()):
-			return l_space, 1.
-		
-		q_ispace = [l_space+k[1:] for k in self.k_i]
-		q_i0p = [self.q_0p(q_space,self.m_i[i]) for i,q_space in enumerate(q_ispace)]
-		
-		inv_G_D_ij = numpy.zeros([self.n,self.n])
-		kappa_ij = numpy.zeros([self.n,self.n,self.dim])
-		surpr_ij = numpy.zeros([self.n,self.n])
-		dir_ij = numpy.zeros([self.n,self.n,self.dim])
-		jac_surpr_ij = numpy.zeros([self.n,self.n,self.dim])
-		jac_ij = numpy.zeros([self.n,self.n,self.dim,self.dim])
-		
-		
-		dir_i = numpy.array([q_space/self.norm(q_space) for q_space in q_ispace])
-		
-		jac_dir_i = numpy.array([(-numpy.dot(dir_i[i].reshape(self.dim,1),dir_i[i].reshape(1,self.dim))
-										+numpy.diag(numpy.ones(self.dim)))/self.norm(q_space) for i,q_space in enumerate(q_ispace)])
-		
-		for i in xrange(self.n):
-			for j in xrange(self.n):
-				if i != j:
-					k_ji0 = self.k_i[j][0] - self.k_i[i][0]
-					inv_G_D_ij[i,j]  = self.inv_G_D(q_i0p[i],q_i0p[j],k_ji0)
-					surpr_ij[i,j] = numpy.exp(-inv_G_D_ij[i,j]**2/(self.A_ij[i,j]*self.scale**4))
-					dir_ij[i,j] = dir_i[i] + dir_i[j]
-					kappa_ij[i,j] =  self.lambda_ij[i,j]*dir_ij[i,j]*surpr_ij[i,j]
-					jac_surpr_ij[i,j] = 2.*((q_i0p[i] + k_ji0)*q_ispace[i]/q_i0p[i]-q_ispace[j])
-					jac_surpr_ij[i,j] *= -2.*inv_G_D_ij[i,j]*surpr_ij[i,j]/(self.A_ij[i,j]*self.scale**4)
-					jac_ij[i,j] = self.lambda_ij[i,j]*((jac_dir_i[i]+jac_dir_i[j])*surpr_ij[i,j]
-									+ numpy.dot(dir_ij[i,j].reshape(self.dim,1),jac_surpr_ij[i,j].reshape(1,self.dim)))
-		
-		kappa = numpy.sum(numpy.sum(kappa_ij,axis=0),axis=0)
-		l_contour = l_space + 1j*self.overall_lambda*kappa
-		
-		self.find_curr_max_scaling(l_space,kappa)
-		self.find_root_exp_max_scaling(l_space,kappa,exp_factor=0.1)
-		
-		jac = numpy.sum(numpy.sum(jac_ij,axis=0),axis=0)
-		full_jac = numpy.diag(numpy.ones(self.dim))+1j*self.overall_lambda*jac
-		det_jac = numpy.linalg.det(full_jac)
-	
-		return l_contour, det_jac
+		if per_point_rescale:
+			scaling_param = self.get_scaling_param(l_space,kappa)
+			if numerical_jac:
+				for i in xrange(self.dim):
+					kappa[i] *= scaling_param
+			else:
+					kappa *= self.max_scaling
+					jac *= self.max_scaling
+			if scaling_param < self.curr_min_scaling:
+				self.curr_min_scaling = scaling_param
+				print 'Current min. scaling', self.curr_min_scaling
+				if not numerical_jac:
+					print 'Per point rescaling with analytical jacobian is not implemented!'
+		else:
+			kappa *= self.max_scaling
+			jac *= self.max_scaling
+
+		if numerical_jac:
+			full_jac = adipy.jacobian(l_space + 1j*kappa)
+			det_jac = numpy.linalg.det(full_jac)
+			kappa = numpy.array([kapp.nom for kapp in kappa])
+		else:
+			full_jac = numpy.diag(numpy.ones(self.dim))+1j*jac
+			det_jac = numpy.linalg.det(full_jac)
+				
+		return kappa, det_jac
 
 	def test_function(self,l_space,mu,D):
 		if self.dim == 3:
@@ -373,13 +362,14 @@ class LTD:
 	
 	def dual_integrand(self,x,which_duals):
 		l_space,wgt = self.parametrize_analytic(x)
-		l_contour,jac_wgt = self.deform_contour_analytic(l_space)
-		residues = [self.dual_function(this_dual,l_contour) for this_dual in which_duals]
+		kappa,jac_wgt = self.deform_contour(l_space, numerical_jac = True, per_point_rescale = True)
+		residues = [self.dual_function(this_dual,l_space+1j*kappa) for this_dual in which_duals]
 		factor = -1j/(2*numpy.pi)**(self.dim+1)
 		result = wgt*jac_wgt*sum(residues)*factor
 		return result
 
-	def integrate(self,integrand, N_train=1000, N_refine=1000,share_grid=False):
+	def integrate(self,integrand, N_train=1000, N_refine=1000,share_grid=False,show_grid=False):
+		numpy.random.seed(0)
 		batch_size = 600
 		if share_grid:
 			integr = lambda x: [integrand(x).real,integrand(x).imag]
@@ -388,7 +378,8 @@ class LTD:
 			vegas3_integrator(integr,nitn=7, neval=N_train)
 			# refine
 			real_result,imag_result = vegas3_integrator(integrand,nitn=10, neval=N_refine)
-			vegas3_integrator.map.show_grid()
+			if show_grid:
+				vegas3_integrator.map.show_grid()
 		else:
 			real_integr = lambda x: integrand(x).real
 			imag_integr = lambda x: integrand(x).imag
@@ -401,8 +392,9 @@ class LTD:
 			real_result = real_vegas3_integrator(real_integr,nitn=10, neval=N_refine)
 			imag_result = imag_vegas3_integrator(imag_integr,nitn=10, neval=N_refine)
 			print('\n'+real_result.summary()+'\n'+imag_result.summary())
-			real_vegas3_integrator.map.show_grid()
-			imag_vegas3_integrator.map.show_grid()
+			if show_grid:
+				real_vegas3_integrator.map.show_grid()
+				imag_vegas3_integrator.map.show_grid()
 		return [real_result,imag_result]
 
 	def rot(self,k,n,cos_theta):
@@ -535,55 +527,36 @@ class LTD:
 		assert(total_cond)
 		return l
 	
-	def test_sign_on_fb_intersect(self):
+	def test_sign_on_fb_intersect(self,N=1000):
 		"""test sign on all ellipsoid intersections"""
-		eps_sing = []
-		for i in xrange(self.n):
-			for j in xrange(self.n):
-				if j != i:
-					if self.sing_matrix[i,j] == 'E':
-						eps_sing += [[i,j]]
-	
-		for tuple in eps_sing:	
-			which_f = tuple[0]
-			which_b = tuple[1]
-			k_f = self.k_i[which_f]
-			m_f = self.m_i[which_f]
-			k_b = self.k_i[which_b]
-			m_b = self.m_i[which_b]
+		for which_f,which_b in self.ellips_sing:	
+			k_f,k_b = [self.k_i[which_f],self.k_i[which_b]]
+			m_f,m_b = [self.m_i[which_f],self.m_i[which_b]]
 			k_bf0 = k_b[0]-k_f[0]
 	
-			for i in xrange(1000):
+			for i in xrange(N):
 				l_space = self.generate_point_on_fb_intersect(k_f,m_f,k_b,m_b)
 				if any(x == None for x in l_space):
 					print 'Sign test failed'
 					return
-				l_contour, wgt = self.deform_contour_analytic(l_space)
-				q_fspace = l_contour + k_f[1:]
-				q_bspace = l_contour + k_b[1:]
+				kappa, wgt = self.deform_contour(l_space, numerical_jac = True, per_point_rescale = True)
+				q_fspace,q_bspace = [l_space+1j*kappa + k_f[1:],l_space+1j*kappa + k_b[1:]]
 				dual_prop = self.inv_G_D(self.q_0p(q_fspace,m_f),self.q_0p(q_bspace,m_b),k_bf0)
 				# ASSERT
 				if not (numpy.sign(dual_prop.imag) == -1*numpy.sign(k_bf0)):
-					print 'dual_prop ', dual_prop
+					print 'Wroing sign of imag part on Ellipsoid, ', which_f,which_b, ' with dual_prop = ', dual_prop
 		print 'Sign test successful'
 		return
 	
-	def update_curr_max_scaling(self,X_j,Y_j):
-		if 2*X_j.real < Y_j.real:
-			lambda_j_squared = Y_j/4.
-		elif 0 < Y_j.real < 2*X_j.real:
-			lambda_j_squared = X_j - Y_j/4.
-		elif Y_j.real < 0:
-			lambda_j_squared = X_j - Y_j/2.
-		elif Y_j.real == 0:
-			return
-		lambda_j = numpy.sqrt(lambda_j_squared)
-		assert(lambda_j.imag == 0.)
-		lambda_j = lambda_j.real
-		if lambda_j < self.curr_max_lambda:
-			self.curr_max_lambda = lambda_j
-			print 'Required max. scaling currently', self.curr_max_lambda
-		return
+	def scaling_condition(self,X,Y):
+		if Y > 2.*X:
+			scaling_param_ij_sq = .25*Y
+		elif Y < 0.:
+			scaling_param_ij_sq = X - .5*Y
+		else:
+			scaling_param_ij_sq = X - .25*Y
+		scaling_param_ij = adipy.sqrt(scaling_param_ij_sq)
+		return scaling_param_ij
 	
 	def solve_quadr_eq(self,A,B,C):
 		sqrt_X_j = 1j*B/(2.*A) #we need this for the sign
@@ -593,53 +566,58 @@ class LTD:
 		lambda_m = 1j*sqrt_X_j - numpy.sqrt(Y_j-X_j)
 		return lambda_p, lambda_m, X_j, Y_j
 	
-	def find_curr_max_scaling(self,l_space,kappa):
+	def get_scaling_param(self,l_space,kappa):
+		curr_min = self.max_scaling
 		for i in xrange(self.n):
 			for j in xrange(self.n):
 				if j == i: # "propagator" coming from delta function cut
 					q_a = self.k_i[i][1:] + l_space
 					m_a = self.m_i[i]
-					A = -self.norm(kappa)**2 #REAL
-					B = 2j*numpy.dot(q_a,kappa) #IMAGINARY
-					C = self.norm(q_a)**2 + m_a**2 #REAL
-					prop = lambda x: self.q_0p(q_a+1j*x*kappa,m_a)	
-					cond = lambda x: abs(prop(x).real) < self.tolerance*self.scale and abs(prop(x).imag) < self.tolerance*self.scale
+					A = -numpy.dot(kappa,kappa) #REAL
+					B = 2.*numpy.dot(q_a,kappa) #IMAGINARY: * 1j
+					C = numpy.dot(q_a,q_a) + m_a**2 #REAL
+					if isinstance(l_space[0],adipy.ad):
+						prop = lambda x: self.q_0p(numpy.array([q.nom for q in (q_a+1j*x*kappa)]),m_a)
+					else:
+						prop = lambda x: self.q_0p(q_a+1j*x*kappa,m_a)
 				else: # Dual propagators
 					q_a = self.k_i[i][1:] + l_space
 					q_b = self.k_i[j][1:] + l_space
 					k_ba0 = self.k_i[j][0]-self.k_i[i][0]
 					m_a = self.m_i[i]
 					m_b = self.m_i[j]
-					C1 = self.norm(q_a)**2 + m_a**2 + k_ba0**2 - self.norm(q_b)**2 - m_b**2
-					B1 = 2*1j*numpy.dot(q_a-q_b,kappa)
-					A = B1**2 + 4.*k_ba0**2*self.norm(kappa)**2 #symmetric, REAL
-					B = 2*B1*C1 - 4.*k_ba0**2*2j*numpy.dot(q_a,kappa) #not symmetric but seems to be if kappa small, IMAGINARY
-					C = C1**2 - 4.*k_ba0**2*(self.norm(q_a)**2 + m_a**2) #not symmetric but seems to be if kappa small, REAL
-					prop = lambda x: (self.q_0p(q_a+1j*x*kappa,m_a) + k_ba0)**2 - (self.q_0p(q_b+1j*x*kappa,m_b))**2
-					alt_prop = lambda x: (self.q_0p(q_a+1j*x*kappa,m_a) - k_ba0)**2 - (self.q_0p(q_b+1j*x*kappa,m_b))**2
-					cond = lambda x: abs(prop(x).real) < self.tolerance*self.scale**2 and abs(prop(x).imag) < self.tolerance*self.scale**2
-					alt_cond = lambda x: abs(alt_prop(x).real) < self.tolerance*self.scale**2 and abs(alt_prop(x).imag) < self.tolerance*self.scale**2
-				
-				assert(A.imag == 0)
-				assert(B.real == 0)
-				assert(C.imag == 0)
-					
-				if abs(A.real) > 1e-50*self.scale**2:
-					lambda_p, lambda_m, X_j, Y_j = self.solve_quadr_eq(A,B,C)
-				else:
-					continue
-				
-				is_large = lambda x: abs(x) > self.curr_max_lambda				
-				if is_large(lambda_p) and is_large(lambda_m):
-					continue
-				else:
-					if cond(lambda_p) or cond(lambda_m):
-						self.update_curr_max_scaling(X_j,Y_j)
+					C1 = self.q_0p(q_a,m_a)**2 + k_ba0**2 - self.q_0p(q_b,m_b)**2
+					B1 = 2.*numpy.dot(q_a-q_b,kappa) # imaginary: * 1j
+					A = -B1**2 + 4.*k_ba0**2*numpy.dot(kappa,kappa) #symmetric, REAL
+					B = 2*B1*C1 - 8.*k_ba0**2*numpy.dot(q_a,kappa) #not symmetric but seems to be if kappa small, IMAGINARY: *1j
+					C = C1**2 - 4.*k_ba0**2*(numpy.dot(q_a,q_a) + m_a**2) #not symmetric but seems to be if kappa small, REAL
+					if isinstance(l_space[0],adipy.ad):
+						prop = lambda x: (self.q_0p(numpy.array([q.nom for q in (q_a+1j*x*kappa)]),m_a) + k_ba0)**2 - (self.q_0p(numpy.array([q.nom for q in (q_b+1j*x*kappa)]),m_b))**2
 					else:
-						continue
-		return
+						prop = lambda x: (self.q_0p(q_a+1j*x*kappa,m_a) + k_ba0)**2 - (self.q_0p(q_b+1j*x*kappa,m_b))**2
+						#alt_prop = lambda x: (self.q_0p(q_a+1j*x*kappa,m_a) - k_ba0)**2 - (self.q_0p(q_b+1j*x*kappa,m_b))**2
+				
+				is_zero = lambda x: abs(x.real) < self.tolerance*self.scale**2 and abs(x.imag) < self.tolerance*self.scale**2
+
+				if A*A > (1e-50*self.scale**2)**2:
+					sqrt_X = -B/(2.*A) #we need this for the sign
+					X = sqrt_X**2
+					Y = -C/A
+					if isinstance(l_space[0],adipy.ad):
+						lambda_p = 1j*sqrt_X.nom + numpy.sqrt(Y.nom-X.nom+0j)
+						lambda_m = 1j*sqrt_X.nom - numpy.sqrt(Y.nom-X.nom+0j)
+					else:
+						lambda_p = 1j*sqrt_X + numpy.sqrt(Y-X+0j)
+						lambda_m = 1j*sqrt_X - numpy.sqrt(Y-X+0j)
+
+					if is_zero(prop(lambda_p)) or is_zero(prop(lambda_m)):
+						scaling_param = self.scaling_condition(X,Y)
+						if scaling_param < curr_min:
+							curr_min = scaling_param
+		return curr_min
 	
-	def find_root_exp_max_scaling(self,l_space,kappa,exp_factor=0.1):
+	def get_expansion_param(self,l_space,kappa,exp_factor=0.1):
+		curr_min = self.max_scaling
 		for exp_f in [exp_factor,-exp_factor]: # expand factor negative gives different solutions but is also valid
 			for i in xrange(self.n):
 				q_a = self.k_i[i][1:] + l_space
@@ -648,22 +626,17 @@ class LTD:
 				B = -2j*numpy.dot(q_a,kappa)/exp_f
 				C = self.norm(q_a)**2 + m_a**2
 			
-				if abs(A.real) > 1e-50*self.scale**2:
-					lambda_p, lambda_m, X_j, Y_j = self.solve_quadr_eq(A,B,C)
-				else:
-					continue
-				
-				is_large = lambda x: abs(x) > self.curr_max_lambda
-				prop = lambda x: self.norm(q_a)**2 + m_a**2 - x**2*self.norm(kappa)**2 - x*2j*numpy.dot(q_a,kappa)/exp_f
-				cond = lambda x: abs(prop(x).real) < self.tolerance*self.scale**2 and abs(prop(x).imag) < self.tolerance*self.scale**2
-
-				assert(cond(lambda_p) and cond(lambda_m))
-					
-				if is_large(lambda_p) and is_large(lambda_m):
-					continue
-				else:
-					self.update_curr_max_scaling(X_j,Y_j)
-		return
+				#prop = lambda x: self.norm(q_a)**2 + m_a**2 - x**2*self.norm(kappa)**2 - x*2j*numpy.dot(q_a,kappa)/exp_f
+				#cond = lambda x: abs(prop(x).real) < self.tolerance*self.scale**2 and abs(prop(x).imag) < self.tolerance*self.scale**2
+				#assert(cond(lambda_p) and cond(lambda_m))
+				if A*A > (1e-50*self.scale**2)**2:
+					sqrt_X = -B/(2.*A) #we need this for the sign
+					X = sqrt_X**2
+					Y = -C/A
+					scaling_param = self.scaling_condition(X,Y)
+					if scaling_param < curr_min:
+						curr_min = scaling_param
+		return curr_min
 		
 			
 if __name__ == "__main__":
@@ -672,11 +645,17 @@ if __name__ == "__main__":
 	import scipy.special as sc
 	import vegas
 	import adipy as adipy
+	import time
+	#import warnings
+	#warnings.simplefilter("error")
+	#warnings.simplefilter("ignore", DeprecationWarning)
 	
+	t0 = time.time()
+
 	print '='*(2*36+7) + '\n' + '='*36+' hello '+'='*36 + '\n' + '='*(2*36+7)
 	
 	my_LTD = LTD('P3')
-	my_LTD.test_sign_on_fb_intersect()
+	#my_LTD.test_sign_on_fb_intersect(N=1000)
 
 	#pair = [0,1]
 	#k_a, m_a, k_b, m_b = my_LTD.k_i[pair[0]],my_LTD.m_i[pair[0]],my_LTD.k_i[pair[1]],my_LTD.m_i[pair[1]]
@@ -684,9 +663,14 @@ if __name__ == "__main__":
 
 	all_duals = range(my_LTD.n)
 	integr = lambda x: my_LTD.dual_integrand(x,which_duals=all_duals)
-	
-	result = my_LTD.integrate(integr,N_refine=1000,share_grid=False)
+
+	#integr([0.3,0.5,0.9])
+	#stop
+
+	result = my_LTD.integrate(integr,N_refine=30000,share_grid=False)
 	
 	print '='*(2*36+7)
-	print 'I = ', result[0], '+ i',result[1] 
+	print 'I = ', result[0], '+ i',result[1]
 	print '='*(2*36+7)
+
+	print 'Time: %.2f s' % (time.time()-t0)
