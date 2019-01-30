@@ -68,22 +68,29 @@ impl LoopLine {
         (q_i0p + k_ji0) * (q_i0p + k_ji0) - q_j0p * q_j0p
     }
 
-    // Evaluate loop line with a Feynman prescription
-    pub fn evaluate_feynman(&self, loop_momenta_values: &[Vector3<Complex>]) -> Complex {
-        let mut loop_momenta_eval = Vector3::zeros();
+    // Evaluate loop line with Lorentz vectors and an optional cut index
+    pub fn evaluate_feynman(
+        &self,
+        cut_index: i32,
+        loop_momenta_values: &[LorentzVector<Complex>],
+    ) -> Complex {
+        let mut loop_momenta_eval = LorentzVector::new();
         for &(index, sign) in self.loop_momenta.iter() {
             if sign {
-                loop_momenta_eval += loop_momenta_values[index];
+                loop_momenta_eval = loop_momenta_eval + loop_momenta_values[index];
             } else {
-                loop_momenta_eval -= loop_momenta_values[index];
+                loop_momenta_eval = loop_momenta_eval - loop_momenta_values[index];
             }
         }
 
-        // TODO: what are we supposed to do?
         let mut denom = Complex::new(1., 0.);
-        for (q, m) in self.q_and_mass.iter() {
-            let p = loop_momenta_eval + LoopLine::spatial_vec(&q.to_complex(true));
-            denom *= p.dot(&p) + m * m;
+        for (i, (q, m)) in self.q_and_mass.iter().enumerate() {
+            if i as i32 != cut_index {
+                denom *= (loop_momenta_eval + q).square() - m * m;
+            } else {
+                // FIXME: what to do for triple cut?
+                denom *= 2. * (loop_momenta_eval.t + q.t);
+            }
         }
 
         1. / denom
@@ -293,8 +300,116 @@ impl LTD {
         }
     }
 
-    fn deform_two_loops(&self, x: &[f64]) -> (Vector3<f64>, Vector3<f64>, Complex) {
-        (Vector3::zeros(), Vector3::zeros(), Complex::new(1., 0.))
+    fn deform_two_loops(
+        &self,
+        ll: &[LoopLine],
+        cut_indices: &[i32],
+        x: &[LorentzVector<f64>],
+    ) -> (LorentzVector<f64>, LorentzVector<f64>, Complex) {
+        (
+            LorentzVector::new(),
+            LorentzVector::new(),
+            Complex::new(1., 0.),
+        )
+    }
+
+    /// Parameterize, taking deltas into account
+    pub fn parameterize_with_delta(
+        &self,
+        ll: &[LoopLine],
+        cut_indices: &[i32],
+        x: &[f64],
+    ) -> (ArrayVec<[LorentzVector<f64>; MAX_LOOP]>, f64) {
+        assert!(cut_indices.len() == 3); // only two loops for now
+
+        // by convention, loop line 1 only has +-k1 and loop line 2 only has k2
+        let (ll1, ll2, ll3) = (&ll[0], &ll[1], &ll[2]);
+        assert!(
+            ll1.loop_momenta.len() == 1
+                && ll1.loop_momenta[0].0 == 0
+                && ll2.loop_momenta.len() == 1
+                && ll2.loop_momenta[0] == (1, true)
+        );
+
+        // generate the spatial parts of k and l
+        // for the triple cut we will fix an angle later
+        // x: r_k1, phi_k1, theta_k1, phi_k2, theta_k2, r_k2
+        let radius = self.e_cm * x[0] / (1. - x[0]); // in [0,inf)
+        let mut jac = (self.e_cm + radius).powi(2) / self.e_cm * 2. * PI * 2. * radius * radius;
+        let phi = 2. * PI * x[1];
+        let cos_theta = -1. + 2. * x[2];
+        let sin_theta = (1. - cos_theta * cos_theta).sqrt();
+        let mut k1 = LorentzVector::from_args(
+            0.,
+            radius * sin_theta * phi.cos(),
+            radius * sin_theta * phi.sin(),
+            radius * cos_theta,
+        );
+
+        let radius2 = if cut_indices.iter().all(|&x| x > -1) {
+            // for the triple cut case we fix the radius
+            1.0
+        } else {
+            let radius2 = self.e_cm * x[5] / (1. - x[5]); // in [0,inf)
+            jac *= (self.e_cm + radius2).powi(2) / self.e_cm * radius2 * radius2;
+            radius2
+        };
+        jac *= 2. * PI * 2.;
+        let phi2 = 2. * PI * x[3];
+        let cos_theta2 = -1. + 2. * x[4];
+        let sin_theta2 = (1. - cos_theta2 * cos_theta2).sqrt();
+        let mut k2 = LorentzVector::from_args(
+            0.,
+            radius2 * sin_theta2 * phi2.cos(),
+            radius2 * sin_theta2 * phi2.sin(),
+            radius2 * cos_theta2,
+        );
+
+        // FIXME: we assume k3=k1+k2 here!
+        match (cut_indices[0], cut_indices[1], cut_indices[2]) {
+            (-1, c2, c3) if c2 > -1 && c3 > -1 => {
+                let (q, m) = ll2.q_and_mass[c2 as usize];
+                k2[0] = -q.t + ((k2 + q).spatial_squared() + m * m).sqrt();
+
+                let (q, m) = ll3.q_and_mass[c3 as usize];
+                k1[0] = -k2.t - q.t + ((k1 + k2 + q).spatial_squared() + m * m).sqrt();
+            }
+            (c1, -1, c3) if c1 > -1 && c3 > -1 => {
+                let (q, m) = ll1.q_and_mass[c1 as usize];
+                k1[0] = -q.t + ((k1 + q).spatial_squared() + m * m).sqrt();
+                let (q, m) = ll3.q_and_mass[c3 as usize];
+                k2[0] = -k1.t - q.t + ((k1 + k2 + q).spatial_squared() + m * m).sqrt();
+            }
+            (c1, c2, -1) if c1 > -1 && c2 > -1 => {
+                let (q, m) = ll1.q_and_mass[c1 as usize];
+                k1[0] = -q.t + ((k1 + q).spatial_squared() + m * m).sqrt();
+                let (q, m) = ll2.q_and_mass[c2 as usize];
+                k2[0] = -q.t + ((k2 + q).spatial_squared() + m * m).sqrt();
+            }
+            (c1, c2, c3) if c1 > -1 && c2 > -1 && c3 > -1 => {
+                // triple cut case
+                let (q2, m2) = ll2.q_and_mass[c2 as usize];
+                let (q3, m3) = ll3.q_and_mass[c3 as usize];
+
+                let r = k1 + q3;
+                let k = q2.square() - r.square() - m2 * m2 - m3 * m3;
+
+                // determine new radius
+                let k2r = k2.spatial_dot(&r);
+                let a = (k2r / r.t).powi(2) - 1.;
+                let b = 2. * k2r * q2.t / r.t - k * k2r / r.t / r.t - 2. * k2.spatial_dot(&q2);
+                let c = k * k / (4. * r.t * r.t) - k * q2.t / r.t + q2.square() - m2 * m2;
+                let radius2 = (-b + (b * b - 4. * a * c).sqrt()) / (2. * a); // new radius
+
+                k2.x *= radius2;
+                k2.y *= radius2;
+                k2.z *= radius2;
+                k2.t = (2. * k2.spatial_dot(&r) - k) / (2. * r.t);
+            }
+            x => panic!("Not enough cuts: {:?}", x),
+        }
+
+        (ArrayVec::from([k1, k2]), jac)
     }
 
     #[inline]
@@ -316,40 +431,60 @@ impl LTD {
                 res * jac * def_jac
             }
             2 => {
-                let (l_space, jac1) = self.parameterize(&x[..3]);
-                let l1 = Vector3::from_row_slice(&l_space);
-                let (l_space, jac2) = self.parameterize(&x[3..]);
-                let l2 = Vector3::from_row_slice(&l_space);
+                // all LTD cuts at two-loops for k, l, and k+l
+                // 1 means positive cut, 0 means no cut and -1 negative cut
+                let options = [[1, 1, 0], [0, 1, 1], [-1, 0, 1], [1, 1, 1], [-1, 1, 1]];
 
-                let (kappa1, kappa2, def_jac) = if deform {
-                    self.deform_two_loops(x)
-                } else {
-                    (Vector3::zeros(), Vector3::zeros(), Complex::new(1., 0.))
-                };
+                let mut result = Complex::default();
+                for o in &options {
+                    // set the loop line directions for this configuration
+                    let mut ll = self.loop_lines.clone();
+                    for (i, &loopline_cut) in o.iter().enumerate() {
+                        if loopline_cut < 0 {
+                            for (_, sign) in &mut ll[i].loop_momenta {
+                                *sign = !*sign;
+                            }
+                        }
+                    }
 
-                let k1 = l1.map(|x| Complex::new(x, 0.)) + kappa1.map(|x| Complex::new(0., x));
-                let k2 = l2.map(|x| Complex::new(x, 0.)) + kappa2.map(|x| Complex::new(0., x));
+                    // TODO: cartesian product iterator
+                    let mut cut_indices = [-1; 3];
+                    let mut res = Complex::new(1., 0.);
+                    for (i, _c1) in ll[0].q_and_mass.iter().enumerate() {
+                        for (j, _c2) in ll[1].q_and_mass.iter().enumerate() {
+                            for (k, _c3) in ll[2].q_and_mass.iter().enumerate() {
+                                if i > 0 && o[0] == 0 || j > 0 && o[1] == 0 || k > 0 && o[2] == 0 {
+                                    // skip configurations where we cut a loop line that we shouldn't cut
+                                    continue;
+                                }
 
-                // by convention, loop line 1 only has k1 and loop line 2 only has k2
-                let (ll1, ll2, ll3) = (
-                    &self.loop_lines[0],
-                    &self.loop_lines[1],
-                    &self.loop_lines[2],
-                );
-                assert!(
-                    ll1.loop_momenta.len() == 1
-                        && ll1.loop_momenta[0] == (0, true)
-                        && ll2.loop_momenta.len() == 1
-                        && ll2.loop_momenta[0] == (1, true)
-                );
+                                cut_indices[0] = if o[0] == 0 { -1 } else { i as i32 };
+                                cut_indices[1] = if o[1] == 0 { -1 } else { j as i32 };
+                                cut_indices[2] = if o[2] == 0 { -1 } else { k as i32 };
 
-                let res = ll1.evaluate(&[k1, k2]) * ll2.evaluate(&[k1, k2]) * ll3.evaluate(&[k1, k2]) // triple cut
-                + ll1.evaluate(&[-k1, k2]) * ll2.evaluate(&[k1, k2]) * ll3.evaluate(&[k1, k2]) // triple cut with sign flip
-                + ll1.evaluate(&[k1, k2]) * ll2.evaluate(&[k1, k2]) * ll3.evaluate_feynman(&[k1, k2]) // dual cut
-                + ll1.evaluate_feynman(&[-k1, k2]) * ll2.evaluate(&[k1, k2]) * ll3.evaluate(&[k1, k2]) // dual cut with (unnecessary) sign flip
-                + ll1.evaluate(&[-k1, k2]) * ll2.evaluate_feynman(&[k1, k2]) * ll3.evaluate(&[k1, k2]); // dual cut with sign flip
+                                // parameterize
+                                let (momenta, par_jac) =
+                                    self.parameterize_with_delta(&ll, &cut_indices, x);
 
-                res * jac1 * jac2 * def_jac
+                                // deform
+                                let (kappa1, kappa2, def_jac) =
+                                    self.deform_two_loops(&ll, &cut_indices, &momenta);
+                                let k1 = momenta[0].map(|x| Complex::new(x, 0.))
+                                    + kappa1.map(|x| Complex::new(0., x));
+                                let k2 = momenta[1].map(|x| Complex::new(x, 0.))
+                                    + kappa2.map(|x| Complex::new(0., x));
+
+                                // evaluate
+                                for (l, &c) in ll.iter().zip(cut_indices.iter()) {
+                                    res *= l.evaluate_feynman(c, &[k1, k2]) * par_jac * def_jac;
+                                }
+                            }
+                        }
+                    }
+                    result += res;
+                }
+
+                result
             }
             x => unimplemented!("LTD for {} loops is not supported yet", x),
         }
@@ -385,7 +520,7 @@ fn main() {
         .set_seed(1)
         .set_cores(cores, 1000);
 
-    let (loops, e_cm, loop_lines) = topologies::create_topology("double-triangle");
+    let (loops, e_cm, loop_lines) = topologies::create_topology("P7");
 
     let r = ci.vegas(
         3 * loops,

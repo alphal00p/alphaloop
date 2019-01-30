@@ -158,6 +158,11 @@ impl<T: Field> LorentzVector<T> {
     }
 
     #[inline]
+    pub fn spatial_dot(&self, other: &LorentzVector<T>) -> T {
+        self.x * other.x + self.y * other.y + self.z * other.z
+    }
+
+    #[inline]
     pub fn euclidean_square(&self) -> T {
         self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z
     }

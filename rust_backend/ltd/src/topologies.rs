@@ -42,7 +42,12 @@ pub fn create_topology(topology: &str) -> (usize, f64, Vec<LoopLine>) {
             let p3 = LorentzVector::from_args(294.76653, 252.88958, 447.09194, 311.71630);
             let m = 4.68481;
             let e_cm = (p1 + p2).square().abs().sqrt();
-            let ll = build_loop_line(&[(0, true)], vec![p1, p2, p3, -p1 - p2 - p3], vec![m; 4], true);
+            let ll = build_loop_line(
+                &[(0, true)],
+                vec![p1, p2, p3, -p1 - p2 - p3],
+                vec![m; 4],
+                true,
+            );
             (1, e_cm, vec![ll])
         }
         "P3" => {
@@ -85,8 +90,18 @@ pub fn create_topology(topology: &str) -> (usize, f64, Vec<LoopLine>) {
             let m = 0.;
             let e_cm = p.square().abs().sqrt();
 
-            let ll1 = build_loop_line(&[(0, true)], vec![LorentzVector::default(), -p], vec![m, m], false);
-            let ll2 = build_loop_line(&[(1, true)], vec![LorentzVector::default(), p], vec![m, m], false);
+            let ll1 = build_loop_line(
+                &[(0, true)],
+                vec![LorentzVector::default(), -p],
+                vec![m, m],
+                false,
+            );
+            let ll2 = build_loop_line(
+                &[(1, true)],
+                vec![LorentzVector::default(), p],
+                vec![m, m],
+                false,
+            );
             let ll3 = build_loop_line(&[(0, true), (1, false)], vec![-p], vec![m], false);
             (2, e_cm, vec![ll1, ll2, ll3])
         }
