@@ -3,6 +3,16 @@ name = "ltd"
 version = "0.1.0"
 authors = ["Ben Ruijl <benruyl@gmail.com>"]
 
+[lib]
+name = "ltd"
+crate-type = ["cdylib", "lib"]
+
+[dependencies.cpython]
+git = "https://github.com/dgrunwald/rust-cpython"
+version = "0.2"
+default-features = false
+features = ["python27-sys"]
+
 [dependencies]
 vector = { path = "../vector" }
 num = "0.2"

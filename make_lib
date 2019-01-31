@@ -4,17 +4,20 @@
 UNAME_S=$(uname -s)
 PWD=$(pwd)
 
-MODE=debug
+MODE=$1
+[ -z "$MODE" ] && MODE=debug
 
 case ${UNAME_S} in
     Linux*)
 	SO_DEFORMATION=target/$MODE/libdeformation.so
 	SO_INTEGRATOR=target/$MODE/libintegrator.so
-	SO_INTEGRAND=target/$MODE/libintegrand.so;;
+	SO_INTEGRAND=target/$MODE/libintegrand.so
+	SO_LTD=target/$MODE/libltd.so;;
     Darwin*)
 	SO_DEFORMATION=target/$MODE/libdeformation.dylib
 	SO_INTEGRATOR=target/$MODE/libintegrator.dylib
-	SO_INTEGRAND=target/$MODE/libintegrand.dylib;;
+	SO_INTEGRAND=target/$MODE/libintegrand.dylib
+	SO_LTD=target/$MODE/libltd.dylib;;
     *)
 	echo "UNKNOWN:${UNAME_S}"
 	exit 0
@@ -22,11 +25,16 @@ esac
 
 #Build libraries for python 
 cd rust_backend/
-#cargo build --release
-cargo build
+
+if [ "$MODE" == debug ]; then
+	cargo build
+else
+	cargo build --release
+fi
 
 #Rename them to be called from MadGraph
-cp ${SO_DEFORMATION} deformation.so
-cp ${SO_INTEGRAND} integrand.so
-cp ${SO_INTEGRATOR} integrator.so
+cp ${SO_DEFORMATION} ../deformation.so
+cp ${SO_INTEGRAND} ../integrand.so
+cp ${SO_INTEGRATOR} ../integrator.so
+cp ${SO_LTD} ../ltd.so
 

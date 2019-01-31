@@ -1,5 +1,5 @@
 use vector::LorentzVector;
-use LoopLine;
+use ltd::LoopLine;
 
 pub fn build_loop_line(
     loop_momenta: &[(usize, bool)],
@@ -109,6 +109,33 @@ pub fn create_topology(topology: &str) -> (usize, f64, Vec<LoopLine>) {
             let ll3 = build_loop_line(
                 &[(0, true), (1, true)],
                 vec![LorentzVector::default()],
+                vec![m],
+                false,
+            );
+            (2, e_cm, vec![ll1, ll2, ll3])
+        }
+        "triangle-box" => {
+            let p1 = LorentzVector::from_args(1.0, 0.0, 0.0, 0.0);
+            let p2 = LorentzVector::from_args(-0.59375, -0.0, -0.0, -0.32021721143623744);
+            let _p3 = LorentzVector::from_args(-0.40625, -0.0, -0.0, 0.32021721143623744);
+            let m = 0.;
+            let e_cm = 1.0;
+
+            let ll1 = build_loop_line(
+                &[(0, true)],
+                vec![LorentzVector::default(), -p1],
+                vec![m, m],
+                false,
+            );
+            let ll2 = build_loop_line(
+                &[(1, true)],
+                vec![LorentzVector::default(), -p2, p1],
+                vec![m, m, m],
+                false,
+            );
+            let ll3 = build_loop_line(
+                &[(0, true), (1, true)],
+                vec![-p1],
                 vec![m],
                 false,
             );
