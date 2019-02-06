@@ -47,7 +47,8 @@ fn main() {
     let mut ci = CubaIntegrator::new(integrand);
     let cores = 1;
     ci.set_mineval(10)
-        .set_nstart(1000000)
+        .set_nstart(100000)
+        .set_nincrease(0)
         .set_maxeval(100000000)
         .set_epsabs(0.)
         .set_epsrel(1e-15)

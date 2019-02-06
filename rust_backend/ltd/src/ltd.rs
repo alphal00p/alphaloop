@@ -1,5 +1,5 @@
 use arrayvec::ArrayVec;
-use dual_num::{DualN, U4};
+use dual_num::{DualN, U4, U7};
 use na::Vector3;
 use num_traits::Float;
 use std::f64::consts::PI;
@@ -13,6 +13,7 @@ const MAX_PROP: usize = 6;
 const MAX_LOOP: usize = 2;
 
 type Dual4 = DualN<f64, U4>;
+type Dual7 = DualN<f64, U7>;
 type Complex = num::Complex<f64>;
 
 /// A loop line are all propagators with the same loop-momenta in it.
@@ -320,11 +321,115 @@ impl LTD {
         ll: &[LoopLine],
         loop_momenta: &[LorentzVector<f64>],
     ) -> (LorentzVector<f64>, LorentzVector<f64>, Complex) {
-        (
-            LorentzVector::new(),
-            LorentzVector::new(),
-            Complex::new(1., 0.),
-        )
+
+        let deformation_type = String::from("hardcoded_double_triangle_deformation");
+        match deformation_type.as_ref() {
+
+            "none" => {
+                // Below corresponds to no deformation
+                (
+                    LorentzVector::new(),
+                    LorentzVector::new(),
+                    Complex::new(1., 0.),
+                )
+            }
+
+            "hardcoded_double_triangle_deformation" => {
+
+                let k1 = LoopLine::spatial_vec(&loop_momenta[0]);
+                let k2 = LoopLine::spatial_vec(&loop_momenta[1]);
+
+                let mut k1_dual7 = k1.map(|x| Dual7::from_real(x));
+                let mut k2_dual7 = k2.map(|x| Dual7::from_real(x));
+
+                // Initialise the correct dual components of the input to 1.0
+                for i in 0..6 {
+                    if i < 3 {
+                        k1_dual7[i][i + 1] = 1.0;
+                    } else {
+                        k2_dual7[i - 3][i + 1] = 1.0;
+                    }
+                }
+
+                // hard-coded for now. The deformation should be a struct on its own
+                // and *not* part of the loop line struct!
+                let mut p_dual7  = Vector3::new(0., 0., 0.).map(|x| Dual7::from_real(x));
+                let mut p0_dual7 = Dual7::from_real(1.0);
+                let lambda1 = Dual7::from_real(1.0);
+                let lambda2 = Dual7::from_real(1.0);
+                // One should typically choose a dimensionful width sigma for the gaussian since the
+                // dimensionality of the exponent coded below is GeV^2.
+                // For now, hard-code it to 20.
+                let sigma = Dual7::from_real(20.0);
+                let sigma_squared = sigma*sigma;
+
+                let exp_257 = ( k1_dual7.dot(&k1_dual7).sqrt()+
+                                (k1_dual7+p_dual7).dot(&(k1_dual7+p_dual7)).sqrt()-
+                                p0_dual7 );
+                let f257 = (-( (exp_257*exp_257)/sigma_squared )).exp();
+                let exp_136 = ( k2_dual7.dot(&k2_dual7).sqrt()+
+                               (k2_dual7-p_dual7).dot(&(k2_dual7-p_dual7)).sqrt()-
+                               p0_dual7 );
+                let f136 = (-( (exp_136*exp_136)/sigma_squared) ).exp();
+                let exp_f4 = ( (k1_dual7+p_dual7).dot(&(k1_dual7+p_dual7)).sqrt()+
+                                k2_dual7.dot(&k2_dual7).sqrt()+
+                                (k1_dual7+k2_dual7).dot(&(k1_dual7+k2_dual7)).sqrt()-
+                                p0_dual7 );
+                let f4   = (-( (exp_f4*exp_f4)/sigma_squared) ).exp();
+
+                let kappa1 = (
+                    (
+                        k1_dual7 / k1_dual7.dot(&k1_dual7).sqrt() +
+                        (k1_dual7+p_dual7) / (k1_dual7+p_dual7).dot(&(k1_dual7+p_dual7)).sqrt()
+                    )*f257+
+                    (
+                        (k1_dual7+p_dual7) / (k1_dual7+p_dual7).dot(&(k1_dual7+p_dual7)).sqrt()+
+                        (k1_dual7+k2_dual7) / (k1_dual7+k2_dual7).dot(&(k1_dual7+k2_dual7)).sqrt()
+                    )*f4
+                )*lambda1;
+
+                let kappa2 = (
+                    (
+                        k2_dual7 / k2_dual7.dot(&k2_dual7).sqrt() +
+                        (k2_dual7-p_dual7) / (k2_dual7-p_dual7).dot(&(k2_dual7-p_dual7)).sqrt()
+                    )*f136+
+                    (
+                        k2_dual7 / k2_dual7.dot(&k2_dual7).sqrt()+
+                        (k1_dual7+k2_dual7) / (k1_dual7+k2_dual7).dot(&(k1_dual7+k2_dual7)).sqrt()
+                    )*f4
+                )*lambda2;
+
+                let mut jac_mat = [[Complex::new(0., 0.); 6]; 6];
+                for i in 0..6 {
+                    jac_mat[i][i] += Complex::new(1., 0.);
+                    for j in 0..6 {
+                        if i < 3 {
+                            jac_mat[i][j] += Complex::new(0.0, k1_dual7[i][j + 1]);
+                        } else {
+                            jac_mat[i][j] += Complex::new(0.0, k2_dual7[i - 3][j + 1]);
+                        }
+                    }
+                }
+
+                let kappa1_vec3 = kappa1.map(|x| x.real());
+                let kappa2_vec3 = kappa2.map(|x| x.real());
+
+                let jac = utils::determinant6x6(&jac_mat);
+
+                (
+                    LorentzVector::from_args(
+                       0., kappa1_vec3[0], kappa1_vec3[1], kappa1_vec3[2]
+                    ),
+                    LorentzVector::from_args(
+                       0., kappa2_vec3[0], kappa2_vec3[1], kappa2_vec3[2]
+                    ),
+                    jac,
+                )
+            }
+
+            x => panic!("Requested deformation type unknown: {:?}", x),
+        
+        }
     }
 
     /// Parameterize, taking deltas into account
@@ -487,7 +592,7 @@ impl LTD {
                 // all LTD cuts at two-loops for k, l, and k+l
                 // 1 means positive cut, 0 means no cut and -1 negative cut
                 // NOTE: triple cuts disabled for now
-                let cut_structures = [[1, 1, 0], [1, 1, 0], [0, 1, 1], [-1, 0, 1]]; //, [1, 1, 1], [-1, 1, 1]];
+                let cut_structures = [[1, 1, 0], [0, 1, 1], [-1, 0, 1]]; //, [1, 1, 1], [-1, 1, 1]];
 
                 let mut result = Complex::default();
                 for o in &cut_structures {
@@ -511,6 +616,9 @@ impl LTD {
                                     continue;
                                 }
 
+                                // The convention is different here for the cut_indices.
+                                // An integer >= 0 means that the corresponding element of that loop line with this index
+                                // must be cut. And a negative integer implies that no element of that loop line must be cut.
                                 cut_indices[0] = if o[0] == 0 { -1 } else { i as i32 };
                                 cut_indices[1] = if o[1] == 0 { -1 } else { j as i32 };
                                 cut_indices[2] = if o[2] == 0 { -1 } else { k as i32 };
