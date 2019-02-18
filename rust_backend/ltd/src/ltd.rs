@@ -16,13 +16,6 @@ type Dual4 = DualN<f64, U4>;
 type Dual7 = DualN<f64, U7>;
 type Complex = num::Complex<f64>;
 
-/*
-#[inline]
-/// Invert with better precision
-fn finv(c: Complex) -> Complex {
-    let norm = c.norm();
-    c.conj() / norm / norm
-}*/
 /// A loop line are all propagators with the same loop-momenta in it.
 /// It is the basic component of LTD.
 #[derive(Debug, Clone)]
@@ -268,22 +261,28 @@ impl LoopLine {
                         loop_momenta_eval[2],
                     );
 
-                    let x2 = LoopLine::collinear_x(&k4v, &p2);
-                    let x4 = LoopLine::collinear_x(&k4v, &p4);
+                    let x2 = LoopLine::collinear_x(&(k4v + &self.q_and_mass[0].0), &p2);
+                    let x4 = LoopLine::collinear_x(&(k4v + &self.q_and_mass[2].0), &p4);
 
+                    //Prop1,2 are collinear to p2
                     coll_ct += (1. - m / s)
                         * finv(t * (x2 * s + (1.0 - x2) * m))
                         * res_props[2]
                         * res_props[3]
                         * mu_sq
-                        * finv(mu_sq - res_props[1]);
+                        * finv(mu_sq - res_props[1])
+                        * mu_sq
+                        * finv(mu_sq - res_props[0]);
 
+                    //Prop3,4 are collinear to p4
                     coll_ct += (1. - m / t)
                         * finv(s * ((1.0 - x4) * t + x4 * m))
                         * res_props[0]
                         * res_props[1]
                         * mu_sq
-                        * finv(mu_sq - res_props[2]);
+                        * finv(mu_sq - res_props[2])
+                        * mu_sq
+                        * finv(mu_sq - res_props[3]);
 
                     res += (1.0 + soft - coll_ct) * Complex::new(0., -2. * PI) / denom;
                 }
