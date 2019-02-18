@@ -109,7 +109,11 @@ impl LoopLine {
     }
 
     /// Apply LTD to a loop line
-    pub fn evaluate(&self, loop_momenta_values: &[Vector3<Complex>]) -> Complex {
+    pub fn evaluate(
+        &self,
+        loop_momenta_values: &[Vector3<Complex>],
+        on_shell_flag: usize,
+    ) -> Complex {
         let mut loop_momenta_eval = Vector3::zeros();
         for &(index, sign) in self.loop_momenta.iter() {
             if sign {
@@ -131,21 +135,81 @@ impl LoopLine {
             .collect();
 
         let mut res = Complex::new(0., 0.);
-        for index in 0..self.q_and_mass.len() {
-            let mut denom = Complex::new(1., 0.);
-            for (i, ((q, _mass), qplus)) in self.q_and_mass.iter().zip(ki_plus.iter()).enumerate() {
-                if i != index {
-                    denom *= LoopLine::inv_g_d(
-                        ki_plus[index],
-                        *qplus,
-                        Complex::new(q[0] - self.q_and_mass[index].0[0], 0.),
-                    );
-                } else {
-                    denom *= 2. * ki_plus[index];
+        match (on_shell_flag, self.q_and_mass.len()) {
+            //Any 1-Loop topology with off-shell externals
+            (0b0000, _) => {
+                for index in 0..self.q_and_mass.len() {
+                    let mut denom = Complex::new(1., 0.);
+                    for (i, ((q, _mass), qplus)) in
+                        self.q_and_mass.iter().zip(ki_plus.iter()).enumerate()
+                    {
+                        if i != index {
+                            denom *= LoopLine::inv_g_d(
+                                ki_plus[index],
+                                *qplus,
+                                Complex::new(q[0] - self.q_and_mass[index].0[0], 0.),
+                            );
+                        } else {
+                            denom *= 2. * ki_plus[index];
+                        }
+                    }
+                    res += Complex::new(0., -2. * PI) / denom;
                 }
             }
-            res += Complex::new(0., -2. * PI) / denom;
-        }
+            //4-point 1-Loop with on-shell externals
+            (0b1111, 4) => {
+                for index in 0..self.q_and_mass.len() {
+                    //Compute Denominator
+                    let mut denom = Complex::new(1., 0.);
+                    for (i, ((q, _mass), qplus)) in
+                        self.q_and_mass.iter().zip(ki_plus.iter()).enumerate()
+                    {
+                        if i != index {
+                            denom *= LoopLine::inv_g_d(
+                                ki_plus[index],
+                                *qplus,
+                                Complex::new(q[0] - self.q_and_mass[index].0[0], 0.),
+                            );
+                        } else {
+                            denom *= 2. * ki_plus[index];
+                        }
+                    }
+                    //Compute Numerator with Soft CT
+                    let mut numerator = Complex::new(1., 0.);
+                    for (i, ((q, _mass), qplus)) in
+                        self.q_and_mass.iter().zip(ki_plus.iter()).enumerate()
+                    {
+                        match i {
+                            1 | 3 => {
+                                let s_or_t = (self.q_and_mass[1].0 - self.q_and_mass[3].0).square();
+                                numerator -= LoopLine::inv_g_d(
+                                    ki_plus[index],
+                                    *qplus,
+                                    Complex::new(q[0] - self.q_and_mass[index].0[0], 0.),
+                                ) / s_or_t;
+                            }
+                            0 | 2 => {
+                                let s_or_t = (self.q_and_mass[0].0 - self.q_and_mass[2].0).square();
+                                numerator -= LoopLine::inv_g_d(
+                                    ki_plus[index],
+                                    *qplus,
+                                    Complex::new(q[0] - self.q_and_mass[index].0[0], 0.),
+                                ) / s_or_t;
+                            }
+                            _ => unimplemented!("No CT available!"),
+                        }
+                    }
+                    res += numerator * Complex::new(0., -2. * PI) / denom;
+                }
+            }
+            (_, _) => {
+                unimplemented!(
+                    "No match for the correspinding topology: on_shell_flag:{:.4b}, #qs: {}",
+                    on_shell_flag,
+                    loop_momenta_values.len()
+                );
+            }
+        };
 
         let factor = Complex::new(0., -1. / (2. * PI).powi(loop_momenta_eval.len() as i32 + 1));
         factor * res
@@ -321,10 +385,8 @@ impl LTD {
         ll: &[LoopLine],
         loop_momenta: &[LorentzVector<f64>],
     ) -> (LorentzVector<f64>, LorentzVector<f64>, Complex) {
-
         let deformation_type = String::from("hardcoded_double_triangle_deformation");
         match deformation_type.as_ref() {
-
             "none" => {
                 // Below corresponds to no deformation
                 (
@@ -335,7 +397,6 @@ impl LTD {
             }
 
             "hardcoded_double_triangle_deformation" => {
-
                 let k1 = LoopLine::spatial_vec(&loop_momenta[0]);
                 let k2 = LoopLine::spatial_vec(&loop_momenta[1]);
 
@@ -353,7 +414,7 @@ impl LTD {
 
                 // hard-coded for now. The deformation should be a struct on its own
                 // and *not* part of the loop line struct!
-                let mut p_dual7  = Vector3::new(0., 0., 0.).map(|x| Dual7::from_real(x));
+                let mut p_dual7 = Vector3::new(0., 0., 0.).map(|x| Dual7::from_real(x));
                 let mut p0_dual7 = Dual7::from_real(1.0);
                 let lambda1 = Dual7::from_real(1.0);
                 let lambda2 = Dual7::from_real(1.0);
@@ -361,43 +422,42 @@ impl LTD {
                 // dimensionality of the exponent coded below is GeV^2.
                 // For now, hard-code it to 20.
                 let sigma = Dual7::from_real(20.0);
-                let sigma_squared = sigma*sigma;
+                let sigma_squared = sigma * sigma;
 
-                let exp_257 = ( k1_dual7.dot(&k1_dual7).sqrt()+
-                                (k1_dual7+p_dual7).dot(&(k1_dual7+p_dual7)).sqrt()-
-                                p0_dual7 );
-                let f257 = (-( (exp_257*exp_257)/sigma_squared )).exp();
-                let exp_136 = ( k2_dual7.dot(&k2_dual7).sqrt()+
-                               (k2_dual7-p_dual7).dot(&(k2_dual7-p_dual7)).sqrt()-
-                               p0_dual7 );
-                let f136 = (-( (exp_136*exp_136)/sigma_squared) ).exp();
-                let exp_f4 = ( (k1_dual7+p_dual7).dot(&(k1_dual7+p_dual7)).sqrt()+
-                                k2_dual7.dot(&k2_dual7).sqrt()+
-                                (k1_dual7+k2_dual7).dot(&(k1_dual7+k2_dual7)).sqrt()-
-                                p0_dual7 );
-                let f4   = (-( (exp_f4*exp_f4)/sigma_squared) ).exp();
+                let exp_257 = k1_dual7.dot(&k1_dual7).sqrt()
+                    + (k1_dual7 + p_dual7).dot(&(k1_dual7 + p_dual7)).sqrt()
+                    - p0_dual7;
+                let f257 = (-((exp_257 * exp_257) / sigma_squared)).exp();
+                let exp_136 = k2_dual7.dot(&k2_dual7).sqrt()
+                    + (k2_dual7 - p_dual7).dot(&(k2_dual7 - p_dual7)).sqrt()
+                    - p0_dual7;
+                let f136 = (-((exp_136 * exp_136) / sigma_squared)).exp();
+                let exp_f4 = (k1_dual7 + p_dual7).dot(&(k1_dual7 + p_dual7)).sqrt()
+                    + k2_dual7.dot(&k2_dual7).sqrt()
+                    + (k1_dual7 + k2_dual7).dot(&(k1_dual7 + k2_dual7)).sqrt()
+                    - p0_dual7;
+                let f4 = (-((exp_f4 * exp_f4) / sigma_squared)).exp();
 
-                let kappa1 = (
-                    (
-                        k1_dual7 / k1_dual7.dot(&k1_dual7).sqrt() +
-                        (k1_dual7+p_dual7) / (k1_dual7+p_dual7).dot(&(k1_dual7+p_dual7)).sqrt()
-                    )*f257+
-                    (
-                        (k1_dual7+p_dual7) / (k1_dual7+p_dual7).dot(&(k1_dual7+p_dual7)).sqrt()+
-                        (k1_dual7+k2_dual7) / (k1_dual7+k2_dual7).dot(&(k1_dual7+k2_dual7)).sqrt()
-                    )*f4
-                )*lambda1;
+                let kappa1 = ((k1_dual7 / k1_dual7.dot(&k1_dual7).sqrt()
+                    + (k1_dual7 + p_dual7)
+                        / (k1_dual7 + p_dual7).dot(&(k1_dual7 + p_dual7)).sqrt())
+                    * f257
+                    + ((k1_dual7 + p_dual7)
+                        / (k1_dual7 + p_dual7).dot(&(k1_dual7 + p_dual7)).sqrt()
+                        + (k1_dual7 + k2_dual7)
+                            / (k1_dual7 + k2_dual7).dot(&(k1_dual7 + k2_dual7)).sqrt())
+                        * f4)
+                    * lambda1;
 
-                let kappa2 = (
-                    (
-                        k2_dual7 / k2_dual7.dot(&k2_dual7).sqrt() +
-                        (k2_dual7-p_dual7) / (k2_dual7-p_dual7).dot(&(k2_dual7-p_dual7)).sqrt()
-                    )*f136+
-                    (
-                        k2_dual7 / k2_dual7.dot(&k2_dual7).sqrt()+
-                        (k1_dual7+k2_dual7) / (k1_dual7+k2_dual7).dot(&(k1_dual7+k2_dual7)).sqrt()
-                    )*f4
-                )*lambda2;
+                let kappa2 = ((k2_dual7 / k2_dual7.dot(&k2_dual7).sqrt()
+                    + (k2_dual7 - p_dual7)
+                        / (k2_dual7 - p_dual7).dot(&(k2_dual7 - p_dual7)).sqrt())
+                    * f136
+                    + (k2_dual7 / k2_dual7.dot(&k2_dual7).sqrt()
+                        + (k1_dual7 + k2_dual7)
+                            / (k1_dual7 + k2_dual7).dot(&(k1_dual7 + k2_dual7)).sqrt())
+                        * f4)
+                    * lambda2;
 
                 let mut jac_mat = [[Complex::new(0., 0.); 6]; 6];
                 for i in 0..6 {
@@ -417,18 +477,13 @@ impl LTD {
                 let jac = utils::determinant6x6(&jac_mat);
 
                 (
-                    LorentzVector::from_args(
-                       0., kappa1_vec3[0], kappa1_vec3[1], kappa1_vec3[2]
-                    ),
-                    LorentzVector::from_args(
-                       0., kappa2_vec3[0], kappa2_vec3[1], kappa2_vec3[2]
-                    ),
+                    LorentzVector::from_args(0., kappa1_vec3[0], kappa1_vec3[1], kappa1_vec3[2]),
+                    LorentzVector::from_args(0., kappa2_vec3[0], kappa2_vec3[1], kappa2_vec3[2]),
                     jac,
                 )
             }
 
             x => panic!("Requested deformation type unknown: {:?}", x),
-        
         }
     }
 
@@ -585,7 +640,18 @@ impl LTD {
                 };
 
                 let k = l.map(|x| Complex::new(x, 0.)) + kappa.map(|x| Complex::new(0., x));
-                let res = loop_line.evaluate(&[k]);
+
+                let mut on_shell_flag = 0;
+                for i in 0..loop_line.q_and_mass.len() {
+                    if (loop_line.q_and_mass[i].0
+                        - loop_line.q_and_mass[(i + 1) % loop_line.q_and_mass.len()].0)
+                        .square()
+                        < 1e-10
+                    {
+                        on_shell_flag |= 2_usize.pow(i as u32);
+                    }
+                }
+                let res = loop_line.evaluate(&[k], on_shell_flag);
                 res * jac * def_jac
             }
             2 => {
