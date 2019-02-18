@@ -75,25 +75,67 @@ pub fn create_topology(topology: &str) -> (usize, f64, Vec<LoopLine>) {
             (1, e_cm, vec![ll])
         }
         "P7" => {
-            //Use Massless Momenta
-            //Analytic Result: 23.8712597643
-            let (p1, p2, p3, m) = if true {
-                (
-                    LorentzVector::from_args(0.5, 0.5, 0.0, 0.0),
-                    LorentzVector::from_args(0.5, -0.5, 0.0, 0.0),
-                    LorentzVector::from_args(-0.5, 0.0, 0.5, 0.0),
-                    0.,
-                )
             //Use Massive Momenta
             //Analytic Result:  -2.38766 e-10 - i 3.03080 e-10
-            } else {
-                (
-                    LorentzVector::from_args(62.80274, -49.71968, -5.53340, -79.44048),
-                    LorentzVector::from_args(48.59375, -1.65847, 34.91140, 71.89564),
-                    LorentzVector::from_args(76.75934, -19.14334, -17.10279, 30.22959),
-                    9.82998,
-                )
-            };
+            let p1 = LorentzVector::from_args(62.80274, -49.71968, -5.53340, -79.44048);
+            let p2 = LorentzVector::from_args(48.59375, -1.65847, 34.91140, 71.89564);
+            let p3 = LorentzVector::from_args(76.75934, -19.14334, -17.10279, 30.22959);
+            let m = 9.82998;
+
+            let e_cm = (p1 + p2).square().abs().sqrt();
+            let ll = build_loop_line(
+                &[(0, true)],
+                vec![p1, p2, p3, -p1 - p2 - p3],
+                vec![m, m, m, m],
+                true,
+            );
+            (1, e_cm, vec![ll])
+        }
+        "onshell-box" => {
+            //Use Massless Momenta and Massless Propagators
+            //Analytic Result (real): 6.08501e-3
+            let p1 = LorentzVector::from_args(0.5, 0.5, 0.0, 0.0);
+            let p2 = LorentzVector::from_args(0.5, -0.5, 0.0, 0.0);
+            let p3 = LorentzVector::from_args(-0.5, 0.0, 0.5, 0.0);
+            let m = 0.;
+            println!(
+                "p1^2: {}, p2^2: {}, p3^3: {}",
+                p1.square(),
+                p2.square(),
+                p3.square()
+            );
+            let e_cm = (p1 + p2).square().abs().sqrt();
+            let ll = build_loop_line(
+                &[(0, true)],
+                vec![p1, p2, p3, -p1 - p2 - p3],
+                vec![m, m, m, m],
+                true,
+            );
+            (1, e_cm, vec![ll])
+        }
+        "one-offshell-box" => {
+            //All but p1 are massless and Massless Propagators
+            //Analytic Result (real): ?
+            let p1 = LorentzVector::from_args(
+                -0.7500000000000000,
+                0.2441040810721693,
+                0.05032029722939409,
+                -0.01952089369514740,
+            );
+            let p2 = LorentzVector::from_args(
+                -0.2500000000000000,
+                -0.2441040810721693,
+                -0.05032029722939409,
+                0.01952089369514740,
+            );
+            let p3 = LorentzVector::from_args(
+                0.5000000000000000,
+                0.4120803582196727,
+                -0.1731805902843028,
+                0.2240496853787720,
+            );
+            let m = 0.;
+
             println!(
                 "p1^2: {}, p2^2: {}, p3^3: {}",
                 p1.square(),

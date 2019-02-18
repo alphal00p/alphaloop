@@ -16,6 +16,13 @@ type Dual4 = DualN<f64, U4>;
 type Dual7 = DualN<f64, U7>;
 type Complex = num::Complex<f64>;
 
+/*
+#[inline]
+/// Invert with better precision
+fn finv(c: Complex) -> Complex {
+    let norm = c.norm();
+    c.conj() / norm / norm
+}*/
 /// A loop line are all propagators with the same loop-momenta in it.
 /// It is the basic component of LTD.
 #[derive(Debug, Clone)]
@@ -106,6 +113,14 @@ impl LoopLine {
         }
 
         finv(denom)
+    }
+
+    #[inline]
+    //Compute the xi's for the collinear limits, here mom should always by on-shell
+    fn collinear_x(loopmom: &LorentzVector<Complex>, mom: &LorentzVector<f64>) -> Complex {
+        let eta = mom.dual();
+        (eta[0] * loopmom[0] - eta[1] * loopmom[1] - eta[2] * loopmom[2] - eta[3] * loopmom[3])
+            / eta.dot(mom)
     }
 
     /// Apply LTD to a loop line
@@ -200,6 +215,77 @@ impl LoopLine {
                         }
                     }
                     res += numerator * Complex::new(0., -2. * PI) / denom;
+                }
+            }
+            //4-point 1-Loop with p2,3,4 on-shell
+            (0b1110, 4) => {
+                for index in 0..self.q_and_mass.len() {
+                    //Compute Denominator
+                    let mut denom = Complex::new(1., 0.);
+
+                    //Propagators evaluated on the correpsonding cut
+                    let res_props: ArrayVec<[_; 4]> = self
+                        .q_and_mass
+                        .iter()
+                        .zip(ki_plus.iter())
+                        .map(|((q, _mass), qplus)| {
+                            LoopLine::inv_g_d(
+                                ki_plus[index],
+                                *qplus,
+                                Complex::new(q[0] - self.q_and_mass[index].0[0], 0.),
+                            )
+                        })
+                        .collect();
+
+                    for (i, ((q, _mass), qplus)) in
+                        self.q_and_mass.iter().zip(ki_plus.iter()).enumerate()
+                    {
+                        if i != index {
+                            denom *= res_props[i];
+                        } else {
+                            denom *= 2. * ki_plus[index];
+                        }
+                    }
+
+                    //Compute CT
+                    let s = (self.q_and_mass[1].0 - self.q_and_mass[3].0).square();
+                    let t = (self.q_and_mass[0].0 - self.q_and_mass[2].0).square();
+                    let p2 = self.q_and_mass[0].0 - self.q_and_mass[1].0;
+                    let p4 = self.q_and_mass[2].0 - self.q_and_mass[3].0;
+                    let m = (self.q_and_mass[3].0 - self.q_and_mass[0].0).square();
+
+                    //Soft CT
+                    let soft = -res_props[3] / s - res_props[0] / t;
+
+                    //Collinear CT
+                    let mut coll_ct = Complex::default();
+                    let mu_sq = Complex::new(0.0, 1e9);
+
+                    let k4v = LorentzVector::from_args(
+                        ki_plus[index] - self.q_and_mass[index].0[0],
+                        loop_momenta_eval[0],
+                        loop_momenta_eval[1],
+                        loop_momenta_eval[2],
+                    );
+
+                    let x2 = LoopLine::collinear_x(&k4v, &p2);
+                    let x4 = LoopLine::collinear_x(&k4v, &p4);
+
+                    coll_ct += (1. - m / s)
+                        * finv(t * (x2 * s + (1.0 - x2) * m))
+                        * res_props[2]
+                        * res_props[3]
+                        * mu_sq
+                        * finv(mu_sq - res_props[1]);
+
+                    coll_ct += (1. - m / t)
+                        * finv(s * ((1.0 - x4) * t + x4 * m))
+                        * res_props[0]
+                        * res_props[1]
+                        * mu_sq
+                        * finv(mu_sq - res_props[2]);
+
+                    res += (1.0 + soft - coll_ct) * Complex::new(0., -2. * PI) / denom;
                 }
             }
             (_, _) => {
@@ -641,16 +727,20 @@ impl LTD {
 
                 let k = l.map(|x| Complex::new(x, 0.)) + kappa.map(|x| Complex::new(0., x));
 
+                //Check which external legs are on-shell
                 let mut on_shell_flag = 0;
-                for i in 0..loop_line.q_and_mass.len() {
-                    if (loop_line.q_and_mass[i].0
-                        - loop_line.q_and_mass[(i + 1) % loop_line.q_and_mass.len()].0)
+                let points = loop_line.q_and_mass.len();
+                for i in 0..points {
+                    if (loop_line.q_and_mass[(points + i - 1) % points].0
+                        - loop_line.q_and_mass[i].0)
                         .square()
                         < 1e-10
                     {
                         on_shell_flag |= 2_usize.pow(i as u32);
                     }
                 }
+
+                //Evaluate
                 let res = loop_line.evaluate(&[k], on_shell_flag);
                 res * jac * def_jac
             }

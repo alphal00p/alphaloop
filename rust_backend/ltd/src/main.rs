@@ -55,7 +55,7 @@ fn main() {
         .set_seed(1)
         .set_cores(cores, 1000);
 
-    let (loops, e_cm, loop_lines) = topologies::create_topology("triangle-box");
+    let (loops, e_cm, loop_lines) = topologies::create_topology("onshell-box");
 
     let r = ci.vegas(
         3 * loops,
