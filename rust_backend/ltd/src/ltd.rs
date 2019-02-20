@@ -243,9 +243,9 @@ impl LoopLine {
                     //Compute CT
                     let s = (self.q_and_mass[1].0 - self.q_and_mass[3].0).square();
                     let t = (self.q_and_mass[0].0 - self.q_and_mass[2].0).square();
-                    let p2 = self.q_and_mass[0].0 - self.q_and_mass[1].0;
-                    let p4 = self.q_and_mass[2].0 - self.q_and_mass[3].0;
-                    let m = (self.q_and_mass[3].0 - self.q_and_mass[0].0).square();
+                    let p2 = self.q_and_mass[1].0 - self.q_and_mass[0].0;
+                    let p4 = self.q_and_mass[3].0 - self.q_and_mass[2].0;
+                    let m = (self.q_and_mass[0].0 - self.q_and_mass[3].0).square();
 
                     //Soft CT
                     let soft = -res_props[3] / s - res_props[0] / t;
@@ -261,29 +261,31 @@ impl LoopLine {
                         loop_momenta_eval[2],
                     );
 
-                    let x2 = LoopLine::collinear_x(&(k4v + &self.q_and_mass[0].0), &p2);
-                    let x4 = LoopLine::collinear_x(&(k4v + &self.q_and_mass[2].0), &p4);
+                    let x2 = -LoopLine::collinear_x(&(k4v + &self.q_and_mass[0].0), &p2);
+                    let x4 = -LoopLine::collinear_x(&(k4v + &self.q_and_mass[2].0), &p4);
 
                     //Prop1,2 are collinear to p2
-                    coll_ct += (1. - m / s)
-                        * finv(t * (x2 * s + (1.0 - x2) * m))
-                        * res_props[2]
-                        * res_props[3]
-                        * mu_sq
-                        * finv(mu_sq - res_props[1])
-                        * mu_sq
-                        * finv(mu_sq - res_props[0]);
-
+                    if x2.re * (1.0 - x2.re) > 0.0 {
+                        coll_ct += (1. - m / s)
+                            * finv(t * (x2 * s + (1.0 - x2) * m))
+                            * res_props[2]
+                            * res_props[3]
+                            * mu_sq
+                            * finv(mu_sq - res_props[1])
+                            * mu_sq
+                            * finv(mu_sq - res_props[0]);
+                    }
                     //Prop3,4 are collinear to p4
-                    coll_ct += (1. - m / t)
-                        * finv(s * ((1.0 - x4) * t + x4 * m))
-                        * res_props[0]
-                        * res_props[1]
-                        * mu_sq
-                        * finv(mu_sq - res_props[2])
-                        * mu_sq
-                        * finv(mu_sq - res_props[3]);
-
+                    if x4.re * (1.0 - x4.re) > 0.0 {
+                        coll_ct += (1. - m / t)
+                            * finv(s * ((1.0 - x4) * t + x4 * m))
+                            * res_props[0]
+                            * res_props[1]
+                            * mu_sq
+                            * finv(mu_sq - res_props[2])
+                            * mu_sq
+                            * finv(mu_sq - res_props[3]);
+                    }
                     res += (1.0 + soft - coll_ct) * Complex::new(0., -2. * PI) / denom;
                 }
             }
