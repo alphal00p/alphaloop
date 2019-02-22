@@ -109,6 +109,33 @@ impl LoopLine {
     }
 
     #[inline]
+    fn sij(&self, i: i32, j: i32) -> f64 {
+        let size = self.q_and_mass.len() as i32;
+        let index_i1 = if (i - 1) % size < 0 {
+            ((i - 1) % size) + size
+        } else {
+            (i - 1) % size
+        };
+        let index_i2 = (index_i1 + 1) % size;
+        let index_j1 = if (j - 1) % size < 0 {
+            ((j - 1) % size) + size
+        } else {
+            (j - 1) % size
+        };
+        let index_j2 = (index_j1 + 1) % size;
+
+        if index_i1 == index_j1 {
+            let pi = self.q_and_mass[index_i1 as usize].0 - self.q_and_mass[index_i2 as usize].0;
+            pi.square()
+        } else {
+            let pi = self.q_and_mass[index_i1 as usize].0 - self.q_and_mass[index_i2 as usize].0;
+            let pj = self.q_and_mass[index_j1 as usize].0 - self.q_and_mass[index_j2 as usize].0;
+
+            (pi + pj).square()
+        }
+    }
+
+    #[inline]
     //Compute the xi's for the collinear limits, here mom should always by on-shell
     fn collinear_x(loopmom: &LorentzVector<Complex>, mom: &LorentzVector<f64>) -> Complex {
         let eta = mom.dual();
@@ -230,9 +257,7 @@ impl LoopLine {
                         })
                         .collect();
 
-                    for (i, ((q, _mass), qplus)) in
-                        self.q_and_mass.iter().zip(ki_plus.iter()).enumerate()
-                    {
+                    for i in 0..self.q_and_mass.len() {
                         if i != index {
                             denom *= res_props[i];
                         } else {
@@ -265,8 +290,8 @@ impl LoopLine {
                     let x4 = -LoopLine::collinear_x(&(k4v + &self.q_and_mass[2].0), &p4);
 
                     //Prop1,2 are collinear to p2
-                    if x2.re * (1.0 - x2.re) > 0.0 {
-                        coll_ct += (1. - m / s)
+                    if false || x2.re * (1.0 - x2.re) > 0.0 {
+                        coll_ct += (0. - m / s)
                             * finv(t * (x2 * s + (1.0 - x2) * m))
                             * res_props[2]
                             * res_props[3]
@@ -276,8 +301,8 @@ impl LoopLine {
                             * finv(mu_sq - res_props[0]);
                     }
                     //Prop3,4 are collinear to p4
-                    if x4.re * (1.0 - x4.re) > 0.0 {
-                        coll_ct += (1. - m / t)
+                    if false || x4.re * (1.0 - x4.re) > 0.0 {
+                        coll_ct += (0. - m / t)
                             * finv(s * ((1.0 - x4) * t + x4 * m))
                             * res_props[0]
                             * res_props[1]
@@ -287,6 +312,116 @@ impl LoopLine {
                             * finv(mu_sq - res_props[3]);
                     }
                     res += (1.0 + soft - coll_ct) * Complex::new(0., -2. * PI) / denom;
+                    let cut_res = (1.0 + soft - coll_ct) * Complex::new(0., -2. * PI) / denom;
+                    if cut_res.is_nan() {
+                        println!(
+                            "Bad point (cut{}): k={},\n\t(1+CT)={:+.5e}, denom={:+.5e}",
+                            index,
+                            k4v,
+                            1.0 + soft - coll_ct,
+                            denom,
+                        );
+                    }
+                }
+            }
+            (_, _) => {
+                unimplemented!(
+                    "No match for the correspinding topology: on_shell_flag:{:.4b}, #qs: {}",
+                    on_shell_flag,
+                    loop_momenta_values.len()
+                );
+            }
+        };
+
+        let factor = Complex::new(0., -1. / (2. * PI).powi(loop_momenta_eval.len() as i32 + 1));
+        factor * res
+    }
+
+    /// Apply LTD to a loop line
+    pub fn evaluate_no_x(
+        &self,
+        loop_momenta_values: &[Vector3<Complex>],
+        on_shell_flag: usize,
+    ) -> Complex {
+        let mut loop_momenta_eval = Vector3::zeros();
+        for &(index, sign) in self.loop_momenta.iter() {
+            if sign {
+                loop_momenta_eval += loop_momenta_values[index];
+            } else {
+                loop_momenta_eval -= loop_momenta_values[index];
+            }
+        }
+
+        let ki_spatial: ArrayVec<[_; MAX_PROP]> = self
+            .q_and_mass
+            .iter()
+            .map(|(x, _mass)| LoopLine::spatial_vec(&x.to_complex(true)) + loop_momenta_eval)
+            .collect();
+        let ki_plus: ArrayVec<[_; MAX_PROP]> = ki_spatial
+            .iter()
+            .zip(&self.q_and_mass)
+            .map(|(x, (_q, m))| LoopLine::q_plus(x, *m))
+            .collect();
+
+        let mut res = Complex::new(0., 0.);
+        if LoopLine::q_plus(&loop_momenta_eval, 0.).norm() > 1e5 {
+            return res;
+        }
+        match (on_shell_flag, self.q_and_mass.len()) {
+            //Any 1-Loop topology with off-shell externals
+            (_, 4) => {
+                //Loop over all the possible cuts
+                for index in 0..self.q_and_mass.len() {
+                    //Propagators evaluated on the correpsonding cut
+                    let res_props: ArrayVec<[_; 4]> = self
+                        .q_and_mass
+                        .iter()
+                        .zip(ki_plus.iter())
+                        .map(|((q, _mass), qplus)| {
+                            LoopLine::inv_g_d(
+                                ki_plus[index],
+                                *qplus,
+                                Complex::new(q[0] - self.q_and_mass[index].0[0], 0.),
+                            )
+                        })
+                        .collect();
+
+                    //Compute Denominator
+                    let mut denom = Complex::new(1., 0.);
+
+                    for i in 0..self.q_and_mass.len() {
+                        if i != index {
+                            denom *= res_props[i];
+                        } else {
+                            denom *= 2. * ki_plus[index];
+                        }
+                    }
+
+                    //Compute CT
+                    let mut soft = Complex::default();
+
+                    for i in 0..self.q_and_mass.len() as i32 {
+                        let ai = (1.0
+                            - (self.sij(i - 1, i - 1) + self.sij(i + 2, i + 2))
+                                / self.sij(i, i + 1))
+                            / (self.sij(i - 1, i)
+                                - (self.sij(i, i) * self.sij(i + 2, i + 2)
+                                    + self.sij(i - 1, i - 1) * self.sij(i + 1, i + 1))
+                                    / self.sij(i, i + 1));
+                        soft -= ai * res_props[i as usize];
+                    }
+                    res += (1.0 + soft) * Complex::new(0., -2. * PI) / denom;
+
+                    //Check for bad points
+                    let cut_res = (1.0 + soft) * Complex::new(0., -2. * PI) / denom;
+                    if cut_res.is_nan() {
+                        println!(
+                            "Bad point (cut{}): \n\t(1+CT)={:+.5e}, denom={:+.5e}",
+                            index,
+                            1.0 + soft,
+                            denom,
+                        );
+                    }
                 }
             }
             (_, _) => {
@@ -358,8 +493,9 @@ impl LoopLine {
                 if i != j {
                     // only deform if this combination is an ellipsoid singularity
                     if self.singularity_matrix[i * self.q_and_mass.len() + j] {
-                        let inv =
-                            LoopLine::inv_g_d_dual(*dplus, *pplus, Dual4::from_real(p[0] - d[0]));
+                        //let inv =
+                        //    LoopLine::inv_g_d_dual(*dplus, *pplus, Dual4::from_real(p[0] - d[0]));
+                        let inv = *dplus + *pplus + Dual4::from_real(p[0] - d[0]);
                         let e = (-inv * inv / (aij * e_cm.powi(4))).exp();
                         kappa += -(dirs[i] + dirs[j]) * e;
                     }
@@ -736,13 +872,24 @@ impl LTD {
                         - loop_line.q_and_mass[i].0)
                         .square()
                         < 1e-10
+                    //TODO: ^^^ multiply discriminant by e_cm_sq
                     {
                         on_shell_flag |= 2_usize.pow(i as u32);
                     }
                 }
+                // println!("on_shell_flag={:0.4b}", on_shell_flag);
 
                 //Evaluate
-                let res = loop_line.evaluate(&[k], on_shell_flag);
+                let use_babis_ct = false;
+
+                let res = if use_babis_ct {
+                    loop_line.evaluate(&[k], on_shell_flag)
+                } else {
+                    loop_line.evaluate_no_x(&[k], on_shell_flag)
+                };
+                if res.is_nan() {
+                    println!("\tjac={:+.5e}, def_jac={:+.5e}", jac, def_jac);
+                }
                 res * jac * def_jac
             }
             2 => {
