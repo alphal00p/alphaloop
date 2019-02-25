@@ -11,7 +11,7 @@ class LTD:
 		self.sing_matrix = self.__find_singularity_matrix()
 		self.ellips_sing = self.__get_ellipsoid_singularities()
 		self.lambda_ij,self.A_ij = self.__set_deformation(1.,1e1)
-		self.max_scaling = 1e-1
+		self.max_scaling = 0.1
 		print 'Max. deformation scaling = ', self.max_scaling
 		self.curr_min_scaling = self.max_scaling
 	
@@ -638,8 +638,378 @@ class LTD:
 					if scaling_param < curr_min:
 						curr_min = scaling_param
 		return curr_min
+	
+	def get_parents(self,ll_nr):
+		""" find parent looplines of a given loopline """
+		start = self.looplines[ll_nr]['line'][0]
+		parents = []
+		for i,ll in enumerate(self.looplines):
+			if i != ll_nr:
+				if start in ll['line']:
+					if start == ll['line'][1]:
+						parents += [(i,True)]
+					else:
+						parents += [(i,False)]
+		return parents
+					
+	def initialize_dt_topology(self):
+		# DEFINE CYCLE AND IDENTIFY CUT STRUCTURE 
+		ll0,ll1,ll2 = {'line': [0,1]},{'line': [1,0]},{'line': [1,0]} #line==cycle definies the cut structures uniquely
+		self.cut_structures = [[(1,True),(-1,True),(1,False)],
+						[(1,True),(1,True),(-1,False)],
+						[(-1,True),(1,True),(1,True)]] #order: [ll0,ll1,ll2], this cut structure emerges from the cylce
 		
-			
+		# DEFINE EXTERNAL KINEMATICS ON LOOP LINES
+		p = numpy.array([5.,1.,0.,0.])
+		zero = numpy.zeros(4)
+		m = 0.
+		ll0['kinematics'] = [[m,zero],[m,p]]
+		ll1['kinematics'] = [[m,p],[m,zero]]
+		ll2['kinematics'] = [[m,zero]]
+		
+		# PUT THE LOOP MOMENTA ONTO THE LINES
+		# MY INITIAL WAY
+		ll0['orientation'] = [(0,True)]
+		ll1['orientation'] = [(1,True)]
+		ll2['orientation'] = [(0,True),(1,False)]
+		
+		# ZENO WAY
+		#ll0['orientation'] = [(0,True)]
+		#ll1['orientation'] = [(1,False)]
+		#ll2['orientation'] = [(0,True),(1,True)]
+		
+		# ANOTHER WAY
+		#ll1['orientation'] = [(0,False)]
+		#ll2['orientation'] = [(1,True)]
+		#ll0['orientation'] = [(0,False),(1,True)]
+		
+		self.looplines = [ll0,ll1,ll2]
+		self.possible_cuts = self.get_possible_cuts()
+		
+		return
+		
+	def get_looplines_prop(self,loop_momenta):
+		""" computes the sqrt[(l_space+p_space)**2 + m**2] of all looplines
+			looks like looplines_prop = [[q_i0p1],[q_i0p2],[q_i0p3]]"""
+		looplines_prop = []
+		for ll in self.looplines:
+			loop_momentum = numpy.zeros(3,dtype='complex')
+			for j,bool in ll['orientation']:
+				loop_momentum += loop_momenta[j]*(-1.)**(bool+1)
+			looplines_prop += [[self.q_0p(loop_momentum + p[1:],m) for m,p in ll['kinematics']]]
+		return looplines_prop
+	
+	def inv_G(self,x,y):
+		return x**2 - y**2
+		
+	def get_four_momenta(cut_energies,loop_momenta):
+		four_momenta = numpy.zeros(4)
+		for ll in self.looplines:
+			aa = ll['orientation']
+			if len(ll['orientation']) == 1:
+				four_momenta[aa[0]][1:] = (-1)**(aa[1]+1)*loop_momenta[aa[0]]
+				four_momenta[aa[0]][0] = (-1)**(aa[1]+1)*cut_energies[aa[0]]
+		return four_momenta
+	
+	def evaluate_ll(self,ll,c,cut_energy,ll_prop):
+		""" ll: loopline, c: cut index, cut_energy: energy comp of line momentum, ll_prop: Deltas of this line """
+		""" evaluates a loop line at a fixed cut momentum """
+		ll_residue = 1.
+		for i,kin in enumerate(ll['kinematics']):
+			if i != c:
+				ll_residue *= self.inv_G(cut_energy + kin[1][0],ll_prop[i])
+			else:
+				ll_residue *= 2*ll_prop[i]
+		return 1./ll_residue	
+	
+	def evaluate_cut(self,looplines_prop,cut):
+		""" cut looks like cut = [(1,True),(2,False),(-1,True)]
+			computes the residue of cuts of specific propagators """
+		line_energies = [None for i in xrange(len(cut))]
+		for i,c in enumerate(cut):
+			ll = self.looplines[i]
+			if c[0] != -1:
+				q_i0p = looplines_prop[i][c[0]]
+				p = ll['kinematics'][c[0]][1]
+				line_energies[i] = (-1.)**(c[1]+1)*q_i0p - p[0]
+		for ll_nr,line_energy in enumerate(line_energies):
+			if line_energy == None:
+				line_energies[ll_nr] = self.get_line_energy(ll_nr,line_energies)
+		ll_residues = []
+		for i,c in enumerate(cut):
+			ll_residues += [self.evaluate_ll(self.looplines[i],c[0],line_energies[i],looplines_prop[i])]
+		cut_residue = numpy.prod(ll_residues)
+		return cut_residue
+	
+	def get_line_energy(self,ll_nr,line_energies):
+		"""a recursive algorythm that computes the energy of the corresponding loop line,
+			should work for loops larger than 2 as well"""
+		new_line_energy = 0.
+		parents = self.get_parents(ll_nr)
+		for nr,sign in parents:
+			if line_energies[nr] == None:
+				line_energies[nr] = self.get_line_energy(nr,line_energies)
+			new_line_energy += (-1.)**(sign+1)*line_energies[nr]
+		return new_line_energy
+				
+	def evaluate_cut_structure(self,looplines_prop,cut_structure):
+		""" computes all residues of a cut structure """
+		a,b = [i for i,line in enumerate(cut_structure) if line[0]==1]
+		cut_residues = []
+		for cut_a,cut_b in itertools.product(self.possible_cuts[a],self.possible_cuts[b]):
+			cut = [(-1,True) for i in xrange(3)] #True/False arbitrary here
+			cut[a] = (cut_a,cut_structure[a][1])
+			cut[b] = (cut_b,cut_structure[b][1]) # looks like cut = [(1,True),(2,False),(-1,True)]
+			cut_residues += [self.evaluate_cut(looplines_prop,cut)]
+		cut_structure_residue = numpy.sum(cut_residues)
+		return cut_structure_residue
+				
+	def get_possible_cuts(self):
+		""" returns a list with indices of all possible cuts per loop line """
+		possible_cuts = [[],[],[]]
+		for ll_nr, ll in enumerate(self.looplines):
+			possible_cuts[ll_nr] += range(len(ll['kinematics']))
+		return possible_cuts
+	
+	def ltd_integrand(self,x):
+		k0_space,wgt_0 = self.parametrize_analytic(x[3:])
+		k1_space,wgt_1 = self.parametrize_analytic(x[:3])
+		kappa0,kappa1,jac = self.hardcoded_dt_def(k0_space,k1_space,self.looplines[1]['kinematics'][0][1])
+		#kappa0,kappa1,jac = numpy.zeros(3),numpy.zeros(3),1.
+		loop_momenta = [k0_space+1j*kappa0,k1_space+1j*kappa1]
+		looplines_prop = self.get_looplines_prop(loop_momenta)
+		full_residue = 0.
+		for cut_structure in self.cut_structures:
+			full_residue += self.evaluate_cut_structure(looplines_prop,cut_structure)
+		ltd_factor = (-2*numpy.pi*1j)**len(loop_momenta)
+		standard_factor = (-1j/numpy.pi**2)**len(loop_momenta)
+		return full_residue*wgt_0*wgt_1*ltd_factor*standard_factor*jac
+	
+	def ltd_integrate(self,integrand, N_train=1000, N_refine=1000):
+		numpy.random.seed(0)
+		batch_size = 600
+		real_integr = lambda x: integrand(x).real
+		imag_integr = lambda x: integrand(x).imag
+		real_vegas3_integrator = vegas.Integrator(2*self.dim * [[0., 1.]], nhcube_batch=batch_size)
+		imag_vegas3_integrator = vegas.Integrator(2*self.dim * [[0., 1.]], nhcube_batch=batch_size)
+		# train
+		real_vegas3_integrator(real_integr,nitn=7, neval=N_train)
+		imag_vegas3_integrator(imag_integr,nitn=7, neval=N_train)
+		# refine
+		real_result = real_vegas3_integrator(real_integr,nitn=10, neval=N_refine)
+		imag_result = imag_vegas3_integrator(imag_integr,nitn=10, neval=N_refine)
+		print('\n'+real_result.summary()+'\n'+imag_result.summary())
+		#print('\n'+real_result.summary())
+		real_vegas3_integrator.map.show_grid()
+		imag_vegas3_integrator.map.show_grid()
+		return [real_result,imag_result]
+	
+	def dt_fct(self,k_space,l_space,p,m):
+		ll1 = [0,1]
+		ll2 = [2,3]
+		ll3 = [4]
+		k_ji0 = [0.,p[0],0.,p[0],0.]
+		q_ispace = [k_space,k_space+p[1:],l_space,l_space+p[1:],k_space-l_space]
+		q_i0p = [self.q_0p(q_space,m) for q_space in q_ispace]
+		
+		all_residues = [[0,2],[0,3],[1,2],[1,3],[0,4],[1,4],[2,4],[3,4]] # i < j for now
+		
+		inv_G = lambda x,y: (x**2-y**2)
+		
+		#residue_factor = -(2.*numpy.pi)**2
+		res = 0.
+		residues = []
+		for a,b in all_residues:
+			delta_a = (2.*q_i0p[a])
+			delta_b = (2.*q_i0p[b])
+			if a in ll1 and b in ll2:
+				prop_ll1 = [inv_G(q_i0p[a]+(k_ji0[j]-k_ji0[a]),q_j0p) for j,q_j0p in enumerate(q_i0p) if (j in ll1 and j != a)]
+				prop_ll2 = [inv_G(q_i0p[b]+(k_ji0[j]-k_ji0[b]),q_j0p) for j,q_j0p in enumerate(q_i0p) if (j in ll2 and j != b)]
+				prop_ll3 = [inv_G(q_i0p[a]-q_i0p[b]+(k_ji0[j]-k_ji0[a]+k_ji0[b]),q_j0p) for j,q_j0p in enumerate(q_i0p) if j in ll3]
+			elif a in ll1 and b in ll3:
+				prop_ll1 = [inv_G(q_i0p[a]+(k_ji0[j]-k_ji0[a]),q_j0p) for j,q_j0p in enumerate(q_i0p) if (j in ll1 and j != a)]
+				prop_ll2 = [inv_G(q_i0p[a]+q_i0p[b]+(k_ji0[j]-k_ji0[a]-k_ji0[b]),q_j0p) for j,q_j0p in enumerate(q_i0p) if j in ll2]
+				prop_ll3 = []
+			elif a in ll2 and b in ll3:
+				prop_ll1 = [inv_G(q_i0p[a]+q_i0p[b]+(k_ji0[j]-k_ji0[a]-k_ji0[b]),q_j0p) for j,q_j0p in enumerate(q_i0p) if j in ll1]
+				prop_ll2 = [inv_G(q_i0p[a]+(k_ji0[j]-k_ji0[a]),q_j0p) for j,q_j0p in enumerate(q_i0p) if (j in ll2 and j != a)]
+				prop_ll3 = []
+			residues += [numpy.prod(prop_ll1+prop_ll2+prop_ll3)*delta_a*delta_b]
+		#for residue in residues:
+		#	print residue
+		res = numpy.sum(1./numpy.array(residues))
+		return res
+	
+	def hardcoded_dt(self,k_space,l_space,p,m):
+		d_k = self.q_0p(k_space,m)
+		d_l = self.q_0p(l_space,m)
+		d_kp = self.q_0p(k_space+p[1:],m)
+		d_kl = self.q_0p(k_space-l_space,m)
+		d_lp = self.q_0p(l_space+p[1:],m)
+		p0 = p[0]
+		
+		inv_G = lambda x,y: (x**2-y**2)
+		# 16 propagators = 4/2*3 + 4*3/2 + 4
+		G_kp_kl_l = inv_G(d_kp+d_kl-p0,d_l)
+		G_kp_kl_lp = inv_G(d_kp+d_kl,d_lp)
+		G_kp_l_kl = inv_G(d_kp-d_l-p0,d_kl)
+		G_kp_lp_kl = inv_G(d_kp-d_lp,d_kl)
+		G_lp_kl_k = inv_G(d_lp+d_kl-p0,d_k)
+		G_k_kl_lp = inv_G(d_k+d_kl+p0,d_lp)
+		G_k_kl_l = inv_G(d_k+d_kl,d_l)
+		G_kl_l_k = inv_G(d_kl+d_l,d_k)
+		G_kl_l_kp = inv_G(d_kl+d_l+p0,d_kp)
+		G_kl_lp_kp = inv_G(d_kl+d_lp,d_kp)
+		G_k_lp_kl = inv_G(d_k-d_lp+p0,d_kl)
+		G_k_l_kl = inv_G(d_k-d_l,d_kl)
+		G_kp_k = inv_G(d_kp-p0,d_k)
+		G_lp_l = inv_G(d_lp-p0,d_l)
+		G_k_kp = inv_G(d_k+p0,d_kp)
+		G_l_lp = inv_G(d_l+p0,d_lp)
+		
+		res1fact = (2*d_k)*G_k_kp
+		res11 = res1fact*G_k_l_kl*G_l_lp*(2*d_l)
+		res12 = res1fact*G_k_lp_kl*(2*d_lp)*G_lp_l
+		res13 = res1fact*(2*d_kl)*G_k_kl_lp*G_k_kl_l
+		
+		#res1fact = (2*d_k)*inv_G(d_k+p[0],d_kp)
+		#res11 = res1fact*inv_G(d_k-d_l,d_kl)*inv_G(d_l+p[0],d_lp)*(2*d_l)
+		#res12 = res1fact*inv_G(d_k-d_lp + p[0],d_kl)*(2*d_lp)*inv_G(d_lp-p[0],d_l)
+		#res13 = res1fact*(2*d_kl)*inv_G(d_k+d_kl+p[0],d_lp)*inv_G(d_k+d_kl,d_l)
+		
+		res2fact = G_kp_k*(2*d_kp)
+		res21 = res2fact*G_kp_l_kl*G_l_lp*(2*d_l)
+		res22 = res2fact*G_kp_lp_kl*(2*d_lp)*G_lp_l
+		res23 = res2fact*(2*d_kl)*G_kp_kl_lp*G_kp_kl_l
+		
+		#res2fact = inv_G(d_kp-p[0],d_k)*(2*d_kp)
+		#res21 = res2fact*inv_G(d_kp-d_l-p[0],d_kl)*inv_G(d_l+p[0],d_lp)*(2*d_l)
+		#res22 = res2fact*inv_G(d_kp-d_lp,d_kl)*(2*d_lp)*inv_G(d_lp-p[0],d_l)
+		#res23 = res2fact*(2*d_kl)*inv_G(d_kp+d_kl,d_lp)*inv_G(d_kp+d_kl-p[0],d_l)
+		
+		res31 = inv_G(d_kl+d_l,d_k)*inv_G(d_kl+d_l+p[0],d_kp)*(2*d_kl)*inv_G(d_l+p[0],d_lp)*(2*d_l)
+		res32 = inv_G(d_kl+d_lp-p[0],d_k)*inv_G(d_kl+d_lp,d_kp)*(2*d_kl)*(2*d_lp)*inv_G(d_lp-p[0],d_l)
+		
+		residues = [res11,res12,res21,res22,res13,res23,res31,res32]
+		#for residue in residues:
+		#	print residue
+		res = numpy.sum(1./numpy.array(residues))
+		
+		return res
+	
+	def get_dual_vec(self,k_space,l_space):
+		vec = numpy.append(k_space,l_space)
+		vec_dual = [0.]*2*self.dim
+		for i in xrange(2*self.dim):
+			vec_dual[i] = adipy.ad(vec[i], numpy.array([0. if j !=i  else 1. for j in xrange(2*self.dim)]))
+		return vec_dual
+	
+	def hardcoded_dt_def(self,k_space,l_space,p):
+		vec_dual = self.get_dual_vec(k_space,l_space)
+		k_space = vec_dual[:3]
+		l_space = vec_dual[3:]
+		p_space = p[1:]
+		p0 = p[0]
+		
+		k_minus_l = numpy.array([k_sp-l_sp for k_sp,l_sp in zip(k_space,l_space)])
+		
+		sigma_squared = 0.1*abs(p0**2-numpy.sum(p_space**2))
+		k_p = self.norm(k_space+p_space)
+		l_p = self.norm(l_space+p_space)
+		k_l = self.norm(k_minus_l)
+		l = self.norm(l_space)
+		k = self.norm(k_space)
+		
+		inv_G = lambda x,y: x**2-y**2
+		exp_tri_k = k_p+k_l+l-p0
+		exp_tri_l = l_p+k_l-p0+k
+		exp_dua_k = k_p-p0+k
+		exp_dua_l = l_p-p0+l
+		
+		f_tri_k = adipy.exp(-(exp_tri_k**2)/sigma_squared)
+		f_tri_l = adipy.exp(-(exp_tri_l**2)/sigma_squared)
+		f_tri_k2 = f_tri_l
+		f_tri_l2 = f_tri_k
+ 				
+		f_dua_k = adipy.exp(-(exp_dua_k**2)/sigma_squared)
+		f_dua_l = adipy.exp(-(exp_dua_l**2)/sigma_squared)
+		
+		dir_kp = numpy.array([(k_sp+p_sp)/k_p for k_sp,p_sp in zip(k_space,p_space)])
+		dir_lp = numpy.array([(l_sp+p_sp)/l_p for l_sp,p_sp in zip(l_space,p_space)])
+		dir_kl = numpy.array([k_minus_l_sp/k_l for k_minus_l_sp in k_minus_l])
+		dir_k = numpy.array([k_sp/k for k_sp in k_space])
+		dir_l = numpy.array([l_sp/l for l_sp in l_space])
+		
+		dir_tri_k = dir_kp + dir_kl
+		dir_tri_l = dir_lp - dir_kl
+		dir_tri_k2 = dir_k + dir_kl
+		dir_tri_l2 = dir_l - dir_kl
+		
+		dir_dua_k = dir_k + dir_kp
+		dir_dua_l = dir_l + dir_lp
+
+		kapp_tri_k = numpy.array([dir*f_tri_k for dir in dir_tri_k])
+		kapp_tri_l = numpy.array([dir*f_tri_l for dir in dir_tri_l])
+		kapp_tri_k2 = numpy.array([dir*f_tri_k2 for dir in dir_tri_k2])
+		kapp_tri_l2 = numpy.array([dir*f_tri_l2 for dir in dir_tri_l2])
+		kapp_dua_k = numpy.array([dir*f_dua_k for dir in dir_dua_k])
+		kapp_dua_l = numpy.array([dir*f_dua_l for dir in dir_dua_l])
+				
+		lambda_k = lambda_l = self.max_scaling
+		kappa_k = - lambda_k * ( kapp_tri_k + kapp_tri_k2 + kapp_dua_k)
+		kappa_l = - lambda_l * ( kapp_tri_l + kapp_tri_l2 + kapp_dua_l)
+		
+		"""
+		scaling_param_k = self.get_scaling_param(k_space,kappa_k)
+		scaling_param_l = self.get_scaling_param(l_space,kappa_l)
+		for i in xrange(self.dim):
+			kappa_k[i] *= scaling_param_k
+			kappa_l[i] *= scaling_param_l
+			if scaling_param_k < self.curr_min_scaling:
+				self.curr_min_scaling = scaling_param_k
+				print 'Current min. scaling', self.curr_min_scaling
+			elif scaling_param_l < self.curr_min_scaling:
+				self.curr_min_scaling = scaling_param_l
+				print 'Current min. scaling', self.curr_min_scaling
+		"""
+		
+		full_jac = adipy.jacobian(vec_dual + 1j*numpy.append(kappa_k,kappa_l))
+		det_jac = numpy.linalg.det(full_jac)
+		kappa_k = numpy.array([kapp.nom for kapp in kappa_k])
+		kappa_l = numpy.array([kapp.nom for kapp in kappa_l])	
+		
+		return kappa_k,kappa_l,det_jac
+		
+	def hardcoded_dt_integrand(self,x,p,m):
+		l_space,wgt_l = self.parametrize_analytic(x[3:])
+		k_space,wgt_k = self.parametrize_analytic(x[:3])
+		kappa_k,kappa_l,jac = self.hardcoded_dt_def(k_space,l_space,p)
+		#kappa_k,kappa_l,jac = numpy.zeros(3),numpy.zeros(3),1.
+		res = self.hardcoded_dt(k_space+1j*kappa_k,l_space+1j*kappa_l,p,m)
+		ltd_factor = (-2*numpy.pi*1j)**2
+		standard_factor = (-1j/numpy.pi**2)**2
+		result = wgt_k*wgt_l*jac*res*ltd_factor*standard_factor
+		return result
+	
+	def hardcoded_dt_integrate(self,integrand, N_train=1000, N_refine=1000):
+		numpy.random.seed(0)
+		batch_size = 600
+		real_integr = lambda x: integrand(x).real
+		imag_integr = lambda x: integrand(x).imag
+		real_vegas3_integrator = vegas.Integrator(2*self.dim * [[0., 1.]], nhcube_batch=batch_size)
+		imag_vegas3_integrator = vegas.Integrator(2*self.dim * [[0., 1.]], nhcube_batch=batch_size)
+		# train
+		real_vegas3_integrator(real_integr,nitn=7, neval=N_train)
+		imag_vegas3_integrator(imag_integr,nitn=7, neval=N_train)
+		# refine
+		real_result = real_vegas3_integrator(real_integr,nitn=10, neval=N_refine)
+		imag_result = imag_vegas3_integrator(imag_integr,nitn=10, neval=N_refine)
+		print('\n'+real_result.summary()+'\n'+imag_result.summary())
+		#print('\n'+real_result.summary())
+		real_vegas3_integrator.map.show_grid()
+		imag_vegas3_integrator.map.show_grid()
+		return [real_result,imag_result]
+		
 if __name__ == "__main__":
 	
 	import numpy as numpy
@@ -647,6 +1017,7 @@ if __name__ == "__main__":
 	import vegas
 	import adipy as adipy
 	import time
+	import itertools
 	#import warnings
 	#warnings.simplefilter("error")
 	#warnings.simplefilter("ignore", DeprecationWarning)
@@ -655,20 +1026,27 @@ if __name__ == "__main__":
 
 	print '='*(2*36+7) + '\n' + '='*36+' hello '+'='*36 + '\n' + '='*(2*36+7)
 	
-	my_LTD = LTD('P3')
+	my_LTD = LTD('P6')
 	#my_LTD.test_sign_on_fb_intersect(N=1000)
 
 	#pair = [0,1]
 	#k_a, m_a, k_b, m_b = my_LTD.k_i[pair[0]],my_LTD.m_i[pair[0]],my_LTD.k_i[pair[1]],my_LTD.m_i[pair[1]]
 	#l = my_LTD.generate_point_on_fb_intersect(k_a,m_a,k_b,m_b)
-
-	all_duals = range(my_LTD.n)
-	integr = lambda x: my_LTD.dual_integrand(x,which_duals=all_duals)
+	
+	#all_duals = range(my_LTD.n)
+	#integr = lambda x: my_LTD.dual_integrand(x,which_duals=all_duals)
 
 	#integr([0.3,0.5,0.9])
 	#stop
 
-	result = my_LTD.integrate(integr,N_refine=1000,share_grid=False)
+	#result = my_LTD.integrate(integr,N_refine=1000,share_grid=False)
+	
+	
+	#integr = lambda x: my_LTD.hardcoded_dt_integrand(x,numpy.array([5.,1.,0.,0.]),0.)
+	#result = my_LTD.hardcoded_dt_integrate(integr,N_refine=10000)
+	
+	my_LTD.initialize_dt_topology()
+	result = my_LTD.ltd_integrate(my_LTD.ltd_integrand,N_refine=10000)
 	
 	print '='*(2*36+7)
 	print 'I = ', result[0], '+ i',result[1]
