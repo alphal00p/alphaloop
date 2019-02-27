@@ -6,6 +6,7 @@ class LTD:
 		self.p_i, self.m_i = self.__select_config(config_string)
 		self.n,self.dim = [len(self.m_i), len(self.p_i[0]) - 1]
 		self.scale = self.__get_scale()
+		self.scale = 10.
 		self.tolerance = 1e-7
 		self.k_i = self.__get_k_i()
 		self.sing_matrix = self.__find_singularity_matrix()
@@ -651,6 +652,77 @@ class LTD:
 					else:
 						parents += [(i,False)]
 		return parents
+	
+	def initialize_one_loop_topology(self):
+		ll0 = {'line': [0,1]}
+		self.cut_structures = [[(1,True)]]
+		#P1 in https://arxiv.org/pdf/1510.00187.pdf
+		p1 = numpy.array([5.23923,-4.18858,0.74966,-3.05669])
+		p2 = numpy.array([6.99881,-2.93659,5.03338,3.87619])
+		m1 = m2 = m3 = 7.73358
+		p_i = [p1,p2]
+		m_i = [m1,m2,m3]
+		ll0['kinematics'] = [[m1,p1],[m2,p2],[m3,numpy.zeros(4)]]
+		ll0['orientation'] = [(0,True)]
+		
+		self.looplines = [ll0]
+		self.possible_cuts = self.get_possible_cuts()
+		self.dim = 3
+		return
+	
+	def initialize_triangle_box_topology(self):
+		ll0,ll1,ll2 = {'line': [0,1]},{'line': [1,0]},{'line': [1,0]} #line==cycle definies the cut structures uniquely
+		self.cut_structures = [[(1,True),(-1,True),(1,False)],
+						[(1,True),(1,True),(-1,False)],
+						[(-1,True),(1,True),(1,True)]] #order: [ll0,ll1,ll2], this cut structure emerges from the cylce
+		
+		# DEFINE EXTERNAL KINEMATICS ON LOOP LINES
+		p1 = numpy.array([1.,5.,0.,0.])
+		p2 = numpy.array([1.,0.,4.,0.])
+		zero = numpy.zeros(4)
+		m = 0.
+		ll0['kinematics'] = [[m,zero],[m,p1]]
+		ll1['kinematics'] = [[m,p1],[m,p1+p2],[m,zero]]
+		ll2['kinematics'] = [[m,zero]]
+		
+		# PUT THE LOOP MOMENTA ONTO THE LINES
+		# MY INITIAL WAY
+		ll0['orientation'] = [(0,True)]
+		ll1['orientation'] = [(1,True)]
+		ll2['orientation'] = [(0,True),(1,False)]
+		self.looplines = [ll0,ll1,ll2]
+		self.possible_cuts = self.get_possible_cuts()
+		self.dim = 6
+		
+		#p1 = numpy.array([39.7424, -14.1093, 0.102709, 20.4908])
+		#p2 = numpy.array([50.2576, 14.1093, -0.102709, -20.4908])
+		#p3 = numpy.array([-90, 0, 0, 0])
+		
+		p3 = -p1-p2
+		s3 = p1[0]**2 - self.norm(p1[1:])**2
+		s2 = p2[0]**2 - self.norm(p2[1:])**2
+		s1 = p3[0]**2 - self.norm(p3[1:])**2
+		
+		x,y = s1/s3,s2/s3
+		lambd = lambda x,y: numpy.sqrt((1-x-y)**2 - 4*x*y - 0.j)
+		#print lambd(x,y)
+		rho = lambda x,y: 2./(1-x-y+lambd(x,y))
+		def phi2(x,y):
+			aa = -1./(2*lambd(x,y))
+			bb = 0.
+			for j in xrange(2,5):
+				cc = (-1.)**j*math.factorial(j)*numpy.log(y/x)**(4-j)
+				dd = math.factorial(j-2)*math.factorial(4-j)
+				ee = (mpmath.polylog(j,-1./(x*rho(x,y))) - mpmath.polylog(j,-y*rho(x,y)))
+				bb += cc*ee/dd
+			return aa*bb
+			
+		C2 = lambda s1,s2,s3 : (1j/(16.*numpy.pi**2*s3))**2 * phi2(s1/s3,s2/s3)
+		
+		print C2(s1,s2,s3)*((2.*numpy.pi)**4)**2*(-1j/numpy.pi**2)**2
+		
+		
+		return
 					
 	def initialize_dt_topology(self):
 		# DEFINE CYCLE AND IDENTIFY CUT STRUCTURE 
@@ -660,7 +732,7 @@ class LTD:
 						[(-1,True),(1,True),(1,True)]] #order: [ll0,ll1,ll2], this cut structure emerges from the cylce
 		
 		# DEFINE EXTERNAL KINEMATICS ON LOOP LINES
-		p = numpy.array([5.,1.,0.,0.])
+		p = numpy.array([1.,5.,0.,0.])
 		zero = numpy.zeros(4)
 		m = 0.
 		ll0['kinematics'] = [[m,zero],[m,p]]
@@ -685,6 +757,7 @@ class LTD:
 		
 		self.looplines = [ll0,ll1,ll2]
 		self.possible_cuts = self.get_possible_cuts()
+		self.dim = 6
 		
 		return
 		
@@ -695,7 +768,7 @@ class LTD:
 		for ll in self.looplines:
 			loop_momentum = numpy.zeros(3,dtype='complex')
 			for j,bool in ll['orientation']:
-				loop_momentum += loop_momenta[j]*(-1.)**(bool+1)
+				loop_momentum += loop_momenta[j]*(-1)**(bool+1)
 			looplines_prop += [[self.q_0p(loop_momentum + p[1:],m) for m,p in ll['kinematics']]]
 		return looplines_prop
 	
@@ -731,7 +804,7 @@ class LTD:
 			if c[0] != -1:
 				q_i0p = looplines_prop[i][c[0]]
 				p = ll['kinematics'][c[0]][1]
-				line_energies[i] = (-1.)**(c[1]+1)*q_i0p - p[0]
+				line_energies[i] = (-1)**(c[1]+1)*q_i0p - p[0]
 		for ll_nr,line_energy in enumerate(line_energies):
 			if line_energy == None:
 				line_energies[ll_nr] = self.get_line_energy(ll_nr,line_energies)
@@ -754,44 +827,55 @@ class LTD:
 				
 	def evaluate_cut_structure(self,looplines_prop,cut_structure):
 		""" computes all residues of a cut structure """
-		a,b = [i for i,line in enumerate(cut_structure) if line[0]==1]
+		cut_indices = [i for i,line in enumerate(cut_structure) if line[0]==1]
 		cut_residues = []
-		for cut_a,cut_b in itertools.product(self.possible_cuts[a],self.possible_cuts[b]):
-			cut = [(-1,True) for i in xrange(3)] #True/False arbitrary here
-			cut[a] = (cut_a,cut_structure[a][1])
-			cut[b] = (cut_b,cut_structure[b][1]) # looks like cut = [(1,True),(2,False),(-1,True)]
+		for ll_cuts in itertools.product(*[self.possible_cuts[i] for i in cut_indices]):
+			cut = [(-1,True) for i in xrange(len(self.looplines))] #True/False arbitrary here
+			for i,ll_cut in zip(cut_indices,ll_cuts):
+				cut[i] = (ll_cut,cut_structure[i][1])
 			cut_residues += [self.evaluate_cut(looplines_prop,cut)]
 		cut_structure_residue = numpy.sum(cut_residues)
 		return cut_structure_residue
 				
 	def get_possible_cuts(self):
 		""" returns a list with indices of all possible cuts per loop line """
-		possible_cuts = [[],[],[]]
+		possible_cuts = [[] for ll in self.looplines]
 		for ll_nr, ll in enumerate(self.looplines):
 			possible_cuts[ll_nr] += range(len(ll['kinematics']))
 		return possible_cuts
 	
 	def ltd_integrand(self,x):
-		k0_space,wgt_0 = self.parametrize_analytic(x[3:])
-		k1_space,wgt_1 = self.parametrize_analytic(x[:3])
-		kappa0,kappa1,jac = self.hardcoded_dt_def(k0_space,k1_space,self.looplines[1]['kinematics'][0][1])
-		#kappa0,kappa1,jac = numpy.zeros(3),numpy.zeros(3),1.
-		loop_momenta = [k0_space+1j*kappa0,k1_space+1j*kappa1]
+		N_loop = len(x)/3
+		loop_momenta = [numpy.zeros(3) for i in xrange(N_loop)]
+		wgt = numpy.zeros(N_loop)
+		for i in xrange(len(x)/3):
+			loop_momenta[i], wgt[i] = self.parametrize_analytic(x[(i*3):(i+1)*3])
+		deform = False
+		if deform:
+			if N_loop == 1:
+				kappa,jac = self.deform_contour(loop_momenta[0], numerical_jac = True, per_point_rescale = True)
+				loop_momenta = [loop_momenta[0]+1j*kappa]
+			elif N_loop == 2:
+				kappa0,kappa1,jac = self.hardcoded_dt_def(k0_space,k1_space,self.looplines[1]['kinematics'][0][1])
+				loop_momenta = [loop_momenta[0]+1j*kappa0,loop_momenta[1]+1j*kappa1]
+		else:
+			jac = 1.
 		looplines_prop = self.get_looplines_prop(loop_momenta)
 		full_residue = 0.
 		for cut_structure in self.cut_structures:
 			full_residue += self.evaluate_cut_structure(looplines_prop,cut_structure)
 		ltd_factor = (-2*numpy.pi*1j)**len(loop_momenta)
 		standard_factor = (-1j/numpy.pi**2)**len(loop_momenta)
-		return full_residue*wgt_0*wgt_1*ltd_factor*standard_factor*jac
+		#alt_factor = (1./(2.*numpy.pi)**4)**len(loop_momenta)
+		return full_residue*numpy.prod(wgt)*ltd_factor*standard_factor*jac
 	
 	def ltd_integrate(self,integrand, N_train=1000, N_refine=1000):
 		numpy.random.seed(0)
 		batch_size = 600
 		real_integr = lambda x: integrand(x).real
 		imag_integr = lambda x: integrand(x).imag
-		real_vegas3_integrator = vegas.Integrator(2*self.dim * [[0., 1.]], nhcube_batch=batch_size)
-		imag_vegas3_integrator = vegas.Integrator(2*self.dim * [[0., 1.]], nhcube_batch=batch_size)
+		real_vegas3_integrator = vegas.Integrator(self.dim * [[0., 1.]], nhcube_batch=batch_size)
+		imag_vegas3_integrator = vegas.Integrator(self.dim * [[0., 1.]], nhcube_batch=batch_size)
 		# train
 		real_vegas3_integrator(real_integr,nitn=7, neval=N_train)
 		imag_vegas3_integrator(imag_integr,nitn=7, neval=N_train)
@@ -1009,7 +1093,171 @@ class LTD:
 		real_vegas3_integrator.map.show_grid()
 		imag_vegas3_integrator.map.show_grid()
 		return [real_result,imag_result]
+
+class LTDnLoop:
+	def __init__(self,topology):
+		self.loop_lines         = topology.loop_lines
+		self.ltd_cut_structure  = topology.ltd_cut_structure
+		self.n_loops            = topology.n_loops 
+		self.name               = topology.name
+		self.scale				= 10.
+		self.possible_cuts		= self.get_possible_cuts()
+	
+	def delta(self,q_space,m):
+		on_f_shell = adipy.sqrt(self.norm(q_space)**2 + m**2)
+		return on_f_shell
 		
+	def norm(self,q):
+		"""for complex and real q arrays
+		not the same as numpy.linalg.norm for complex numbers!!"""
+		return adipy.sqrt(numpy.sum([q_i*q_i for q_i in q]))
+		
+	def parametrize_analytic(self,random):
+		wgt = 1.
+		radius = self.scale*random[0]/(1.-random[0])
+		wgt *= (self.scale+radius)**2/self.scale
+		assert(len(random) > 1)
+		phi = 2*numpy.pi*random[1]
+		wgt *= 2*numpy.pi
+		if len(random)==3:	
+			cos_theta = -1.+2.*random[2]
+			wgt *= 2.
+			sin_theta = numpy.sqrt(1.-cos_theta**2)
+			l_space = radius*numpy.array([sin_theta*numpy.cos(phi), sin_theta*numpy.sin(phi),cos_theta])
+			wgt *= radius**2 #spherical coord
+		elif len(random)==2:
+			l_space = radius*numpy.array([numpy.cos(phi), numpy.sin(phi)])
+			wgt *= radius
+		return l_space, wgt
+	
+	def get_parents(self,ll_nr):
+		""" find parent looplines of a given loopline """
+		start = self.loop_lines[ll_nr].start_node
+		parents = []
+		for i,loop_line in enumerate(self.loop_lines):
+			if i != ll_nr:
+				if start == loop_line.start_node:
+					parents += [(i,False)]
+				elif start == loop_line.end_node:
+					parents += [(i,True)]
+		return parents
+	
+	def get_deltas(self,loop_momenta):
+		""" computes the sqrt[(l_space+p_space)**2 + m**2] of all looplines
+			looks like looplines_prop = [[q_i0p1],[q_i0p2],[q_i0p3]]"""
+		deltas = []
+		for loop_line in self.loop_lines:
+			loop_momentum = numpy.sum([l*sign for l,sign in zip(loop_momenta,loop_line.signature)],axis=0)
+			deltas += [[self.delta(loop_momentum + prop.q[1:],numpy.sqrt(prop.m_squared)) for prop in loop_line.propagators]]
+		return deltas
+	
+	def inv_G(self,x,y):
+		return x**2 - y**2
+		
+	def get_four_momenta(self,cut_energies,loop_momenta):
+		four_momenta = [numpy.zeros(4) for i in xrange(self.n_loops)]
+		for loop_line in self.loop_lines:
+			aa = loop_line.signature
+			if numpy.sum(aa**2) == 1:
+				index = numpy.absolute(aa).index(1)
+				four_momenta[index][1:] = aa[index]*loop_momenta[aa[0]]
+				four_momenta[index][0] = aa[index]*cut_energies[aa[0]]
+		return four_momenta
+	
+	def evaluate_ll(self,loop_line,c,cut_energy,delta):
+		""" ll: loopline, c: cut index, cut_energy: energy comp of line momentum, ll_prop: Deltas of this line """
+		""" evaluates a loop line at a fixed cut momentum """
+		ll_residue = 1.
+		for i,prop in enumerate(loop_line.propagators):
+			if i != c:
+				ll_residue *= self.inv_G(cut_energy + prop.q[0],delta[i])
+			else:
+				ll_residue *= 2*delta[i]
+		return 1./ll_residue	
+	
+	def evaluate_cut(self,deltas,cut):
+		""" cut looks like cut = [(0,True),(2,False),(-1,True)]
+			computes the residue of cuts of specific propagators """
+		line_energies = [(-1)**(c[1]+1)*delta[c[0]] - loop_line.propagators[c[0]].q[0] if c[0] != -1
+							else None
+							for loop_line,delta,c in zip(self.loop_lines,deltas,cut)]
+		for ll_nr,line_energy in enumerate(line_energies):
+			if line_energy == None:
+				line_energies[ll_nr] = self.get_line_energy(ll_nr,line_energies)
+		ll_residues = []
+		for loop_line,c,line_energy,delta in zip(self.loop_lines,cut,line_energies,deltas):
+			ll_residues += [self.evaluate_ll(loop_line,c[0],line_energy,delta)]
+		cut_residue = numpy.prod(ll_residues)
+		return cut_residue
+	
+	def get_line_energy(self,ll_nr,line_energies):
+		"""a recursive algorythm that computes the energy of the corresponding loop line,
+			should work for loops larger than 2 as well"""
+		new_line_energy = 0.
+		parents = self.get_parents(ll_nr)
+		for nr,sign in parents:
+			if line_energies[nr] == None:
+				line_energies[nr] = self.get_line_energy(nr,line_energies)
+			new_line_energy += (-1.)**(sign+1)*line_energies[nr]
+		return new_line_energy
+				
+	def evaluate_cut_structure(self,deltas,cut_structure):
+		""" computes all residues of a cut structure """
+		cut_indices = [i for i,line in enumerate(cut_structure) if abs(line)==1]
+		cut_residues = []
+		for ll_cuts in itertools.product(*[self.possible_cuts[i] for i in cut_indices]):
+			cut = [(-1,True) for i in xrange(len(self.loop_lines))] #True/False arbitrary here
+			for i,ll_cut in zip(cut_indices,ll_cuts):
+				cut[i] = (ll_cut,bool(cut_structure[i]+1))
+			cut_residues += [self.evaluate_cut(deltas,cut)]
+		cut_structure_residue = numpy.sum(cut_residues)
+		return cut_structure_residue
+				
+	def get_possible_cuts(self):
+		""" returns a list with indices of all possible cuts per loop line """
+		possible_cuts = [range(len(loop_line.propagators)) for loop_line in self.loop_lines]
+		return possible_cuts
+	
+	def deform(self,loop_momenta):
+		""" doesn't deform yet """
+		kappas = [numpy.zeros(3) for i in xrange(self.n_loops)]
+		jac = 1.
+		return kappas, jac
+		
+	def ltd_integrand(self,x):
+		loop_momenta = [numpy.zeros(3) for i in xrange(self.n_loops)]
+		wgt = numpy.zeros(self.n_loops)
+		for i in xrange(self.n_loops):
+			loop_momenta[i], wgt[i] = self.parametrize_analytic(x[(i*3):(i+1)*3])
+		kappas,jac = self.deform(loop_momenta)
+		loop_momenta = [loop_momentum+1j*kappa for loop_momentum,kappa in zip(loop_momenta,kappas)]
+		deltas = self.get_deltas(loop_momenta)
+		full_residue = numpy.sum([self.evaluate_cut_structure(deltas,cut_structure) for cut_structure in self.ltd_cut_structure])
+		ltd_factor = (-2*numpy.pi*1j)**self.n_loops
+		standard_factor = (-1j/numpy.pi**2)**self.n_loops
+		#alt_factor = (1./(2.*numpy.pi)**4)**self.n_loops
+		return full_residue*numpy.prod(wgt)*ltd_factor*standard_factor*jac
+	
+	def ltd_integrate(self,integrand, N_train=1000, N_refine=1000):
+		numpy.random.seed(0)
+		batch_size = 600
+		real_integr = lambda x: integrand(x).real
+		imag_integr = lambda x: integrand(x).imag
+		real_vegas3_integrator = vegas.Integrator(3 * self.n_loops * [[0., 1.]], nhcube_batch=batch_size)
+		imag_vegas3_integrator = vegas.Integrator(3 * self.n_loops * [[0., 1.]], nhcube_batch=batch_size)
+		# train
+		real_vegas3_integrator(real_integr,nitn=7, neval=N_train)
+		imag_vegas3_integrator(imag_integr,nitn=7, neval=N_train)
+		# refine
+		real_result = real_vegas3_integrator(real_integr,nitn=10, neval=N_refine)
+		imag_result = imag_vegas3_integrator(imag_integr,nitn=10, neval=N_refine)
+		print('\n'+real_result.summary()+'\n'+imag_result.summary())
+		#print('\n'+real_result.summary())
+		real_vegas3_integrator.map.show_grid()
+		imag_vegas3_integrator.map.show_grid()
+		return [real_result,imag_result]
+
+
 if __name__ == "__main__":
 	
 	import numpy as numpy
@@ -1018,6 +1266,12 @@ if __name__ == "__main__":
 	import adipy as adipy
 	import time
 	import itertools
+	
+	import mpmath
+	import math
+	
+	import ltd_commons
+	
 	#import warnings
 	#warnings.simplefilter("error")
 	#warnings.simplefilter("ignore", DeprecationWarning)
@@ -1026,7 +1280,7 @@ if __name__ == "__main__":
 
 	print '='*(2*36+7) + '\n' + '='*36+' hello '+'='*36 + '\n' + '='*(2*36+7)
 	
-	my_LTD = LTD('P6')
+	#my_LTD = LTD('P1')
 	#my_LTD.test_sign_on_fb_intersect(N=1000)
 
 	#pair = [0,1]
@@ -1045,8 +1299,14 @@ if __name__ == "__main__":
 	#integr = lambda x: my_LTD.hardcoded_dt_integrand(x,numpy.array([5.,1.,0.,0.]),0.)
 	#result = my_LTD.hardcoded_dt_integrate(integr,N_refine=10000)
 	
-	my_LTD.initialize_dt_topology()
-	result = my_LTD.ltd_integrate(my_LTD.ltd_integrand,N_refine=10000)
+	#my_LTD.initialize_dt_topology()
+	#my_LTD.initialize_one_loop_topology()
+	#my_LTD.initialize_triangle_box_topology()
+	#result = my_LTD.ltd_integrate(my_LTD.ltd_integrand,N_refine=1000)
+	
+	my_topology = ltd_commons.hard_coded_topology_collection['DoubleTriange']
+	my_LTD = LTDnLoop(my_topology)
+	result = my_LTD.ltd_integrate(my_LTD.ltd_integrand,N_refine=1000)
 	
 	print '='*(2*36+7)
 	print 'I = ', result[0], '+ i',result[1]
