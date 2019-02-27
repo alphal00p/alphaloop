@@ -643,6 +643,7 @@ impl LTD {
                 let lambda2 = Dual7::from_real(1.0);
                 // One should typically choose a dimensionful width sigma for the gaussian since the
                 // dimensionality of the exponent coded below is GeV^2.
+                
                 // For now, hard-code it to 20.
                 let sigma = Dual7::from_real(20.0);
                 let sigma_squared = sigma * sigma;
@@ -827,6 +828,20 @@ impl LTD {
         if par_jac == 0. {
             return Complex::default();
         }
+        /*
+        let M1square = Complex::new(0., (10.).powi(2));
+        let M2square = Complex::new(0., (10.).powi(2));
+        //let M1square = Complex::new((1.).powi(2),0.);
+        //let M2square = Complex::new((1.).powi(2),0.);
+        let mut def_jac = 0.0;
+        let mut res = par_jac * (
+            (Complex::new(momenta[0].spatial_dot(&momenta[0]), 0.) + M1square).powf(-1.5)*
+
+            (Complex::new(momenta[1].spatial_dot(&momenta[1]), 0.) + M2square).powf(-1.5)*
+            (Complex::new((momenta[1]+momenta[0]).spatial_dot(&(momenta[1]+momenta[0])), 0.) + M2square).powf(-1.)
+        );
+        res = -res*Complex::new(0.,1.);
+        */
 
         // deform
         let (kappa1, kappa2, def_jac) = self.deform_two_loops(&ll, &momenta);
@@ -846,6 +861,7 @@ impl LTD {
             );
         }
         res
+
     }
 
     #[inline]
@@ -897,6 +913,7 @@ impl LTD {
                 // 1 means positive cut, 0 means no cut and -1 negative cut
                 // NOTE: triple cuts disabled for now
                 let cut_structures = [[1, 1, 0], [0, 1, 1], [-1, 0, 1]]; //, [1, 1, 1], [-1, 1, 1]];
+                //let cut_structures = [[1, 1, 0],];
 
                 let mut result = Complex::default();
                 for o in &cut_structures {
@@ -919,6 +936,11 @@ impl LTD {
                                     // skip configurations where we cut a loop line that we shouldn't cut
                                     continue;
                                 }
+                                /*
+                                if (i > 0 || j > 0 || k > 0) {
+                                    continue;
+                                }
+                                */
 
                                 // The convention is different here for the cut_indices.
                                 // An integer >= 0 means that the corresponding element of that loop line with this index
