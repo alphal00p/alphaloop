@@ -5,8 +5,7 @@ class LTD:
 	def __init__(self,config_string):
 		self.p_i, self.m_i = self.__select_config(config_string)
 		self.n,self.dim = [len(self.m_i), len(self.p_i[0]) - 1]
-		self.scale = self.__get_scale()
-		self.scale = 10.
+		self.scale = self.get_scale()
 		self.tolerance = 1e-7
 		self.k_i = self.__get_k_i()
 		self.sing_matrix = self.__find_singularity_matrix()
@@ -162,7 +161,7 @@ class LTD:
 		k_i += [numpy.zeros(len(k_i[0]))]
 		return k_i
 	
-	def __get_scale(self):
+	def get_scale(self):
 		p_posE = [p for p in self.p_i if p[0] > 0.]
 		assert(len(p_posE)!=0)
 		if -sum(self.p_i)[0] > 0.:
@@ -1095,18 +1094,31 @@ class LTD:
 		return [real_result,imag_result]
 
 class LTDnLoop:
+
 	def __init__(self,topology):
 		self.loop_lines         = topology.loop_lines
 		self.ltd_cut_structure  = topology.ltd_cut_structure
 		self.n_loops            = topology.n_loops 
 		self.name               = topology.name
-		self.scale				= 10.
+		self.external_kinematics= topology.external_kinematics
+		self.scale				= self.get_scale()
 		self.possible_cuts		= self.get_possible_cuts()
 	
 	def delta(self,q_space,m):
 		on_f_shell = adipy.sqrt(self.norm(q_space)**2 + m**2)
 		return on_f_shell
-		
+	
+	def get_scale(self):
+		p_posE = [p for p in self.external_kinematics if p[0] > 0.]
+		if -numpy.sum(self.external_kinematics,axis=0)[0] > 0.:
+			p_posE += [-sum(self.external_kinematics)]
+		assert(len(p_posE)!=0)
+		p_sum = sum(p_posE)
+		s = p_sum[0]**2 - self.norm(p_sum[1:])**2
+		scale = numpy.sqrt(abs(s))
+		print 'scale = ', scale
+		return scale
+	
 	def norm(self,q):
 		"""for complex and real q arrays
 		not the same as numpy.linalg.norm for complex numbers!!"""
