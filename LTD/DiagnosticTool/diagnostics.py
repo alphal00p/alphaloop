@@ -1,11 +1,15 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 import numpy
 import math
 import random
 import itertools
+
+import os
+import sys
+parent_folder = os.path.join(os.path.dirname(os.path.realpath( __file__ )), os.path.pardir)
+sys.path.append(parent_folder)
 import ltd_commons
-
-
+from LTD import LTD
 
 
 class Surface(object):
@@ -31,9 +35,34 @@ class Surface(object):
             else:
                 self.sheet=self._LOWER
 
+        def is_ellipsoid(self):
+            
+            assert self.surface_signs[0][0]*self.surface_signs[0][1]!=0,'Zeno screwed up.'
+            return ( abs(sum(self.surface_signs[0]) + self.surface_signs[1]) == 3 or
+                     (self.surface_signs[1]==0 and abs(sum(self.surface_signs[0]))==2) )
+                
+        def __repr__(self):
+            """ Print human-readable information regarding the surface."""
 
+            lines = []
 
+            [(+1,-1),-1]
 
+            lines.append("%-30s : %d"%("Surface ID",self.n_surface))
+            lines.append("%-30s : %s"%("Solution type",'+' if self.marker>0 else '-'))
+            lines.append("%-30s : %s"%("Surface signature", '(%s %s) %s'%(tuple(
+                [{1:'+',-1:'-',0:'0'}[s] for s in list(self.surface_signs[0])+[self.surface_signs[1],]]
+            ) ) ))
+            lines.append("%-30s : %s"%("Surface type", 'Ellipsoid' if self.is_ellipsoid() else 'Hyperboloid'))
+            lines.append("%-30s : %s"%("Exists","True" if self.exist else "False"))
+            # Only printout hemisphere choice for hyperboloid as it can changed and is not fixed for ellipsoids.
+            if not self.is_ellipsoid():
+                lines.append("%-30s : %s"%("Hemisphere choice",'+' if self.sheet>0 else '-'))
+            lines.append("%-30s : %s"%("Parametrising loop mom. #",'%d'%(self.param_variable+1)))
+
+            return '\n'.join(lines)
+
+        __str__ = __repr__
 
 #Momentum info is a class containing, as members, the list of cut propagators (self.cut), the list of propagators (self.prop), the number of loops (n_loops)
 #and the target list, which contains the same number of propagators as self.prop; however, the propagator members self.routing, self.q, self.m have been substituted
@@ -125,7 +154,6 @@ class Diagnostic_tool(object):
                                        )
                     for i2 in range(0, len(topology.loop_lines[cuttylines[1]].propagators))])])
                 mm=len(topology.loop_lines[cuttylines[0]].propagators)*len(topology.loop_lines[cuttylines[1]].propagators)
-                print(mm)
                 signcutty.append([[topology.ltd_cut_structure[i][cuttylines[0]],topology.ltd_cut_structure[i][cuttylines[1]]]
                                  for l in range(0,mm)
                 ])
@@ -354,43 +382,12 @@ class Diagnostic_tool(object):
                     self.determine_existence(n_points, surp, i)
                     if surp.exist == 1:
                         all_surf.append([self.cut[i],surp])
-                        """
-                        print(l)
-                        l+=1
-                        print("vanishing propagator")
-                        print(j)
-                        print("propagator info")
-                        print("routing:")
-                        print(self.propagators[j].signature)
-                        print("ext kinematics")
-                        print(self.propagators[j].q)
-                        print("cuts")
-                        print(self.cut[i])
-                        print("vanishing factor")
-                        print("+")
-                        print("-------")
-                        """
 
                     self.determine_existence(n_points, surm, i)
 
                     if surm.exist == 1:
                         all_surf.append([self.cut[i],surm])
-                        """
-                        print(l)
-                        l+=1
-                        print("vanishing propagator")
-                        print(j)
-                        print("propagator info")
-                        print("routing:")
-                        print(self.propagators[j].signature)
-                        print("ext kinematics")
-                        print(self.propagators[j].q)
-                        print("cuts")
-                        print(self.cut[i])
-                        print("vanishing factor")
-                        print("-")
-                        print("-------")
-                        """
+        
         return all_surf
 
     def generate_surface_points(self, n_points, surface, n_cut):
@@ -411,14 +408,12 @@ class Diagnostic_tool(object):
             return point_list
 
         else:
-            print("Non-existent surface")
             return None
 
     def generate_limit(self, length, direction, surface, n_cut):
         n_points=int(length/0.001)
         lll=self.generate_surface_points(n_points=1, surface=surface, n_cut=n_cut)
         if lll==None:
-            print("non-existent surface")
             return None
         limit_list=[]
         for i in range(0,n_points):
@@ -431,251 +426,30 @@ class Diagnostic_tool(object):
 
 if __name__ == '__main__':
     
-    doub=ltd_commons.hard_coded_topology_collection["DoubleTriange"]
+    double_triangle =ltd_commons.hard_coded_topology_collection["DoubleTriange"]
 
 
 
-    diag=Diagnostic_tool(doub)
-    print(diag.cut)
-    print(diag.sign)
-    for i in diag.propagators:
-        print(i.signature)
-        print(i.q)
-        print("----")
-#Determining existence of surfaces!
-
+    diag=Diagnostic_tool(double_triangle)
+   
+   
+    # Determining existence of surfaces!
+    print("Analysing surfaces...")
     sur=Surface(n=0,ot_sign=-1,sheet=1)
     diag.determine_existence(100,sur,7)
-    print(diag.cut[7])
-    print(sur.n_surface)
-    print(sur.exist)
 
-    all=diag.all_surfaces(100)
-    print(len(all))
- #   sur=Surface(n=4,ot_sign=1, sheet=1)
+    N_TRIAL_POINTS = 1000
+    all_surfaces=diag.all_surfaces(N_TRIAL_POINTS)
+    print('='*40)    
+    for i_surface, (cut_momenta, surface) in enumerate(all_surfaces):
+        print("Surface #%i for cut %s = \n%s"%(i_surface, cut_momenta, str(surface)))
+        print('='*40)
 
-  #  points=diag.generate_surface_points(n_points=1000, surface=sur,n_cut=0)
+    print('There are total of %d surfaces (%d ellipsoids and %d hyperboloids)'%(
+        len(all_surfaces),
+        len([1 for s in all_surfaces if s[1].is_ellipsoid()]),
+        len([1 for s in all_surfaces if not s[1].is_ellipsoid()]),
+    ))
 
-   # for i in points:
-    #    print(trial_f.Eval2(i,[0,0,0],[-0.25,0,-0.5],[0,0,0],1))
+    #my_LTD = LTD('P6')
 
-
-"""
-class Evaluator(object):
-
-   # The class takes a set of propagators, a list of cut propagators and the signs corresponding to the residue which is going to be picked up
-   # The class is initialized by saving these informations and immediately decomposing each propagator in the cut momentum basis, by using
-   # the Momentum_info class
-
-    def __init__(self, propagators, cut, signs):
-        super(Evaluator,self).__init__()
-        self.propagators=propagators
-        self.cut=cut
-        info=Momentum_info(cut=cut, n_loops=len(cut), prop=propagators, signs=signs)
-        self.combs=info.info_prep()
-        self.signs=signs
-
-    def evaluate_propagator(self, n_prop, loop_momenta):
-
-      #  The evaluate_propagator functions takes the label corresponding to the ropagator one wants to evaluate and the loop momenta and returns
-      #  the propagator as evaluated on the hyperboloid sheets identified by the cut momenta
-
-        #If the chosen propagator is a cut propagator, then the half-propagator is returned
-        if n_prop in self.cut:
-            return 2.*math.sqrt(
-                sum((
-                    sum(
-                        self.propagators[n_prop].routing[i]*loop_momenta[i][j] for i in range(0, len(self.cut)))+self.propagators[n_prop].p[j])**2 for j in range(1,4))
-            )
-        #if the chosen propagator is not a cut propagator, then a different evaluation is enacted
-        else:
-            #assume e.g. that k_1+p and k_1+k_2+p' are cut and k_2+p'' is the chosen momenta, with residue signs [-1,1]
-            #then self.combs[n_prop].p[0]=(p''-p'+p)[0]
-            energy=self.combs[n_prop].p[0]+sum(
-                #and the following is +(+1)*sqrt((\vec3d{k_1+k_2+p'})**2)-(-1)*sqrt((\vec3d{k_1+p})**2)
-                self.combs[n_prop].routing[i]*self.signs[i]*math.sqrt(
-                    sum((
-                        sum(
-                            self.propagators[self.cut[i]].routing[k]*loop_momenta[k][j] for k in range(0,len(self.cut))
-                        ) + self.propagators[self.cut[i]].p[j])**2 for j in range(1,4))
-                ) for i in range(0,len(self.cut)))
-            #thus energy=(p''-p'+p)[0]+|\vec3d{k_1+k_2+p'}|+|\vec3d{k_1+p}|
-            square_mom=math.sqrt(sum((sum(self.propagators[n_prop].routing[i]*loop_momenta[i][j] for i in range(0, len(self.cut)))+self.propagators[n_prop].p[j])**2 for j in range(1,4)))
-            #while square_mom=|\vec3d{k_2+p''}|
-            return energy**2-square_mom**2
-
-
-
-class trial_function(object):
-
-   # Trial function to try the results of the algorithm
-
-
-    def __init__(self):
-        super(trial_function, self).__init__()
-
-    def Eval(self, loop_value, p1, p2, p0, k):
-        mod_loop1 = sum((loop_value[k][i] + p1[i]) ** 2 for i in range(0, 3))
-        mod_loop2 = sum((loop_value[k][i] + p2[i]) ** 2 for i in range(0, 3))
-        return math.sqrt(mod_loop1 + 0 ** 2) + math.sqrt(mod_loop2 + 0 ** 2) - p0
-
-    def Eval2(self, loop_value, p1, p2, p3, p0):
-        mod_loop1 = sum((loop_value[0][i] + p1[i]) ** 2 for i in range(0, 3))
-        mod_loop2 = sum((loop_value[1][i] + p2[i]) ** 2 for i in range(0, 3))
-        mod_loop3 = sum((loop_value[1][i] + loop_value[0][i] + p3[i]) ** 2 for i in range(0, 3))
-        return math.sqrt(mod_loop3) + math.sqrt(mod_loop1 + 0 ** 2) + math.sqrt(mod_loop2 + 0 ** 2) - p0
-
-    def Eval3(self, loop_value, p1, p2, p3, p0):
-        mod_loop1 = sum((loop_value[0][i] + p1[i]) ** 2 for i in range(0, 3))
-        mod_loop2 = sum((loop_value[1][i] + p2[i]) ** 2 for i in range(0, 3))
-        mod_loop3 = sum((loop_value[1][i] + loop_value[0][i] + p3[i]) ** 2 for i in range(0, 3))
-        return -math.sqrt(mod_loop3) + math.sqrt(mod_loop1 + 0 ** 2) + math.sqrt(mod_loop2 + 0 ** 2) - p0
-
-    def Eval4(self, loop_value, p1, p2, p3, p0):
-        mod_loop1 = sum((loop_value[0][i] + p1[i]) ** 2 for i in range(0, 3))
-        mod_loop2 = sum((loop_value[1][i] + p2[i]) ** 2 for i in range(0, 3))
-        mod_loop3 = sum((loop_value[1][i] + loop_value[0][i] + p3[i]) ** 2 for i in range(0, 3))
-        return math.sqrt(mod_loop3) + math.sqrt(mod_loop1 + 0 ** 2) - math.sqrt(mod_loop2 + 0 ** 2) - p0
-
-"""
-
-"""
-#Determining if I get the right points on the existent surface
-
-    diag1=Diagnostic_tool(propagators=double_triangle,Etot=5,n_loop=2,cut=[0,2],sign=[-1,1])
-    check1=[]
-
-    for i in range(0,100):
-        loopm=[[random.uniform(0,1),random.uniform(0,1),random.uniform(0,1),random.uniform(0,1)],
-          [random.uniform(0,1),random.uniform(0,1),random.uniform(0,1),random.uniform(0,1)]]
-        surr1=Surface(n=1,ot_sign=-1,sheet=1)
-        vec=diag1.get_parametrization(u=random.uniform(0,1),v=random.uniform(0,1),surface=surr1, loop_momenta=loopm)
-    #print(vec)
-        if vec!=None:
-            check1.append(trial_f.Eval(vec,[0,0,0],[0.25,0,0.5],1,0))
-
-
-
-    check2=[]
-
-
-    for i in range(0,100):
-        surr1=Surface(n=4,ot_sign=1,sheet=1)
-        loopm = [[random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)],
-             [random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)]]
-        vec=diag1.get_parametrization(u=random.uniform(0,1),v=random.uniform(0,1),surface=surr1, loop_momenta=loopm)
-
-        if vec!=None:
-            check2.append(trial_f.Eval2(vec,[0,0,0],[-0.25,0,-0.5],[0,0,0],1))
-
-
-    check3=[]
-
-    diag2=Diagnostic_tool(propagators=double_triangle,Etot=5,n_loop=2,cut=[0,3],sign=[1,1])
-
-
-    for i in range(0,100):
-        surr1=Surface(n=4,ot_sign=1,sheet=1)
-        loopm = [[random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)],
-             [random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)]]
-        vec=diag2.get_parametrization(u=random.uniform(0,1),v=random.uniform(0,1),surface=surr1, loop_momenta=loopm)
-
-        if vec!=None:
-            check3.append(trial_f.Eval(vec,[0,0,0],[-0.25,0,-0.5],1,1))
-
-
-
-    check4=[]
-
-    diag3=Diagnostic_tool(propagators=double_triangle,Etot=5,n_loop=2,cut=[0,2],sign=[-1,1])
-
-
-    for i in range(0,100):
-        surr1=Surface(n=4,ot_sign=-1,sheet=1)
-        loopm = [[random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)],
-             [random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)]]
-        vec=diag3.get_parametrization(u=random.uniform(0,1),v=random.uniform(0,1),surface=surr1, loop_momenta=loopm)
-
-        if vec!=None:
-            check4.append(trial_f.Eval4(vec,[0,0,0],[-0.25,0,-0.5],[0,0,0],1))
-
-
-
-    check5=[]
-
-    diag4=Diagnostic_tool(propagators=double_triangle,Etot=5,n_loop=2,cut=[1,3],sign=[1,1])
-
-
-    for i in range(0,100):
-        surr1=Surface(n=2,ot_sign=1,sheet=1)
-        loopm = [[random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)],
-             [random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)]]
-        vec=diag4.get_parametrization(u=random.uniform(0,1),v=random.uniform(0,1),surface=surr1, loop_momenta=loopm)
-
-        if vec!=None:
-            check5.append(trial_f.Eval2(vec,[0.25,0,0.5],[0,0,0],[0,0,0],1))
-
-
-
-    check6=[]
-
-    diag5=Diagnostic_tool(propagators=double_triangle,Etot=5,n_loop=2,cut=[1,3],sign=[1,1])
-
-
-    for i in range(0,100):
-        surr1=Surface(n=2,ot_sign=-1,sheet=1)
-        x1=random.uniform(0, 1)
-        x2=random.uniform(0, 1)
-        x3=random.uniform(0, 1)
-        x4=random.uniform(0, 1)
-        loopm = [[random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), x1],
-             [random.uniform(0, 1), x2, x3, x4]]
-        u=random.uniform(0, 1)
-        v=random.uniform(0, 1)
-        vec=diag5.get_parametrization(u=u,v=v,surface=surr1, loop_momenta=loopm)
-
-        if vec!=None:
-            check6.append(trial_f.Eval3(vec,[0.25,0,0.5],[0,0,0],[0,0,0],1))
-        #print(trial_f.Eval3(vec,[0.25,0,0.5],[0,0,0],[0,0,0],1))
-            if trial_f.Eval3(vec,[0.25,0,0.5],[0,0,0],[0,0,0],1)>0.01:
-                surr1m = Surface(n=2, ot_sign=-1, sheet=-1)
-                vecw = diag5.get_parametrization(u=u, v=v, surface=surr1m, loop_momenta=loopm)
-                print(trial_f.Eval3(vecw,[0.25,0,0.5],[0,0,0],[0,0,0],1))
-
-
-
-
-
-    print("111111111")
-    print(check1)
-    print("22222222222")
-    print(check2)
-    print("33333333")
-    print(check3)
-    print("444444444")
-    print(check4)
-    print("5555555555")
-    print(check5)
-    print("6666666")
-    print(check6)
-
-
-#Eval_propagators
-
-
-    prop111=Propagator([1, 0], [1, 0, 0, 0], 0)
-    prop211=Propagator([1, 0], [1, 1, 1, 1], 0)
-    prop311=Propagator([1, 1], [2, 0, 0, 0], 0)
-    prop411=Propagator([0, 1], [1, 0, 0, 0], 0)
-    prop511=Propagator([0, 1], [-1, -0.25, 0, -0.5], 0)
-
-    trial_f=trial_function()
-
-    double_triangle1=[prop111,prop211,prop311,prop411,prop511]
-
-
-    evals=Evaluator(propagators=double_triangle1, cut=[0,2], signs=[-1,1])
-
-
-    print(evals.evaluate_propagator(n_prop=3,loop_momenta=[[0,0,0,0],[0,0,0,0]]))
-"""
