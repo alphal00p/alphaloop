@@ -426,7 +426,7 @@ class Diagnostic_tool(object):
 
 if __name__ == '__main__':
     
-    double_triangle =ltd_commons.hard_coded_topology_collection["DoubleTriange"]
+    double_triangle =ltd_commons.hard_coded_topology_collection["DoubleBox"]
 
 
 
