@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import vectors
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
@@ -368,3 +370,8 @@ hard_coded_topology_collection.add_topology(
 #hard_coded_topology_collection.export_to('ExampleTopologyCollectionExport.yaml')
 #test = TopologyCollection.import_from('ExampleTopologyCollectionExport.yaml')
 #test['DoubleTriange'].print_topology()
+
+if __name__ == '__main__':
+
+    # Synchronise the database of hard-coded topologies to the yaml data base that Rust can easily import
+    hard_coded_topology_collection.export_to('ltd_commons.yaml')
