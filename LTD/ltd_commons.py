@@ -115,47 +115,62 @@ class TopologyCollection(dict):
 
 hard_coded_topology_collection = TopologyCollection()
 
-p       = vectors.LorentzVector([1.,0.,0.,0.])
+def create_hard_coded_topoloogy(name,external_momenta):
+    """ Creates a hard-coded topology of the given name with specified kinematics. """
+
+    if name == 'DoubleTriangle':
+        p = external_momenta[0]
+        return LoopTopology(
+            name    = 'DoubleTriange',
+            n_loops = 2,
+            ltd_cut_structure = (
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=p, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+
+    else:
+        raise BaseException("Unknown hard-coded topology name '%s'"%name)
+
 # Add the double-triangle to the hard-coded topology collection:
 hard_coded_topology_collection.add_topology(
-    LoopTopology(
-        name    = 'DoubleTriange',
-        n_loops = 2,
-        ltd_cut_structure = (
-            (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
-            (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
-            (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
-        ),
-        loop_lines = (
-            LoopLine(
-                start_node  = 1, 
-                end_node    = 2,
-                signature   = (1,0),
-                propagators = (
-                    Propagator(q=-p, m_squared=0.),
-                    Propagator(q=zero_lv, m_squared=0.),
-                )
-            ),
-            LoopLine(
-                start_node  = 1, 
-                end_node    = 2,
-                signature   = (0,1),
-                propagators = (
-                    Propagator(q=p, m_squared=0.),
-                    Propagator(q=zero_lv, m_squared=0.),
-                )
-            ),
-            LoopLine(
-                start_node  = 2, 
-                end_node    = 1,
-                signature   = (1,1),
-                propagators = (
-                    Propagator(q=zero_lv, m_squared=0.),
-                )
-            ),
-        ) 
+    create_hard_coded_topoloogy(
+        'DoubleTriangle', 
+        vectors.LorentzVectorList(
+            vectors.LorentzVector([1.,0.3,0.4,0.5]),
+        )
     )
 )
 
 # Example printout
-#hard_coded_topology_collection['DoubleTriange'].print_topology()
+hard_coded_topology_collection['DoubleTriange'].print_topology()

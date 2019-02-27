@@ -16,8 +16,10 @@ class Vector(np.ndarray):
 
     def eps(self):
 
-        try: return np.finfo(self.dtype).eps
-        except: return 0
+        try: 
+            return np.finfo(self.dtype).eps
+        except:
+            return 0
 
     def huge(self):
 
@@ -30,7 +32,7 @@ class Vector(np.ndarray):
 
     def __eq__(self, other):
 
-        eps = max(self.eps(), other.eps())
+        eps = max(self.eps(), other.eps() if hasattr(other,'eps') else 0.)
         # numpy.allclose uses abs(self-other) which would compute the norm
         # for LorentzVector, thus view self and other as numpy.ndarray's
         return np.allclose(
@@ -267,3 +269,72 @@ class LorentzVector(Vector):
         self_space += factor*boost_vector
         self[0] = gamma*(self[0] + bp)
 
+#=========================================================================================
+# LorentzVectorList
+#=========================================================================================
+
+class LorentzVectorList(list):
+    """A simple class wrapping lists that store Lorentz vectors."""
+
+    def __str__(self, n_initial=2):
+        """Nice printout of the momenta."""
+
+        return LorentzVectorDict(
+            (i + 1, v) for i, v in enumerate(self)
+        ).__str__(n_initial=n_initial)
+
+    def to_list(self):
+        """Return list copy of self."""
+
+        return LorentzVectorList(self)
+
+    def to_tuple(self):
+        """Return a copy of this LorentzVectorList as an immutable tuple."""
+
+        return tuple( tuple(v) for v in self )
+
+    def to_dict(self):
+        """Return a copy of this LorentzVectorList as a LorentzVectorDict."""
+
+        return LorentzVectorDict( (i+1, v) for i, v in enumerate(self) )
+        
+    def boost_to_com(self, initial_leg_numbers):
+        """ Boost this kinematic configuration back to its c.o.m. frame given the
+        initial leg numbers. This is not meant to be generic and here we *want* to crash
+        if we encounter a configuration that is not supposed to ever need boosting in the
+        MadNkLO construction.
+        """
+        # Given that this is a list, we must subtract one to the indices given
+        initial_leg_numbers = tuple(n-1 for n in initial_leg_numbers)
+        if len(initial_leg_numbers)==2:
+            if __debug__:
+                sqrts = math.sqrt((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]).square())
+                # Assert initial states along the z axis
+                assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[1]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[1]][2]/sqrts)<1.0e-9)
+            # Now send the self back into its c.o.m frame, if necessary
+            initial_momenta_summed = self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]
+            sqrts = math.sqrt((initial_momenta_summed).square())
+            if abs(initial_momenta_summed[3]/sqrts)>1.0e-9:
+                boost_vector = (initial_momenta_summed).boostVector()
+                for vec in self:
+                    vec.boost(-boost_vector)
+            if __debug__:
+                assert(abs((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]])[3]/sqrts)<=1.0e-9)
+        elif len(initial_leg_numbers)==1:
+            if __debug__:
+                sqrts = math.sqrt(self[initial_leg_numbers[0]].square())
+                assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][3]/sqrts)<1.0e-9)
+        else:
+            raise InvalidOperation('MadNkLO only supports processes with one or two initial states.')
+
+    def get_copy(self):
+        """Return a copy that can be freely modified
+        without changing the current instance.
+        """
+
+        return type(self)([LorentzVector(p) for p in self]) 
