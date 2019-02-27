@@ -4,7 +4,7 @@ zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
-    def __init__(self, ltd_cut_structure, loop_lines, n_loops=1, name=None, **opts):
+    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -15,6 +15,7 @@ class LoopTopology(object):
             n_loops             : Number of loops in this topology
             name                : Name of this topology
         """
+        self.external_kinematics= external_kinematics
         self.loop_lines         = loop_lines
         self.ltd_cut_structure  = ltd_cut_structure
         self.n_loops            = n_loops 
@@ -58,6 +59,70 @@ class LoopTopology(object):
         filename = 'topology%s.gv'%('_%s'%self.name if self.name else '')
         dot.render(filename, view=True)
 
+    def export_to(self, output_path, format='yaml'):
+        """ Exports this topology to a given format."""
+        
+        export_format = format.lower()
+        allowed_export_format = ['yaml']
+        if export_format not in ['yaml']:
+            raise BaseException("Topology can only be exported in the following formats: %s"%(', '.join(allowed_export_format)))
+
+        if export_format=='yaml':
+            try:
+                import yaml
+                from yaml import Loader, Dumper
+            except ImportError:
+                raise BaseException("Install yaml python module in order to export topologies to yaml.")
+
+        if output_path is not None:
+            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper))
+        else:
+            return yaml.dump(self, Dumper=Dumper)
+
+    def to_flat_format(self):
+        """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
+        
+        res={}
+        
+        res['name'] = self.name
+        res['ltd_cut_structure'] = [list(cs) for cs in ltd_cut_structure]
+        res['n_loops'] = self.n_loops
+        res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
+    
+        return res
+
+    @staticmethod
+    def from_flat_format(self, flat_dict):
+        """ Creates an instance of this class from a flat dictionary record."""
+        
+        return LoopTopology(
+            name                =   flat_dict['name'],
+            ltd_cut_structure   =   tuple([tuple(cs) for cs in flat_dict['ltd_cut_structure']]),
+            n_loops             =   flat_dict['n_loops'],
+            loop_lines          =   tuple([LoopLine.from_flat_format(ll) for ll in flat_dict['loop_lines']])
+        ) 
+
+    @staticmethod
+    def import_from(input_path, format='yaml'):
+        """ Imports this topology from a given format."""
+        
+        import_format = format.lower()
+        allowed_import_format = ['yaml']
+        if import_format not in ['yaml']:
+            raise BaseException("Topology can only be imported from the following formats: %s"%(', '.join(allowed_import_format)))
+
+        if import_format=='yaml':
+            try: 
+                import yaml
+                from yaml import Loader, Dumper
+            except ImportError:
+                raise BaseException("Install yaml python module in order to import topologies from yaml.")
+ 
+        if '\n' in input_path:
+            return yaml.load(input_path, Loader=Loader)            
+        else:
+            return yaml.load(open(input_path,'r'), Loader=Loader)
+
 class LoopLine(object):
     """ A simple container for describing a loop line."""
 
@@ -83,6 +148,30 @@ class LoopLine(object):
         self.start_node     = start_node
         self.end_node       = end_node
 
+    @staticmethod
+    def from_flat_format(self, flat_dict):
+        """ Creates an instance of this class from a flat dictionary record."""
+        
+        return LoopLine(
+            signature   =   tuple(flat_dict['signature']),
+            propagators =   tuple([Propagator.from_flat_format(p) for p in flat_dict['propagators']]),
+            start_node  =   flat_dict['start_node'],
+            end_node    =   flat_dict['end_node']             
+        ) 
+
+
+    def to_flat_format(self):
+        """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
+        
+        res={}
+        
+        res['signature'] = list(self.signature)
+        res['propagators'] = [p.to_flat_format() for p in self.propagators]
+        res['start_node'] = self.start_node
+        res['end_node'] = self.end_node
+
+        return res
+
 class Propagator(object):
     """ A simple container for describing a loop propagator."""
 
@@ -92,6 +181,25 @@ class Propagator(object):
         # Note that this signature member is not strictly speaking necessary as it should always be the
         # same as the signature attribute of the LoopLine containing it. We forward it here for convenience however.
         self.signature  = signature
+
+    def to_flat_format(self):
+        """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
+        
+        res={}
+        
+        res['q'] = [v for v in self.q]
+        res['m_squared'] = self.m_squared
+
+        return res
+
+    @staticmethod
+    def from_flat_format(self, flat_dict):
+        """ Creates an instance of this class from a flat dictionary record."""
+        
+        return Propagator(
+            q           =   vectors.LorentzVector(flat_dict['q']),
+            m_squared   =   flat_dict['m_squared'] 
+        ) 
 
     def evaluate_inverse(self, loop_momenta):
         """ Evaluates the inverse propagator with the provided list loop momenta, given as a list of LorentzVector.""" 
@@ -116,13 +224,17 @@ class TopologyCollection(dict):
 hard_coded_topology_collection = TopologyCollection()
 
 def create_hard_coded_topoloogy(name,external_momenta):
-    """ Creates a hard-coded topology of the given name with specified kinematics. """
+    """ Creates a hard-coded topology of the given name with specified kinematics. 
+    /!\ ALL EXTERNAL MOMENTA ARE DEFINED EXTERNAL
+    """
 
     if name == 'DoubleTriangle':
-        p = external_momenta[0]
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
         return LoopTopology(
             name    = 'DoubleTriange',
             n_loops = 2,
+            external_kinematics = external_momenta,
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -134,7 +246,7 @@ def create_hard_coded_topoloogy(name,external_momenta):
                     end_node    = 2,
                     signature   = (1,0),
                     propagators = (
-                        Propagator(q=-p, m_squared=0.),
+                        Propagator(q=p1, m_squared=0.),
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
@@ -143,7 +255,7 @@ def create_hard_coded_topoloogy(name,external_momenta):
                     end_node    = 2,
                     signature   = (0,1),
                     propagators = (
-                        Propagator(q=p, m_squared=0.),
+                        Propagator(q=p2, m_squared=0.),
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
@@ -166,11 +278,19 @@ def create_hard_coded_topoloogy(name,external_momenta):
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'DoubleTriangle', 
-        vectors.LorentzVectorList(
-            vectors.LorentzVector([1.,0.3,0.4,0.5]),
-        )
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([-1.,-0.3,-0.4,-0.5]),
+                vectors.LorentzVector([1.,0.3,0.4,0.5])
+        ])
     )
 )
 
 # Example printout
 hard_coded_topology_collection['DoubleTriange'].print_topology()
+
+# Example yaml export
+#from pprint import pprint
+#pprint(hard_coded_topology_collection['DoubleTriange'].to_flat_format())
+#hard_coded_topology_collection['DoubleTriange'].export_to('ExampleDoubleTriangle.yaml')
+#test = LoopTopology.import_from('ExampleDoubleTriangle.yaml')
+#test.print_topology()
