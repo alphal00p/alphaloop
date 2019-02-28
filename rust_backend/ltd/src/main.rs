@@ -4,6 +4,8 @@ extern crate dual_num;
 extern crate nalgebra as na;
 extern crate num;
 extern crate num_traits;
+extern crate serde;
+extern crate serde_yaml;
 extern crate vector;
 
 use cuba::{CubaIntegrator, CubaVerbosity};
@@ -54,6 +56,9 @@ fn main() {
         .set_epsrel(1e-15)
         .set_seed(1)
         .set_cores(cores, 1000);
+
+    // load the example file
+    let _topo = topologies::Topology::from_file("../LTD/ltd_commons.yaml");
 
     let (loops, e_cm, loop_lines) = topologies::create_topology("onshell-box");
 

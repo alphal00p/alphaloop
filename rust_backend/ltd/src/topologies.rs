@@ -1,5 +1,52 @@
 use ltd::LoopLine;
+use serde::Deserialize;
+use std::fs::File;
 use vector::LorentzVector;
+
+#[derive(Debug, Deserialize)]
+pub struct Propagators {
+    m_squared: f64,
+    q: LorentzVector<f64>,
+    #[serde(default)]
+    signature: Vec<i8>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LL {
+    start_node: usize,
+    end_node: usize,
+    signature: Vec<i8>,
+    propagators: Vec<Propagators>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Topology {
+    name: String,
+    n_loops: usize,
+    analytical_result: Option<f64>,
+    external_kinematics: Vec<LorentzVector<f64>>,
+    loop_lines: Vec<LL>,
+    ltd_cut_structure: Vec<Vec<i8>>,
+}
+
+impl Topology {
+    pub fn from_file(filename: &str) -> Vec<Topology> {
+        let f = File::open(filename).unwrap();
+
+        let mut topologies: Vec<Topology> = serde_yaml::from_reader(f).unwrap();
+
+        // copy the signature to the propagators
+        for t in &mut topologies {
+            for l in &mut t.loop_lines {
+                for p in &mut l.propagators {
+                    p.signature = l.signature.clone();
+                }
+            }
+        }
+
+        topologies
+    }
+}
 
 pub fn build_loop_line(
     loop_momenta: &[(usize, bool)],
@@ -117,7 +164,7 @@ pub fn create_topology(topology: &str) -> (usize, f64, Vec<LoopLine>) {
             //All but p1 are massless and Massless Propagators
             //Analytic Result (real): ?
             let on_shell_flag = 16;
-	    println!("select PS: {:0.4b}",on_shell_flag); 
+            println!("select PS: {:0.4b}", on_shell_flag);
             let (p1, p2, p3, _) = match on_shell_flag {
                 0b0000 => (
                     LorentzVector::from_args(

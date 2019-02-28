@@ -1,5 +1,6 @@
 extern crate dual_num;
 extern crate num;
+extern crate serde;
 
 use dual_num::{Allocator, DefaultAllocator, Dim, DimName, DualN, Owned};
 use num::traits::Inv;
@@ -10,6 +11,8 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
 type Complex = num::Complex<f64>;
+
+mod deserialize;
 
 pub trait Field
 where

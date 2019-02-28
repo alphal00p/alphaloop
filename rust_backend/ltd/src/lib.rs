@@ -4,6 +4,8 @@ extern crate arrayvec;
 extern crate dual_num;
 extern crate num;
 extern crate vector;
+extern crate serde;
+extern crate serde_yaml;
 use cpython::{exc, PyErr, PyResult};
 use std::cell::RefCell;
 extern crate cuba;

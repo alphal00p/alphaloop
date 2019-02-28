@@ -21,3 +21,5 @@ dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dualn" }
 cuba = "^0.1.9"
 nalgebra = "*"
 num-traits = "*"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "*"
