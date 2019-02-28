@@ -2,6 +2,10 @@
 import numpy
 import math
 import random
+
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath( __file__ )),os.path.pardir))
 import ltd_commons
 import itertools
 import matplotlib.pyplot as plt
@@ -505,10 +509,14 @@ class Diagnostic_tool(object):
 
         return non_redundant_sur
 if __name__ == '__main__':
-    
-    double_triangle =ltd_commons.hard_coded_topology_collection["DoubleTriange"]
+   
 
+    if len(sys.argv)>=1:
+        topology_name = sys.argv[1]
+    else:
+        topology_name = "DoubleTriangle"
 
+    double_triangle =ltd_commons.hard_coded_topology_collection[topology_name]
 
     diag=Diagnostic_tool(double_triangle)
    
@@ -518,24 +526,35 @@ if __name__ == '__main__':
     #sur=Surface(n=0,ot_sign=-1,sheet=1)
     #diag.determine_existence(100,sur,7)
 
-    N_TRIAL_POINTS = 1000
+    # Make sure that N_points is used as follows:
+    # Ellipsoids: still run existence check but if exact result says does not exist but numerical random tests says it does, then crash.
+    # Hyperboloids: simply do the rnadom check existence test, but maybe eventually improve sampling heuristics.
+
+    N_TRIAL_POINTS = 0 
     all_surfaces=diag.all_surfaces(N_TRIAL_POINTS)
     print('='*40)    
-    for i_surface, (cut_momenta, surface) in enumerate(all_surfaces):
-        print("Surface #%i for cut %s = \n%s"%(i_surface, cut_momenta, str(surface)))
-        print('='*40)
 
-    print('There are total of %d surfaces (%d ellipsoids and %d hyperboloids)'%(
-        len(all_surfaces),
-        len([1 for s in all_surfaces if s[1].is_ellipsoid()]),
-        len([1 for s in all_surfaces if not s[1].is_ellipsoid()]),
-    ))
-
+    # Make sure to return instead a list of list of identical topologies
     check_non_red=diag.check_similarity(all_surfaces)
 
-    for surface in check_non_red:
-        print(str(surface))
-        print('='*40)
+#    for surface in check_non_red:
+#        print(str(surface))
+#        print('='*40)
+
+#    Make sure to keep the same format for each element of the list oof list returned by check_similarity
+#    for i_surface, (cut_momenta, surface) in enumerate(all_surfaces):
+#        print("Surface #%i for cut %s = \n%s"%(i_surface, cut_momenta, str(surface)))
+#        print('='*40)
+
+
+
+    print('There are total of %d surfaces (%d ellipsoids and %d hyperboloids)'%(
+        len(check_non_red),
+        len([1 for s in check_non_red if s.is_ellipsoid()]),
+        len([1 for s in check_non_red if not s.is_ellipsoid()]),
+    ))
+
+
 
     """
     surcheck=Surface(n=3,ot_sign=1,sheet=1)
