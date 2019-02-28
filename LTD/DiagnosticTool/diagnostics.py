@@ -2,14 +2,10 @@
 import numpy
 import math
 import random
-import itertools
-
-import os
-import sys
-parent_folder = os.path.join(os.path.dirname(os.path.realpath( __file__ )), os.path.pardir)
-sys.path.append(parent_folder)
 import ltd_commons
-from LTD import LTD
+import itertools
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d, Axes3D
 
 
 class Surface(object):
@@ -29,6 +25,7 @@ class Surface(object):
             self.exist=None
             self.sheet=0
             self.param_variable = None
+            self.moms=[]
 
             if sheet==1:
                 self.sheet=self._UPPER
@@ -53,6 +50,7 @@ class Surface(object):
             lines.append("%-30s : %s"%("Surface signature", '(%s %s) %s'%(tuple(
                 [{1:'+',-1:'-',0:'0'}[s] for s in list(self.surface_signs[0])+[self.surface_signs[1],]]
             ) ) ))
+            lines.append("%-30s : %s"%("Surface momenta", self.moms))
             lines.append("%-30s : %s"%("Surface type", 'Ellipsoid' if self.is_ellipsoid() else 'Hyperboloid'))
             lines.append("%-30s : %s"%("Exists","True" if self.exist else "False"))
             # Only printout hemisphere choice for hyperboloid as it can changed and is not fixed for ellipsoids.
@@ -161,7 +159,7 @@ class Diagnostic_tool(object):
             self.sign=signcutty[0]+signcutty[1]+signcutty[2]
 
         self.combs = None
-
+        print(self.cut)
 
 
 
@@ -178,6 +176,8 @@ class Diagnostic_tool(object):
         chosen_loop = None
         signs = []
         othersign = 0
+        moms=[]
+        othermom=0
 
         #Running though the coefficients of the decomposition of the chosen (n_surface) propagator in terms of cut momenta
         for i in range(0, self.n_loop):
@@ -192,9 +192,10 @@ class Diagnostic_tool(object):
                         #its label and sign are saved
                         chosen_loop = i1
                         signs.append(self.sign[n_cut][i]*self.combs[surface.n_surface].signature[i])
+
                         #everything in q which is not k_1 is saved in mom1
                         mom1 = numpy.array(self.propagators[self.cut[n_cut][i]].q) + sum(self.propagators[self.cut[n_cut][i]].signature[i2] * numpy.array(loop_mom[i2]) for i2 in range(i1 + 1, self.n_loop))
-
+                        moms.append(self.cut[n_cut][i])
                         #running through all the remaining coefficients of the decomposition of q in the cut momenta
                         for j in range(i + 1, self.n_loop):
                             #the non-zero coefficients are chosen, say q' has a non-zero coefficient
@@ -204,19 +205,23 @@ class Diagnostic_tool(object):
                                     #everything in q' which is not k_1 is saved in mom2
                                     mom2 = numpy.array(self.propagators[self.cut[n_cut][j]].q) + sum(self.propagators[self.cut[n_cut][j]].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, i1) + range(i1 + 1, self.n_loop))
                                     signs.append(self.sign[n_cut][j]*self.combs[surface.n_surface].signature[j])
+                                    moms.append(self.cut[n_cut][j])
                                 else:
                                     #if this fails, we save it in mom3 and its sign in other_sign
                                     mom3 = numpy.array(self.propagators[self.cut[n_cut][j]].q) + sum(self.propagators[self.cut[n_cut][j]].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, i1 ) + range(i1 + 1, self.n_loop))
                                     othersign = self.sign[n_cut][j]*self.combs[surface.n_surface].signature[j]
+                                    othermom=self.cut[n_cut][j]
                         #if the previous cycle has failed, the only possibility is that the propagator's momentum itself contains k_1 as loop momentum
                         if self.propagators[surface.n_surface].signature[i1] != 0:
                             #again everything is saved
                             mom2 = numpy.array(self.propagators[surface.n_surface].q) + sum(self.propagators[surface.n_surface].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, i1 ) + range(i1 + 1, self.n_loop))
                             signs.append(surface.marker)
+                            moms.append(surface.n_surface)
                         #if this if clause has failed, it means that the previous one has succeded; again we save everything
                         else:
                             mom3 = numpy.array(self.propagators[surface.n_surface].q) + sum(self.propagators[surface.n_surface].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, i1) + range(i1 + 1, self.n_loop))
                             othersign = surface.marker
+                            othermom=surface.n_surface
                         break
                 break
 
@@ -224,7 +229,7 @@ class Diagnostic_tool(object):
         
        # given the previous information, we can write |k_1+mom1|+|k_1+mom2|=p^0-|k_2+mom3| (again this holds in the specific chosen example)
         #thus we can calculate the translation necessary to make this equation into |k_1+h|+|k_1-h|=p^0-|k_2+mom3|
-        
+        surface.moms=[moms,othermom]
         tot_mom = -(numpy.array(mom1) + numpy.array(mom2)) / 2.
         surface.param_variable=chosen_loop
         surface.surface_signs=[signs, othersign]
@@ -265,14 +270,17 @@ class Diagnostic_tool(object):
 
 
     def Get_surface_point(self, surface, kx, ky, a, c, surface_type):
+        if surface.sheet==1:
+            g=-1
+        else:
+            g=1
 
         #parametrization of the z component of the chosen loop momentum
         if surface_type == 1:
-
-            kz = (-1) ** (surface.sheet) * (c * (1 - (1 / a) * (kx**2+ky**2))) ** 0.5
+            kz = g * (c * (1. - (1. / a) * (kx**2.+ky**2.))) ** 0.5
         else:
 
-            kz = (-1) ** (surface.sheet) * (c * (1 + (1 / a) *  (kx**2+ky**2) )) ** 0.5
+            kz = g * (c * (1. + (1. / a) *  (kx**2.+ky**2.) )) ** 0.5
 
         return kz
 
@@ -296,9 +304,29 @@ class Diagnostic_tool(object):
         
         #The function takes an input vector of loop momenta and uses the necessary ones in between them to calculate the z component of the parametrizing loop variable
         #IN THE AFFINELY MAPPED space, and then maps back the obtained point of the surface to the original space
-        
+        #surface type and signs
+
+
+
+
         p_tr = numpy.array(self.translation_construction(surface, loop_momenta, n_cut))
-        p0=(-self.combs[surface.n_surface].q[0] - surface.surface_signs[1] * sum(    #CHANGED SIGN TO THE ENERGY COMPONENT
+
+        surface_type = surface.surface_signs[0][0] * surface.surface_signs[0][1]
+        sursign=surface.surface_signs[0][0] + surface.surface_signs[0][1]
+
+	"""
+        if sursign==2 and surface.surface_signs[1]!=0:
+            onsh = self.combs[surface.n_surface].q[0] - surface.surface_signs[1] *math.sqrt(sum(
+                self.combs[surface.n_surface].q[i] ** 2 for i in range(1, 4)))
+            if surface.param_variable==0:
+                for j in range(1,4):
+                    loop_momenta[1][j]=loop_momenta[1][j]*onsh
+            if surface.param_variable==1:
+                for j in range(1,4):
+                    loop_momenta[0][j]=loop_momenta[0][j]*onsh
+	"""
+
+        p0=(-self.combs[surface.n_surface].q[0] - surface.surface_signs[1] * sum(   
             p_tr[1][l] ** 2 for l in range(1, 4)) ** 0.5) / 2.
         p0_sq = (p0) ** 2
         p_tr3d = numpy.array([p_tr[0][1], p_tr[0][2], p_tr[0][3]]) + numpy.array(
@@ -314,7 +342,6 @@ class Diagnostic_tool(object):
         a = abs(ra)
         c = abs(rc)
 
-        #surface type and signs
         surface_type = surface.surface_signs[0][0] * surface.surface_signs[0][1]
         sursign=surface.surface_signs[0][0] + surface.surface_signs[0][1]
 
@@ -324,13 +351,19 @@ class Diagnostic_tool(object):
 
         if ra<0 and surface_type==1:
             return None
-
+        """
         if sursign==2 and self.combs[surface.n_surface].q[0]>0:
             return None
-
-        if sursign==-2 and self.combs[surface.n_surface].q[0]<0:
+        """
+        if sursign==2 and p0<0:
             return None
 
+        if sursign==-2 and p0>0:
+            return None
+        """
+        if sursign==-2 and self.combs[surface.n_surface].q[0]<0:
+            return None
+        """
         if p0<0 and surface_type==-1 and surface.sheet==0:
             surface.sheet=1
 
@@ -338,18 +371,18 @@ class Diagnostic_tool(object):
             surface.sheet=0
 
 
-        if surface_type==1 and surface.sheet==1:
+        #if surface_type==1 and surface.sheet==1:
             surface.sheet=0
 
-        if surface_type==1 and surface.sheet==0:
+        #if surface_type==1 and surface.sheet==0:
             surface.sheet=1
 
         if surface_type==-1:
             kx = u * 100
             ky = v * 100
         else:
-            kx = u * a
-            ky = v * a
+            kx = u * math.sqrt(a)
+            ky = v * math.sqrt(a)
 
         #TODO: if clause set of admissible kx and ky
     #    kx=u*a
@@ -372,21 +405,50 @@ class Diagnostic_tool(object):
     def all_surfaces(self, n_points):
         all_surf=[]
         l=0
+        #print("LAAA")
         for i in range(0, len(self.cut)):
             info = Momentum_info(cut=self.cut[i], prop=self.propagators, n_loops=self.n_loop, signs=self.sign[i])
             self.combs = info.info_prep()
             for j in range(0, self.Etot):
                 if self.combs[j].q[0] != 0:
+                    #print("LOOOO")
                     surp = Surface(j, 1, 1)
                     surm = Surface(j, -1, -1)
-                    self.determine_existence(n_points, surp, i)
-                    if surp.exist == 1:
-                        all_surf.append([self.cut[i],surp])
 
-                    self.determine_existence(n_points, surm, i)
+                    p_tr = numpy.array(self.translation_construction(surp, [[0,0,0,0],[0,0,0,0]], i))
+                    spl=surp.surface_signs[0][0]+surp.surface_signs[0][1]+surp.surface_signs[1]
 
-                    if surm.exist == 1:
-                        all_surf.append([self.cut[i],surm])
+                    if abs(spl)>1 and n_points==0:
+                        #print("HERE")
+                        onsh=self.combs[surp.n_surface].q[0]**2-sum(self.combs[surp.n_surface].q[i1]**2 for i1 in range(1,4))
+                        print(onsh)
+                        if onsh>0 and (-self.combs[surp.n_surface].q[0])*spl>0:
+                            surp.exist ==1
+                            all_surf.append([self.cut[i],surp])
+                    else:
+
+                        self.determine_existence(n_points, surp, i)
+                        if surp.exist == 1:
+                            all_surf.append([self.cut[i],surp])
+                            #print(surp.surface_signs)
+                            #print(spl)
+
+                    p_tr = numpy.array(self.translation_construction(surm, [[0,0,0,0],[0,0,0,0]], i))
+                    spl=surm.surface_signs[0][0]+surm.surface_signs[0][1]+surm.surface_signs[1]
+
+                    if abs(spl)>1 and n_points==0:
+                        print("HERE")
+                        onsh=self.combs[surm.n_surface].q[0]**2-sum(self.combs[surm.n_surface].q[i1]**2 for i1 in range(1,4))
+                        print(onsh)
+                        if onsh>0 and (-self.combs[surm.n_surface].q[0])*spl>0:
+                            surm.exist ==1
+                            all_surf.append([self.cut[i],surm])
+                    else:
+                        self.determine_existence(n_points, surm, i)
+                        if surm.exist == 1:
+                            all_surf.append([self.cut[i],surm])
+                            print(surm.surface_signs)
+                            print(spl)
         
         return all_surf
 
@@ -399,7 +461,7 @@ class Diagnostic_tool(object):
                 loopmomenta = [[random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)],
                                [random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)]]
 
-                ll1 = diag.get_parametrization(u=random.uniform(0, 1), v=random.uniform(0, 1), loop_momenta=loopmomenta,
+                ll1 = diag.get_parametrization(u=random.uniform(-1, 1), v=random.uniform(-1, 1), loop_momenta=loopmomenta,
                                                surface=surface, n_cut=n_cut)
 
                 if ll1 != None:
@@ -420,13 +482,31 @@ class Diagnostic_tool(object):
             limit_list.append(numpy.array(lll)+(0.001*i-(length/2.))*numpy.array(direction))
         return limit_list
 
+    def check_similarity(self, all_surfaces):
+        non_redundant_sur=[]
+        for i in range(0,len(all_surfaces)):
+            l=0
+            for j in range(0,i):
+                if all_surfaces[i][1].moms[0][0]==all_surfaces[j][1].moms[0][0] and all_surfaces[i][1].moms[0][1]==all_surfaces[j][1].moms[0][1] and all_surfaces[i][1].moms[1]==all_surfaces[j][1].moms[1]:
+                    if (all_surfaces[i][1].surface_signs[0][0]==all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][1]==all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==all_surfaces[j][1].surface_signs[1]) or (all_surfaces[i][1].surface_signs[0][0]==-all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][1]==-all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==-all_surfaces[j][1].surface_signs[1]):
+                        l+=1
+                if all_surfaces[i][1].moms[0][1]==all_surfaces[j][1].moms[0][0] and all_surfaces[i][1].moms[0][0]==all_surfaces[j][1].moms[0][1] and all_surfaces[i][1].moms[1]==all_surfaces[j][1].moms[1]:
+                    if (all_surfaces[i][1].surface_signs[0][1]==all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][0]==all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==all_surfaces[j][1].surface_signs[1]) or (all_surfaces[i][1].surface_signs[0][1]==-all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][0]==-all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==-all_surfaces[j][1].surface_signs[1]):
+                        l+=1
+                if all_surfaces[i][1].moms[0][0]==all_surfaces[j][1].moms[1] and all_surfaces[i][1].moms[0][1]==all_surfaces[j][1].moms[0][1] and all_surfaces[i][1].moms[1]==all_surfaces[j][1].moms[0][0]:
+                    if (all_surfaces[i][1].surface_signs[0][0]==all_surfaces[j][1].surface_signs[1] and all_surfaces[i][1].surface_signs[0][1]==all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==all_surfaces[j][1].surface_signs[0][0]) or (all_surfaces[i][1].surface_signs[0][0]==-all_surfaces[j][1].surface_signs[1] and all_surfaces[i][1].surface_signs[0][1]==-all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==-all_surfaces[j][1].surface_signs[0][0]):
+                        l+=1
+                if all_surfaces[i][1].moms[0][0]==all_surfaces[j][1].moms[0][0] and all_surfaces[i][1].moms[0][1]==all_surfaces[j][1].moms[1] and all_surfaces[i][1].moms[1]==all_surfaces[j][1].moms[0][1]:
+                    if (all_surfaces[i][1].surface_signs[0][0]==all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][1]==all_surfaces[j][1].surface_signs[1] and all_surfaces[i][1].surface_signs[1]==all_surfaces[j][1].surface_signs[0][1]) or (all_surfaces[i][1].surface_signs[0][0]==-all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][1]==-all_surfaces[j][1].surface_signs[1] and all_surfaces[i][1].surface_signs[1]==-all_surfaces[j][1].surface_signs[0][1]):
+                        l+=1
 
+            if l==0:
+                non_redundant_sur.append(all_surfaces[i][1])
 
-
-
+        return non_redundant_sur
 if __name__ == '__main__':
     
-    double_triangle =ltd_commons.hard_coded_topology_collection["DoubleBox"]
+    double_triangle =ltd_commons.hard_coded_topology_collection["DoubleTriange"]
 
 
 
@@ -435,8 +515,8 @@ if __name__ == '__main__':
    
     # Determining existence of surfaces!
     print("Analysing surfaces...")
-    sur=Surface(n=0,ot_sign=-1,sheet=1)
-    diag.determine_existence(100,sur,7)
+    #sur=Surface(n=0,ot_sign=-1,sheet=1)
+    #diag.determine_existence(100,sur,7)
 
     N_TRIAL_POINTS = 1000
     all_surfaces=diag.all_surfaces(N_TRIAL_POINTS)
@@ -451,5 +531,35 @@ if __name__ == '__main__':
         len([1 for s in all_surfaces if not s[1].is_ellipsoid()]),
     ))
 
-    #my_LTD = LTD('P6')
+    check_non_red=diag.check_similarity(all_surfaces)
+
+    for surface in check_non_red:
+        print(str(surface))
+        print('='*40)
+
+    """
+    surcheck=Surface(n=3,ot_sign=1,sheet=1)
+    points=diag.generate_surface_points(n_points=10000, surface=surcheck, n_cut=0)
+    #print(points)
+    fig = plt.figure()
+    fig2 = plt.figure()
+    ax = Axes3D(fig)
+    ax2 = Axes3D(fig2)
+
+    for i in range(0,10000):
+        xs = points[i][0][0]
+        ys = points[i][0][1]
+        zs = points[i][0][2]
+        ax.scatter(xs, ys, zs)
+
+    for i in range(0,10000):
+        xs = points[i][1][0]
+        ys = points[i][1][1]
+        zs = points[i][1][2]
+        ax2.scatter(xs, ys, zs)
+
+
+    plt.show()
+    """
+
 
