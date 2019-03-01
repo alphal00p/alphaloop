@@ -100,7 +100,8 @@ class LoopTopology(object):
         res['n_loops'] = self.n_loops
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
-        res['analytical_result'] = float(self.analytical_result) if self.analytical_result else 0.
+        res['analytical_result_real'] = float(self.analytical_result.real) if self.analytical_result else 0.
+        res['analytical_result_imag'] = float(self.analytical_result.imag) if self.analytical_result else 0. 
 
         return res
 
@@ -114,7 +115,8 @@ class LoopTopology(object):
             n_loops             =   flat_dict['n_loops'],
             loop_lines          =   tuple([LoopLine.from_flat_format(ll) for ll in flat_dict['loop_lines']]),
             external_kinematics =   vectors.LorentzVectorList([vectors.LorentzVector(v) for v in flat_dict['external_kinematics']]),
-            analytical_result   =   (None if flat_dict['analytical_result']==0. else flat_dict['analytical_result'])
+            analytical_result   =   (None if (flat_dict['analytical_result_real']==0. and flat_dict['analytical_result_imag']==0.) 
+                                     else complex(flat_dict['analytical_result_real'],flat_dict['analytical_result_imag']))
         ) 
 
     @staticmethod
@@ -437,38 +439,27 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None):
             ) 
         )
 	
-	elif name == 'TriangleBoxBox':
+    elif name == 'TriangleBoxBox':
 		p1 = external_momenta[0]
 		p2 = external_momenta[1]
 		return LoopTopology(
             name    = 'TriangleBoxBox',
             n_loops = 3,
             external_kinematics = external_momenta,
+            analytical_result = analytical_result,
             ltd_cut_structure = (
-            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		,
-            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT		),
-            	(LoopLine.POSITIVE_CUT	, LoopLine.NEGATIVE_CUT		, LoopLine.POSITIVE_CUT		,
-            	LoopLine.NO_CUT			, LoopLine.NO_CUT			, LoopLine.NO_CUT		),
-            	(LoopLine.POSITIVE_CUT	, LoopLine.NEGATIVE_CUT		, LoopLine.NO_CUT			,
-            	LoopLine.NO_CUT			, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT	),
-            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NO_CUT			,
-            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.NEGATIVE_CUT	),
-            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NO_CUT			,
-            	LoopLine.NEGATIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT	),
-            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT		,
-            	LoopLine.NO_CUT			, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT	),
-            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		,
-            	LoopLine.NEGATIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NO_CUT		),
-            	(LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT			,
-            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
-            	(LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NEGATIVE_CUT		,
-            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT		),
-            	(LoopLine.NO_CUT		, LoopLine.NO_CUT			, LoopLine.NO_CUT			,
-            	LoopLine.POSITIVE_CUT	, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
-            	(LoopLine.NO_CUT		, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT		,
-            	LoopLine.POSITIVE_CUT	, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT		),
-            	(LoopLine.NO_CUT		, LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		,
-            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT	    , LoopLine.POSITIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NEGATIVE_CUT	    , LoopLine.POSITIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.NO_CUT		, LoopLine.NO_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NEGATIVE_CUT	    , LoopLine.NO_CUT		,   LoopLine.NO_CUT		, LoopLine.NO_CUT		, LoopLine.NEGATIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT	    , LoopLine.NO_CUT		,   LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NEGATIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT	    , LoopLine.NO_CUT		,   LoopLine.NEGATIVE_CUT	, LoopLine.NO_CUT		, LoopLine.NEGATIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT	    , LoopLine.NEGATIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.NO_CUT		, LoopLine.NEGATIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT	    , LoopLine.POSITIVE_CUT	,   LoopLine.NEGATIVE_CUT	, LoopLine.NO_CUT		, LoopLine.NO_CUT	),
+            	(LoopLine.NO_CUT	, LoopLine.POSITIVE_CUT	    , LoopLine.NO_CUT		,   LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
+            	(LoopLine.NO_CUT	, LoopLine.POSITIVE_CUT	    , LoopLine.NEGATIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT	),
+            	(LoopLine.NO_CUT	, LoopLine.NO_CUT	    , LoopLine.NO_CUT		,   LoopLine.POSITIVE_CUT	, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
+            	(LoopLine.NO_CUT	, LoopLine.NO_CUT	    , LoopLine.NEGATIVE_CUT	,   LoopLine.POSITIVE_CUT	, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT	),
+            	(LoopLine.NO_CUT	, LoopLine.NO_CUT	    , LoopLine.POSITIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
             ),
             loop_lines = (
                 LoopLine(
@@ -589,10 +580,10 @@ hard_coded_topology_collection.add_topology(
 
 # Example printout
 # ----------------
-#hard_coded_topology_collection['DoubleTriange'].print_topology()
 #hard_coded_topology_collection['DoubleTriangle'].print_topology()
 #hard_coded_topology_collection['TriangleBox'].print_topology()
 #hard_coded_topology_collection['DoubleBox'].print_topology()
+#hard_coded_topology_collection['TriangleBoxBox'].print_topology()
 
 # Example of yaml export and import
 # ---------------------------------
