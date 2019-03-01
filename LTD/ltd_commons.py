@@ -330,7 +330,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None):
                     end_node    = 2,
                     signature   = (0,1),
                     propagators = (
-                        Propagator(q=-p2, m_squared=0.),
+                        Propagator(q=p1, m_squared=0.),
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
@@ -451,8 +451,8 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'DoubleTriangle',
         vectors.LorentzVectorList([
-                vectors.LorentzVector([1.,0.3,0.4,0.5]),
-                vectors.LorentzVector([-1.,-0.3,-0.4,-0.5])
+                vectors.LorentzVector([1.,0.1,0.2,0.1]),
+                vectors.LorentzVector([-1.,-0.1,-0.2,-0.1])
         ])
         # Analytical is given by its exact function directly for 'DoubleTriangle'        
     ),

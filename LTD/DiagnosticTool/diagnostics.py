@@ -301,7 +301,7 @@ class Diagnostic_tool(object):
             if ll1 != None:
                 surf.exist=1
                 return None
-        surf.exist=None
+        surf.exist=0
 
 
     def get_parametrization(self, u, v, surface, loop_momenta, n_cut):
@@ -318,7 +318,7 @@ class Diagnostic_tool(object):
         surface_type = surface.surface_signs[0][0] * surface.surface_signs[0][1]
         sursign=surface.surface_signs[0][0] + surface.surface_signs[0][1]
 
-	"""
+        """
         if sursign==2 and surface.surface_signs[1]!=0:
             onsh = self.combs[surface.n_surface].q[0] - surface.surface_signs[1] *math.sqrt(sum(
                 self.combs[surface.n_surface].q[i] ** 2 for i in range(1, 4)))
@@ -328,7 +328,7 @@ class Diagnostic_tool(object):
             if surface.param_variable==1:
                 for j in range(1,4):
                     loop_momenta[0][j]=loop_momenta[0][j]*onsh
-	"""
+	    """
 
         p0=(-self.combs[surface.n_surface].q[0] - surface.surface_signs[1] * sum(   
             p_tr[1][l] ** 2 for l in range(1, 4)) ** 0.5) / 2.
@@ -422,15 +422,31 @@ class Diagnostic_tool(object):
                     p_tr = numpy.array(self.translation_construction(surp, [[0,0,0,0],[0,0,0,0]], i))
                     spl=surp.surface_signs[0][0]+surp.surface_signs[0][1]+surp.surface_signs[1]
 
-                    if abs(spl)>1 and n_points==0:
+                    if abs(spl)>1:
                         #print("HERE")
+                        check=0
+                        surp.exist=0
                         onsh=self.combs[surp.n_surface].q[0]**2-sum(self.combs[surp.n_surface].q[i1]**2 for i1 in range(1,4))
                         print(onsh)
                         if onsh>0 and (-self.combs[surp.n_surface].q[0])*spl>0:
-                            surp.exist ==1
-                            all_surf.append([self.cut[i],surp])
-                    else:
+                            #surp.exist ==1
+                            check=1
+                        if n_points!=0:
+                            self.determine_existence(n_points, surp, i)
+                        else:
+                            surp.exist=check
+                        if surp.exist == check:
+                            if check==1:
+                                all_surf.append([self.cut[i], surp])
+                        else:
+                            print(surp.exist)
+                            print(check)
+                            print(surp.moms)
+                            print(surp.surface_signs)
+                            print("ERRRROOOOOORRRRR")
+                            return
 
+                    else:
                         self.determine_existence(n_points, surp, i)
                         if surp.exist == 1:
                             all_surf.append([self.cut[i],surp])
@@ -440,13 +456,27 @@ class Diagnostic_tool(object):
                     p_tr = numpy.array(self.translation_construction(surm, [[0,0,0,0],[0,0,0,0]], i))
                     spl=surm.surface_signs[0][0]+surm.surface_signs[0][1]+surm.surface_signs[1]
 
-                    if abs(spl)>1 and n_points==0:
-                        print("HERE")
+                    if abs(spl)>1:
+                        check=0
+                        surm.exist=0
                         onsh=self.combs[surm.n_surface].q[0]**2-sum(self.combs[surm.n_surface].q[i1]**2 for i1 in range(1,4))
                         print(onsh)
                         if onsh>0 and (-self.combs[surm.n_surface].q[0])*spl>0:
-                            surm.exist ==1
-                            all_surf.append([self.cut[i],surm])
+                            check=1
+                        if n_points!=0:
+                            self.determine_existence(n_points, surm, i)
+                        else:
+                            surm.exist=check
+                        if surm.exist==check:
+                            if check==1:
+                                all_surf.append([self.cut[i],surm])
+                        else:
+                            print(surm.exist)
+                            print(check)
+                            print(surm.moms)
+                            print(surm.surface_signs)
+                            print("ERRRROOOOOORRRR")
+                            return
                     else:
                         self.determine_existence(n_points, surm, i)
                         if surm.exist == 1:
@@ -490,28 +520,61 @@ class Diagnostic_tool(object):
         non_redundant_sur=[]
         for i in range(0,len(all_surfaces)):
             l=0
-            for j in range(0,i):
-                if all_surfaces[i][1].moms[0][0]==all_surfaces[j][1].moms[0][0] and all_surfaces[i][1].moms[0][1]==all_surfaces[j][1].moms[0][1] and all_surfaces[i][1].moms[1]==all_surfaces[j][1].moms[1]:
-                    if (all_surfaces[i][1].surface_signs[0][0]==all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][1]==all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==all_surfaces[j][1].surface_signs[1]) or (all_surfaces[i][1].surface_signs[0][0]==-all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][1]==-all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==-all_surfaces[j][1].surface_signs[1]):
-                        l+=1
-                if all_surfaces[i][1].moms[0][1]==all_surfaces[j][1].moms[0][0] and all_surfaces[i][1].moms[0][0]==all_surfaces[j][1].moms[0][1] and all_surfaces[i][1].moms[1]==all_surfaces[j][1].moms[1]:
-                    if (all_surfaces[i][1].surface_signs[0][1]==all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][0]==all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==all_surfaces[j][1].surface_signs[1]) or (all_surfaces[i][1].surface_signs[0][1]==-all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][0]==-all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==-all_surfaces[j][1].surface_signs[1]):
-                        l+=1
-                if all_surfaces[i][1].moms[0][0]==all_surfaces[j][1].moms[1] and all_surfaces[i][1].moms[0][1]==all_surfaces[j][1].moms[0][1] and all_surfaces[i][1].moms[1]==all_surfaces[j][1].moms[0][0]:
-                    if (all_surfaces[i][1].surface_signs[0][0]==all_surfaces[j][1].surface_signs[1] and all_surfaces[i][1].surface_signs[0][1]==all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==all_surfaces[j][1].surface_signs[0][0]) or (all_surfaces[i][1].surface_signs[0][0]==-all_surfaces[j][1].surface_signs[1] and all_surfaces[i][1].surface_signs[0][1]==-all_surfaces[j][1].surface_signs[0][1] and all_surfaces[i][1].surface_signs[1]==-all_surfaces[j][1].surface_signs[0][0]):
-                        l+=1
-                if all_surfaces[i][1].moms[0][0]==all_surfaces[j][1].moms[0][0] and all_surfaces[i][1].moms[0][1]==all_surfaces[j][1].moms[1] and all_surfaces[i][1].moms[1]==all_surfaces[j][1].moms[0][1]:
-                    if (all_surfaces[i][1].surface_signs[0][0]==all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][1]==all_surfaces[j][1].surface_signs[1] and all_surfaces[i][1].surface_signs[1]==all_surfaces[j][1].surface_signs[0][1]) or (all_surfaces[i][1].surface_signs[0][0]==-all_surfaces[j][1].surface_signs[0][0] and all_surfaces[i][1].surface_signs[0][1]==-all_surfaces[j][1].surface_signs[1] and all_surfaces[i][1].surface_signs[1]==-all_surfaces[j][1].surface_signs[0][1]):
-                        l+=1
+
+            for j in range(0, len(non_redundant_sur)):
+                if all_surfaces[i][1].moms[0][0] == non_redundant_sur[j][0][1].moms[0][0] and all_surfaces[i][1].moms[0][1] == \
+                        non_redundant_sur[j][0][1].moms[0][1] and all_surfaces[i][1].moms[1] == non_redundant_sur[j][0][1].moms[1]:
+                    if (all_surfaces[i][1].surface_signs[0][0] == non_redundant_sur[j][0][1].surface_signs[0][0] and
+                        all_surfaces[i][1].surface_signs[0][1] == non_redundant_sur[j][0][1].surface_signs[0][1] and
+                        all_surfaces[i][1].surface_signs[1] == non_redundant_sur[j][0][1].surface_signs[1]) or (
+                            all_surfaces[i][1].surface_signs[0][0] == -non_redundant_sur[j][0][1].surface_signs[0][0] and
+                            all_surfaces[i][1].surface_signs[0][1] == -non_redundant_sur[j][0][1].surface_signs[0][1] and
+                            all_surfaces[i][1].surface_signs[1] == -non_redundant_sur[j][0][1].surface_signs[1]):
+                        l += 1
+                        non_redundant_sur[j].append(all_surfaces[i])
+
+                if all_surfaces[i][1].moms[0][1] == non_redundant_sur[j][0][1].moms[0][0] and all_surfaces[i][1].moms[0][0] == \
+                        non_redundant_sur[j][0][1].moms[0][1] and all_surfaces[i][1].moms[1] == non_redundant_sur[j][0][1].moms[1]:
+                    if (all_surfaces[i][1].surface_signs[0][1] == non_redundant_sur[j][0][1].surface_signs[0][0] and
+                        all_surfaces[i][1].surface_signs[0][0] == non_redundant_sur[j][0][1].surface_signs[0][1] and
+                        all_surfaces[i][1].surface_signs[1] == non_redundant_sur[j][0][1].surface_signs[1]) or (
+                            all_surfaces[i][1].surface_signs[0][1] == -non_redundant_sur[j][0][1].surface_signs[0][0] and
+                            all_surfaces[i][1].surface_signs[0][0] == -non_redundant_sur[j][0][1].surface_signs[0][1] and
+                            all_surfaces[i][1].surface_signs[1] == -non_redundant_sur[j][0][1].surface_signs[1]):
+                        l += 1
+                        non_redundant_sur[j].append(all_surfaces[i])
+                if all_surfaces[i][1].moms[0][0] == non_redundant_sur[j][0][1].moms[1] and all_surfaces[i][1].moms[0][1] == \
+                        non_redundant_sur[j][0][1].moms[0][1] and all_surfaces[i][1].moms[1] == non_redundant_sur[j][0][1].moms[0][0]:
+                    if (all_surfaces[i][1].surface_signs[0][0] == non_redundant_sur[j][0][1].surface_signs[1] and
+                        all_surfaces[i][1].surface_signs[0][1] == non_redundant_sur[j][0][1].surface_signs[0][1] and
+                        all_surfaces[i][1].surface_signs[1] == non_redundant_sur[j][0][1].surface_signs[0][0]) or (
+                            all_surfaces[i][1].surface_signs[0][0] == -non_redundant_sur[j][0][1].surface_signs[1] and
+                            all_surfaces[i][1].surface_signs[0][1] == -non_redundant_sur[j][0][1].surface_signs[0][1] and
+                            all_surfaces[i][1].surface_signs[1] == -non_redundant_sur[j][0][1].surface_signs[0][0]):
+                        l += 1
+                        non_redundant_sur[j].append(all_surfaces[i])
+                if all_surfaces[i][1].moms[0][0] == non_redundant_sur[j][0][1].moms[0][0] and all_surfaces[i][1].moms[0][1] == \
+                        non_redundant_sur[j][0][1].moms[1] and all_surfaces[i][1].moms[1] == non_redundant_sur[j][0][1].moms[0][1]:
+                    if (all_surfaces[i][1].surface_signs[0][0] == non_redundant_sur[j][0][1].surface_signs[0][0] and
+                        all_surfaces[i][1].surface_signs[0][1] == non_redundant_sur[j][0][1].surface_signs[1] and
+                        all_surfaces[i][1].surface_signs[1] == non_redundant_sur[j][0][1].surface_signs[0][1]) or (
+                            all_surfaces[i][1].surface_signs[0][0] == -non_redundant_sur[j][0][1].surface_signs[0][0] and
+                            all_surfaces[i][1].surface_signs[0][1] == -non_redundant_sur[j][0][1].surface_signs[1] and
+                            all_surfaces[i][1].surface_signs[1] == -non_redundant_sur[j][0][1].surface_signs[0][1]):
+                        l += 1
+                        non_redundant_sur[j].append(all_surfaces[i])
+
 
             if l==0:
-                non_redundant_sur.append(all_surfaces[i][1])
+                newset=[]
+                newset.append(all_surfaces[i])
+                non_redundant_sur.append(newset)
 
         return non_redundant_sur
 if __name__ == '__main__':
    
 
-    if len(sys.argv)>=1:
+    if len(sys.argv)>=2:
         topology_name = sys.argv[1]
     else:
         topology_name = "DoubleTriangle"
@@ -530,31 +593,33 @@ if __name__ == '__main__':
     # Ellipsoids: still run existence check but if exact result says does not exist but numerical random tests says it does, then crash.
     # Hyperboloids: simply do the rnadom check existence test, but maybe eventually improve sampling heuristics.
 
-    N_TRIAL_POINTS = 0 
+    N_TRIAL_POINTS = 2000
     all_surfaces=diag.all_surfaces(N_TRIAL_POINTS)
     print('='*40)    
 
-    # Make sure to return instead a list of list of identical topologies
+
     check_non_red=diag.check_similarity(all_surfaces)
 
-#    for surface in check_non_red:
-#        print(str(surface))
-#        print('='*40)
 
-#    Make sure to keep the same format for each element of the list oof list returned by check_similarity
-#    for i_surface, (cut_momenta, surface) in enumerate(all_surfaces):
-#        print("Surface #%i for cut %s = \n%s"%(i_surface, cut_momenta, str(surface)))
-#        print('='*40)
-
-
-
+    """
     print('There are total of %d surfaces (%d ellipsoids and %d hyperboloids)'%(
         len(check_non_red),
-        len([1 for s in check_non_red if s.is_ellipsoid()]),
-        len([1 for s in check_non_red if not s.is_ellipsoid()]),
+        len([1 for (cut,s) in check_non_red if s.is_ellipsoid()]),
+        len([1 for (cut,s) in check_non_red if not s.is_ellipsoid()]),
     ))
+    """
+    for i in range(0,len(check_non_red)):
+        print('+'*10+"NEW SURFACE"+'+'*10)
+        for j in range(0,len(check_non_red[i])):
+            print(str(check_non_red[i][j][1]))
+            print('='*40)
 
+    print('O'*40)
 
+    for i in range(0,len(all_surfaces)):
+
+        print(str(all_surfaces[i][1]))
+        print('='*40)
 
     """
     surcheck=Surface(n=3,ot_sign=1,sheet=1)
