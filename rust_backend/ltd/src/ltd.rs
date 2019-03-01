@@ -22,6 +22,7 @@ type Complex = num::Complex<f64>;
 pub struct LoopLine {
     pub loop_momenta: ArrayVec<[(usize, bool); MAX_LOOP]>,
     pub q_and_mass: Vec<(LorentzVector<f64>, f64)>,
+    pub prop_n: usize,
     singularity_matrix: Vec<bool>,
 }
 
@@ -45,9 +46,11 @@ impl LoopLine {
 
         println!("Singularity matrix: {:#?}", singularity_matrix);
 
+        let prop_n = q_and_mass.len();
         LoopLine {
             loop_momenta: lt,
             q_and_mass,
+            prop_n,
             singularity_matrix,
         }
     }
@@ -109,6 +112,58 @@ impl LoopLine {
     }
 
     #[inline]
+    fn external_mom(&self, i: usize) -> LorentzVector<f64> {
+        let pi = if i != 0 {
+            self.q_and_mass[i].0 - self.q_and_mass[i - 1].0
+        } else {
+            self.q_and_mass[i].0 - self.q_and_mass[self.prop_n - 1].0
+        };
+        pi
+    }
+
+    #[inline]
+    fn xij(&self, i: usize, j: usize) -> f64 {
+        let qji = self.q_and_mass[j].0 - self.q_and_mass[i].0;
+        let pi = self.external_mom(i);
+        1.0 + qji.square() / (2.0 * qji.dot(&pi))
+    }
+
+    fn tij(&self, i: usize, j: usize, x: f64) -> f64 {
+        let qji = self.q_and_mass[j].0 - self.q_and_mass[i].0;
+        let pi = self.external_mom(i);
+        1.0 / (x * 2.0 * qji.dot(&pi) + qji.square())
+    }
+
+    fn aij(&self, i: usize, j: usize) -> f64 {
+        let result = 0.0;
+        let x0 = self.xij(i, j);
+
+        for k in 0..self.prop_n {
+            if k == i || k == i - 1 || k == j {
+                continue;
+            } else {
+                result *= self.tij(i, k, x0);
+            }
+        }
+        result
+    }
+
+    fn bi(&self, i: usize) -> f64 {
+        let p1 = self.external_mom(i);
+        let p0 = if i == 0 {
+            let p0 = self.external_mom(self.prop_n - 1);
+        } else {
+            let p0 = self.external_mom(i - 1);
+        };
+        //TODO: introdue e_cm_sq
+        let tau = 1e-10;
+        if p1.square().abs() < tau {
+            aij(i, i + 1)
+        } else {
+            aij(i - 1, i + 1)
+        }
+    }
+
     fn sij(&self, i: i32, j: i32) -> f64 {
         let size = self.q_and_mass.len() as i32;
         let index_i1 = if (i - 1) % size < 0 {
