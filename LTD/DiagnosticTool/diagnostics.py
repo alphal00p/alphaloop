@@ -615,7 +615,8 @@ if __name__ == '__main__':
 
     options = {
         'n_points' : 2000,
-        'seed' : 1
+        'seed' : 1,
+        'show_group_members' : False
     }
     for arg in sys.argv:
         if arg.startswith('--'):
@@ -628,6 +629,8 @@ if __name__ == '__main__':
                 options['seed'] = int(value)
             elif opt == 'n_points':
                 options['n_trial_points'] = int(value)
+            elif opt == 'show_group_members':
+                options['show_group_members'] = (value is None or value.upper() in ['T','TRUE','ON'])
             else:
                 logging.warning("Option '%s' is not reckognized and will be ignored."%opt)
 
@@ -653,7 +656,7 @@ if __name__ == '__main__':
 
     classified_surfaces = diag.check_similarity(all_surfaces)
 
-    logging.info(print_all_surfaces(classified_surfaces,show_group_members=False))
+    logging.info(print_all_surfaces(classified_surfaces,show_group_members=options['show_group_members']))
 
     """
     surcheck=Surface(n=3,ot_sign=1,sheet=1)
