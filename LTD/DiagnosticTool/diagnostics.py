@@ -11,6 +11,8 @@ import itertools
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d, Axes3D
 
+import logging
+logging.basicConfig(level=logging.INFO)
 
 class Surface(object):
 
@@ -42,7 +44,7 @@ class Surface(object):
             return ( abs(sum(self.surface_signs[0]) + self.surface_signs[1]) == 3 or
                      (self.surface_signs[1]==0 and abs(sum(self.surface_signs[0]))==2) )
                 
-        def __repr__(self):
+        def __str__(self, cut_propagators=None):
             """ Print human-readable information regarding the surface."""
 
             lines = []
@@ -50,6 +52,8 @@ class Surface(object):
             [(+1,-1),-1]
 
             lines.append("%-30s : %d"%("Surface ID",self.n_surface))
+            if cut_propagators:
+                lines.append("%-30s : %s"%("Cut propagators","(%d,%d)"%tuple(cut_propagators)))
             lines.append("%-30s : %s"%("Solution type",'+' if self.marker>0 else '-'))
             lines.append("%-30s : %s"%("Surface signature", '(%s %s) %s'%(tuple(
                 [{1:'+',-1:'-',0:'0'}[s] for s in list(self.surface_signs[0])+[self.surface_signs[1],]]
@@ -64,7 +68,7 @@ class Surface(object):
 
             return '\n'.join(lines)
 
-        __str__ = __repr__
+        __repr__ = __str__
 
 #Momentum info is a class containing, as members, the list of cut propagators (self.cut), the list of propagators (self.prop), the number of loops (n_loops)
 #and the target list, which contains the same number of propagators as self.prop; however, the propagator members self.routing, self.q, self.m have been substituted
@@ -163,7 +167,7 @@ class Diagnostic_tool(object):
             self.sign=signcutty[0]+signcutty[1]+signcutty[2]
 
         self.combs = None
-        print(self.cut)
+        logging.debug(self.cut)
 
 
 
@@ -281,10 +285,11 @@ class Diagnostic_tool(object):
 
         #parametrization of the z component of the chosen loop momentum
         if surface_type == 1:
-            kz = g * (c * (1. - (1. / a) * (kx**2.+ky**2.))) ** 0.5
+            kz = g * (c * (1. - (1. / a) * (kx**2+ky**2))) ** 0.5
+
         else:
 
-            kz = g * (c * (1. + (1. / a) *  (kx**2.+ky**2.) )) ** 0.5
+            kz = g * (c * (1. + (1. / a) *  (kx**2+ky**2) )) ** 0.5
 
         return kz
 
@@ -427,7 +432,7 @@ class Diagnostic_tool(object):
                         check=0
                         surp.exist=0
                         onsh=self.combs[surp.n_surface].q[0]**2-sum(self.combs[surp.n_surface].q[i1]**2 for i1 in range(1,4))
-                        print(onsh)
+                        logging.debug(onsh)
                         if onsh>0 and (-self.combs[surp.n_surface].q[0])*spl>0:
                             #surp.exist ==1
                             check=1
@@ -439,11 +444,11 @@ class Diagnostic_tool(object):
                             if check==1:
                                 all_surf.append([self.cut[i], surp])
                         else:
-                            print(surp.exist)
-                            print(check)
-                            print(surp.moms)
-                            print(surp.surface_signs)
-                            print("ERRRROOOOOORRRRR")
+                            logging.critical(surp.exist)
+                            logging.critical(check)
+                            logging.critical(surp.moms)
+                            logging.critical(surp.surface_signs)
+                            logging.critical("ERRRROOOOOORRRRR")
                             return
 
                     else:
@@ -460,7 +465,7 @@ class Diagnostic_tool(object):
                         check=0
                         surm.exist=0
                         onsh=self.combs[surm.n_surface].q[0]**2-sum(self.combs[surm.n_surface].q[i1]**2 for i1 in range(1,4))
-                        print(onsh)
+                        logging.debug(onsh)
                         if onsh>0 and (-self.combs[surm.n_surface].q[0])*spl>0:
                             check=1
                         if n_points!=0:
@@ -471,18 +476,18 @@ class Diagnostic_tool(object):
                             if check==1:
                                 all_surf.append([self.cut[i],surm])
                         else:
-                            print(surm.exist)
-                            print(check)
-                            print(surm.moms)
-                            print(surm.surface_signs)
-                            print("ERRRROOOOOORRRR")
+                            logging.critical(surm.exist)
+                            logging.critical(check)
+                            logging.critical(surm.moms)
+                            logging.critical(surm.surface_signs)
+                            logging.critical("ERRRROOOOOORRRR")
                             return
                     else:
                         self.determine_existence(n_points, surm, i)
                         if surm.exist == 1:
                             all_surf.append([self.cut[i],surm])
-                            print(surm.surface_signs)
-                            print(spl)
+                            logging.debug(surm.surface_signs)
+                            logging.debug(spl)
         
         return all_surf
 
@@ -571,13 +576,62 @@ class Diagnostic_tool(object):
                 non_redundant_sur.append(newset)
 
         return non_redundant_sur
+
+def print_all_surfaces(classified_surfaces, show_group_members=False):
+
+    res = ["Surface groups content:"]
+    for i_group, surfaces_group in enumerate(classified_surfaces):
+        res.append('='*40)
+        res.append('Defining surface of the surfaces group #%d:'%(i_group+1))
+        res.append(surfaces_group[0][1].__str__(cut_propagators = surfaces_group[0][0]))
+        if show_group_members:
+            res.append('Identical to the following %d other surfaces:'%(len(surfaces_group[1:])))
+            for i_member, surface in enumerate(surfaces_group[1:]):
+                res.append('-'*40)
+                res.append('Identical surface #%d:'%(i_member+1))
+                res.append(surface[1].__str__(cut_propagators=surface[0]))
+        else:
+            res.append('Identical to %d other surfaces.'%(len(surfaces_group[1:])))
+
+    res.append('='*40)
+    res.append('A total of %d groups of identical surfaces were found (%d elliptic, %d hyperbolic) for a total of %d surfaces.'%(
+            len(classified_surfaces),
+            len([1 for s in classified_surfaces if s[0][1].is_ellipsoid()]),
+            len([1 for s in classified_surfaces if not s[0][1].is_ellipsoid()]),
+            sum(len(surface_group) for surface_group in classified_surfaces)
+        )
+    )
+    res.append('='*40)
+
+    return '\n'.join(res)
+
 if __name__ == '__main__':
    
 
-    if len(sys.argv)>=2:
+    if len(sys.argv)>=2 and not sys.argv[1].startswith('--'):
         topology_name = sys.argv[1]
     else:
         topology_name = "DoubleTriangle"
+
+    options = {
+        'n_points' : 2000,
+        'seed' : 1
+    }
+    for arg in sys.argv:
+        if arg.startswith('--'):
+            try:
+                opt, value = arg[2:].split('=')
+            except:
+                opt, value = arg[2:], None
+            
+            if opt == 'seed':
+                options['seed'] = int(value)
+            elif opt == 'n_points':
+                options['n_trial_points'] = int(value)
+            else:
+                logging.warning("Option '%s' is not reckognized and will be ignored."%opt)
+
+    random.seed(options['seed'])
 
     double_triangle =ltd_commons.hard_coded_topology_collection[topology_name]
 
@@ -585,7 +639,7 @@ if __name__ == '__main__':
    
    
     # Determining existence of surfaces!
-    print("Analysing surfaces...")
+    logging.info("Analysing surfaces...")
     #sur=Surface(n=0,ot_sign=-1,sheet=1)
     #diag.determine_existence(100,sur,7)
 
@@ -593,33 +647,13 @@ if __name__ == '__main__':
     # Ellipsoids: still run existence check but if exact result says does not exist but numerical random tests says it does, then crash.
     # Hyperboloids: simply do the rnadom check existence test, but maybe eventually improve sampling heuristics.
 
-    N_TRIAL_POINTS = 2000
-    all_surfaces=diag.all_surfaces(N_TRIAL_POINTS)
-    print('='*40)    
+    all_surfaces=diag.all_surfaces(options['n_trial_points'])
+    logging.info('='*40)    
 
 
-    check_non_red=diag.check_similarity(all_surfaces)
+    classified_surfaces = diag.check_similarity(all_surfaces)
 
-
-    """
-    print('There are total of %d surfaces (%d ellipsoids and %d hyperboloids)'%(
-        len(check_non_red),
-        len([1 for (cut,s) in check_non_red if s.is_ellipsoid()]),
-        len([1 for (cut,s) in check_non_red if not s.is_ellipsoid()]),
-    ))
-    """
-    for i in range(0,len(check_non_red)):
-        print('+'*10+"NEW SURFACE"+'+'*10)
-        for j in range(0,len(check_non_red[i])):
-            print(str(check_non_red[i][j][1]))
-            print('='*40)
-
-    print('O'*40)
-
-    for i in range(0,len(all_surfaces)):
-
-        print(str(all_surfaces[i][1]))
-        print('='*40)
+    logging.info(print_all_surfaces(classified_surfaces,show_group_members=False))
 
     """
     surcheck=Surface(n=3,ot_sign=1,sheet=1)
