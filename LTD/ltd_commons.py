@@ -436,7 +436,95 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None):
                 ),
             ) 
         )
-
+	
+	elif name == 'TriangleBoxBox':
+		p1 = external_momenta[0]
+		p2 = external_momenta[1]
+		return LoopTopology(
+            name    = 'TriangleBoxBox',
+            n_loops = 3,
+            external_kinematics = external_momenta,
+            ltd_cut_structure = (
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		,
+            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT		),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NEGATIVE_CUT		, LoopLine.POSITIVE_CUT		,
+            	LoopLine.NO_CUT			, LoopLine.NO_CUT			, LoopLine.NO_CUT		),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NEGATIVE_CUT		, LoopLine.NO_CUT			,
+            	LoopLine.NO_CUT			, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NO_CUT			,
+            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.NEGATIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NO_CUT			,
+            	LoopLine.NEGATIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT		,
+            	LoopLine.NO_CUT			, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT	),
+            	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		,
+            	LoopLine.NEGATIVE_CUT	, LoopLine.NO_CUT			, LoopLine.NO_CUT		),
+            	(LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT			,
+            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
+            	(LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NEGATIVE_CUT		,
+            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT		),
+            	(LoopLine.NO_CUT		, LoopLine.NO_CUT			, LoopLine.NO_CUT			,
+            	LoopLine.POSITIVE_CUT	, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
+            	(LoopLine.NO_CUT		, LoopLine.NO_CUT			, LoopLine.NEGATIVE_CUT		,
+            	LoopLine.POSITIVE_CUT	, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT		),
+            	(LoopLine.NO_CUT		, LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		,
+            	LoopLine.NO_CUT			, LoopLine.POSITIVE_CUT		, LoopLine.POSITIVE_CUT	),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 3,
+                    signature   = (1,-1,0),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 4,
+                    signature   = (1,-1,-1),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                        Propagator(q=p1+p2, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 1,
+                    signature   = (1,-1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (0,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 4,
+                    signature   = (0,0,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+	
     else:
         raise BaseException("Unknown hard-coded topology name '%s'"%name)
 
@@ -484,6 +572,18 @@ hard_coded_topology_collection.add_topology(
         # Analytical result known but exact numerical result simply copied here from D^(2) of table 1 of
         # https://arxiv.org/pdf/1211.0509.pdf
         analytical_result =  -5.897e-14
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxBox',        
+       	vectors.LorentzVectorList([
+                vectors.LorentzVector([0.,5.,0.,0.]),
+                vectors.LorentzVector([0.,0.,6.,0.]),
+                vectors.LorentzVector([0.,-5.,-6.,0.]),
+        ]),
+        analytical_result =  1.76576112187575e-10j
     ),
 )
 
