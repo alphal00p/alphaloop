@@ -135,7 +135,7 @@ impl LoopLine {
     }
 
     fn aij(&self, i: usize, j: usize) -> f64 {
-        let result = 0.0;
+        let mut result = 0.0;
         let x0 = self.xij(i, j);
 
         for k in 0..self.prop_n {
@@ -149,18 +149,13 @@ impl LoopLine {
     }
 
     fn bi(&self, i: usize) -> f64 {
-        let p1 = self.external_mom(i);
-        let p0 = if i == 0 {
-            let p0 = self.external_mom(self.prop_n - 1);
-        } else {
-            let p0 = self.external_mom(i - 1);
-        };
+        let pi = self.external_mom(i);
         //TODO: introdue e_cm_sq
         let tau = 1e-10;
-        if p1.square().abs() < tau {
-            aij(i, i + 1)
+        if pi.square().abs() < tau {
+            self.aij(i, i + 1)
         } else {
-            aij(i - 1, i + 1)
+            self.aij(i - 1, i + 1)
         }
     }
 
@@ -698,7 +693,7 @@ impl LTD {
                 let lambda2 = Dual7::from_real(1.0);
                 // One should typically choose a dimensionful width sigma for the gaussian since the
                 // dimensionality of the exponent coded below is GeV^2.
-                
+
                 // For now, hard-code it to 20.
                 let sigma = Dual7::from_real(20.0);
                 let sigma_squared = sigma * sigma;
@@ -916,7 +911,6 @@ impl LTD {
             );
         }
         res
-
     }
 
     #[inline]
@@ -968,7 +962,7 @@ impl LTD {
                 // 1 means positive cut, 0 means no cut and -1 negative cut
                 // NOTE: triple cuts disabled for now
                 let cut_structures = [[1, 1, 0], [0, 1, 1], [-1, 0, 1]]; //, [1, 1, 1], [-1, 1, 1]];
-                //let cut_structures = [[1, 1, 0],];
+                                                                         //let cut_structures = [[1, 1, 0],];
 
                 let mut result = Complex::default();
                 for o in &cut_structures {
