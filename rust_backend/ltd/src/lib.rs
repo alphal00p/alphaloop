@@ -6,6 +6,7 @@ extern crate num;
 extern crate vector;
 extern crate serde;
 extern crate serde_yaml;
+extern crate itertools;
 use cpython::{exc, PyErr, PyResult};
 use std::cell::RefCell;
 extern crate cuba;
@@ -15,9 +16,11 @@ extern crate num_traits;
 mod ltd;
 mod topologies;
 mod utils;
+mod cts;
 
 use na::Vector3;
 
+/*
 // add bindings to the generated python module
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
     m.add(py, "__doc__", "LTD")?;
@@ -25,8 +28,9 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
     Ok(())
 });
 
+
 py_class!(class LTD |py| {
-    data ltd: RefCell<ltd::LTD>;
+    data topo: RefCell<topologies::Topology>;
 
     def __new__(_cls, name: &str)
     -> PyResult<LTD> {
@@ -37,13 +41,13 @@ py_class!(class LTD |py| {
     }
 
     def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.ltd(py).borrow().evaluate(&x, true);
+        let res = self.topo(py).borrow().evaluate(&x, true);
         Ok((res.re, res.im))
     }
 
     def evaluate_cut(&self, x: Vec<f64>, cut_structure: Vec<i32>, cut_indices: Vec<i32>) -> PyResult<(f64, f64)> {
         // set the loop line directions for this configuration
-        let mut ll = self.ltd(py).borrow().loop_lines.clone();
+        let mut ll = self.topo(py).borrow().loop_lines.clone();
         for (i, &loopline_cut) in cut_structure.iter().enumerate() {
             if loopline_cut < 0 {
                 for (_, sign) in &mut ll[i].loop_momenta {
@@ -52,12 +56,12 @@ py_class!(class LTD |py| {
             }
         }
 
-        let res = self.ltd(py).borrow().evaluate_cut(&x, &ll, &cut_indices);
+        let res = self.topo(py).borrow().evaluate_cut(&x, &ll, &cut_indices);
         Ok((res.re, res.im))
     }
 
     def deform(&self, loop_momentum: Vec<f64>) -> PyResult<((f64, f64, f64), f64, f64)> {
-        let ltd = self.ltd(py).borrow();
+        let ltd = self.topo(py).borrow();
         if ltd.loop_lines.len() > 1 {
             return Err(PyErr::new::<exc::TypeError, _>(py, "Only works for the one-loop case"));
         }
@@ -67,3 +71,4 @@ py_class!(class LTD |py| {
         Ok(((res[0], res[1], res[2]), jac.re, jac.im))
     }
 });
+*/
