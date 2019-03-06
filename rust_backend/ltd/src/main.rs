@@ -37,7 +37,7 @@ fn integrand(
     _nvec: usize,
     core: i32,
 ) -> Result<(), &'static str> {
-    let res = user_data.topo[(core + 1) as usize].evaluate(x, true);
+    let res = user_data.topo[(core + 1) as usize].evaluate(x);
     user_data.sample_count += 1;
 
     if user_data.sample_count % 100000 == 0 {
@@ -64,7 +64,7 @@ fn bench(topo: &topologies::Topology, max_eval: usize) {
             *xi = rng.gen();
         }
 
-        let _r = topo.evaluate(&x, true);
+        let _r = topo.evaluate(&x);
     }
 
     println!("{:#?}", now.elapsed());
@@ -96,14 +96,14 @@ fn main() {
                 .default_value("../LTD/ltd_commons.yaml")
                 .help("Set the configuration file"),
         )
-        /*.arg(
+        .arg(
             Arg::with_name("deformation")
                 .short("d")
                 .long("deformation")
                 .value_name("DEFORMATION")
                 .default_value("none")
                 .help("Set the deformation"),
-        )*/
+        )
         .arg(
             Arg::with_name("bench")
                 .long("bench")
@@ -134,6 +134,7 @@ fn main() {
     }
 
     let config = matches.value_of("config").unwrap();
+    let deformation = matches.value_of("deformation").unwrap();
 
     let mut ci = CubaIntegrator::new(integrand);
 
@@ -147,7 +148,7 @@ fn main() {
         .set_cores(cores, 1000);
 
     // load the example file
-    let topologies = topologies::Topology::from_file(config);
+    let topologies = topologies::Topology::from_file(config, deformation);
     let topo = topologies.get(topology).expect("Unknown topology");
 
     if matches.is_present("bench") {
@@ -155,7 +156,10 @@ fn main() {
         return;
     }
 
-    println!("Integrating {} with {} samples", topology, max_eval);
+    println!(
+        "Integrating {} with {} samples and deformation {}",
+        topology, max_eval, deformation
+    );
 
     let r = ci.vegas(
         3 * topo.n_loops,

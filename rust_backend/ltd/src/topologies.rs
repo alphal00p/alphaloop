@@ -42,15 +42,20 @@ pub struct Topology {
     pub ltd_cut_options: Vec<Vec<Vec<Cut>>>, // cartesian product of cut structures
     #[serde(default)]
     pub energy_map: Vec<Vec<i8>>, // a map to compute the energies per ltd cut option
+    #[serde(default)]
+    pub deformation: String,
+    #[serde(default)]
+    pub ellipsoids: Vec<(usize, Vec<Cut>, usize, usize, i8, Vec<i8>, LorentzVector<f64>)>,
 }
 
 impl Topology {
-    pub fn from_file(filename: &str) -> HashMap<String, Topology> {
+    pub fn from_file(filename: &str, deformation: &str) -> HashMap<String, Topology> {
         let f = File::open(filename).unwrap();
 
         let mut topologies: Vec<Topology> = serde_yaml::from_reader(f).unwrap();
 
         for t in &mut topologies {
+            t.deformation = deformation.to_owned();
             t.process();
         }
 

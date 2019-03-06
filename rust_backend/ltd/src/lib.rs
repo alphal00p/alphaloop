@@ -7,20 +7,21 @@ extern crate vector;
 extern crate serde;
 extern crate serde_yaml;
 extern crate itertools;
-use cpython::{exc, PyErr, PyResult};
+use cpython::PyResult;
 use std::cell::RefCell;
 extern crate cuba;
 extern crate nalgebra as na;
 extern crate num_traits;
 
-mod ltd;
-mod topologies;
-mod utils;
-mod cts;
+pub mod ltd;
+pub mod topologies;
+pub mod utils;
+pub mod cts;
 
-use na::Vector3;
+type Complex = num::Complex<f64>;
+use arrayvec::ArrayVec;
+use vector::LorentzVector;
 
-/*
 // add bindings to the generated python module
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
     m.add(py, "__doc__", "LTD")?;
@@ -32,43 +33,53 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
 
-    def __new__(_cls, name: &str)
+    def __new__(_cls, config_file: &str, name: &str, deformation: &str)
     -> PyResult<LTD> {
-        let (_loops, e_cm, loop_lines) = topologies::create_topology(name);
-        let ltd = ltd::LTD::new(e_cm, loop_lines.clone());
+        let mut topologies = topologies::Topology::from_file(config_file, deformation);
+        let topo = topologies.remove(name).expect("Unknown topology");
 
-        LTD::create_instance(py, RefCell::new(ltd))
+        LTD::create_instance(py, RefCell::new(topo))
     }
 
     def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.topo(py).borrow().evaluate(&x, true);
+        let res = self.topo(py).borrow().evaluate(&x);
         Ok((res.re, res.im))
     }
 
-    def evaluate_cut(&self, x: Vec<f64>, cut_structure: Vec<i32>, cut_indices: Vec<i32>) -> PyResult<(f64, f64)> {
-        // set the loop line directions for this configuration
-        let mut ll = self.topo(py).borrow().loop_lines.clone();
-        for (i, &loopline_cut) in cut_structure.iter().enumerate() {
-            if loopline_cut < 0 {
-                for (_, sign) in &mut ll[i].loop_momenta {
-                    *sign = !*sign;
-                }
-            }
+    def evaluate_cut(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
+        let topo = self.topo(py).borrow();
+
+        let mut moms = ArrayVec::new();
+        for l in loop_momenta {
+            moms.push(LorentzVector::from_args(
+                Complex::new(0., 0.),
+                Complex::new(l[0].0, l[0].1),
+                Complex::new(l[1].0, l[1].1),
+                Complex::new(l[2].0, l[2].1)));
         }
 
-        let res = self.topo(py).borrow().evaluate_cut(&x, &ll, &cut_indices);
+        let mat = &topo.energy_map[cut_structure_index];
+        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
+
+        let res = topo.evalute_cut(&mut moms, cut, mat);
         Ok((res.re, res.im))
     }
 
-    def deform(&self, loop_momentum: Vec<f64>) -> PyResult<((f64, f64, f64), f64, f64)> {
-        let ltd = self.topo(py).borrow();
-        if ltd.loop_lines.len() > 1 {
-            return Err(PyErr::new::<exc::TypeError, _>(py, "Only works for the one-loop case"));
+    def deform(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(Vec<(f64, f64, f64)>, f64, f64)> {
+        let topo = self.topo(py).borrow();
+
+        let mut moms = Vec::with_capacity(loop_momenta.len());
+        for l in loop_momenta {
+            moms.push(LorentzVector::from_args(0., l[0], l[1], l[2]));
         }
 
-        let v = Vector3::from_row_slice(&loop_momentum);
-        let (res, jac) = ltd.loop_lines[0].deform(ltd.e_cm, &[v]);
-        Ok(((res[0], res[1], res[2]), jac.re, jac.im))
+        let (res, jac) = self.topo(py).borrow().deform(&moms);
+
+        let mut r = Vec::with_capacity(moms.len());
+        for x in res[..topo.n_loops].iter() {
+            r.push((x[1], x[2], x[3]));
+        }
+
+        Ok((r, jac.re, jac.im))
     }
 });
-*/
