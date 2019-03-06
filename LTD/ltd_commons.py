@@ -5,6 +5,70 @@ import math
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
 #############################################################################################################
+# HyperParameters
+#############################################################################################################
+class HyperParameters(dict):
+
+    def __init__(self, *args, **opts):
+        super(HyperParameters, self).__init__(*args, **opts)
+
+    def to_flat_format(self):
+        """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
+        
+        # For now the hyperparameters dict is already supposed to be directly exportable to yaml
+        return dict(self)
+
+    @staticmethod
+    def from_flat_format(flat_dict):
+        """ Creates an instance of this class from a flat dictionary record."""
+        
+        # Directly get HyperParameters from the flat_dict
+        return HyperParameters(flat_dict)
+
+    def export_to(self, output_path, format='yaml'):
+        """ Exports these hyperparameters to a given format."""
+        
+        export_format = format.lower()
+        allowed_export_format = ['yaml']
+        if export_format not in ['yaml']:
+            raise BaseException("Hyperparameters can only be exported in the following formats: %s"%(', '.join(allowed_export_format)))
+
+        if export_format=='yaml':
+            try:
+                import yaml
+                from yaml import Loader, Dumper
+            except ImportError:
+                raise BaseException("Install yaml python module in order to export hyperparameters to yaml.")
+
+        if output_path is not None:
+            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper))
+        else:
+            return yaml.dump(self.to_flat_format(), Dumper=Dumper)
+
+
+    @staticmethod
+    def import_from(input_path, format='yaml'):
+        """ Imports this topology from a given format."""
+        
+        import_format = format.lower()
+        allowed_import_format = ['yaml']
+        if import_format not in ['yaml']:
+            raise BaseException("Hyperparameters can only be imported from the following formats: %s"%(', '.join(allowed_import_format)))
+
+        if import_format=='yaml':
+            try: 
+                import yaml
+                from yaml import Loader, Dumper
+            except ImportError:
+                raise BaseException("Install yaml python module in order to import hyperparameters from yaml.")
+ 
+        if '\n' in input_path:
+            return LoopTopology.from_flat_format(yaml.load(input_path, Loader=Loader))
+        else:
+            return LoopTopology.from_flat_format(yaml.load(open(input_path,'r'), Loader=Loader))
+
+
+#############################################################################################################
 # Define topology structures
 #############################################################################################################
 
@@ -530,8 +594,8 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'DoubleTriangle',
         vectors.LorentzVectorList([
-                vectors.LorentzVector([1.,0.1,0.2,0.1]),
-                vectors.LorentzVector([-1.,-0.1,-0.2,-0.1])
+                vectors.LorentzVector([1.,0.1,0.2,1.1]),
+                vectors.LorentzVector([-1.,-0.1,-0.2,-1.1])
         ])
         # Analytical is given by its exact function directly for 'DoubleTriangle'        
     ),
@@ -597,7 +661,42 @@ hard_coded_topology_collection.add_topology(
 #test = TopologyCollection.import_from('ExampleTopologyCollectionExport.yaml')
 #test['DoubleTriange'].print_topology()
 
+#############################################################################################################
+# Define and store hyperparameters
+#############################################################################################################
+
+hyperparameters = HyperParameters({
+
+    'General'       :   {
+        'deformation_strategy'  :   'rodrigo',
+        'topology'              :   'DoubleTriangle',
+    },
+
+    'Integrator'    :   {
+        'n_start'       :   int(1.0e5),
+        'n_max'         :   int(1.0e9),
+        'n_increase'    :   0
+    },
+
+    'Deformation'   :   {
+
+        'rodrigo'           :   {
+            'a_ij'  :   0.01,
+        },
+
+        'generic'           :   {
+            'M_ij'  :   0.1
+        }
+
+    },
+
+})
+
+
+# Main synchronises yaml file to python records
 if __name__ == '__main__':
 
     # Synchronise the database of hard-coded topologies to the yaml data base that Rust can easily import
     hard_coded_topology_collection.export_to('ltd_commons.yaml')
+    hyperparameters.export_to('hyperparameters.yaml')
+
