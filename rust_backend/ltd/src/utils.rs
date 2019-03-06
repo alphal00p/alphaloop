@@ -1,7 +1,7 @@
 use arrayvec::ArrayVec;
 
 type Complex = num::Complex<f64>;
-const MAX_DIM: usize = 3 * 3 * 3;
+const MAX_DIM: usize = 128;
 
 #[inline]
 /// Invert with better precision

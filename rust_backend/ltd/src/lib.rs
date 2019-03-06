@@ -61,7 +61,7 @@ py_class!(class LTD |py| {
         let mat = &topo.energy_map[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        let res = topo.evalute_cut(&mut moms, cut, mat);
+        let res = topo.evaluate_cut(&mut moms, cut, mat);
         Ok((res.re, res.im))
     }
 
