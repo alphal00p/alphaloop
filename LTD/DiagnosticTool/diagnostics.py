@@ -316,8 +316,8 @@ class Diagnostic_tool(object):
         #surface type and signs
 
 
-
-
+        #print "IN diag tool", u, v, type(surface), loop_momenta, n_cut
+        #print surface
         p_tr = numpy.array(self.translation_construction(surface, loop_momenta, n_cut))
 
         surface_type = surface.surface_signs[0][0] * surface.surface_signs[0][1]
@@ -499,8 +499,12 @@ class Diagnostic_tool(object):
             while t!=n_points:
                 loopmomenta = [[random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)],
                                [random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)]]
-
-                ll1 = diag.get_parametrization(u=random.uniform(-1, 1), v=random.uniform(-1, 1), loop_momenta=loopmomenta,
+                
+                u = random.uniform(-1, 1)
+                v = random.uniform(-1, 1)
+                #print "IN diag tool", u, v, type(surface), loopmomenta, n_cut
+                #print surface
+                ll1 = diag.get_parametrization(u=u, v=v, loop_momenta=loopmomenta,
                                                surface=surface, n_cut=n_cut)
 
                 if ll1 != None:
@@ -581,7 +585,9 @@ def print_all_surfaces(classified_surfaces, show_group_members=False):
 
     res = ["Surface groups content:"]
     for i_group, surfaces_group in enumerate(classified_surfaces):
+        res.append('')
         res.append('='*40)
+        res.append('')        
         res.append('Defining surface of the surfaces group #%d:'%(i_group+1))
         res.append(surfaces_group[0][1].__str__(cut_propagators = surfaces_group[0][0]))
         if show_group_members:
@@ -592,8 +598,10 @@ def print_all_surfaces(classified_surfaces, show_group_members=False):
                 res.append(surface[1].__str__(cut_propagators=surface[0]))
         else:
             res.append('Identical to %d other surfaces.'%(len(surfaces_group[1:])))
-
+    
+    res.append('')
     res.append('='*40)
+    res.append('')    
     res.append('A total of %d groups of identical surfaces were found (%d elliptic, %d hyperbolic) for a total of %d surfaces.'%(
             len(classified_surfaces),
             len([1 for s in classified_surfaces if s[0][1].is_ellipsoid()]),
@@ -601,7 +609,6 @@ def print_all_surfaces(classified_surfaces, show_group_members=False):
             sum(len(surface_group) for surface_group in classified_surfaces)
         )
     )
-    res.append('='*40)
 
     return '\n'.join(res)
 
@@ -614,7 +621,7 @@ if __name__ == '__main__':
         topology_name = "DoubleTriangle"
 
     options = {
-        'n_points' : 2000,
+        'n_trial_points' : 2000,
         'seed' : 1,
         'show_group_members' : False
     }
@@ -658,8 +665,9 @@ if __name__ == '__main__':
 
     logging.info(print_all_surfaces(classified_surfaces,show_group_members=options['show_group_members']))
 
-    """
-    surcheck=Surface(n=3,ot_sign=1,sheet=1)
+    #"""
+    #surcheck=Surface(n=3,ot_sign=1,sheet=1)
+    surcheck=classified_surfaces[0][0][1]
     points=diag.generate_surface_points(n_points=10000, surface=surcheck, n_cut=0)
     #print(points)
     fig = plt.figure()
@@ -681,6 +689,6 @@ if __name__ == '__main__':
 
 
     plt.show()
-    """
+    #"""
 
 

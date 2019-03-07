@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+
+./run_tests.py \
+	--t=DoubleTriangle \
+	--ps=[ \
+		[1.,0.1,0.2,1.1], \
+	    [-1.,-0.1,-0.2,-1.1] \
+	] \
+	--nh=100 \
+	--s=[2,] \
+	--d=[ \
+	  [0.3,0.4,-0.5], \
+	  [-0.6,-0.7,0.8] \
+	] \
+	--p=[ \
+	  [0.1,-0.2,0.25], \
+	  [-0.33, 0.44, -0.55] \
+	] \
+	--u=0.2 \
+	--v=0.7 \
+	--tv="[10.**(-float(i)*0.01) for i in range(1000)]" \
+	--tr=[0.0,1.0] \
+	--seed=1 \
+	--analysis_options={\"log_x_scale\": True, \"log_y_scale\": True} \
+    --save="test.yaml"

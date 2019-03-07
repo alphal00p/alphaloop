@@ -1,5 +1,5 @@
 Deformation:
   generic: {M_ij: 0.1}
   rodrigo: {a_ij: 0.01}
-General: {deformation_strategy: rodrigo, topology: DoubleTriangle}
+General: {deformation_strategy: generic, topology: DoubleTriangle}
 Integrator: {n_increase: 0, n_max: 1000000000, n_start: 100000}

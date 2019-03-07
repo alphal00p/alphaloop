@@ -39,15 +39,15 @@
   n_loops: 2
   name: DoubleBox
 - analytical_result_imag: 0.0
-  analytical_result_real: -0.0003076868725957447
+  analytical_result_real: 0.0011124063855384606
   external_kinematics:
-  - [1.0, 0.1, 0.2, 0.1]
-  - [-1.0, -0.1, -0.2, -0.1]
+  - [1.0, 0.1, 0.2, 1.1]
+  - [-1.0, -0.1, -0.2, -1.1]
   loop_lines:
   - end_node: 2
     propagators:
     - m_squared: 0.0
-      q: [-1.0, -0.1, -0.2, -0.1]
+      q: [-1.0, -0.1, -0.2, -1.1]
     - m_squared: 0.0
       q: [0.0, 0.0, 0.0, 0.0]
     signature: [1, 0]
@@ -55,7 +55,7 @@
   - end_node: 2
     propagators:
     - m_squared: 0.0
-      q: [1.0, 0.1, 0.2, 0.1]
+      q: [1.0, 0.1, 0.2, 1.1]
     - m_squared: 0.0
       q: [0.0, 0.0, 0.0, 0.0]
     signature: [0, 1]

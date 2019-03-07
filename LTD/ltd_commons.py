@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import vectors
 import math
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
@@ -95,7 +96,15 @@ class LoopTopology(object):
             self.analytical_result   = analytical_result(self.external_kinematics)
         else:
             self.analytical_result   = analytical_result
-        
+       
+    def get_com_energy(self):
+        """ Returns c.o.m energy of the external kinematics."""
+        incoming_momenta_sum = vectors.LorentzVector()
+        for v in self.external_kinematics:
+            if v[0] > 0.:
+                incoming_momenta_sum += v
+        return math.sqrt(abs(incoming_momenta_sum.square()))
+
     def print_topology(self):
         """ Print the topology using graphviz."""
 
@@ -668,7 +677,7 @@ hard_coded_topology_collection.add_topology(
 hyperparameters = HyperParameters({
 
     'General'       :   {
-        'deformation_strategy'  :   'rodrigo',
+        'deformation_strategy'  :   'generic',
         'topology'              :   'DoubleTriangle',
     },
 
@@ -693,10 +702,11 @@ hyperparameters = HyperParameters({
 })
 
 
+def synchronize(root_dir = ''):
+    # Synchronise the database of hard-coded topologies to the yaml data base that Rust can easily import
+    hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
+    hyperparameters.export_to(os.path.join(root_dir, 'hyperparameters.yaml'))
+
 # Main synchronises yaml file to python records
 if __name__ == '__main__':
-
-    # Synchronise the database of hard-coded topologies to the yaml data base that Rust can easily import
-    hard_coded_topology_collection.export_to('ltd_commons.yaml')
-    hyperparameters.export_to('hyperparameters.yaml')
-
+    synchronize()

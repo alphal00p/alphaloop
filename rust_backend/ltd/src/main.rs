@@ -93,7 +93,7 @@ fn main() {
                 .short("f")
                 .long("config")
                 .value_name("CONFIG_FILE")
-                .default_value("../LTD/ltd_commons.yaml")
+                .default_value("../LTD/topologies.yaml")
                 .help("Set the configuration file"),
         )
         .arg(
