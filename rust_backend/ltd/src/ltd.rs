@@ -737,8 +737,9 @@ impl Topology {
         for i in 0..3 * self.n_loops {
             jac_mat[i * 3 * self.n_loops + i] += Complex::new(1., 0.);
             for j in 0..3 * self.n_loops {
+                // first index: loop momentum, second: xyz, third: dual
                 jac_mat[i * 3 * self.n_loops + j] +=
-                    Complex::new(0.0, kappas[i / 3][j / 3 + 1][j + 1]);
+                    Complex::new(0.0, kappas[i / 3][i % 3 + 1][j + 1]);
 
                 //print!("{:.4} ", jac_mat[i * 3 * self.n_loops + j]);
             }
