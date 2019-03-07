@@ -584,16 +584,20 @@ impl Topology {
 
             // find the normal vector to the surface for cut momentum deformation
             for (cd, sign) in cut_dirs[..self.n_loops].iter_mut().zip(signs.iter()) {
-                *cd = *cd + surface_dir_norm * From::from(*sign as f64);
+                *cd = (*cd + surface_dir_norm * From::from(*sign as f64))
+                    * From::from(sign.abs() as f64);
             }
 
             // convert from cut deformation to loop momentum deformation
             for (i, dd) in deform_dirs[..self.n_loops].iter_mut().enumerate() {
                 *dd = LorentzVector::default();
-                for (j, cdj) in cut_dirs[..self.n_loops].iter().enumerate() {
-                    *dd = *dd
-                        + cdj
-                            * From::from(self.energy_map[*cut_index][i * self.n_loops + j] as f64);
+                for (sign, cd) in self.energy_map[*cut_index]
+                    [i * self.n_loops..(i + 1) * self.n_loops]
+                    .iter()
+                    .zip(cut_dirs[..self.n_loops].iter())
+                {
+                    *dd = *dd + cd * From::from(*sign as f64);
+                }
                 }
             }
 
@@ -613,7 +617,7 @@ impl Topology {
 
             // construct the kappas using the direction vectors and an exponential
             for (kappa, dir) in kappas[..self.n_loops].iter_mut().zip(deform_dirs.iter()) {
-                let aij = 0.01;
+                let aij = 0.1;
 
                 // evaluate the inverse propagator of the surface
                 // the momentum map from the cut momenta is in signs and the shift is known as well
