@@ -701,9 +701,15 @@ impl Topology {
                                 * (*s as f64);
                         }
 
-                        let k0sq = kappa.square();
-                        let x = (kappa.dot(&prop_mom) / k0sq).powi(2);
-                        let y = (prop_mom.square() - p.m_squared) / k0sq;
+                        let k0sq_inv = DualN::from_real(1.0) / kappa.square();
+
+                        // if the kappa is 0, there is no need for rescaling
+                        if !k0sq_inv.is_finite() {
+                            continue;
+                        }
+
+                        let x = (kappa.dot(&prop_mom) * k0sq_inv).powi(2);
+                        let y = (prop_mom.square() - p.m_squared) * k0sq_inv;
                         let ls = Topology::compute_lambda_factor(x, y);
 
                         if ls < lambda_sq {
