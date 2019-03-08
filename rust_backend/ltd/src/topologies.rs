@@ -41,7 +41,7 @@ pub struct Topology {
     #[serde(default)]
     pub ltd_cut_options: Vec<Vec<Vec<Cut>>>, // cartesian product of cut structures
     #[serde(default)]
-    pub energy_map: Vec<Vec<i8>>, // a map to compute the energies per ltd cut option
+    pub cb_to_lmb_mat: Vec<Vec<i8>>, // a map from cut momenta to topology loop momenta
     #[serde(default)]
     pub deformation: String,
     #[serde(default)]

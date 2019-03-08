@@ -2,21 +2,21 @@
 extern crate cpython;
 extern crate arrayvec;
 extern crate dual_num;
+extern crate itertools;
 extern crate num;
-extern crate vector;
 extern crate serde;
 extern crate serde_yaml;
-extern crate itertools;
+extern crate vector;
 use cpython::PyResult;
 use std::cell::RefCell;
 extern crate cuba;
 extern crate nalgebra as na;
 extern crate num_traits;
 
+pub mod cts;
 pub mod ltd;
 pub mod topologies;
 pub mod utils;
-pub mod cts;
 
 type Complex = num::Complex<f64>;
 use arrayvec::ArrayVec;
@@ -28,7 +28,6 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
     m.add_class::<LTD>(py)?;
     Ok(())
 });
-
 
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
@@ -58,7 +57,7 @@ py_class!(class LTD |py| {
                 Complex::new(l[2].0, l[2].1)));
         }
 
-        let mat = &topo.energy_map[cut_structure_index];
+        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
         let res = topo.evaluate_cut(&mut moms, cut, mat);
