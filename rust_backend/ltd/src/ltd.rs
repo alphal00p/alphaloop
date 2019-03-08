@@ -635,7 +635,7 @@ impl Topology {
         }
 
         // now determine the global lambda scaling by going through each propagator
-        // for each cut and taking the minimum of their respectice lambdas
+        // for each cut and taking the minimum of their respective lambdas
         let mut lambda_sq = DualN::from_real(1.);
         for (cuts, mat) in self.ltd_cut_options.iter().zip(self.energy_map.iter()) {
             for cut in cuts {
@@ -670,7 +670,9 @@ impl Topology {
                     }
 
                     // determine the map from cut momenta to loop line momentum
+                    // FIXME: prevent allocating
                     let res_vec = na::DMatrix::from_row_slice(self.n_loops, self.n_loops, mat)
+                        .transpose()
                         * na::DMatrix::from_row_slice(self.n_loops, 1, &ll.signature);
 
                     // multiply the map by the sign of the cut
