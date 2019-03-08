@@ -363,7 +363,7 @@ class TopologyCollection(dict):
 # Definition of hard-coded topologies.
 #############################################################################################################
 
-def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None):
+def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, parameter_values = {}):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
@@ -589,6 +589,36 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None):
             ) 
         )
 	
+    if name == 'Triangle':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        if parameter_values == {}:
+            parameters = {'m1': 0.52559, 'm2': 0.52559, 'm3': 0.52559}
+        else:
+            parameters = parameter_values
+        return LoopTopology(
+            name    = 'Triangle',
+            n_loops = 1,
+            external_kinematics = external_momenta,
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT,),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,),
+                    propagators = (
+                        Propagator(q=p1, m_squared=parameters['m1']**2),
+                        Propagator(q=p1+p2, m_squared=parameters['m2']**2),
+                        Propagator(q=zero_lv, m_squared=parameters['m3']**2),
+                    )
+                ),
+            ) 
+        )
+
     else:
         raise BaseException("Unknown hard-coded topology name '%s'"%name)
 
@@ -648,6 +678,19 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([0.,-5.,-6.,0.]),
         ]),
         analytical_result =  1.76576112187575e-10j
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Triangle',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([10.51284,6.89159,-7.40660,-2.85795]),
+                vectors.LorentzVector([6.45709,2.46635,5.84093,1.22257]),
+                -vectors.LorentzVector([10.51284,6.89159,-7.40660,-2.85795]) - vectors.LorentzVector([6.45709,2.46635,5.84093,1.22257]),
+        ]),
+        analytical_result = 6.68103e-4 + 5.37305e-4j,
+        parameter_values = {'m1': 0.52559, 'm2': 0.52559, 'm3': 0.52559}
     ),
 )
 
