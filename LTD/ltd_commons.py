@@ -440,8 +440,8 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
                     end_node    = 2,
                     signature   = (1,0),
                     propagators = (
-                        Propagator(q=-p3, m_squared=0.),
                         Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=p3, m_squared=0.),
                     )
                 ),
                 LoopLine(
@@ -449,9 +449,9 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
                     end_node    = 2,
                     signature   = (0,1),
                     propagators = (
-                        Propagator(q=-p1-p2, m_squared=0.),
-                        Propagator(q=-p1, m_squared=0.),                        
                         Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=p2, m_squared=0.),                        
+                        Propagator(q=p1+p2, m_squared=0.),
                     )
                 ),
                 LoopLine(
@@ -594,7 +594,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
         p2 = external_momenta[1]
         p3 = external_momenta[2]
         if parameter_values == {}:
-            parameters = {'m1': 0.52559, 'm2': 0.52559, 'm3': 0.52559}
+            parameters = {'m1': 0., 'm2': 0., 'm3': 0.}
         else:
             parameters = parameter_values
         return LoopTopology(
@@ -619,6 +619,38 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 
+    if name == 'Box':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        if parameter_values == {}:
+            parameters = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.}
+        else:
+            parameters = parameter_values
+        return LoopTopology(
+            name    = 'Box',
+            n_loops = 1,
+            external_kinematics = external_momenta,
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT,),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,),
+                    propagators = (
+                        Propagator(q=p1, m_squared=parameters['m1']**2),
+                        Propagator(q=p1+p2, m_squared=parameters['m2']**2),
+                        Propagator(q=p1+p2+p3, m_squared=parameters['m3']**2),
+                        Propagator(q=zero_lv, m_squared=parameters['m4']**2),
+                    )
+                ),
+            ) 
+        )
+
     else:
         raise BaseException("Unknown hard-coded topology name '%s'"%name)
 
@@ -633,8 +665,8 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'DoubleTriangle',
         vectors.LorentzVectorList([
-                vectors.LorentzVector([1.,0.1,0.2,1.1]),
-                vectors.LorentzVector([-1.,-0.1,-0.2,-1.1])
+                vectors.LorentzVector([1.,0.1,0.2,0.1]),
+                vectors.LorentzVector([-1.,-0.1,-0.2,-0.1])
         ])
         # Analytical is given by its exact function directly for 'DoubleTriangle'        
     ),
@@ -683,7 +715,7 @@ hard_coded_topology_collection.add_topology(
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
-        'Triangle',        
+        'Triangle', #P3 from Rodrigo
         vectors.LorentzVectorList([
                 vectors.LorentzVector([10.51284,6.89159,-7.40660,-2.85795]),
                 vectors.LorentzVector([6.45709,2.46635,5.84093,1.22257]),
@@ -691,6 +723,35 @@ hard_coded_topology_collection.add_topology(
         ]),
         analytical_result = 6.68103e-4 + 5.37305e-4j,
         parameter_values = {'m1': 0.52559, 'm2': 0.52559, 'm3': 0.52559}
+    ),
+)
+"""
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Triangle', #P4 from Rodrigo
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([95.77004,31.32025,-34.08106,-9.38565]),
+                vectors.LorentzVector([94.54738,-53.84229,67.11107,45.56763]),
+                -vectors.LorentzVector([95.77004,31.32025,-34.08106,-9.38565]) - vectors.LorentzVector([94.54738,-53.84229,67.11107,45.56763]),
+        ]),
+        analytical_result = 1.01665e-6 - 5.61370-7j,
+        parameter_values = {'m1': 83.02643, 'm2': 76.12873, 'm3': 55.00359}
+    ),
+)
+"""
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box', #P7 from Rodrigo
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]),
+                vectors.LorentzVector([48.59375,-1.65847,34.91140,71.89564]),
+                vectors.LorentzVector([76.75934,-19.14334,-17.10279,30.22959]),
+                 (- vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]) -vectors.LorentzVector([48.59375,-1.65847,34.91140,71.89564])
+                 - vectors.LorentzVector([76.75934,-19.14334,-17.10279,30.22959])),
+        ]),
+        analytical_result = 3.03080e-10 -2.38766e-10j,
+        parameter_values = {'m1': 9.82998, 'm2': 9.82998, 'm3': 9.82998, 'm4': 9.82998}
     ),
 )
 
