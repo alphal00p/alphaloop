@@ -5,13 +5,14 @@ class LTDnLoop:
 	def __init__(self,topology):
 		self.loop_lines         = topology.loop_lines
 		self.ltd_cut_structure  = topology.ltd_cut_structure
-		print self.ltd_cut_structure
-		#stop
 		self.n_loops            = topology.n_loops 
 		self.name               = topology.name
 		self.external_kinematics= topology.external_kinematics
 		self.scale				= self.get_scale()
 		self.possible_cuts		= self.get_possible_cuts()
+		self.analytical_result 	= topology.analytical_result
+		print self.name 
+		print self.analytical_result
 
 		self.cut_structures		= [CutStructure(ltd_cut_structure,self.loop_lines) for ltd_cut_structure in self.ltd_cut_structure]
 		for cut_structure in self.cut_structures:
@@ -262,7 +263,7 @@ class LTDnLoop:
 		
 		return kappa_k,kappa_l,det_jac
 	
-	def deform(self,loop_momenta):
+	def old_deform(self,loop_momenta):
 		""" doesn't deform yet """
 		kappas = [numpy.zeros(3) for i in xrange(self.n_loops)]
 		jac = 1.
@@ -273,7 +274,7 @@ class LTDnLoop:
 		
 		return kappas, jac
 	
-	def deform4(self,loop_momenta):
+	def deform(self,loop_momenta):
 		loop_momenta = self.dual(loop_momenta)
 		real_deltas = self.get_deltas(loop_momenta)
 		kappas = numpy.array([[coord*0. for coord in loop_momentum] for loop_momentum in loop_momenta])
@@ -281,18 +282,18 @@ class LTDnLoop:
 			for cut in cut_structure.ltd_cuts:
 				for ll_nr,loop_line in enumerate(self.loop_lines):
 					for propagator in cut.ltd_propagators[ll_nr]:
-						kappas += propagator.deform(loop_momenta,real_deltas)
+						kappas += propagator.deform(loop_momenta,real_deltas,self.scale)
 		full_jac = adipy.jacobian(loop_momenta.flatten() + 1j*kappas.flatten())
 		det_jac = numpy.linalg.det(full_jac)
 		kappas = [numpy.array([kapp.nom for kapp in kappa]) for kappa in kappas]
 		return kappas, det_jac
 
-	def ltd_integrand(self,x):
+	def old_ltd_integrand(self,x):
 		loop_momenta = [numpy.zeros(3) for i in xrange(self.n_loops)]
 		wgt = numpy.zeros(self.n_loops)
 		for i in xrange(self.n_loops):
 			loop_momenta[i], wgt[i] = self.parametrize_analytic(x[(i*3):(i+1)*3])
-		kappas,jac = self.deform(loop_momenta)
+		kappas,jac = self.old_deform(loop_momenta)
 		loop_momenta = [loop_momentum+1j*kappa for loop_momentum,kappa in zip(loop_momenta,kappas)]
 		deltas = self.get_deltas(loop_momenta)
 		full_residue = numpy.sum([self.evaluate_cut_structure(deltas,cut_structure) for cut_structure in self.ltd_cut_structure])
@@ -300,12 +301,12 @@ class LTDnLoop:
 		standard_factor = (1./(2.*numpy.pi)**4)**self.n_loops
 		return full_residue*numpy.prod(wgt)*ltd_factor*standard_factor*jac
 	
-	def ltd_integrand4(self,x):
+	def ltd_integrand(self,x):
 		loop_momenta = [numpy.zeros(3) for i in xrange(self.n_loops)]
 		wgt = numpy.zeros(self.n_loops)
 		for i in xrange(self.n_loops):
 			loop_momenta[i], wgt[i] = self.parametrize_analytic(x[(i*3):(i+1)*3])
-		kappas,jac = self.deform4(loop_momenta)
+		kappas,jac = self.deform(loop_momenta)
 		loop_momenta = [loop_momentum+1j*kappa for loop_momentum,kappa in zip(loop_momenta,kappas)]
 		deltas = self.get_deltas(loop_momenta)
 		full_residue = self.evaluate(deltas)
@@ -340,7 +341,7 @@ class LTDnLoop:
 
 	def analytic_three_point_ladder(self,s1,s2,s3,l):
 		aa = (1j/(16*numpy.pi**2*s3))**l
-		lambd = lambda x,y: numpy.sqrt((1.-x-y)**2-4*x*y-0j)
+		lambd = lambda x,y: numpy.sqrt((1.-x-y)**2-4*x*y+0j)
 		rho = lambda x,y: 2./(1.-x-y+lambd(x,y))
 		def phi(x,y,l):
 			bb = -1./(math.factorial(l)*lambd(x,y))
@@ -363,10 +364,7 @@ class CutStructure(LTDnLoop):
 		self.n_loop_lines = len(self.loop_lines)
 		self.cut_signature = self.get_cut_signature()
 		self.basis_trsf = self.get_basis_trsf() #cut line momenta from loop momenta
-		if len(self.basis_trsf) == 1:
-			self.inv_basis_trsf = numpy.array([1.])
-		else:
-			self.inv_basis_trsf = numpy.linalg.inv(self.basis_trsf) #loop momenta from cut line momenta
+		self.inv_basis_trsf = numpy.linalg.inv(self.basis_trsf) #loop momenta from cut line momenta
 		self.cut_propagator_indices = self.get_prop_cuts()
 		self.ltd_cuts = []
 
@@ -374,10 +372,7 @@ class CutStructure(LTDnLoop):
 		loop_line = self.loop_lines[ll_nr]
 		sign = numpy.array(loop_line.signature)
 		cut_sign = numpy.diag(self.cut_signature)
-		if len(sign) == 1:
-			energy_signature = sign*self.inv_basis_trsf*cut_sign
-		else:
-			energy_signature = sign.dot(self.inv_basis_trsf).dot(cut_sign)
+		energy_signature = sign.dot(self.inv_basis_trsf).dot(cut_sign)
 		return energy_signature
 
 	def get_basis_trsf(self):
@@ -478,7 +473,7 @@ class Propagator(Cut):
 		self.cut_shift = self.get_cut_shift()
 		self.total_shift = self.own_shift + self.cut_shift
 
-	def deform(self,loop_momenta,deltas):
+	def deform(self,loop_momenta,deltas,scale):
 		kappas = [numpy.zeros(3) for loop_momentum in loop_momenta]
 		if not self.is_cut:
 			energy_signature = self.cut_structure.get_energy_signature(self.i)
@@ -490,10 +485,6 @@ class Propagator(Cut):
 				basis_shift_space = [shift[1:] for shift in self.basis_shift]
 				cut_prop_momenta = self.basis_trsf.dot(loop_momenta) + basis_shift_space
 				cut_prop_signature = numpy.array(self.loop_line.signature).dot(self.inv_basis_trsf)
-				if len(self.inv_basis_trsf) == 1:
-					cut_prop_signature = numpy.array([numpy.array(self.loop_line.signature).dot(self.inv_basis_trsf)])
-				else:
-					cut_prop_signature = numpy.array(self.loop_line.signature).dot(self.inv_basis_trsf)
 				cut_prop_kappas = numpy.array([[coord*0. for coord in loop_momentum] for loop_momentum in loop_momenta])
 				for i,sign in enumerate(energy_signature):
 					if sign != 0:
@@ -504,17 +495,13 @@ class Propagator(Cut):
 				cut_deltas = self.cut.get_cut_deltas(deltas)
 				delta = deltas[self.i][self.a]
 				energy = energy_signature.dot(cut_deltas) + self.total_shift[0]
-				scale = 100.
+				width = 10.*scale
 				if minus_ellipsoid:
-					interpolation = adipy.exp(-(energy-delta)**2/scale**2) 
+					interpolation = adipy.exp(-(energy-delta)**2/width**2) 
 				else:
-					interpolation = adipy.exp(-(energy+delta)**2/scale**2)
-				if len(self.inv_basis_trsf) == 1:
-					interpolation = interpolation[0]
-					kappas = numpy.array([self.inv_basis_trsf.dot(cut_prop_kappas)])
-				else:
-					kappas = self.inv_basis_trsf.dot(cut_prop_kappas)
-				lambda_factor = -0.05
+					interpolation = adipy.exp(-(energy+delta)**2/width**2)
+				kappas = self.inv_basis_trsf.dot(cut_prop_kappas)
+				lambda_factor = -0.01*scale
 				kappas *= lambda_factor*interpolation
 		return kappas
 
@@ -524,10 +511,7 @@ class Propagator(Cut):
 		return adipy.sqrt(numpy.sum([q_i*q_i for q_i in q]))
 
 	def get_cut_shift(self):
-		if len(self.inv_basis_trsf) == 1:
-			cut_shift = -numpy.array(self.loop_line.signature)*self.inv_basis_trsf*self.basis_shift[0]
-		else:
-			cut_shift = -numpy.array(self.loop_line.signature).dot(self.inv_basis_trsf.dot(self.basis_shift))
+		cut_shift = -numpy.array(self.loop_line.signature).dot(self.inv_basis_trsf.dot(self.basis_shift))
 		return cut_shift
 
 	def inv_G(self,x,y):
@@ -538,11 +522,7 @@ class Propagator(Cut):
 		if not self.is_cut:
 			sign = numpy.array(self.loop_line.signature)
 			cut_sign = numpy.diag(self.cut_structure.cut_signature)
-			if len(self.inv_basis_trsf) == 1:
-				energy = sign*self.inv_basis_trsf*cut_sign*cut_deltas + self.total_shift[0]
-				energy = energy[0][0]
-			else:
-				energy = sign.dot(self.inv_basis_trsf).dot(cut_sign).dot(cut_deltas) + self.total_shift[0]
+			energy = sign.dot(self.inv_basis_trsf).dot(cut_sign).dot(cut_deltas) + self.total_shift[0]
 			inv_prop = self.inv_G(energy,delta)
 		else:
 			inv_prop = 2*delta
@@ -601,23 +581,16 @@ if __name__ == "__main__":
 	
 	
 	random.seed(0)
-	my_topology = ltd_commons.hard_coded_topology_collection['Triangle']
+	my_topology = ltd_commons.hard_coded_topology_collection['DoubleTriangle']
 	my_LTD = LTDnLoop(my_topology)
-	
-	#print my_LTD.compute_sing_surfaces([1,-1,1,0,0,0])
-	#print my_LTD.get_cut_parents(5,[1,-1,1,0,0,0])
-	
-	#print my_LTD.ltd_integrand([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
-
+		
 	#print my_LTD.ltd_integrand4([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
-
-	#stop
 	
 	#external_momenta = my_LTD.external_kinematics
 	#s = [p[0]**2-numpy.sum(p[1:]**2) for p in external_momenta]
-	#print my_LTD.analytic_three_point_ladder(s[1],s[2],s[0],3)
+	#print my_LTD.analytic_three_point_ladder(s[0],s[1],s[2],2)
 
-	result = my_LTD.ltd_integrate(my_LTD.ltd_integrand4, N_refine=1000)
+	result = my_LTD.ltd_integrate(my_LTD.ltd_integrand, N_refine=1000)
 	
 	print '='*(2*36+7)
 	print 'I = ', result[0], '+ i',result[1]
