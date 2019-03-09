@@ -3,6 +3,7 @@ extern crate clap;
 extern crate cuba;
 extern crate dual_num;
 extern crate itertools;
+extern crate ltd as ltdlib;
 extern crate nalgebra as na;
 extern crate num;
 extern crate num_traits;
@@ -23,10 +24,13 @@ mod ltd;
 mod topologies;
 mod utils;
 
+use ltdlib::{IntegratedPhase, Settings};
+
 #[derive(Debug)]
 struct UserData {
     topo: Vec<topologies::Topology>,
     sample_count: usize,
+    integrated_phase: IntegratedPhase,
 }
 
 #[inline(always)]
@@ -45,7 +49,18 @@ fn integrand(
     }
 
     if res.re.is_finite() {
-        f[0] = res.re;
+        match user_data.integrated_phase {
+            IntegratedPhase::Real => {
+                f[0] = res.re;
+            }
+            IntegratedPhase::Imag => {
+                f[0] = res.im;
+            }
+            IntegratedPhase::Both => {
+                f[0] = res.re;
+                f[1] = res.im;
+            }
+        }
     } else {
         println!("Bad point: {:?}", x);
         f[0] = 0.;
@@ -89,11 +104,19 @@ fn main() {
                 .help("Number of samples per integration"),
         )
         .arg(
+            Arg::with_name("topologies")
+                .short("t")
+                .long("topologies")
+                .value_name("TOPOLOGY_FILE")
+                .default_value("../LTD/topologies.yaml")
+                .help("Set the topology file"),
+        )
+        .arg(
             Arg::with_name("config")
                 .short("f")
                 .long("config")
                 .value_name("CONFIG_FILE")
-                .default_value("../LTD/topologies.yaml")
+                .default_value("../LTD/hyperparameters.yaml")
                 .help("Set the configuration file"),
         )
         .arg(
@@ -118,57 +141,67 @@ fn main() {
         )
         .get_matches();
 
+    let mut settings = Settings::from_file(matches.value_of("config").unwrap());
+
     let mut cores = 1;
     if let Some(x) = matches.value_of("cores") {
         cores = usize::from_str(x).unwrap();
     }
 
-    let mut max_eval = 100000000;
     if let Some(x) = matches.value_of("samples") {
-        max_eval = i64::from_str(x).unwrap();
+        settings.integrator.n_max = usize::from_str(x).unwrap();
     }
 
-    let mut topology = "TriangleP1";
     if let Some(x) = matches.value_of("topology") {
-        topology = x;
+        settings.general.topology = x.to_owned();
     }
 
-    let config = matches.value_of("config").unwrap();
-    let deformation = matches.value_of("deformation").unwrap();
+    let topology_file = matches.value_of("topologies").unwrap();
+
+    if let Some(x) = matches.value_of("deformation") {
+        settings.general.deformation_strategy = x.to_owned();
+    }
 
     let mut ci = CubaIntegrator::new(integrand);
 
     ci.set_mineval(10)
-        .set_nstart(10000)
-        .set_nincrease(0)
-        .set_maxeval(max_eval)
+        .set_nstart(settings.integrator.n_start as i64)
+        .set_nincrease(settings.integrator.n_increase as i64)
+        .set_maxeval(settings.integrator.n_max as i64)
         .set_epsabs(0.)
         .set_epsrel(1e-15)
         .set_seed(1)
         .set_cores(cores, 1000);
 
     // load the example file
-    let topologies = topologies::Topology::from_file(config, deformation);
-    let topo = topologies.get(topology).expect("Unknown topology");
+    let topologies = topologies::Topology::from_file(topology_file, &settings);
+    let topo = topologies
+        .get(&settings.general.topology)
+        .expect("Unknown topology");
 
     if matches.is_present("bench") {
-        bench(&topo, max_eval as usize);
+        bench(&topo, settings.integrator.n_max);
         return;
     }
 
     println!(
         "Integrating {} with {} samples and deformation {}",
-        topology, max_eval, deformation
+        settings.general.topology, settings.integrator.n_max, settings.general.deformation_strategy
     );
 
     let r = ci.vegas(
         3 * topo.n_loops,
-        1,
+        if settings.integrator.integrated_phase == IntegratedPhase::Both {
+            2
+        } else {
+            1
+        },
         CubaVerbosity::Progress,
         0,
         UserData {
             topo: vec![topo.clone(); cores + 1],
             sample_count: 0,
+            integrated_phase: settings.integrator.integrated_phase,
         },
     );
     println!("{:#?}", r);

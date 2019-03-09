@@ -327,7 +327,7 @@ impl Topology {
         &self,
         loop_momenta: &[LorentzVector<f64>],
     ) -> ([LorentzVector<f64>; MAX_LOOP], Complex) {
-        match self.deformation.as_ref() {
+        match self.settings.general.deformation_strategy.as_ref() {
             "none" => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
                 return (r, Complex::new(1., 0.));
@@ -455,7 +455,7 @@ impl Topology {
     ) -> ([LorentzVector<f64>; MAX_LOOP], Complex) {
         let mut r = [LorentzVector::default(); MAX_LOOP];
 
-        match self.deformation.as_ref() {
+        match self.settings.general.deformation_strategy.as_ref() {
             "none" => {
                 // Below corresponds to no deformation
                 (r, Complex::new(1., 0.))
@@ -659,7 +659,7 @@ impl Topology {
             // evaluate the inverse propagator of the surface
             // the momentum map from the cut momenta is in signs and the shift is known as well
             // compute the energies for the loop momenta
-            let aij = 10.;
+            let aij = self.settings.deformation.rodrigo.a_ij;
             let mut mom = LorentzVector::new();
             for (&s, c) in sig_ll_in_cb.iter().zip(cut_momenta.iter()) {
                 mom = mom + c * From::from(s as f64);

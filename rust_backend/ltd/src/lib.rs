@@ -18,9 +18,82 @@ pub mod ltd;
 pub mod topologies;
 pub mod utils;
 
+use serde::Deserialize;
+use std::fs::File;
+
 type Complex = num::Complex<f64>;
 use arrayvec::ArrayVec;
 use vector::LorentzVector;
+
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+pub enum IntegratedPhase {
+    #[serde(rename = "real")]
+    Real,
+    #[serde(rename = "imag")]
+    Imag,
+    #[serde(rename = "both")]
+    Both,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct DeformationGenericSettings {
+    #[serde(rename = "M_ij")]
+    pub m_ij: f64,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct DeformationRodrigoSettings {
+    pub a_ij: f64,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct DeformationSettings {
+    pub generic: DeformationGenericSettings,
+    pub rodrigo: DeformationRodrigoSettings,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct GeneralSettings {
+    pub deformation_strategy: String,
+    pub topology: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct IntegratorSettings {
+    pub n_increase: usize,
+    pub n_max: usize,
+    pub n_start: usize,
+    pub integrated_phase: IntegratedPhase,
+}
+
+impl Default for IntegratorSettings {
+    fn default() -> IntegratorSettings {
+        IntegratorSettings {
+            n_increase: 0,
+            n_start: 10000,
+            n_max: 10000000,
+            integrated_phase: IntegratedPhase::Real,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Settings {
+    #[serde(rename = "General")]
+    pub general: GeneralSettings,
+    #[serde(rename = "Integrator")]
+    pub integrator: IntegratorSettings,
+    #[serde(rename = "Deformation")]
+    pub deformation: DeformationSettings,
+}
+
+impl Settings {
+    pub fn from_file(filename: &str) -> Settings {
+        let f = File::open(filename).unwrap();
+        serde_yaml::from_reader(f).unwrap()
+    }
+}
 
 // add bindings to the generated python module
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
@@ -32,9 +105,10 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
 
-    def __new__(_cls, config_file: &str, name: &str, deformation: &str)
+    def __new__(_cls, config_file: &str, name: &str, settings_file: &str)
     -> PyResult<LTD> {
-        let mut topologies = topologies::Topology::from_file(config_file, deformation);
+        let settings = Settings::from_file(settings_file);
+        let mut topologies = topologies::Topology::from_file(config_file, &settings);
         let topo = topologies.remove(name).expect("Unknown topology");
 
         LTD::create_instance(py, RefCell::new(topo))

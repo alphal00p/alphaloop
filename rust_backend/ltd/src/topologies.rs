@@ -2,6 +2,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use vector::LorentzVector;
+use Settings;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Propagators {
@@ -43,19 +44,27 @@ pub struct Topology {
     #[serde(default)]
     pub cb_to_lmb_mat: Vec<Vec<i8>>, // a map from cut momenta to topology loop momenta
     #[serde(default)]
-    pub deformation: String,
+    pub settings: Settings,
     #[serde(default)]
-    pub ellipsoids: Vec<(usize, Vec<Cut>, usize, usize, i8, Vec<i8>, LorentzVector<f64>)>,
+    pub ellipsoids: Vec<(
+        usize,
+        Vec<Cut>,
+        usize,
+        usize,
+        i8,
+        Vec<i8>,
+        LorentzVector<f64>,
+    )>,
 }
 
 impl Topology {
-    pub fn from_file(filename: &str, deformation: &str) -> HashMap<String, Topology> {
+    pub fn from_file(filename: &str, settings: &Settings) -> HashMap<String, Topology> {
         let f = File::open(filename).unwrap();
 
         let mut topologies: Vec<Topology> = serde_yaml::from_reader(f).unwrap();
 
         for t in &mut topologies {
-            t.deformation = deformation.to_owned();
+            t.settings = settings.clone();
             t.process();
         }
 

@@ -786,15 +786,16 @@ hyperparameters = HyperParameters({
     },
 
     'Integrator'    :   {
-        'n_start'       :   int(1.0e5),
-        'n_max'         :   int(1.0e9),
-        'n_increase'    :   0
+        'n_start'           :   int(1.0e5),
+        'n_max'             :   int(1.0e9),
+        'n_increase'        :   0,
+        'integrated_phase'  :  'real'
     },
 
     'Deformation'   :   {
 
         'rodrigo'           :   {
-            'a_ij'  :   0.01,
+            'a_ij'  :   10.,
         },
 
         'generic'           :   {
