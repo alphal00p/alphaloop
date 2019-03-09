@@ -1,7 +1,6 @@
 use arrayvec::ArrayVec;
-use dual_num::{DualN, U4, U7};
+use dual_num::DualN;
 use itertools::Itertools;
-use na::Vector3;
 use num_traits::Float;
 use std::f64::consts::PI;
 use topologies::{Cut, LoopLine, Topology};
@@ -10,12 +9,12 @@ use vector::{Field, LorentzVector, RealField};
 use utils;
 use utils::finv;
 
-const MAX_PROP: usize = 8;
 const MAX_DIM: usize = 3;
 const MAX_LOOP: usize = 3;
 
-type Dual4 = DualN<f64, U4>;
-type Dual7 = DualN<f64, U7>;
+type Dual4 = DualN<f64, dual_num::U4>;
+type Dual7 = DualN<f64, dual_num::U7>;
+type Dual10 = DualN<f64, dual_num::U10>;
 type Complex = num::Complex<f64>;
 
 impl LoopLine {
@@ -321,248 +320,6 @@ impl Topology {
         }
     }
 
-    /// Compute the deformation vector and the deformation Jacobian wrt the loop momentum
-    /// in the loop line
-    pub fn deform_one_loop(
-        &self,
-        loop_momenta: &[LorentzVector<f64>],
-    ) -> ([LorentzVector<f64>; MAX_LOOP], Complex) {
-        match self.settings.general.deformation_strategy.as_ref() {
-            "none" => {
-                let mut r = [LorentzVector::default(); MAX_LOOP];
-                return (r, Complex::new(1., 0.));
-            }
-            "generic" => {
-                let mut r = [LorentzVector::default(); MAX_LOOP];
-
-                r[0] = loop_momenta[0].map(|x| Dual4::from_real(x));
-                for i in 0..3 {
-                    r[0][i + 1][i + 1] = 1.0;
-                }
-
-                return self.deform_generic(&r);
-            }
-            _ => {}
-        }
-
-        let ll = &self.loop_lines[0];
-
-        let mut mom = Vector3::zeros();
-        for (l, c) in loop_momenta.iter().zip(ll.signature.iter()) {
-            mom += Vector3::new(l.x, l.y, l.z) * (*c as f64);
-        }
-
-        let mut dual_x = mom.map(|y| Dual4::from_real(y));
-        for (i, x) in dual_x.iter_mut().enumerate() {
-            x[i + 1] = 1.0;
-        }
-
-        let ki_spatial: ArrayVec<[_; MAX_PROP]> = ll
-            .propagators
-            .iter()
-            .map(|p| p.q.map(|y| Dual4::from_real(y)))
-            .map(|x| Vector3::new(x.x, x.y, x.z) + dual_x)
-            .collect();
-        let ki_plus: ArrayVec<[_; MAX_PROP]> = ki_spatial
-            .iter()
-            .zip(&ll.propagators)
-            .map(|(x, p)| (x.dot(x) + p.m_squared).sqrt())
-            .collect();
-
-        let dirs: ArrayVec<[_; MAX_PROP]> =
-            ki_spatial.iter().map(|x| x / x.dot(x).sqrt()).collect();
-        let aij = 0.01;
-
-        // TODO: add lambda per kappa_i?
-        // TODO: split integration into groups
-        let mut kappa = Vector3::zeros();
-        for (i, (pi, dplus)) in ll.propagators.iter().zip(ki_plus.iter()).enumerate() {
-            for (j, (pj, pplus)) in ll.propagators.iter().zip(ki_plus.iter()).enumerate() {
-                if i != j {
-                    // only deform if this combination is an ellipsoid singularity
-                    //if self.singularity_matrix[i * self.q_and_mass.len() + j] {
-                    let inv = *dplus + *pplus + Dual4::from_real(pj.q[0] - pi.q[0]);
-                    let e = (-inv * inv / (aij * self.e_cm_squared.powi(2))).exp();
-                    kappa += -(dirs[i] + dirs[j]) * e;
-                    //}
-                }
-            }
-        }
-
-        // now determine the global lambda scaling
-        let mut lambda_sq = Dual4::from_real(1.);
-        for (i, ((p_cut, ki_s_cut), &ki_plus_cut)) in ll
-            .propagators
-            .iter()
-            .zip(ki_spatial.iter())
-            .zip(ki_plus.iter())
-            .enumerate()
-        {
-            for (j, ((p_dual, ki_s_dual), &ki_plus_dual)) in ll
-                .propagators
-                .iter()
-                .zip(ki_spatial.iter())
-                .zip(ki_plus.iter())
-                .enumerate()
-            {
-                let (a, b, c) = if i == j {
-                    // "propagator" coming from delta function cut
-                    let a = -kappa.dot(&kappa);
-                    let b = ki_s_cut.dot(&kappa) * 2.;
-                    let c = ki_plus_cut * ki_plus_cut;
-                    (a, b, c)
-                } else {
-                    let e = (p_dual.q[0] - p_cut.q[0]).powi(2);
-                    let c1 = ki_plus_cut * ki_plus_cut + e - ki_plus_dual * ki_plus_dual;
-                    let b1 = (ki_s_cut - ki_s_dual).dot(&kappa) * 2.0;
-                    let a = -b1 * b1 + kappa.dot(&kappa) * e * 4.;
-                    let b = b1 * c1 * 2. - ki_s_cut.dot(&kappa) * e * 8.;
-                    let c = c1 * c1 - ki_plus_cut * ki_plus_cut * e * 4.;
-                    (a, b, c)
-                };
-
-                let x = b * b / (a * a * 4.);
-                let y = -c / a;
-                let ls = Topology::compute_lambda_factor(x, y);
-
-                if ls < lambda_sq {
-                    lambda_sq = ls;
-                }
-            }
-        }
-
-        kappa *= lambda_sq.sqrt();
-
-        let mut jac_mat = [[Complex::new(0., 0.); 3]; 3];
-        for (i, k) in kappa.iter().enumerate() {
-            jac_mat[i][i] = Complex::new(1., 0.);
-            for (j, kd) in k.iter().skip(1).enumerate() {
-                jac_mat[i][j] += Complex::new(0., *kd);
-            }
-        }
-
-        let jac = utils::determinant3x3(&jac_mat);
-
-        let mut r = [LorentzVector::default(); MAX_LOOP];
-        let r1 = kappa.map(|x| x.real());
-        r[0] = LorentzVector::from_args(0., r1.x, r1.y, r1.z);
-        (r, jac)
-    }
-
-    fn deform_two_loops(
-        &self,
-        loop_momenta: &[LorentzVector<f64>],
-    ) -> ([LorentzVector<f64>; MAX_LOOP], Complex) {
-        let mut r = [LorentzVector::default(); MAX_LOOP];
-
-        match self.settings.general.deformation_strategy.as_ref() {
-            "none" => {
-                // Below corresponds to no deformation
-                (r, Complex::new(1., 0.))
-            }
-            "generic" => {
-                let mut rr = [LorentzVector::default(); MAX_LOOP];
-                rr[0] = loop_momenta[0].map(|x| Dual7::from_real(x));
-                rr[1] = loop_momenta[1].map(|x| Dual7::from_real(x));
-
-                for i in 0..3 {
-                    rr[0][i + 1][i + 1] = 1.0;
-                    rr[1][i + 1][i + 4] = 1.0;
-                }
-
-                return self.deform_generic(&rr);
-            }
-            "hardcoded_double_triangle_deformation" => {
-                let k1 = Vector3::new(loop_momenta[0].x, loop_momenta[0].y, loop_momenta[0].z);
-                let k2 = Vector3::new(loop_momenta[1].x, loop_momenta[1].y, loop_momenta[1].z);
-
-                let mut k1_dual7 = k1.map(|x| Dual7::from_real(x));
-                let mut k2_dual7 = k2.map(|x| Dual7::from_real(x));
-
-                // Initialise the correct dual components of the input to 1.0
-                for i in 0..6 {
-                    if i < 3 {
-                        k1_dual7[i][i + 1] = 1.0;
-                    } else {
-                        k2_dual7[i - 3][i + 1] = 1.0;
-                    }
-                }
-
-                // hard-coded for now. The deformation should be a struct on its own
-                // and *not* part of the loop line struct!
-                let mut p_dual7 = Vector3::new(0., 0., 0.).map(|x| Dual7::from_real(x));
-                let mut p0_dual7 = Dual7::from_real(1.0);
-                let lambda1 = Dual7::from_real(1.0);
-                let lambda2 = Dual7::from_real(1.0);
-                // One should typically choose a dimensionful width sigma for the gaussian since the
-                // dimensionality of the exponent coded below is GeV^2.
-
-                // For now, hard-code it to 20.
-                let sigma = Dual7::from_real(20.0);
-                let sigma_squared = sigma * sigma;
-
-                let exp_257 = k1_dual7.dot(&k1_dual7).sqrt()
-                    + (k1_dual7 + p_dual7).dot(&(k1_dual7 + p_dual7)).sqrt()
-                    - p0_dual7;
-                let f257 = (-((exp_257 * exp_257) / sigma_squared)).exp();
-                let exp_136 = k2_dual7.dot(&k2_dual7).sqrt()
-                    + (k2_dual7 - p_dual7).dot(&(k2_dual7 - p_dual7)).sqrt()
-                    - p0_dual7;
-                let f136 = (-((exp_136 * exp_136) / sigma_squared)).exp();
-                let exp_f4 = (k1_dual7 + p_dual7).dot(&(k1_dual7 + p_dual7)).sqrt()
-                    + k2_dual7.dot(&k2_dual7).sqrt()
-                    + (k1_dual7 + k2_dual7).dot(&(k1_dual7 + k2_dual7)).sqrt()
-                    - p0_dual7;
-                let f4 = (-((exp_f4 * exp_f4) / sigma_squared)).exp();
-
-                let kappa1 = ((k1_dual7 / k1_dual7.dot(&k1_dual7).sqrt()
-                    + (k1_dual7 + p_dual7)
-                        / (k1_dual7 + p_dual7).dot(&(k1_dual7 + p_dual7)).sqrt())
-                    * f257
-                    + ((k1_dual7 + p_dual7)
-                        / (k1_dual7 + p_dual7).dot(&(k1_dual7 + p_dual7)).sqrt()
-                        + (k1_dual7 + k2_dual7)
-                            / (k1_dual7 + k2_dual7).dot(&(k1_dual7 + k2_dual7)).sqrt())
-                        * f4)
-                    * lambda1;
-
-                let kappa2 = ((k2_dual7 / k2_dual7.dot(&k2_dual7).sqrt()
-                    + (k2_dual7 - p_dual7)
-                        / (k2_dual7 - p_dual7).dot(&(k2_dual7 - p_dual7)).sqrt())
-                    * f136
-                    + (k2_dual7 / k2_dual7.dot(&k2_dual7).sqrt()
-                        + (k1_dual7 + k2_dual7)
-                            / (k1_dual7 + k2_dual7).dot(&(k1_dual7 + k2_dual7)).sqrt())
-                        * f4)
-                    * lambda2;
-
-                let mut jac_mat = [[Complex::new(0., 0.); 6]; 6];
-                for i in 0..6 {
-                    jac_mat[i][i] += Complex::new(1., 0.);
-                    for j in 0..6 {
-                        if i < 3 {
-                            jac_mat[i][j] += Complex::new(0.0, k1_dual7[i][j + 1]);
-                        } else {
-                            jac_mat[i][j] += Complex::new(0.0, k2_dual7[i - 3][j + 1]);
-                        }
-                    }
-                }
-
-                let kappa1_vec3 = kappa1.map(|x| x.real());
-                let kappa2_vec3 = kappa2.map(|x| x.real());
-
-                let jac = utils::determinant6x6(&jac_mat);
-
-                r[0] = LorentzVector::from_args(0., kappa1_vec3[0], kappa1_vec3[1], kappa1_vec3[2]);
-                r[1] = LorentzVector::from_args(0., kappa2_vec3[0], kappa2_vec3[1], kappa2_vec3[2]);
-
-                (r, jac)
-            }
-
-            x => panic!("Requested deformation type unknown: {:?}", x),
-        }
-    }
-
     fn deform_generic<U: dual_num::Dim + dual_num::DimName>(
         &self,
         loop_momenta: &[LorentzVector<DualN<f64, U>>],
@@ -794,14 +551,55 @@ impl Topology {
         (r, jac)
     }
 
-    pub fn deform(&self, k: &[LorentzVector<f64>]) -> ([LorentzVector<f64>; MAX_LOOP], Complex) {
-        match self.n_loops {
-            1 => self.deform_one_loop(k),
-            2 => self.deform_two_loops(k),
-            _ => {
+    pub fn deform(
+        &self,
+        loop_momenta: &[LorentzVector<f64>],
+    ) -> ([LorentzVector<f64>; MAX_LOOP], Complex) {
+        match self.settings.general.deformation_strategy.as_ref() {
+            "none" => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
-                (r, Complex::new(1., 0.))
+                return (r, Complex::new(1., 0.));
             }
+            "generic" => {}
+            _ => panic!("Unknown deformation type"),
+        }
+
+        match self.n_loops {
+            1 => {
+                let mut r = [LorentzVector::default(); MAX_LOOP];
+
+                r[0] = loop_momenta[0].map(|x| Dual4::from_real(x));
+                for i in 0..3 {
+                    r[0][i + 1][i + 1] = 1.0;
+                }
+
+                return self.deform_generic(&r);
+            }
+            2 => {
+                let mut r = [LorentzVector::default(); MAX_LOOP];
+                r[0] = loop_momenta[0].map(|x| Dual7::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Dual7::from_real(x));
+
+                for i in 0..3 {
+                    r[0][i + 1][i + 1] = 1.0;
+                    r[1][i + 1][i + 4] = 1.0;
+                }
+                self.deform_generic(&r)
+            }
+            3 => {
+                let mut r = [LorentzVector::default(); MAX_LOOP];
+                r[0] = loop_momenta[0].map(|x| Dual10::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Dual10::from_real(x));
+                r[2] = loop_momenta[2].map(|x| Dual10::from_real(x));
+
+                for i in 0..3 {
+                    r[0][i + 1][i + 1] = 1.0;
+                    r[1][i + 1][i + 4] = 1.0;
+                    r[2][i + 1][i + 7] = 1.0;
+                }
+                self.deform_generic(&r)
+            }
+            n => panic!("Binding for deformation at {} loops is not implemented", n),
         }
     }
 
