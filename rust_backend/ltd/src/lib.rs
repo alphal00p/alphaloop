@@ -105,10 +105,10 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
 
-    def __new__(_cls, config_file: &str, name: &str, settings_file: &str)
+    def __new__(_cls, topology_file: &str, name: &str, settings_file: &str)
     -> PyResult<LTD> {
         let settings = Settings::from_file(settings_file);
-        let mut topologies = topologies::Topology::from_file(config_file, &settings);
+        let mut topologies = topologies::Topology::from_file(topology_file, &settings);
         let topo = topologies.remove(name).expect("Unknown topology");
 
         LTD::create_instance(py, RefCell::new(topo))
@@ -136,6 +136,31 @@ py_class!(class LTD |py| {
 
         let res = topo.evaluate_cut(&mut moms, cut, mat);
         Ok((res.re, res.im))
+    }
+
+    def get_loop_momentum_energies(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<Vec<(f64, f64)>> {
+        let topo = self.topo(py).borrow();
+
+        let mut moms = ArrayVec::new();
+        for l in loop_momenta {
+            moms.push(LorentzVector::from_args(
+                Complex::new(0., 0.),
+                Complex::new(l[0].0, l[0].1),
+                Complex::new(l[1].0, l[1].1),
+                Complex::new(l[2].0, l[2].1)));
+        }
+
+        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
+
+        topo.set_loop_momentum_energies(&mut moms, cut, mat);
+
+        let mut res = Vec::with_capacity(moms.len());
+        for l in moms {
+            res.push((l.t.re, l.t.im));
+        }
+
+        Ok(res)
     }
 
     def deform(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(Vec<(f64, f64, f64)>, f64, f64)> {

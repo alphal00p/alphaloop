@@ -105,7 +105,7 @@ fn main() {
         )
         .arg(
             Arg::with_name("topologies")
-                .short("t")
+                .short("l")
                 .long("topologies")
                 .value_name("TOPOLOGY_FILE")
                 .default_value("../LTD/topologies.yaml")

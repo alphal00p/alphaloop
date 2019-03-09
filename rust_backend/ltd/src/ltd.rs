@@ -603,13 +603,15 @@ impl Topology {
         }
     }
 
+    /// Set the energy component of the loop momenta according to
+    /// `cut`.
     #[inline]
-    pub fn evaluate_cut(
+    pub fn set_loop_momentum_energies(
         &self,
         k_def: &mut ArrayVec<[LorentzVector<Complex>; MAX_LOOP]>,
         cut: &Vec<Cut>,
         mat: &Vec<i8>,
-    ) -> Complex {
+    ) {
         // compute the cut energy for each loop line
         let mut cut_energy = [Complex::new(0., 0.); MAX_LOOP];
         let mut index = 0;
@@ -630,6 +632,16 @@ impl Topology {
                 l.t += e * *c as f64;
             }
         }
+    }
+
+    #[inline]
+    pub fn evaluate_cut(
+        &self,
+        k_def: &mut ArrayVec<[LorentzVector<Complex>; MAX_LOOP]>,
+        cut: &Vec<Cut>,
+        mat: &Vec<i8>,
+    ) -> Complex {
+        self.set_loop_momentum_energies(k_def, cut, mat);
 
         let mut r = Complex::new(1., 0.);
         for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
