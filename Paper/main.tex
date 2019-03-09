@@ -1,0 +1,211 @@
+\documentclass[preprint,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{a4wide}
+\usepackage[fleqn]{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{graphicx}
+\usepackage{slashed}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{cite}
+
+\usepackage{booktabs}
+\usepackage{array,multirow}
+\usepackage{dsfont}
+\usepackage{url}
+\usepackage{subcaption}
+\usepackage{changepage}
+\usepackage[table]{xcolor}
+
+\usepackage{fancyhdr}
+\renewcommand{\headrulewidth}{0pt}
+
+%\usepackage{bbm}
+\usepackage[section]{placeins}
+\usepackage{float}
+\usepackage{authblk}
+\restylefloat{table}
+
+\usepackage{tabularx}
+\usepackage{rotating}
+\usepackage{etex,etoolbox}
+\usepackage{physics}
+
+\DeclareMathOperator{\Li}{Li}
+
+% Packages added by armin
+\usepackage{tikz-feynman}
+\usepackage{arydshln}
+% dashed midrule
+\makeatletter
+\def\adl@drawiv#1#2#3{%
+	\hskip.5\tabcolsep
+	\xleaders#3{#2.5\@tempdimb #1{1}#2.5\@tempdimb}%
+	#2\z@ plus1fil minus1fil\relax
+	\hskip.5\tabcolsep}
+\newcommand{\cdashlinelr}[1]{%
+	\noalign{\vskip\aboverulesep
+		\global\let\@dashdrawstore\adl@draw
+		\global\let\adl@draw\adl@drawiv}
+	\cdashline{#1}
+	\noalign{\global\let\adl@draw\@dashdrawstore
+		\vskip\belowrulesep}}
+\makeatother
+\usepackage{booktabs}
+
+% Glossary terms
+\usepackage{glossaries}
+\newacronym{SM}{SM}{Standard Model}
+\newacronym{IBP}{IBP}{integration-by-parts}
+% we should really refer to only weak corrections
+%\newacronym{EW}{EW}{electroweak}
+\newacronym{EW}{weak}{weak}
+\newacronym{LO}{LO}{leading-order}
+\newacronym{NLO}{NLO}{next-to-leading-order}
+\newacronym{PDF}{PDF}{parton distribution function}
+
+% this is for fixed width columns
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{N}{@{}m{0pt}@{}}
+
+\numberwithin{equation}{section}
+
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue]{hyperref}
+%\usepackage[pdftex]{hyperref}
+
+%\usepackage{fancyheadings}
+\usepackage[title,titletoc]{appendix}
+
+\definecolor{shaded}{RGB}{245,245,245}
+%\definecolor{shaded}{RGB}{210,210,210}
+\lstset{language=C++,%
+  basicstyle=\ttfamily,%
+  backgroundcolor=\color{white},%
+  backgroundcolor=\color{shaded},%
+  frame=single,xleftmargin=0.5cm,xrightmargin=0.5cm,%
+  escapechar=\$%
+}
+
+\def\la{\langle}
+\def\ra{\rangle}
+\def\nn{\nonumber \\}
+
+\def\refv{\eta}
+\def\trefv{\tilde\eta}
+
+% Change line spacing to x1.2
+\renewcommand{\baselinestretch}{1.2} 
+
+\usepackage{placeins}
+
+\newcommand{\comment}[2]{#2} % comments
+
+\newcommand{\intd}[1]{\left\langle#1\right\rangle} % integrated counterterms
+\newcommand{\axl}{\mathrm{A}} % label for axial  couplings
+\newcommand{\vcr}{\mathrm{V}} % label for vector couplings
+
+\newcommand{\ALOHA}{{\sc\small ALOHA}}
+\newcommand{\collier}{{\sc\small COLLIER}}
+\newcommand{\CutTools}{{\sc\small CutTools}}
+\newcommand{\Fermat}{{\sc\small Fermat}}
+\newcommand{\FeynRules}{{\sc\small FeynRules}}
+\newcommand{\FORM}{{\sc\small FORM}}
+\newcommand{\Golem}{{\sc\small Golem95}}
+\newcommand{\gosam}{{\sc\small GoSam}}
+\newcommand{\IREGI}{{\sc\small IREGI}}
+\newcommand{\Kira}{{\sc\small Kira}}
+\newcommand{\madfks}{{\sc\small MadFKS}}
+\newcommand{\mgamclong}{{\sc\small MadGraph5\_aMC@NLO}}
+\newcommand{\MadLoop}{{\sc\small MadLoop}}
+\newcommand{\madnklo}{{\sc\small MadN$^k$LO}}
+\newcommand{\mgamc}{{\sc\small MG5aMC}}
+\newcommand{\ninja}{{\sc\small Ninja}}
+\newcommand{\NLOCT}{{\sc\small NLOCT}}
+\newcommand{\oneloop}{{\sc\small OneLOop}}
+\newcommand{\openloops}{{\sc\small OpenLoops}}
+\newcommand{\PJFry}{{\sc\small PJFry++}}
+\newcommand{\python}{{\sc\small Python}}
+\newcommand{\QGraf}{{\sc\small QGraf}}
+\newcommand{\recola}{{\sc\small Recola}}
+\newcommand{\Samurai}{{\sc\small Samurai}}
+\newcommand{\UFO}{{\sc\small UFO}}
+
+\newcommand\prompt{{\tt MG5\_aMC>}}
+\newcommand\sss{\scriptscriptstyle}
+\newcommand\as{\alpha_{\sss S}}
+
+\newcommand{\NA}{{\text{N/A}}}
+
+% For colored comments made easy to remove
+% A small hack to have coloured comment in the tex file without using colour package
+% It's ok since there will be no comments left for the final version
+\chardef\MyArticleWithColor=\pdfcolorstackinit page direct{0 g}
+\def\cmtVH#1{\emph{\pdfcolorstack\MyArticleWithColor push {1 0 0 rg} V.H. : {#1} \pdfcolorstack\MyArticleWithColor pop}}
+\def\cmtZC#1{\emph{\pdfcolorstack\MyArticleWithColor push {0 0 1 rg} Z.C. : {#1} \pdfcolorstack\MyArticleWithColor pop}}
+\def\cmtBR#1{\emph{\pdfcolorstack\MyArticleWithColor push {1 0 1 rg} B.R. : {#1} \pdfcolorstack\MyArticleWithColor pop}}
+
+\title{\textbf{Numerical application of Loop-Tree Duality to generic multi-loop integrals}}
+\date{}
+
+%\title{More than one Author with different Affiliations}
+\author[1]{Zeno Ca...}
+\author[2]{Valentin Hirschi}
+\author[3]{Dario Kermanschah}
+\author[4]{Ben Ruijl}
+\affil[1,2,3,4]{\emph{\small ETH Z\"urich, %
+R\"amistrasse 101, %
+8092 Z\"urich, Switzerland}}
+
+% Place pre-print numbers below
+%\rhead{SLAC-PUB-16503, Edinburgh 2016/05}
+
+
+\begin{document}
+
+
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+
+	Abstract
+
+\end{abstract}
+
+\clearpage
+
+\setcounter{tocdepth}{1}
+\tableofcontents
+
+
+\section{Introduction}
+\label{sec:introduction}
+\input{introduction}
+
+\section{Conclusion}
+\label{sec:conclusion}
+\input{conclusion}
+
+\begin{appendices}
+\numberwithin{equation}{section}
+
+
+\section{Scrambled notes}
+\label{app:scrambled_notes}
+\input{scrambled_notes.tex}
+
+\end{appendices}
+
+
+%\bibliographystyle{ieeetr}
+\bibliographystyle{JHEP}
+\bibliography{biblio}
+
+\end{document}
