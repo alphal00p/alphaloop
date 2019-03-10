@@ -10,6 +10,8 @@ extern crate num_traits;
 extern crate rand;
 extern crate serde;
 extern crate serde_yaml;
+extern crate serde_derive;
+use serde_derive::{Serialize, Deserialize};
 extern crate vector;
 
 use clap::{App, Arg};
@@ -17,7 +19,10 @@ use rand::prelude::*;
 use std::str::FromStr;
 use std::time::Instant;
 
-use cuba::{CubaIntegrator, CubaVerbosity};
+use std::fs::{File, OpenOptions};
+use std::io::{BufWriter, Write};
+
+use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 mod cts;
 mod ltd;
@@ -25,6 +30,27 @@ mod topologies;
 mod utils;
 
 use ltdlib::{IntegratedPhase, Settings};
+
+#[derive(Serialize, Deserialize)]
+struct CubaResultDef {
+    pub neval: i64,
+    pub fail: i32,
+    pub result: Vec<f64>,
+    pub error: Vec<f64>,
+    pub prob: Vec<f64>,
+}
+
+impl CubaResultDef {
+    fn new(o: &CubaResult) -> CubaResultDef {
+        CubaResultDef {
+            neval: o.neval,
+            fail: o.fail,
+            result: o.result.clone(),
+            error: o.error.clone(),
+            prob: o.prob.clone(),
+        }
+    }
+}
 
 #[derive(Debug)]
 struct UserData {
@@ -158,10 +184,9 @@ fn main() {
 
     let topology_file = matches.value_of("topologies").unwrap();
 
-    if let Some(x) = matches.value_of("deformation") {
+    if let Some(x) = matches.value_of("deformation_strategy") {
         settings.general.deformation_strategy = x.to_owned();
     }
-
     let mut ci = CubaIntegrator::new(integrand);
 
     ci.set_mineval(10)
@@ -189,7 +214,7 @@ fn main() {
         settings.general.topology, settings.integrator.n_max, settings.general.deformation_strategy
     );
 
-    let r = ci.vegas(
+    let vegas_result = ci.vegas(
         3 * topo.n_loops,
         if settings.integrator.integrated_phase == IntegratedPhase::Both {
             2
@@ -204,5 +229,22 @@ fn main() {
             integrated_phase: settings.integrator.integrated_phase,
         },
     );
-    println!("{:#?}", r);
+    println!("{:#?}", vegas_result);
+
+
+    let f = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(settings.general.topology.clone() + "_res.dat")
+            .expect("Unable to create result file");
+    let mut result_file = BufWriter::new(f);
+        
+    // write the result to a file
+    writeln!(
+        &mut result_file,
+        "{}",
+        serde_yaml::to_string(&CubaResultDef::new(&vegas_result)).unwrap()
+    ).unwrap();
+    writeln!(&mut result_file, "...").unwrap(); // write end-marker, for easy streaming
+
 }

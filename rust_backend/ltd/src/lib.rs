@@ -6,6 +6,7 @@ extern crate itertools;
 extern crate num;
 extern crate serde;
 extern crate serde_yaml;
+extern crate serde_derive;
 extern crate vector;
 use cpython::PyResult;
 use std::cell::RefCell;

@@ -64,9 +64,9 @@ class HyperParameters(dict):
                 raise BaseException("Install yaml python module in order to import hyperparameters from yaml.")
  
         if '\n' in input_path:
-            return LoopTopology.from_flat_format(yaml.load(input_path, Loader=Loader))
+            return HyperParameters.from_flat_format(yaml.load(input_path, Loader=Loader))
         else:
-            return LoopTopology.from_flat_format(yaml.load(open(input_path,'r'), Loader=Loader))
+            return HyperParameters.from_flat_format(yaml.load(open(input_path,'r'), Loader=Loader))
 
 
 #############################################################################################################
