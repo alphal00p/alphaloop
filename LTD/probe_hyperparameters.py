@@ -215,7 +215,6 @@ class ResultsAnalyser(object):
         print('-'*80)
         print("Default parameter values:")
         for param in all_params:
-            print param
             print('  %-20s = %.3e'%(param, self.get_entry_from_config(self.default_configuration,param)))
         print('-'*80)
         print("Parameters studied: %s"%(', '.join(all_params)))
