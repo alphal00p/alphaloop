@@ -793,12 +793,15 @@ hyperparameters = HyperParameters({
     },
 
     'Deformation'   :   {
+        # positive value: maximum lambda in auto scaling
+        # negative value: no auto scaling, lambda is set to abs(lambda)
+        'lambda'    :   1.0,
 
-        'rodrigo'           :   {
+        'exponential'           :   {
             'a_ij'  :   10.,
         },
 
-        'generic'           :   {
+        'multiplicative'        :   {
             'M_ij'  :   0.1
         }
 

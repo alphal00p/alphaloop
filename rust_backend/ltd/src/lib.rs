@@ -6,7 +6,6 @@ extern crate itertools;
 extern crate num;
 extern crate serde;
 extern crate serde_yaml;
-extern crate serde_derive;
 extern crate vector;
 use cpython::PyResult;
 use std::cell::RefCell;
@@ -37,20 +36,21 @@ pub enum IntegratedPhase {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct DeformationGenericSettings {
+pub struct DeformationMultiplicativeSettings {
     #[serde(rename = "M_ij")]
     pub m_ij: f64,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct DeformationRodrigoSettings {
+pub struct DeformationExponentialSettings {
     pub a_ij: f64,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
-    pub generic: DeformationGenericSettings,
-    pub rodrigo: DeformationRodrigoSettings,
+    pub lambda: f64,
+    pub multiplicative: DeformationMultiplicativeSettings,
+    pub exponential: DeformationExponentialSettings,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

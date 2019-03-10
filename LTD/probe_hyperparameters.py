@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import sys
 import os
@@ -274,10 +274,8 @@ if __name__ == '__main__':
 
     default_multiplication_factors = [0.0001,0.001,0.01,0.05,0.1,0.25,0.5,0.75,1.5,2.,4.,10.,50.,100.,1000.,10000.]
     parameter_values_to_test = {
-        'Deformation.generic.M_ij' : [10., 100.],
-        'Deformation.rodrigo.a_ij' : [2.*mult for mult in default_multiplication_factors],
-        #TODO Add Deformation.rodrigo.a_ij here and implement the corresponding quantity in rust. 
-        # < 0. would means auto-scaled and > 0. means set fixed.
+        'Deformation.lambda' : [0.01, 1.],
+        'Deformation.exponential.a_ij' : [2.*mult for mult in default_multiplication_factors],
     }
     additional_run_options = {
                      'General.deformation_strategy' : 'generic',

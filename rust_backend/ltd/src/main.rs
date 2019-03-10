@@ -10,8 +10,7 @@ extern crate num_traits;
 extern crate rand;
 extern crate serde;
 extern crate serde_yaml;
-extern crate serde_derive;
-use serde_derive::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize};
 extern crate vector;
 
 use clap::{App, Arg};

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 ./probe_hyperparameters.py \
-	--t=DoubleTriangle \
+	--t=Box \
 	--Integrator.n_max=100000 \
 	--Integrator.n_start=10000 \
 	--Integrator.n_increase=0 \
 	--save_results_to=hyperparameters_scan_test.dat \
-	--Deformation.rodrigo.a_ij_values=[0.1*step for step in range\(1,21\)] \
-	--Deformation.generic.M_ij_values=[10., 100.] \
+	--Deformation.lambda=-1. \
+	--Deformation.lambda_values=[-0.1*step for step in range\(1,11\)] \
+	--Deformation.exponential.a_ij_values=[0.2*step for step in range\(1,11\)] \
 	--correlated_variations=False \
-	--silence_rust
+#	--silence_rust

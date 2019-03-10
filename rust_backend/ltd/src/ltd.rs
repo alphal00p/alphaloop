@@ -28,13 +28,13 @@ impl LoopLine {
     ) -> LorentzVector<T> {
         // construct the loop momentum that flows through this loop line
         let mut mom = LorentzVector::default();
-        for (l, c) in loop_momenta.iter().zip(self.signature.iter()) {
-            mom = mom + l * From::from(*c as f64);
+        for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
+            mom = mom + l * From::from(c as f64);
         }
 
         match *cut {
             Cut::PositiveCut(j) => {
-                let q = self.propagators[j].q.map(|x| From::from(x));
+                let q = self.propagators[j].q.map(|x| x.into());
                 let b: T = (&mom + &q).spatial_squared() + self.propagators[j].m_squared;
                 mom[0] = b.sqrt();
                 mom.x += q.x;
@@ -43,7 +43,7 @@ impl LoopLine {
                 mom
             }
             Cut::NegativeCut(j) => {
-                let q = self.propagators[j].q.map(|x| From::from(x));
+                let q = self.propagators[j].q.map(|x| x.into());
                 let b: T = (&mom + &q).spatial_squared() + self.propagators[j].m_squared;
                 mom[0] = -b.sqrt();
                 mom.x += q.x;
@@ -60,8 +60,8 @@ impl LoopLine {
     fn get_loop_energy(&self, loop_momenta: &[LorentzVector<Complex>], cut: &Cut) -> Complex {
         // construct the loop momentum that flows through this loop line
         let mut mom = LorentzVector::default();
-        for (l, c) in loop_momenta.iter().zip(self.signature.iter()) {
-            mom = mom + l * From::from(*c as f64);
+        for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
+            mom = mom + l * From::from(c as f64);
         }
 
         match *cut {
@@ -320,117 +320,15 @@ impl Topology {
         }
     }
 
-    fn deform_generic<U: dual_num::Dim + dual_num::DimName>(
+    fn determine_lambda<U: dual_num::Dim + dual_num::DimName>(
         &self,
         loop_momenta: &[LorentzVector<DualN<f64, U>>],
-    ) -> ([LorentzVector<f64>; MAX_LOOP], Complex)
+        kappas: &[LorentzVector<DualN<f64, U>>],
+    ) -> DualN<f64, U>
     where
         dual_num::DefaultAllocator: dual_num::Allocator<f64, U>,
         dual_num::Owned<f64, U>: Copy,
     {
-        let mut cut_dirs = [LorentzVector::default(); MAX_LOOP];
-        let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
-        let mut kappas = [LorentzVector::default(); MAX_LOOP];
-
-        // surface equation:
-        // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
-        // where m=delta_sign a = sig_ll_in_cb, r = residue_sign
-        for (
-            cut_structure_index,
-            cut,
-            onshell_ll_index,
-            onshell_prop_index,
-            _delta_sign,
-            sig_ll_in_cb,
-            surface_shift,
-        ) in self.ellipsoids.iter()
-        {
-            // compute v_i = q_i^cut / sqrt(|q_i^cut|^2 + m^2)
-            // construct the normalized 3-momenta that flow through the cut propagators
-            // the 0th component is to be ignored
-            let mut cut_counter = 0;
-            for (c, ll) in cut.iter().zip(self.loop_lines.iter()) {
-                if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
-                    let mut mom = LorentzVector::default();
-                    for (l, c) in loop_momenta.iter().zip(ll.signature.iter()) {
-                        mom = mom + l * From::from(*c as f64);
-                    }
-                    mom = mom + ll.propagators[*i].q.map(|x| From::from(x));
-                    mom = mom / (mom.spatial_squared() + ll.propagators[*i].m_squared).sqrt();
-                    cut_dirs[cut_counter] = mom;
-                    cut_counter += 1;
-                }
-            }
-
-            // compute w=(sum_i^L a_i q_i^cut + p_vec) / sqrt(|sum_i^L a_i q_i^cut + p_vec|^2 + m^2)
-            // determine sum_i^L a_i q_i^cut using the loop-momentum basis
-            let mut surface_dir = LorentzVector::default();
-            for (l, &sig) in loop_momenta
-                .iter()
-                .zip(self.loop_lines[*onshell_ll_index].signature.iter())
-            {
-                surface_dir = surface_dir + l * From::from(sig as f64);
-            }
-
-            let surface_prop = &self.loop_lines[*onshell_ll_index].propagators[*onshell_prop_index];
-            surface_dir = surface_dir + surface_prop.q.map(|x| From::from(x));
-
-            let surface_dir_norm =
-                surface_dir / (surface_dir.spatial_squared() + surface_prop.m_squared).sqrt();
-
-            // compute n_i = (v_i + a_i * w) * abs(a_i)
-            // n_i is the normal vector of the ith entry of the cut momentum basis
-            // this n_i is 0 when the surface does not depend on the ith cut loop line
-            // we update cut_dirs from v_i to n_i
-            for (cut_dir, &sign) in cut_dirs[..self.n_loops].iter_mut().zip(sig_ll_in_cb.iter()) {
-                *cut_dir = (*cut_dir + surface_dir_norm * From::from(sign as f64))
-                    * From::from(sign.abs() as f64);
-            }
-
-            // convert from cut momentum basis to loop momentum basis
-            for (i, deform_dir) in deform_dirs[..self.n_loops].iter_mut().enumerate() {
-                *deform_dir = LorentzVector::default();
-                for (&sign, cut_dir) in self.cb_to_lmb_mat[*cut_structure_index]
-                    [i * self.n_loops..(i + 1) * self.n_loops]
-                    .iter()
-                    .zip(cut_dirs[..self.n_loops].iter())
-                {
-                    *deform_dir = *deform_dir + cut_dir * From::from(sign as f64);
-                }
-            }
-
-            // multiply the direction deform_dirs by the exponential function
-            // for the exponential function we need to evaluate the propagator of the ellipsoid
-            // and for that we need to determine the cut energies
-
-            // compute the cut momenta with the affine term subtracted
-            let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-            let mut index = 0;
-            for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-                if *ll_cut != Cut::NoCut {
-                    cut_momenta[index] = ll.get_cut_momentum(loop_momenta, ll_cut);
-                    index += 1;
-                }
-            }
-
-            // evaluate the inverse propagator of the surface
-            // the momentum map from the cut momenta is in signs and the shift is known as well
-            // compute the energies for the loop momenta
-            let aij = self.settings.deformation.rodrigo.a_ij;
-            let mut mom = LorentzVector::new();
-            for (&s, c) in sig_ll_in_cb.iter().zip(cut_momenta.iter()) {
-                mom = mom + c * From::from(s as f64);
-            }
-
-            let inv =
-                (mom + surface_shift.map(|x| From::from(x))).square() - surface_prop.m_squared;
-            let dampening = (-inv * inv / (aij * self.e_cm_squared.powi(2))).exp();
-
-            for (kappa, dir) in kappas[..self.n_loops].iter_mut().zip(deform_dirs.iter()) {
-                *kappa = *kappa + dir * From::from(dampening);
-            }
-        }
-
         // now determine the global lambda scaling by going through each propagator
         // for each cut and taking the minimum of their respective lambdas
         let mut lambda_sq = DualN::from_real(1.);
@@ -505,16 +403,26 @@ impl Topology {
 
                     // construct the real part of the loop line momentum
                     let mut mom = LorentzVector::default();
-                    for (l, c) in cut_momenta.iter().zip(sig_ll_in_cb.iter()) {
-                        mom = mom + l * From::from(*c as f64);
+                    for (l, &c) in cut_momenta.iter().zip(sig_ll_in_cb.iter()) {
+                        mom = mom + l * From::from(c as f64);
                     }
 
                     for onshell_prop in onshell_ll.propagators.iter() {
-                        let onshell_prop_mom = mom + onshell_prop.q.map(|x| From::from(x));
+                        let onshell_prop_mom = mom + onshell_prop.q.map(|x| x.into());
 
                         let x = (kappa_onshell.dot(&onshell_prop_mom) * k0sq_inv).powi(2);
                         let y = (onshell_prop_mom.square() - onshell_prop.m_squared) * k0sq_inv;
                         let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+
+                        // TODO: add a lambda bound for the expansion parameter
+                        /*let lambda_expansion = ((kappa_onshell.spatial_dot(&onshell_prop_mom))
+                            / (onshell_prop_mom.spatial_squared() + onshell_prop.m_squared)
+                            * 0.5)
+                            .min(1.0.into());
+
+                        if lambda_expansion * lambda_expansion < lambda_sq {
+                            lambda_sq = lambda_expansion * lambda_expansion;
+                        }*/
 
                         if prop_lambda_sq < lambda_sq {
                             lambda_sq = prop_lambda_sq;
@@ -524,8 +432,130 @@ impl Topology {
             }
         }
 
-        // TODO: add a lambda for the expansion parameter
-        let lambda = lambda_sq.sqrt();
+        lambda_sq.sqrt()
+    }
+
+    fn deform_generic<U: dual_num::Dim + dual_num::DimName>(
+        &self,
+        loop_momenta: &[LorentzVector<DualN<f64, U>>],
+    ) -> ([LorentzVector<f64>; MAX_LOOP], Complex)
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<f64, U>,
+        dual_num::Owned<f64, U>: Copy,
+    {
+        let mut cut_dirs = [LorentzVector::default(); MAX_LOOP];
+        let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
+        let mut kappas = [LorentzVector::default(); MAX_LOOP];
+
+        // surface equation:
+        // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
+        // where m=delta_sign a = sig_ll_in_cb, r = residue_sign
+        for (
+            cut_structure_index,
+            cut,
+            onshell_ll_index,
+            onshell_prop_index,
+            _delta_sign,
+            sig_ll_in_cb,
+            surface_shift,
+        ) in self.ellipsoids.iter()
+        {
+            // compute v_i = q_i^cut / sqrt(|q_i^cut|^2 + m^2)
+            // construct the normalized 3-momenta that flow through the cut propagators
+            // the 0th component is to be ignored
+            let mut cut_counter = 0;
+            for (c, ll) in cut.iter().zip(self.loop_lines.iter()) {
+                if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
+                    let mut mom = LorentzVector::default();
+                    for (l, &c) in loop_momenta.iter().zip(ll.signature.iter()) {
+                        mom = mom + l * From::from(c as f64);
+                    }
+                    mom = mom + ll.propagators[*i].q.map(|x| x.into());
+                    mom = mom / (mom.spatial_squared() + ll.propagators[*i].m_squared).sqrt();
+                    cut_dirs[cut_counter] = mom;
+                    cut_counter += 1;
+                }
+            }
+
+            // compute w=(sum_i^L a_i q_i^cut + p_vec) / sqrt(|sum_i^L a_i q_i^cut + p_vec|^2 + m^2)
+            // determine sum_i^L a_i q_i^cut using the loop-momentum basis
+            let mut surface_dir = LorentzVector::default();
+            for (l, &sig) in loop_momenta
+                .iter()
+                .zip(self.loop_lines[*onshell_ll_index].signature.iter())
+            {
+                surface_dir = surface_dir + l * From::from(sig as f64);
+            }
+
+            let surface_prop = &self.loop_lines[*onshell_ll_index].propagators[*onshell_prop_index];
+            surface_dir = surface_dir + surface_prop.q.map(|x| x.into());
+
+            let surface_dir_norm =
+                surface_dir / (surface_dir.spatial_squared() + surface_prop.m_squared).sqrt();
+
+            // compute n_i = (v_i + a_i * w) * abs(a_i)
+            // n_i is the normal vector of the ith entry of the cut momentum basis
+            // this n_i is 0 when the surface does not depend on the ith cut loop line
+            // we update cut_dirs from v_i to n_i
+            for (cut_dir, &sign) in cut_dirs[..self.n_loops].iter_mut().zip(sig_ll_in_cb.iter()) {
+                *cut_dir = (*cut_dir + surface_dir_norm * From::from(sign as f64))
+                    * From::from(sign.abs() as f64);
+            }
+
+            // convert from cut momentum basis to loop momentum basis
+            for (i, deform_dir) in deform_dirs[..self.n_loops].iter_mut().enumerate() {
+                *deform_dir = LorentzVector::default();
+                for (&sign, cut_dir) in self.cb_to_lmb_mat[*cut_structure_index]
+                    [i * self.n_loops..(i + 1) * self.n_loops]
+                    .iter()
+                    .zip(cut_dirs[..self.n_loops].iter())
+                {
+                    *deform_dir = *deform_dir + cut_dir * From::from(sign as f64);
+                }
+            }
+
+            // multiply the direction deform_dirs by the exponential function
+            // for the exponential function we need to evaluate the propagator of the ellipsoid
+            // and for that we need to determine the cut energies
+
+            // compute the cut momenta with the affine term subtracted
+            let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
+            let mut index = 0;
+            for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
+                if *ll_cut != Cut::NoCut {
+                    cut_momenta[index] = ll.get_cut_momentum(loop_momenta, ll_cut);
+                    index += 1;
+                }
+            }
+
+            // evaluate the inverse propagator of the surface
+            // the momentum map from the cut momenta is in signs and the shift is known as well
+            // compute the energies for the loop momenta
+            let aij = self.settings.deformation.exponential.a_ij;
+            let mut mom = LorentzVector::new();
+            for (&s, c) in sig_ll_in_cb.iter().zip(cut_momenta.iter()) {
+                mom = mom + c * From::from(s as f64);
+            }
+
+            let inv = (mom + surface_shift.map(|x| x.into())).square() - surface_prop.m_squared;
+            let dampening = (-inv * inv / (aij * self.e_cm_squared.powi(2))).exp();
+
+            for (kappa, dir) in kappas[..self.n_loops].iter_mut().zip(deform_dirs.iter()) {
+                *kappa = *kappa + dir * dampening.into();
+            }
+        }
+
+        let lambda = if self.settings.deformation.lambda > 0. {
+            let mut lambda = self.determine_lambda(loop_momenta, &kappas);
+            if lambda > self.settings.deformation.lambda {
+                self.settings.deformation.lambda.into()
+            } else {
+                lambda
+            }
+        } else {
+            self.settings.deformation.lambda.abs().into()
+        };
+
         for k in kappas[..self.n_loops].iter_mut() {
             *k = *k * lambda;
             k.t = DualN::from_real(0.); // make sure we do not have a left-over deformation

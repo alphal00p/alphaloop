@@ -22,7 +22,6 @@ cuba = "^0.1.9"
 nalgebra = "*"
 num-traits = "*"
 serde = { version = "1.0", features = ["derive"] }
-serde_derive = "1.0"
 serde_yaml = "*"
 itertools = "0.8"
 clap = "*"
