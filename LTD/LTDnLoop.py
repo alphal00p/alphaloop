@@ -1,4 +1,19 @@
 # n loop LTD
+import numpy as numpy
+import vegas
+import adipy as adipy
+import time
+import itertools
+import mpmath
+import math
+import ltd_commons
+import random
+from numpy.linalg import inv
+#import warnings
+#warnings.simplefilter("error")
+#warnings.simplefilter("ignore", DeprecationWarning)
+import sys
+sys.setrecursionlimit(100)
 
 class LTDnLoop:
 
@@ -9,10 +24,8 @@ class LTDnLoop:
 		self.name               = topology.name
 		self.external_kinematics= topology.external_kinematics
 		self.scale				= self.get_scale()
-		self.possible_cuts		= self.get_possible_cuts()
+		self.old_possible_cuts	= self.old_get_possible_cuts()
 		self.analytical_result 	= topology.analytical_result
-		print self.name 
-		print self.analytical_result
 
 		self.cut_structures		= [CutStructure(ltd_cut_structure,self.loop_lines) for ltd_cut_structure in self.ltd_cut_structure]
 		for cut_structure in self.cut_structures:
@@ -68,7 +81,7 @@ class LTDnLoop:
 			wgt *= radius
 		return l_space, wgt
 	
-	def get_parents(self,ll_nr):
+	def old_get_parents(self,ll_nr):
 		""" find parent looplines of a given loopline """
 		which_node = bool(random.getrandbits(1))
 		if which_node:
@@ -96,11 +109,11 @@ class LTDnLoop:
 			deltas += [[self.delta(loop_momentum + prop.q[1:],numpy.sqrt(prop.m_squared)) for prop in loop_line.propagators]]
 		return deltas
 	
-	def inv_G(self,x,y):
+	def old_inv_G(self,x,y):
 		""" the dual propagator """
 		return x**2 - y**2
 		
-	def get_four_momenta(self,line_energies,loop_momenta):
+	def old_get_four_momenta(self,line_energies,loop_momenta):
 		four_momenta = [numpy.zeros(4) for i in xrange(self.n_loops)]
 		for loop_line in self.loop_lines:
 			aa = numpy.array(loop_line.signature)
@@ -110,66 +123,66 @@ class LTDnLoop:
 				four_momenta[index][0] = aa[index]*line_energies[index]
 		return four_momenta
 	
-	def evaluate_ll(self,loop_line,c,line_energy,delta):
+	def old_evaluate_ll(self,loop_line,c,line_energy,delta):
 		""" ll: loopline, c: positive (cut index+1), line_energy: energy comp of line momentum, ll_prop: Deltas of this line """
 		""" evaluates a loop line at a fixed cut momentum """
 		ll_residue = 1.
 		for i,prop in enumerate(loop_line.propagators):
 			if i != (c-1):
-				ll_residue *= self.inv_G(line_energy + prop.q[0],delta[i])
+				ll_residue *= self.old_inv_G(line_energy + prop.q[0],delta[i])
 			else:
 				ll_residue *= 2*delta[i]
 		ll_residue = 1./ll_residue	
 		return ll_residue
 	
-	def evaluate_cut(self,deltas,cut):
+	def old_evaluate_cut(self,deltas,cut):
 		""" cut looks like cut = [1,-2,0], 0 is no cut, the abs(c) is the (propagator index +1), - means negative cut
 			computes the residue of cuts of specific propagators """
-		line_energies = self.get_all_line_energies(deltas,cut)
+		line_energies = self.old_get_all_line_energies(deltas,cut)
 		ll_residues = []
 		for loop_line,c,line_energy,delta in zip(self.loop_lines,cut,line_energies,deltas):
-			ll_residues += [self.evaluate_ll(loop_line,abs(c),line_energy,delta)]
+			ll_residues += [self.old_evaluate_ll(loop_line,abs(c),line_energy,delta)]
 		cut_residue = numpy.prod(ll_residues)
 		return cut_residue
 
-	def get_all_line_energies(self,deltas,cut):
+	def old_get_all_line_energies(self,deltas,cut):
 		line_energies = [numpy.sign(c)*delta[abs(c)-1] - loop_line.propagators[abs(c)-1].q[0] if c != 0
 						else None
 						for loop_line,delta,c in zip(self.loop_lines,deltas,cut)]
 		for ll_nr,line_energy in enumerate(line_energies):
 			if line_energy == None:
-				line_energies[ll_nr] = self.get_line_energy(ll_nr,line_energies)
+				line_energies[ll_nr] = self.old_get_line_energy(ll_nr,line_energies)
 		return line_energies
 	
-	def get_line_energy(self,ll_nr,line_energies):
+	def old_get_line_energy(self,ll_nr,line_energies):
 		"""a recursive algorythm that computes the energy of the corresponding loop line,
 			should work for loops larger than 2 as well"""
 		new_line_energy = 0.
-		parents = self.get_parents(ll_nr)
+		parents = self.old_get_parents(ll_nr)
 		for nr,sign in parents:
 			if line_energies[nr] == None:
 				line_energies[nr] = self.get_line_energy(nr,line_energies)
 			new_line_energy += (-1.)**(sign+1)*line_energies[nr]
 		return new_line_energy
 				
-	def evaluate_cut_structure(self,deltas,cut_structure):
+	def old_evaluate_cut_structure(self,deltas,cut_structure):
 		""" computes all residues of a cut structure """
 		cut_indices = [i for i,line in enumerate(cut_structure) if abs(line)==1]
 		cut_residues = []
-		for ll_cuts in itertools.product(*[self.possible_cuts[i] for i in cut_indices]):
+		for ll_cuts in itertools.product(*[self.old_possible_cuts[i] for i in cut_indices]):
 			cut = [0 for i in xrange(len(self.loop_lines))]
 			for i,ll_cut in zip(cut_indices,ll_cuts):
 				cut[i] = ll_cut*cut_structure[i]
-			cut_residues += [self.evaluate_cut(deltas,cut)]
+			cut_residues += [self.old_evaluate_cut(deltas,cut)]
 		cut_structure_residue = numpy.sum(cut_residues)
 		return cut_structure_residue
 				
-	def get_possible_cuts(self):
+	def old_get_possible_cuts(self):
 		""" returns a list with (indices + 1) of all possible cuts per loop line """
 		possible_cuts = [range(1,len(loop_line.propagators)+1) for loop_line in self.loop_lines]
 		return possible_cuts
 	
-	def get_dual_vec(self,k_space,l_space):
+	def old_get_dual_vec(self,k_space,l_space):
 		vec = numpy.append(k_space,l_space)
 		dim = 3*self.n_loops
 		vec_dual = [0.]*dim
@@ -186,9 +199,9 @@ class LTDnLoop:
 		dual_momenta = [dual_vec[i*3:(i+1)*3] for i in xrange(self.n_loops)]
 		return numpy.array(dual_momenta)
 
-	def hardcoded_dt_def(self,k_space,l_space,p):
+	def old_hardcoded_dt_def(self,k_space,l_space,p):
 		# according to dario convention of loop line and momentum flow assignments
-		vec_dual = self.get_dual_vec(k_space,l_space)
+		vec_dual = self.old_get_dual_vec(k_space,l_space)
 		k_space = vec_dual[:3]
 		l_space = vec_dual[3:]
 		p_space = p[1:]
@@ -269,7 +282,7 @@ class LTDnLoop:
 		jac = 1.
 		
 		#double triangle (with dario convention of loop line assignments!!)
-		#kappa_k,kappa_l,jac = self.hardcoded_dt_def(loop_momenta[0],loop_momenta[1],self.loop_lines[0].propagators[1].q)
+		#kappa_k,kappa_l,jac = self.old_hardcoded_dt_def(loop_momenta[0],loop_momenta[1],self.loop_lines[0].propagators[1].q)
 		#kappas = [kappa_k,kappa_l]
 		
 		return kappas, jac
@@ -296,7 +309,7 @@ class LTDnLoop:
 		kappas,jac = self.old_deform(loop_momenta)
 		loop_momenta = [loop_momentum+1j*kappa for loop_momentum,kappa in zip(loop_momenta,kappas)]
 		deltas = self.get_deltas(loop_momenta)
-		full_residue = numpy.sum([self.evaluate_cut_structure(deltas,cut_structure) for cut_structure in self.ltd_cut_structure])
+		full_residue = numpy.sum([self.old_evaluate_cut_structure(deltas,cut_structure) for cut_structure in self.ltd_cut_structure])
 		ltd_factor = (-2*numpy.pi*1j)**self.n_loops
 		standard_factor = (1./(2.*numpy.pi)**4)**self.n_loops
 		return full_residue*numpy.prod(wgt)*ltd_factor*standard_factor*jac
@@ -320,7 +333,13 @@ class LTDnLoop:
 			res += cut_structure.evaluate(deltas)
 		return res
 
-	def ltd_integrate(self,integrand, N_train=1000, N_refine=1000):
+	def ltd_integrate(self,integrand, N_train=1000, itn_train = 7, N_refine=1000, itn_refine = 10):
+		print '{:=^90}'.format(' '+ self.name + ' ')
+		print '{:=^90}'.format(' analytical result = {num.real} + {num.imag}j'.format(num =self.analytical_result))
+		print '{:=^90}'.format(' integrating ... ')
+		print '{:=^90}'.format(' N_train = %d, itn_train = %d, N_refine = %d, itn_refine = %d ' %(N_train,itn_train,N_refine,itn_refine))
+		N_tot = N_train*itn_train+N_refine*itn_refine
+		t0 = time.time()
 		numpy.random.seed(0)
 		batch_size = 600
 		real_integr = lambda x: integrand(x).real
@@ -328,16 +347,19 @@ class LTDnLoop:
 		real_vegas3_integrator = vegas.Integrator(3 * self.n_loops * [[0., 1.]], nhcube_batch=batch_size)
 		imag_vegas3_integrator = vegas.Integrator(3 * self.n_loops * [[0., 1.]], nhcube_batch=batch_size)
 		# train
-		real_vegas3_integrator(real_integr,nitn=7, neval=N_train)
-		imag_vegas3_integrator(imag_integr,nitn=7, neval=N_train)
+		real_vegas3_integrator(real_integr,nitn=itn_train, neval=N_train)
+		imag_vegas3_integrator(imag_integr,nitn=itn_train, neval=N_train)
 		# refine
-		real_result = real_vegas3_integrator(real_integr,nitn=10, neval=N_refine)
-		imag_result = imag_vegas3_integrator(imag_integr,nitn=10, neval=N_refine)
+		real_result = real_vegas3_integrator(real_integr,nitn=itn_refine, neval=N_refine)
+		imag_result = imag_vegas3_integrator(imag_integr,nitn=itn_refine, neval=N_refine)
 		print('\n'+real_result.summary()+'\n'+imag_result.summary())
 		#print('\n'+real_result.summary())
 		real_vegas3_integrator.map.show_grid()
 		imag_vegas3_integrator.map.show_grid()
-		return [real_result,imag_result]
+		result = [real_result,imag_result]
+		print '{:=^90}'.format(' I = ' + '{0} + {1}j '.format(result[0],result[1]))
+		print '{:=^90}'.format(' Time: %.2f s ' % (time.time()-t0))
+		return result
 
 	def analytic_three_point_ladder(self,s1,s2,s3,l):
 		aa = (1j/(16*numpy.pi**2*s3))**l
@@ -460,6 +482,7 @@ class Propagator(Cut):
 		self.i = i
 		self.loop_line = self.loop_lines[i]
 
+		# find out if this particular propagator is cut
 		cut_indices = [i for i,line in enumerate(self.cut_structure.cut_structure) if abs(line)==1]
 		ll_cut = [None for i in xrange(len(self.loop_lines))]
 		for i,c in zip(cut_indices,self.cut.cut):
@@ -469,9 +492,9 @@ class Propagator(Cut):
 			if i == self.i and c == self.a:
 				self.is_cut = True
 
-		self.own_shift = self.loop_line.propagators[a].q
-		self.cut_shift = self.get_cut_shift()
-		self.total_shift = self.own_shift + self.cut_shift
+		self.own_shift = self.loop_line.propagators[a].q #shift of propagator momentum with respect to the loop line momentum
+		self.cut_shift = self.get_cut_shift() # shift of the propagator momentum with respect to the cut propagator momentum basis
+		self.total_shift = self.own_shift + self.cut_shift #total shift i.e. affine surface term
 
 	def deform(self,loop_momenta,deltas,scale):
 		kappas = [numpy.zeros(3) for loop_momentum in loop_momenta]
@@ -495,13 +518,14 @@ class Propagator(Cut):
 				cut_deltas = self.cut.get_cut_deltas(deltas)
 				delta = deltas[self.i][self.a]
 				energy = energy_signature.dot(cut_deltas) + self.total_shift[0]
-				width = 10.*scale
+				A_ij = 10.
 				if minus_ellipsoid:
-					interpolation = adipy.exp(-(energy-delta)**2/width**2) 
+					interpolation = adipy.exp(-(energy-delta)**2/scale**2/A_ij) 
 				else:
-					interpolation = adipy.exp(-(energy+delta)**2/width**2)
+					interpolation = adipy.exp(-(energy+delta)**2/scale**2/A_ij)
 				kappas = self.inv_basis_trsf.dot(cut_prop_kappas)
 				lambda_factor = -0.01*scale
+				#lambda_factor = -10.
 				kappas *= lambda_factor*interpolation
 		return kappas
 
@@ -528,27 +552,7 @@ class Propagator(Cut):
 			inv_prop = 2*delta
 		return 1./inv_prop
 
-if __name__ == "__main__":
-	
-	import numpy as numpy
-	import vegas
-	import adipy as adipy
-	import time
-	import itertools
-	import mpmath
-	import math
-	import ltd_commons
-	import random
-	from numpy.linalg import inv
-	#import warnings
-	#warnings.simplefilter("error")
-	#warnings.simplefilter("ignore", DeprecationWarning)
-	import sys
-	sys.setrecursionlimit(100)
-	
-	t0 = time.time()
-
-	print '='*(2*36+7) + '\n' + '='*36+' hello '+'='*36 + '\n' + '='*(2*36+7)
+if __name__ == "__main__":	
 	
 	def example():
 		# example to evaluate specific residues at given loop momenta configuration
@@ -581,19 +585,15 @@ if __name__ == "__main__":
 	
 	
 	random.seed(0)
-	my_topology = ltd_commons.hard_coded_topology_collection['DoubleTriangle']
+	my_topology = ltd_commons.hard_coded_topology_collection['Triangle']
 	my_LTD = LTDnLoop(my_topology)
 		
 	#print my_LTD.ltd_integrand4([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
 	
-	#external_momenta = my_LTD.external_kinematics
-	#s = [p[0]**2-numpy.sum(p[1:]**2) for p in external_momenta]
-	#print my_LTD.analytic_three_point_ladder(s[0],s[1],s[2],2)
+	external_momenta = my_LTD.external_kinematics
+	s = [p[0]**2-numpy.sum(p[1:]**2) for p in external_momenta]
+	print my_LTD.analytic_three_point_ladder(s[0],s[1],s[2],3)
 
 	result = my_LTD.ltd_integrate(my_LTD.ltd_integrand, N_refine=1000)
-	
-	print '='*(2*36+7)
-	print 'I = ', result[0], '+ i',result[1]
-	print '='*(2*36+7)
 
-	print 'Time: %.2f s' % (time.time()-t0)
+
