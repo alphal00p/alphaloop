@@ -541,7 +541,8 @@ impl Topology {
             let dampening = (-inv * inv / (aij * self.e_cm_squared.powi(2))).exp();
 
             for (kappa, dir) in kappas[..self.n_loops].iter_mut().zip(deform_dirs.iter()) {
-                *kappa = *kappa + dir * dampening.into();
+                // note the sign
+                *kappa = *kappa - dir * dampening.into();
             }
         }
 
