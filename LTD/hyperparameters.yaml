@@ -3,4 +3,5 @@ Deformation:
   lambda: 1.0
   multiplicative: {M_ij: 0.1}
 General: {deformation_strategy: generic, topology: DoubleTriangle}
-Integrator: {integrated_phase: real, n_increase: 0, n_max: 1000000000, n_start: 100000}
+Integrator: {integrated_phase: real, integrator: vegas, n_increase: 0, n_max: 1000000000,
+  n_start: 100000}

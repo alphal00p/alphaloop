@@ -213,22 +213,39 @@ fn main() {
         settings.general.topology, settings.integrator.n_max, settings.general.deformation_strategy
     );
 
-    let vegas_result = ci.vegas(
-        3 * topo.n_loops,
-        if settings.integrator.integrated_phase == IntegratedPhase::Both {
-            2
-        } else {
-            1
-        },
-        CubaVerbosity::Progress,
-        0,
-        UserData {
-            topo: vec![topo.clone(); cores + 1],
-            sample_count: 0,
-            integrated_phase: settings.integrator.integrated_phase,
-        },
-    );
-    println!("{:#?}", vegas_result);
+    let cuba_result = match settings.integrator.integrator.as_ref() {
+        "vegas" => ci.vegas(
+            3 * topo.n_loops,
+            if settings.integrator.integrated_phase == IntegratedPhase::Both {
+                2
+            } else {
+                1
+            },
+            CubaVerbosity::Progress,
+            0,
+            UserData {
+                topo: vec![topo.clone(); cores + 1],
+                sample_count: 0,
+                integrated_phase: settings.integrator.integrated_phase,
+            },
+        ),
+        "cuhre" => ci.cuhre(
+            3 * topo.n_loops,
+            if settings.integrator.integrated_phase == IntegratedPhase::Both {
+                2
+            } else {
+                1
+            },
+            CubaVerbosity::Progress,
+            UserData {
+                topo: vec![topo.clone(); cores + 1],
+                sample_count: 0,
+                integrated_phase: settings.integrator.integrated_phase,
+            },
+        ),
+        x => panic!("Unknown integrator {}", x),
+    };
+    println!("{:#?}", cuba_result);
 
     let f = OpenOptions::new()
         .create(true)
@@ -241,7 +258,7 @@ fn main() {
     writeln!(
         &mut result_file,
         "{}",
-        serde_yaml::to_string(&CubaResultDef::new(&vegas_result)).unwrap()
+        serde_yaml::to_string(&CubaResultDef::new(&cuba_result)).unwrap()
     )
     .unwrap();
     writeln!(&mut result_file, "...").unwrap(); // write end-marker, for easy streaming

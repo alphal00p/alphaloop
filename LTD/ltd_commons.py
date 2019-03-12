@@ -786,6 +786,8 @@ hyperparameters = HyperParameters({
     },
 
     'Integrator'    :   {
+        # The integrator can be vegas or cuhre
+        'integrator'        :   'vegas',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e9),
         'n_increase'        :   0,

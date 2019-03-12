@@ -62,6 +62,7 @@ pub struct GeneralSettings {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct IntegratorSettings {
+    pub integrator: String,
     pub n_increase: usize,
     pub n_max: usize,
     pub n_start: usize,
@@ -71,6 +72,7 @@ pub struct IntegratorSettings {
 impl Default for IntegratorSettings {
     fn default() -> IntegratorSettings {
         IntegratorSettings {
+            integrator: "vegas".to_owned(),
             n_increase: 0,
             n_start: 10000,
             n_max: 10000000,
