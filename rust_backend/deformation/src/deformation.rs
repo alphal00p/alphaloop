@@ -4,8 +4,7 @@ use num::Float;
 use std::convert::From;
 use std::f64::EPSILON;
 use utils::{determinant, determinant8};
-use vector::LorentzVector;
-use vector::RealField;
+use vector::{Field, LorentzVector};
 use Complex;
 use REGION_EXT;
 
@@ -48,7 +47,7 @@ const DIRECTIONS: [LorentzVector<f64>; 4] = [
 ];
 
 #[derive(Clone)]
-pub struct Deformer<F: Float + RealField> {
+pub struct Deformer<F: Float + Field> {
     qs: ArrayVec<[LorentzVector<F>; Q_UB]>,
     ext: ArrayVec<[LorentzVector<F>; Q_UB]>, // external momenta
     masses: ArrayVec<[f64; Q_UB]>,
@@ -73,7 +72,7 @@ pub struct Deformer<F: Float + RealField> {
     uv_shift: LorentzVector<F>,
 }
 
-impl<F: Float + RealField> Deformer<F> {
+impl<F: Float + Field> Deformer<F> {
     pub fn new(
         e_cm_sq: f64,
         mu_sq: f64,
@@ -162,18 +161,18 @@ impl<F: Float + RealField> Deformer<F> {
         //self.mu_p_sq = From::from(self.e_cm_sq);
 
         self.m1_sq = From::from(self.m1_fac * self.m1_fac * self.e_cm_sq);
-        self.m2_sq = (if self.mu_p_sq > self.e_cm_sq {
+        self.m2_sq = (if self.mu_p_sq > self.e_cm_sq.into() {
             self.mu_p_sq
         } else {
             From::from(self.e_cm_sq)
-        }) * self.m2_fac
-            * self.m2_fac;
-        self.m3_sq = (if self.mu_p_sq > self.e_cm_sq {
+        }) * self.m2_fac.into()
+            * self.m2_fac.into();
+        self.m3_sq = (if self.mu_p_sq > self.e_cm_sq.into() {
             self.mu_p_sq
         } else {
             From::from(self.e_cm_sq)
-        }) * self.m3_fac
-            * self.m3_fac;
+        }) * self.m3_fac.into()
+            * self.m3_fac.into();
         self.m4_sq = From::from(self.m4_fac * self.m4_fac * self.e_cm_sq);
     }
 
@@ -185,7 +184,7 @@ impl<F: Float + RealField> Deformer<F> {
     /// Interpolate between vectors
     #[inline]
     fn z(a: LorentzVector<F>, b: LorentzVector<F>, plus: bool) -> LorentzVector<F> {
-        if b.euclidean_square() < 1e-9 {
+        if b.euclidean_square() < 1e-9.into() {
             return a;
         }
 
@@ -217,7 +216,7 @@ impl<F: Float + RealField> Deformer<F> {
 
         for q in &self.qs[1..] {
             let s = (p - q).square();
-            if s <= 0. {
+            if s <= 0.0.into() {
                 p = Deformer::z(p + q, p - q, plus);
             } else {
                 if (plus && p.t > q.t) || (!plus && p.t < q.t) {
@@ -233,16 +232,16 @@ impl<F: Float + RealField> Deformer<F> {
     fn shift_and_check_p(&mut self) {
         //Perform the shift
         let shift_size = 1e-2;
-        let r: F = (self.p_min.t - self.p_plus.t) * 0.5;
-        let center: F = (self.p_min.t + self.p_plus.t) * 0.5;
-        self.p_min.t = center + r * (1.0 + shift_size);
-        self.p_plus.t = center - r * (1.0 + shift_size);
+        let r: F = (self.p_min.t - self.p_plus.t) * 0.5.into();
+        let center: F = (self.p_min.t + self.p_plus.t) * 0.5.into();
+        self.p_min.t = center + r * (1.0 + shift_size).into();
+        self.p_plus.t = center - r * (1.0 + shift_size).into();
 
         //Check if P+/- has all the qs in its backward/forward light-cone
         let mut pq_diff;
         for q in &self.qs {
             pq_diff = &self.p_plus - q;
-            if pq_diff.t > 0.0 || pq_diff.square() < 0.0 {
+            if pq_diff.t > 0.0.into() || pq_diff.square() < 0.0.into() {
                 panic!(
                     "P_plus is not correctly defined! (P-q).t = {}, (P-q)^2 = {}, P = {}, qs = {:#?}",
                     pq_diff.t,
@@ -253,7 +252,7 @@ impl<F: Float + RealField> Deformer<F> {
             }
 
             pq_diff = &self.p_min - q;
-            if pq_diff.t < 0.0 || pq_diff.square() < 0.0 {
+            if pq_diff.t < 0.0.into() || pq_diff.square() < 0.0.into() {
                 panic!(
                     "P_minus is not correctly defined! (P-q).t = {}, (P-q)^2 = {}, P = {}, qs = {:#?}",
                     pq_diff.t,
@@ -267,19 +266,19 @@ impl<F: Float + RealField> Deformer<F> {
 
     /// The three helper functions h_delta-, h_delta+, and h_delta0, indicated by `sign`.
     fn h_delta(sign: i32, k: &LorentzVector<F>, mass: f64, m: F) -> F {
-        let a = k.spatial_squared() + <F as num::NumCast>::from(mass).unwrap();
+        let a = k.spatial_squared() + mass.into();
         let v = if sign == 0 {
             (k.t.abs() - a.sqrt()).powi(2)
         } else {
-            (k.t * <F as num::NumCast>::from(sign).unwrap() - a.sqrt()).powi(2)
+            (k.t * (sign as f64).into() - a.sqrt()).powi(2)
         };
         v / (v + m)
     }
 
     #[inline]
     fn h_theta(t: F, m: F) -> F {
-        if t <= 0. {
-            num::NumCast::from(0.).unwrap()
+        if t <= 0.0.into() {
+            0.0.into()
         } else {
             t / (t + m)
         }
@@ -297,7 +296,7 @@ impl<F: Float + RealField> Deformer<F> {
                 return num::NumCast::from(1.0).unwrap();
             }
 
-            if (&self.qs[i] - &self.qs[l]).square() == 0.0 {
+            if (&self.qs[i] - &self.qs[l]).square() == 0.0.into() {
                 let a: LorentzVector<F> = mom - self.qs[l];
                 if self.qs[i].t < self.qs[l].t {
                     return Deformer::h_delta(1, &a, 0.0, self.m1_sq);
@@ -309,7 +308,7 @@ impl<F: Float + RealField> Deformer<F> {
 
         let a: LorentzVector<F> = mom - self.qs[l];
         let hd = Deformer::h_delta(0, &a, self.masses[l] * self.masses[l], self.m1_sq);
-        let ht = Deformer::h_theta(a.dot(&(mom - self.qs[i])) * -2.0, self.m1_sq);
+        let ht = Deformer::h_theta(a.dot(&(mom - self.qs[i])) * (-2.0).into(), self.m1_sq);
         hd.max(ht)
     }
 
@@ -338,7 +337,7 @@ impl<F: Float + RealField> Deformer<F> {
         );
 
         // internal part
-        let k_centre = (k_plus + k_minus) * From::from(0.5);
+        let k_centre = (k_plus + k_minus) * 0.5.into();
 
         let n = self.qs.len();
         assert!(n <= Q_UB);
@@ -368,12 +367,12 @@ impl<F: Float + RealField> Deformer<F> {
                     let mut c = f;
 
                     let zij = (self.qs[i] - self.qs[j]).square();
-                    if zij > 0. {
+                    if zij > 0.0.into() {
                         let kij = if true {
                             // multi-loop paper approach
                             // TODO: check if we should drop the ^n
                             c *= Deformer::h_theta(zij, self.m1_sq).powi(n as i32);
-                            mom - self.qs[i] * From::from(0.5) - self.qs[j] * From::from(0.5)
+                            mom - self.qs[i] * 0.5.into() - self.qs[j] * 0.5.into()
                         } else {
                             // thesis approach
                             let ki = mom - self.qs[i];
@@ -391,7 +390,7 @@ impl<F: Float + RealField> Deformer<F> {
                                 self.m1_sq,
                             );
 
-                            let a = (mom - self.qs[l]).dot(&kij) * -2.;
+                            let a = (mom - self.qs[l]).dot(&kij) * (-2.0).into();
                             let l2 = Deformer::h_theta(a, self.m1_sq);
 
                             c *= l1.max(l2);
@@ -419,15 +418,19 @@ impl<F: Float + RealField> Deformer<F> {
                 let mut da_plus: F = num::NumCast::from(1.).unwrap();
                 let mut da_min: F = num::NumCast::from(1.).unwrap();
                 for l in 0..n {
-                    let l1 =
-                        Deformer::h_delta(0, &(mom - self.qs[l]), 0., self.m1_sq * self.gamma2);
+                    let l1 = Deformer::h_delta(
+                        0,
+                        &(mom - self.qs[l]),
+                        0.,
+                        self.m1_sq * self.gamma2.into(),
+                    );
                     let lp2 = Deformer::h_theta(
-                        (mom - self.qs[l]).dot(&ka[a]) * 2.,
-                        self.m1_sq * self.gamma2,
+                        (mom - self.qs[l]).dot(&ka[a]) * 2.0.into(),
+                        self.m1_sq * self.gamma2.into(),
                     );
                     let lm2 = Deformer::h_theta(
-                        (mom - self.qs[l]).dot(&ka[a]) * -2.,
-                        self.m1_sq * self.gamma2,
+                        (mom - self.qs[l]).dot(&ka[a]) * (-2.0).into(),
+                        self.m1_sq * self.gamma2.into(),
                     );
 
                     da_plus *= l1.max(lp2);
@@ -441,30 +444,30 @@ impl<F: Float + RealField> Deformer<F> {
         }
 
         let k0 = k_int + k_ext;
-        let mut lambda_cycle_sq: F = From::from(1.); // maximum lambda value
+        let mut lambda_cycle_sq: F = 1.0.into(); // maximum lambda value
 
         let mut restriction = false;
         let k0_sq = k0.square();
         for j in 0..n {
             let lj = mom - self.qs[j];
             let k0_lqj = k0.dot(&lj);
-            let w = lj.square() - self.masses[j].powi(2);
+            let w = lj.square() - self.masses[j].powi(2).into();
 
             let xj = (k0_lqj / k0_sq).powi(2);
             let yj = w / k0_sq;
 
-            if xj * 2. < yj {
-                if yj * 0.25 < lambda_cycle_sq {
-                    lambda_cycle_sq = yj * 0.25;
+            if xj * 2.0.into() < yj {
+                if yj * 0.25.into() < lambda_cycle_sq {
+                    lambda_cycle_sq = yj * 0.25.into();
                 }
-            } else if yj < 0. {
-                if xj - yj * 0.5 < lambda_cycle_sq {
-                    lambda_cycle_sq = xj - yj * 0.5;
+            } else if yj < 0.0.into() {
+                if xj - yj * 0.5.into() < lambda_cycle_sq {
+                    lambda_cycle_sq = xj - yj * 0.5.into();
                     restriction = true;
                 }
             } else {
-                if xj - yj * 0.25 < lambda_cycle_sq {
-                    lambda_cycle_sq = xj - yj * 0.25;
+                if xj - yj * 0.25.into() < lambda_cycle_sq {
+                    lambda_cycle_sq = xj - yj * 0.25.into();
                     restriction = true;
                 }
             }
@@ -473,31 +476,31 @@ impl<F: Float + RealField> Deformer<F> {
         let mut lambda_cycle = lambda_cycle_sq.sqrt();
 
         // collinear contribution
-        if c_sum.inv() * 0.25 < lambda_cycle {
+        if c_sum.inv() * 0.25.into() < lambda_cycle {
             if restriction {
                 // TODO: we are not near any collinear limit. We could consider not scaling the lambda down!
                 //println!("We are not near the collinear limit, yet we rescale lambda from {} to {}", lambda_cycle, c_sum.inv() * 0.25);
             }
 
             //println!("Coll scaling from {} to {}", lambda_cycle, c_sum.inv() * 0.25);
-            lambda_cycle = c_sum.inv() * 0.25;
+            lambda_cycle = c_sum.inv() * 0.25.into();
         }
 
         if include_uv {
             let l = mom - self.uv_shift;
-            let uv_fac: F = l.dot(&k0) * 4.;
-            if uv_fac <= self.mu_sq.im {
-                if lambda_cycle > uv_fac.inv() * self.mu_sq.im {
-                    lambda_cycle = uv_fac.inv() * self.mu_sq.im;
+            let uv_fac: F = l.dot(&k0) * 4.0.into();
+            if uv_fac <= self.mu_sq.im.into() {
+                if lambda_cycle > uv_fac.inv() * self.mu_sq.im.into() {
+                    lambda_cycle = uv_fac.inv() * self.mu_sq.im.into();
                 }
             }
 
             // each propagator could be UV since it regularises the collinear CT
             for q in &self.qs {
-                let uv_fac: F = (mom - q).dot(&k0) * 4.;
-                if uv_fac <= self.mu_sq.im {
-                    if lambda_cycle > uv_fac.inv() * self.mu_sq.im {
-                        lambda_cycle = uv_fac.inv() * self.mu_sq.im;
+                let uv_fac: F = (mom - q).dot(&k0) * 4.0.into();
+                if uv_fac <= self.mu_sq.im.into() {
+                    if lambda_cycle > uv_fac.inv() * self.mu_sq.im.into() {
+                        lambda_cycle = uv_fac.inv() * self.mu_sq.im.into();
                     }
                 }
             }
@@ -538,17 +541,17 @@ impl<F: Float + RealField> Deformer<F> {
             let xj = (kt.dot(qt) / kt.square()).powi(2);
             let yj = (qt.square()) / kt.square(); // for the massless case
 
-            if xj * 2.0 < yj {
-                if yj * 0.25 < lambda_sq {
-                    lambda_sq = yj * 0.25;
+            if xj * 2.0.into() < yj {
+                if yj * 0.25.into() < lambda_sq {
+                    lambda_sq = yj * 0.25.into();
                 }
-            } else if yj < 0. {
-                if xj - yj * 0.5 < lambda_sq {
-                    lambda_sq = xj - yj * 0.5;
+            } else if yj < 0.0.into() {
+                if xj - yj * 0.5.into() < lambda_sq {
+                    lambda_sq = xj - yj * 0.5.into();
                 }
             } else {
-                if xj - yj * 0.25 < lambda_sq {
-                    lambda_sq = xj - yj * 0.25;
+                if xj - yj * 0.25.into() < lambda_sq {
+                    lambda_sq = xj - yj * 0.25.into();
                 }
             }
         }
@@ -556,13 +559,13 @@ impl<F: Float + RealField> Deformer<F> {
         // we assume the UV propagators to be 1/(k^2+mu^2) and 1/(l^2+mu^2)
         let mut lambda = lambda_sq.sqrt();
 
-        let uv_fac_k = k.dot(&k_1) * 4.0;
-        let uv_fac_l = l.dot(&k_2) * 4.0;
-        if uv_fac_k <= self.mu_sq.im && lambda > uv_fac_k.inv() * self.mu_sq.im {
-            lambda = uv_fac_k.inv() * self.mu_sq.im;
+        let uv_fac_k = k.dot(&k_1) * 4.0.into();
+        let uv_fac_l = l.dot(&k_2) * 4.0.into();
+        if uv_fac_k <= self.mu_sq.im.into() && lambda > uv_fac_k.inv() * self.mu_sq.im.into() {
+            lambda = uv_fac_k.inv() * self.mu_sq.im.into();
         }
-        if uv_fac_l <= self.mu_sq.im && lambda > uv_fac_l.inv() * self.mu_sq.im {
-            lambda = uv_fac_l.inv() * self.mu_sq.im;
+        if uv_fac_l <= self.mu_sq.im.into() && lambda > uv_fac_l.inv() * self.mu_sq.im.into() {
+            lambda = uv_fac_l.inv() * self.mu_sq.im.into();
         }
 
         lambda
@@ -794,27 +797,27 @@ impl<F: Float + RealField> Deformer<F> {
         let mut lambda = self.compute_overall_lambda(k, l, &k_1, &k_2, &props);
 
         // for the counterterms, we have two additional UV propagators
-        let uv_fac_k = (k - &self.ext[0]).dot(&k_1) * 4.0;
-        let uv_fac_l = (l - &self.ext[2]).dot(&k_2) * 4.0;
-        if uv_fac_k <= self.mu_sq.im && lambda > uv_fac_k.inv() * self.mu_sq.im {
-            lambda = uv_fac_k.inv() * self.mu_sq.im;
+        let uv_fac_k = (k - &self.ext[0]).dot(&k_1) * 4.0.into();
+        let uv_fac_l = (l - &self.ext[2]).dot(&k_2) * 4.0.into();
+        if uv_fac_k <= self.mu_sq.im.into() && lambda > uv_fac_k.inv() * self.mu_sq.im.into() {
+            lambda = uv_fac_k.inv() * self.mu_sq.im.into();
         }
-        if uv_fac_l <= self.mu_sq.im && lambda > uv_fac_l.inv() * self.mu_sq.im {
-            lambda = uv_fac_l.inv() * self.mu_sq.im;
+        if uv_fac_l <= self.mu_sq.im.into() && lambda > uv_fac_l.inv() * self.mu_sq.im.into() {
+            lambda = uv_fac_l.inv() * self.mu_sq.im.into();
         }
 
         // for the region factor, we have three additional UV propagators
-        let uv_fac_k = (k - self.ext[0] * From::from(0.5)).dot(&k_1) * 4.0;
-        let uv_fac_l = (l - self.ext[2] * From::from(0.5)).dot(&k_2) * 4.0;
-        let uv_fac_d = (k - l - self.ext[0] - self.ext[1]).dot(&(k_1 - k_2)) * 4.0;
-        if uv_fac_k <= self.mu_sq.im && lambda > uv_fac_k.inv() * self.mu_sq.im {
-            lambda = uv_fac_k.inv() * self.mu_sq.im;
+        let uv_fac_k = (k - self.ext[0] * 0.5.into()).dot(&k_1) * 4.0.into();
+        let uv_fac_l = (l - self.ext[2] * 0.5.into()).dot(&k_2) * 4.0.into();
+        let uv_fac_d = (k - l - self.ext[0] - self.ext[1]).dot(&(k_1 - k_2)) * 4.0.into();
+        if uv_fac_k <= self.mu_sq.im.into() && lambda > uv_fac_k.inv() * self.mu_sq.im.into() {
+            lambda = uv_fac_k.inv() * self.mu_sq.im.into();
         }
-        if uv_fac_l <= self.mu_sq.im && lambda > uv_fac_l.inv() * self.mu_sq.im {
-            lambda = uv_fac_l.inv() * self.mu_sq.im;
+        if uv_fac_l <= self.mu_sq.im.into() && lambda > uv_fac_l.inv() * self.mu_sq.im.into() {
+            lambda = uv_fac_l.inv() * self.mu_sq.im.into();
         }
-        if uv_fac_d <= self.mu_sq.im && lambda > uv_fac_d.inv() * self.mu_sq.im {
-            lambda = uv_fac_d.inv() * self.mu_sq.im;
+        if uv_fac_d <= self.mu_sq.im.into() && lambda > uv_fac_d.inv() * self.mu_sq.im.into() {
+            lambda = uv_fac_d.inv() * self.mu_sq.im.into();
         }
 
         (k_1 * lambda, k_2 * lambda)
@@ -919,17 +922,17 @@ impl<F: Float + RealField> Deformer<F> {
             // Warning, the line below is only correct for the massless case
             let yj = (prop_real.square()) / prop_imag.square();
 
-            if xj * 2.0 < yj {
-                if yj / 4.0 < lambda_sq {
-                    lambda_sq = yj * 0.25;
+            if xj * 2.0.into() < yj {
+                if yj / 4.0.into() < lambda_sq {
+                    lambda_sq = yj * 0.25.into();
                 }
-            } else if yj < 0.0 {
-                if xj - yj / 2.0 < lambda_sq {
-                    lambda_sq = xj - yj * 0.5;
+            } else if yj < 0.0.into() {
+                if xj - yj / 2.0.into() < lambda_sq {
+                    lambda_sq = xj - yj * 0.5.into();
                 }
             } else {
-                if xj - yj / 4.0 < lambda_sq {
-                    lambda_sq = xj - yj * 0.25;
+                if xj - yj / 4.0.into() < lambda_sq {
+                    lambda_sq = xj - yj * 0.25.into();
                 }
             }
         }
@@ -1115,7 +1118,8 @@ impl Deformer<f64> {
         mom: &LorentzVector<f64>,
     ) -> Result<(LorentzVector<Complex>, Complex), &'static str> {
         let (mut c_plus, mut c_minus) = (1.0, 1.0);
-        let (mut c_plus_grad, mut c_minus_grad) = (LorentzVector::new(), LorentzVector::new());
+        let (mut c_plus_grad, mut c_minus_grad) =
+            (LorentzVector::<f64>::new(), LorentzVector::<f64>::new());
 
         for (qi, mi) in self.qs.iter().zip(&self.masses) {
             // note the sign reversal
@@ -1162,7 +1166,7 @@ impl Deformer<f64> {
         let f_grad = Deformer::g_ln_grad(&k_centre, self.m2_sq);
         let mut c_grad = [f_grad; Q_UB];
 
-        let mut k_int = LorentzVector::new();
+        let mut k_int = LorentzVector::<f64>::new();
         for i in 0..n {
             for l in 0..n {
                 // note: in paper l starts at 1
@@ -1199,8 +1203,8 @@ impl Deformer<f64> {
             let xj = (k0_lqj / k0_sq).powi(2);
             let yj = w / k0_sq;
 
-            let mut xj_grad = LorentzVector::new();
-            let mut yj_grad = LorentzVector::new();
+            let mut xj_grad = LorentzVector::<f64>::new();
+            let mut yj_grad = LorentzVector::<f64>::new();
 
             for mu in 0..4 {
                 xj_grad[mu] += metric_diag[mu] * 2.0 / k0_lqj * k0[mu];
@@ -1415,7 +1419,8 @@ impl Deformer<f64> {
             self.soft_fac,
             self.region,
             &self.masses,
-        ).unwrap();
+        )
+        .unwrap();
         dual9_deformer
             .set_external_momenta_iter(self.ext.iter().map(|x| LorentzVector::from_f64(*x)));
 

@@ -10,7 +10,7 @@ extern crate num_traits;
 extern crate rand;
 extern crate serde;
 extern crate serde_yaml;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 extern crate vector;
 
 use clap::{App, Arg};
@@ -18,7 +18,7 @@ use rand::prelude::*;
 use std::str::FromStr;
 use std::time::Instant;
 
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
@@ -230,20 +230,19 @@ fn main() {
     );
     println!("{:#?}", vegas_result);
 
-
     let f = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(settings.general.topology.clone() + "_res.dat")
-            .expect("Unable to create result file");
+        .create(true)
+        .write(true)
+        .open(settings.general.topology.clone() + "_res.dat")
+        .expect("Unable to create result file");
     let mut result_file = BufWriter::new(f);
-        
+
     // write the result to a file
     writeln!(
         &mut result_file,
         "{}",
         serde_yaml::to_string(&CubaResultDef::new(&vegas_result)).unwrap()
-    ).unwrap();
+    )
+    .unwrap();
     writeln!(&mut result_file, "...").unwrap(); // write end-marker, for easy streaming
-
 }

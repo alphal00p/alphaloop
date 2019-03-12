@@ -4,6 +4,19 @@ use std::fs::File;
 use vector::LorentzVector;
 use Settings;
 
+/// Ellipsoid and hyperboloid surfaces
+#[derive(Debug, Clone, Deserialize)]
+pub struct Surface {
+    pub ellipsoid: bool,
+    pub cut_structure_index: usize,
+    pub cut: Vec<Cut>,
+    pub onshell_ll_index: usize,
+    pub onshell_prop_index: usize,
+    pub delta_sign: i8,
+    pub sig_ll_in_cb: Vec<i8>,
+    pub shift: LorentzVector<f64>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Propagators {
     pub m_squared: f64,
@@ -46,15 +59,7 @@ pub struct Topology {
     #[serde(default)]
     pub settings: Settings,
     #[serde(default)]
-    pub ellipsoids: Vec<(
-        usize,
-        Vec<Cut>,
-        usize,
-        usize,
-        i8,
-        Vec<i8>,
-        LorentzVector<f64>,
-    )>,
+    pub surfaces: Vec<Surface>,
 }
 
 impl Topology {
