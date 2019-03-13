@@ -81,7 +81,13 @@ impl LoopLine {
         }
     }
 
-    fn evaluate(&self, loop_momenta: &[LorentzVector<Complex>], cut: &Cut) -> Complex {
+    fn evaluate(
+        &self,
+        loop_momenta: &[LorentzVector<Complex>],
+        cut: &Cut,
+        threshold: f64,
+        kinematics_scale: f64,
+    ) -> Result<Complex, &'static str> {
         // construct the loop momentum that flows through this loop line
         let mut mom = LorentzVector::default();
         for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
@@ -99,11 +105,17 @@ impl LoopLine {
                 }
                 _ => {
                     // multiply dual propagator
-                    res *= (&mom + &p.q).square() - p.m_squared;
+                    let mut r = (&mom + &p.q).square() - p.m_squared;
+
+                    if !r.is_finite() || r.norm_sqr() < kinematics_scale * threshold {
+                        return Err("numerical instability");
+                    }
+
+                    res *= r;
                 }
             }
         }
-        finv(res)
+        Ok(finv(res))
     }
 }
 
@@ -669,14 +681,19 @@ impl Topology {
         k_def: &mut ArrayVec<[LorentzVector<Complex>; MAX_LOOP]>,
         cut: &Vec<Cut>,
         mat: &Vec<i8>,
-    ) -> Complex {
+    ) -> Result<Complex, &str> {
         self.set_loop_momentum_energies(k_def, cut, mat);
 
         let mut r = Complex::new(1., 0.);
         for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-            r *= ll.evaluate(&k_def, ll_cut);
+            r *= ll.evaluate(
+                &k_def,
+                ll_cut,
+                self.e_cm_squared,
+                self.settings.general.numerical_threshold,
+            )?;
         }
-        r
+        Ok(r)
     }
 
     #[inline]
@@ -700,7 +717,10 @@ impl Topology {
         for (cuts, mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter()) {
             // for each cut coming from the same cut structure
             for cut in cuts {
-                result += self.evaluate_cut(&mut k_def, cut, mat);
+                match self.evaluate_cut(&mut k_def, cut, mat) {
+                    Ok(v) => result += v,
+                    Err(_) => return Complex::new(0., 0.),
+                }
             }
         }
 
@@ -711,11 +731,28 @@ impl Topology {
         result *= Complex::new(0., -1. / (2. * PI).powi(4)).powf(self.n_loops as f64); // loop momentum factor
         result *= jac_para * jac_def;
 
-        if !result.is_finite() {
-            println!(
-                "Bad result: {} with x={:?}, k_def={:?}, jac_para={}, jac_def={}",
-                result, x, k_def, jac_para, jac_def
-            );
+        if !result.is_finite() || self.settings.general.debug > 0 {
+            match self.n_loops {
+                1 => {
+                    println!(
+                        "Sample {:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result, x, k_def[0], jac_para, jac_def
+                    );
+                }
+                2 => {
+                    println!(
+                        "Sample {:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result, x, k_def[0], k_def[1], jac_para, jac_def
+                    );
+                }
+                3 => {
+                    println!(
+                        "Sample {:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
+                    );
+                }
+                _ => {}
+            }
         }
 
         result

@@ -28,7 +28,7 @@ mod ltd;
 mod topologies;
 mod utils;
 
-use ltdlib::{IntegratedPhase, Settings};
+use ltdlib::{Complex, IntegratedPhase, Settings};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -55,6 +55,7 @@ impl CubaResultDef {
 struct UserData {
     topo: Vec<topologies::Topology>,
     sample_count: usize,
+    running_max: Complex,
     integrated_phase: IntegratedPhase,
 }
 
@@ -71,19 +72,29 @@ fn integrand(
 
     if user_data.sample_count % 100000 == 0 {
         println!("Sample: {:?} {:e}", x, res);
+        println!("Running max: {:e}", user_data.running_max);
     }
 
     if res.re.is_finite() {
         match user_data.integrated_phase {
             IntegratedPhase::Real => {
                 f[0] = res.re;
+                if res.re > user_data.running_max.re {
+                    user_data.running_max = res;
+                }
             }
             IntegratedPhase::Imag => {
                 f[0] = res.im;
+                if res.im > user_data.running_max.im {
+                    user_data.running_max = res;
+                }
             }
             IntegratedPhase::Both => {
                 f[0] = res.re;
                 f[1] = res.im;
+                if res.norm_sqr() > user_data.running_max.norm_sqr() {
+                    user_data.running_max = res;
+                }
             }
         }
     } else {
@@ -226,6 +237,7 @@ fn main() {
             UserData {
                 topo: vec![topo.clone(); cores + 1],
                 sample_count: 0,
+                running_max: Complex::new(0., 0.),
                 integrated_phase: settings.integrator.integrated_phase,
             },
         ),
@@ -240,6 +252,7 @@ fn main() {
             UserData {
                 topo: vec![topo.clone(); cores + 1],
                 sample_count: 0,
+                running_max: Complex::new(0., 0.),
                 integrated_phase: settings.integrator.integrated_phase,
             },
         ),

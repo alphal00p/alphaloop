@@ -6,7 +6,7 @@ use dual_num::{Allocator, DefaultAllocator, Dim, DimName, DualN, Owned};
 use num::traits::Inv;
 use num::Float;
 use std::fmt;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, LowerExp};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign};
 
@@ -95,6 +95,16 @@ impl<T: Field> Display for LorentzVector<T> {
         write!(
             f,
             "(t:{}, x:{}, y:{}, z:{})",
+            self.t, self.x, self.y, self.z
+        )
+    }
+}
+
+impl<T: Field + LowerExp> LowerExp for LorentzVector<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "(t:{:e}, x:{:e}, y:{:e}, z:{:e})",
             self.t, self.x, self.y, self.z
         )
     }

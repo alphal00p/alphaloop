@@ -783,6 +783,8 @@ hyperparameters = HyperParameters({
     'General'       :   {
         'deformation_strategy'  :   'generic',
         'topology'              :   'DoubleTriangle',
+        'numerical_threshold'   :   1e-10,
+        'debug'                 :   0
     },
 
     'Integrator'    :   {

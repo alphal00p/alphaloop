@@ -21,7 +21,7 @@ pub mod utils;
 use serde::Deserialize;
 use std::fs::File;
 
-type Complex = num::Complex<f64>;
+pub type Complex = num::Complex<f64>;
 use arrayvec::ArrayVec;
 use vector::LorentzVector;
 
@@ -57,6 +57,8 @@ pub struct DeformationSettings {
 pub struct GeneralSettings {
     pub deformation_strategy: String,
     pub topology: String,
+    pub numerical_threshold: f64,
+    pub debug: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -137,8 +139,10 @@ py_class!(class LTD |py| {
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        let res = topo.evaluate_cut(&mut moms, cut, mat);
-        Ok((res.re, res.im))
+        match topo.evaluate_cut(&mut moms, cut, mat) {
+            Ok(res) => Ok((res.re, res.im)),
+            Err(_) => Ok((0., 0.))
+        }
     }
 
     def get_loop_momentum_energies(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<Vec<(f64, f64)>> {
