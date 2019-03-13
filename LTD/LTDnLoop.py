@@ -17,7 +17,7 @@ sys.setrecursionlimit(100)
 
 class LTDnLoop:
 
-	def __init__(self,topology):
+	def __init__(self,topology,hyperparameters):
 		self.ltd_cut_structure  = topology.ltd_cut_structure
 		self.ltd_loop_lines		= topology.loop_lines
 		self.n_loops            = topology.n_loops 
@@ -26,6 +26,8 @@ class LTDnLoop:
 		self.scale				= self.get_scale()
 		self.analytical_result 	= topology.analytical_result
 		self.cut_structures 	= [CutStructure(cut_structure=ltd_cut_structure, ltd_loop_lines = self.ltd_loop_lines) for ltd_cut_structure in self.ltd_cut_structure]
+		self.lambda_ij			= hyperparameters['Deformation']['lambda']
+		self.a_ij				= hyperparameters['Deformation']['additive']['a_ij']
 
 	def delta(self,q_space,m):
 		on_f_shell = adipy.sqrt(self.norm(q_space)**2 + m**2)
@@ -87,11 +89,12 @@ class LTDnLoop:
 		loop_momenta = self.dual(loop_momenta)
 		real_deltas = self.get_deltas(loop_momenta)
 		kappas = numpy.array([[coord*0. for coord in loop_momentum] for loop_momentum in loop_momenta])
+		opts = {'scale': self.scale, 'lambda_ij': self.lambda_ij, 'a_ij': self.a_ij}
 		for cut_structure in self.cut_structures:
 			for cut in cut_structure.cuts:
 				for loop_line in cut.loop_lines:
 					for propagator in loop_line.propagators:
-						kappas += propagator.deform(loop_momenta,real_deltas,self.scale)
+						kappas += propagator.deform(loop_momenta,real_deltas,**opts)
 		full_jac = adipy.jacobian(loop_momenta.flatten() + 1j*kappas.flatten())
 		det_jac = numpy.linalg.det(full_jac)
 		kappas = [numpy.array([kapp.nom for kapp in kappa]) for kappa in kappas]
@@ -203,7 +206,6 @@ class CutStructure(CutObject):
 
 	def get_basis_trsf(self):
 		trsf = []
-		#for loop_line,line in zip(self.loop_lines,self.cut_structure):
 		for loop_line,line in zip(self.ltd_loop_lines,self.cut_structure):
 			if abs(line) == 1:
 				trsf += [loop_line.signature]
@@ -212,7 +214,6 @@ class CutStructure(CutObject):
 	def get_prop_cuts(self):
 		prop_cuts = []
 		cut_indices = [i for i,line in enumerate(self.cut_structure) if abs(line)==1]
-		#possible_cuts = [range(len(loop_line.propagators)) for loop_line,line in zip(self.loop_lines,self.cut_structure) if abs(line)==1]
 		possible_cuts = [range(len(loop_line.propagators)) for loop_line,line in zip(self.ltd_loop_lines,self.cut_structure) if abs(line)==1]
 		for prop_cut in itertools.product(*possible_cuts):
 			prop_cuts += [prop_cut]
@@ -227,7 +228,6 @@ class CutStructure(CutObject):
 
 	def evaluate(self,deltas):
 		cut_residues = []
-		#for cut in self.ltd_cuts:
 		for cut in self.cuts:
 			cut_residues += [cut.evaluate(deltas)]
 		return numpy.sum(cut_residues)
@@ -244,15 +244,6 @@ class Cut(CutObject):
 	def get_basis_shift(self):
 		cut_indices_iter = iter(self.cut_indices)
 		basis_shift = [loop_line.propagators[next(cut_indices_iter)].q for line, loop_line in zip(self.cut_structure,self.ltd_loop_lines) if abs(line) != 0]
-		"""
-		basis_shift = []
-		i = 0
-		for loop_line,line in zip(self.ltd_loop_lines,self.cut_structure):
-			if line != 0:
-				basis_shift += [loop_line.propagators[self.cut_indices[i]].q]
-				i += 1
-		assert(basis_shift == basis_shift2)
-		"""
 		return basis_shift
 	
 	def evaluate(self,deltas):
@@ -298,7 +289,10 @@ class CutPropagator(CutObject):
 		s = self.total_shift[0]**2 - self.norm(self.total_shift[1:])
 		self.is_ellipsoid = (plus_ellipsoid or minus_ellipsoid) and (s > 0.)
 
-	def deform(self,loop_momenta,deltas,scale):
+	def deform(self,loop_momenta,deltas,**opts):
+		scale = opts.pop('scale')
+		a_ij = opts.pop('a_ij')
+		lambda_ij = opts.pop('lambda_ij')
 		kappas = [numpy.zeros(3) for loop_momentum in loop_momenta]
 		if not self.is_cut:
 			if self.is_ellipsoid:
@@ -314,11 +308,11 @@ class CutPropagator(CutObject):
 				cut_deltas = self.get_cut_deltas(deltas)
 				delta = deltas[self.loop_line_index][self.propagator_index]
 				energy = self.delta_signature.dot(cut_deltas) + self.total_shift[0]
-				A_ij = 10.
-				interpolation = adipy.exp(-(energy-delta*numpy.sign(self.total_shift[0]))**2/scale**2/A_ij) 
+				interpolation = adipy.exp(-(energy-delta*numpy.sign(self.total_shift[0]))**2/scale**2/a_ij) 
+				#interpolation = adipy.exp(-(energy**2-delta**2)**2/scale**4/a_ij) 
 				kappas = self.inv_basis_trsf.dot(cut_prop_kappas)
-				lambda_factor = -0.01*scale
-				#lambda_factor = -0.01
+				#lambda_factor = -0.01*scale
+				lambda_factor = -abs(lambda_ij)
 				kappas *= lambda_factor*interpolation
 		return kappas
 
@@ -377,7 +371,8 @@ if __name__ == "__main__":
 	#example()
 	
 	my_topology = ltd_commons.hard_coded_topology_collection['AltDoubleTriangle']
-	my_LTD = LTDnLoop(my_topology)
+	hyperparameters = ltd_commons.hyperparameters
+	my_LTD = LTDnLoop(my_topology,hyperparameters)
 		
 	#print my_LTD.ltd_integrand4([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
 	
