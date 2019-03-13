@@ -801,7 +801,9 @@ hyperparameters = HyperParameters({
         # negative value: no auto scaling, lambda is set to abs(lambda)
         'lambda'    :   1.0,
 
-        'exponential'           :   {
+        'additive'              :   {
+            # can be exponential or hyperbolic
+            'mode'  :   'exponential',
             'a_ij'  :   10.,
         },
 

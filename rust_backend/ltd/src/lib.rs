@@ -35,6 +35,20 @@ pub enum IntegratedPhase {
     Both,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+pub enum AdditiveMode {
+    #[serde(rename = "exponential")]
+    Exponential,
+    #[serde(rename = "hyperbolic")]
+    Hyperbolic,
+}
+
+impl Default for AdditiveMode {
+    fn default() -> AdditiveMode {
+        AdditiveMode::Exponential
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationMultiplicativeSettings {
     #[serde(rename = "M_ij")]
@@ -42,7 +56,8 @@ pub struct DeformationMultiplicativeSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct DeformationExponentialSettings {
+pub struct DeformationAdditiveSettings {
+    pub mode: AdditiveMode,
     pub a_ij: f64,
 }
 
@@ -50,7 +65,7 @@ pub struct DeformationExponentialSettings {
 pub struct DeformationSettings {
     pub lambda: f64,
     pub multiplicative: DeformationMultiplicativeSettings,
-    pub exponential: DeformationExponentialSettings,
+    pub additive: DeformationAdditiveSettings,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

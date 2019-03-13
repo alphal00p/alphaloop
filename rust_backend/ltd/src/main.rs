@@ -28,7 +28,7 @@ mod ltd;
 mod topologies;
 mod utils;
 
-use ltdlib::{Complex, IntegratedPhase, Settings};
+use ltdlib::{AdditiveMode, Complex, IntegratedPhase, Settings};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {

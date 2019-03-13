@@ -5,6 +5,7 @@ use num_traits::Float;
 use std::f64::consts::PI;
 use topologies::{Cut, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector, RealField};
+use AdditiveMode;
 
 use utils;
 use utils::finv;
@@ -541,14 +542,20 @@ impl Topology {
             // evaluate the inverse propagator of the surface
             // the momentum map from the cut momenta is in signs and the shift is known as well
             // compute the energies for the loop momenta
-            let aij = self.settings.deformation.exponential.a_ij;
             let mut mom = LorentzVector::new();
             for (&s, c) in surf.sig_ll_in_cb.iter().zip(cut_momenta.iter()) {
                 mom += c * s as f64;
             }
 
             let inv = (mom + surf.shift).square() - surface_prop.m_squared;
-            let dampening = (-inv * inv / (aij * self.e_cm_squared.powi(2))).exp();
+            let aij = self.settings.deformation.additive.a_ij;
+            let dampening = match self.settings.deformation.additive.mode {
+                AdditiveMode::Exponential => (-inv * inv / (aij * self.e_cm_squared.powi(2))).exp(),
+                AdditiveMode::Hyperbolic => {
+                    let t = inv * inv / self.e_cm_squared.powi(2);
+                    t / (t + aij)
+                }
+            };
 
             for (kappa, dir) in kappas[..self.n_loops].iter_mut().zip(deform_dirs.iter()) {
                 // note the sign
