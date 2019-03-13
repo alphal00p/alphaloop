@@ -72,7 +72,6 @@ fn integrand(
 
     if user_data.sample_count % 100000 == 0 {
         println!("Sample: {:?} {:e}", x, res);
-        println!("Running max: {:e}", user_data.running_max);
     }
 
     if res.re.is_finite() {
@@ -81,12 +80,14 @@ fn integrand(
                 f[0] = res.re;
                 if res.re > user_data.running_max.re {
                     user_data.running_max = res;
+                    println!("Running max: {:e} with x={:?}", user_data.running_max, x);
                 }
             }
             IntegratedPhase::Imag => {
                 f[0] = res.im;
                 if res.im > user_data.running_max.im {
                     user_data.running_max = res;
+                    println!("Running max: {:e} with x={:?}", user_data.running_max, x);
                 }
             }
             IntegratedPhase::Both => {
@@ -94,6 +95,7 @@ fn integrand(
                 f[1] = res.im;
                 if res.norm_sqr() > user_data.running_max.norm_sqr() {
                     user_data.running_max = res;
+                    println!("Running max: {:e} with x={:?}", user_data.running_max, x);
                 }
             }
         }
