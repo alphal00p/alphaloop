@@ -420,6 +420,51 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 
+    if name == 'AltDoubleTriangle':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        return LoopTopology(
+            name    = 'AltDoubleTriangle',
+            n_loops = 2,
+            external_kinematics = external_momenta,
+            # Analytical result is simple and should be -(6*Zeta[3])/((16*pi^2)^2 s)
+            # so we can use the analytical result here.
+            analytical_result = (lambda ps: -0.00028922566024/ps[0].square()),
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=p2, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (-1,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
     elif name == 'TriangleBox':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
@@ -513,9 +558,8 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
         )
 	
     elif name == 'TriangleBoxBox':
-		p1 = external_momenta[0]
-		p2 = external_momenta[1]
-		return LoopTopology(
+        p1,p2,p3 = external_momenta
+        return LoopTopology(
             name    = 'TriangleBoxBox',
             n_loops = 3,
             external_kinematics = external_momenta,
@@ -541,7 +585,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
                     signature   = (1,0,0),
                     propagators = (
                         Propagator(q=zero_lv, m_squared=0.),
-                        Propagator(q=p1, m_squared=0.),
+                        Propagator(q=p3, m_squared=0.),
                     )
                 ),
                 LoopLine(
@@ -549,7 +593,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
                     end_node    = 3,
                     signature   = (1,-1,0),
                     propagators = (
-                        Propagator(q=p1, m_squared=0.),
+                        Propagator(q=p3, m_squared=0.),
                     )
                 ),
                 LoopLine(
@@ -557,8 +601,8 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
                     end_node    = 4,
                     signature   = (1,-1,-1),
                     propagators = (
-                        Propagator(q=p1, m_squared=0.),
-                        Propagator(q=p1+p2, m_squared=0.),
+                        Propagator(q=p3, m_squared=0.),
+                        Propagator(q=p3+p1, m_squared=0.),
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
@@ -589,7 +633,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 	
-    if name == 'Triangle':
+    elif name == 'Triangle':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         p3 = external_momenta[2]
@@ -619,7 +663,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 
-    if name == 'Box':
+    elif name == 'Box':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         p3 = external_momenta[2]
@@ -672,6 +716,17 @@ hard_coded_topology_collection.add_topology(
     ),
 )
 
+hard_coded_topology_collection.add_topology(   
+    create_hard_coded_topoloogy(
+        'AltDoubleTriangle',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1.,0.1,0.2,0.1]),
+                vectors.LorentzVector([-1.,-0.1,-0.2,-0.1])
+        ])
+        # Analytical is given by its exact function directly for 'DoubleTriangle'        
+    ),
+)
+
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'TriangleBox',
@@ -701,6 +756,7 @@ hard_coded_topology_collection.add_topology(
     ),
 )
 
+"""
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'TriangleBoxBox',        
@@ -710,6 +766,19 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([0.,-5.,-6.,0.]),
         ]),
         analytical_result =  1.76576112187575e-10j
+    ),
+)
+"""
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxBox',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([10.,5.,0.,0.]),
+                vectors.LorentzVector([22.,0.,6.,0.]),
+                vectors.LorentzVector([-32.,-5.,-6.,0.]),
+        ]),
+        analytical_result =  -1.95238770805808e-32 - 2.68888267073667e-14j
     ),
 )
 
