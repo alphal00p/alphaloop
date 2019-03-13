@@ -624,9 +624,9 @@ if __name__ == '__main__':
 
     # Start a rust instance to be used throughout the tests
     rust_instance = LTD(
-        config_file = pjoin(os.path.pardir,'topologies.yaml'),
+        settings_file = pjoin(os.path.pardir,'hyperparameters.yaml'),
+        topology_file = pjoin(os.path.pardir,'topologies.yaml'),
         name = topology.name,
-        deformation = hyperparameters['General']['deformation_strategy']
     )
 
     n_loops_performed = 0
