@@ -1,3 +1,37 @@
+- analytical_result_imag: 0.0
+  analytical_result_real: -0.0003076868725957447
+  external_kinematics:
+  - [1.0, 0.1, 0.2, 0.1]
+  - [-1.0, -0.1, -0.2, -0.1]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 0.0
+      q: [-1.0, -0.1, -0.2, -0.1]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [-1.0, -0.1, -0.2, -0.1]
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 2
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [-1, 1]
+    start_node: 1
+  ltd_cut_structure:
+  - [1, 0, 1]
+  - [-1, 1, 0]
+  - [0, 1, 1]
+  n_loops: 2
+  name: AltDoubleTriangle
 - analytical_result_imag: -2.38766e-10
   analytical_result_real: 3.0308e-10
   external_kinematics:
@@ -154,33 +188,33 @@
   - [0, 1, 1]
   n_loops: 2
   name: TriangleBox
-- analytical_result_imag: 1.76576112187575e-10
-  analytical_result_real: 0.0
+- analytical_result_imag: -2.68888267073667e-14
+  analytical_result_real: -1.95238770805808e-32
   external_kinematics:
-  - [0.0, 5.0, 0.0, 0.0]
-  - [0.0, 0.0, 6.0, 0.0]
-  - [0.0, -5.0, -6.0, 0.0]
+  - [10.0, 5.0, 0.0, 0.0]
+  - [22.0, 0.0, 6.0, 0.0]
+  - [-32.0, -5.0, -6.0, 0.0]
   loop_lines:
   - end_node: 2
     propagators:
     - m_squared: 0.0
       q: [0.0, 0.0, 0.0, 0.0]
     - m_squared: 0.0
-      q: [0.0, 5.0, 0.0, 0.0]
+      q: [-32.0, -5.0, -6.0, 0.0]
     signature: [1, 0, 0]
     start_node: 1
   - end_node: 3
     propagators:
     - m_squared: 0.0
-      q: [0.0, 5.0, 0.0, 0.0]
+      q: [-32.0, -5.0, -6.0, 0.0]
     signature: [1, -1, 0]
     start_node: 2
   - end_node: 4
     propagators:
     - m_squared: 0.0
-      q: [0.0, 5.0, 0.0, 0.0]
+      q: [-32.0, -5.0, -6.0, 0.0]
     - m_squared: 0.0
-      q: [0.0, 5.0, 6.0, 0.0]
+      q: [-22.0, 0.0, -6.0, 0.0]
     - m_squared: 0.0
       q: [0.0, 0.0, 0.0, 0.0]
     signature: [1, -1, -1]

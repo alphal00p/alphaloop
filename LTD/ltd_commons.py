@@ -42,9 +42,9 @@ class HyperParameters(dict):
                 raise BaseException("Install yaml python module in order to export hyperparameters to yaml.")
 
         if output_path is not None:
-            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper))
+            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
         else:
-            return yaml.dump(self.to_flat_format(), Dumper=Dumper)
+            return yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False)
 
 
     @staticmethod
@@ -159,9 +159,9 @@ class LoopTopology(object):
                 raise BaseException("Install yaml python module in order to export topologies to yaml.")
 
         if output_path is not None:
-            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper))
+            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
         else:
-            return yaml.dump(self.to_flat_format(), Dumper=Dumper)
+            return yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False)
 
     def to_flat_format(self):
         """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
