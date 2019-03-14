@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::fmt;
 use std::fs::File;
 use vector::LorentzVector;
 use Settings;
@@ -33,11 +34,34 @@ pub struct LoopLine {
     pub propagators: Vec<Propagators>,
 }
 
+pub struct CutList<'a>(pub &'a Vec<Cut>);
+
+impl<'a> fmt::Display for CutList<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,"({}", self.0[0])?;
+        for x in self.0.iter().skip(1) {
+            write!(f,",{}", x)?;
+        }
+        write!(f,")")
+    }
+}
+
+
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq)]
 pub enum Cut {
     NoCut,
     PositiveCut(usize),
     NegativeCut(usize),
+}
+
+impl fmt::Display for Cut {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Cut::NoCut => write!(f, "0"),
+            Cut::PositiveCut(i) => write!(f, "+{}", i),
+            Cut::NegativeCut(i) => write!(f, "-{}", i),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

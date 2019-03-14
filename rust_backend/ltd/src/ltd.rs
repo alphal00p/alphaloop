@@ -3,7 +3,7 @@ use dual_num::DualN;
 use itertools::Itertools;
 use num_traits::Float;
 use std::f64::consts::PI;
-use topologies::{Cut, LoopLine, Surface, Topology};
+use topologies::{Cut, CutList, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector, RealField};
 use AdditiveMode;
 
@@ -700,6 +700,35 @@ impl Topology {
                 self.settings.general.numerical_threshold,
             )?;
         }
+
+        if self.settings.general.debug > 1 {
+            match self.n_loops {
+                1 => {
+                    println!("Cut {}:\n  | result={:e}\n  | k0={:e}", CutList(cut), r, k_def[0].t);
+                }
+                2 => {
+                    println!(
+                        "Cut {}:\n  | result={:e}\n  | k0={:e}\n  | l0={:e}",
+                        CutList(cut),
+                        r,
+                        k_def[0].t,
+                        k_def[1].t
+                    );
+                }
+                3 => {
+                    println!(
+                        "Cut {}:\n  | result={:e}\n  | k0={:e}\n  | l0={:e}\n  | m0={:e}",
+                        CutList(cut),
+                        r,
+                        k_def[0].t,
+                        k_def[1].t,
+                        k_def[2].t
+                    );
+                }
+                _ => {}
+            }
+        }
+
         Ok(r)
     }
 
