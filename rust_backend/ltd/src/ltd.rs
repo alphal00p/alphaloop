@@ -251,12 +251,14 @@ impl Topology {
                                 }
                             }
 
+                            let group = self.surfaces.len(); // every surface is in a different group at first
                             let surface_sign_sum = surface_signs.iter().sum::<i8>();
                             let surface_signs_abs_sum =
                                 surface_signs.iter().map(|x| x.abs()).sum::<i8>();
                             // check the two branches Delta+ and Delta-
                             for &delta_sign in &[-1, 1] {
-                                // make sure all non-zero coefficients are the same
+                                // if all non-zero coefficients are the same, we have an ellipse
+                                // otherwise, we have a hyperboloid
                                 if (surface_sign_sum + delta_sign).abs()
                                     == surface_signs_abs_sum + delta_sign.abs()
                                 {
@@ -271,6 +273,7 @@ impl Topology {
                                         );
                                         */
                                         self.surfaces.push(Surface {
+                                            group,
                                             ellipsoid: true,
                                             cut_structure_index: cut_index,
                                             cut: cut_option.clone(),
@@ -278,14 +281,85 @@ impl Topology {
                                             onshell_prop_index,
                                             delta_sign,
                                             sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
+                                            signs: surface_signs.iter().cloned().collect(),
                                             shift: surface_shift.clone(),
                                         });
                                     }
+                                } else {
+                                    // TODO: add existence condition for hyperboloids
+                                    self.surfaces.push(Surface {
+                                        group,
+                                        ellipsoid: false,
+                                        cut_structure_index: cut_index,
+                                        cut: cut_option.clone(),
+                                        onshell_ll_index: ll_index,
+                                        onshell_prop_index,
+                                        delta_sign,
+                                        sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
+                                        signs: surface_signs.iter().cloned().collect(),
+                                        shift: surface_shift.clone(),
+                                    });
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
+
+        // Identify similar surfaces and put them in the same group
+        let mut group_representative = vec![];
+        for s in &mut self.surfaces {
+            // create a tuple that identifies a surface:
+            // (p_i, s_i) where p_i is a cut propagator or an on-shell one
+            // and s_i is the surface sign
+            // create a list of propagators that are cut or are on-shell
+            // we sort it with their respective
+            let mut s_cut_sorted = s
+                .cut
+                .iter()
+                .enumerate()
+                .filter(|(_, x)| **x != Cut::NoCut)
+                .zip(s.signs.iter())
+                .filter_map(|((lli, c), s)| match c {
+                    Cut::PositiveCut(i) | Cut::NegativeCut(i) if *s != 0 => Some(((lli, *i), *s)),
+                    _ => None, // not reachable
+                })
+                .collect::<Vec<_>>();
+
+            // now add the surface sign
+            s_cut_sorted.push(((s.onshell_ll_index, s.onshell_prop_index), s.delta_sign));
+
+            s_cut_sorted.sort();
+
+            // also try with opposite signs
+            let s_cut_sorted_inv = s_cut_sorted
+                .iter()
+                .map(|(c, s)| (*c, -s))
+                .collect::<Vec<_>>();
+
+            match group_representative.iter().position(|r| r == &s_cut_sorted) {
+                Some(i) => s.group = i,
+                None => {
+                    match group_representative
+                        .iter()
+                        .position(|r| r == &s_cut_sorted_inv)
+                    {
+                        Some(j) => s.group = j,
+                        None => {
+                            s.group = group_representative.len();
+                            group_representative.push(s_cut_sorted);
+                        }
+                    }
+                }
+            }
+
+            if self.settings.general.debug > 1 {
+                println!(
+                    "Found surface for {}: group={}, ellipsoid={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
+                    self.name, s.group, s.ellipsoid, (s.onshell_ll_index, s.onshell_prop_index), CutList(&s.cut), s.sig_ll_in_cb,
+                    s.signs, s.delta_sign, s.shift
+                );
             }
         }
     }
@@ -464,10 +538,14 @@ impl Topology {
         // surface equation:
         // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
         // where m=delta_sign a = sig_ll_in_cb, r = residue_sign
+        let mut group_counter = 0;
         for surf in self.surfaces.iter() {
-            if !surf.ellipsoid {
+            // only deform the set of different ellipsoids
+            if !surf.ellipsoid || surf.group < group_counter {
                 continue;
             }
+            group_counter = surf.group + 1;
+
             // compute v_i = q_i^cut / sqrt(|q_i^cut|^2 + m^2)
             // construct the normalized 3-momenta that flow through the cut propagators
             // the 0th component is to be ignored
@@ -704,7 +782,12 @@ impl Topology {
         if self.settings.general.debug > 1 {
             match self.n_loops {
                 1 => {
-                    println!("Cut {}:\n  | result={:e}\n  | k0={:e}", CutList(cut), r, k_def[0].t);
+                    println!(
+                        "Cut {}:\n  | result={:e}\n  | k0={:e}",
+                        CutList(cut),
+                        r,
+                        k_def[0].t
+                    );
                 }
                 2 => {
                     println!(

@@ -8,6 +8,7 @@ use Settings;
 /// Ellipsoid and hyperboloid surfaces
 #[derive(Debug, Clone, Deserialize)]
 pub struct Surface {
+    pub group: usize,
     pub ellipsoid: bool,
     pub cut_structure_index: usize,
     pub cut: Vec<Cut>,
@@ -15,6 +16,7 @@ pub struct Surface {
     pub onshell_prop_index: usize,
     pub delta_sign: i8,
     pub sig_ll_in_cb: Vec<i8>,
+    pub signs: Vec<i8>,
     pub shift: LorentzVector<f64>,
 }
 
@@ -57,7 +59,7 @@ pub enum Cut {
 impl fmt::Display for Cut {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Cut::NoCut => write!(f, "0"),
+            Cut::NoCut => write!(f, "_"),
             Cut::PositiveCut(i) => write!(f, "+{}", i),
             Cut::NegativeCut(i) => write!(f, "-{}", i),
         }
