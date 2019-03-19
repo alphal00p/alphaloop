@@ -459,6 +459,9 @@ if __name__ == '__main__':
     # Number of points to be used for testing hyperboloid existence
     n_points_hyperboloid_test = 1000
 
+
+    rotations_for_stability_check = [((1,0.3),(2,0.9)),((3,1.2),)]
+
     # parametrisation_uv
     parametrisation_uv = { 'u' : 0.6, 'v' : 0.7 }
 
@@ -546,10 +549,27 @@ if __name__ == '__main__':
             raise BaseException("Option '%s' not reckognised."%option_name)
     
     # Adjust kinematics
+    rotated_instances = []    
     if PS_point is not None:
         try:
-            topology_collection[topology] = ltd_commons.create_hard_coded_topoloogy(topology, PS_point) 
-        except:
+            topology_collection[topology] = ltd_commons.create_hard_coded_topoloogy(topology, PS_point, name=topology) 
+
+            # Now also create rotated copy of the topology at hand for numerical stability diagnostics
+            for rotation_matrix_specifications in rotations_for_stability_check:
+                rotation_matrix = vectors.LorentzVector.rotation_matrix(*rotation_matrix_specifications[0])
+                for rotation_matrix_specification in rotation_matrix_specifications[1:]:
+                    rotation_matrix.dot(vectors.LorentzVector.rotation_matrix(*rotation_matrix_specification))
+                rotated_topology_name = '%s_rotated_%s'%(topology,str(rotation_matrix_specifications))
+                topology_collection[rotated_topology_name] = \
+                            ltd_commons.create_hard_coded_topoloogy(topology, PS_point.transform(rotation_matrix), name=rotated_topology_name)
+                rotated_instances.append({
+                    'rotation_matrix_angles':   rotation_matrix_specifications,
+                    'rotation_matrix':          rotation_matrix,
+                    'rotated_topology_name':    rotated_topology_name,
+                    'rust_instance':            None # Will be filled in later
+                })
+
+        except ZeroDivisionError:
             print("ERROR: topology '%s' cannot be generated with custom kinematics."%topology)
             sys.exit(1)
     try:
@@ -624,10 +644,16 @@ if __name__ == '__main__':
 
     # Start a rust instance to be used throughout the tests
     rust_instance = LTD(
-        settings_file = pjoin(os.path.pardir,'hyperparameters.yaml'),
-        topology_file = pjoin(os.path.pardir,'topologies.yaml'),
+        settings_file = pjoin(root_path,'hyperparameters.yaml'),
+        topology_file = pjoin(root_path,'topologies.yaml'),
         name = topology.name,
     )
+    for rotated_instance in rotated_instances:
+        rotated_instance['rust_instance'] = LTD(
+            settings_file = pjoin(root_path,'hyperparameters.yaml'),
+            topology_file = pjoin(root_path,'topologies.yaml'),
+            name = rotated_instance['rotated_topology_name'],
+        ) 
 
     n_loops_performed = 0
     are_parametrisation_vectors_unspecified = any(v is None for v in parametrisation_vectors)

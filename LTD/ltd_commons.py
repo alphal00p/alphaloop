@@ -360,10 +360,10 @@ class TopologyCollection(dict):
         return result
 
 #############################################################################################################
-# Definition of hard-coded topologies.
+# Definition of hard-coded topol
 #############################################################################################################
 
-def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, parameter_values = {}):
+def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
@@ -375,11 +375,14 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
 
     """
 
-    if name == 'DoubleTriangle':
+    if name is None:
+        name = topology_type
+
+    if topology_type =='DoubleTriangle':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         return LoopTopology(
-            name    = 'DoubleTriangle',
+            name    = name,
             n_loops = 2,
             external_kinematics = external_momenta,
             # Analytical result is simple and should be -(6*Zeta[3])/((16*pi^2)^2 s)
@@ -396,8 +399,8 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
                     end_node    = 2,
                     signature   = (1,0),
                     propagators = (
-                        Propagator(q=-p1, m_squared=0.),
-                        Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=-p1, m_squared=0.0),
+                        Propagator(q=zero_lv, m_squared=0.0),
                     )
                 ),
                 LoopLine(
@@ -405,8 +408,8 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
                     end_node    = 2,
                     signature   = (0,1),
                     propagators = (
-                        Propagator(q=p1, m_squared=0.),
-                        Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=p1, m_squared=0.0),
+                        Propagator(q=zero_lv, m_squared=0.0),
                     )
                 ),
                 LoopLine(
@@ -414,17 +417,17 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
                     end_node    = 1,
                     signature   = (1,1),
                     propagators = (
-                        Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.01),
                     )
                 ),
             ) 
         )
 
-    if name == 'AltDoubleTriangle':
+    if topology_type =='AltDoubleTriangle':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         return LoopTopology(
-            name    = 'AltDoubleTriangle',
+            name    = name,
             n_loops = 2,
             external_kinematics = external_momenta,
             # Analytical result is simple and should be -(6*Zeta[3])/((16*pi^2)^2 s)
@@ -465,12 +468,12 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 
-    elif name == 'TriangleBox':
+    elif topology_type =='TriangleBox':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         p3 = external_momenta[2]
         return LoopTopology(
-            name    = 'TriangleBox',
+            name    = name,
             n_loops = 2,
             external_kinematics = external_momenta,
             analytical_result = analytical_result,
@@ -510,13 +513,13 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 
-    elif name == 'DoubleBox':
+    elif topology_type =='DoubleBox':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         p3 = external_momenta[2]
         p4 = external_momenta[3]
         return LoopTopology(
-            name    = 'DoubleBox',
+            name    = name,
             n_loops = 2,
             external_kinematics = external_momenta, 
             analytical_result = analytical_result,
@@ -557,10 +560,10 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 	
-    elif name == 'TriangleBoxBox':
+    elif topology_type =='TriangleBoxBox':
         p1,p2,p3 = external_momenta
         return LoopTopology(
-            name    = 'TriangleBoxBox',
+            name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
             analytical_result = analytical_result,
@@ -633,7 +636,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 	
-    elif name == 'Triangle':
+    elif topology_type =='Triangle':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         p3 = external_momenta[2]
@@ -642,7 +645,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
         else:
             parameters = parameter_values
         return LoopTopology(
-            name    = 'Triangle',
+            name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
             analytical_result = analytical_result,
@@ -663,7 +666,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
             ) 
         )
 
-    elif name == 'Box':
+    elif topology_type =='Box':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         p3 = external_momenta[2]
@@ -673,7 +676,7 @@ def create_hard_coded_topoloogy(name, external_momenta, analytical_result=None, 
         else:
             parameters = parameter_values
         return LoopTopology(
-            name    = 'Box',
+            name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
             analytical_result = analytical_result,
@@ -852,13 +855,13 @@ hyperparameters = HyperParameters({
     'General'       :   {
         'deformation_strategy'  :   'generic',
         'topology'              :   'DoubleTriangle',
-        'numerical_threshold'   :   1e-10,
-        'debug'                 :   0
+        'numerical_threshold'   :   -1e-3,
+        'debug'                 :   2
     },
 
     'Integrator'    :   {
         # The integrator can be vegas or cuhre
-        'integrator'        :   'vegas',
+        'integrator'        :   'cuhre',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e9),
         'n_increase'        :   0,
@@ -868,12 +871,12 @@ hyperparameters = HyperParameters({
     'Deformation'   :   {
         # positive value: maximum lambda in auto scaling
         # negative value: no auto scaling, lambda is set to abs(lambda)
-        'lambda'    :   1.0,
+        'lambda'    :   -0.1,
 
         'additive'              :   {
             # can be exponential or hyperbolic
             'mode'  :   'exponential',
-            'a_ij'  :   10.,
+            'a_ij'  :   10.0,
         },
 
         'multiplicative'        :   {

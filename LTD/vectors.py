@@ -102,6 +102,45 @@ class LorentzVector(Vector):
 
         return self[1:].view(type=Vector)
 
+    def transform(self, transfo_matrix):
+        """ apply transformation matrix (using euclidian metric)"""
+        return LorentzVector(transfo_matrix.dot(self))
+
+    @staticmethod
+    def rotation_matrix(axis, angle):
+        """ Defines a rotation matrix for the spatial part."""
+        
+        sin_angle = math.sin(angle)
+        cos_angle = math.cos(angle)
+        if axis==1:
+            return np.array(
+                [
+                    [1., 0.                 , 0.                    , 0.                ], 
+                    [0., 1.                 , 0.                    , 0.                ], 
+                    [0., 0.                 , cos_angle             , -sin_angle        ], 
+                    [0., 0.                 , sin_angle             , cos_angle         ],        
+                ],
+                dtype=float)
+        elif axis==2:
+            return np.array(
+                [
+                    [1., 0.                 , 0.                    , 0.                ], 
+                    [0., cos_angle          , 0.                    , -sin_angle        ], 
+                    [0., 0.                 , 1.                    , 0.                ], 
+                    [0., sin_angle          , 0.                    , cos_angle         ],        
+                ],
+                dtype=float)
+        elif axis==3:
+            return np.array(
+                [
+                    [1., 0.                 , 0.                    , 0.                ], 
+                    [0., 1.                 , 0.                    , 0.                ], 
+                    [0., 0.                 , cos_angle             , -sin_angle        ], 
+                    [0., 0.                 , sin_angle             , cos_angle         ],        
+                ],
+                dtype=float)
+        raise BaseException("Rotation axis not reckognized '%d'"%axis)
+
     def dot(self, v):
         """C ompute the Lorentz scalar product."""
         ## The implementation below allows for a check but it should be done upstream and
@@ -269,6 +308,7 @@ class LorentzVector(Vector):
         self_space += factor*boost_vector
         self[0] = gamma*(self[0] + bp)
 
+
 #=========================================================================================
 # LorentzVectorList
 #=========================================================================================
@@ -331,6 +371,10 @@ class LorentzVectorList(list):
                 assert(abs(self[initial_leg_numbers[0]][3]/sqrts)<1.0e-9)
         else:
             raise InvalidOperation('MadNkLO only supports processes with one or two initial states.')
+
+    def transform(self, transfo_matrix):
+        """ apply transformation matrix (using euclidian metric)"""
+        return LorentzVectorList([lv.transform(transfo_matrix) for lv in self])
 
     def get_copy(self):
         """Return a copy that can be freely modified

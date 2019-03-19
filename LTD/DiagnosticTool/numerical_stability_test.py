@@ -72,6 +72,32 @@ test_pointC = [
     ]),
 ]
 
+problem_point = [
+    vectors.Vector([
+        complex(1.3383294957377334e-18, 5.113407100880837e-2),
+        complex(2.1856579328334187e-2, -3.914697128714517e-2),
+        complex(0.0, 2.3647879246892718e-2),
+    ]),
+    vectors.LorentzVector([
+        complex(-4.0149884872132e-18, -6.006674816249325e-3),
+        complex(-2.1856579328334187e-2, 1.570561593315422e-2),
+        complex(0.0, -5.135935434433841e-2),
+    ]),
+]
+
+problem_point_bis = [
+    vectors.Vector([
+        complex(1.3383294957377338e-18, 4.043743860338496e-2),
+        complex(2.185657932833419e-2, -6.090935705221293e-2),
+        complex(0.0, 2.3647879246892718e-2),
+    ]),
+    vectors.LorentzVector([
+        complex(-4.0149884872132e-18, -2.3656298515124727e-2),
+        complex(-2.1856579328334187e-2, -2.0202687258461784e-2),
+        complex(0.0, -5.135935434433841e-2),
+    ]),
+]
+
 def evaluate(point):
     evaluation = {}
     for ltd_cut_index, ltd_cut_structure in enumerate(topology.ltd_cut_structure):
@@ -80,28 +106,43 @@ def evaluate(point):
         for cut_index, cut_structure  in enumerate(itertools.product( *cut_propagator_indices )):
             res = rust_instance.evaluate_cut(
                         [ [ ( float(vi.real), float(vi.imag) ) for vi in v ] for v in point],
-                        ltd_cut_index,  cut_index)
+                         ltd_cut_index,  cut_index)
+            #res = (0., 0.)
             if not math.isnan(res[0]) and not math.isnan(res[1]):
                 evaluation[((ltd_cut_index, ltd_cut_structure),(cut_index, cut_structure))] = complex(res[0],res[1])
             else:
-                print("Nan found for entry %s"%str(((ltd_cut_index, ltd_cut_structure),(cut_index, cut_structure))))
+                 print("Nan found for entry %s"%str(((ltd_cut_index, ltd_cut_structure),(cut_index, cut_structure))))
 
     return evaluation 
 
-evaluationA = evaluate(test_pointA)
-evaluationB = evaluate(test_pointB)
-evaluationC = evaluate(test_pointC)
+#evaluationA = evaluate(test_pointA)
+#evaluationB = evaluate(test_pointB)
+#evaluationC = evaluate(test_pointC)
+problem_evaluation = evaluate(problem_point)
+print("Orig eval")
+pprint(problem_evaluation)
+problem_evaluation_bis = evaluate(problem_point_bis)
+print("Bis eval")
+pprint(problem_evaluation_bis)
 
-print("evaluation A")
-pprint(evaluationA)
-print("evaluation B")
-pprint(evaluationB)
-print("evaluation C")
-pprint(evaluationC)
+#print("evaluation A")
+#pprint(evaluationA)
+#print("evaluation B")
+#pprint(evaluationB)
+#print("evaluation C")
+#pprint(evaluationC)
 
-print("Evaluation A total: %s"%str(sum(evaluationA.values())))
-print("Evaluation B total: %s"%str(sum(evaluationB.values())))
-print("Evaluation C total: %s"%str(sum(evaluationC.values())))
+#print("Evaluation A total: %s"%str(sum(evaluationA.values())))
+#print("Evaluation B total: %s"%str(sum(evaluationB.values())))
+#print("Evaluation C total: %s"%str(sum(evaluationC.values())))
 
+#pprint(rust_instance.evaluate([0.75, 0.875, 0.5, 0.75, 0.375, 0.5]))
+print("--A--")
+pprint(rust_instance.evaluate([0.022046342097730487, 0.25, 0.5, 0.022046342097730487, 0.75, 0.5]))
+#print("--B--")
+#pprint(rust_instance.evaluate([0.022046342097730488, 0.25, 0.5, 0.022046342097730487, 0.75, 0.5]))
+print("--C--")
+pprint(rust_instance.evaluate([0.022046342097730489, 0.25, 0.5, 0.022046342097730487, 0.75, 0.5]))
+#print("--D--")
+#pprint(rust_instance.evaluate([0.022046342097730490, 0.25, 0.5, 0.022046342097730487, 0.75, 0.5]))
 
-pprint(rust_instance.evaluate([0.75, 0.875, 0.5, 0.75, 0.375, 0.5]))
