@@ -40,14 +40,13 @@ pub struct CutList<'a>(pub &'a Vec<Cut>);
 
 impl<'a> fmt::Display for CutList<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"({}", self.0[0])?;
+        write!(f, "({}", self.0[0])?;
         for x in self.0.iter().skip(1) {
-            write!(f,",{}", x)?;
+            write!(f, ",{}", x)?;
         }
-        write!(f,")")
+        write!(f, ")")
     }
 }
-
 
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq)]
 pub enum Cut {
@@ -86,6 +85,8 @@ pub struct Topology {
     pub settings: Settings,
     #[serde(default)]
     pub surfaces: Vec<Surface>,
+    #[serde(skip_deserializing)]
+    pub rotation_matrix: [[f64; 3]; 3],
 }
 
 impl Topology {

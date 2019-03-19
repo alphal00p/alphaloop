@@ -24,9 +24,11 @@ use std::io::{BufWriter, Write};
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 mod cts;
+mod integrand;
 mod ltd;
 mod topologies;
 mod utils;
+use integrand::Integrand;
 
 use ltdlib::{AdditiveMode, Complex, IntegratedPhase, Settings};
 
@@ -53,9 +55,7 @@ impl CubaResultDef {
 
 #[derive(Debug)]
 struct UserData {
-    topo: Vec<topologies::Topology>,
-    sample_count: usize,
-    running_max: Complex,
+    integrand: Vec<Integrand>,
     integrated_phase: IntegratedPhase,
 }
 
@@ -67,40 +67,22 @@ fn integrand(
     _nvec: usize,
     core: i32,
 ) -> Result<(), &'static str> {
-    let res = user_data.topo[(core + 1) as usize].evaluate(x);
-    user_data.sample_count += 1;
+    let res = user_data.integrand[(core + 1) as usize].evaluate(x);
 
-    if user_data.sample_count % 100000 == 0 {
-        println!("Sample: {:?} {:e}", x, res);
-    }
-
-    if res.re.is_finite() {
+    if res.is_finite() {
         match user_data.integrated_phase {
             IntegratedPhase::Real => {
                 f[0] = res.re;
-                if res.re > user_data.running_max.re {
-                    user_data.running_max = res;
-                    println!("Running max: {:e} with x={:?}", user_data.running_max, x);
-                }
             }
             IntegratedPhase::Imag => {
                 f[0] = res.im;
-                if res.im > user_data.running_max.im {
-                    user_data.running_max = res;
-                    println!("Running max: {:e} with x={:?}", user_data.running_max, x);
-                }
             }
             IntegratedPhase::Both => {
                 f[0] = res.re;
                 f[1] = res.im;
-                if res.norm_sqr() > user_data.running_max.norm_sqr() {
-                    user_data.running_max = res;
-                    println!("Running max: {:e} with x={:?}", user_data.running_max, x);
-                }
             }
         }
     } else {
-        println!("Bad point: {:?}", x);
         f[0] = 0.;
     }
 
@@ -108,6 +90,7 @@ fn integrand(
 }
 
 fn bench(topo: &topologies::Topology, max_eval: usize) {
+    let mut topo1 = topo.clone();
     let mut x = vec![0.; 3 * topo.n_loops];
     let mut rng = rand::thread_rng();
 
@@ -117,7 +100,7 @@ fn bench(topo: &topologies::Topology, max_eval: usize) {
             *xi = rng.gen();
         }
 
-        let _r = topo.evaluate(&x);
+        let _r = topo1.evaluate(&x);
     }
 
     println!("{:#?}", now.elapsed());
@@ -216,6 +199,8 @@ fn main() {
         .get(&settings.general.topology)
         .expect("Unknown topology");
 
+    let integrand = Integrand::new(topo, settings.clone());
+
     if matches.is_present("bench") {
         bench(&topo, settings.integrator.n_max);
         return;
@@ -237,9 +222,7 @@ fn main() {
             CubaVerbosity::Progress,
             0,
             UserData {
-                topo: vec![topo.clone(); cores + 1],
-                sample_count: 0,
-                running_max: Complex::new(0., 0.),
+                integrand: vec![integrand.clone(); cores + 1],
                 integrated_phase: settings.integrator.integrated_phase,
             },
         ),
@@ -252,9 +235,7 @@ fn main() {
             },
             CubaVerbosity::Progress,
             UserData {
-                topo: vec![topo.clone(); cores + 1],
-                sample_count: 0,
-                running_max: Complex::new(0., 0.),
+                integrand: vec![integrand.clone(); cores + 1],
                 integrated_phase: settings.integrator.integrated_phase,
             },
         ),

@@ -3,6 +3,7 @@ extern crate num;
 extern crate serde;
 
 use dual_num::{Allocator, DefaultAllocator, Dim, DimName, DualN, Owned};
+use num::traits::ops::mul_add::MulAdd;
 use num::traits::Inv;
 use num::Float;
 use std::fmt;
@@ -199,6 +200,30 @@ impl<T: Field> LorentzVector<T> {
             y: map(self.y),
             z: map(self.z),
         }
+    }
+}
+
+impl<'a, T: Field + MulAdd<Output = T>> LorentzVector<T> {
+    #[inline]
+    pub fn square_impr(&self) -> T {
+        self.t.mul_add(self.t, -self.spatial_squared_impr())
+    }
+
+    #[inline]
+    pub fn spatial_squared_impr(&self) -> T {
+        self.x
+            .mul_add(self.x, self.y.mul_add(self.y, self.z * self.z))
+    }
+
+    #[inline]
+    pub fn dot_impr(&self, other: &LorentzVector<T>) -> T {
+        self.t.mul_add(other.t, -self.spatial_dot_impr(other))
+    }
+
+    #[inline]
+    pub fn spatial_dot_impr(&self, other: &LorentzVector<T>) -> T {
+        self.x
+            .mul_add(other.x, self.y.mul_add(other.y, self.z * other.z))
     }
 }
 

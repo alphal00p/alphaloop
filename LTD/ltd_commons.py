@@ -855,8 +855,12 @@ hyperparameters = HyperParameters({
     'General'       :   {
         'deformation_strategy'  :   'generic',
         'topology'              :   'DoubleTriangle',
-        'numerical_threshold'   :   -1e-3,
-        'debug'                 :   2
+        'numerical_threshold'   :   1e-10,
+        # number of digits that should be the same between integrand and rotated version
+        'relative_precision'    :   5,
+        'integration_statistics':   True,
+        'statistics_interval'   :   10000,
+        'debug'                 :   0
     },
 
     'Integrator'    :   {

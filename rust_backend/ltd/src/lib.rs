@@ -14,6 +14,7 @@ extern crate nalgebra as na;
 extern crate num_traits;
 
 pub mod cts;
+pub mod integrand;
 pub mod ltd;
 pub mod topologies;
 pub mod utils;
@@ -73,6 +74,9 @@ pub struct GeneralSettings {
     pub deformation_strategy: String,
     pub topology: String,
     pub numerical_threshold: f64,
+    pub relative_precision: f64,
+    pub integration_statistics: bool,
+    pub statistics_interval: usize,
     pub debug: usize,
 }
 
@@ -135,7 +139,7 @@ py_class!(class LTD |py| {
     }
 
     def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.topo(py).borrow().evaluate(&x);
+        let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, res) = self.topo(py).borrow_mut().evaluate(&x);
         Ok((res.re, res.im))
     }
 

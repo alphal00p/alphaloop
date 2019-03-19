@@ -8,7 +8,10 @@ Deformation:
 General:
   debug: 2
   deformation_strategy: generic
-  numerical_threshold: -0.001
+  integration_statistics: true
+  numerical_threshold: 1.0e-10
+  relative_precision: 5
+  statistics_interval: 10000
   topology: DoubleTriangle
 Integrator:
   integrated_phase: real

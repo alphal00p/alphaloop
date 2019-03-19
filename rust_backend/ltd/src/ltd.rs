@@ -8,7 +8,6 @@ use vector::{Field, LorentzVector, RealField};
 use AdditiveMode;
 
 use utils;
-use utils::finv;
 
 const MAX_DIM: usize = 3;
 const MAX_LOOP: usize = 3;
@@ -82,6 +81,7 @@ impl LoopLine {
         }
     }
 
+    /// Return the inverse of the evaluated loop line
     fn evaluate(
         &self,
         loop_momenta: &[LorentzVector<Complex>],
@@ -108,7 +108,7 @@ impl LoopLine {
                     // multiply dual propagator
                     let mut r = (&mom + &p.q).square() - p.m_squared;
 
-                    if !r.is_finite() || r.norm_sqr() < kinematics_scale * threshold {
+                    if !r.is_finite() || r.re * r.re < kinematics_scale * threshold {
                         return Err("numerical instability");
                     }
 
@@ -116,7 +116,7 @@ impl LoopLine {
                 }
             }
         }
-        Ok(finv(res))
+        Ok(res)
     }
 }
 
@@ -126,6 +126,9 @@ impl Topology {
         if self.n_loops > MAX_LOOP {
             panic!("Please increase MAX_LOOP to {}", self.n_loops);
         }
+
+        // set the identity rotation matrix
+        self.rotation_matrix = [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]];
 
         // copy the signature to the propagators
         for l in &mut self.loop_lines {
@@ -137,10 +140,10 @@ impl Topology {
         // determine the e_cm_squared and on-shell flag
         if self.external_kinematics.len() > 2 {
             self.e_cm_squared = (self.external_kinematics[0] + self.external_kinematics[1])
-                .square()
+                .square_impr()
                 .abs();
         } else {
-            self.e_cm_squared = self.external_kinematics[0].square().abs();
+            self.e_cm_squared = self.external_kinematics[0].square_impr().abs();
         }
 
         /*let mut v = LorentzVector::default();
@@ -156,7 +159,7 @@ impl Topology {
 
         // determine the on-shell flag
         for (i, e) in self.external_kinematics.iter().enumerate() {
-            if e.square() < 1e-10 * self.e_cm_squared {
+            if e.square_impr() < 1e-10 * self.e_cm_squared {
                 self.on_shell_flag |= 2_usize.pow(i as u32);
             }
         }
@@ -262,7 +265,7 @@ impl Topology {
                                 if (surface_sign_sum + delta_sign).abs()
                                     == surface_signs_abs_sum + delta_sign.abs()
                                 {
-                                    if surface_shift.square() > 0.
+                                    if surface_shift.square_impr() > 0.
                                         && delta_sign as f64 * surface_shift.t < 0.
                                     {
                                         /*
@@ -478,11 +481,13 @@ impl Topology {
                         .zip(cut_momenta.iter())
                         .zip(mass_cuts.iter())
                     {
-                        kappa_onshell.t +=
-                            kc.spatial_dot(cm) / (cm.spatial_squared() + *mass) * 0.5 * (*s as f64);
+                        kappa_onshell.t += kc.spatial_dot_impr(cm)
+                            / (cm.spatial_squared_impr() + *mass)
+                            * 0.5
+                            * (*s as f64);
                     }
 
-                    let k0sq_inv = DualN::from_real(1.0) / kappa_onshell.square();
+                    let k0sq_inv = DualN::from_real(1.0) / kappa_onshell.square_impr();
 
                     // if the kappa is 0, there is no need for rescaling
                     if !k0sq_inv.is_finite() {
@@ -498,13 +503,14 @@ impl Topology {
                     for onshell_prop in onshell_ll.propagators.iter() {
                         let onshell_prop_mom = mom + onshell_prop.q;
 
-                        let x = (kappa_onshell.dot(&onshell_prop_mom) * k0sq_inv).powi(2);
-                        let y = (onshell_prop_mom.square() - onshell_prop.m_squared) * k0sq_inv;
+                        let x = (kappa_onshell.dot_impr(&onshell_prop_mom) * k0sq_inv).powi(2);
+                        let y =
+                            (onshell_prop_mom.square_impr() - onshell_prop.m_squared) * k0sq_inv;
                         let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
 
                         // TODO: add a lambda bound for the expansion parameter
-                        /*let lambda_expansion = ((kappa_onshell.spatial_dot(&onshell_prop_mom))
-                            / (onshell_prop_mom.spatial_squared() + onshell_prop.m_squared)
+                        /*let lambda_expansion = ((kappa_onshell.spatial_dot_impr(&onshell_prop_mom))
+                            / (onshell_prop_mom.spatial_squared_impr() + onshell_prop.m_squared)
                             * 0.5)
                             .min(1.0.into());
 
@@ -557,7 +563,7 @@ impl Topology {
                         mom += l * c as f64;
                     }
                     mom += ll.propagators[*i].q;
-                    mom = mom / (mom.spatial_squared() + ll.propagators[*i].m_squared).sqrt();
+                    mom = mom / (mom.spatial_squared_impr() + ll.propagators[*i].m_squared).sqrt();
                     cut_dirs[cut_counter] = mom;
                     cut_counter += 1;
                 }
@@ -578,7 +584,7 @@ impl Topology {
             surface_dir += surface_prop.q;
 
             let surface_dir_norm =
-                surface_dir / (surface_dir.spatial_squared() + surface_prop.m_squared).sqrt();
+                surface_dir / (surface_dir.spatial_squared_impr() + surface_prop.m_squared).sqrt();
 
             // compute n_i = (v_i + a_i * w) * abs(a_i)
             // n_i is the normal vector of the ith entry of the cut momentum basis
@@ -625,7 +631,7 @@ impl Topology {
                 mom += c * s as f64;
             }
 
-            let inv = (mom + surf.shift).square() - surface_prop.m_squared;
+            let inv = (mom + surf.shift).square_impr() - surface_prop.m_squared;
             let aij = self.settings.deformation.additive.a_ij;
             let dampening = match self.settings.deformation.additive.mode {
                 AdditiveMode::Exponential => (-inv * inv / (aij * self.e_cm_squared.powi(2))).exp(),
@@ -778,6 +784,7 @@ impl Topology {
                 self.settings.general.numerical_threshold,
             )?;
         }
+        r = r.inv(); // normal inverse may overflow but has better precision than finv, which overflows later
 
         if self.settings.general.debug > 1 {
             match self.n_loops {
@@ -816,13 +823,35 @@ impl Topology {
     }
 
     #[inline]
-    pub fn evaluate(&self, x: &[f64]) -> Complex {
+    pub fn evaluate<'a>(
+        &mut self,
+        x: &'a [f64],
+    ) -> (
+        &'a [f64],
+        ArrayVec<[LorentzVector<Complex>; MAX_LOOP]>,
+        f64,
+        Complex,
+        Complex,
+    ) {
         // parameterize
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut jac_para = 1.;
         for i in 0..self.n_loops {
-            let (l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3]);
-            k[i] = LorentzVector::from_args(0., l_space[0], l_space[1], l_space[2]);
+            let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3]);
+
+            // add a shift such that k=l is harder to be picked up by integrators such as cuhre
+            l_space[0] += 1. * i as f64;
+            l_space[1] += 5. * i as f64;
+            l_space[2] += 2. * i as f64;
+
+            let rot = self.rotation_matrix;
+            k[i] = LorentzVector::from_args(
+                0.,
+                rot[0][0] * l_space[0] + rot[0][1] * l_space[1] + rot[0][2] * l_space[2],
+                rot[1][0] * l_space[0] + rot[1][1] * l_space[1] + rot[1][2] * l_space[2],
+                rot[2][0] * l_space[0] + rot[2][1] * l_space[1] + rot[2][2] * l_space[2],
+            );
+
             jac_para *= jac;
         }
 
@@ -838,7 +867,7 @@ impl Topology {
             for cut in cuts {
                 match self.evaluate_cut(&mut k_def, cut, mat) {
                     Ok(v) => result += v,
-                    Err(_) => return Complex::new(0., 0.),
+                    Err(_) => return (x, k_def, jac_para, jac_def, Complex::new(0., 0.)),
                 }
             }
         }
@@ -850,30 +879,6 @@ impl Topology {
         result *= Complex::new(0., -1. / (2. * PI).powi(4)).powf(self.n_loops as f64); // loop momentum factor
         result *= jac_para * jac_def;
 
-        if !result.is_finite() || self.settings.general.debug > 0 {
-            match self.n_loops {
-                1 => {
-                    println!(
-                        "Sample {:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result, x, k_def[0], jac_para, jac_def
-                    );
-                }
-                2 => {
-                    println!(
-                        "Sample {:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result, x, k_def[0], k_def[1], jac_para, jac_def
-                    );
-                }
-                3 => {
-                    println!(
-                        "Sample {:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
-                    );
-                }
-                _ => {}
-            }
-        }
-
-        result
+        (x, k_def, jac_para, jac_def, result)
     }
 }

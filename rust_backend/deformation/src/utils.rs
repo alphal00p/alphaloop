@@ -181,7 +181,7 @@ pub fn determinant8(bb: &[[Complex;8];8]) -> Complex {
             }
             indx[j] = imax;
             if j + 1 != dimension {
-                dumc = finv(aa[j][j]);
+                dumc = 1./ aa[j][j];
                 for i in j + 1..dimension {
                     aa[i][j] = aa[i][j] * dumc;
                 }

@@ -87,7 +87,7 @@ pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
             }
             indx[j] = imax;
             if j + 1 != dimension {
-                dumc = 1.0 * finv(aa[j * dimension + j]);
+                dumc = 1.0 / aa[j * dimension + j];
                 for i in j + 1..dimension {
                     aa[i * dimension + j] = aa[i * dimension + j] * dumc;
                 }
