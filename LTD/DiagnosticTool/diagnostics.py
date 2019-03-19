@@ -25,6 +25,7 @@ class Surface(object):
 
         def __init__(self, n, ot_sign, sheet):
             super(Surface, self).__init__()
+            super(Surface, self).__init__()
             self.n_surface=n
             self.marker=ot_sign
             self.surface_signs=[]
@@ -32,6 +33,9 @@ class Surface(object):
             self.sheet=0
             self.param_variable = None
             self.moms=[]
+            self.p0=None
+            self.foci=None
+            self.n_cut=[]
 
             if sheet==1:
                 self.sheet=self._UPPER
@@ -70,7 +74,7 @@ class Surface(object):
 
         __repr__ = __str__
 
-def parametric_equation_eval(self, propagators, loopmomenta):
+	def parametric_equation_eval(self, propagators, loopmomenta):
             value = 0.
             for i in range(0, 2):
                 value += self.surface_signs[0][i] * math.sqrt(sum((propagators[self.moms[0][i]].q[j1+1] +
