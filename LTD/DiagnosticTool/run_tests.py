@@ -58,6 +58,7 @@ class DualCancellationScanner(object):
                  t_values           =   None,
                  hyperparameters    =   None,
                  rust_instance      =   None,
+                 rotated_instances  =   None,
                  diagnostic_tool    =   None,
                 ):
 
@@ -81,6 +82,7 @@ class DualCancellationScanner(object):
             log_stream.write(yaml.dump([('configuration', self.configuration), ], Dumper=noalias_dumper))
 
         self.rust_instance = rust_instance
+        self.rotated_instances = rotated_instances
         self.diagnostic_tool = diagnostic_tool
 
     def scan(self, surface_ID, surface_characteristics, force=False):
@@ -93,9 +95,12 @@ class DualCancellationScanner(object):
         # u and v are defined in [-1.,1.]
         u = parametrisation_uv['u']*2.-1.
         v = parametrisation_uv['v']*2.-1.
+        loop_mom = list(parametrisation_vectors)
+        if len(loop_mom)==1:
+            loop_mom.append([0.,0.,0.,0.])
         diagnostic_point = self.diagnostic_tool.get_parametrization(
             u=u, v=v, 
-            loop_momenta=parametrisation_vectors,
+            loop_momenta=loop_mom,
             surface=surface_characteristics[1], n_cut=n_cut)
         
         if diagnostic_point is None:
@@ -114,9 +119,12 @@ class DualCancellationScanner(object):
                 while diagnostic_point is None:
                     parametrisation_vectors = [ [ 0., ] + list(vectors.Vector([(random.random() - 0.5) * 2 * com_energy for _ in range(3)]))
                                                for vec in parametrisation_vectors]
+                    loop_mom = list(parametrisation_vectors)
+                    if len(loop_mom)==1:
+                        loop_mom.append(vectors.Vector([0.,0.,0.,0.]))
                     diagnostic_point = self.diagnostic_tool.get_parametrization(
                             u=u, v=v, 
-                            loop_momenta=parametrisation_vectors,
+                            loop_momenta=loop_mom,
                             surface=surface_characteristics[1], n_cut=n_cut)
         
         surface_point = [vectors.Vector(list(v)) for v in diagnostic_point]
@@ -127,45 +135,76 @@ class DualCancellationScanner(object):
                 't_value': t,
             }
             approach_point = [ v*(1.+t) for v in surface_point ]
+            one_result['parametric_equation'] = surface_characteristics[1].parametric_equation_eval(
+                self.diagnostic_tool.propagators,
+                approach_point,
+                self.topology.n_loops
+            ) 
 
-            kappas, jac_re, jac_im = self.rust_instance.deform([list(v) for v in approach_point])
-            deformed_point = [approach_point[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
+            for i_rot, rotated_info in enumerate([None,]+self.rotated_instances):
+                if rotated_info is not None:
+                    point_to_test = [v.transform(rotated_info['rotation_matrix']) for v in approach_point]
+                    one_result['rotation_%d'%i_rot] = {}
+                    result_bucket = one_result['rotation_%d'%i_rot]
+                    rust_worker = rotated_info['rust_instance']
+                else:
+                    point_to_test = approach_point
+                    result_bucket = one_result
+                    rust_worker = self.rust_instance
+
+                kappas, jac_re, jac_im = rust_worker.deform([list(v) for v in point_to_test])
+                deformed_point = [point_to_test[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
             
-            one_result['deformation_jacobian'] = complex(jac_re, jac_im)
-            dual_integrands = {}
-            point_weight = complex(0., 0.)
-            for ltd_cut_index, ltd_cut_structure in enumerate(self.topology.ltd_cut_structure):
-                cut_propagator_indices = [[index*c for index in range(1,len(self.topology.loop_lines[i].propagators)+1)] if c!=0 else [0,] 
+                result_bucket['deformation_jacobian'] = complex(jac_re, jac_im)
+                dual_integrands = {}
+                point_weight = complex(0., 0.)
+                for ltd_cut_index, ltd_cut_structure in enumerate(self.topology.ltd_cut_structure):
+                    cut_propagator_indices = [[index*c for index in range(1,len(self.topology.loop_lines[i].propagators)+1)] if c!=0 else [0,] 
                                              for i, c in enumerate(ltd_cut_structure)]
-                dual_integrands[(ltd_cut_index, ltd_cut_structure)] = {}
-                for cut_index, cut_structure  in enumerate(itertools.product( *cut_propagator_indices )):
-                    dual_integrand_real, dual_integrand_imag = self.rust_instance.evaluate_cut(
-                        [ [ ( float(vi.real), float(vi.imag) ) for vi in v ] for v in deformed_point],
-                        ltd_cut_index,  cut_index
-                    )
-                    if math.isnan(dual_integrand_real) or math.isnan(dual_integrand_imag):
-                        print("WARNINNG : Rust returned NaN for the following dual integrand:")
-                        print "ltd_cut_index, ltd_cut_structure = ",ltd_cut_index, ltd_cut_structure
-                        print "cut_index, cut_structure         = ",cut_index, cut_structure
-                        print "with input momenta = ",deformed_point
-                        print("when approaching this surface:\n%s"%str(surface[1].__str__(cut_propagators=surface[0])))
-                        print("Results now set to zero instead")
-                        dual_integrand_real = 0.
-                        dual_integrand_imag = 0.
-                        sys.exit(1)
+                    dual_integrands[(ltd_cut_index, ltd_cut_structure)] = {}
+                    for cut_index, cut_structure  in enumerate(itertools.product( *cut_propagator_indices )):
+                        dual_integrand_real, dual_integrand_imag = rust_worker.evaluate_cut(
+                            [ [ ( float(vi.real), float(vi.imag) ) for vi in v ] for v in deformed_point],
+                            ltd_cut_index,  cut_index
+                        )
+                        if math.isnan(dual_integrand_real) or math.isnan(dual_integrand_imag):
+                            print("WARNINNG : Rust returned NaN for the following dual integrand:")
+                            print "ltd_cut_index, ltd_cut_structure = ",ltd_cut_index, ltd_cut_structure
+                            print "cut_index, cut_structure         = ",cut_index, cut_structure
+                            print "with input momenta = ",deformed_point
+                            print("when approaching this surface:\n%s"%str(surface[1].__str__(cut_propagators=surface[0])))
+                            print("Results now set to zero instead")
+                            dual_integrand_real = 0.
+                            dual_integrand_imag = 0.
+                            sys.exit(1)
 
-                    dual_integrands[(ltd_cut_index, ltd_cut_structure)][(cut_index, cut_structure)] = \
+                        dual_integrands[(ltd_cut_index, ltd_cut_structure)][(cut_index, cut_structure)] = \
                                                                     complex(dual_integrand_real,dual_integrand_imag)
-                    point_weight += complex(dual_integrand_real,dual_integrand_imag)
+                        point_weight += complex(dual_integrand_real,dual_integrand_imag)
 
-            one_result['dual_integrands'] = dual_integrands
+                result_bucket['dual_integrands'] = dual_integrands
 
-            CT                               = complex(0., 0.)
-            one_result['ct']                 = CT
-            one_result['point_weight_no_ct'] = point_weight
-            one_result['point_weight']       = point_weight + CT
+                CT                                  = complex(0., 0.)
+                result_bucket['ct']                 = CT
+                result_bucket['point_weight_no_ct'] = point_weight
+                result_bucket['point_weight']       = point_weight + CT
 
-                    ###     'point_weight': <point_weight_complex_value>,
+            # Regiter numerical stability as well
+            target = one_result['point_weight']
+            evaluations = []
+            for k,v in one_result.items():
+                if k.startswith('rotation_'):
+                    evaluations.append(v['point_weight'])
+            
+            if len(evaluations)>0:
+                one_result['accuracy'] = max(
+                    max(abs(e.real-target.real) for e in evaluations),
+                    max(abs(e.imag-target.imag) for e in evaluations)
+                )
+            else:
+                one_result['accuracy'] = None
+
+        ###     'point_weight': <point_weight_complex_value>,
         ###     'point_weight_no_ct': <point_weight_no_ct_complex_value>,
         ###     'ct' : <ct_value>,
 
@@ -317,6 +356,14 @@ class DualCancellationResultsAnalyser(object):
             lines.append( ( 'Cmplx weight', ( [ v['t_value'] for v in scan_results], 
                                               [ special_abs(v['point_weight'].imag) for v in scan_results ] ) ) )
 
+        if scan_results[0]['accuracy'] is not None:
+            lines.append( ( 'Accuracy', ( [ v['t_value'] for v in scan_results], 
+                                             [ special_abs(v['accuracy']) for v in scan_results ] ) ) )
+
+        lines.append( ( 'parametric_equation', (
+            [ v['t_value'] for v in scan_results], [ special_abs(v['parametric_equation']) for v in scan_results ]
+        ) ) )
+
         filtered_lines = []
         for ln, lv in lines:
             if all(lvel==0. for lvel in lv[1]):
@@ -355,7 +402,8 @@ class DualCancellationResultsAnalyser(object):
             print('Last 5 points of scan:')
             for r in scan_results[-5:]:
                 print('>>> t_value = %-16e'%r['t_value'])
-                print('Weight: (%-25.16e, %-25.16e)'%(r['point_weight'].real,r['point_weight'].imag))
+                print('Weight: (%-25.16e, %-25.16e) +/- %-25.16e'%(
+                    r['point_weight'].real,r['point_weight'].imag,r['accuracy']))
                 for ltd_cut_index, ltd_cut_structure in sorted(r['dual_integrands'].keys()):
                     duals_for_ltd_cut = r['dual_integrands'][(ltd_cut_index, ltd_cut_structure)]
                     for cut_index, cut_structure in sorted(duals_for_ltd_cut.keys()):
@@ -460,7 +508,7 @@ if __name__ == '__main__':
     n_points_hyperboloid_test = 1000
 
 
-    rotations_for_stability_check = [((1,0.3),(2,0.9)),((3,1.2),)]
+    rotations_for_stability_check = [((1,0.3),(2,0.9),(3,1.7)),((3,1.2),)]
 
     # parametrisation_uv
     parametrisation_uv = { 'u' : 0.6, 'v' : 0.7 }
@@ -556,15 +604,17 @@ if __name__ == '__main__':
 
             # Now also create rotated copy of the topology at hand for numerical stability diagnostics
             for rotation_matrix_specifications in rotations_for_stability_check:
-                rotation_matrix = vectors.LorentzVector.rotation_matrix(*rotation_matrix_specifications[0])
+                rotation_matrix_4d = vectors.LorentzVector.rotation_matrix(*rotation_matrix_specifications[0])
+                rotation_matrix_3d = vectors.Vector.rotation_matrix(*rotation_matrix_specifications[0])
                 for rotation_matrix_specification in rotation_matrix_specifications[1:]:
-                    rotation_matrix.dot(vectors.LorentzVector.rotation_matrix(*rotation_matrix_specification))
+                    rotation_matrix_4d = rotation_matrix_4d.dot(vectors.LorentzVector.rotation_matrix(*rotation_matrix_specification))
+                    rotation_matrix_3d = rotation_matrix_3d.dot(vectors.Vector.rotation_matrix(*rotation_matrix_specification))                    
                 rotated_topology_name = '%s_rotated_%s'%(topology,str(rotation_matrix_specifications))
                 topology_collection[rotated_topology_name] = \
-                            ltd_commons.create_hard_coded_topoloogy(topology, PS_point.transform(rotation_matrix), name=rotated_topology_name)
+                            ltd_commons.create_hard_coded_topoloogy(topology, PS_point.transform(rotation_matrix_4d), name=rotated_topology_name)
                 rotated_instances.append({
                     'rotation_matrix_angles':   rotation_matrix_specifications,
-                    'rotation_matrix':          rotation_matrix,
+                    'rotation_matrix':          rotation_matrix_3d,
                     'rotated_topology_name':    rotated_topology_name,
                     'rust_instance':            None # Will be filled in later
                 })
@@ -606,7 +656,6 @@ if __name__ == '__main__':
     print('Now analysing surfaces ...')
     all_surfaces = diagnostic_tool.all_surfaces(n_points_hyperboloid_test)
     grouped_surfaces = diagnostic_tool.check_similarity(all_surfaces)
-
     if surface_ids is not None and any(s<0 for s in surface_ids):
         print("Listing of all surfaces:")
         print(diagnostics.print_all_surfaces(grouped_surfaces, show_group_members=True))
@@ -641,7 +690,7 @@ if __name__ == '__main__':
     # Apply the filtering if specified
     if surface_ids is not None:
         surfaces_to_analyse = {s_id: s for s_id, s in surfaces_to_analyse.items() if s_id in surface_ids}
-
+    
     # Start a rust instance to be used throughout the tests
     rust_instance = LTD(
         settings_file = pjoin(root_path,'hyperparameters.yaml'),
@@ -687,7 +736,8 @@ if __name__ == '__main__':
                         fixed_t_values          =   fixed_t_values,
                         deformation_configuration = deformation_configuration,
                         diagnostic_tool         =   diagnostic_tool,
-                        rust_instance           =   rust_instance
+                        rust_instance           =   rust_instance,
+                        rotated_instances       =   rotated_instances
                     )
                 elif test_name == 'cancellation_check':
                     scanner = DualCancellationScanner(
@@ -698,7 +748,8 @@ if __name__ == '__main__':
                         parametrisation_uv      =   parametrisation_uv,
                         t_values                =   t_values,
                         diagnostic_tool         =   diagnostic_tool,
-                        rust_instance           =   rust_instance
+                        rust_instance           =   rust_instance,
+                        rotated_instances       =   rotated_instances
                     )
                 start_time = time.time()
                 all_test_results = {'surface_results':[]}

@@ -88,6 +88,41 @@ class Vector(np.ndarray):
             self[0] * v[1] - self[1] * v[0]
          ])
 
+    @staticmethod
+    def rotation_matrix(axis, angle):
+        """ Defines a 3D rotation matrix."""
+        
+        sin_angle = math.sin(angle)
+        cos_angle = math.cos(angle)
+        if axis==1:
+            return np.array(
+                [
+                    [1.                 , 0.                    , 0.                ], 
+                    [0.                 , cos_angle             , -sin_angle        ], 
+                    [0.                 , sin_angle             , cos_angle         ],        
+                ],
+                dtype=float)
+        elif axis==2:
+            return np.array(
+                [
+                    [cos_angle          , 0.                    , -sin_angle        ], 
+                    [0.                 , 1.                    , 0.                ], 
+                    [sin_angle          , 0.                    , cos_angle         ],        
+                ],
+                dtype=float)
+        elif axis==3:
+            return np.array(
+                [
+                    [1.                 , 0.                    , 0.                ], 
+                    [0.                 , cos_angle             , -sin_angle        ], 
+                    [0.                 , sin_angle             , cos_angle         ],        
+                ],
+                dtype=float)
+        raise BaseException("Rotation axis not reckognized '%d'"%axis)
+
+    def transform(self, transfo_matrix):
+        """ apply transformation matrix (using euclidian metric)"""
+        return Vector(transfo_matrix.dot(self))
 
 class LorentzVector(Vector):
 

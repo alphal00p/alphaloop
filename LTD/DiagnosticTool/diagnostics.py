@@ -57,7 +57,7 @@ class Surface(object):
 
             lines.append("%-30s : %d"%("Surface ID",self.n_surface))
             if cut_propagators:
-                lines.append("%-30s : %s"%("Cut propagators","(%d,%d)"%tuple(cut_propagators)))
+                lines.append("%-30s : %s"%("Cut propagators","(%s)"%(','.join('%d'%cp for cp in cut_propagators))))
             lines.append("%-30s : %s"%("Solution type",'+' if self.marker>0 else '-'))
             lines.append("%-30s : %s"%("Surface signature", '(%s %s) %s'%(tuple(
                 [{1:'+',-1:'-',0:'0'}[s] for s in list(self.surface_signs[0])+[self.surface_signs[1],]]
@@ -74,18 +74,20 @@ class Surface(object):
 
         __repr__ = __str__
 
-	def parametric_equation_eval(self, propagators, loopmomenta):
+	def parametric_equation_eval(self, propagators, loopmomenta, n_loops):
             value = 0.
+            
             for i in range(0, 2):
                 value += self.surface_signs[0][i] * math.sqrt(sum((propagators[self.moms[0][i]].q[j1+1] +
                         sum(propagators[self.moms[0][i]].signature[j] *loopmomenta[j][j1]
-                        for j in range(0, len(loopmomenta)))) ** 2. for j1 in range(0, 3)))
+                        for j in range(0, n_loops))) ** 2. for j1 in range(0, 3)))
 
             value +=self.surface_signs[1] * math.sqrt(sum(( propagators[self.moms[1]].q[j1+1] +
                         sum(propagators[self.moms[1]].signature[j] * loopmomenta[j][j1]
-                        for j in range(0, len(loopmomenta)))) ** 2. for j1 in range(0, 3)))
+                        for j in range(0, n_loops))) ** 2. for j1 in range(0, 3)))
 
             return value + self.p0
+
 
 #Momentum info is a class containing, as members, the list of cut propagators (self.cut), the list of propagators (self.prop), the number of loops (n_loops)
 #and the target list, which contains the same number of propagators as self.prop; however, the propagator members self.routing, self.q, self.m have been substituted
@@ -156,17 +158,21 @@ class Diagnostic_tool(object):
         self.topology=topology
 
         if topology.n_loops==1:
-            self.propagators=topology.loop_lines[0]
-            self.Etot=len(topology.loop_lines[0])
+            self.propagators=topology.loop_lines[0].propagators
+            self.Etot=len(topology.loop_lines[0].propagators)
             self.n_loop=topology.n_loops
             self.cut=[[i] for i in range(0,self.Etot)]
             self.sign=[[1] for i in range(0,self.Etot)]
 
         if topology.n_loops==2:
             self.propagators=[]
-            for i in range(0, len(topology.ltd_cut_structure[0])):
-                for j in range(0, len(topology.loop_lines[i].propagators)):
-                    self.propagators.append(topology.loop_lines[i].propagators[j])
+            for i_loop_line, loop_line in enumerate(topology.loop_lines):
+                for j_prop, prop in enumerate(loop_line.propagators):
+                    self.propagators.append(prop)
+
+            #for i in range(0, len(topology.ltd_cut_structure[0])):
+            #    for j in range(0, len(topology.loop_lines[i].propagators)):
+            #        self.propagators.append(topology.loop_lines[i].propagators[j])
 
 
             self.Etot=len(self.propagators)

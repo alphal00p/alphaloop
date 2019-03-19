@@ -417,7 +417,7 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
                     end_node    = 1,
                     signature   = (1,1),
                     propagators = (
-                        Propagator(q=zero_lv, m_squared=0.01),
+                        Propagator(q=zero_lv, m_squared=0.0),
                     )
                 ),
             ) 
@@ -855,7 +855,7 @@ hyperparameters = HyperParameters({
     'General'       :   {
         'deformation_strategy'  :   'generic',
         'topology'              :   'DoubleTriangle',
-        'numerical_threshold'   :   1e-10,
+        'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   5,
         'integration_statistics':   True,
