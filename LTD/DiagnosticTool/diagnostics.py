@@ -70,6 +70,19 @@ class Surface(object):
 
         __repr__ = __str__
 
+def parametric_equation_eval(self, propagators, loopmomenta):
+            value = 0.
+            for i in range(0, 2):
+                value += self.surface_signs[0][i] * math.sqrt(sum((propagators[self.moms[0][i]].q[j1+1] +
+                        sum(propagators[self.moms[0][i]].signature[j] *loopmomenta[j][j1]
+                        for j in range(0, len(loopmomenta)))) ** 2. for j1 in range(0, 3)))
+
+            value +=self.surface_signs[1] * math.sqrt(sum(( propagators[self.moms[1]].q[j1+1] +
+                        sum(propagators[self.moms[1]].signature[j] * loopmomenta[j][j1]
+                        for j in range(0, len(loopmomenta)))) ** 2. for j1 in range(0, 3)))
+
+            return value + self.p0
+
 #Momentum info is a class containing, as members, the list of cut propagators (self.cut), the list of propagators (self.prop), the number of loops (n_loops)
 #and the target list, which contains the same number of propagators as self.prop; however, the propagator members self.routing, self.q, self.m have been substituted
 #with those one would obtain if the choice of loop momenta corresponded to the cut propagators
@@ -78,7 +91,13 @@ class Momentum_info(object):
     """
     Momentum info is a class containing, as members, the list of cut propagators (self.cut), the list of propagators (self.prop), the number of loops (n_loops)
     and the target list, which contains the same number of propagators as self.prop; however, the propagator members self.routing, self.q, self.m have been substituted
-    with those one would obtain if the choice of loop momenta corresponded to the cut propagators
+    with those one would obtain if the choice of loop momenta corresponded to the cut propagators.
+    Members:
+        -self.cut: contains a list of cut momenta in the form of couplets of numbers (at two loops). The numbers refer to a conventional labelling of the edges.
+            Example: for the double triangle, with loop_lines [[0,1],[2],[3,4]], one has
+                    self.cut=[0,2] or [1,2] or [0,3] or [0,4] or [1,3] or [1,4] or [2,3] or [2,4]
+        -self.prop: contains a list of all propagators of the diagram
+        -self.n_loops: number of loops
     """
 
     def __init__(self, cut, prop, n_loops, signs):
@@ -87,15 +106,20 @@ class Momentum_info(object):
         self.prop = prop
         self.n_loops = n_loops
         self.combs = []
-        self.signs=signs
+
+    """
+    info_prep expresses all the propagator momenta as linear combinations of the cut momenta in self.cut.
+    In particular, the output combs[i] contains an object of type propagator whose attributes are
+        -the signature of the decomposition of q_i in terms of the cut momenta of self.cut
+        -the affine term, depending on the external kinematics, which is what is left out by the previous decomposition
+        -the mass of the propagator i
+    Example:
+        Let q_i=a*q_1+b*q_2+p
+        Then combs[i].signature=[a,b], combs[i].q=p
+    """
+
 
     def info_prep(self):
-
-        """
-        mat is a matrix which contains, as rows, the routing of the cut propagator. for each propagator corresponding to routing (a,b) and total momentum q the system mat*(x,y)=(a,b)
-        then (x,y) are the coefficients of the decomposition of q in the basis of the cuts
-        """
-
         mat = []
 
         for i in range(0, len(self.cut)):
@@ -154,8 +178,7 @@ class Diagnostic_tool(object):
 
                 cutty.append([[a,b]
                               for a,b in itertools.product(
-                                [i1+sum(len(topology.loop_lines[j].propagators) for j in range(0,cuttylines[0])
-                                       )
+                                [i1+sum(len(topology.loop_lines[j].propagators) for j in range(0,cuttylines[0]))
                     for i1 in range(0, len(topology.loop_lines[cuttylines[0]].propagators))],[i2+sum(len(topology.loop_lines[j].propagators) for j in range(0,cuttylines[1])
                                        )
                     for i2 in range(0, len(topology.loop_lines[cuttylines[1]].propagators))])])
@@ -167,14 +190,14 @@ class Diagnostic_tool(object):
             self.sign=signcutty[0]+signcutty[1]+signcutty[2]
 
         self.combs = None
-        logging.debug(self.cut)
+        self.momcheck=None
 
 
 
 
     def translation_construction(self, surface, loop_mom, n_cut):
 
-        info = Momentum_info(cut=self.cut[n_cut], prop=self.propagators, n_loops=self.n_loop, signs=self.sign)
+        info = Momentum_info(cut=self.cut[n_cut], prop=self.propagators, n_loops=self.n_loop, signs=self.sign[n_cut])
         self.combs = info.info_prep()
 
         mom1 = 0
@@ -186,7 +209,8 @@ class Diagnostic_tool(object):
         othersign = 0
         moms=[]
         othermom=0
-
+        surface.p0=self.combs[surface.n_surface].q[0]
+        surface.n_cut=n_cut
         #Running though the coefficients of the decomposition of the chosen (n_surface) propagator in terms of cut momenta
         for i in range(0, self.n_loop):
 
@@ -216,18 +240,18 @@ class Diagnostic_tool(object):
                                     moms.append(self.cut[n_cut][j])
                                 else:
                                     #if this fails, we save it in mom3 and its sign in other_sign
-                                    mom3 = numpy.array(self.propagators[self.cut[n_cut][j]].q) + sum(self.propagators[self.cut[n_cut][j]].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, i1 ) + range(i1 + 1, self.n_loop))
+                                    mom3 = numpy.array(self.propagators[self.cut[n_cut][j]].q) + sum(self.propagators[self.cut[n_cut][j]].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, self.n_loop))
                                     othersign = self.sign[n_cut][j]*self.combs[surface.n_surface].signature[j]
                                     othermom=self.cut[n_cut][j]
                         #if the previous cycle has failed, the only possibility is that the propagator's momentum itself contains k_1 as loop momentum
                         if self.propagators[surface.n_surface].signature[i1] != 0:
                             #again everything is saved
-                            mom2 = numpy.array(self.propagators[surface.n_surface].q) + sum(self.propagators[surface.n_surface].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, i1 ) + range(i1 + 1, self.n_loop))
+                            mom2 = numpy.array(self.propagators[surface.n_surface].q) + sum(self.propagators[surface.n_surface].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, i1) + range(i1 + 1, self.n_loop))
                             signs.append(surface.marker)
                             moms.append(surface.n_surface)
                         #if this if clause has failed, it means that the previous one has succeded; again we save everything
                         else:
-                            mom3 = numpy.array(self.propagators[surface.n_surface].q) + sum(self.propagators[surface.n_surface].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, i1) + range(i1 + 1, self.n_loop))
+                            mom3 = numpy.array(self.propagators[surface.n_surface].q) + sum(self.propagators[surface.n_surface].signature[i3] * numpy.array(loop_mom[i3]) for i3 in range(0, self.n_loop))
                             othersign = surface.marker
                             othermom=surface.n_surface
                         break
@@ -241,6 +265,8 @@ class Diagnostic_tool(object):
         tot_mom = -(numpy.array(mom1) + numpy.array(mom2)) / 2.
         surface.param_variable=chosen_loop
         surface.surface_signs=[signs, othersign]
+     #   print([tot_mom, mom3, mom1, mom2])
+        self.momcheck=[tot_mom, mom3, mom1, mom2]
         return [tot_mom, mom3, mom1, mom2]
 
 
@@ -252,20 +278,20 @@ class Diagnostic_tool(object):
             self.translation_construction(surface, loop_mom, n_cut)[2])
 
         #h is normalized to unity if it is non-zero. If it is, the identity matrix is returned
-        mom_norm = (sum(maj_axis[j] ** 2 for j in range(1, 4))) ** (0.5)
+        mom_norm = (sum(maj_axis[j] ** 2. for j in range(1, 4))) ** (0.5)
         if mom_norm != 0:
             mom_unit = [(1 / mom_norm) * maj_axis[j] for j in range(1, 4)]
         else:
             self.rot_matrix = numpy.identity(3)
             return
 
-        z_axis = [0, 0, 1]
+        z_axis = [0, 0, 1.]
         #angle between the z axis and h
         angle = math.acos(mom_unit[2])
 
         #rotation axis obtained as the normalized cross product e_z x h
         rot_axis = numpy.cross(z_axis, mom_unit)
-        rot_axis = 1 / (sum(rot_axis[i] ** 2 for i in range(0, 3)) ** 0.5) * numpy.array(rot_axis)
+        rot_axis = 1. / (sum(rot_axis[i] ** 2 for i in range(0, 3)) ** 0.5) * numpy.array(rot_axis)
 
         #matrices necessary to the decomposition of a rotation matrix into identity, simmetric matrix and skew-simmetric matrix
         A_mat = numpy.matrix(
@@ -285,11 +311,10 @@ class Diagnostic_tool(object):
 
         #parametrization of the z component of the chosen loop momentum
         if surface_type == 1:
-            kz = g * (c * (1. - (1. / a) * (kx**2+ky**2))) ** 0.5
-
+            kz = g * (c * (1. - (1. / a) * (kx**2.+ky**2.))) ** 0.5
         else:
 
-            kz = g * (c * (1. + (1. / a) *  (kx**2+ky**2) )) ** 0.5
+            kz = g * (c * (1. + (1. / a) *  (kx**2.+ky**2.) )) ** 0.5
 
         return kz
 
@@ -308,7 +333,6 @@ class Diagnostic_tool(object):
                 return None
         surf.exist=0
 
-
     def get_parametrization(self, u, v, surface, loop_momenta, n_cut):
         
         #The function takes an input vector of loop momenta and uses the necessary ones in between them to calculate the z component of the parametrizing loop variable
@@ -316,37 +340,26 @@ class Diagnostic_tool(object):
         #surface type and signs
 
 
-        #print "IN diag tool", u, v, type(surface), loop_momenta, n_cut
-        #print surface
+
+
         p_tr = numpy.array(self.translation_construction(surface, loop_momenta, n_cut))
 
         surface_type = surface.surface_signs[0][0] * surface.surface_signs[0][1]
         sursign=surface.surface_signs[0][0] + surface.surface_signs[0][1]
 
-        """
-        if sursign==2 and surface.surface_signs[1]!=0:
-            onsh = self.combs[surface.n_surface].q[0] - surface.surface_signs[1] *math.sqrt(sum(
-                self.combs[surface.n_surface].q[i] ** 2 for i in range(1, 4)))
-            if surface.param_variable==0:
-                for j in range(1,4):
-                    loop_momenta[1][j]=loop_momenta[1][j]*onsh
-            if surface.param_variable==1:
-                for j in range(1,4):
-                    loop_momenta[0][j]=loop_momenta[0][j]*onsh
-	    """
 
-        p0=(-self.combs[surface.n_surface].q[0] - surface.surface_signs[1] * sum(   
+        p0=(-self.combs[surface.n_surface].q[0] - surface.surface_signs[1] * sum(
             p_tr[1][l] ** 2 for l in range(1, 4)) ** 0.5) / 2.
-        p0_sq = (p0) ** 2
+        p0_sq = (p0) ** 2.
         p_tr3d = numpy.array([p_tr[0][1], p_tr[0][2], p_tr[0][3]]) + numpy.array(
             [p_tr[2][1],
              p_tr[2][2],
              p_tr[2][3]])
 
-        mod_p_sq = sum(p_tr3d[i] ** 2 for i in range(0, 3))  # /4.
+        mod_p_sq = sum(p_tr3d[i] ** 2. for i in range(0, 3))  # /4.
 
         #parameters of the surface
-        ra=p0_sq - mod_p_sq - self.propagators[surface.n_surface].m_squared ** 2
+        ra=p0_sq - mod_p_sq - self.propagators[surface.n_surface].m_squared ** 2.
         rc=(p0_sq / (p0_sq - mod_p_sq)) * ra
         a = abs(ra)
         c = abs(rc)
@@ -360,49 +373,42 @@ class Diagnostic_tool(object):
 
         if ra<0 and surface_type==1:
             return None
-        """
-        if sursign==2 and self.combs[surface.n_surface].q[0]>0:
-            return None
-        """
+
         if sursign==2 and p0<0:
             return None
 
         if sursign==-2 and p0>0:
             return None
-        """
-        if sursign==-2 and self.combs[surface.n_surface].q[0]<0:
-            return None
-        """
-        if p0<0 and surface_type==-1 and surface.sheet==0:
+
+        if p0*surface.surface_signs[0][0]<0 and surface_type==-1 and surface.sheet==0:
             surface.sheet=1
 
-        if p0>0 and surface_type==-1 and surface.sheet==1:
+
+        if p0*surface.surface_signs[0][0]>0 and surface_type==-1 and surface.sheet==1:
             surface.sheet=0
 
-
-        #if surface_type==1 and surface.sheet==1:
-            surface.sheet=0
-
-        #if surface_type==1 and surface.sheet==0:
-            surface.sheet=1
 
         if surface_type==-1:
-            kx = u * 100
-            ky = v * 100
+            kx = u
+            ky = v
         else:
             kx = u * math.sqrt(a)
             ky = v * math.sqrt(a)
 
-        #TODO: if clause set of admissible kx and ky
-    #    kx=u*a
-     #   ky=v*a
-        kz=self.Get_surface_point(surface=surface, kx=kx, ky=ky, a=a, c=c, surface_type=surface_type)
+        if (kx**2.+ky**2.<a and surface_type==1) or surface_type==-1:
+            kz=self.Get_surface_point(surface=surface, kx=kx, ky=ky, a=a, c=c, surface_type=surface_type)
+        elif kx ** 2. + ky ** 2. > a and surface_type == 1:
+            return None
+
         vec = [kx, ky, kz]
 
         self.rot_matrix_construction(surface, loop_momenta, n_cut)
 
         vec=numpy.array(numpy.dot(self.rot_matrix, vec)) + numpy.array([p_tr[0][1], p_tr[0][2], p_tr[0][3]])
-
+        foci1 = numpy.array(numpy.dot(self.rot_matrix, [0., 0.,math.sqrt(mod_p_sq)])) + numpy.array(
+            [p_tr[0][1], p_tr[0][2], p_tr[0][3]])
+        foci2=numpy.array(numpy.dot(self.rot_matrix, [0.,0.,-math.sqrt(mod_p_sq)])) + numpy.array([p_tr[0][1], p_tr[0][2], p_tr[0][3]])
+        surface.foci=[foci1,foci2]
 
         if surface.param_variable == 0:
             vec = [vec[0], [loop_momenta[1][1], loop_momenta[1][2], loop_momenta[1][3]]]
@@ -432,7 +438,7 @@ class Diagnostic_tool(object):
                         check=0
                         surp.exist=0
                         onsh=self.combs[surp.n_surface].q[0]**2-sum(self.combs[surp.n_surface].q[i1]**2 for i1 in range(1,4))
-                        logging.debug(onsh)
+
                         if onsh>0 and (-self.combs[surp.n_surface].q[0])*spl>0:
                             #surp.exist ==1
                             check=1
@@ -444,12 +450,12 @@ class Diagnostic_tool(object):
                             if check==1:
                                 all_surf.append([self.cut[i], surp])
                         else:
-                            logging.critical(surp.exist)
-                            logging.critical(check)
-                            logging.critical(surp.moms)
-                            logging.critical(surp.surface_signs)
-                            logging.critical("ERRRROOOOOORRRRR")
-                            return
+                            print(surp.exist)
+                            print(check)
+                            print(surp.moms)
+                            print(surp.surface_signs)
+                            print("ERRRROOOOOORRRR: Numerical existence of ellipsoid does not coincide with analytical")
+                            sys.exit(1)
 
                     else:
                         self.determine_existence(n_points, surp, i)
@@ -465,7 +471,7 @@ class Diagnostic_tool(object):
                         check=0
                         surm.exist=0
                         onsh=self.combs[surm.n_surface].q[0]**2-sum(self.combs[surm.n_surface].q[i1]**2 for i1 in range(1,4))
-                        logging.debug(onsh)
+
                         if onsh>0 and (-self.combs[surm.n_surface].q[0])*spl>0:
                             check=1
                         if n_points!=0:
@@ -476,35 +482,29 @@ class Diagnostic_tool(object):
                             if check==1:
                                 all_surf.append([self.cut[i],surm])
                         else:
-                            logging.critical(surm.exist)
-                            logging.critical(check)
-                            logging.critical(surm.moms)
-                            logging.critical(surm.surface_signs)
-                            logging.critical("ERRRROOOOOORRRR")
-                            return
+                            print(surm.exist)
+                            print(check)
+                            print(surm.moms)
+                            print(surm.surface_signs)
+                            print("ERRRROOOOOORRRR: Numerical existence of ellipsoid does not coincide with analytical")
+                            sys.exit(1)
                     else:
                         self.determine_existence(n_points, surm, i)
                         if surm.exist == 1:
                             all_surf.append([self.cut[i],surm])
-                            logging.debug(surm.surface_signs)
-                            logging.debug(spl)
+
         
         return all_surf
 
     def generate_surface_points(self, n_points, surface, n_cut):
-        self.determine_existence(int(n_points/10), surface, n_cut)
         t=0
         point_list=[]
         if surface.exist==1:
             while t!=n_points:
-                loopmomenta = [[random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)],
-                               [random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)]]
-                
-                u = random.uniform(-1, 1)
-                v = random.uniform(-1, 1)
-                #print "IN diag tool", u, v, type(surface), loopmomenta, n_cut
-                #print surface
-                ll1 = diag.get_parametrization(u=u, v=v, loop_momenta=loopmomenta,
+                loopmomenta = [[random.uniform(0, 0.1), random.uniform(-1,1), random.uniform(-1,1), random.uniform(-1,1)],
+                               [random.uniform(0, 1), random.uniform(-1,1), random.uniform(-1,1), random.uniform(-1,1)]]
+
+                ll1 = diag.get_parametrization(u=random.uniform(-1, 1), v=random.uniform(-1, 1), loop_momenta=loopmomenta,
                                                surface=surface, n_cut=n_cut)
 
                 if ll1 != None:
@@ -580,6 +580,7 @@ class Diagnostic_tool(object):
                 non_redundant_sur.append(newset)
 
         return non_redundant_sur
+
 
 def print_all_surfaces(classified_surfaces, show_group_members=False):
 
