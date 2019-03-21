@@ -1,7 +1,7 @@
 use arrayvec::ArrayVec;
 use num_traits::Float;
 use num_traits::NumCast;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, Inv, One, ToPrimitive};
 use topologies::Topology;
 use vector::LorentzVector;
 use {float, Complex};
@@ -26,26 +26,32 @@ pub struct Integrand {
 impl Integrand {
     pub fn new(topology: &Topology, settings: Settings) -> Integrand {
         // create an extra topology with rotated kinematics to check the uncertainty
-        let rot_matrix = [
-            [0.985334, -0.141122, 0.0959282],
-            [0.170454, 0.840137, -0.514893],
-            [-0.00793036, 0.523693, 0.85187],
-        ];
-        let rot_matrix_f: [[float; 3]; 3] = [
+        let angle = float::from_f64(0.33).unwrap(); // rotation angle
+        let rv = (
+            float::from_f64(2.).unwrap().sqrt().inv(),
+            float::from_f64(3.).unwrap().sqrt().inv(),
+            float::from_f64(6.).unwrap().sqrt().inv(),
+        ); // rotation axis
+
+        let cos_t = angle.cos();
+        let sin_t = angle.sin();
+        let cos_t_bar = float::one() - angle.cos();
+
+        let rot_matrix: [[float; 3]; 3] = [
             [
-                float::from_f64(0.985334_f64).unwrap(),
-                float::from_f64(-0.141122_f64).unwrap(),
-                float::from_f64(0.0959282_f64).unwrap(),
+                cos_t + rv.0 * rv.0 * cos_t_bar,
+                rv.0 * rv.1 * cos_t_bar - rv.2 * sin_t,
+                rv.0 * rv.2 * cos_t_bar + rv.1 * sin_t,
             ],
             [
-                float::from_f64(0.170454_f64).unwrap(),
-                float::from_f64(0.840137_f64).unwrap(),
-                float::from_f64(-0.514893_f64).unwrap(),
+                rv.0 * rv.1 * cos_t_bar + rv.2 * sin_t,
+                cos_t + rv.1 * rv.1 * cos_t_bar,
+                rv.1 * rv.2 * cos_t_bar - rv.0 * sin_t,
             ],
             [
-                float::from_f64(-0.00793036_f64).unwrap(),
-                float::from_f64(0.523693_f64).unwrap(),
-                float::from_f64(0.85187_f64).unwrap(),
+                rv.0 * rv.2 * cos_t_bar - rv.1 * sin_t,
+                rv.1 * rv.2 * cos_t_bar + rv.0 * sin_t,
+                cos_t + rv.2 * rv.2 * cos_t_bar,
             ],
         ];
 
@@ -57,19 +63,13 @@ impl Integrand {
             let old_x = float::from_f64(e.x).unwrap();
             let old_y = float::from_f64(e.y).unwrap();
             let old_z = float::from_f64(e.z).unwrap();
-            e.x = (rot_matrix_f[0][0] * old_x
-                + rot_matrix_f[0][1] * old_y
-                + rot_matrix_f[0][2] * old_z)
+            e.x = (rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z)
                 .to_f64()
                 .unwrap();
-            e.y = (rot_matrix_f[1][0] * old_x
-                + rot_matrix_f[1][1] * old_y
-                + rot_matrix_f[1][2] * old_z)
+            e.y = (rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z)
                 .to_f64()
                 .unwrap();
-            e.z = (rot_matrix_f[2][0] * old_x
-                + rot_matrix_f[2][1] * old_y
-                + rot_matrix_f[2][2] * old_z)
+            e.z = (rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z)
                 .to_f64()
                 .unwrap();
         }
@@ -79,19 +79,19 @@ impl Integrand {
                 let old_x = float::from_f64(p.q.x).unwrap();
                 let old_y = float::from_f64(p.q.y).unwrap();
                 let old_z = float::from_f64(p.q.z).unwrap();
-                p.q.x = (rot_matrix_f[0][0] * old_x
-                    + rot_matrix_f[0][1] * old_y
-                    + rot_matrix_f[0][2] * old_z)
+                p.q.x = (rot_matrix[0][0] * old_x
+                    + rot_matrix[0][1] * old_y
+                    + rot_matrix[0][2] * old_z)
                     .to_f64()
                     .unwrap();
-                p.q.y = (rot_matrix_f[1][0] * old_x
-                    + rot_matrix_f[1][1] * old_y
-                    + rot_matrix_f[1][2] * old_z)
+                p.q.y = (rot_matrix[1][0] * old_x
+                    + rot_matrix[1][1] * old_y
+                    + rot_matrix[1][2] * old_z)
                     .to_f64()
                     .unwrap();
-                p.q.z = (rot_matrix_f[2][0] * old_x
-                    + rot_matrix_f[2][1] * old_y
-                    + rot_matrix_f[2][2] * old_z)
+                p.q.z = (rot_matrix[2][0] * old_x
+                    + rot_matrix[2][1] * old_y
+                    + rot_matrix[2][2] * old_z)
                     .to_f64()
                     .unwrap();
             }

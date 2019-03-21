@@ -137,7 +137,11 @@ impl Topology {
         }
 
         // set the identity rotation matrix
-        self.rotation_matrix = [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]];
+        self.rotation_matrix = [
+            [float::one(), float::zero(), float::zero()],
+            [float::zero(), float::one(), float::zero()],
+            [float::zero(), float::zero(), float::one()],
+        ];
 
         // copy the signature to the propagators
         for l in &mut self.loop_lines {
@@ -864,26 +868,21 @@ impl Topology {
         // parameterize
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut jac_para = float::one();
+        let momentum_scale = self.e_cm_squared.sqrt();
         for i in 0..self.n_loops {
             let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3]);
 
             // add a shift such that k=l is harder to be picked up by integrators such as cuhre
-            l_space[0] += float::from_f64(1. * i as f64).unwrap();
-            l_space[1] += float::from_f64(5. * i as f64).unwrap();
-            l_space[2] += float::from_f64(2. * i as f64).unwrap();
+            l_space[0] += float::from_f64(1. * i as f64 * momentum_scale).unwrap();
+            l_space[1] += float::from_f64(5. * i as f64 * momentum_scale).unwrap();
+            l_space[2] += float::from_f64(2. * i as f64 * momentum_scale).unwrap();
 
             let rot = self.rotation_matrix;
             k[i] = LorentzVector::from_args(
                 float::zero(),
-                float::from_f64(rot[0][0]).unwrap() * l_space[0]
-                    + float::from_f64(rot[0][1]).unwrap() * l_space[1]
-                    + float::from_f64(rot[0][2]).unwrap() * l_space[2],
-                float::from_f64(rot[1][0]).unwrap() * l_space[0]
-                    + float::from_f64(rot[1][1]).unwrap() * l_space[1]
-                    + float::from_f64(rot[1][2]).unwrap() * l_space[2],
-                float::from_f64(rot[2][0]).unwrap() * l_space[0]
-                    + float::from_f64(rot[2][1]).unwrap() * l_space[1]
-                    + float::from_f64(rot[2][2]).unwrap() * l_space[2],
+                rot[0][0] * l_space[0] + rot[0][1] * l_space[1] + rot[0][2] * l_space[2],
+                rot[1][0] * l_space[0] + rot[1][1] * l_space[1] + rot[1][2] * l_space[2],
+                rot[2][0] * l_space[0] + rot[2][1] * l_space[1] + rot[2][2] * l_space[2],
             );
 
             jac_para *= jac;

@@ -87,7 +87,7 @@ pub struct Topology {
     #[serde(default, skip_deserializing)]
     pub surfaces: Vec<Surface>,
     #[serde(skip_deserializing)]
-    pub rotation_matrix: [[f64; 3]; 3],
+    pub rotation_matrix: [[float; 3]; 3],
 }
 
 impl Topology {
