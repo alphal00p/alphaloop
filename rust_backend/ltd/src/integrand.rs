@@ -97,6 +97,18 @@ impl Integrand {
             }
         }
 
+        for surf in &mut rotated_topology.surfaces {
+            let old_x = surf.shift.x;
+            let old_y = surf.shift.y;
+            let old_z = surf.shift.z;
+            surf.shift.x =
+                rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
+            surf.shift.y =
+                rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
+            surf.shift.z =
+                rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+        }
+
         Integrand {
             topologies: vec![topology.clone(), rotated_topology],
             running_max: Complex::default(),
