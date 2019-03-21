@@ -1,6 +1,6 @@
 use topologies::Topology;
 use vector::LorentzVector;
-type Complex = num::Complex<f64>;
+use Complex;
 
 impl Topology {
     pub fn counterterm(&self) -> Complex {
@@ -10,12 +10,12 @@ impl Topology {
                     // 4-point 1-loop with on-shell externals
                     (0b1111, 4) => {
                         // TODO
-                        Complex::new(0., 0.)
+                        Complex::default()
                     }
-                    _ => Complex::new(0., 0.),
+                    _ => Complex::default(),
                 }
             }
-            _ => Complex::new(0., 0.),
+            _ => Complex::default(),
         }
     }
 }

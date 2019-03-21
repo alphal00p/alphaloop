@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 extern crate vector;
 
 use clap::{App, Arg};
+use num_traits::ToPrimitive;
 use rand::prelude::*;
 use std::str::FromStr;
 use std::time::Instant;
@@ -30,7 +31,7 @@ mod topologies;
 mod utils;
 use integrand::Integrand;
 
-use ltdlib::{AdditiveMode, Complex, IntegratedPhase, Settings};
+use ltdlib::{float, AdditiveMode, Complex, IntegratedPhase, Settings};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -72,14 +73,14 @@ fn integrand(
     if res.is_finite() {
         match user_data.integrated_phase {
             IntegratedPhase::Real => {
-                f[0] = res.re;
+                f[0] = res.re.to_f64().unwrap();
             }
             IntegratedPhase::Imag => {
-                f[0] = res.im;
+                f[0] = res.im.to_f64().unwrap();
             }
             IntegratedPhase::Both => {
-                f[0] = res.re;
-                f[1] = res.im;
+                f[0] = res.re.to_f64().unwrap();
+                f[1] = res.im.to_f64().unwrap();
             }
         }
     } else {

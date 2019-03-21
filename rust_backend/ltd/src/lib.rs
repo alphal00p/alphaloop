@@ -10,8 +10,15 @@ extern crate vector;
 use cpython::PyResult;
 use std::cell::RefCell;
 extern crate cuba;
+extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;
+
+use num_traits::{Zero, FromPrimitive, ToPrimitive};
+
+#[allow(non_camel_case_types)]
+//#[cfg(feature = "f128")]  // FIXME: cfg not read...
+pub type float = f128::f128;
 
 pub mod cts;
 pub mod integrand;
@@ -22,7 +29,7 @@ pub mod utils;
 use serde::Deserialize;
 use std::fs::File;
 
-pub type Complex = num::Complex<f64>;
+pub type Complex = num::Complex<float>;
 use arrayvec::ArrayVec;
 use vector::LorentzVector;
 
@@ -119,6 +126,7 @@ impl Settings {
     }
 }
 
+
 // add bindings to the generated python module
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
     m.add(py, "__doc__", "LTD")?;
@@ -140,7 +148,7 @@ py_class!(class LTD |py| {
 
     def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
         let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, res) = self.topo(py).borrow_mut().evaluate(&x);
-        Ok((res.re, res.im))
+        Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
     def evaluate_cut(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
@@ -149,17 +157,17 @@ py_class!(class LTD |py| {
         let mut moms = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
-                Complex::new(0., 0.),
-                Complex::new(l[0].0, l[0].1),
-                Complex::new(l[1].0, l[1].1),
-                Complex::new(l[2].0, l[2].1)));
+                Complex::new(float::zero(), float::zero()),
+                Complex::new(float::from_f64(l[0].0).unwrap(), float::from_f64(l[0].1).unwrap()),
+                Complex::new(float::from_f64(l[1].0).unwrap(), float::from_f64(l[1].1).unwrap()),
+                Complex::new(float::from_f64(l[2].0).unwrap(), float::from_f64(l[2].1).unwrap())));
         }
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
         match topo.evaluate_cut(&mut moms, cut, mat) {
-            Ok(res) => Ok((res.re, res.im)),
+            Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
             Err(_) => Ok((0., 0.))
         }
     }
@@ -170,10 +178,10 @@ py_class!(class LTD |py| {
         let mut moms = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
-                Complex::new(0., 0.),
-                Complex::new(l[0].0, l[0].1),
-                Complex::new(l[1].0, l[1].1),
-                Complex::new(l[2].0, l[2].1)));
+                Complex::new(float::zero(), float::zero()),
+                Complex::new(float::from_f64(l[0].0).unwrap(), float::from_f64(l[0].1).unwrap()),
+                Complex::new(float::from_f64(l[1].0).unwrap(), float::from_f64(l[1].1).unwrap()),
+                Complex::new(float::from_f64(l[2].0).unwrap(), float::from_f64(l[2].1).unwrap())));
         }
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
@@ -183,7 +191,7 @@ py_class!(class LTD |py| {
 
         let mut res = Vec::with_capacity(moms.len());
         for l in moms {
-            res.push((l.t.re, l.t.im));
+            res.push((l.t.re.to_f64().unwrap(), l.t.im.to_f64().unwrap()));
         }
 
         Ok(res)
@@ -194,16 +202,19 @@ py_class!(class LTD |py| {
 
         let mut moms = Vec::with_capacity(loop_momenta.len());
         for l in loop_momenta {
-            moms.push(LorentzVector::from_args(0., l[0], l[1], l[2]));
+            moms.push(LorentzVector::from_args(float::zero(),
+                float::from_f64(l[0]).unwrap(),
+                float::from_f64(l[1]).unwrap(),
+                float::from_f64(l[2]).unwrap()));
         }
 
         let (res, jac) = self.topo(py).borrow().deform(&moms);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {
-            r.push((x[1], x[2], x[3]));
+            r.push((x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), x[3].to_f64().unwrap()));
         }
 
-        Ok((r, jac.re, jac.im))
+        Ok((r, jac.re.to_f64().unwrap(), jac.im.to_f64().unwrap()))
     }
 });

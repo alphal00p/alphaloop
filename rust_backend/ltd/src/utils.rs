@@ -1,6 +1,8 @@
 use arrayvec::ArrayVec;
+use {Complex, float};
+use num_traits::NumCast;
+use num_traits::{One, Zero, Inv};
 
-type Complex = num::Complex<f64>;
 const MAX_DIM: usize = 128;
 
 #[inline]
@@ -15,7 +17,7 @@ pub fn finv(c: Complex) -> Complex {
 pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
     // Define matrix related variables.
     let dimension = (bb.len() as f64).sqrt() as usize;
-    let mut determinant = Complex::new(1.0, 0.0);
+    let mut determinant = Complex::new(float::one(), float::zero());
     let mut indx = [0; MAX_DIM];
     let mut d = 1; // initialize parity parameter
 
@@ -30,11 +32,11 @@ pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
 
     let mut aamax;
     let mut dumr;
-    let mut vv = [0.0; MAX_DIM];
+    let mut vv = [float::zero(); MAX_DIM];
 
     // Get the implicit scaling information.
     for i in 0..dimension {
-        aamax = 0.0;
+        aamax = float::zero();
         for j in 0..dimension {
             let r = aa[i * dimension + j].norm_sqr();
             if r > aamax {
@@ -42,11 +44,11 @@ pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
             }
         }
         // Set a flag to check if the determinant is zero.
-        if aamax == 0.0 {
+        if aamax.is_zero() {
             flag = 0;
         }
         // Save the scaling.
-        vv[i] = 1.0 / aamax;
+        vv[i] = aamax.inv();
     }
     if flag == 1 {
         for j in 0..dimension {
@@ -58,7 +60,7 @@ pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
                 aa[i * dimension + j] = sum;
             }
             //Initialize for the search for largest pivot element.
-            aamax = 0.0;
+            aamax = float::zero();
             for i in j..dimension {
                 sum = aa[i * dimension + j];
                 for k in 0..j {
@@ -87,7 +89,7 @@ pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
             }
             indx[j] = imax;
             if j + 1 != dimension {
-                dumc = 1.0 / aa[j * dimension + j];
+                dumc = aa[j * dimension + j].inv();
                 for i in j + 1..dimension {
                     aa[i * dimension + j] = aa[i * dimension + j] * dumc;
                 }
@@ -96,13 +98,13 @@ pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
     }
     // Calculate the determinant using the decomposed matrix.
     if flag == 0 {
-        determinant = Complex::new(0.0, 0.0);
+        determinant = Complex::default();
     } else {
         // Multiply the diagonal elements.
         for diagonal in 0..dimension {
             determinant = determinant * aa[diagonal * dimension + diagonal];
         }
-        determinant = d as f64 * determinant;
+        determinant = determinant *  <float as NumCast>::from(d).unwrap();
     }
     determinant
 }

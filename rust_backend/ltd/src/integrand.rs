@@ -1,7 +1,10 @@
 use arrayvec::ArrayVec;
+use num_traits::Float;
+use num_traits::NumCast;
+use num_traits::{FromPrimitive, ToPrimitive};
 use topologies::Topology;
 use vector::LorentzVector;
-use Complex;
+use {float, Complex};
 
 const MAX_LOOP: usize = 3;
 
@@ -28,36 +31,75 @@ impl Integrand {
             [0.170454, 0.840137, -0.514893],
             [-0.00793036, 0.523693, 0.85187],
         ];
+        let rot_matrix_f: [[float; 3]; 3] = [
+            [
+                float::from_f64(0.985334_f64).unwrap(),
+                float::from_f64(-0.141122_f64).unwrap(),
+                float::from_f64(0.0959282_f64).unwrap(),
+            ],
+            [
+                float::from_f64(0.170454_f64).unwrap(),
+                float::from_f64(0.840137_f64).unwrap(),
+                float::from_f64(-0.514893_f64).unwrap(),
+            ],
+            [
+                float::from_f64(-0.00793036_f64).unwrap(),
+                float::from_f64(0.523693_f64).unwrap(),
+                float::from_f64(0.85187_f64).unwrap(),
+            ],
+        ];
+
         let mut rotated_topology = topology.clone();
         rotated_topology.name = rotated_topology.name + "_rot";
         rotated_topology.rotation_matrix = rot_matrix.clone();
 
-        for x in &mut rotated_topology.external_kinematics {
-            let old_x = x.x;
-            let old_y = x.y;
-            let old_z = x.z;
-            x.x = rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-            x.y = rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-            x.z = rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+        for e in &mut rotated_topology.external_kinematics {
+            let old_x = float::from_f64(e.x).unwrap();
+            let old_y = float::from_f64(e.y).unwrap();
+            let old_z = float::from_f64(e.z).unwrap();
+            e.x = (rot_matrix_f[0][0] * old_x
+                + rot_matrix_f[0][1] * old_y
+                + rot_matrix_f[0][2] * old_z)
+                .to_f64()
+                .unwrap();
+            e.y = (rot_matrix_f[1][0] * old_x
+                + rot_matrix_f[1][1] * old_y
+                + rot_matrix_f[1][2] * old_z)
+                .to_f64()
+                .unwrap();
+            e.z = (rot_matrix_f[2][0] * old_x
+                + rot_matrix_f[2][1] * old_y
+                + rot_matrix_f[2][2] * old_z)
+                .to_f64()
+                .unwrap();
         }
 
         for ll in &mut rotated_topology.loop_lines {
             for p in &mut ll.propagators {
-                let old_x = p.q.x;
-                let old_y = p.q.y;
-                let old_z = p.q.z;
-                p.q.x =
-                    rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-                p.q.y =
-                    rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-                p.q.z =
-                    rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+                let old_x = float::from_f64(p.q.x).unwrap();
+                let old_y = float::from_f64(p.q.y).unwrap();
+                let old_z = float::from_f64(p.q.z).unwrap();
+                p.q.x = (rot_matrix_f[0][0] * old_x
+                    + rot_matrix_f[0][1] * old_y
+                    + rot_matrix_f[0][2] * old_z)
+                    .to_f64()
+                    .unwrap();
+                p.q.y = (rot_matrix_f[1][0] * old_x
+                    + rot_matrix_f[1][1] * old_y
+                    + rot_matrix_f[1][2] * old_z)
+                    .to_f64()
+                    .unwrap();
+                p.q.z = (rot_matrix_f[2][0] * old_x
+                    + rot_matrix_f[2][1] * old_y
+                    + rot_matrix_f[2][2] * old_z)
+                    .to_f64()
+                    .unwrap();
             }
         }
 
         Integrand {
             topologies: vec![topology.clone(), rotated_topology],
-            running_max: Complex::new(0., 0.),
+            running_max: Complex::default(),
             total_samples: 0,
             regular_point_count: 0,
             unstable_point_count: 0,
@@ -72,11 +114,11 @@ impl Integrand {
         new_max: bool,
         x: &[f64],
         k_def: ArrayVec<[LorentzVector<Complex>; MAX_LOOP]>,
-        jac_para: f64,
+        jac_para: float,
         jac_def: Complex,
         result: Complex,
         rot_result: Complex,
-        stable_digits: f64,
+        stable_digits: float,
     ) {
         if new_max || !result.is_finite() || self.settings.general.debug > 0 {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
@@ -133,7 +175,7 @@ impl Integrand {
         // FIXME: only checking the real for now
         if !result.re.is_finite()
             || !result_rot.re.is_finite()
-            || d < self.settings.general.relative_precision
+            || d < NumCast::from(self.settings.general.relative_precision).unwrap()
         {
             if self.settings.general.integration_statistics {
                 self.print_info(
@@ -156,7 +198,7 @@ impl Integrand {
             }
 
             // if we have large numerical instability, we return 0
-            return Complex::new(0., 0.);
+            return Complex::default();
         }
 
         self.regular_point_count += 1;

@@ -26,3 +26,4 @@ serde_yaml = "*"
 itertools = "0.8"
 clap = "*"
 rand = "*"
+f128 = { git = "https://github.com/benruijl/f128" }
