@@ -72,7 +72,7 @@ pub struct Deformer<F: Float + Field> {
     uv_shift: LorentzVector<F>,
 }
 
-impl<F: Float + Field> Deformer<F> {
+impl<F: Float + Field + From<f64>> Deformer<F> {
     pub fn new(
         e_cm_sq: f64,
         mu_sq: f64,
@@ -1370,7 +1370,7 @@ impl Deformer<f64> {
             &self.masses,
         )
         .unwrap();
-        dual_deformer.set_qs_iter(self.qs.iter().map(|x| LorentzVector::from_f64(*x)));
+        dual_deformer.set_qs_iter(self.qs.iter().map(|x| x.convert()));
 
         let mut grad = [[Complex::new(0., 0.); 4]; 4];
 
@@ -1379,7 +1379,7 @@ impl Deformer<f64> {
             grad[i][i] += Complex::new(1., 0.); // for the real part
 
             // we need to decide where to place the 1 for the ep
-            let mut k_ep: LorentzVector<Dual<f64>> = LorentzVector::from_f64(*k);
+            let mut k_ep: LorentzVector<Dual<f64>> = k.convert();
             k_ep[i] = Dual::new(k[i], 1.0);
 
             // disable ca, like in the one-loop code
@@ -1422,10 +1422,10 @@ impl Deformer<f64> {
         )
         .unwrap();
         dual9_deformer
-            .set_external_momenta_iter(self.ext.iter().map(|x| LorentzVector::from_f64(*x)));
+            .set_external_momenta_iter(self.ext.iter().map(|x| x.convert()));
 
-        let mut k_dual9: LorentzVector<Dual9<f64>> = LorentzVector::from_f64(*k);
-        let mut l_dual9: LorentzVector<Dual9<f64>> = LorentzVector::from_f64(*l);
+        let mut k_dual9: LorentzVector<Dual9<f64>> = k.convert();
+        let mut l_dual9: LorentzVector<Dual9<f64>> = l.convert();
 
         for i in 0..8 {
             if i < 4 {
@@ -1480,12 +1480,12 @@ impl Deformer<f64> {
         )
         .unwrap();
         dual_deformer
-            .set_external_momenta_iter(self.ext.iter().map(|x| LorentzVector::from_f64(*x)));
+            .set_external_momenta_iter(self.ext.iter().map(|x| x.convert()));
 
         let mut grad = [[Complex::new(0., 0.); 8]; 8];
 
-        let mut k_dual: LorentzVector<Dual<f64>> = LorentzVector::from_f64(*k);
-        let mut l_dual: LorentzVector<Dual<f64>> = LorentzVector::from_f64(*l);
+        let mut k_dual: LorentzVector<Dual<f64>> = k.convert();
+        let mut l_dual: LorentzVector<Dual<f64>> = l.convert();
 
         let mut k_res: LorentzVector<Dual<f64>> = LorentzVector::new();
         let mut l_res: LorentzVector<Dual<f64>> = LorentzVector::new();
