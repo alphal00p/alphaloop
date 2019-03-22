@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+# --loop=100
+./run_tests.py \
+	--t=Triangle\
+	--name=pole_check \
+	--ps=[ \
+		[39.7424,-24.1093, -20.102709, 2.4908], \
+	    [50.2576, 14.1093,-0.102709,-5.4908], \
+		[-90., 10.,20.,3.] \
+	] \
+	--nh=1000 \
+	--s=[] \
+	--d=[ \
+	  [1.,1.,0.], \
+	] \
+	--p=[ \
+      [1.1,1.2,1.3,1.4], \
+	] \
+	--u=-1.0 \
+	--v=-1.0 \
+	--t_values_steps="linear" \
+	--tr=[0.0,2.0] \
+	--t_n_points=100 \
+	--seed=1 \
+	--analysis_options={\"log_x_scale\": False, \"log_y_scale\": False} \
+    --save="test.yaml"

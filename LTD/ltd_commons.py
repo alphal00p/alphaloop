@@ -293,7 +293,7 @@ class Propagator(object):
 
     def evaluate_inverse(self, loop_momenta):
         """ Evaluates the inverse propagator with the provided list loop momenta, given as a list of LorentzVector.""" 
-        return (sum(wgt*loop_momentum for wgt, loop_momentum in zip(self.signature, loop_momenta)) + q).square() - self.m_squared
+        return (sum(wgt*loop_momentum for wgt, loop_momentum in zip(self.signature, loop_momenta)) + self.q).square() - self.m_squared
 
     def set_signature(self, signature, force=True):
         """ Overwrite (if force=True) the signature attribute of this propagator."""

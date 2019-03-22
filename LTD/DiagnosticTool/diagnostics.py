@@ -413,13 +413,19 @@ class Diagnostic_tool(object):
         vec = [kx, ky, kz]
 
         self.rot_matrix_construction(surface, loop_momenta, n_cut)
-
+        
         vec=numpy.array(numpy.dot(self.rot_matrix, vec)) + numpy.array([p_tr[0][1], p_tr[0][2], p_tr[0][3]])
+        
+        # Stupid fix for when self.rot_matrix is the identity then the return type of the operation above 
+        # does not have the same shape... I'll let zeno fix this correctly :S
+        if isinstance(vec[0], float):
+            vec = numpy.array([vec])
+
         foci1 = numpy.array(numpy.dot(self.rot_matrix, [0., 0.,math.sqrt(mod_p_sq)])) + numpy.array(
             [p_tr[0][1], p_tr[0][2], p_tr[0][3]])
         foci2=numpy.array(numpy.dot(self.rot_matrix, [0.,0.,-math.sqrt(mod_p_sq)])) + numpy.array([p_tr[0][1], p_tr[0][2], p_tr[0][3]])
         surface.foci=[foci1,foci2]
-
+            
         if surface.param_variable == 0:
             vec = [vec[0], [loop_momenta[1][1], loop_momenta[1][2], loop_momenta[1][3]]]
         else:
@@ -452,7 +458,7 @@ class Diagnostic_tool(object):
                         if onsh>0 and (-self.combs[surp.n_surface].q[0])*spl>0:
                             #surp.exist ==1
                             check=1
-                        if n_points!=0:
+                        if n_points!=0 and self.n_loop>1:
                             self.determine_existence(n_points, surp, i)
                         else:
                             surp.exist=check
@@ -676,7 +682,7 @@ if __name__ == '__main__':
 
     logging.info(print_all_surfaces(classified_surfaces,show_group_members=options['show_group_members']))
 
-    #"""
+    """
     #surcheck=Surface(n=3,ot_sign=1,sheet=1)
     surcheck=classified_surfaces[0][0][1]
     points=diag.generate_surface_points(n_points=10000, surface=surcheck, n_cut=0)
@@ -700,6 +706,6 @@ if __name__ == '__main__':
 
 
     plt.show()
-    #"""
+    """
 
 
