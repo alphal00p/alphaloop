@@ -23,22 +23,42 @@ pub struct Integrand {
 impl Integrand {
     pub fn new(topology: &Topology, settings: Settings) -> Integrand {
         // create an extra topology with rotated kinematics to check the uncertainty
-        let rot_matrix = [
-            [0.985334, -0.141122, 0.0959282],
-            [0.170454, 0.840137, -0.514893],
-            [-0.00793036, 0.523693, 0.85187],
+        let angle = 0.33f64; // rotation angle
+        let rv = (1f64 / 2f64.sqrt(), 1f64 / 3f64.sqrt(), 1f64 / 6f64.sqrt()); // rotation axis
+
+        let cos_t = angle.cos();
+        let sin_t = angle.sin();
+        let cos_t_bar = 1. - angle.cos();
+
+        let rot_matrix: [[f64; 3]; 3] = [
+            [
+                cos_t + rv.0 * rv.0 * cos_t_bar,
+                rv.0 * rv.1 * cos_t_bar - rv.2 * sin_t,
+                rv.0 * rv.2 * cos_t_bar + rv.1 * sin_t,
+            ],
+            [
+                rv.0 * rv.1 * cos_t_bar + rv.2 * sin_t,
+                cos_t + rv.1 * rv.1 * cos_t_bar,
+                rv.1 * rv.2 * cos_t_bar - rv.0 * sin_t,
+            ],
+            [
+                rv.0 * rv.2 * cos_t_bar - rv.1 * sin_t,
+                rv.1 * rv.2 * cos_t_bar + rv.0 * sin_t,
+                cos_t + rv.2 * rv.2 * cos_t_bar,
+            ],
         ];
+
         let mut rotated_topology = topology.clone();
         rotated_topology.name = rotated_topology.name + "_rot";
         rotated_topology.rotation_matrix = rot_matrix.clone();
 
-        for x in &mut rotated_topology.external_kinematics {
-            let old_x = x.x;
-            let old_y = x.y;
-            let old_z = x.z;
-            x.x = rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-            x.y = rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-            x.z = rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+        for e in &mut rotated_topology.external_kinematics {
+            let old_x = e.x;
+            let old_y = e.y;
+            let old_z = e.z;
+            e.x = rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
+            e.y = rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
+            e.z = rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
         }
 
         for ll in &mut rotated_topology.loop_lines {
@@ -53,6 +73,18 @@ impl Integrand {
                 p.q.z =
                     rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
             }
+        }
+
+        for surf in &mut rotated_topology.surfaces {
+            let old_x = surf.shift.x;
+            let old_y = surf.shift.y;
+            let old_z = surf.shift.z;
+            surf.shift.x =
+                rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
+            surf.shift.y =
+                rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
+            surf.shift.z =
+                rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
         }
 
         Integrand {
