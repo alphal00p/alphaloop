@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 # --loop=100
 ./run_tests.py \
-	--l=10 \
 	--t=DoubleBox\
 	--name=pole_check \
 	--ps=[ \
@@ -27,4 +26,5 @@
 	--t_n_points=100 \
 	--seed=1 \
 	--analysis_options={\"log_x_scale\": False, \"log_y_scale\": False} \
-    --save="test.yaml"
+    --save="test.yaml" \
+	$1

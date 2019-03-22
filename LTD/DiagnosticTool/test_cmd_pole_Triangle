@@ -23,4 +23,5 @@
 	--t_n_points=100 \
 	--seed=1 \
 	--analysis_options={\"log_x_scale\": False, \"log_y_scale\": False} \
-    --save="test.yaml"
+    --save="test.yaml" \
+	$1
