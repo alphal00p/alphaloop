@@ -445,6 +445,7 @@ impl Topology {
             for cut in cuts {
                 // compute the real and imaginary part and the mass of the cut momentum
                 let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
+                let mut cut_shifts = [LorentzVector::default(); MAX_LOOP];
                 let mut kappa_cuts = [LorentzVector::default(); MAX_LOOP];
                 let mut mass_cuts = [0.; MAX_LOOP];
                 let mut index = 0;
@@ -462,6 +463,7 @@ impl Topology {
 
                         if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut {
                             mass_cuts[index] = ll.propagators[*i].m_squared;
+                            cut_shifts[index] = ll.propagators[*i].q;
                         }
                         index += 1;
                     }
@@ -495,7 +497,7 @@ impl Topology {
                     kappa_onshell.t = DualN::from_real(float::zero());
                     for (((s, kc), cm), mass) in onshell_signs
                         .iter()
-                        .zip(kappa_cuts.iter())
+                        .zip(kappa_cuts[..self.n_loops].iter())
                         .zip(cut_momenta.iter())
                         .zip(mass_cuts.iter())
                     {
@@ -513,9 +515,13 @@ impl Topology {
                     }
 
                     // construct the real part of the loop line momentum
-                    let mut mom: LorentzVector<DualN<float, U>> = LorentzVector::default();
-                    for (l, &c) in loop_momenta.iter().zip(onshell_ll.signature.iter()) {
-                        mom += l * DualN::from_real(float::from_i8(c).unwrap());
+                    let mut mom: LorentzVector<DualN<float, U>> = LorentzVector::default();;
+                    for ((l, &c), cut_shift) in cut_momenta
+                        .iter()
+                        .zip(sig_ll_in_cb.iter())
+                        .zip(cut_shifts.iter())
+                    {
+                        mom += l * DualN::from_real(float::from_i8(c).unwrap()) - cut_shift;
                     }
 
                     for onshell_prop in onshell_ll.propagators.iter() {
