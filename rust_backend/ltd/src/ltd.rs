@@ -428,6 +428,7 @@ impl Topology {
                 // compute the real and imaginary part and the mass of the cut momentum
                 let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
                 let mut kappa_cuts = [LorentzVector::default(); MAX_LOOP];
+                let mut cut_shifts = [LorentzVector::default(); MAX_LOOP];
                 let mut mass_cuts = [0.; MAX_LOOP];
                 let mut index = 0;
                 for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
@@ -444,12 +445,13 @@ impl Topology {
 
                         if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut {
                             mass_cuts[index] = ll.propagators[*i].m_squared;
+                            cut_shifts[index] = ll.propagators[*i].q;
                         }
                         index += 1;
                     }
                 }
 
-                for onshell_ll in self.loop_lines.iter() {
+                for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
                     // construct the complex part of the loop line momentum
                     let mut kappa_onshell = LorentzVector::default();
                     for (kappa, &c) in kappas.iter().zip(onshell_ll.signature.iter()) {
@@ -482,8 +484,7 @@ impl Topology {
                         .zip(mass_cuts.iter())
                     {
                         kappa_onshell.t += kc.spatial_dot_impr(cm)
-                            / (cm.spatial_squared_impr() + *mass)
-                            * 0.5
+                            / (cm.spatial_squared_impr() + *mass).sqrt()
                             * (*s as f64);
                     }
 
@@ -496,16 +497,37 @@ impl Topology {
 
                     // construct the real part of the loop line momentum
                     let mut mom = LorentzVector::default();
-                    for (l, &c) in loop_momenta.iter().zip(onshell_ll.signature.iter()) {
-                        mom += l * c as f64;
+                    for ((l, &c), cut_shift) in cut_momenta
+                        .iter()
+                        .zip(sig_ll_in_cb.iter())
+                        .zip(cut_shifts.iter())
+                    {
+                        mom += (l - cut_shift) * (c as f64);
                     }
 
-                    for onshell_prop in onshell_ll.propagators.iter() {
+                    for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate() {
                         let onshell_prop_mom = mom + onshell_prop.q;
 
-                        let x = (kappa_onshell.dot_impr(&onshell_prop_mom) * k0sq_inv).powi(2);
-                        let y =
-                            (onshell_prop_mom.square_impr() - onshell_prop.m_squared) * k0sq_inv;
+                        // if this is the cut propagator, we only need to use the spatial part
+                        // the functional form remains the same
+                        let (x, y) = if *ll_cut == Cut::NegativeCut(prop_index)
+                            || *ll_cut == Cut::PositiveCut(prop_index)
+                        {
+                            let k_sp_inv =
+                                DualN::from_real(1.0) / kappa_onshell.spatial_squared_impr();
+                            let x = (kappa_onshell.spatial_dot_impr(&onshell_prop_mom) * k_sp_inv)
+                                .powi(2);
+                            let y = (onshell_prop_mom.spatial_squared_impr()
+                                - onshell_prop.m_squared)
+                                * k_sp_inv;
+                            (x, y)
+                        } else {
+                            let x = (kappa_onshell.dot_impr(&onshell_prop_mom) * k0sq_inv).powi(2);
+                            let y = (onshell_prop_mom.square_impr() - onshell_prop.m_squared)
+                                * k0sq_inv;
+                            (x, y)
+                        };
+
                         let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
 
                         // TODO: add a lambda bound for the expansion parameter
