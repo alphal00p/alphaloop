@@ -469,7 +469,7 @@ impl Topology {
                     }
                 }
 
-                for onshell_ll in self.loop_lines.iter() {
+                for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
                     // construct the complex part of the loop line momentum
                     let mut kappa_onshell = LorentzVector::default();
                     for (kappa, &c) in kappas.iter().zip(onshell_ll.signature.iter()) {
@@ -495,15 +495,15 @@ impl Topology {
                     // in a linear approximation, suitable for
                     // Weinzierl's lambda scaling
                     kappa_onshell.t = DualN::from_real(float::zero());
-                    for (((s, kc), cm), mass) in onshell_signs
+                    for (((s, kc), cm), &mass_sq) in onshell_signs
                         .iter()
                         .zip(kappa_cuts[..self.n_loops].iter())
                         .zip(cut_momenta.iter())
                         .zip(mass_cuts.iter())
                     {
                         kappa_onshell.t += kc.spatial_dot_impr(cm)
-                            / (cm.spatial_squared_impr() + float::from_f64(*mass).unwrap())
-                            * float::from_f64(0.5).unwrap()
+                            / (cm.spatial_squared_impr() + float::from_f64(mass_sq).unwrap())
+                                .sqrt()
                             * float::from_i8(*s).unwrap();
                     }
 
@@ -521,17 +521,34 @@ impl Topology {
                         .zip(sig_ll_in_cb.iter())
                         .zip(cut_shifts.iter())
                     {
-                        mom += l * DualN::from_real(float::from_i8(c).unwrap()) - cut_shift;
+                        mom +=
+                            (l - cut_shift.cast()) * DualN::from_real(float::from_i8(c).unwrap());
                     }
 
-                    for onshell_prop in onshell_ll.propagators.iter() {
+                    for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate() {
                         let pq: LorentzVector<DualN<float, U>> = onshell_prop.q.cast();
                         let onshell_prop_mom = mom + pq;
 
-                        let x = (kappa_onshell.dot_impr(&onshell_prop_mom) * k0sq_inv).powi(2);
-                        let y = (onshell_prop_mom.square_impr()
-                            - float::from_f64(onshell_prop.m_squared).unwrap())
-                            * k0sq_inv;
+                        // if this is the cut propagator, we only need to use the spatial part
+                        // the functional form remains the same
+                        let (x, y) = if *ll_cut == Cut::NegativeCut(prop_index)
+                            || *ll_cut == Cut::PositiveCut(prop_index)
+                        {
+                            let k_sp_inv = DualN::from_real(float::one())
+                                / kappa_onshell.spatial_squared_impr();
+                            let x = (kappa_onshell.spatial_dot_impr(&onshell_prop_mom) * k_sp_inv)
+                                .powi(2);
+                            let y = (onshell_prop_mom.spatial_squared_impr()
+                                - float::from_f64(onshell_prop.m_squared).unwrap())
+                                * k_sp_inv;
+                            (x, y)
+                        } else {
+                            let x = (kappa_onshell.dot_impr(&onshell_prop_mom) * k0sq_inv).powi(2);
+                            let y = (onshell_prop_mom.square_impr()
+                                - float::from_f64(onshell_prop.m_squared).unwrap())
+                                * k0sq_inv;
+                            (x, y)
+                        };
                         let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
 
                         // TODO: add a lambda bound for the expansion parameter
