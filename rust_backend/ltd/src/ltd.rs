@@ -496,7 +496,7 @@ impl Topology {
 
                     // construct the real part of the loop line momentum
                     let mut mom = LorentzVector::default();
-                    for (l, &c) in cut_momenta.iter().zip(sig_ll_in_cb.iter()) {
+                    for (l, &c) in loop_momenta.iter().zip(onshell_ll.signature.iter()) {
                         mom += l * c as f64;
                     }
 
