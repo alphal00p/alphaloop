@@ -521,8 +521,8 @@ impl Topology {
                         .zip(sig_ll_in_cb.iter())
                         .zip(cut_shifts.iter())
                     {
-                        mom +=
-                            (l - cut_shift.cast()) * DualN::from_real(float::from_i8(c).unwrap());
+                        let shift: LorentzVector<DualN<float, U>> = cut_shift.cast();
+                        mom += (l - shift) * DualN::from_real(float::from_i8(c).unwrap());
                     }
 
                     for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate() {
