@@ -5,7 +5,7 @@ extern crate serde;
 use dual_num::{Allocator, DefaultAllocator, Dim, DimName, DualN, Owned};
 use num::traits::ops::mul_add::MulAdd;
 use num::traits::Inv;
-use num::traits::{NumAssign, NumAssignOps, NumOps, NumRef, RefNum};
+use num::traits::{NumAssign, NumOps, NumRef};
 use num::Complex;
 use num::Float;
 use num::Num;

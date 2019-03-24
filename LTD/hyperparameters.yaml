@@ -1,8 +1,8 @@
 Deformation:
   additive:
-    a_ij: 10.0
+    a_ij: 1.0
     mode: exponential
-  lambda: -0.1
+  lambda: -0.01
   multiplicative:
     M_ij: 0.1
 General:
@@ -14,11 +14,17 @@ General:
   numerical_instability_check: true
   numerical_threshold: 0.0
   relative_precision: 5
-  statistics_interval: 10000
+  statistics_interval: 100000
   topology: DoubleTriangle
 Integrator:
   integrated_phase: real
-  integrator: cuhre
+  integrator: vegas
   n_increase: 0
   n_max: 1000000000
   n_start: 100000
+Parameterization:
+  rescaling: 1.0
+  shift:
+  - 0.0
+  - 0.0
+  - 0.0

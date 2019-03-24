@@ -862,13 +862,13 @@ hyperparameters = HyperParameters({
         'log_to_screen'         :   True,
         'log_file'              :   'log.txt',
         'integration_statistics':   True,
-        'statistics_interval'   :   10000,
+        'statistics_interval'   :   100000,
         'debug'                 :   0
     },
 
     'Integrator'    :   {
         # The integrator can be vegas or cuhre
-        'integrator'        :   'cuhre',
+        'integrator'        :   'vegas',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e9),
         'n_increase'        :   0,
@@ -878,17 +878,25 @@ hyperparameters = HyperParameters({
     'Deformation'   :   {
         # positive value: maximum lambda in auto scaling
         # negative value: no auto scaling, lambda is set to abs(lambda)
-        'lambda'    :   -0.1,
+        'lambda'    :   -0.01,
 
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
             'mode'  :   'exponential',
-            'a_ij'  :   10.0,
+            'a_ij'  :   1.0,
         },
 
         'multiplicative'        :   {
             'M_ij'  :   0.1
         }
+
+    },
+
+    'Parameterization'   :   {
+        # rescale the radius of the ith loop momentum by rescaling^i
+        'rescaling' :   1.0,
+        # shift the ith loop momentum by e_cm*(i*shift)
+        'shift'     :   [0., 0., 0.]
 
     },
 

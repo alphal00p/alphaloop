@@ -85,6 +85,12 @@ pub struct DeformationSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+pub struct ParameterizationSettings {
+    pub rescaling: f64,
+    pub shift: (f64, f64, f64),
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
     pub log_file: String,
     pub log_to_screen: bool,
@@ -128,6 +134,8 @@ pub struct Settings {
     pub integrator: IntegratorSettings,
     #[serde(rename = "Deformation")]
     pub deformation: DeformationSettings,
+    #[serde(rename = "Parameterization")]
+    pub parameterization: ParameterizationSettings,
 }
 
 impl Settings {
@@ -136,7 +144,6 @@ impl Settings {
         serde_yaml::from_reader(f).unwrap()
     }
 }
-
 
 // add bindings to the generated python module
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {

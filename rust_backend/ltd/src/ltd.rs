@@ -382,9 +382,15 @@ impl Topology {
     }
 
     /// Map from unit hypercube to infinite hypercube in N-d
-    pub fn parameterize(&self, x: &[f64]) -> (ArrayVec<[float; MAX_DIM]>, float) {
+    pub fn parameterize(
+        &self,
+        x: &[f64],
+        loop_index: usize,
+    ) -> (ArrayVec<[float; MAX_DIM]>, float) {
         let mut jac = float::one();
-        let e_cm = float::from_f64(self.e_cm_squared).unwrap().sqrt();
+        let e_cm = float::from_f64(self.e_cm_squared).unwrap().sqrt()
+            * (float::from_f64(self.settings.parameterization.rescaling).unwrap())
+                .powi(loop_index as i32);
         let radius =
             e_cm * float::from_f64(x[0]).unwrap() / (float::one() - float::from_f64(x[0]).unwrap()); // in [0,inf)
         jac *= (e_cm + radius).powi(2) / e_cm;
@@ -411,6 +417,21 @@ impl Topology {
                 l_space.push(radius * sin_theta * phi.cos());
                 l_space.push(radius * sin_theta * phi.sin());
                 l_space.push(radius * cos_theta);
+
+                // add a shift such that k=l is harder to be picked up by integrators such as cuhre
+                l_space[0] += float::from_f64(
+                    self.settings.parameterization.shift.0 * loop_index as f64 * e_cm,
+                )
+                .unwrap();
+                l_space[1] += float::from_f64(
+                    self.settings.parameterization.shift.1 * loop_index as f64 * e_cm,
+                )
+                .unwrap();
+                l_space[2] += float::from_f64(
+                    self.settings.parameterization.shift.2 * loop_index as f64 * e_cm,
+                )
+                .unwrap();
+
                 jac *= radius * radius; // spherical coord
                 (l_space, jac)
             }
@@ -584,6 +605,8 @@ impl Topology {
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
 
+        let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
+
         // surface equation:
         // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
         // where m=delta_sign a = sig_ll_in_cb, r = residue_sign
@@ -638,13 +661,15 @@ impl Topology {
             // n_i is the normal vector of the ith entry of the cut momentum basis
             // this n_i is 0 when the surface does not depend on the ith cut loop line
             // we update cut_dirs from v_i to n_i
+            let mut num_foci = 0;
             for (cut_dir, &sign) in cut_dirs[..self.n_loops]
                 .iter_mut()
                 .zip(surf.sig_ll_in_cb.iter())
             {
-                *cut_dir = (*cut_dir
-                    + surface_dir_norm * DualN::from_real(float::from_i8(sign).unwrap()))
-                    * DualN::from_real(float::from_i8(sign.abs()).unwrap());
+                if sign != 0 {
+                    *cut_dir += surface_dir_norm * DualN::from_real(float::from_i8(sign).unwrap());
+                    num_foci += 1;
+                }
             }
 
             // convert from cut momentum basis to loop momentum basis
@@ -706,8 +731,13 @@ impl Topology {
                         dampening.real()
                     );
                 }
+
+                // make sure the kappa has the right dimension by multiplying in this scale
+                // divide by the number of foci such that each ellipsoid has the same kappa
+                // magnitude
                 // note the sign
-                *kappa -= dir * dampening;
+                *kappa -= dir * dampening * scale
+                    / DualN::from_real(float::from_usize(num_foci).unwrap());
             }
         }
 
@@ -902,14 +932,8 @@ impl Topology {
         // parameterize
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut jac_para = float::one();
-        let momentum_scale = self.e_cm_squared.sqrt();
         for i in 0..self.n_loops {
-            let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3]);
-
-            // add a shift such that k=l is harder to be picked up by integrators such as cuhre
-            l_space[0] += float::from_f64(1. * i as f64 * momentum_scale).unwrap();
-            l_space[1] += float::from_f64(5. * i as f64 * momentum_scale).unwrap();
-            l_space[2] += float::from_f64(2. * i as f64 * momentum_scale).unwrap();
+            let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3], i);
 
             let rot = self.rotation_matrix;
             k[i] = LorentzVector::from_args(
