@@ -1,10 +1,9 @@
-#![recursion_limit = "128"]
 extern crate arrayvec;
 extern crate clap;
 extern crate cuba;
 extern crate dual_num;
 extern crate itertools;
-extern crate ltd as ltdlib;
+extern crate ltd;
 extern crate nalgebra as na;
 extern crate num;
 extern crate num_traits;
@@ -30,14 +29,9 @@ use std::io::{BufWriter, Write};
 
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
-mod cts;
-mod integrand;
-mod ltd;
-mod topologies;
-mod utils;
-use integrand::Integrand;
-
-use ltdlib::{float, AdditiveMode, Complex, IntegratedPhase, Settings};
+use ltd::integrand::Integrand;
+use ltd::topologies::Topology;
+use ltd::{IntegratedPhase, Settings};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -95,13 +89,13 @@ fn integrand(
     Ok(())
 }
 
-fn bench(topo: &topologies::Topology, max_eval: usize) {
+fn bench(topo: &Topology, settings: &Settings) {
     let mut topo1 = topo.clone();
     let mut x = vec![0.; 3 * topo.n_loops];
     let mut rng = rand::thread_rng();
 
     let now = Instant::now();
-    for _ in 0..max_eval {
+    for _ in 0..settings.integrator.n_max {
         for xi in x.iter_mut() {
             *xi = rng.gen();
         }
@@ -233,7 +227,7 @@ fn main() {
         .set_cores(cores, 1000);
 
     // load the example file
-    let topologies = topologies::Topology::from_file(topology_file, &settings);
+    let topologies = Topology::from_file(topology_file, &settings);
     let topo = topologies
         .get(&settings.general.topology)
         .expect("Unknown topology");
@@ -242,7 +236,7 @@ fn main() {
     let integrand = Integrand::new(topo, settings.clone(), log.clone());
 
     if matches.is_present("bench") {
-        bench(&topo, settings.integrator.n_max);
+        bench(&topo, &settings);
         return;
     }
 
