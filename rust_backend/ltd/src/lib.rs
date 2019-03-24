@@ -1,3 +1,4 @@
+#![recursion_limit = "128"]
 #[macro_use]
 extern crate cpython;
 extern crate arrayvec;
@@ -13,12 +14,17 @@ extern crate cuba;
 extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;
+#[macro_use]
+extern crate slog;
 
-use num_traits::{Zero, FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive, Zero};
 
 #[allow(non_camel_case_types)]
-//#[cfg(feature = "f128")]  // FIXME: cfg not read...
+#[cfg(feature = "use_f128")]
 pub type float = f128::f128;
+#[allow(non_camel_case_types)]
+#[cfg(not(feature = "use_f128"))]
+pub type float = f64;
 
 pub mod cts;
 pub mod integrand;
@@ -49,6 +55,8 @@ pub enum AdditiveMode {
     Exponential,
     #[serde(rename = "hyperbolic")]
     Hyperbolic,
+    #[serde(rename = "unity")]
+    Unity,
 }
 
 impl Default for AdditiveMode {
@@ -78,10 +86,13 @@ pub struct DeformationSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
+    pub log_file: String,
+    pub log_to_screen: bool,
     pub deformation_strategy: String,
     pub topology: String,
     pub numerical_threshold: f64,
     pub relative_precision: f64,
+    pub numerical_instability_check: bool,
     pub integration_statistics: bool,
     pub statistics_interval: usize,
     pub debug: usize,

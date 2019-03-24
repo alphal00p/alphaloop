@@ -8,7 +8,7 @@ use num_traits::One;
 use num_traits::Zero;
 use num_traits::{Float, Num, NumCast};
 use topologies::{Cut, CutList, LoopLine, Surface, Topology};
-use vector::{Field, LorentzVector, RealField};
+use vector::{Field, LorentzVector};
 use AdditiveMode;
 
 use utils;
@@ -694,9 +694,18 @@ impl Topology {
                     let t = inv * inv / float::from_f64(self.e_cm_squared).unwrap().powi(2);
                     t / (t + aij)
                 }
+                AdditiveMode::Unity => DualN::from_real(float::one()),
             };
 
             for (kappa, dir) in kappas[..self.n_loops].iter_mut().zip(deform_dirs.iter()) {
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
+                        group_counter,
+                        dir,
+                        dampening.real()
+                    );
+                }
                 // note the sign
                 *kappa -= dir * dampening;
             }
@@ -713,8 +722,10 @@ impl Topology {
             NumCast::from(self.settings.deformation.lambda.abs()).unwrap()
         };
 
+        // make sure the kappa has the right dimension
+        let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
         for k in kappas[..self.n_loops].iter_mut() {
-            *k *= lambda;
+            *k *= lambda * scale;
             k.t = DualN::from_real(float::zero()); // make sure we do not have a left-over deformation
         }
 

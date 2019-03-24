@@ -1,7 +1,7 @@
 use arrayvec::ArrayVec;
-use num_traits::Float;
 use num_traits::NumCast;
-use num_traits::{FromPrimitive, Inv, One, ToPrimitive};
+use num_traits::{Float, FromPrimitive, Inv, One, ToPrimitive};
+use slog::Logger;
 use topologies::Topology;
 use vector::LorentzVector;
 use {float, Complex};
@@ -12,7 +12,7 @@ use IntegratedPhase;
 use Settings;
 
 /// A structure that integrates and keeps statistics
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Integrand {
     pub settings: Settings,
     pub topologies: Vec<Topology>,
@@ -21,10 +21,11 @@ pub struct Integrand {
     pub nan_point_count: usize,
     pub unstable_point_count: usize,
     pub regular_point_count: usize,
+    pub log: Logger,
 }
 
 impl Integrand {
-    pub fn new(topology: &Topology, settings: Settings) -> Integrand {
+    pub fn new(topology: &Topology, settings: Settings, log: Logger) -> Integrand {
         // create an extra topology with rotated kinematics to check the uncertainty
         let angle = float::from_f64(0.33).unwrap(); // rotation angle
         let rv = (
@@ -117,6 +118,7 @@ impl Integrand {
             unstable_point_count: 0,
             nan_point_count: 0,
             settings,
+            log,
         }
     }
 
@@ -136,19 +138,19 @@ impl Integrand {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
             match n_loops {
                 1 => {
-                    println!(
+                    info!(self.log,
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def
                     );
                 }
                 2 => {
-                    println!(
+                    info!(self.log,
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def
                     );
                 }
                 3 => {
-                    println!(
+                    info!(self.log,
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
                     );
@@ -159,7 +161,7 @@ impl Integrand {
     }
 
     fn print_statistics(&self) {
-        println!("Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
+        info!(self.log,"Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
             self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.);
@@ -174,15 +176,24 @@ impl Integrand {
         }
 
         let (x, k_def, jac_para, jac_def, result) = self.topologies[0].evaluate(x);
-        let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-            self.topologies[1].evaluate(x);
         self.total_samples += 1;
 
-        // compute the number of similar digits
-        // for now, only the real part
-        let d = -((result.re - result_rot.re) / (result.re + result_rot.re))
-            .abs()
-            .log10();
+        let (d, result_rot) = if self.settings.general.numerical_instability_check {
+            let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
+                self.topologies[1].evaluate(x);
+
+            // compute the number of similar digits
+            // for now, only the real part
+            let d = -((result.re - result_rot.re) / (result.re + result_rot.re))
+                .abs()
+                .log10();
+            (d, result_rot)
+        } else {
+            (
+                float::from_f64(self.settings.general.relative_precision).unwrap(),
+                Complex::default(),
+            )
+        };
 
         // FIXME: only checking the real for now
         if !result.re.is_finite()
