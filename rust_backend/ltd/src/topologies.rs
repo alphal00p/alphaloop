@@ -4,9 +4,10 @@ use std::fmt;
 use std::fs::File;
 use vector::LorentzVector;
 use Settings;
+use float;
 
 /// Ellipsoid and hyperboloid surfaces
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Surface {
     pub group: usize,
     pub ellipsoid: bool,
@@ -17,7 +18,7 @@ pub struct Surface {
     pub delta_sign: i8,
     pub sig_ll_in_cb: Vec<i8>,
     pub signs: Vec<i8>,
-    pub shift: LorentzVector<f64>,
+    pub shift: LorentzVector<float>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -83,10 +84,10 @@ pub struct Topology {
     pub cb_to_lmb_mat: Vec<Vec<i8>>, // a map from cut momenta to topology loop momenta
     #[serde(default)]
     pub settings: Settings,
-    #[serde(default)]
+    #[serde(default, skip_deserializing)]
     pub surfaces: Vec<Surface>,
     #[serde(skip_deserializing)]
-    pub rotation_matrix: [[f64; 3]; 3],
+    pub rotation_matrix: [[float; 3]; 3],
 }
 
 impl Topology {

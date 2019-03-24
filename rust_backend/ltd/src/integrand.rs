@@ -1,7 +1,10 @@
 use arrayvec::ArrayVec;
+use num_traits::NumCast;
+use num_traits::{Float, FromPrimitive, Inv, One, ToPrimitive};
+use slog::Logger;
 use topologies::Topology;
 use vector::LorentzVector;
-use Complex;
+use {float, Complex};
 
 const MAX_LOOP: usize = 3;
 
@@ -9,7 +12,7 @@ use IntegratedPhase;
 use Settings;
 
 /// A structure that integrates and keeps statistics
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Integrand {
     pub settings: Settings,
     pub topologies: Vec<Topology>,
@@ -18,19 +21,24 @@ pub struct Integrand {
     pub nan_point_count: usize,
     pub unstable_point_count: usize,
     pub regular_point_count: usize,
+    pub log: Logger,
 }
 
 impl Integrand {
-    pub fn new(topology: &Topology, settings: Settings) -> Integrand {
+    pub fn new(topology: &Topology, settings: Settings, log: Logger) -> Integrand {
         // create an extra topology with rotated kinematics to check the uncertainty
-        let angle = 0.33f64; // rotation angle
-        let rv = (1f64 / 2f64.sqrt(), 1f64 / 3f64.sqrt(), 1f64 / 6f64.sqrt()); // rotation axis
+        let angle = float::from_f64(0.33).unwrap(); // rotation angle
+        let rv = (
+            float::from_f64(2.).unwrap().sqrt().inv(),
+            float::from_f64(3.).unwrap().sqrt().inv(),
+            float::from_f64(6.).unwrap().sqrt().inv(),
+        ); // rotation axis
 
         let cos_t = angle.cos();
         let sin_t = angle.sin();
-        let cos_t_bar = 1. - angle.cos();
+        let cos_t_bar = float::one() - angle.cos();
 
-        let rot_matrix: [[f64; 3]; 3] = [
+        let rot_matrix: [[float; 3]; 3] = [
             [
                 cos_t + rv.0 * rv.0 * cos_t_bar,
                 rv.0 * rv.1 * cos_t_bar - rv.2 * sin_t,
@@ -53,25 +61,40 @@ impl Integrand {
         rotated_topology.rotation_matrix = rot_matrix.clone();
 
         for e in &mut rotated_topology.external_kinematics {
-            let old_x = e.x;
-            let old_y = e.y;
-            let old_z = e.z;
-            e.x = rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-            e.y = rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-            e.z = rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+            let old_x = float::from_f64(e.x).unwrap();
+            let old_y = float::from_f64(e.y).unwrap();
+            let old_z = float::from_f64(e.z).unwrap();
+            e.x = (rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z)
+                .to_f64()
+                .unwrap();
+            e.y = (rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z)
+                .to_f64()
+                .unwrap();
+            e.z = (rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z)
+                .to_f64()
+                .unwrap();
         }
 
         for ll in &mut rotated_topology.loop_lines {
             for p in &mut ll.propagators {
-                let old_x = p.q.x;
-                let old_y = p.q.y;
-                let old_z = p.q.z;
-                p.q.x =
-                    rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-                p.q.y =
-                    rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-                p.q.z =
-                    rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+                let old_x = float::from_f64(p.q.x).unwrap();
+                let old_y = float::from_f64(p.q.y).unwrap();
+                let old_z = float::from_f64(p.q.z).unwrap();
+                p.q.x = (rot_matrix[0][0] * old_x
+                    + rot_matrix[0][1] * old_y
+                    + rot_matrix[0][2] * old_z)
+                    .to_f64()
+                    .unwrap();
+                p.q.y = (rot_matrix[1][0] * old_x
+                    + rot_matrix[1][1] * old_y
+                    + rot_matrix[1][2] * old_z)
+                    .to_f64()
+                    .unwrap();
+                p.q.z = (rot_matrix[2][0] * old_x
+                    + rot_matrix[2][1] * old_y
+                    + rot_matrix[2][2] * old_z)
+                    .to_f64()
+                    .unwrap();
             }
         }
 
@@ -89,12 +112,13 @@ impl Integrand {
 
         Integrand {
             topologies: vec![topology.clone(), rotated_topology],
-            running_max: Complex::new(0., 0.),
+            running_max: Complex::default(),
             total_samples: 0,
             regular_point_count: 0,
             unstable_point_count: 0,
             nan_point_count: 0,
             settings,
+            log,
         }
     }
 
@@ -104,29 +128,29 @@ impl Integrand {
         new_max: bool,
         x: &[f64],
         k_def: ArrayVec<[LorentzVector<Complex>; MAX_LOOP]>,
-        jac_para: f64,
+        jac_para: float,
         jac_def: Complex,
         result: Complex,
         rot_result: Complex,
-        stable_digits: f64,
+        stable_digits: float,
     ) {
         if new_max || !result.is_finite() || self.settings.general.debug > 0 {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
             match n_loops {
                 1 => {
-                    println!(
+                    info!(self.log,
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def
                     );
                 }
                 2 => {
-                    println!(
+                    info!(self.log,
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def
                     );
                 }
                 3 => {
-                    println!(
+                    info!(self.log,
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
                     );
@@ -137,7 +161,7 @@ impl Integrand {
     }
 
     fn print_statistics(&self) {
-        println!("Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
+        info!(self.log,"Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
             self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.);
@@ -152,20 +176,29 @@ impl Integrand {
         }
 
         let (x, k_def, jac_para, jac_def, result) = self.topologies[0].evaluate(x);
-        let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-            self.topologies[1].evaluate(x);
         self.total_samples += 1;
 
-        // compute the number of similar digits
-        // for now, only the real part
-        let d = -((result.re - result_rot.re) / (result.re + result_rot.re))
-            .abs()
-            .log10();
+        let (d, result_rot) = if self.settings.general.numerical_instability_check {
+            let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
+                self.topologies[1].evaluate(x);
+
+            // compute the number of similar digits
+            // for now, only the real part
+            let d = -((result.re - result_rot.re) / (result.re + result_rot.re))
+                .abs()
+                .log10();
+            (d, result_rot)
+        } else {
+            (
+                float::from_f64(self.settings.general.relative_precision).unwrap(),
+                Complex::default(),
+            )
+        };
 
         // FIXME: only checking the real for now
         if !result.re.is_finite()
             || !result_rot.re.is_finite()
-            || d < self.settings.general.relative_precision
+            || d < NumCast::from(self.settings.general.relative_precision).unwrap()
         {
             if self.settings.general.integration_statistics {
                 self.print_info(
@@ -188,7 +221,7 @@ impl Integrand {
             }
 
             // if we have large numerical instability, we return 0
-            return Complex::new(0., 0.);
+            return Complex::default();
         }
 
         self.regular_point_count += 1;

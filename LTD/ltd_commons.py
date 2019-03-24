@@ -293,7 +293,7 @@ class Propagator(object):
 
     def evaluate_inverse(self, loop_momenta):
         """ Evaluates the inverse propagator with the provided list loop momenta, given as a list of LorentzVector.""" 
-        return (sum(wgt*loop_momentum for wgt, loop_momentum in zip(self.signature, loop_momenta)) + q).square() - self.m_squared
+        return (sum(wgt*loop_momentum for wgt, loop_momentum in zip(self.signature, loop_momenta)) + self.q).square() - self.m_squared
 
     def set_signature(self, signature, force=True):
         """ Overwrite (if force=True) the signature attribute of this propagator."""
@@ -858,6 +858,9 @@ hyperparameters = HyperParameters({
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   5,
+        'numerical_instability_check': True,
+        'log_to_screen'         :   True,
+        'log_file'              :   'log.txt',
         'integration_statistics':   True,
         'statistics_interval'   :   10000,
         'debug'                 :   0
@@ -878,7 +881,7 @@ hyperparameters = HyperParameters({
         'lambda'    :   -0.1,
 
         'additive'              :   {
-            # can be exponential or hyperbolic
+            # can be exponential, hyperbolic, or unity
             'mode'  :   'exponential',
             'a_ij'  :   10.0,
         },

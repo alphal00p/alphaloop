@@ -7,3 +7,4 @@ authors = ["Ben Ruijl <benruyl@gmail.com>"]
 num = "0.2"
 dual_num = { git = "https://github.com/benruijl/dual_num", branch = "dualn" }
 serde = { version = "1.0", features = ["derive"] }
+f128 = { git = "https://github.com/benruijl/f128" }

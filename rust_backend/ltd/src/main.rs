@@ -3,7 +3,7 @@ extern crate clap;
 extern crate cuba;
 extern crate dual_num;
 extern crate itertools;
-extern crate ltd as ltdlib;
+extern crate ltd;
 extern crate nalgebra as na;
 extern crate num;
 extern crate num_traits;
@@ -12,9 +12,15 @@ extern crate serde;
 extern crate serde_yaml;
 use serde::{Deserialize, Serialize};
 extern crate vector;
+#[macro_use]
+extern crate slog;
+extern crate slog_async;
+extern crate slog_term;
 
 use clap::{App, Arg};
+use num_traits::ToPrimitive;
 use rand::prelude::*;
+use slog::{Drain, Duplicate, Level, LevelFilter};
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -23,14 +29,9 @@ use std::io::{BufWriter, Write};
 
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
-mod cts;
-mod integrand;
-mod ltd;
-mod topologies;
-mod utils;
-use integrand::Integrand;
-
-use ltdlib::{AdditiveMode, Complex, IntegratedPhase, Settings};
+use ltd::integrand::Integrand;
+use ltd::topologies::Topology;
+use ltd::{IntegratedPhase, Settings};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -53,7 +54,6 @@ impl CubaResultDef {
     }
 }
 
-#[derive(Debug)]
 struct UserData {
     integrand: Vec<Integrand>,
     integrated_phase: IntegratedPhase,
@@ -72,14 +72,14 @@ fn integrand(
     if res.is_finite() {
         match user_data.integrated_phase {
             IntegratedPhase::Real => {
-                f[0] = res.re;
+                f[0] = res.re.to_f64().unwrap();
             }
             IntegratedPhase::Imag => {
-                f[0] = res.im;
+                f[0] = res.im.to_f64().unwrap();
             }
             IntegratedPhase::Both => {
-                f[0] = res.re;
-                f[1] = res.im;
+                f[0] = res.re.to_f64().unwrap();
+                f[1] = res.im.to_f64().unwrap();
             }
         }
     } else {
@@ -89,13 +89,13 @@ fn integrand(
     Ok(())
 }
 
-fn bench(topo: &topologies::Topology, max_eval: usize) {
+fn bench(topo: &Topology, settings: &Settings) {
     let mut topo1 = topo.clone();
     let mut x = vec![0.; 3 * topo.n_loops];
     let mut rng = rand::thread_rng();
 
     let now = Instant::now();
-    for _ in 0..max_eval {
+    for _ in 0..settings.integrator.n_max {
         for xi in x.iter_mut() {
             *xi = rng.gen();
         }
@@ -104,6 +104,39 @@ fn bench(topo: &topologies::Topology, max_eval: usize) {
     }
 
     println!("{:#?}", now.elapsed());
+}
+
+fn create_logger(settings: &Settings) -> slog::Logger {
+    let file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .write(true)
+        .open(&settings.general.log_file)
+        .unwrap();
+
+    let file_decorator = slog_term::PlainDecorator::new(file);
+    let file_drain = slog_term::FullFormat::new(file_decorator).build().fuse();
+    // FIXME: async is not working with cuba...
+    //let file_drain = slog_async::Async::new(file_drain).build().fuse();
+    let file_drain = std::sync::Mutex::new(file_drain).fuse();
+
+    if settings.general.log_to_screen {
+        let decorator = slog_term::TermDecorator::new().build();
+        let drain = slog_term::FullFormat::new(decorator).build().fuse();
+        //let drain = slog_async::Async::new(drain).build().fuse();
+        let drain = std::sync::Mutex::new(drain).fuse();
+
+        slog::Logger::root(
+            Duplicate::new(
+                LevelFilter::new(drain, Level::Info),
+                LevelFilter::new(file_drain, Level::Debug),
+            )
+            .fuse(),
+            o!(),
+        )
+    } else {
+        slog::Logger::root(LevelFilter::new(file_drain, Level::Debug).fuse(), o!())
+    }
 }
 
 fn main() {
@@ -194,21 +227,25 @@ fn main() {
         .set_cores(cores, 1000);
 
     // load the example file
-    let topologies = topologies::Topology::from_file(topology_file, &settings);
+    let topologies = Topology::from_file(topology_file, &settings);
     let topo = topologies
         .get(&settings.general.topology)
         .expect("Unknown topology");
 
-    let integrand = Integrand::new(topo, settings.clone());
+    let log = create_logger(&settings);
+    let integrand = Integrand::new(topo, settings.clone(), log.clone());
 
     if matches.is_present("bench") {
-        bench(&topo, settings.integrator.n_max);
+        bench(&topo, &settings);
         return;
     }
 
-    println!(
-        "Integrating {} with {} samples and deformation {}",
-        settings.general.topology, settings.integrator.n_max, settings.general.deformation_strategy
+    info!(
+        log,
+        "Integrating {} with {} samples and deformation '{}'",
+        settings.general.topology,
+        settings.integrator.n_max,
+        settings.general.deformation_strategy
     );
 
     let cuba_result = match settings.integrator.integrator.as_ref() {
@@ -241,7 +278,7 @@ fn main() {
         ),
         x => panic!("Unknown integrator {}", x),
     };
-    println!("{:#?}", cuba_result);
+    info!(log, "{:#?}", cuba_result);
 
     let f = OpenOptions::new()
         .create(true)

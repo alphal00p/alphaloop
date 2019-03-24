@@ -3,6 +3,11 @@ name = "ltd"
 version = "0.1.0"
 authors = ["Ben Ruijl <benruyl@gmail.com>"]
 
+[features]
+# uncomment this line to use f128
+#default = ["use_f128"]
+use_f128 = []
+
 [lib]
 name = "ltd"
 crate-type = ["cdylib", "lib"]
@@ -26,3 +31,7 @@ serde_yaml = "*"
 itertools = "0.8"
 clap = "*"
 rand = "*"
+f128 = { git = "https://github.com/benruijl/f128" }
+slog = "*"
+slog-async = "*"
+slog-term = "*"

@@ -6,10 +6,13 @@ Deformation:
   multiplicative:
     M_ij: 0.1
 General:
-  debug: 2
+  debug: 0
   deformation_strategy: generic
   integration_statistics: true
-  numerical_threshold: 1.0e-10
+  log_file: log.txt
+  log_to_screen: true
+  numerical_instability_check: true
+  numerical_threshold: 0.0
   relative_precision: 5
   statistics_interval: 10000
   topology: DoubleTriangle

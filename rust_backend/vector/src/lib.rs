@@ -5,18 +5,22 @@ extern crate serde;
 use dual_num::{Allocator, DefaultAllocator, Dim, DimName, DualN, Owned};
 use num::traits::ops::mul_add::MulAdd;
 use num::traits::Inv;
+use num::traits::{NumAssign, NumAssignOps, NumOps, NumRef, RefNum};
+use num::Complex;
 use num::Float;
+use num::Num;
+use num::Signed;
+use num::{NumCast, ToPrimitive};
 use std::fmt;
 use std::fmt::{Debug, Display, LowerExp};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign};
 
-type Complex = num::Complex<f64>;
-
 mod deserialize;
 
 pub trait Field
 where
+    Self: Num,
     Self: Mul<Self, Output = Self>,
     Self: MulAssign<Self>,
     Self: AddAssign<Self>,
@@ -29,20 +33,40 @@ where
     Self: Sum<Self>,
     Self: PartialEq,
     Self: Copy,
-    Self: From<f64>,
+    //Self: From<f64>,
     Self: Default,
     Self: Debug,
     Self: Display,
 {
 }
 
+pub trait RealNumberLike
+where
+    Self: Field,
+    Self: Num,
+    Self: NumCast,
+    Self: Float,
+    Self: NumAssign,
+    Self: NumCast,
+    Self: NumOps,
+    Self: NumRef,
+{
+}
+
+impl Field for f32 {}
 impl Field for f64 {}
-impl Field for Complex {}
-impl<U> Field for DualN<f64, U>
+impl Field for f128::f128 {}
+
+impl RealNumberLike for f64 {}
+impl RealNumberLike for f32 {}
+impl RealNumberLike for f128::f128 {}
+
+impl<T: RealNumberLike> Field for num::Complex<T> {}
+impl<U, T: RealNumberLike + Signed + 'static> Field for DualN<T, U>
 where
     U: Dim + DimName,
-    DefaultAllocator: Allocator<f64, U>,
-    Owned<f64, U>: Copy,
+    DefaultAllocator: Allocator<T, U>,
+    Owned<T, U>: Copy,
 {
 }
 
@@ -56,6 +80,7 @@ where
     Self: MulAssign<f64>,
     Self: Add<f64, Output = Self>,
     Self: AddAssign<f64>,
+    Self: From<f64>,
     Self: Sub<f64, Output = Self>,
     Self: SubAssign<f64>,
     Self: Div<f64, Output = Self>,
@@ -199,6 +224,38 @@ impl<T: Field> LorentzVector<T> {
             x: map(self.x),
             y: map(self.y),
             z: map(self.z),
+        }
+    }
+
+    #[inline]
+    pub fn from<U: Field + Into<T>>(a: LorentzVector<U>) -> Self {
+        LorentzVector {
+            t: a.t.into(),
+            x: a.x.into(),
+            y: a.y.into(),
+            z: a.z.into(),
+        }
+    }
+
+    #[inline]
+    pub fn convert<U: Field + From<T>>(&self) -> LorentzVector<U> {
+        LorentzVector {
+            t: self.t.into(),
+            x: self.x.into(),
+            y: self.y.into(),
+            z: self.z.into(),
+        }
+    }
+}
+
+impl<T: Field + ToPrimitive> LorentzVector<T> {
+    #[inline]
+    pub fn cast<U: Field + NumCast>(&self) -> LorentzVector<U> {
+        LorentzVector {
+            t: <U as NumCast>::from(self.t).unwrap(),
+            x: <U as NumCast>::from(self.x).unwrap(),
+            y: <U as NumCast>::from(self.y).unwrap(),
+            z: <U as NumCast>::from(self.z).unwrap(),
         }
     }
 }
@@ -433,22 +490,11 @@ impl<'a, T: Field> Div<T> for LorentzVector<T> {
     }
 }
 
-impl<T: RealField> LorentzVector<T> {
-    pub fn from_f64(a: LorentzVector<f64>) -> Self {
-        LorentzVector {
-            t: From::from(a.t),
-            x: From::from(a.x),
-            y: From::from(a.y),
-            z: From::from(a.z),
-        }
-    }
-}
-
-impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
-    type Output = LorentzVector<Complex>;
+impl<'a, T: RealNumberLike> Sub<&'a LorentzVector<T>> for &'a LorentzVector<Complex<T>> {
+    type Output = LorentzVector<Complex<T>>;
 
     #[inline]
-    fn sub(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
+    fn sub(self, other: &'a LorentzVector<T>) -> LorentzVector<Complex<T>> {
         LorentzVector {
             t: self.t - other.t,
             x: self.x - other.x,
@@ -458,11 +504,11 @@ impl<'a> Sub<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
     }
 }
 
-impl<'a> Sub<&'a LorentzVector<f64>> for LorentzVector<Complex> {
-    type Output = LorentzVector<Complex>;
+impl<'a, T: RealNumberLike> Sub<&'a LorentzVector<T>> for LorentzVector<Complex<T>> {
+    type Output = LorentzVector<Complex<T>>;
 
     #[inline]
-    fn sub(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
+    fn sub(self, other: &'a LorentzVector<T>) -> LorentzVector<Complex<T>> {
         LorentzVector {
             t: self.t - other.t,
             x: self.x - other.x,
@@ -472,11 +518,11 @@ impl<'a> Sub<&'a LorentzVector<f64>> for LorentzVector<Complex> {
     }
 }
 
-impl<'a> Sub<LorentzVector<f64>> for LorentzVector<Complex> {
-    type Output = LorentzVector<Complex>;
+impl<'a, T: RealNumberLike> Sub<LorentzVector<T>> for LorentzVector<Complex<T>> {
+    type Output = LorentzVector<Complex<T>>;
 
     #[inline]
-    fn sub(self, other: LorentzVector<f64>) -> LorentzVector<Complex> {
+    fn sub(self, other: LorentzVector<T>) -> LorentzVector<Complex<T>> {
         LorentzVector {
             t: self.t - other.t,
             x: self.x - other.x,
@@ -486,11 +532,11 @@ impl<'a> Sub<LorentzVector<f64>> for LorentzVector<Complex> {
     }
 }
 
-impl<'a> Add<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
-    type Output = LorentzVector<Complex>;
+impl<'a, T: RealNumberLike> Add<&'a LorentzVector<T>> for &'a LorentzVector<Complex<T>> {
+    type Output = LorentzVector<Complex<T>>;
 
     #[inline]
-    fn add(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
+    fn add(self, other: &'a LorentzVector<T>) -> LorentzVector<Complex<T>> {
         LorentzVector {
             t: self.t + other.t,
             x: self.x + other.x,
@@ -500,11 +546,11 @@ impl<'a> Add<&'a LorentzVector<f64>> for &'a LorentzVector<Complex> {
     }
 }
 
-impl<'a> Add<&'a LorentzVector<f64>> for LorentzVector<Complex> {
-    type Output = LorentzVector<Complex>;
+impl<'a, T: RealNumberLike> Add<&'a LorentzVector<T>> for LorentzVector<Complex<T>> {
+    type Output = LorentzVector<Complex<T>>;
 
     #[inline]
-    fn add(self, other: &'a LorentzVector<f64>) -> LorentzVector<Complex> {
+    fn add(self, other: &'a LorentzVector<T>) -> LorentzVector<Complex<T>> {
         LorentzVector {
             t: self.t + other.t,
             x: self.x + other.x,
@@ -514,11 +560,11 @@ impl<'a> Add<&'a LorentzVector<f64>> for LorentzVector<Complex> {
     }
 }
 
-impl<'a> Add<LorentzVector<f64>> for LorentzVector<Complex> {
-    type Output = LorentzVector<Complex>;
+impl<'a, T: RealNumberLike> Add<LorentzVector<T>> for LorentzVector<Complex<T>> {
+    type Output = LorentzVector<Complex<T>>;
 
     #[inline]
-    fn add(self, other: LorentzVector<f64>) -> LorentzVector<Complex> {
+    fn add(self, other: LorentzVector<T>) -> LorentzVector<Complex<T>> {
         LorentzVector {
             t: self.t + other.t,
             x: self.x + other.x,
@@ -720,30 +766,30 @@ impl<T: Float + Field> LorentzVector<T> {
     }
 }
 
-impl LorentzVector<f64> {
+impl<T: RealNumberLike> LorentzVector<T> {
     #[inline]
-    pub fn to_complex(&self, real: bool) -> LorentzVector<Complex> {
+    pub fn to_complex(&self, real: bool) -> LorentzVector<Complex<T>> {
         if real {
             LorentzVector {
-                t: Complex::new(self.t, 0.0),
-                x: Complex::new(self.x, 0.0),
-                y: Complex::new(self.y, 0.0),
-                z: Complex::new(self.z, 0.0),
+                t: Complex::new(self.t, T::zero()),
+                x: Complex::new(self.x, T::zero()),
+                y: Complex::new(self.y, T::zero()),
+                z: Complex::new(self.z, T::zero()),
             }
         } else {
             LorentzVector {
-                t: Complex::new(0.0, self.t),
-                x: Complex::new(0.0, self.x),
-                y: Complex::new(0.0, self.y),
-                z: Complex::new(0.0, self.z),
+                t: Complex::new(T::zero(), self.t),
+                x: Complex::new(T::zero(), self.x),
+                y: Complex::new(T::zero(), self.y),
+                z: Complex::new(T::zero(), self.z),
             }
         }
     }
 }
 
-impl LorentzVector<Complex> {
+impl<T: RealNumberLike> LorentzVector<Complex<T>> {
     #[inline]
-    pub fn real(&self) -> LorentzVector<f64> {
+    pub fn real(&self) -> LorentzVector<T> {
         LorentzVector {
             t: self.t.re,
             x: self.x.re,
@@ -753,7 +799,7 @@ impl LorentzVector<Complex> {
     }
 
     #[inline]
-    pub fn imag(&self) -> LorentzVector<f64> {
+    pub fn imag(&self) -> LorentzVector<T> {
         LorentzVector {
             t: self.t.im,
             x: self.x.im,
@@ -763,13 +809,14 @@ impl LorentzVector<Complex> {
     }
 }
 
-impl<U: dual_num::Dim + dual_num::DimName> LorentzVector<DualN<f64, U>>
+impl<U: dual_num::Dim + dual_num::DimName, T: RealNumberLike + Signed + 'static>
+    LorentzVector<DualN<T, U>>
 where
-    dual_num::DefaultAllocator: dual_num::Allocator<f64, U>,
-    dual_num::Owned<f64, U>: Copy,
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
 {
     #[inline]
-    pub fn real(&self) -> LorentzVector<f64> {
+    pub fn real(&self) -> LorentzVector<T> {
         self.map(|x| x.real())
     }
 }

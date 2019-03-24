@@ -227,10 +227,12 @@ class PoleScanner(object):
                  topology           =   None,
                  direction_vectors  =   None,
                  parametrisation_vectors = None,
+                 parametrisation_uv =   None,
                  t_values           =   None,
                  hyperparameters    =   None,
                  rust_instance      =   None,
-                 diagnostic_tool    =   None,                 
+                 rotated_instances  =   None,
+                 diagnostic_tool    =   None,            
                 ):
 
         self.topology = topology 
@@ -247,32 +249,164 @@ class PoleScanner(object):
             'parametrisation_uv' : parametrisation_uv,
             'hyperparameters': hyperparameters,
         }
+
         self.log_stream = log_stream
         if self.log_stream is not None:
             log_stream.write(yaml.dump([('configuration', self.configuration), ], Dumper=noalias_dumper))
 
         self.rust_instance = rust_instance
+        self.rotated_instances = rotated_instances
         self.diagnostic_tool = diagnostic_tool
 
-    def scan(self, surface_ID, surface_characteristics, propagators = None):
+        # Build a map between Zeno's conventions for propagators and the (loop_line_id, propagator_id) tuple one.
+        self.propagators_map = {}
+        self.inverse_propagators_map = {}
+        propagator_id = 0
+        for i_ll, ll in enumerate(self.topology.loop_lines):
+            for i_prop, prop in enumerate(ll.propagators):
+                self.propagators_map[propagator_id] = ((i_ll, i_prop), prop)
+                self.inverse_propagators_map[(i_ll, i_prop)] = propagator_id
+                propagator_id += 1
+
+        # Build a map between Zeno's conventions for cuts and the (ltd_cut_struct_index, cut_index) tuple one.
+        self.cut_indices_map = {}
+        for ltd_cut_index, ltd_cut_structure in enumerate(self.topology.ltd_cut_structure):
+            cut_propagator_indices = [[index*c for index in range(1,len(self.topology.loop_lines[i].propagators)+1)] if c!=0 else [0,] 
+                                             for i, c in enumerate(ltd_cut_structure)]
+            for cut_index, cut_structure  in enumerate(itertools.product( *cut_propagator_indices )):
+                self.cut_indices_map[
+                    tuple(sorted(list(set([self.inverse_propagators_map[(i_ll, abs(i_prop)-1)] for i_ll, i_prop in enumerate(cut_structure) if i_prop!=0 ]))))
+                                                    ] = (ltd_cut_index, cut_index)
+
+        # Turning off accuracy assessment below
+        self.rotated_instances = []
+
+    def scan(self, surface_ID, surface_characteristics):
         all_results = []
+
+        n_cut = self.diagnostic_tool.cut.index(list(surface_characteristics[0]))
+        
+        ltd_cut_index, cut_index = self.cut_indices_map[tuple(sorted(list(set([prop_index for prop_index in surface_characteristics[0]]))))]
+
+        # Find the point for this t-value
+        parametrisation_vectors = [ [ 0., ] + [v for v in vec]  for vec in self.parametrisation_vectors ]
+
+        # u and v are defined in [-1.,1.]
+        u_base = parametrisation_uv['u']*2.-1.
+        v_base = parametrisation_uv['v']*2.-1.
+
+        direction_u = self.direction_vectors[0][0]
+        direction_v = self.direction_vectors[0][1]
+
+        # Identify which is the onshell propagator
+        onshell_propagator = self.propagators_map[surface_characteristics[1].n_surface][1] 
+        onshell_propagator_id = self.propagators_map[surface_characteristics[1].n_surface][0]
 
         for t in self.t_values:
 
             one_result = {
                 't_value': t,
             }
- 
+
+            # Now build a point on the elliptic surface for this particular t-value
+            loop_mom = list(parametrisation_vectors)
+            if len(loop_mom)==1:
+                loop_mom.append([0.,0.,0.,0.])
+           
+            u = u_base + direction_u*t
+            v = v_base + direction_v*t
+            if u < 0.:
+                u = u%(-1.)
+            else:
+                u = u%(1.)
+            if v < 0.:
+                v = v%(-1.)
+            else:
+                v = v%(1.)
+            
+            diagnostic_point = self.diagnostic_tool.get_parametrization(
+                u=u, v=v, 
+                loop_momenta=loop_mom,
+                surface=surface_characteristics[1],
+                n_cut=n_cut
+            )
+            if diagnostic_point is None:
+                one_result['accuracy'] = 0.
+                one_result['propagator_evaluation'] = complex(0., 0.)
+                one_result['deformation_jacobian'] = complex(0., 0.)
+                all_results.append(one_result)
+                continue
+            
+            surface_point = [vectors.Vector(list(v)) for i, v in enumerate(diagnostic_point) if i<self.topology.n_loops]
+            
+
+            for i_rot, rotated_info in enumerate([None,]+self.rotated_instances):
+                if rotated_info is not None:
+                    point_to_test = [v.transform(rotated_info['rotation_matrix']) for v in surface_point]
+                    one_result['rotation_%d'%i_rot] = {}
+                    result_bucket = one_result['rotation_%d'%i_rot]
+                    rust_worker = rotated_info['rust_instance']
+                else:
+                    point_to_test = surface_point
+                    result_bucket = one_result
+                    rust_worker = self.rust_instance
+
+                # Now evaluate the energy component using the real momenta
+                real_energies = rust_worker.get_loop_momentum_energies(
+                        [[(v_elem,0.) for v_elem in v] for v in point_to_test], ltd_cut_index, cut_index)
+                
+                loop_four_momenta = []
+                for i_v, v in enumerate(point_to_test):
+                    assert(real_energies[i_v][1]==0.)
+                    loop_four_momenta.append(vectors.LorentzVector(
+                        [real_energies[i_v][0],]+list(v)
+                    ))
+                # Cross-check: verify that the onshell propagator is indeed onshell with real momenta
+                os_prop_eval_with_real_momenta = onshell_propagator.evaluate_inverse(loop_four_momenta)
+                assert(os_prop_eval_with_real_momenta/(max(max(v) for v in loop_four_momenta)) < 1.0e-10)
+
+                kappas, jac_re, jac_im = rust_worker.deform([list(v) for v in point_to_test])
+                deformed_point = [point_to_test[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
+                result_bucket['deformation_jacobian'] = complex(jac_re, jac_im)
+                
+                # Now evaluate the energy component using the imaginary momenta
+                energies = rust_worker.get_loop_momentum_energies([ [(v_el.real, v_el.imag) for v_el in v] for v in deformed_point] ,ltd_cut_index, cut_index)
+
+                deformed_loop_four_momenta = []
+                for i_v, v in enumerate(deformed_point):
+                    deformed_loop_four_momenta.append(vectors.LorentzVector(
+                        [complex(energies[i_v][0],energies[i_v][1]),]+list(v)
+                    ))
+
+                result_bucket['propagator_evaluation'] = onshell_propagator.evaluate_inverse(deformed_loop_four_momenta)
+
+            # Register numerical stability as well
+            target = one_result['propagator_evaluation']
+            evaluations = []
+            for k,v in one_result.items():
+                if k.startswith('rotation_'):
+                    evaluations.append(v['propagator_evaluation'])
+            
+            if len(evaluations)>0:
+                one_result['accuracy'] = max(
+                    max(abs(e.real-target.real) for e in evaluations),
+                    max(abs(e.imag-target.imag) for e in evaluations)
+                )
+            else:
+                one_result['accuracy'] = None
+
+
             all_results.append(one_result)
 
         # Save the result into the logstream if specified
         if self.log_stream is not None:
-            log_stream.write(yaml.dump([( 'scan_results', ( all_results) ), ], Dumper=noalias_dumper))
+            log_stream.write(yaml.dump([ ('surface_results', surface_ID, all_results), ], Dumper=noalias_dumper)) 
 
         return {
             'configuration': self.configuration,
-            'surface' : surface_ID,
-            'scan_results': all_results
+            'surface'      : surface_ID,
+            'onshell_prop_id' : onshell_propagator_id,
+            'scan_results' : all_results
         }
 
 class DualCancellationResultsAnalyser(object):
@@ -283,12 +417,13 @@ class DualCancellationResultsAnalyser(object):
         ###    {
         ###     't_value' : <parameter_t_float_value>,
         ###     'deformation_jacobian': <deformation_jacobian_complex_value>,
-        ###     'parametrisation_jacobian': <parametrisation_jacobian_complex_value>,        
         ###     'dual_integrands': dictionary with keys (ltd_cut_index, cut_index),
         ###     'point_weight': <point_weight_complex_value>,
         ###     'point_weight_no_ct': <point_weight_no_ct_complex_value>,
         ###     'ct' : <ct_value>,
+        ###     'accuracy': <float_accuracy>,
         ###    }
+        ### And possibly copies of some of the above for each rotated PS point.
         self.surfaces = surfaces_repository
         self.surface_results   = results['surface_results']
         self.configuration  = results['configuration']
@@ -423,35 +558,141 @@ class DualCancellationResultsAnalyser(object):
 
 class PoleResultsAnalyser(object): 
     def __init__(self, surfaces_repository, results):
-        # Each entry of the scan_results has the following format:
+        # Each entry of the surface_results has the following format:
+        ###   [{'surface': surface_instance_approached, 'scan_results' : scan_results},]
+        ###   with scan_results having the following format
         ###    {
-        ###     'propagator_id': (prop.id, solution_sign),
-        ###     'pole_imaginary_parts': [
-        ###       ( (t_value, all_lambda_values), prop_imag_part )
-        ###     ]
-        ###     'surface' : <surface_instance_approached>        
+        ###     't_value' : <parameter_t_float_value>,
+        ###     'deformation_jacobian': <deformation_jacobian_complex_value>,
+        ###     'propagator_evaluation': <complex_value>,
+        ###     'accuracy': <float_accuracy>
         ###    }
-        self.scan_results   = results['scan_results']
+        ### And possibly copies of some of the above for each rotated PS point.
+        self.surfaces = surfaces_repository
+        self.surface_results   = results['surface_results']
+        self.onshell_prop_id = results['onshell_prop_id']
         self.configuration  = results['configuration']
         self.direction_vectors = [ vectors.LorentzVector(lv) for lv in self.configuration['direction_vectors'] ]
         self.parametrisation_vectors    = [ vectors.LorentzVector(ov) for ov in self.configuration['parametrisation_vectors'] ]
         self.run_time       = results['run_time']
-        self.surfaces = surfaces_repository
-        self.surface_results   = results['surface_results']
 
     def test_imaginary_parts_in_scan(self):
-        found_problem = 0
-        # TODO
+        
+        found_problem = False
+        for result in self.surface_results:
+            scan_results = result['scan_results'] 
+            if scan_results is None:
+                continue
+            surface_ID = result['surface']                                    
+            cut_propagators = self.surfaces[surface_ID][0]
+            surface = self.surfaces[surface_ID][1]
+            for r in scan_results:
+                if r['propagator_evaluation'].imag < 0.:
+                    found_problem += 1
+                    print("==================================================================")                    
+                    print(">>> INCORRECT ANALYTICAL CONTINUATION FOR THE FOLLOWING SETUP: <<<")
+                    print("==================================================================")                    
+                    print('Results for the following surface #%d:\n%s'%(surface_ID,
+                        surface.__str__(cut_propagators=cut_propagators)))
+                    print('Featuring the following onshell propagator: %s'%str(self.onshell_prop_id))
+                    print('>>> t_value = %.16e'%r['t_value'])
+                    print('Onshell propagator evaluation *violating causal prescription*:\n     %s%-25.16e %sI*%-25.16e'%(
+                        '+' if r['propagator_evaluation'].real >= 0. else '-',
+                        abs(r['propagator_evaluation'].real),
+                        '+' if r['propagator_evaluation'].imag >= 0. else '-',
+                        abs(r['propagator_evaluation'].imag),)
+                    )
+                    found_problem = True
+                    return found_problem
+            
         return found_problem
 
-    def generate_plots(self):
-        # TODO
-        pass
+    def generate_plots(self, result, show_real=True, show_imag=False, normalise=True,
+                       entries_to_plot = None,
+                       log_y_scale = True,
+                       log_x_scale = False):
+
+        surface_ID = result['surface']
+        scan_results = result['scan_results']
+        first_result = scan_results[0]
+        plt.title('Pole test for surface with id #%d (onshel prop: %s)'%
+                        (surface_ID, str(self.onshell_prop_id) ))
+        plt.ylabel('Normalised weight')
+        plt.xlabel('t')
+        if log_y_scale:
+            plt.yscale('log')
+        if log_x_scale:
+            plt.xscale('log')
+
+        # Generate several lines to plot
+        lines = []
+        def special_abs(x):
+            if log_y_scale:
+                return abs(x)
+            else:
+                return x
+
+        #if show_real:
+        #    lines.append( ( 'Real eval prop.', ( [ v['t_value'] for v in scan_results], 
+        #                                     [ special_abs(v['propagator_evaluation'].real) for v in scan_results ] ) ) )
+        
+        lines.append( ( 'Cmplx eval prop.', ( [ v['t_value'] for v in scan_results], 
+                                              [ v['propagator_evaluation'].imag for v in scan_results ] ) ) )
+
+        #if scan_results[0]['accuracy'] is not None:
+        #    lines.append( ( 'Accuracy', ( [ v['t_value'] for v in scan_results], 
+        #                                     [ special_abs(v['accuracy']) for v in scan_results ] ) ) )
+
+        filtered_lines = []
+        for ln, lv in lines:
+            if all(lvel==0. for lvel in lv[1]):
+                print('WARNING: All x-values for line "%s" are zero.'%ln)
+            else:
+                filtered_lines.append((ln, lv))
+        lines = filtered_lines
+
+        for line_name, (x_data, y_data) in lines:
+            if normalise:
+                max_y_data = max(y_data)
+                if max_y_data > 0.:
+                    y_data = [ y/float(max_y_data) for y in y_data ]
+
+        for line_name, (x_data, y_data) in lines:
+            plt.plot(x_data, y_data, label=line_name)
+    
+        plt.legend(bbox_to_anchor=(0.75, 0.5))
+        plt.show()
 
     def analyse(self, **opts):
 
-        # TODO 
-        self.generate_plots()
+        print('='*80)
+        print("run time: %.3e [h]"%(self.run_time/3600.0))
+        for result in self.surface_results:
+            print('-'*80)            
+            surface_ID = result['surface']
+            cut_propagators = self.surfaces[surface_ID][0]
+            surface = self.surfaces[surface_ID][1]
+            print('Results for the following surface #%d:\n%s'%(surface_ID,
+                surface.__str__(cut_propagators=cut_propagators)))
+            print('Featuring the following onshell propagator: %s'%str(self.onshell_prop_id))
+            scan_results = result['scan_results']
+            if scan_results is None:
+                print('Surface did not exist for specified parametrisation vector.')
+                continue
+            print('Last 5 points of scan:')
+            for r in scan_results[-5:]:
+                print('>>> t_value = %-16e'%r['t_value'])
+                print('Onshell propagator evaluation: %s%-25.16e %sI*%-25.16e'%(
+                    '+' if r['propagator_evaluation'].real >= 0. else '-',
+                    abs(r['propagator_evaluation'].real),
+                    '+' if r['propagator_evaluation'].imag >= 0. else '-',
+                    abs(r['propagator_evaluation'].imag),)
+                )
+        print('='*80)
+        for result in self.surface_results:
+            if result['scan_results'] is None:
+                continue
+            self.generate_plots(result, **opts)
 
 def load_results_from_yaml(log_file_path):
     """Load a full-fledged scan from a yaml dump"""
@@ -477,7 +718,7 @@ if __name__ == '__main__':
 
     topology            = 'DoubleTriangle'
     test_name           = 'cancellation_check'
-    _supported_tests    = ['cancellation_check']
+    _supported_tests    = ['cancellation_check','pole_check']
     # Default values assume a two-loop topology
     # None means chosen at random
     direction_vectors   = [None,None]
@@ -488,8 +729,6 @@ if __name__ == '__main__':
     # If None, it will be assigned to a default later on
     t_values            = None
     fixed_t_values      = [0.5, 0.5]
-    # Specifying None for propagators indicated that they should all be considered
-    propagators         = None
     # Specify None to run over all surfaces or a list of integer to select particular one. Specify [-1] to print all surfaces.
     surface_ids         = None
     # Offers the possibility of looping 'do_loop' times (or at infinity when set to -1) the test with different random
@@ -511,7 +750,7 @@ if __name__ == '__main__':
     rotations_for_stability_check = [((1,0.3),(2,0.9),(3,1.7)),((3,1.2),)]
 
     # parametrisation_uv
-    parametrisation_uv = { 'u' : 0.6, 'v' : 0.7 }
+    parametrisation_uv = { 'u' : None, 'v' : None }
 
     # Whether to show the imaginary and/or real part of the weights in the limit test
     analysis_options = {}
@@ -568,11 +807,8 @@ if __name__ == '__main__':
                 else:
                     # Assume two-loop momenta, as in the default fixed_t_values value set above
                     fixed_t_values = [0.5,0.5]
-        elif option_name in ['propagators','p']:
-            # The propagators option must be an iterable yielding integers or None to select them all
-            propagators = eval(option_value)
         elif option_name in ['surface_ids','s']:
-            # The propagators option must be an iterable yielding integers or [] to select them all, and [-1] to just list all surfaces.
+            # The surface option must be an iterable yielding integers or [] to select them all, and [-1] to just list all surfaces.
             s_ids = eval(option_value)
             if len(s_ids)==0:
                 surface_ids = None
@@ -716,6 +952,11 @@ if __name__ == '__main__':
             parametrisation_vectors = [
                 (vec if vec is not None else vectors.Vector([(random.random() - 0.5) * 2 * com_energy for _ in range(3)]))
                 for vec in parametrisation_vectors]
+
+            parametrisation_uv['u']  = (parametrisation_uv['u'] if parametrisation_uv['u'] is not None else
+                                                                                                (random.random() - 0.5) * 2)
+            parametrisation_uv['v']  = (parametrisation_uv['v'] if parametrisation_uv['v'] is not None else
+                                                                                                (random.random() - 0.5) * 2)
             # Normalise the direction vectors if doing a pole check
             if test_name in ['pole_check','cancellation_check']:
                 direction_vectors = [vec*(1.0/max(abs(v) for v in vec)) for vec in direction_vectors]
@@ -733,8 +974,6 @@ if __name__ == '__main__':
                         parametrisation_vectors =   parametrisation_vectors,
                         parametrisation_uv      =   parametrisation_uv,
                         t_values                =   t_values,
-                        fixed_t_values          =   fixed_t_values,
-                        deformation_configuration = deformation_configuration,
                         diagnostic_tool         =   diagnostic_tool,
                         rust_instance           =   rust_instance,
                         rotated_instances       =   rotated_instances
@@ -758,10 +997,9 @@ if __name__ == '__main__':
                     #print('Now analysing surface with ID=%d :\n%s'%(
                     #    surface_ID, surface[1].__str__(cut_propagators = surface[0])
                     #))
-                    print('Now analysing surface with ID #%d...'%surface_ID)
+                    if do_loop is None: print('Now analysing surface with ID #%d...'%surface_ID)
                     if test_name == 'pole_check':
-                        test_results = scanner.scan(surface_ID, surface, propagators=propagators, 
-                                                    force = are_parametrisation_vectors_unspecified)
+                        test_results = scanner.scan(surface_ID, surface)
                     elif test_name == 'cancellation_check':
                         test_results = scanner.scan(surface_ID, surface,
                                                     force = are_parametrisation_vectors_unspecified)
@@ -795,17 +1033,26 @@ if __name__ == '__main__':
 
             n_loops_performed += 1
             if do_loop is not None:
-                analyser.test_imaginary_parts_in_scan()
+                if analyser.test_imaginary_parts_in_scan():
+                    print("The setup yielding wrong analytical continuation:")
+                    print("  direction_vectors=\n     %s"%str(direction_vectors))
+                    print("  parametrisation_vectors=\n     %s"%str(direction_vectors))
+                    print("  surface parametrisation:\n     u=%(u).16f, v=%(v).16f"%parametrisation_uv)
+                    sys.exit(1)
+
             else:
                 analyser.analyse(**analysis_options)
 
             if (do_loop is None) or (do_loop is not None and do_loop > 0 and n_loops_performed>=do_loop):
                 break
 
-            if n_loops_performed%10 == 0:
+            if n_loops_performed%1 == 0:
                 print('Number of test scans performed: %d'%n_loops_performed)
 
         except KeyboardInterrupt:
             print('Run aborted by user. Number of test scans performed so far: %d' % n_loops_performed)
             break
+
+    if do_loop is not None:
+        print('%d test scans successfully performed.'%n_loops_performed)        
 
