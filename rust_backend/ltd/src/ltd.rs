@@ -733,14 +733,14 @@ impl Topology {
 
                 // normalize the direction and multiply the dampening
                 // note the sign
-                *kappa -= dir / dir.spatial_squared_impr() * dampening;
+                *kappa -= dir / dir.spatial_squared_impr().sqrt() * dampening;
             }
         }
 
         // make sure the kappa has the right magnitude by multiplying in the scale
         let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
         for kappa in &mut kappas[..self.n_loops] {
-            *kappa *= scale / kappa.spatial_squared_impr();
+            *kappa *= scale / kappa.spatial_squared_impr().sqrt();
         }
 
         let lambda = if self.settings.deformation.lambda > 0. {
