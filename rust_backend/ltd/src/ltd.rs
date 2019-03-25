@@ -500,7 +500,7 @@ impl Topology {
                         float::from_f64(self.settings.deformation.expansion_threshold).unwrap(),
                     ) * (m.spatial_squared_impr()
                         + DualN::from_real(float::from_f64(*mass_cut).unwrap()))
-                        / kappa_cut.spatial_dot_impr(&m);
+                        / kappa_cut.spatial_dot_impr(&m).abs();
 
                     if lambda_exp * lambda_exp < lambda_sq {
                         lambda_sq = lambda_exp * lambda_exp;
