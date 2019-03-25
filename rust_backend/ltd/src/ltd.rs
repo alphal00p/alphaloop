@@ -739,8 +739,12 @@ impl Topology {
 
         // make sure the kappa has the right magnitude by multiplying in the scale
         let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
+
         for kappa in &mut kappas[..self.n_loops] {
-            *kappa *= scale / kappa.spatial_squared_impr().sqrt();
+            let length = kappa.spatial_squared_impr();
+            if !length.is_zero() {
+                *kappa *= scale / kappa.spatial_squared_impr().sqrt();
+            }
         }
 
         let lambda = if self.settings.deformation.lambda > 0. {
