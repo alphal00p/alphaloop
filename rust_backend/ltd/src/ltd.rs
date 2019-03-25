@@ -490,6 +490,23 @@ impl Topology {
                     }
                 }
 
+                // we have to make sure that our linear expansion for the deformation vectors is reasonable
+                // for that we need lambda < c * (q_i^2^cut+m_i^2)/(kappa_i^cut * q_i^cut)
+                for (mom_cut, shift_cut, kappa_cut, mass_cut) in
+                    izip!(&cut_momenta, &cut_shifts, &kappa_cuts, &mass_cuts)
+                {
+                    let m = mom_cut + shift_cut;
+                    let lambda_exp = DualN::from_real(
+                        float::from_f64(self.settings.deformation.expansion_threshold).unwrap(),
+                    ) * (m.spatial_squared_impr()
+                        + DualN::from_real(float::from_f64(*mass_cut).unwrap()))
+                        / kappa_cut.spatial_dot_impr(&m);
+
+                    if lambda_exp * lambda_exp < lambda_sq {
+                        lambda_sq = lambda_exp * lambda_exp;
+                    }
+                }
+
                 for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
                     // construct the complex part of the loop line momentum
                     let mut kappa_onshell = LorentzVector::default();
@@ -537,11 +554,7 @@ impl Topology {
 
                     // construct the real part of the loop line momentum
                     let mut mom: LorentzVector<DualN<float, U>> = LorentzVector::default();;
-                    for ((l, &c), cut_shift) in cut_momenta
-                        .iter()
-                        .zip(sig_ll_in_cb.iter())
-                        .zip(cut_shifts.iter())
-                    {
+                    for (l, &c, cut_shift) in izip!(&cut_momenta, &sig_ll_in_cb, &cut_shifts) {
                         let shift: LorentzVector<DualN<float, U>> = cut_shift.cast();
                         mom += (l - shift) * DualN::from_real(float::from_i8(c).unwrap());
                     }
@@ -572,16 +585,6 @@ impl Topology {
                         };
                         let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
 
-                        // TODO: add a lambda bound for the expansion parameter
-                        /*let lambda_expansion = ((kappa_onshell.spatial_dot_impr(&onshell_prop_mom))
-                            / (onshell_prop_mom.spatial_squared_impr() + onshell_prop.m_squared)
-                            * 0.5)
-                            .min(1.0.into());
-
-                        if lambda_expansion * lambda_expansion < lambda_sq {
-                            lambda_sq = lambda_expansion * lambda_expansion;
-                        }*/
-
                         if prop_lambda_sq < lambda_sq {
                             lambda_sq = prop_lambda_sq;
                         }
@@ -604,8 +607,6 @@ impl Topology {
         let mut cut_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
-
-        let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
 
         // surface equation:
         // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
@@ -661,14 +662,12 @@ impl Topology {
             // n_i is the normal vector of the ith entry of the cut momentum basis
             // this n_i is 0 when the surface does not depend on the ith cut loop line
             // we update cut_dirs from v_i to n_i
-            let mut num_foci = 0;
             for (cut_dir, &sign) in cut_dirs[..self.n_loops]
                 .iter_mut()
                 .zip(surf.sig_ll_in_cb.iter())
             {
                 if sign != 0 {
                     *cut_dir += surface_dir_norm * DualN::from_real(float::from_i8(sign).unwrap());
-                    num_foci += 1;
                 }
             }
 
@@ -732,13 +731,16 @@ impl Topology {
                     );
                 }
 
-                // make sure the kappa has the right dimension by multiplying in this scale
-                // divide by the number of foci such that each ellipsoid has the same kappa
-                // magnitude
+                // normalize the direction and multiply the dampening
                 // note the sign
-                *kappa -= dir * dampening * scale
-                    / DualN::from_real(float::from_usize(num_foci).unwrap());
+                *kappa -= dir / dir.spatial_squared_impr() * dampening;
             }
+        }
+
+        // make sure the kappa has the right magnitude by multiplying in the scale
+        let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
+        for kappa in &mut kappas[..self.n_loops] {
+            *kappa *= scale / kappa.spatial_squared_impr();
         }
 
         let lambda = if self.settings.deformation.lambda > 0. {
@@ -752,10 +754,8 @@ impl Topology {
             NumCast::from(self.settings.deformation.lambda.abs()).unwrap()
         };
 
-        // make sure the kappa has the right dimension
-        let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
         for k in kappas[..self.n_loops].iter_mut() {
-            *k *= lambda * scale;
+            *k *= lambda;
             k.t = DualN::from_real(float::zero()); // make sure we do not have a left-over deformation
         }
 

@@ -3,6 +3,7 @@
 extern crate cpython;
 extern crate arrayvec;
 extern crate dual_num;
+#[macro_use]
 extern crate itertools;
 extern crate num;
 extern crate serde;
@@ -80,6 +81,7 @@ pub struct DeformationAdditiveSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
     pub lambda: f64,
+    pub expansion_threshold: f64,
     pub multiplicative: DeformationMultiplicativeSettings,
     pub additive: DeformationAdditiveSettings,
 }

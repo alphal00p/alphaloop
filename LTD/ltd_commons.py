@@ -879,6 +879,7 @@ hyperparameters = HyperParameters({
         # positive value: maximum lambda in auto scaling
         # negative value: no auto scaling, lambda is set to abs(lambda)
         'lambda'    :   -0.01,
+        'expansion_threshold'   :   0.1,
 
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
