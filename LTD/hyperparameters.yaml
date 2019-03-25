@@ -1,7 +1,8 @@
 Deformation:
   additive:
     a_ij: 1.0
-    mode: exponential
+    mode: unity
+  expansion_threshold: 0.1
   lambda: -0.01
   multiplicative:
     M_ij: 0.1
@@ -9,11 +10,11 @@ General:
   debug: 0
   deformation_strategy: generic
   integration_statistics: true
-  log_file: log.txt
+  log_file: /dev/null
   log_to_screen: true
   numerical_instability_check: true
   numerical_threshold: 0.0
-  relative_precision: 5
+  relative_precision: 5.0
   statistics_interval: 100000
   topology: DoubleTriangle
 Integrator:

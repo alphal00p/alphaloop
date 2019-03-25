@@ -857,10 +857,10 @@ hyperparameters = HyperParameters({
         'topology'              :   'DoubleTriangle',
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version
-        'relative_precision'    :   5,
+        'relative_precision'    :   5.,
         'numerical_instability_check': True,
         'log_to_screen'         :   True,
-        'log_file'              :   'log.txt',
+        'log_file'              :   '/dev/null',
         'integration_statistics':   True,
         'statistics_interval'   :   100000,
         'debug'                 :   0
@@ -883,7 +883,7 @@ hyperparameters = HyperParameters({
 
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
-            'mode'  :   'exponential',
+            'mode'  :   'unity',
             'a_ij'  :   1.0,
         },
 

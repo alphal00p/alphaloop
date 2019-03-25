@@ -470,8 +470,8 @@ class Diagnostic_tool(object):
                             print(check)
                             print(surp.moms)
                             print(surp.surface_signs)
-                            print("ERRRROOOOOORRRR: Numerical existence of ellipsoid does not coincide with analytical")
-                            sys.exit(1)
+                            print("ZENOFUCKERY: Numerical existence of ellipsoid does not coincide with analytical")
+                            #sys.exit(1)
 
                     else:
                         self.determine_existence(n_points, surp, i)

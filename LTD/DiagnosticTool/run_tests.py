@@ -93,8 +93,8 @@ class DualCancellationScanner(object):
         # Choose a point to approach
         parametrisation_vectors = [ [ 0., ] + [v for v in vec]  for vec in self.parametrisation_vectors ]
         # u and v are defined in [-1.,1.]
-        u = parametrisation_uv['u']*2.-1.
-        v = parametrisation_uv['v']*2.-1.
+        u = self.parametrisation_uv['u']*2.-1.
+        v = self.parametrisation_uv['v']*2.-1.
         loop_mom = list(parametrisation_vectors)
         if len(loop_mom)==1:
             loop_mom.append([0.,0.,0.,0.])
@@ -151,7 +151,13 @@ class DualCancellationScanner(object):
                     point_to_test = approach_point
                     result_bucket = one_result
                     rust_worker = self.rust_instance
-
+                
+                print('i_rot=%d'%i_rot)
+                if rotated_info:
+                    print("rotation_matrix=%s"%str(rotated_info['rotation_matrix']))
+                else:
+                    print("rotation_matrix=identity")
+                print('point=%s,%s'%(','.join('%.16f'%ve for ve in point_to_test[0]), ','.join('%.16f'%ve for ve in point_to_test[1]) ) )
                 kappas, jac_re, jac_im = rust_worker.deform([list(v) for v in point_to_test])
                 deformed_point = [point_to_test[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
             
@@ -292,8 +298,8 @@ class PoleScanner(object):
         parametrisation_vectors = [ [ 0., ] + [v for v in vec]  for vec in self.parametrisation_vectors ]
 
         # u and v are defined in [-1.,1.]
-        u_base = parametrisation_uv['u']*2.-1.
-        v_base = parametrisation_uv['v']*2.-1.
+        u_base = self.parametrisation_uv['u']*2.-1.
+        v_base = self.parametrisation_uv['v']*2.-1.
 
         direction_u = self.direction_vectors[0][0]
         direction_v = self.direction_vectors[0][1]
@@ -331,6 +337,7 @@ class PoleScanner(object):
                 n_cut=n_cut
             )
             if diagnostic_point is None:
+                #print("Point for surface #%d could not be generated."%surface_ID)
                 one_result['accuracy'] = 0.
                 one_result['propagator_evaluation'] = complex(0., 0.)
                 one_result['deformation_jacobian'] = complex(0., 0.)
@@ -898,7 +905,9 @@ if __name__ == '__main__':
         sys.exit(1)
     else:
         print('\n'.join(diagnostics.print_all_surfaces(grouped_surfaces, show_group_members=False).split('\n')[-1:]))
-
+    
+    #print(diagnostics.print_all_surfaces(grouped_surfaces, show_group_members=False))
+    #stop
     if surface_ids is not None and any(s>len(grouped_surfaces) for s in surface_ids):
         print("ERROR: Specified surface_ids '%s' exceed the number of detected group of identical surfaces (%d)."%(
             str(surface_ids), len(grouped_surfaces)) )
@@ -946,20 +955,21 @@ if __name__ == '__main__':
     while True:
         try:
             # post-process the vector definitions by replacing the ones that are None and should be taken random.
-            direction_vectors = [
+            set_direction_vectors = [
                 (vec if vec is not None else vectors.Vector([(random.random()-0.5)*2 for _ in range(3)]))
                 for vec in direction_vectors]
-            parametrisation_vectors = [
+            set_parametrisation_vectors = [
                 (vec if vec is not None else vectors.Vector([(random.random() - 0.5) * 2 * com_energy for _ in range(3)]))
                 for vec in parametrisation_vectors]
 
-            parametrisation_uv['u']  = (parametrisation_uv['u'] if parametrisation_uv['u'] is not None else
+            set_parametrisation_uv = {}
+            set_parametrisation_uv['u']  = (parametrisation_uv['u'] if parametrisation_uv['u'] is not None else
                                                                                                 (random.random() - 0.5) * 2)
-            parametrisation_uv['v']  = (parametrisation_uv['v'] if parametrisation_uv['v'] is not None else
+            set_parametrisation_uv['v']  = (parametrisation_uv['v'] if parametrisation_uv['v'] is not None else
                                                                                                 (random.random() - 0.5) * 2)
             # Normalise the direction vectors if doing a pole check
             if test_name in ['pole_check','cancellation_check']:
-                direction_vectors = [vec*(1.0/max(abs(v) for v in vec)) for vec in direction_vectors]
+                set_direction_vectors = [vec*(1.0/max(abs(v) for v in vec)) for vec in set_direction_vectors]
             if load_results_from is None:
                 if save_results_to is not None:
                     log_stream = open(save_results_to,'w')
@@ -970,9 +980,9 @@ if __name__ == '__main__':
                     scanner = PoleScanner(
                         log_stream              =   log_stream,
                         topology                =   topology,
-                        direction_vectors       =   direction_vectors,
-                        parametrisation_vectors =   parametrisation_vectors,
-                        parametrisation_uv      =   parametrisation_uv,
+                        direction_vectors       =   set_direction_vectors,
+                        parametrisation_vectors =   set_parametrisation_vectors,
+                        parametrisation_uv      =   set_parametrisation_uv,
                         t_values                =   t_values,
                         diagnostic_tool         =   diagnostic_tool,
                         rust_instance           =   rust_instance,
@@ -982,9 +992,9 @@ if __name__ == '__main__':
                     scanner = DualCancellationScanner(
                         log_stream              =   log_stream,
                         topology                =   topology,
-                        direction_vectors       =   direction_vectors,
-                        parametrisation_vectors =   parametrisation_vectors,
-                        parametrisation_uv      =   parametrisation_uv,
+                        direction_vectors       =   set_direction_vectors,
+                        parametrisation_vectors =   set_parametrisation_vectors,
+                        parametrisation_uv      =   set_parametrisation_uv,
                         t_values                =   t_values,
                         diagnostic_tool         =   diagnostic_tool,
                         rust_instance           =   rust_instance,

@@ -740,6 +740,7 @@ impl Topology {
         // make sure the kappa has the right dimension by multiplying in the scale
         let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
         for kappa in &mut kappas[..self.n_loops] {
+            //*kappa *= scale / kappa.spatial_squared_impr().sqrt();
             *kappa *= scale;
         }
 
