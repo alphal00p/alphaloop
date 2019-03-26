@@ -303,13 +303,15 @@ class Propagator(object):
 class TopologyCollection(dict):
     """ Collection of hard-coded topologies."""
 
-    def add_topology(self, topology_to_add):
+    def add_topology(self, topology_to_add, entry_name=None):
 
         assert(isinstance(topology_to_add,LoopTopology))
-        if topology_to_add.name is None:
-            raise BaseException("Specify the name of the hard-coded topology to add to the collection.")
-        self[topology_to_add.name] = topology_to_add
-
+        if entry_name is None:
+            if topology_to_add.name is None:
+                raise BaseException("Specify the name of the hard-coded topology to add to the collection.")
+            self[topology_to_add.name] = topology_to_add
+        else:
+            self[entry_name] = topology_to_add
 
     def export_to(self, output_path, format='yaml'):
         """ Exports this topology to a given format."""
@@ -730,6 +732,19 @@ hard_coded_topology_collection.add_topology(
     ),
 )
 
+hard_coded_topology_collection.add_topology(   
+    create_hard_coded_topoloogy(
+        'DoubleTriangle',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1.,1.3,0.5,2.1]),
+                vectors.LorentzVector([-1.,-1.3,-0.5,-2.1])
+        ]),
+        name = 'DoubleTriangle_euclidian',
+        # Analytical is given by its exact function directly for 'DoubleTriangle'        
+    ),
+    entry_name = 'DoubleTriangle_euclidian'
+)
+
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'TriangleBox',
@@ -860,8 +875,10 @@ hyperparameters = HyperParameters({
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   5.,
         'numerical_instability_check': True,
-        'log_to_screen'         :   True,
-        'log_file'              :   '/dev/null',
+        'log_to_screen'         :   False,
+        # '/dev/null' implies that the message is redirected to stderr instead of the sink which can then easily
+        # be further redirected to a file with ./ltd 2> integration_statistics.dat
+        'log_file'              :   '/dev/null', # use '/dev/null' to sink
         'integration_statistics':   True,
         'statistics_interval'   :   100000,
         'debug'                 :   0

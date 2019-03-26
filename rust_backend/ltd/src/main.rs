@@ -31,7 +31,9 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::integrand::Integrand;
 use ltd::topologies::Topology;
-use ltd::{IntegratedPhase, Settings};
+use ltd::{IntegratedPhase, Settings, float};
+
+type Complex = num::Complex<float>;
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -240,13 +242,18 @@ fn main() {
         return;
     }
 
-    info!(
-        log,
+    println!(
         "Integrating {} with {} samples and deformation '{}'",
         settings.general.topology,
         settings.integrator.n_max,
         settings.general.deformation_strategy
     );
+
+    match topo.analytical_result_real {
+        Some(_) => println!("Analytic result: {:e}",
+                         Complex::new(topo.analytical_result_real.unwrap(),topo.analytical_result_imag.unwrap()) ),
+        _ => println!("Analytic result not available."),
+    }
 
     let cuba_result = match settings.integrator.integrator.as_ref() {
         "vegas" => ci.vegas(
@@ -278,8 +285,12 @@ fn main() {
         ),
         x => panic!("Unknown integrator {}", x),
     };
-    info!(log, "{:#?}", cuba_result);
-
+    println!("{:#?}", cuba_result);
+    match topo.analytical_result_real {
+        Some(_) => println!("Analytic result: {:e}",
+                     Complex::new(topo.analytical_result_real.unwrap(),topo.analytical_result_imag.unwrap()) ),
+        _ => println!("Analytic result not available."),
+    }
     let f = OpenOptions::new()
         .create(true)
         .write(true)

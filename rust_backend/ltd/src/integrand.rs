@@ -122,6 +122,13 @@ impl Integrand {
         }
     }
 
+    fn print_msg(&self, msg: String) {
+        match self.settings.general.log_file.as_ref() {
+            "/dev/null" => eprintln!("{}", msg),
+            _           => info!(self.log, "{}", msg),
+        }
+    }
+
     fn print_info(
         &self,
         n_loops: usize,
@@ -138,22 +145,22 @@ impl Integrand {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
             match n_loops {
                 1 => {
-                    info!(self.log,
+                    self.print_msg(format!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def
-                    );
+                    ));
                 }
                 2 => {
-                    info!(self.log,
+                    self.print_msg(format!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def
-                    );
+                    ));
                 }
                 3 => {
-                    info!(self.log,
+                    self.print_msg(format!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
-                    );
+                    ));
                 }
                 _ => {}
             }
@@ -161,10 +168,12 @@ impl Integrand {
     }
 
     fn print_statistics(&self) {
-        info!(self.log,"Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
+        
+        self.print_msg(format!(
+            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
-            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.);
+            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.));
     }
 
     pub fn evaluate(&mut self, x: &[f64]) -> Complex {

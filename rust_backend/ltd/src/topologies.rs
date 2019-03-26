@@ -70,7 +70,8 @@ impl fmt::Display for Cut {
 pub struct Topology {
     pub name: String,
     pub n_loops: usize,
-    pub analytical_result: Option<f64>,
+    pub analytical_result_real: Option<f64>,
+    pub analytical_result_imag: Option<f64>,
     #[serde(default)]
     pub e_cm_squared: f64,
     #[serde(default)]
