@@ -13,7 +13,7 @@ use {AdditiveMode, DeformationStrategy};
 
 use utils;
 
-const MAX_SURF: usize = 49;
+const MAX_ELLIPSE_GROUPS: usize = 12;
 const MAX_DIM: usize = 3;
 const MAX_LOOP: usize = 3;
 
@@ -326,8 +326,10 @@ impl Topology {
         }
 
         // Identify similar surfaces and put them in the same group
-        let mut group_representative = vec![];
-        for s in &mut self.surfaces {
+        // If a surface is the first of a new group, the group id will be the index
+        // in the surface list
+        let mut group_representative : Vec<(Vec<((usize, usize), i8)>, usize)> = vec![];
+        for (surf_index, s) in &mut self.surfaces.iter_mut().enumerate() {
             // create a tuple that identifies a surface:
             // (p_i, s_i) where p_i is a cut propagator or an on-shell one
             // and s_i is the surface sign
@@ -341,13 +343,12 @@ impl Topology {
                 .zip(s.signs.iter())
                 .filter_map(|((lli, c), s)| match c {
                     Cut::PositiveCut(i) | Cut::NegativeCut(i) if *s != 0 => Some(((lli, *i), *s)),
-                    _ => None, // not reachable
+                    _ => None,
                 })
                 .collect::<Vec<_>>();
 
             // now add the surface sign
             s_cut_sorted.push(((s.onshell_ll_index, s.onshell_prop_index), s.delta_sign));
-
             s_cut_sorted.sort();
 
             // also try with opposite signs
@@ -356,20 +357,25 @@ impl Topology {
                 .map(|(c, s)| (*c, -s))
                 .collect::<Vec<_>>();
 
-            match group_representative.iter().position(|r| r == &s_cut_sorted) {
-                Some(i) => s.group = i,
+            let mut is_new = false;
+            match group_representative.iter().find(|r| r.0 == s_cut_sorted) {
+                Some(i) => s.group = i.1,
                 None => {
                     match group_representative
                         .iter()
-                        .position(|r| r == &s_cut_sorted_inv)
+                        .find(|r| r.0 == s_cut_sorted_inv)
                     {
-                        Some(j) => s.group = j,
+                        Some(j) => s.group = j.1,
                         None => {
-                            s.group = group_representative.len();
-                            group_representative.push(s_cut_sorted);
+                            is_new = true;
                         }
                     }
                 }
+            }
+
+            if is_new {
+                s.group = surf_index;
+                group_representative.push((s_cut_sorted, surf_index));
             }
 
             if self.settings.general.debug > 1 {
@@ -611,19 +617,18 @@ impl Topology {
 
         // TODO: store globally. How though, as it's type is DualN<float, U>...
         // plus it has self.n_loops components...
-        let mut kappa_surf = [LorentzVector::default(); MAX_LOOP * MAX_SURF];
-        let mut inv_surf_prop = [DualN::default(); MAX_SURF];
+        let mut kappa_surf = [LorentzVector::default(); MAX_LOOP * MAX_ELLIPSE_GROUPS];
+        let mut inv_surf_prop = [DualN::default(); MAX_ELLIPSE_GROUPS];
 
         // surface equation:
         // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
         // where m=delta_sign a = sig_ll_in_cb, r = residue_sign
         let mut group_counter = 0;
-        for surf in self.surfaces.iter() {
+        for (surf_index, surf) in self.surfaces.iter().enumerate() {
             // only deform the set of different ellipsoids
-            if !surf.ellipsoid || surf.group < group_counter {
+            if !surf.ellipsoid || surf.group != surf_index {
                 continue;
             }
-            group_counter = surf.group + 1;
 
             // compute v_i = q_i^cut / sqrt(|q_i^cut|^2 + m^2)
             // construct the normalized 3-momenta that flow through the cut propagators
@@ -721,6 +726,8 @@ impl Topology {
                 kappa_surf[group_counter * MAX_LOOP + loop_index] =
                     -dir / dir.spatial_squared_impr().sqrt();
             }
+
+            group_counter += 1;
         }
 
         // now combine the kappas from the surface using the chosen strategy
