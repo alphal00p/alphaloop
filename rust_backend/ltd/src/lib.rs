@@ -15,8 +15,6 @@ extern crate cuba;
 extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;
-#[macro_use]
-extern crate slog;
 
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
 
@@ -132,7 +130,7 @@ pub struct ParameterizationSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
-    pub log_file: String,
+    pub log_file_prefix: String,
     pub log_to_screen: bool,
     pub deformation_strategy: DeformationStrategy,
     pub topology: String,

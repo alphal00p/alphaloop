@@ -12,15 +12,10 @@ extern crate serde;
 extern crate serde_yaml;
 use serde::{Deserialize, Serialize};
 extern crate vector;
-#[macro_use]
-extern crate slog;
-extern crate slog_async;
-extern crate slog_term;
 
 use clap::{App, Arg};
 use num_traits::ToPrimitive;
 use rand::prelude::*;
-use slog::{Drain, Duplicate, Level, LevelFilter};
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -31,7 +26,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::integrand::Integrand;
 use ltd::topologies::Topology;
-use ltd::{IntegratedPhase, Settings, float};
+use ltd::{float, IntegratedPhase, Settings};
 
 type Complex = num::Complex<float>;
 
@@ -106,39 +101,6 @@ fn bench(topo: &Topology, settings: &Settings) {
     }
 
     println!("{:#?}", now.elapsed());
-}
-
-fn create_logger(settings: &Settings) -> slog::Logger {
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .write(true)
-        .open(&settings.general.log_file)
-        .unwrap();
-
-    let file_decorator = slog_term::PlainDecorator::new(file);
-    let file_drain = slog_term::FullFormat::new(file_decorator).build().fuse();
-    // FIXME: async is not working with cuba...
-    //let file_drain = slog_async::Async::new(file_drain).build().fuse();
-    let file_drain = std::sync::Mutex::new(file_drain).fuse();
-
-    if settings.general.log_to_screen {
-        let decorator = slog_term::TermDecorator::new().build();
-        let drain = slog_term::FullFormat::new(decorator).build().fuse();
-        //let drain = slog_async::Async::new(drain).build().fuse();
-        let drain = std::sync::Mutex::new(drain).fuse();
-
-        slog::Logger::root(
-            Duplicate::new(
-                LevelFilter::new(drain, Level::Info),
-                LevelFilter::new(file_drain, Level::Debug),
-            )
-            .fuse(),
-            o!(),
-        )
-    } else {
-        slog::Logger::root(LevelFilter::new(file_drain, Level::Debug).fuse(), o!())
-    }
 }
 
 fn main() {
@@ -234,9 +196,6 @@ fn main() {
         .get(&settings.general.topology)
         .expect("Unknown topology");
 
-    let log = create_logger(&settings);
-    let integrand = Integrand::new(topo, settings.clone(), log.clone());
-
     if matches.is_present("bench") {
         bench(&topo, &settings);
         return;
@@ -244,14 +203,17 @@ fn main() {
 
     println!(
         "Integrating {} with {} samples and deformation '{}'",
-        settings.general.topology,
-        settings.integrator.n_max,
-        settings.general.deformation_strategy
+        settings.general.topology, settings.integrator.n_max, settings.general.deformation_strategy
     );
 
     match topo.analytical_result_real {
-        Some(_) => println!("Analytic result: {:e}",
-                         Complex::new(topo.analytical_result_real.unwrap(),topo.analytical_result_imag.unwrap()) ),
+        Some(_) => println!(
+            "Analytic result: {:e}",
+            Complex::new(
+                topo.analytical_result_real.unwrap(),
+                topo.analytical_result_imag.unwrap()
+            )
+        ),
         _ => println!("Analytic result not available."),
     }
 
@@ -266,7 +228,9 @@ fn main() {
             CubaVerbosity::Progress,
             0,
             UserData {
-                integrand: vec![integrand.clone(); cores + 1],
+                integrand: (0..=cores)
+                    .map(|i| Integrand::new(topo, settings.clone(), i))
+                    .collect(),
                 integrated_phase: settings.integrator.integrated_phase,
             },
         ),
@@ -279,7 +243,9 @@ fn main() {
             },
             CubaVerbosity::Progress,
             UserData {
-                integrand: vec![integrand.clone(); cores + 1],
+                integrand: (0..=cores)
+                    .map(|i| Integrand::new(topo, settings.clone(), i))
+                    .collect(),
                 integrated_phase: settings.integrator.integrated_phase,
             },
         ),
@@ -287,8 +253,13 @@ fn main() {
     };
     println!("{:#?}", cuba_result);
     match topo.analytical_result_real {
-        Some(_) => println!("Analytic result: {:e}",
-                     Complex::new(topo.analytical_result_real.unwrap(),topo.analytical_result_imag.unwrap()) ),
+        Some(_) => println!(
+            "Analytic result: {:e}",
+            Complex::new(
+                topo.analytical_result_real.unwrap(),
+                topo.analytical_result_imag.unwrap()
+            )
+        ),
         _ => println!("Analytic result not available."),
     }
     let f = OpenOptions::new()

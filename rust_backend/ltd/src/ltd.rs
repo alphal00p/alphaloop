@@ -328,7 +328,7 @@ impl Topology {
         // Identify similar surfaces and put them in the same group
         // If a surface is the first of a new group, the group id will be the index
         // in the surface list
-        let mut group_representative : Vec<(Vec<((usize, usize), i8)>, usize)> = vec![];
+        let mut group_representative: Vec<(Vec<((usize, usize), i8)>, usize)> = vec![];
         for (surf_index, s) in &mut self.surfaces.iter_mut().enumerate() {
             // create a tuple that identifies a surface:
             // (p_i, s_i) where p_i is a cut propagator or an on-shell one

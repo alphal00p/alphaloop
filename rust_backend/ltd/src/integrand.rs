@@ -1,7 +1,8 @@
 use arrayvec::ArrayVec;
 use num_traits::NumCast;
 use num_traits::{Float, FromPrimitive, Inv, One, ToPrimitive};
-use slog::Logger;
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use topologies::Topology;
 use vector::LorentzVector;
 use {float, Complex};
@@ -12,7 +13,6 @@ use IntegratedPhase;
 use Settings;
 
 /// A structure that integrates and keeps statistics
-#[derive(Clone)]
 pub struct Integrand {
     pub settings: Settings,
     pub topologies: Vec<Topology>,
@@ -21,11 +21,11 @@ pub struct Integrand {
     pub nan_point_count: usize,
     pub unstable_point_count: usize,
     pub regular_point_count: usize,
-    pub log: Logger,
+    pub log: BufWriter<File>,
 }
 
 impl Integrand {
-    pub fn new(topology: &Topology, settings: Settings, log: Logger) -> Integrand {
+    pub fn new(topology: &Topology, settings: Settings, id: usize) -> Integrand {
         // create an extra topology with rotated kinematics to check the uncertainty
         let angle = float::from_f64(0.33).unwrap(); // rotation angle
         let rv = (
@@ -117,20 +117,15 @@ impl Integrand {
             regular_point_count: 0,
             unstable_point_count: 0,
             nan_point_count: 0,
+            log: BufWriter::new(
+                File::create(format!("{}{}.log", settings.general.log_file_prefix, id)).unwrap(),
+            ),
             settings,
-            log,
-        }
-    }
-
-    fn print_msg(&self, msg: String) {
-        match self.settings.general.log_file.as_ref() {
-            "/dev/null" => eprintln!("{}", msg),
-            _           => info!(self.log, "{}", msg),
         }
     }
 
     fn print_info(
-        &self,
+        &mut self,
         n_loops: usize,
         new_max: bool,
         x: &[f64],
@@ -145,35 +140,48 @@ impl Integrand {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
             match n_loops {
                 1 => {
-                    self.print_msg(format!(
+                    eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def
-                    ));
+                    );
+                    writeln!(self.log, "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def).unwrap();
                 }
                 2 => {
-                    self.print_msg(format!(
+                    eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def
-                    ));
+                    );
+                    writeln!(self.log, "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def).unwrap();
                 }
                 3 => {
-                    self.print_msg(format!(
+                    eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
-                    ));
+                    );
+                    writeln!(self.log,
+                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
+                    ).unwrap();
                 }
                 _ => {}
             }
         }
     }
 
-    fn print_statistics(&self) {
-        
-        self.print_msg(format!(
+    fn print_statistics(&mut self) {
+        println!(
             "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
-            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.));
+            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.);
+
+        writeln!(self.log,
+            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
+            self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
+            self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
+            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.).unwrap();
     }
 
     pub fn evaluate(&mut self, x: &[f64]) -> Complex {
@@ -210,16 +218,9 @@ impl Integrand {
             || d < NumCast::from(self.settings.general.relative_precision).unwrap()
         {
             if self.settings.general.integration_statistics {
+                let loops = self.topologies[0].n_loops;
                 self.print_info(
-                    self.topologies[0].n_loops,
-                    false,
-                    x,
-                    k_def,
-                    jac_para,
-                    jac_def,
-                    result,
-                    result_rot,
-                    d,
+                    loops, false, x, k_def, jac_para, jac_def, result, result_rot, d,
                 );
             }
 
@@ -258,16 +259,9 @@ impl Integrand {
         }
 
         if self.settings.general.integration_statistics {
+            let loops = self.topologies[0].n_loops;
             self.print_info(
-                self.topologies[0].n_loops,
-                new_max,
-                x,
-                k_def,
-                jac_para,
-                jac_def,
-                result,
-                result_rot,
-                d,
+                loops, new_max, x, k_def, jac_para, jac_def, result, result_rot, d,
             );
         }
 

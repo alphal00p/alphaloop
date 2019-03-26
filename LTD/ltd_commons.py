@@ -875,10 +875,9 @@ hyperparameters = HyperParameters({
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   5.,
         'numerical_instability_check': True,
-        'log_to_screen'         :   False,
-        # '/dev/null' implies that the message is redirected to stderr instead of the sink which can then easily
-        # be further redirected to a file with ./ltd 2> integration_statistics.dat
-        'log_file'              :   '/dev/null', # use '/dev/null' to sink
+        # statistics will be printed to stderr by default
+        'log_to_screen'         :   True,
+        'log_file_prefix'       :   'statistics',
         'integration_statistics':   True,
         'statistics_interval'   :   100000,
         'debug'                 :   0

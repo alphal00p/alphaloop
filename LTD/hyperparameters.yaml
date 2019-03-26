@@ -10,8 +10,8 @@ General:
   debug: 0
   deformation_strategy: additive
   integration_statistics: true
-  log_file: /dev/null
-  log_to_screen: false
+  log_file_prefix: statistics
+  log_to_screen: true
   numerical_instability_check: true
   numerical_threshold: 0.0
   relative_precision: 5.0
