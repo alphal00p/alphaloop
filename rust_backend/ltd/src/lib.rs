@@ -34,11 +34,49 @@ pub mod topologies;
 pub mod utils;
 
 use serde::Deserialize;
+use std::fmt;
 use std::fs::File;
 
 pub type Complex = num::Complex<float>;
 use arrayvec::ArrayVec;
 use vector::LorentzVector;
+
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+pub enum DeformationStrategy {
+    #[serde(rename = "additive")]
+    Additive,
+    #[serde(rename = "multiplicative")]
+    Multiplicative,
+    #[serde(rename = "none")]
+    None,
+}
+
+impl From<&str> for DeformationStrategy {
+    fn from(s: &str) -> Self {
+        match s {
+            "additive" => DeformationStrategy::Additive,
+            "multiplicative" => DeformationStrategy::Multiplicative,
+            "none" => DeformationStrategy::None,
+            _ => panic!("Unknown deformation strategy {}", s),
+        }
+    }
+}
+
+impl fmt::Display for DeformationStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DeformationStrategy::Additive => write!(f, "additive"),
+            DeformationStrategy::Multiplicative => write!(f, "multiplicative"),
+            DeformationStrategy::None => write!(f, "none"),
+        }
+    }
+}
+
+impl Default for DeformationStrategy {
+    fn default() -> DeformationStrategy {
+        DeformationStrategy::Additive
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub enum IntegratedPhase {
@@ -96,7 +134,7 @@ pub struct ParameterizationSettings {
 pub struct GeneralSettings {
     pub log_file: String,
     pub log_to_screen: bool,
-    pub deformation_strategy: String,
+    pub deformation_strategy: DeformationStrategy,
     pub topology: String,
     pub numerical_threshold: f64,
     pub relative_precision: f64,

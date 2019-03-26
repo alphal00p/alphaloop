@@ -213,7 +213,7 @@ fn main() {
     let topology_file = matches.value_of("topologies").unwrap();
 
     if let Some(x) = matches.value_of("deformation_strategy") {
-        settings.general.deformation_strategy = x.to_owned();
+        settings.general.deformation_strategy = x.into();
     }
     let mut ci = CubaIntegrator::new(integrand);
 

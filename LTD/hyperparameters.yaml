@@ -8,7 +8,7 @@ Deformation:
     M_ij: 0.1
 General:
   debug: 0
-  deformation_strategy: generic
+  deformation_strategy: additive
   integration_statistics: true
   log_file: /dev/null
   log_to_screen: true

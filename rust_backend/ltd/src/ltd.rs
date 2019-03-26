@@ -9,10 +9,11 @@ use num_traits::Zero;
 use num_traits::{Float, Num, NumCast};
 use topologies::{Cut, CutList, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector};
-use AdditiveMode;
+use {AdditiveMode, DeformationStrategy};
 
 use utils;
 
+const MAX_SURF: usize = 49;
 const MAX_DIM: usize = 3;
 const MAX_LOOP: usize = 3;
 
@@ -608,6 +609,11 @@ impl Topology {
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
 
+        // TODO: store globally. How though, as it's type is DualN<float, U>...
+        // plus it has self.n_loops components...
+        let mut kappa_surf = [LorentzVector::default(); MAX_LOOP * MAX_SURF];
+        let mut inv_surf_prop = [DualN::default(); MAX_SURF];
+
         // surface equation:
         // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
         // where m=delta_sign a = sig_ll_in_cb, r = residue_sign
@@ -708,39 +714,84 @@ impl Topology {
             let qs: LorentzVector<DualN<float, U>> = surf.shift.cast();
             let momq: LorentzVector<DualN<float, U>> = mom + qs;
             let inv = momq.square_impr() - float::from_f64(surface_prop.m_squared).unwrap();
-            let aij: DualN<float, U> =
-                NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
-            let dampening = match self.settings.deformation.additive.mode {
-                AdditiveMode::Exponential => {
-                    (-inv * inv / (aij * float::from_f64(self.e_cm_squared).unwrap().powi(2))).exp()
-                }
-                AdditiveMode::Hyperbolic => {
-                    let t = inv * inv / float::from_f64(self.e_cm_squared).unwrap().powi(2);
-                    t / (t + aij)
-                }
-                AdditiveMode::Unity => DualN::from_real(float::one()),
-            };
+            inv_surf_prop[group_counter] = inv;
 
-            for (kappa, dir) in kappas[..self.n_loops].iter_mut().zip(deform_dirs.iter()) {
-                if self.settings.general.debug > 2 {
-                    println!(
-                        "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
-                        group_counter,
-                        dir,
-                        dampening.real()
-                    );
-                }
-
-                // normalize the direction and multiply the dampening
+            for (loop_index, dir) in deform_dirs.iter().enumerate() {
                 // note the sign
-                *kappa -= dir / dir.spatial_squared_impr().sqrt() * dampening;
+                kappa_surf[group_counter * MAX_LOOP + loop_index] =
+                    -dir / dir.spatial_squared_impr().sqrt();
             }
+        }
+
+        // now combine the kappas from the surface using the chosen strategy
+        match self.settings.general.deformation_strategy {
+            DeformationStrategy::Additive => {
+                let aij: DualN<float, U> =
+                    NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
+
+                for (i, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
+                    let dampening = match self.settings.deformation.additive.mode {
+                        AdditiveMode::Exponential => (-inv * inv
+                            / (aij * float::from_f64(self.e_cm_squared).unwrap().powi(2)))
+                        .exp(),
+                        AdditiveMode::Hyperbolic => {
+                            let t = inv * inv / float::from_f64(self.e_cm_squared).unwrap().powi(2);
+                            t / (t + aij)
+                        }
+                        AdditiveMode::Unity => DualN::from_real(float::one()),
+                    };
+
+                    for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
+                        let dir = kappa_surf[i * MAX_LOOP + loop_index];
+                        if self.settings.general.debug > 2 {
+                            println!(
+                                "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
+                                group_counter,
+                                dir,
+                                dampening.real()
+                            );
+                        }
+
+                        *kappa += dir * dampening;
+                    }
+                }
+            }
+            DeformationStrategy::Multiplicative => {
+                let m_ij: DualN<float, U> =
+                    NumCast::from(self.settings.deformation.multiplicative.m_ij).unwrap();
+
+                for (i, _) in inv_surf_prop[..group_counter].iter().enumerate() {
+                    let mut dampening = DualN::from_real(float::one());
+                    for (j, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
+                        if i == j {
+                            continue;
+                        }
+
+                        let t = inv * inv / float::from_f64(self.e_cm_squared).unwrap().powi(2);
+                        dampening *= t / (t + m_ij);
+                    }
+
+                    for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
+                        let dir = kappa_surf[i * MAX_LOOP + loop_index];
+                        if self.settings.general.debug > 2 {
+                            println!(
+                                "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
+                                group_counter,
+                                dir,
+                                dampening.real()
+                            );
+                        }
+
+                        *kappa += dir * dampening;
+                    }
+                }
+            }
+            _ => unreachable!(),
         }
 
         // make sure the kappa has the right dimension by multiplying in the scale
         let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
         for kappa in &mut kappas[..self.n_loops] {
-            //*kappa *= scale / kappa.spatial_squared_impr().sqrt();
             *kappa *= scale;
         }
 
@@ -784,13 +835,9 @@ impl Topology {
         &self,
         loop_momenta: &[LorentzVector<float>],
     ) -> ([LorentzVector<float>; MAX_LOOP], Complex) {
-        match self.settings.general.deformation_strategy.as_ref() {
-            "none" => {
-                let mut r = [LorentzVector::default(); MAX_LOOP];
-                return (r, Complex::new(float::one(), float::zero()));
-            }
-            "generic" => {}
-            _ => panic!("Unknown deformation type"),
+        if DeformationStrategy::None == self.settings.general.deformation_strategy {
+            let r = [LorentzVector::default(); MAX_LOOP];
+            return (r, Complex::new(float::one(), float::zero()));
         }
 
         match self.n_loops {
