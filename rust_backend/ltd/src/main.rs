@@ -185,7 +185,7 @@ fn main() {
         .set_maxeval(settings.integrator.n_max as i64)
         .set_epsabs(0.)
         .set_epsrel(1e-15)
-        .set_seed(1)
+        .set_seed(settings.integrator.seed)
         .set_cores(cores, 1000);
 
     // load the example file

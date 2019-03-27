@@ -29,6 +29,7 @@ Integrator:
   n_min: 2
   n_new: 1000
   n_start: 100000
+  seed: 1
 Parameterization:
   rescaling: 1.0
   shift:

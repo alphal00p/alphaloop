@@ -892,6 +892,7 @@ hyperparameters = HyperParameters({
         'n_new'             :   1000,
         'n_min'             :   2,
         'flatness'          :   50.,
+        'seed'              :   1,
         'integrated_phase'  :  'real'
     },
 

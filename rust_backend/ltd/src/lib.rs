@@ -164,6 +164,7 @@ pub struct IntegratorSettings {
     pub n_new: usize,
     pub n_min: usize,
     pub flatness: f64,
+    pub seed: i32,
     pub integrated_phase: IntegratedPhase,
 }
 
@@ -187,6 +188,7 @@ impl Default for IntegratorSettings {
             n_new: 1000,
             n_min: 2,
             flatness: 50.,
+            seed: 1,
             integrated_phase: IntegratedPhase::Real,
         }
     }
