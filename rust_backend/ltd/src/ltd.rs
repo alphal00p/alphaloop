@@ -868,7 +868,7 @@ impl Topology {
         for i in 0..non_empty_cut_count {
             let mut s = DualN::from_real(float::one());
             for j in 0..non_empty_cut_count {
-                if i == j {
+                if i == j || self.settings.deformation.cutgroups.mode == AdditiveMode::Unity {
                     continue;
                 }
 
@@ -916,7 +916,10 @@ impl Topology {
 
                 s *= t
                     / (t + DualN::from_real(
-                        float::from_f64(self.settings.deformation.multiplicative.m_ij).unwrap(),
+                        float::from_f64(
+                            self.settings.deformation.multiplicative.m_ij * self.e_cm_squared,
+                        )
+                        .unwrap(),
                     ));
             }
 

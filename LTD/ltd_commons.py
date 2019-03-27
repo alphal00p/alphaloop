@@ -889,6 +889,9 @@ hyperparameters = HyperParameters({
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e9),
         'n_increase'        :   0,
+        'n_new'             :   1000,
+        'n_min'             :   2,
+        'flatness'          :   50.,
         'integrated_phase'  :  'real'
     },
 
@@ -906,8 +909,12 @@ hyperparameters = HyperParameters({
 
         'multiplicative'        :   {
             'M_ij'  :   0.1
-        }
+        },
 
+        'cutgroups' : {
+            'M_ij'  :   0.1,
+            'mode'  :   'hyperbolic',
+        }
     },
 
     'Parameterization'   :   {

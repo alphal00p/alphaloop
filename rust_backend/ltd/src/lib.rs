@@ -119,11 +119,19 @@ pub struct DeformationAdditiveSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+pub struct DeformationCutGroupsSettings {
+    pub mode: AdditiveMode,
+    #[serde(rename = "M_ij")]
+    pub m_ij: f64,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
     pub lambda: f64,
     pub expansion_threshold: f64,
     pub multiplicative: DeformationMultiplicativeSettings,
     pub additive: DeformationAdditiveSettings,
+    pub cutgroups: DeformationCutGroupsSettings,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -149,20 +157,36 @@ pub struct GeneralSettings {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct IntegratorSettings {
-    pub integrator: String,
+    pub integrator: Integrator,
     pub n_increase: usize,
     pub n_max: usize,
     pub n_start: usize,
+    pub n_new: usize,
+    pub n_min: usize,
+    pub flatness: f64,
     pub integrated_phase: IntegratedPhase,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub enum Integrator {
+    #[serde(rename = "vegas")]
+    Vegas,
+    #[serde(rename = "suave")]
+    Suave,
+    #[serde(rename = "cuhre")]
+    Cuhre,
 }
 
 impl Default for IntegratorSettings {
     fn default() -> IntegratorSettings {
         IntegratorSettings {
-            integrator: "vegas".to_owned(),
+            integrator: Integrator::Vegas,
             n_increase: 0,
             n_start: 10000,
             n_max: 10000000,
+            n_new: 1000,
+            n_min: 2,
+            flatness: 50.,
             integrated_phase: IntegratedPhase::Real,
         }
     }

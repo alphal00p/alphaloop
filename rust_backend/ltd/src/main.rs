@@ -26,7 +26,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::integrand::Integrand;
 use ltd::topologies::Topology;
-use ltd::{IntegratedPhase, Settings};
+use ltd::{IntegratedPhase, Integrator, Settings};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -215,8 +215,8 @@ fn main() {
         _ => println!("Analytic result not available."),
     }
 
-    let cuba_result = match settings.integrator.integrator.as_ref() {
-        "vegas" => ci.vegas(
+    let cuba_result = match settings.integrator.integrator {
+        Integrator::Vegas => ci.vegas(
             3 * topo.n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
                 2
@@ -232,7 +232,25 @@ fn main() {
                 integrated_phase: settings.integrator.integrated_phase,
             },
         ),
-        "cuhre" => ci.cuhre(
+        Integrator::Suave => ci.suave(
+            3 * topo.n_loops,
+            if settings.integrator.integrated_phase == IntegratedPhase::Both {
+                2
+            } else {
+                1
+            },
+            settings.integrator.n_new,
+            settings.integrator.n_min,
+            settings.integrator.flatness,
+            CubaVerbosity::Progress,
+            UserData {
+                integrand: (0..=cores)
+                    .map(|i| Integrand::new(topo, settings.clone(), i))
+                    .collect(),
+                integrated_phase: settings.integrator.integrated_phase,
+            },
+        ),
+        Integrator::Cuhre => ci.cuhre(
             3 * topo.n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
                 2
@@ -247,7 +265,6 @@ fn main() {
                 integrated_phase: settings.integrator.integrated_phase,
             },
         ),
-        x => panic!("Unknown integrator {}", x),
     };
     println!("{:#?}", cuba_result);
     match topo.analytical_result_real {

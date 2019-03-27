@@ -2,6 +2,9 @@ Deformation:
   additive:
     a_ij: 1.0
     mode: unity
+  cutgroups:
+    M_ij: 0.1
+    mode: hyperbolic
   expansion_threshold: 0.1
   lambda: -0.01
   multiplicative:
@@ -18,10 +21,13 @@ General:
   statistics_interval: 100000
   topology: DoubleTriangle
 Integrator:
+  flatness: 50.0
   integrated_phase: real
   integrator: vegas
   n_increase: 0
   n_max: 1000000000
+  n_min: 2
+  n_new: 1000
   n_start: 100000
 Parameterization:
   rescaling: 1.0
