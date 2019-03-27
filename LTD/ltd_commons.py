@@ -868,8 +868,8 @@ hard_coded_topology_collection.add_topology(
 hyperparameters = HyperParameters({
 
     'General'       :   {
-        # can be multiplicative, additive or none
-        'deformation_strategy'  :   'additive',
+        # can be multiplicative, additive, cutgroups or none
+        'deformation_strategy'  :   'cutgroups',
         'topology'              :   'DoubleTriangle',
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version

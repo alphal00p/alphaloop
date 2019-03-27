@@ -8,7 +8,7 @@ Deformation:
     M_ij: 0.1
 General:
   debug: 0
-  deformation_strategy: additive
+  deformation_strategy: cutgroups
   integration_statistics: true
   log_file_prefix: statistics
   log_to_screen: true

@@ -6,7 +6,7 @@ use num_traits::FloatConst;
 use num_traits::FromPrimitive;
 use num_traits::One;
 use num_traits::Zero;
-use num_traits::{Float, Num, NumCast};
+use num_traits::{Float, Inv, Num, NumCast};
 use topologies::{Cut, CutList, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector};
 use {AdditiveMode, DeformationStrategy};
@@ -401,7 +401,6 @@ impl Topology {
         let radius =
             e_cm * float::from_f64(x[0]).unwrap() / (float::one() - float::from_f64(x[0]).unwrap()); // in [0,inf)
         jac *= (e_cm + radius).powi(2) / e_cm;
-        assert!(x.len() > 1);
         let phi = float::from_f64(2.).unwrap()
             * <float as FloatConst>::PI()
             * float::from_f64(x[1]).unwrap();
@@ -601,10 +600,11 @@ impl Topology {
         lambda_sq.sqrt()
     }
 
-    fn deform_generic<U: dual_num::Dim + dual_num::DimName>(
+    /// Construct a deformation vector by going through all the ellipsoids
+    fn deform_ellipsoids<U: dual_num::Dim + dual_num::DimName>(
         &self,
         loop_momenta: &[LorentzVector<DualN<float, U>>],
-    ) -> ([LorentzVector<float>; MAX_LOOP], Complex)
+    ) -> [LorentzVector<DualN<float, U>>; MAX_LOOP]
     where
         dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
         dual_num::Owned<float, U>: Copy,
@@ -793,6 +793,140 @@ impl Topology {
             }
             _ => unreachable!(),
         }
+        kappas
+    }
+
+    /// Construct a deformation vector by going through all cut options
+    /// and make sure it is 0 on all other cut options
+    fn deform_cutgroups<U: dual_num::Dim + dual_num::DimName>(
+        &self,
+        loop_momenta: &[LorentzVector<DualN<float, U>>],
+    ) -> [LorentzVector<DualN<float, U>>; MAX_LOOP]
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
+        dual_num::Owned<float, U>: Copy,
+    {
+        let mut cut_momenta = [LorentzVector::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
+        let mut deform_dirs = [LorentzVector::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
+        let mut non_empty_cuts = [&self.ltd_cut_options[0][0]; MAX_ELLIPSE_GROUPS];
+
+        // go through all cuts that contain ellipsoids
+        // by going through all ellipsoids and skipping ones that are in the same cut
+        let mut last_cut = None;
+        let mut non_empty_cut_count = 0;
+        for surf in self.surfaces.iter() {
+            if !surf.ellipsoid {
+                continue;
+            }
+
+            if Some(&surf.cut) != last_cut {
+                // compute each cut momentum, subtract the shift and normalize
+                let mut index = 0;
+                for (ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
+                    if *ll_cut != Cut::NoCut {
+                        cut_momenta[non_empty_cut_count * MAX_LOOP + index] =
+                            ll.get_cut_momentum(loop_momenta, ll_cut);
+
+                        // subtract the shift from q0
+                        if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
+                            cut_momenta[non_empty_cut_count * MAX_LOOP + index].t -=
+                                DualN::from_real(float::from_f64(ll.propagators[i].q.t).unwrap());
+                        }
+
+                        index += 1;
+                    }
+                }
+
+                // convert from cut momentum basis to loop momentum basis
+                for i in 0..self.n_loops {
+                    let mut deform_dir = LorentzVector::default();
+                    for (&sign, cut_dir) in self.cb_to_lmb_mat[surf.cut_structure_index]
+                        [i * self.n_loops..(i + 1) * self.n_loops]
+                        .iter()
+                        .zip(cut_momenta[non_empty_cut_count * MAX_LOOP..].iter())
+                    {
+                        // normalize the spatial components
+                        let mut mom_normalized = *cut_dir;
+                        let length = mom_normalized.spatial_squared_impr().sqrt();
+                        mom_normalized *= length.inv();
+
+                        deform_dir +=
+                            mom_normalized * DualN::from_real(float::from_i8(sign).unwrap());
+                    }
+
+                    deform_dirs[non_empty_cut_count * MAX_LOOP + i] = deform_dir;
+                }
+
+                non_empty_cuts[non_empty_cut_count] = &surf.cut;
+
+                last_cut = Some(&surf.cut);
+                non_empty_cut_count += 1;
+            }
+        }
+
+        let mut kappas = [LorentzVector::default(); MAX_LOOP];
+        for i in 0..non_empty_cut_count {
+            let mut s = DualN::from_real(float::one());
+            for j in 0..non_empty_cut_count {
+                if i == j {
+                    continue;
+                }
+
+                // t is the weighing factor that is 0 if we are on both cut_i and cut_j
+                // at the same time and goes to 1 otherwise
+                let mut t = DualN::from_real(float::zero());
+                let mut cut_index = 0;
+                for (&cut, ll) in non_empty_cuts[j].iter().zip(self.loop_lines.iter()) {
+                    if cut != Cut::NoCut {
+                        let mut energy = DualN::from_real(float::zero());
+                        let mut index = 0;
+                        for &s in ll.signature.iter() {
+                            if s != 0 {
+                                energy += cut_momenta[i * MAX_LOOP + index].t
+                                    * DualN::from_real(float::from_i8(s).unwrap());
+                                index += 1;
+                            }
+                        }
+
+                        let spatial = cut_momenta[j * MAX_LOOP + cut_index]
+                            .spatial_squared_impr()
+                            .sqrt();
+                        let d = match cut {
+                            Cut::NegativeCut(ii) => energy + ll.propagators[ii].q.t + spatial,
+                            Cut::PositiveCut(ii) => energy + ll.propagators[ii].q.t - spatial,
+                            _ => unreachable!(),
+                        };
+
+                        t += d * d;
+                        cut_index += 1;
+                    }
+                }
+
+                s *= t
+                    / (t + DualN::from_real(
+                        float::from_f64(self.settings.deformation.multiplicative.m_ij).unwrap(),
+                    ));
+            }
+
+            for ii in 0..self.n_loops {
+                kappas[ii] -= deform_dirs[i * MAX_LOOP + ii] * s;
+            }
+        }
+        kappas
+    }
+
+    fn deform_generic<U: dual_num::Dim + dual_num::DimName>(
+        &self,
+        loop_momenta: &[LorentzVector<DualN<float, U>>],
+    ) -> ([LorentzVector<float>; MAX_LOOP], Complex)
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
+        dual_num::Owned<float, U>: Copy,
+    {
+        let mut kappas = match self.settings.general.deformation_strategy {
+            DeformationStrategy::CutGroups => self.deform_cutgroups(loop_momenta),
+            _ => self.deform_ellipsoids(loop_momenta),
+        };
 
         // make sure the kappa has the right dimension by multiplying in the scale
         let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());

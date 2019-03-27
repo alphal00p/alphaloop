@@ -45,6 +45,8 @@ pub enum DeformationStrategy {
     Additive,
     #[serde(rename = "multiplicative")]
     Multiplicative,
+    #[serde(rename = "cutgroups")]
+    CutGroups,
     #[serde(rename = "none")]
     None,
 }
@@ -54,6 +56,7 @@ impl From<&str> for DeformationStrategy {
         match s {
             "additive" => DeformationStrategy::Additive,
             "multiplicative" => DeformationStrategy::Multiplicative,
+            "cutgroups" => DeformationStrategy::CutGroups,
             "none" => DeformationStrategy::None,
             _ => panic!("Unknown deformation strategy {}", s),
         }
@@ -65,6 +68,7 @@ impl fmt::Display for DeformationStrategy {
         match self {
             DeformationStrategy::Additive => write!(f, "additive"),
             DeformationStrategy::Multiplicative => write!(f, "multiplicative"),
+            DeformationStrategy::CutGroups => write!(f, "cutgroups"),
             DeformationStrategy::None => write!(f, "none"),
         }
     }
