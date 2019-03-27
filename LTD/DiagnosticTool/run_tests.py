@@ -407,8 +407,8 @@ class PoleScanner(object):
 
         # Save the result into the logstream if specified
         if self.log_stream is not None:
-            log_stream.write(yaml.dump([ ('surface_results', surface_ID, all_results), ], Dumper=noalias_dumper)) 
-
+            log_stream.write(yaml.dump([ ('surface_results', surface_ID, onshell_propagator_id, all_results), ], Dumper=noalias_dumper)) 
+        
         return {
             'configuration': self.configuration,
             'surface'      : surface_ID,
@@ -577,7 +577,6 @@ class PoleResultsAnalyser(object):
         ### And possibly copies of some of the above for each rotated PS point.
         self.surfaces = surfaces_repository
         self.surface_results   = results['surface_results']
-        self.onshell_prop_id = results['onshell_prop_id']
         self.configuration  = results['configuration']
         self.direction_vectors = [ vectors.LorentzVector(lv) for lv in self.configuration['direction_vectors'] ]
         self.parametrisation_vectors    = [ vectors.LorentzVector(ov) for ov in self.configuration['parametrisation_vectors'] ]
@@ -601,7 +600,7 @@ class PoleResultsAnalyser(object):
                     print("==================================================================")                    
                     print('Results for the following surface #%d:\n%s'%(surface_ID,
                         surface.__str__(cut_propagators=cut_propagators)))
-                    print('Featuring the following onshell propagator: %s'%str(self.onshell_prop_id))
+                    print('Featuring the following onshell propagator: %s'%str(r['onshell_prop_id']))
                     print('>>> t_value = %.16e'%r['t_value'])
                     print('Onshell propagator evaluation *violating causal prescription*:\n     %s%-25.16e %sI*%-25.16e'%(
                         '+' if r['propagator_evaluation'].real >= 0. else '-',
@@ -623,7 +622,7 @@ class PoleResultsAnalyser(object):
         scan_results = result['scan_results']
         first_result = scan_results[0]
         plt.title('Pole test for surface with id #%d (onshel prop: %s)'%
-                        (surface_ID, str(self.onshell_prop_id) ))
+                        (surface_ID, str(result['onshell_prop_id']) ))
         plt.ylabel('Normalised weight')
         plt.xlabel('t')
         if log_y_scale:
@@ -681,7 +680,7 @@ class PoleResultsAnalyser(object):
             surface = self.surfaces[surface_ID][1]
             print('Results for the following surface #%d:\n%s'%(surface_ID,
                 surface.__str__(cut_propagators=cut_propagators)))
-            print('Featuring the following onshell propagator: %s'%str(self.onshell_prop_id))
+            print('Featuring the following onshell propagator: %s'%str(result['onshell_prop_id']))
             scan_results = result['scan_results']
             if scan_results is None:
                 print('Surface did not exist for specified parametrisation vector.')
@@ -709,11 +708,19 @@ def load_results_from_yaml(log_file_path):
     for entry in raw_data:
         entry_name = entry[0]
         if entry_name == 'surface_results':
-            processed_data['surface_results'].append(
-                { 'surface': entry[1],
-                  'scan_results' : entry[2]
-                }
-            ) 
+            if len(entry)==3:
+                processed_data['surface_results'].append(
+                    { 'surface': entry[1],
+                       'onshell_prop_id': entry[2],
+                       'scan_results' : entry[3]
+                    }
+                )
+            else:
+                processed_data['surface_results'].append(
+                    { 'surface': entry[1],
+                       'scan_results' : entry[2]
+                    }
+                )
             continue
         processed_data[entry_name] = entry[1]
     
@@ -1016,7 +1023,8 @@ if __name__ == '__main__':
                     try:
                         all_test_results['surface_results'].append(
                             {   'surface': test_results.pop('surface'),
-                                'scan_results' : test_results.pop('scan_results')
+                                'scan_results' : test_results.pop('scan_results'),
+                                'onshell_prop_id' : test_results.pop('onshell_prop_id','N/A')
                             }
                         )
                     except KeyError:
