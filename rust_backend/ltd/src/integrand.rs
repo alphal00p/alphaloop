@@ -140,26 +140,32 @@ impl Integrand {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
             match n_loops {
                 1 => {
-                    eprintln!(
+                    if self.settings.general.log_to_screen {
+                        eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def
                     );
+                    }
                     writeln!(self.log, "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def).unwrap();
                 }
                 2 => {
-                    eprintln!(
+                    if self.settings.general.log_to_screen {
+                        eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def
                     );
+                    }
                     writeln!(self.log, "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def).unwrap();
                 }
                 3 => {
-                    eprintln!(
+                    if self.settings.general.log_to_screen {
+                        eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
                     );
+                    }
                     writeln!(self.log,
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
@@ -171,11 +177,13 @@ impl Integrand {
     }
 
     fn print_statistics(&mut self) {
-        println!(
+        if self.settings.general.log_to_screen {
+            eprintln!(
             "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
             self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.);
+        }
 
         writeln!(self.log,
             "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
