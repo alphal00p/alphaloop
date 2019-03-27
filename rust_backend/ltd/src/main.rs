@@ -26,9 +26,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::integrand::Integrand;
 use ltd::topologies::Topology;
-use ltd::{float, IntegratedPhase, Settings};
-
-type Complex = num::Complex<float>;
+use ltd::{IntegratedPhase, Settings};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -209,7 +207,7 @@ fn main() {
     match topo.analytical_result_real {
         Some(_) => println!(
             "Analytic result: {:e}",
-            Complex::new(
+            num::Complex::<f64>::new(
                 topo.analytical_result_real.unwrap(),
                 topo.analytical_result_imag.unwrap()
             )
@@ -255,7 +253,7 @@ fn main() {
     match topo.analytical_result_real {
         Some(_) => println!(
             "Analytic result: {:e}",
-            Complex::new(
+            num::Complex::<f64>::new(
                 topo.analytical_result_real.unwrap(),
                 topo.analytical_result_imag.unwrap()
             )

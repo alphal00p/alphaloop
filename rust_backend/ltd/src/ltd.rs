@@ -426,18 +426,15 @@ impl Topology {
                 l_space.push(radius * cos_theta);
 
                 // add a shift such that k=l is harder to be picked up by integrators such as cuhre
-                l_space[0] += float::from_f64(
-                    self.settings.parameterization.shift.0 * loop_index as f64 * e_cm,
-                )
-                .unwrap();
-                l_space[1] += float::from_f64(
-                    self.settings.parameterization.shift.1 * loop_index as f64 * e_cm,
-                )
-                .unwrap();
-                l_space[2] += float::from_f64(
-                    self.settings.parameterization.shift.2 * loop_index as f64 * e_cm,
-                )
-                .unwrap();
+                l_space[0] += e_cm
+                    * float::from_f64(self.settings.parameterization.shift.0 * loop_index as f64)
+                        .unwrap();
+                l_space[1] += e_cm
+                    * float::from_f64(self.settings.parameterization.shift.1 * loop_index as f64)
+                        .unwrap();
+                l_space[2] += e_cm
+                    * float::from_f64(self.settings.parameterization.shift.2 * loop_index as f64)
+                        .unwrap();
 
                 jac *= radius * radius; // spherical coord
                 (l_space, jac)
@@ -502,7 +499,8 @@ impl Topology {
                 for (mom_cut, shift_cut, kappa_cut, mass_cut) in
                     izip!(&cut_momenta, &cut_shifts, &kappa_cuts, &mass_cuts)
                 {
-                    let m = mom_cut + shift_cut;
+                    let scf: LorentzVector<DualN<float, U>> = shift_cut.cast();
+                    let m = mom_cut + scf;
                     let lambda_exp = DualN::from_real(
                         float::from_f64(self.settings.deformation.expansion_threshold).unwrap(),
                     ) * (m.spatial_squared_impr()
