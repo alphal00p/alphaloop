@@ -13,7 +13,7 @@ use {AdditiveMode, DeformationStrategy};
 
 use utils;
 
-const MAX_ELLIPSE_GROUPS: usize = 12;
+const MAX_ELLIPSE_GROUPS: usize = 14;
 const MAX_DIM: usize = 3;
 const MAX_LOOP: usize = 3;
 
@@ -892,8 +892,20 @@ impl Topology {
                             .spatial_squared_impr()
                             .sqrt();
                         let d = match cut {
-                            Cut::NegativeCut(ii) => energy + ll.propagators[ii].q.t + spatial,
-                            Cut::PositiveCut(ii) => energy + ll.propagators[ii].q.t - spatial,
+                            Cut::NegativeCut(ii) => {
+                                energy
+                                    + DualN::from_real(
+                                        float::from_f64(ll.propagators[ii].q.t).unwrap(),
+                                    )
+                                    + spatial
+                            }
+                            Cut::PositiveCut(ii) => {
+                                energy
+                                    + DualN::from_real(
+                                        float::from_f64(ll.propagators[ii].q.t).unwrap(),
+                                    )
+                                    - spatial
+                            }
                             _ => unreachable!(),
                         };
 
