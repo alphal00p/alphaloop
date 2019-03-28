@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# --loop=100
+./run_tests.py \
+	--t=Pentagon\
+	--name=pole_check \
+	--nh=10000 \
+	--s=[] \
+	--t_values_steps="linear" \
+	--tr=[0.0,2.0] \
+	--t_n_points=100 \
+	--seed=1 \
+	--analysis_options={\"log_x_scale\": False, \"log_y_scale\": False} \
+        --save="test.yaml" \
+	$1
