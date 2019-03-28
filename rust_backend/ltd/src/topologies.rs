@@ -1,10 +1,10 @@
+use float;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use vector::LorentzVector;
 use Settings;
-use float;
 
 /// Ellipsoid and hyperboloid surfaces
 #[derive(Debug, Clone)]
@@ -12,6 +12,7 @@ pub struct Surface {
     pub group: usize,
     pub ellipsoid: bool,
     pub cut_structure_index: usize,
+    pub cut_option_index: usize,
     pub cut: Vec<Cut>,
     pub onshell_ll_index: usize,
     pub onshell_prop_index: usize,
@@ -89,6 +90,8 @@ pub struct Topology {
     pub surfaces: Vec<Surface>,
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
+    #[serde(skip_deserializing)]
+    pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
 }
 
 impl Topology {

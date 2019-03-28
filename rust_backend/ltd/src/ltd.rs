@@ -227,7 +227,7 @@ impl Topology {
 
             // find all ellipsoids per cut option by expressing each propagator in terms of
             // the cut momenta
-            for cut_option in cut_options.iter() {
+            for (cut_option_index, cut_option) in cut_options.iter().enumerate() {
                 let mut cut_shift: Vec<LorentzVector<float>> = vec![]; // qs of cut
                 for (cut, ll) in cut_option.iter().zip(self.loop_lines.iter()) {
                     if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut
@@ -294,6 +294,7 @@ impl Topology {
                                             group,
                                             ellipsoid: true,
                                             cut_structure_index: cut_index,
+                                            cut_option_index,
                                             cut: cut_option.clone(),
                                             onshell_ll_index: ll_index,
                                             onshell_prop_index,
@@ -309,6 +310,7 @@ impl Topology {
                                         group,
                                         ellipsoid: false,
                                         cut_structure_index: cut_index,
+                                        cut_option_index,
                                         cut: cut_option.clone(),
                                         onshell_ll_index: ll_index,
                                         onshell_prop_index,
@@ -386,6 +388,39 @@ impl Topology {
                 );
             }
         }
+
+        // make a list of all the ellipsoids that do not appear in a specific cut
+        let mut ellipsoids_not_in_cuts = vec![];
+        for cut_options in self.ltd_cut_options.iter() {
+            let mut accum = vec![];
+            for cut in cut_options {
+                let mut ellipsoids_not_in_cut = vec![];
+
+                for (surf_index, s) in self.surfaces.iter().enumerate() {
+                    // only go through ellipsoid representatives
+                    if !s.ellipsoid || s.group != surf_index {
+                        continue;
+                    }
+
+                    let mut in_cut = false;
+                    for s1 in &self.surfaces[surf_index..] {
+                        if s1.group == surf_index {
+                            if s1.cut == *cut {
+                                in_cut = true;
+                                break;
+                            }
+                        }
+                    }
+                    if !in_cut {
+                        ellipsoids_not_in_cut.push(surf_index);
+                    }
+                }
+
+                accum.push(ellipsoids_not_in_cut);
+            }
+            ellipsoids_not_in_cuts.push(accum);
+        }
+        self.ellipsoids_not_in_cuts = ellipsoids_not_in_cuts;
     }
 
     /// Map from unit hypercube to infinite hypercube in N-d
@@ -841,15 +876,49 @@ impl Topology {
     {
         let mut cut_momenta = [LorentzVector::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
         let mut deform_dirs = [LorentzVector::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
-        let mut non_empty_cuts = [&self.ltd_cut_options[0][0]; MAX_ELLIPSE_GROUPS];
+        // TODO: precompute
+        let mut non_empty_cuts = [(0, 0); MAX_ELLIPSE_GROUPS];
+
+        let mut ellipsoid_eval = [DualN::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
 
         // go through all cuts that contain ellipsoids
         // by going through all ellipsoids and skipping ones that are in the same cut
         let mut last_cut = None;
         let mut non_empty_cut_count = 0;
-        for surf in self.surfaces.iter() {
+        for (surf_index, surf) in self.surfaces.iter().enumerate() {
             if !surf.ellipsoid {
                 continue;
+            }
+
+            // evaluate ellipsoid representatives
+            if surf.group == surf_index {
+                // FIXME: we compute this again later
+                let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
+                let mut index = 0;
+
+                // calculate the cut momenta
+                let mut res = DualN::from_real(float::zero());
+                for (ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
+                    if *ll_cut != Cut::NoCut {
+                        cut_momenta[index] = ll.get_cut_momentum(loop_momenta, ll_cut);
+
+                        index += 1;
+                    }
+                }
+
+                let mut q3 = LorentzVector::default();
+                for (&s, mom) in surf.sig_ll_in_cb.iter().zip(&cut_momenta) {
+                    if s != 0 {
+                        q3 += mom * DualN::from_real(float::from_i8(s).unwrap());
+                        res += mom.t.abs();
+                    }
+                }
+                q3 += surf.shift;
+
+                res += q3.spatial_squared_impr().sqrt();
+                res -= surf.shift.t.abs();
+
+                ellipsoid_eval[surf_index] = res;
             }
 
             if Some(&surf.cut) != last_cut {
@@ -890,7 +959,8 @@ impl Topology {
                     deform_dirs[non_empty_cut_count * MAX_LOOP + i] = deform_dir;
                 }
 
-                non_empty_cuts[non_empty_cut_count] = &surf.cut;
+                non_empty_cuts[non_empty_cut_count] =
+                    (surf.cut_structure_index, surf.cut_option_index);
 
                 last_cut = Some(&surf.cut);
                 non_empty_cut_count += 1;
@@ -898,55 +968,14 @@ impl Topology {
         }
 
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
-        for i in 0..non_empty_cut_count {
+        for (i, &(cut_structure_index, cut_option_index)) in
+            non_empty_cuts[..non_empty_cut_count].iter().enumerate()
+        {
             let mut s = DualN::from_real(float::one());
-            for j in 0..non_empty_cut_count {
-                if i == j || self.settings.deformation.cutgroups.mode == AdditiveMode::Unity {
-                    continue;
-                }
-
+            for &surf_index in &self.ellipsoids_not_in_cuts[cut_structure_index][cut_option_index] {
                 // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                 // at the same time and goes to 1 otherwise
-                let mut t = DualN::from_real(float::zero());
-                let mut cut_index = 0;
-                for (&cut, ll) in non_empty_cuts[j].iter().zip(self.loop_lines.iter()) {
-                    if cut != Cut::NoCut {
-                        let mut energy = DualN::from_real(float::zero());
-                        let mut index = 0;
-                        for &s in ll.signature.iter() {
-                            if s != 0 {
-                                energy += cut_momenta[i * MAX_LOOP + index].t
-                                    * DualN::from_real(float::from_i8(s).unwrap());
-                                index += 1;
-                            }
-                        }
-
-                        let spatial = cut_momenta[j * MAX_LOOP + cut_index]
-                            .spatial_squared_impr()
-                            .sqrt();
-                        let d = match cut {
-                            Cut::NegativeCut(ii) => {
-                                energy
-                                    + DualN::from_real(
-                                        float::from_f64(ll.propagators[ii].q.t).unwrap(),
-                                    )
-                                    + spatial
-                            }
-                            Cut::PositiveCut(ii) => {
-                                energy
-                                    + DualN::from_real(
-                                        float::from_f64(ll.propagators[ii].q.t).unwrap(),
-                                    )
-                                    - spatial
-                            }
-                            _ => unreachable!(),
-                        };
-
-                        t += d * d;
-                        cut_index += 1;
-                    }
-                }
-
+                let mut t = ellipsoid_eval[surf_index].powi(2);
                 s *= t
                     / (t + DualN::from_real(
                         float::from_f64(
