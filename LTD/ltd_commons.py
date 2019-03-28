@@ -657,7 +657,7 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             loop_lines = (
                 LoopLine(
                     start_node  = 1, 
-                    end_node    = 2,
+                    end_node    = 1,
                     signature   = (1,),
                     propagators = (
                         Propagator(q=p1, m_squared=parameters['m1']**2),
@@ -688,13 +688,47 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             loop_lines = (
                 LoopLine(
                     start_node  = 1, 
-                    end_node    = 2,
+                    end_node    = 1,
                     signature   = (1,),
                     propagators = (
                         Propagator(q=p1, m_squared=parameters['m1']**2),
                         Propagator(q=p1+p2, m_squared=parameters['m2']**2),
                         Propagator(q=p1+p2+p3, m_squared=parameters['m3']**2),
                         Propagator(q=zero_lv, m_squared=parameters['m4']**2),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='Pentagon':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        if parameter_values == {}:
+            parameters = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.}
+        else:
+            parameters = parameter_values
+        return LoopTopology(
+            name    = name,
+            n_loops = 1,
+            external_kinematics = external_momenta,
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT,),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 1,
+                    signature   = (1,),
+                    propagators = (
+                        Propagator(q=p1, m_squared=parameters['m1']**2),
+                        Propagator(q=p1+p2, m_squared=parameters['m2']**2),
+                        Propagator(q=p1+p2+p3, m_squared=parameters['m3']**2),
+                        Propagator(q=p1+p2+p3+p4, m_squared=parameters['m4']**2),                        
+                        Propagator(q=zero_lv, m_squared=parameters['m5']**2),
                     )
                 ),
             ) 
@@ -842,6 +876,25 @@ hard_coded_topology_collection.add_topology(
     ),
 )
 
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Pentagon', #P15 from Rodrigo
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([94.79774, -70.04005, -84.77221, 36.09812]),
+                vectors.LorentzVector([-42.15872, -36.33754, -14.72331, -41.24018]),
+                vectors.LorentzVector([73.77293, 88.37064, 33.47296, -24.17542]),
+                vectors.LorentzVector([81.85638, 77.17370, -62.39774, -6.89737]),
+                (   -vectors.LorentzVector([94.79774, -70.04005, -84.77221, 36.09812])
+                    -vectors.LorentzVector([-42.15872, -36.33754, -14.72331, -41.24018])
+                    -vectors.LorentzVector([73.77293, 88.37064, 33.47296, -24.17542])
+                    -vectors.LorentzVector([81.85638, 77.17370, -62.39774, -6.89737])
+                )
+        ]),
+        analytical_result = 6.55440e-14 -4.29464e-15j,
+        parameter_values = {'m1': 1.30619, 'm2': 1.30619, 'm3': 1.30619, 'm4': 1.26692, 'm5': 1.26692}
+    ),
+)
+
 # Example printout
 # ----------------
 #hard_coded_topology_collection['DoubleTriangle'].print_topology()
@@ -886,7 +939,7 @@ hyperparameters = HyperParameters({
     'Integrator'    :   {
         # The integrator can be vegas or cuhre
         'integrator'        :   'vegas',
-        'n_start'           :   int(1.0e5),
+        'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e9),
         'n_increase'        :   0,
         'n_new'             :   1000,
