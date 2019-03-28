@@ -953,6 +953,10 @@ hyperparameters = HyperParameters({
         # positive value: maximum lambda in auto scaling
         # negative value: no auto scaling, lambda is set to abs(lambda)
         'lambda'    :   -0.01,
+        # sigma=0 means normal min. sigma large decreases steepness
+        'softmin_sigma' : 0,
+        # skip hyperboloid checks from lambda scaling
+        'skip_hyperboloids' : False,
         'expansion_threshold'   :   0.1,
 
         'additive'              :   {

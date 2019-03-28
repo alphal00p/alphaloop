@@ -444,6 +444,7 @@ impl Topology {
 
     #[inline]
     fn compute_lambda_factor<T: Num + Float + Field + PartialOrd>(x: T, y: T) -> T {
+        // FIXME: not smooth
         if x * NumCast::from(2.).unwrap() < y {
             y * NumCast::from(0.25).unwrap()
         } else if y < NumCast::from(0.).unwrap() {
@@ -457,6 +458,7 @@ impl Topology {
         &self,
         loop_momenta: &[LorentzVector<DualN<float, U>>],
         kappas: &[LorentzVector<DualN<float, U>>],
+        lambda_max: f64,
     ) -> DualN<float, U>
     where
         dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
@@ -464,7 +466,12 @@ impl Topology {
     {
         // now determine the global lambda scaling by going through each propagator
         // for each cut and taking the minimum of their respective lambdas
-        let mut lambda_sq = DualN::from_real(float::one());
+        let mut lambda_sq = DualN::from_real(float::from_f64(lambda_max).unwrap().powi(2));
+
+        let sigma =
+            DualN::from_real(float::from_f64(self.settings.deformation.softmin_sigma).unwrap());
+        let mut smooth_min_num = lambda_sq * (-lambda_sq / sigma).exp();
+        let mut smooth_min_den = (-lambda_sq / sigma).exp();
         for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter()) {
             for cut in cuts {
                 // compute the real and imaginary part and the mass of the cut momentum
@@ -495,9 +502,12 @@ impl Topology {
 
                 // we have to make sure that our linear expansion for the deformation vectors is reasonable
                 // for that we need lambda < c * (q_i^2^cut+m_i^2)/(kappa_i^cut * q_i^cut)
-                for (mom_cut, shift_cut, kappa_cut, mass_cut) in
-                    izip!(&cut_momenta, &cut_shifts, &kappa_cuts, &mass_cuts)
-                {
+                for (mom_cut, shift_cut, kappa_cut, mass_cut) in izip!(
+                    &cut_momenta[..self.n_loops],
+                    &cut_shifts,
+                    &kappa_cuts,
+                    &mass_cuts
+                ) {
                     let scf: LorentzVector<DualN<float, U>> = shift_cut.cast();
                     let m = mom_cut + scf;
                     let lambda_exp = DualN::from_real(
@@ -506,8 +516,16 @@ impl Topology {
                         + DualN::from_real(float::from_f64(*mass_cut).unwrap()))
                         / kappa_cut.spatial_dot_impr(&m).abs();
 
-                    if lambda_exp * lambda_exp < lambda_sq {
-                        lambda_sq = lambda_exp * lambda_exp;
+                    let lambda_exp_sq = lambda_exp * lambda_exp;
+
+                    if sigma.is_zero() {
+                        if lambda_exp_sq < lambda_sq {
+                            lambda_sq = lambda_exp_sq;
+                        }
+                    } else {
+                        let e = (-lambda_exp_sq / sigma).exp();
+                        smooth_min_num += lambda_exp_sq * e;
+                        smooth_min_den += e;
                     }
                 }
 
@@ -581,6 +599,11 @@ impl Topology {
                                 * k_sp_inv;
                             (x, y)
                         } else {
+                            if self.settings.deformation.skip_hyperboloids {
+                                // skip to check propagators that will dual cancel anyway if they are 0
+                                continue;
+                            }
+
                             let x = (kappa_onshell.dot_impr(&onshell_prop_mom) * k0sq_inv).powi(2);
                             let y = (onshell_prop_mom.square_impr()
                                 - float::from_f64(onshell_prop.m_squared).unwrap())
@@ -589,15 +612,25 @@ impl Topology {
                         };
                         let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
 
-                        if prop_lambda_sq < lambda_sq {
-                            lambda_sq = prop_lambda_sq;
+                        if sigma.is_zero() {
+                            if prop_lambda_sq < lambda_sq {
+                                lambda_sq = prop_lambda_sq;
+                            }
+                        } else {
+                            let e = (-prop_lambda_sq / sigma).exp();
+                            smooth_min_num += prop_lambda_sq * e;
+                            smooth_min_den += e;
                         }
                     }
                 }
             }
         }
 
-        lambda_sq.sqrt()
+        if sigma.is_zero() {
+            lambda_sq.sqrt()
+        } else {
+            (smooth_min_num / smooth_min_den).sqrt()
+        }
     }
 
     /// Construct a deformation vector by going through all the ellipsoids
@@ -917,7 +950,7 @@ impl Topology {
                 s *= t
                     / (t + DualN::from_real(
                         float::from_f64(
-                            self.settings.deformation.multiplicative.m_ij * self.e_cm_squared,
+                            self.settings.deformation.cutgroups.m_ij * self.e_cm_squared,
                         )
                         .unwrap(),
                     ));
@@ -950,12 +983,7 @@ impl Topology {
         }
 
         let lambda = if self.settings.deformation.lambda > 0. {
-            let mut lambda = self.determine_lambda(loop_momenta, &kappas);
-            if lambda > float::from_f64(self.settings.deformation.lambda).unwrap() {
-                NumCast::from(self.settings.deformation.lambda).unwrap()
-            } else {
-                lambda
-            }
+            self.determine_lambda(loop_momenta, &kappas, self.settings.deformation.lambda)
         } else {
             NumCast::from(self.settings.deformation.lambda.abs()).unwrap()
         };

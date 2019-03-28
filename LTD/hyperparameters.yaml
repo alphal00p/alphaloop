@@ -9,6 +9,8 @@ Deformation:
   lambda: -0.01
   multiplicative:
     M_ij: 0.1
+  skip_hyperboloids: false
+  softmin_sigma: 0
 General:
   debug: 0
   deformation_strategy: cutgroups

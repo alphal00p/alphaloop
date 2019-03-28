@@ -128,6 +128,8 @@ pub struct DeformationCutGroupsSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
     pub lambda: f64,
+    pub softmin_sigma: f64,
+    pub skip_hyperboloids: bool,
     pub expansion_threshold: f64,
     pub multiplicative: DeformationMultiplicativeSettings,
     pub additive: DeformationAdditiveSettings,
