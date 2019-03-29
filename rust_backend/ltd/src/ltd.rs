@@ -874,7 +874,6 @@ impl Topology {
         dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
         dual_num::Owned<float, U>: Copy,
     {
-        let mut cut_momenta = [LorentzVector::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
         let mut deform_dirs = [LorentzVector::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
         // TODO: precompute
         let mut non_empty_cuts = [(0, 0); MAX_ELLIPSE_GROUPS];
@@ -898,10 +897,9 @@ impl Topology {
 
                 // calculate the cut momenta
                 let mut res = DualN::from_real(float::zero());
-                for (ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
-                    if *ll_cut != Cut::NoCut {
-                        cut_momenta[index] = ll.get_cut_momentum(loop_momenta, ll_cut);
-
+                for (&ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
+                    if ll_cut != Cut::NoCut {
+                        cut_momenta[index] = ll.get_cut_momentum(loop_momenta, &ll_cut);
                         index += 1;
                     }
                 }
@@ -924,16 +922,17 @@ impl Topology {
             if Some(&surf.cut) != last_cut {
                 // compute each cut momentum, subtract the shift and normalize
                 let mut index = 0;
+                let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
+                let mut cut_masses = [DualN::default(); MAX_LOOP];
                 for (ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
-                    if *ll_cut != Cut::NoCut {
-                        cut_momenta[non_empty_cut_count * MAX_LOOP + index] =
-                            ll.get_cut_momentum(loop_momenta, ll_cut);
+                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
+                        cut_momenta[index] = ll.get_cut_momentum(loop_momenta, ll_cut);
 
                         // subtract the shift from q0
-                        if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
-                            cut_momenta[non_empty_cut_count * MAX_LOOP + index].t -=
-                                DualN::from_real(float::from_f64(ll.propagators[i].q.t).unwrap());
-                        }
+                        cut_momenta[index].t -=
+                            DualN::from_real(float::from_f64(ll.propagators[i].q.t).unwrap());
+                        cut_masses[index] =
+                            DualN::from_real(float::from_f64(ll.propagators[i].m_squared).unwrap());
 
                         index += 1;
                     }
@@ -942,14 +941,15 @@ impl Topology {
                 // convert from cut momentum basis to loop momentum basis
                 for i in 0..self.n_loops {
                     let mut deform_dir = LorentzVector::default();
-                    for (&sign, cut_dir) in self.cb_to_lmb_mat[surf.cut_structure_index]
-                        [i * self.n_loops..(i + 1) * self.n_loops]
+                    for ((&sign, cut_dir), &cut_mass) in self.cb_to_lmb_mat
+                        [surf.cut_structure_index][i * self.n_loops..(i + 1) * self.n_loops]
                         .iter()
-                        .zip(cut_momenta[non_empty_cut_count * MAX_LOOP..].iter())
+                        .zip(cut_momenta.iter())
+                        .zip(cut_masses.iter())
                     {
                         // normalize the spatial components
                         let mut mom_normalized = *cut_dir;
-                        let length = mom_normalized.spatial_squared_impr().sqrt();
+                        let length = (mom_normalized.spatial_squared_impr() + cut_mass).sqrt();
                         mom_normalized *= length.inv();
 
                         deform_dir +=
