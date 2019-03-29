@@ -830,7 +830,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([0.,0.,6.,0.]),
                 vectors.LorentzVector([-0.,-5.,-6.,0.]),
         ]),
-        analytical_result =  -4.52887419598747e-11j,
+        analytical_result =  4.52887419598747e-11j,
     ),
 )
 
