@@ -1233,10 +1233,11 @@ impl Topology {
             float::from_f64(-2.).unwrap() * <float as FloatConst>::PI(),
         )
         .powf(float::from_usize(self.n_loops).unwrap()); // factor of delta cut
+
         result *= Complex::new(
-            float::zero(),
-            float::from_f64(-1.).unwrap()
+            float::from_f64(1.).unwrap()
                 / (float::from_f64(2.).unwrap() * <float as FloatConst>::PI()).powi(4),
+            float::zero(),
         )
         .powf(float::from_usize(self.n_loops).unwrap()); // loop momentum factor
         result *= jac_def * jac_para;

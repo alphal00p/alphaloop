@@ -826,11 +826,11 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'TriangleBoxBox',        
         vectors.LorentzVectorList([
-                vectors.LorentzVector([10.,5.,0.,0.]),
-                vectors.LorentzVector([22.,0.,6.,0.]),
-                vectors.LorentzVector([-32.,-5.,-6.,0.]),
+                vectors.LorentzVector([0.,5.,0.,0.]),
+                vectors.LorentzVector([0.,0.,6.,0.]),
+                vectors.LorentzVector([-0.,-5.,-6.,0.]),
         ]),
-        analytical_result =  -1.95238770805808e-32 - 2.68888267073667e-14j
+        analytical_result =  -4.52887419598747e-11j,
     ),
 )
 
@@ -922,15 +922,15 @@ hyperparameters = HyperParameters({
 
     'General'       :   {
         # can be multiplicative, additive, cutgroups or none
-        'deformation_strategy'  :   'cutgroups',
-        'topology'              :   'DoubleTriangle',
+        'deformation_strategy'  :   'additive',
+        'topology'              :   'TriangleBoxBox',
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   5.,
         'numerical_instability_check': True,
         # statistics will be printed to stderr by default
-        'log_to_screen'         :   True,
-        'log_file_prefix'       :   'statistics',
+        'log_to_screen'         :   False,
+        'log_file_prefix'       :   'stats/statistics',
         'integration_statistics':   True,
         'statistics_interval'   :   100000,
         'debug'                 :   0
@@ -942,11 +942,11 @@ hyperparameters = HyperParameters({
         'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e9),
         'n_increase'        :   0,
-        'n_new'             :   1000,
+        'n_new'             :   100000,
         'n_min'             :   2,
         'flatness'          :   50.,
         'seed'              :   1,
-        'integrated_phase'  :  'real'
+        'integrated_phase'  :  'imag'
     },
 
     'Deformation'   :   {
@@ -962,7 +962,7 @@ hyperparameters = HyperParameters({
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
             'mode'  :   'unity',
-            'a_ij'  :   1.0,
+            'a_ij'  :   10.0,
         },
 
         'multiplicative'        :   {
