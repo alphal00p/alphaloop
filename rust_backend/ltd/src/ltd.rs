@@ -911,11 +911,11 @@ impl Topology {
                         res += mom.t.abs();
                     }
                 }
-                q3 += surf.shift;
+                let shift: LorentzVector<DualN<float, U>> = surf.shift.cast();
+                q3 += shift;
 
                 res += q3.spatial_squared_impr().sqrt();
-                res -= surf.shift.t.abs();
-
+                res -= shift.t.abs();
                 ellipsoid_eval[surf_index] = res;
             }
 
