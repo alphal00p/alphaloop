@@ -1121,7 +1121,7 @@ hyperparameters = HyperParameters({
 
     'General'       :   {
         # can be multiplicative, additive, cutgroups or none
-        'deformation_strategy'  :   'additive',
+        'deformation_strategy'  :   'cutgroups',
         'topology'              :   'TriangleBoxBox',
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version

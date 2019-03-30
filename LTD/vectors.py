@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import copy
 
 class InvalidOperation(Exception):
     pass

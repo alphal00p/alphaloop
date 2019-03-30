@@ -357,11 +357,18 @@ class PoleScanner(object):
                     point_to_test = surface_point
                     result_bucket = one_result
                     rust_worker = self.rust_instance
+                
+                result_bucket['loop_momenta'] = [vectors.Vector(v) for v in point_to_test]
+
+                if any(math.isnan(v_elem) for v in point_to_test for v_elem in v):
+                    result_bucket['deformation_jacobian'] = complex(0.0,0.0)
+                    result_bucket['propagator_evaluation'] = complex(0.0,0.0)
+                    continue
 
                 # Now evaluate the energy component using the real momenta
                 real_energies = rust_worker.get_loop_momentum_energies(
                         [[(v_elem,0.) for v_elem in v] for v in point_to_test], ltd_cut_index, cut_index)
-                
+
                 loop_four_momenta = []
                 for i_v, v in enumerate(point_to_test):
                     assert(real_energies[i_v][1]==0.)
@@ -600,8 +607,9 @@ class PoleResultsAnalyser(object):
                     print("==================================================================")                    
                     print('Results for the following surface #%d:\n%s'%(surface_ID,
                         surface.__str__(cut_propagators=cut_propagators)))
-                    print('Featuring the following onshell propagator: %s'%str(r['onshell_prop_id']))
+                    print('Featuring the following onshell propagator: %s'%str(result['onshell_prop_id']))
                     print('>>> t_value = %.16e'%r['t_value'])
+                    print('>>> loop_momenta = %s'%r['loop_momenta'])
                     print('Onshell propagator evaluation *violating causal prescription*:\n     %s%-25.16e %sI*%-25.16e'%(
                         '+' if r['propagator_evaluation'].real >= 0. else '-',
                         abs(r['propagator_evaluation'].real),
@@ -974,6 +982,16 @@ if __name__ == '__main__':
                                                                                                 (random.random() - 0.5) * 2)
             set_parametrisation_uv['v']  = (parametrisation_uv['v'] if parametrisation_uv['v'] is not None else
                                                                                                 (random.random() - 0.5) * 2)
+            
+            if do_loop is not None and n_loops_performed%1 == 0:
+                print("\n")
+                print("Now testing analytical continuation with the following setup:")
+                print("  direction_vectors=\n     %s"%str(set_direction_vectors))
+                print("  parametrisation_vectors=\n     %s"%str(set_parametrisation_vectors))
+                print("  surface parametrisation:\n     u=%(u).16f, v=%(v).16f"%set_parametrisation_uv)
+                print("\n")
+
+
             # Normalise the direction vectors if doing a pole check
             if test_name in ['pole_check','cancellation_check']:
                 set_direction_vectors = [vec*(1.0/max(abs(v) for v in vec)) for vec in set_direction_vectors]
@@ -1053,9 +1071,9 @@ if __name__ == '__main__':
             if do_loop is not None:
                 if analyser.test_imaginary_parts_in_scan():
                     print("The setup yielding wrong analytical continuation:")
-                    print("  direction_vectors=\n     %s"%str(direction_vectors))
-                    print("  parametrisation_vectors=\n     %s"%str(direction_vectors))
-                    print("  surface parametrisation:\n     u=%(u).16f, v=%(v).16f"%parametrisation_uv)
+                    print("  direction_vectors=\n     %s"%str(set_direction_vectors))
+                    print("  parametrisation_vectors=\n     %s"%str(set_parametrisation_vectors))
+                    print("  surface parametrisation:\n     u=%(u).16f, v=%(v).16f"%set_parametrisation_uv)
                     sys.exit(1)
 
             else:
