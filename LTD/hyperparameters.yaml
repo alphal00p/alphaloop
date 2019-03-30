@@ -1,7 +1,7 @@
 Deformation:
   additive:
     a_ij: 10.0
-    mode: unity
+    mode: exponential
   cutgroups:
     M_ij: 0.1
     mode: hyperbolic
@@ -30,7 +30,7 @@ Integrator:
   n_max: 1000000000
   n_min: 2
   n_new: 100000
-  n_start: 1000000
+  n_start: 100000
   seed: 1
 Parameterization:
   rescaling: 1.0

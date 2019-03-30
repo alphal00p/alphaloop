@@ -23,7 +23,7 @@ except ImportError:
         "Could not import the rust back-end 'ltd' module. Compile it first with:"
         " ./make_lib from within the pyNLoop directory." )
 
-studied_topology = 'DoubleTriangle'
+studied_topology = 'Decagon_P1_physical_massive'
 deformation_strategy = 'generic'
 topology = topology_collection[studied_topology]
 
@@ -98,6 +98,14 @@ problem_point_bis = [
     ]),
 ]
 
+decagon_test = [
+    vectors.Vector([
+        complex(100.0, 200.0),
+        complex(300.0, 400.0),
+        complex(500.0, 600.0),
+    ]),
+]
+
 def evaluate(point):
     evaluation = {}
     for ltd_cut_index, ltd_cut_structure in enumerate(topology.ltd_cut_structure):
@@ -115,34 +123,11 @@ def evaluate(point):
 
     return evaluation 
 
-#evaluationA = evaluate(test_pointA)
-#evaluationB = evaluate(test_pointB)
-#evaluationC = evaluate(test_pointC)
-problem_evaluation = evaluate(problem_point)
-print("Orig eval")
-pprint(problem_evaluation)
-problem_evaluation_bis = evaluate(problem_point_bis)
-print("Bis eval")
-pprint(problem_evaluation_bis)
-
-#print("evaluation A")
-#pprint(evaluationA)
-#print("evaluation B")
-#pprint(evaluationB)
-#print("evaluation C")
-#pprint(evaluationC)
-
-#print("Evaluation A total: %s"%str(sum(evaluationA.values())))
-#print("Evaluation B total: %s"%str(sum(evaluationB.values())))
-#print("Evaluation C total: %s"%str(sum(evaluationC.values())))
+evaluationA = evaluate(decagon_test)
+print("Eval A")
+pprint(evaluationA)
 
 #pprint(rust_instance.evaluate([0.75, 0.875, 0.5, 0.75, 0.375, 0.5]))
-print("--A--")
-pprint(rust_instance.evaluate([0.022046342097730487, 0.25, 0.5, 0.022046342097730487, 0.75, 0.5]))
-#print("--B--")
-#pprint(rust_instance.evaluate([0.022046342097730488, 0.25, 0.5, 0.022046342097730487, 0.75, 0.5]))
-print("--C--")
-pprint(rust_instance.evaluate([0.022046342097730489, 0.25, 0.5, 0.022046342097730487, 0.75, 0.5]))
-#print("--D--")
-#pprint(rust_instance.evaluate([0.022046342097730490, 0.25, 0.5, 0.022046342097730487, 0.75, 0.5]))
+#print("Full eval")
+pprint(rust_instance.evaluate([0.022046342097730487, 0.25, 0.5]))
 
