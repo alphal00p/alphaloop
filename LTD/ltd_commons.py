@@ -734,6 +734,52 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             ) 
         )
 
+    elif topology_type =='Decagon':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        p7 = external_momenta[6]
+        p8 = external_momenta[7]
+        p9 = external_momenta[8]
+        p10 = external_momenta[9]
+        if parameter_values == {}:
+            parameters = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
+                          'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.
+                         }
+        else:
+            parameters = parameter_values
+        return LoopTopology(
+            name    = name,
+            n_loops = 1,
+            external_kinematics = external_momenta,
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT,),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 1,
+                    signature   = (1,),
+                    propagators = (
+                        Propagator(q=p1, m_squared=parameters['m1']**2),
+                        Propagator(q=p1+p2, m_squared=parameters['m2']**2),
+                        Propagator(q=p1+p2+p3, m_squared=parameters['m3']**2),
+                        Propagator(q=p1+p2+p3+p4, m_squared=parameters['m4']**2),
+                        Propagator(q=p1+p2+p3+p4+p5, m_squared=parameters['m5']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5+p6, m_squared=parameters['m6']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5+p6+p7, m_squared=parameters['m7']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5+p6+p7+p8, m_squared=parameters['m8']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5+p6+p7+p8+p9, m_squared=parameters['m9']**2), 
+                        Propagator(q=zero_lv, m_squared=parameters['m10']**2),
+                    )
+                ),
+            ) 
+        )
+
     else:
         raise BaseException("Unknown hard-coded topology name '%s'"%name)
 
@@ -773,10 +819,10 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([1.,1.3,0.5,2.1]),
                 vectors.LorentzVector([-1.,-1.3,-0.5,-2.1])
         ]),
-        name = 'DoubleTriangle_euclidian',
+        name = 'DoubleTriangle_euclidean',
         # Analytical is given by its exact function directly for 'DoubleTriangle'        
     ),
-    entry_name = 'DoubleTriangle_euclidian'
+    entry_name = 'DoubleTriangle_euclidean'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -895,6 +941,30 @@ hard_coded_topology_collection.add_topology(
     ),
 )
 
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Decagon', # Analytical result from MadLoop
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([0.9998000000000000e+04,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.9997499887471868e+04]),
+                vectors.LorentzVector([0.1000200000000000e+05,     0.0000000000000000e+00,     0.0000000000000000e+00,    -0.9997499887471868e+04]),
+                vectors.LorentzVector([0.1237893881022244e+04,    -0.1267918824409219e+03,     0.6964708931616466e+03,    -0.8838740714592880e+03]),
+                vectors.LorentzVector([0.2105530188905366e+04,    -0.7964815951476172e+03,    -0.1814849773817702e+04,     0.1232669601183012e+03]),
+                vectors.LorentzVector([0.1344535096182690e+04,    -0.8763606318834720e+03,    -0.4476622405756132e+03,     0.1713627325722238e+03]),
+                vectors.LorentzVector([0.5681047787072152e+04,     0.2392205859044582e+04,     0.4819795346193552e+04,    -0.1453006506441443e+04]),
+                vectors.LorentzVector([0.1508708755159517e+04,    -0.4159161811996088e+03,     0.3306462124937450e+02,     0.6419677320029004e+03]),
+                vectors.LorentzVector([0.3225969255726788e+04,    -0.3968037749821656e+03,    -0.7654076259435024e+03,     0.2722788197638934e+04]),
+                vectors.LorentzVector([0.2526503858267339e+04,     0.8560561209020956e+03,    -0.1284795475177741e+04,    -0.1053418364501306e+04]),
+                vectors.LorentzVector([0.2369811177663906e+04,    -0.6359079142928917e+03,    -0.1236615745090013e+04,    -0.2690866799303233e+03]),
+        ]),
+        analytical_result = 1.01888646237782899E-063-6.86568168003053015E-063j,
+        parameter_values = {'m1': 200.0, 'm2': 400.0, 'm3': 600.0, 'm4': 800.0, 'm5': 1000.0,
+                            'm6': 1200.0, 'm7': 1400.0, 'm8': 1600.0, 'm9': 1800.0, 'm10': 2000.0,
+                           },
+        name = 'Decagon_P1_physical_massive',
+    ),
+    entry_name = 'Decagon_P1_physical_massive'
+)
+
 # Example printout
 # ----------------
 #hard_coded_topology_collection['DoubleTriangle'].print_topology()
@@ -952,7 +1022,7 @@ hyperparameters = HyperParameters({
     'Deformation'   :   {
         # positive value: maximum lambda in auto scaling
         # negative value: no auto scaling, lambda is set to abs(lambda)
-        'lambda'    :   -0.01,
+        'lambda'    :   -0.001,
         # sigma=0 means normal min. sigma large decreases steepness
         'softmin_sigma' : 0,
         # skip hyperboloid checks from lambda scaling

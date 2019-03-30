@@ -1,36 +1,36 @@
 Deformation:
   additive:
-    a_ij: 1.0
+    a_ij: 10.0
     mode: unity
   cutgroups:
     M_ij: 0.1
     mode: hyperbolic
   expansion_threshold: 0.1
-  lambda: -0.01
+  lambda: -0.001
   multiplicative:
     M_ij: 0.1
   skip_hyperboloids: false
   softmin_sigma: 0
 General:
   debug: 0
-  deformation_strategy: cutgroups
+  deformation_strategy: additive
   integration_statistics: true
-  log_file_prefix: statistics
-  log_to_screen: true
+  log_file_prefix: stats/statistics
+  log_to_screen: false
   numerical_instability_check: true
   numerical_threshold: 0.0
   relative_precision: 5.0
   statistics_interval: 100000
-  topology: DoubleTriangle
+  topology: TriangleBoxBox
 Integrator:
   flatness: 50.0
-  integrated_phase: real
+  integrated_phase: imag
   integrator: vegas
   n_increase: 0
   n_max: 1000000000
   n_min: 2
-  n_new: 1000
-  n_start: 100000
+  n_new: 100000
+  n_start: 1000000
   seed: 1
 Parameterization:
   rescaling: 1.0
