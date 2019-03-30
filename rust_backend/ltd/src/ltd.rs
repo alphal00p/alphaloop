@@ -1229,8 +1229,8 @@ impl Topology {
         result += self.counterterm();
 
         result *= utils::powi(Complex::new(
-            float::from_f64(-2.).unwrap() * <float as FloatConst>::PI(),
             float::zero(),
+            float::from_f64(-2.).unwrap() * <float as FloatConst>::PI(),
         ), self.n_loops); // factor of delta cut
 
         result *= utils::powi(Complex::new(
