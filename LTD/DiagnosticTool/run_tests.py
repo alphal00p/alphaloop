@@ -1055,7 +1055,9 @@ if __name__ == '__main__':
                     log_stream.close()
             else:
                 try:
+                    print("Now loading results from '%s'..."%load_results_from)
                     all_test_results = load_results_from_yaml(load_results_from)
+                    print('Done!')
                 except Exception as e:
                     print("ERROR: Could not load scan results from file '%s'. Error: %s"%(
                         load_results_from, str(e) ))
