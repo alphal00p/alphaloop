@@ -1,7 +1,7 @@
 use arrayvec::ArrayVec;
-use {Complex, float};
 use num_traits::NumCast;
-use num_traits::{One, Zero, Inv};
+use num_traits::{Inv, One, Zero};
+use {float, Complex};
 
 const MAX_DIM: usize = 128;
 
@@ -10,6 +10,15 @@ const MAX_DIM: usize = 128;
 pub fn finv(c: Complex) -> Complex {
     let norm = c.norm();
     c.conj() / norm / norm
+}
+
+#[inline]
+pub fn powi(c: Complex, n: usize) -> Complex {
+    let mut c1 = Complex::one();
+    for _ in 0..n {
+        c1 *= c;
+    }
+    c1
 }
 
 /// Calculate the determinant of any complex-valued input matrix using LU-decomposition.
@@ -104,7 +113,7 @@ pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
         for diagonal in 0..dimension {
             determinant = determinant * aa[diagonal * dimension + diagonal];
         }
-        determinant = determinant *  <float as NumCast>::from(d).unwrap();
+        determinant = determinant * <float as NumCast>::from(d).unwrap();
     }
     determinant
 }

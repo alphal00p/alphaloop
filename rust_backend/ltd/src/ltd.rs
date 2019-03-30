@@ -1228,18 +1228,17 @@ impl Topology {
         // add counterterm
         result += self.counterterm();
 
-        result *= Complex::new(
+        result *= utils::powi(Complex::new(
             float::zero(),
             float::from_f64(-2.).unwrap() * <float as FloatConst>::PI(),
-        )
-        .powf(float::from_usize(self.n_loops).unwrap()); // factor of delta cut
+        ), self.n_loops); // factor of delta cut
 
-        result *= Complex::new(
+        result *= utils::powi(Complex::new(
             float::from_f64(1.).unwrap()
                 / (float::from_f64(2.).unwrap() * <float as FloatConst>::PI()).powi(4),
             float::zero(),
         )
-        .powf(float::from_usize(self.n_loops).unwrap()); // loop momentum factor
+        , self.n_loops); // loop momentum factor
         result *= jac_def * jac_para;
 
         (x, k_def, jac_para, jac_def, result)
