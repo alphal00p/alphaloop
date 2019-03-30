@@ -23,7 +23,7 @@ except ImportError:
         "Could not import the rust back-end 'ltd' module. Compile it first with:"
         " ./make_lib from within the pyNLoop directory." )
 
-studied_topology = 'Decagon_P1_physical_massive'
+studied_topology = 'Decagon_P2_euclidean_massless'
 deformation_strategy = 'generic'
 topology = topology_collection[studied_topology]
 
@@ -123,9 +123,9 @@ def evaluate(point):
 
     return evaluation 
 
-evaluationA = evaluate(decagon_test)
-print("Eval A")
-pprint(evaluationA)
+#evaluationA = evaluate(decagon_test)
+#print("Eval A")
+#pprint(evaluationA)
 
 #pprint(rust_instance.evaluate([0.75, 0.875, 0.5, 0.75, 0.375, 0.5]))
 #print("Full eval")
