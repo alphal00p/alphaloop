@@ -1180,9 +1180,9 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
-        name = 'Decagon_P1_one_ellipse',
+        name = 'Decagon_P1_one_ellipse_massless',
     ),
-    entry_name = 'Decagon_P1_one_ellipse'
+    entry_name = 'Decagon_P1_one_ellipse_massless'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -1204,9 +1204,9 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
-        name = 'Decagon_P2_one_ellipse',
+        name = 'Decagon_P2_one_ellipse_massless',
     ),
-    entry_name = 'Decagon_P2_one_ellipse'
+    entry_name = 'Decagon_P2_one_ellipse_massless'
 )
 
 
@@ -1277,9 +1277,9 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
-        name = 'Decagon_P3_physical',
+        name = 'Decagon_P3_physical_massless',
     ),
-    entry_name = 'Decagon_P3_physical'
+    entry_name = 'Decagon_P3_physical_massless'
 )
 
 # ===================================================================================
