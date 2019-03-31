@@ -13,7 +13,7 @@ use {AdditiveMode, DeformationStrategy};
 
 use utils;
 
-const MAX_ELLIPSE_GROUPS: usize = 100;
+const MAX_ELLIPSE_GROUPS: usize = 1000;
 const MAX_DIM: usize = 3;
 const MAX_LOOP: usize = 3;
 
