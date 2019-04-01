@@ -13,7 +13,7 @@ extern crate serde_yaml;
 use serde::{Deserialize, Serialize};
 extern crate vector;
 
-use clap::{App, Arg};
+use clap::{App, Arg, SubCommand};
 use num_traits::ToPrimitive;
 use rand::prelude::*;
 use std::str::FromStr;
@@ -144,16 +144,17 @@ fn main() {
                 .help("Set the deformation"),
         )
         .arg(
-            Arg::with_name("bench")
-                .long("bench")
-                .help("Run a benchmark instead"),
-        )
-        .arg(
             Arg::with_name("topology")
                 .short("t")
                 .long("topology")
                 .value_name("TOPOLOGY")
                 .help("Set the active topology"),
+        )
+        .subcommand(SubCommand::with_name("bench").about("Run a benchmark"))
+        .subcommand(
+            SubCommand::with_name("inspect")
+                .about("Inspect a single input point")
+                .arg(Arg::with_name("point").required(true).min_values(3)),
         )
         .get_matches();
 
@@ -194,8 +195,48 @@ fn main() {
         .get(&settings.general.topology)
         .expect("Unknown topology");
 
-    if matches.is_present("bench") {
+    if let Some(_) = matches.subcommand_matches("bench") {
         bench(&topo, &settings);
+        return;
+    }
+
+    if let Some(matches) = matches.subcommand_matches("inspect") {
+        let pt: Vec<_> = matches
+            .values_of("point")
+            .unwrap()
+            .map(|x| f64::from_str(x).unwrap())
+            .collect();
+        if pt.len() != 3 * topo.n_loops {
+            panic!(
+                "Dimension of the input point is incorrect. It should be {} but is {}.",
+                topo.n_loops,
+                pt.len()
+            );
+        }
+
+        let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate(&pt);
+        match topo.n_loops {
+            1 => {
+                println!(
+                    "result={:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
+                    result, x, k_def[0], jac_para, jac_def
+                );
+            }
+            2 => {
+                println!(
+                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result, x, k_def[0], k_def[1], jac_para, jac_def
+                        );
+            }
+            3 => {
+                println!(
+                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result,x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
+                    );
+            }
+            _ => {}
+        }
+
         return;
     }
 

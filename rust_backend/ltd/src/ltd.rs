@@ -7,6 +7,7 @@ use num_traits::FromPrimitive;
 use num_traits::One;
 use num_traits::Zero;
 use num_traits::{Float, Inv, Num, NumCast};
+use std::iter::FromIterator;
 use topologies::{Cut, CutList, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector};
 use {AdditiveMode, DeformationStrategy};
@@ -486,6 +487,57 @@ impl Topology {
             }
             x => unimplemented!("Unknown dimension {}", x),
         }
+    }
+
+    pub fn inv_parametrize(
+        &self,
+        mom: &LorentzVector<f64>,
+        loop_index: usize,
+    ) -> (ArrayVec<[float; MAX_DIM]>, float) {
+        let mut jac = float::one();
+        let e_cm = float::from_f64(self.e_cm_squared).unwrap().sqrt()
+            * (float::from_f64(self.settings.parameterization.rescaling).unwrap())
+                .powi(loop_index as i32);
+
+        let k_r_sq: float = mom.cast().spatial_squared();
+        let k_r = k_r_sq.sqrt();
+
+        jac /= (e_cm + k_r).powi(2) / e_cm;
+
+        let x2 = if mom.y < 0. {
+            float::one()
+                + float::from_f64(0.5).unwrap()
+                    * float::FRAC_1_PI()
+                    * float::atan2(
+                        float::from_f64(mom.y).unwrap(),
+                        float::from_f64(mom.x).unwrap(),
+                    )
+        } else {
+            float::from_f64(0.5).unwrap()
+                * float::FRAC_1_PI()
+                * float::atan2(
+                    float::from_f64(mom.y).unwrap(),
+                    float::from_f64(mom.x).unwrap(),
+                )
+        };
+
+        // cover the degenerate case
+        if k_r_sq.is_zero() {
+            return (
+                ArrayVec::from_iter([float::zero(), x2, float::zero()].into_iter().cloned()),
+                float::zero(),
+            );
+        }
+
+        let x1 = k_r / (e_cm + k_r);
+        let x3 =
+            float::from_f64(0.5).unwrap() * (float::one() + float::from_f64(mom.z).unwrap() / k_r);
+
+        jac /= float::from_f64(2.).unwrap() * <float as FloatConst>::PI();
+        jac /= float::from_f64(2.).unwrap();
+        jac /= k_r * k_r;
+
+        (ArrayVec::from_iter([x1, x2, x3].into_iter().cloned()), jac)
     }
 
     #[inline]

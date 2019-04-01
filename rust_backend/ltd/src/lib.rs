@@ -239,6 +239,18 @@ py_class!(class LTD |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
+
+    def inv_parameterize(&self, loop_momentum: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
+        let mom = LorentzVector::from_args(
+                0.,
+                loop_momentum[0],
+                loop_momentum[1],
+                loop_momentum[2]);
+
+        let (x, jac) = self.topo(py).borrow().inv_parametrize(&mom, loop_index);
+        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    }
+
     def evaluate_cut(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
         let topo = self.topo(py).borrow();
 
