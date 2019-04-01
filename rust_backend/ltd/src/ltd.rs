@@ -499,26 +499,33 @@ impl Topology {
             * (float::from_f64(self.settings.parameterization.rescaling).unwrap())
                 .powi(loop_index as i32);
 
-        let k_r_sq: float = mom.cast().spatial_squared();
+        let x = mom.x
+            - e_cm
+                * float::from_f64(self.settings.parameterization.shift.0 * loop_index as f64)
+                    .unwrap();
+        let y = mom.y
+            - e_cm
+                * float::from_f64(self.settings.parameterization.shift.1 * loop_index as f64)
+                    .unwrap();
+        let z = mom.z
+            - e_cm
+                * float::from_f64(self.settings.parameterization.shift.2 * loop_index as f64)
+                    .unwrap();
+
+        let k_r_sq: float = x * x + y * y + z * z;
         let k_r = k_r_sq.sqrt();
 
         jac /= (e_cm + k_r).powi(2) / e_cm;
 
-        let x2 = if mom.y < 0. {
+        let x2 = if y < 0. {
             float::one()
                 + float::from_f64(0.5).unwrap()
                     * float::FRAC_1_PI()
-                    * float::atan2(
-                        float::from_f64(mom.y).unwrap(),
-                        float::from_f64(mom.x).unwrap(),
-                    )
+                    * float::atan2(float::from_f64(y).unwrap(), float::from_f64(x).unwrap())
         } else {
             float::from_f64(0.5).unwrap()
                 * float::FRAC_1_PI()
-                * float::atan2(
-                    float::from_f64(mom.y).unwrap(),
-                    float::from_f64(mom.x).unwrap(),
-                )
+                * float::atan2(float::from_f64(y).unwrap(), float::from_f64(x).unwrap())
         };
 
         // cover the degenerate case
@@ -530,8 +537,7 @@ impl Topology {
         }
 
         let x1 = k_r / (e_cm + k_r);
-        let x3 =
-            float::from_f64(0.5).unwrap() * (float::one() + float::from_f64(mom.z).unwrap() / k_r);
+        let x3 = float::from_f64(0.5).unwrap() * (float::one() + float::from_f64(z).unwrap() / k_r);
 
         jac /= float::from_f64(2.).unwrap() * <float as FloatConst>::PI();
         jac /= float::from_f64(2.).unwrap();
@@ -1280,7 +1286,8 @@ impl Topology {
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut jac_para = float::one();
         for i in 0..self.n_loops {
-            let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3], i);
+            // set the loop index to i + 1 so that we can also shift k
+            let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3], i + 1);
 
             let rot = self.rotation_matrix;
             k[i] = LorentzVector::from_args(
