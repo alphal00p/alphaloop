@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # --loop=100
 ./run_tests.py \
-	--t=Decagon_P2_physical_massless\
+	--t=Decagon_P1_one_ellipse_massless\
 	--name=pole_check \
 	--nh=100 \
 	--s=[] \
@@ -10,9 +10,9 @@
 	--u=-1.0 \
     --v=-1.0 \
 	--d=[[1.0,1.0,1.0],[1.0,1.0,1.0]] \
-	--tr=[0.1,0.8] \
-	--t_n_points=100 \
+	--tr=[0.0,1.0] \
+	--t_n_points=10 \
 	--seed=1 \
-	--analysis_options={\"log_x_scale\": False, \"log_y_scale\": False} \
+	--analysis_options={\"log_x_scale\": False, \"log_y_scale\": False, \"n_points_to_show\":100} \
     --save="test.yaml" \
 	$1

@@ -33,6 +33,13 @@ topology_collection = ltd_commons.hard_coded_topology_collection
 import vectors
 import diagnostics
 
+# Import below necessary for plotting the elliptic surface
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.cm as cm
+from matplotlib.colors import Normalize
+import matplotlib.pyplot as plt
+import numpy as np
+
 try:
     # Import the rust bindings
     from ltd import LTD
@@ -238,7 +245,8 @@ class PoleScanner(object):
                  hyperparameters    =   None,
                  rust_instance      =   None,
                  rotated_instances  =   None,
-                 diagnostic_tool    =   None,            
+                 diagnostic_tool    =   None,
+                 plot_surface       =   False,
                 ):
 
         self.topology = topology 
@@ -246,6 +254,7 @@ class PoleScanner(object):
         self.parametrisation_vectors = parametrisation_vectors
         self.parametrisation_uv = parametrisation_uv
         self.t_values = t_values
+        self.do_plot_surface = plot_surface
 
         # Now save the default yaml configuration to the log stream if specified.
         self.configuration = {
@@ -287,6 +296,74 @@ class PoleScanner(object):
         # Turning off accuracy assessment below
         self.rotated_instances = []
 
+    def plot_surface(self, surface, surface_ID, n_cut, loop_mom, ltd_cut_index, cut_index, onshell_propagator, onshell_propagator_id):
+        """ Plot the elliptic surface specified, coloring it with the imaginary port of the corresponding onshell prop."""
+
+        #first generate a linspace of u and v
+        u_values = np.linspace(0., 1., len(self.t_values))
+        v_values = np.linspace(0., 1., len(self.t_values))
+        x, y, z, all_os_prop_evals = [], [], [], []
+        
+        for u in u_values:
+            xs, ys, zs, os_prop_evals = [], [], [], []
+            for v in v_values:
+
+                ellipse_point = self.diagnostic_tool.get_parametrization(
+                    u=u, v=v, 
+                    loop_momenta=loop_mom,
+                    surface=surface,
+                    n_cut=n_cut
+                )
+                if ellipse_point is None:
+                    xs.append(0.0)
+                    ys.append(0.0)
+                    zs.append(0.0)
+                    os_prop_evals.append(-1.0)
+                    continue
+                surface_point = ellipse_point[surface.param_variable]
+                xs.append(surface_point[0])
+                ys.append(surface_point[1])
+                zs.append(surface_point[2])
+
+                kappas, jac_re, jac_im = self.rust_instance.deform([list(v) for v in ellipse_point])
+                deformed_point = [ellipse_point[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
+
+                energies = self.rust_instance.get_loop_momentum_energies([ 
+                            [(v_el.real, v_el.imag) for v_el in v] for v in deformed_point] ,ltd_cut_index, cut_index)
+
+                deformed_loop_four_momenta = []
+                for i_v, v in enumerate(deformed_point):
+                    deformed_loop_four_momenta.append(vectors.LorentzVector(
+                        [complex(energies[i_v][0],energies[i_v][1]),]+list(v)
+                    ))
+
+                os_prop_evals.append(onshell_propagator.evaluate_inverse(deformed_loop_four_momenta).imag)
+
+            if len(xs)>0:
+                x.append(xs)
+                y.append(ys)
+                z.append(zs)
+                all_os_prop_evals.append(os_prop_evals)
+        
+        # Convert to np.array
+        x = np.array([np.array(x_i) for x_i in x])
+        y = np.array([np.array(y_i) for y_i in y])
+        z = np.array([np.array(z_i) for z_i in z])
+        all_os_prop_evals = np.array([np.array(c_i) for c_i in all_os_prop_evals])
+        
+        color_specifier = np.array([ np.array([-1. if im > 0. else 1. for im in os_prop_evals]) for os_prop_evals in all_os_prop_evals])
+        norm = Normalize()
+        colors = norm(color_specifier)
+        cmap = cm.get_cmap("coolwarm")
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_title('Surface #%d with onshell prop %s'%(surface_ID,str(onshell_propagator_id)))
+        ax.plot_surface(x, y, z, linewidth=1, facecolors=cmap(colors), shade=True, alpha=0.75)
+
+        plt.show()
+
+
     def scan(self, surface_ID, surface_characteristics):
         all_results = []
 
@@ -308,6 +385,7 @@ class PoleScanner(object):
         onshell_propagator = self.propagators_map[surface_characteristics[1].n_surface][1] 
         onshell_propagator_id = self.propagators_map[surface_characteristics[1].n_surface][0]
 
+        plot_surface_already_done = False
         for t in self.t_values:
 
             one_result = {
@@ -339,13 +417,20 @@ class PoleScanner(object):
             if diagnostic_point is None:
                 #print("Point for surface #%d could not be generated."%surface_ID)
                 one_result['accuracy'] = 0.
+                one_result['loop_momenta'] = []
+                one_result['generating_xs'] = []
                 one_result['propagator_evaluation'] = complex(0., 0.)
+                one_result['parametrisation_jacobian'] = 0.0
                 one_result['deformation_jacobian'] = complex(0., 0.)
                 all_results.append(one_result)
                 continue
             
             surface_point = [vectors.Vector(list(v)) for i, v in enumerate(diagnostic_point) if i<self.topology.n_loops]
             
+            if not plot_surface_already_done and self.do_plot_surface:
+                self.plot_surface(surface_characteristics[1], surface_ID, n_cut, loop_mom, 
+                                  ltd_cut_index, cut_index, onshell_propagator, onshell_propagator_id)
+                plot_surface_already_done = True
 
             for i_rot, rotated_info in enumerate([None,]+self.rotated_instances):
                 if rotated_info is not None:
@@ -358,12 +443,23 @@ class PoleScanner(object):
                     result_bucket = one_result
                     rust_worker = self.rust_instance
                 
-                result_bucket['loop_momenta'] = [vectors.Vector(v) for v in point_to_test]
-
                 if any(math.isnan(v_elem) for v in point_to_test for v_elem in v):
+                    result_bucket['loop_momenta'] = []
+                    result_bucket['generating_xs'] = []
+                    result_bucket['parametrisation_jacobian'] = 0.0
                     result_bucket['deformation_jacobian'] = complex(0.0,0.0)
                     result_bucket['propagator_evaluation'] = complex(0.0,0.0)
                     continue
+
+                result_bucket['loop_momenta'] = [vectors.Vector(v) for v in point_to_test]
+
+                generating_variables = []
+                parametrisation_jacobian = 1.0
+                for i, v in enumerate(point_to_test):
+                    res = rust_worker.inv_parameterize(list(v), i+1)
+                    generating_variables.append(tuple(res[:3]))
+                    parametrisation_jacobian *= res[3]
+                result_bucket['generating_xs'] = tuple(generating_variables)
 
                 # Now evaluate the energy component using the real momenta
                 real_energies = rust_worker.get_loop_momentum_energies(
@@ -677,7 +773,7 @@ class PoleResultsAnalyser(object):
         plt.legend(bbox_to_anchor=(0.75, 0.5))
         plt.show()
 
-    def analyse(self, **opts):
+    def analyse(self, n_points_to_show=5, **opts):
 
         print('='*80)
         print("run time: %.3e [h]"%(self.run_time/3600.0))
@@ -693,9 +789,11 @@ class PoleResultsAnalyser(object):
             if scan_results is None:
                 print('Surface did not exist for specified parametrisation vector.')
                 continue
-            print('Last 5 points of scan:')
-            for r in scan_results[-5:]:
+            print('Last %d points of scan:'%n_points_to_show)
+            for r in scan_results[-n_points_to_show:]:
                 print('>>> t_value = %-16e'%r['t_value'])
+                print('>>> loop_momenta = %s'%r['loop_momenta'])
+                print('>>> generating_variables = %s'%r['generating_xs'])
                 print('Onshell propagator evaluation: %s%-25.16e %sI*%-25.16e'%(
                     '+' if r['propagator_evaluation'].real >= 0. else '-',
                     abs(r['propagator_evaluation'].real),
@@ -764,6 +862,7 @@ if __name__ == '__main__':
     # Turn off the logging by default as it slows us down unnecessarily
     save_results_to     = None
     # save_results_to     = pjoin(os.getcwd(),'poles_imaginary_part_scan.yaml')
+    plot_surface        = False
 
     # Number of points to be used for testing hyperboloid existence
     n_points_hyperboloid_test = 1000
@@ -838,6 +937,11 @@ if __name__ == '__main__':
                 surface_ids = eval(option_value)
         elif option_name in ['load_results_from','load']:
             load_results_from = option_value
+        elif option_name in ['plot_surface', 'psrfc']:
+            if option_value is None:
+                plot_surface = True
+            else:
+                plot_surface = option_name.lower() in ['on','true','t']
         elif option_name in ['save_results_to','save']:
             save_results_to = option_value
         elif option_name in ['n_points_hyperboloid_test','nh']:
@@ -1009,6 +1113,7 @@ if __name__ == '__main__':
                         parametrisation_vectors =   set_parametrisation_vectors,
                         parametrisation_uv      =   set_parametrisation_uv,
                         t_values                =   t_values,
+                        plot_surface            =   plot_surface,
                         diagnostic_tool         =   diagnostic_tool,
                         rust_instance           =   rust_instance,
                         rotated_instances       =   rotated_instances
