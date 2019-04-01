@@ -327,6 +327,10 @@ impl Topology {
             }
         }
 
+        if self.settings.general.debug > 1 {
+            println!("Surfaces for {}:", self.name);
+        }
+
         // Identify similar surfaces and put them in the same group
         // If a surface is the first of a new group, the group id will be the index
         // in the surface list
@@ -382,11 +386,15 @@ impl Topology {
 
             if self.settings.general.debug > 1 {
                 println!(
-                    "Found surface for {}: group={}, ellipsoid={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
-                    self.name, s.group, s.ellipsoid, (s.onshell_ll_index, s.onshell_prop_index), CutList(&s.cut), s.sig_ll_in_cb,
+                    "  | id={}, group={}, ellipsoid={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
+                    surf_index, s.group, s.ellipsoid, (s.onshell_ll_index, s.onshell_prop_index), CutList(&s.cut), s.sig_ll_in_cb,
                     s.signs, s.delta_sign, s.shift
                 );
             }
+        }
+
+        if self.settings.general.debug > 1 {
+            println!("Surfaces not appearing in cut:");
         }
 
         // make a list of all the ellipsoids that do not appear in a specific cut
@@ -416,6 +424,9 @@ impl Topology {
                     }
                 }
 
+                if self.settings.general.debug > 1 {
+                    println!("  | {}: {:?}", CutList(cut), ellipsoids_not_in_cut);
+                }
                 accum.push(ellipsoids_not_in_cut);
             }
             ellipsoids_not_in_cuts.push(accum);
@@ -971,18 +982,43 @@ impl Topology {
         for (i, &(cut_structure_index, cut_option_index)) in
             non_empty_cuts[..non_empty_cut_count].iter().enumerate()
         {
+            if self.settings.general.debug > 2 {
+                println!(
+                    "Surface contributions for cut {}:",
+                    CutList(&self.ltd_cut_options[cut_structure_index][cut_option_index])
+                );
+            }
             let mut s = DualN::from_real(float::one());
             for &surf_index in &self.ellipsoids_not_in_cuts[cut_structure_index][cut_option_index] {
                 // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                 // at the same time and goes to 1 otherwise
-                let mut t = ellipsoid_eval[surf_index].powi(2);
-                s *= t
+                let t = ellipsoid_eval[surf_index].powi(2);
+                let sup = t
                     / (t + DualN::from_real(
                         float::from_f64(
                             self.settings.deformation.cutgroups.m_ij * self.e_cm_squared,
                         )
                         .unwrap(),
                     ));
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "  | surf {}: t={:e}, suppresion={:e}",
+                        surf_index,
+                        t.real(),
+                        sup.real()
+                    );
+                }
+                s *= sup;
+            }
+
+            if self.settings.general.debug > 2 {
+                println!(
+                    "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
+                    loop_momenta[0].real(),
+                    &deform_dirs[i * MAX_LOOP].real(),
+                    s.real(),
+                    &deform_dirs[i * MAX_LOOP].real() * s.real(),
+                );
             }
 
             for ii in 0..self.n_loops {
@@ -1228,17 +1264,22 @@ impl Topology {
         // add counterterm
         result += self.counterterm();
 
-        result *= utils::powi(Complex::new(
-            float::zero(),
-            float::from_f64(-2.).unwrap() * <float as FloatConst>::PI(),
-        ), self.n_loops); // factor of delta cut
+        result *= utils::powi(
+            Complex::new(
+                float::zero(),
+                float::from_f64(-2.).unwrap() * <float as FloatConst>::PI(),
+            ),
+            self.n_loops,
+        ); // factor of delta cut
 
-        result *= utils::powi(Complex::new(
-            float::from_f64(1.).unwrap()
-                / (float::from_f64(2.).unwrap() * <float as FloatConst>::PI()).powi(4),
-            float::zero(),
-        )
-        , self.n_loops); // loop momentum factor
+        result *= utils::powi(
+            Complex::new(
+                float::from_f64(1.).unwrap()
+                    / (float::from_f64(2.).unwrap() * <float as FloatConst>::PI()).powi(4),
+                float::zero(),
+            ),
+            self.n_loops,
+        ); // loop momentum factor
         result *= jac_def * jac_para;
 
         (x, k_def, jac_para, jac_def, result)
