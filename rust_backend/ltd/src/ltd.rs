@@ -499,20 +499,20 @@ impl Topology {
             * (float::from_f64(self.settings.parameterization.rescaling).unwrap())
                 .powi(loop_index as i32);
 
-        let x = mom.x
+        let x: float = float::from_f64(mom.x).unwrap()
             - e_cm
                 * float::from_f64(self.settings.parameterization.shift.0 * loop_index as f64)
                     .unwrap();
-        let y = mom.y
+        let y: float = float::from_f64(mom.y).unwrap()
             - e_cm
                 * float::from_f64(self.settings.parameterization.shift.1 * loop_index as f64)
                     .unwrap();
-        let z = mom.z
+        let z: float = float::from_f64(mom.z).unwrap()
             - e_cm
                 * float::from_f64(self.settings.parameterization.shift.2 * loop_index as f64)
                     .unwrap();
 
-        let k_r_sq: float = x * x + y * y + z * z;
+        let k_r_sq = x * x + y * y + z * z;
         let k_r = k_r_sq.sqrt();
 
         jac /= (e_cm + k_r).powi(2) / e_cm;
