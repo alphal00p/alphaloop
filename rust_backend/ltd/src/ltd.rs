@@ -517,15 +517,10 @@ impl Topology {
 
         jac /= (e_cm + k_r).powi(2) / e_cm;
 
-        let x2 = if y < 0. {
-            float::one()
-                + float::from_f64(0.5).unwrap()
-                    * float::FRAC_1_PI()
-                    * float::atan2(float::from_f64(y).unwrap(), float::from_f64(x).unwrap())
+        let x2 = if y < float::zero() {
+            float::one() + float::from_f64(0.5).unwrap() * float::FRAC_1_PI() * float::atan2(y, x)
         } else {
-            float::from_f64(0.5).unwrap()
-                * float::FRAC_1_PI()
-                * float::atan2(float::from_f64(y).unwrap(), float::from_f64(x).unwrap())
+            float::from_f64(0.5).unwrap() * float::FRAC_1_PI() * float::atan2(y, x)
         };
 
         // cover the degenerate case
@@ -537,7 +532,7 @@ impl Topology {
         }
 
         let x1 = k_r / (e_cm + k_r);
-        let x3 = float::from_f64(0.5).unwrap() * (float::one() + float::from_f64(z).unwrap() / k_r);
+        let x3 = float::from_f64(0.5).unwrap() * (float::one() + z / k_r);
 
         jac /= float::from_f64(2.).unwrap() * <float as FloatConst>::PI();
         jac /= float::from_f64(2.).unwrap();
