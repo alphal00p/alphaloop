@@ -876,6 +876,7 @@ impl Topology {
                             t / (t + aij)
                         }
                         AdditiveMode::Unity => DualN::from_real(float::one()),
+                        AdditiveMode::SoftMin => unimplemented!(),
                     };
 
                     for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
@@ -968,11 +969,13 @@ impl Topology {
                     }
                 }
 
+                let mut normalization = DualN::from_real(float::zero());
                 let mut q3 = LorentzVector::default();
                 for (&s, mom) in surf.sig_ll_in_cb.iter().zip(&cut_momenta) {
                     if s != 0 {
                         q3 += mom * DualN::from_real(float::from_i8(s).unwrap());
                         res += mom.t.abs();
+                        normalization += mom.square();
                     }
                 }
                 let shift: LorentzVector<DualN<float, U>> = surf.shift.cast();
@@ -980,7 +983,8 @@ impl Topology {
 
                 res += q3.spatial_squared_impr().sqrt();
                 res -= shift.t.abs();
-                ellipsoid_eval[surf_index] = res;
+                normalization += shift.square();
+                ellipsoid_eval[surf_index] = res * res / normalization;
             }
 
             if Some(&surf.cut) != last_cut {
@@ -1041,27 +1045,56 @@ impl Topology {
                     CutList(&self.ltd_cut_options[cut_structure_index][cut_option_index])
                 );
             }
+
             let mut s = DualN::from_real(float::one());
-            for &surf_index in &self.ellipsoids_not_in_cuts[cut_structure_index][cut_option_index] {
-                // t is the weighing factor that is 0 if we are on both cut_i and cut_j
-                // at the same time and goes to 1 otherwise
-                let t = ellipsoid_eval[surf_index].powi(2);
-                let sup = t
-                    / (t + DualN::from_real(
-                        float::from_f64(
-                            self.settings.deformation.cutgroups.m_ij * self.e_cm_squared,
-                        )
-                        .unwrap(),
-                    ));
-                if self.settings.general.debug > 2 {
-                    println!(
-                        "  | surf {}: t={:e}, suppresion={:e}",
-                        surf_index,
-                        t.real(),
-                        sup.real()
-                    );
+            let mut softmin_num = DualN::from_real(float::zero());
+            let mut softmin_den = DualN::from_real(float::zero());
+
+            if self.settings.deformation.cutgroups.mode != AdditiveMode::Unity {
+                for &surf_index in
+                    &self.ellipsoids_not_in_cuts[cut_structure_index][cut_option_index]
+                {
+                    // t is the weighing factor that is 0 if we are on both cut_i and cut_j
+                    // at the same time and goes to 1 otherwise
+                    let t = ellipsoid_eval[surf_index];
+
+                    let sup = if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
+                        if self.settings.deformation.cutgroups.sigma.is_zero() {
+                            s = s.min(t);
+                            DualN::from_real(float::zero())
+                        } else {
+                            let e = (-t
+                                / float::from_f64(self.settings.deformation.cutgroups.sigma)
+                                    .unwrap())
+                            .exp();
+                            softmin_num += t * e;
+                            softmin_den += e;
+                            e
+                        }
+                    } else {
+                        let sup = t
+                            / (t + DualN::from_real(
+                                float::from_f64(self.settings.deformation.cutgroups.m_ij).unwrap(),
+                            ));
+                        s *= sup;
+                        sup
+                    };
+
+                    if self.settings.general.debug > 2 {
+                        println!(
+                            "  | surf {}: t={:e}, suppresion={:e}",
+                            surf_index,
+                            t.real(),
+                            sup.real()
+                        );
+                    }
                 }
-                s *= sup;
+
+                if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin
+                    && !self.settings.deformation.cutgroups.sigma.is_zero()
+                {
+                    s = softmin_num / softmin_den;
+                }
             }
 
             if self.settings.general.debug > 2 {

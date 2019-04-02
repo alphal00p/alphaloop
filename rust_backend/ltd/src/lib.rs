@@ -94,6 +94,8 @@ pub enum IntegratedPhase {
 pub enum AdditiveMode {
     #[serde(rename = "exponential")]
     Exponential,
+    #[serde(rename = "softmin")]
+    SoftMin,
     #[serde(rename = "hyperbolic")]
     Hyperbolic,
     #[serde(rename = "unity")]
@@ -123,6 +125,7 @@ pub struct DeformationCutGroupsSettings {
     pub mode: AdditiveMode,
     #[serde(rename = "M_ij")]
     pub m_ij: f64,
+    pub sigma: f64,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

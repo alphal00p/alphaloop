@@ -1664,7 +1664,7 @@ hyperparameters = HyperParameters({
     },
 
     'Integrator'    :   {
-        # The integrator can be vegas or cuhre
+        # The integrator can be vegas or cuhre or suave
         'integrator'        :   'vegas',
         'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e9),
@@ -1698,6 +1698,8 @@ hyperparameters = HyperParameters({
 
         'cutgroups' : {
             'M_ij'  :   0.1,
+            'sigma' :   0.1,
+            # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
         }
     },
