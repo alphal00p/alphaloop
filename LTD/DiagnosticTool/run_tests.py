@@ -100,8 +100,11 @@ class DualCancellationScanner(object):
         # Choose a point to approach
         parametrisation_vectors = [ [ 0., ] + [v for v in vec]  for vec in self.parametrisation_vectors ]
         # u and v are defined in [-1.,1.]
-        u = self.parametrisation_uv['u']*2.-1.
-        v = self.parametrisation_uv['v']*2.-1.
+        #u = self.parametrisation_uv['u']*2.-1.
+        #v = self.parametrisation_uv['v']*2.-1.
+        u = self.parametrisation_uv['u']
+        v = self.parametrisation_uv['v']
+
         loop_mom = list(parametrisation_vectors)
         if len(loop_mom)==1:
             loop_mom.append([0.,0.,0.,0.])
@@ -300,14 +303,13 @@ class PoleScanner(object):
         """ Plot the elliptic surface specified, coloring it with the imaginary port of the corresponding onshell prop."""
 
         #first generate a linspace of u and v
-        u_values = np.linspace(0., 1., len(self.t_values))
-        v_values = np.linspace(0., 1., len(self.t_values))
+        u_values = np.linspace(0.0001, 0.9999, len(self.t_values))
+        v_values = np.linspace(0.0001, 0.9999, len(self.t_values))
         x, y, z, all_os_prop_evals = [], [], [], []
         
         for u in u_values:
             xs, ys, zs, os_prop_evals = [], [], [], []
             for v in v_values:
-
                 ellipse_point = self.diagnostic_tool.get_parametrization(
                     u=u, v=v, 
                     loop_momenta=loop_mom,
@@ -375,8 +377,10 @@ class PoleScanner(object):
         parametrisation_vectors = [ [ 0., ] + [v for v in vec]  for vec in self.parametrisation_vectors ]
 
         # u and v are defined in [-1.,1.]
-        u_base = self.parametrisation_uv['u']*2.-1.
-        v_base = self.parametrisation_uv['v']*2.-1.
+        #u_base = self.parametrisation_uv['u']*2.-1.
+        #v_base = self.parametrisation_uv['v']*2.-1.
+        u_base = self.parametrisation_uv['u']
+        v_base = self.parametrisation_uv['v']
 
         direction_u = self.direction_vectors[0][0]
         direction_v = self.direction_vectors[0][1]
