@@ -1033,6 +1033,23 @@ hard_coded_topology_collection.add_topology(
     ),
 )
 
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]),
+                vectors.LorentzVector([48.59375,-1.65847,34.91140,71.89564]),
+                vectors.LorentzVector([76.75934,-19.14334,-17.10279,30.22959]),
+                 (- vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]) -vectors.LorentzVector([48.59375,-1.65847,34.91140,71.89564])
+                 - vectors.LorentzVector([76.75934,-19.14334,-17.10279,30.22959])),
+        ]),
+        analytical_result = 3.15521080399766e-10-2.432412361669758e-10j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless',
+    ),
+    entry_name = 'Box_massless'
+)
+
 # ================================================================================
 # Decagons with 10 external particles with masses increasing from 100 GeV to 2 TeV
 # ================================================================================
