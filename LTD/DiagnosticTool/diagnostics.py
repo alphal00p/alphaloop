@@ -399,11 +399,11 @@ class Diagnostic_tool(object):
 
 
         if surface_type==-1:
-            kx = u
-            ky = v
+            kx = u*2.-1.
+            ky = v*2.-1.
         else:
-            kx = u * math.sqrt(a)
-            ky = v * math.sqrt(a)
+            kx = (u*2.-1.) * math.sqrt(a)
+            ky = (v*2. -1.) * math.sqrt(a-kx**2)
 
         if (kx**2.+ky**2.<a and surface_type==1) or surface_type==-1:
             kz=self.Get_surface_point(surface=surface, kx=kx, ky=ky, a=a, c=c, surface_type=surface_type)
