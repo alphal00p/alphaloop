@@ -258,6 +258,11 @@ class PoleScanner(object):
         self.parametrisation_uv = parametrisation_uv
         self.t_values = t_values
         self.do_plot_surface = plot_surface
+        if self.do_plot_surface:
+            self.fig = plt.figure()
+            self.ax = self.fig.add_subplot(111, projection='3d')
+            self.ax.set_title('3D Surfaces')
+
 
         # Now save the default yaml configuration to the log stream if specified.
         self.configuration = {
@@ -306,46 +311,47 @@ class PoleScanner(object):
         u_values = np.linspace(0.0001, 0.9999, len(self.t_values))
         v_values = np.linspace(0.0001, 0.9999, len(self.t_values))
         x, y, z, all_os_prop_evals = [], [], [], []
-        
-        for u in u_values:
-            xs, ys, zs, os_prop_evals = [], [], [], []
-            for v in v_values:
-                ellipse_point = self.diagnostic_tool.get_parametrization(
-                    u=u, v=v, 
-                    loop_momenta=loop_mom,
-                    surface=surface,
-                    n_cut=n_cut
-                )
-                if ellipse_point is None:
-                    xs.append(0.0)
-                    ys.append(0.0)
-                    zs.append(0.0)
-                    os_prop_evals.append(-1.0)
-                    continue
-                surface_point = ellipse_point[surface.param_variable]
-                xs.append(surface_point[0])
-                ys.append(surface_point[1])
-                zs.append(surface_point[2])
+        for sheet in [0,1]:
+            surface.sheet = sheet
+            for u in u_values:
+                xs, ys, zs, os_prop_evals = [], [], [], []
+                for v in v_values:
+                    ellipse_point = self.diagnostic_tool.get_parametrization(
+                        u=u, v=v, 
+                        loop_momenta=loop_mom,
+                        surface=surface,
+                        n_cut=n_cut
+                    )
+                    if ellipse_point is None:
+                        xs.append(0.0)
+                        ys.append(0.0)
+                        zs.append(0.0)
+                        os_prop_evals.append(-1.0)
+                        continue
+                    surface_point = ellipse_point[surface.param_variable]
+                    xs.append(surface_point[0])
+                    ys.append(surface_point[1])
+                    zs.append(surface_point[2])
 
-                kappas, jac_re, jac_im = self.rust_instance.deform([list(v) for v in ellipse_point])
-                deformed_point = [ellipse_point[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
+                    kappas, jac_re, jac_im = self.rust_instance.deform([list(v) for v in ellipse_point])
+                    deformed_point = [ellipse_point[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
 
-                energies = self.rust_instance.get_loop_momentum_energies([ 
+                    energies = self.rust_instance.get_loop_momentum_energies([ 
                             [(v_el.real, v_el.imag) for v_el in v] for v in deformed_point] ,ltd_cut_index, cut_index)
 
-                deformed_loop_four_momenta = []
-                for i_v, v in enumerate(deformed_point):
-                    deformed_loop_four_momenta.append(vectors.LorentzVector(
-                        [complex(energies[i_v][0],energies[i_v][1]),]+list(v)
-                    ))
+                    deformed_loop_four_momenta = []
+                    for i_v, v in enumerate(deformed_point):
+                        deformed_loop_four_momenta.append(vectors.LorentzVector(
+                            [complex(energies[i_v][0],energies[i_v][1]),]+list(v)
+                        ))
 
-                os_prop_evals.append(onshell_propagator.evaluate_inverse(deformed_loop_four_momenta).imag)
+                    os_prop_evals.append(onshell_propagator.evaluate_inverse(deformed_loop_four_momenta).imag)
 
-            if len(xs)>0:
-                x.append(xs)
-                y.append(ys)
-                z.append(zs)
-                all_os_prop_evals.append(os_prop_evals)
+                if len(xs)>0:
+                    x.append(xs)
+                    y.append(ys)
+                    z.append(zs)
+                    all_os_prop_evals.append(os_prop_evals)
         
         # Convert to np.array
         x = np.array([np.array(x_i) for x_i in x])
@@ -358,17 +364,14 @@ class PoleScanner(object):
         colors = norm(color_specifier)
         cmap = cm.get_cmap("coolwarm")
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.set_title('Surface #%d with onshell prop %s'%(surface_ID,str(onshell_propagator_id)))
-        ax.plot_surface(x, y, z, linewidth=1, facecolors=cmap(colors), shade=True, alpha=0.75)
-
-        plt.show()
-
+        #self.ax.set_title('Surface #%d with onshell prop %s'%(surface_ID,str(onshell_propagator_id)))        
+        self.ax.plot_surface(x, y, z, linewidth=1, facecolors=cmap(colors), shade=True, alpha=0.35)
+        
 
     def scan(self, surface_ID, surface_characteristics):
+        
         all_results = []
-
+        
         n_cut = self.diagnostic_tool.cut.index(list(surface_characteristics[0]))
         
         ltd_cut_index, cut_index = self.cut_indices_map[tuple(sorted(list(set([prop_index for prop_index in surface_characteristics[0]]))))]
@@ -1122,6 +1125,7 @@ if __name__ == '__main__':
                         rust_instance           =   rust_instance,
                         rotated_instances       =   rotated_instances
                     )
+
                 elif test_name == 'cancellation_check':
                     scanner = DualCancellationScanner(
                         log_stream              =   log_stream,
@@ -1162,6 +1166,10 @@ if __name__ == '__main__':
                 if log_stream is not None:
                     log_stream.write(yaml.dump([('run_time', all_test_results['run_time']), ], Dumper=noalias_dumper))
                     log_stream.close()
+
+                if plot_surface:
+                    plt.show()
+
             else:
                 try:
                     print("Now loading results from '%s'..."%load_results_from)
