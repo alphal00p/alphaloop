@@ -35,7 +35,6 @@ studied_topology = 'Decagon_P2_one_ellipse_massless'
 studied_topology = 'Tringigon_P1_one_ellipse'
 studied_topology = 'Tringigon_P2_physical_few_ellipses'
 studied_topology = 'Tringigon_P2_physical_many_ellipses'
-
 studied_topology = 'DoubleBox'
 
 studied_topology = 'Decagon_P2_physical_massless'
@@ -68,27 +67,62 @@ def evaluate(point):
     return evaluation 
 
 
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in xrange(0, len(l), n):
+        yield l[i:i + n]
+
 plot_lines = {
     'integrand_re' : [],
-    'integrand_im' : []
+    'integrand_im' : [],
+    'deform_jac_re' : [],
+    'deform_jac_im' : [],
+    'param_jac' : []
 }
 
 x_values = []
-min_x = 0.0
-max_x = 1.0
+#min_x = 0.15619610
+#max_x = 0.15619612
+min_x = 0.01
+max_x = 0.99
 for t in range(1,N_points+1):
     if t%100==0:
         print "Currently at sample #%d..."%t
-    x = min_x+(float(t)/float(N_points+1))*max_x
+    x = min_x+(float(t)/float(N_points+1))*(max_x-min_x)
     x_values.append(x)
     random_variables = [(v if v>=0. else x) for v in scan_args]
     integrand = rust_instance.evaluate(random_variables)
     plot_lines['integrand_re'].append(integrand[0])
     plot_lines['integrand_im'].append(integrand[1])
+    
+    current_point = []
+    parametrisation_jac = 1.
+    for i, xis in enumerate(chunks(random_variables,3)):
+        p = rust_instance.parameterize(xis, i+1)
+        parametrisation_jac *= p[3]
+        current_point.append(vectors.Vector([p[0],p[1],p[2]]))
+    plot_lines['param_jac'].append(parametrisation_jac)
 
+    kappas, jac_re, jac_im = rust_instance.deform([list(v) for v in current_point])
+    deformed_point = [current_point[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
+
+    plot_lines['deform_jac_re'].append(jac_re)
+    plot_lines['deform_jac_im'].append(jac_im)
+
+    duals = evaluate(deformed_point)
+    for d, v in duals.items():
+        if '%d_%d_re'%(d[0][0],d[1][0]) in plot_lines:
+            plot_lines['%d_%d_re'%(d[0][0],d[1][0])].append(v.real)
+            plot_lines['%d_%d_im'%(d[0][0],d[1][0])].append(v.imag)            
+        else:
+            plot_lines['%d_%d_re'%(d[0][0],d[1][0])]=[v.real,]
+            plot_lines['%d_%d_im'%(d[0][0],d[1][0])]=[v.imag,]
+
+selected = ['integrand_re', 'integrand_im', '0_0_re', '0_0_im', '0_1_re', '0_1_im','ALL']
+veto_list=['deform_jac_re','deform_jac_im', 'param_jac','NONE']
 
 lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
-        ((not k in []) and len(v)>0)]
+        (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
 
 NORMALISE = False
 for line_name, (x_data, y_data) in lines:
