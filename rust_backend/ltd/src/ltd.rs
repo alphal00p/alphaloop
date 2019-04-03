@@ -1061,7 +1061,7 @@ impl Topology {
                     let sup = if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
                         if self.settings.deformation.cutgroups.sigma.is_zero() {
                             s = s.min(t);
-                            DualN::from_real(float::zero())
+                            s
                         } else {
                             let e = (-t
                                 / float::from_f64(self.settings.deformation.cutgroups.sigma)
@@ -1090,10 +1090,17 @@ impl Topology {
                     }
                 }
 
-                if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin
-                    && !self.settings.deformation.cutgroups.sigma.is_zero()
-                {
-                    s = softmin_num / softmin_den;
+                if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
+                    if !self.settings.deformation.cutgroups.sigma.is_zero() {
+                        s = softmin_num / softmin_den;
+                    }
+
+                    if !self.settings.deformation.cutgroups.m_ij.is_zero() {
+                        s = s
+                            / (s + DualN::from_real(
+                                float::from_f64(self.settings.deformation.cutgroups.m_ij).unwrap(),
+                            ));
+                    }
                 }
             }
 
