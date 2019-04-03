@@ -774,7 +774,6 @@ class PoleResultsAnalyser(object):
                 if max_y_data > 0.:
                     y_data = [ y/float(max_y_data) for y in y_data ]
 
-        for line_name, (x_data, y_data) in lines:
             plt.plot(x_data, y_data, label=line_name)
     
         plt.legend(bbox_to_anchor=(0.75, 0.5))

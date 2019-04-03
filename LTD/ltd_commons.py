@@ -1717,7 +1717,7 @@ hyperparameters = HyperParameters({
             'M_ij'  :   0.1,
             'sigma' :   0.1,
             # can be hyperbolic, softmin, or unity
-            'mode'  :   'hyperbolic',
+            'mode'  :   'unity',
         }
     },
 
