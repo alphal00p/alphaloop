@@ -562,6 +562,312 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             ) 
         )
 	
+    elif topology_type =='6pt_Weinzierl_a':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        return LoopTopology(
+            name    = name,
+            n_loops = 2,
+            external_kinematics = external_momenta, 
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=-p6-p5-p4-p3-p2, m_squared=0.),
+                        Propagator(q=-p5-p4-p3-p2, m_squared=0.),
+                        Propagator(q=-p4-p3-p2, m_squared=0.),
+                        Propagator(q=-p3-p2, m_squared=0.),      
+                        Propagator(q=-p2, m_squared=0.),                   
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='6pt_Weinzierl_b':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        return LoopTopology(
+            name    = name,
+            n_loops = 2,
+            external_kinematics = external_momenta, 
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p1-p2, m_squared=0.),
+                        Propagator(q=-p2, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=-p6-p5-p4-p3, m_squared=0.),
+                        Propagator(q=-p5-p4-p3, m_squared=0.),
+                        Propagator(q=-p4-p3, m_squared=0.),
+                        Propagator(q=-p3, m_squared=0.),      
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='6pt_Weinzierl_c':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        return LoopTopology(
+            name    = name,
+            n_loops = 2,
+            external_kinematics = external_momenta, 
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p1-p2-p3, m_squared=0.),
+                        Propagator(q=-p2-p3, m_squared=0.),
+                        Propagator(q=-p3, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=-p6-p5-p4, m_squared=0.),
+                        Propagator(q=-p5-p4, m_squared=0.),
+                        Propagator(q=-p4, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='6pt_Weinzierl_d':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        return LoopTopology(
+            name    = name,
+            n_loops = 2,
+            external_kinematics = external_momenta, 
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=-p5-p4-p3-p2, m_squared=0.),
+                        Propagator(q=-p4-p3-p2, m_squared=0.),
+                        Propagator(q=-p3-p2, m_squared=0.),
+                        Propagator(q=-p2, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,1),
+                    propagators = (
+                        Propagator(q=-p6, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='6pt_Weinzierl_e':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        return LoopTopology(
+            name    = name,
+            n_loops = 2,
+            external_kinematics = external_momenta, 
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=-p4-p3-p2, m_squared=0.),
+                        Propagator(q=-p3-p2, m_squared=0.),
+                        Propagator(q=-p2, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,1),
+                    propagators = (
+                        Propagator(q=-p6-p5, m_squared=0.),
+                        Propagator(q=-p5, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='6pt_Weinzierl_f':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        return LoopTopology(
+            name    = name,
+            n_loops = 2,
+            external_kinematics = external_momenta, 
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p2-p1, m_squared=0.),
+                        Propagator(q=-p2, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=-p4-p3, m_squared=0.),
+                        Propagator(q=-p3, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,1),
+                    propagators = (
+                        Propagator(q=-p6-p5, m_squared=0.),
+                        Propagator(q=-p5, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
     elif topology_type =='TriangleBoxBox':
         p1,p2,p3 = external_momenta
         return LoopTopology(
@@ -943,6 +1249,102 @@ hard_coded_topology_collection.add_topology(
         # Analytical result known but exact numerical result simply copied here from D^(2) of table 1 of
         # https://arxiv.org/pdf/1211.0509.pdf
         analytical_result =  -5.897e-14
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        '6pt_Weinzierl_a',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
+                vectors.LorentzVector([18.6089, -8.9195, 6.43508, 9.61832]),
+                vectors.LorentzVector([13.8389, -4.73227, -6.55009, -1.55854]),
+                vectors.LorentzVector([25.5377, 20.892, 4.32472, -8.89684]),
+                vectors.LorentzVector([19.9556, -6.24009, -1.65597, -1.81582]),
+                vectors.LorentzVector([-90, 0, 0, 0]),
+        ]),
+        #https://arxiv.org/pdf/1211.0509v3.pdf
+        analytical_result =  -8.66e-19
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        '6pt_Weinzierl_b',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
+                vectors.LorentzVector([18.6089, -8.9195, 6.43508, 9.61832]),
+                vectors.LorentzVector([13.8389, -4.73227, -6.55009, -1.55854]),
+                vectors.LorentzVector([25.5377, 20.892, 4.32472, -8.89684]),
+                vectors.LorentzVector([19.9556, -6.24009, -1.65597, -1.81582]),
+                vectors.LorentzVector([-90, 0, 0, 0]),
+        ]),
+        #https://arxiv.org/pdf/1211.0509v3.pdf
+        analytical_result =  -1.17e-18
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        '6pt_Weinzierl_c',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
+                vectors.LorentzVector([18.6089, -8.9195, 6.43508, 9.61832]),
+                vectors.LorentzVector([13.8389, -4.73227, -6.55009, -1.55854]),
+                vectors.LorentzVector([25.5377, 20.892, 4.32472, -8.89684]),
+                vectors.LorentzVector([19.9556, -6.24009, -1.65597, -1.81582]),
+                vectors.LorentzVector([-90, 0, 0, 0]),
+        ]),
+        #https://arxiv.org/pdf/1211.0509v3.pdf
+        analytical_result =  -7.75e-19
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        '6pt_Weinzierl_d',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
+                vectors.LorentzVector([18.6089, -8.9195, 6.43508, 9.61832]),
+                vectors.LorentzVector([13.8389, -4.73227, -6.55009, -1.55854]),
+                vectors.LorentzVector([25.5377, 20.892, 4.32472, -8.89684]),
+                vectors.LorentzVector([19.9556, -6.24009, -1.65597, -1.81582]),
+                vectors.LorentzVector([-90, 0, 0, 0]),
+        ]),
+        #https://arxiv.org/pdf/1211.0509v3.pdf
+        analytical_result =  -1.91e-19
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        '6pt_Weinzierl_e',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
+                vectors.LorentzVector([18.6089, -8.9195, 6.43508, 9.61832]),
+                vectors.LorentzVector([13.8389, -4.73227, -6.55009, -1.55854]),
+                vectors.LorentzVector([25.5377, 20.892, 4.32472, -8.89684]),
+                vectors.LorentzVector([19.9556, -6.24009, -1.65597, -1.81582]),
+                vectors.LorentzVector([-90, 0, 0, 0]),
+        ]),
+        #https://arxiv.org/pdf/1211.0509v3.pdf
+        analytical_result =  -4.64e-19
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        '6pt_Weinzierl_f',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
+                vectors.LorentzVector([18.6089, -8.9195, 6.43508, 9.61832]),
+                vectors.LorentzVector([13.8389, -4.73227, -6.55009, -1.55854]),
+                vectors.LorentzVector([25.5377, 20.892, 4.32472, -8.89684]),
+                vectors.LorentzVector([19.9556, -6.24009, -1.65597, -1.81582]),
+                vectors.LorentzVector([-90, 0, 0, 0]),
+        ]),
+        #https://arxiv.org/pdf/1211.0509v3.pdf
+        analytical_result =  -1.03e-18
     ),
 )
 
