@@ -78,8 +78,11 @@ impl LoopLine {
                 let cm = (mom + q).spatial_squared()
                     + float::from_f64(self.propagators[j].m_squared).unwrap();
 
-                if cm.re < float::zero() {
-                    eprintln!("Negative real part detected for cut {}: {}", cut, cm);
+                if cm.re < float::zero() && cm.im < float::zero() {
+                    panic!(
+                        "Branch cut detected for cut {}, ll sig={:?}, ks={:?}: {}",
+                        cut, self.signature, loop_momenta, cm
+                    );
                 }
 
                 -q.t + cm.sqrt()
@@ -89,8 +92,11 @@ impl LoopLine {
                 let cm = (mom + q).spatial_squared()
                     + float::from_f64(self.propagators[j].m_squared).unwrap();
 
-                if cm.re < float::zero() {
-                    eprintln!("Negative real part detected for cut {}: {}", cut, cm);
+                if cm.re < float::zero() && cm.im < float::zero() {
+                    panic!(
+                        "Branch cut detected for cut {}, ll sig={:?}, ks={:?}: {}",
+                        cut, self.signature, loop_momenta, cm
+                    );
                 }
 
                 -q.t - cm.sqrt()
