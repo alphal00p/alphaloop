@@ -980,6 +980,59 @@ impl Topology {
         kappas
     }
 
+    fn get_deformation_for_cut<U: dual_num::Dim + dual_num::DimName>(
+        &self,
+        loop_momenta: &[LorentzVector<DualN<float, U>>],
+        cut: &[Cut],
+        cut_structure_index: usize,
+    ) -> [LorentzVector<DualN<float, U>>; MAX_LOOP]
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
+        dual_num::Owned<float, U>: Copy,
+    {
+        let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
+
+        // compute each cut momentum, subtract the shift and normalize
+        let mut index = 0;
+        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
+        let mut cut_masses = [DualN::default(); MAX_LOOP];
+        for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
+            if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
+                cut_momenta[index] = ll.get_cut_momentum(loop_momenta, ll_cut);
+
+                // subtract the shift from q0
+                cut_momenta[index].t -=
+                    DualN::from_real(float::from_f64(ll.propagators[i].q.t).unwrap());
+                cut_masses[index] =
+                    DualN::from_real(float::from_f64(ll.propagators[i].m_squared).unwrap());
+
+                index += 1;
+            }
+        }
+
+        // convert from cut momentum basis to loop momentum basis
+        for i in 0..self.n_loops {
+            let mut deform_dir = LorentzVector::default();
+            for ((&sign, cut_dir), &cut_mass) in self.cb_to_lmb_mat[cut_structure_index]
+                [i * self.n_loops..(i + 1) * self.n_loops]
+                .iter()
+                .zip(cut_momenta.iter())
+                .zip(cut_masses.iter())
+            {
+                // normalize the spatial components
+                let mut mom_normalized = *cut_dir;
+                let length = (mom_normalized.spatial_squared_impr() + cut_mass).sqrt();
+                mom_normalized *= length.inv();
+
+                deform_dir += mom_normalized * DualN::from_real(float::from_i8(sign).unwrap());
+            }
+
+            deform_dirs[i] = deform_dir;
+        }
+
+        deform_dirs
+    }
+
     /// Construct a deformation vector by going through all cut options
     /// and make sure it is 0 on all other cut options
     fn deform_cutgroups<U: dual_num::Dim + dual_num::DimName>(
@@ -1039,43 +1092,11 @@ impl Topology {
             }
 
             if Some(&surf.cut) != last_cut {
-                // compute each cut momentum, subtract the shift and normalize
-                let mut index = 0;
-                let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-                let mut cut_masses = [DualN::default(); MAX_LOOP];
-                for (ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
-                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
-                        cut_momenta[index] = ll.get_cut_momentum(loop_momenta, ll_cut);
+                let mut deform_dirs_cut =
+                    self.get_deformation_for_cut(loop_momenta, &surf.cut, surf.cut_structure_index);
 
-                        // subtract the shift from q0
-                        cut_momenta[index].t -=
-                            DualN::from_real(float::from_f64(ll.propagators[i].q.t).unwrap());
-                        cut_masses[index] =
-                            DualN::from_real(float::from_f64(ll.propagators[i].m_squared).unwrap());
-
-                        index += 1;
-                    }
-                }
-
-                // convert from cut momentum basis to loop momentum basis
                 for i in 0..self.n_loops {
-                    let mut deform_dir = LorentzVector::default();
-                    for ((&sign, cut_dir), &cut_mass) in self.cb_to_lmb_mat
-                        [surf.cut_structure_index][i * self.n_loops..(i + 1) * self.n_loops]
-                        .iter()
-                        .zip(cut_momenta.iter())
-                        .zip(cut_masses.iter())
-                    {
-                        // normalize the spatial components
-                        let mut mom_normalized = *cut_dir;
-                        let length = (mom_normalized.spatial_squared_impr() + cut_mass).sqrt();
-                        mom_normalized *= length.inv();
-
-                        deform_dir +=
-                            mom_normalized * DualN::from_real(float::from_i8(sign).unwrap());
-                    }
-
-                    deform_dirs[non_empty_cut_count * MAX_LOOP + i] = deform_dir;
+                    deform_dirs[non_empty_cut_count * MAX_LOOP + i] = deform_dirs_cut[i];
                 }
 
                 non_empty_cuts[non_empty_cut_count] =
@@ -1175,6 +1196,7 @@ impl Topology {
     fn deform_generic<U: dual_num::Dim + dual_num::DimName>(
         &self,
         loop_momenta: &[LorentzVector<DualN<float, U>>],
+        cut: Option<(usize, usize)>,
     ) -> ([LorentzVector<float>; MAX_LOOP], Complex)
     where
         dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
@@ -1182,6 +1204,11 @@ impl Topology {
     {
         let mut kappas = match self.settings.general.deformation_strategy {
             DeformationStrategy::CutGroups => self.deform_cutgroups(loop_momenta),
+            DeformationStrategy::Duals => {
+                let co = cut.unwrap();
+                let cut = &self.ltd_cut_options[co.0][co.1];
+                self.get_deformation_for_cut(loop_momenta, cut, co.0)
+            }
             _ => self.deform_ellipsoids(loop_momenta),
         };
 
@@ -1229,6 +1256,7 @@ impl Topology {
     pub fn deform(
         &self,
         loop_momenta: &[LorentzVector<float>],
+        cut: Option<(usize, usize)>,
     ) -> ([LorentzVector<float>; MAX_LOOP], Complex) {
         if DeformationStrategy::None == self.settings.general.deformation_strategy {
             let r = [LorentzVector::default(); MAX_LOOP];
@@ -1244,7 +1272,7 @@ impl Topology {
                     r[0][i + 1][i + 1] = float::one();
                 }
 
-                return self.deform_generic(&r);
+                return self.deform_generic(&r, cut);
             }
             2 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1255,7 +1283,7 @@ impl Topology {
                     r[0][i + 1][i + 1] = float::one();
                     r[1][i + 1][i + 4] = float::one();
                 }
-                self.deform_generic(&r)
+                self.deform_generic(&r, cut)
             }
             3 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1268,7 +1296,7 @@ impl Topology {
                     r[1][i + 1][i + 4] = float::one();
                     r[2][i + 1][i + 7] = float::one();
                 }
-                self.deform_generic(&r)
+                self.deform_generic(&r, cut)
             }
             n => panic!("Binding for deformation at {} loops is not implemented", n),
         }
@@ -1386,22 +1414,53 @@ impl Topology {
         }
 
         // deform
-        let (kappas, jac_def) = self.deform(&k);
-        let mut k_def: ArrayVec<[LorentzVector<Complex>; MAX_LOOP]> = (0..self.n_loops)
-            .map(|i| {
-                k[i].map(|x| Complex::new(x, float::zero()))
-                    + kappas[i].map(|x| Complex::new(float::zero(), x))
-            })
-            .collect();
+        let mut k_def: ArrayVec<[LorentzVector<Complex>; MAX_LOOP]> = ArrayVec::default();
+        let mut jac_def = Complex::one();
+
+        if self.settings.general.deformation_strategy != DeformationStrategy::Duals {
+            let (kappas, jac) = self.deform(&k, None);
+            k_def = (0..self.n_loops)
+                .map(|i| {
+                    k[i].map(|x| Complex::new(x, float::zero()))
+                        + kappas[i].map(|x| Complex::new(float::zero(), x))
+                })
+                .collect();
+            jac_def = jac;
+        }
 
         let mut result = Complex::default();
-        for (cuts, mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter()) {
+        let mut cut_counter = 0;
+        for (cut_structure_index, (cuts, mat)) in self
+            .ltd_cut_options
+            .iter()
+            .zip(self.cb_to_lmb_mat.iter())
+            .enumerate()
+        {
             // for each cut coming from the same cut structure
-            for cut in cuts {
-                match self.evaluate_cut(&mut k_def, cut, mat) {
-                    Ok(v) => result += v,
-                    Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
+            for (cut_option_index, cut) in cuts.iter().enumerate() {
+                if self.settings.general.cut_filter.is_empty()
+                    || self.settings.general.cut_filter.contains(&cut_counter)
+                {
+                    let mut dual_jac_def = Complex::one();
+                    if self.settings.general.deformation_strategy == DeformationStrategy::Duals {
+                        let (kappas, jac) =
+                            self.deform(&k, Some((cut_structure_index, cut_option_index)));
+                        k_def = (0..self.n_loops)
+                            .map(|i| {
+                                k[i].map(|x| Complex::new(x, float::zero()))
+                                    + kappas[i].map(|x| Complex::new(float::zero(), x))
+                            })
+                            .collect();
+                        dual_jac_def = jac;
+                    }
+
+                    match self.evaluate_cut(&mut k_def, cut, mat) {
+                        Ok(v) => result += v * dual_jac_def,
+                        Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
+                    }
                 }
+
+                cut_counter += 1;
             }
         }
 

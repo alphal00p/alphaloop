@@ -2067,9 +2067,11 @@ hard_coded_topology_collection.add_topology(
 hyperparameters = HyperParameters({
 
     'General'       :   {
-        # can be multiplicative, additive, cutgroups or none
+        # can be multiplicative, additive, cutgroups, duals or none
         'deformation_strategy'  :   'cutgroups',
         'topology'              :   'TriangleBoxBox',
+        # only evaluate the cuts in this list. empty means all
+        'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   5.,
@@ -2130,6 +2132,7 @@ hyperparameters = HyperParameters({
     'Parameterization'   :   {
         # shift the loop momenta. the first component is a rescaling of the radius
         'shifts' : [
+            [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],
         ]

@@ -58,6 +58,8 @@ pub enum DeformationStrategy {
     Multiplicative,
     #[serde(rename = "cutgroups")]
     CutGroups,
+    #[serde(rename = "duals")]
+    Duals,
     #[serde(rename = "none")]
     None,
 }
@@ -68,6 +70,7 @@ impl From<&str> for DeformationStrategy {
             "additive" => DeformationStrategy::Additive,
             "multiplicative" => DeformationStrategy::Multiplicative,
             "cutgroups" => DeformationStrategy::CutGroups,
+            "duals" => DeformationStrategy::Duals,
             "none" => DeformationStrategy::None,
             _ => panic!("Unknown deformation strategy {}", s),
         }
@@ -80,6 +83,7 @@ impl fmt::Display for DeformationStrategy {
             DeformationStrategy::Additive => write!(f, "additive"),
             DeformationStrategy::Multiplicative => write!(f, "multiplicative"),
             DeformationStrategy::CutGroups => write!(f, "cutgroups"),
+            DeformationStrategy::Duals => write!(f, "duals"),
             DeformationStrategy::None => write!(f, "none"),
         }
     }
@@ -157,6 +161,7 @@ pub struct GeneralSettings {
     pub log_file_prefix: String,
     pub log_to_screen: bool,
     pub deformation_strategy: DeformationStrategy,
+    pub cut_filter: Vec<usize>,
     pub topology: String,
     pub numerical_threshold: f64,
     pub relative_precision: f64,
@@ -322,7 +327,7 @@ py_class!(class LTD |py| {
                 float::from_f64(l[2]).unwrap()));
         }
 
-        let (res, jac) = self.topo(py).borrow().deform(&moms);
+        let (res, jac) = self.topo(py).borrow().deform(&moms, None);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {
