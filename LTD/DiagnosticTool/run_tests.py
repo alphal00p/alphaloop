@@ -463,7 +463,7 @@ class PoleScanner(object):
                 generating_variables = []
                 parametrisation_jacobian = 1.0
                 for i, v in enumerate(point_to_test):
-                    res = rust_worker.inv_parameterize(list(v), i+1)
+                    res = rust_worker.inv_parameterize(list(v), i)
                     generating_variables.append(tuple(res[:3]))
                     parametrisation_jacobian *= res[3]
                 result_bucket['generating_xs'] = tuple(generating_variables)
