@@ -2096,13 +2096,18 @@ hyperparameters = HyperParameters({
     },
 
     'Deformation'   :   {
-        # positive value: maximum lambda in auto scaling
-        # negative value: no auto scaling, lambda is set to abs(lambda)
-        'lambda'    :   -0.001,
-        # sigma=0 means normal min. sigma large decreases steepness
-        'softmin_sigma' : 0,
-        # skip hyperboloid checks from lambda scaling
-        'skip_hyperboloids' : False,
+        'scaling'   :   {
+            # positive value: maximum lambda in auto scaling
+            # negative value: no auto scaling, lambda is set to abs(lambda)
+            'lambda'                    : -0.001,
+            # sigma=0 means normal min. sigma large decreases steepness
+            'softmin_sigma'             : 0,
+            'expansion_check'           : True,
+            'positive_cut_check'        : True,
+            'cut_propagator_check'      : True,
+            'non_cut_propagator_check'  : True,
+        },
+
         'expansion_threshold'   :   0.1,
 
         'additive'              :   {

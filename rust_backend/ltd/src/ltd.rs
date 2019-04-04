@@ -600,8 +600,9 @@ impl Topology {
         // for each cut and taking the minimum of their respective lambdas
         let mut lambda_sq = DualN::from_real(float::from_f64(lambda_max).unwrap().powi(2));
 
-        let sigma =
-            DualN::from_real(float::from_f64(self.settings.deformation.softmin_sigma).unwrap());
+        let sigma = DualN::from_real(
+            float::from_f64(self.settings.deformation.scaling.softmin_sigma).unwrap(),
+        );
         let mut smooth_min_num = lambda_sq * (-lambda_sq / sigma).exp();
         let mut smooth_min_den = (-lambda_sq / sigma).exp();
         for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter()) {
@@ -649,35 +650,40 @@ impl Topology {
                     let m = mom_cut + scf;
                     let num = m.spatial_squared_impr()
                         + DualN::from_real(float::from_f64(*mass_cut).unwrap());
-                    let lambda_exp = DualN::from_real(
-                        float::from_f64(self.settings.deformation.expansion_threshold).unwrap(),
-                    ) * num
-                        / kappa_cut.spatial_dot_impr(&m).abs(); // note: not holomorphic
 
-                    let lambda_exp_sq = lambda_exp * lambda_exp;
+                    if self.settings.deformation.scaling.expansion_check {
+                        let lambda_exp = DualN::from_real(
+                            float::from_f64(self.settings.deformation.expansion_threshold).unwrap(),
+                        ) * num
+                            / kappa_cut.spatial_dot_impr(&m).abs(); // note: not holomorphic
 
-                    if sigma.is_zero() {
-                        if lambda_exp_sq < lambda_sq {
-                            lambda_sq = lambda_exp_sq;
+                        let lambda_exp_sq = lambda_exp * lambda_exp;
+
+                        if sigma.is_zero() {
+                            if lambda_exp_sq < lambda_sq {
+                                lambda_sq = lambda_exp_sq;
+                            }
+                        } else {
+                            let e = (-lambda_exp_sq / sigma).exp();
+                            smooth_min_num += lambda_exp_sq * e;
+                            smooth_min_den += e;
                         }
-                    } else {
-                        let e = (-lambda_exp_sq / sigma).exp();
-                        smooth_min_num += lambda_exp_sq * e;
-                        smooth_min_den += e;
                     }
 
                     // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
                     // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
-                    let lambda_disc_sq = num / kappa_cut_sq;
+                    if self.settings.deformation.scaling.positive_cut_check {
+                        let lambda_disc_sq = num / kappa_cut_sq;
 
-                    if sigma.is_zero() {
-                        if lambda_disc_sq < lambda_sq {
-                            lambda_sq = lambda_disc_sq;
+                        if sigma.is_zero() {
+                            if lambda_disc_sq < lambda_sq {
+                                lambda_sq = lambda_disc_sq;
+                            }
+                        } else {
+                            let e = (-lambda_disc_sq / sigma).exp();
+                            smooth_min_num += lambda_disc_sq * e;
+                            smooth_min_den += e;
                         }
-                    } else {
-                        let e = (-lambda_disc_sq / sigma).exp();
-                        smooth_min_num += lambda_disc_sq * e;
-                        smooth_min_den += e;
                     }
                 }
 
@@ -742,6 +748,10 @@ impl Topology {
                         let (x, y) = if *ll_cut == Cut::NegativeCut(prop_index)
                             || *ll_cut == Cut::PositiveCut(prop_index)
                         {
+                            if !self.settings.deformation.scaling.cut_propagator_check {
+                                continue;
+                            }
+
                             let k_sp_inv = DualN::from_real(float::one())
                                 / kappa_onshell.spatial_squared_impr();
                             let x = (kappa_onshell.spatial_dot_impr(&onshell_prop_mom) * k_sp_inv)
@@ -751,8 +761,7 @@ impl Topology {
                                 * k_sp_inv;
                             (x, y)
                         } else {
-                            if self.settings.deformation.skip_hyperboloids {
-                                // skip to check propagators that will dual cancel anyway if they are 0
+                            if !self.settings.deformation.scaling.non_cut_propagator_check {
                                 continue;
                             }
 
@@ -1193,10 +1202,14 @@ impl Topology {
             *kappa *= scale;
         }
 
-        let lambda = if self.settings.deformation.lambda > 0. {
-            self.determine_lambda(loop_momenta, &kappas, self.settings.deformation.lambda)
+        let lambda = if self.settings.deformation.scaling.lambda > 0. {
+            self.determine_lambda(
+                loop_momenta,
+                &kappas,
+                self.settings.deformation.scaling.lambda,
+            )
         } else {
-            NumCast::from(self.settings.deformation.lambda.abs()).unwrap()
+            NumCast::from(self.settings.deformation.scaling.lambda.abs()).unwrap()
         };
 
         for k in kappas[..self.n_loops].iter_mut() {

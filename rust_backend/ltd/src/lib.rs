@@ -39,6 +39,16 @@ pub type Complex = num::Complex<float>;
 use arrayvec::ArrayVec;
 use vector::LorentzVector;
 
+#[derive(Debug, Copy, Default, Clone, PartialEq, Deserialize)]
+pub struct Scaling {
+    pub lambda: f64,
+    pub softmin_sigma: f64,
+    pub expansion_check: bool,
+    pub positive_cut_check: bool,
+    pub cut_propagator_check: bool,
+    pub non_cut_propagator_check: bool,
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub enum DeformationStrategy {
     #[serde(rename = "additive")]
@@ -130,9 +140,7 @@ pub struct DeformationCutGroupsSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
-    pub lambda: f64,
-    pub softmin_sigma: f64,
-    pub skip_hyperboloids: bool,
+    pub scaling: Scaling,
     pub expansion_threshold: f64,
     pub multiplicative: DeformationMultiplicativeSettings,
     pub additive: DeformationAdditiveSettings,
