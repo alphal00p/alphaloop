@@ -2128,11 +2128,11 @@ hyperparameters = HyperParameters({
     },
 
     'Parameterization'   :   {
-        # rescale the radius of the ith loop momentum by rescaling^i
-        'rescaling' :   1.0,
-        # shift the ith loop momentum by e_cm*(i*shift)
-        'shift'     :   [0., 0., 0.]
-
+        # shift the loop momenta. the first component is a rescaling of the radius
+        'shifts' : [
+            [1.0, 0., 0., 0.],
+            [1.0, 0., 0., 0.],
+        ]
     },
 
 })

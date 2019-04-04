@@ -482,8 +482,7 @@ impl Topology {
     ) -> (ArrayVec<[float; MAX_DIM]>, float) {
         let mut jac = float::one();
         let e_cm = float::from_f64(self.e_cm_squared).unwrap().sqrt()
-            * (float::from_f64(self.settings.parameterization.rescaling).unwrap())
-                .powi(loop_index as i32);
+            * float::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
         let radius =
             e_cm * float::from_f64(x[0]).unwrap() / (float::one() - float::from_f64(x[0]).unwrap()); // in [0,inf)
         jac *= (e_cm + radius).powi(2) / e_cm;
@@ -512,14 +511,11 @@ impl Topology {
 
                 // add a shift such that k=l is harder to be picked up by integrators such as cuhre
                 l_space[0] += e_cm
-                    * float::from_f64(self.settings.parameterization.shift.0 * loop_index as f64)
-                        .unwrap();
+                    * float::from_f64(self.settings.parameterization.shifts[loop_index].1).unwrap();
                 l_space[1] += e_cm
-                    * float::from_f64(self.settings.parameterization.shift.1 * loop_index as f64)
-                        .unwrap();
+                    * float::from_f64(self.settings.parameterization.shifts[loop_index].2).unwrap();
                 l_space[2] += e_cm
-                    * float::from_f64(self.settings.parameterization.shift.2 * loop_index as f64)
-                        .unwrap();
+                    * float::from_f64(self.settings.parameterization.shifts[loop_index].3).unwrap();
 
                 jac *= radius * radius; // spherical coord
                 (l_space, jac)
@@ -535,21 +531,14 @@ impl Topology {
     ) -> (ArrayVec<[float; MAX_DIM]>, float) {
         let mut jac = float::one();
         let e_cm = float::from_f64(self.e_cm_squared).unwrap().sqrt()
-            * (float::from_f64(self.settings.parameterization.rescaling).unwrap())
-                .powi(loop_index as i32);
+            * float::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
 
         let x: float = float::from_f64(mom.x).unwrap()
-            - e_cm
-                * float::from_f64(self.settings.parameterization.shift.0 * loop_index as f64)
-                    .unwrap();
+            - e_cm * float::from_f64(self.settings.parameterization.shifts[loop_index].1).unwrap();
         let y: float = float::from_f64(mom.y).unwrap()
-            - e_cm
-                * float::from_f64(self.settings.parameterization.shift.1 * loop_index as f64)
-                    .unwrap();
+            - e_cm * float::from_f64(self.settings.parameterization.shifts[loop_index].2).unwrap();
         let z: float = float::from_f64(mom.z).unwrap()
-            - e_cm
-                * float::from_f64(self.settings.parameterization.shift.2 * loop_index as f64)
-                    .unwrap();
+            - e_cm * float::from_f64(self.settings.parameterization.shifts[loop_index].3).unwrap();
 
         let k_r_sq = x * x + y * y + z * z;
         let k_r = k_r_sq.sqrt();
@@ -1383,7 +1372,7 @@ impl Topology {
         let mut jac_para = float::one();
         for i in 0..self.n_loops {
             // set the loop index to i + 1 so that we can also shift k
-            let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3], i + 1);
+            let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3], i);
 
             let rot = self.rotation_matrix;
             k[i] = LorentzVector::from_args(

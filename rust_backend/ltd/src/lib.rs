@@ -149,8 +149,7 @@ pub struct DeformationSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ParameterizationSettings {
-    pub rescaling: f64,
-    pub shift: (f64, f64, f64),
+    pub shifts: Vec<(f64, f64, f64, f64)>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
