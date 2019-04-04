@@ -620,7 +620,7 @@ impl Topology {
                 let mut mass_cuts = [0.; MAX_LOOP];
                 let mut index = 0;
                 for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-                    if *ll_cut != Cut::NoCut {
+                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut {
                         cut_momenta[index] = ll.get_cut_momentum(&loop_momenta, ll_cut);
 
                         // construct the complex part of the cut loop line momentum
@@ -630,38 +630,31 @@ impl Topology {
                             kappa_cut += kappa * DualN::from_real(float::from_i8(sign).unwrap());
                         }
                         kappa_cuts[index] = kappa_cut;
-
-                        if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut {
-                            mass_cuts[index] = ll.propagators[*i].m_squared;
-                            cut_shifts[index] = ll.propagators[*i].q;
-                        }
+                        mass_cuts[index] = ll.propagators[*i].m_squared;
+                        cut_shifts[index] = ll.propagators[*i].q;
                         index += 1;
                     }
                 }
 
                 // we have to make sure that our linear expansion for the deformation vectors is reasonable
                 // for that we need lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
-                for (mom_cut, shift_cut, kappa_cut, mass_cut) in izip!(
-                    &cut_momenta[..self.n_loops],
-                    &cut_shifts,
-                    &kappa_cuts,
-                    &mass_cuts
-                ) {
+                for (mom_cut, kappa_cut, mass_cut) in
+                    izip!(&cut_momenta[..self.n_loops], &kappa_cuts, &mass_cuts)
+                {
                     let kappa_cut_sq = kappa_cut.spatial_squared();
                     if kappa_cut_sq.is_zero() {
                         continue;
                     }
 
-                    let scf: LorentzVector<DualN<float, U>> = shift_cut.cast();
-                    let m = mom_cut + scf;
-                    let num = m.spatial_squared_impr()
+                    let num = mom_cut.spatial_squared_impr()
                         + DualN::from_real(float::from_f64(*mass_cut).unwrap());
 
                     if self.settings.deformation.scaling.expansion_check {
                         let lambda_exp = DualN::from_real(
-                            float::from_f64(self.settings.deformation.expansion_threshold).unwrap(),
+                            float::from_f64(self.settings.deformation.scaling.expansion_threshold)
+                                .unwrap(),
                         ) * num
-                            / kappa_cut.spatial_dot_impr(&m).abs(); // note: not holomorphic
+                            / kappa_cut.spatial_dot_impr(&mom_cut).abs(); // note: not holomorphic
 
                         let lambda_exp_sq = lambda_exp * lambda_exp;
 
@@ -679,7 +672,8 @@ impl Topology {
                     // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
                     // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
                     if self.settings.deformation.scaling.positive_cut_check {
-                        let lambda_disc_sq = num / kappa_cut_sq;
+                        let lambda_disc_sq =
+                            num / kappa_cut_sq * DualN::from_real(float::from_f64(0.5).unwrap());
 
                         if sigma.is_zero() {
                             if lambda_disc_sq < lambda_sq {

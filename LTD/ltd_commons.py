@@ -2103,12 +2103,11 @@ hyperparameters = HyperParameters({
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0,
             'expansion_check'           : True,
+            'expansion_threshold'       : 0.1,
             'positive_cut_check'        : True,
             'cut_propagator_check'      : True,
             'non_cut_propagator_check'  : True,
         },
-
-        'expansion_threshold'   :   0.1,
 
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
@@ -2124,7 +2123,7 @@ hyperparameters = HyperParameters({
             'M_ij'  :   0.1,
             'sigma' :   0.1,
             # can be hyperbolic, softmin, or unity
-            'mode'  :   'unity',
+            'mode'  :   'hyperbolic',
         }
     },
 

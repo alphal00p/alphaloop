@@ -44,6 +44,7 @@ pub struct Scaling {
     pub lambda: f64,
     pub softmin_sigma: f64,
     pub expansion_check: bool,
+    pub expansion_threshold: f64,
     pub positive_cut_check: bool,
     pub cut_propagator_check: bool,
     pub non_cut_propagator_check: bool,
@@ -141,7 +142,6 @@ pub struct DeformationCutGroupsSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
     pub scaling: Scaling,
-    pub expansion_threshold: f64,
     pub multiplicative: DeformationMultiplicativeSettings,
     pub additive: DeformationAdditiveSettings,
     pub cutgroups: DeformationCutGroupsSettings,
