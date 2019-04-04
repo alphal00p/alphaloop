@@ -75,15 +75,25 @@ impl LoopLine {
         match *cut {
             Cut::PositiveCut(j) => {
                 let q: LorentzVector<Complex> = self.propagators[j].q.cast();
-                -q.t + ((mom + q).spatial_squared()
-                    + float::from_f64(self.propagators[j].m_squared).unwrap())
-                .sqrt()
+                let cm = (mom + q).spatial_squared()
+                    + float::from_f64(self.propagators[j].m_squared).unwrap();
+
+                if cm.re < float::zero() {
+                    eprintln!("Negative real part detected for cut {}: {}", cut, cm);
+                }
+
+                -q.t + cm.sqrt()
             }
             Cut::NegativeCut(j) => {
                 let q: LorentzVector<Complex> = self.propagators[j].q.cast();
-                -q.t - ((mom + q).spatial_squared()
-                    + float::from_f64(self.propagators[j].m_squared).unwrap())
-                .sqrt()
+                let cm = (mom + q).spatial_squared()
+                    + float::from_f64(self.propagators[j].m_squared).unwrap();
+
+                if cm.re < float::zero() {
+                    eprintln!("Negative real part detected for cut {}: {}", cut, cm);
+                }
+
+                -q.t - cm.sqrt()
             }
             Cut::NoCut => unreachable!("Cannot compute the energy part of a non-cut loop line"),
         }
@@ -94,9 +104,11 @@ impl LoopLine {
         &self,
         loop_momenta: &[LorentzVector<Complex>],
         cut: &Cut,
-        threshold: float,
-        kinematics_scale: float,
+        topo: &Topology,
     ) -> Result<Complex, &'static str> {
+        let kinematics_scale = float::from_f64(topo.e_cm_squared).unwrap();
+        let threshold = float::from_f64(topo.settings.general.numerical_threshold).unwrap();
+
         // construct the loop momentum that flows through this loop line
         let mut mom: LorentzVector<Complex> = LorentzVector::default();
         for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
@@ -104,20 +116,41 @@ impl LoopLine {
         }
 
         let mut res = Complex::new(float::one(), float::zero());
+        if topo.settings.general.debug > 3 {
+            println!(
+                "Loop line evaluation for cut {}\n  | signature = {:?}",
+                cut, self.signature
+            );
+        }
         for (i, p) in self.propagators.iter().enumerate() {
             match cut {
                 Cut::PositiveCut(j) if i == *j => {
-                    res *= (mom.t + float::from_f64(p.q.t).unwrap()) * float::from_f64(2.).unwrap();
+                    let r =
+                        (mom.t + float::from_f64(p.q.t).unwrap()) * float::from_f64(2.).unwrap();
+                    res *= r;
+
+                    if topo.settings.general.debug > 3 {
+                        println!("  | prop +{}={}", i, r);
+                    }
                 }
                 Cut::NegativeCut(j) if i == *j => {
-                    res *=
+                    let r =
                         (mom.t + float::from_f64(p.q.t).unwrap()) * float::from_f64(-2.).unwrap();
+                    res *= r;
+
+                    if topo.settings.general.debug > 3 {
+                        println!("  | prop -{}={}", i, r);
+                    }
                 }
                 _ => {
                     // multiply dual propagator
                     let pq: LorentzVector<Complex> = p.q.cast();
                     let m1: LorentzVector<Complex> = mom + pq;
                     let mut r = m1.square() - float::from_f64(p.m_squared).unwrap();
+
+                    if topo.settings.general.debug > 3 {
+                        println!("  | prop  {}={}", i, r);
+                    }
 
                     if !r.is_finite() || r.re * r.re < kinematics_scale * threshold {
                         return Err("numerical instability");
@@ -600,20 +633,26 @@ impl Topology {
                 }
 
                 // we have to make sure that our linear expansion for the deformation vectors is reasonable
-                // for that we need lambda < c * (q_i^2^cut+m_i^2)/(kappa_i^cut * q_i^cut)
+                // for that we need lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
                 for (mom_cut, shift_cut, kappa_cut, mass_cut) in izip!(
                     &cut_momenta[..self.n_loops],
                     &cut_shifts,
                     &kappa_cuts,
                     &mass_cuts
                 ) {
+                    let kappa_cut_sq = kappa_cut.spatial_squared();
+                    if kappa_cut_sq.is_zero() {
+                        continue;
+                    }
+
                     let scf: LorentzVector<DualN<float, U>> = shift_cut.cast();
                     let m = mom_cut + scf;
+                    let num = m.spatial_squared_impr()
+                        + DualN::from_real(float::from_f64(*mass_cut).unwrap());
                     let lambda_exp = DualN::from_real(
                         float::from_f64(self.settings.deformation.expansion_threshold).unwrap(),
-                    ) * (m.spatial_squared_impr()
-                        + DualN::from_real(float::from_f64(*mass_cut).unwrap()))
-                        / kappa_cut.spatial_dot_impr(&m).abs();
+                    ) * num
+                        / kappa_cut.spatial_dot_impr(&m).abs(); // note: not holomorphic
 
                     let lambda_exp_sq = lambda_exp * lambda_exp;
 
@@ -624,6 +663,20 @@ impl Topology {
                     } else {
                         let e = (-lambda_exp_sq / sigma).exp();
                         smooth_min_num += lambda_exp_sq * e;
+                        smooth_min_den += e;
+                    }
+
+                    // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
+                    // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
+                    let lambda_disc_sq = num / kappa_cut_sq;
+
+                    if sigma.is_zero() {
+                        if lambda_disc_sq < lambda_sq {
+                            lambda_sq = lambda_disc_sq;
+                        }
+                    } else {
+                        let e = (-lambda_disc_sq / sigma).exp();
+                        smooth_min_num += lambda_disc_sq * e;
                         smooth_min_den += e;
                     }
                 }
@@ -1261,12 +1314,7 @@ impl Topology {
 
         let mut r = Complex::new(float::one(), float::zero());
         for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-            r *= ll.evaluate(
-                &k_def,
-                ll_cut,
-                float::from_f64(self.e_cm_squared).unwrap(),
-                float::from_f64(self.settings.general.numerical_threshold).unwrap(),
-            )?;
+            r *= ll.evaluate(&k_def, ll_cut, &self)?;
         }
         r = r.inv(); // normal inverse may overflow but has better precision than finv, which overflows later
 
