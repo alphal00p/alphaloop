@@ -11,10 +11,8 @@ import math
 import ltd_commons
 import random
 from numpy.linalg import inv
-
-#import pycuba
-
-#import multiprocessing
+import pycuba
+from scipy import integrate
 
 #import warnings
 #warnings.simplefilter("error")
@@ -28,12 +26,14 @@ class LTDnLoop:
 		self.n_loops            = topology.n_loops 
 		self.name               = topology.name
 		self.external_kinematics= topology.external_kinematics
-		self.scale				= self.get_scale()
+		self.scale				= self.get_rust_scale()
 		self.analytical_result 	= topology.analytical_result
 		self.cut_structures 	= [CutStructure(cut_structure=ltd_cut_structure, ltd_loop_lines = self.ltd_loop_lines) for ltd_cut_structure in self.ltd_cut_structure]
-		self.lambda_ij			= hyperparameters['Deformation']['lambda']
+		self.lambda_ij			= hyperparameters['Deformation']['scaling']['lambda']
 		self.a_ij				= hyperparameters['Deformation']['additive']['a_ij']
 		self.surfaces 			= self.get_surfaces()
+		self.abs_min_lambda		= 1.
+		self.abs_min_distance	= 1e10
 
 		print('{:=^90}'.format(' '+ self.name + ' '))
 		print('{:=^90}'.format(' '+ 'scale = %f' %self.scale + ' '))
@@ -98,7 +98,7 @@ class LTDnLoop:
 			title = '%i surfaces (%i ellipsoids, %i hyperboloids)' %(n_ellipsoids+n_hyperboloids,n_ellipsoids,n_hyperboloids)
 		elif show_ellipsoids:
 			title = '%i ellipsoids / %i surfaces' %(n_ellipsoids,n_ellipsoids+n_hyperboloids)
-		elif show_ellipsoids:
+		elif show_hyperboloids:
 			title = '%i hyperboloids/ %i surfaces' %(n_hyperboloids,n_ellipsoids+n_hyperboloids)
 		print('{:=^90}'.format(' '+title+' '))
 		digits = 7
@@ -108,7 +108,8 @@ class LTDnLoop:
 		title_prop_str += '{:^{width}}'.format('type',width=title_element_width/(self.n_loops+1))
 		title_prop_str += '{:^{width}}'.format('multiplicity',width=title_element_width/2)
 		title_prop_str += '{:^{width}}'.format('p_shift',width=4*digits+5)
-		print(title_prop_str)
+		if (show_ellipsoids and n_ellipsoids>0) or (show_hyperboloids and n_hyperboloids>0):
+			print(title_prop_str)
 		for surface in surfaces:
 			if (surface['is_ellipsoid'] and not show_ellipsoids) or (not surface['is_ellipsoid'] and not show_hyperboloids):
 					continue
@@ -128,7 +129,15 @@ class LTDnLoop:
 		on_f_shell = adipy.sqrt(self.norm(q_space)**2 + m**2)
 		return on_f_shell
 	
-	def get_scale(self):
+	def get_rust_scale(self):
+		if len(self.external_kinematics) > 2:
+			p = self.external_kinematics[0] + self.external_kinematics[1]
+		else:
+			p = self.external_kinematics[0]
+		scale = numpy.sqrt(abs(p[0]**2 - self.norm(p[1:])**2))
+		return scale
+
+	def get_alt_scale(self):
 		p_posE = [p for p in self.external_kinematics if p[0] > 0.]
 		if -numpy.sum(self.external_kinematics,axis=0)[0] > 0.:
 			p_posE += [-sum(self.external_kinematics)]
@@ -179,9 +188,142 @@ class LTDnLoop:
 		dual_vec = [adipy.ad(vec[i], numpy.array([0. if j !=i  else 1. for j in xrange(dim)])) for i in xrange(dim)]
 		dual_momenta = [dual_vec[i*3:(i+1)*3] for i in xrange(self.n_loops)]
 		return numpy.array(dual_momenta)
-	
+
+	def rescale_with_expansion_parameter(self,kappas,loop_momenta,real_deltas):
+		self.curr_min_lambda = adipy.ad(1.,numpy.array([0. for i in xrange(self.n_loops*3)]))
+		all_prop_deltas = [{'loop_line_index': loop_line_index,'propagator_index': propagator_index}
+									for loop_line_index,loop_line in enumerate(self.ltd_loop_lines)
+									for propagator_index,propagator in enumerate(loop_line.propagators)]
+		#all_prop_deltas = []
+		#for cut_structure in self.cut_structures:
+		#	for cut in cut_structure.cuts:
+		#		for loop_line in cut.loop_lines:
+		#			for propagator in loop_line.propagators:
+		#				delta = {'loop_line_index': loop_line.loop_line_index, 'propagator_index': propagator.propagator_index}
+		#				all_prop_deltas += [delta]
+		#for i,surface in enumerate(self.surfaces):
+		#	for delta in surface['deltas']:
+		for delta in all_prop_deltas:
+				shift_space = self.ltd_loop_lines[delta['loop_line_index']].propagators[delta['propagator_index']].q[1:]
+				signature = numpy.array(self.ltd_loop_lines[delta['loop_line_index']].signature)
+				prop_momentum = numpy.array(signature.dot(loop_momenta) + shift_space)
+				prop_kappa = signature.dot(kappas)
+				prop_delta = real_deltas[delta['loop_line_index']][delta['propagator_index']]
+				#lambda_j= abs(expansion_parameter*prop_delta/prop_kappa.dot(prop_momentum))
+				if prop_kappa.dot(prop_kappa) > 0.:
+					lambda_j_sq = 2*prop_delta**4/(prop_kappa.dot(prop_kappa)*prop_delta**2-prop_kappa.dot(prop_momentum)**2)
+					if lambda_j_sq > 0.:
+						lambda_j = adipy.sqrt(lambda_j_sq)/10.
+					else:
+						lambda_j = self.curr_min_lambda
+				else:
+					lambda_j = self.curr_min_lambda
+				if lambda_j.nom < self.curr_min_lambda.nom:
+					self.curr_min_lambda = lambda_j
+		if self.curr_min_lambda.nom < self.abs_min_lambda:
+			self.abs_min_lambda = self.curr_min_lambda.nom
+			print self.abs_min_lambda
+		kappas = numpy.array([[self.curr_min_lambda*k for k in kappa] for kappa in kappas])
+		return kappas
+
+	def rescale_with_branch_cut_condition(self,kappas,loop_momenta):
+		self.curr_min_lambda = adipy.ad(1.,numpy.array([0. for i in xrange(self.n_loops*3)]))
+		all_prop_deltas = [{'loop_line_index': loop_line_index,'propagator_index': propagator_index}
+									for loop_line_index,loop_line in enumerate(self.ltd_loop_lines)
+									for propagator_index,propagator in enumerate(loop_line.propagators)]
+		for delta in all_prop_deltas:
+			shift_space = self.ltd_loop_lines[delta['loop_line_index']].propagators[delta['propagator_index']].q[1:]
+			prop_m_squared = self.ltd_loop_lines[delta['loop_line_index']].propagators[delta['propagator_index']].m_squared
+			signature = numpy.array(self.ltd_loop_lines[delta['loop_line_index']].signature)
+			prop_momentum = numpy.array(signature.dot(loop_momenta) + shift_space)
+			prop_kappa = signature.dot(kappas)
+			if prop_kappa.dot(prop_kappa) > 0.:
+				lambda_j_sq = (prop_momentum.dot(prop_momentum)+prop_m_squared)/prop_kappa.dot(prop_kappa)
+				if lambda_j_sq > 0:
+					lambda_j = adipy.sqrt(lambda_j_sq)/10.
+				else:
+					lambda_j = self.curr_min_lambda
+			else:
+				lambda_j = self.curr_min_lambda
+			if lambda_j.nom < self.curr_min_lambda.nom:
+				self.curr_min_lambda = lambda_j
+		if self.curr_min_lambda.nom < self.abs_min_lambda:
+			self.abs_min_lambda = self.curr_min_lambda.nom
+			print self.abs_min_lambda
+		kappas = numpy.array([[self.curr_min_lambda*k for k in kappa] for kappa in kappas])
+		return kappas
+
+	def rescale_from_complex_zeros(self,kappas,loop_momenta,real_deltas):
+		curr_min = adipy.ad(1.,numpy.array([0. for i in xrange(self.n_loops*3)]))
+		for surface in self.surfaces:
+			# solve (linearized_surface(lambda) = 0) <=> A*lambda^2 + i*B*lambda + C = 0
+			A = B = C = 0.
+			for delta in surface['deltas']:
+				shift_space = self.ltd_loop_lines[delta['loop_line_index']].propagators[delta['propagator_index']].q[1:]
+				signature = numpy.array(self.ltd_loop_lines[delta['loop_line_index']].signature)
+				prop_momentum = numpy.array(signature.dot(loop_momenta) + shift_space)
+				prop_kappa = signature.dot(kappas)
+				prop_delta = real_deltas[delta['loop_line_index']][delta['propagator_index']]
+				C += prop_delta*delta['sign']
+				B += prop_momentum.dot(prop_kappa)/prop_delta*delta['sign']
+				A += 0.5/prop_delta*(-prop_kappa.dot(prop_kappa)+0.5*(prop_momentum.dot(prop_kappa))**2/prop_delta**2)
+			C += surface['p_shift'][0]
+			if A*A > 1e-20:
+				sqrt_X = -B/(2.*A)
+				X = sqrt_X**2
+				Y = -C/A
+				scaling_param = self.scaling_condition(X,Y)
+				if scaling_param.nom < curr_min.nom:
+					curr_min = scaling_param
+		if curr_min.nom < self.abs_min_lambda:
+			self.abs_min_lambda = curr_min.nom
+			print 'abs_min_lambda: ', self.abs_min_lambda
+		kappas = numpy.array([[curr_min*k for k in kappa] for kappa in kappas])
+		return kappas
+
+	def estimate_distance_to_ellipsoid(self,this_surface,kappas,loop_momenta,real_deltas):
+		curr_min = adipy.ad(10,numpy.array([0. for i in xrange(self.n_loops*3)]))
+		for i,kappa_i in enumerate(kappas):
+			if kappa_i.dot(kappa_i) > 0:
+				for surface in self.surfaces:
+					A = B = C = 0.
+					if surface['is_ellipsoid'] and this_surface != surface:
+						for delta in surface['deltas']:
+							shift_space = self.ltd_loop_lines[delta['loop_line_index']].propagators[delta['propagator_index']].q[1:]
+							signature = numpy.array(self.ltd_loop_lines[delta['loop_line_index']].signature)
+							prop_momentum = numpy.array(signature.dot(loop_momenta) + shift_space)
+							prop_delta = real_deltas[delta['loop_line_index']][delta['propagator_index']]
+							if signature[i] != 0:
+								A += 0.5/prop_delta*(kappa_i.dot(kappa_i)-0.5*(kappa_i.dot(prop_momentum)/prop_delta)**2)
+								B += signature[i]*kappa_i.dot(prop_momentum)/prop_delta
+							C += prop_delta #add for every prop delta, independent of signature[i] (outside loop!)
+						C += surface['p_shift'][0]
+					determinant = B**2-4.*A*C
+					if A*A > 1e-20 and determinant.nom > 0:
+						sqrt_det = adipy.sqrt(B**2-4.*A*C)
+						line_parameter_p = (-B+sqrt_det)/(2.*A)
+						line_parameter_m = (-B-sqrt_det)/(2.*A)
+						for line_parameter in [line_parameter_p,line_parameter_m]:
+							if line_parameter.nom > 0. and line_parameter.nom < curr_min.nom:
+								curr_min = line_parameter
+		distance_vector = numpy.array([[curr_min*k for k in kappa] for kappa in kappas])
+		min_distance = self.norm(distance_vector)
+		if min_distance.nom < self.abs_min_distance:
+			self.abs_min_distance = min_distance.nom
+			print 'abs_min_distance: ', self.abs_min_distance
+		return min_distance
+
+	def scaling_condition(self,X,Y):
+		if Y > 2.*X:
+			scaling_param_ij_sq = .25*Y
+		elif Y < 0.:
+			scaling_param_ij_sq = X - .5*Y
+		else:
+			scaling_param_ij_sq = X - .25*Y
+		scaling_param_ij = adipy.sqrt(scaling_param_ij_sq)
+		return scaling_param_ij
+
 	def get_kappa(self,loop_momenta,real_deltas,surface):
-		#all_kappas = [numpy.zeros(3) for loop_momentum in loop_momenta]
 		kappas = numpy.array([[coord*0. for coord in loop_momentum] for loop_momentum in loop_momenta])
 		if surface['is_ellipsoid']:
 			my_cuts = [(delta['loop_line_index'], delta['propagator_index']) for delta in surface['deltas']]
@@ -190,32 +332,39 @@ class LTDnLoop:
 			surf_momenta = all_signatures.dot(loop_momenta) + shift_space
 			surf_deltas = [real_deltas[surf_delta['loop_line_index']][surf_delta['propagator_index']] for surf_delta in surface['deltas']]
 			for index in xrange(self.n_loops):
-				kappa_index = numpy.sum([signature[index]*surf_momenta[i]/surf_deltas[i] for i,signature in enumerate(all_signatures)],axis=0) 
+				kappa_index = numpy.sum([signature[index]*surf_momenta[i]/surf_deltas[i] for i,signature in enumerate(all_signatures)],axis=0)
+				#if kappa_index.dot(kappa_index) > 0.:
+				#	kappa_index *= 1./self.norm(kappa_index)
 				kappas[index] = kappa_index
-			#if my_cuts == [(0, 0), (0, 1)]:
-			#	print kappas
+			min_distance = self.estimate_distance_to_ellipsoid(surface,kappas,loop_momenta,real_deltas)
 			surface_eq = numpy.sum([surf_deltas[i]*delta['sign'] for i,delta in enumerate(surface['deltas'])])+surface['p_shift'][0]
-			interpolation = adipy.exp(-surface_eq**2/self.scale**2/self.a_ij)
-			lambda_factor = -abs(self.lambda_ij)
-			kappas *= lambda_factor*self.scale*interpolation#*surface['multiplicity']
-			#if my_cuts == [(0, 0), (0, 1)]:
-			#	print my_cuts
-			#	print kappas
-			#hard_coded_kappa = (loop_momenta[0]+self.ltd_loop_lines[0].propagators[0].q[1:])/real_deltas[0][0]
-			#hard_coded_kappa += (loop_momenta[1]+loop_momenta[0])/real_deltas[2][0]
-			#print hard_coded_kappa
-			#hard_coded_kappa = (loop_momenta[1]+self.ltd_loop_lines[1].propagators[1].q[1:])/real_deltas[1][1]
-			#hard_coded_kappa += (loop_momenta[1]+loop_momenta[0])/real_deltas[2][0]
-			#print hard_coded_kappa
-			#stop
+			#interpolation = adipy.exp(-surface_eq**2/self.scale**2/self.a_ij)
+			interpolation = adipy.exp(-surface_eq**2/min_distance**2)
+			#other_interpolations = []
+			#for other_surface in self.surfaces:
+			#	if surface != other_surface:
+			#		if other_surface['is_ellipsoid']:
+			#			other_surf_deltas = [real_deltas[surf_delta['loop_line_index']][surf_delta['propagator_index']] for surf_delta in other_surface['deltas']]
+			#			other_surface_eq = numpy.sum([other_surf_deltas[i]*delta['sign'] for i,delta in enumerate(other_surface['deltas'])])+other_surface['p_shift'][0]
+			#			other_interpolations += [1.-adipy.exp(-other_surface_eq**2/self.scale**2/self.a_ij)]
+			#kappas *= numpy.prod(other_interpolations)
+			kappas *= -interpolation#*surface['multiplicity']
 		return kappas
 
-	def deform(self,loop_momenta):
+	def deform(self,loop_momenta,):
 		loop_momenta = self.dual(loop_momenta)
 		real_deltas = self.get_deltas(loop_momenta)
 		kappas = numpy.array([[coord*0. for coord in loop_momentum] for loop_momentum in loop_momenta])
 		for i,surface in enumerate(self.surfaces):
 			kappas += self.get_kappa(loop_momenta,real_deltas,surface)
+		kappas *= self.scale
+		#kappas = numpy.array([[k*self.norm(loop_momentum) for k in kappa] for kappa,loop_momentum in zip(kappas,loop_momenta)])
+		if self.lambda_ij > 0:
+			#kappas = self.rescale_with_branch_cut_condition(kappas,loop_momenta)
+			#kappas = self.rescale_with_expansion_parameter(kappas,loop_momenta,real_deltas)
+			kappas = self.rescale_from_complex_zeros(kappas,loop_momenta,real_deltas)
+		else:
+			kappas *= abs(self.lambda_ij)
 		full_jac = adipy.jacobian(loop_momenta.flatten() + 1j*kappas.flatten())
 		det_jac = numpy.linalg.det(full_jac)
 		kappas = [numpy.array([kapp.nom for kapp in kappa]) for kappa in kappas]
@@ -258,7 +407,7 @@ class LTDnLoop:
 			res += cut_structure.evaluate(deltas)
 		return res
 
-	def ltd_integrate(self,integrand, N_train=1000, itn_train = 7, N_refine=1000, itn_refine = 10):
+	def vegas_integrate(self,integrand, N_train=1000, itn_train = 7, N_refine=1000, itn_refine = 10):
 		print('{:=^90}'.format(' integrating ... '))
 		print('{:=^90}'.format(' N_train = %d, itn_train = %d, N_refine = %d, itn_refine = %d ' %(N_train,itn_train,N_refine,itn_refine)))
 		N_tot = N_train*itn_train+N_refine*itn_refine
@@ -283,22 +432,73 @@ class LTDnLoop:
 		print('{:=^90}'.format(' Time: %.2f s ' % (time.time()-t0)))
 		return result
 
-	def integrate(self,integrand):
-		def print_results(name, results):
-			keys = ['nregions', 'neval', 'fail']
-			text = ["%s %d" % (k, results[k]) for k in keys if k in results]
-			print("%s RESULT:\t" % name.upper() + "\t".join(text))
-			for comp in results['results']:
-				print("%s RESULT:\t" % name.upper() + \
-					"%(integral).8f +- %(error).8f\tp = %(prob).3f\n" % comp)
+	def cuba_integrate(self,integrand,integrator_name='vegas',**opts):
+		self.n_bad_points = 0
+		def cuba_integrand(ndim,xx,ncomp,ff,userdata):
+			random_variables = [xx[i] for i in range(ndim.contents.value)]
+			result = integrand(random_variables)
+			if numpy.isfinite(result):
+				ff[0] = result.real
+				ff[1] = result.imag
+			else:
+				self.n_bad_points += 1
+				print 'bad point = ', self.n_bad_points
+				ff[0] = 0.
+				ff[1] = 0.
+			return 0
+		
+		opts = {'ndim': self.n_loops*3,
+				'ncomp': 2,
+				'maxeval': 1000000,
+				'mineval': 1000000,
+				'seed': 1,
+				'verbose': 1,
+				#'nincrease': 100, #vegas only
+				}
+		
 
-		def Integrand(ndim, xx, ncomp, ff, userdata):
-			x = [xx[i] for i in range(ndim.contents.value)]
-			result = lambda x: integrand(x).real
-			ff[0] = result
+  		#NNEW = hyperparameters['Integrator']['n_new']
+  		#NMIN = hyperparameters['Integrator']['n_start']
+  		#FLATNESS = hyperparameters['Integrator']['flatness']
+		#MINEVAL = hyperparameters['Integrator']['n_min']
+		#MAXEVAL = hyperparameters['Integrator']['n_max']
+
+		if integrator_name=='vegas':
+			print pycuba.Vegas(cuba_integrand, **opts)
+		elif integrator_name=='cuhre':
+			print pycuba.Cuhre(cuba_integrand, **opts)
+
+	def nested_cuhre_integrate(self,integrand,**opts):
+		def inner_integrand(ndim,xx,ncomp,ff,userdata):
+			random_variables = [xx[i] for i in range(ndim.contents.value)]
+			all_variables = random_variables+self.userdata
+			result = integrand(all_variables)
+			if numpy.isfinite(result):
+				ff[0] = result.real
+				ff[1] = result.imag
+			else:
+				ff[0] = 0.
+				ff[1] = 0.
 			return 0
 
-		print_results('Cuhre', pycuba.Cuhre(Integrand, self.n_loops*3, key=0, verbose=2 | 4))
+		def outer_integrand(ndim,xx,ncomp,ff,userdata):
+			random_variables = [xx[i] for i in range(ndim.contents.value)]
+			self.userdata = random_variables
+			res_dict = pycuba.Cuhre(inner_integrand, ndim=3, ncomp= 2, maxeval = 1000, seed = 1, verbose=0,key=11)
+			if numpy.isfinite(res_dict['results'][0]['integral']) and numpy.isfinite(res_dict['results'][1]['integral']):
+				ff[0] = res_dict['results'][0]['integral']
+				ff[1] = res_dict['results'][1]['integral']
+			else:
+				ff[0] = 0.
+				ff[1] = 0.
+			return 0
+		
+		print pycuba.Cuhre(outer_integrand, ndim=3, ncomp= 2, maxeval = 1000, seed = 0, verbose=2,key=11)
+
+	def nested_integrate(self,integrand,**opts):
+		from scipy import integrate
+		real_integrand = lambda x1,x2,x3: integrand([x1,x2,x3]).real
+		print integrate.nquad(real_integrand,[[0,1],[0,1],[0,1]],opts={'epsrel': 1.49e-01,'epsabs': 1.49e-01},full_output=True)
 
 	def analytic_three_point_ladder(self,s1,s2,s3,l):
 		aa = (1j/(16*numpy.pi**2*s3))**l
@@ -562,46 +762,19 @@ class CutPropagator(CutObject):
 
 if __name__ == "__main__":	
 	
-	def example():
-		# example to evaluate specific residues at given loop momenta configuration
-		my_topology = ltd_commons.hard_coded_topology_collection['DoubleTriangle']
-		my_LTD = LTDnLoop(my_topology)
-		loop_momenta = [numpy.array([1.1,2.2,3.3]),numpy.array([4.4,5.5,6.6])]
-		deltas = my_LTD.get_deltas(loop_momenta)
-		cut = [1,-2,0] # propagator numbering starts with 1, 0 means no cut, - negative cut.
-		cut_residue = my_LTD.evaluate_cut(deltas,cut)
-		cut_structure = [-1,0,1] # the usual convention
-		cut_structure_residue = my_LTD.evaluate_cut_structure(deltas,cut_structure)
-		full_residue = numpy.sum([my_LTD.evaluate_cut_structure(deltas,cut_structure) for cut_structure in my_LTD.ltd_cut_structure])
-
-		# example to evaluate propagator i of loop line j for a given cut:
-		i = 0
-		j = 1
-		line_energies = my_LTD.get_all_line_energies(deltas,cut)
-		inv_propagator = my_LTD.inv_G(line_energies[j] + my_LTD.loop_lines[j].propagators[i].q[0],deltas[j][i])
-		# or alternatively build it yourself from the four momenta
-		four_momenta = my_LTD.get_four_momenta(line_energies,loop_momenta)
-		four_loop_momentum_j = numpy.sum([l*sign for l,sign in zip(four_momenta,my_LTD.loop_lines[j].signature)],axis=0) #loop momentum in line j
-		four_ext_momentum_i = my_LTD.loop_lines[j].propagators[i].q #(sum of) external momenta that flow into propagator i
-		m_squared_i = my_LTD.loop_lines[j].propagators[i].m_squared # mass of propagator i
-		feyn_prop = lambda k,m_squared: k[0]**2-my_LTD.norm(k[1:])**2 - m_squared
-		alt_inv_propagator = feyn_prop(four_loop_momentum_j+four_ext_momentum_i,m_squared_i)
-		print('Convince yourself:', inv_propagator, ' = ', alt_inv_propagator)
-		return
-	
-	#example()
-	
-	my_topology = ltd_commons.hard_coded_topology_collection['TriangleBoxBox']
+	my_topology = ltd_commons.hard_coded_topology_collection['Triangle']
 	hyperparameters = ltd_commons.hyperparameters
 	my_LTD = LTDnLoop(my_topology,hyperparameters)
 	my_LTD.display_surfaces(show_ellipsoids=True,show_hyperboloids=False)
 
 	#print my_LTD.ltd_integrand4([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
 	
-	external_momenta = my_LTD.external_kinematics
-	s = [p[0]**2-numpy.sum(p[1:]**2) for p in external_momenta]
-	print my_LTD.analytic_three_point_ladder(s[0],s[1],s[2],3)
+	#external_momenta = my_LTD.external_kinematics
+	#s = [p[0]**2-numpy.sum(p[1:]**2) for p in external_momenta]
+	#print my_LTD.analytic_three_point_ladder(s[0],s[1],s[2],3)
 
-	result = my_LTD.ltd_integrate(my_LTD.ltd_integrand, N_refine=10000)#, N_train = 500)
+	#result = my_LTD.nested_cuhre_integrate(my_LTD.ltd_integrand)
+	result = my_LTD.cuba_integrate(my_LTD.ltd_integrand,integrator_name='vegas')
+	#result = my_LTD.vegas_integrate(my_LTD.ltd_integrand, N_refine=1000)#, N_train = 500)
 
 
