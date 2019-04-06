@@ -118,7 +118,8 @@ impl Integrand {
             unstable_point_count: 0,
             nan_point_count: 0,
             log: BufWriter::new(
-                File::create(format!("{}{}.log", settings.general.log_file_prefix, id)).unwrap(),
+                File::create(format!("{}{}.log", settings.general.log_file_prefix, id))
+                    .expect("Could not create log file"),
             ),
             settings,
         }

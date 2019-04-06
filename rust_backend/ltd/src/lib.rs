@@ -225,7 +225,7 @@ pub struct Settings {
 
 impl Settings {
     pub fn from_file(filename: &str) -> Settings {
-        let f = File::open(filename).unwrap();
+        let f = File::open(filename).expect("Could not open settings file");
         serde_yaml::from_reader(f).unwrap()
     }
 }
