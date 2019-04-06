@@ -8,7 +8,7 @@ use num_traits::One;
 use num_traits::Zero;
 use num_traits::{Float, Inv, Num, NumCast};
 use std::iter::FromIterator;
-use topologies::{Cut, CutList, LoopLine, Surface, Topology};
+use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector};
 use {AdditiveMode, DeformationStrategy};
 
@@ -472,6 +472,9 @@ impl Topology {
             ellipsoids_not_in_cuts.push(accum);
         }
         self.ellipsoids_not_in_cuts = ellipsoids_not_in_cuts;
+
+        // create a cache with the right sizes
+        self.cache = LTDCache::new(self);
     }
 
     /// Map from unit hypercube to infinite hypercube in N-d
@@ -1036,21 +1039,19 @@ impl Topology {
     /// Construct a deformation vector by going through all cut options
     /// and make sure it is 0 on all other cut options
     fn deform_cutgroups<U: dual_num::Dim + dual_num::DimName>(
-        &self,
+        &mut self,
         loop_momenta: &[LorentzVector<DualN<float, U>>],
     ) -> [LorentzVector<DualN<float, U>>; MAX_LOOP]
     where
         dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
         dual_num::Owned<float, U>: Copy,
+        LTDCache: CacheSelector<U>,
     {
-        let mut deform_dirs = [LorentzVector::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
-        // TODO: precompute
-        let mut non_empty_cuts = [(0, 0); MAX_ELLIPSE_GROUPS];
-
-        let mut ellipsoid_eval = [DualN::default(); MAX_ELLIPSE_GROUPS * MAX_LOOP];
+        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
 
         // go through all cuts that contain ellipsoids
         // by going through all ellipsoids and skipping ones that are in the same cut
+        // TODO: precompute non-empty cuts
         let mut last_cut = None;
         let mut non_empty_cut_count = 0;
         for (surf_index, surf) in self.surfaces.iter().enumerate() {
@@ -1061,7 +1062,6 @@ impl Topology {
             // evaluate ellipsoid representatives
             if surf.group == surf_index {
                 // FIXME: we compute this again later
-                let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
                 let mut index = 0;
 
                 // calculate the cut momenta
@@ -1088,7 +1088,7 @@ impl Topology {
                 res += q3.spatial_squared_impr().sqrt();
                 res -= shift.t.abs();
                 normalization += shift.square();
-                ellipsoid_eval[surf_index] = res * res / normalization;
+                self.cache.get_cache_mut().ellipsoid_eval[surf_index] = res * res / normalization;
             }
 
             if Some(&surf.cut) != last_cut {
@@ -1096,10 +1096,11 @@ impl Topology {
                     self.get_deformation_for_cut(loop_momenta, &surf.cut, surf.cut_structure_index);
 
                 for i in 0..self.n_loops {
-                    deform_dirs[non_empty_cut_count * MAX_LOOP + i] = deform_dirs_cut[i];
+                    self.cache.get_cache_mut().deform_dirs[non_empty_cut_count * MAX_LOOP + i] =
+                        deform_dirs_cut[i];
                 }
 
-                non_empty_cuts[non_empty_cut_count] =
+                self.cache.get_cache_mut().non_empty_cuts[non_empty_cut_count] =
                     (surf.cut_structure_index, surf.cut_option_index);
 
                 last_cut = Some(&surf.cut);
@@ -1107,9 +1108,12 @@ impl Topology {
             }
         }
 
+        let cache = self.cache.get_cache();
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
-        for (i, &(cut_structure_index, cut_option_index)) in
-            non_empty_cuts[..non_empty_cut_count].iter().enumerate()
+        for (i, &(cut_structure_index, cut_option_index)) in cache.non_empty_cuts
+            [..non_empty_cut_count]
+            .iter()
+            .enumerate()
         {
             if self.settings.general.debug > 2 {
                 println!(
@@ -1128,7 +1132,7 @@ impl Topology {
                 {
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                     // at the same time and goes to 1 otherwise
-                    let t = ellipsoid_eval[surf_index];
+                    let t = cache.ellipsoid_eval[surf_index];
 
                     let sup = if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
                         if self.settings.deformation.cutgroups.sigma.is_zero() {
@@ -1180,27 +1184,28 @@ impl Topology {
                 println!(
                     "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
                     loop_momenta[0].real(),
-                    &deform_dirs[i * MAX_LOOP].real(),
+                    &cache.deform_dirs[i * MAX_LOOP].real(),
                     s.real(),
-                    &deform_dirs[i * MAX_LOOP].real() * s.real(),
+                    &cache.deform_dirs[i * MAX_LOOP].real() * s.real(),
                 );
             }
 
             for ii in 0..self.n_loops {
-                kappas[ii] -= deform_dirs[i * MAX_LOOP + ii] * s;
+                kappas[ii] -= cache.deform_dirs[i * MAX_LOOP + ii] * s;
             }
         }
         kappas
     }
 
     fn deform_generic<U: dual_num::Dim + dual_num::DimName>(
-        &self,
+        &mut self,
         loop_momenta: &[LorentzVector<DualN<float, U>>],
         cut: Option<(usize, usize)>,
     ) -> ([LorentzVector<float>; MAX_LOOP], Complex)
     where
         dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
         dual_num::Owned<float, U>: Copy,
+        LTDCache: CacheSelector<U>,
     {
         let mut kappas = match self.settings.general.deformation_strategy {
             DeformationStrategy::CutGroups => self.deform_cutgroups(loop_momenta),
@@ -1254,7 +1259,7 @@ impl Topology {
     }
 
     pub fn deform(
-        &self,
+        &mut self,
         loop_momenta: &[LorentzVector<float>],
         cut: Option<(usize, usize)>,
     ) -> ([LorentzVector<float>; MAX_LOOP], Complex) {
@@ -1443,7 +1448,7 @@ impl Topology {
                 {
                     let mut dual_jac_def = Complex::one();
                     if self.settings.general.deformation_strategy == DeformationStrategy::Duals {
-                        let (kappas, jac) =
+                        /*let (kappas, jac) =
                             self.deform(&k, Some((cut_structure_index, cut_option_index)));
                         k_def = (0..self.n_loops)
                             .map(|i| {
@@ -1451,7 +1456,8 @@ impl Topology {
                                     + kappas[i].map(|x| Complex::new(float::zero(), x))
                             })
                             .collect();
-                        dual_jac_def = jac;
+                        dual_jac_def = jac;*/
+                        unimplemented!();
                     }
 
                     match self.evaluate_cut(&mut k_def, cut, mat) {

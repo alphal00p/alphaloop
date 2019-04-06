@@ -327,7 +327,7 @@ py_class!(class LTD |py| {
                 float::from_f64(l[2]).unwrap()));
         }
 
-        let (res, jac) = self.topo(py).borrow().deform(&moms, None);
+        let (res, jac) = self.topo(py).borrow_mut().deform(&moms, None);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {
