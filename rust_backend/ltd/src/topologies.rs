@@ -226,6 +226,8 @@ pub struct Topology {
     pub rotation_matrix: [[float; 3]; 3],
     #[serde(skip_deserializing)]
     pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
+    #[serde(skip_deserializing)]
+    pub cache: LTDCache,
 }
 
 impl Topology {
