@@ -1,9 +1,8 @@
-use arrayvec::ArrayVec;
 use num_traits::NumCast;
 use num_traits::{Inv, One, Zero};
 use {float, Complex};
 
-const MAX_DIM: usize = 128;
+const MAX_DIMENSION: usize = 9;
 
 #[inline]
 /// Invert with better precision
@@ -23,11 +22,10 @@ pub fn powi(c: Complex, n: usize) -> Complex {
 
 /// Calculate the determinant of any complex-valued input matrix using LU-decomposition.
 /// Original C-code by W. Gong and D.E. Soper.
-pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
+pub fn determinant(bb: &Vec<Complex>, dimension: usize) -> Complex {
     // Define matrix related variables.
-    let dimension = (bb.len() as f64).sqrt() as usize;
     let mut determinant = Complex::new(float::one(), float::zero());
-    let mut indx = [0; MAX_DIM];
+    let mut indx = [0; MAX_DIMENSION];
     let mut d = 1; // initialize parity parameter
 
     // Inintialize the matrix to be decomposed with the transferred matrix b.
@@ -41,7 +39,7 @@ pub fn determinant(bb: &ArrayVec<[Complex; MAX_DIM]>) -> Complex {
 
     let mut aamax;
     let mut dumr;
-    let mut vv = [float::zero(); MAX_DIM];
+    let mut vv = [float::zero(); MAX_DIMENSION];
 
     // Get the implicit scaling information.
     for i in 0..dimension {

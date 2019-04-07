@@ -1,4 +1,6 @@
+use dual_num::{DualN, U10, U4, U7};
 use float;
+use num::Complex;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
@@ -64,6 +66,138 @@ impl fmt::Display for Cut {
             Cut::PositiveCut(i) => write!(f, "+{}", i),
             Cut::NegativeCut(i) => write!(f, "-{}", i),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+/// A cache for objects needed during LTD computation
+pub struct LTDCacheI<U: dual_num::Dim + dual_num::DimName>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
+    dual_num::Owned<float, U>: Copy,
+{
+    pub ellipsoid_eval: Vec<DualN<float, U>>,
+    pub deform_dirs: Vec<LorentzVector<DualN<float, U>>>,
+    pub non_empty_cuts: Vec<(usize, usize)>,
+    pub deformation_jacobian: Vec<Complex<float>>,
+}
+
+impl<U: dual_num::Dim + dual_num::DimName> Default for LTDCacheI<U>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
+    dual_num::Owned<float, U>: Copy,
+{
+    fn default() -> LTDCacheI<U> {
+        LTDCacheI {
+            ellipsoid_eval: vec![],
+            deform_dirs: vec![],
+            non_empty_cuts: vec![],
+            deformation_jacobian: vec![],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LTDCache {
+    one_loop: LTDCacheI<U4>,
+    two_loop: LTDCacheI<U7>,
+    three_loop: LTDCacheI<U10>,
+}
+
+impl LTDCache {
+    pub fn new(topo: &Topology) -> LTDCache {
+        let mut one_loop = LTDCacheI::<U4>::default();
+        let mut two_loop = LTDCacheI::<U7>::default();
+        let mut three_loop = LTDCacheI::<U10>::default();
+        one_loop
+            .ellipsoid_eval
+            .resize(topo.surfaces.len(), DualN::default());
+        two_loop
+            .ellipsoid_eval
+            .resize(topo.surfaces.len(), DualN::default());
+        three_loop
+            .ellipsoid_eval
+            .resize(topo.surfaces.len(), DualN::default());
+
+        one_loop
+            .deform_dirs
+            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
+        two_loop
+            .deform_dirs
+            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
+        three_loop
+            .deform_dirs
+            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
+
+        one_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
+        two_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
+        three_loop
+            .non_empty_cuts
+            .resize(topo.surfaces.len(), (0, 0));
+
+        one_loop.deformation_jacobian.resize(9, Complex::default());
+        two_loop.deformation_jacobian.resize(36, Complex::default());
+        three_loop
+            .deformation_jacobian
+            .resize(81, Complex::default());
+
+        LTDCache {
+            one_loop,
+            two_loop,
+            three_loop,
+        }
+    }
+}
+
+pub trait CacheSelector<U: dual_num::Dim + dual_num::DimName>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
+    dual_num::Owned<float, U>: Copy,
+{
+    fn get_cache(&self) -> &LTDCacheI<U>
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
+        dual_num::Owned<float, U>: Copy;
+
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<U>
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
+        dual_num::Owned<float, U>: Copy;
+}
+
+impl CacheSelector<U4> for LTDCache {
+    #[inline]
+    fn get_cache(&self) -> &LTDCacheI<U4> {
+        &self.one_loop
+    }
+
+    #[inline]
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<U4> {
+        &mut self.one_loop
+    }
+}
+
+impl CacheSelector<U7> for LTDCache {
+    #[inline]
+    fn get_cache(&self) -> &LTDCacheI<U7> {
+        &self.two_loop
+    }
+
+    #[inline]
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<U7> {
+        &mut self.two_loop
+    }
+}
+
+impl CacheSelector<U10> for LTDCache {
+    #[inline]
+    fn get_cache(&self) -> &LTDCacheI<U10> {
+        &self.three_loop
+    }
+
+    #[inline]
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<U10> {
+        &mut self.three_loop
     }
 }
 
