@@ -1145,6 +1145,53 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             ) 
         )
 
+    elif topology_type =='Decagon_ala_weinzierl':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        p7 = external_momenta[6]
+        p8 = external_momenta[7]
+        p9 = external_momenta[8]
+        p10 = external_momenta[9]
+        if parameter_values == {}:
+            parameters = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
+                          'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.
+                         }
+        else:
+            parameters = parameter_values
+        return LoopTopology(
+            name    = name,
+            n_loops = 1,
+            external_kinematics = external_momenta,
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT,),
+                (LoopLine.NEGATIVE_CUT,),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 1,
+                    signature   = (1,),
+                    propagators = (
+                        Propagator(q=p1, m_squared=parameters['m1']**2),
+                        Propagator(q=p1+p2, m_squared=parameters['m2']**2),
+                        Propagator(q=p1+p2+p3, m_squared=parameters['m3']**2),
+                        Propagator(q=p1+p2+p3+p4, m_squared=parameters['m4']**2),
+                        Propagator(q=p1+p2+p3+p4+p5, m_squared=parameters['m5']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5+p6, m_squared=parameters['m6']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5+p6+p7, m_squared=parameters['m7']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5+p6+p7+p8, m_squared=parameters['m8']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5+p6+p7+p8+p9, m_squared=parameters['m9']**2), 
+                        Propagator(q=zero_lv, m_squared=parameters['m10']**2),
+                    )
+                ),
+            ) 
+        )
+
     elif topology_type =='Tringigon':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
@@ -1747,6 +1794,30 @@ hard_coded_topology_collection.add_topology(
         name = 'Decagon_P2_euclidean_massless',
     ),
     entry_name = 'Decagon_P2_euclidean_massless'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Decagon_ala_weinzierl', # Analytical result from MadLoop
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([ 0.4999749993749687e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2500000000000000e+01]),
+                vectors.LorentzVector([-0.4999749993749687e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2500000000000000e+01]),
+                vectors.LorentzVector([ 0.5319269421240436e-01,     0.7630500824806391e-02,    -0.4191452656442592e-01,    -0.3416692405504076e+00]),
+                vectors.LorentzVector([-0.7418366402851829e-02,     0.4793330102618212e-01,     0.1092200259939211e+00,    -0.5980519957634609e+00]),
+                vectors.LorentzVector([-0.1031283270711509e-01,     0.5274052562103488e-01,     0.2694089739963054e-01,    -0.3016094127313255e+00]),
+                vectors.LorentzVector([ 0.8744382631132949e-01,    -0.1439660680884015e+00,    -0.2900615690571847e+00,    -0.1677299655433668e+01]),
+                vectors.LorentzVector([-0.3863445525252511e-01,     0.2503037814879582e-01,    -0.1989872023808945e-02,    -0.2317380284719265e+00]),
+                vectors.LorentzVector([-0.1638609443119325e+00,     0.2388016861961569e-01,     0.4606322903831265e-01,    -0.8597600332874225e+00]),
+                vectors.LorentzVector([ 0.6339609085730495e-01,    -0.5151857367262940e-01,     0.7732066709885181e-01,    -0.5629545569995255e+00]),
+                vectors.LorentzVector([ 0.1619398729338573e-01,     0.3826976752059603e-01,     0.7442114811470348e-01,    -0.4269170767622630e+00]),
+        ]),
+        analytical_result = 1.58733080719071658e-5j,
+        parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
+                            'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
+                           },
+        name = 'Decagon_P2_euclidean_massless_ala_weinzierl',
+    ),
+    entry_name = 'Decagon_P2_euclidean_massless_ala_weinzierl'
 )
 
 hard_coded_topology_collection.add_topology(
