@@ -425,7 +425,66 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             ) 
         )
 
-    if topology_type =='AltDoubleTriangle':
+
+    elif topology_type =='DoubleTriangle_ala_weinzierl':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        return LoopTopology(
+            name    = name,
+            n_loops = 2,
+            external_kinematics = external_momenta,
+            # Analytical result is simple and should be -(6*Zeta[3])/((16*pi^2)^2 s)
+            # so we can use the analytical result here.
+            analytical_result = (lambda ps: -0.00028922566024/ps[0].square()),
+            ltd_cut_structure = (
+
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+                (LoopLine.NO_CUT        , LoopLine.NEGATIVE_CUT     , LoopLine.POSITIVE_CUT ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NO_CUT        , LoopLine.NEGATIVE_CUT     , LoopLine.NEGATIVE_CUT ),
+
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT           , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.NEGATIVE_CUT ),
+
+                (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT     , LoopLine.NO_CUT       ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NEGATIVE_CUT     , LoopLine.NO_CUT       ),
+
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0),
+                    propagators = (
+                        Propagator(q=-p1, m_squared=0.0),
+                        Propagator(q=zero_lv, m_squared=0.0),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (0,1),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.0),
+                        Propagator(q=zero_lv, m_squared=0.0),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.0),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='AltDoubleTriangle':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         return LoopTopology(
@@ -1221,6 +1280,19 @@ hard_coded_topology_collection.add_topology(
         # Analytical is given by its exact function directly for 'DoubleTriangle'        
     ),
     entry_name = 'DoubleTriangle_euclidean'
+)
+
+hard_coded_topology_collection.add_topology(   
+    create_hard_coded_topoloogy(
+        'DoubleTriangle_ala_weinzierl',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1.,1.3,0.5,2.1]),
+                vectors.LorentzVector([-1.,-1.3,-0.5,-2.1])
+        ]),
+        name = 'DoubleTriangle_euclidean_ala_weinzierl',
+        # Analytical is given by its exact function directly for 'DoubleTriangle'        
+    ),
+    entry_name = 'DoubleTriangle_euclidean_ala_weinzierl'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -2068,7 +2140,7 @@ hyperparameters = HyperParameters({
 
     'General'       :   {
         # can be multiplicative, additive, cutgroups, duals or none
-        'deformation_strategy'  :   'cutgroups',
+        'deformation_strategy'  :   'additive',
         'topology'              :   'TriangleBoxBox',
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
@@ -2101,10 +2173,10 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : -0.001,
+            'lambda'                    : 0.001,
             # sigma=0 means normal min. sigma large decreases steepness
-            'softmin_sigma'             : 0,
-            'expansion_check'           : True,
+            'softmin_sigma'             : 0.01,
+            'expansion_check'           : False,
             'expansion_threshold'       : 0.1,
             'positive_cut_check'        : True,
             'cut_propagator_check'      : True,
@@ -2113,8 +2185,8 @@ hyperparameters = HyperParameters({
 
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
-            'mode'  :   'exponential',
-            'a_ij'  :   0.1,
+            'mode'  :   'unity',
+            'a_ij'  :   1.0,
         },
 
         'multiplicative'        :   {
@@ -2123,9 +2195,9 @@ hyperparameters = HyperParameters({
 
         'cutgroups' : {
             'M_ij'  :   0.1,
-            'sigma' :   0.1,
+            'sigma' :   10.0,
             # can be hyperbolic, softmin, or unity
-            'mode'  :   'hyperbolic',
+            'mode'  :   'softmin',
         }
     },
 
