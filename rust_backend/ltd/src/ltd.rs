@@ -581,6 +581,10 @@ impl Topology {
         }
     }
 
+    /// Determine the global lambda scaling by going through each propagator
+    /// for each cut and taking the minimum of their respective lambdas
+    /// Additionally, check for the expansion condition and make sure that
+    /// the real part of the cut propagator is positive
     fn determine_lambda<U: dual_num::Dim + dual_num::DimName>(
         &self,
         loop_momenta: &[LorentzVector<DualN<float, U>>],
@@ -591,8 +595,11 @@ impl Topology {
         dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
         dual_num::Owned<float, U>: Copy,
     {
-        // now determine the global lambda scaling by going through each propagator
-        // for each cut and taking the minimum of their respective lambdas
+        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
+        let mut cut_shifts = [LorentzVector::default(); MAX_LOOP];
+        let mut kappa_cuts = [LorentzVector::default(); MAX_LOOP];
+        let mut mass_cuts = [0.; MAX_LOOP];
+
         let mut lambda_sq = DualN::from_real(float::from_f64(lambda_max).unwrap().powi(2));
 
         let sigma = DualN::from_real(
@@ -603,10 +610,6 @@ impl Topology {
         for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter()) {
             for cut in cuts {
                 // compute the real and imaginary part and the mass of the cut momentum
-                let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-                let mut cut_shifts = [LorentzVector::default(); MAX_LOOP];
-                let mut kappa_cuts = [LorentzVector::default(); MAX_LOOP];
-                let mut mass_cuts = [0.; MAX_LOOP];
                 let mut index = 0;
                 for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
                     if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut {
@@ -684,17 +687,29 @@ impl Topology {
                     }
 
                     // determine the map from cut momenta to loop line momentum
-                    // FIXME: prevent allocating
-                    let sig_ll_in_cb =
-                        na::DMatrix::from_row_slice(self.n_loops, self.n_loops, cb_to_lmb_mat)
-                            .transpose()
-                            * na::DMatrix::from_row_slice(self.n_loops, 1, &onshell_ll.signature);
+                    let mut sig_ll_in_cb = [0; MAX_LOOP];
+                    for ii in 0..self.n_loops {
+                        for jj in 0..self.n_loops {
+                            // note we are taking the transpose of cb_to_lmb_mat
+                            sig_ll_in_cb[ii] +=
+                                cb_to_lmb_mat[jj * self.n_loops + ii] * onshell_ll.signature[jj];
+                        }
+                    }
 
                     // multiply the signature by the sign of the cut
-                    let mut onshell_signs = sig_ll_in_cb.clone();
-                    for (ss, sign) in onshell_signs.iter_mut().zip(cut) {
-                        if let Cut::NegativeCut(_) = sign {
-                            *ss *= -1;
+                    let mut onshell_signs = [0; MAX_LOOP];
+                    let mut index = 0;
+                    for (os, &sig) in onshell_signs.iter_mut().zip(sig_ll_in_cb.iter()) {
+                        *os = sig;
+                    }
+                    for x in cut {
+                        match x {
+                            Cut::PositiveCut(_) => index += 1,
+                            Cut::NegativeCut(_) => {
+                                onshell_signs[index] *= -1;
+                                index += 1;
+                            }
+                            Cut::NoCut => {}
                         }
                     }
 
@@ -702,9 +717,9 @@ impl Topology {
                     // in a linear approximation, suitable for
                     // Weinzierl's lambda scaling
                     kappa_onshell.t = DualN::from_real(float::zero());
-                    for (((s, kc), cm), &mass_sq) in onshell_signs
+                    for (((s, kc), cm), &mass_sq) in onshell_signs[..self.n_loops]
                         .iter()
-                        .zip(kappa_cuts[..self.n_loops].iter())
+                        .zip(kappa_cuts.iter())
                         .zip(cut_momenta.iter())
                         .zip(mass_cuts.iter())
                     {
@@ -1236,12 +1251,12 @@ impl Topology {
         let mut jac_mat = ArrayVec::new();
         jac_mat.extend((0..9 * self.n_loops * self.n_loops).map(|_| Complex::default()));
         for i in 0..3 * self.n_loops {
-            jac_mat[i * 3 * self.n_loops + i] += Complex::new(float::one(), float::zero());
             for j in 0..3 * self.n_loops {
                 // first index: loop momentum, second: xyz, third: dual
-                jac_mat[i * 3 * self.n_loops + j] +=
+                jac_mat[i * 3 * self.n_loops + j] =
                     Complex::new(float::zero(), kappas[i / 3][i % 3 + 1][j + 1]);
             }
+            jac_mat[i * 3 * self.n_loops + i] += Complex::new(float::one(), float::zero());
         }
 
         let jac = utils::determinant(&jac_mat);
