@@ -14,7 +14,6 @@ use {AdditiveMode, DeformationStrategy};
 
 use utils;
 
-const MAX_ELLIPSE_GROUPS: usize = 1000;
 const MAX_DIM: usize = 3;
 const MAX_LOOP: usize = 3;
 
@@ -788,21 +787,21 @@ impl Topology {
 
     /// Construct a deformation vector by going through all the ellipsoids
     fn deform_ellipsoids<U: dual_num::Dim + dual_num::DimName>(
-        &self,
+        &mut self,
         loop_momenta: &[LorentzVector<DualN<float, U>>],
     ) -> [LorentzVector<DualN<float, U>>; MAX_LOOP]
     where
         dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
         dual_num::Owned<float, U>: Copy,
+        LTDCache: CacheSelector<U>,
     {
         let mut cut_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
 
-        // TODO: store globally. How though, as it's type is DualN<float, U>...
-        // plus it has self.n_loops components...
-        let mut kappa_surf = [LorentzVector::default(); MAX_LOOP * MAX_ELLIPSE_GROUPS];
-        let mut inv_surf_prop = [DualN::default(); MAX_ELLIPSE_GROUPS];
+        let cache = self.cache.get_cache_mut();
+        let kappa_surf = &mut cache.deform_dirs;
+        let inv_surf_prop = &mut cache.ellipsoid_eval;
 
         // surface equation:
         // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
@@ -1238,18 +1237,17 @@ impl Topology {
             k.t = DualN::from_real(float::zero()); // make sure we do not have a left-over deformation
         }
 
-        let mut jac_mat = ArrayVec::new();
-        jac_mat.extend((0..9 * self.n_loops * self.n_loops).map(|_| Complex::default()));
+        let jac_mat = &mut self.cache.get_cache_mut().deformation_jacobian;
         for i in 0..3 * self.n_loops {
-            jac_mat[i * 3 * self.n_loops + i] += Complex::new(float::one(), float::zero());
             for j in 0..3 * self.n_loops {
                 // first index: loop momentum, second: xyz, third: dual
-                jac_mat[i * 3 * self.n_loops + j] +=
+                jac_mat[i * 3 * self.n_loops + j] =
                     Complex::new(float::zero(), kappas[i / 3][i % 3 + 1][j + 1]);
             }
+            jac_mat[i * 3 * self.n_loops + i] += Complex::new(float::one(), float::zero());
         }
 
-        let jac = utils::determinant(&jac_mat);
+        let jac = utils::determinant(jac_mat, 3 * self.n_loops);
         // take the real part
         let mut r = [LorentzVector::default(); MAX_LOOP];
         for (rr, k) in r.iter_mut().zip(&kappas[..self.n_loops]) {
@@ -1457,7 +1455,7 @@ impl Topology {
                             })
                             .collect();
                         dual_jac_def = jac;*/
-                        unimplemented!();
+                        unimplemented!("Disabled for the moment");
                     }
 
                     match self.evaluate_cut(&mut k_def, cut, mat) {

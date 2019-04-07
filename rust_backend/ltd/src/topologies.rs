@@ -1,5 +1,6 @@
 use dual_num::{DualN, U10, U4, U7};
 use float;
+use num::Complex;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
@@ -78,6 +79,7 @@ where
     pub ellipsoid_eval: Vec<DualN<float, U>>,
     pub deform_dirs: Vec<LorentzVector<DualN<float, U>>>,
     pub non_empty_cuts: Vec<(usize, usize)>,
+    pub deformation_jacobian: Vec<Complex<float>>,
 }
 
 impl<U: dual_num::Dim + dual_num::DimName> Default for LTDCacheI<U>
@@ -90,6 +92,7 @@ where
             ellipsoid_eval: vec![],
             deform_dirs: vec![],
             non_empty_cuts: vec![],
+            deformation_jacobian: vec![],
         }
     }
 }
@@ -131,6 +134,12 @@ impl LTDCache {
         three_loop
             .non_empty_cuts
             .resize(topo.surfaces.len(), (0, 0));
+
+        one_loop.deformation_jacobian.resize(9, Complex::default());
+        two_loop.deformation_jacobian.resize(36, Complex::default());
+        three_loop
+            .deformation_jacobian
+            .resize(81, Complex::default());
 
         LTDCache {
             one_loop,
