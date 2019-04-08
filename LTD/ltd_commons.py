@@ -1571,6 +1571,91 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Box_massless'
 )
 
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # flag 0b1111
+            vectors.LorentzVector([-0.5000000000000000,0.4882081621443385,0.1006405944587882,-0.03904178739029480,]),
+            vectors.LorentzVector([-0.5000000000000000,-0.4882081621443385,-0.1006405944587882,0.03904178739029480,]),
+            vectors.LorentzVector([0.5000000000000000,-0.4120803582196727,0.1731805902843028,-0.2240496853787720,]),
+            vectors.LorentzVector([0.5000000000000000,0.4120803582196727,-0.1731805902843028,0.2240496853787720,]),
+   ]),        
+        analytical_result = 1.96745764e-04 - 0.00760695j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_1111',
+    ),
+    entry_name = 'Box_massless_1111'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # flag 0b1110
+            vectors.LorentzVector([-0.6250000000000000,0.3661561216082539,0.07548044584409114,-0.02928134054272110,]),
+            vectors.LorentzVector([-0.3750000000000000,-0.3661561216082539,-0.07548044584409114,0.02928134054272110,]),
+            vectors.LorentzVector([0.5000000000000000,-0.4120803582196727,0.1731805902843028,-0.2240496853787720,]),
+            vectors.LorentzVector([0.5000000000000000,0.4120803582196727,-0.1731805902843028,0.2240496853787720,]),
+   ]),        
+        analytical_result = 2.06223420e-03 - 7.44829536e-03j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_1110',
+    ),
+    entry_name = 'Box_massless_1110'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # flag 0b0010 
+            vectors.LorentzVector([-0.6250000000000000,0.3661561216082539,0.07548044584409114,-0.02928134054272110,]),
+            vectors.LorentzVector([-0.3750000000000000,-0.3661561216082539,-0.07548044584409114,0.02928134054272110,]),
+            vectors.LorentzVector([0.5555555555555556,-0.2422804773385922,0.1018206163990297,-0.1317288330743322,]),
+            vectors.LorentzVector([0.4444444444444444,0.2422804773385922,-0.1018206163990297,0.1317288330743322,]),
+        ]),        
+        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_0010',
+    ),
+    entry_name = 'Box_massless_0010'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # falg 0b1000
+            vectors.LorentzVector([-0.5625000000000000,0.2516167274762227,0.05186897514731689,-0.02012167665288664,]),
+            vectors.LorentzVector([-0.4375000000000000,-0.2516167274762227,-0.05186897514731689,0.02012167665288664,]),
+            vectors.LorentzVector([0.6111111111111111,-0.3205069452819676,0.1346960146655688,-0.1742608664057115,]),
+            vectors.LorentzVector([0.3888888888888889,0.3205069452819676,-0.1346960146655688,0.1742608664057115,]),
+    ]),        
+        analytical_result = 9.33924390e-03 + 1.55172646e-02j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_1000',
+    ),
+    entry_name = 'Box_massless_1000'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # flag 0b0000
+            vectors.LorentzVector([-0.5625000000000000,0.2516167274762227,0.05186897514731689,-0.02012167665288664,]),
+            vectors.LorentzVector([-0.4375000000000000,-0.2516167274762227,-0.05186897514731689,0.02012167665288664,]),
+            vectors.LorentzVector([0.5555555555555556,-0.2422804773385922,0.1018206163990297,-0.1317288330743322,]),
+            vectors.LorentzVector([0.4444444444444444,0.2422804773385922,-0.1018206163990297,0.1317288330743322,]),
+    ]),        
+        analytical_result = 0.00160178 + 0.05185485j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_0000',
+    ),
+    entry_name = 'Box_massless_0000'
+)
+
 # ================================================================================
 # Decagons with 10 external particles with masses increasing from 100 GeV to 2 TeV
 # ================================================================================
