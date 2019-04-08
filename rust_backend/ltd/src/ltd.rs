@@ -1488,7 +1488,10 @@ impl Topology {
                     }
 
                     match self.evaluate_cut(&mut k_def, cut, mat) {
-                        Ok(v) => result += v * dual_jac_def,
+                        Ok(v) => {
+                            // Regulate each sub diagram individually
+                            result += v * (1.0 + self.counterterm(&k_def)) * dual_jac_def
+                        }
                         Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
                     }
                 }
@@ -1496,9 +1499,6 @@ impl Topology {
                 cut_counter += 1;
             }
         }
-
-        // add counterterm
-        result += self.counterterm();
 
         result *= utils::powi(
             Complex::new(
