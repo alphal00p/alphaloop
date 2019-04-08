@@ -26,6 +26,8 @@ pub struct Surface {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Propagators {
+    #[serde(skip_deserializing)]
+    pub id: usize, // global id
     pub m_squared: f64,
     pub q: LorentzVector<f64>,
     #[serde(default)]
@@ -80,6 +82,7 @@ where
     pub deform_dirs: Vec<LorentzVector<DualN<float, U>>>,
     pub non_empty_cuts: Vec<(usize, usize)>,
     pub deformation_jacobian: Vec<Complex<float>>,
+    pub cut_energies: Vec<DualN<float, U>>,
 }
 
 impl<U: dual_num::Dim + dual_num::DimName> Default for LTDCacheI<U>
@@ -93,6 +96,7 @@ where
             deform_dirs: vec![],
             non_empty_cuts: vec![],
             deformation_jacobian: vec![],
+            cut_energies: vec![],
         }
     }
 }
@@ -102,6 +106,7 @@ pub struct LTDCache {
     one_loop: LTDCacheI<U4>,
     two_loop: LTDCacheI<U7>,
     three_loop: LTDCacheI<U10>,
+    pub complex_cut_energies: Vec<Complex<float>>,
 }
 
 impl LTDCache {
@@ -141,10 +146,23 @@ impl LTDCache {
             .deformation_jacobian
             .resize(81, Complex::default());
 
+        let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
+
+        one_loop
+            .cut_energies
+            .resize(num_propagators, DualN::default());
+        two_loop
+            .cut_energies
+            .resize(num_propagators, DualN::default());
+        three_loop
+            .cut_energies
+            .resize(num_propagators, DualN::default());
+
         LTDCache {
             one_loop,
             two_loop,
             three_loop,
+            complex_cut_energies: vec![Complex::default(); num_propagators],
         }
     }
 }
