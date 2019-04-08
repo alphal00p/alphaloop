@@ -1099,6 +1099,84 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             ) 
         )
 
+    elif topology_type =='Hexagon':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        if parameter_values == {}:
+            parameters = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6':0.}
+        else:
+            parameters = parameter_values
+        return LoopTopology(
+            name    = name,
+            n_loops = 1,
+            external_kinematics = external_momenta,
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT,),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 1,
+                    signature   = (1,),
+                    propagators = (
+                        Propagator(q=p1, m_squared=parameters['m1']**2),
+                        Propagator(q=p1+p2, m_squared=parameters['m2']**2),
+                        Propagator(q=p1+p2+p3, m_squared=parameters['m3']**2),
+                        Propagator(q=p1+p2+p3+p4, m_squared=parameters['m4']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5, m_squared=parameters['m5']**2),
+                        Propagator(q=p1+p2+p3+p4+p5+p6, m_squared=parameters['m6']**2),
+                    )
+                ),
+            ) 
+        )
+
+
+    elif topology_type =='Octagon':
+        p1 = external_momenta[0]
+        p2 = external_momenta[1]
+        p3 = external_momenta[2]
+        p4 = external_momenta[3]
+        p5 = external_momenta[4]
+        p6 = external_momenta[5]
+        p7 = external_momenta[6]
+        p8 = external_momenta[7]
+        if parameter_values == {}:
+            parameters = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6':0., 'm7': 0., 'm8':0.}
+        else:
+            parameters = parameter_values
+        return LoopTopology(
+            name    = name,
+            n_loops = 1,
+            external_kinematics = external_momenta,
+            analytical_result = analytical_result,
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT,),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 1,
+                    signature   = (1,),
+                    propagators = (
+                        Propagator(q=p1, m_squared=parameters['m1']**2),
+                        Propagator(q=p1+p2, m_squared=parameters['m2']**2),
+                        Propagator(q=p1+p2+p3, m_squared=parameters['m3']**2),
+                        Propagator(q=p1+p2+p3+p4, m_squared=parameters['m4']**2),                        
+                        Propagator(q=p1+p2+p3+p4+p5, m_squared=parameters['m5']**2),
+                        Propagator(q=p1+p2+p3+p4+p5+p6, m_squared=parameters['m6']**2),
+                        Propagator(q=p1+p2+p3+p4+p5+p6+p7, m_squared=parameters['m7']**2),
+                        Propagator(q=p1+p2+p3+p4+p5+p6+p7+p8, m_squared=parameters['m8']**2),
+                    )
+                ),
+            ) 
+        )
+
+
     elif topology_type =='Decagon':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
@@ -2267,6 +2345,159 @@ hard_coded_topology_collection.add_topology(
         name = 'Tringigon_P2_euclidean',
     ),
     entry_name = 'Tringigon_P2_euclidean'
+)
+
+
+# ===========================================================================================
+# New topologies for testing
+# ===========================================================================================
+
+
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # flag 0b0010 
+            vectors.LorentzVector([1,0.2,0.5,0.1,]),
+            vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
+            vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
+            vectors.LorentzVector([0.1,-0.8,-1.1,-0.6,]),
+        ]),        
+        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_1_ellipse',
+    ),
+    entry_name = 'Box_1_ellipse'
+)
+
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # flag 0b0010 
+            vectors.LorentzVector([2,0.1,0.3,0.4,]),
+            vectors.LorentzVector([0.3,-0.4,0.1,-0.5,]),
+            vectors.LorentzVector([-0.5,0.6,-0.9,0.3,]),
+            vectors.LorentzVector([-1.8,-0.3,0.5,-0.2,]),
+        ]),        
+        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_1_cutgroup',
+    ),
+    entry_name = 'Box_1_cutgroup'
+)
+
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # flag 0b0010 
+            vectors.LorentzVector([1,0.4,0.05,0.5,]),
+            vectors.LorentzVector([-0.4,0.17,0.3,0.5,]),
+            vectors.LorentzVector([0.8,0.05,-0.5,0.52,]),
+            vectors.LorentzVector([-0.5,-0.62,0.15,-1.52,]),
+        ]),        
+        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_2_ellipsoid_intersection',
+    ),
+    entry_name = 'Box_2_ellipsoid_intersection'
+)
+
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            # flag 0b0010 
+            vectors.LorentzVector([1,0.4,0,0,]),
+            vectors.LorentzVector([-0.7,0,1.8,0,]),
+            vectors.LorentzVector([0.9,0.5,0,0,]),
+            vectors.LorentzVector([-1.2,-0.9,-1.8,0,]),
+        ]),        
+        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_2_ellipsoid_standing_near',
+    ),
+    entry_name = 'Box_2_ellipsoid_standing_near'
+)
+
+
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Pentagon', #P15 from Rodrigo
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1.5,0.1,0,0.1]),
+                vectors.LorentzVector([0.1,0.2,0.1,-0.2]),
+                vectors.LorentzVector([0.4,0.8,-0.2,0]),
+                vectors.LorentzVector([0.25,-0.3,-0.1,0.4]),
+                (-vectors.LorentzVector([1.5,0.1,0,0.1])
+                -vectors.LorentzVector([0.1,0.2,0.1,-0.2])
+                -vectors.LorentzVector([0.4,0.8,-0.2,0])
+                -vectors.LorentzVector([0.25,-0.3,-0.1,0.4])
+                )
+        ]),
+        analytical_result = 6.55440e-14 -4.29464e-15j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.}
+        name = 'Pentagon_1_cutgroup',
+    ),
+    entry_name = 'Pentagon_1_cutgroup'
+)
+
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Hexagon', #P15 from Rodrigo
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([2,0.3,0.5,0.6]),
+                vectors.LorentzVector([-1,0.7,0.2,0.1]),
+                vectors.LorentzVector([0.1,0.5,-0.3,-0.4]),
+                vectors.LorentzVector([-0.3,0.4,0.5,0.2]),
+                vectors.LorentzVector([-0.2,0.3,0.2,-0.5]),
+                (-vectors.LorentzVector([2,0.3,0.5,0.6])
+                -vectors.LorentzVector([-1,0.7,0.2,0.1])
+                -vectors.LorentzVector([0.1,0.5,-0.3,-0.4])
+                -vectors.LorentzVector([-0.3,0.4,0.5,0.2])
+                -vectors.LorentzVector([-0.2,0.3,0.2,-0.5])
+                )
+        ]),
+        analytical_result = 6.55440e-14 -4.29464e-15j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.}
+        name = 'Hexagon_1_ellipsoid',
+    ),
+    entry_name = 'Hexagon_1_ellipsoid'
+)
+
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Octagon', #P15 from Rodrigo
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1,0.1,0.2,0]),
+                vectors.LorentzVector([-0.2,0.7,0.1,0.11]),
+                vectors.LorentzVector([-0.2,0.1,-0.4,0.2]),
+                vectors.LorentzVector([0.1,-0.05,0.5,0.1]),
+                vectors.LorentzVector([-0.15,0.2,0.1,0.3]),
+                vectors.LorentzVector([0.3,0.8,0.2,-0.5]),
+                vectors.LorentzVector([0.1,-0.3,-0.1,-0.1]),
+                (-vectors.LorentzVector([1,0.1,0.2,0])
+                -vectors.LorentzVector([-0.2,0.7,0.1,0.11])
+                -vectors.LorentzVector([-0.2,0.1,-0.4,0.2])
+                -vectors.LorentzVector([0.1,-0.05,0.5,0.1])
+                -vectors.LorentzVector([-0.15,0.2,0.1,0.3])
+                -vectors.LorentzVector([0.3,0.8,0.2,-0.5])
+                -vectors.LorentzVector([0.1,-0.3,-0.1,-0.1])
+                )
+        ]),
+        analytical_result = 6.55440e-14 -4.29464e-15j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.}
+        name = 'Octagon_1_ellipsoid',
+    ),
+    entry_name = 'Octagon_1_ellipsoid'
 )
 
 # Example printout
