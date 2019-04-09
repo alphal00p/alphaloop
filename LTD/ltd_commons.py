@@ -1136,7 +1136,7 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
         )
 
 
-    elif topology_type =='Octagon':
+    elif topology_type =='Octogon':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
         p3 = external_momenta[2]
@@ -1401,10 +1401,10 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([1.,1.3,0.5,2.1]),
                 vectors.LorentzVector([-1.,-1.3,-0.5,-2.1])
         ]),
-        name = 'DoubleTriangle_euclidean',
+        name = 'DoubleTriangle_no_ellipse',
         # Analytical is given by its exact function directly for 'DoubleTriangle'        
     ),
-    entry_name = 'DoubleTriangle_euclidean'
+    entry_name = 'DoubleTriangle_no_ellipse'
 )
 
 hard_coded_topology_collection.add_topology(   
@@ -1414,10 +1414,10 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([1.,1.3,0.5,2.1]),
                 vectors.LorentzVector([-1.,-1.3,-0.5,-2.1])
         ]),
-        name = 'DoubleTriangle_euclidean_ala_weinzierl',
+        name = 'DoubleTriangle_no_ellipse_ala_weinzierl',
         # Analytical is given by its exact function directly for 'DoubleTriangle'        
     ),
-    entry_name = 'DoubleTriangle_euclidean_ala_weinzierl'
+    entry_name = 'DoubleTriangle_no_ellipse_ala_weinzierl'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -1781,9 +1781,9 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 200.0, 'm2': 400.0, 'm3': 600.0, 'm4': 800.0, 'm5': 1000.0,
                             'm6': 1200.0, 'm7': 1400.0, 'm8': 1600.0, 'm9': 1800.0, 'm10': 2000.0,
                            },
-        name = 'Decagon_P1_euclidean_massive',
+        name = 'Decagon_P1_no_ellipse_massive',
     ),
-    entry_name = 'Decagon_P1_euclidean_massive'
+    entry_name = 'Decagon_P1_no_ellipse_massive'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -1829,9 +1829,9 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
-        name = 'Decagon_P1_euclidean_massless',
+        name = 'Decagon_P1_no_ellipse_massless',
     ),
-    entry_name = 'Decagon_P1_euclidean_massless'
+    entry_name = 'Decagon_P1_no_ellipse_massless'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -1853,9 +1853,9 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
-        name = 'Decagon_P1_euclidean_massless',
+        name = 'Decagon_P1_no_ellipse_massless',
     ),
-    entry_name = 'Decagon_P1_euclidean_massless'
+    entry_name = 'Decagon_P1_no_ellipse_massless'
 )
 
 # ===========================================================================================
@@ -1954,9 +1954,9 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
-        name = 'Decagon_P2_euclidean_massless',
+        name = 'Decagon_P2_no_ellipse_massless',
     ),
-    entry_name = 'Decagon_P2_euclidean_massless'
+    entry_name = 'Decagon_P2_no_ellipse_massless'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -1978,9 +1978,9 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
-        name = 'Decagon_P2_euclidean_massless_ala_weinzierl',
+        name = 'Decagon_P2_no_ellipse_massless_ala_weinzierl',
     ),
-    entry_name = 'Decagon_P2_euclidean_massless_ala_weinzierl'
+    entry_name = 'Decagon_P2_no_ellipse_massless_ala_weinzierl'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -2294,9 +2294,9 @@ hard_coded_topology_collection.add_topology(
                           'm21': 0., 'm22': 0., 'm23': 0., 'm24': 0., 'm25': 0.,
                           'm26': 0., 'm27': 0., 'm28': 0., 'm29': 0., 'm30': 0.,
                          },
-        name = 'Tringigon_P1_euclidean',
+        name = 'Tringigon_P1_no_ellipse',
     ),
-    entry_name = 'Tringigon_P1_euclidean'
+    entry_name = 'Tringigon_P1_no_ellipse'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -2342,15 +2342,30 @@ hard_coded_topology_collection.add_topology(
                           'm21': 0., 'm22': 0., 'm23': 0., 'm24': 0., 'm25': 0.,
                           'm26': 0., 'm27': 0., 'm28': 0., 'm29': 0., 'm30': 0.,
                          },
-        name = 'Tringigon_P2_euclidean',
+        name = 'Tringigon_P2_no_ellipse',
     ),
-    entry_name = 'Tringigon_P2_euclidean'
+    entry_name = 'Tringigon_P2_no_ellipse'
 )
 
 
 # ===========================================================================================
 # New topologies for testing
 # ===========================================================================================
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+          'Triangle',
+          vectors.LorentzVectorList([
+              vectors.LorentzVector([0.1,0.2,0.5,0.1,]),
+              vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
+              vectors.LorentzVector([0.2,-0.6,-0.6,-0.3,]),
+          ]),
+          analytical_result = -4.5774615136392652e-02j,
+          parameter_values = {'m1': 0., 'm2': 0., 'm3': 0.},
+          name = 'Triangle_no_ellipse',
+    ),
+    entry_name = 'Triangle_no_ellipse'
+)
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
@@ -2395,9 +2410,9 @@ hard_coded_topology_collection.add_topology(
         ]),        
         analytical_result = -5.3677265688851575e-02 + 3.7541947411634802e-02j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
-        name = 'Box_2_ellipsoid_intersection',
+        name = 'Box_2_ellipse_intersection',
     ),
-    entry_name = 'Box_2_ellipsoid_intersection'
+    entry_name = 'Box_2_ellipse_intersection'
 )
 
 
@@ -2412,9 +2427,9 @@ hard_coded_topology_collection.add_topology(
         ]),        
         analytical_result = -4.3933035567551475e-03 + 3.4725910186732510e-03j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
-        name = 'Box_2_ellipsoid_standing_near',
+        name = 'Box_2_ellipse_standing_near',
     ),
-    entry_name = 'Box_2_ellipsoid_standing_near'
+    entry_name = 'Box_2_ellipse_standing_near'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -2437,6 +2452,27 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Pentagon',
         vectors.LorentzVectorList([
+                vectors.LorentzVector([0.201,0.3576,0.5204,0.6109]),
+                vectors.LorentzVector([-0.131,0.772,0.2899,0.1318]),
+                vectors.LorentzVector([0.1102,0.527,-0.3192,-0.4191]),
+                vectors.LorentzVector([-0.336,0.413,0.552,0.238]),
+                (-vectors.LorentzVector([0.201,0.3576,0.5204,0.6109])
+                -vectors.LorentzVector([-0.131,0.772,0.2899,0.1318])
+                -vectors.LorentzVector([0.1102,0.527,-0.3192,-0.4191])
+                -vectors.LorentzVector([-0.336,0.413,0.552,0.238])
+                )
+        ]),
+        analytical_result = -5.78518741679292722e-3j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'Pentagon_no_ellipse',
+    ),
+    entry_name = 'Pentagon_no_ellipse'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Pentagon',
+        vectors.LorentzVectorList([
                 vectors.LorentzVector([-1.5,0.1,0,0.1]),
                 vectors.LorentzVector([-0.1,0.2,0.1,-0.2]),
                 vectors.LorentzVector([-0.4,0.8,-0.2,0]),
@@ -2447,7 +2483,7 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([-0.25,-0.3,-0.1,0.4])
                 )
         ]),
-        analytical_result = 6.55440e-14 -4.29464e-15j,
+        analytical_result = 0.25002202278595193j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
         name = 'Pentagon_1_cutgroup',
     ),
@@ -2458,29 +2494,77 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Hexagon',
         vectors.LorentzVectorList([
-                vectors.LorentzVector([2,0.3,0.5,0.6]),
-                vectors.LorentzVector([-1,0.7,0.2,0.1]),
+                vectors.LorentzVector([0.2,0.3,0.5,0.6]),
+                vectors.LorentzVector([-0.1,0.7,0.2,0.1]),
                 vectors.LorentzVector([0.1,0.5,-0.3,-0.4]),
                 vectors.LorentzVector([-0.3,0.4,0.5,0.2]),
                 vectors.LorentzVector([-0.2,0.3,0.2,-0.5]),
-                (-vectors.LorentzVector([2,0.3,0.5,0.6])
-                -vectors.LorentzVector([-1,0.7,0.2,0.1])
+                (-vectors.LorentzVector([0.2,0.3,0.5,0.6])
+                -vectors.LorentzVector([-0.1,0.7,0.2,0.1])
                 -vectors.LorentzVector([0.1,0.5,-0.3,-0.4])
                 -vectors.LorentzVector([-0.3,0.4,0.5,0.2])
                 -vectors.LorentzVector([-0.2,0.3,0.2,-0.5])
                 )
         ]),
-        analytical_result = 6.55440e-14 -4.29464e-15j,
+        analytical_result = -6.63743582146347332e-3j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
+        name = 'Hexagon_no_ellipse',
+    ),
+    entry_name = 'Hexagon_no_ellipse'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Hexagon',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([2.,0.3,0.5,0.6]),
+                vectors.LorentzVector([-1.0,0.7,0.2,0.1]),
+                vectors.LorentzVector([0.1,0.5,-0.3,-0.4]),
+                vectors.LorentzVector([-0.3,0.4,0.5,0.2]),
+                vectors.LorentzVector([-0.2,0.3,0.2,-0.5]),
+                (-vectors.LorentzVector([2.,0.3,0.5,0.6])
+                -vectors.LorentzVector([-1.0,0.7,0.2,0.1])
+                -vectors.LorentzVector([0.1,0.5,-0.3,-0.4])
+                -vectors.LorentzVector([-0.3,0.4,0.5,0.2])
+                -vectors.LorentzVector([-0.2,0.3,0.2,-0.5])
+                )
+        ]),
+        analytical_result = 1.44808301928176092e-2-9.25222856104738513e-3j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
         name = 'Hexagon_1_ellipsoid',
     ),
     entry_name = 'Hexagon_1_ellipsoid'
 )
 
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Octogon',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([0.1521,0.095,0.237,0]),
+                vectors.LorentzVector([-0.201,0.798,0.122,0.11]),
+                vectors.LorentzVector([-0.234,0.141,-0.456,0.221]),
+                vectors.LorentzVector([0.105,-0.0587,0.542,0.121]),
+                vectors.LorentzVector([-0.15,0.209,0.102,0.321]),
+                vectors.LorentzVector([0.3182,0.837,0.273,-0.489]),
+                vectors.LorentzVector([0.1122,-0.301,-0.1203,-0.1011]),
+                (-vectors.LorentzVector([0.1521,0.095,0.237,0])
+                -vectors.LorentzVector([-0.201,0.798,0.122,0.11])
+                -vectors.LorentzVector([-0.234,0.141,-0.456,0.221])
+                -vectors.LorentzVector([0.105,-0.0587,0.542,0.121])
+                -vectors.LorentzVector([-0.15,0.209,0.102,0.321])
+                -vectors.LorentzVector([0.3182,0.837,0.273,-0.489])
+                -vectors.LorentzVector([0.1122,-0.301,-0.1203,-0.1011])                )
+        ]),
+        analytical_result = 0.20681419918162766j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
+        name = 'Octogon_no_ellipse',
+    ),
+    entry_name = 'Octogon_eulcidean'
+)
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
-        'Octagon',
+        'Octogon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1,0.1,0.2,0]),
                 vectors.LorentzVector([-0.2,0.7,0.1,0.11]),
@@ -2498,11 +2582,11 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([0.1,-0.3,-0.1,-0.1])
                 )
         ]),
-        analytical_result = 6.55440e-14 -4.29464e-15j,
+        analytical_result = -0.16085026028197225+1.6607244555010336j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
-        name = 'Octagon_1_ellipsoid',
+        name = 'Octogon_1_ellipsoid',
     ),
-    entry_name = 'Octagon_1_ellipsoid'
+    entry_name = 'Octogon_1_ellipsoid'
 )
 
 # Example printout
@@ -2558,24 +2642,24 @@ hyperparameters = HyperParameters({
         'n_min'             :   2,
         'flatness'          :   50.,
         'seed'              :   1,
-        'integrated_phase'  :  'imag'
+        'integrated_phase'  :  'both'
     },
 
     'Deformation'   :   {
         # can be constant, linear or sigmoid
-        'overall_scaling' : 'linear',
+        'overall_scaling' : 'constant',
         # fraction of e_cm used for scaling
         'overall_scaling_constant': 1.,
 
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 0.001,
+            'lambda'                    : -0.001,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.01,
-            'expansion_check'           : False,
+            'expansion_check'           : True,
             'expansion_threshold'       : 0.1,
-            'positive_cut_check'        : True,
+            'positive_cut_check'        : False,
             'cut_propagator_check'      : True,
             'non_cut_propagator_check'  : True,
         },
@@ -2583,7 +2667,7 @@ hyperparameters = HyperParameters({
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
             'mode'  :   'unity',
-            'a_ij'  :   1.0,
+            'a_ij'  :   0.0000001,
         },
 
         'multiplicative'        :   {
@@ -2592,7 +2676,7 @@ hyperparameters = HyperParameters({
 
         'cutgroups' : {
             'M_ij'  :   0.1,
-            'sigma' :   10.0,
+            'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'softmin',
         }

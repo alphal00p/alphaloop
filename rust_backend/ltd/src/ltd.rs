@@ -1465,7 +1465,7 @@ impl Topology {
                 let q: LorentzVector<Complex> = p.q.cast();
                 let cm = (mom + q).spatial_squared() + float::from_f64(p.m_squared).unwrap();
 
-                if cm.re < float::zero() && cm.im < float::zero() {
+                if self.settings.deformation.scaling.positive_cut_check && cm.re < float::zero() && cm.im < float::zero() {
                     eprintln!(
                         "Branch cut detected for prop {}, ll sig={:?}, ks={:?}: {}",
                         p.id, ll.signature, k_def, cm
