@@ -210,10 +210,22 @@ impl Integrand {
                 self.topologies[1].evaluate(x);
 
             // compute the number of similar digits
-            // for now, only the real part
-            let d = -((result.re - result_rot.re) / (result.re + result_rot.re))
-                .abs()
-                .log10();
+            let (num, num_rot) =
+                if self.settings.integrator.integrated_phase == IntegratedPhase::Imag {
+                    (result.im, result_rot.im)
+                } else {
+                    (result.re, result_rot.re)
+                };
+
+            let d = if num == 0. && num_rot == 0. {
+                std::f64::INFINITY
+            } else {
+                if num == -num_rot {
+                    -std::f64::INFINITY
+                } else {
+                    -((num - num_rot) / (num + num_rot)).abs().log10()
+                }
+            };
             (d, result_rot)
         } else {
             (
@@ -222,9 +234,8 @@ impl Integrand {
             )
         };
 
-        // FIXME: only checking the real for now
-        if !result.re.is_finite()
-            || !result_rot.re.is_finite()
+        if !result.is_finite()
+            || !result_rot.is_finite()
             || d < NumCast::from(self.settings.general.relative_precision).unwrap()
         {
             if self.settings.general.integration_statistics {
