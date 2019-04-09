@@ -165,7 +165,7 @@ impl Topology {
 
         // determine the on-shell flag
         for (i, e) in self.external_kinematics.iter().enumerate() {
-            if e.square_impr() < 1e-10 * self.e_cm_squared {
+            if e.square_impr().abs() < 1e-10 * self.e_cm_squared {
                 self.on_shell_flag |= 2_usize.pow(i as u32);
             }
         }

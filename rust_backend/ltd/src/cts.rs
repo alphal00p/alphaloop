@@ -56,6 +56,10 @@ impl Topology {
     pub fn counterterm(&self, cut_loop_mom: &[LorentzVector<Complex>]) -> Complex {
         match self.n_loops {
             1 => {
+                if self.on_shell_flag == 0 {
+                    return Complex::default();
+                }
+
                 //println!("One Loop CounterTerms");
                 let mom = &cut_loop_mom[0];
 
