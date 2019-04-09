@@ -190,10 +190,11 @@ fn main() {
         .set_cores(cores, 1000);
 
     // load the example file
-    let topologies = Topology::from_file(topology_file, &settings);
+    let mut topologies = Topology::from_file(topology_file, &settings);
     let topo = topologies
-        .get(&settings.general.topology)
+        .get_mut(&settings.general.topology)
         .expect("Unknown topology");
+    topo.process();
 
     if let Some(_) = matches.subcommand_matches("bench") {
         bench(&topo, &settings);

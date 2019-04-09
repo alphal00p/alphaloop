@@ -142,7 +142,7 @@ impl Integrand {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
             match n_loops {
                 1 => {
-                    if self.settings.general.log_to_screen {
+                    if !unstable && self.settings.general.log_to_screen {
                         eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def
@@ -152,7 +152,7 @@ impl Integrand {
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def).unwrap();
                 }
                 2 => {
-                    if self.settings.general.log_to_screen {
+                    if !unstable && self.settings.general.log_to_screen {
                         eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def
@@ -162,7 +162,7 @@ impl Integrand {
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def).unwrap();
                 }
                 3 => {
-                    if self.settings.general.log_to_screen {
+                    if !unstable && self.settings.general.log_to_screen {
                         eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def

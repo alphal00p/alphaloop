@@ -150,24 +150,18 @@ impl Topology {
         }
 
         // determine the e_cm_squared and on-shell flag
-        if self.external_kinematics.len() > 2 {
-            self.e_cm_squared = (self.external_kinematics[0] + self.external_kinematics[1])
-                .square_impr()
-                .abs();
-        } else {
-            self.e_cm_squared = self.external_kinematics[0].square_impr().abs();
-        }
-
-        /*let mut v = LorentzVector::default();
+        let mut v: LorentzVector<f64> = LorentzVector::default();
         for e in &self.external_kinematics {
-            if e.t < 0. {
-                v = v + e;
+            if e.t > 0. {
+                v += *e;
             }
         }
-        assert!(v.square() != 0.);
-        self.e_cm_squared = v.square();
-        println!("E_CM_SQ:{}", self.e_cm_squared);
-        */
+
+        self.e_cm_squared = v.square_impr().abs();
+        if self.e_cm_squared == 0. {
+            eprintln!("e_cm is zero: taking the abs of the spatial part instead");
+            self.e_cm_squared = self.external_kinematics[0].spatial_squared_impr();
+        }
 
         // determine the on-shell flag
         for (i, e) in self.external_kinematics.iter().enumerate() {

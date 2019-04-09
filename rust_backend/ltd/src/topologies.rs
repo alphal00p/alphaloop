@@ -256,7 +256,6 @@ impl Topology {
 
         for t in &mut topologies {
             t.settings = settings.clone();
-            t.process();
         }
 
         topologies
