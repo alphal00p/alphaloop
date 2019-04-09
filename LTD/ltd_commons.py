@@ -2410,10 +2410,30 @@ hard_coded_topology_collection.add_topology(
         ]),        
         analytical_result = -6.1703035207556392e-02 + 4.1779163331850500e-02j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
-        name = 'Box_1_ellipse',
+        name = 'Box_1_ellipse_v1',
     ),
-    entry_name = 'Box_1_ellipse'
+    entry_name = 'Box_1_ellipse_v1'
 )
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Box',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([1.082,0.2891,0.5276,0.119,]),
+            vectors.LorentzVector([-0.3978,0.4261,0.1091,0.2143,]),
+            vectors.LorentzVector([0.1182,0.2192,0.5019,0.3210,]),
+            (-vectors.LorentzVector([1.082,0.2891,0.5276,0.119,])
+            -vectors.LorentzVector([-0.3978,0.4261,0.1091,0.2143,])
+            -vectors.LorentzVector([0.1182,0.2192,0.5019,0.3210,])
+			)
+        ]),
+        analytical_result = -5.4278417251865010e-2 + 3.6222411886952535e-2j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_1_ellipse_v2',
+    ),
+    entry_name = 'Box_1_ellipse_v2'
+)
+
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
