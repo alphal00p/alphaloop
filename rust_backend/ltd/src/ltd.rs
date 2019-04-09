@@ -10,7 +10,7 @@ use num_traits::{Float, Inv, Num, NumCast};
 use std::iter::FromIterator;
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector};
-use {AdditiveMode, DeformationStrategy};
+use {AdditiveMode, DeformationStrategy, OverallDeformationScaling};
 
 use utils;
 
@@ -1217,9 +1217,26 @@ impl Topology {
         };
 
         // make sure the kappa has the right dimension by multiplying in the scale
-        let scale = DualN::from_real(float::from_f64(self.e_cm_squared.sqrt()).unwrap());
-        for kappa in &mut kappas[..self.n_loops] {
-            *kappa *= scale;
+        let scale = DualN::from_real(
+            float::from_f64(
+                self.e_cm_squared.sqrt() * self.settings.deformation.overall_scaling_constant,
+            )
+            .unwrap(),
+        );
+        for (kappa, k) in &mut kappas[..self.n_loops].iter_mut().zip(loop_momenta.iter()) {
+            match self.settings.deformation.overall_scaling {
+                OverallDeformationScaling::Constant => *kappa *= scale,
+                OverallDeformationScaling::Linear => {
+                    *kappa *= k.spatial_squared_impr().sqrt()
+                        * float::from_f64(self.settings.deformation.overall_scaling_constant)
+                            .unwrap()
+                }
+                OverallDeformationScaling::Sigmoid => {
+                    let k_scale = k.spatial_squared_impr().sqrt();
+                    *kappa *= k_scale * float::from_f64(2.).unwrap()
+                        / (DualN::one() + (k_scale / scale).exp());
+                }
+            }
         }
 
         let lambda = if self.settings.deformation.scaling.lambda > 0. {

@@ -2442,7 +2442,7 @@ hard_coded_topology_collection.add_topology(
                 )
         ]),
         analytical_result = 6.55440e-14 -4.29464e-15j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.}
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
         name = 'Pentagon_1_cutgroup',
     ),
     entry_name = 'Pentagon_1_cutgroup'
@@ -2466,7 +2466,7 @@ hard_coded_topology_collection.add_topology(
                 )
         ]),
         analytical_result = 6.55440e-14 -4.29464e-15j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.}
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
         name = 'Hexagon_1_ellipsoid',
     ),
     entry_name = 'Hexagon_1_ellipsoid'
@@ -2494,7 +2494,7 @@ hard_coded_topology_collection.add_topology(
                 )
         ]),
         analytical_result = 6.55440e-14 -4.29464e-15j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.}
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
         name = 'Octagon_1_ellipsoid',
     ),
     entry_name = 'Octagon_1_ellipsoid'
@@ -2557,6 +2557,11 @@ hyperparameters = HyperParameters({
     },
 
     'Deformation'   :   {
+        # can be constant, linear or sigmoid
+        'overall_scaling' : 'linear',
+        # fraction of e_cm used for scaling
+        'overall_scaling_constant': 1.,
+
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)

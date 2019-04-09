@@ -64,6 +64,22 @@ pub enum DeformationStrategy {
     None,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+pub enum OverallDeformationScaling {
+    #[serde(rename = "constant")]
+    Constant,
+    #[serde(rename = "linear")]
+    Linear,
+    #[serde(rename = "sigmoid")]
+    Sigmoid,
+}
+
+impl Default for OverallDeformationScaling {
+    fn default() -> OverallDeformationScaling {
+        OverallDeformationScaling::Constant
+    }
+}
+
 impl From<&str> for DeformationStrategy {
     fn from(s: &str) -> Self {
         match s {
@@ -146,6 +162,8 @@ pub struct DeformationCutGroupsSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
     pub scaling: Scaling,
+    pub overall_scaling: OverallDeformationScaling,
+    pub overall_scaling_constant: f64,
     pub multiplicative: DeformationMultiplicativeSettings,
     pub additive: DeformationAdditiveSettings,
     pub cutgroups: DeformationCutGroupsSettings,
