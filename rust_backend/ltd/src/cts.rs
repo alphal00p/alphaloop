@@ -1,7 +1,6 @@
 use arrayvec::ArrayVec;
 use float;
-use num_traits::One;
-use num_traits::Zero;
+use num_traits::{FromPrimitive, One, Zero};
 use topologies::Topology;
 use vector::LorentzVector;
 use Complex;
@@ -12,14 +11,18 @@ impl Topology {
     fn xij(&self, i: usize, j: usize) -> float {
         let qji = self.loop_lines[0].propagators[j].q - self.loop_lines[0].propagators[i].q;
         let pi = self.external_kinematics[i];
-        1.0 + qji.square() / (2.0 * qji.dot(&pi))
+        float::one()
+            + float::from_f64(qji.square()).unwrap()
+                / (float::from_f64(2.0 * qji.dot(&pi)).unwrap())
     }
 
     #[inline]
     fn tij(&self, i: usize, j: usize, x: float) -> float {
         let qji = self.loop_lines[0].propagators[j].q - self.loop_lines[0].propagators[i].q;
         let pi = self.external_kinematics[i];
-        1.0 / ((1.0 - x) * 2.0 * pi.dot(&qji) + qji.square())
+        float::one()
+            / ((float::one() - x) * float::from_f64(2.0 * pi.dot(&qji)).unwrap()
+                + float::from_f64(qji.square()).unwrap())
     }
 
     fn aij(&self, i: usize, j: usize) -> float {
@@ -41,7 +44,6 @@ impl Topology {
     fn bi(&self, i: usize) -> float {
         let pi = self.external_kinematics[i];
         let n_prop = self.loop_lines[0].propagators.len();
-        //TODO: introduce e_cm_sq
         let tau = 1e-10 * self.e_cm_squared;
         let ip1 = (i + 1) % n_prop;
         let im1 = if i == 0 { n_prop - 1 } else { i - 1 };
@@ -68,42 +70,52 @@ impl Topology {
                 let props: ArrayVec<[num::Complex<float>; 10]> = self.loop_lines[0]
                     .propagators
                     .iter()
-                    .map(|x| (mom + &x.q).square() - x.m_squared)
+                    .map(|x| {
+                        let q: LorentzVector<Complex> = x.q.cast().to_complex(true);
+                        (mom + q).square() - float::from_f64(x.m_squared).unwrap()
+                    })
                     .collect();
 
                 //Use specific CT whenever possible
                 let use_special_ct = true;
                 //Compute CT
                 if use_special_ct && props.len() == 4 {
+                    // TODO: convert qs to float
                     let s11 = (self.loop_lines[0].propagators[3].q
                         - self.loop_lines[0].propagators[0].q)
+                        .cast::<float>()
                         .square();
                     let s22 = (self.loop_lines[0].propagators[0].q
                         - self.loop_lines[0].propagators[1].q)
+                        .cast::<float>()
                         .square();
                     let s33 = (self.loop_lines[0].propagators[1].q
                         - self.loop_lines[0].propagators[2].q)
+                        .cast::<float>()
                         .square();
                     let s44 = (self.loop_lines[0].propagators[2].q
                         - self.loop_lines[0].propagators[3].q)
+                        .cast::<float>()
                         .square();
                     let s12 = (self.loop_lines[0].propagators[1].q
                         - self.loop_lines[0].propagators[3].q)
+                        .cast::<float>()
                         .square();
                     let s23 = (self.loop_lines[0].propagators[0].q
                         - self.loop_lines[0].propagators[2].q)
+                        .cast::<float>()
                         .square();
                     //println!("{:?}::{:?}::{:?}::{:?}", s44, s33, s22, s11);
                     let s34 = s12;
                     let s14 = s23;
                     let ai = vec![
-                        (1.0 - (s44 + s33) / s12) / (s23 - (s11 * s33 + s22 * s44) / s12),
-                        (1.0 - (s11 + s44) / s23) / (s12 - (s22 * s44 + s33 * s11) / s23),
-                        (1.0 - (s22 + s11) / s12) / (s23 - (s33 * s11 + s44 * s22) / s12),
-                        (1.0 - (s33 + s22) / s23) / (s12 - (s44 * s22 + s11 * s33) / s23),
+                        (float::one() - (s44 + s33) / s12) / (s23 - (s11 * s33 + s22 * s44) / s12),
+                        (float::one() - (s11 + s44) / s23) / (s12 - (s22 * s44 + s33 * s11) / s23),
+                        (float::one() - (s22 + s11) / s12) / (s23 - (s33 * s11 + s44 * s22) / s12),
+                        (float::one() - (s33 + s22) / s23) / (s12 - (s44 * s22 + s11 * s33) / s23),
                     ];
                     let ct_numerator =
-                        -ai[0] * props[0] - ai[1] * props[1] - ai[2] * props[2] - ai[3] * props[3];
+                        -props[0] * ai[0] - props[1] * ai[1] - props[2] * ai[2] - props[3] * ai[3];
                     ct_numerator
                 } else {
                     /*
@@ -132,14 +144,15 @@ impl Topology {
                                     }
                                 }
                                 //Get the right factor
-                                ct_numerator -= if j == ip1 {
-                                    self.bi(i)
-                                } else if j == im2 {
-                                    //Avoid double counting
-                                    0.0
-                                } else {
-                                    self.aij(i, j)
-                                } * tri_prod;
+                                ct_numerator -= tri_prod
+                                    * if j == ip1 {
+                                        self.bi(i)
+                                    } else if j == im2 {
+                                        //Avoid double counting
+                                        float::zero()
+                                    } else {
+                                        self.aij(i, j)
+                                    };
                             }
                         }
                     }

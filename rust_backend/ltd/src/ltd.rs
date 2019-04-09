@@ -1332,9 +1332,16 @@ impl Topology {
             if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = ll_cut {
                 let e = self.cache.complex_cut_energies[ll.propagators[j].id];
                 if let Cut::PositiveCut(_) = ll_cut {
-                    cut_energy[index] = e - Complex::new(ll.propagators[j].q.t, float::zero());
+                    cut_energy[index] = e - Complex::new(
+                        float::from_f64(ll.propagators[j].q.t).unwrap(),
+                        float::zero(),
+                    );
                 } else {
-                    cut_energy[index] = -e - Complex::new(ll.propagators[j].q.t, float::zero());
+                    cut_energy[index] = -e
+                        - Complex::new(
+                            float::from_f64(ll.propagators[j].q.t).unwrap(),
+                            float::zero(),
+                        );
                 }
                 index += 1;
             }
@@ -1501,7 +1508,7 @@ impl Topology {
                     match self.evaluate_cut(&mut k_def, cut, mat) {
                         Ok(v) => {
                             // Regulate each sub diagram individually
-                            result += v * (1.0 + self.counterterm(&k_def)) * dual_jac_def
+                            result += v * (self.counterterm(&k_def) + float::one()) * dual_jac_def
                         }
                         Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
                     }

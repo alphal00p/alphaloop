@@ -1,6 +1,6 @@
 use arrayvec::ArrayVec;
 use num_traits::NumCast;
-use num_traits::{Float, FromPrimitive, Inv, One, ToPrimitive};
+use num_traits::{Float, FromPrimitive, Inv, One, ToPrimitive, Zero};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::Topology;
@@ -217,11 +217,11 @@ impl Integrand {
                     (result.re, result_rot.re)
                 };
 
-            let d = if num == 0. && num_rot == 0. {
-                std::f64::INFINITY
+            let d = if num.is_zero() && num_rot.is_zero() {
+                float::from_usize(100).unwrap()
             } else {
                 if num == -num_rot {
-                    -std::f64::INFINITY
+                    -float::from_usize(100).unwrap()
                 } else {
                     -((num - num_rot) / (num + num_rot)).abs().log10()
                 }
