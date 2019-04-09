@@ -129,6 +129,7 @@ impl Integrand {
         &mut self,
         n_loops: usize,
         new_max: bool,
+        unstable: bool,
         x: &[f64],
         k_def: ArrayVec<[LorentzVector<Complex>; MAX_LOOP]>,
         jac_para: float,
@@ -137,7 +138,7 @@ impl Integrand {
         rot_result: Complex,
         stable_digits: float,
     ) {
-        if new_max || !result.is_finite() || self.settings.general.debug > 0 {
+        if new_max || unstable || !result.is_finite() || self.settings.general.debug > 0 {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
             match n_loops {
                 1 => {
@@ -229,7 +230,7 @@ impl Integrand {
             if self.settings.general.integration_statistics {
                 let loops = self.topologies[0].n_loops;
                 self.print_info(
-                    loops, false, x, k_def, jac_para, jac_def, result, result_rot, d,
+                    loops, false, true, x, k_def, jac_para, jac_def, result, result_rot, d,
                 );
             }
 
@@ -270,7 +271,7 @@ impl Integrand {
         if self.settings.general.integration_statistics {
             let loops = self.topologies[0].n_loops;
             self.print_info(
-                loops, new_max, x, k_def, jac_para, jac_def, result, result_rot, d,
+                loops, new_max, false, x, k_def, jac_para, jac_def, result, result_rot, d,
             );
         }
 
