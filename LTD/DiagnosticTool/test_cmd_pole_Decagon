@@ -3,7 +3,7 @@
 # --t=Decagon_P2_physical_massless \
 # --t=Decagon_P1_one_ellipse_massless \
 ./run_tests.py \
-	--t=Decagon_P2_physical_massless \
+	--t=Decagon_P1_one_ellipse_massless \
 	--name=pole_check \
 	--nh=100 \
 	--s=[] \

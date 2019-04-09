@@ -433,9 +433,9 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta,
-            # Analytical result is simple and should be -(6*Zeta[3])/((16*pi^2)^2 s)
+            # Analytical result is simple and should be -(4*6*Zeta[3])/((16*pi^2)^2 s)
             # so we can use the analytical result here.
-            analytical_result = (lambda ps: -0.00028922566024/ps[0].square()),
+            analytical_result = (lambda ps: (-0.00028922566024*4)/ps[0].square()),
             ltd_cut_structure = (
 
                 (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
@@ -1974,7 +1974,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.6339609085730495e-01,    -0.5151857367262940e-01,     0.7732066709885181e-01,    -0.5629545569995255e+00]),
                 vectors.LorentzVector([ 0.1619398729338573e-01,     0.3826976752059603e-01,     0.7442114811470348e-01,    -0.4269170767622630e+00]),
         ]),
-        analytical_result = 1.58733080719071658e-5j,
+        analytical_result = 2.*1.58733080719071658e-5j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2352,55 +2352,48 @@ hard_coded_topology_collection.add_topology(
 # New topologies for testing
 # ===========================================================================================
 
-
-
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Box',
         vectors.LorentzVectorList([
-            # flag 0b0010 
             vectors.LorentzVector([1,0.2,0.5,0.1,]),
             vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
             vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
             vectors.LorentzVector([0.1,-0.8,-1.1,-0.6,]),
         ]),        
-        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        analytical_result = -6.1703035207556392e-02 + 4.1779163331850500e-02j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_1_ellipse',
     ),
     entry_name = 'Box_1_ellipse'
 )
 
-
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Box',
         vectors.LorentzVectorList([
-            # flag 0b0010 
-            vectors.LorentzVector([2,0.1,0.3,0.4,]),
-            vectors.LorentzVector([0.3,-0.4,0.1,-0.5,]),
-            vectors.LorentzVector([-0.5,0.6,-0.9,0.3,]),
-            vectors.LorentzVector([-1.8,-0.3,0.5,-0.2,]),
+            vectors.LorentzVector([-2,0.1,0.3,0.4,]),
+            vectors.LorentzVector([-0.3,-0.4,0.1,-0.5,]),
+            vectors.LorentzVector([0.5,0.6,-0.9,0.3,]),
+            vectors.LorentzVector([1.8,-0.3,0.5,-0.2,]),
         ]),        
-        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        analytical_result = -6.1217835745387269e-03j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_1_cutgroup',
     ),
     entry_name = 'Box_1_cutgroup'
 )
 
-
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Box',
         vectors.LorentzVectorList([
-            # flag 0b0010 
             vectors.LorentzVector([1,0.4,0.05,0.5,]),
             vectors.LorentzVector([-0.4,0.17,0.3,0.5,]),
             vectors.LorentzVector([0.8,0.05,-0.5,0.52,]),
             vectors.LorentzVector([-0.5,-0.62,0.15,-1.52,]),
         ]),        
-        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        analytical_result = -5.3677265688851575e-02 + 3.7541947411634802e-02j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_2_ellipsoid_intersection',
     ),
@@ -2412,33 +2405,46 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Box',
         vectors.LorentzVectorList([
-            # flag 0b0010 
             vectors.LorentzVector([1,0.4,0,0,]),
             vectors.LorentzVector([-0.7,0,1.8,0,]),
             vectors.LorentzVector([0.9,0.5,0,0,]),
             vectors.LorentzVector([-1.2,-0.9,-1.8,0,]),
         ]),        
-        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        analytical_result = -4.3933035567551475e-03 + 3.4725910186732510e-03j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_2_ellipsoid_standing_near',
     ),
     entry_name = 'Box_2_ellipsoid_standing_near'
 )
 
-
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+          'Box',
+          vectors.LorentzVectorList([
+              vectors.LorentzVector([0.1,0.2,0.5,0.1,]),
+              vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
+              vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
+              vectors.LorentzVector([0.1,-0.8,-1.1,-0.6,]),
+          ]),
+          analytical_result = 5.0054164554909533e-02j,
+          parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+          name = 'Box_no_ellipse',
+    ),
+    entry_name = 'Box_no_ellipse'
+)
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
-        'Pentagon', #P15 from Rodrigo
+        'Pentagon',
         vectors.LorentzVectorList([
-                vectors.LorentzVector([1.5,0.1,0,0.1]),
-                vectors.LorentzVector([0.1,0.2,0.1,-0.2]),
-                vectors.LorentzVector([0.4,0.8,-0.2,0]),
-                vectors.LorentzVector([0.25,-0.3,-0.1,0.4]),
-                (-vectors.LorentzVector([1.5,0.1,0,0.1])
-                -vectors.LorentzVector([0.1,0.2,0.1,-0.2])
-                -vectors.LorentzVector([0.4,0.8,-0.2,0])
-                -vectors.LorentzVector([0.25,-0.3,-0.1,0.4])
+                vectors.LorentzVector([-1.5,0.1,0,0.1]),
+                vectors.LorentzVector([-0.1,0.2,0.1,-0.2]),
+                vectors.LorentzVector([-0.4,0.8,-0.2,0]),
+                vectors.LorentzVector([-0.25,-0.3,-0.1,0.4]),
+                (-vectors.LorentzVector([-1.5,0.1,0,0.1])
+                -vectors.LorentzVector([-0.1,0.2,0.1,-0.2])
+                -vectors.LorentzVector([-0.4,0.8,-0.2,0])
+                -vectors.LorentzVector([-0.25,-0.3,-0.1,0.4])
                 )
         ]),
         analytical_result = 6.55440e-14 -4.29464e-15j,
@@ -2448,10 +2454,9 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Pentagon_1_cutgroup'
 )
 
-
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
-        'Hexagon', #P15 from Rodrigo
+        'Hexagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([2,0.3,0.5,0.6]),
                 vectors.LorentzVector([-1,0.7,0.2,0.1]),
@@ -2475,7 +2480,7 @@ hard_coded_topology_collection.add_topology(
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
-        'Octagon', #P15 from Rodrigo
+        'Octagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1,0.1,0.2,0]),
                 vectors.LorentzVector([-0.2,0.7,0.1,0.11]),

@@ -27,7 +27,7 @@ except ImportError:
         "Could not import the rust back-end 'ltd' module. Compile it first with:"
         " ./make_lib from within the pyNLoop directory." )
 
-N_points = 100
+N_points = 1000
 
 studied_topology = 'Box_massless'
 studied_topology = 'Decagon_P2_physical_massless'
@@ -37,7 +37,7 @@ studied_topology = 'Tringigon_P2_physical_few_ellipses'
 studied_topology = 'Tringigon_P2_physical_many_ellipses'
 studied_topology = 'DoubleBox'
 
-studied_topology = 'Box'
+studied_topology = 'Decagon_P1_one_ellipse_massless'
 
 topology = topology_collection[studied_topology]
 
@@ -84,7 +84,7 @@ x_values = []
 #min_x = 0.15619610
 #max_x = 0.15619612
 min_x = 0.0
-max_x = 1.0
+max_x = 0.01
 for t in range(1,N_points+1):
     if t%100==0:
         print "Currently at sample #%d..."%t
@@ -118,7 +118,7 @@ for t in range(1,N_points+1):
             plot_lines['%d_%d_re'%(d[0][0],d[1][0])]=[v.real,]
             plot_lines['%d_%d_im'%(d[0][0],d[1][0])]=[v.imag,]
 
-selected = ['integrand_re', 'integrand_im', '0_0_re', '0_0_im', '0_1_re', '0_1_im','deform_jac_re', 'deform_jac_im', 'ALL']
+selected = ['integrand_re', 'integrand_im', '0_0_re', '0_0_im', '0_1_re', '0_1_im','deform_jac_re', 'deform_jac_im']
 veto_list=['deform_jac_re','deform_jac_im', 'param_jac','NONE']
 
 lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
