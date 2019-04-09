@@ -2369,9 +2369,41 @@ hard_coded_topology_collection.add_topology(
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
+        'Triangle',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([1.0,0.2,0.5,0.1,]),
+            vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
+            vectors.LorentzVector([-0.7,-0.6,-0.6,-0.3,]),
+        ]),        
+        analytical_result = 6.4297715931597013e-2-1.8925647377061101e-2j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Triangle_1_ellipse_v1',
+    ),
+    entry_name = 'Triangle_1_ellipse_v1'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Triangle',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([1.021,0.2318,0.5012,0.1201,]),
+            vectors.LorentzVector([-0.382,0.412,0.1521,0.233,]),
+            (-vectors.LorentzVector([1.021,0.2318,0.5012,0.1201,])
+            -vectors.LorentzVector([-0.382,0.412,0.1521,0.233,])
+			)
+        ]),
+        analytical_result = 5.3033984015855400e-2-1.9547015029750356e-2j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0.},
+        name = 'Triangle_1_ellipse_v2',
+    ),
+    entry_name = 'Triangle_1_ellipse_v2'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
         'Box',
         vectors.LorentzVectorList([
-            vectors.LorentzVector([1,0.2,0.5,0.1,]),
+            vectors.LorentzVector([1.0,0.2,0.5,0.1,]),
             vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
             vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
             vectors.LorentzVector([0.1,-0.8,-1.1,-0.6,]),
@@ -2654,14 +2686,14 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : -0.001,
+            'lambda'                    : -0.01,
             # sigma=0 means normal min. sigma large decreases steepness
-            'softmin_sigma'             : 0.01,
-            'expansion_check'           : True,
+            'softmin_sigma'             : 0.0,
+            'expansion_check'           : False,
             'expansion_threshold'       : 0.1,
             'positive_cut_check'        : False,
-            'cut_propagator_check'      : True,
-            'non_cut_propagator_check'  : True,
+            'cut_propagator_check'      : False,
+            'non_cut_propagator_check'  : False,
         },
 
         'additive'              :   {
