@@ -2408,7 +2408,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
             vectors.LorentzVector([0.1,-0.8,-1.1,-0.6,]),
         ]),        
-        analytical_result = -6.1703035207556392e-02 + 4.1779163331850500e-02j,
+        analytical_result = -7.0925418252470673e-2 + 4.4622503183629730e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_1_ellipse_v1',
     ),
@@ -2669,7 +2669,7 @@ hyperparameters = HyperParameters({
     'General'       :   {
         # can be multiplicative, additive, cutgroups, duals or none
         'deformation_strategy'  :   'additive',
-        'topology'              :   'TriangleBoxBox',
+        'topology'              :   'Box_1_ellipse_v1',
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
@@ -2687,7 +2687,7 @@ hyperparameters = HyperParameters({
     'Integrator'    :   {
         # The integrator can be vegas or cuhre or suave
         'integrator'        :   'vegas',
-        'n_start'           :   int(1.0e6),
+        'n_start'           :   int(1.0e7),
         'n_max'             :   int(1.0e9),
         'n_increase'        :   0,
         'n_new'             :   100000,
@@ -2708,10 +2708,10 @@ hyperparameters = HyperParameters({
             # negative value: no auto scaling, lambda is set to abs(lambda)
             'lambda'                    : -0.01,
             # sigma=0 means normal min. sigma large decreases steepness
-            'softmin_sigma'             : 0.0,
+            'softmin_sigma'             : 0.0001,
             'expansion_check'           : False,
             'expansion_threshold'       : 0.1,
-            'positive_cut_check'        : False,
+            'positive_cut_check'        : True ,
             'cut_propagator_check'      : False,
             'non_cut_propagator_check'  : False,
         },
