@@ -336,7 +336,7 @@ py_class!(class LTD |py| {
     }
 
     def deform(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(Vec<(f64, f64, f64)>, f64, f64)> {
-        let topo = self.topo(py).borrow();
+        let mut topo = self.topo(py).borrow_mut();
 
         let mut moms = Vec::with_capacity(loop_momenta.len());
         for l in loop_momenta {
@@ -346,7 +346,7 @@ py_class!(class LTD |py| {
                 float::from_f64(l[2]).unwrap()));
         }
 
-        let (res, jac) = self.topo(py).borrow_mut().deform(&moms, None);
+        let (res, jac) = topo.deform(&moms, None);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {
