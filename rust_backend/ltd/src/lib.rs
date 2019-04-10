@@ -262,7 +262,8 @@ py_class!(class LTD |py| {
     -> PyResult<LTD> {
         let settings = Settings::from_file(settings_file);
         let mut topologies = topologies::Topology::from_file(topology_file, &settings);
-        let topo = topologies.remove(name).expect("Unknown topology");
+        let mut topo = topologies.remove(name).expect("Unknown topology");
+        topo.process();
 
         LTD::create_instance(py, RefCell::new(topo))
     }
