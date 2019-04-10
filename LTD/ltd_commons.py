@@ -2406,7 +2406,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([1.0,0.2,0.5,0.1,]),
             vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
             vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
-            vectors.LorentzVector([0.1,-0.8,-1.1,-0.6,]),
+            vectors.LorentzVector([-0.8,-0.8,-1.1,-0.6,]),
         ]),        
         analytical_result = -7.0925418252470673e-2 + 4.4622503183629730e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
@@ -2455,10 +2455,10 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Box',
         vectors.LorentzVectorList([
-            vectors.LorentzVector([1,0.4,0.05,0.5,]),
+            vectors.LorentzVector([1.0,0.4,0.05,0.5,]),
             vectors.LorentzVector([-0.4,0.17,0.3,0.5,]),
             vectors.LorentzVector([0.8,0.05,-0.5,0.52,]),
-            vectors.LorentzVector([-0.5,-0.62,0.15,-1.52,]),
+            vectors.LorentzVector([-1.4,-0.62,0.15,-1.52,]),
         ]),        
         analytical_result = -5.3677265688851575e-02 + 3.7541947411634802e-02j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
@@ -2472,12 +2472,12 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Box',
         vectors.LorentzVectorList([
-            vectors.LorentzVector([1,0.4,0,0,]),
+            vectors.LorentzVector([1.0,0.4,0,0,]),
             vectors.LorentzVector([-0.7,0,1.8,0,]),
             vectors.LorentzVector([0.9,0.5,0,0,]),
             vectors.LorentzVector([-1.2,-0.9,-1.8,0,]),
         ]),        
-        analytical_result = -4.3933035567551475e-03 + 3.4725910186732510e-03j,
+        analytical_result = -8.6251173332809253e-2 + 5.4445896486842775e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_2_ellipse_standing_near',
     ),
@@ -2706,14 +2706,14 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : -0.01,
+            'lambda'                    : 0.01,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0001,
-            'expansion_check'           : False,
+            'expansion_check'           : True,
             'expansion_threshold'       : 0.1,
             'positive_cut_check'        : True ,
-            'cut_propagator_check'      : False,
-            'non_cut_propagator_check'  : False,
+            'cut_propagator_check'      : True,
+            'non_cut_propagator_check'  : True,
         },
 
         'additive'              :   {
