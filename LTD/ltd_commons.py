@@ -2542,6 +2542,42 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Pentagon_1_cutgroup'
 )
 
+# A total of 10 groups of identical surfaces were found (10 elliptic, 0 hyperbolic) for a total of 10 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Pentagon',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([0.500000000000000e+00,    0.000000000000000e+00,    0.000000000000000e+00,    0.489897948556636e+00]),
+                vectors.LorentzVector([0.500000000000000e+00,    0.000000000000000e+00,    0.000000000000000e+00,   -0.489897948556636e+00]),
+                vectors.LorentzVector([-0.445596361432217e+00,  -0.160456079983831e+00,   -0.359495902510707e+00,    0.183228436100583e+00]),
+                vectors.LorentzVector([-0.358947384535148e+00,   0.173566425472857e-01,    0.329242897132688e+00,   -0.100702961782578e+00]),
+                vectors.LorentzVector([-0.195456254032636e+00,   0.143099437436546e+00,    0.302530053780189e-01,   -0.825254743180058e-01]),
+        ]),
+        analytical_result = -1.7493590206914567-12.884728238217672j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'Pentagon_P1',
+    ),
+    entry_name = 'Pentagon_P1'
+)
+
+# A total of 10 groups of identical surfaces were found (8 elliptic, 2 hyperbolic) for a total of 12 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Pentagon',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([0.500000000000000e+00,    0.000000000000000e+00,    0.000000000000000e+00,    0.489897948556636e+00]),
+                vectors.LorentzVector([0.500000000000000e+00,    0.000000000000000e+00,    0.000000000000000e+00,   -0.489897948556636e+00]),
+                vectors.LorentzVector([-0.215729597790481e+00,   -0.138584658126861e+00,   0.106985094401245e+00,    0.767316197578320e-01]),
+                vectors.LorentzVector([-0.445700759799243e+00,    0.361245429247390e+00,   0.700100997766075e-01,   -0.230758516771885e+00]),
+                vectors.LorentzVector([-0.338569642410276e+00,   -0.222660771120529e+00,  -0.176995194177853e+00,    0.154026897014053e+00]),
+        ]),
+        analytical_result = -0.88179589633577338-5.0440019432946359j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'Pentagon_P2',
+    ),
+    entry_name = 'Pentagon_P2'
+)
+
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Hexagon',
