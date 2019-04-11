@@ -655,6 +655,12 @@ impl Topology {
                     }
                 }
 
+                if !self.settings.deformation.scaling.cut_propagator_check
+                    && !self.settings.deformation.scaling.non_cut_propagator_check
+                {
+                    continue;
+                }
+
                 for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
                     // construct the complex part of the loop line momentum
                     let mut kappa_onshell = LorentzVector::default();
