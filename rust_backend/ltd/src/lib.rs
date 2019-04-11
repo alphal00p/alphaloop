@@ -169,8 +169,25 @@ pub struct DeformationSettings {
     pub cutgroups: DeformationCutGroupsSettings,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub enum ParameterizationMode {
+    #[serde(rename = "log")]
+    Log,
+    #[serde(rename = "linear")]
+    Linear,
+    #[serde(rename = "spherical")]
+    Spherical,
+}
+
+impl Default for ParameterizationMode {
+    fn default() -> ParameterizationMode {
+        ParameterizationMode::Spherical
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ParameterizationSettings {
+    pub mode: ParameterizationMode,
     pub shifts: Vec<(f64, f64, f64, f64)>,
 }
 

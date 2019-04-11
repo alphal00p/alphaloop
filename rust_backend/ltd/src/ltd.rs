@@ -10,11 +10,10 @@ use num_traits::{Float, Inv, Num, NumCast};
 use std::iter::FromIterator;
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector};
-use {AdditiveMode, DeformationStrategy, OverallDeformationScaling};
+use {AdditiveMode, DeformationStrategy, OverallDeformationScaling, ParameterizationMode};
 
 use utils;
 
-const MAX_DIM: usize = 3;
 const MAX_LOOP: usize = 3;
 
 type Dual4 = DualN<float, dual_num::U4>;
@@ -429,61 +428,75 @@ impl Topology {
         self.cache = LTDCache::new(self);
     }
 
-    /// Map from unit hypercube to infinite hypercube in N-d
-    pub fn parameterize(
-        &self,
-        x: &[f64],
-        loop_index: usize,
-    ) -> (ArrayVec<[float; MAX_DIM]>, float) {
-        let mut jac = float::one();
+    /// Map a vector in the unit hypercube to the infinite hypercube.
+    /// Also compute the Jacobian.
+    pub fn parameterize(&self, x: &[f64], loop_index: usize) -> ([float; 3], float) {
         let e_cm = float::from_f64(self.e_cm_squared).unwrap().sqrt()
             * float::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
-        let radius =
-            e_cm * float::from_f64(x[0]).unwrap() / (float::one() - float::from_f64(x[0]).unwrap()); // in [0,inf)
-        jac *= (e_cm + radius).powi(2) / e_cm;
-        let phi = float::from_f64(2.).unwrap()
-            * <float as FloatConst>::PI()
-            * float::from_f64(x[1]).unwrap();
-        jac *= float::from_f64(2.).unwrap() * <float as FloatConst>::PI();
+        let mut l_space = [float::zero(); 3];
+        let mut jac = float::one();
 
-        match x.len() {
-            2 => {
-                let mut l_space = ArrayVec::new();
-                l_space.push(radius * phi.cos());
-                l_space.push(radius * phi.sin());
-                jac *= radius;
-                (l_space, jac)
+        match self.settings.parameterization.mode {
+            ParameterizationMode::Log => {
+                for i in 0..3 {
+                    let x = float::from_f64(x[i]).unwrap();
+                    l_space[i] = e_cm * (x / (float::one() - x)).ln();
+                    jac *= e_cm / (x - x * x);
+                }
             }
-            3 => {
+            ParameterizationMode::Linear => {
+                for i in 0..3 {
+                    let x = float::from_f64(x[i]).unwrap();
+                    l_space[i] = e_cm * (float::one() / (float::one() - x) - float::one() / x);
+                    jac *= e_cm
+                        * (float::one() / (x * x)
+                            + float::one() / ((float::one() - x) * (float::one() - x)));
+                }
+            }
+            ParameterizationMode::Spherical => {
+                let e_cm = float::from_f64(self.e_cm_squared).unwrap().sqrt()
+                    * float::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
+                let radius = e_cm * float::from_f64(x[0]).unwrap()
+                    / (float::one() - float::from_f64(x[0]).unwrap()); // in [0,inf)
+                jac *= (e_cm + radius).powi(2) / e_cm;
+                let phi = float::from_f64(2.).unwrap()
+                    * <float as FloatConst>::PI()
+                    * float::from_f64(x[1]).unwrap();
+                jac *= float::from_f64(2.).unwrap() * <float as FloatConst>::PI();
+
                 let cos_theta =
                     -float::one() + float::from_f64(2.).unwrap() * float::from_f64(x[2]).unwrap(); // out of range
                 jac *= float::from_f64(2.).unwrap();
                 let sin_theta = (float::one() - cos_theta * cos_theta).sqrt();
-                let mut l_space = ArrayVec::new();
-                l_space.push(radius * sin_theta * phi.cos());
-                l_space.push(radius * sin_theta * phi.sin());
-                l_space.push(radius * cos_theta);
 
-                // add a shift such that k=l is harder to be picked up by integrators such as cuhre
-                l_space[0] += e_cm
-                    * float::from_f64(self.settings.parameterization.shifts[loop_index].1).unwrap();
-                l_space[1] += e_cm
-                    * float::from_f64(self.settings.parameterization.shifts[loop_index].2).unwrap();
-                l_space[2] += e_cm
-                    * float::from_f64(self.settings.parameterization.shifts[loop_index].3).unwrap();
+                l_space[0] = radius * sin_theta * phi.cos();
+                l_space[1] = radius * sin_theta * phi.sin();
+                l_space[2] = radius * cos_theta;
 
                 jac *= radius * radius; // spherical coord
-                (l_space, jac)
             }
-            x => unimplemented!("Unknown dimension {}", x),
         }
+
+        // add a shift such that k=l is harder to be picked up by integrators such as cuhre
+        l_space[0] +=
+            e_cm * float::from_f64(self.settings.parameterization.shifts[loop_index].1).unwrap();
+        l_space[1] +=
+            e_cm * float::from_f64(self.settings.parameterization.shifts[loop_index].2).unwrap();
+        l_space[2] +=
+            e_cm * float::from_f64(self.settings.parameterization.shifts[loop_index].3).unwrap();
+
+        (l_space, jac)
     }
 
     pub fn inv_parametrize(
         &self,
         mom: &LorentzVector<f64>,
         loop_index: usize,
-    ) -> (ArrayVec<[float; MAX_DIM]>, float) {
+    ) -> ([float; 3], float) {
+        if self.settings.parameterization.mode != ParameterizationMode::Spherical {
+            panic!("Inverse mapping is only implemented for spherical coordinates");
+        }
+
         let mut jac = float::one();
         let e_cm = float::from_f64(self.e_cm_squared).unwrap().sqrt()
             * float::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
@@ -508,10 +521,7 @@ impl Topology {
 
         // cover the degenerate case
         if k_r_sq.is_zero() {
-            return (
-                ArrayVec::from_iter([float::zero(), x2, float::zero()].into_iter().cloned()),
-                float::zero(),
-            );
+            return ([float::zero(), x2, float::zero()], float::zero());
         }
 
         let x1 = k_r / (e_cm + k_r);
@@ -521,7 +531,7 @@ impl Topology {
         jac /= float::from_f64(2.).unwrap();
         jac /= k_r * k_r;
 
-        (ArrayVec::from_iter([x1, x2, x3].into_iter().cloned()), jac)
+        ([x1, x2, x3], jac)
     }
 
     #[inline]
@@ -1505,7 +1515,10 @@ impl Topology {
                 let q: LorentzVector<Complex> = p.q.cast();
                 let cm = (mom + q).spatial_squared() + float::from_f64(p.m_squared).unwrap();
 
-                if self.settings.deformation.scaling.positive_cut_check && cm.re < float::zero() && cm.im < float::zero() {
+                if self.settings.deformation.scaling.positive_cut_check
+                    && cm.re < float::zero()
+                    && cm.im < float::zero()
+                {
                     eprintln!(
                         "Branch cut detected for prop {}, ll sig={:?}, ks={:?}: {}",
                         p.id, ll.signature, k_def, cm

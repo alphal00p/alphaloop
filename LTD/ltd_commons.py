@@ -2735,6 +2735,8 @@ hyperparameters = HyperParameters({
     },
 
     'Parameterization'   :   {
+        # can be log, linear or spherical
+        'mode'  :   'spherical',
         # shift the loop momenta. the first component is a rescaling of the radius
         'shifts' : [
             [1.0, 0., 0., 0.],
