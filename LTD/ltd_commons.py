@@ -2500,6 +2500,94 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Box_no_ellipse'
 )
 
+# A total of 5 groups of identical surfaces were found (5 elliptic, 0 hyperbolic) for a total of 5 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+          'Box',
+          vectors.LorentzVectorList([
+              vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
+              vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.994987437106620e+00]),
+              vectors.LorentzVector([-0.100000000000000e+01,  -0.220736538983310e+00,   -0.885202094357801e+00,    0.397105316638084e+00]),
+              vectors.LorentzVector([-0.100000000000000e+01,   0.220736538983310e+00,    0.885202094357801e+00,   -0.397105316638084e+00]),
+          ]),
+          analytical_result = 9.00434379202854213e-2-0.14559489635604819j,
+          parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+          name = 'Box_P1',
+    ),
+    entry_name = 'Box_P1'
+)
+
+# A total of 5 groups of identical surfaces were found (5 elliptic, 0 hyperbolic) for a total of 5 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+          'Box',
+          vectors.LorentzVectorList([
+              vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
+              vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.994987437106620e+00]),
+              vectors.LorentzVector([-0.100000000000000e+01,   0.561004773211804e+00,    0.777664204605808e+00,   -0.265541012479028e+00]),
+              vectors.LorentzVector([-0.100000000000000e+01,   -0.561004773211804e+00,  -0.777664204605809e+00,    0.265541012479028e+00]),
+          ]),
+          analytical_result = 4.56672130125938408e-2-7.95498254439587771e-2j,
+          parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+          name = 'Box_P2',
+    ),
+    entry_name = 'Box_P2'
+)
+
+# Larger external mass
+# A total of 5 groups of identical surfaces were found (5 elliptic, 0 hyperbolic) for a total of 5 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+          'Box',
+          vectors.LorentzVectorList([
+              vectors.LorentzVector([0.400000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.387298334620742e+01]),
+              vectors.LorentzVector([0.400000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.387298334620742e+01]),
+              vectors.LorentzVector([-0.400000000000000e+01,  -0.859215812681878e+00,   -0.344564447913558e+01,    0.154573034861838e+01]),
+              vectors.LorentzVector([-0.400000000000000e+01,   0.859215812681878e+00,    0.344564447913558e+01,   -0.154573034861838e+01]),
+          ]),
+          analytical_result = 2.42801269793165329e-4-2.36495209276143891e-4j,
+          parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+          name = 'Box_P3_large_external_masses',
+    ),
+    entry_name = 'Box_P3_large_external_masses'
+)
+
+# close to a collinear singularity
+#A total of 6 groups of identical surfaces were found (5 elliptic, 1 hyperbolic) for a total of 7 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+          'Box',
+          vectors.LorentzVectorList([
+              vectors.LorentzVector([0.301000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.283903152500989e+01]),
+              vectors.LorentzVector([0.301000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.283903152500989e+01]),
+              vectors.LorentzVector([-0.309304817275747e+01,  -0.649336284311474e+00,   -0.260398138641872e+01,    0.116815680799273e+01]),
+              vectors.LorentzVector([-0.292695182724253e+01,   0.649336284311474e+00,    0.260398138641872e+01,   -0.116815680799272e+01]),
+          ]),
+          analytical_result = 1.15103001460289066e-3-1.43823441417823775e-3j,
+          parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+          name = 'Box_P4_close_to_collinear_singularity',
+    ),
+    entry_name = 'Box_P4_close_to_collinear_singularity'
+)
+
+# very close to a collinear singularity
+# A total of 6 groups of identical surfaces were found (5 elliptic, 1 hyperbolic) for a total of 7 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+          'Box',
+          vectors.LorentzVectorList([
+              vectors.LorentzVector([0.300100000000000e+01,   0.000000000000000e+00,    0.000000000000000e+00,    0.282948776282917e+01]),
+              vectors.LorentzVector([0.300100000000000e+01,   0.000000000000000e+00,    0.000000000000000e+00,   -0.282948776282917e+01]),
+              vectors.LorentzVector([-0.308430548150616e+01,  -0.647286315361457e+00,   -0.259576055983386e+01,    0.116446891122337e+01]),
+              vectors.LorentzVector([-0.291769451849384e+01,   0.647286315361458e+00,    0.259576055983386e+01,   -0.116446891122337e+01]),
+          ]),
+          analytical_result = 1.41970037205742142e-3-1.92997699586506242e-3,
+          parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+          name = 'Box_P5_very_close_to_collinear_singularity',
+    ),
+    entry_name = 'Box_P5_very_close_to_collinear_singularity'
+)
+
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Pentagon',
