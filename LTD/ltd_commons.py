@@ -2624,6 +2624,45 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Hexagon_1_ellipsoid'
 )
 
+# A total of 15 groups of identical surfaces were found (12 elliptic, 3 hyperbolic) for a total of 18 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Hexagon',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
+                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.994987437106620e+00]),
+                vectors.LorentzVector([-0.198995077678765e+00,   0.429387655576480e-01,   -0.778709111237172e-01,    0.147280088788421e+00]),
+                vectors.LorentzVector([-0.645691969951894e+00,   0.201766283309269e+00,    0.586618000064595e+00,   -0.148619678980061e+00]),
+                vectors.LorentzVector([-0.312446945402234e+00,   0.205712927739407e+00,    0.189837113602804e+00,   -0.962660654177994e-01]),
+                vectors.LorentzVector([-0.842866006967107e+00,   -0.450417976606324e+00,  -0.698584202543682e+00,    0.976056556094392e-01]),
+        ]),
+        analytical_result = -0.30872711611542109+3.8733947302606166j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
+        name = 'Hexagon_P1',
+    ),
+    entry_name = 'Hexagon_P1'
+)
+
+#A total of 15 groups of identical surfaces were found (12 elliptic, 3 hyperbolic) for a total of 18 surfaces.
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'Hexagon',
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
+                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.994987437106620e+00]),
+                vectors.LorentzVector([-0.250525412132299e+00,    0.118424964316116e+00,   -0.138957350582615e+00,   -0.139389255934041e+00]),
+                vectors.LorentzVector([-0.691905106201093e+00,    0.620122780930484e-01,   -0.163748832821654e+00,   -0.661871190717954e+00]),
+                vectors.LorentzVector([-0.688774393498734e+00,   -0.358964901557421e+00,    0.100520302577498e+00,    0.570482281371778e+00]),
+                vectors.LorentzVector([-0.368795088167883e+00,    0.178527659148257e+00,    0.202185880826771e+00,    0.230778165280217e+00]),
+        ]),
+        analytical_result = -5.04961974662861482e-2+0.41631362208434963j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
+        name = 'Hexagon_P2',
+    ),
+    entry_name = 'Hexagon_P2'
+)
+
+
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Octogon',
