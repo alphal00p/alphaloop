@@ -13,7 +13,7 @@ hyperparameters = HyperParameters({
     'General'       :   {
         # can be multiplicative, additive, cutgroups, duals or none
         'deformation_strategy'  :   'additive',
-        'topology'              :   'Box_1_ellipse_v1',
+        'topology'              :   'Box',
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
@@ -31,7 +31,7 @@ hyperparameters = HyperParameters({
     'Integrator'    :   {
         # The integrator can be vegas or cuhre or suave
         'integrator'        :   'vegas',
-        'n_start'           :   int(1.0e7),
+        'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e9),
         'n_increase'        :   0,
         'n_new'             :   100000,
@@ -50,9 +50,9 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 0.01,
+            'lambda'                    : 1.0,
             # sigma=0 means normal min. sigma large decreases steepness
-            'softmin_sigma'             : 0.0001,
+            'softmin_sigma'             : 0.0,
             'expansion_check'           : True,
             'expansion_threshold'       : 0.1,
             'positive_cut_check'        : True ,
@@ -71,10 +71,10 @@ hyperparameters = HyperParameters({
         },
 
         'cutgroups' : {
-            'M_ij'  :   0.1,
+            'M_ij'  :   0.00001,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
-            'mode'  :   'softmin',
+            'mode'  :   'hyperbolic',
         }
     },
 
