@@ -19,6 +19,7 @@ hyperparameters = HyperParameters({
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   5.,
+        'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
         # statistics will be printed to stderr by default
         'log_to_screen'         :   False,

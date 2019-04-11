@@ -198,6 +198,7 @@ pub struct GeneralSettings {
     pub deformation_strategy: DeformationStrategy,
     pub cut_filter: Vec<usize>,
     pub topology: String,
+    pub unstable_point_warning_percentage: f64,
     pub numerical_threshold: f64,
     pub relative_precision: f64,
     pub numerical_instability_check: bool,

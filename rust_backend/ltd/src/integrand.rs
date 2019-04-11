@@ -192,6 +192,15 @@ impl Integrand {
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
             self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.).unwrap();
+
+        if self.unstable_point_count as f64 / self.total_samples as f64 * 100.
+            > self.settings.general.unstable_point_warning_percentage
+        {
+            eprintln!(
+                "WARNING: {:.2}% of points are unstable",
+                self.unstable_point_count as f64 / self.total_samples as f64 * 100.
+            );
+        }
     }
 
     pub fn evaluate(&mut self, x: &[f64]) -> Complex {
