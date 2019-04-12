@@ -25,8 +25,8 @@ use std::io::{BufWriter, Write};
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::integrand::Integrand;
-use ltd::topologies::Topology;
-use ltd::{IntegratedPhase, Integrator, Settings};
+use ltd::topologies::{LTDCache, Topology};
+use ltd::{float, IntegratedPhase, Integrator, Settings};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -85,9 +85,10 @@ fn integrand(
 }
 
 fn bench(topo: &Topology, settings: &Settings) {
-    let mut topo1 = topo.clone();
     let mut x = vec![0.; 3 * topo.n_loops];
     let mut rng = rand::thread_rng();
+
+    let mut cache = LTDCache::<float>::new(&topo);
 
     let now = Instant::now();
     for _ in 0..settings.integrator.n_max {
@@ -95,7 +96,7 @@ fn bench(topo: &Topology, settings: &Settings) {
             *xi = rng.gen();
         }
 
-        let _r = topo1.evaluate(&x);
+        let _r = topo.evaluate(&x, &mut cache);
     }
 
     println!("{:#?}", now.elapsed());
@@ -215,7 +216,8 @@ fn main() {
             );
         }
 
-        let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate(&pt);
+        let mut cache = LTDCache::<float>::new(&topo);
+        let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate(&pt, &mut cache);
         match topo.n_loops {
             1 => {
                 println!(

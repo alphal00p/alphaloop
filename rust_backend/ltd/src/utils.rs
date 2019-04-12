@@ -1,19 +1,20 @@
-use num_traits::NumCast;
+use num::Complex;
+use num_traits::{Float, NumAssign, NumCast};
 use num_traits::{Inv, One, Zero};
-use {float, Complex};
+use vector::RealNumberLike;
 
 const MAX_DIMENSION: usize = 9;
 
 #[inline]
 /// Invert with better precision
-pub fn finv(c: Complex) -> Complex {
+pub fn finv<T: Float>(c: Complex<T>) -> Complex<T> {
     let norm = c.norm();
     c.conj() / norm / norm
 }
 
 #[inline]
-pub fn powi(c: Complex, n: usize) -> Complex {
-    let mut c1 = Complex::one();
+pub fn powi<T: Float + NumAssign>(c: Complex<T>, n: usize) -> Complex<T> {
+    let mut c1 = Complex::<T>::one();
     for _ in 0..n {
         c1 *= c;
     }
@@ -22,9 +23,12 @@ pub fn powi(c: Complex, n: usize) -> Complex {
 
 /// Calculate the determinant of any complex-valued input matrix using LU-decomposition.
 /// Original C-code by W. Gong and D.E. Soper.
-pub fn determinant(bb: &Vec<Complex>, dimension: usize) -> Complex {
+pub fn determinant<T: Float + RealNumberLike>(
+    bb: &Vec<Complex<T>>,
+    dimension: usize,
+) -> Complex<T> {
     // Define matrix related variables.
-    let mut determinant = Complex::new(float::one(), float::zero());
+    let mut determinant = Complex::new(T::one(), T::zero());
     let mut indx = [0; MAX_DIMENSION];
     let mut d = 1; // initialize parity parameter
 
@@ -39,11 +43,11 @@ pub fn determinant(bb: &Vec<Complex>, dimension: usize) -> Complex {
 
     let mut aamax;
     let mut dumr;
-    let mut vv = [float::zero(); MAX_DIMENSION];
+    let mut vv = [T::zero(); MAX_DIMENSION];
 
     // Get the implicit scaling information.
     for i in 0..dimension {
-        aamax = float::zero();
+        aamax = T::zero();
         for j in 0..dimension {
             let r = aa[i * dimension + j].norm_sqr();
             if r > aamax {
@@ -67,7 +71,7 @@ pub fn determinant(bb: &Vec<Complex>, dimension: usize) -> Complex {
                 aa[i * dimension + j] = sum;
             }
             //Initialize for the search for largest pivot element.
-            aamax = float::zero();
+            aamax = T::zero();
             for i in j..dimension {
                 sum = aa[i * dimension + j];
                 for k in 0..j {
@@ -111,7 +115,7 @@ pub fn determinant(bb: &Vec<Complex>, dimension: usize) -> Complex {
         for diagonal in 0..dimension {
             determinant = determinant * aa[diagonal * dimension + diagonal];
         }
-        determinant = determinant * <float as NumCast>::from(d).unwrap();
+        determinant = determinant * <T as NumCast>::from(d).unwrap();
     }
     determinant
 }

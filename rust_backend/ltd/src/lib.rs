@@ -31,12 +31,11 @@ pub mod ltd;
 pub mod topologies;
 pub mod utils;
 
+use arrayvec::ArrayVec;
+use num::Complex;
 use serde::Deserialize;
 use std::fmt;
 use std::fs::File;
-
-pub type Complex = num::Complex<float>;
-use arrayvec::ArrayVec;
 use vector::LorentzVector;
 
 #[derive(Debug, Copy, Default, Clone, PartialEq, Deserialize)]
@@ -275,6 +274,7 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
+    data cache: RefCell<topologies::LTDCache<float>>;
 
     def __new__(_cls, topology_file: &str, name: &str, settings_file: &str)
     -> PyResult<LTD> {
@@ -282,17 +282,19 @@ py_class!(class LTD |py| {
         let mut topologies = topologies::Topology::from_file(topology_file, &settings);
         let mut topo = topologies.remove(name).expect("Unknown topology");
         topo.process();
+        let cache = topologies::LTDCache::<float>::new(&topo);
 
-        LTD::create_instance(py, RefCell::new(topo))
+        LTD::create_instance(py, RefCell::new(topo), RefCell::new(cache))
     }
 
     def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, res) = self.topo(py).borrow_mut().evaluate(&x);
+        let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, res) = self.topo(py).borrow().evaluate::<float>(&x,
+            &mut self.cache(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
     def parameterize(&self, x: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = self.topo(py).borrow().parameterize(&x, loop_index);
+        let (x, jac) = self.topo(py).borrow().parameterize::<float>(&x, loop_index);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 
@@ -303,12 +305,13 @@ py_class!(class LTD |py| {
                 loop_momentum[1],
                 loop_momentum[2]);
 
-        let (x, jac) = self.topo(py).borrow().inv_parametrize(&mom, loop_index);
+        let (x, jac) = self.topo(py).borrow().inv_parametrize::<float>(&mom, loop_index);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 
     def evaluate_cut(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
         let topo = self.topo(py).borrow();
+        let mut cache = self.cache(py).borrow_mut();
 
         let mut moms = ArrayVec::new();
         for l in loop_momenta {
@@ -319,10 +322,13 @@ py_class!(class LTD |py| {
                 Complex::new(float::from_f64(l[2].0).unwrap(), float::from_f64(l[2].1).unwrap())));
         }
 
+        // FIXME: recomputed every time
+        topo.compute_complex_cut_energies(&moms, &mut cache);
+
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        match topo.evaluate_cut(&mut moms, cut, mat) {
+        match topo.evaluate_cut::<float>(&mut moms, cut, mat, &mut cache) {
             Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
             Err(_) => Ok((0., 0.))
         }
@@ -330,6 +336,7 @@ py_class!(class LTD |py| {
 
     def get_loop_momentum_energies(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<Vec<(f64, f64)>> {
         let topo = self.topo(py).borrow();
+        let mut cache = self.cache(py).borrow_mut();
 
         let mut moms = ArrayVec::new();
         for l in loop_momenta {
@@ -340,10 +347,13 @@ py_class!(class LTD |py| {
                 Complex::new(float::from_f64(l[2].0).unwrap(), float::from_f64(l[2].1).unwrap())));
         }
 
+        // FIXME: recomputed every time
+        topo.compute_complex_cut_energies(&moms, &mut cache);
+
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        topo.set_loop_momentum_energies(&mut moms, cut, mat);
+        topo.set_loop_momentum_energies::<float>(&mut moms, cut, mat, &cache);
 
         let mut res = Vec::with_capacity(moms.len());
         for l in moms {
@@ -354,7 +364,8 @@ py_class!(class LTD |py| {
     }
 
     def deform(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(Vec<(f64, f64, f64)>, f64, f64)> {
-        let mut topo = self.topo(py).borrow_mut();
+        let topo = self.topo(py).borrow();
+        let mut cache = self.cache(py).borrow_mut();
 
         let mut moms = Vec::with_capacity(loop_momenta.len());
         for l in loop_momenta {
@@ -364,7 +375,7 @@ py_class!(class LTD |py| {
                 float::from_f64(l[2]).unwrap()));
         }
 
-        let (res, jac) = topo.deform(&moms, None);
+        let (res, jac) = topo.deform::<float>(&moms, None, &mut cache);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {

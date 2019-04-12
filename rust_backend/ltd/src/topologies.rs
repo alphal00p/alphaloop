@@ -1,11 +1,12 @@
-use dual_num::{DualN, U10, U4, U7};
+use dual_num::{DualN, Scalar, U10, U4, U7};
 use float;
 use num::Complex;
+use num_traits::Signed;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
-use vector::LorentzVector;
+use vector::{LorentzVector, RealNumberLike};
 use Settings;
 
 /// Ellipsoid and hyperboloid surfaces
@@ -73,24 +74,25 @@ impl fmt::Display for Cut {
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
-pub struct LTDCacheI<U: dual_num::Dim + dual_num::DimName>
+pub struct LTDCacheI<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
 where
-    dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
-    dual_num::Owned<float, U>: Copy,
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
 {
-    pub ellipsoid_eval: Vec<DualN<float, U>>,
-    pub deform_dirs: Vec<LorentzVector<DualN<float, U>>>,
+    pub ellipsoid_eval: Vec<DualN<T, U>>,
+    pub deform_dirs: Vec<LorentzVector<DualN<T, U>>>,
     pub non_empty_cuts: Vec<(usize, usize)>,
-    pub deformation_jacobian: Vec<Complex<float>>,
-    pub cut_energies: Vec<DualN<float, U>>,
+    pub deformation_jacobian: Vec<Complex<T>>,
+    pub cut_energies: Vec<DualN<T, U>>,
 }
 
-impl<U: dual_num::Dim + dual_num::DimName> Default for LTDCacheI<U>
+impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
+    for LTDCacheI<T, U>
 where
-    dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
-    dual_num::Owned<float, U>: Copy,
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
 {
-    fn default() -> LTDCacheI<U> {
+    fn default() -> LTDCacheI<T, U> {
         LTDCacheI {
             ellipsoid_eval: vec![],
             deform_dirs: vec![],
@@ -102,18 +104,18 @@ where
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct LTDCache {
-    one_loop: LTDCacheI<U4>,
-    two_loop: LTDCacheI<U7>,
-    three_loop: LTDCacheI<U10>,
-    pub complex_cut_energies: Vec<Complex<float>>,
+pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
+    one_loop: LTDCacheI<T, U4>,
+    two_loop: LTDCacheI<T, U7>,
+    three_loop: LTDCacheI<T, U10>,
+    pub complex_cut_energies: Vec<Complex<T>>,
 }
 
-impl LTDCache {
-    pub fn new(topo: &Topology) -> LTDCache {
-        let mut one_loop = LTDCacheI::<U4>::default();
-        let mut two_loop = LTDCacheI::<U7>::default();
-        let mut three_loop = LTDCacheI::<U10>::default();
+impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
+    pub fn new(topo: &Topology) -> LTDCache<float> {
+        let mut one_loop = LTDCacheI::<float, U4>::default();
+        let mut two_loop = LTDCacheI::<float, U7>::default();
+        let mut three_loop = LTDCacheI::<float, U10>::default();
         one_loop
             .ellipsoid_eval
             .resize(topo.surfaces.len(), DualN::default());
@@ -167,54 +169,54 @@ impl LTDCache {
     }
 }
 
-pub trait CacheSelector<U: dual_num::Dim + dual_num::DimName>
+pub trait CacheSelector<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
 where
-    dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
-    dual_num::Owned<float, U>: Copy,
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
 {
-    fn get_cache(&self) -> &LTDCacheI<U>
+    fn get_cache(&self) -> &LTDCacheI<T, U>
     where
-        dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
-        dual_num::Owned<float, U>: Copy;
+        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+        dual_num::Owned<T, U>: Copy;
 
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<U>
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U>
     where
-        dual_num::DefaultAllocator: dual_num::Allocator<float, U>,
-        dual_num::Owned<float, U>: Copy;
+        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+        dual_num::Owned<T, U>: Copy;
 }
 
-impl CacheSelector<U4> for LTDCache {
+impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U4> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<U4> {
+    fn get_cache(&self) -> &LTDCacheI<T, U4> {
         &self.one_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<U4> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U4> {
         &mut self.one_loop
     }
 }
 
-impl CacheSelector<U7> for LTDCache {
+impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U7> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<U7> {
+    fn get_cache(&self) -> &LTDCacheI<T, U7> {
         &self.two_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<U7> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U7> {
         &mut self.two_loop
     }
 }
 
-impl CacheSelector<U10> for LTDCache {
+impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U10> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<U10> {
+    fn get_cache(&self) -> &LTDCacheI<T, U10> {
         &self.three_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<U10> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U10> {
         &mut self.three_loop
     }
 }
@@ -244,8 +246,6 @@ pub struct Topology {
     pub rotation_matrix: [[float; 3]; 3],
     #[serde(skip_deserializing)]
     pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
-    #[serde(skip_deserializing)]
-    pub cache: LTDCache,
 }
 
 impl Topology {

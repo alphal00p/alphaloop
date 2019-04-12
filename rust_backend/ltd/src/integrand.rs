@@ -1,11 +1,12 @@
 use arrayvec::ArrayVec;
+use float;
+use num::Complex;
 use num_traits::NumCast;
 use num_traits::{Float, FromPrimitive, Inv, One, ToPrimitive, Zero};
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use topologies::Topology;
+use topologies::{LTDCache, Topology};
 use vector::LorentzVector;
-use {float, Complex};
 
 const MAX_LOOP: usize = 3;
 
@@ -16,7 +17,8 @@ use Settings;
 pub struct Integrand {
     pub settings: Settings,
     pub topologies: Vec<Topology>,
-    pub running_max: Complex,
+    pub cache: LTDCache<float>,
+    pub running_max: Complex<float>,
     pub total_samples: usize,
     pub nan_point_count: usize,
     pub unstable_point_count: usize,
@@ -112,6 +114,7 @@ impl Integrand {
 
         Integrand {
             topologies: vec![topology.clone(), rotated_topology],
+            cache: LTDCache::<float>::new(&topology),
             running_max: Complex::default(),
             total_samples: 0,
             regular_point_count: 0,
@@ -131,11 +134,11 @@ impl Integrand {
         new_max: bool,
         unstable: bool,
         x: &[f64],
-        k_def: ArrayVec<[LorentzVector<Complex>; MAX_LOOP]>,
+        k_def: ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
         jac_para: float,
-        jac_def: Complex,
-        result: Complex,
-        rot_result: Complex,
+        jac_def: Complex<float>,
+        result: Complex<float>,
+        rot_result: Complex<float>,
         stable_digits: float,
     ) {
         if new_max || unstable || !result.is_finite() || self.settings.general.debug > 0 {
@@ -203,7 +206,7 @@ impl Integrand {
         }
     }
 
-    pub fn evaluate(&mut self, x: &[f64]) -> Complex {
+    pub fn evaluate(&mut self, x: &[f64]) -> Complex<float> {
         if self.settings.general.integration_statistics
             && self.total_samples > 0
             && self.total_samples % self.settings.general.statistics_interval == 0
@@ -211,12 +214,12 @@ impl Integrand {
             self.print_statistics();
         }
 
-        let (x, k_def, jac_para, jac_def, result) = self.topologies[0].evaluate(x);
+        let (x, k_def, jac_para, jac_def, result) = self.topologies[0].evaluate(x, &mut self.cache);
         self.total_samples += 1;
 
         let (d, result_rot) = if self.settings.general.numerical_instability_check {
             let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                self.topologies[1].evaluate(x);
+                self.topologies[1].evaluate::<float>(x, &mut self.cache);
 
             // compute the number of similar digits
             let (num, num_rot) =
