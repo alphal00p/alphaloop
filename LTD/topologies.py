@@ -2,10 +2,47 @@ import os
 import vectors
 import math
 
+import mpmath
+import numpy
+from scipy.special import zeta
+
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
 from ltd_utils import LoopTopology, LoopLine, Propagator, TopologyCollection
 
+def analytic_three_point_ladder(s1,s2,s3,l):
+    # leg labelling according to Weinzierl https://arxiv.org/abs/1211.0509v3
+    #        |------| <-- p1
+    # p3 --> |-Diag-|
+    #        |------| <-- p2
+    # s1 = p1^2, s2 = p2^2, s3 = p3^2
+    # l = nr of loops
+    aa = (1j/(16*math.pi**2*s3))**l
+    lambd = lambda x,y: numpy.sqrt((1.-x-y)**2-4*x*y+0j)
+    rho = lambda x,y: 2./(1.-x-y+lambd(x,y))
+    def phi(x,y,l):
+        bb = -1./(math.factorial(l)*lambd(x,y))
+        summand = 0.
+        for j in xrange(l,2*l+1):
+            cc = (-1.)**j*math.factorial(j)*numpy.log(y/x)**(2*l-j)
+            dd = math.factorial(j-l)*math.factorial(2*l-j)
+            ee = mpmath.polylog(j,-1./(x*rho(x,y)))-mpmath.polylog(j,-y*rho(x,y))
+            summand += cc*ee/dd
+        return bb*summand
+    x = s1/s3
+    y = s2/s3
+    return aa*phi(x,y,l)
+
+def analytic_two_point_ladder(s,l):
+    # leg labelling according to Weinzierl https://arxiv.org/abs/1211.0509v3
+    # p --> |-Diag-| --> p
+    # s = p^2
+    # l = nr of loops
+    result = (1j/(16.*math.pi**2*s))**l
+    result *= s
+    result *= math.factorial(2*l)/math.factorial(l)**2
+    result *= zeta(2*l-1)
+    return result
 
 #############################################################################################################
 # Definition of hard-coded topol
@@ -70,7 +107,6 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
                 ),
             ) 
         )
-
 
     elif topology_type =='DoubleTriangle_ala_weinzierl':
         p1 = external_momenta[0]
@@ -579,7 +615,7 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytical_result = (lambda ps: analytic_three_point_ladder(ps[0].square(),ps[1].square(),ps[2].square(),3)),
             ltd_cut_structure = (
             	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT	    , LoopLine.POSITIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT	),
             	(LoopLine.POSITIVE_CUT	, LoopLine.NEGATIVE_CUT	    , LoopLine.POSITIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.NO_CUT		, LoopLine.NO_CUT	),
@@ -648,7 +684,233 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
                 ),
             ) 
         )
-	
+
+    elif topology_type =='TriangleBoxBox_alt':
+        p1,p2,p3 = external_momenta
+        return LoopTopology(
+            name    = name,
+            n_loops = 3,
+            external_kinematics = external_momenta,
+            analytical_result = (lambda ps: analytic_three_point_ladder(ps[0].square(),ps[1].square(),ps[2].square(),3)),
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NO_CUT        , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT ),  
+                (LoopLine.NO_CUT        , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0,0),
+                    propagators = (
+                        Propagator(q=-p3, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 3,
+                    signature   = (0,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 3,
+                    signature   = (0,-1,-1),
+                    propagators = (
+                        Propagator(q=-p1-p2, m_squared=0.),
+                        Propagator(q=-p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 4,
+                    signature   = (0,-1,0),
+                    propagators = (
+                        Propagator(q=p3, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (-1,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 3,
+                    signature   = (0,0,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='TriangleBoxTriangle':
+        p1,p2 = external_momenta
+        return LoopTopology(
+            name    = name,
+            n_loops = 3,
+            external_kinematics = external_momenta,
+            analytical_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),3)),
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT ,   LoopLine.NO_CUT     , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT   ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT     , LoopLine.POSITIVE_CUT ,   LoopLine.NO_CUT     , LoopLine.NO_CUT       , LoopLine.NO_CUT   ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT     , LoopLine.NO_CUT       ,   LoopLine.NO_CUT     , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT       ,   LoopLine.NO_CUT     , LoopLine.POSITIVE_CUT     , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT       ,   LoopLine.NEGATIVE_CUT   , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ,   LoopLine.NO_CUT     , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT ,   LoopLine.NEGATIVE_CUT   , LoopLine.NO_CUT       , LoopLine.NO_CUT   ),
+                (LoopLine.NO_CUT    , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ,   LoopLine.NO_CUT     , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+                (LoopLine.NO_CUT    , LoopLine.POSITIVE_CUT     , LoopLine.NEGATIVE_CUT ,   LoopLine.NO_CUT     , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT   ),
+                (LoopLine.NO_CUT    , LoopLine.NO_CUT       , LoopLine.NO_CUT       ,   LoopLine.POSITIVE_CUT   , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+                (LoopLine.NO_CUT    , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ,   LoopLine.POSITIVE_CUT   , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT   ),
+                (LoopLine.NO_CUT    , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT ,   LoopLine.NO_CUT     , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 3,
+                    signature   = (1,-1,0),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 4,
+                    signature   = (1,-1,-1),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 1,
+                    signature   = (1,-1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (0,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 4,
+                    signature   = (0,0,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+    elif topology_type =='TriangleBoxTriangle_alt':
+        p1,p2 = external_momenta
+        return LoopTopology(
+            name    = name,
+            n_loops = 3,
+            external_kinematics = external_momenta,
+            analytical_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),3)),
+            ltd_cut_structure = (
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NO_CUT        , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT ),  
+                (LoopLine.NO_CUT        , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT ),
+                (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT        , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       ),
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0,0),
+                    propagators = (
+                        Propagator(q=-p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 3,
+                    signature   = (0,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 3,
+                    signature   = (0,-1,-1),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 4,
+                    signature   = (0,-1,0),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (-1,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 3,
+                    signature   = (0,0,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
     elif topology_type =='Triangle':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
@@ -781,7 +1043,6 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
             ) 
         )
 
-
     elif topology_type =='Octogon':
         p1 = external_momenta[0]
         p2 = external_momenta[1]
@@ -821,7 +1082,6 @@ def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_resu
                 ),
             ) 
         )
-
 
     elif topology_type =='Decagon':
         p1 = external_momenta[0]
@@ -1191,32 +1451,6 @@ hard_coded_topology_collection.add_topology(
     ),
 )
 
-"""
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
-        'TriangleBoxBox',        
-       	vectors.LorentzVectorList([
-                vectors.LorentzVector([0.,5.,0.,0.]),
-                vectors.LorentzVector([0.,0.,6.,0.]),
-                vectors.LorentzVector([0.,-5.,-6.,0.]),
-        ]),
-        analytical_result =  1.76576112187575e-10j
-    ),
-)
-"""
-
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
-        'TriangleBoxBox',        
-        vectors.LorentzVectorList([
-                vectors.LorentzVector([0.,5.,0.,0.]),
-                vectors.LorentzVector([0.,0.,6.,0.]),
-                vectors.LorentzVector([-0.,-5.,-6.,0.]),
-        ]),
-        analytical_result =  4.52887419598747e-11j,
-    ),
-)
-
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Triangle', #P3 from Rodrigo
@@ -1229,7 +1463,7 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0.52559, 'm2': 0.52559, 'm3': 0.52559}
     ),
 )
-"""
+
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
         'Triangle', #P4 from Rodrigo
@@ -1238,11 +1472,11 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([94.54738,-53.84229,67.11107,45.56763]),
                 -vectors.LorentzVector([95.77004,31.32025,-34.08106,-9.38565]) - vectors.LorentzVector([94.54738,-53.84229,67.11107,45.56763]),
         ]),
-        analytical_result = 1.01665e-6 - 5.61370-7j,
-        parameter_values = {'m1': 83.02643, 'm2': 76.12873, 'm3': 55.00359}
+        analytical_result = 1.01665e-6 - 5.61370e-7j,
+        parameter_values = {'m1': 83.02643, 'm2': 76.12873, 'm3': 55.00359},
+        name = 'Triangle_P4'
     ),
 )
-"""
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topoloogy(
@@ -1993,6 +2227,59 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Tringigon_P2_no_ellipse'
 )
 
+
+# ================================================================================
+# 3-loop topologies
+# ================================================================================
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxBox',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([0.,5.,0.,0.]),
+                vectors.LorentzVector([0.,0.,6.,0.]),
+                vectors.LorentzVector([-0.,-5.,-6.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxBox_alt',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([0.,5.,0.,0.]),
+                vectors.LorentzVector([0.,0.,6.,0.]),
+                vectors.LorentzVector([-0.,-5.,-6.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'TriangleBoxBox_alt',
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxTriangle',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1.,3.,0.,0.]),
+                vectors.LorentzVector([-1.,-3.,0.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'TriangleBoxTriangle',
+    ),
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxTriangle_alt',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1.,3.,0.,0.]),
+                vectors.LorentzVector([-1.,-3.,0.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'TriangleBoxTriangle_alt',
+    ),
+)
 
 # ===========================================================================================
 # New topologies for testing
