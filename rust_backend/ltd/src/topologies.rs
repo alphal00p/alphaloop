@@ -112,10 +112,10 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
 }
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
-    pub fn new(topo: &Topology) -> LTDCache<float> {
-        let mut one_loop = LTDCacheI::<float, U4>::default();
-        let mut two_loop = LTDCacheI::<float, U7>::default();
-        let mut three_loop = LTDCacheI::<float, U10>::default();
+    pub fn new(topo: &Topology) -> LTDCache<T> {
+        let mut one_loop = LTDCacheI::<T, U4>::default();
+        let mut two_loop = LTDCacheI::<T, U7>::default();
+        let mut three_loop = LTDCacheI::<T, U10>::default();
         one_loop
             .ellipsoid_eval
             .resize(topo.surfaces.len(), DualN::default());
