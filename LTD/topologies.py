@@ -2318,7 +2318,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([39.7424,-14.1093,0.102709,20.4908]),
                 vectors.LorentzVector([50.2576,14.1093,-0.102709,-20.4908]),
                 vectors.LorentzVector([-90.,0.,0.,0.]),
-        ]),,
+        ]),
         analytical_result =  None, #given in topology type, should be -5.389e-17i
         name = 'TriangleBoxBox_ellipses',
     ),
@@ -2332,7 +2332,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([39.7424,-14.1093,0.102709,20.4908]),
                 vectors.LorentzVector([50.2576,14.1093,-0.102709,-20.4908]),
                 vectors.LorentzVector([-90.,0.,0.,0.]),
-        ]),,
+        ]),
         analytical_result =  None, #given in topology type, should be -5.389e-17i
         name = 'TriangleBoxBox_alt_ellipses',
     ),
