@@ -2426,6 +2426,21 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'TripleBox', # has 3 ellipsoids
 )
 
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TripleBox',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([19.6586, -7.15252, -0.206016, 8.96383]),
+                vectors.LorentzVector([26.874, 7.04203, -0.0501295, -12.9055]),
+                vectors.LorentzVector([43.4674, 0.110491, 0.256146, 3.9417]),
+                vectors.LorentzVector([-90, 0, 0, 0]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'TripleBox_Weinzierl',
+    ),
+    entry_name = 'TripleBox_Weinzierl',
+)
+
 # ================================================================================
 # 3-loop topologies Necessitatating a deformation
 # ================================================================================
