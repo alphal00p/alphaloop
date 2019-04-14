@@ -2281,6 +2281,65 @@ hard_coded_topology_collection.add_topology(
     ),
 )
 
+# ================================================================================
+# 3-loop topologies Necessitatating a deformation
+# ================================================================================
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxTriangle',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([90.,0.,0.,0.]),
+                vectors.LorentzVector([-90.,0.,0.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'TriangleBoxTriangle_ellipses',
+    ),
+    entry_name = 'TriangleBoxTriangle_ellipses'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxTriangle_alt',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([90.,0.,0.,0.]),
+                vectors.LorentzVector([-90.,0.,0.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'TriangleBoxTriangle_alt_ellipses',
+    ),
+    entry_name = 'TriangleBoxTriangle_alt_ellipses'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxBox',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([39.7424,-14.1093,0.102709,20.4908]),
+                vectors.LorentzVector([50.2576,14.1093,-0.102709,-20.4908]),
+                vectors.LorentzVector([-90.,0.,0.,0.]),
+        ]),,
+        analytical_result =  None, #given in topology type, should be -5.389e-17i
+        name = 'TriangleBoxBox_ellipses',
+    ),
+    entry_name = 'TriangleBoxBox_ellipses'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topoloogy(
+        'TriangleBoxBox_alt',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([39.7424,-14.1093,0.102709,20.4908]),
+                vectors.LorentzVector([50.2576,14.1093,-0.102709,-20.4908]),
+                vectors.LorentzVector([-90.,0.,0.,0.]),
+        ]),,
+        analytical_result =  None, #given in topology type, should be -5.389e-17i
+        name = 'TriangleBoxBox_alt_ellipses',
+    ),
+    entry_name = 'TriangleBoxBox_alt_ellipses'
+)
+
+
 # ===========================================================================================
 # New topologies for testing
 # ===========================================================================================
