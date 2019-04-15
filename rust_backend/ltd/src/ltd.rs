@@ -571,7 +571,15 @@ impl Topology {
     /// the real part of the cut propagator is positive
     fn determine_lambda<
         U: dual_num::Dim + dual_num::DimName,
-        T: From<float> + Scalar + FromPrimitive + Signed + Field + RealNumberLike + Float + FloatConst,
+        T: From<float>
+            + Scalar
+            + FromPrimitive
+            + Signed
+            + Field
+            + RealNumberLike
+            + Float
+            + FloatConst
+            + std::fmt::LowerExp,
     >(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
@@ -1285,6 +1293,13 @@ impl Topology {
                 kappas[ii] -= cache.deform_dirs[i * MAX_LOOP + ii] * s;
             }
         }
+
+        if self.settings.general.debug > 2 {
+            for ii in 0..self.n_loops {
+                println!("  | kappa{}={:e}\n", ii + 1, kappas[ii].real());
+            }
+        }
+
         kappas
     }
 
@@ -1357,6 +1372,12 @@ impl Topology {
             }
         }
 
+        if self.settings.general.debug > 2 {
+            for ii in 0..self.n_loops {
+                println!("  | kappa{} scaled={:e}\n", ii + 1, kappas[ii].real());
+            }
+        }
+
         let lambda = if self.settings.deformation.scaling.lambda > 0. {
             self.determine_lambda(
                 loop_momenta,
@@ -1367,6 +1388,10 @@ impl Topology {
         } else {
             NumCast::from(self.settings.deformation.scaling.lambda.abs()).unwrap()
         };
+
+        if self.settings.general.debug > 2 {
+            println!("  | lambda={:e}\n", lambda.real());
+        }
 
         for k in kappas[..self.n_loops].iter_mut() {
             *k *= lambda;

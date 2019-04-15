@@ -155,7 +155,18 @@ fn main() {
         .subcommand(
             SubCommand::with_name("inspect")
                 .about("Inspect a single input point")
-                .arg(Arg::with_name("point").required(true).min_values(3)),
+                .arg(Arg::with_name("point").required(true).min_values(3))
+                .arg(
+                    Arg::with_name("use_f128")
+                        .short("f128")
+                        .long("use_f128")
+                        .help("Use f128 evaluation"),
+                )
+                .arg(
+                    Arg::with_name("full_integrand")
+                        .long("full_integrand")
+                        .help("Evaluate the integrand and possibly its rotated vesion"),
+                ),
         )
         .get_matches();
 
@@ -211,33 +222,68 @@ fn main() {
         if pt.len() != 3 * topo.n_loops {
             panic!(
                 "Dimension of the input point is incorrect. It should be {} but is {}.",
-                topo.n_loops,
+                topo.n_loops * 3,
                 pt.len()
             );
         }
 
-        let mut cache = LTDCache::<float>::new(&topo);
-        let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate(&pt, &mut cache);
-        match topo.n_loops {
-            1 => {
-                println!(
-                    "result={:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
-                    result, x, k_def[0], jac_para, jac_def
-                );
-            }
-            2 => {
-                println!(
+        if matches.is_present("full_integrand") {
+            settings.general.screen_log_core = Some(1);
+            settings.general.log_points_to_screen = true;
+            let mut i = Integrand::new(&topo, settings.clone(), 1);
+            i.evaluate(&pt);
+            return;
+        }
+
+        // TODO: prevent code repetition
+        if matches.is_present("use_f128") {
+            let mut cache = LTDCache::<f128::f128>::new(&topo);
+            let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate(&pt, &mut cache);
+            match topo.n_loops {
+                1 => {
+                    println!(
+                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result, x, k_def[0], jac_para, jac_def
+                    );
+                }
+                2 => {
+                    println!(
                         "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         result, x, k_def[0], k_def[1], jac_para, jac_def
                         );
-            }
-            3 => {
-                println!(
+                }
+                3 => {
+                    println!(
                         "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         result,x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
                     );
+                }
+                _ => {}
             }
-            _ => {}
+        } else {
+            let mut cache = LTDCache::<float>::new(&topo);
+            let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate(&pt, &mut cache);
+            match topo.n_loops {
+                1 => {
+                    println!(
+                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result, x, k_def[0], jac_para, jac_def
+                    );
+                }
+                2 => {
+                    println!(
+                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result, x, k_def[0], k_def[1], jac_para, jac_def
+                        );
+                }
+                3 => {
+                    println!(
+                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result,x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
+                    );
+                }
+                _ => {}
+            }
         }
 
         return;

@@ -26,6 +26,7 @@ pub struct Integrand {
     pub unstable_f128_point_count: usize,
     pub regular_point_count: usize,
     pub log: BufWriter<File>,
+    pub id: usize,
 }
 
 impl Integrand {
@@ -116,7 +117,7 @@ impl Integrand {
 
         Integrand {
             topologies: vec![topology.clone(), rotated_topology],
-            cache_float: LTDCache::<f64>::new(&topology),
+            cache_float: LTDCache::<float>::new(&topology),
             cache_f128: LTDCache::<f128>::new(&topology),
             running_max: Complex::default(),
             total_samples: 0,
@@ -129,6 +130,7 @@ impl Integrand {
                     .expect("Could not create log file"),
             ),
             settings,
+            id,
         }
     }
 
@@ -159,9 +161,13 @@ impl Integrand {
     ) {
         if new_max || unstable || !result.is_finite() || self.settings.general.debug > 0 {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
+            let log_to_screen = self.settings.general.log_points_to_screen
+                && (self.settings.general.screen_log_core == None
+                    || self.settings.general.screen_log_core == Some(self.id));
+
             match n_loops {
                 1 => {
-                    if !unstable && self.settings.general.log_to_screen {
+                    if log_to_screen {
                         eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def
@@ -171,7 +177,7 @@ impl Integrand {
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def).unwrap();
                 }
                 2 => {
-                    if !unstable && self.settings.general.log_to_screen {
+                    if log_to_screen {
                         eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def
@@ -181,7 +187,7 @@ impl Integrand {
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def).unwrap();
                 }
                 3 => {
-                    if !unstable && self.settings.general.log_to_screen {
+                    if log_to_screen {
                         eprintln!(
                         "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
@@ -198,7 +204,10 @@ impl Integrand {
     }
 
     fn print_statistics(&mut self) {
-        if self.settings.general.log_to_screen {
+        if self.settings.general.log_stats_to_screen
+            && (self.settings.general.screen_log_core == None
+                || self.settings.general.screen_log_core == Some(self.id))
+        {
             eprintln!(
             "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
@@ -213,16 +222,6 @@ impl Integrand {
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_f128_point_count, self.unstable_f128_point_count as f64 / self.total_samples as f64 * 100.,
             self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.).unwrap();
-
-        if self.unstable_point_count as f64 / self.total_samples as f64 * 100.
-            > self.settings.general.unstable_point_warning_percentage
-        {
-            eprintln!(
-                "WARNING: {:.2}% of points are unstable, {:.2}% are not saved by f128",
-                self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
-                self.unstable_f128_point_count as f64 / self.total_samples as f64 * 100.
-            );
-        }
     }
 
     fn check_stability<
@@ -242,7 +241,7 @@ impl Integrand {
         x: &[f64],
         result: Complex<T>,
         cache: &mut LTDCache<T>,
-    ) -> (T, Complex<T>) {
+    ) -> (T, T, Complex<T>) {
         if self.settings.general.numerical_instability_check {
             let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
                 self.topologies[1].evaluate(x, cache);
@@ -264,10 +263,11 @@ impl Integrand {
                     -Float::abs((num - num_rot) / (num + num_rot)).log10()
                 }
             };
-            (d, result_rot)
+            (d, Float::abs(num - num_rot), result_rot)
         } else {
             (
                 T::from_f64(self.settings.general.relative_precision).unwrap(),
+                T::from_f64(self.settings.general.absolute_precision).unwrap(),
                 Complex::default(),
             )
         }
@@ -281,10 +281,24 @@ impl Integrand {
             self.print_statistics();
         }
 
+        // print warnings for unstable points and try to make sure the screen output does not
+        // get corrupted
+        if self.unstable_point_count as f64 / self.total_samples as f64 * 100.
+            > self.settings.general.unstable_point_warning_percentage
+            && self.total_samples % self.settings.general.statistics_interval == (self.id + 1) * 20
+        {
+            eprintln!(
+                "WARNING on core {}: {:.2}% of points are unstable, {:.2}% are not saved by f128",
+                self.id,
+                self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
+                self.unstable_f128_point_count as f64 / self.total_samples as f64 * 100.
+            );
+        }
+
         let mut cache_float = std::mem::replace(&mut self.cache_float, LTDCache::default());
         let (x, k_def, jac_para, jac_def, mut result) =
             self.topologies[0].evaluate(x, &mut cache_float);
-        let (d, result_rot) = self.check_stability(x, result, &mut cache_float);
+        let (d, diff, result_rot) = self.check_stability(x, result, &mut cache_float);
         std::mem::swap(&mut self.cache_float, &mut cache_float);
 
         self.total_samples += 1;
@@ -292,6 +306,7 @@ impl Integrand {
         if !result.is_finite()
             || !result_rot.is_finite()
             || d < NumCast::from(self.settings.general.relative_precision).unwrap()
+            || diff > NumCast::from(self.settings.general.absolute_precision).unwrap()
         {
             if self.settings.general.integration_statistics {
                 let loops = self.topologies[0].n_loops;
@@ -305,12 +320,14 @@ impl Integrand {
             let (_, k_def_f128, jac_para_f128, jac_def_f128, result_f128) =
                 self.topologies[0].evaluate(x, &mut cache_f128);
             // NOTE: for this check we use a f64 rotation matrix at the moment!
-            let (d_f128, result_rot_f128) = self.check_stability(x, result_f128, &mut cache_f128);
+            let (d_f128, diff_f128, result_rot_f128) =
+                self.check_stability(x, result_f128, &mut cache_f128);
             std::mem::swap(&mut self.cache_f128, &mut cache_f128);
 
             if !result_f128.is_finite()
                 || !result_rot_f128.is_finite()
                 || d_f128 < NumCast::from(self.settings.general.relative_precision).unwrap()
+                || diff_f128 > NumCast::from(self.settings.general.absolute_precision).unwrap()
             {
                 if self.settings.general.integration_statistics {
                     let loops = self.topologies[0].n_loops;
@@ -328,14 +345,21 @@ impl Integrand {
                     );
                 }
 
-                // if we have large numerical instability, we return 0
                 if !result_f128.is_finite() {
                     self.nan_point_count += 1;
+                    return Complex::default();
                 } else {
                     self.unstable_f128_point_count += 1;
-                }
 
-                return Complex::default();
+                    if self.settings.general.return_unstable_point {
+                        result = Complex::new(
+                            <float as NumCast>::from(result_f128.re).unwrap(),
+                            <float as NumCast>::from(result_f128.im).unwrap(),
+                        );
+                    } else {
+                        return Complex::default();
+                    }
+                }
             } else {
                 // we have saved the integration!
                 // TODO: also modify the other parameters for the print_info below?

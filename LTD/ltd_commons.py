@@ -12,17 +12,25 @@ hyperparameters = HyperParameters({
 
     'General'       :   {
         # can be multiplicative, additive, cutgroups, duals or none
-        'deformation_strategy'  :   'additive',
+        'deformation_strategy'  :   'cutgroups',
         'topology'              :   'Box',
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   5.,
+        # absolute precision, heavily dependent on integral value
+        'absolute_precision'    :   1e-5,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
-        # statistics will be printed to stderr by default
-        'log_to_screen'         :   False,
+        # return the unstable point if true, else return 0
+        'return_unstable_point':    False,
+        # which core to log to screen, None logs all cores
+        'screen_log_core'       :   1,
+        # log max and unstable points to screen
+        'log_points_to_screen'  :   False,
+        # log statistics to screen
+        'log_stats_to_screen'   :   True,
         'log_file_prefix'       :   'stats/statistics',
         'integration_statistics':   True,
         'statistics_interval'   :   100000,
@@ -44,7 +52,7 @@ hyperparameters = HyperParameters({
 
     'Deformation'   :   {
         # can be constant, linear or sigmoid
-        'overall_scaling' : 'constant',
+        'overall_scaling' : 'linear',
         # fraction of e_cm used for scaling
         'overall_scaling_constant': 1.,
 
@@ -54,7 +62,7 @@ hyperparameters = HyperParameters({
             'lambda'                    : 1.0,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
-            'expansion_check'           : True,
+            'expansion_check'           : False,
             'expansion_threshold'       : 0.1,
             'positive_cut_check'        : True ,
             'cut_propagator_check'      : True,
@@ -75,7 +83,7 @@ hyperparameters = HyperParameters({
             'M_ij'  :   0.00001,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
-            'mode'  :   'hyperbolic',
+            'mode'  :   'unity',
         }
     },
 
