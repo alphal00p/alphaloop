@@ -47,6 +47,7 @@ pub struct Scaling {
     pub positive_cut_check: bool,
     pub cut_propagator_check: bool,
     pub non_cut_propagator_check: bool,
+    pub skip_hyperboloids: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]

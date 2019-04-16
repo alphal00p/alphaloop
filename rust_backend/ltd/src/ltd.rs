@@ -735,6 +735,20 @@ impl Topology {
                         }
                     }
 
+                    let mut ellipse_flag = 0;
+                    for x in &onshell_signs {
+                        match x {
+                            1 => ellipse_flag |= 1,
+                            -1 => ellipse_flag |= 2,
+                            0 => {},
+                            _ => unreachable!(),
+                        }
+                    }
+
+                    if ellipse_flag == 3 && self.settings.deformation.scaling.skip_hyperboloids {
+                        continue;
+                    }
+
                     let k0sq_inv = DualN::from_real(T::one()) / kappa_onshell.square_impr();
 
                     // if the kappa is 0, there is no need for rescaling
@@ -808,12 +822,25 @@ impl Topology {
 
                             // construct the on-shell part of the propagator
                             for &sign in &[-T::one(), T::one()] {
+                                if self.settings.deformation.scaling.skip_hyperboloids &&
+                                    (ellipse_flag == 1 && !sign.is_one() || ellipse_flag == 2 && sign.is_one())  {
+                                        continue;
+                                }
+
+
                                 let a_tot = (a + a_surf * sign) * T::from_f64(-0.5).unwrap();
-                                let x = ((b + b_surf * sign) / a_tot).powi(2)
+                                let a_tot_inv = a_tot.inv();
+                                let b_tot = b + b_surf * sign;
+                                let c_tot = c + onshell_energy * sign + pq.t;
+                                let x = (b_tot * a_tot_inv).powi(2)
                                     * T::from_f64(0.25).unwrap();
-                                let y = -(c + onshell_energy * sign + pq.t) / a_tot;
+                                let y = -c_tot * a_tot_inv;
 
                                 let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+
+                                if a_tot.real().is_zero() {
+                                    continue;
+                                }
 
                                 if sigma.is_zero() {
                                     if prop_lambda_sq < lambda_sq {

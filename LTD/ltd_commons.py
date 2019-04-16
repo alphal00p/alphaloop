@@ -67,6 +67,7 @@ hyperparameters = HyperParameters({
             'positive_cut_check'        : True ,
             'cut_propagator_check'      : True,
             'non_cut_propagator_check'  : True,
+            'skip_hyperboloids'         : False,
         },
 
         'additive'              :   {
