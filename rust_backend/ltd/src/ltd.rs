@@ -223,10 +223,14 @@ impl Topology {
             // the cut momenta
             for (cut_option_index, cut_option) in cut_options.iter().enumerate() {
                 let mut cut_shift: Vec<LorentzVector<float>> = vec![]; // qs of cut
+                let mut cut_mass_sum = float::zero();
                 for (cut, ll) in cut_option.iter().zip(self.loop_lines.iter()) {
                     if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut
                     {
                         cut_shift.push(ll.propagators[*cut_prop_index].q.cast());
+                        cut_mass_sum += float::from_f64(ll.propagators[*cut_prop_index].m_squared)
+                            .unwrap()
+                            .sqrt();
                     }
                 }
 
@@ -250,9 +254,10 @@ impl Topology {
 
                         // now see if we have an ellipsoid
                         // 1. surface_shift != 0
-                        // 2. surface_shift^2 > 0
+                        // 2. surface_shift^2 - (sum_i m_i)^2 >= 0
                         // 3. all signs need to be the same (except 0)
                         // 4. surface_shift.t needs to have the opposite sign as in step 3.
+                        // TODO: check if the ansatz for the massive case holds at more than one loop
                         if surface_shift.t != float::zero() {
                             // multiply the residue sign
                             let mut surface_signs = sig_ll_in_cb.clone();
@@ -273,7 +278,9 @@ impl Topology {
                                 if (surface_sign_sum + delta_sign).abs()
                                     == surface_signs_abs_sum + delta_sign.abs()
                                 {
-                                    if surface_shift.square() > float::zero()
+                                    if surface_shift.square()
+                                        - (cut_mass_sum + onshell_prop.m_squared.sqrt()).powi(2)
+                                        >= float::zero()
                                         && float::from_i8(delta_sign).unwrap() * surface_shift.t
                                             < float::zero()
                                     {
@@ -740,7 +747,7 @@ impl Topology {
                         match x {
                             1 => ellipse_flag |= 1,
                             -1 => ellipse_flag |= 2,
-                            0 => {},
+                            0 => {}
                             _ => unreachable!(),
                         }
                     }
@@ -822,18 +829,18 @@ impl Topology {
 
                             // construct the on-shell part of the propagator
                             for &sign in &[-T::one(), T::one()] {
-                                if self.settings.deformation.scaling.skip_hyperboloids &&
-                                    (ellipse_flag == 1 && !sign.is_one() || ellipse_flag == 2 && sign.is_one())  {
-                                        continue;
+                                if self.settings.deformation.scaling.skip_hyperboloids
+                                    && (ellipse_flag == 1 && !sign.is_one()
+                                        || ellipse_flag == 2 && sign.is_one())
+                                {
+                                    continue;
                                 }
-
 
                                 let a_tot = (a + a_surf * sign) * T::from_f64(-0.5).unwrap();
                                 let a_tot_inv = a_tot.inv();
                                 let b_tot = b + b_surf * sign;
                                 let c_tot = c + onshell_energy * sign + pq.t;
-                                let x = (b_tot * a_tot_inv).powi(2)
-                                    * T::from_f64(0.25).unwrap();
+                                let x = (b_tot * a_tot_inv).powi(2) * T::from_f64(0.25).unwrap();
                                 let y = -c_tot * a_tot_inv;
 
                                 let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
