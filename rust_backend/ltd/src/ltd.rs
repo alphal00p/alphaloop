@@ -279,7 +279,10 @@ impl Topology {
                                     == surface_signs_abs_sum + delta_sign.abs()
                                 {
                                     if surface_shift.square()
-                                        - (cut_mass_sum + onshell_prop.m_squared.sqrt()).powi(2)
+                                        - (cut_mass_sum
+                                            + float::from_f64(onshell_prop.m_squared.sqrt())
+                                                .unwrap())
+                                        .powi(2)
                                         >= float::zero()
                                         && float::from_i8(delta_sign).unwrap() * surface_shift.t
                                             < float::zero()
@@ -1337,6 +1340,37 @@ impl Topology {
         kappas
     }
 
+    /// Construct a deformation vector by going through all the constant
+    fn deform_constant<
+        U: dual_num::Dim + dual_num::DimName,
+        T: From<float>
+            + Scalar
+            + 'static
+            + FromPrimitive
+            + Float
+            + Signed
+            + Field
+            + RealNumberLike
+            + FloatConst,
+    >(
+        &self,
+        loop_momenta: &[LorentzVector<DualN<T, U>>],
+        cache: &mut LTDCache<T>,
+    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+        dual_num::Owned<T, U>: Copy,
+        LTDCache<T>: CacheSelector<T, U>,
+    {
+        let mut kappas = [LorentzVector::default(); MAX_LOOP];
+
+        for i in 0..self.n_loops {
+            kappas[i] = loop_momenta[i] / loop_momenta[i].spatial_squared_impr().sqrt();
+        }
+
+        kappas
+    }
+
     fn deform_generic<
         U: dual_num::Dim + dual_num::DimName,
         T: From<float>
@@ -1381,7 +1415,11 @@ impl Topology {
                 let cut = &self.ltd_cut_options[co.0][co.1];
                 self.get_deformation_for_cut(loop_momenta, cut, co.0, cache)
             }
-            _ => self.deform_ellipsoids(loop_momenta, cache),
+            DeformationStrategy::Additive | DeformationStrategy::Multiplicative => {
+                self.deform_ellipsoids(loop_momenta, cache)
+            }
+            DeformationStrategy::Constant => self.deform_constant(loop_momenta, cache),
+            DeformationStrategy::None => unreachable!(),
         };
 
         // make sure the kappa has the right dimension by multiplying in the scale

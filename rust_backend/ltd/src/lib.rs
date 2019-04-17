@@ -60,6 +60,8 @@ pub enum DeformationStrategy {
     CutGroups,
     #[serde(rename = "duals")]
     Duals,
+    #[serde(rename = "constant")]
+    Constant,
     #[serde(rename = "none")]
     None,
 }
@@ -87,6 +89,7 @@ impl From<&str> for DeformationStrategy {
             "multiplicative" => DeformationStrategy::Multiplicative,
             "cutgroups" => DeformationStrategy::CutGroups,
             "duals" => DeformationStrategy::Duals,
+            "constant" => DeformationStrategy::Constant,
             "none" => DeformationStrategy::None,
             _ => panic!("Unknown deformation strategy {}", s),
         }
@@ -100,6 +103,7 @@ impl fmt::Display for DeformationStrategy {
             DeformationStrategy::Multiplicative => write!(f, "multiplicative"),
             DeformationStrategy::CutGroups => write!(f, "cutgroups"),
             DeformationStrategy::Duals => write!(f, "duals"),
+            DeformationStrategy::Constant => write!(f, "constant"),
             DeformationStrategy::None => write!(f, "none"),
         }
     }
