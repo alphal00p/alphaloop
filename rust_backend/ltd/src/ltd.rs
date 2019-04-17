@@ -6,7 +6,10 @@ use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, Num, NumCast, One, Signed, Zero};
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector, RealNumberLike};
-use {AdditiveMode, DeformationStrategy, OverallDeformationScaling, ParameterizationMode};
+use {
+    AdditiveMode, DeformationStrategy, OverallDeformationScaling, ParameterizationMapping,
+    ParameterizationMode,
+};
 
 use utils;
 
@@ -460,27 +463,42 @@ impl Topology {
         let mut jac = T::one();
 
         match self.settings.parameterization.mode {
-            ParameterizationMode::Log => {
-                for i in 0..3 {
-                    let x = T::from_f64(x[i]).unwrap();
-                    l_space[i] = e_cm * (x / (T::one() - x)).ln();
-                    jac *= e_cm / (x - x * x);
+            ParameterizationMode::Cartesian => match self.settings.parameterization.mapping {
+                ParameterizationMapping::Log => {
+                    for i in 0..3 {
+                        let x = T::from_f64(x[i]).unwrap();
+                        l_space[i] = e_cm * (x / (T::one() - x)).ln();
+                        jac *= e_cm / (x - x * x);
+                    }
                 }
-            }
-            ParameterizationMode::Linear => {
-                for i in 0..3 {
-                    let x = T::from_f64(x[i]).unwrap();
-                    l_space[i] = e_cm * (T::one() / (T::one() - x) - T::one() / x);
-                    jac *=
-                        e_cm * (T::one() / (x * x) + T::one() / ((T::one() - x) * (T::one() - x)));
+                ParameterizationMapping::Linear => {
+                    for i in 0..3 {
+                        let x = T::from_f64(x[i]).unwrap();
+                        l_space[i] = e_cm * (T::one() / (T::one() - x) - T::one() / x);
+                        jac *= e_cm
+                            * (T::one() / (x * x) + T::one() / ((T::one() - x) * (T::one() - x)));
+                    }
                 }
-            }
+            },
             ParameterizationMode::Spherical => {
                 let e_cm = T::from_f64(self.e_cm_squared).unwrap().sqrt()
                     * T::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
-                let radius =
-                    e_cm * T::from_f64(x[0]).unwrap() / (T::one() - T::from_f64(x[0]).unwrap()); // in [0,inf)
-                jac *= <T as num_traits::Float>::powi(e_cm + radius, 2) / e_cm;
+                let radius = match self.settings.parameterization.mapping {
+                    ParameterizationMapping::Log => {
+                        // ln(1/(1-x))
+                        let radius =
+                            e_cm * (T::one() / (T::one() - T::from_f64(x[0]).unwrap())).ln();
+                        jac *= e_cm / (T::one() - T::from_f64(x[0]).unwrap());
+                        radius
+                    }
+                    ParameterizationMapping::Linear => {
+                        // x/(1-x)
+                        let radius = e_cm * T::from_f64(x[0]).unwrap()
+                            / (T::one() - T::from_f64(x[0]).unwrap());
+                        jac *= <T as num_traits::Float>::powi(e_cm + radius, 2) / e_cm;
+                        radius
+                    }
+                };
                 let phi =
                     T::from_f64(2.).unwrap() * <T as FloatConst>::PI() * T::from_f64(x[1]).unwrap();
                 jac *= T::from_f64(2.).unwrap() * <T as FloatConst>::PI();
@@ -553,7 +571,18 @@ impl Topology {
             return ([T::zero(), x2, T::zero()], T::zero());
         }
 
-        let x1 = k_r / (e_cm + k_r);
+        let x1 = match self.settings.parameterization.mapping {
+            ParameterizationMapping::Log => {
+                let x1 = T::one() - (-k_r / e_cm).exp();
+                jac /= e_cm / (T::one() - x1);
+                x1
+            }
+            ParameterizationMapping::Linear => {
+                jac /= <T as num_traits::Float>::powi(e_cm + k_r, 2) / e_cm;
+                k_r / (e_cm + k_r)
+            }
+        };
+
         let x3 = T::from_f64(0.5).unwrap() * (T::one() + z / k_r);
 
         jac /= T::from_f64(2.).unwrap() * <T as FloatConst>::PI();

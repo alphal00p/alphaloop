@@ -175,12 +175,24 @@ pub struct DeformationSettings {
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum ParameterizationMode {
+    #[serde(rename = "cartesian")]
+    Cartesian,
+    #[serde(rename = "spherical")]
+    Spherical,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub enum ParameterizationMapping {
     #[serde(rename = "log")]
     Log,
     #[serde(rename = "linear")]
     Linear,
-    #[serde(rename = "spherical")]
-    Spherical,
+}
+
+impl Default for ParameterizationMapping {
+    fn default() -> ParameterizationMapping {
+        ParameterizationMapping::Log
+    }
 }
 
 impl Default for ParameterizationMode {
@@ -192,6 +204,7 @@ impl Default for ParameterizationMode {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ParameterizationSettings {
     pub mode: ParameterizationMode,
+    pub mapping: ParameterizationMapping,
     pub shifts: Vec<(f64, f64, f64, f64)>,
 }
 
