@@ -788,7 +788,7 @@ impl Topology {
                         continue;
                     }
 
-                    let k0sq_inv = DualN::from_real(T::one()) / kappa_onshell.square_impr();
+                    let k0sq_inv = DualN::from_real(T::one()) / kappa_onshell.spatial_squared_impr();
 
                     // if the kappa is 0, there is no need for rescaling
                     if !k0sq_inv.is_finite() {
@@ -1323,7 +1323,7 @@ impl Topology {
 
                     if self.settings.general.debug > 2 {
                         println!(
-                            "  | surf {}: t={:e}, suppresion={:e}",
+                            "  | surf {}: t={:e}, suppression={:e}",
                             surf_index,
                             t.real(),
                             sup.real()
@@ -1384,7 +1384,7 @@ impl Topology {
     >(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
-        cache: &mut LTDCache<T>,
+        _cache: &mut LTDCache<T>,
     ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
     where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
