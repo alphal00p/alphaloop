@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# --loop=100
+./run_tests.py \
+	--t=Box_2_ellipse_intersection\
+	--name=pole_check \
+	--nh=10000 \
+	--s=[] \
+	--d=[ \
+	  [1.,1.,0.], \
+	] \
+	--u=0.0 \
+	--v=0.0 \
+	--t_values_steps="linear" \
+	--tr=[0.0,1.0] \
+	--t_n_points=100 \
+	--seed=1 \
+	--analysis_options={\"log_x_scale\": False, \"log_y_scale\": False} \
+    --save="test.yaml" \
+	$1

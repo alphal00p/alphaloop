@@ -62,7 +62,7 @@ def analytic_two_point_ladder(s,l):
 # Definition of hard-coded topol
 #############################################################################################################
 
-def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
+def create_hard_coded_topology(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
@@ -1374,7 +1374,7 @@ hard_coded_topology_collection = TopologyCollection()
 
 # Add the double-triangle to the hard-coded topology collection:
 hard_coded_topology_collection.add_topology(   
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'DoubleTriangle',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1.,0.1,0.2,0.1]),
@@ -1385,7 +1385,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(   
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'AltDoubleTriangle',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1.,0.1,0.2,0.1]),
@@ -1396,7 +1396,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(   
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'DoubleTriangle',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1.,1.3,0.5,2.1]),
@@ -1409,7 +1409,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(   
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'DoubleTriangle_ala_weinzierl',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1.,1.3,0.5,2.1]),
@@ -1422,7 +1422,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBox',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([39.7424,-14.1093,0.102709,20.4908]),
@@ -1436,7 +1436,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'DoubleBox',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([19.6586,-7.15252,-0.206016,8.96383]),
@@ -1451,7 +1451,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'DoubleBox',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1.2,2.2,1.,0.4]),
@@ -1467,7 +1467,7 @@ hard_coded_topology_collection.add_topology(
 
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         '6pt_Weinzierl_a',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
@@ -1483,7 +1483,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         '6pt_Weinzierl_b',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
@@ -1499,7 +1499,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         '6pt_Weinzierl_c',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
@@ -1515,7 +1515,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         '6pt_Weinzierl_d',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
@@ -1531,7 +1531,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         '6pt_Weinzierl_e',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
@@ -1547,7 +1547,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         '6pt_Weinzierl_f',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([12.0588, -1.00017, -2.55373, 2.65288]),
@@ -1563,7 +1563,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Triangle', #P3 from Rodrigo
         vectors.LorentzVectorList([
                 vectors.LorentzVector([10.51284,6.89159,-7.40660,-2.85795]),
@@ -1576,7 +1576,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Triangle', #P4 from Rodrigo
         vectors.LorentzVectorList([
                 vectors.LorentzVector([95.77004,31.32025,-34.08106,-9.38565]),
@@ -1591,7 +1591,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box', #P7 from Rodrigo
         vectors.LorentzVectorList([
                 vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]),
@@ -1606,7 +1606,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Pentagon', #P15 from Rodrigo
         vectors.LorentzVectorList([
                 vectors.LorentzVector([94.79774, -70.04005, -84.77221, 36.09812]),
@@ -1625,7 +1625,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]),
@@ -1642,7 +1642,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             # flag 0b1111
@@ -1659,7 +1659,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             # flag 0b1110
@@ -1676,7 +1676,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             # flag 0b0010 
@@ -1693,7 +1693,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             # falg 0b1000
@@ -1710,7 +1710,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             # flag 0b0000
@@ -1731,7 +1731,7 @@ hard_coded_topology_collection.add_topology(
 # ================================================================================
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.9998000000000000e+04,     0.0000000000000000e+00,      0.0000000000000000e+00,     0.9997499887471868e+04]),
@@ -1755,7 +1755,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.9997499887471868e+04,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.9998000000000000e+04]),
@@ -1779,7 +1779,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.9998000000000000e+04,     0.0000000000000000e+00,      0.0000000000000000e+00,     0.9997499887471868e+04]),
@@ -1803,7 +1803,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.9997499887471868e+04,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.9998000000000000e+04]),
@@ -1827,7 +1827,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.9997499887471868e+04,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.9998000000000000e+04]),
@@ -1855,7 +1855,7 @@ hard_coded_topology_collection.add_topology(
 # ===========================================================================================
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4999749993749687e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.1750000000000000e+01]),
@@ -1879,7 +1879,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4999749993749686e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.3499999999999999e+01]),
@@ -1904,7 +1904,7 @@ hard_coded_topology_collection.add_topology(
 
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.5000000000000000e+01,     0.0000000000000000e+00,      0.0000000000000000e+00,     0.4974937185533100e+01]),
@@ -1928,7 +1928,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4999749993749687e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2500000000000000e+01]),
@@ -1952,7 +1952,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon_ala_weinzierl', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4999749993749687e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2500000000000000e+01]),
@@ -1976,7 +1976,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Decagon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4999999999999998e+01,     0.0000000000000000e+00,      0.0000000000000000e+00,     0.4999749993749686e+01]),
@@ -2004,7 +2004,7 @@ hard_coded_topology_collection.add_topology(
 # ===================================================================================
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Tringigon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4497499305169485e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2250000000000000e+01]),
@@ -2052,7 +2052,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Tringigon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.3000000000000000e+01,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2998332870112990e+01]),
@@ -2100,7 +2100,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Tringigon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.7495832175282474e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.3750000000000000e+01]),
@@ -2148,7 +2148,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Tringigon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.3000000000000000e+01,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2998332870112990e+01]),
@@ -2196,7 +2196,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Tringigon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4497499305169484e-01,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2164500000000000e+01]),
@@ -2244,7 +2244,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Tringigon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4497499305169484e-01,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2250000000000000e+01]),
@@ -2292,7 +2292,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Tringigon', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.2998332870112990e-01,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.3000000000000000e+01]),
@@ -2345,7 +2345,7 @@ hard_coded_topology_collection.add_topology(
 # ================================================================================
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBoxBox',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.,5.,0.,0.]),
@@ -2357,7 +2357,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBoxBox_alt',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.,5.,0.,0.]),
@@ -2371,7 +2371,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBoxTriangle',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1.,3.,0.,0.]),
@@ -2384,7 +2384,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBoxTriangle_alt',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1.,3.,0.,0.]),
@@ -2397,7 +2397,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TripleBox',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.,5.,0.,0.]),
@@ -2412,7 +2412,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TripleBox',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1.,5.,0.,0.]),
@@ -2427,7 +2427,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TripleBox',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([19.6586, -7.15252, -0.206016, 8.96383]),
@@ -2446,7 +2446,7 @@ hard_coded_topology_collection.add_topology(
 # ================================================================================
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBoxTriangle',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([90.,0.,0.,0.]),
@@ -2459,7 +2459,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBoxTriangle_alt',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([90.,0.,0.,0.]),
@@ -2472,7 +2472,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBoxBox',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([39.7424,-14.1093,0.102709,20.4908]),
@@ -2486,7 +2486,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'TriangleBoxBox_alt',        
         vectors.LorentzVectorList([
                 vectors.LorentzVector([39.7424,-14.1093,0.102709,20.4908]),
@@ -2505,7 +2505,7 @@ hard_coded_topology_collection.add_topology(
 # ===========================================================================================
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
           'Triangle',
           vectors.LorentzVectorList([
               vectors.LorentzVector([0.1,0.2,0.5,0.1,]),
@@ -2520,7 +2520,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Triangle',
         vectors.LorentzVectorList([
             vectors.LorentzVector([1.0,0.2,0.5,0.1,]),
@@ -2535,7 +2535,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Triangle',
         vectors.LorentzVectorList([
             vectors.LorentzVector([1.021,0.2318,0.5012,0.1201,]),
@@ -2552,7 +2552,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             vectors.LorentzVector([1.0,0.2,0.5,0.1,]),
@@ -2568,7 +2568,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             vectors.LorentzVector([1.082,0.2891,0.5276,0.119,]),
@@ -2588,7 +2588,7 @@ hard_coded_topology_collection.add_topology(
 
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             vectors.LorentzVector([-2,0.1,0.3,0.4,]),
@@ -2604,7 +2604,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             vectors.LorentzVector([1.0,0.4,0.05,0.5,]),
@@ -2621,7 +2621,7 @@ hard_coded_topology_collection.add_topology(
 
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
             vectors.LorentzVector([1.0,0.4,0,0,]),
@@ -2637,7 +2637,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
           'Box',
           vectors.LorentzVectorList([
               vectors.LorentzVector([0.1,0.2,0.5,0.1,]),
@@ -2654,7 +2654,7 @@ hard_coded_topology_collection.add_topology(
 
 # A total of 5 groups of identical surfaces were found (5 elliptic, 0 hyperbolic) for a total of 5 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
           'Box',
           vectors.LorentzVectorList([
               vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
@@ -2671,7 +2671,7 @@ hard_coded_topology_collection.add_topology(
 
 # A total of 5 groups of identical surfaces were found (5 elliptic, 0 hyperbolic) for a total of 5 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
           'Box',
           vectors.LorentzVectorList([
               vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
@@ -2689,7 +2689,7 @@ hard_coded_topology_collection.add_topology(
 # Larger external mass
 # A total of 5 groups of identical surfaces were found (5 elliptic, 0 hyperbolic) for a total of 5 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
           'Box',
           vectors.LorentzVectorList([
               vectors.LorentzVector([0.400000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.387298334620742e+01]),
@@ -2707,7 +2707,7 @@ hard_coded_topology_collection.add_topology(
 # close to a collinear singularity
 #A total of 6 groups of identical surfaces were found (5 elliptic, 1 hyperbolic) for a total of 7 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
           'Box',
           vectors.LorentzVectorList([
               vectors.LorentzVector([0.301000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.283903152500989e+01]),
@@ -2725,7 +2725,7 @@ hard_coded_topology_collection.add_topology(
 # very close to a collinear singularity
 # A total of 6 groups of identical surfaces were found (5 elliptic, 1 hyperbolic) for a total of 7 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
           'Box',
           vectors.LorentzVectorList([
               vectors.LorentzVector([0.300100000000000e+01,   0.000000000000000e+00,    0.000000000000000e+00,    0.282948776282917e+01]),
@@ -2741,7 +2741,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Pentagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.201,0.3576,0.5204,0.6109]),
@@ -2762,7 +2762,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Pentagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([-1.5,0.1,0,0.1]),
@@ -2784,7 +2784,7 @@ hard_coded_topology_collection.add_topology(
 
 # A total of 10 groups of identical surfaces were found (10 elliptic, 0 hyperbolic) for a total of 10 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Pentagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.500000000000000e+00,    0.000000000000000e+00,    0.000000000000000e+00,    0.489897948556636e+00]),
@@ -2802,7 +2802,7 @@ hard_coded_topology_collection.add_topology(
 
 # A total of 10 groups of identical surfaces were found (8 elliptic, 2 hyperbolic) for a total of 12 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Pentagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.500000000000000e+00,    0.000000000000000e+00,    0.000000000000000e+00,    0.489897948556636e+00]),
@@ -2819,7 +2819,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Hexagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.2,0.3,0.5,0.6]),
@@ -2842,7 +2842,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Hexagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([2.,0.3,0.5,0.6]),
@@ -2866,7 +2866,7 @@ hard_coded_topology_collection.add_topology(
 
 # A total of 15 groups of identical surfaces were found (12 elliptic, 3 hyperbolic) for a total of 18 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Hexagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
@@ -2885,7 +2885,7 @@ hard_coded_topology_collection.add_topology(
 
 #A total of 15 groups of identical surfaces were found (12 elliptic, 3 hyperbolic) for a total of 18 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Hexagon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
@@ -2904,7 +2904,7 @@ hard_coded_topology_collection.add_topology(
 
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Octogon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.1521,0.095,0.237,0]),
@@ -2930,7 +2930,7 @@ hard_coded_topology_collection.add_topology(
 )
 
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Octogon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([1,0.1,0.2,0]),
@@ -2958,7 +2958,7 @@ hard_coded_topology_collection.add_topology(
 
 # A total of 28 groups of identical surfaces were found (23 elliptic, 5 hyperbolic) for a total of 33 surfaces
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Octogon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
@@ -2979,7 +2979,7 @@ hard_coded_topology_collection.add_topology(
 
 # A total of 28 groups of identical surfaces were found (23 elliptic, 5 hyperbolic) for a total of 33 surfaces.
 hard_coded_topology_collection.add_topology(
-    create_hard_coded_topoloogy(
+    create_hard_coded_topology(
         'Octogon',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),

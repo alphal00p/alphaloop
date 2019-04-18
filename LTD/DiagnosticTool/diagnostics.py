@@ -6,6 +6,7 @@ import random
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath( __file__ )),os.path.pardir))
+from ltd_utils import LoopTopology, LoopLine, Propagator, TopologyCollection
 import ltd_commons
 import itertools
 import matplotlib.pyplot as plt
@@ -139,7 +140,7 @@ class Momentum_info(object):
             ext_mom = numpy.array(self.prop[i].q) + sum(
                 -lin_comb[j] * numpy.array(self.prop[self.cut[j]].q) for j in range(0, self.n_loops))
             #the target objects are added to a list and then outputted
-            finalprop=ltd_commons.Propagator(signature=lin_comb,q=ext_mom,m_squared=self.prop[i].m_squared)
+            finalprop=Propagator(signature=lin_comb,q=ext_mom,m_squared=self.prop[i].m_squared)
             self.combs.append(finalprop)
         return self.combs
 

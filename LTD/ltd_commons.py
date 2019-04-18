@@ -4,6 +4,8 @@ import os
 from ltd_utils import HyperParameters 
 from topologies import hard_coded_topology_collection
 
+hard_coded_topology_collection = hard_coded_topology_collection
+
 #############################################################################################################
 # Define and store hyperparameters
 #############################################################################################################

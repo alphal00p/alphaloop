@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import sys
 
@@ -27,6 +27,8 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath( __file__ )),os.path.pardir))
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath( __file__ )),os.path.pardir,os.path.pardir))
 
+from ltd_utils import LoopTopology, LoopLine, Propagator, TopologyCollection
+from topologies import create_hard_coded_topology
 import ltd_commons 
 hyperparameters = ltd_commons.hyperparameters
 topology_collection = ltd_commons.hard_coded_topology_collection
@@ -968,7 +970,7 @@ if __name__ == '__main__':
     rotated_instances = []    
     if PS_point is not None:
         try:
-            topology_collection[topology] = ltd_commons.create_hard_coded_topoloogy(topology, PS_point, name=topology) 
+            topology_collection[topology] = create_hard_coded_topology(topology, PS_point, name=topology) 
 
             # Now also create rotated copy of the topology at hand for numerical stability diagnostics
             for rotation_matrix_specifications in rotations_for_stability_check:
@@ -979,7 +981,7 @@ if __name__ == '__main__':
                     rotation_matrix_3d = rotation_matrix_3d.dot(vectors.Vector.rotation_matrix(*rotation_matrix_specification))                    
                 rotated_topology_name = '%s_rotated_%s'%(topology,str(rotation_matrix_specifications))
                 topology_collection[rotated_topology_name] = \
-                            ltd_commons.create_hard_coded_topoloogy(topology, PS_point.transform(rotation_matrix_4d), name=rotated_topology_name)
+                            create_hard_coded_topology(topology, PS_point.transform(rotation_matrix_4d), name=rotated_topology_name)
                 rotated_instances.append({
                     'rotation_matrix_angles':   rotation_matrix_specifications,
                     'rotation_matrix':          rotation_matrix_3d,
