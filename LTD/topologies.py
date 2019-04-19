@@ -62,7 +62,7 @@ def analytic_two_point_ladder(s,l):
 # Definition of hard-coded topol
 #############################################################################################################
 
-def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
+def create_hard_coded_topology(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
@@ -3022,163 +3022,11 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([-0.2,0.3,0.2,-0.5])
                 )
         ]),
-        analytical_result = 1.44808301928176092e-2-9.25222856104738513e-3j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
-        name = 'Hexagon_1_ellipsoid',
-    ),
-    entry_name = 'Hexagon_1_ellipsoid'
-)
-
-# A total of 15 groups of identical surfaces were found (12 elliptic, 3 hyperbolic) for a total of 18 surfaces.
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Hexagon',
-        vectors.LorentzVectorList([
-                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
-                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.994987437106620e+00]),
-                vectors.LorentzVector([-0.198995077678765e+00,   0.429387655576480e-01,   -0.778709111237172e-01,    0.147280088788421e+00]),
-                vectors.LorentzVector([-0.645691969951894e+00,   0.201766283309269e+00,    0.586618000064595e+00,   -0.148619678980061e+00]),
-                vectors.LorentzVector([-0.312446945402234e+00,   0.205712927739407e+00,    0.189837113602804e+00,   -0.962660654177994e-01]),
-                vectors.LorentzVector([-0.842866006967107e+00,   -0.450417976606324e+00,  -0.698584202543682e+00,    0.976056556094392e-01]),
-        ]),
-        analytical_result = -0.30872711611542109+3.8733947302606166j,
+        analytical_result = -6.63743582146347332e-3j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
         name = 'Hexagon_P1',
     ),
     entry_name = 'Hexagon_P1'
 )
 
-#A total of 15 groups of identical surfaces were found (12 elliptic, 3 hyperbolic) for a total of 18 surfaces.
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Hexagon',
-        vectors.LorentzVectorList([
-                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
-                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.994987437106620e+00]),
-                vectors.LorentzVector([-0.250525412132299e+00,    0.118424964316116e+00,   -0.138957350582615e+00,   -0.139389255934041e+00]),
-                vectors.LorentzVector([-0.691905106201093e+00,    0.620122780930484e-01,   -0.163748832821654e+00,   -0.661871190717954e+00]),
-                vectors.LorentzVector([-0.688774393498734e+00,   -0.358964901557421e+00,    0.100520302577498e+00,    0.570482281371778e+00]),
-                vectors.LorentzVector([-0.368795088167883e+00,    0.178527659148257e+00,    0.202185880826771e+00,    0.230778165280217e+00]),
-        ]),
-        analytical_result = -5.04961974662861482e-2+0.41631362208434963j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
-        name = 'Hexagon_P2',
-    ),
-    entry_name = 'Hexagon_P2'
-)
-
-
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Octogon',
-        vectors.LorentzVectorList([
-                vectors.LorentzVector([0.1521,0.095,0.237,0]),
-                vectors.LorentzVector([-0.201,0.798,0.122,0.11]),
-                vectors.LorentzVector([-0.234,0.141,-0.456,0.221]),
-                vectors.LorentzVector([0.105,-0.0587,0.542,0.121]),
-                vectors.LorentzVector([-0.15,0.209,0.102,0.321]),
-                vectors.LorentzVector([0.3182,0.837,0.273,-0.489]),
-                vectors.LorentzVector([0.1122,-0.301,-0.1203,-0.1011]),
-                (-vectors.LorentzVector([0.1521,0.095,0.237,0])
-                -vectors.LorentzVector([-0.201,0.798,0.122,0.11])
-                -vectors.LorentzVector([-0.234,0.141,-0.456,0.221])
-                -vectors.LorentzVector([0.105,-0.0587,0.542,0.121])
-                -vectors.LorentzVector([-0.15,0.209,0.102,0.321])
-                -vectors.LorentzVector([0.3182,0.837,0.273,-0.489])
-                -vectors.LorentzVector([0.1122,-0.301,-0.1203,-0.1011])                )
-        ]),
-        analytical_result = 0.20681419918162766j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
-        name = 'Octogon_no_ellipse',
-    ),
-    entry_name = 'Octogon_eulcidean'
-)
-
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Octogon',
-        vectors.LorentzVectorList([
-                vectors.LorentzVector([1,0.1,0.2,0]),
-                vectors.LorentzVector([-0.2,0.7,0.1,0.11]),
-                vectors.LorentzVector([-0.2,0.1,-0.4,0.2]),
-                vectors.LorentzVector([0.1,-0.05,0.5,0.1]),
-                vectors.LorentzVector([-0.15,0.2,0.1,0.3]),
-                vectors.LorentzVector([0.3,0.8,0.2,-0.5]),
-                vectors.LorentzVector([0.1,-0.3,-0.1,-0.1]),
-                (-vectors.LorentzVector([1,0.1,0.2,0])
-                -vectors.LorentzVector([-0.2,0.7,0.1,0.11])
-                -vectors.LorentzVector([-0.2,0.1,-0.4,0.2])
-                -vectors.LorentzVector([0.1,-0.05,0.5,0.1])
-                -vectors.LorentzVector([-0.15,0.2,0.1,0.3])
-                -vectors.LorentzVector([0.3,0.8,0.2,-0.5])
-                -vectors.LorentzVector([0.1,-0.3,-0.1,-0.1])
-                )
-        ]),
-        analytical_result = -0.16085026028197225+1.6607244555010336j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
-        name = 'Octogon_1_ellipsoid',
-    ),
-    entry_name = 'Octogon_1_ellipsoid'
-)
-
-# A total of 28 groups of identical surfaces were found (23 elliptic, 5 hyperbolic) for a total of 33 surfaces
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Octogon',
-        vectors.LorentzVectorList([
-                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
-                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.994987437106620e+00]),
-                vectors.LorentzVector([-0.188411688982341e+00,   0.153500740353983e-01,   -0.675165815106498e-01,    0.143891803079265e+00]),
-                vectors.LorentzVector([-0.353174593116242e+00,   0.108022663777823e+00,    0.320863875460603e+00,    0.104771540777640e-01]),
-                vectors.LorentzVector([-0.184187242161756e+00,   0.123050933303354e+00,    0.931527082652152e-01,   -0.102947040356977e-01]),
-                vectors.LorentzVector([-0.719178829109966e+00,  -0.355069586794435e+00,   -0.545234457654634e+00,    0.289591372384727e+00]),
-                vectors.LorentzVector([-0.142306727612706e+00,   0.581243057962346e-01,    0.148012499031345e-01,   -0.815701710237741e-01]),
-                vectors.LorentzVector([-0.412740919016988e+00,   0.505216098816240e-01,    0.183933205536331e+00,   -0.352095454482285e+00]),
-        ]),
-        analytical_result = 23.721379031545343-6.6968031097498351j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
-        name = 'Octogon_P1',
-    ),
-    entry_name = 'Octogon_P1'
-)
-
-# A total of 28 groups of identical surfaces were found (23 elliptic, 5 hyperbolic) for a total of 33 surfaces.
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Octogon',
-        vectors.LorentzVectorList([
-                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,    0.994987437106620e+00]),
-                vectors.LorentzVector([0.100000000000000e+01,    0.000000000000000e+00,    0.000000000000000e+00,   -0.994987437106620e+00]),
-                vectors.LorentzVector([-0.286868639278560e+00,   -0.118307443486127e+00,    0.222245811931933e+00,    0.943597588807070e-01]),
-                vectors.LorentzVector([-0.313883635211798e+00,    0.188586842200571e+00,    0.221425383618681e+00,   -0.626796529338628e-01]),
-                vectors.LorentzVector([-0.295628310545388e+00,   -0.188881089441909e+00,    0.869802438532806e-01,    0.184809277977004e+00]),
-                vectors.LorentzVector([-0.163583732488234e+00,    0.616508152852128e-01,   -0.263733511019195e-01,    0.110739608366229e+00]),
-                vectors.LorentzVector([-0.680468912880392e+00,    0.177420328148417e+00,   -0.628787394681645e+00,   -0.161822065386030e+00]),
-                vectors.LorentzVector([-0.259566769595628e+00,   -0.120469452706165e+00,    0.124509306379669e+00,   -0.165406926904047e+00]),           
-        ]),
-        analytical_result = 0.73918672190523227-27.323268154802545j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
-        name = 'Octogon_P2',
-    ),
-    entry_name = 'Octogon_P2'
-)
-
-# Example printout
-# ----------------
-#hard_coded_topology_collection['DoubleTriangle'].print_topology()
-#hard_coded_topology_collection['TriangleBox'].print_topology()
-#hard_coded_topology_collection['DoubleBox'].print_topology()
-#hard_coded_topology_collection['TriangleBoxBox'].print_topology()
-
-# Example of yaml export and import
-# ---------------------------------
-#hard_coded_topology_collection['DoubleTriangle'].export_to('ExampleDoubleTriangleExport.yaml')
-#test = LoopTopology.import_from('ExampleDoubleTriangleExport.yaml')
-#test.print_topology()
-
-# Example of a yaml export and import of a complete TopologyCollection
-# --------------------------------------------------------------------
-#hard_coded_topology_collection.export_to('ExampleTopologyCollectionExport.yaml')
-#test = TopologyCollection.import_from('ExampleTopologyCollectionExport.yaml')
-#test['DoubleTriange'].print_topology()
-
+                
