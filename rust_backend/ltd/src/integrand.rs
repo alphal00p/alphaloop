@@ -8,10 +8,7 @@ use std::io::{BufWriter, Write};
 use topologies::{LTDCache, Topology};
 use vector::{Field, LorentzVector, RealNumberLike};
 
-const MAX_LOOP: usize = 3;
-
-use IntegratedPhase;
-use Settings;
+use {IntegratedPhase, Settings, MAX_LOOP};
 
 /// A structure that integrates and keeps statistics
 pub struct Integrand {

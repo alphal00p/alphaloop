@@ -18,6 +18,8 @@ extern crate num_traits;
 
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
 
+const MAX_LOOP: usize = 4;
+
 #[allow(non_camel_case_types)]
 #[cfg(feature = "use_f128")]
 pub type float = f128::f128;

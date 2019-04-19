@@ -1,4 +1,4 @@
-use dual_num::{DualN, Scalar, U10, U4, U7};
+use dual_num::{DualN, Scalar, U10, U13, U4, U7};
 use float;
 use num::Complex;
 use num_traits::Signed;
@@ -108,6 +108,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     one_loop: LTDCacheI<T, U4>,
     two_loop: LTDCacheI<T, U7>,
     three_loop: LTDCacheI<T, U10>,
+    four_loop: LTDCacheI<T, U13>,
     pub complex_cut_energies: Vec<Complex<T>>,
 }
 
@@ -116,6 +117,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
         let mut one_loop = LTDCacheI::<T, U4>::default();
         let mut two_loop = LTDCacheI::<T, U7>::default();
         let mut three_loop = LTDCacheI::<T, U10>::default();
+        let mut four_loop = LTDCacheI::<T, U13>::default();
         one_loop
             .ellipsoid_eval
             .resize(topo.surfaces.len(), DualN::default());
@@ -123,6 +125,9 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
             .ellipsoid_eval
             .resize(topo.surfaces.len(), DualN::default());
         three_loop
+            .ellipsoid_eval
+            .resize(topo.surfaces.len(), DualN::default());
+        four_loop
             .ellipsoid_eval
             .resize(topo.surfaces.len(), DualN::default());
 
@@ -133,6 +138,9 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
             .deform_dirs
             .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
         three_loop
+            .deform_dirs
+            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
+        four_loop
             .deform_dirs
             .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
 
@@ -141,12 +149,16 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
         three_loop
             .non_empty_cuts
             .resize(topo.surfaces.len(), (0, 0));
+        four_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
 
         one_loop.deformation_jacobian.resize(9, Complex::default());
         two_loop.deformation_jacobian.resize(36, Complex::default());
         three_loop
             .deformation_jacobian
             .resize(81, Complex::default());
+        four_loop
+            .deformation_jacobian
+            .resize(144, Complex::default());
 
         let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
 
@@ -159,11 +171,15 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
         three_loop
             .cut_energies
             .resize(num_propagators, DualN::default());
+        four_loop
+            .cut_energies
+            .resize(num_propagators, DualN::default());
 
         LTDCache {
             one_loop,
             two_loop,
             three_loop,
+            four_loop,
             complex_cut_energies: vec![Complex::default(); num_propagators],
         }
     }
@@ -218,6 +234,18 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U10> for LTDCache<T> 
     #[inline]
     fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U10> {
         &mut self.three_loop
+    }
+}
+
+impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U13> for LTDCache<T> {
+    #[inline]
+    fn get_cache(&self) -> &LTDCacheI<T, U13> {
+        &self.four_loop
+    }
+
+    #[inline]
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U13> {
+        &mut self.four_loop
     }
 }
 
