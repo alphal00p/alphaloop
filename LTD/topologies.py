@@ -62,7 +62,7 @@ def analytic_two_point_ladder(s,l):
 # Definition of hard-coded topol
 #############################################################################################################
 
-def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
+def create_hard_coded_topology(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
