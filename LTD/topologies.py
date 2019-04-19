@@ -62,7 +62,7 @@ def analytic_two_point_ladder(s,l):
 # Definition of hard-coded topol
 #############################################################################################################
 
-def create_hard_coded_topology(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
+def create_hard_coded_topoloogy(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
@@ -928,6 +928,171 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
+            ) 
+        )
+
+
+    elif topology_type =='TriangleBoxBoxTriangle':
+        p1,p2 = external_momenta
+        return LoopTopology(
+            name    = name,
+            n_loops = 4,
+            external_kinematics = external_momenta,
+            analytical_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),4)),
+            ltd_cut_structure = (
+
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                
+                
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+
+
+
+
+
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                
+
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT       ),
+             
+            
+            
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT       ),
+            
+            
+
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT       ),
+
+
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT       ),
+                (LoopLine.NO_CUT  , LoopLine.POSITIVE_CUT       , LoopLine.NO_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT       ),
+
+
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (1,0,0,0),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,-1,0,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 6, 
+                    end_node    = 3,
+                    signature   = (0,1,-1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 5, 
+                    end_node    = 4,
+                    signature   = (0,0,1,-1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 5, 
+                    end_node    = 4,
+                    signature   = (0,0,0,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=-p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 6,
+                    signature   = (0,1,0,0),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+
+                LoopLine(
+                    start_node  = 6, 
+                    end_node    = 5,
+                    signature   = (0,0,1,0),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 3,
+                    signature   = (0,0,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 2,
+                    signature   = (0,1,0,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+
             ) 
         )
 
