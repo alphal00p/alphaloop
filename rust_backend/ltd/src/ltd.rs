@@ -8,16 +8,15 @@ use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topol
 use vector::{Field, LorentzVector, RealNumberLike};
 use {
     AdditiveMode, DeformationStrategy, OverallDeformationScaling, ParameterizationMapping,
-    ParameterizationMode,
+    ParameterizationMode, MAX_LOOP,
 };
 
 use utils;
 
-const MAX_LOOP: usize = 3;
-
 type Dual4<T> = DualN<T, dual_num::U4>;
 type Dual7<T> = DualN<T, dual_num::U7>;
 type Dual10<T> = DualN<T, dual_num::U10>;
+type Dual13<T> = DualN<T, dual_num::U13>;
 
 impl LoopLine {
     /// Get the momenta of the cut with the cut evaluated
@@ -788,7 +787,8 @@ impl Topology {
                         continue;
                     }
 
-                    let k0sq_inv = DualN::from_real(T::one()) / kappa_onshell.spatial_squared_impr();
+                    let k0sq_inv =
+                        DualN::from_real(T::one()) / kappa_onshell.spatial_squared_impr();
 
                     // if the kappa is 0, there is no need for rescaling
                     if !k0sq_inv.is_finite() {
@@ -1572,6 +1572,21 @@ impl Topology {
                     r[0][i + 1][i + 1] = T::one();
                     r[1][i + 1][i + 4] = T::one();
                     r[2][i + 1][i + 7] = T::one();
+                }
+                self.deform_generic(&r, cut, cache)
+            }
+            4 => {
+                let mut r = [LorentzVector::default(); MAX_LOOP];
+                r[0] = loop_momenta[0].map(|x| Dual13::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Dual13::from_real(x));
+                r[2] = loop_momenta[2].map(|x| Dual13::from_real(x));
+                r[3] = loop_momenta[3].map(|x| Dual13::from_real(x));
+
+                for i in 0..3 {
+                    r[0][i + 1][i + 1] = T::one();
+                    r[1][i + 1][i + 4] = T::one();
+                    r[2][i + 1][i + 7] = T::one();
+                    r[3][i + 1][i + 10] = T::one();
                 }
                 self.deform_generic(&r, cut, cache)
             }
