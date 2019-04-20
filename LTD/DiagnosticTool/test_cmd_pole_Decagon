@@ -13,7 +13,7 @@
     --v=0.001 \
 	--d=[[1.0,1.0,1.0],[1.0,1.0,1.0]] \
 	--tr=[0.0,1.0] \
-	--t_n_points=100 \
+	--t_n_points=10 \
 	--seed=1 \
 	--analysis_options={\"log_x_scale\": False, \"log_y_scale\": False, \"n_points_to_show\":100} \
     --save="test.yaml" \

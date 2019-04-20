@@ -20,6 +20,8 @@ noalias_dumper.ignore_aliases = lambda self, data: True
 from pprint import pprint
 import itertools
 
+#import matplotlib
+#matplotlib.use('W')
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 
@@ -482,7 +484,7 @@ class PoleScanner(object):
                     ))
                 # Cross-check: verify that the onshell propagator is indeed onshell with real momenta
                 os_prop_eval_with_real_momenta = onshell_propagator.evaluate_inverse(loop_four_momenta)
-                assert(os_prop_eval_with_real_momenta/(max(max(v) for v in loop_four_momenta)) < 1.0e-10)
+                #assert(os_prop_eval_with_real_momenta/(max(max(v) for v in loop_four_momenta)) < 1.0e-10)
 
                 kappas, jac_re, jac_im = rust_worker.deform([list(v) for v in point_to_test])
                 deformed_point = [point_to_test[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
