@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+use disjoint_sets::UnionFind;
 use dual_num::{DualN, Scalar};
 use float;
 use itertools::Itertools;
@@ -311,20 +312,28 @@ impl Topology {
                                         });
                                     }
                                 } else {
-                                    // TODO: add existence condition for hyperboloids
-                                    self.surfaces.push(Surface {
-                                        group,
-                                        ellipsoid: false,
-                                        cut_structure_index: cut_index,
-                                        cut_option_index,
-                                        cut: cut_option.clone(),
-                                        onshell_ll_index: ll_index,
-                                        onshell_prop_index,
-                                        delta_sign,
-                                        sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
-                                        signs: surface_signs.iter().cloned().collect(),
-                                        shift: surface_shift.clone(),
-                                    });
+                                    // TODO: existence condition for hyperboloids only known up to 2 loops
+                                    if surface_shift.square()
+                                        - (cut_mass_sum
+                                            - float::from_f64(onshell_prop.m_squared.sqrt())
+                                                .unwrap())
+                                        .powi(2)
+                                        <= float::zero()
+                                    {
+                                        self.surfaces.push(Surface {
+                                            group,
+                                            ellipsoid: false,
+                                            cut_structure_index: cut_index,
+                                            cut_option_index,
+                                            cut: cut_option.clone(),
+                                            onshell_ll_index: ll_index,
+                                            onshell_prop_index,
+                                            delta_sign,
+                                            sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
+                                            signs: surface_signs.iter().cloned().collect(),
+                                            shift: surface_shift.clone(),
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -438,6 +447,69 @@ impl Topology {
             ellipsoids_not_in_cuts.push(accum);
         }
         self.ellipsoids_not_in_cuts = ellipsoids_not_in_cuts;
+
+        // now find all dual canceling groups
+        let mut dual_groups_rep: Vec<(Vec<usize>, usize)> = vec![];
+        let mut dual_groups = UnionFind::new(self.ltd_cut_options.iter().map(|x| x.len()).sum());
+        for s in &self.surfaces {
+            if s.ellipsoid {
+                continue;
+            }
+
+            let mut cs = s
+                .cut
+                .iter()
+                .zip(&self.loop_lines)
+                .filter_map(|(c, ll)| {
+                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
+                        Some(ll.propagators[*i].id)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            cs.push(self.loop_lines[s.onshell_ll_index].propagators[s.onshell_prop_index].id);
+            cs.sort();
+
+            // get the cut option index of the cut
+            let cut_index = self.ltd_cut_options[..s.cut_structure_index]
+                .iter()
+                .map(|x| x.len())
+                .sum::<usize>()
+                + s.cut_option_index;
+
+            let mut new = true;
+            for x in &mut dual_groups_rep {
+                if x.0 == cs {
+                    dual_groups.union(x.1, cut_index);
+                    break;
+                }
+            }
+
+            if new {
+                dual_groups_rep.push((cs, cut_index));
+            }
+        }
+
+        if self.settings.general.debug > 1 {
+            let mut cut_index = 0;
+            let mut cut_opt_index = 0;
+            println!("Dual grouping:");
+            for x in &dual_groups.to_vec() {
+                println!(
+                    "  | {}: {}",
+                    CutList(&self.ltd_cut_options[cut_index][cut_opt_index]),
+                    x
+                );
+
+                cut_opt_index += 1;
+                if self.ltd_cut_options[cut_index].len() == cut_opt_index {
+                    cut_index += 1;
+                    cut_opt_index = 0;
+                }
+            }
+        }
     }
 
     /// Map a vector in the unit hypercube to the infinite hypercube.
@@ -1262,7 +1334,7 @@ impl Topology {
                 );
 
                 for i in 0..self.n_loops {
-                    cache.get_cache_mut().deform_dirs[non_empty_cut_count * MAX_LOOP + i] =
+                    cache.get_cache_mut().deform_dirs[non_empty_cut_count * self.n_loops + i] =
                         deform_dirs_cut[i];
                 }
 
@@ -1349,14 +1421,15 @@ impl Topology {
                 println!(
                     "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
                     loop_momenta[0].real(),
-                    &cache.deform_dirs[i * MAX_LOOP].real(),
+                    &cache.deform_dirs[i * self.n_loops].real(),
                     s.real(),
-                    &cache.deform_dirs[i * MAX_LOOP].real() * s.real(),
+                    &cache.deform_dirs[i * self.n_loops].real() * s.real(),
                 );
             }
 
             for ii in 0..self.n_loops {
-                kappas[ii] -= cache.deform_dirs[i * MAX_LOOP + ii] * s;
+                kappas[ii] -= cache.deform_dirs[i * self.n_loops + ii] * s;
+                //kappas[ii].t = DualN::from_real(T::zero());
             }
         }
 

@@ -15,6 +15,7 @@ extern crate cuba;
 extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;
+extern crate disjoint_sets;
 
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
 

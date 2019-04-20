@@ -5,7 +5,7 @@ authors = ["Ben Ruijl <benruyl@gmail.com>"]
 
 [features]
 # uncomment this line to use f128
-default = ["use_f128"]
+#default = ["use_f128"]
 use_f128 = []
 
 [lib]
@@ -32,3 +32,4 @@ itertools = "0.8"
 clap = "*"
 rand = "*"
 f128 = { git = "https://github.com/benruijl/f128" }
+disjoint-sets = "*"
