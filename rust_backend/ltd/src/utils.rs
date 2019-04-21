@@ -2,8 +2,9 @@ use num::Complex;
 use num_traits::{Float, NumAssign, NumCast};
 use num_traits::{Inv, One, Zero};
 use vector::RealNumberLike;
+use MAX_LOOP;
 
-const MAX_DIMENSION: usize = 9;
+const MAX_DIMENSION: usize = MAX_LOOP * 3;
 
 #[inline]
 /// Invert with better precision

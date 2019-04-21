@@ -15,7 +15,7 @@ hyperparameters = HyperParameters({
     'General'       :   {
         # can be multiplicative, additive, cutgroups, duals or none
         'deformation_strategy'  :   'cutgroups',
-        'topology'              :   'Box',
+        'topology'              :   'TriangleBoxTriangle',
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
@@ -42,9 +42,9 @@ hyperparameters = HyperParameters({
     'Integrator'    :   {
         # The integrator can be vegas or cuhre or suave
         'integrator'        :   'vegas',
-        'n_start'           :   int(1.0e5),
-        'n_max'             :   int(1.0e9),
-        'n_increase'        :   0,
+        'n_start'           :   int(1.0e6),
+        'n_max'             :   int(1.0e10),
+        'n_increase'        :   int(1.0e6),
         'n_new'             :   100000,
         'n_min'             :   2,
         'flatness'          :   50.,
@@ -100,6 +100,7 @@ hyperparameters = HyperParameters({
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],
+            [1.0, 0., 0., 0.],            
         ]
     },
 

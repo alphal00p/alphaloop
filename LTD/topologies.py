@@ -2664,6 +2664,22 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'TriangleBoxBox_alt_ellipses'
 )
 
+# ================================================================================
+# 4-loop topologies
+# ================================================================================
+
+hard_coded_topology_collection.add_topology(
+     create_hard_coded_topology(
+        'TriangleBoxBoxTriangle', 
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([1.,3.,0.,0.]),
+            vectors.LorentzVector([-1.,-3.,0.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'TriangleBoxBoxTriangle',
+    ),
+    entry_name = 'TriangleBoxBoxTriangle',
+)
 
 # ===========================================================================================
 # New topologies for testing

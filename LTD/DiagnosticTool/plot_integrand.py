@@ -27,7 +27,7 @@ except ImportError:
         "Could not import the rust back-end 'ltd' module. Compile it first with:"
         " ./make_lib from within the pyNLoop directory." )
 
-N_points = 1000
+N_points = 100
 
 studied_topology = 'Box_massless'
 studied_topology = 'Decagon_P2_physical_massless'
@@ -38,11 +38,11 @@ studied_topology = 'Tringigon_P2_physical_many_ellipses'
 studied_topology = 'DoubleBox'
 
 studied_topology = 'Decagon_P1_one_ellipse_massless'
+studied_topology = sys.argv[1]
 
 topology = topology_collection[studied_topology]
 
-
-scan_args = eval(' '.join(sys.argv[1:]))
+scan_args = eval(' '.join(sys.argv[2:]))
 rust_instance = LTD(
         settings_file = pjoin(os.path.pardir,'hyperparameters.yaml'),
         topology_file = pjoin(os.path.pardir,'topologies.yaml'),
@@ -83,8 +83,13 @@ plot_lines = {
 x_values = []
 #min_x = 0.15619610
 #max_x = 0.15619612
-min_x = 0.0
-max_x = 0.01
+min_x = 0.4
+max_x = 0.6
+# Problem at [0.4474308180164988, 0.6249338072526623, 0.32786022901064904]
+#min_x = 0.4476
+#max_x = 0.4478
+#min_x = 0.3260626059739
+#max_x = 0.3260626059740
 for t in range(1,N_points+1):
     if t%100==0:
         print "Currently at sample #%d..."%t
@@ -111,17 +116,21 @@ for t in range(1,N_points+1):
 
     duals = evaluate(deformed_point)
     for d, v in duals.items():
-        if '%d_%d_re'%(d[0][0],d[1][0]) in plot_lines:
+        if ('%d_%d_re'%(d[0][0],d[1][0]) in plot_lines) or ('%d_%d_im'%(d[0][0],d[1][0]) in plot_lines):
             plot_lines['%d_%d_re'%(d[0][0],d[1][0])].append(v.real)
-            plot_lines['%d_%d_im'%(d[0][0],d[1][0])].append(v.imag)            
+            #plot_lines['%d_%d_im'%(d[0][0],d[1][0])].append(v.imag)            
         else:
             plot_lines['%d_%d_re'%(d[0][0],d[1][0])]=[v.real,]
-            plot_lines['%d_%d_im'%(d[0][0],d[1][0])]=[v.imag,]
+            #plot_lines['%d_%d_im'%(d[0][0],d[1][0])]=[v.imag,]
 
-selected = ['integrand_re', 'integrand_im', '0_0_re', '0_0_im', '0_1_re', '0_1_im','deform_jac_re', 'deform_jac_im']
-veto_list=['deform_jac_re','deform_jac_im', 'param_jac','NONE']
+selected = ['integrand_re', 'integrand_im', '0_0_re', '0_0_im', '0_1_re', '0_1_im','deform_jac_re', 'deform_jac_im','ALL']
+veto_list=['param_jac',]
 
-lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
+
+#lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
+#        (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
+
+lines = [(k, (x_values, [vi for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
         (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
 
 NORMALISE = False
@@ -130,9 +139,11 @@ for line_name, (x_data, y_data) in lines:
         max_y_data = max(y_data)
         if max_y_data > 0.:
             y_data = [ y/float(max_y_data) for y in y_data ]
+    if 'integrand' in line_name:
+        plt.plot(x_data, y_data, label=line_name,linewidth=2)
+    else:
+        plt.plot(x_data, y_data, label=line_name)
 
-    plt.plot(x_data, y_data, label=line_name)
-    
-plt.yscale('log')
+#plt.yscale('log')
 plt.legend(bbox_to_anchor=(0.75, 0.5))
 plt.show()
