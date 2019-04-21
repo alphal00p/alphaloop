@@ -60,10 +60,12 @@ impl LoopLine {
     /// Return the inverse of the evaluated loop line
     fn evaluate<
         T: From<float>
+            + 'static
             + Num
             + FromPrimitive
             + Float
             + Field
+            + Signed
             + RealNumberLike
             + FloatConst
             + std::fmt::LowerExp
@@ -73,14 +75,15 @@ impl LoopLine {
         loop_momenta: &[LorentzVector<num::Complex<T>>],
         cut: &Cut,
         topo: &Topology,
+        cache: &LTDCache<T>,
     ) -> Result<num::Complex<T>, &'static str> {
         let kinematics_scale = T::from_f64(topo.e_cm_squared).unwrap();
         let threshold = T::from_f64(topo.settings.general.numerical_threshold).unwrap();
 
-        // construct the loop momentum that flows through this loop line
-        let mut mom: LorentzVector<num::Complex<T>> = LorentzVector::default();
+        // construct the loop energy
+        let mut e: num::Complex<T> = Complex::default();
         for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
-            mom += l * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
+            e += l.t * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
         }
 
         let mut res = num::Complex::new(T::one(), T::zero());
@@ -93,7 +96,7 @@ impl LoopLine {
         for (i, p) in self.propagators.iter().enumerate() {
             match cut {
                 Cut::PositiveCut(j) if i == *j => {
-                    let r = (mom.t + T::from_f64(p.q.t).unwrap()) * T::from_f64(2.).unwrap();
+                    let r = (e + T::from_f64(p.q.t).unwrap()) * T::from_f64(2.).unwrap();
                     res *= r;
 
                     if topo.settings.general.debug > 3 {
@@ -101,7 +104,7 @@ impl LoopLine {
                     }
                 }
                 Cut::NegativeCut(j) if i == *j => {
-                    let r = (mom.t + T::from_f64(p.q.t).unwrap()) * T::from_f64(-2.).unwrap();
+                    let r = (e + T::from_f64(p.q.t).unwrap()) * T::from_f64(-2.).unwrap();
                     res *= r;
 
                     if topo.settings.general.debug > 3 {
@@ -110,9 +113,9 @@ impl LoopLine {
                 }
                 _ => {
                     // multiply dual propagator
-                    let pq: LorentzVector<num::Complex<T>> = p.q.cast();
-                    let m1: LorentzVector<num::Complex<T>> = mom + pq;
-                    let mut r = m1.square() - T::from_f64(p.m_squared).unwrap();
+                    let r = utils::powi(e + T::from_f64(p.q.t).unwrap(), 2)
+                        - utils::powi(cache.complex_cut_energies[p.id], 2)
+                        + T::from_f64(2. * p.m_squared).unwrap();
 
                     if topo.settings.general.debug > 3 {
                         println!("  | prop  {}={}", i, r);
@@ -1740,7 +1743,7 @@ impl Topology {
 
         let mut r = Complex::new(T::one(), T::zero());
         for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-            r *= ll.evaluate(&k_def, ll_cut, &self)?;
+            r *= ll.evaluate(&k_def, ll_cut, &self, cache)?;
         }
         r = r.inv(); // normal inverse may overflow but has better precision than finv, which overflows later
 
