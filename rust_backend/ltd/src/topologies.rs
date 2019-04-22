@@ -110,6 +110,8 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     three_loop: LTDCacheI<T, U10>,
     four_loop: LTDCacheI<T, U13>,
     pub complex_cut_energies: Vec<Complex<T>>,
+    pub complex_prop_spatial: Vec<Complex<T>>,
+    pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
@@ -181,6 +183,12 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
             three_loop,
             four_loop,
             complex_cut_energies: vec![Complex::default(); num_propagators],
+            complex_prop_spatial: vec![Complex::default(); num_propagators],
+            complex_loop_line_eval: topo
+                .loop_lines
+                .iter()
+                .map(|ll| vec![[Complex::default(); 2]; ll.propagators.len()])
+                .collect(),
         }
     }
 }

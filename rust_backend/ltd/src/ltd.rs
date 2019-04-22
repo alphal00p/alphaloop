@@ -81,10 +81,24 @@ impl LoopLine {
         let threshold = T::from_f64(topo.settings.general.numerical_threshold).unwrap();
 
         // construct the loop energy
-        let mut e: num::Complex<T> = Complex::default();
-        for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
-            e += l.t * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
-        }
+        // if the line is cut, we can get it from the cache
+        let e = match cut {
+            Cut::PositiveCut(i) => {
+                cache.complex_cut_energies[self.propagators[*i].id]
+                    - T::from_f64(self.propagators[*i].q.t).unwrap()
+            }
+            Cut::NegativeCut(i) => {
+                -cache.complex_cut_energies[self.propagators[*i].id]
+                    - T::from_f64(self.propagators[*i].q.t).unwrap()
+            }
+            Cut::NoCut => {
+                let mut e: num::Complex<T> = Complex::default();
+                for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
+                    e += l.t * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
+                }
+                e
+            }
+        };
 
         let mut res = num::Complex::new(T::one(), T::zero());
         if topo.settings.general.debug > 3 {
@@ -114,8 +128,7 @@ impl LoopLine {
                 _ => {
                     // multiply dual propagator
                     let r = utils::powi(e + T::from_f64(p.q.t).unwrap(), 2)
-                        - utils::powi(cache.complex_cut_energies[p.id], 2)
-                        + T::from_f64(2. * p.m_squared).unwrap();
+                        - cache.complex_prop_spatial[p.id];
 
                     if topo.settings.general.debug > 3 {
                         println!("  | prop  {}={}", i, r);
@@ -1742,8 +1755,13 @@ impl Topology {
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
 
         let mut r = Complex::new(T::one(), T::zero());
-        for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-            r *= ll.evaluate(&k_def, ll_cut, &self, cache)?;
+        for (i, (ll_cut, ll)) in cut.iter().zip(self.loop_lines.iter()).enumerate() {
+            // get the loop line result from the cache if possible
+            r *= match ll_cut {
+                Cut::PositiveCut(j) => cache.complex_loop_line_eval[i][*j][0],
+                Cut::NegativeCut(j) => cache.complex_loop_line_eval[i][*j][1],
+                _ => ll.evaluate(&k_def, ll_cut, &self, cache)?,
+            };
         }
         r = r.inv(); // normal inverse may overflow but has better precision than finv, which overflows later
 
@@ -1802,7 +1820,7 @@ impl Topology {
         cache: &mut LTDCache<T>,
     ) {
         // compute all complex cut energies
-        for ll in &self.loop_lines {
+        for (ll_index, ll) in self.loop_lines.iter().enumerate() {
             let mut mom = LorentzVector::default();
             for (l, &c) in k_def.iter().zip(ll.signature.iter()) {
                 mom += l * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
@@ -1822,7 +1840,26 @@ impl Topology {
                     );
                 }
 
+                cache.complex_prop_spatial[p.id] = cm;
                 cache.complex_cut_energies[p.id] = cm.sqrt();
+            }
+
+            let has_positive_cut = self.ltd_cut_structure.iter().any(|x| x[ll_index] == 1);
+            let has_negative_cut = self.ltd_cut_structure.iter().any(|x| x[ll_index] == -1);
+
+            for i in 0..ll.propagators.len() {
+                // compute the entire dual loop line
+                // note that the deformed momenta are not used here
+                if has_positive_cut {
+                    cache.complex_loop_line_eval[ll_index][i][0] = ll
+                        .evaluate(k_def, &Cut::PositiveCut(i), &self, cache)
+                        .unwrap();
+                }
+                if has_negative_cut {
+                    cache.complex_loop_line_eval[ll_index][i][1] = ll
+                        .evaluate(k_def, &Cut::NegativeCut(i), &self, cache)
+                        .unwrap();
+                }
             }
         }
     }
