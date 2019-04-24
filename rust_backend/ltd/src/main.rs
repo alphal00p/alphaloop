@@ -258,6 +258,12 @@ fn main() {
                         result,x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
                     );
                 }
+                4 => {
+                    println!(
+                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}n  | n={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result,x, k_def[0], k_def[1], k_def[2], k_def[3], jac_para, jac_def
+                    );
+                }
                 _ => {}
             }
         } else {
@@ -280,6 +286,12 @@ fn main() {
                     println!(
                         "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
                         result,x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
+                    );
+                }
+                4 => {
+                    println!(
+                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}n  | n={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        result,x, k_def[0], k_def[1], k_def[2], k_def[3], jac_para, jac_def
                     );
                 }
                 _ => {}

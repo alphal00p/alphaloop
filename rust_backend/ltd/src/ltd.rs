@@ -1724,7 +1724,7 @@ impl Topology {
                         "Cut {}:\n  | result={:e}\n  | k0={:e}",
                         CutList(cut),
                         r,
-                        k_def[0].t
+                        k_def[0].t,
                     );
                 }
                 2 => {
@@ -1733,7 +1733,7 @@ impl Topology {
                         CutList(cut),
                         r,
                         k_def[0].t,
-                        k_def[1].t
+                        k_def[1].t,
                     );
                 }
                 3 => {
@@ -1743,7 +1743,18 @@ impl Topology {
                         r,
                         k_def[0].t,
                         k_def[1].t,
-                        k_def[2].t
+                        k_def[2].t,
+                    );
+                }
+                4 => {
+                    println!(
+                        "Cut {}:\n  | result={:e}\n  | k0={:e}\n  | l0={:e}\n  | m0={:e}\n  | n0={:e}",
+                        CutList(cut),
+                        r,
+                        k_def[0].t,
+                        k_def[1].t,
+                        k_def[2].t,
+                        k_def[3].t,
                     );
                 }
                 _ => {}
