@@ -5,7 +5,7 @@ use float;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, Num, NumCast, One, Signed, Zero};
-use topologies::{CacheSelector, Cut, CutInfo, CutList, LTDCache, LoopLine, Surface, Topology};
+use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector, RealNumberLike};
 use {
     AdditiveMode, DeformationStrategy, OverallDeformationScaling, ParameterizationMapping,
@@ -1177,7 +1177,6 @@ impl Topology {
             + FloatConst,
     >(
         &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
         cut: &[Cut],
         cut_structure_index: usize,
         cache: &mut LTDCache<T>,
@@ -1188,40 +1187,27 @@ impl Topology {
         LTDCache<T>: CacheSelector<T, U>,
     {
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
+        let cache = cache.get_cache();
 
-        // compute each cut momentum, subtract the shift and normalize
+        // TODO: precompute this map by mapping cut indices to cut propagator ids
         let mut index = 0;
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut cut_masses = [DualN::default(); MAX_LOOP];
+        let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
         for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
             if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
-                cut_momenta[index] =
-                    ll.get_cut_momentum(loop_momenta, ll_cut, &cache.get_cache().cut_energies);
-
-                // subtract the shift from q0
-                cut_momenta[index].t -=
-                    DualN::from_real(T::from_f64(ll.propagators[i].q.t).unwrap());
-                cut_masses[index] =
-                    DualN::from_real(T::from_f64(ll.propagators[i].m_squared).unwrap());
-
+                cut_infos[index] = &cache.cut_info[ll.propagators[i].id];
                 index += 1;
             }
         }
 
-        // convert from cut momentum basis to loop momentum basis
+        // transform the cut momenta with shift to loop momentum basis
         for i in 0..self.n_loops {
             let mut deform_dir = LorentzVector::default();
-            for ((&sign, cut_dir), &cut_mass) in self.cb_to_lmb_mat[cut_structure_index]
+            for (&sign, &cut_info) in self.cb_to_lmb_mat[cut_structure_index]
                 [i * self.n_loops..(i + 1) * self.n_loops]
                 .iter()
-                .zip(cut_momenta.iter())
-                .zip(cut_masses.iter())
+                .zip(cut_infos.iter())
             {
-                // normalize the spatial components
-                let mut mom_normalized = *cut_dir;
-                let length = (mom_normalized.spatial_squared_impr() + cut_mass).sqrt();
-                mom_normalized *= length.inv();
-
+                let mom_normalized = cut_info.momentum / cut_info.real_energy;
                 deform_dir += mom_normalized * DualN::from_real(T::from_i8(sign).unwrap());
             }
 
@@ -1256,8 +1242,6 @@ impl Topology {
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
     {
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-
         // go through all cuts that contain ellipsoids
         // by going through all ellipsoids and skipping ones that are in the same cut
         // TODO: precompute non-empty cuts
@@ -1270,47 +1254,41 @@ impl Topology {
 
             // evaluate ellipsoid representatives
             if surf.group == surf_index {
-                // FIXME: we compute this again later
-                let mut index = 0;
+                let cache = cache.get_cache_mut();
 
                 // calculate the cut momenta
+                let mut normalization = DualN::from_real(T::zero());
                 let mut res = DualN::from_real(T::zero());
-                for (&ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
-                    if ll_cut != Cut::NoCut {
-                        cut_momenta[index] = ll.get_cut_momentum(
-                            loop_momenta,
-                            &ll_cut,
-                            &cache.get_cache().cut_energies,
-                        );
+                let mut index = 0;
+                for (ll_cut, ll) in izip!(surf.cut.iter(), self.loop_lines.iter()) {
+                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
+                        // always take the positive energy since we know all the signs will be the same
+                        // for an ellipsoid
+                        if surf.sig_ll_in_cb[index] != 0 {
+                            let e = cache.cut_info[ll.propagators[i].id].real_energy;
+                            res += e;
+                            normalization += e * e;
+                        }
                         index += 1;
                     }
                 }
 
-                let mut normalization = DualN::from_real(T::zero());
-                let mut q3 = LorentzVector::default();
-                for (&s, mom) in surf.sig_ll_in_cb.iter().zip(&cut_momenta) {
-                    if s != 0 {
-                        q3 += mom * DualN::from_real(T::from_i8(s).unwrap());
-                        res += mom.t.abs();
-                        normalization += mom.square();
-                    }
-                }
+                // shift in the cut basis
                 let shift: LorentzVector<DualN<T, U>> = surf.shift.cast();
-                q3 += shift;
 
-                res += q3.spatial_squared_impr().sqrt();
+                // add the surface term
+                res += cache.cut_info[self.loop_lines[surf.onshell_ll_index].propagators
+                    [surf.onshell_prop_index]
+                    .id]
+                    .real_energy;
                 res -= shift.t.abs();
-                normalization += shift.square();
-                cache.get_cache_mut().ellipsoid_eval[surf_index] = res * res / normalization;
+                normalization += shift.spatial_squared_impr();
+                cache.ellipsoid_eval[surf_index] = res * res / normalization;
             }
 
             if Some(&surf.cut) != last_cut {
-                let mut deform_dirs_cut = self.get_deformation_for_cut(
-                    loop_momenta,
-                    &surf.cut,
-                    surf.cut_structure_index,
-                    cache,
-                );
+                let mut deform_dirs_cut =
+                    self.get_deformation_for_cut(&surf.cut, surf.cut_structure_index, cache);
 
                 for i in 0..self.n_loops {
                     cache.get_cache_mut().deform_dirs[non_empty_cut_count * self.n_loops + i] =
@@ -1510,7 +1488,7 @@ impl Topology {
             DeformationStrategy::Duals => {
                 let co = cut.unwrap();
                 let cut = &self.ltd_cut_options[co.0][co.1];
-                self.get_deformation_for_cut(loop_momenta, cut, co.0, cache)
+                self.get_deformation_for_cut(cut, co.0, cache)
             }
             DeformationStrategy::Additive | DeformationStrategy::Multiplicative => {
                 self.deform_ellipsoids(loop_momenta, cache)
