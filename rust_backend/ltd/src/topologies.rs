@@ -74,6 +74,51 @@ impl fmt::Display for Cut {
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
+pub struct CutInfo<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
+{
+    pub id: usize,
+    pub momentum: LorentzVector<DualN<T, U>>,
+    pub real_energy: DualN<T, U>,
+    pub spatial_and_mass_sq: DualN<T, U>,
+    pub shift: LorentzVector<DualN<T, U>>,
+    pub kappa: LorentzVector<DualN<T, U>>,
+    pub kappa_sq: DualN<T, U>,
+    pub kappa_dot_mom: DualN<T, U>,
+    pub mass: DualN<T, U>,
+    pub a: DualN<T, U>,
+    pub b: DualN<T, U>,
+    pub c: DualN<T, U>,
+}
+
+impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
+    for CutInfo<T, U>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
+{
+    fn default() -> CutInfo<T, U> {
+        CutInfo {
+            id: 0,
+            momentum: LorentzVector::default(),
+            real_energy: DualN::default(),
+            spatial_and_mass_sq: DualN::default(),
+            shift: LorentzVector::default(),
+            kappa: LorentzVector::default(),
+            kappa_sq: DualN::default(),
+            kappa_dot_mom: DualN::default(),
+            mass: DualN::default(),
+            a: DualN::default(),
+            b: DualN::default(),
+            c: DualN::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+/// A cache for objects needed during LTD computation
 pub struct LTDCacheI<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
@@ -84,6 +129,7 @@ where
     pub non_empty_cuts: Vec<(usize, usize)>,
     pub deformation_jacobian: Vec<Complex<T>>,
     pub cut_energies: Vec<DualN<T, U>>,
+    pub cut_info: Vec<CutInfo<T, U>>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
@@ -99,6 +145,7 @@ where
             non_empty_cuts: vec![],
             deformation_jacobian: vec![],
             cut_energies: vec![],
+            cut_info: vec![],
         }
     }
 }
@@ -110,6 +157,8 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     three_loop: LTDCacheI<T, U10>,
     four_loop: LTDCacheI<T, U13>,
     pub complex_cut_energies: Vec<Complex<T>>,
+    pub complex_prop_spatial: Vec<Complex<T>>,
+    pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
@@ -175,12 +224,31 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
             .cut_energies
             .resize(num_propagators, DualN::default());
 
+        one_loop
+            .cut_info
+            .resize(num_propagators, CutInfo::default());
+        two_loop
+            .cut_info
+            .resize(num_propagators, CutInfo::default());
+        three_loop
+            .cut_info
+            .resize(num_propagators, CutInfo::default());
+        four_loop
+            .cut_info
+            .resize(num_propagators, CutInfo::default());
+
         LTDCache {
             one_loop,
             two_loop,
             three_loop,
             four_loop,
             complex_cut_energies: vec![Complex::default(); num_propagators],
+            complex_prop_spatial: vec![Complex::default(); num_propagators],
+            complex_loop_line_eval: topo
+                .loop_lines
+                .iter()
+                .map(|ll| vec![[Complex::default(); 2]; ll.propagators.len()])
+                .collect(),
         }
     }
 }
