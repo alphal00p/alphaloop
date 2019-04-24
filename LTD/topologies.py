@@ -1056,7 +1056,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
                     signature   = (0,0,0,1),
                     propagators = (
                         Propagator(q=zero_lv, m_squared=0.),
-                        Propagator(q=-p1, m_squared=0.),
+                        Propagator(q=p1, m_squared=0.),
                     )
                 ),
                 LoopLine(

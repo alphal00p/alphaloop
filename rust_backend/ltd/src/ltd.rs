@@ -5,7 +5,7 @@ use float;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, Num, NumCast, One, Signed, Zero};
-use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
+use topologies::{CacheSelector, Cut, CutInfo, CutList, LTDCache, LoopLine, Surface, Topology};
 use vector::{Field, LorentzVector, RealNumberLike};
 use {
     AdditiveMode, DeformationStrategy, OverallDeformationScaling, ParameterizationMapping,
@@ -708,7 +708,6 @@ impl Topology {
             + std::fmt::LowerExp,
     >(
         &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
         kappas: &[LorentzVector<DualN<T, U>>],
         lambda_max: f64,
         cache: &mut LTDCache<T>,
@@ -718,15 +717,29 @@ impl Topology {
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
     {
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut cut_energies = [DualN::default(); MAX_LOOP];
-        let mut cut_shifts = [LorentzVector::default(); MAX_LOOP];
-        let mut kappa_cuts = [LorentzVector::default(); MAX_LOOP];
-        let mut mass_cuts = [0.; MAX_LOOP];
+        // update the cut information with the kappa-dependent information
+        let cache = cache.get_cache_mut();
+        for ll in &self.loop_lines {
+            let mut kappa_cut = LorentzVector::default();
+            for (kappa, &sign) in kappas.iter().zip(ll.signature.iter()) {
+                kappa_cut += kappa * DualN::from_real(T::from_i8(sign).unwrap());
+            }
 
-        let mut cut_a = [DualN::default(); MAX_LOOP];
-        let mut cut_b = [DualN::default(); MAX_LOOP];
-        let mut cut_c = [DualN::default(); MAX_LOOP];
+            for p in &ll.propagators {
+                let info = &mut cache.cut_info[p.id];
+                info.kappa = kappa_cut;
+                info.kappa_sq = kappa_cut.spatial_squared_impr();
+                info.kappa_dot_mom = kappa_cut.spatial_dot_impr(&info.momentum);
+
+                if self.settings.deformation.scaling.non_cut_propagator_check {
+                    info.a = (info.kappa_sq * info.real_energy.powi(2)
+                        - info.kappa_dot_mom.powi(2))
+                        / info.real_energy.powi(3);
+                    info.b = info.kappa_dot_mom / info.real_energy;
+                    info.c = info.real_energy;
+                }
+            }
+        }
 
         let mut lambda_sq = DualN::from_real(T::from_f64(lambda_max).unwrap().powi(2));
 
@@ -735,60 +748,31 @@ impl Topology {
         let mut smooth_min_num = lambda_sq * (-lambda_sq / sigma).exp();
         let mut smooth_min_den = (-lambda_sq / sigma).exp();
 
-        let all_cut_energies = &cache.get_cache_mut().cut_energies;
+        let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
+
         for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter()) {
             for cut in cuts {
-                // compute the real and imaginary part and the mass of the cut momentum
                 let mut index = 0;
-                for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut {
-                        cut_momenta[index] =
-                            ll.get_cut_momentum(&loop_momenta, ll_cut, all_cut_energies);
-
-                        // construct the complex part of the cut loop line momentum
-                        // kappa is expressed in the loop momentum basis
-                        let mut kappa_cut = LorentzVector::default();
-                        for (kappa, &sign) in kappas.iter().zip(ll.signature.iter()) {
-                            kappa_cut += kappa * DualN::from_real(T::from_i8(sign).unwrap());
-                        }
-                        kappa_cuts[index] = kappa_cut;
-                        mass_cuts[index] = ll.propagators[*i].m_squared;
-                        cut_shifts[index] = ll.propagators[*i].q;
-                        cut_energies[index] = all_cut_energies[ll.propagators[*i].id];
-
-                        cut_a[index] = (kappa_cuts[index].spatial_squared_impr()
-                            * cut_energies[index].powi(2)
-                            - cut_momenta[index]
-                                .spatial_dot_impr(&kappa_cuts[index])
-                                .powi(2))
-                            / cut_energies[index].powi(3);
-                        cut_b[index] = cut_momenta[index].spatial_dot_impr(&kappa_cuts[index])
-                            / cut_energies[index];
-                        cut_c[index] = cut_energies[index];
-
+                for (c, ll) in cut.iter().zip(self.loop_lines.iter()) {
+                    if let Cut::NegativeCut(i) | Cut::PositiveCut(i) = c {
+                        cut_infos[index] = &cache.cut_info[ll.propagators[*i].id];
                         index += 1;
                     }
                 }
 
                 // we have to make sure that our linear expansion for the deformation vectors is reasonable
                 // for that we need lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
-                for (mom_cut, kappa_cut, mass_cut) in
-                    izip!(&cut_momenta[..self.n_loops], &kappa_cuts, &mass_cuts)
-                {
-                    let kappa_cut_sq = kappa_cut.spatial_squared();
-                    if kappa_cut_sq.is_zero() {
+                for cut_info in &cut_infos[..self.n_loops] {
+                    if cut_info.kappa_sq.is_zero() {
                         continue;
                     }
-
-                    let num = mom_cut.spatial_squared_impr()
-                        + DualN::from_real(T::from_f64(*mass_cut).unwrap());
 
                     if self.settings.deformation.scaling.expansion_check {
                         let lambda_exp = DualN::from_real(
                             T::from_f64(self.settings.deformation.scaling.expansion_threshold)
                                 .unwrap(),
-                        ) * num
-                            / kappa_cut.spatial_dot_impr(&mom_cut).abs(); // note: not holomorphic
+                        ) * cut_info.spatial_and_mass_sq
+                            / cut_info.kappa_dot_mom.abs(); // note: not holomorphic
 
                         let lambda_exp_sq = lambda_exp * lambda_exp;
 
@@ -806,8 +790,8 @@ impl Topology {
                     // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
                     // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
                     if self.settings.deformation.scaling.positive_cut_check {
-                        let lambda_disc_sq =
-                            num / kappa_cut_sq * DualN::from_real(T::from_f64(0.95).unwrap());
+                        let lambda_disc_sq = cut_info.spatial_and_mass_sq / cut_info.kappa_sq
+                            * DualN::from_real(T::from_f64(0.95).unwrap());
 
                         if sigma.is_zero() {
                             if lambda_disc_sq < lambda_sq {
@@ -828,13 +812,8 @@ impl Topology {
                 }
 
                 for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
-                    // construct the complex part of the loop line momentum
-                    let mut kappa_onshell = LorentzVector::default();
-                    for (kappa, &c) in kappas.iter().zip(onshell_ll.signature.iter()) {
-                        kappa_onshell += kappa * DualN::from_real(T::from_i8(c).unwrap());
-                    }
-
-                    // determine the map from cut momenta to loop line momentum
+                    // TODO: this should be precomputed
+                    // determine the map from loop line momentum to cut momenta
                     let mut sig_ll_in_cb = [0; MAX_LOOP];
                     for ii in 0..self.n_loops {
                         for jj in 0..self.n_loops {
@@ -875,8 +854,8 @@ impl Topology {
                         continue;
                     }
 
-                    let k0sq_inv =
-                        DualN::from_real(T::one()) / kappa_onshell.spatial_squared_impr();
+                    let k0sq_inv = DualN::from_real(T::one())
+                        / cache.cut_info[onshell_ll.propagators[0].id].kappa_sq;
 
                     // if the kappa is 0, there is no need for rescaling
                     if !k0sq_inv.is_finite() {
@@ -887,49 +866,32 @@ impl Topology {
                     let mut a = DualN::from_real(T::zero());
                     let mut b = DualN::from_real(T::zero());
                     let mut c = DualN::from_real(T::zero());
-                    for i in 0..self.n_loops {
-                        a += cut_a[i] * T::from_i8(onshell_signs[i]).unwrap();
-                        b += cut_b[i] * T::from_i8(onshell_signs[i]).unwrap();
-                        c += cut_c[i] * T::from_i8(onshell_signs[i]).unwrap();
+                    for (cut_info, &sign) in
+                        cut_infos[..self.n_loops].iter().zip(onshell_signs.iter())
+                    {
+                        a += cut_info.a * T::from_i8(sign).unwrap();
+                        b += cut_info.b * T::from_i8(sign).unwrap();
+                        c += cut_info.c * T::from_i8(sign).unwrap();
                     }
 
-                    // construct the real part of the loop line momentum
-                    let mut mom: LorentzVector<DualN<T, U>> = LorentzVector::default();;
-                    for (l, &c, cut_shift) in izip!(&cut_momenta, &sig_ll_in_cb, &cut_shifts) {
-                        let shift: LorentzVector<DualN<T, U>> = cut_shift.cast();
-                        mom += (l - shift) * DualN::from_real(T::from_i8(c).unwrap());
-                    }
-
+                    // TODO: we are checking surfaces more than once. The ones that depend on only
+                    // one loop momentum for example
                     for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate() {
-                        let pq: LorentzVector<DualN<T, U>> = onshell_prop.q.cast();
-                        let onshell_prop_mom = mom + pq;
-
-                        let onshell_energy = (onshell_prop_mom.spatial_squared_impr()
-                            + T::from_f64(onshell_prop.m_squared).unwrap())
-                        .sqrt();
-                        let a_surf = (kappa_onshell.spatial_squared_impr()
-                            * onshell_energy.powi(2)
-                            - onshell_prop_mom.spatial_dot_impr(&kappa_onshell).powi(2))
-                            / onshell_energy.powi(3);
-                        let b_surf =
-                            onshell_prop_mom.spatial_dot_impr(&kappa_onshell) / onshell_energy;
+                        let on_shell_info = &cache.cut_info[onshell_prop.id];
 
                         // if this is the cut propagator, we only need to use the spatial part
                         // the functional form remains the same
+
                         if *ll_cut == Cut::NegativeCut(prop_index)
                             || *ll_cut == Cut::PositiveCut(prop_index)
                         {
+                            // TODO: move to block where we do cut propagator checks
                             if !self.settings.deformation.scaling.cut_propagator_check {
                                 continue;
                             }
 
-                            let k_sp_inv =
-                                DualN::from_real(T::one()) / kappa_onshell.spatial_squared_impr();
-                            let x = (kappa_onshell.spatial_dot_impr(&onshell_prop_mom) * k_sp_inv)
-                                .powi(2);
-                            let y = (onshell_prop_mom.spatial_squared_impr()
-                                - T::from_f64(onshell_prop.m_squared).unwrap())
-                                * k_sp_inv;
+                            let x = (on_shell_info.kappa_dot_mom * k0sq_inv).powi(2);
+                            let y = on_shell_info.spatial_and_mass_sq * k0sq_inv;
 
                             let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
 
@@ -956,10 +918,11 @@ impl Topology {
                                     continue;
                                 }
 
-                                let a_tot = (a + a_surf * sign) * T::from_f64(-0.5).unwrap();
+                                let a_tot =
+                                    (a + on_shell_info.a * sign) * T::from_f64(-0.5).unwrap();
                                 let a_tot_inv = a_tot.inv();
-                                let b_tot = b + b_surf * sign;
-                                let c_tot = c + onshell_energy * sign + pq.t;
+                                let b_tot = b + on_shell_info.b * sign;
+                                let c_tot = c + on_shell_info.c * sign + on_shell_info.shift.t;
                                 let x = (b_tot * a_tot_inv).powi(2) * T::from_f64(0.25).unwrap();
                                 let y = -c_tot * a_tot_inv;
 
@@ -1513,16 +1476,32 @@ impl Topology {
         LTDCache<T>: CacheSelector<T, U>,
     {
         // compute all cut energies
-        for ll in &self.loop_lines {
-            let mut mom = LorentzVector::default();
-            for (l, &c) in loop_momenta.iter().zip(ll.signature.iter()) {
-                mom += l * DualN::from_real(T::from_i8(c).unwrap());
-            }
+        if self.settings.general.deformation_strategy != DeformationStrategy::Constant
+            || self.settings.deformation.scaling.lambda > 0.
+        {
+            let cache = cache.get_cache_mut();
+            for ll in &self.loop_lines {
+                let mut mom = LorentzVector::default();
+                for (l, &c) in loop_momenta.iter().zip(ll.signature.iter()) {
+                    mom += l * DualN::from_real(T::from_i8(c).unwrap());
+                }
 
-            for p in &ll.propagators {
-                let q: LorentzVector<DualN<T, U>> = p.q.cast();
-                let cm = (mom + q).spatial_squared() + T::from_f64(p.m_squared).unwrap();
-                cache.get_cache_mut().cut_energies[p.id] = cm.sqrt();
+                // update the cut info
+                for p in &ll.propagators {
+                    let q: LorentzVector<DualN<T, U>> = p.q.cast();
+                    let cm = (mom + q).spatial_squared() + T::from_f64(p.m_squared).unwrap();
+                    let energy = cm.sqrt();
+                    cache.cut_energies[p.id] = energy;
+
+                    let info = &mut cache.cut_info[p.id];
+                    info.id = p.id;
+                    info.momentum = mom + q;
+                    info.real_energy = energy;
+                    info.spatial_and_mass_sq = cm;
+                    // TODO: these two never change and can be set at the start!
+                    info.shift = q;
+                    info.mass = DualN::from_real(T::from_f64(p.m_squared).unwrap());
+                }
             }
         }
 
@@ -1569,12 +1548,7 @@ impl Topology {
         }
 
         let lambda = if self.settings.deformation.scaling.lambda > 0. {
-            self.determine_lambda(
-                loop_momenta,
-                &kappas,
-                self.settings.deformation.scaling.lambda,
-                cache,
-            )
+            self.determine_lambda(&kappas, self.settings.deformation.scaling.lambda, cache)
         } else {
             NumCast::from(self.settings.deformation.scaling.lambda.abs()).unwrap()
         };
