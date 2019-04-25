@@ -2,13 +2,13 @@ use arrayvec::ArrayVec;
 use f128::f128;
 use float;
 use num::Complex;
-use num_traits::{Float, FloatConst, FromPrimitive, Inv, Num, NumCast, One, ToPrimitive};
+use num_traits::{Float, FromPrimitive, Inv,  NumCast, One, ToPrimitive, Zero};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::{LTDCache, Topology};
-use vector::{Field, LorentzVector, RealNumberLike};
+use vector::LorentzVector;
 
-use {IntegratedPhase, Settings, MAX_LOOP};
+use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 
 /// A structure that integrates and keeps statistics
 pub struct Integrand {
@@ -131,19 +131,7 @@ impl Integrand {
         }
     }
 
-    fn print_info<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + num_traits::Signed
-            + FloatConst
-            + std::fmt::LowerExp
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
+    fn print_info<T: FloatLike>(
         &mut self,
         n_loops: usize,
         new_max: bool,
@@ -233,19 +221,7 @@ impl Integrand {
             self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.).unwrap();
     }
 
-    fn check_stability<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + num_traits::Signed
-            + FloatConst
-            + std::fmt::LowerExp
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
+    fn check_stability<T: FloatLike>(
         &self,
         x: &[f64],
         result: Complex<T>,

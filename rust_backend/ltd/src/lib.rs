@@ -12,12 +12,14 @@ extern crate vector;
 use cpython::PyResult;
 use std::cell::RefCell;
 extern crate cuba;
+extern crate disjoint_sets;
 extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;
-extern crate disjoint_sets;
 
-use num_traits::{FromPrimitive, ToPrimitive, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Num, ToPrimitive, Zero};
+use utils::Signum;
+use vector::{Field, RealNumberLike};
 
 const MAX_LOOP: usize = 4;
 
@@ -27,6 +29,26 @@ pub type float = f128::f128;
 #[allow(non_camel_case_types)]
 #[cfg(not(feature = "use_f128"))]
 pub type float = f64;
+
+pub trait FloatLike
+where
+    Self: From<float>,
+    Self: Num,
+    Self: FromPrimitive,
+    Self: Float,
+    Self: Field,
+    Self: RealNumberLike,
+    Self: num_traits::Signed,
+    Self: FloatConst,
+    Self: std::fmt::LowerExp,
+    Self: num_traits::float::FloatCore,
+    Self: 'static,
+    Self: Signum,
+{
+}
+
+impl FloatLike for f64 {}
+impl FloatLike for f128::f128 {}
 
 pub mod cts;
 pub mod integrand;
