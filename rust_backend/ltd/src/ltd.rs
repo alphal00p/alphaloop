@@ -1681,7 +1681,6 @@ impl Topology {
                 })
                 .collect();
             jac_def = jac;
-            ct = self.counterterm(&k_def);
 
             self.compute_complex_cut_energies(&k_def, cache);
         }
@@ -1711,19 +1710,17 @@ impl Topology {
                             })
                             .collect();
                         dual_jac_def = jac;
-                        ct = self.counterterm(&k_def);
                         self.compute_complex_cut_energies(&k_def, cache);
                     }
-
                     match self.evaluate_cut(&mut k_def, cut, mat, cache) {
                         Ok(v) => {
                             // Regulate each sub diagram individually
+                            ct = self.counterterm(&k_def);
                             result += v * (ct + T::one()) * dual_jac_def
                         }
                         Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
                     }
                 }
-
                 cut_counter += 1;
             }
         }

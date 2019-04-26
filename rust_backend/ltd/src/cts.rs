@@ -134,7 +134,7 @@ impl Topology {
                     .collect();
 
                 //Use specific CT whenever possible
-                let use_special_ct = true;
+                let use_special_ct = false;
                 //Compute CT
                 if use_special_ct && props.len() == 4 {
                     // TODO: convert qs to float
@@ -162,9 +162,7 @@ impl Topology {
                         - self.loop_lines[0].propagators[2].q)
                         .cast::<T>()
                         .square();
-                    //println!("{:?}::{:?}::{:?}::{:?}", s44, s33, s22, s11);
-                    let s34 = s12;
-                    let s14 = s23;
+
                     let ai = vec![
                         (T::one() - (s44 + s33) / s12) / (s23 - (s11 * s33 + s22 * s44) / s12),
                         (T::one() - (s11 + s44) / s23) / (s12 - (s22 * s44 + s33 * s11) / s23),
