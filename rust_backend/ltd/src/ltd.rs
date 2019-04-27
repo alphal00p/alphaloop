@@ -1674,7 +1674,6 @@ impl Topology {
         // deform
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
         let mut jac_def = Complex::one();
-        let mut ct = Complex::zero();
 
         if self.settings.general.deformation_strategy != DeformationStrategy::Duals {
             let (kappas, jac) = self.deform(&k, None, cache);
@@ -1718,8 +1717,7 @@ impl Topology {
                     }
                     match self.evaluate_cut(&mut k_def, cut, mat, cache) {
                         Ok(v) => {
-                            // Regulate each sub diagram individually
-                            ct = self.counterterm(&k_def);
+                            let ct = self.counterterm(cut, cache);
                             result += v * (ct + T::one()) * dual_jac_def
                         }
                         Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
