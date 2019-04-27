@@ -989,74 +989,46 @@ impl Topology {
         }
 
         // now combine the kappas from the surface using the chosen strategy
-        match self.settings.general.deformation_strategy {
-            DeformationStrategy::Additive => {
-                let aij: DualN<T, U> =
-                    NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
+        let mut aij: DualN<T, U> = NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
+        let mut lambda: DualN<T, U> = DualN::one();
 
-                for (i, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
-                    let dampening = match self.settings.deformation.additive.mode {
-                        AdditiveMode::Exponential => (-inv * inv
-                            / (aij
-                                * <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2)))
-                        .exp(),
-                        AdditiveMode::Hyperbolic => {
-                            let t = inv * inv
-                                / <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2);
-                            t / (t + aij)
-                        }
-                        AdditiveMode::Unity => DualN::one(),
-                        AdditiveMode::SoftMin => unimplemented!(),
-                    };
-
-                    for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
-                        let dir = kappa_surf[i * self.n_loops + loop_index];
-                        if self.settings.general.debug > 2 {
-                            println!(
-                                "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
-                                group_counter,
-                                dir,
-                                dampening.real()
-                            );
-                        }
-
-                        *kappa += dir * dampening;
-                    }
-                }
+        for (i, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
+            if i < self.settings.deformation.additive.a_ijs.len() {
+                aij = NumCast::from(self.settings.deformation.additive.a_ijs[i]).unwrap();
             }
-            DeformationStrategy::Multiplicative => {
-                let m_ij: DualN<T, U> =
-                    NumCast::from(self.settings.deformation.multiplicative.m_ij).unwrap();
 
-                for (i, _) in inv_surf_prop[..group_counter].iter().enumerate() {
-                    let mut dampening = DualN::one();
-                    for (j, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
-                        if i == j {
-                            continue;
-                        }
-
-                        let t = inv * inv
-                            / <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2);
-                        dampening *= t / (t + m_ij);
-                    }
-
-                    for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
-                        let dir = kappa_surf[i * self.n_loops + loop_index];
-                        if self.settings.general.debug > 2 {
-                            println!(
-                                "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
-                                group_counter,
-                                dir,
-                                dampening.real()
-                            );
-                        }
-
-                        *kappa += dir * dampening;
-                    }
-                }
+            if i < self.settings.deformation.lambdas.len() {
+                lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
             }
-            _ => unreachable!(),
+
+            let dampening = match self.settings.deformation.additive.mode {
+                AdditiveMode::Exponential => (-inv * inv
+                    / (aij * <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2)))
+                .exp(),
+                AdditiveMode::Hyperbolic => {
+                    let t =
+                        inv * inv / <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2);
+                    t / (t + aij)
+                }
+                AdditiveMode::Unity => DualN::one(),
+                AdditiveMode::SoftMin => unimplemented!(),
+            };
+
+            for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
+                let dir = kappa_surf[i * self.n_loops + loop_index];
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
+                        group_counter,
+                        dir,
+                        dampening.real()
+                    );
+                }
+
+                *kappa += dir * dampening * lambda;
+            }
         }
+
         kappas
     }
 
@@ -1187,11 +1159,16 @@ impl Topology {
 
         let cache = cache.get_cache();
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
+        let mut lambda = DualN::one();
         for (i, &(cut_structure_index, cut_option_index)) in cache.non_empty_cuts
             [..non_empty_cut_count]
             .iter()
             .enumerate()
         {
+            if i < self.settings.deformation.lambdas.len() {
+                lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
+            }
+
             if self.settings.general.debug > 2 {
                 println!(
                     "Surface contributions for cut {}:",
@@ -1263,7 +1240,7 @@ impl Topology {
             }
 
             for ii in 0..self.n_loops {
-                kappas[ii] -= cache.deform_dirs[i * self.n_loops + ii] * s;
+                kappas[ii] -= cache.deform_dirs[i * self.n_loops + ii] * s * lambda;
             }
         }
 
@@ -1345,9 +1322,7 @@ impl Topology {
                 let cut = &self.ltd_cut_options[co.0][co.1];
                 self.get_deformation_for_cut(cut, co.0, cache)
             }
-            DeformationStrategy::Additive | DeformationStrategy::Multiplicative => {
-                self.deform_ellipsoids(cache)
-            }
+            DeformationStrategy::Additive => self.deform_ellipsoids(cache),
             DeformationStrategy::Constant => self.deform_constant(loop_momenta, cache),
             DeformationStrategy::None => unreachable!(),
         };
