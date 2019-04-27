@@ -130,6 +130,7 @@ where
     pub deformation_jacobian: Vec<Complex<T>>,
     pub cut_energies: Vec<DualN<T, U>>,
     pub cut_info: Vec<CutInfo<T, U>>,
+    pub computed_cut_ll: Vec<usize>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
@@ -146,6 +147,25 @@ where
             deformation_jacobian: vec![],
             cut_energies: vec![],
             cut_info: vec![],
+            computed_cut_ll: vec![],
+        }
+    }
+}
+
+impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> LTDCacheI<T, U>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
+{
+    fn new(num_loops: usize, num_surfaces: usize, num_propagators: usize) -> LTDCacheI<T, U> {
+        LTDCacheI {
+            ellipsoid_eval: vec![DualN::default(); num_surfaces],
+            deform_dirs: vec![LorentzVector::default(); num_surfaces * num_loops],
+            non_empty_cuts: vec![(0, 0); num_surfaces],
+            deformation_jacobian: vec![Complex::default(); 9 * num_loops * num_loops],
+            cut_energies: vec![DualN::default(); num_propagators],
+            cut_info: vec![CutInfo::default(); num_propagators],
+            computed_cut_ll: vec![0; num_propagators],
         }
     }
 }
@@ -163,85 +183,17 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
     pub fn new(topo: &Topology) -> LTDCache<T> {
-        let mut one_loop = LTDCacheI::<T, U4>::default();
-        let mut two_loop = LTDCacheI::<T, U7>::default();
-        let mut three_loop = LTDCacheI::<T, U10>::default();
-        let mut four_loop = LTDCacheI::<T, U13>::default();
-        one_loop
-            .ellipsoid_eval
-            .resize(topo.surfaces.len(), DualN::default());
-        two_loop
-            .ellipsoid_eval
-            .resize(topo.surfaces.len(), DualN::default());
-        three_loop
-            .ellipsoid_eval
-            .resize(topo.surfaces.len(), DualN::default());
-        four_loop
-            .ellipsoid_eval
-            .resize(topo.surfaces.len(), DualN::default());
-
-        one_loop
-            .deform_dirs
-            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
-        two_loop
-            .deform_dirs
-            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
-        three_loop
-            .deform_dirs
-            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
-        four_loop
-            .deform_dirs
-            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
-
-        one_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
-        two_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
-        three_loop
-            .non_empty_cuts
-            .resize(topo.surfaces.len(), (0, 0));
-        four_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
-
-        one_loop.deformation_jacobian.resize(9, Complex::default());
-        two_loop.deformation_jacobian.resize(36, Complex::default());
-        three_loop
-            .deformation_jacobian
-            .resize(81, Complex::default());
-        four_loop
-            .deformation_jacobian
-            .resize(144, Complex::default());
-
         let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
 
-        one_loop
-            .cut_energies
-            .resize(num_propagators, DualN::default());
-        two_loop
-            .cut_energies
-            .resize(num_propagators, DualN::default());
-        three_loop
-            .cut_energies
-            .resize(num_propagators, DualN::default());
-        four_loop
-            .cut_energies
-            .resize(num_propagators, DualN::default());
-
-        one_loop
-            .cut_info
-            .resize(num_propagators, CutInfo::default());
-        two_loop
-            .cut_info
-            .resize(num_propagators, CutInfo::default());
-        three_loop
-            .cut_info
-            .resize(num_propagators, CutInfo::default());
-        four_loop
-            .cut_info
-            .resize(num_propagators, CutInfo::default());
-
         LTDCache {
-            one_loop,
-            two_loop,
-            three_loop,
-            four_loop,
+            one_loop: LTDCacheI::<T, U4>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            two_loop: LTDCacheI::<T, U7>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            three_loop: LTDCacheI::<T, U10>::new(
+                topo.n_loops,
+                topo.surfaces.len(),
+                num_propagators,
+            ),
+            four_loop: LTDCacheI::<T, U13>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
             complex_cut_energies: vec![Complex::default(); num_propagators],
             complex_prop_spatial: vec![Complex::default(); num_propagators],
             complex_loop_line_eval: topo

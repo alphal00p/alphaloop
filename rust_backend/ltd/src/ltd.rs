@@ -645,8 +645,17 @@ impl Topology {
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
     {
+        let mut lambda_sq =
+            DualN::from_real(<T as Float>::powi(T::from_f64(lambda_max).unwrap(), 2));
+
+        let sigma =
+            DualN::from_real(T::from_f64(self.settings.deformation.scaling.softmin_sigma).unwrap());
+        let mut smooth_min_num = lambda_sq * (-lambda_sq / sigma).exp();
+        let mut smooth_min_den = (-lambda_sq / sigma).exp();
+
         // update the cut information with the kappa-dependent information
         let cache = cache.get_cache_mut();
+
         for ll in &self.loop_lines {
             let mut kappa_cut = LorentzVector::default();
             for (kappa, &sign) in kappas.iter().zip(ll.signature.iter()) {
@@ -654,6 +663,8 @@ impl Topology {
             }
 
             for p in &ll.propagators {
+                cache.computed_cut_ll[p.id] = 0;
+
                 let info = &mut cache.cut_info[p.id];
                 info.kappa = kappa_cut;
                 info.kappa_sq = kappa_cut.spatial_squared_impr();
@@ -666,177 +677,170 @@ impl Topology {
                     info.b = info.kappa_dot_mom / info.real_energy;
                     info.c = info.real_energy;
                 }
-            }
-        }
 
-        let mut lambda_sq =
-            DualN::from_real(<T as Float>::powi(T::from_f64(lambda_max).unwrap(), 2));
-
-        let sigma =
-            DualN::from_real(T::from_f64(self.settings.deformation.scaling.softmin_sigma).unwrap());
-        let mut smooth_min_num = lambda_sq * (-lambda_sq / sigma).exp();
-        let mut smooth_min_den = (-lambda_sq / sigma).exp();
-
-        let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
-
-        for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter()) {
-            for cut in cuts {
-                let mut index = 0;
-                for (c, ll) in cut.iter().zip(self.loop_lines.iter()) {
-                    if let Cut::NegativeCut(i) | Cut::PositiveCut(i) = c {
-                        cut_infos[index] = &cache.cut_info[ll.propagators[*i].id];
-                        index += 1;
-                    }
+                if info.kappa_sq.is_zero() {
+                    continue;
                 }
 
                 // we have to make sure that our linear expansion for the deformation vectors is reasonable
                 // for that we need lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
-                for cut_info in &cut_infos[..self.n_loops] {
-                    if cut_info.kappa_sq.is_zero() {
-                        continue;
-                    }
+                if self.settings.deformation.scaling.expansion_check {
+                    let lambda_exp = DualN::from_real(
+                        T::from_f64(self.settings.deformation.scaling.expansion_threshold).unwrap(),
+                    ) * info.spatial_and_mass_sq
+                        / info.kappa_dot_mom.abs(); // note: not holomorphic
 
-                    if self.settings.deformation.scaling.expansion_check {
-                        let lambda_exp = DualN::from_real(
-                            T::from_f64(self.settings.deformation.scaling.expansion_threshold)
-                                .unwrap(),
-                        ) * cut_info.spatial_and_mass_sq
-                            / cut_info.kappa_dot_mom.abs(); // note: not holomorphic
+                    let lambda_exp_sq = lambda_exp * lambda_exp;
 
-                        let lambda_exp_sq = lambda_exp * lambda_exp;
-
-                        if sigma.is_zero() {
-                            if lambda_exp_sq < lambda_sq {
-                                lambda_sq = lambda_exp_sq;
-                            }
-                        } else {
-                            let e = (-lambda_exp_sq / sigma).exp();
-                            smooth_min_num += lambda_exp_sq * e;
-                            smooth_min_den += e;
+                    if sigma.is_zero() {
+                        if lambda_exp_sq < lambda_sq {
+                            lambda_sq = lambda_exp_sq;
                         }
-                    }
-
-                    // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
-                    // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
-                    if self.settings.deformation.scaling.positive_cut_check {
-                        let lambda_disc_sq = cut_info.spatial_and_mass_sq / cut_info.kappa_sq
-                            * DualN::from_real(T::from_f64(0.95).unwrap());
-
-                        if sigma.is_zero() {
-                            if lambda_disc_sq < lambda_sq {
-                                lambda_sq = lambda_disc_sq;
-                            }
-                        } else {
-                            let e = (-lambda_disc_sq / sigma).exp();
-                            smooth_min_num += lambda_disc_sq * e;
-                            smooth_min_den += e;
-                        }
+                    } else {
+                        let e = (-lambda_exp_sq / sigma).exp();
+                        smooth_min_num += lambda_exp_sq * e;
+                        smooth_min_den += e;
                     }
                 }
 
-                if !self.settings.deformation.scaling.cut_propagator_check
-                    && !self.settings.deformation.scaling.non_cut_propagator_check
-                {
-                    continue;
+                // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
+                // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
+                if self.settings.deformation.scaling.positive_cut_check {
+                    let lambda_disc_sq = info.spatial_and_mass_sq / info.kappa_sq
+                        * DualN::from_real(T::from_f64(0.95).unwrap());
+
+                    if sigma.is_zero() {
+                        if lambda_disc_sq < lambda_sq {
+                            lambda_sq = lambda_disc_sq;
+                        }
+                    } else {
+                        let e = (-lambda_disc_sq / sigma).exp();
+                        smooth_min_num += lambda_disc_sq * e;
+                        smooth_min_den += e;
+                    }
                 }
 
-                for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
-                    // TODO: this should be precomputed
-                    // determine the map from loop line momentum to cut momenta
-                    let mut sig_ll_in_cb = [0; MAX_LOOP];
-                    for ii in 0..self.n_loops {
-                        for jj in 0..self.n_loops {
-                            // note we are taking the transpose of cb_to_lmb_mat
-                            sig_ll_in_cb[ii] +=
-                                cb_to_lmb_mat[jj * self.n_loops + ii] * onshell_ll.signature[jj];
-                        }
-                    }
+                // check the on-shell propagator for zeros
+                if self.settings.deformation.scaling.cut_propagator_check {
+                    let x = (info.kappa_dot_mom / info.kappa_sq).powi(2);
+                    let y = info.spatial_and_mass_sq / info.kappa_sq;
 
-                    // multiply the signature by the sign of the cut
-                    let mut onshell_signs = [0; MAX_LOOP];
+                    let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+
+                    if sigma.is_zero() {
+                        if prop_lambda_sq < lambda_sq {
+                            lambda_sq = prop_lambda_sq;
+                        }
+                    } else {
+                        let e = (-prop_lambda_sq / sigma).exp();
+                        smooth_min_num += prop_lambda_sq * e;
+                        smooth_min_den += e;
+                    }
+                }
+            }
+        }
+
+        if self.settings.deformation.scaling.non_cut_propagator_check {
+            let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
+
+            for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter())
+            {
+                for cut in cuts {
                     let mut index = 0;
-                    for (os, &sig) in onshell_signs.iter_mut().zip(sig_ll_in_cb.iter()) {
-                        *os = sig;
+                    for (c, ll) in cut.iter().zip(self.loop_lines.iter()) {
+                        if let Cut::NegativeCut(i) | Cut::PositiveCut(i) = c {
+                            cut_infos[index] = &cache.cut_info[ll.propagators[*i].id];
+                            index += 1;
+                        }
                     }
-                    for x in cut {
-                        match x {
-                            Cut::PositiveCut(_) => index += 1,
-                            Cut::NegativeCut(_) => {
-                                onshell_signs[index] *= -1;
-                                index += 1;
+
+                    for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
+                        // store a bit flag to see if we have checked a loop line with a cut already
+                        // 1 => positive cut computed, 2 => negative cut computed
+                        match *ll_cut {
+                            Cut::PositiveCut(cut_prop) => {
+                                if cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] & 1
+                                    == 0
+                                {
+                                    cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] |= 1;
+                                } else {
+                                    continue;
+                                }
+                            }
+                            Cut::NegativeCut(cut_prop) => {
+                                if cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] & 2
+                                    == 0
+                                {
+                                    cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] |= 2;
+                                } else {
+                                    continue;
+                                }
                             }
                             Cut::NoCut => {}
                         }
-                    }
 
-                    let mut ellipse_flag = 0;
-                    for x in &onshell_signs {
-                        match x {
-                            1 => ellipse_flag |= 1,
-                            -1 => ellipse_flag |= 2,
-                            0 => {}
-                            _ => unreachable!(),
-                        }
-                    }
-
-                    if ellipse_flag == 3 && self.settings.deformation.scaling.skip_hyperboloids {
-                        continue;
-                    }
-
-                    let k0sq_inv = DualN::from_real(T::one())
-                        / cache.cut_info[onshell_ll.propagators[0].id].kappa_sq;
-
-                    // if the kappa is 0, there is no need for rescaling
-                    if !k0sq_inv.is_finite() {
-                        continue;
-                    }
-
-                    // treat the cut part of the surface equation
-                    let mut a = DualN::from_real(T::zero());
-                    let mut b = DualN::from_real(T::zero());
-                    let mut c = DualN::from_real(T::zero());
-                    for (cut_info, &sign) in
-                        cut_infos[..self.n_loops].iter().zip(onshell_signs.iter())
-                    {
-                        if sign != 0 {
-                            a += cut_info.a.multiply_sign(sign);
-                            b += cut_info.b.multiply_sign(sign);
-                            c += cut_info.c.multiply_sign(sign);
-                        }
-                    }
-
-                    // TODO: we are checking surfaces more than once. The ones that depend on only
-                    // one loop momentum for example
-                    for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate() {
-                        let on_shell_info = &cache.cut_info[onshell_prop.id];
-
-                        // if this is the cut propagator, we only need to use the spatial part
-                        // the functional form remains the same
-
-                        if *ll_cut == Cut::NegativeCut(prop_index)
-                            || *ll_cut == Cut::PositiveCut(prop_index)
-                        {
-                            // TODO: move to block where we do cut propagator checks
-                            if !self.settings.deformation.scaling.cut_propagator_check {
-                                continue;
+                        // TODO: this should be precomputed
+                        // determine the map from loop line momentum to cut momenta
+                        let mut onshell_signs = [0; MAX_LOOP];
+                        for ii in 0..self.n_loops {
+                            for jj in 0..self.n_loops {
+                                // note we are taking the transpose of cb_to_lmb_mat
+                                onshell_signs[ii] += cb_to_lmb_mat[jj * self.n_loops + ii]
+                                    * onshell_ll.signature[jj];
                             }
+                        }
 
-                            let x = (on_shell_info.kappa_dot_mom * k0sq_inv).powi(2);
-                            let y = on_shell_info.spatial_and_mass_sq * k0sq_inv;
-
-                            let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
-
-                            if sigma.is_zero() {
-                                if prop_lambda_sq < lambda_sq {
-                                    lambda_sq = prop_lambda_sq;
+                        // multiply the signature by the sign of the cut
+                        let mut index = 0;
+                        for x in cut {
+                            match x {
+                                Cut::PositiveCut(_) => index += 1,
+                                Cut::NegativeCut(_) => {
+                                    onshell_signs[index] *= -1;
+                                    index += 1;
                                 }
-                            } else {
-                                let e = (-prop_lambda_sq / sigma).exp();
-                                smooth_min_num += prop_lambda_sq * e;
-                                smooth_min_den += e;
+                                Cut::NoCut => {}
                             }
-                        } else {
-                            if !self.settings.deformation.scaling.non_cut_propagator_check {
+                        }
+
+                        let mut ellipse_flag = 0;
+                        for x in &onshell_signs {
+                            match x {
+                                1 => ellipse_flag |= 1,
+                                -1 => ellipse_flag |= 2,
+                                0 => {}
+                                _ => unreachable!(),
+                            }
+                        }
+
+                        if ellipse_flag == 3 && self.settings.deformation.scaling.skip_hyperboloids
+                        {
+                            continue;
+                        }
+
+                        // treat the cut part of the surface equation
+                        let mut a = DualN::from_real(T::zero());
+                        let mut b = DualN::from_real(T::zero());
+                        let mut c = DualN::from_real(T::zero());
+                        for (cut_info, &sign) in
+                            cut_infos[..self.n_loops].iter().zip(onshell_signs.iter())
+                        {
+                            if sign != 0 {
+                                a += cut_info.a.multiply_sign(sign);
+                                b += cut_info.b.multiply_sign(sign);
+                                c += cut_info.c.multiply_sign(sign);
+                            }
+                        }
+
+                        // TODO: we are checking surfaces more than once. The ones that depend on only
+                        // one loop momentum for example
+                        for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate()
+                        {
+                            let on_shell_info = &cache.cut_info[onshell_prop.id];
+
+                            if *ll_cut == Cut::PositiveCut(prop_index)
+                                || *ll_cut == Cut::NegativeCut(prop_index)
+                            {
                                 continue;
                             }
 
