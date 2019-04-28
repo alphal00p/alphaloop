@@ -79,12 +79,6 @@ impl Topology {
                     .iter()
                     .enumerate()
                     .map(|(i, p)| match cuts[0] {
-                        Cut::PositiveCut(j) if i == j => {
-                            (cut_energy + T::from_f64(p.q.t).unwrap()) * T::from_f64(2.).unwrap()
-                        }
-                        Cut::NegativeCut(j) if i == j => {
-                            (cut_energy + T::from_f64(p.q.t).unwrap()) * T::from_f64(-2.).unwrap()
-                        }
                         _ => {
                             utils::powi(cut_energy + T::from_f64(p.q.t).unwrap(), 2)
                                 - cache.complex_prop_spatial[p.id]
