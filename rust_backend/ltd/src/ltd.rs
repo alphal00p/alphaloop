@@ -1692,7 +1692,9 @@ impl Topology {
                     }
                     match self.evaluate_cut(&mut k_def, cut, mat, cache) {
                         Ok(v) => {
-                            let ct = self.counterterm(cut, cache);
+                            // calculate the counterterm cut by cut,
+                            // k_def has the correct energy component at this stage
+                            let ct = self.counterterm(&k_def, cache);
                             result += v * (ct + T::one()) * dual_jac_def
                         }
                         Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),

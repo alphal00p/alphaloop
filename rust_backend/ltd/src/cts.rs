@@ -1,8 +1,9 @@
 use arrayvec::ArrayVec;
 use num::Complex;
-use topologies::{Cut, LTDCache, Topology};
+use topologies::{LTDCache, Topology};
 use utils;
-use FloatLike;
+use vector::LorentzVector;
+use {FloatLike, MAX_LOOP};
 
 impl Topology {
     #[inline]
@@ -51,7 +52,11 @@ impl Topology {
         }
     }
 
-    pub fn counterterm<T: FloatLike>(&self, cuts: &[Cut], cache: &mut LTDCache<T>) -> Complex<T> {
+    pub fn counterterm<T: FloatLike>(
+        &self,
+        k_def: &ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        cache: &mut LTDCache<T>,
+    ) -> Complex<T> {
         match self.n_loops {
             1 => {
                 if self.on_shell_flag == 0 {
@@ -60,29 +65,14 @@ impl Topology {
 
                 let ll = &self.loop_lines[0];
 
-                let cut_energy = match cuts[0] {
-                    Cut::PositiveCut(i) => {
-                        cache.complex_cut_energies[ll.propagators[i].id]
-                            - T::from_f64(ll.propagators[i].q.t).unwrap()
-                    }
-                    Cut::NegativeCut(i) => {
-                        -cache.complex_cut_energies[ll.propagators[i].id]
-                            - T::from_f64(ll.propagators[i].q.t).unwrap()
-                    }
-                    Cut::NoCut => unreachable!(),
-                };
-
                 //Propagators (MAX 10 )
                 //TODO: Make it flexible
                 let props: ArrayVec<[num::Complex<T>; 10]> = ll
                     .propagators
                     .iter()
-                    .enumerate()
-                    .map(|(i, p)| match cuts[0] {
-                        _ => {
-                            utils::powi(cut_energy + T::from_f64(p.q.t).unwrap(), 2)
-                                - cache.complex_prop_spatial[p.id]
-                        }
+                    .map(|p| {
+                        utils::powi(k_def[0].t + T::from_f64(p.q.t).unwrap(), 2)
+                            - cache.complex_prop_spatial[p.id]
                     })
                     .collect();
 
