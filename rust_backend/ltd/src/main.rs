@@ -11,7 +11,6 @@ extern crate rand;
 extern crate serde;
 extern crate serde_yaml;
 use serde::{Deserialize, Serialize};
-extern crate vector;
 
 use clap::{App, Arg, SubCommand};
 use num_traits::ToPrimitive;
@@ -96,7 +95,7 @@ fn bench(topo: &Topology, settings: &Settings) {
             *xi = rng.gen();
         }
 
-        let _r = topo.evaluate(&x, &mut cache);
+        let _r = topo.evaluate(&x, &mut cache, &None);
     }
 
     println!("{:#?}", now.elapsed());
@@ -238,7 +237,8 @@ fn main() {
         // TODO: prevent code repetition
         if matches.is_present("use_f128") {
             let mut cache = LTDCache::<f128::f128>::new(&topo);
-            let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate(&pt, &mut cache);
+            let (x, k_def, jac_para, jac_def, result) =
+                topo.clone().evaluate(&pt, &mut cache, &None);
             match topo.n_loops {
                 1 => {
                     println!(
@@ -268,7 +268,8 @@ fn main() {
             }
         } else {
             let mut cache = LTDCache::<float>::new(&topo);
-            let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate(&pt, &mut cache);
+            let (x, k_def, jac_para, jac_def, result) =
+                topo.clone().evaluate(&pt, &mut cache, &None);
             match topo.n_loops {
                 1 => {
                     println!(

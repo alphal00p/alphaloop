@@ -1,13 +1,13 @@
 use arrayvec::ArrayVec;
 use disjoint_sets::UnionFind;
 use dual_num::DualN;
-use float;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, Num, NumCast, One, Signed, Zero};
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
 use utils::Signum;
 use vector::{Field, LorentzVector, RealNumberLike};
+use {float, PythonNumerator};
 use {
     AdditiveMode, DeformationStrategy, FloatLike, OverallDeformationScaling,
     ParameterizationMapping, ParameterizationMode, MAX_LOOP,
@@ -1614,6 +1614,7 @@ impl Topology {
         &self,
         x: &'a [f64],
         cache: &mut LTDCache<T>,
+        python_numerator: &Option<PythonNumerator>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
@@ -1692,10 +1693,15 @@ impl Topology {
                     }
                     match self.evaluate_cut(&mut k_def, cut, mat, cache) {
                         Ok(v) => {
-                            // calculate the counterterm cut by cut,
                             // k_def has the correct energy component at this stage
-                            let ct = self.counterterm(&k_def, cache);
-                            result += v * (ct + T::one()) * dual_jac_def
+                            if let Some(pn) = python_numerator {
+                                result += v * pn.evaluate_numerator(&k_def) * dual_jac_def
+                            } else {
+                                // calculate the counterterm cut by cut
+
+                                let ct = self.counterterm(&k_def, cache);
+                                result += v * (ct + T::one()) * dual_jac_def
+                            }
                         }
                         Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
                     }

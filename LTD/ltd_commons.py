@@ -16,6 +16,9 @@ hyperparameters = HyperParameters({
         # can be additive, cutgroups, constant, duals or none
         'deformation_strategy'  :   'cutgroups',
         'topology'              :   'TriangleBoxTriangle',
+        # specify the name of a python module that contains a function numerator(complex_loop_momenta)
+        # that will be called for every cut
+        'python_numerator'      :   None,
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
