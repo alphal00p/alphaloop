@@ -937,7 +937,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: 20. * zeta(3) / ps[0].square()),
+            analytical_result = (lambda ps: 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / ps[0].square()),
             ltd_cut_structure = (
 		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
 
