@@ -74,6 +74,51 @@ impl fmt::Display for Cut {
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
+pub struct CutInfo<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
+{
+    pub id: usize,
+    pub momentum: LorentzVector<DualN<T, U>>,
+    pub real_energy: DualN<T, U>,
+    pub spatial_and_mass_sq: DualN<T, U>,
+    pub shift: LorentzVector<DualN<T, U>>,
+    pub kappa: LorentzVector<DualN<T, U>>,
+    pub kappa_sq: DualN<T, U>,
+    pub kappa_dot_mom: DualN<T, U>,
+    pub mass: DualN<T, U>,
+    pub a: DualN<T, U>,
+    pub b: DualN<T, U>,
+    pub c: DualN<T, U>,
+}
+
+impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
+    for CutInfo<T, U>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
+{
+    fn default() -> CutInfo<T, U> {
+        CutInfo {
+            id: 0,
+            momentum: LorentzVector::default(),
+            real_energy: DualN::default(),
+            spatial_and_mass_sq: DualN::default(),
+            shift: LorentzVector::default(),
+            kappa: LorentzVector::default(),
+            kappa_sq: DualN::default(),
+            kappa_dot_mom: DualN::default(),
+            mass: DualN::default(),
+            a: DualN::default(),
+            b: DualN::default(),
+            c: DualN::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+/// A cache for objects needed during LTD computation
 pub struct LTDCacheI<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
@@ -84,6 +129,8 @@ where
     pub non_empty_cuts: Vec<(usize, usize)>,
     pub deformation_jacobian: Vec<Complex<T>>,
     pub cut_energies: Vec<DualN<T, U>>,
+    pub cut_info: Vec<CutInfo<T, U>>,
+    pub computed_cut_ll: Vec<usize>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
@@ -99,6 +146,26 @@ where
             non_empty_cuts: vec![],
             deformation_jacobian: vec![],
             cut_energies: vec![],
+            cut_info: vec![],
+            computed_cut_ll: vec![],
+        }
+    }
+}
+
+impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> LTDCacheI<T, U>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
+{
+    fn new(num_loops: usize, num_surfaces: usize, num_propagators: usize) -> LTDCacheI<T, U> {
+        LTDCacheI {
+            ellipsoid_eval: vec![DualN::default(); num_surfaces],
+            deform_dirs: vec![LorentzVector::default(); num_surfaces * num_loops],
+            non_empty_cuts: vec![(0, 0); num_surfaces],
+            deformation_jacobian: vec![Complex::default(); 9 * num_loops * num_loops],
+            cut_energies: vec![DualN::default(); num_propagators],
+            cut_info: vec![CutInfo::default(); num_propagators],
+            computed_cut_ll: vec![0; num_propagators],
         }
     }
 }
@@ -110,77 +177,30 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     three_loop: LTDCacheI<T, U10>,
     four_loop: LTDCacheI<T, U13>,
     pub complex_cut_energies: Vec<Complex<T>>,
+    pub complex_prop_spatial: Vec<Complex<T>>,
+    pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
     pub fn new(topo: &Topology) -> LTDCache<T> {
-        let mut one_loop = LTDCacheI::<T, U4>::default();
-        let mut two_loop = LTDCacheI::<T, U7>::default();
-        let mut three_loop = LTDCacheI::<T, U10>::default();
-        let mut four_loop = LTDCacheI::<T, U13>::default();
-        one_loop
-            .ellipsoid_eval
-            .resize(topo.surfaces.len(), DualN::default());
-        two_loop
-            .ellipsoid_eval
-            .resize(topo.surfaces.len(), DualN::default());
-        three_loop
-            .ellipsoid_eval
-            .resize(topo.surfaces.len(), DualN::default());
-        four_loop
-            .ellipsoid_eval
-            .resize(topo.surfaces.len(), DualN::default());
-
-        one_loop
-            .deform_dirs
-            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
-        two_loop
-            .deform_dirs
-            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
-        three_loop
-            .deform_dirs
-            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
-        four_loop
-            .deform_dirs
-            .resize(topo.surfaces.len() * topo.n_loops, LorentzVector::default());
-
-        one_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
-        two_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
-        three_loop
-            .non_empty_cuts
-            .resize(topo.surfaces.len(), (0, 0));
-        four_loop.non_empty_cuts.resize(topo.surfaces.len(), (0, 0));
-
-        one_loop.deformation_jacobian.resize(9, Complex::default());
-        two_loop.deformation_jacobian.resize(36, Complex::default());
-        three_loop
-            .deformation_jacobian
-            .resize(81, Complex::default());
-        four_loop
-            .deformation_jacobian
-            .resize(144, Complex::default());
-
         let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
 
-        one_loop
-            .cut_energies
-            .resize(num_propagators, DualN::default());
-        two_loop
-            .cut_energies
-            .resize(num_propagators, DualN::default());
-        three_loop
-            .cut_energies
-            .resize(num_propagators, DualN::default());
-        four_loop
-            .cut_energies
-            .resize(num_propagators, DualN::default());
-
         LTDCache {
-            one_loop,
-            two_loop,
-            three_loop,
-            four_loop,
+            one_loop: LTDCacheI::<T, U4>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            two_loop: LTDCacheI::<T, U7>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            three_loop: LTDCacheI::<T, U10>::new(
+                topo.n_loops,
+                topo.surfaces.len(),
+                num_propagators,
+            ),
+            four_loop: LTDCacheI::<T, U13>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
             complex_cut_energies: vec![Complex::default(); num_propagators],
+            complex_prop_spatial: vec![Complex::default(); num_propagators],
+            complex_loop_line_eval: topo
+                .loop_lines
+                .iter()
+                .map(|ll| vec![[Complex::default(); 2]; ll.propagators.len()])
+                .collect(),
         }
     }
 }

@@ -1,46 +1,20 @@
 use arrayvec::ArrayVec;
-use float;
 use num::Complex;
-use num_traits::{Float, FromPrimitive, One, Zero};
-use topologies::Topology;
-use vector::{LorentzVector, RealNumberLike};
+use topologies::{LTDCache, Topology};
+use utils;
+use vector::LorentzVector;
+use {FloatLike, MAX_LOOP};
 
 impl Topology {
-    /*    1-LOOP    */
     #[inline]
-    fn xij<
-        T: From<float>
-            + FromPrimitive
-            + Float
-            + RealNumberLike
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
-        &self,
-        i: usize,
-        j: usize,
-    ) -> T {
+    fn xij<T: FloatLike>(&self, i: usize, j: usize) -> T {
         let qji = self.loop_lines[0].propagators[j].q - self.loop_lines[0].propagators[i].q;
         let pi = self.external_kinematics[i];
         T::one() + T::from_f64(qji.square()).unwrap() / (T::from_f64(2.0 * qji.dot(&pi)).unwrap())
     }
 
     #[inline]
-    fn tij<
-        T: From<float>
-            + FromPrimitive
-            + Float
-            + RealNumberLike
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
-        &self,
-        i: usize,
-        j: usize,
-        x: T,
-    ) -> T {
+    fn tij<T: FloatLike>(&self, i: usize, j: usize, x: T) -> T {
         let qji = self.loop_lines[0].propagators[j].q - self.loop_lines[0].propagators[i].q;
         let pi = self.external_kinematics[i];
         T::one()
@@ -48,19 +22,7 @@ impl Topology {
                 + T::from_f64(qji.square()).unwrap())
     }
 
-    fn aij<
-        T: From<float>
-            + FromPrimitive
-            + Float
-            + RealNumberLike
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
-        &self,
-        i: usize,
-        j: usize,
-    ) -> T {
+    fn aij<T: FloatLike>(&self, i: usize, j: usize) -> T {
         let mut result = T::one();
         let n_prop = self.loop_lines[0].propagators.len();
         let im1 = if i == 0 { n_prop - 1 } else { i - 1 };
@@ -76,18 +38,7 @@ impl Topology {
         result
     }
 
-    fn bi<
-        T: From<float>
-            + FromPrimitive
-            + Float
-            + RealNumberLike
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
-        &self,
-        i: usize,
-    ) -> T {
+    fn bi<T: FloatLike>(&self, i: usize) -> T {
         let pi = self.external_kinematics[i];
         let n_prop = self.loop_lines[0].propagators.len();
         let tau = 1e-10 * self.e_cm_squared;
@@ -101,17 +52,10 @@ impl Topology {
         }
     }
 
-    pub fn counterterm<
-        T: From<float>
-            + FromPrimitive
-            + Float
-            + RealNumberLike
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
+    pub fn counterterm<T: FloatLike>(
         &self,
-        cut_loop_mom: &[LorentzVector<Complex<T>>],
+        k_def: &ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        cache: &mut LTDCache<T>,
     ) -> Complex<T> {
         match self.n_loops {
             1 => {
@@ -119,53 +63,44 @@ impl Topology {
                     return Complex::default();
                 }
 
-                //println!("One Loop CounterTerms");
-                let mom = &cut_loop_mom[0];
+                let ll = &self.loop_lines[0];
 
                 //Propagators (MAX 10 )
                 //TODO: Make it flexible
-                let props: ArrayVec<[num::Complex<T>; 10]> = self.loop_lines[0]
+                let props: ArrayVec<[num::Complex<T>; 10]> = ll
                     .propagators
                     .iter()
-                    .map(|x| {
-                        let q: LorentzVector<Complex<T>> = x.q.cast().to_complex(true);
-                        (mom + q).square() - T::from_f64(x.m_squared).unwrap()
+                    .map(|p| {
+                        utils::powi(k_def[0].t + T::from_f64(p.q.t).unwrap(), 2)
+                            - cache.complex_prop_spatial[p.id]
                     })
                     .collect();
 
                 //Use specific CT whenever possible
-                let use_special_ct = true;
+                let use_special_ct = false;
                 //Compute CT
                 if use_special_ct && props.len() == 4 {
                     // TODO: convert qs to float
-                    let s11 = (self.loop_lines[0].propagators[3].q
-                        - self.loop_lines[0].propagators[0].q)
+                    let s11 = (ll.propagators[3].q - ll.propagators[0].q)
                         .cast::<T>()
                         .square();
-                    let s22 = (self.loop_lines[0].propagators[0].q
-                        - self.loop_lines[0].propagators[1].q)
+                    let s22 = (ll.propagators[0].q - ll.propagators[1].q)
                         .cast::<T>()
                         .square();
-                    let s33 = (self.loop_lines[0].propagators[1].q
-                        - self.loop_lines[0].propagators[2].q)
+                    let s33 = (ll.propagators[1].q - ll.propagators[2].q)
                         .cast::<T>()
                         .square();
-                    let s44 = (self.loop_lines[0].propagators[2].q
-                        - self.loop_lines[0].propagators[3].q)
+                    let s44 = (ll.propagators[2].q - ll.propagators[3].q)
                         .cast::<T>()
                         .square();
-                    let s12 = (self.loop_lines[0].propagators[1].q
-                        - self.loop_lines[0].propagators[3].q)
+                    let s12 = (ll.propagators[1].q - ll.propagators[3].q)
                         .cast::<T>()
                         .square();
-                    let s23 = (self.loop_lines[0].propagators[0].q
-                        - self.loop_lines[0].propagators[2].q)
+                    let s23 = (ll.propagators[0].q - ll.propagators[2].q)
                         .cast::<T>()
                         .square();
-                    //println!("{:?}::{:?}::{:?}::{:?}", s44, s33, s22, s11);
-                    let s34 = s12;
-                    let s14 = s23;
-                    let ai = vec![
+
+                    let ai = [
                         (T::one() - (s44 + s33) / s12) / (s23 - (s11 * s33 + s22 * s44) / s12),
                         (T::one() - (s11 + s44) / s23) / (s12 - (s22 * s44 + s33 * s11) / s23),
                         (T::one() - (s22 + s11) / s12) / (s23 - (s33 * s11 + s44 * s22) / s12),

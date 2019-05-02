@@ -2,6 +2,8 @@ import os
 import vectors
 import math
 
+zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
+
 #############################################################################################################
 # HyperParameters
 #############################################################################################################
@@ -123,19 +125,19 @@ class LoopTopology(object):
         for i_ll, loop_line in enumerate(self.loop_lines):
             if loop_line.start_node not in node_added:
                 node_added.append('%d'%loop_line.start_node)
-                dot.node('%d'%loop_line.start_node,'', style='filled', **node_properties)
+                dot.node('%d'%loop_line.start_node,'%d'%loop_line.start_node, style='filled', **node_properties)
             last_node = '%d'%loop_line.start_node
             for i,propagator in enumerate(loop_line.propagators[:-1]):
                 new_node = 'LL%dP%d'%(i_ll,i+1)
                 node_added.append(new_node)
                 dot.node(new_node,'', **node_properties)
-                dot.edge(last_node, new_node, label=('' if propagator.q!=zero_lv else str(propagator.signature)),**edge_properties)
+                dot.edge(last_node, new_node, label=str(propagator.signature)+('+pi' if propagator.q!=zero_lv else ''),**edge_properties)
                 last_node = new_node
             if loop_line.end_node not in node_added:
                 node_added.append('%d'%loop_line.end_node)
-                dot.node('%d'%loop_line.end_node,'', style='filled', **node_properties)
-            dot.edge(last_node, '%d'%loop_line.end_node, label=
-                     ('' if loop_line.propagators[-1].q!=zero_lv else str(loop_line.propagators[-1].signature)),**edge_properties)
+                dot.node('%d'%loop_line.end_node,'%d'%loop_line.end_node, style='filled', **node_properties)
+            dot.edge(last_node, '%d'%loop_line.end_node, label= str(loop_line.propagators[-1].signature) +
+                     ('+pi' if loop_line.propagators[-1].q!=zero_lv else ''),**edge_properties)
 
         filename = 'topology%s'%('_%s'%self.name if self.name else '')
         dot.render(filename, view=True)

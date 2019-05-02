@@ -931,6 +931,90 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             ) 
         )
 
+    elif topology_type == 'Mercedes':
+        p1,p2 = external_momenta
+        return LoopTopology(
+            name    = name,
+            n_loops = 3,
+            external_kinematics = external_momenta,
+            analytical_result = (lambda ps: 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / ps[0].square()),
+            ltd_cut_structure = (
+		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
+
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT),
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT),
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
+
+
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT),
+
+		(LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT),
+
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT),
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NEGATIVE_CUT),
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT),
+
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 2,
+                    signature   = (1,0,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 3,
+                    signature   = (0,1,0),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 1,
+                    signature   = (0,0,1),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 4,
+                    signature   = (1,-1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 4,
+                    signature   = (-1,0,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 4,
+                    signature   = (0,1,-1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
 
     elif topology_type =='TriangleBoxBoxTriangle':
         p1,p2 = external_momenta
@@ -1056,7 +1140,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
                     signature   = (0,0,0,1),
                     propagators = (
                         Propagator(q=zero_lv, m_squared=0.),
-                        Propagator(q=-p1, m_squared=0.),
+                        Propagator(q=p1, m_squared=0.),
                     )
                 ),
                 LoopLine(
@@ -1816,7 +1900,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5000000000000000,-0.4120803582196727,0.1731805902843028,-0.2240496853787720,]),
             vectors.LorentzVector([0.5000000000000000,0.4120803582196727,-0.1731805902843028,0.2240496853787720,]),
    ]),        
-        analytical_result = 1.96745764e-04 - 0.00760695j,
+        analytical_result = 7.6069548e-3+1.9674576e-4j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_1111',
     ),
@@ -1833,7 +1917,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5000000000000000,-0.4120803582196727,0.1731805902843028,-0.2240496853787720,]),
             vectors.LorentzVector([0.5000000000000000,0.4120803582196727,-0.1731805902843028,0.2240496853787720,]),
    ]),        
-        analytical_result = 2.06223420e-03 - 7.44829536e-03j,
+        analytical_result = 7.4482953e-3+2.0622342e-3j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_1110',
     ),
@@ -1850,7 +1934,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5555555555555556,-0.2422804773385922,0.1018206163990297,-0.1317288330743322,]),
             vectors.LorentzVector([0.4444444444444444,0.2422804773385922,-0.1018206163990297,0.1317288330743322,]),
         ]),        
-        analytical_result = 7.19665717e-03 + 1.24347878e-02j,
+        analytical_result = 7.1611648e-2+5.2295720e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_0010',
     ),
@@ -1867,7 +1951,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.6111111111111111,-0.3205069452819676,0.1346960146655688,-0.1742608664057115,]),
             vectors.LorentzVector([0.3888888888888889,0.3205069452819676,-0.1346960146655688,0.1742608664057115,]),
     ]),        
-        analytical_result = 9.33924390e-03 + 1.55172646e-02j,
+        analytical_result = 6.1769925e-2+5.2656987e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_1000',
     ),
@@ -1884,7 +1968,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5555555555555556,-0.2422804773385922,0.1018206163990297,-0.1317288330743322,]),
             vectors.LorentzVector([0.4444444444444444,0.2422804773385922,-0.1018206163990297,0.1317288330743322,]),
     ]),        
-        analytical_result = 0.00160178 + 0.05185485j,
+        analytical_result = 0.31097349+0.01956869j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_0000',
     ),
@@ -2559,6 +2643,19 @@ hard_coded_topology_collection.add_topology(
         name = 'TriangleBoxTriangle_alt',
     ),
     entry_name = 'TriangleBoxTriangle_alt',
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Mercedes',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1.,3.,0.,0.]),
+                vectors.LorentzVector([-1.,-3.,0.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'Mercedes',
+    ),
+    entry_name = 'Mercedes',
 )
 
 hard_coded_topology_collection.add_topology(

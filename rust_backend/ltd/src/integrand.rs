@@ -2,13 +2,13 @@ use arrayvec::ArrayVec;
 use f128::f128;
 use float;
 use num::Complex;
-use num_traits::{Float, FloatConst, FromPrimitive, Inv, Num, NumCast, One, ToPrimitive};
+use num_traits::{Float, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::{LTDCache, Topology};
-use vector::{Field, LorentzVector, RealNumberLike};
+use vector::LorentzVector;
 
-use {IntegratedPhase, Settings, MAX_LOOP};
+use {FloatLike, IntegratedPhase, PythonNumerator, Settings, MAX_LOOP};
 
 /// A structure that integrates and keeps statistics
 pub struct Integrand {
@@ -24,6 +24,7 @@ pub struct Integrand {
     pub regular_point_count: usize,
     pub log: BufWriter<File>,
     pub id: usize,
+    pub python_numerator: Option<PythonNumerator>,
 }
 
 impl Integrand {
@@ -112,6 +113,12 @@ impl Integrand {
                 rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
         }
 
+        let python_numerator = settings
+            .general
+            .python_numerator
+            .as_ref()
+            .map(|module| PythonNumerator::new(module, topology.n_loops));
+
         Integrand {
             topologies: vec![topology.clone(), rotated_topology],
             cache_float: LTDCache::<float>::new(&topology),
@@ -128,22 +135,11 @@ impl Integrand {
             ),
             settings,
             id,
+            python_numerator,
         }
     }
 
-    fn print_info<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + num_traits::Signed
-            + FloatConst
-            + std::fmt::LowerExp
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
+    fn print_info<T: FloatLike>(
         &mut self,
         n_loops: usize,
         new_max: bool,
@@ -195,6 +191,18 @@ impl Integrand {
                         sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
                     ).unwrap();
                 }
+                4 => {
+                    if log_to_screen {
+                        eprintln!(
+                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | n={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], k_def[3], jac_para, jac_def
+                    );
+                    }
+                    writeln!(self.log,
+                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | n={:e}\n  | jac_para={:e}, jac_def={:e}",
+                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], k_def[3], jac_para, jac_def
+                    ).unwrap();
+                }
                 _ => {}
             }
         }
@@ -221,19 +229,7 @@ impl Integrand {
             self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.).unwrap();
     }
 
-    fn check_stability<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + num_traits::Signed
-            + FloatConst
-            + std::fmt::LowerExp
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
+    fn check_stability<T: FloatLike>(
         &self,
         x: &[f64],
         result: Complex<T>,
@@ -241,7 +237,7 @@ impl Integrand {
     ) -> (T, T, Complex<T>) {
         if self.settings.general.numerical_instability_check {
             let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                self.topologies[1].evaluate(x, cache);
+                self.topologies[1].evaluate(x, cache, &self.python_numerator);
 
             // compute the number of similar digits
             let (num, num_rot) =
@@ -294,7 +290,7 @@ impl Integrand {
 
         let mut cache_float = std::mem::replace(&mut self.cache_float, LTDCache::default());
         let (x, k_def, jac_para, jac_def, mut result) =
-            self.topologies[0].evaluate(x, &mut cache_float);
+            self.topologies[0].evaluate(x, &mut cache_float, &self.python_numerator);
         let (d, diff, result_rot) = self.check_stability(x, result, &mut cache_float);
         std::mem::swap(&mut self.cache_float, &mut cache_float);
 
@@ -315,7 +311,7 @@ impl Integrand {
             // compute the point again with f128 to see if it is stable then
             let mut cache_f128 = std::mem::replace(&mut self.cache_f128, LTDCache::default());
             let (_, k_def_f128, jac_para_f128, jac_def_f128, result_f128) =
-                self.topologies[0].evaluate(x, &mut cache_f128);
+                self.topologies[0].evaluate(x, &mut cache_f128, &self.python_numerator);
             // NOTE: for this check we use a f64 rotation matrix at the moment!
             let (d_f128, diff_f128, result_rot_f128) =
                 self.check_stability(x, result_f128, &mut cache_f128);

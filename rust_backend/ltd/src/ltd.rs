@@ -1,15 +1,16 @@
 use arrayvec::ArrayVec;
 use disjoint_sets::UnionFind;
-use dual_num::{DualN, Scalar};
-use float;
+use dual_num::DualN;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, Num, NumCast, One, Signed, Zero};
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
+use utils::Signum;
 use vector::{Field, LorentzVector, RealNumberLike};
+use {float, PythonNumerator};
 use {
-    AdditiveMode, DeformationStrategy, OverallDeformationScaling, ParameterizationMapping,
-    ParameterizationMode, MAX_LOOP,
+    AdditiveMode, DeformationStrategy, FloatLike, OverallDeformationScaling,
+    ParameterizationMapping, ParameterizationMode, MAX_LOOP,
 };
 
 use utils;
@@ -20,68 +21,43 @@ type Dual10<T> = DualN<T, dual_num::U10>;
 type Dual13<T> = DualN<T, dual_num::U13>;
 
 impl LoopLine {
-    /// Get the momenta of the cut with the cut evaluated
-    /// `(+/-sqrt(|q_cut^2| + m^2), q_cut_vec)`
-    /// where `q_cut` is the cut momentum (including affine term).
-    /// The energies are taken from the cache.
-    fn get_cut_momentum<T: FromPrimitive + Float + Field>(
-        &self,
-        loop_momenta: &[LorentzVector<T>],
-        cut: &Cut,
-        cut_energies: &[T],
-    ) -> LorentzVector<T> {
-        // construct the loop momentum that flows through this loop line
-        let mut mom: LorentzVector<T> = LorentzVector::default();
-        for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
-            mom += l * T::from_i8(c).unwrap();
-        }
-
-        match *cut {
-            Cut::PositiveCut(j) => {
-                let q: LorentzVector<T> = self.propagators[j].q.cast();
-                mom[0] = cut_energies[self.propagators[j].id];
-                mom.x += q.x;
-                mom.y += q.y;
-                mom.z += q.z;
-                mom
-            }
-            Cut::NegativeCut(j) => {
-                let q: LorentzVector<T> = self.propagators[j].q.cast();
-                mom[0] = -cut_energies[self.propagators[j].id];
-                mom.x += q.x;
-                mom.y += q.y;
-                mom.z += q.z;
-                mom
-            }
-            Cut::NoCut => unreachable!("Cannot compute the energy part of a non-cut loop line"),
-        }
-    }
-
     /// Return the inverse of the evaluated loop line
-    fn evaluate<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + FloatConst
-            + std::fmt::LowerExp
-            + num_traits::float::FloatCore,
-    >(
+    fn evaluate<T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<num::Complex<T>>],
         cut: &Cut,
         topo: &Topology,
+        cache: &LTDCache<T>,
     ) -> Result<num::Complex<T>, &'static str> {
-        let kinematics_scale = T::from_f64(topo.e_cm_squared).unwrap();
-        let threshold = T::from_f64(topo.settings.general.numerical_threshold).unwrap();
+        // only set the values when we use them
+        let (kinematics_scale, threshold) = if topo.settings.general.numerical_threshold > 0. {
+            (
+                T::from_f64(topo.e_cm_squared).unwrap(),
+                T::from_f64(topo.settings.general.numerical_threshold).unwrap(),
+            )
+        } else {
+            (T::zero(), T::zero())
+        };
 
-        // construct the loop momentum that flows through this loop line
-        let mut mom: LorentzVector<num::Complex<T>> = LorentzVector::default();
-        for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
-            mom += l * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
-        }
+        // construct the loop energy
+        // if the line is cut, we can get it from the cache
+        let e = match cut {
+            Cut::PositiveCut(i) => {
+                cache.complex_cut_energies[self.propagators[*i].id]
+                    - T::from_f64(self.propagators[*i].q.t).unwrap()
+            }
+            Cut::NegativeCut(i) => {
+                -cache.complex_cut_energies[self.propagators[*i].id]
+                    - T::from_f64(self.propagators[*i].q.t).unwrap()
+            }
+            Cut::NoCut => {
+                let mut e: num::Complex<T> = Complex::default();
+                for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
+                    e += l.t * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
+                }
+                e
+            }
+        };
 
         let mut res = num::Complex::new(T::one(), T::zero());
         if topo.settings.general.debug > 3 {
@@ -93,7 +69,7 @@ impl LoopLine {
         for (i, p) in self.propagators.iter().enumerate() {
             match cut {
                 Cut::PositiveCut(j) if i == *j => {
-                    let r = (mom.t + T::from_f64(p.q.t).unwrap()) * T::from_f64(2.).unwrap();
+                    let r = (e + T::from_f64(p.q.t).unwrap()) * T::from_f64(2.).unwrap();
                     res *= r;
 
                     if topo.settings.general.debug > 3 {
@@ -101,7 +77,7 @@ impl LoopLine {
                     }
                 }
                 Cut::NegativeCut(j) if i == *j => {
-                    let r = (mom.t + T::from_f64(p.q.t).unwrap()) * T::from_f64(-2.).unwrap();
+                    let r = (e + T::from_f64(p.q.t).unwrap()) * T::from_f64(-2.).unwrap();
                     res *= r;
 
                     if topo.settings.general.debug > 3 {
@@ -110,15 +86,17 @@ impl LoopLine {
                 }
                 _ => {
                     // multiply dual propagator
-                    let pq: LorentzVector<num::Complex<T>> = p.q.cast();
-                    let m1: LorentzVector<num::Complex<T>> = mom + pq;
-                    let mut r = m1.square() - T::from_f64(p.m_squared).unwrap();
+                    let r = utils::powi(e + T::from_f64(p.q.t).unwrap(), 2)
+                        - cache.complex_prop_spatial[p.id];
 
                     if topo.settings.general.debug > 3 {
                         println!("  | prop  {}={}", i, r);
                     }
 
-                    if !r.is_finite() || r.re * r.re < kinematics_scale * threshold {
+                    if !r.is_finite()
+                        || (topo.settings.general.numerical_threshold > 0.
+                            && r.re * r.re < kinematics_scale * threshold)
+                    {
                         return Err("numerical instability");
                     }
 
@@ -252,7 +230,7 @@ impl Topology {
 
                         let mut surface_shift: LorentzVector<float> = onshell_prop.q.cast();
                         for (&sign, q) in sig_ll_in_cb.iter().zip(cut_shift.iter()) {
-                            surface_shift -= q * float::from_i8(sign).unwrap();
+                            surface_shift -= q.multiply_sign(sign);
                         }
 
                         // now see if we have an ellipsoid
@@ -287,8 +265,7 @@ impl Topology {
                                                 .unwrap())
                                         .powi(2)
                                         >= float::zero()
-                                        && float::from_i8(delta_sign).unwrap() * surface_shift.t
-                                            < float::zero()
+                                        && surface_shift.t.multiply_sign(delta_sign) < float::zero()
                                     {
                                         /*
                                         println!(
@@ -514,20 +491,7 @@ impl Topology {
 
     /// Map a vector in the unit hypercube to the infinite hypercube.
     /// Also compute the Jacobian.
-    pub fn parameterize<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + FloatConst
-            + RealNumberLike
-            + num_traits::float::FloatCore,
-    >(
-        &self,
-        x: &[f64],
-        loop_index: usize,
-    ) -> ([T; 3], T) {
+    pub fn parameterize<T: FloatLike>(&self, x: &[f64], loop_index: usize) -> ([T; 3], T) {
         let e_cm = T::from_f64(self.e_cm_squared).unwrap().sqrt()
             * T::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
         let mut l_space = [T::zero(); 3];
@@ -597,16 +561,7 @@ impl Topology {
         (l_space, jac)
     }
 
-    pub fn inv_parametrize<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + FloatConst
-            + RealNumberLike
-            + num_traits::float::FloatCore,
-    >(
+    pub fn inv_parametrize<T: FloatLike>(
         &self,
         mom: &LorentzVector<f64>,
         loop_index: usize,
@@ -679,20 +634,8 @@ impl Topology {
     /// for each cut and taking the minimum of their respective lambdas
     /// Additionally, check for the expansion condition and make sure that
     /// the real part of the cut propagator is positive
-    fn determine_lambda<
-        U: dual_num::Dim + dual_num::DimName,
-        T: From<float>
-            + Scalar
-            + FromPrimitive
-            + Signed
-            + Field
-            + RealNumberLike
-            + Float
-            + FloatConst
-            + std::fmt::LowerExp,
-    >(
+    fn determine_lambda<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
         &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
         kappas: &[LorentzVector<DualN<T, U>>],
         lambda_max: f64,
         cache: &mut LTDCache<T>,
@@ -702,232 +645,202 @@ impl Topology {
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
     {
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut cut_energies = [DualN::default(); MAX_LOOP];
-        let mut cut_shifts = [LorentzVector::default(); MAX_LOOP];
-        let mut kappa_cuts = [LorentzVector::default(); MAX_LOOP];
-        let mut mass_cuts = [0.; MAX_LOOP];
-
-        let mut cut_a = [DualN::default(); MAX_LOOP];
-        let mut cut_b = [DualN::default(); MAX_LOOP];
-        let mut cut_c = [DualN::default(); MAX_LOOP];
-
-        let mut lambda_sq = DualN::from_real(T::from_f64(lambda_max).unwrap().powi(2));
+        let mut lambda_sq =
+            DualN::from_real(<T as Float>::powi(T::from_f64(lambda_max).unwrap(), 2));
 
         let sigma =
             DualN::from_real(T::from_f64(self.settings.deformation.scaling.softmin_sigma).unwrap());
         let mut smooth_min_num = lambda_sq * (-lambda_sq / sigma).exp();
         let mut smooth_min_den = (-lambda_sq / sigma).exp();
 
-        let all_cut_energies = &cache.get_cache_mut().cut_energies;
-        for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter()) {
-            for cut in cuts {
-                // compute the real and imaginary part and the mass of the cut momentum
-                let mut index = 0;
-                for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut {
-                        cut_momenta[index] =
-                            ll.get_cut_momentum(&loop_momenta, ll_cut, all_cut_energies);
+        // update the cut information with the kappa-dependent information
+        let cache = cache.get_cache_mut();
 
-                        // construct the complex part of the cut loop line momentum
-                        // kappa is expressed in the loop momentum basis
-                        let mut kappa_cut = LorentzVector::default();
-                        for (kappa, &sign) in kappas.iter().zip(ll.signature.iter()) {
-                            kappa_cut += kappa * DualN::from_real(T::from_i8(sign).unwrap());
-                        }
-                        kappa_cuts[index] = kappa_cut;
-                        mass_cuts[index] = ll.propagators[*i].m_squared;
-                        cut_shifts[index] = ll.propagators[*i].q;
-                        cut_energies[index] = all_cut_energies[ll.propagators[*i].id];
+        for ll in &self.loop_lines {
+            let mut kappa_cut = LorentzVector::default();
+            for (kappa, &sign) in kappas.iter().zip(ll.signature.iter()) {
+                kappa_cut += kappa.multiply_sign(sign);
+            }
 
-                        cut_a[index] = (kappa_cuts[index].spatial_squared_impr()
-                            * cut_energies[index].powi(2)
-                            - cut_momenta[index]
-                                .spatial_dot_impr(&kappa_cuts[index])
-                                .powi(2))
-                            / cut_energies[index].powi(3);
-                        cut_b[index] = cut_momenta[index].spatial_dot_impr(&kappa_cuts[index])
-                            / cut_energies[index];
-                        cut_c[index] = cut_energies[index];
+            for p in &ll.propagators {
+                cache.computed_cut_ll[p.id] = 0;
 
-                        index += 1;
-                    }
+                let info = &mut cache.cut_info[p.id];
+                info.kappa = kappa_cut;
+                info.kappa_sq = kappa_cut.spatial_squared_impr();
+                info.kappa_dot_mom = kappa_cut.spatial_dot_impr(&info.momentum);
+
+                if self.settings.deformation.scaling.non_cut_propagator_check {
+                    info.a = (info.kappa_sq * info.real_energy.powi(2)
+                        - info.kappa_dot_mom.powi(2))
+                        / info.real_energy.powi(3);
+                    info.b = info.kappa_dot_mom / info.real_energy;
+                    info.c = info.real_energy;
+                }
+
+                if info.kappa_sq.is_zero() {
+                    continue;
                 }
 
                 // we have to make sure that our linear expansion for the deformation vectors is reasonable
                 // for that we need lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
-                for (mom_cut, kappa_cut, mass_cut) in
-                    izip!(&cut_momenta[..self.n_loops], &kappa_cuts, &mass_cuts)
-                {
-                    let kappa_cut_sq = kappa_cut.spatial_squared();
-                    if kappa_cut_sq.is_zero() {
-                        continue;
-                    }
+                if self.settings.deformation.scaling.expansion_check {
+                    let lambda_exp = DualN::from_real(
+                        T::from_f64(self.settings.deformation.scaling.expansion_threshold).unwrap(),
+                    ) * info.spatial_and_mass_sq
+                        / info.kappa_dot_mom.abs(); // note: not holomorphic
 
-                    let num = mom_cut.spatial_squared_impr()
-                        + DualN::from_real(T::from_f64(*mass_cut).unwrap());
+                    let lambda_exp_sq = lambda_exp * lambda_exp;
 
-                    if self.settings.deformation.scaling.expansion_check {
-                        let lambda_exp = DualN::from_real(
-                            T::from_f64(self.settings.deformation.scaling.expansion_threshold)
-                                .unwrap(),
-                        ) * num
-                            / kappa_cut.spatial_dot_impr(&mom_cut).abs(); // note: not holomorphic
-
-                        let lambda_exp_sq = lambda_exp * lambda_exp;
-
-                        if sigma.is_zero() {
-                            if lambda_exp_sq < lambda_sq {
-                                lambda_sq = lambda_exp_sq;
-                            }
-                        } else {
-                            let e = (-lambda_exp_sq / sigma).exp();
-                            smooth_min_num += lambda_exp_sq * e;
-                            smooth_min_den += e;
+                    if sigma.is_zero() {
+                        if lambda_exp_sq < lambda_sq {
+                            lambda_sq = lambda_exp_sq;
                         }
-                    }
-
-                    // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
-                    // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
-                    if self.settings.deformation.scaling.positive_cut_check {
-                        let lambda_disc_sq =
-                            num / kappa_cut_sq * DualN::from_real(T::from_f64(0.95).unwrap());
-
-                        if sigma.is_zero() {
-                            if lambda_disc_sq < lambda_sq {
-                                lambda_sq = lambda_disc_sq;
-                            }
-                        } else {
-                            let e = (-lambda_disc_sq / sigma).exp();
-                            smooth_min_num += lambda_disc_sq * e;
-                            smooth_min_den += e;
-                        }
+                    } else {
+                        let e = (-lambda_exp_sq / sigma).exp();
+                        smooth_min_num += lambda_exp_sq * e;
+                        smooth_min_den += e;
                     }
                 }
 
-                if !self.settings.deformation.scaling.cut_propagator_check
-                    && !self.settings.deformation.scaling.non_cut_propagator_check
-                {
-                    continue;
+                // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
+                // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
+                if self.settings.deformation.scaling.positive_cut_check {
+                    let lambda_disc_sq = info.spatial_and_mass_sq / info.kappa_sq
+                        * DualN::from_real(T::from_f64(0.95).unwrap());
+
+                    if sigma.is_zero() {
+                        if lambda_disc_sq < lambda_sq {
+                            lambda_sq = lambda_disc_sq;
+                        }
+                    } else {
+                        let e = (-lambda_disc_sq / sigma).exp();
+                        smooth_min_num += lambda_disc_sq * e;
+                        smooth_min_den += e;
+                    }
                 }
 
-                for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
-                    // construct the complex part of the loop line momentum
-                    let mut kappa_onshell = LorentzVector::default();
-                    for (kappa, &c) in kappas.iter().zip(onshell_ll.signature.iter()) {
-                        kappa_onshell += kappa * DualN::from_real(T::from_i8(c).unwrap());
-                    }
+                // check the on-shell propagator for zeros
+                if self.settings.deformation.scaling.cut_propagator_check {
+                    let x = (info.kappa_dot_mom / info.kappa_sq).powi(2);
+                    let y = info.spatial_and_mass_sq / info.kappa_sq;
 
-                    // determine the map from cut momenta to loop line momentum
-                    let mut sig_ll_in_cb = [0; MAX_LOOP];
-                    for ii in 0..self.n_loops {
-                        for jj in 0..self.n_loops {
-                            // note we are taking the transpose of cb_to_lmb_mat
-                            sig_ll_in_cb[ii] +=
-                                cb_to_lmb_mat[jj * self.n_loops + ii] * onshell_ll.signature[jj];
+                    let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+
+                    if sigma.is_zero() {
+                        if prop_lambda_sq < lambda_sq {
+                            lambda_sq = prop_lambda_sq;
                         }
+                    } else {
+                        let e = (-prop_lambda_sq / sigma).exp();
+                        smooth_min_num += prop_lambda_sq * e;
+                        smooth_min_den += e;
                     }
+                }
+            }
+        }
 
-                    // multiply the signature by the sign of the cut
-                    let mut onshell_signs = [0; MAX_LOOP];
+        if self.settings.deformation.scaling.non_cut_propagator_check {
+            let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
+
+            for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter())
+            {
+                for cut in cuts {
                     let mut index = 0;
-                    for (os, &sig) in onshell_signs.iter_mut().zip(sig_ll_in_cb.iter()) {
-                        *os = sig;
+                    for (c, ll) in cut.iter().zip(self.loop_lines.iter()) {
+                        if let Cut::NegativeCut(i) | Cut::PositiveCut(i) = c {
+                            cut_infos[index] = &cache.cut_info[ll.propagators[*i].id];
+                            index += 1;
+                        }
                     }
-                    for x in cut {
-                        match x {
-                            Cut::PositiveCut(_) => index += 1,
-                            Cut::NegativeCut(_) => {
-                                onshell_signs[index] *= -1;
-                                index += 1;
+
+                    for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
+                        // store a bit flag to see if we have checked a loop line with a cut already
+                        // 1 => positive cut computed, 2 => negative cut computed
+                        match *ll_cut {
+                            Cut::PositiveCut(cut_prop) => {
+                                if cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] & 1
+                                    == 0
+                                {
+                                    cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] |= 1;
+                                } else {
+                                    continue;
+                                }
+                            }
+                            Cut::NegativeCut(cut_prop) => {
+                                if cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] & 2
+                                    == 0
+                                {
+                                    cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] |= 2;
+                                } else {
+                                    continue;
+                                }
                             }
                             Cut::NoCut => {}
                         }
-                    }
 
-                    let mut ellipse_flag = 0;
-                    for x in &onshell_signs {
-                        match x {
-                            1 => ellipse_flag |= 1,
-                            -1 => ellipse_flag |= 2,
-                            0 => {}
-                            _ => unreachable!(),
+                        // TODO: this should be precomputed
+                        // determine the map from loop line momentum to cut momenta
+                        let mut onshell_signs = [0; MAX_LOOP];
+                        for ii in 0..self.n_loops {
+                            for jj in 0..self.n_loops {
+                                // note we are taking the transpose of cb_to_lmb_mat
+                                onshell_signs[ii] += cb_to_lmb_mat[jj * self.n_loops + ii]
+                                    * onshell_ll.signature[jj];
+                            }
                         }
-                    }
 
-                    if ellipse_flag == 3 && self.settings.deformation.scaling.skip_hyperboloids {
-                        continue;
-                    }
-
-                    let k0sq_inv =
-                        DualN::from_real(T::one()) / kappa_onshell.spatial_squared_impr();
-
-                    // if the kappa is 0, there is no need for rescaling
-                    if !k0sq_inv.is_finite() {
-                        continue;
-                    }
-
-                    // treat the cut part of the surface equation
-                    let mut a = DualN::from_real(T::zero());
-                    let mut b = DualN::from_real(T::zero());
-                    let mut c = DualN::from_real(T::zero());
-                    for i in 0..self.n_loops {
-                        a += cut_a[i] * T::from_i8(onshell_signs[i]).unwrap();
-                        b += cut_b[i] * T::from_i8(onshell_signs[i]).unwrap();
-                        c += cut_c[i] * T::from_i8(onshell_signs[i]).unwrap();
-                    }
-
-                    // construct the real part of the loop line momentum
-                    let mut mom: LorentzVector<DualN<T, U>> = LorentzVector::default();;
-                    for (l, &c, cut_shift) in izip!(&cut_momenta, &sig_ll_in_cb, &cut_shifts) {
-                        let shift: LorentzVector<DualN<T, U>> = cut_shift.cast();
-                        mom += (l - shift) * DualN::from_real(T::from_i8(c).unwrap());
-                    }
-
-                    for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate() {
-                        let pq: LorentzVector<DualN<T, U>> = onshell_prop.q.cast();
-                        let onshell_prop_mom = mom + pq;
-
-                        let onshell_energy = (onshell_prop_mom.spatial_squared_impr()
-                            + T::from_f64(onshell_prop.m_squared).unwrap())
-                        .sqrt();
-                        let a_surf = (kappa_onshell.spatial_squared_impr()
-                            * onshell_energy.powi(2)
-                            - onshell_prop_mom.spatial_dot_impr(&kappa_onshell).powi(2))
-                            / onshell_energy.powi(3);
-                        let b_surf =
-                            onshell_prop_mom.spatial_dot_impr(&kappa_onshell) / onshell_energy;
-
-                        // if this is the cut propagator, we only need to use the spatial part
-                        // the functional form remains the same
-                        if *ll_cut == Cut::NegativeCut(prop_index)
-                            || *ll_cut == Cut::PositiveCut(prop_index)
-                        {
-                            if !self.settings.deformation.scaling.cut_propagator_check {
-                                continue;
-                            }
-
-                            let k_sp_inv =
-                                DualN::from_real(T::one()) / kappa_onshell.spatial_squared_impr();
-                            let x = (kappa_onshell.spatial_dot_impr(&onshell_prop_mom) * k_sp_inv)
-                                .powi(2);
-                            let y = (onshell_prop_mom.spatial_squared_impr()
-                                - T::from_f64(onshell_prop.m_squared).unwrap())
-                                * k_sp_inv;
-
-                            let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
-
-                            if sigma.is_zero() {
-                                if prop_lambda_sq < lambda_sq {
-                                    lambda_sq = prop_lambda_sq;
+                        // multiply the signature by the sign of the cut
+                        let mut index = 0;
+                        for x in cut {
+                            match x {
+                                Cut::PositiveCut(_) => index += 1,
+                                Cut::NegativeCut(_) => {
+                                    onshell_signs[index] *= -1;
+                                    index += 1;
                                 }
-                            } else {
-                                let e = (-prop_lambda_sq / sigma).exp();
-                                smooth_min_num += prop_lambda_sq * e;
-                                smooth_min_den += e;
+                                Cut::NoCut => {}
                             }
-                        } else {
-                            if !self.settings.deformation.scaling.non_cut_propagator_check {
+                        }
+
+                        let mut ellipse_flag = 0;
+                        for x in &onshell_signs {
+                            match x {
+                                1 => ellipse_flag |= 1,
+                                -1 => ellipse_flag |= 2,
+                                0 => {}
+                                _ => unreachable!(),
+                            }
+                        }
+
+                        if ellipse_flag == 3 && self.settings.deformation.scaling.skip_hyperboloids
+                        {
+                            continue;
+                        }
+
+                        // treat the cut part of the surface equation
+                        let mut a = DualN::from_real(T::zero());
+                        let mut b = DualN::from_real(T::zero());
+                        let mut c = DualN::from_real(T::zero());
+                        for (cut_info, &sign) in
+                            cut_infos[..self.n_loops].iter().zip(onshell_signs.iter())
+                        {
+                            if sign != 0 {
+                                a += cut_info.a.multiply_sign(sign);
+                                b += cut_info.b.multiply_sign(sign);
+                                c += cut_info.c.multiply_sign(sign);
+                            }
+                        }
+
+                        // TODO: we are checking surfaces more than once. The ones that depend on only
+                        // one loop momentum for example
+                        for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate()
+                        {
+                            let on_shell_info = &cache.cut_info[onshell_prop.id];
+
+                            if *ll_cut == Cut::PositiveCut(prop_index)
+                                || *ll_cut == Cut::NegativeCut(prop_index)
+                            {
                                 continue;
                             }
 
@@ -940,10 +853,11 @@ impl Topology {
                                     continue;
                                 }
 
-                                let a_tot = (a + a_surf * sign) * T::from_f64(-0.5).unwrap();
+                                let a_tot =
+                                    (a + on_shell_info.a * sign) * T::from_f64(-0.5).unwrap();
                                 let a_tot_inv = a_tot.inv();
-                                let b_tot = b + b_surf * sign;
-                                let c_tot = c + onshell_energy * sign + pq.t;
+                                let b_tot = b + on_shell_info.b * sign;
+                                let c_tot = c + on_shell_info.c * sign + on_shell_info.shift.t;
                                 let x = (b_tot * a_tot_inv).powi(2) * T::from_f64(0.25).unwrap();
                                 let y = -c_tot * a_tot_inv;
 
@@ -977,20 +891,8 @@ impl Topology {
     }
 
     /// Construct a deformation vector by going through all the ellipsoids
-    fn deform_ellipsoids<
-        U: dual_num::Dim + dual_num::DimName,
-        T: From<float>
-            + Scalar
-            + 'static
-            + FromPrimitive
-            + Float
-            + Signed
-            + Field
-            + RealNumberLike
-            + FloatConst,
-    >(
+    fn deform_ellipsoids<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
         &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
         cache: &mut LTDCache<T>,
     ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
     where
@@ -1002,9 +904,9 @@ impl Topology {
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
 
-        let cache_spec = cache.get_cache_mut();
-        let kappa_surf = &mut cache_spec.deform_dirs;
-        let inv_surf_prop = &mut cache_spec.ellipsoid_eval;
+        let cache = cache.get_cache_mut();
+        let kappa_surf = &mut cache.deform_dirs;
+        let inv_surf_prop = &mut cache.ellipsoid_eval;
 
         // surface equation:
         // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
@@ -1016,44 +918,36 @@ impl Topology {
                 continue;
             }
 
-            // compute v_i = q_i^cut / sqrt(|q_i^cut|^2 + m^2)
+            // compute v_i = q_i^cut / sqrt(|q_i^cut|^2 + m^2) and the cut energy
             // construct the normalized 3-momenta that flow through the cut propagators
             // the 0th component is to be ignored
             let mut cut_counter = 0;
+            let mut cut_energy = DualN::default();
             for (c, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
                 if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
-                    let mut mom: LorentzVector<DualN<T, U>> = LorentzVector::default();
-                    for (l, &c) in loop_momenta.iter().zip(ll.signature.iter()) {
-                        mom += l * DualN::from_real(T::from_i8(c).unwrap());
+                    cut_dirs[cut_counter] = cache.cut_info[ll.propagators[*i].id].momentum
+                        / cache.cut_info[ll.propagators[*i].id].real_energy;
+
+                    if let Cut::PositiveCut(i) = c {
+                        cut_energy += cache.cut_info[ll.propagators[*i].id]
+                            .real_energy
+                            .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
+                    } else {
+                        cut_energy -= cache.cut_info[ll.propagators[*i].id]
+                            .real_energy
+                            .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
                     }
-                    let q: LorentzVector<DualN<T, U>> = ll.propagators[*i].q.cast();
-                    mom += q;
-                    let length: DualN<T, U> = mom.spatial_squared_impr()
-                        + T::from_f64(ll.propagators[*i].m_squared).unwrap();
-                    mom = mom / length.sqrt();
-                    cut_dirs[cut_counter] = mom;
+
                     cut_counter += 1;
                 }
             }
 
             // compute w=(sum_i^L a_i q_i^cut + p_vec) / sqrt(|sum_i^L a_i q_i^cut + p_vec|^2 + m^2)
             // determine sum_i^L a_i q_i^cut using the loop-momentum basis
-            let mut surface_dir = LorentzVector::default();
-            for (l, &sig) in loop_momenta
-                .iter()
-                .zip(self.loop_lines[surf.onshell_ll_index].signature.iter())
-            {
-                surface_dir += l * DualN::from_real(T::from_i8(sig).unwrap());
-            }
-
             let surface_prop =
                 &self.loop_lines[surf.onshell_ll_index].propagators[surf.onshell_prop_index];
-            let q: LorentzVector<DualN<T, U>> = surface_prop.q.cast();
-            surface_dir += q;
-
-            let length: DualN<T, U> =
-                surface_dir.spatial_squared_impr() + T::from_f64(surface_prop.m_squared).unwrap();
-            let surface_dir_norm = surface_dir / length.sqrt();
+            let surface_dir_norm = cache.cut_info[surface_prop.id].momentum
+                / cache.cut_info[surface_prop.id].real_energy;
 
             // compute n_i = (v_i + a_i * w) * abs(a_i)
             // n_i is the normal vector of the ith entry of the cut momentum basis
@@ -1064,7 +958,7 @@ impl Topology {
                 .zip(surf.sig_ll_in_cb.iter())
             {
                 if sign != 0 {
-                    *cut_dir += surface_dir_norm * DualN::from_real(T::from_i8(sign).unwrap());
+                    *cut_dir += surface_dir_norm.multiply_sign(sign);
                 }
             }
 
@@ -1076,41 +970,18 @@ impl Topology {
                     .iter()
                     .zip(cut_dirs[..self.n_loops].iter())
                 {
-                    *deform_dir += cut_dir * DualN::from_real(T::from_i8(sign).unwrap());
-                }
-            }
-
-            // multiply the direction deform_dirs by the exponential function
-            // for the exponential function we need to evaluate the propagator of the ellipsoid
-            // and for that we need to determine the cut energies
-
-            // compute the cut momenta
-            let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-            let mut index = 0;
-            for (ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
-                if *ll_cut != Cut::NoCut {
-                    cut_momenta[index] =
-                        ll.get_cut_momentum(loop_momenta, ll_cut, &cache_spec.cut_energies);
-                    index += 1;
+                    *deform_dir += cut_dir.multiply_sign(sign);
                 }
             }
 
             // evaluate the inverse propagator of the surface
-            // the momentum map from the cut momenta is in signs and the shift is known as well
-            // compute the energies for the loop momenta
-            let mut mom: LorentzVector<DualN<T, U>> = LorentzVector::new();
-            for (&s, c) in surf.sig_ll_in_cb.iter().zip(cut_momenta.iter()) {
-                mom += c * DualN::from_real(T::from_i8(s).unwrap());
-            }
-
-            let qs: LorentzVector<DualN<T, U>> = surf.shift.cast();
-            let momq: LorentzVector<DualN<T, U>> = mom + qs;
-            let inv = momq.square_impr() - T::from_f64(surface_prop.m_squared).unwrap();
-            inv_surf_prop[group_counter] = inv;
+            inv_surf_prop[group_counter] = (cut_energy + T::from_f64(surf.shift.t).unwrap())
+                .powi(2)
+                - cache.cut_info[surface_prop.id].spatial_and_mass_sq;
 
             for (loop_index, dir) in deform_dirs.iter().enumerate() {
                 // note the sign
-                kappa_surf[group_counter * MAX_LOOP + loop_index] =
+                kappa_surf[group_counter * self.n_loops + loop_index] =
                     -dir / dir.spatial_squared_impr().sqrt();
             }
 
@@ -1118,71 +989,46 @@ impl Topology {
         }
 
         // now combine the kappas from the surface using the chosen strategy
-        match self.settings.general.deformation_strategy {
-            DeformationStrategy::Additive => {
-                let aij: DualN<T, U> =
-                    NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
+        let mut aij: DualN<T, U> = NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
+        let mut lambda: DualN<T, U> = DualN::one();
 
-                for (i, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
-                    let dampening = match self.settings.deformation.additive.mode {
-                        AdditiveMode::Exponential => (-inv * inv
-                            / (aij * T::from_f64(self.e_cm_squared).unwrap().powi(2)))
-                        .exp(),
-                        AdditiveMode::Hyperbolic => {
-                            let t = inv * inv / T::from_f64(self.e_cm_squared).unwrap().powi(2);
-                            t / (t + aij)
-                        }
-                        AdditiveMode::Unity => DualN::from_real(T::one()),
-                        AdditiveMode::SoftMin => unimplemented!(),
-                    };
-
-                    for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
-                        let dir = kappa_surf[i * MAX_LOOP + loop_index];
-                        if self.settings.general.debug > 2 {
-                            println!(
-                                "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
-                                group_counter,
-                                dir,
-                                dampening.real()
-                            );
-                        }
-
-                        *kappa += dir * dampening;
-                    }
-                }
+        for (i, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
+            if i < self.settings.deformation.additive.a_ijs.len() {
+                aij = NumCast::from(self.settings.deformation.additive.a_ijs[i]).unwrap();
             }
-            DeformationStrategy::Multiplicative => {
-                let m_ij: DualN<T, U> =
-                    NumCast::from(self.settings.deformation.multiplicative.m_ij).unwrap();
 
-                for (i, _) in inv_surf_prop[..group_counter].iter().enumerate() {
-                    let mut dampening = DualN::from_real(T::one());
-                    for (j, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
-                        if i == j {
-                            continue;
-                        }
-
-                        let t = inv * inv / T::from_f64(self.e_cm_squared).unwrap().powi(2);
-                        dampening *= t / (t + m_ij);
-                    }
-
-                    for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
-                        let dir = kappa_surf[i * MAX_LOOP + loop_index];
-                        if self.settings.general.debug > 2 {
-                            println!(
-                                "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
-                                group_counter,
-                                dir,
-                                dampening.real()
-                            );
-                        }
-
-                        *kappa += dir * dampening;
-                    }
-                }
+            if i < self.settings.deformation.lambdas.len() {
+                lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
             }
-            _ => unreachable!(),
+
+            let dampening = match self.settings.deformation.additive.mode {
+                AdditiveMode::Exponential => (-inv * inv
+                    / (aij * <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2)))
+                .exp(),
+                AdditiveMode::Hyperbolic => {
+                    let t =
+                        inv * inv / <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2);
+                    t / (t + aij)
+                }
+                AdditiveMode::Unity => DualN::one(),
+                AdditiveMode::SoftMin => unimplemented!(),
+            };
+
+            for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
+                let dir = kappa_surf[i * self.n_loops + loop_index];
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
+                        group_counter,
+                        dir,
+                        dampening.real()
+                    );
+                }
+
+                *kappa += dir * dampening * lambda;
+            }
         }
+
         kappas
     }
 
@@ -1198,7 +1044,6 @@ impl Topology {
             + FloatConst,
     >(
         &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
         cut: &[Cut],
         cut_structure_index: usize,
         cache: &mut LTDCache<T>,
@@ -1209,41 +1054,28 @@ impl Topology {
         LTDCache<T>: CacheSelector<T, U>,
     {
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
+        let cache = cache.get_cache();
 
-        // compute each cut momentum, subtract the shift and normalize
+        // TODO: precompute this map by mapping cut indices to cut propagator ids
         let mut index = 0;
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut cut_masses = [DualN::default(); MAX_LOOP];
+        let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
         for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
             if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
-                cut_momenta[index] =
-                    ll.get_cut_momentum(loop_momenta, ll_cut, &cache.get_cache().cut_energies);
-
-                // subtract the shift from q0
-                cut_momenta[index].t -=
-                    DualN::from_real(T::from_f64(ll.propagators[i].q.t).unwrap());
-                cut_masses[index] =
-                    DualN::from_real(T::from_f64(ll.propagators[i].m_squared).unwrap());
-
+                cut_infos[index] = &cache.cut_info[ll.propagators[i].id];
                 index += 1;
             }
         }
 
-        // convert from cut momentum basis to loop momentum basis
+        // transform the cut momenta with shift to loop momentum basis
         for i in 0..self.n_loops {
             let mut deform_dir = LorentzVector::default();
-            for ((&sign, cut_dir), &cut_mass) in self.cb_to_lmb_mat[cut_structure_index]
+            for (&sign, &cut_info) in self.cb_to_lmb_mat[cut_structure_index]
                 [i * self.n_loops..(i + 1) * self.n_loops]
                 .iter()
-                .zip(cut_momenta.iter())
-                .zip(cut_masses.iter())
+                .zip(cut_infos.iter())
             {
-                // normalize the spatial components
-                let mut mom_normalized = *cut_dir;
-                let length = (mom_normalized.spatial_squared_impr() + cut_mass).sqrt();
-                mom_normalized *= length.inv();
-
-                deform_dir += mom_normalized * DualN::from_real(T::from_i8(sign).unwrap());
+                let mom_normalized = cut_info.momentum / cut_info.real_energy;
+                deform_dir += mom_normalized.multiply_sign(sign);
             }
 
             deform_dirs[i] = deform_dir;
@@ -1254,20 +1086,7 @@ impl Topology {
 
     /// Construct a deformation vector by going through all cut options
     /// and make sure it is 0 on all other cut options
-    fn deform_cutgroups<
-        U: dual_num::Dim + dual_num::DimName,
-        T: From<float>
-            + Scalar
-            + 'static
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + std::fmt::LowerExp
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + FloatConst,
-    >(
+    fn deform_cutgroups<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         cache: &mut LTDCache<T>,
@@ -1277,8 +1096,6 @@ impl Topology {
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
     {
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP];
-
         // go through all cuts that contain ellipsoids
         // by going through all ellipsoids and skipping ones that are in the same cut
         // TODO: precompute non-empty cuts
@@ -1291,47 +1108,41 @@ impl Topology {
 
             // evaluate ellipsoid representatives
             if surf.group == surf_index {
-                // FIXME: we compute this again later
-                let mut index = 0;
+                let cache = cache.get_cache_mut();
 
                 // calculate the cut momenta
-                let mut res = DualN::from_real(T::zero());
-                for (&ll_cut, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
-                    if ll_cut != Cut::NoCut {
-                        cut_momenta[index] = ll.get_cut_momentum(
-                            loop_momenta,
-                            &ll_cut,
-                            &cache.get_cache().cut_energies,
-                        );
+                let mut normalization = DualN::zero();
+                let mut res = DualN::zero();
+                let mut index = 0;
+                for (ll_cut, ll) in izip!(surf.cut.iter(), self.loop_lines.iter()) {
+                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
+                        // always take the positive energy since we know all the signs will be the same
+                        // for an ellipsoid
+                        if surf.sig_ll_in_cb[index] != 0 {
+                            let e = cache.cut_info[ll.propagators[i].id].real_energy;
+                            res += e;
+                            normalization += e * e;
+                        }
                         index += 1;
                     }
                 }
 
-                let mut normalization = DualN::from_real(T::zero());
-                let mut q3 = LorentzVector::default();
-                for (&s, mom) in surf.sig_ll_in_cb.iter().zip(&cut_momenta) {
-                    if s != 0 {
-                        q3 += mom * DualN::from_real(T::from_i8(s).unwrap());
-                        res += mom.t.abs();
-                        normalization += mom.square();
-                    }
-                }
+                // shift in the cut basis
                 let shift: LorentzVector<DualN<T, U>> = surf.shift.cast();
-                q3 += shift;
 
-                res += q3.spatial_squared_impr().sqrt();
+                // add the surface term
+                res += cache.cut_info[self.loop_lines[surf.onshell_ll_index].propagators
+                    [surf.onshell_prop_index]
+                    .id]
+                    .real_energy;
                 res -= shift.t.abs();
-                normalization += shift.square();
-                cache.get_cache_mut().ellipsoid_eval[surf_index] = res * res / normalization;
+                normalization += shift.spatial_squared_impr();
+                cache.ellipsoid_eval[surf_index] = res * res / normalization;
             }
 
             if Some(&surf.cut) != last_cut {
-                let mut deform_dirs_cut = self.get_deformation_for_cut(
-                    loop_momenta,
-                    &surf.cut,
-                    surf.cut_structure_index,
-                    cache,
-                );
+                let mut deform_dirs_cut =
+                    self.get_deformation_for_cut(&surf.cut, surf.cut_structure_index, cache);
 
                 for i in 0..self.n_loops {
                     cache.get_cache_mut().deform_dirs[non_empty_cut_count * self.n_loops + i] =
@@ -1348,11 +1159,16 @@ impl Topology {
 
         let cache = cache.get_cache();
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
+        let mut lambda = DualN::one();
         for (i, &(cut_structure_index, cut_option_index)) in cache.non_empty_cuts
             [..non_empty_cut_count]
             .iter()
             .enumerate()
         {
+            if i < self.settings.deformation.lambdas.len() {
+                lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
+            }
+
             if self.settings.general.debug > 2 {
                 println!(
                     "Surface contributions for cut {}:",
@@ -1360,9 +1176,9 @@ impl Topology {
                 );
             }
 
-            let mut s = DualN::from_real(T::one());
-            let mut softmin_num = DualN::from_real(T::zero());
-            let mut softmin_den = DualN::from_real(T::zero());
+            let mut s = DualN::one();
+            let mut softmin_num = DualN::zero();
+            let mut softmin_den = DualN::zero();
 
             if self.settings.deformation.cutgroups.mode != AdditiveMode::Unity {
                 for &surf_index in
@@ -1386,9 +1202,7 @@ impl Topology {
                         }
                     } else {
                         let sup = t
-                            / (t + DualN::from_real(
-                                T::from_f64(self.settings.deformation.cutgroups.m_ij).unwrap(),
-                            ));
+                            / (t + T::from_f64(self.settings.deformation.cutgroups.m_ij).unwrap());
                         s *= sup;
                         sup
                     };
@@ -1410,9 +1224,7 @@ impl Topology {
 
                     if !self.settings.deformation.cutgroups.m_ij.is_zero() {
                         s = s
-                            / (s + DualN::from_real(
-                                T::from_f64(self.settings.deformation.cutgroups.m_ij).unwrap(),
-                            ));
+                            / (s + T::from_f64(self.settings.deformation.cutgroups.m_ij).unwrap());
                     }
                 }
             }
@@ -1428,8 +1240,7 @@ impl Topology {
             }
 
             for ii in 0..self.n_loops {
-                kappas[ii] -= cache.deform_dirs[i * self.n_loops + ii] * s;
-                //kappas[ii].t = DualN::from_real(T::zero());
+                kappas[ii] -= cache.deform_dirs[i * self.n_loops + ii] * s * lambda;
             }
         }
 
@@ -1443,18 +1254,7 @@ impl Topology {
     }
 
     /// Construct a deformation vector by going through all the constant
-    fn deform_constant<
-        U: dual_num::Dim + dual_num::DimName,
-        T: From<float>
-            + Scalar
-            + 'static
-            + FromPrimitive
-            + Float
-            + Signed
-            + Field
-            + RealNumberLike
-            + FloatConst,
-    >(
+    fn deform_constant<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         _cache: &mut LTDCache<T>,
@@ -1473,19 +1273,7 @@ impl Topology {
         kappas
     }
 
-    fn deform_generic<
-        U: dual_num::Dim + dual_num::DimName,
-        T: From<float>
-            + 'static
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + FloatConst
-            + std::fmt::LowerExp,
-    >(
+    fn deform_generic<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         cut: Option<(usize, usize)>,
@@ -1497,16 +1285,33 @@ impl Topology {
         LTDCache<T>: CacheSelector<T, U>,
     {
         // compute all cut energies
-        for ll in &self.loop_lines {
-            let mut mom = LorentzVector::default();
-            for (l, &c) in loop_momenta.iter().zip(ll.signature.iter()) {
-                mom += l * DualN::from_real(T::from_i8(c).unwrap());
-            }
+        if self.settings.general.deformation_strategy != DeformationStrategy::Constant
+            || self.settings.deformation.scaling.lambda > 0.
+        {
+            let cache = cache.get_cache_mut();
+            for ll in &self.loop_lines {
+                let mut mom = LorentzVector::default();
+                for (l, &c) in loop_momenta.iter().zip(ll.signature.iter()) {
+                    mom += l.multiply_sign(c);
+                }
 
-            for p in &ll.propagators {
-                let q: LorentzVector<DualN<T, U>> = p.q.cast();
-                let cm = (mom + q).spatial_squared() + T::from_f64(p.m_squared).unwrap();
-                cache.get_cache_mut().cut_energies[p.id] = cm.sqrt();
+                // update the cut info
+                for p in &ll.propagators {
+                    let q: LorentzVector<DualN<T, U>> = p.q.cast();
+                    let mass = DualN::from_real(T::from_f64(p.m_squared).unwrap());
+                    let cm = (mom + q).spatial_squared() + mass;
+                    let energy = cm.sqrt();
+                    cache.cut_energies[p.id] = energy;
+
+                    let info = &mut cache.cut_info[p.id];
+                    info.id = p.id;
+                    info.momentum = mom + q;
+                    info.real_energy = energy;
+                    info.spatial_and_mass_sq = cm;
+                    // TODO: these two never change and can be set at the start!
+                    info.shift = q;
+                    info.mass = mass;
+                }
             }
         }
 
@@ -1515,11 +1320,9 @@ impl Topology {
             DeformationStrategy::Duals => {
                 let co = cut.unwrap();
                 let cut = &self.ltd_cut_options[co.0][co.1];
-                self.get_deformation_for_cut(loop_momenta, cut, co.0, cache)
+                self.get_deformation_for_cut(cut, co.0, cache)
             }
-            DeformationStrategy::Additive | DeformationStrategy::Multiplicative => {
-                self.deform_ellipsoids(loop_momenta, cache)
-            }
+            DeformationStrategy::Additive => self.deform_ellipsoids(cache),
             DeformationStrategy::Constant => self.deform_constant(loop_momenta, cache),
             DeformationStrategy::None => unreachable!(),
         };
@@ -1553,12 +1356,7 @@ impl Topology {
         }
 
         let lambda = if self.settings.deformation.scaling.lambda > 0. {
-            self.determine_lambda(
-                loop_momenta,
-                &kappas,
-                self.settings.deformation.scaling.lambda,
-                cache,
-            )
+            self.determine_lambda(&kappas, self.settings.deformation.scaling.lambda, cache)
         } else {
             NumCast::from(self.settings.deformation.scaling.lambda.abs()).unwrap()
         };
@@ -1569,7 +1367,7 @@ impl Topology {
 
         for k in kappas[..self.n_loops].iter_mut() {
             *k *= lambda;
-            k.t = DualN::from_real(T::zero()); // make sure we do not have a left-over deformation
+            k.t = DualN::zero(); // make sure we do not have a left-over deformation
         }
 
         let jac_mat = &mut cache.get_cache_mut().deformation_jacobian;
@@ -1579,7 +1377,7 @@ impl Topology {
                 jac_mat[i * 3 * self.n_loops + j] =
                     Complex::new(T::zero(), kappas[i / 3][i % 3 + 1][j + 1]);
             }
-            jac_mat[i * 3 * self.n_loops + i] += Complex::new(T::one(), T::zero());
+            jac_mat[i * 3 * self.n_loops + i] += Complex::one();
         }
 
         let jac = utils::determinant(jac_mat, 3 * self.n_loops);
@@ -1591,18 +1389,7 @@ impl Topology {
         (r, jac)
     }
 
-    pub fn deform<
-        T: From<float>
-            + FromPrimitive
-            + 'static
-            + Float
-            + Field
-            + RealNumberLike
-            + num_traits::Signed
-            + FloatConst
-            + std::fmt::LowerExp
-            + num_traits::float::FloatCore,
-    >(
+    pub fn deform<T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<T>],
         cut: Option<(usize, usize)>,
@@ -1670,17 +1457,7 @@ impl Topology {
     /// Set the energy component of the loop momenta according to
     /// `cut`. It takes the cut energies from the cache.
     #[inline]
-    pub fn set_loop_momentum_energies<
-        T: From<float>
-            + Signed
-            + 'static
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + FloatConst,
-    >(
+    pub fn set_loop_momentum_energies<T: FloatLike>(
         &self,
         k_def: &mut ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
         cut: &Vec<Cut>,
@@ -1694,11 +1471,9 @@ impl Topology {
             if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = ll_cut {
                 let e = cache.complex_cut_energies[ll.propagators[j].id];
                 if let Cut::PositiveCut(_) = ll_cut {
-                    cut_energy[index] =
-                        e - Complex::new(T::from_f64(ll.propagators[j].q.t).unwrap(), T::zero());
+                    cut_energy[index] = e - T::from_f64(ll.propagators[j].q.t).unwrap();
                 } else {
-                    cut_energy[index] =
-                        -e - Complex::new(T::from_f64(ll.propagators[j].q.t).unwrap(), T::zero());
+                    cut_energy[index] = -e - T::from_f64(ll.propagators[j].q.t).unwrap();
                 }
                 index += 1;
             }
@@ -1711,25 +1486,13 @@ impl Topology {
                 .iter()
                 .zip(&cut_energy[..self.n_loops])
             {
-                l.t += e * T::from_i8(*c).unwrap();
+                l.t += e.multiply_sign(*c);
             }
         }
     }
 
     #[inline]
-    pub fn evaluate_cut<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + num_traits::Signed
-            + FloatConst
-            + std::fmt::LowerExp
-            + num_traits::float::FloatCore
-            + 'static,
-    >(
+    pub fn evaluate_cut<T: FloatLike>(
         &self,
         k_def: &mut ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
         cut: &Vec<Cut>,
@@ -1739,8 +1502,13 @@ impl Topology {
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
 
         let mut r = Complex::new(T::one(), T::zero());
-        for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-            r *= ll.evaluate(&k_def, ll_cut, &self)?;
+        for (i, (ll_cut, ll)) in cut.iter().zip(self.loop_lines.iter()).enumerate() {
+            // get the loop line result from the cache if possible
+            r *= match ll_cut {
+                Cut::PositiveCut(j) => cache.complex_loop_line_eval[i][*j][0],
+                Cut::NegativeCut(j) => cache.complex_loop_line_eval[i][*j][1],
+                _ => ll.evaluate(&k_def, ll_cut, &self, cache)?,
+            };
         }
         r = r.inv(); // normal inverse may overflow but has better precision than finv, which overflows later
 
@@ -1751,7 +1519,7 @@ impl Topology {
                         "Cut {}:\n  | result={:e}\n  | k0={:e}",
                         CutList(cut),
                         r,
-                        k_def[0].t
+                        k_def[0].t,
                     );
                 }
                 2 => {
@@ -1760,7 +1528,7 @@ impl Topology {
                         CutList(cut),
                         r,
                         k_def[0].t,
-                        k_def[1].t
+                        k_def[1].t,
                     );
                 }
                 3 => {
@@ -1770,7 +1538,18 @@ impl Topology {
                         r,
                         k_def[0].t,
                         k_def[1].t,
-                        k_def[2].t
+                        k_def[2].t,
+                    );
+                }
+                4 => {
+                    println!(
+                        "Cut {}:\n  | result={:e}\n  | k0={:e}\n  | l0={:e}\n  | m0={:e}\n  | n0={:e}",
+                        CutList(cut),
+                        r,
+                        k_def[0].t,
+                        k_def[1].t,
+                        k_def[2].t,
+                        k_def[3].t,
                     );
                 }
                 _ => {}
@@ -1780,29 +1559,16 @@ impl Topology {
         Ok(r)
     }
 
-    pub fn compute_complex_cut_energies<
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + FloatConst
-            + RealNumberLike
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + FloatConst
-            + std::fmt::LowerExp
-            + 'static,
-    >(
+    pub fn compute_complex_cut_energies<T: FloatLike>(
         &self,
         k_def: &ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
         cache: &mut LTDCache<T>,
     ) {
         // compute all complex cut energies
-        for ll in &self.loop_lines {
+        for (ll_index, ll) in self.loop_lines.iter().enumerate() {
             let mut mom = LorentzVector::default();
             for (l, &c) in k_def.iter().zip(ll.signature.iter()) {
-                mom += l * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
+                mom += l.multiply_sign(c);
             }
 
             for p in &ll.propagators {
@@ -1819,30 +1585,36 @@ impl Topology {
                     );
                 }
 
+                cache.complex_prop_spatial[p.id] = cm;
                 cache.complex_cut_energies[p.id] = cm.sqrt();
+            }
+
+            let has_positive_cut = self.ltd_cut_structure.iter().any(|x| x[ll_index] == 1);
+            let has_negative_cut = self.ltd_cut_structure.iter().any(|x| x[ll_index] == -1);
+
+            for i in 0..ll.propagators.len() {
+                // compute the entire dual loop line
+                // note that the deformed momenta are not used here
+                if has_positive_cut {
+                    cache.complex_loop_line_eval[ll_index][i][0] = ll
+                        .evaluate(k_def, &Cut::PositiveCut(i), &self, cache)
+                        .unwrap();
+                }
+                if has_negative_cut {
+                    cache.complex_loop_line_eval[ll_index][i][1] = ll
+                        .evaluate(k_def, &Cut::NegativeCut(i), &self, cache)
+                        .unwrap();
+                }
             }
         }
     }
 
     #[inline]
-    pub fn evaluate<
-        'a,
-        T: From<float>
-            + Num
-            + FromPrimitive
-            + Float
-            + Field
-            + FloatConst
-            + RealNumberLike
-            + num_traits::Signed
-            + num_traits::float::FloatCore
-            + FloatConst
-            + std::fmt::LowerExp
-            + 'static,
-    >(
+    pub fn evaluate<'a, T: FloatLike>(
         &self,
         x: &'a [f64],
         cache: &mut LTDCache<T>,
+        python_numerator: &Option<PythonNumerator>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
@@ -1878,7 +1650,6 @@ impl Topology {
         // deform
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
         let mut jac_def = Complex::one();
-        let mut ct = Complex::zero();
 
         if self.settings.general.deformation_strategy != DeformationStrategy::Duals {
             let (kappas, jac) = self.deform(&k, None, cache);
@@ -1889,7 +1660,6 @@ impl Topology {
                 })
                 .collect();
             jac_def = jac;
-            ct = self.counterterm(&k_def);
 
             self.compute_complex_cut_energies(&k_def, cache);
         }
@@ -1919,19 +1689,23 @@ impl Topology {
                             })
                             .collect();
                         dual_jac_def = jac;
-                        ct = self.counterterm(&k_def);
                         self.compute_complex_cut_energies(&k_def, cache);
                     }
-
                     match self.evaluate_cut(&mut k_def, cut, mat, cache) {
                         Ok(v) => {
-                            // Regulate each sub diagram individually
-                            result += v * (ct + T::one()) * dual_jac_def
+                            // k_def has the correct energy component at this stage
+                            if let Some(pn) = python_numerator {
+                                result += v * pn.evaluate_numerator(&k_def) * dual_jac_def
+                            } else {
+                                // calculate the counterterm cut by cut
+
+                                let ct = self.counterterm(&k_def, cache);
+                                result += v * (ct + T::one()) * dual_jac_def
+                            }
                         }
                         Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
                     }
                 }
-
                 cut_counter += 1;
             }
         }

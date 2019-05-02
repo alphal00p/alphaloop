@@ -12,12 +12,14 @@ extern crate vector;
 use cpython::PyResult;
 use std::cell::RefCell;
 extern crate cuba;
+extern crate disjoint_sets;
 extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;
-extern crate disjoint_sets;
 
-use num_traits::{FromPrimitive, ToPrimitive, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Num, ToPrimitive, Zero};
+use utils::Signum;
+use vector::{Field, RealNumberLike};
 
 const MAX_LOOP: usize = 4;
 
@@ -27,6 +29,26 @@ pub type float = f128::f128;
 #[allow(non_camel_case_types)]
 #[cfg(not(feature = "use_f128"))]
 pub type float = f64;
+
+pub trait FloatLike
+where
+    Self: From<float>,
+    Self: Num,
+    Self: FromPrimitive,
+    Self: Float,
+    Self: Field,
+    Self: RealNumberLike,
+    Self: num_traits::Signed,
+    Self: FloatConst,
+    Self: std::fmt::LowerExp,
+    Self: num_traits::float::FloatCore,
+    Self: 'static,
+    Self: Signum,
+{
+}
+
+impl FloatLike for f64 {}
+impl FloatLike for f128::f128 {}
 
 pub mod cts;
 pub mod integrand;
@@ -39,7 +61,11 @@ use num::Complex;
 use serde::Deserialize;
 use std::fmt;
 use std::fs::File;
-use vector::LorentzVector;
+pub use vector::LorentzVector;
+
+use cpython::PythonObject;
+use cpython::PythonObjectWithCheckedDowncast;
+use cpython::{PyFloat, PyList, PyString, PyTuple, Python};
 
 #[derive(Debug, Copy, Default, Clone, PartialEq, Deserialize)]
 pub struct Scaling {
@@ -57,8 +83,6 @@ pub struct Scaling {
 pub enum DeformationStrategy {
     #[serde(rename = "additive")]
     Additive,
-    #[serde(rename = "multiplicative")]
-    Multiplicative,
     #[serde(rename = "cutgroups")]
     CutGroups,
     #[serde(rename = "duals")]
@@ -89,7 +113,6 @@ impl From<&str> for DeformationStrategy {
     fn from(s: &str) -> Self {
         match s {
             "additive" => DeformationStrategy::Additive,
-            "multiplicative" => DeformationStrategy::Multiplicative,
             "cutgroups" => DeformationStrategy::CutGroups,
             "duals" => DeformationStrategy::Duals,
             "constant" => DeformationStrategy::Constant,
@@ -103,7 +126,6 @@ impl fmt::Display for DeformationStrategy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             DeformationStrategy::Additive => write!(f, "additive"),
-            DeformationStrategy::Multiplicative => write!(f, "multiplicative"),
             DeformationStrategy::CutGroups => write!(f, "cutgroups"),
             DeformationStrategy::Duals => write!(f, "duals"),
             DeformationStrategy::Constant => write!(f, "constant"),
@@ -147,15 +169,10 @@ impl Default for AdditiveMode {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct DeformationMultiplicativeSettings {
-    #[serde(rename = "M_ij")]
-    pub m_ij: f64,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationAdditiveSettings {
     pub mode: AdditiveMode,
     pub a_ij: f64,
+    pub a_ijs: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -171,7 +188,7 @@ pub struct DeformationSettings {
     pub scaling: Scaling,
     pub overall_scaling: OverallDeformationScaling,
     pub overall_scaling_constant: f64,
-    pub multiplicative: DeformationMultiplicativeSettings,
+    pub lambdas: Vec<f64>,
     pub additive: DeformationAdditiveSettings,
     pub cutgroups: DeformationCutGroupsSettings,
 }
@@ -218,6 +235,7 @@ pub struct GeneralSettings {
     pub log_points_to_screen: bool,
     pub log_stats_to_screen: bool,
     pub deformation_strategy: DeformationStrategy,
+    pub python_numerator: Option<String>,
     pub cut_filter: Vec<usize>,
     pub topology: String,
     pub unstable_point_warning_percentage: f64,
@@ -290,6 +308,110 @@ impl Settings {
     }
 }
 
+pub struct PythonNumerator {
+    gil: cpython::GILGuard,
+    module: cpython::PyModule,
+    buffer: PyList,
+}
+
+impl fmt::Debug for PythonNumerator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "python numerator")
+    }
+}
+
+impl PythonNumerator {
+    pub fn new(module: &str, num_loops: usize) -> PythonNumerator {
+        let gil = Python::acquire_gil();
+
+        let (module, buffer) = {
+            let py = gil.python();
+
+            let sys = py.import("sys").unwrap();
+            PyList::downcast_from(py, sys.get(py, "path").unwrap())
+                .unwrap()
+                .insert_item(py, 0, PyString::new(py, ".").into_object());
+
+            let module = py.import(module).unwrap();
+            let buffer = PyList::new(
+                py,
+                &(0..num_loops)
+                    .map(|_| {
+                        PyList::new(
+                            py,
+                            &[
+                                PyList::new(py, &[py.None(), py.None()]).into_object(),
+                                PyList::new(py, &[py.None(), py.None()]).into_object(),
+                                PyList::new(py, &[py.None(), py.None()]).into_object(),
+                                PyList::new(py, &[py.None(), py.None()]).into_object(),
+                            ],
+                        )
+                        .into_object()
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            (module, buffer)
+        };
+
+        PythonNumerator {
+            gil,
+            module,
+            buffer,
+        }
+    }
+
+    pub fn evaluate_numerator<T: FloatLike>(
+        &self,
+        k_def: &[LorentzVector<Complex<T>>],
+    ) -> Complex<T> {
+        let py = self.gil.python();
+
+        // convert the vector to tuples
+        for (i, k) in k_def.iter().enumerate() {
+            let tup = PyList::downcast_from(py, self.buffer.get_item(py, i)).unwrap();
+
+            for j in 0..4 {
+                let tup1 = PyList::downcast_from(py, tup.get_item(py, j)).unwrap();
+                tup1.set_item(
+                    py,
+                    0,
+                    PyFloat::new(py, k[j].re.to_f64().unwrap()).into_object(),
+                );
+                tup1.set_item(
+                    py,
+                    1,
+                    PyFloat::new(py, k[j].im.to_f64().unwrap()).into_object(),
+                );
+            }
+        }
+
+        let res = self
+            .module
+            .call(py, "numerator", (&self.buffer,), None)
+            .unwrap();
+        let res_tup = PyTuple::downcast_from(py, res).unwrap();
+
+        Complex::new(
+            T::from_f64(
+                res_tup
+                    .get_item(py, 0)
+                    .extract::<PyFloat>(py)
+                    .unwrap()
+                    .value(py),
+            )
+            .unwrap(),
+            T::from_f64(
+                res_tup
+                    .get_item(py, 1)
+                    .extract::<PyFloat>(py)
+                    .unwrap()
+                    .value(py),
+            )
+            .unwrap(),
+        )
+    }
+}
+
 // add bindings to the generated python module
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
     m.add(py, "__doc__", "LTD")?;
@@ -314,7 +436,7 @@ py_class!(class LTD |py| {
 
     def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
         let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, res) = self.topo(py).borrow().evaluate::<float>(&x,
-            &mut self.cache(py).borrow_mut());
+            &mut self.cache(py).borrow_mut(), &None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 

@@ -1,10 +1,83 @@
+use dual_num::DualN;
+use f128::f128;
 use num::Complex;
-use num_traits::{Float, NumAssign, NumCast};
+use num_traits::{Float, Num, NumAssign, NumCast};
 use num_traits::{Inv, One, Zero};
+use std::ops::Neg;
 use vector::RealNumberLike;
+use vector::{Field, LorentzVector};
+use FloatLike;
 use MAX_LOOP;
 
 const MAX_DIMENSION: usize = MAX_LOOP * 3;
+
+pub trait Signum {
+    fn multiply_sign(&self, sign: i8) -> Self;
+}
+
+impl Signum for f128 {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> f128 {
+        match sign {
+            1 => self.clone(),
+            0 => f128::zero(),
+            -1 => self.neg(),
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl Signum for f64 {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> f64 {
+        match sign {
+            1 => self.clone(),
+            0 => f64::zero(),
+            -1 => self.neg(),
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl<T: Num + Neg<Output = T> + Copy> Signum for Complex<T> {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> Complex<T> {
+        match sign {
+            1 => *self,
+            0 => Complex::zero(),
+            -1 => Complex::new(-self.re, -self.im),
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl<U: dual_num::Dim + dual_num::DimName, T: FloatLike> Signum for DualN<T, U>
+where
+    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+    dual_num::Owned<T, U>: Copy,
+{
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> DualN<T, U> {
+        match sign {
+            1 => *self,
+            0 => DualN::zero(),
+            -1 => -*self,
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl<T: Field> Signum for LorentzVector<T> {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> LorentzVector<T> {
+        match sign {
+            1 => *self,
+            0 => LorentzVector::default(),
+            -1 => -self,
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
 
 #[inline]
 /// Invert with better precision

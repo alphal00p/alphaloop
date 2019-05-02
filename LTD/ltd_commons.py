@@ -13,9 +13,12 @@ hard_coded_topology_collection = hard_coded_topology_collection
 hyperparameters = HyperParameters({
 
     'General'       :   {
-        # can be multiplicative, additive, cutgroups, duals or none
+        # can be additive, cutgroups, constant, duals or none
         'deformation_strategy'  :   'cutgroups',
         'topology'              :   'TriangleBoxTriangle',
+        # specify the name of a python module that contains a function numerator(complex_loop_momenta)
+        # that will be called for every cut
+        'python_numerator'      :   None,
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
@@ -56,12 +59,15 @@ hyperparameters = HyperParameters({
         # can be constant, linear or sigmoid
         'overall_scaling' : 'linear',
         # fraction of e_cm used for scaling
-        'overall_scaling_constant': 1.,
+        'overall_scaling_constant'  : 1.,
+
+        # optionally set a lambda per surface/cutgroup
+        'lambdas'   : [],
 
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 1.0,
+            'lambda'                    : 1000.0,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : False,
@@ -69,24 +75,22 @@ hyperparameters = HyperParameters({
             'positive_cut_check'        : True ,
             'cut_propagator_check'      : True,
             'non_cut_propagator_check'  : True,
-            'skip_hyperboloids'         : False,
+            'skip_hyperboloids'         : True,
         },
 
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
             'mode'  :   'unity',
             'a_ij'  :   0.0000001,
-        },
-
-        'multiplicative'        :   {
-            'M_ij'  :   0.1
+            # set aijs per surface. if the entry isn't there, a_ij is used instead
+            'a_ijs' :   [],
         },
 
         'cutgroups' : {
             'M_ij'  :   0.00001,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
-            'mode'  :   'unity',
+            'mode'  :   'softmin',
         }
     },
 
