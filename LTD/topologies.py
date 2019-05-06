@@ -931,6 +931,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             ) 
         )
 
+
     elif topology_type == 'Mercedes':
         p1,p2 = external_momenta
         return LoopTopology(
@@ -1008,6 +1009,94 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
                     start_node  = 3, 
                     end_node    = 4,
                     signature   = (0,1,-1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+            ) 
+        )
+
+
+
+
+    elif topology_type == 'Mercedesv2':
+        p1,p2 = external_momenta
+        return LoopTopology(
+            name    = name,
+            n_loops = 3,
+            external_kinematics = external_momenta,
+            analytical_result = (lambda ps: 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / ps[0].square()),
+            ltd_cut_structure = (
+		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
+
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT),
+
+
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.POSITIVE_CUT),
+
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NEGATIVE_CUT),
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT),
+
+		(LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NO_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT),
+		(LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NEGATIVE_CUT, LoopLine.NEGATIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT),
+
+            ),
+            loop_lines = (
+                LoopLine(
+                    start_node  = 2, 
+                    end_node    = 1,
+                    signature   = (0,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                        Propagator(q=-p1, m_squared=0.),
+                        
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 2,
+                    signature   = (0,0,1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 3, 
+                    end_node    = 1,
+                    signature   = (1,0,0),
+                    propagators = (
+                        Propagator(q=p1, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 2,
+                    signature   = (0,1,-1),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 1, 
+                    end_node    = 4,
+                    signature   = (1,1,0),
+                    propagators = (
+                        Propagator(q=zero_lv, m_squared=0.),
+                    )
+                ),
+                LoopLine(
+                    start_node  = 4, 
+                    end_node    = 3,
+                    signature   = (1,0,1),
                     propagators = (
                         Propagator(q=zero_lv, m_squared=0.),
                     )
@@ -2656,6 +2745,19 @@ hard_coded_topology_collection.add_topology(
         name = 'Mercedes',
     ),
     entry_name = 'Mercedes',
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Mercedesv2',        
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([1.,3.,0.,0.]),
+                vectors.LorentzVector([-1.,-3.,0.,0.]),
+        ]),
+        analytical_result =  None, #given in topology type
+        name = 'Mercedesv2',
+    ),
+    entry_name = 'Mercedesv2',
 )
 
 hard_coded_topology_collection.add_topology(
