@@ -1,12 +1,12 @@
 use arrayvec::ArrayVec;
 use disjoint_sets::UnionFind;
-use dual_num::DualN;
+use dual_num::{DimName, DualN};
 use itertools::Itertools;
 use num::Complex;
-use num_traits::{Float, FloatConst, FromPrimitive, Inv, Num, NumCast, One, Signed, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, Signed, Zero};
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
 use utils::Signum;
-use vector::{Field, LorentzVector, RealNumberLike};
+use vector::LorentzVector;
 use {float, PythonNumerator};
 use {
     AdditiveMode, DeformationStrategy, FloatLike, OverallDeformationScaling,
@@ -32,8 +32,8 @@ impl LoopLine {
         // only set the values when we use them
         let (kinematics_scale, threshold) = if topo.settings.general.numerical_threshold > 0. {
             (
-                T::from_f64(topo.e_cm_squared).unwrap(),
-                T::from_f64(topo.settings.general.numerical_threshold).unwrap(),
+                Into::<T>::into(topo.e_cm_squared),
+                Into::<T>::into(topo.settings.general.numerical_threshold),
             )
         } else {
             (T::zero(), T::zero())
@@ -44,22 +44,22 @@ impl LoopLine {
         let e = match cut {
             Cut::PositiveCut(i) => {
                 cache.complex_cut_energies[self.propagators[*i].id]
-                    - T::from_f64(self.propagators[*i].q.t).unwrap()
+                    - Into::<T>::into(self.propagators[*i].q.t)
             }
             Cut::NegativeCut(i) => {
                 -cache.complex_cut_energies[self.propagators[*i].id]
-                    - T::from_f64(self.propagators[*i].q.t).unwrap()
+                    - Into::<T>::into(self.propagators[*i].q.t)
             }
             Cut::NoCut => {
                 let mut e: num::Complex<T> = Complex::default();
                 for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
-                    e += l.t * num::Complex::new(T::from_i8(c).unwrap(), T::zero());
+                    e += l.t * T::from_i8(c).unwrap();
                 }
                 e
             }
         };
 
-        let mut res = num::Complex::new(T::one(), T::zero());
+        let mut res = num::Complex::one();
         if topo.settings.general.debug > 3 {
             println!(
                 "Loop line evaluation for cut {}\n  | signature = {:?}",
@@ -68,29 +68,27 @@ impl LoopLine {
         }
         for (i, p) in self.propagators.iter().enumerate() {
             match cut {
-                Cut::PositiveCut(j) if i == *j => {
-                    let r = (e + T::from_f64(p.q.t).unwrap()) * T::from_f64(2.).unwrap();
+                Cut::PositiveCut(j) | Cut::NegativeCut(j) if i == *j => {
+                    let r = cache.complex_cut_energies[p.id] * Into::<T>::into(2.);
                     res *= r;
 
                     if topo.settings.general.debug > 3 {
-                        println!("  | prop +{}={}", i, r);
-                    }
-                }
-                Cut::NegativeCut(j) if i == *j => {
-                    let r = (e + T::from_f64(p.q.t).unwrap()) * T::from_f64(-2.).unwrap();
-                    res *= r;
-
-                    if topo.settings.general.debug > 3 {
-                        println!("  | prop -{}={}", i, r);
+                        println!("  | prop x {}={}", i, r);
                     }
                 }
                 _ => {
                     // multiply dual propagator
-                    let r = utils::powi(e + T::from_f64(p.q.t).unwrap(), 2)
+                    let r = utils::powi(e + Into::<T>::into(p.q.t), 2)
                         - cache.complex_prop_spatial[p.id];
 
                     if topo.settings.general.debug > 3 {
-                        println!("  | prop  {}={}", i, r);
+                        println!(
+                            "  | prop   {}={}, {}, {}",
+                            i,
+                            r,
+                            e + Into::<T>::into(p.q.t),
+                            cache.complex_prop_spatial[p.id]
+                        );
                     }
 
                     if !r.is_finite()
@@ -492,8 +490,8 @@ impl Topology {
     /// Map a vector in the unit hypercube to the infinite hypercube.
     /// Also compute the Jacobian.
     pub fn parameterize<T: FloatLike>(&self, x: &[f64], loop_index: usize) -> ([T; 3], T) {
-        let e_cm = T::from_f64(self.e_cm_squared).unwrap().sqrt()
-            * T::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
+        let e_cm = Into::<T>::into(self.e_cm_squared).sqrt()
+            * Into::<T>::into(self.settings.parameterization.shifts[loop_index].0);
         let mut l_space = [T::zero(); 3];
         let mut jac = T::one();
 
@@ -501,14 +499,14 @@ impl Topology {
             ParameterizationMode::Cartesian => match self.settings.parameterization.mapping {
                 ParameterizationMapping::Log => {
                     for i in 0..3 {
-                        let x = T::from_f64(x[i]).unwrap();
+                        let x = Into::<T>::into(x[i]);
                         l_space[i] = e_cm * (x / (T::one() - x)).ln();
                         jac *= e_cm / (x - x * x);
                     }
                 }
                 ParameterizationMapping::Linear => {
                     for i in 0..3 {
-                        let x = T::from_f64(x[i]).unwrap();
+                        let x = Into::<T>::into(x[i]);
                         l_space[i] = e_cm * (T::one() / (T::one() - x) - T::one() / x);
                         jac *= e_cm
                             * (T::one() / (x * x) + T::one() / ((T::one() - x) * (T::one() - x)));
@@ -516,30 +514,28 @@ impl Topology {
                 }
             },
             ParameterizationMode::Spherical => {
-                let e_cm = T::from_f64(self.e_cm_squared).unwrap().sqrt()
-                    * T::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
+                let e_cm = Into::<T>::into(self.e_cm_squared).sqrt()
+                    * Into::<T>::into(self.settings.parameterization.shifts[loop_index].0);
                 let radius = match self.settings.parameterization.mapping {
                     ParameterizationMapping::Log => {
                         // ln(1/(1-x))
-                        let radius =
-                            e_cm * (T::one() / (T::one() - T::from_f64(x[0]).unwrap())).ln();
-                        jac *= e_cm / (T::one() - T::from_f64(x[0]).unwrap());
+                        let radius = e_cm * (T::one() / (T::one() - Into::<T>::into(x[0]))).ln();
+                        jac *= e_cm / (T::one() - Into::<T>::into(x[0]));
                         radius
                     }
                     ParameterizationMapping::Linear => {
                         // x/(1-x)
-                        let radius = e_cm * T::from_f64(x[0]).unwrap()
-                            / (T::one() - T::from_f64(x[0]).unwrap());
+                        let radius =
+                            e_cm * Into::<T>::into(x[0]) / (T::one() - Into::<T>::into(x[0]));
                         jac *= <T as num_traits::Float>::powi(e_cm + radius, 2) / e_cm;
                         radius
                     }
                 };
-                let phi =
-                    T::from_f64(2.).unwrap() * <T as FloatConst>::PI() * T::from_f64(x[1]).unwrap();
-                jac *= T::from_f64(2.).unwrap() * <T as FloatConst>::PI();
+                let phi = Into::<T>::into(2.) * <T as FloatConst>::PI() * Into::<T>::into(x[1]);
+                jac *= Into::<T>::into(2.) * <T as FloatConst>::PI();
 
-                let cos_theta = -T::one() + T::from_f64(2.).unwrap() * T::from_f64(x[2]).unwrap(); // out of range
-                jac *= T::from_f64(2.).unwrap();
+                let cos_theta = -T::one() + Into::<T>::into(2.) * Into::<T>::into(x[2]); // out of range
+                jac *= Into::<T>::into(2.);
                 let sin_theta = (T::one() - cos_theta * cos_theta).sqrt();
 
                 l_space[0] = radius * sin_theta * phi.cos();
@@ -551,12 +547,9 @@ impl Topology {
         }
 
         // add a shift such that k=l is harder to be picked up by integrators such as cuhre
-        l_space[0] +=
-            e_cm * T::from_f64(self.settings.parameterization.shifts[loop_index].1).unwrap();
-        l_space[1] +=
-            e_cm * T::from_f64(self.settings.parameterization.shifts[loop_index].2).unwrap();
-        l_space[2] +=
-            e_cm * T::from_f64(self.settings.parameterization.shifts[loop_index].3).unwrap();
+        l_space[0] += e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].1);
+        l_space[1] += e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].2);
+        l_space[2] += e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].3);
 
         (l_space, jac)
     }
@@ -571,15 +564,15 @@ impl Topology {
         }
 
         let mut jac = T::one();
-        let e_cm = T::from_f64(self.e_cm_squared).unwrap().sqrt()
-            * T::from_f64(self.settings.parameterization.shifts[loop_index].0).unwrap();
+        let e_cm = Into::<T>::into(self.e_cm_squared).sqrt()
+            * Into::<T>::into(self.settings.parameterization.shifts[loop_index].0);
 
-        let x: T = T::from_f64(mom.x).unwrap()
-            - e_cm * T::from_f64(self.settings.parameterization.shifts[loop_index].1).unwrap();
-        let y: T = T::from_f64(mom.y).unwrap()
-            - e_cm * T::from_f64(self.settings.parameterization.shifts[loop_index].2).unwrap();
-        let z: T = T::from_f64(mom.z).unwrap()
-            - e_cm * T::from_f64(self.settings.parameterization.shifts[loop_index].3).unwrap();
+        let x: T = Into::<T>::into(mom.x)
+            - e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].1);
+        let y: T = Into::<T>::into(mom.y)
+            - e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].2);
+        let z: T = Into::<T>::into(mom.z)
+            - e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].3);
 
         let k_r_sq = x * x + y * y + z * z;
         let k_r = k_r_sq.sqrt();
@@ -587,9 +580,9 @@ impl Topology {
         jac /= <T as num_traits::Float>::powi(e_cm + k_r, 2) / e_cm;
 
         let x2 = if y < T::zero() {
-            T::one() + T::from_f64(0.5).unwrap() * T::FRAC_1_PI() * T::atan2(y, x)
+            T::one() + Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(y, x)
         } else {
-            T::from_f64(0.5).unwrap() * T::FRAC_1_PI() * T::atan2(y, x)
+            Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(y, x)
         };
 
         // cover the degenerate case
@@ -609,24 +602,31 @@ impl Topology {
             }
         };
 
-        let x3 = T::from_f64(0.5).unwrap() * (T::one() + z / k_r);
+        let x3 = Into::<T>::into(0.5) * (T::one() + z / k_r);
 
-        jac /= T::from_f64(2.).unwrap() * <T as FloatConst>::PI();
-        jac /= T::from_f64(2.).unwrap();
+        jac /= Into::<T>::into(2.) * <T as FloatConst>::PI();
+        jac /= Into::<T>::into(2.);
         jac /= k_r * k_r;
 
         ([x1, x2, x3], jac)
     }
 
     #[inline]
-    fn compute_lambda_factor<T: Num + Float + Field + PartialOrd>(x: T, y: T) -> T {
+    fn compute_lambda_factor<U: DimName, T: FloatLike>(
+        x: DualN<T, U>,
+        y: DualN<T, U>,
+    ) -> DualN<T, U>
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+        dual_num::Owned<T, U>: Copy,
+    {
         // FIXME: not smooth
-        if x * NumCast::from(2.).unwrap() < y {
-            y * NumCast::from(0.25).unwrap()
-        } else if y < NumCast::from(0.).unwrap() {
-            x - y * NumCast::from(0.5).unwrap()
+        if x * Into::<T>::into(2.) < y {
+            y * Into::<T>::into(0.25)
+        } else if y < T::zero() {
+            x - y * Into::<T>::into(0.5)
         } else {
-            x - y * NumCast::from(0.25).unwrap()
+            x - y * Into::<T>::into(0.25)
         }
     }
 
@@ -634,7 +634,7 @@ impl Topology {
     /// for each cut and taking the minimum of their respective lambdas
     /// Additionally, check for the expansion condition and make sure that
     /// the real part of the cut propagator is positive
-    fn determine_lambda<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
+    fn determine_lambda<U: DimName, T: FloatLike>(
         &self,
         kappas: &[LorentzVector<DualN<T, U>>],
         lambda_max: f64,
@@ -645,11 +645,11 @@ impl Topology {
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
     {
-        let mut lambda_sq =
-            DualN::from_real(<T as Float>::powi(T::from_f64(lambda_max).unwrap(), 2));
+        let mut lambda_sq = DualN::from_real(<T as Float>::powi(Into::<T>::into(lambda_max), 2));
 
-        let sigma =
-            DualN::from_real(T::from_f64(self.settings.deformation.scaling.softmin_sigma).unwrap());
+        let sigma = DualN::from_real(Into::<T>::into(
+            self.settings.deformation.scaling.softmin_sigma,
+        ));
         let mut smooth_min_num = lambda_sq * (-lambda_sq / sigma).exp();
         let mut smooth_min_den = (-lambda_sq / sigma).exp();
 
@@ -685,9 +685,9 @@ impl Topology {
                 // we have to make sure that our linear expansion for the deformation vectors is reasonable
                 // for that we need lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
                 if self.settings.deformation.scaling.expansion_check {
-                    let lambda_exp = DualN::from_real(
-                        T::from_f64(self.settings.deformation.scaling.expansion_threshold).unwrap(),
-                    ) * info.spatial_and_mass_sq
+                    let lambda_exp = DualN::from_real(Into::<T>::into(
+                        self.settings.deformation.scaling.expansion_threshold,
+                    )) * info.spatial_and_mass_sq
                         / info.kappa_dot_mom.abs(); // note: not holomorphic
 
                     let lambda_exp_sq = lambda_exp * lambda_exp;
@@ -707,7 +707,7 @@ impl Topology {
                 // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
                 if self.settings.deformation.scaling.positive_cut_check {
                     let lambda_disc_sq = info.spatial_and_mass_sq / info.kappa_sq
-                        * DualN::from_real(T::from_f64(0.95).unwrap());
+                        * DualN::from_real(Into::<T>::into(0.95));
 
                     if sigma.is_zero() {
                         if lambda_disc_sq < lambda_sq {
@@ -853,12 +853,11 @@ impl Topology {
                                     continue;
                                 }
 
-                                let a_tot =
-                                    (a + on_shell_info.a * sign) * T::from_f64(-0.5).unwrap();
+                                let a_tot = (a + on_shell_info.a * sign) * Into::<T>::into(-0.5);
                                 let a_tot_inv = a_tot.inv();
                                 let b_tot = b + on_shell_info.b * sign;
                                 let c_tot = c + on_shell_info.c * sign + on_shell_info.shift.t;
-                                let x = (b_tot * a_tot_inv).powi(2) * T::from_f64(0.25).unwrap();
+                                let x = (b_tot * a_tot_inv).powi(2) * Into::<T>::into(0.25);
                                 let y = -c_tot * a_tot_inv;
 
                                 let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
@@ -891,7 +890,7 @@ impl Topology {
     }
 
     /// Construct a deformation vector by going through all the ellipsoids
-    fn deform_ellipsoids<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
+    fn deform_ellipsoids<U: DimName, T: FloatLike>(
         &self,
         cache: &mut LTDCache<T>,
     ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
@@ -975,9 +974,9 @@ impl Topology {
             }
 
             // evaluate the inverse propagator of the surface
-            inv_surf_prop[group_counter] = (cut_energy + T::from_f64(surf.shift.t).unwrap())
-                .powi(2)
-                - cache.cut_info[surface_prop.id].spatial_and_mass_sq;
+            inv_surf_prop[group_counter] =
+                (cut_energy + <T as NumCast>::from(surf.shift.t).unwrap()).powi(2)
+                    - cache.cut_info[surface_prop.id].spatial_and_mass_sq;
 
             for (loop_index, dir) in deform_dirs.iter().enumerate() {
                 // note the sign
@@ -1003,11 +1002,10 @@ impl Topology {
 
             let dampening = match self.settings.deformation.additive.mode {
                 AdditiveMode::Exponential => (-inv * inv
-                    / (aij * <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2)))
+                    / (aij * <T as Float>::powi(Into::<T>::into(self.e_cm_squared), 2)))
                 .exp(),
                 AdditiveMode::Hyperbolic => {
-                    let t =
-                        inv * inv / <T as Float>::powi(T::from_f64(self.e_cm_squared).unwrap(), 2);
+                    let t = inv * inv / <T as Float>::powi(Into::<T>::into(self.e_cm_squared), 2);
                     t / (t + aij)
                 }
                 AdditiveMode::Unity => DualN::one(),
@@ -1032,17 +1030,7 @@ impl Topology {
         kappas
     }
 
-    fn get_deformation_for_cut<
-        U: dual_num::Dim + dual_num::DimName,
-        T: From<float>
-            + 'static
-            + FromPrimitive
-            + Float
-            + Field
-            + RealNumberLike
-            + num_traits::Signed
-            + FloatConst,
-    >(
+    fn get_deformation_for_cut<U: DimName, T: FloatLike>(
         &self,
         cut: &[Cut],
         cut_structure_index: usize,
@@ -1086,7 +1074,7 @@ impl Topology {
 
     /// Construct a deformation vector by going through all cut options
     /// and make sure it is 0 on all other cut options
-    fn deform_cutgroups<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
+    fn deform_cutgroups<U: DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         cache: &mut LTDCache<T>,
@@ -1135,7 +1123,7 @@ impl Topology {
                     [surf.onshell_prop_index]
                     .id]
                     .real_energy;
-                res -= shift.t.abs();
+                res += shift.t.multiply_sign(surf.delta_sign); // add the shift with the right sign
                 normalization += shift.spatial_squared_impr();
                 cache.ellipsoid_eval[surf_index] = res * res / normalization;
             }
@@ -1194,15 +1182,15 @@ impl Topology {
                             s
                         } else {
                             let e = (-t
-                                / T::from_f64(self.settings.deformation.cutgroups.sigma).unwrap())
+                                / Into::<T>::into(self.settings.deformation.cutgroups.sigma))
                             .exp();
                             softmin_num += t * e;
                             softmin_den += e;
                             e
                         }
                     } else {
-                        let sup = t
-                            / (t + T::from_f64(self.settings.deformation.cutgroups.m_ij).unwrap());
+                        let sup =
+                            t / (t + Into::<T>::into(self.settings.deformation.cutgroups.m_ij));
                         s *= sup;
                         sup
                     };
@@ -1223,8 +1211,7 @@ impl Topology {
                     }
 
                     if !self.settings.deformation.cutgroups.m_ij.is_zero() {
-                        s = s
-                            / (s + T::from_f64(self.settings.deformation.cutgroups.m_ij).unwrap());
+                        s = s / (s + Into::<T>::into(self.settings.deformation.cutgroups.m_ij));
                     }
                 }
             }
@@ -1254,7 +1241,7 @@ impl Topology {
     }
 
     /// Construct a deformation vector by going through all the constant
-    fn deform_constant<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
+    fn deform_constant<U: DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         _cache: &mut LTDCache<T>,
@@ -1273,7 +1260,7 @@ impl Topology {
         kappas
     }
 
-    fn deform_generic<U: dual_num::Dim + dual_num::DimName, T: FloatLike>(
+    fn deform_generic<U: DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         cut: Option<(usize, usize)>,
@@ -1298,7 +1285,7 @@ impl Topology {
                 // update the cut info
                 for p in &ll.propagators {
                     let q: LorentzVector<DualN<T, U>> = p.q.cast();
-                    let mass = DualN::from_real(T::from_f64(p.m_squared).unwrap());
+                    let mass = DualN::from_real(Into::<T>::into(p.m_squared));
                     let cm = (mom + q).spatial_squared() + mass;
                     let energy = cm.sqrt();
                     cache.cut_energies[p.id] = energy;
@@ -1339,12 +1326,12 @@ impl Topology {
                 OverallDeformationScaling::Constant => *kappa *= scale,
                 OverallDeformationScaling::Linear => {
                     *kappa *= k.spatial_squared_impr().sqrt()
-                        * T::from_f64(self.settings.deformation.overall_scaling_constant).unwrap()
+                        * Into::<T>::into(self.settings.deformation.overall_scaling_constant)
                 }
                 OverallDeformationScaling::Sigmoid => {
                     let k_scale = k.spatial_squared_impr().sqrt();
-                    *kappa *= k_scale * T::from_f64(2.).unwrap()
-                        / (DualN::one() + (k_scale / scale).exp());
+                    *kappa *=
+                        k_scale * Into::<T>::into(2.) / (DualN::one() + (k_scale / scale).exp());
                 }
             }
         }
@@ -1471,9 +1458,9 @@ impl Topology {
             if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = ll_cut {
                 let e = cache.complex_cut_energies[ll.propagators[j].id];
                 if let Cut::PositiveCut(_) = ll_cut {
-                    cut_energy[index] = e - T::from_f64(ll.propagators[j].q.t).unwrap();
+                    cut_energy[index] = e - Into::<T>::into(ll.propagators[j].q.t);
                 } else {
-                    cut_energy[index] = -e - T::from_f64(ll.propagators[j].q.t).unwrap();
+                    cut_energy[index] = -e - Into::<T>::into(ll.propagators[j].q.t);
                 }
                 index += 1;
             }
@@ -1573,7 +1560,7 @@ impl Topology {
 
             for p in &ll.propagators {
                 let q: LorentzVector<Complex<T>> = p.q.cast();
-                let cm = (mom + q).spatial_squared() + T::from_f64(p.m_squared).unwrap();
+                let cm = (mom + q).spatial_squared() + Into::<T>::into(p.m_squared);
 
                 if self.settings.deformation.scaling.positive_cut_check
                     && cm.re < T::zero()
@@ -1711,17 +1698,14 @@ impl Topology {
         }
 
         result *= utils::powi(
-            num::Complex::new(
-                T::zero(),
-                T::from_f64(-2.).unwrap() * <T as FloatConst>::PI(),
-            ),
+            num::Complex::new(T::zero(), Into::<T>::into(-2.) * <T as FloatConst>::PI()),
             self.n_loops,
         ); // factor of delta cut
 
         result *= utils::powi(
             num::Complex::new(
-                T::from_f64(1.).unwrap()
-                    / <T as Float>::powi(T::from_f64(2.).unwrap() * <T as FloatConst>::PI(), 4),
+                Into::<T>::into(1.)
+                    / <T as Float>::powi(Into::<T>::into(2.) * <T as FloatConst>::PI(), 4),
                 T::zero(),
             ),
             self.n_loops,
