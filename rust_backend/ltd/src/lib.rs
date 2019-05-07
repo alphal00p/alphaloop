@@ -16,12 +16,13 @@ extern crate disjoint_sets;
 extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;
+extern crate rand;
 
 use num_traits::{Float, FloatConst, FromPrimitive, Num, ToPrimitive, Zero};
 use utils::Signum;
 use vector::{Field, RealNumberLike};
 
-const MAX_LOOP: usize = 4;
+pub const MAX_LOOP: usize = 4;
 
 #[allow(non_camel_case_types)]
 #[cfg(feature = "use_f128")]
@@ -32,7 +33,7 @@ pub type float = f64;
 
 pub trait FloatLike
 where
-    Self: From<float>,
+    Self: From<f64>,
     Self: Num,
     Self: FromPrimitive,
     Self: Float,

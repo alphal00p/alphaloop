@@ -490,6 +490,20 @@ impl<'a, T: Field> Div<T> for LorentzVector<T> {
     }
 }
 
+impl<'a, T: Field> Inv for LorentzVector<T> {
+    type Output = LorentzVector<T>;
+
+    #[inline]
+    fn inv(self) -> LorentzVector<T> {
+        LorentzVector {
+            t: self.t.inv(),
+            x: self.x.inv(),
+            y: self.y.inv(),
+            z: self.z.inv(),
+        }
+    }
+}
+
 impl<'a, T: RealNumberLike> Sub<&'a LorentzVector<T>> for &'a LorentzVector<Complex<T>> {
     type Output = LorentzVector<Complex<T>>;
 
