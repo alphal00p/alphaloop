@@ -197,14 +197,14 @@ impl Topology {
             // the cut momenta
             for (cut_option_index, cut_option) in cut_options.iter().enumerate() {
                 let mut cut_shift: Vec<LorentzVector<float>> = vec![]; // qs of cut
-                let mut cut_mass_sum = float::zero();
+                let mut cut_mass = vec![];
                 for (cut, ll) in cut_option.iter().zip(self.loop_lines.iter()) {
                     if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut
                     {
                         cut_shift.push(ll.propagators[*cut_prop_index].q.cast());
-                        cut_mass_sum += float::from_f64(ll.propagators[*cut_prop_index].m_squared)
-                            .unwrap()
-                            .sqrt();
+                        cut_mass.push(
+                            float::from_f64(ll.propagators[*cut_prop_index].m_squared).unwrap(),
+                        );
                     }
                 }
 
@@ -231,7 +231,6 @@ impl Topology {
                         // 2. surface_shift^2 - (sum_i m_i)^2 >= 0
                         // 3. all signs need to be the same (except 0)
                         // 4. surface_shift.t needs to have the opposite sign as in step 3.
-                        // TODO: check if the ansatz for the massive case holds at more than one loop
                         if surface_shift.t != float::zero() {
                             // multiply the residue sign
                             let mut surface_signs = sig_ll_in_cb.clone();
@@ -240,6 +239,14 @@ impl Topology {
                                     *ss *= -1;
                                 }
                             }
+
+                            let mut cut_mass_sum = float::zero();
+                            for (ss, mass) in surface_signs.iter().zip(cut_mass.iter()) {
+                                cut_mass_sum += mass.multiply_sign(*ss);
+                            }
+
+                            let surface_mass =
+                                float::from_f64(onshell_prop.m_squared.sqrt()).unwrap();
 
                             let group = self.surfaces.len(); // every surface is in a different group at first
                             let surface_sign_sum = surface_signs.iter().sum::<i8>();
@@ -253,20 +260,10 @@ impl Topology {
                                     == surface_signs_abs_sum + delta_sign.abs()
                                 {
                                     if surface_shift.square()
-                                        - (cut_mass_sum
-                                            + float::from_f64(onshell_prop.m_squared.sqrt())
-                                                .unwrap())
-                                        .powi(2)
+                                        - (cut_mass_sum.abs() + surface_mass).powi(2)
                                         >= float::zero()
                                         && surface_shift.t.multiply_sign(delta_sign) < float::zero()
                                     {
-                                        /*
-                                        println!(
-                                            "Found ellipsoid for {}: cut={:?}, mom_map={:?}, signs={:?}, marker={}, shift={}",
-                                            self.name, cut_option, sig_ll_in_cb.iter().cloned().collect::<Vec<_>>(),
-                                            surface_signs.iter().cloned().collect::<Vec<_>>(), delta_sign, surface_shift
-                                        );
-                                        */
                                         self.surfaces.push(Surface {
                                             group,
                                             ellipsoid: true,
@@ -282,14 +279,67 @@ impl Topology {
                                         });
                                     }
                                 } else {
-                                    // TODO: existence condition for hyperboloids only known up to 2 loops
-                                    if surface_shift.square()
-                                        - (cut_mass_sum
-                                            - float::from_f64(onshell_prop.m_squared.sqrt())
-                                                .unwrap())
-                                        .powi(2)
-                                        <= float::zero()
-                                    {
+                                    let mut neg_surface_signs_count =
+                                        surface_signs.iter().filter(|x| **x == -1).count();
+                                    let mut pos_surface_signs_count =
+                                        surface_signs.iter().filter(|x| **x == 1).count();
+
+                                    if delta_sign > 0 {
+                                        pos_surface_signs_count += 1;
+                                    } else {
+                                        neg_surface_signs_count += 1;
+                                    }
+
+                                    // if we have at least two positive and two negative foci,
+                                    // the hyperboloid always exists. If we have one negative focus,
+                                    // we require the surface equation to be negative at qi=0.
+                                    // For one positive focus, we require it to be positive.
+                                    // For the case with one positive and one negative focus, we
+                                    // use a known condition.
+                                    if match (pos_surface_signs_count, neg_surface_signs_count) {
+                                        (1, 1) => {
+                                            surface_shift.square()
+                                                - (surface_mass - cut_mass_sum.abs()).powi(2)
+                                                <= float::zero()
+                                        }
+                                        (1, _) | (_, 1) => {
+                                            let mut eval = float::zero();
+                                            for (&ss, mass) in
+                                                surface_signs.iter().zip(cut_mass.iter())
+                                            {
+                                                if pos_surface_signs_count == 1 && ss == 1
+                                                    || neg_surface_signs_count == 1 && ss == -1
+                                                {
+                                                    eval += (surface_shift.spatial_squared()
+                                                        + mass * mass)
+                                                        .sqrt()
+                                                        .multiply_sign(ss);
+                                                } else {
+                                                    eval += mass.multiply_sign(ss);
+                                                }
+                                            }
+
+                                            if pos_surface_signs_count == 1 && delta_sign == 1
+                                                || neg_surface_signs_count == 1 && delta_sign == -1
+                                            {
+                                                eval += (surface_shift.spatial_squared()
+                                                    + Into::<float>::into(onshell_prop.m_squared))
+                                                .sqrt()
+                                                .multiply_sign(delta_sign);
+                                            } else {
+                                                eval += Into::<float>::into(onshell_prop.m_squared)
+                                                    .sqrt()
+                                                    .multiply_sign(delta_sign);
+                                            }
+
+                                            eval += surface_shift.t;
+
+                                            pos_surface_signs_count == 1 && eval > float::zero()
+                                                || neg_surface_signs_count == 1
+                                                    && eval < float::zero()
+                                        }
+                                        _ => true,
+                                    } {
                                         self.surfaces.push(Surface {
                                             group,
                                             ellipsoid: false,
