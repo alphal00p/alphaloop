@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+use colored::Colorize;
 use disjoint_sets::UnionFind;
 use dual_num::{DimName, DualN};
 use itertools::Itertools;
@@ -82,13 +83,7 @@ impl LoopLine {
                         - cache.complex_prop_spatial[p.id];
 
                     if topo.settings.general.debug > 3 {
-                        println!(
-                            "  | prop   {}={}, {}, {}",
-                            i,
-                            r,
-                            e + Into::<T>::into(p.q.t),
-                            cache.complex_prop_spatial[p.id]
-                        );
+                        println!("  | prop   {}={}", i, r);
                     }
 
                     if !r.is_finite()
@@ -1546,11 +1541,12 @@ impl Topology {
         Ok(r)
     }
 
+    /// Compute the complex cut energies and evaluate the cut loop lines
     pub fn compute_complex_cut_energies<T: FloatLike>(
         &self,
         k_def: &ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
         cache: &mut LTDCache<T>,
-    ) {
+    ) -> Result<(), &'static str> {
         // compute all complex cut energies
         for (ll_index, ll) in self.loop_lines.iter().enumerate() {
             let mut mom = LorentzVector::default();
@@ -1567,8 +1563,12 @@ impl Topology {
                     && cm.im < T::zero()
                 {
                     eprintln!(
-                        "Branch cut detected for prop {}, ll sig={:?}, ks={:?}: {}",
-                        p.id, ll.signature, k_def, cm
+                        "{} for prop {}, ll sig={:?}, ks={:?}: {}",
+                        "Branch cut detected".red(),
+                        p.id,
+                        ll.signature,
+                        k_def,
+                        cm
                     );
                 }
 
@@ -1583,17 +1583,16 @@ impl Topology {
                 // compute the entire dual loop line
                 // note that the deformed momenta are not used here
                 if has_positive_cut {
-                    cache.complex_loop_line_eval[ll_index][i][0] = ll
-                        .evaluate(k_def, &Cut::PositiveCut(i), &self, cache)
-                        .unwrap();
+                    cache.complex_loop_line_eval[ll_index][i][0] =
+                        ll.evaluate(k_def, &Cut::PositiveCut(i), &self, cache)?;
                 }
                 if has_negative_cut {
-                    cache.complex_loop_line_eval[ll_index][i][1] = ll
-                        .evaluate(k_def, &Cut::NegativeCut(i), &self, cache)
-                        .unwrap();
+                    cache.complex_loop_line_eval[ll_index][i][1] =
+                        ll.evaluate(k_def, &Cut::NegativeCut(i), &self, cache)?;
                 }
             }
         }
+        Ok(())
     }
 
     #[inline]
@@ -1648,7 +1647,9 @@ impl Topology {
                 .collect();
             jac_def = jac;
 
-            self.compute_complex_cut_energies(&k_def, cache);
+            if self.compute_complex_cut_energies(&k_def, cache).is_err() {
+                return (x, k_def, jac_para, jac_def, Complex::default());
+            }
         }
 
         // evaluate all dual integrands
@@ -1676,7 +1677,9 @@ impl Topology {
                             })
                             .collect();
                         dual_jac_def = jac;
-                        self.compute_complex_cut_energies(&k_def, cache);
+                        if self.compute_complex_cut_energies(&k_def, cache).is_err() {
+                            return (x, k_def, jac_para, jac_def, Complex::default());
+                        }
                     }
                     match self.evaluate_cut(&mut k_def, cut, mat, cache) {
                         Ok(v) => {

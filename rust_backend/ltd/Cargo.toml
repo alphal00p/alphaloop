@@ -33,3 +33,4 @@ clap = "*"
 rand = "*"
 f128 = { git = "https://github.com/benruijl/f128" }
 disjoint-sets = "*"
+colored = "1.8"
