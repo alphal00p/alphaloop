@@ -1,6 +1,8 @@
 import os
 import vectors
 import math
+from collections import defaultdict
+from pprint import pformat
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
@@ -69,6 +71,186 @@ class HyperParameters(dict):
 
 
 #############################################################################################################
+# Topology Generator
+#############################################################################################################
+
+class TopologyGenerator(object):
+    def __init__(self, edge_map_lin):
+        self.edge_map_lin = edge_map_lin
+        self.edge_name_map = {name: i for (
+            i, (name, _, _)) in enumerate(edge_map_lin)}
+        self.edges = [(v1, v2) for (name, v1, v2) in edge_map_lin]
+        vertices = [y for x in self.edges for y in x]
+
+        self.num_vertices = len(set(vertices))
+
+        self.ext = [i for i, x in enumerate(self.edges) if vertices.count(
+            x[0]) == 1 or vertices.count(x[1]) == 1]
+        self.loop_momenta = None
+        self.propagators = None
+
+    def loop_momentum_bases(self):
+        trees = []
+        self.spanning_trees(trees)
+        return [[i for i in range(self.num_vertices) if i not in tree] for tree in trees]
+
+    def spanning_trees(self, result, tree={1}, accum=[]):
+        # find all edges that connect the tree to a new node
+        edges = [(i, e) for i, e in enumerate(
+            self.edges) if len(tree & set(e)) == 1]
+
+        if len(edges) == 0:
+            # no more new edges, so we are done
+            s = list(sorted(accum))
+            if s not in result:
+                result.append(s)
+        else:
+            for i, e in edges:
+                self.spanning_trees(result, tree | set(e), accum + [i])
+
+    def find_path(self, start, dest):
+        # find all paths from source to dest
+        loop = start == dest
+        start_check = 1 if loop else 0
+        paths = [[(start, True)]]  # store direction
+        if not loop:
+            paths.append([(start, False)])
+        res = []
+        while True:
+            newpaths = []
+            for p in paths:
+                if len(p) > 1 and p[-1][0] == dest:
+                    res.append(p)
+                    continue
+                last_vertex = self.edges[p[-1][0]
+                                         ][1] if p[-1][1] else self.edges[p[-1][0]][0]
+                for i, x in enumerate(self.edges):
+                    if all(i != pp[0] for pp in p[start_check:]):
+                        if loop and i == start:
+                            # if we need a loop, we need to enter from the right direction
+                            if x[0] == last_vertex:
+                                newpaths.append(p + [(i, True)])
+                            continue
+
+                        if x[0] == last_vertex and all(x[1] not in self.edges[pp[0]] for pp in p[start_check:-1]):
+                            newpaths.append(p + [(i, True)])
+                        if x[1] == last_vertex and all(x[0] not in self.edges[pp[0]] for pp in p[start_check:-1]):
+                            newpaths.append(p + [(i, False)])
+            paths = newpaths
+            if len(paths) == 0:
+                break
+        return res
+
+    def generate_momentum_flow(self, loop_momenta):
+        """Generate momentum flow where `loop_momenta` are a
+        list of all edge indices that go like 1/k^2
+        """
+        self.loop_momenta = loop_momenta
+
+        # first we fix the loop momentum flows
+        flows = []
+        for l in loop_momenta:
+            paths = self.find_path(l, l)
+            # make sure other loop momenta propagators are not in the path
+            paths = [x for x in paths if all(
+                y[0] not in self.loop_momenta for y in x[1:-1])]
+            # TODO: take shortest?
+            flows.append(paths[0][:-1])
+
+        # now route the external loop_momenta to the sink
+        ext_flows = []
+        for e in self.ext[:-1]:
+            paths = self.find_path(e, self.ext[-1])
+            paths = [x for x in paths if all(
+                y[0] not in self.loop_momenta for y in x[1:-1])]
+            ext_flows.append(paths[0])
+
+        # propagator momenta
+        mom = []
+        s = []
+        for i, x in enumerate(self.edges):
+            if i in self.ext:
+                mom.append(())
+                continue
+            if i in loop_momenta:
+                mom.append([(i, True)])
+                s.append("1/k{}^2".format(i))
+            else:
+                newmom = []
+                s1 = "1/("
+                for j, y in enumerate(flows):
+                    for yy in y:
+                        if yy[0] == i:
+                            s1 += ("+" if yy[1] else "-") + \
+                                "k{}".format(loop_momenta[j])
+                            newmom.append((loop_momenta[j], yy[1]))
+                            break
+                for j, y in enumerate(ext_flows):
+                    for yy in y:
+                        if yy[0] == i:
+                            s1 += ("+" if yy[1] else "-") + \
+                                "p{}".format(self.ext[j])
+                            newmom.append((self.ext[j], yy[1]))
+                            break
+                mom.append(tuple(newmom))
+                s.append(s1 + ")^2")
+
+        self.propagators = mom
+        print("Constructed topology: {}".format('*'.join(s)))
+
+    def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None):
+        if loop_momenta_names is None:
+            loop_momenta = self.loop_momentum_bases()[0]
+        else:
+            loop_momenta = [self.edge_name_map[edge_name]
+                            for edge_name in loop_momenta_names]
+
+        self.generate_momentum_flow(loop_momenta)
+
+        # collect all loop lines and construct the signature
+        loop_line_map = defaultdict(list)
+
+        for prop, (edge_name, v1, v2) in zip(self.propagators, self.edge_map_lin):
+            if prop == ():
+                # external momentum
+                continue
+
+            mass = 0. if edge_name not in mass_map else mass_map[edge_name]
+
+            # construct the signature
+            signature = [0]*len(loop_momenta)
+            q = vectors.LorentzVector([0., 0., 0., 0.])
+            for (mom, sign) in prop:
+                s = 1 if sign else -1
+                if mom not in self.ext:
+                    signature[loop_momenta.index(mom)] = s
+                else:
+                    q += ext_mom[self.edge_map_lin[mom][0]] * s
+
+            # flip the sign if the inverse exists
+            alt_sig = (tuple(s * -1 for s in signature), (v2, v1))
+            if alt_sig in loop_line_map:
+                print('warning: changing sign of propagator')
+                loop_line_map[alt_sig].append((-q, mass))
+            else:
+                loop_line_map[(tuple(signature), (v1, v2))].append((q, mass))
+
+        ll = [LoopLine(
+            start_node=edge[0],
+            end_node=edge[1],
+            signature=signature,
+            propagators=tuple(
+                Propagator(q=q, m_squared=mass)
+                for (q, mass) in propagators)) for (signature, edge), propagators in loop_line_map.items()]
+
+        # TODO: the external kinematics are given in a random order!
+        external_kinematics = list(ext_mom.values())
+        external_kinematics.append(-sum(external_kinematics))
+        return LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
+                            ltd_cut_structure=(), loop_lines=ll)
+
+
+#############################################################################################################
 # Define topology structures
 #############################################################################################################
 
@@ -95,6 +277,9 @@ class LoopTopology(object):
             self.analytical_result   = analytical_result(self.external_kinematics)
         else:
             self.analytical_result   = analytical_result
+
+    def __str__(self):
+        return pformat(self.to_flat_format())
        
     def get_com_energy(self):
         """ Returns c.o.m energy of the external kinematics."""
