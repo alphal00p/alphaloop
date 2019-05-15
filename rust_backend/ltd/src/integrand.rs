@@ -1,8 +1,10 @@
 use arrayvec::ArrayVec;
+use colored::Colorize;
 use f128::f128;
 use float;
 use num::Complex;
-use num_traits::{Float, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
+use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::{LTDCache, Topology};
@@ -27,39 +29,32 @@ pub struct Integrand {
     pub python_numerator: Option<PythonNumerator>,
 }
 
-impl Integrand {
-    pub fn new(topology: &Topology, settings: Settings, id: usize) -> Integrand {
-        // create an extra topology with rotated kinematics to check the uncertainty
-        let angle = float::from_f64(0.33).unwrap(); // rotation angle
-        let rv = (
-            float::from_f64(2.).unwrap().sqrt().inv(),
-            float::from_f64(3.).unwrap().sqrt().inv(),
-            float::from_f64(6.).unwrap().sqrt().inv(),
-        ); // rotation axis
-
+impl Topology {
+    /// Create a rotated version of this topology. The axis needs to be normalized.
+    fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
         let cos_t = angle.cos();
         let sin_t = angle.sin();
         let cos_t_bar = float::one() - angle.cos();
 
         let rot_matrix: [[float; 3]; 3] = [
             [
-                cos_t + rv.0 * rv.0 * cos_t_bar,
-                rv.0 * rv.1 * cos_t_bar - rv.2 * sin_t,
-                rv.0 * rv.2 * cos_t_bar + rv.1 * sin_t,
+                cos_t + axis.0 * axis.0 * cos_t_bar,
+                axis.0 * axis.1 * cos_t_bar - axis.2 * sin_t,
+                axis.0 * axis.2 * cos_t_bar + axis.1 * sin_t,
             ],
             [
-                rv.0 * rv.1 * cos_t_bar + rv.2 * sin_t,
-                cos_t + rv.1 * rv.1 * cos_t_bar,
-                rv.1 * rv.2 * cos_t_bar - rv.0 * sin_t,
+                axis.0 * axis.1 * cos_t_bar + axis.2 * sin_t,
+                cos_t + axis.1 * axis.1 * cos_t_bar,
+                axis.1 * axis.2 * cos_t_bar - axis.0 * sin_t,
             ],
             [
-                rv.0 * rv.2 * cos_t_bar - rv.1 * sin_t,
-                rv.1 * rv.2 * cos_t_bar + rv.0 * sin_t,
-                cos_t + rv.2 * rv.2 * cos_t_bar,
+                axis.0 * axis.2 * cos_t_bar - axis.1 * sin_t,
+                axis.1 * axis.2 * cos_t_bar + axis.0 * sin_t,
+                cos_t + axis.2 * axis.2 * cos_t_bar,
             ],
         ];
 
-        let mut rotated_topology = topology.clone();
+        let mut rotated_topology = self.clone();
         rotated_topology.name = rotated_topology.name + "_rot";
         rotated_topology.rotation_matrix = rot_matrix.clone();
 
@@ -113,6 +108,29 @@ impl Integrand {
                 rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
         }
 
+        rotated_topology
+    }
+}
+
+impl Integrand {
+    pub fn new(topology: &Topology, settings: Settings, id: usize) -> Integrand {
+        // create extra topologies with rotated kinematics to check the uncertainty
+        let mut rng = rand::thread_rng();
+        let mut topologies = vec![topology.clone()];
+        for _ in 0..5 {
+            let angle =
+                float::from_f64(rng.gen::<f64>() * 2.).unwrap() * <float as FloatConst>::PI();
+            let mut rv = (
+                float::from_f64(rng.gen()).unwrap(),
+                float::from_f64(rng.gen()).unwrap(),
+                float::from_f64(rng.gen()).unwrap(),
+            ); // rotation axis
+            let inv_norm = (rv.0 * rv.0 + rv.1 * rv.1 + rv.2 * rv.2).sqrt().inv();
+            rv = (rv.0 * inv_norm, rv.1 * inv_norm, rv.2 * inv_norm);
+
+            topologies.push(topology.rotate(angle, rv));
+        }
+
         let python_numerator = settings
             .general
             .python_numerator
@@ -120,7 +138,7 @@ impl Integrand {
             .map(|module| PythonNumerator::new(module, topology.n_loops));
 
         Integrand {
-            topologies: vec![topology.clone(), rotated_topology],
+            topologies,
             cache_float: LTDCache::<float>::new(&topology),
             cache_f128: LTDCache::<f128>::new(&topology),
             running_max: Complex::default(),
@@ -317,6 +335,51 @@ impl Integrand {
                 self.check_stability(x, result_f128, &mut cache_f128);
             std::mem::swap(&mut self.cache_f128, &mut cache_f128);
 
+            // check if the f128 computation is consistent with the f64 one
+            // by checking if the f128 result is more than 2 stable digits removed from the f64 one
+            let (num_f64, num_f128) =
+                if self.settings.integrator.integrated_phase == IntegratedPhase::Imag {
+                    (
+                        <float as NumCast>::from(result.im).unwrap(),
+                        <float as NumCast>::from(result_f128.im).unwrap(),
+                    )
+                } else {
+                    (
+                        <float as NumCast>::from(result.re).unwrap(),
+                        <float as NumCast>::from(result_f128.re).unwrap(),
+                    )
+                };
+
+            let d_comp = if num_f64.is_zero() && num_f128.is_zero() {
+                float::from_f64(100.).unwrap()
+            } else {
+                if num_f64 == -num_f128 {
+                    float::from_f64(-100.).unwrap()
+                } else {
+                    -((num_f64 - num_f128) / (num_f64 + num_f128)).abs().log10()
+                }
+            };
+
+            if d_comp + float::from_f64(2.).unwrap() < d
+                && d > float::from_f64(3.).unwrap()
+                && num_f64 > float::from_f64(1e-20).unwrap()
+            {
+                eprintln!(
+                    "{} between f64 and f128!\n  | f64  ={:e}, jac={:e}\n  | f64' ={:e}, jac={:e}\n  | f128 ={:e}, jac={:e}\n  | f128'={:e}, jac={:e}\n  | x={:?}",
+                    "Inconsistency".red(),
+                    result, jac_def * jac_para, result_rot, 0., result_f128, jac_def_f128 * jac_para_f128, result_rot_f128, 0., x,
+                );
+
+                // now try more points for f64
+                for topo in &self.topologies[2..] {
+                    let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
+                        topo.evaluate(x, &mut self.cache_float, &self.python_numerator);
+                    eprintln!("  | rots  ={:e}", result_rot);
+                }
+            }
+
+            self.unstable_point_count += 1;
+
             if !result_f128.is_finite()
                 || !result_rot_f128.is_finite()
                 || d_f128 < NumCast::from(self.settings.general.relative_precision).unwrap()
@@ -360,7 +423,6 @@ impl Integrand {
                     <float as NumCast>::from(result_f128.re).unwrap(),
                     <float as NumCast>::from(result_f128.im).unwrap(),
                 );
-                self.unstable_point_count += 1;
             }
         } else {
             self.regular_point_count += 1;
