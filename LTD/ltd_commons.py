@@ -101,6 +101,13 @@ hyperparameters = HyperParameters({
         'mapping'   :   'log',
         # controls the UV behaviour of the spherical log map
         'b'         :   1.0,
+        # rescale the input from [0,1] to [lo,hi]
+        'input_rescaling' : [
+            [[0., 1.], [0., 1.], [0., 1.]],
+            [[0., 1.], [0., 1.], [0., 1.]],
+            [[0., 1.], [0., 1.], [0., 1.]],
+            [[0., 1.], [0., 1.], [0., 1.]],
+        ],
         # shift the loop momenta. the first component is a rescaling of the radius
         'shifts' : [
             [1.0, 0., 0., 0.],

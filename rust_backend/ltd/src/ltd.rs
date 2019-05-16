@@ -540,18 +540,29 @@ impl Topology {
         let mut l_space = [T::zero(); 3];
         let mut jac = T::one();
 
+        // rescale the input to the desired range
+        let mut x_r = [0.; 3];
+        for (xd, xi, &(lo, hi)) in izip!(
+            &mut x_r,
+            x,
+            &self.settings.parameterization.input_rescaling[loop_index]
+        ) {
+            *xd = lo + xi * (hi - lo);
+            jac *= Into::<T>::into(hi - lo);
+        }
+
         match self.settings.parameterization.mode {
             ParameterizationMode::Cartesian => match self.settings.parameterization.mapping {
                 ParameterizationMapping::Log => {
                     for i in 0..3 {
-                        let x = Into::<T>::into(x[i]);
+                        let x = Into::<T>::into(x_r[i]);
                         l_space[i] = e_cm * (x / (T::one() - x)).ln();
                         jac *= e_cm / (x - x * x);
                     }
                 }
                 ParameterizationMapping::Linear => {
                     for i in 0..3 {
-                        let x = Into::<T>::into(x[i]);
+                        let x = Into::<T>::into(x_r[i]);
                         l_space[i] = e_cm * (T::one() / (T::one() - x) - T::one() / x);
                         jac *= e_cm
                             * (T::one() / (x * x) + T::one() / ((T::one() - x) * (T::one() - x)));
@@ -564,7 +575,7 @@ impl Topology {
                 let radius = match self.settings.parameterization.mapping {
                     ParameterizationMapping::Log => {
                         // r = e_cm * ln(1 + b*x/(1-x))
-                        let x = Into::<T>::into(x[0]);
+                        let x = Into::<T>::into(x_r[0]);
                         let b = Into::<T>::into(self.settings.parameterization.b);
                         let radius = e_cm * (T::one() + b * x / (T::one() - x)).ln();
                         jac *= e_cm * b / (T::one() - x) / (T::one() + x * (b - T::one()));
@@ -574,15 +585,15 @@ impl Topology {
                     ParameterizationMapping::Linear => {
                         // r = e_cm * x/(1-x)
                         let radius =
-                            e_cm * Into::<T>::into(x[0]) / (T::one() - Into::<T>::into(x[0]));
+                            e_cm * Into::<T>::into(x_r[0]) / (T::one() - Into::<T>::into(x_r[0]));
                         jac *= <T as num_traits::Float>::powi(e_cm + radius, 2) / e_cm;
                         radius
                     }
                 };
-                let phi = Into::<T>::into(2.) * <T as FloatConst>::PI() * Into::<T>::into(x[1]);
+                let phi = Into::<T>::into(2.) * <T as FloatConst>::PI() * Into::<T>::into(x_r[1]);
                 jac *= Into::<T>::into(2.) * <T as FloatConst>::PI();
 
-                let cos_theta = -T::one() + Into::<T>::into(2.) * Into::<T>::into(x[2]); // out of range
+                let cos_theta = -T::one() + Into::<T>::into(2.) * Into::<T>::into(x_r[2]); // out of range
                 jac *= Into::<T>::into(2.);
                 let sin_theta = (T::one() - cos_theta * cos_theta).sqrt();
 
@@ -657,7 +668,16 @@ impl Topology {
         jac /= Into::<T>::into(2.);
         jac /= k_r * k_r;
 
-        ([x1, x2, x3], jac)
+        let mut x = [x1, x2, x3];
+        for (xi, &(lo, hi)) in izip!(
+            &mut x,
+            &self.settings.parameterization.input_rescaling[loop_index]
+        ) {
+            *xi = (*xi - Into::<T>::into(lo)) / Into::<T>::into(hi - lo);
+            jac /= Into::<T>::into(hi - lo);
+        }
+
+        (x, jac)
     }
 
     #[inline]

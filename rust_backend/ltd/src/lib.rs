@@ -228,6 +228,7 @@ pub struct ParameterizationSettings {
     pub mode: ParameterizationMode,
     pub mapping: ParameterizationMapping,
     pub b: f64,
+    pub input_rescaling: Vec<Vec<(f64, f64)>>,
     pub shifts: Vec<(f64, f64, f64, f64)>,
 }
 
