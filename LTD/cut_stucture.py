@@ -32,13 +32,14 @@ def get_thetas_for_residue(sigmas,allowed_system,close_contour):
 		sub_matrix = numpy.array([[allowed_system[2][i][j] for j in xrange(n_iter+1)] for i in xrange(n_iter+1)])
 		if n_iter == 0:
 			theta[allowed_system[1][n_iter]] = 1./numpy.linalg.det(sub_matrix)*sigmas[allowed_system[1][n_iter]]
-			theta[allowed_system[1][n_iter]] *= (-1.)**close_contour[n_iter]
+			#theta[allowed_system[1][n_iter]] *= (-1.)**close_contour[n_iter]
 		else:
 			for r in xrange(n_iter+1):
 				subsub_matrix = numpy.array([[allowed_system[2][i][j] for j in xrange(n_iter)] for i in xrange(n_iter+1) if i != r])
 				theta[allowed_system[1][r]] = (-1.)**(n_iter+r+1)*numpy.linalg.det(subsub_matrix)/numpy.linalg.det(sub_matrix)
 				theta[allowed_system[1][r]] *= sigmas[allowed_system[1][r]]
-				theta[allowed_system[1][r]] *= (-1.)**close_contour[r]
+				#theta[allowed_system[1][r]] *= (-1.)**close_contour[n_iter]
+		theta =  [th*(-1.)**close_contour[n_iter] for th in theta]
 		thetas += [theta]
 	residue += [thetas]
 	return residue
@@ -102,8 +103,8 @@ def evaluate_residues(allowed_systems,close_contour):
 			residue = get_thetas_for_residue(sigmas,allowed_system,close_contour)
 			residues += [residue]
 	residues.sort()
-	residues = evaluate_thetas(residues)
-	residues = remove_cancelling_residues(residues)
+	#residues = evaluate_thetas(residues)
+	#residues = remove_cancelling_residues(residues)
 	return residues
 
 def generate_cut_structure(residues,spanning_trees):
@@ -140,28 +141,28 @@ allowed_systems = find_allowed_systems(spanning_trees)
 
 #close_contour = [0]*n_loops
 #close_contour = [1]*n_loops
-close_contour = [0,0]
+
+close_contour = [1,1]
 residues = evaluate_residues(allowed_systems,close_contour)
+residues = evaluate_thetas(residues)
+residues = remove_cancelling_residues(residues)
 
 for residue in residues:
 	print residue
-
-stop
 
 sum_of_all_residues = []
 for close_contour in itertools.product(*([[0,1]]*n_loops)):
 	sum_of_all_residues += evaluate_residues(allowed_systems,close_contour)
 sum_of_all_residues.sort()
+sum_of_all_residues = evaluate_thetas(sum_of_all_residues)
 sum_of_all_residues = remove_cancelling_residues(sum_of_all_residues)
 
 for residue in sum_of_all_residues:
 	print residue
 
-stop
-
 cut_stucture = generate_cut_structure(residues,spanning_trees)
 
-#print get_cut_stucture_string(cut_stucture)
+print get_cut_stucture_string(cut_stucture)
 
 
 
