@@ -371,10 +371,10 @@ impl Integrand {
                 );
 
                 // now try more points for f64
-                for topo in &self.topologies[2..] {
+                for (i, topo) in self.topologies[2..].iter().enumerate() {
                     let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
                         topo.evaluate(x, &mut self.cache_float, &self.python_numerator);
-                    eprintln!("  | rots  ={:e}", result_rot);
+                    eprintln!("  | rot{} ={:e}", i + 2, result_rot);
                 }
             }
 

@@ -201,15 +201,16 @@ fn point_generator<'a>(
 
         // the one-loop case can be solved analytically
         let mut k = cut_momenta[index].spatial_squared().sqrt();
-        let p = surf.shift.spatial_squared().sqrt();
+        let shift: LorentzVector<f128::f128> = surf.shift.cast();
+        let p = shift.spatial_squared().sqrt();
 
         let mut costheta = f128::f128::zero();
         while k < f128::f128::INFINITY {
             costheta = (cut_masses[index] * cut_masses[index] - surf_mass * surf_mass - p * p
                 + Into::<f128::f128>::into(2.)
                     * (k * k + cut_masses[index]).sqrt()
-                    * surf.shift.t.multiply_sign(-surf.delta_sign)
-                + surf.shift.t * surf.shift.t)
+                    * shift.t.multiply_sign(-surf.delta_sign)
+                + shift.t * shift.t)
                 / (Into::<f128::f128>::into(2.) * k * p);
             if costheta >= -f128::f128::one() && costheta <= f128::f128::one() {
                 break;
@@ -285,7 +286,7 @@ fn point_generator<'a>(
             let q1 = (cut_momenta[indices[0]].spatial_squared() + cut_masses[indices[0]]).sqrt();
 
             // evaluate the contributions without the index we want and without the surface term
-            let mut res1 = surf.shift.t;
+            let mut res1 = Into::<f128::f128>::into(surf.shift.t);
             for (i, (s, cm, mass)) in izip!(&surf.signs, &cut_momenta, &cut_masses).enumerate() {
                 if i != indices[0] {
                     res1 += (cm.spatial_squared() + mass).sqrt().multiply_sign(*s);

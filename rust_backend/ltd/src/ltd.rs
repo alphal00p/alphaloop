@@ -563,13 +563,16 @@ impl Topology {
                     * Into::<T>::into(self.settings.parameterization.shifts[loop_index].0);
                 let radius = match self.settings.parameterization.mapping {
                     ParameterizationMapping::Log => {
-                        // ln(1/(1-x))
-                        let radius = e_cm * (T::one() / (T::one() - Into::<T>::into(x[0]))).ln();
-                        jac *= e_cm / (T::one() - Into::<T>::into(x[0]));
+                        // r = e_cm * ln(1 + b*x/(1-x))
+                        let x = Into::<T>::into(x[0]);
+                        let b = Into::<T>::into(self.settings.parameterization.b);
+                        let radius = e_cm * (T::one() + b * x / (T::one() - x)).ln();
+                        jac *= e_cm * b / (T::one() - x) / (T::one() + x * (b - T::one()));
+
                         radius
                     }
                     ParameterizationMapping::Linear => {
-                        // x/(1-x)
+                        // r = e_cm * x/(1-x)
                         let radius =
                             e_cm * Into::<T>::into(x[0]) / (T::one() - Into::<T>::into(x[0]));
                         jac *= <T as num_traits::Float>::powi(e_cm + radius, 2) / e_cm;
@@ -637,8 +640,9 @@ impl Topology {
 
         let x1 = match self.settings.parameterization.mapping {
             ParameterizationMapping::Log => {
-                let x1 = T::one() - (-k_r / e_cm).exp();
-                jac /= e_cm / (T::one() - x1);
+                let b = Into::<T>::into(self.settings.parameterization.b);
+                let x1 = T::one() - b / (-T::one() + b + (k_r / e_cm).exp());
+                jac /= e_cm * b / (T::one() - x) / (T::one() + x * (b - T::one()));
                 x1
             }
             ParameterizationMapping::Linear => {
