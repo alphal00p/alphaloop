@@ -1,8 +1,11 @@
 import os
 import vectors
 import math
+import itertools
 from collections import defaultdict
 from pprint import pformat
+import numpy as numpy
+import numpy.linalg
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
@@ -88,11 +91,13 @@ class TopologyGenerator(object):
             x[0]) == 1 or vertices.count(x[1]) == 1]
         self.loop_momenta = None
         self.propagators = None
+        self.n_loops = None
 
     def loop_momentum_bases(self):
         trees = []
-        self.spanning_trees(trees)
-        return [[i for i in range(self.num_vertices) if i not in tree] for tree in trees]
+        self.spanning_trees(trees, tree={self.edges[0][0]})
+        self.n_loops = len(self.edge_map_lin) - len(trees[0])
+        return [[i for i in range(len(self.edge_map_lin)) if i not in tree] for tree in trees]
 
     def spanning_trees(self, result, tree={1}, accum=[]):
         # find all edges that connect the tree to a new node
@@ -198,17 +203,143 @@ class TopologyGenerator(object):
         self.propagators = mom
         print("Constructed topology: {}".format('*'.join(s)))
 
-    def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None):
+    def evaluate_residues(self, allowed_systems, close_contour):
+        residues = []
+        for sigmas in itertools.product(*([[1, -1]]*self.n_loops)):
+            for allowed_system in allowed_systems:
+                residue = self.get_thetas_for_residue(
+                    sigmas, allowed_system, close_contour)
+                residues += [residue]
+        residues.sort()
+        return residues
+
+    def get_thetas_for_residue(self, sigmas, allowed_system, close_contour):
+        # close_contour is a list, 0 means contour closed on lower half plane, 1 upper half plane for every int variable
+        n_down = sum([-1 for i in close_contour if i == 0])
+        # normalize sign with n_loops
+        contour_sign = (-1)**n_down*(-1)**self.n_loops
+        sign = numpy.prod(sigmas)*numpy.linalg.det(allowed_system[2])
+        residue = [[allowed_system[0], sigmas, sign*contour_sign]]
+        thetas = []
+        for n_iter in range(self.n_loops):
+            theta = [0 for i in range(self.n_loops)]
+            sub_matrix = numpy.array(
+                [[allowed_system[2][i][j] for j in range(n_iter+1)] for i in range(n_iter+1)])
+            if n_iter == 0:
+                theta[allowed_system[1][n_iter]] = 1. / \
+                    numpy.linalg.det(sub_matrix) * \
+                    sigmas[allowed_system[1][n_iter]]
+                #theta[allowed_system[1][n_iter]] *= (-1.)**close_contour[n_iter]
+            else:
+                for r in range(n_iter+1):
+                    subsub_matrix = numpy.array([[allowed_system[2][i][j] for j in range(
+                        n_iter)] for i in range(n_iter+1) if i != r])
+                    theta[allowed_system[1][r]] = (-1.)**(n_iter+r+1)*numpy.linalg.det(
+                        subsub_matrix)/numpy.linalg.det(sub_matrix)
+                    theta[allowed_system[1][r]] *= sigmas[allowed_system[1][r]]
+                    #theta[allowed_system[1][r]] *= (-1.)**close_contour[n_iter]
+            theta = [th*(-1.)**close_contour[n_iter] for th in theta]
+            thetas += [theta]
+        residue += [thetas]
+        return residue
+
+    def evaluate_thetas(self, residues):
+        evaluated_theta_resides = []
+        for residue in residues:
+            for i, theta in enumerate(residue[1]):
+                if all(x <= 0. for x in theta):
+                    add = False
+                    break
+                else:
+                    add = True
+                    residue[1] = [theta for theta in residue[1]
+                                  if not all(x >= 0. for x in theta)]
+            if add:
+                evaluated_theta_resides += [residue]
+        return evaluated_theta_resides
+
+    def remove_cancelling_residues(self, residues):
+        for index_i, residue_i in enumerate(list(residues)):
+            cancelling_residue = [
+                [residue_i[0][0], residue_i[0][1], -residue_i[0][2]], residue_i[1]]
+            if cancelling_residue in residues:
+                residues.remove(cancelling_residue)
+                residues.remove(residue_i)
+        if len(residues) != residues[-1][0][0] + 1:
+            print('Error: thetas left in residue: %s' % residues)
+        return residues
+
+    def find_allowed_systems(self, momentum_bases, signatures):
+        # get transformation matrices: cut_mometum basis <=> loop momentum basis
+        s_matrices = []
+        for i, momentum_basis in enumerate(momentum_bases):
+            s_matrix = numpy.array([signatures[i] for i in momentum_basis])
+            s_matrices += [s_matrix]
+
+        allowed_systems = []
+        n_iter = 1
+        for res_index, s_matrix in enumerate(s_matrices):
+            permuted_s_matrices = numpy.array(
+                list(itertools.permutations(s_matrix)))
+            permuted_energies = numpy.array(
+                list(itertools.permutations(range(self.n_loops))))
+            for perm_index, permuted_s_matrix in enumerate(permuted_s_matrices):
+                for n_iter in range(self.n_loops):
+                    sub_matrix = numpy.array(
+                        [[permuted_s_matrix[i][j] for j in range(n_iter+1)] for i in range(n_iter+1)])
+                    if numpy.linalg.det(sub_matrix) == 0:
+                        allowed = False
+                        break
+                    else:
+                        allowed = True
+                if allowed:
+                    allowed_systems += [[res_index,
+                                         permuted_energies[perm_index], permuted_s_matrix]]
+                else:
+                    continue
+        return allowed_systems
+
+    def get_cut_structures(self, loop_lines, contour_closure=None):
+        # create the LTD graph with the external momenta removed
+        graph = TopologyGenerator(
+            [(None, loop_line.start_node, loop_line.end_node) for loop_line in loop_lines])
+        momentum_bases = graph.loop_momentum_bases()
+
+        signature_matrix = [loop_line.signature for loop_line in loop_lines]
+
+        if contour_closure is None:
+            # close from below by default
+            contour_closure = [0] * self.n_loops
+
+        allowed_systems = self.find_allowed_systems(
+            momentum_bases, signature_matrix)
+        residues = self.evaluate_residues(allowed_systems, contour_closure)
+        residues = self.evaluate_thetas(residues)
+        residues = self.remove_cancelling_residues(residues)
+
+        # generate the cut structure
+        cut_stucture = []
+        for residue, momentum_basis in zip(residues, momentum_bases):
+            cut_struct_iter = iter(residue[0][1])
+            cut_stucture += [[next(cut_struct_iter)
+                              if i in momentum_basis else 0 for i in range(len(loop_lines))]]
+        return cut_stucture
+
+    def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None, contour_closure=None):
         if loop_momenta_names is None:
             loop_momenta = self.loop_momentum_bases()[0]
         else:
+            self.n_loops = len(loop_momenta_names)
             loop_momenta = [self.edge_name_map[edge_name]
                             for edge_name in loop_momenta_names]
+
+        print("Creating topology with momentum basis %s" % ', '.join([self.edge_map_lin[i][0] for i in loop_momenta]))
 
         self.generate_momentum_flow(loop_momenta)
 
         # collect all loop lines and construct the signature
         loop_line_map = defaultdict(list)
+        loop_line_vertex_map = defaultdict(list)
 
         for prop, (edge_name, v1, v2) in zip(self.propagators, self.edge_map_lin):
             if prop == ():
@@ -228,26 +359,37 @@ class TopologyGenerator(object):
                     q += ext_mom[self.edge_map_lin[mom][0]] * s
 
             # flip the sign if the inverse exists
-            alt_sig = (tuple(s * -1 for s in signature), (v2, v1))
+            alt_sig = tuple(s * -1 for s in signature)
             if alt_sig in loop_line_map:
-                print('warning: changing sign of propagator')
+                print('warning: changing sign of propagator %s: %s -> %s' % (edge_name, tuple(signature), alt_sig) )
                 loop_line_map[alt_sig].append((-q, mass))
+                loop_line_vertex_map[alt_sig] += [(v2, v1)]
             else:
-                loop_line_map[(tuple(signature), (v1, v2))].append((q, mass))
+                loop_line_map[tuple(signature)].append((q, mass))
+                loop_line_vertex_map[tuple(signature)] += [(v1, v2)]
+
+        # fuse vertices
+        for sig, vertices in loop_line_vertex_map.items():
+            # find the extermal vertices
+            start = next((v[0] for v in vertices if not any(v[0] == vv[1] for vv in vertices)), None)
+            end =  next((v[1] for v in vertices if not any(v[1] == vv[0] for vv in vertices)), None)
+            loop_line_vertex_map[sig] = (start, end)
 
         ll = [LoopLine(
-            start_node=edge[0],
-            end_node=edge[1],
+            start_node=loop_line_vertex_map[signature][0],
+            end_node=loop_line_vertex_map[signature][1],
             signature=signature,
             propagators=tuple(
                 Propagator(q=q, m_squared=mass)
-                for (q, mass) in propagators)) for (signature, edge), propagators in loop_line_map.items()]
+                for (q, mass) in propagators)) for signature, propagators in loop_line_map.items()]
+
+        cs = self.get_cut_structures(ll, contour_closure)
 
         # TODO: the external kinematics are given in a random order!
         external_kinematics = list(ext_mom.values())
         external_kinematics.append(-sum(external_kinematics))
         return LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
-                            ltd_cut_structure=(), loop_lines=ll)
+                            ltd_cut_structure=cs, loop_lines=ll)
 
 
 #############################################################################################################
@@ -545,3 +687,13 @@ class TopologyCollection(dict):
         
         return result
 
+if __name__ == "__main__":
+    triangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3),
+                                ('p3', 2, 3), ('q2', 3, 4), ('q3', 2, 5)])  # triangle
+    doubletriangle = TopologyGenerator([('q', 0, 1), ('p1', 1, 2), ('p2', 1, 3), ('p3', 2, 3),
+                                        ('p4', 3, 4), ('p5', 2, 4), ('-q', 4, 5)])  # double-triangle
+
+    loop_topology = doubletriangle.create_loop_topology("DoubleTriangle", ext_mom={'q': vectors.LorentzVector(
+        [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'))
+
+    print(loop_topology)
