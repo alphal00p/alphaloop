@@ -15,7 +15,7 @@ hyperparameters = HyperParameters({
     'General'       :   {
         # can be additive, cutgroups, constant, duals or none
         'deformation_strategy'  :   'cutgroups',
-        'topology'              :   'TriangleBoxTriangle',
+        'topology'              :   'Box',
         # specify the name of a python module that contains a function numerator(complex_loop_momenta)
         # that will be called for every cut
         'python_numerator'      :   None,
@@ -35,7 +35,7 @@ hyperparameters = HyperParameters({
         # log max and unstable points to screen
         'log_points_to_screen'  :   False,
         # log statistics to screen
-        'log_stats_to_screen'   :   True,
+        'log_stats_to_screen'   :   False,
         'log_file_prefix'       :   'stats/statistics',
         'integration_statistics':   True,
         'statistics_interval'   :   100000,
@@ -52,7 +52,7 @@ hyperparameters = HyperParameters({
         'n_min'             :   2,
         'flatness'          :   50.,
         'seed'              :   1,
-        'integrated_phase'  :  'both'
+        'integrated_phase'  :  'imag'
     },
 
     'Deformation'   :   {

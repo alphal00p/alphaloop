@@ -34,7 +34,7 @@ hard_coded_topology_collection.add_topology(triangle.create_loop_topology(
         "Triangle_no_ellipse", 
         ext_mom={ 'q1': q1, 'q2': q2 , 'q3': -q1-q2 }, 
         mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0}, 
-        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        loop_momenta_names=('p3',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=None # For triangle and box one-loop topology, the analytic result is automatically computed
      ),
      entry_name = 'Triangle_no_ellipse'
@@ -65,8 +65,8 @@ doubletriangle = TopologyGenerator([
 q = vectors.LorentzVector([1.0, 1.3, 0.5, 2.1])
 hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
         "DoubleTriangle_no_ellipse", 
-        ext_mom={'q': q }, 
-        mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, 
+        ext_mom={'q': q , '-q' : -q}, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0}, 
         loop_momenta_names=('p1', 'p5'), 
         analytic_result= (-(6.*zeta(3))/((16.*(math.pi**2))**2*q.square()))
     ),
