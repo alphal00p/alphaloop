@@ -102,7 +102,7 @@ class TopologyGenerator(object):
     def spanning_trees(self, result, tree={1}, accum=[]):
         # find all edges that connect the tree to a new node
         edges = [(i, e) for i, e in enumerate(
-            self.edges) if len(tree & set(e)) == 1]
+            self.edges) if e[0] != e[1] and len(tree & set(e)) == 1]
 
         if len(edges) == 0:
             # no more new edges, so we are done
@@ -371,9 +371,10 @@ class TopologyGenerator(object):
 
         # fuse vertices
         for sig, vertices in loop_line_vertex_map.items():
-            # find the extermal vertices
-            start = next((v[0] for v in vertices if not any(v[0] == vv[1] for vv in vertices)), None)
-            end =  next((v[1] for v in vertices if not any(v[1] == vv[0] for vv in vertices)), None)
+            # find the external vertices of the loop line
+            # for the one-loop case, they will be 1,1
+            start = next((v[0] for v in vertices if not any(v[0] == vv[1] for vv in vertices)), 1)
+            end =  next((v[1] for v in vertices if not any(v[1] == vv[0] for vv in vertices)), 1)
             loop_line_vertex_map[sig] = (start, end)
 
         ll = [LoopLine(
