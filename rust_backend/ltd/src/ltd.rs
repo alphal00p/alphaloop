@@ -1047,7 +1047,7 @@ impl Topology {
                 (cut_energy + <T as NumCast>::from(surf.shift.t).unwrap()).powi(2)
                     - cache.cut_info[surface_prop.id].spatial_and_mass_sq;
 
-            for (loop_index, dir) in deform_dirs.iter().enumerate() {
+            for (loop_index, dir) in deform_dirs[..self.n_loops].iter().enumerate() {
                 // note the sign
                 kappa_surf[group_counter * self.n_loops + loop_index] =
                     -dir / dir.spatial_squared_impr().sqrt();
