@@ -201,7 +201,7 @@ class TopologyGenerator(object):
                 s.append(s1 + ")^2")
 
         self.propagators = mom
-        print("Constructed topology: {}".format('*'.join(s)))
+        ##print("Constructed topology: {}".format('*'.join(s)))
 
     def evaluate_residues(self, allowed_systems, close_contour):
         residues = []
@@ -325,7 +325,8 @@ class TopologyGenerator(object):
                               if i in momentum_basis else 0 for i in range(len(loop_lines))]]
         return cut_stucture
 
-    def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None, contour_closure=None):
+    def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None, 
+                                                        contour_closure=None, analytic_result=None):
         if loop_momenta_names is None:
             loop_momenta = self.loop_momentum_bases()[0]
         else:
@@ -333,7 +334,7 @@ class TopologyGenerator(object):
             loop_momenta = [self.edge_name_map[edge_name]
                             for edge_name in loop_momenta_names]
 
-        print("Creating topology with momentum basis %s" % ', '.join([self.edge_map_lin[i][0] for i in loop_momenta]))
+        ##print("Creating topology with momentum basis %s" % ', '.join([self.edge_map_lin[i][0] for i in loop_momenta]))
 
         self.generate_momentum_flow(loop_momenta)
 
@@ -389,7 +390,7 @@ class TopologyGenerator(object):
         external_kinematics = list(ext_mom.values())
         external_kinematics.append(-sum(external_kinematics))
         return LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
-                            ltd_cut_structure=cs, loop_lines=ll)
+                            ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result)
 
 
 #############################################################################################################
@@ -399,7 +400,7 @@ class TopologyGenerator(object):
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
-    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytical_result=None, **opts):
+    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -415,10 +416,10 @@ class LoopTopology(object):
         self.ltd_cut_structure   = ltd_cut_structure
         self.n_loops             = n_loops 
         self.name                = name
-        if callable(analytical_result):
-            self.analytical_result   = analytical_result(self.external_kinematics)
+        if callable(analytic_result):
+            self.analytic_result   = analytic_result(self.external_kinematics)
         else:
-            self.analytical_result   = analytical_result
+            self.analytic_result   = analytic_result
 
     def __str__(self):
         return pformat(self.to_flat_format())
@@ -499,8 +500,8 @@ class LoopTopology(object):
         res['n_loops'] = self.n_loops
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
-        res['analytical_result_real'] = float(self.analytical_result.real) if self.analytical_result else 0.
-        res['analytical_result_imag'] = float(self.analytical_result.imag) if self.analytical_result else 0. 
+        res['analytical_result_real'] = float(self.analytic_result.real) if self.analytic_result else 0.
+        res['analytical_result_imag'] = float(self.analytic_result.imag) if self.analytic_result else 0. 
 
         return res
 
@@ -514,7 +515,7 @@ class LoopTopology(object):
             n_loops             =   flat_dict['n_loops'],
             loop_lines          =   tuple([LoopLine.from_flat_format(ll) for ll in flat_dict['loop_lines']]),
             external_kinematics =   vectors.LorentzVectorList([vectors.LorentzVector(v) for v in flat_dict['external_kinematics']]),
-            analytical_result   =   (None if (flat_dict['analytical_result_real']==0. and flat_dict['analytical_result_imag']==0.) 
+            analytic_result   =   (None if (flat_dict['analytical_result_real']==0. and flat_dict['analytical_result_imag']==0.) 
                                      else complex(flat_dict['analytical_result_real'],flat_dict['analytical_result_imag']))
         ) 
 
@@ -694,6 +695,6 @@ if __name__ == "__main__":
                                         ('p4', 3, 4), ('p5', 2, 4), ('-q', 4, 5)])  # double-triangle
 
     loop_topology = doubletriangle.create_loop_topology("DoubleTriangle", ext_mom={'q': vectors.LorentzVector(
-        [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'))
+        [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)
 
     print(loop_topology)
