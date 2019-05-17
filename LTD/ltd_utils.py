@@ -460,7 +460,6 @@ class TopologyGenerator(object):
 
         # TODO: the external kinematics are given in a random order!
         external_kinematics = list(ext_mom.values())
-        external_kinematics.append(-sum(external_kinematics))
         loop_topology = LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
                             ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result)
 
