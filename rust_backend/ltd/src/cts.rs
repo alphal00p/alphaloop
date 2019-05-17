@@ -7,6 +7,21 @@ use {FloatLike, MAX_LOOP};
 
 impl Topology {
     #[inline]
+    ///Compute the xi's for the collinear limits, here mom should always by on-shell
+    fn collinear_x<T: FloatLike>(
+        &self,
+        loopmom: &LorentzVector<Complex<T>>,
+        mom: &LorentzVector<f64>,
+    ) -> Complex<T> {
+        let eta = mom.dual();
+        (loopmom[0] * T::from_f64(eta[0]).unwrap()
+            - loopmom[1] * T::from_f64(eta[1]).unwrap()
+            - loopmom[2] * T::from_f64(eta[2]).unwrap()
+            - loopmom[3] * T::from_f64(eta[3]).unwrap())
+            / T::from_f64(eta.dot(mom)).unwrap()
+    }
+
+    #[inline]
     fn xij<T: FloatLike>(&self, i: usize, j: usize) -> T {
         let qji = self.loop_lines[0].propagators[j].q - self.loop_lines[0].propagators[i].q;
         let pi = self.external_kinematics[i];
@@ -76,38 +91,41 @@ impl Topology {
                     })
                     .collect();
 
-                //Use specific CT whenever possible
-                let use_special_ct = false;
-                //Compute CT
-                if use_special_ct && props.len() == 4 {
-                    // TODO: convert qs to float
-                    let s11 = (ll.propagators[3].q - ll.propagators[0].q)
-                        .cast::<T>()
-                        .square();
-                    let s22 = (ll.propagators[0].q - ll.propagators[1].q)
-                        .cast::<T>()
-                        .square();
-                    let s33 = (ll.propagators[1].q - ll.propagators[2].q)
-                        .cast::<T>()
-                        .square();
-                    let s44 = (ll.propagators[2].q - ll.propagators[3].q)
-                        .cast::<T>()
-                        .square();
-                    let s12 = (ll.propagators[1].q - ll.propagators[3].q)
-                        .cast::<T>()
-                        .square();
-                    let s23 = (ll.propagators[0].q - ll.propagators[2].q)
-                        .cast::<T>()
-                        .square();
+                let kqs: ArrayVec<[LorentzVector<Complex<T>>; 10]> = ll
+                    .propagators
+                    .iter()
+                    .map(|p| LorentzVector {
+                        t: k_def[0].t + T::from_f64(p.q.t).unwrap(),
+                        x: k_def[0].x + T::from_f64(p.q.x).unwrap(),
+                        y: k_def[0].y + T::from_f64(p.q.y).unwrap(),
+                        z: k_def[0].z + T::from_f64(p.q.z).unwrap(),
+                    })
+                    .collect();
 
-                    let ai = [
-                        (T::one() - (s44 + s33) / s12) / (s23 - (s11 * s33 + s22 * s44) / s12),
-                        (T::one() - (s11 + s44) / s23) / (s12 - (s22 * s44 + s33 * s11) / s23),
-                        (T::one() - (s22 + s11) / s12) / (s23 - (s33 * s11 + s44 * s22) / s12),
-                        (T::one() - (s33 + s22) / s23) / (s12 - (s44 * s22 + s11 * s33) / s23),
-                    ];
-                    let ct_numerator =
-                        -props[0] * ai[0] - props[1] * ai[1] - props[2] * ai[2] - props[3] * ai[3];
+                //Use specific CT whenever possible
+                let use_collinear_ct = true;
+                //Compute CT
+                if use_collinear_ct && props.len() == 4 && self.on_shell_flag == 8 {
+                    let mut ct_numerator: Complex<T> = Complex::default();
+
+                    let x4 = self.collinear_x(&kqs[2], &self.external_kinematics[3]);
+                    let x4b: Complex<T> = Complex::new(T::one(), T::zero()) - x4;
+
+                    let s = (kqs[1] - kqs[3]).square();
+                    let t = (kqs[0] - kqs[2]).square();
+
+                    let m1 = T::from_f64((self.external_kinematics[0]).square()).unwrap();
+                    let m3 = T::from_f64((self.external_kinematics[2]).square()).unwrap();
+
+                    let mu_sq = Complex::new(T::zero(), T::from_f64(1e9).unwrap());
+
+                    ct_numerator += utils::finv((x4b * t + x4 * m1) * (x4 * s + x4b * m3))
+                        * (props[0] * props[1])
+                        * mu_sq
+                        * (mu_sq - props[2] - props[3])
+                        * utils::finv(mu_sq - props[2])
+                        * utils::finv(mu_sq - props[3]);
+
                     ct_numerator
                 } else {
                     /*
