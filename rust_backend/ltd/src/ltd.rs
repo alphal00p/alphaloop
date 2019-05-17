@@ -1759,11 +1759,12 @@ impl Topology {
                         Ok(v) => {
                             // k_def has the correct energy component at this stage
                             if let Some(pn) = python_numerator {
-                                result += v * pn.evaluate_numerator(&k_def) * dual_jac_def
+                                result +=
+                                    v * pn.evaluate_numerator(&k_def[..self.n_loops]) * dual_jac_def
                             } else {
                                 // calculate the counterterm cut by cut
 
-                                let ct = self.counterterm(&k_def, cache);
+                                let ct = self.counterterm(&k_def[..self.n_loops], cache);
                                 result += v * (ct + T::one()) * dual_jac_def
                             }
                         }

@@ -316,6 +316,7 @@ pub struct PythonNumerator {
     gil: cpython::GILGuard,
     module: cpython::PyModule,
     buffer: PyList,
+    num_loops: usize,
 }
 
 impl fmt::Debug for PythonNumerator {
@@ -361,6 +362,7 @@ impl PythonNumerator {
             gil,
             module,
             buffer,
+            num_loops
         }
     }
 
@@ -371,7 +373,7 @@ impl PythonNumerator {
         let py = self.gil.python();
 
         // convert the vector to tuples
-        for (i, k) in k_def.iter().enumerate() {
+        for (i, k) in k_def[..self.num_loops].iter().enumerate() {
             let tup = PyList::downcast_from(py, self.buffer.get_item(py, i)).unwrap();
 
             for j in 0..4 {
