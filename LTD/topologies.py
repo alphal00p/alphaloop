@@ -20,7 +20,8 @@ hard_coded_topology_collection = TopologyCollection()
 # Add the manually crafted topologies
 import manually_crafted_topologies
 for name, topology in manually_crafted_topologies.hard_coded_topology_collection.items():
-    hard_coded_topology_collection.add_topology(topology, entry_name = 'manual_%s'%topology.name)
+    topology.name='manual_%s'%topology.name
+    hard_coded_topology_collection.add_topology(topology, entry_name = topology.name)
 
 # Add Now automatically generated topologies
 
