@@ -423,12 +423,34 @@ class TopologyGenerator(object):
                 loop_line_vertex_map[tuple(signature)] += [(v1, v2)]
 
         # fuse vertices
-        for sig, vertices in loop_line_vertex_map.items():
-            # find the external vertices of the loop line
-            # for the one-loop case, they will be 1,1
-            start = next((v[0] for v in vertices if not any(v[0] == vv[1] for vv in vertices)), 1)
-            end =  next((v[1] for v in vertices if not any(v[1] == vv[0] for vv in vertices)), 1)
-            loop_line_vertex_map[sig] = (start, end)
+        fuse_map = {}
+        for sig, edges in loop_line_vertex_map.items():
+            # fuse vertices with repeating edges
+            vertlist = [v for vs in edges for v in vs]
+            assert(len([1 for v in vertlist if vertlist.count(v) > 2]) == 0)
+            double_verts = set(v for v in vertlist if vertlist.count(v) == 2)
+
+            for v in double_verts:
+                # keep one edge in the one-loop case
+                if len(edges) == 1:
+                    break
+                other = [(1, e[1]) if e[0] == v else (0, e[0]) for e in edges if v in e]
+                newvert = tuple( next(v[1] for v in other if v[0] == i) for i in range(0, 2))
+                d = [e for e in edges if v in e]
+                edges[edges.index(d[0])] = newvert
+                del edges[edges.index(d[1])]
+
+            # if we have multiple sets left, they are disconnected parts in the graph
+            # we shrink the vertices of all but the first group, that will be the representative
+            for edge in edges[1:]:
+                assert(edge[0] not in fuse_map)
+                fuse_map[edge[0]] = edge[1]
+
+            loop_line_vertex_map[sig] = (edges[0][0], edges[0][1])
+
+        # now fuse the vertices in the map
+        for sig, edges in loop_line_vertex_map.items():
+            loop_line_vertex_map[sig] = tuple(fuse_map[v] if v in fuse_map else v for v in edges)
 
         ll = [LoopLine(
             start_node=loop_line_vertex_map[signature][0],

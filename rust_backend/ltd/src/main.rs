@@ -896,6 +896,7 @@ fn main() {
             } else {
                 1
             },
+            1,
             CubaVerbosity::Progress,
             0,
             UserData {
@@ -912,6 +913,7 @@ fn main() {
             } else {
                 1
             },
+            1,
             settings.integrator.n_new,
             settings.integrator.n_min,
             settings.integrator.flatness,
@@ -930,6 +932,7 @@ fn main() {
             } else {
                 1
             },
+            1,
             CubaVerbosity::Progress,
             UserData {
                 integrand: (0..=cores)
