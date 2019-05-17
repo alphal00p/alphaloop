@@ -3,7 +3,7 @@ use num::Complex;
 use topologies::{LTDCache, Topology};
 use utils;
 use vector::LorentzVector;
-use {FloatLike, MAX_LOOP};
+use FloatLike;
 
 impl Topology {
     #[inline]
@@ -69,7 +69,7 @@ impl Topology {
 
     pub fn counterterm<T: FloatLike>(
         &self,
-        k_def: &ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        k_def: &[LorentzVector<Complex<T>>],
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
         match self.n_loops {
