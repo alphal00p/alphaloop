@@ -10,7 +10,7 @@ zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 # Definition of hard-coded topol
 #############################################################################################################
 
-def create_hard_coded_topology(topology_type, external_momenta, analytical_result=None, name=None, parameter_values = {}):
+def create_hard_coded_topology(topology_type, external_momenta, analytic_result=None, name=None, parameter_values = {}):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
@@ -34,7 +34,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             external_kinematics = external_momenta,
             # Analytical result is simple and should be -(6*Zeta[3])/((16*pi^2)^2 s)
             # so we can use the analytical result here.
-            analytical_result = (lambda ps: -0.00028922566024/ps[0].square()),
+            analytic_result = (lambda ps: -0.00028922566024/ps[0].square()),
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -79,7 +79,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             external_kinematics = external_momenta,
             # Analytical result is simple and should be -(4*6*Zeta[3])/((16*pi^2)^2 s)
             # so we can use the analytical result here.
-            analytical_result = (lambda ps: (-0.00028922566024*4)/ps[0].square()),
+            analytic_result = (lambda ps: (-0.00028922566024*4)/ps[0].square()),
             ltd_cut_structure = (
 
                 (LoopLine.NO_CUT        , LoopLine.POSITIVE_CUT     , LoopLine.POSITIVE_CUT ),
@@ -137,7 +137,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             external_kinematics = external_momenta,
             # Analytical result is simple and should be -(6*Zeta[3])/((16*pi^2)^2 s)
             # so we can use the analytical result here.
-            analytical_result = (lambda ps: -0.00028922566024/ps[0].square()),
+            analytic_result = (lambda ps: -0.00028922566024/ps[0].square()),
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -181,7 +181,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -227,7 +227,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta, 
-            analytical_result = (lambda ps: analytic_four_point_ladder( ps[0].square(), ps[1].square(),
+            analytic_result = (lambda ps: analytic_four_point_ladder( ps[0].square(), ps[1].square(),
                                                                         ps[2].square(), ps[3].square(),
                                                                         (ps[0]+ps[1]).square(), (ps[1]+ps[2]).square(), 2)),
             ltd_cut_structure = (
@@ -278,7 +278,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta, 
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -329,7 +329,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta, 
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -380,7 +380,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta, 
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -431,7 +431,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta, 
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -482,7 +482,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta, 
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -533,7 +533,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 2,
             external_kinematics = external_momenta, 
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.NEGATIVE_CUT  , LoopLine.NO_CUT           , LoopLine.POSITIVE_CUT ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT       ),
@@ -579,7 +579,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: analytic_four_point_ladder( ps[0].square(), ps[1].square(),
+            analytic_result = (lambda ps: analytic_four_point_ladder( ps[0].square(), ps[1].square(),
                                                                         ps[2].square(), ps[3].square(),
                                                                         (ps[0]+ps[1]).square(), (ps[1]+ps[2]).square(), 3)),
             ltd_cut_structure = (
@@ -658,7 +658,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: analytic_three_point_ladder(ps[0].square(),ps[1].square(),ps[2].square(),3)),
+            analytic_result = (lambda ps: analytic_three_point_ladder(ps[0].square(),ps[1].square(),ps[2].square(),3)),
             ltd_cut_structure = (
             	(LoopLine.POSITIVE_CUT	, LoopLine.NO_CUT	    , LoopLine.POSITIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.POSITIVE_CUT		, LoopLine.NO_CUT	),
             	(LoopLine.POSITIVE_CUT	, LoopLine.NEGATIVE_CUT	    , LoopLine.POSITIVE_CUT	,   LoopLine.NO_CUT		, LoopLine.NO_CUT		, LoopLine.NO_CUT	),
@@ -734,7 +734,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: analytic_three_point_ladder(ps[0].square(),ps[1].square(),ps[2].square(),3)),
+            analytic_result = (lambda ps: analytic_three_point_ladder(ps[0].square(),ps[1].square(),ps[2].square(),3)),
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       ),
                 (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NO_CUT       ),
@@ -810,7 +810,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),3)),
+            analytic_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),3)),
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT ,   LoopLine.NO_CUT     , LoopLine.POSITIVE_CUT     , LoopLine.NO_CUT   ),
                 (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT     , LoopLine.POSITIVE_CUT ,   LoopLine.NO_CUT     , LoopLine.NO_CUT       , LoopLine.NO_CUT   ),
@@ -886,7 +886,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / ps[0].square()),
+            analytic_result = (lambda ps: 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / ps[0].square()),
             ltd_cut_structure = (
 		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
 
@@ -973,7 +973,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / ps[0].square()),
+            analytic_result = (lambda ps: 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / ps[0].square()),
             ltd_cut_structure = (
 		(LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.POSITIVE_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT),
 
@@ -1059,7 +1059,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 4,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),4)),
+            analytic_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),4)),
             ltd_cut_structure = (
 
                 (LoopLine.POSITIVE_CUT  , LoopLine.NEGATIVE_CUT       , LoopLine.NEGATIVE_CUT , LoopLine.NEGATIVE_CUT       , LoopLine.NO_CUT , LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT, LoopLine.NO_CUT       ),
@@ -1223,7 +1223,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 3,
             external_kinematics = external_momenta,
-            analytical_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),3)),
+            analytic_result = (lambda ps: analytic_two_point_ladder(ps[0].square(),3)),
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT  , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       ),
                 (LoopLine.NEGATIVE_CUT  , LoopLine.POSITIVE_CUT , LoopLine.POSITIVE_CUT , LoopLine.NO_CUT       , LoopLine.NO_CUT       , LoopLine.NO_CUT       ),
@@ -1304,7 +1304,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT,),
             ),
@@ -1335,7 +1335,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT,),
             ),
@@ -1368,7 +1368,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT,),
             ),
@@ -1403,7 +1403,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT,),
             ),
@@ -1441,7 +1441,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT,),
             ),
@@ -1485,7 +1485,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT,),
             ),
@@ -1531,7 +1531,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT,),
                 (LoopLine.NEGATIVE_CUT,),
@@ -1604,7 +1604,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytical_resul
             name    = name,
             n_loops = 1,
             external_kinematics = external_momenta,
-            analytical_result = analytical_result,
+            analytic_result = analytic_result,
             ltd_cut_structure = (
                 (LoopLine.POSITIVE_CUT,),
             ),
@@ -1717,7 +1717,7 @@ hard_coded_topology_collection.add_topology(
         ]),
         # Analytical result known but exact numerical result simply copied here from C^(2) of table 1
         # https://arxiv.org/pdf/1211.0509.pdf
-        analytical_result = -1.832e-11
+        analytic_result = -1.832e-11
     ),
 )
 
@@ -1732,7 +1732,7 @@ hard_coded_topology_collection.add_topology(
         ]),
         # Analytical result known but exact numerical result simply copied here from D^(2) of table 1 of
         # https://arxiv.org/pdf/1211.0509.pdf
-        analytical_result =  None #from formula
+        analytic_result =  None #from formula
     ),
 )
 
@@ -1745,7 +1745,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-1.6,0.1,-12.5,2.4]),
                 vectors.LorentzVector([-1.6,2.9,9.4,-2.8]),
         ]),
-        analytical_result = None, #from formula
+        analytic_result = None, #from formula
         name = 'DoubleBox_no_ellipse',
     ),
     entry_name = 'DoubleBox_no_ellipse',
@@ -1764,7 +1764,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-90, 0, 0, 0]),
         ]),
         #https://arxiv.org/pdf/1211.0509v3.pdf
-        analytical_result =  -8.66e-19
+        analytic_result =  -8.66e-19
     ),
 )
 
@@ -1780,7 +1780,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-90, 0, 0, 0]),
         ]),
         #https://arxiv.org/pdf/1211.0509v3.pdf
-        analytical_result =  -1.17e-18
+        analytic_result =  -1.17e-18
     ),
 )
 
@@ -1796,7 +1796,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-90, 0, 0, 0]),
         ]),
         #https://arxiv.org/pdf/1211.0509v3.pdf
-        analytical_result =  -7.75e-19
+        analytic_result =  -7.75e-19
     ),
 )
 
@@ -1812,7 +1812,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-90, 0, 0, 0]),
         ]),
         #https://arxiv.org/pdf/1211.0509v3.pdf
-        analytical_result =  -1.91e-19
+        analytic_result =  -1.91e-19
     ),
 )
 
@@ -1828,7 +1828,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-90, 0, 0, 0]),
         ]),
         #https://arxiv.org/pdf/1211.0509v3.pdf
-        analytical_result =  -4.64e-19
+        analytic_result =  -4.64e-19
     ),
 )
 
@@ -1844,7 +1844,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-90, 0, 0, 0]),
         ]),
         #https://arxiv.org/pdf/1211.0509v3.pdf
-        analytical_result =  -1.03e-18
+        analytic_result =  -1.03e-18
     ),
 )
 
@@ -1856,7 +1856,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([6.45709,2.46635,5.84093,1.22257]),
                 -vectors.LorentzVector([10.51284,6.89159,-7.40660,-2.85795]) - vectors.LorentzVector([6.45709,2.46635,5.84093,1.22257]),
         ]),
-        analytical_result = 6.68103e-4 + 5.37305e-4j,
+        analytic_result = 6.68103e-4 + 5.37305e-4j,
         parameter_values = {'m1': 0.52559, 'm2': 0.52559, 'm3': 0.52559}
     ),
 )
@@ -1869,7 +1869,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([94.54738,-53.84229,67.11107,45.56763]),
                 -vectors.LorentzVector([95.77004,31.32025,-34.08106,-9.38565]) - vectors.LorentzVector([94.54738,-53.84229,67.11107,45.56763]),
         ]),
-        analytical_result = 1.01665e-6 - 5.61370e-7j,
+        analytic_result = 1.01665e-6 - 5.61370e-7j,
         parameter_values = {'m1': 83.02643, 'm2': 76.12873, 'm3': 55.00359},
         name = 'Triangle_P4'
     ),
@@ -1886,7 +1886,7 @@ hard_coded_topology_collection.add_topology(
                  (- vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]) -vectors.LorentzVector([48.59375,-1.65847,34.91140,71.89564])
                  - vectors.LorentzVector([76.75934,-19.14334,-17.10279,30.22959])),
         ]),
-        analytical_result = 3.03080e-10 -2.38766e-10j,
+        analytic_result = 3.03080e-10 -2.38766e-10j,
         parameter_values = {'m1': 9.82998, 'm2': 9.82998, 'm3': 9.82998, 'm4': 9.82998}
     ),
 )
@@ -1905,7 +1905,7 @@ hard_coded_topology_collection.add_topology(
                     -vectors.LorentzVector([81.85638, 77.17370, -62.39774, -6.89737])
                 )
         ]),
-        analytical_result = 6.55440e-14 -4.29464e-15j,
+        analytic_result = 6.55440e-14 -4.29464e-15j,
         parameter_values = {'m1': 1.30619, 'm2': 1.30619, 'm3': 1.30619, 'm4': 1.26692, 'm5': 1.26692}
     ),
 )
@@ -1920,7 +1920,7 @@ hard_coded_topology_collection.add_topology(
                  (- vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]) -vectors.LorentzVector([48.59375,-1.65847,34.91140,71.89564])
                  - vectors.LorentzVector([76.75934,-19.14334,-17.10279,30.22959])),
         ]),
-        analytical_result = 3.15521080399766e-10-2.432412361669758e-10j,
+        analytic_result = 3.15521080399766e-10-2.432412361669758e-10j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless',
     ),
@@ -1937,7 +1937,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5000000000000000,-0.4120803582196727,0.1731805902843028,-0.2240496853787720,]),
             vectors.LorentzVector([0.5000000000000000,0.4120803582196727,-0.1731805902843028,0.2240496853787720,]),
    ]),        
-        analytical_result = 7.6069548e-3+1.9674576e-4j,
+        analytic_result = 7.6069548e-3+1.9674576e-4j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_1111',
     ),
@@ -1954,7 +1954,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5000000000000000,-0.4120803582196727,0.1731805902843028,-0.2240496853787720,]),
             vectors.LorentzVector([0.5000000000000000,0.4120803582196727,-0.1731805902843028,0.2240496853787720,]),
    ]),        
-        analytical_result = 7.4482953e-3+2.0622342e-3j,
+        analytic_result = 7.4482953e-3+2.0622342e-3j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_1110',
     ),
@@ -1971,7 +1971,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5555555555555556,-0.2422804773385922,0.1018206163990297,-0.1317288330743322,]),
             vectors.LorentzVector([0.4444444444444444,0.2422804773385922,-0.1018206163990297,0.1317288330743322,]),
         ]),        
-        analytical_result = 7.1611648e-2+5.2295720e-2j,
+        analytic_result = 7.1611648e-2+5.2295720e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_0010',
     ),
@@ -1988,7 +1988,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.6111111111111111,-0.3205069452819676,0.1346960146655688,-0.1742608664057115,]),
             vectors.LorentzVector([0.3888888888888889,0.3205069452819676,-0.1346960146655688,0.1742608664057115,]),
     ]),        
-        analytical_result = 6.1769925e-2+5.2656987e-2j,
+        analytic_result = 6.1769925e-2+5.2656987e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_1000',
     ),
@@ -2005,7 +2005,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5555555555555556,-0.2422804773385922,0.1018206163990297,-0.1317288330743322,]),
             vectors.LorentzVector([0.4444444444444444,0.2422804773385922,-0.1018206163990297,0.1317288330743322,]),
     ]),        
-        analytical_result = 0.31097349+0.01956869j,
+        analytic_result = 0.31097349+0.01956869j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_massless_0000',
     ),
@@ -2031,7 +2031,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.2526503858267339e+04,    -0.8560561209020956e+03,      0.1284795475177741e+04,     0.1053418364501306e+04]),
                 vectors.LorentzVector([-0.2369811177663906e+04,     0.6359079142928917e+03,      0.1236615745090013e+04,     0.2690866799303233e+03]),
         ]),
-        analytical_result = -1.01888646237782899e-063+6.86568168003053015e-063j,
+        analytic_result = -1.01888646237782899e-063+6.86568168003053015e-063j,
         parameter_values = {'m1': 200.0, 'm2': 400.0, 'm3': 600.0, 'm4': 800.0, 'm5': 1000.0,
                             'm6': 1200.0, 'm7': 1400.0, 'm8': 1600.0, 'm9': 1800.0, 'm10': 2000.0,
                            },
@@ -2055,7 +2055,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.1053418364501306e+04,    -0.8560561209020956e+03,     0.1284795475177741e+04,    -0.2526503858267339e+04]),
                 vectors.LorentzVector([ 0.2690866799303233e+03,     0.6359079142928917e+03,     0.1236615745090013e+04,    -0.2369811177663906e+04]),
         ]),
-        analytical_result = -8.60853357693996182e-065+1.50530418005552852e-063j,
+        analytic_result = -8.60853357693996182e-065+1.50530418005552852e-063j,
         parameter_values = {'m1': 200.0, 'm2': 400.0, 'm3': 600.0, 'm4': 800.0, 'm5': 1000.0,
                             'm6': 1200.0, 'm7': 1400.0, 'm8': 1600.0, 'm9': 1800.0, 'm10': 2000.0,
                            },
@@ -2079,7 +2079,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.2526503858267339e+04,    -0.8560561209020956e+03,      0.1284795475177741e+04,     0.1053418364501306e+04]),
                 vectors.LorentzVector([-0.2369811177663906e+04,     0.6359079142928917e+03,      0.1236615745090013e+04,     0.2690866799303233e+03]),
         ]),
-        analytical_result = 9.32266615611493377e-064-8.49710641987076969e-063j,
+        analytic_result = 9.32266615611493377e-064-8.49710641987076969e-063j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2103,7 +2103,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.1053418364501306e+04,    -0.8560561209020956e+03,     0.1284795475177741e+04,    -0.2526503858267339e+04]),
                 vectors.LorentzVector([ 0.2690866799303233e+03,     0.6359079142928917e+03,     0.1236615745090013e+04,    -0.2369811177663906e+04]),
         ]),
-        analytical_result = -3.17196357423582536e-063-1.69292136375179309e-063j,
+        analytic_result = -3.17196357423582536e-063-1.69292136375179309e-063j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2127,7 +2127,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.1053418364501306e+04,    -0.8560561209020956e+03,     0.1284795475177741e+04,    -0.2526503858267339e+04]),
                 vectors.LorentzVector([ 0.2690866799303233e+03,     0.6359079142928917e+03,     0.1236615745090013e+04,    -0.2369811177663906e+04]),
         ]),
-        analytical_result = -3.17196357423582536e-063-1.69292136375179309e-063j,
+        analytic_result = -3.17196357423582536e-063-1.69292136375179309e-063j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2155,7 +2155,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.6339609085730495e-01,    -0.5151857367262940e-01,     0.7732066709885181e-01,    -0.3940681898996678e+00]),
                 vectors.LorentzVector([ 0.1619398729338573e-01,     0.3826976752059603e-01,     0.7442114811470348e-01,    -0.2988419537335841e+00]),
         ]),
-        analytical_result = -1.05384532825251748e-2+7.69076155224268383e-3j,
+        analytic_result = -1.05384532825251748e-2+7.69076155224268383e-3j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2179,7 +2179,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.2411258803768644e-01,     0.7371721423248271e-02,    -0.9750760233496275e-01,    -0.7058725755366821e+00]),
                 vectors.LorentzVector([-0.1332418360521643e+00,    -0.8100165214776085e-01,     0.1882474790581234e+00,    -0.1711450153218290e+01]),
         ]),
-        analytical_result = -1.29287202675867206e-5+1.61392009112210223e-5j,
+        analytic_result = -1.29287202675867206e-5+1.61392009112210223e-5j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2204,7 +2204,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.1118539827394456e+01,    -0.4582839936494981e+00,      0.6878067769281205e+00,     0.5639405680069816e+00]),
                 vectors.LorentzVector([-0.9082434164211539e+00,     0.3404291044007367e+00,      0.6620140764515544e+00,     0.1440537779069934e+00]),
         ]),
-        analytical_result =  1.44683214438469199e-011-5.62046076823293754e-010j,
+        analytic_result =  1.44683214438469199e-011-5.62046076823293754e-010j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2228,7 +2228,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.6339609085730495e-01,    -0.5151857367262940e-01,     0.7732066709885181e-01,    -0.5629545569995255e+00]),
                 vectors.LorentzVector([ 0.1619398729338573e-01,     0.3826976752059603e-01,     0.7442114811470348e-01,    -0.4269170767622630e+00]),
         ]),
-        analytical_result = 1.58733080719071658e-5j,
+        analytic_result = 1.58733080719071658e-5j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2252,7 +2252,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.6339609085730495e-01,    -0.5151857367262940e-01,     0.7732066709885181e-01,    -0.5629545569995255e+00]),
                 vectors.LorentzVector([ 0.1619398729338573e-01,     0.3826976752059603e-01,     0.7442114811470348e-01,    -0.4269170767622630e+00]),
         ]),
-        analytical_result = 2.*1.58733080719071658e-5j,
+        analytic_result = 2.*1.58733080719071658e-5j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2276,7 +2276,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.1123212674826061e+01,    -0.5411628118251340e+00,     -0.7789668793605800e+00,    -0.5995499352403172e+00]),
                 vectors.LorentzVector([-0.9222372388674636e+00,    -0.4299804333838157e-01,      0.1734041711323346e-01,    -0.9197130003198243e+00]),
         ]),
-        analytical_result =  1.19800873245882517e-5-5.68876257310534512e-5j,
+        analytic_result =  1.19800873245882517e-5-5.68876257310534512e-5j,
         parameter_values = {'m1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0, 'm5': 0.0,
                             'm6': 0.0, 'm7': 0.0, 'm8': 0.0, 'm9': 0.0, 'm10': 0.0,
                            },
@@ -2324,7 +2324,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.3717510139731589e-03,    -0.4957556091851899e-01,    -0.4157498399677061e-01,    -0.3320901132800368e+00]),
                 vectors.LorentzVector([ 0.2475795734193290e-03,    -0.2665308744662153e-01,    -0.3145539144342609e-02,    -0.1537321357581931e+00]),
         ]),
-        analytical_result =  -3.17518049311205017e-2-1.00739776983530312e-2j,
+        analytic_result =  -3.17518049311205017e-2-1.00739776983530312e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
                           'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.,
                           'm11': 0., 'm12': 0., 'm13': 0., 'm14': 0., 'm15': 0.,
@@ -2372,7 +2372,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.4427868177067157e+00,    -0.3305037394567933e+00,    -0.2771665599784707e+00,     0.2478340093154393e-02]),
                 vectors.LorentzVector([-0.2049761810109241e+00,    -0.1776872496441435e+00,    -0.2097026096228406e-01,     0.1650530489462193e-02]),
         ]),
-        analytical_result = 1.71112768603422270e-22-2.99165437321843644e-9j,
+        analytic_result = 1.71112768603422270e-22-2.99165437321843644e-9j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
                           'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.,
                           'm11': 0., 'm12': 0., 'm13': 0., 'm14': 0., 'm15': 0.,
@@ -2420,7 +2420,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.3303859085676054e-02,     0.1147321141773022e-02,    -0.4376771802157857e-02,    -0.1281003475862310e+00]),
                 vectors.LorentzVector([-0.1731120789003846e-02,    -0.6374189400153728e-01,     0.4354665875627292e-01,    -0.4058120660763001e+00]),
         ]),
-        analytical_result =  -3.41393026657494931e-12-4.16637655564940194e-12j,
+        analytic_result =  -3.41393026657494931e-12-4.16637655564940194e-12j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
                           'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.,
                           'm11': 0., 'm12': 0., 'm13': 0., 'm14': 0., 'm15': 0.,
@@ -2468,7 +2468,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.2500517724315000e+00,     0.3899722216643952e-01,    -0.8356044850002008e-01,    -0.2098160075063663e+00]),
                 vectors.LorentzVector([-0.3044104901662132e+00,     0.7329018657682732e-01,    -0.1555222203930474e-01,    -0.2775831829639689e+00]),
         ]),
-        analytical_result = 2.90177568848127685e-17-1.75774788743910202e-7j,
+        analytic_result = 2.90177568848127685e-17-1.75774788743910202e-7j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
                           'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.,
                           'm11': 0., 'm12': 0., 'm13': 0., 'm14': 0., 'm15': 0.,
@@ -2516,7 +2516,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.3717510139731588e-04,    -0.4957556091851899e-02,    -0.4157498399677060e-02,    -0.3194706889753953e+00]),
                 vectors.LorentzVector([ 0.2475795734193290e-04,    -0.2665308744662153e-02,    -0.3145539144342609e-03,    -0.1478903145993817e+00]),
         ]),
-        analytical_result = -1.1728878384023238+4.5493770710423842j,
+        analytic_result = -1.1728878384023238+4.5493770710423842j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
                           'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.,
                           'm11': 0., 'm12': 0., 'm13': 0., 'm14': 0., 'm15': 0.,
@@ -2564,7 +2564,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([ 0.3717510139731588e-04,    -0.4957556091851899e-02,    -0.4157498399677060e-02,    -0.3320901132800367e+00]),
                 vectors.LorentzVector([ 0.2475795734193290e-04,    -0.2665308744662153e-02,    -0.3145539144342609e-03,    -0.1537321357581931e+00]),
         ]),
-        analytical_result = 0.35864077119483945j,
+        analytic_result = 0.35864077119483945j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
                           'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.,
                           'm11': 0., 'm12': 0., 'm13': 0., 'm14': 0., 'm15': 0.,
@@ -2612,7 +2612,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.2080830866522650e-02,     0.2940388292912083e-02,     0.1273301105043701e-02,    -0.3949308308080461e+00]),
                 vectors.LorentzVector([-0.3057596965049211e-03,    -0.4585064151705153e-03,     0.1078164614790584e-03,    -0.1146883391685992e+00]),
         ]),
-        analytical_result = 3.21931745143375310e-007j,
+        analytic_result = 3.21931745143375310e-007j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
                           'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.,
                           'm11': 0., 'm12': 0., 'm13': 0., 'm14': 0., 'm15': 0.,
@@ -2638,7 +2638,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([0.,0.,6.,0.]),
                 vectors.LorentzVector([-0.,-5.,-6.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
     ),
 )
 
@@ -2650,7 +2650,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([0.,0.,6.,0.]),
                 vectors.LorentzVector([-0.,-5.,-6.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TriangleBoxBox_alt',
     ),
     entry_name = 'TriangleBoxBox_alt',
@@ -2663,7 +2663,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([1.,3.,0.,0.]),
                 vectors.LorentzVector([-1.,-3.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TriangleBoxTriangle',
     ),
     entry_name = 'TriangleBoxTriangle',
@@ -2676,7 +2676,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([1.,3.,0.,0.]),
                 vectors.LorentzVector([-1.,-3.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TriangleBoxTriangle_alt',
     ),
     entry_name = 'TriangleBoxTriangle_alt',
@@ -2689,7 +2689,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([1.,3.,0.,0.]),
                 vectors.LorentzVector([-1.,-3.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'Mercedes',
     ),
     entry_name = 'Mercedes',
@@ -2702,7 +2702,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([1.,3.,0.,0.]),
                 vectors.LorentzVector([-1.,-3.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'Mercedesv2',
     ),
     entry_name = 'Mercedesv2',
@@ -2717,7 +2717,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-.8,-5.,-6.,0.]),
                 vectors.LorentzVector([-.2,0.,0.,4.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TripleBox_no_ellipse',
     ),
     entry_name = 'TripleBox_no_ellipse',
@@ -2732,7 +2732,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.,-5.,-6.,0.]),
                 vectors.LorentzVector([-6.,0.,0.,4.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TripleBox',
     ),
     entry_name = 'TripleBox', # has 3 ellipsoids
@@ -2747,7 +2747,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([43.4674, 0.110491, 0.256146, 3.9417]),
                 vectors.LorentzVector([-90, 0, 0, 0]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TripleBox_Weinzierl',
     ),
     entry_name = 'TripleBox_Weinzierl',
@@ -2764,7 +2764,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([90.,0.,0.,0.]),
                 vectors.LorentzVector([-90.,0.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TriangleBoxTriangle_ellipses',
     ),
     entry_name = 'TriangleBoxTriangle_ellipses'
@@ -2777,7 +2777,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([90.,0.,0.,0.]),
                 vectors.LorentzVector([-90.,0.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TriangleBoxTriangle_alt_ellipses',
     ),
     entry_name = 'TriangleBoxTriangle_alt_ellipses'
@@ -2791,7 +2791,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([50.2576,14.1093,-0.102709,-20.4908]),
                 vectors.LorentzVector([-90.,0.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type, should be -5.389e-17i
+        analytic_result =  None, #given in topology type, should be -5.389e-17i
         name = 'TriangleBoxBox_ellipses',
     ),
     entry_name = 'TriangleBoxBox_ellipses'
@@ -2805,7 +2805,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([50.2576,14.1093,-0.102709,-20.4908]),
                 vectors.LorentzVector([-90.,0.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type, should be -5.389e-17i
+        analytic_result =  None, #given in topology type, should be -5.389e-17i
         name = 'TriangleBoxBox_alt_ellipses',
     ),
     entry_name = 'TriangleBoxBox_alt_ellipses'
@@ -2822,7 +2822,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([1.,3.,0.,0.]),
             vectors.LorentzVector([-1.,-3.,0.,0.]),
         ]),
-        analytical_result =  None, #given in topology type
+        analytic_result =  None, #given in topology type
         name = 'TriangleBoxBoxTriangle',
     ),
     entry_name = 'TriangleBoxBoxTriangle',
@@ -2840,7 +2840,7 @@ hard_coded_topology_collection.add_topology(
               vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
               vectors.LorentzVector([0.2,-0.6,-0.6,-0.3,]),
           ]),
-          analytical_result = -4.5774615136392652e-02j,
+          analytic_result = -4.5774615136392652e-02j,
           parameter_values = {'m1': 0., 'm2': 0., 'm3': 0.},
           name = 'Triangle_no_ellipse',
     ),
@@ -2855,7 +2855,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
             vectors.LorentzVector([-0.7,-0.6,-0.6,-0.3,]),
         ]),        
-        analytical_result = 6.4297715931597013e-2-1.8925647377061101e-2j,
+        analytic_result = 6.4297715931597013e-2-1.8925647377061101e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Triangle_1_ellipse_v1',
     ),
@@ -2872,7 +2872,7 @@ hard_coded_topology_collection.add_topology(
             -vectors.LorentzVector([-0.382,0.412,0.1521,0.233,])
 			)
         ]),
-        analytical_result = 5.3033984015855400e-2-1.9547015029750356e-2j,
+        analytic_result = 5.3033984015855400e-2-1.9547015029750356e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0.},
         name = 'Triangle_1_ellipse_v2',
     ),
@@ -2888,7 +2888,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
             vectors.LorentzVector([-0.8,-0.8,-1.1,-0.6,]),
         ]),        
-        analytical_result = -7.0925418252470673e-2 + 4.4622503183629730e-2j,
+        analytic_result = -7.0925418252470673e-2 + 4.4622503183629730e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_1_ellipse_v1',
     ),
@@ -2907,7 +2907,7 @@ hard_coded_topology_collection.add_topology(
             -vectors.LorentzVector([0.1182,0.2192,0.5019,0.3210,])
 			)
         ]),
-        analytical_result = -5.4278417251865010e-2 + 3.6222411886952535e-2j,
+        analytic_result = -5.4278417251865010e-2 + 3.6222411886952535e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_1_ellipse_v2',
     ),
@@ -2924,7 +2924,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.5,0.6,-0.9,0.3,]),
             vectors.LorentzVector([1.8,-0.3,0.5,-0.2,]),
         ]),        
-        analytical_result = -6.1217835745387269e-03j,
+        analytic_result = -6.1217835745387269e-03j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_1_cutgroup',
     ),
@@ -2940,7 +2940,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.8,0.05,-0.5,0.52,]),
             vectors.LorentzVector([-1.4,-0.62,0.15,-1.52,]),
         ]),        
-        analytical_result = -8.6251173332809253e-2 + 5.4445896486842775e-2j,
+        analytic_result = -8.6251173332809253e-2 + 5.4445896486842775e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_2_ellipse_intersection',
     ),
@@ -2957,7 +2957,7 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector([0.9,0.5,0,0,]),
             vectors.LorentzVector([-1.2,-0.9,-1.8,0,]),
         ]),        
-        analytical_result = -4.3933035567551475e-3 + 3.4725910186732510e-3j,
+        analytic_result = -4.3933035567551475e-3 + 3.4725910186732510e-3j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
         name = 'Box_2_ellipse_standing_near',
     ),
@@ -2973,7 +2973,7 @@ hard_coded_topology_collection.add_topology(
               vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
               vectors.LorentzVector([0.1,-0.8,-1.1,-0.6,]),
           ]),
-          analytical_result = 5.0054164554909533e-02j,
+          analytic_result = 5.0054164554909533e-02j,
           parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
           name = 'Box_no_ellipse',
     ),
@@ -2990,7 +2990,7 @@ hard_coded_topology_collection.add_topology(
               vectors.LorentzVector([-0.100000000000000e+01,  -0.220736538983310e+00,   -0.885202094357801e+00,    0.397105316638084e+00]),
               vectors.LorentzVector([-0.100000000000000e+01,   0.220736538983310e+00,    0.885202094357801e+00,   -0.397105316638084e+00]),
           ]),
-          analytical_result = 9.00434379202854213e-2-0.14559489635604819j,
+          analytic_result = 9.00434379202854213e-2-0.14559489635604819j,
           parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
           name = 'Box_P1',
     ),
@@ -3007,7 +3007,7 @@ hard_coded_topology_collection.add_topology(
               vectors.LorentzVector([-0.100000000000000e+01,   0.561004773211804e+00,    0.777664204605808e+00,   -0.265541012479028e+00]),
               vectors.LorentzVector([-0.100000000000000e+01,   -0.561004773211804e+00,  -0.777664204605809e+00,    0.265541012479028e+00]),
           ]),
-          analytical_result = 4.56672130125938408e-2-7.95498254439587771e-2j,
+          analytic_result = 4.56672130125938408e-2-7.95498254439587771e-2j,
           parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
           name = 'Box_P2',
     ),
@@ -3025,7 +3025,7 @@ hard_coded_topology_collection.add_topology(
               vectors.LorentzVector([-0.400000000000000e+01,  -0.859215812681878e+00,   -0.344564447913558e+01,    0.154573034861838e+01]),
               vectors.LorentzVector([-0.400000000000000e+01,   0.859215812681878e+00,    0.344564447913558e+01,   -0.154573034861838e+01]),
           ]),
-          analytical_result = 2.42801269793165329e-4-2.36495209276143891e-4j,
+          analytic_result = 2.42801269793165329e-4-2.36495209276143891e-4j,
           parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
           name = 'Box_P3_large_external_masses',
     ),
@@ -3043,7 +3043,7 @@ hard_coded_topology_collection.add_topology(
               vectors.LorentzVector([-0.309304817275747e+01,  -0.649336284311474e+00,   -0.260398138641872e+01,    0.116815680799273e+01]),
               vectors.LorentzVector([-0.292695182724253e+01,   0.649336284311474e+00,    0.260398138641872e+01,   -0.116815680799272e+01]),
           ]),
-          analytical_result = 1.15103001460289066e-3-1.43823441417823775e-3j,
+          analytic_result = 1.15103001460289066e-3-1.43823441417823775e-3j,
           parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
           name = 'Box_P4_close_to_collinear_singularity',
     ),
@@ -3061,7 +3061,7 @@ hard_coded_topology_collection.add_topology(
               vectors.LorentzVector([-0.308430548150616e+01,  -0.647286315361457e+00,   -0.259576055983386e+01,    0.116446891122337e+01]),
               vectors.LorentzVector([-0.291769451849384e+01,   0.647286315361458e+00,    0.259576055983386e+01,   -0.116446891122337e+01]),
           ]),
-          analytical_result = 1.41970037205742142e-3-1.92997699586506242e-3,
+          analytic_result = 1.41970037205742142e-3-1.92997699586506242e-3,
           parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
           name = 'Box_P5_very_close_to_collinear_singularity',
     ),
@@ -3082,7 +3082,7 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([-0.336,0.413,0.552,0.238])
                 )
         ]),
-        analytical_result = -5.78518741679292722e-3j,
+        analytic_result = -5.78518741679292722e-3j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
         name = 'Pentagon_no_ellipse',
     ),
@@ -3103,7 +3103,7 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([-0.25,-0.3,-0.1,0.4])
                 )
         ]),
-        analytical_result = 0.25002202278595193j,
+        analytic_result = 0.25002202278595193j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
         name = 'Pentagon_1_cutgroup',
     ),
@@ -3121,7 +3121,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.358947384535148e+00,   0.173566425472857e-01,    0.329242897132688e+00,   -0.100702961782578e+00]),
                 vectors.LorentzVector([-0.195456254032636e+00,   0.143099437436546e+00,    0.302530053780189e-01,   -0.825254743180058e-01]),
         ]),
-        analytical_result = -1.7493590206914567-12.884728238217672j,
+        analytic_result = -1.7493590206914567-12.884728238217672j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
         name = 'Pentagon_P1',
     ),
@@ -3139,7 +3139,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.445700759799243e+00,    0.361245429247390e+00,   0.700100997766075e-01,   -0.230758516771885e+00]),
                 vectors.LorentzVector([-0.338569642410276e+00,   -0.222660771120529e+00,  -0.176995194177853e+00,    0.154026897014053e+00]),
         ]),
-        analytical_result = -0.88179589633577338-5.0440019432946359j,
+        analytic_result = -0.88179589633577338-5.0440019432946359j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
         name = 'Pentagon_P2',
     ),
@@ -3162,7 +3162,7 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([-0.2,0.3,0.2,-0.5])
                 )
         ]),
-        analytical_result = -6.63743582146347332e-3j,
+        analytic_result = -6.63743582146347332e-3j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
         name = 'Hexagon_no_ellipse',
     ),
@@ -3185,7 +3185,7 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([-0.2,0.3,0.2,-0.5])
                 )
         ]),
-        analytical_result = 1.44808301928176092e-2-9.25222856104738513e-3j,
+        analytic_result = 1.44808301928176092e-2-9.25222856104738513e-3j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
         name = 'Hexagon_1_ellipsoid',
     ),
@@ -3204,7 +3204,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.312446945402234e+00,   0.205712927739407e+00,    0.189837113602804e+00,   -0.962660654177994e-01]),
                 vectors.LorentzVector([-0.842866006967107e+00,   -0.450417976606324e+00,  -0.698584202543682e+00,    0.976056556094392e-01]),
         ]),
-        analytical_result = -0.30872711611542109+3.8733947302606166j,
+        analytic_result = -0.30872711611542109+3.8733947302606166j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
         name = 'Hexagon_P1',
     ),
@@ -3223,7 +3223,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.688774393498734e+00,   -0.358964901557421e+00,    0.100520302577498e+00,    0.570482281371778e+00]),
                 vectors.LorentzVector([-0.368795088167883e+00,    0.178527659148257e+00,    0.202185880826771e+00,    0.230778165280217e+00]),
         ]),
-        analytical_result = -5.04961974662861482e-2+0.41631362208434963j,
+        analytic_result = -5.04961974662861482e-2+0.41631362208434963j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0.},
         name = 'Hexagon_P2',
     ),
@@ -3250,7 +3250,7 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([0.3182,0.837,0.273,-0.489])
                 -vectors.LorentzVector([0.1122,-0.301,-0.1203,-0.1011])                )
         ]),
-        analytical_result = 0.20681419918162766j,
+        analytic_result = 0.20681419918162766j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
         name = 'Octogon_no_ellipse',
     ),
@@ -3277,7 +3277,7 @@ hard_coded_topology_collection.add_topology(
                 -vectors.LorentzVector([0.1,-0.3,-0.1,-0.1])
                 )
         ]),
-        analytical_result = -0.16085026028197225+1.6607244555010336j,
+        analytic_result = -0.16085026028197225+1.6607244555010336j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
         name = 'Octogon_1_ellipsoid',
     ),
@@ -3298,7 +3298,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.142306727612706e+00,   0.581243057962346e-01,    0.148012499031345e-01,   -0.815701710237741e-01]),
                 vectors.LorentzVector([-0.412740919016988e+00,   0.505216098816240e-01,    0.183933205536331e+00,   -0.352095454482285e+00]),
         ]),
-        analytical_result = 23.721379031545343-6.6968031097498351j,
+        analytic_result = 23.721379031545343-6.6968031097498351j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
         name = 'Octogon_P1',
     ),
@@ -3319,7 +3319,7 @@ hard_coded_topology_collection.add_topology(
                 vectors.LorentzVector([-0.680468912880392e+00,    0.177420328148417e+00,   -0.628787394681645e+00,   -0.161822065386030e+00]),
                 vectors.LorentzVector([-0.259566769595628e+00,   -0.120469452706165e+00,    0.124509306379669e+00,   -0.165406926904047e+00]),           
         ]),
-        analytical_result = 0.73918672190523227-27.323268154802545j,
+        analytic_result = 0.73918672190523227-27.323268154802545j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0., 'm6': 0., 'm7': 0., 'm8': 0.},
         name = 'Octogon_P2',
     ),

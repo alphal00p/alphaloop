@@ -1,4 +1,5 @@
 import os
+import sys
 import vectors
 import math
 import itertools
@@ -8,6 +9,58 @@ import numpy as numpy
 import numpy.linalg
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
+
+#===============================================================================
+# Low-level muter that works with f2py as well
+# From: http://code.activestate.com/recipes/577564/
+#===============================================================================
+class Silence:
+    """Context manager which uses low-level file descriptors to suppress
+    output to stdout/stderr, optionally redirecting to the named file(s)."""
+
+    def __init__(self, stdout=os.devnull, stderr=os.devnull, mode='w', active=True):
+        self.active = active
+        if not self.active: return
+        self.outfiles = stdout, stderr
+        self.combine = (stdout == stderr)
+        self.mode = mode
+        
+    def __enter__(self):
+        if not self.active: return
+        self.sys = sys
+        # save previous stdout/stderr
+        self.saved_streams = saved_streams = sys.__stdout__, sys.__stderr__
+        self.fds = fds = [s.fileno() for s in saved_streams]
+        self.saved_fds = map(os.dup, fds)
+        # flush any pending output
+        for s in saved_streams: s.flush()
+
+        # open surrogate files
+        if self.combine: 
+            null_streams = [open(self.outfiles[0], self.mode, 0)] * 2
+            if self.outfiles[0] != os.devnull:
+                # disable buffering so output is merged immediately
+                sys.stdout, sys.stderr = map(os.fdopen, fds, ['w']*2, [0]*2)
+        else:
+            null_streams = [open(f, self.mode, 0) for f in self.outfiles]
+        self.null_fds = null_fds = [s.fileno() for s in null_streams]
+        self.null_streams = null_streams
+        
+        # overwrite file objects and low-level file descriptors
+        map(os.dup2, null_fds, fds)
+
+    def __exit__(self, *args):
+        if not self.active: return
+        sys = self.sys
+        # flush any pending output
+        for s in self.saved_streams: s.flush()
+        # restore original streams and file descriptors
+        map(os.dup2, self.saved_fds, self.fds)
+        sys.stdout, sys.stderr = self.saved_streams
+        # clean up
+        for s in self.null_streams: s.close()
+        for fd in self.saved_fds: os.close(fd)
+        return False
 
 #############################################################################################################
 # HyperParameters
@@ -390,9 +443,111 @@ class TopologyGenerator(object):
         # TODO: the external kinematics are given in a random order!
         external_kinematics = list(ext_mom.values())
         external_kinematics.append(-sum(external_kinematics))
-        return LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
+        loop_topology = LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
                             ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result)
 
+        if analytic_result is None:
+            loop_topology.analytic_result = self.guess_analytical_result(loop_momenta, ext_mom, mass_map)
+        
+        return loop_topology
+
+    def guess_analytical_result(self, loop_momenta, ext_mom, masses):
+        """ Try and guess the analytic value for this particular loop topology."""
+
+        # We do not have a guess yet beyond one loop.
+        if self.n_loops!=1:
+            return None
+
+        loop_edge =self.edges[loop_momenta[0]]
+        sorted_external_momenta = []
+        start_vertex = loop_edge[0]
+        curr_vertex = loop_edge[0]
+        curr_edge_index = loop_momenta[0]
+        next_vertex = loop_edge[1]
+        found_error = False
+        ordered_external_momenta = []
+        ordered_masses = []
+        while True:
+
+            # External momenta, incoming
+            next_ext_mom = vectors.LorentzVector()
+            for i_ext in self.ext:
+                if curr_vertex in self.edges[i_ext]:
+                    if curr_vertex==self.edges[i_ext][1]:
+                        next_ext_mom += ext_mom[self.edge_map_lin[i_ext][0]]
+                    else:
+                        next_ext_mom -= ext_mom[self.edge_map_lin[i_ext][0]]
+            ordered_external_momenta.append(next_ext_mom)
+             
+            # Add mass
+            ordered_masses.append(masses.get(self.edge_map_lin[curr_edge_index][0],0.))
+            
+            if next_vertex == start_vertex:
+                break
+
+            # Find the next edge
+            found_it = False
+            for i_edge, edge in enumerate(self.edges):
+                if (i_edge not in self.ext) and \
+                   (i_edge != curr_edge_index) and \
+                   (next_vertex in edge):
+                    found_it = True
+                    curr_edge_index = i_edge
+                    curr_vertex = next_vertex
+                    if next_vertex==edge[0]:
+                        next_vertex = edge[1]
+                    else:
+                        next_vertex = edge[0]
+                    break
+
+            if not found_it:
+                found_error = True
+                print("Error in guessing one-loop analytical formula.")
+                break
+        
+        if found_error:
+            return None
+
+        # Now compute the corresponding
+        try:
+            import AVHOneLOopHook.pyAVH_OneLOop_hook as one_loop
+        except ImportError:
+            print("Run make in LTD/AVHOneLOopHook to generate the python bindings for OneLoop.")
+            return None
+        
+        #print(ordered_external_momenta,ordered_masses)
+        # Order masses so as to match OneLOop conventions
+        ordered_masses = ordered_masses[1:]+[ordered_masses[0],]
+        result = None
+
+        if len(ordered_external_momenta)==3:
+            with Silence(active=True):            
+                result = one_loop.compute_one_loop_triangle(
+                    ordered_external_momenta[0].square(),
+                    ordered_external_momenta[1].square(),
+                    ordered_external_momenta[2].square(),
+                    ordered_masses[0]**2,
+                    ordered_masses[1]**2,
+                    ordered_masses[2]**2,
+                )
+
+        elif len(ordered_external_momenta)==4:
+            with Silence(active=True):            
+                result = one_loop.compute_one_loop_box(
+                    ordered_external_momenta[0].square(),
+                    ordered_external_momenta[1].square(),
+                    ordered_external_momenta[2].square(),
+                    ordered_external_momenta[3].square(),
+                    (ordered_external_momenta[0]+ordered_external_momenta[1]).square(),
+                    (ordered_external_momenta[1]+ordered_external_momenta[2]).square(),
+                    ordered_masses[0]**2,
+                    ordered_masses[1]**2,
+                    ordered_masses[2]**2,
+                    ordered_masses[3]**2,                
+                ) 
+        
+        #print(complex(result[0])*(complex(0.,1.)/(16.0*math.pi**2)))
+        return complex(result[0])*(complex(0.,1.)/(16.0*math.pi**2))
 
 #############################################################################################################
 # Define topology structures
