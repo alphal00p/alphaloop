@@ -117,9 +117,9 @@ impl Topology {
                     let m1 = T::from_f64((self.external_kinematics[0]).square()).unwrap();
                     let m3 = T::from_f64((self.external_kinematics[2]).square()).unwrap();
 
-                    let mu_sq = Complex::new(T::zero(), T::from_f64(1e9).unwrap());
+                    let mu_sq = Complex::new(T::zero(), T::from_f64(1e3).unwrap());
 
-                    ct_numerator += utils::finv((x4b * t + x4 * m1) * (x4 * s + x4b * m3))
+                    ct_numerator -= utils::finv((x4b * t + x4 * m1) * (x4 * s + x4b * m3))
                         * (props[0] * props[1])
                         * mu_sq
                         * (mu_sq - props[2] - props[3])
