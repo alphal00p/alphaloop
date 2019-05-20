@@ -28,6 +28,7 @@ hyperparameters = HyperParameters({
         'absolute_precision'    :   1e-5,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
+        'num_digits_different_for_inconsistency': 4.,
         # return the unstable point if true, else return 0
         'return_unstable_point':    False,
         # which core to log to screen, None logs all cores

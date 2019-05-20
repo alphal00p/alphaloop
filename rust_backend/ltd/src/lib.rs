@@ -248,6 +248,7 @@ pub struct GeneralSettings {
     pub absolute_precision: f64,
     pub numerical_instability_check: bool,
     pub return_unstable_point: bool,
+    pub num_digits_different_for_inconsistency: f64,
     pub integration_statistics: bool,
     pub statistics_interval: usize,
     pub debug: usize,
@@ -362,7 +363,7 @@ impl PythonNumerator {
             gil,
             module,
             buffer,
-            num_loops
+            num_loops,
         }
     }
 

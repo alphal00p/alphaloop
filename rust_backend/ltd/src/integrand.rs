@@ -360,7 +360,10 @@ impl Integrand {
                 }
             };
 
-            if d_comp + float::from_f64(2.).unwrap() < d
+            if d_comp
+                + float::from_f64(self.settings.general.num_digits_different_for_inconsistency)
+                    .unwrap()
+                < d
                 && d > float::from_f64(3.).unwrap()
                 && num_f64 > float::from_f64(1e-20).unwrap()
             {
