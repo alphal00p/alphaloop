@@ -95,9 +95,57 @@ hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
     entry_name = 'DoubleBox_no_ellipse'
 )
 
+# non planar four loop
+non_planar_four_loop = TopologyGenerator([
+    ('q', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),
+    ('p4', 4, 5), ('p5', 5, 1), ('p6', 4, 6), ('p7', 5, 6), 
+    ('p8', 6, 2),('p9', 5, 3), ('-q', 3, 7)
+])
+q = vectors.LorentzVector([ 0.1, 0.2, 0.3, 0.4])
+hard_coded_topology_collection.add_topology(non_planar_four_loop.create_loop_topology(
+    'non_planar_four_loop',
+    ext_mom={'q': q},
+    loop_momenta_names=('p4', 'p5', 'p6', 'p7',),
+    analytic_result = 36. * zeta(3)**2 /(16.*math.pi**2)**4 / q.square(),
+    ),
+    entry_name = 'non_planar_four_loop'
+)
+
+# mercedes three loop
+mercedes = TopologyGenerator([
+    ('q', 0, 5), ('p0', 1, 5), ('p1', 5, 2), ('p2', 2, 3),
+    ('p3', 3, 1), ('p4', 1, 4), ('p5', 2, 4), ('p6', 3, 4),
+    ('-q', 3, 6)
+])
+q = vectors.LorentzVector([ 1., 3., 0., 0.])
+hard_coded_topology_collection.add_topology(mercedes.create_loop_topology(
+    'mercedes',
+    ext_mom={'q': q},
+    loop_momenta_names=('p3', 'p4', 'p6',),
+    analytic_result = 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / q.square(),
+    ),
+    entry_name = 'mercedes'
+)
+
+# triangle box triangle
+TriangleBoxTriangle = TopologyGenerator([
+    ('q', 0, 1), ('p0', 1, 2), ('p1', 2, 3), ('p2', 3, 4),
+    ('p3', 4, 5), ('p4', 5, 6), ('p5', 6, 1), ('p6', 6, 2),
+    ('p7', 5, 3), ('-q', 4, 7)
+])
+q = vectors.LorentzVector([ 1., 3., 0., 0.])
+hard_coded_topology_collection.add_topology(TriangleBoxTriangle.create_loop_topology(
+    'TriangleBoxTriangle',
+    ext_mom={'q': q},
+    loop_momenta_names=('p5', 'p6', 'p7',),
+    analytic_result = analytic_two_point_ladder(q.square(),3),
+    ),
+    entry_name = 'TriangleBoxTriangle'
+)
+
 # Example printout
 # ----------------
-#hard_coded_topology_collection['DoubleTriangle'].print_topology()
+#hard_coded_topology_collection['non_planar_four_loop_no_ellipse'].print_topology()
 #hard_coded_topology_collection['TriangleBox'].print_topology()
 #hard_coded_topology_collection['DoubleBox'].print_topology()
 #hard_coded_topology_collection['TriangleBoxBox'].print_topology()
