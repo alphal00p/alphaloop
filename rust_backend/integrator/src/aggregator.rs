@@ -211,6 +211,7 @@ impl Aggregator {
                 let survey_result = ci.vegas(
                     4 * self.n_loops,
                     1,
+                    1,
                     CubaVerbosity::Progress,
                     1, // Save grid in slot 1
                     UserData {
@@ -252,6 +253,7 @@ impl Aggregator {
                     );
                     let refine_result = ci.vegas(
                         4 * self.n_loops,
+                        1,
                         1,
                         CubaVerbosity::Progress,
                         0, // Do not save grids
@@ -298,6 +300,7 @@ impl Aggregator {
             } else {
                 ci.vegas(
                     4 * self.n_loops - self.settings.fixed_parameters.len(),
+                    1,
                     1,
                     CubaVerbosity::Progress,
                     0, // Not saving the grid

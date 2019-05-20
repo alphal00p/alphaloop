@@ -602,9 +602,14 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                             .zip(topo.cb_to_lmb_mat.iter())
                                         {
                                             for cut in cuts.iter() {
-                                                *probe += topo
+                                                let v = topo
                                                     .evaluate_cut(&mut k_def, cut, mat, &mut cache)
                                                     .unwrap();
+                                                let ct = topo.counterterm(
+                                                    &k_def[..topo.n_loops],
+                                                    &mut cache,
+                                                );
+                                                *probe += v * (ct + f128::f128::one());
                                             }
                                         }
                                     }

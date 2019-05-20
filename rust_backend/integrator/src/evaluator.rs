@@ -170,15 +170,30 @@ impl Evaluator {
         .unwrap();
 
         let mut integrand = match id {
-            DOUBLE_BOX_ID => {
-                Integrand::new("box2L_direct_integration", 0, 0, settings.mu_sq, settings.tau).unwrap()
-            }
-            DOUBLE_TRIANGLE_ID => {
-                Integrand::new("triangle2L_direct_integration", 0, 0, settings.mu_sq, settings.tau).unwrap()
-            }
-            TRIANGLE_BOX_ID => {
-                Integrand::new("trianglebox_direct_integration", 0, 0, settings.mu_sq, settings.tau).unwrap()
-            }
+            DOUBLE_BOX_ID => Integrand::new(
+                "box2L_direct_integration",
+                0,
+                0,
+                settings.mu_sq,
+                settings.tau,
+            )
+            .unwrap(),
+            DOUBLE_TRIANGLE_ID => Integrand::new(
+                "triangle2L_direct_integration",
+                0,
+                0,
+                settings.mu_sq,
+                settings.tau,
+            )
+            .unwrap(),
+            TRIANGLE_BOX_ID => Integrand::new(
+                "trianglebox_direct_integration",
+                0,
+                0,
+                settings.mu_sq,
+                settings.tau,
+            )
+            .unwrap(),
             TRIANGLE_BOX_ALTERNATIVE_ID => Integrand::new(
                 "trianglebox_alternative_direct_integration",
                 0,
@@ -187,12 +202,22 @@ impl Evaluator {
                 settings.tau,
             )
             .unwrap(),
-            DIAGONAL_BOX_ID => {
-                Integrand::new("diagonalbox_direct_integration", 0, 0, settings.mu_sq, settings.tau).unwrap()
-            }
-            DOUBLE_BOX_SB_ID => {
-                Integrand::new("box2L_direct_integration_SB", 0, 0, settings.mu_sq, settings.tau).unwrap()
-            }
+            DIAGONAL_BOX_ID => Integrand::new(
+                "diagonalbox_direct_integration",
+                0,
+                0,
+                settings.mu_sq,
+                settings.tau,
+            )
+            .unwrap(),
+            DOUBLE_BOX_SB_ID => Integrand::new(
+                "box2L_direct_integration_SB",
+                0,
+                0,
+                settings.mu_sq,
+                settings.tau,
+            )
+            .unwrap(),
             _ => unreachable!("Unknown id"),
         };
 
