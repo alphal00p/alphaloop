@@ -60,7 +60,7 @@ def evaluate(point):
                          ltd_cut_index,  cut_index)
             #res = (0., 0.)
             if not math.isnan(res[0]) and not math.isnan(res[1]):
-                evaluation[((ltd_cut_index, ltd_cut_structure),(cut_index, cut_structure))] = complex(res[0],res[1])
+                evaluation[((ltd_cut_index, tuple(ltd_cut_structure)),(cut_index, cut_structure))] = complex(res[0],res[1])
             else:
                  print("Nan found for entry %s"%str(((ltd_cut_index, ltd_cut_structure),(cut_index, cut_structure))))
 

@@ -99,7 +99,7 @@ hyperparameters = HyperParameters({
         # can be cartesian or spherical
         'mode'      :   'spherical',
         # can be log or linear
-        'mapping'   :   'log',
+        'mapping'   :   'linear',
         # controls the UV behaviour of the spherical log map
         'b'         :   1.0,
         # rescale the input from [0,1] to [lo,hi]
