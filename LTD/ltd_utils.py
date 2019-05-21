@@ -380,8 +380,11 @@ class TopologyGenerator(object):
             loop_momenta = self.loop_momentum_bases()[0]
         else:
             self.n_loops = len(loop_momenta_names)
-            loop_momenta = [self.edge_name_map[edge_name]
-                            for edge_name in loop_momenta_names]
+            if isinstance(loop_momenta_names[0], str):
+                loop_momenta = [self.edge_name_map[edge_name]
+                                for edge_name in loop_momenta_names]
+            else:
+                loop_momenta = loop_momenta_names
 
         ##print("Creating topology with momentum basis %s" % ', '.join([self.edge_map_lin[i][0] for i in loop_momenta]))
 
