@@ -597,6 +597,14 @@ class LoopTopology(object):
         else:
             self.analytic_result   = analytic_result
 
+    def evaluate(self, loop_momenta):
+        """ Evaluates Loop topology with the provided list loop momenta, given as a list of LorentzVector."""
+
+        result = 1.0
+        for loop_line in self.loop_lines:
+            result *= loop_line.evaluate_inverse(loop_momenta)
+        return 1.0/result
+
     def __str__(self):
         return pformat(self.to_flat_format())
        
@@ -740,6 +748,14 @@ class LoopLine(object):
             propagator.set_signature(self.signature, force=False)
         self.start_node     = start_node
         self.end_node       = end_node
+
+    def evaluate_inverse(self, loop_momenta):
+        """ Evaluates the inverse of this loop line with the provided list loop momenta, given as a list of LorentzVector."""
+
+        result = 1.0
+        for prop in self.propagators:
+            result *= prop.evaluate_inverse(loop_momenta)
+        return result
 
     @staticmethod
     def from_flat_format(flat_dict):
