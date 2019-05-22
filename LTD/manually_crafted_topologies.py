@@ -2412,6 +2412,30 @@ hard_coded_topology_collection.add_topology(
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
+        'Decagon', # Analytical result from MadLoop
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([ 0.4999749993749687e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2500000000000000e+01]),
+                vectors.LorentzVector([-0.4999749993749687e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2500000000000000e+01]),
+                vectors.LorentzVector([ 0.5319269421240436e-01,     0.7630500824806391e-02,    -0.4191452656442592e-01,    -0.3416692405504076e+00]),
+                vectors.LorentzVector([-0.7418366402851829e-02,     0.4793330102618212e-01,     0.1092200259939211e+00,    -0.5980519957634609e+00]),
+                vectors.LorentzVector([-0.1031283270711509e-01,     0.5274052562103488e-01,     0.2694089739963054e-01,    -0.3016094127313255e+00]),
+                vectors.LorentzVector([ 0.8744382631132949e-01,    -0.1439660680884015e+00,    -0.2900615690571847e+00,    -0.1677299655433668e+01]),
+                vectors.LorentzVector([-0.3863445525252511e-01,     0.2503037814879582e-01,    -0.1989872023808945e-02,    -0.2317380284719265e+00]),
+                vectors.LorentzVector([-0.1638609443119325e+00,     0.2388016861961569e-01,     0.4606322903831265e-01,    -0.8597600332874225e+00]),
+                vectors.LorentzVector([ 0.6339609085730495e-01,    -0.5151857367262940e-01,     0.7732066709885181e-01,    -0.5629545569995255e+00]),
+                vectors.LorentzVector([ 0.1619398729338573e-01,     0.3826976752059603e-01,     0.7442114811470348e-01,    -0.4269170767622630e+00]),
+        ]),
+        analytic_result = 4.31638202447652633e-7j,
+        parameter_values = {'m1': 0.1, 'm2': 0.2, 'm3': 0.3, 'm4': 0.4, 'm5': 0.5,
+                            'm6': 0.6, 'm7': 0.7, 'm8': 0.8, 'm9': 0.9, 'm10': 1.0,
+                           },
+        name = 'Decagon_P2_no_ellipse_massive',
+    ),
+    entry_name = 'Decagon_P2_no_ellipse_massive'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
         'Decagon_ala_weinzierl', # Analytical result from MadLoop
         vectors.LorentzVectorList([
                 vectors.LorentzVector([ 0.4999749993749687e+00,     0.0000000000000000e+00,     0.0000000000000000e+00,     0.2500000000000000e+01]),
