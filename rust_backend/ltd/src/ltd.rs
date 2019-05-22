@@ -267,6 +267,8 @@ impl Topology {
                                         self.surfaces.push(Surface {
                                             group,
                                             ellipsoid: true,
+                                            pinched: surface_shift.square().abs()
+                                                < 1e-13 * self.e_cm_squared,
                                             cut_structure_index: cut_index,
                                             cut_option_index,
                                             cut: cut_option.clone(),
@@ -343,6 +345,7 @@ impl Topology {
                                         self.surfaces.push(Surface {
                                             group,
                                             ellipsoid: false,
+                                            pinched: false,
                                             cut_structure_index: cut_index,
                                             cut_option_index,
                                             cut: cut_option.clone(),
@@ -421,8 +424,8 @@ impl Topology {
 
             if self.settings.general.debug > 1 {
                 println!(
-                    "  | id={}, group={}, ellipsoid={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
-                    surf_index, s.group, s.ellipsoid, (s.onshell_ll_index, s.onshell_prop_index), CutList(&s.cut), s.sig_ll_in_cb,
+                    "  | id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
+                    surf_index, s.group, s.ellipsoid, s.pinched, (s.onshell_ll_index, s.onshell_prop_index), CutList(&s.cut), s.sig_ll_in_cb,
                     s.signs, s.delta_sign, s.shift
                 );
             }

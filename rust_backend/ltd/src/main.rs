@@ -443,8 +443,8 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
         }
 
         println!(
-            "-> group={}, ellipsoid={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
-            surf.group, surf.ellipsoid, (surf.onshell_ll_index, surf.onshell_prop_index), CutList(&surf.cut), surf.sig_ll_in_cb,
+            "-> group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
+            surf.group, surf.ellipsoid, surf.pinched, (surf.onshell_ll_index, surf.onshell_prop_index), CutList(&surf.cut), surf.sig_ll_in_cb,
             surf.signs, surf.delta_sign, surf.shift
         );
 
@@ -491,8 +491,8 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                             println!("Found point {}", res);
                         }
 
-                        // check the pole for ellipsoids
-                        if surf.ellipsoid {
+                        // check the pole for non-pinched ellipsoids
+                        if surf.ellipsoid && !surf.pinched {
                             // set the loop momenta
                             let (kappas, _) = topo.deform(&loop_momenta, None, &mut cache);
                             k_def = (0..topo.n_loops)
@@ -563,75 +563,69 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                             }
                         } else {
                             // check the dual cancelations by probing points close to the dual canceling surface
+                            // also check counterterms by going closer to pinched ellipsoids
                             let mut probes = [
                                 num::Complex::<f128::f128>::default(),
                                 num::Complex::<f128::f128>::default(),
                                 num::Complex::<f128::f128>::default(),
                             ];
-                            if !surf.ellipsoid {
-                                for (probe, lambda) in probes.iter_mut().zip(&[
-                                    1.000000001,
-                                    1.0000000089999991,
-                                    1.00000008999991,
-                                ]) {
-                                    if settings.general.debug > 4 {
-                                        println!("Testing lambda {}", lambda);
-                                    }
+                            for (probe, lambda) in probes.iter_mut().zip(&[
+                                1.000000001,
+                                1.0000000089999991,
+                                1.00000008999991,
+                            ]) {
+                                if settings.general.debug > 4 {
+                                    println!("Testing lambda {}", lambda);
+                                }
 
-                                    for lm in &mut loop_momenta {
-                                        *lm *= Into::<f128::f128>::into(*lambda);
-                                    }
+                                for lm in &mut loop_momenta {
+                                    *lm *= Into::<f128::f128>::into(*lambda);
+                                }
 
-                                    // set the loop momenta
-                                    let (kappas, _) = topo.deform(&loop_momenta, None, &mut cache);
-                                    k_def = (0..topo.n_loops)
-                                        .map(|i| {
-                                            loop_momenta[i]
-                                                .map(|x| num::Complex::new(x, f128::f128::zero()))
-                                                + kappas[i].map(|x| {
-                                                    num::Complex::new(f128::f128::zero(), x)
-                                                })
-                                        })
-                                        .collect();
+                                // set the loop momenta
+                                let (kappas, _) = topo.deform(&loop_momenta, None, &mut cache);
+                                k_def = (0..topo.n_loops)
+                                    .map(|i| {
+                                        loop_momenta[i]
+                                            .map(|x| num::Complex::new(x, f128::f128::zero()))
+                                            + kappas[i]
+                                                .map(|x| num::Complex::new(f128::f128::zero(), x))
+                                    })
+                                    .collect();
 
-                                    // do a full evaluation
-                                    if topo
-                                        .compute_complex_cut_energies(&k_def, &mut cache)
-                                        .is_ok()
+                                // do a full evaluation
+                                if topo
+                                    .compute_complex_cut_energies(&k_def, &mut cache)
+                                    .is_ok()
+                                {
+                                    for (cuts, mat) in
+                                        topo.ltd_cut_options.iter().zip(topo.cb_to_lmb_mat.iter())
                                     {
-                                        for (cuts, mat) in topo
-                                            .ltd_cut_options
-                                            .iter()
-                                            .zip(topo.cb_to_lmb_mat.iter())
-                                        {
-                                            for cut in cuts.iter() {
-                                                let v = topo
-                                                    .evaluate_cut(&mut k_def, cut, mat, &mut cache)
-                                                    .unwrap();
-                                                let ct = topo.counterterm(
-                                                    &k_def[..topo.n_loops],
-                                                    &mut cache,
-                                                );
-                                                *probe += v * (ct + f128::f128::one());
-                                            }
+                                        for cut in cuts.iter() {
+                                            let v = topo
+                                                .evaluate_cut(&mut k_def, cut, mat, &mut cache)
+                                                .unwrap();
+                                            let ct = topo
+                                                .counterterm(&k_def[..topo.n_loops], &mut cache);
+                                            *probe += v * (ct + f128::f128::one());
                                         }
                                     }
                                 }
+                            }
 
-                                let mut a: Vec<_> = probes.iter().map(|x| x.norm()).collect();
-                                a.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                            let mut a: Vec<_> = probes.iter().map(|x| x.norm()).collect();
+                            a.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-                                let pv: f128::f128 =
-                                    (a.last().unwrap() - a.first().unwrap()) / (a[a.len() / 2]);
+                            let pv: f128::f128 =
+                                (a.last().unwrap() - a.first().unwrap()) / (a[a.len() / 2]);
 
-                                if pv > Into::<f128::f128>::into(1e-3) {
-                                    println!(
-                                        "{}: pv={:e}, probes={:?}",
-                                        "Dual cancellation breakdown detected".red(),
-                                        pv,
-                                        probes
-                                    );
-                                }
+                            if pv > Into::<f128::f128>::into(1e-3) {
+                                println!(
+                                    "{}: pv={:e}, probes={:?}",
+                                    "Dual cancellation breakdown detected".red(),
+                                    pv,
+                                    probes
+                                );
                             }
                         }
                         did_break = true;
