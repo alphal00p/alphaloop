@@ -68,7 +68,8 @@ hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
         ext_mom={'q': q , '-q' : -q}, 
         mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0}, 
         loop_momenta_names=('p1', 'p5'), 
-        analytic_result= (-(6.*zeta(3))/((16.*(math.pi**2))**2*q.square()))
+        analytic_result= (-(6.*zeta(3))/((16.*(math.pi**2))**2*q.square())),
+        contour_closure = [0,0]
     ),
     entry_name = 'DoubleTriangle_no_ellipse'
 )
@@ -98,13 +99,13 @@ hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
 # non planar four loop
 non_planar_four_loop = TopologyGenerator([
     ('q', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),
-    ('p4', 4, 5), ('p5', 5, 1), ('p6', 4, 6), ('p7', 5, 6), 
-    ('p8', 6, 2),('p9', 5, 3), ('-q', 3, 7)
+    ('p4', 4, 1), ('p5', 5, 1), ('p6', 4, 6), ('p7', 5, 6), 
+    ('p8', 6, 2),('p9', 5, 3), ('-q', 7, 3)
 ])
 q = vectors.LorentzVector([ 0.1, 0.2, 0.3, 0.4])
 hard_coded_topology_collection.add_topology(non_planar_four_loop.create_loop_topology(
     'non_planar_four_loop',
-    ext_mom={'q': q},
+    ext_mom={'q': q, '-q': -q},
     loop_momenta_names=('p4', 'p5', 'p6', 'p7',),
     analytic_result = 36. * zeta(3)**2 /(16.*math.pi**2)**4 / q.square(),
     ),
@@ -115,14 +116,15 @@ hard_coded_topology_collection.add_topology(non_planar_four_loop.create_loop_top
 mercedes = TopologyGenerator([
     ('q', 0, 5), ('p0', 1, 5), ('p1', 5, 2), ('p2', 2, 3),
     ('p3', 3, 1), ('p4', 1, 4), ('p5', 2, 4), ('p6', 3, 4),
-    ('-q', 3, 6)
+    ('-q', 6, 3)
 ])
 q = vectors.LorentzVector([ 1., 3., 0., 0.])
 hard_coded_topology_collection.add_topology(mercedes.create_loop_topology(
     'mercedes',
-    ext_mom={'q': q},
+    ext_mom={'q': q, '-q': -q},
     loop_momenta_names=('p3', 'p4', 'p6',),
     analytic_result = 20. * zeta(5) * -1j/(16.*math.pi**2)**3 / q.square(),
+    contour_closure = [0,0,1],
     ),
     entry_name = 'mercedes'
 )
@@ -131,14 +133,15 @@ hard_coded_topology_collection.add_topology(mercedes.create_loop_topology(
 TriangleBoxTriangle = TopologyGenerator([
     ('q', 0, 1), ('p0', 1, 2), ('p1', 2, 3), ('p2', 3, 4),
     ('p3', 4, 5), ('p4', 5, 6), ('p5', 6, 1), ('p6', 6, 2),
-    ('p7', 5, 3), ('-q', 4, 7)
+    ('p7', 5, 3), ('-q', 7, 4)
 ])
 q = vectors.LorentzVector([ 1., 3., 0., 0.])
 hard_coded_topology_collection.add_topology(TriangleBoxTriangle.create_loop_topology(
     'TriangleBoxTriangle',
-    ext_mom={'q': q},
+    ext_mom={'q': q, '-q': -q},
     loop_momenta_names=('p5', 'p6', 'p7',),
     analytic_result = analytic_two_point_ladder(q.square(),3),
+    contour_closure = [0,0,1],
     ),
     entry_name = 'TriangleBoxTriangle'
 )
