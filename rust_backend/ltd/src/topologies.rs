@@ -14,6 +14,7 @@ use Settings;
 pub struct Surface {
     pub group: usize,
     pub ellipsoid: bool,
+    pub pinched: bool,
     pub cut_structure_index: usize,
     pub cut_option_index: usize,
     pub cut: Vec<Cut>,
