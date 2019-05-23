@@ -261,14 +261,13 @@ impl Topology {
                                 {
                                     if surface_shift.square()
                                         - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                        >= float::zero()
+                                        >= -1e-13 //float::zero()
                                         && surface_shift.t.multiply_sign(delta_sign) < float::zero()
                                     {
                                         self.surfaces.push(Surface {
                                             group,
                                             ellipsoid: true,
-                                            pinched: surface_shift.square().abs()
-                                                < 1e-13 * self.e_cm_squared,
+                                            pinched: surface_shift.square().abs()< 1e-13 * self.e_cm_squared,
                                             cut_structure_index: cut_index,
                                             cut_option_index,
                                             cut: cut_option.clone(),
@@ -302,7 +301,7 @@ impl Topology {
                                         (1, 1) => {
                                             surface_shift.square()
                                                 - (surface_mass - cut_mass_sum.abs()).powi(2)
-                                                <= float::zero()
+                                                <= -1e-13 //float::zero()
                                         }
                                         (1, _) | (_, 1) => {
                                             let mut eval = float::zero();

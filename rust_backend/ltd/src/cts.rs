@@ -66,6 +66,22 @@ impl Topology {
             self.aij(ip1, im1)
         }
     }
+    fn eval_porp_limit<T: FloatLike>(
+        &self,
+        eval_n: usize,
+        coll_n: usize,
+        x: &Complex<T>,
+        p: &LorentzVector<f64>,
+    ) -> LorentzVector<Complex<T>> {
+        let qij =
+            self.loop_lines[0].propagators[eval_n].q - self.loop_lines[0].propagators[coll_n].q;
+        LorentzVector {
+            t: x * T::from_f64(p.t).unwrap() + T::from_f64(qij.t).unwrap(),
+            x: x * T::from_f64(p.x).unwrap() + T::from_f64(qij.x).unwrap(),
+            y: x * T::from_f64(p.y).unwrap() + T::from_f64(qij.y).unwrap(),
+            z: x * T::from_f64(p.z).unwrap() + T::from_f64(qij.z).unwrap(),
+        }
+    }
 
     pub fn counterterm<T: FloatLike>(
         &self,
@@ -107,25 +123,51 @@ impl Topology {
                 //Compute CT
                 if use_collinear_ct && props.len() == 4 && self.on_shell_flag == 8 {
                     let mut ct_numerator: Complex<T> = Complex::default();
+                    //Incoming external: p[n]=q[n]-q[n-1]
+                    let x4 =
+                        self.collinear_x(&kqs[3], &(ll.propagators[3].q - ll.propagators[2].q)); //)self.external_kinematics[3]);
 
-                    let x4 = self.collinear_x(&kqs[2], &self.external_kinematics[3]);
-                    let x4b: Complex<T> = Complex::new(T::one(), T::zero()) - x4;
+                    let mu_sq = Complex::new(T::zero(), T::from_f64(1e9).unwrap());
 
-                    let s = (kqs[1] - kqs[3]).square();
-                    let t = (kqs[0] - kqs[2]).square();
-
-                    let m1 = T::from_f64((self.external_kinematics[0]).square()).unwrap();
-                    let m3 = T::from_f64((self.external_kinematics[2]).square()).unwrap();
-
-                    let mu_sq = Complex::new(T::zero(), T::from_f64(1e3).unwrap());
-
-                    ct_numerator -= utils::finv((x4b * t + x4 * m1) * (x4 * s + x4b * m3))
-                        * (props[0] * props[1])
-                        * mu_sq
+                    let ct_uv = mu_sq
                         * (mu_sq - props[2] - props[3])
-                        * utils::finv(mu_sq - props[2])
-                        * utils::finv(mu_sq - props[3]);
+                        * utils::finv(props[2] - mu_sq)
+                        * utils::finv(props[3] - mu_sq);
 
+                    if x4.re > T::zero() && x4.re < T::one() {
+                        // Use explicit expression or limits to compute the coutnerterms
+                        ct_numerator -= if false {
+                            let s = (kqs[1] - kqs[3]).square();
+                            let t = (kqs[0] - kqs[2]).square();
+
+                            let m1 = T::from_f64((self.external_kinematics[0]).square()).unwrap();
+                            let m3 = T::from_f64((self.external_kinematics[2]).square()).unwrap();
+
+                            let x4b: Complex<T> = Complex::new(T::one(), T::zero()) - x4;
+
+                            utils::finv((x4 * t + x4b * m1) * (x4b * s + x4 * m3))
+                                * (props[0] * props[1])
+                                * ct_uv
+                        } else {
+                            let prop0_c4 = self
+                                .eval_porp_limit(
+                                    0,
+                                    3,
+                                    &x4,
+                                    &(ll.propagators[3].q - ll.propagators[2].q),
+                                )
+                                .square();
+                            let prop1_c4 = self
+                                .eval_porp_limit(
+                                    1,
+                                    3,
+                                    &x4,
+                                    &(ll.propagators[3].q - ll.propagators[2].q),
+                                )
+                                .square();
+                            utils::finv(prop0_c4 * prop1_c4) * (props[0] * props[1]) * ct_uv
+                        };
+                    }
                     ct_numerator
                 } else {
                     /*
