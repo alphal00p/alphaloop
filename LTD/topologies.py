@@ -76,9 +76,9 @@ hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
 
 # double box
 doublebox = TopologyGenerator([
-    ('q1', 101, 1), ('q1', 102, 2), ('q1', 103, 3), ('q1', 104, 4),
-    ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
-    ('p5', 6, 3), ('p6', 3, 4), ('p7', 4, 7)
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
 ])
 q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
 q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])

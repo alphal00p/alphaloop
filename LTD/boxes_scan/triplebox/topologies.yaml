@@ -1,0 +1,1298 @@
+- analytical_result_imag: -2.2036327882056256e-06
+  analytical_result_real: 0.0
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [-1.118033988749895, -0.4714045207910317, -1.3333333333333333, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [1.118033988749895, 0.4714045207910317, 1.3333333333333333, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_0
+- analytical_result_imag: -2.1297853872025556e-06
+  analytical_result_real: 7.237089232580284e-24
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [1.118033988749895, -0.4714045207910317, -1.3333333333333333, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-1.118033988749895, 0.4714045207910317, 1.3333333333333333, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_1
+- analytical_result_imag: -1.8327311908833602e-06
+  analytical_result_real: -1.7333233199838142e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [21.242645786248, -7.086763875156432, -20.044395171163874, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-21.242645786248, 7.086763875156432, 20.044395171163874, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_10
+- analytical_result_imag: -1.8125842881697738e-06
+  analytical_result_real: 1.5814179117011372e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [23.47871376374779, -7.831560082980485, -22.150996967781527, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-23.47871376374779, 7.831560082980485, 22.150996967781527, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_11
+- analytical_result_imag: -1.793641923219016e-06
+  analytical_result_real: 3.246729252787498e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [25.71478174124758, -8.576453553512405, -24.25787386488033, -0.49999999999999994]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-25.71478174124758, 8.576453553512405, 24.25787386488033, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_12
+- analytical_result_imag: -1.7757616652952551e-06
+  analytical_result_real: -1.2967175486288943e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [27.95084971874737, -9.321420969406375, -26.364959911046917, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-27.95084971874737, 9.321420969406375, 26.364959911046917, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_13
+- analytical_result_imag: -1.7588259395664846e-06
+  analytical_result_real: -2.772396916371213e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [30.18691769624716, -10.066445913694333, -28.4722086720835, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-30.18691769624716, 10.066445913694333, 28.4722086720835, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_14
+- analytical_result_imag: -1.7427364083718456e-06
+  analytical_result_real: 2.003477455250217e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [32.42298567374695, -10.81151649348457, -30.579586509812575, -0.49999999999999994]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-32.42298567374695, 10.81151649348457, 30.579586509812575, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_15
+- analytical_result_imag: -1.7274098841042277e-06
+  analytical_result_real: -1.6804555521789156e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [34.65905365124674, -11.55662388223981, -32.68706845901671, -0.5000000000000001]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-34.65905365124674, 11.55662388223981, 32.68706845901671, -0.4999999999999999]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_16
+- analytical_result_imag: -1.7127752920683893e-06
+  analytical_result_real: 1.811201916642016e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [36.89512162874653, -12.301761391497287, -34.79463560186636, -0.49999999999999994]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-36.89512162874653, 12.301761391497287, 34.79463560186636, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_17
+- analytical_result_imag: -1.6987713712700665e-06
+  analytical_result_real: 1.0313134656444884e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [39.131189606246316, -13.046923860520618, -36.90227334159479, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-39.131189606246316, 13.046923860520618, 36.90227334159479, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_18
+- analytical_result_imag: -1.685344905276527e-06
+  analytical_result_real: 2.8196408160250736e-31
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [41.36725758374611, -13.792107243718132, -39.00997023554078, -0.49999999999999994]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-41.36725758374611, 13.792107243718132, 39.00997023554078, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_19
+- analytical_result_imag: -2.07555081379121e-06
+  analytical_result_real: 0.0
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [3.3541019662496843, -1.1547005383792515, -3.2659863237109037, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-3.3541019662496843, 1.1547005383792515, 3.2659863237109037, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_2
+- analytical_result_imag: -1.6724493411021524e-06
+  analytical_result_real: 7.078461007732757e-31
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [43.603325561245896, -14.537308324904348, -41.11771718695806, -0.49999999999999994]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-43.603325561245896, 14.537308324904348, 41.11771718695806, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_20
+- analytical_result_imag: -1.6600436970866388e-06
+  analytical_result_real: -5.937533634842392e-31
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [45.83939353874569, -15.2825245151302, -43.22550687319288, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-45.83939353874569, 15.2825245151302, 43.22550687319288, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_21
+- analytical_result_imag: -2.03116450320575e-06
+  analytical_result_real: 1.5033346447980235e-29
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [5.590169943749474, -1.8856180831641267, -5.333333333333334, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-5.590169943749474, 1.8856180831641267, 5.333333333333334, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_3
+- analytical_result_imag: -1.993132681109291e-06
+  analytical_result_real: 1.2691776242803696e-29
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [7.826237921249263, -2.6246692913372702, -7.423685817106696, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-7.826237921249263, 2.6246692913372702, 7.423685817106696, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_4
+- analytical_result_imag: -1.959654610908508e-06
+  analytical_result_real: 3.190161979951375e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [10.062305898749052, -3.3665016461206925, -9.521904571390467, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-10.062305898749052, 3.3665016461206925, 9.521904571390467, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_5
+- analytical_result_imag: -1.9296457076494634e-06
+  analytical_result_real: 2.558505298421456e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [12.298373876248842, -4.10960933531265, -11.623730516108463, -0.49999999999999994]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-12.298373876248842, 4.10960933531265, 11.623730516108463, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_6
+- analytical_result_imag: -1.9023897740932214e-06
+  analytical_result_real: -6.031980735136871e-31
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [14.534441853748632, -4.85340659285368, -13.727506854649334, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-14.534441853748632, 4.85340659285368, 13.727506854649334, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_7
+- analytical_result_imag: -1.877383695479811e-06
+  analytical_result_real: 3.767079330359931e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [16.77050983124842, -5.597618541248887, -15.832456116050555, -0.49999999999999994]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-16.77050983124842, 5.597618541248887, 15.832456116050555, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_8
+- analytical_result_imag: -1.854257836487598e-06
+  analytical_result_real: 3.210277534375e-30
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [19.00657780874821, -6.342099196813482, -17.938165396098277, -0.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-19.00657780874821, 6.342099196813482, 17.938165396098277, -0.5]
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, 0, 0]
+    start_node: 7
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [-1, 1, 0]
+    start_node: 7
+  - end_node: 7
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [0, 0, 1]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [-2.23606797749979, 0.0, 0.0, -5.0]
+    - m_squared: 0.0
+      q: [-1.118033988749895, 0.0, 0.0, -2.5]
+    signature: [1, -1, 1]
+    start_node: 6
+  ltd_cut_structure:
+  - [0, 0, -1, -1, 1]
+  - [0, -1, -1, 0, -1]
+  - [0, -1, -1, -1, 0]
+  - [-1, 0, 0, -1, 1]
+  - [1, 0, -1, 0, -1]
+  - [1, 0, -1, -1, 0]
+  - [-1, -1, 0, 0, -1]
+  - [-1, -1, 0, -1, 0]
+  n_loops: 3
+  name: topology_name_9

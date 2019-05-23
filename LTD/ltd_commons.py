@@ -1,10 +1,8 @@
 #!/usr/bin/env python2
 import os
+import sys
 
-from ltd_utils import HyperParameters 
-from topologies import hard_coded_topology_collection
-
-hard_coded_topology_collection = hard_coded_topology_collection
+from ltd_utils import HyperParameters
 
 #############################################################################################################
 # Define and store hyperparameters
@@ -121,11 +119,18 @@ hyperparameters = HyperParameters({
 })
 
 
-def synchronize(root_dir = ''):
+def synchronize(root_dir = '', sync_topologies=False):
     # Synchronise the database of hard-coded topologies to the yaml data base that Rust can easily import
-    hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
+    # The synchronisation of topologies can take some time, so let's not do that just systematically
+    if sync_topologies:
+        from topologies import hard_coded_topology_collection
+        hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
+        print("Synchronised topologies.yaml")
+    
     hyperparameters.export_to(os.path.join(root_dir, 'hyperparameters.yaml'))
+    print("Synchronised hyperparameters.yaml")
 
 # Main synchronises yaml file to python records
 if __name__ == '__main__':
-    synchronize()
+    sync_topologies = any(('sync_topo' in arg.lower() or 'full' in arg.lower()) for arg in sys.argv)
+    synchronize(sync_topologies=sync_topologies)

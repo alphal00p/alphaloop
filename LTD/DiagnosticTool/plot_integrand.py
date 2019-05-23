@@ -83,8 +83,8 @@ plot_lines = {
 x_values = []
 #min_x = 0.15619610
 #max_x = 0.15619612
-min_x = 0.4
-max_x = 0.6
+min_x = 0.0
+max_x = 1.0
 # Problem at [0.4474308180164988, 0.6249338072526623, 0.32786022901064904]
 #min_x = 0.4476
 #max_x = 0.4478
@@ -124,7 +124,7 @@ for t in range(1,N_points+1):
             #plot_lines['%d_%d_im'%(d[0][0],d[1][0])]=[v.imag,]
 
 selected = ['integrand_re', 'integrand_im', '0_0_re', '0_0_im', '0_1_re', '0_1_im','deform_jac_re', 'deform_jac_im','ALL']
-veto_list=['param_jac',]
+veto_list=['param_jac','deform_jac_im']
 
 
 #lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
@@ -144,6 +144,6 @@ for line_name, (x_data, y_data) in lines:
     else:
         plt.plot(x_data, y_data, label=line_name)
 
-#plt.yscale('log')
+plt.yscale('log')
 plt.legend(bbox_to_anchor=(0.75, 0.5))
 plt.show()
