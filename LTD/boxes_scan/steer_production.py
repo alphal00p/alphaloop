@@ -54,7 +54,11 @@ def load_results_from_yaml(log_file_path):
 
 def run_topology(topo,dir_name, index, local=True):
     """ Run topology of specified index and directory locally or on a SLURM scheduled cluster."""
-    print("Now running %s topology #%d"%(dir_name, index))
+    if _RUN_LOCALLY:
+       print "Now running %s topology #%d"%(dir_name, index)
+    else:
+       print "Now launch job for %s topology #%d"%(dir_name, index)
+
     cmd = [ rust_executable_path, 
             '-t','scan_%d'%index, 
             '-f','%s'%pjoin(root_path,dir_name,'hyperparameters.yaml'), 
@@ -62,11 +66,26 @@ def run_topology(topo,dir_name, index, local=True):
             '-c','%d'%_N_CORES
     ]
     
+    n_hours = {'box': 1, 'doublebox':10, 'triplebox':24}
+
     #print(' '.join(cmd))
-    with ltd_utils.Silence(active=_SILENCE):
-        subprocess.call(cmd, cwd=pjoin(root_path,dir_name))
-        # Sleep for a very short while to allow output file flushing
-        time.sleep(0.3)
+    if _RUN_LOCALLY:
+    	with ltd_utils.Silence(active=_SILENCE):
+        	subprocess.call(cmd, cwd=pjoin(root_path,dir_name))
+        	# Sleep for a very short while to allow output file flushing
+        	time.sleep(0.3)
+    else:
+        submission_script = open(pjoin(root_path,'submission_template.run'),'r').read()
+        open(pjoin(root_path,'submitter.run'),'w').write(submission_script%{
+		'job_name' : '%s_scan_%d'%(dir_name, index),
+                'n_hours' : n_hours[dir_name],
+                'n_cpus_per_task' :24,
+                'output' : '$SCRATCH/LTD_runs/logs/%s_scan_%d.out'%(dir_name, index),
+                'error' : '$SCRATCH/LTD_runs/logs/%s_scan_%d.err'%(dir_name, index),
+                'executable_line' : ' '.join(cmd)
+	})
+        subprocess.call(['sbatch','submitter.run'], cwd=root_path)
+        return    
 
     result_path = pjoin(root_path,dir_name,'scan_%d_res.dat'%index)
     if not os.path.isfile(result_path):
@@ -132,13 +151,17 @@ if __name__ == '__main__':
 
     if any('quiet' in arg for arg in sys.argv[1:]):
         _SILENCE = True
+        
+    if any('cluster' in arg for arg in sys.argv[1:]):
+	_RUN_LOCALLY = False
+        _N_CORES = 36
 
     if any('clean' in arg for arg in sys.argv[1:]):
         _CLEAN = True
 
     if any('gather' in arg for arg in sys.argv[1:]):
 
-        if any('box' in arg for arg in sys.argv[1:]):     
+        if any('singlebox' in arg for arg in sys.argv[1:]):     
             # Gather box results
             topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'box','topologies.yaml')) 
             gather_result(topologies, 'box', _CLEAN)
@@ -155,14 +178,14 @@ if __name__ == '__main__':
 
     if any('run' in arg for arg in sys.argv[1:]):
 
-        if any('box' in arg for arg in sys.argv[1:]):
+        if any('singlebox' in arg for arg in sys.argv[1:]):
             # Run box
             
             # First refresh configuration files
             box_hyperparams = copy.deepcopy(general_hyperparams)
             box_hyperparams['General']['absolute_precision'] = 1.0e+5
             box_hyperparams['Integrator']['integrator'] = 'cuhre'
-            box_hyperparams['Integrator']['n_max'] = int(1e6)
+            box_hyperparams['Integrator']['n_max'] = int(1e7)
             box_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'box')+'/'            
             box_hyperparams.export_to(os.path.join(root_path, 'box','hyperparameters.yaml'))
 

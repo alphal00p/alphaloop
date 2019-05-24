@@ -1,7 +1,7 @@
 F2PY = f2py
 FC = gfortran
-ONELOOP_LIB_PATH = <SPECIFY_HERE_YOUR_ONELOOP_LIB_PATH>
-ONELOOP_INC_PATH = <SPECIFY_HERE_YOUR_ONELOOP_INC_PATH>
+ONELOOP_LIB_PATH = /users/hirschva/MG5/HEPTools/oneloop
+ONELOOP_INC_PATH = /users/hirschva/MG5/HEPTools/oneloop
 #ONELOOP_LIB_PATH = /Users/valentin/Documents/MG5/HEPTools/oneloop
 #ONELOOP_INC_PATH = /Users/valentin/Documents/MG5/HEPTools/oneloop
 
