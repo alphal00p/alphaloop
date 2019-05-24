@@ -80,8 +80,8 @@ def run_topology(topo,dir_name, index, local=True):
 		'job_name' : '%s_scan_%d'%(dir_name, index),
                 'n_hours' : n_hours[dir_name],
                 'n_cpus_per_task' :24,
-                'output' : '$SCRATCH/LTD_runs/logs/%s_scan_%d.out'%(dir_name, index),
-                'error' : '$SCRATCH/LTD_runs/logs/%s_scan_%d.err'%(dir_name, index),
+                'output' : '%s/LTD_runs/logs/%s_scan_%d.out'%(os.environ['SCRATCH'], dir_name, index),
+                'error' : '%s/LTD_runs/logs/%s_scan_%d.err'%(os.environ['SCRATCH'], dir_name, index),
                 'executable_line' : ' '.join(cmd)
 	})
         subprocess.call(['sbatch','submitter.run'], cwd=root_path)
