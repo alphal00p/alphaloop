@@ -30,6 +30,7 @@ general_hyperparams['Integrator']['integrator'] = 'vegas'
 general_hyperparams['Integrator']['n_start'] = int(1e7)
 general_hyperparams['Integrator']['n_max'] = int(1e10)
 general_hyperparams['Integrator']['n_increase'] = int(1e6)
+general_hyperparams['Integrator']['seed'] = 1
 general_hyperparams['Parameterization']['mode'] = 'spherical'
 general_hyperparams['Parameterization']['mapping'] = 'log'
 general_hyperparams['Parameterization']['b'] = 1.0
@@ -142,6 +143,16 @@ if __name__ == '__main__':
             topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'box','topologies.yaml')) 
             gather_result(topologies, 'box', _CLEAN)
 
+        if any('doublebox' in arg for arg in sys.argv[1:]):     
+            # Gather box results
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'doublebox','topologies.yaml')) 
+            gather_result(topologies, 'box', _CLEAN)
+
+        if any('triplebox' in arg for arg in sys.argv[1:]):     
+            # Gather box results
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'triplebox','topologies.yaml')) 
+            gather_result(topologies, 'triplebox', _CLEAN)
+
     if any('run' in arg for arg in sys.argv[1:]):
 
         if any('box' in arg for arg in sys.argv[1:]):
@@ -160,3 +171,43 @@ if __name__ == '__main__':
             for index in range(1, n_topologies+1):
                 run_topology(topologies['scan_%d'%index],'box', index, _RUN_LOCALLY)
 
+
+        if any('doublebox' in arg for arg in sys.argv[1:]):
+            # Run box
+            
+            # First refresh configuration files
+            doublebox_hyperparams = copy.deepcopy(general_hyperparams)
+            doublebox_hyperparams['General']['relative_precision'] = 5.            
+            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-5
+            doublebox_hyperparams['Integrator']['integrator'] = 'vegas'
+            doublebox_hyperparams['Integrator']['n_start'] = int(1e6)
+            doublebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
+            doublebox_hyperparams['Integrator']['n_max'] = int(1e8)
+            doublebox_hyperparams['Integrator']['seed'] = 1            
+            doublebox_hyperparams.export_to(os.path.join(root_path, 'doublebox','hyperparameters.yaml'))
+
+            # Get topologies
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'doublebox','topologies.yaml'))
+            n_topologies = len(topologies)
+            for index in range(1, n_topologies+1):
+                run_topology(topologies['scan_%d'%index],'doublebox', index, _RUN_LOCALLY)
+
+        if any('triplebox' in arg for arg in sys.argv[1:]):
+            # Run box
+            
+            # First refresh configuration files
+            triplebox_hyperparams = copy.deepcopy(general_hyperparams)
+            triplebox_hyperparams['General']['relative_precision'] = 5.            
+            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-5
+            triplebox_hyperparams['Integrator']['integrator'] = 'vegas'
+            triplebox_hyperparams['Integrator']['n_start'] = int(1e7)
+            triplebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
+            triplebox_hyperparams['Integrator']['n_max'] = int(1e9)
+            triplebox_hyperparams['Integrator']['seed'] = 1            
+            triplebox_hyperparams.export_to(os.path.join(root_path, 'triplebox','hyperparameters.yaml'))
+
+            # Get topologies
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'triplebox','topologies.yaml'))
+            n_topologies = len(topologies)
+            for index in range(1, n_topologies+1):
+                run_topology(topologies['scan_%d'%index],'triplebox', index, _RUN_LOCALLY)
