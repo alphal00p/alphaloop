@@ -320,7 +320,7 @@ class TopologyGenerator(object):
             if cancelling_residue in residues:
                 residues.remove(cancelling_residue)
                 residues.remove(residue_i)
-        if len(residues) != residues[-1][0][0] + 1:
+        if not all(all(theta==[] for theta in residue[1]) for residue in residues):
             print('Error: thetas left in residue: %s' % residues)
         return residues
 
