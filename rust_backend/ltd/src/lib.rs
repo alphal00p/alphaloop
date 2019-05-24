@@ -513,7 +513,34 @@ py_class!(class LTD |py| {
             Err(_) => Ok((0., 0.))
         }
     }  
-    
+
+    def evaluate_cut_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
+        let topo = self.topo(py).borrow();
+        let mut cache = self.cache_f128(py).borrow_mut();
+
+        let mut moms = ArrayVec::new();
+        for l in loop_momenta {
+            moms.push(LorentzVector::from_args(
+                Complex::new(f128::f128::zero(), f128::f128::zero()),
+                Complex::new(f128::f128::from_f64(l[0].0).unwrap(), f128::f128::from_f64(l[0].1).unwrap()),
+                Complex::new(f128::f128::from_f64(l[1].0).unwrap(), f128::f128::from_f64(l[1].1).unwrap()),
+                Complex::new(f128::f128::from_f64(l[2].0).unwrap(), f128::f128::from_f64(l[2].1).unwrap())));
+        }
+
+        // FIXME: recomputed every time
+        if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
+            return Ok((0., 0.));
+        }
+
+        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
+
+        match topo.evaluate_cut::<f128::f128>(&mut moms, cut, mat, &mut cache) {
+            Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
+            Err(_) => Ok((0., 0.))
+        }
+    }
+
     def evaluate_cut_ct(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache(py).borrow_mut();
@@ -541,8 +568,8 @@ py_class!(class LTD |py| {
             res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
         }
     }
-
-    def evaluate_cut_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
+    
+    def evaluate_cut_ct_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache_f128(py).borrow_mut();
 
@@ -559,13 +586,14 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
-
+        
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
+        let v = topo.evaluate_cut::<f128::f128>(&mut moms, cut, mat, &mut cache).unwrap();
+        let ct = topo.counterterm::<f128::f128>(&moms[..topo.n_loops], &mut cache);
 
-        match topo.evaluate_cut::<f128::f128>(&mut moms, cut, mat, &mut cache) {
-            Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
-            Err(_) => Ok((0., 0.))
+        match v*(Complex::new(f128::f128::from_f64(1.0).unwrap(), f128::f128::zero())+ct){
+            res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
         }
     }
 
