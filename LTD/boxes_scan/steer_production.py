@@ -169,7 +169,7 @@ if __name__ == '__main__':
         if any('doublebox' in arg for arg in sys.argv[1:]):     
             # Gather box results
             topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'doublebox','topologies.yaml')) 
-            gather_result(topologies, 'box', _CLEAN)
+            gather_result(topologies, 'doublebox', _CLEAN)
 
         if any('triplebox' in arg for arg in sys.argv[1:]):     
             # Gather box results
@@ -183,9 +183,11 @@ if __name__ == '__main__':
             
             # First refresh configuration files
             box_hyperparams = copy.deepcopy(general_hyperparams)
+            box_hyperparams['General']['relative_precision'] = -10.
             box_hyperparams['General']['absolute_precision'] = 1.0e+5
             box_hyperparams['Integrator']['integrator'] = 'cuhre'
             box_hyperparams['Integrator']['n_max'] = int(1e7)
+            box_hyperparams['Integrator']['integrated_phase'] = 'imag'
             box_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'box')+'/'            
             box_hyperparams.export_to(os.path.join(root_path, 'box','hyperparameters.yaml'))
 
@@ -202,12 +204,13 @@ if __name__ == '__main__':
             # First refresh configuration files
             doublebox_hyperparams = copy.deepcopy(general_hyperparams)
             doublebox_hyperparams['General']['relative_precision'] = 5.            
-            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-5
+            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-10
             doublebox_hyperparams['Integrator']['integrator'] = 'vegas'
             doublebox_hyperparams['Integrator']['n_start'] = int(1e6)
             doublebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
             doublebox_hyperparams['Integrator']['n_max'] = int(1e8)
             doublebox_hyperparams['Integrator']['seed'] = 1
+            doublebox_hyperparams['Integrator']['integrated_phase'] = 'real'
             doublebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'doublebox')+'/'            
             doublebox_hyperparams.export_to(os.path.join(root_path, 'doublebox','hyperparameters.yaml'))
 
@@ -222,13 +225,14 @@ if __name__ == '__main__':
             
             # First refresh configuration files
             triplebox_hyperparams = copy.deepcopy(general_hyperparams)
-            triplebox_hyperparams['General']['relative_precision'] = 5.            
-            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-5
+            triplebox_hyperparams['General']['relative_precision'] = 5.       
+            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-10
             triplebox_hyperparams['Integrator']['integrator'] = 'vegas'
             triplebox_hyperparams['Integrator']['n_start'] = int(1e7)
             triplebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
             triplebox_hyperparams['Integrator']['n_max'] = int(1e9)
             triplebox_hyperparams['Integrator']['seed'] = 1
+            triplebox_hyperparams['Integrator']['integrated_phase'] = 'imag'
             triplebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'triplebox')+'/'            
             triplebox_hyperparams.export_to(os.path.join(root_path, 'triplebox','hyperparameters.yaml'))
 
