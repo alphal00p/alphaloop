@@ -2,7 +2,7 @@
 
 class LTD: #one loop
 	
-	def __init__(self,config_string):
+	def __init__(self,config_string,numerator=None):
 		self.p_i, self.m_i = self.__select_config(config_string)
 		self.n,self.dim = [len(self.m_i), len(self.p_i[0]) - 1]
 		self.scale = self.get_scale()
@@ -14,7 +14,11 @@ class LTD: #one loop
 		self.max_scaling = 0.1
 		print 'Max. deformation scaling = ', self.max_scaling
 		self.curr_min_scaling = self.max_scaling
-	
+		if numerator == None:
+			self.numerator = 1.
+		else:
+			self.numerator = lambda loop_four_momentum: numerator(loop_four_momentum)
+
 	def __select_config(self,s):
 		if s == '3d_bub':
 			m1 = 0.
@@ -138,6 +142,14 @@ class LTD: #one loop
 			m1 = m3 = 64.67282
 			m2 = m4 = 51.13181
 			p_i = [p1,p2,p3]
+			m_i = [m1,m2,m3,m4]
+		elif s == 'qq_aa':
+			p1 = numpy.array([ 1.,-1., 0., 0.])
+			p2 = numpy.array([ 1., 0., 1., 0.])
+			p3 = numpy.array([-1., 1., 0., 0.])
+			m1 = m3 = 0.
+			m2 = m4 = 0.
+			p_i = [p1,p2,p3]
 			m_i = [m1,m2,m3,m4]	
 		else:
 			print "No configuration with name ", s, " found." 
@@ -182,6 +194,8 @@ class LTD: #one loop
 						sing_matrix[i,j] = 'E'
 					elif k_ji[0]**2 - self.norm(k_ji[1:])**2 - (self.m_i[j]-self.m_i[i])**2 < 0.:
 						sing_matrix[i,j] = 'H'
+					elif k_ji[0]**2 - self.norm(k_ji[1:])**2 - (self.m_i[j]-self.m_i[i])**2 == 0.:
+						sing_matrix[i,j] = 'c'
 					else:
 						sing_matrix[i,j] = '0'
 				else:
@@ -240,8 +254,11 @@ class LTD: #one loop
 		delta_factor = 1./(2.*q_i0p[which])
 		propagators = [1./self.inv_G_D(q_i0p[which],q_j0p,self.k_i[j][0]-self.k_i[which][0])
 									for j,q_j0p in enumerate(q_i0p) if j != which]
-
-		return residue_factor*delta_factor*numpy.prod(propagators)
+		numerator_fct = self.numerator([q_i0p[which]-self.k_i[which][0],
+										l_space[0],
+										l_space[1],
+										l_space[2]])
+		return residue_factor*delta_factor*numpy.prod(propagators)*numerator_fct
 	
 	def parametrize_numerical(self,random):
 		random_dual = [0.]*self.dim
@@ -399,6 +416,35 @@ class LTD: #one loop
 				real_vegas3_integrator.map.show_grid()
 				imag_vegas3_integrator.map.show_grid()
 		return [real_result,imag_result]
+
+	def cuba_integrate(self,integrand,integrator_name='vegas',**opts):
+		self.n_bad_points = 0
+		def cuba_integrand(ndim,xx,ncomp,ff,userdata):
+			random_variables = [xx[i] for i in range(ndim.contents.value)]
+			result = integrand(random_variables)
+			if numpy.isfinite(result):
+				ff[0] = result.real
+				ff[1] = result.imag
+			else:
+				self.n_bad_points += 1
+				print 'bad point = ', self.n_bad_points
+				ff[0] = 0.
+				ff[1] = 0.
+			return 0
+		
+		opts = {'ndim': 3,
+				'ncomp': 2,
+				'maxeval': 1000000,
+				'mineval': 1000000,
+				'seed': 1,
+				'verbose': 1,
+				#'nincrease': 100, #vegas only
+				}
+
+		if integrator_name=='vegas':
+			print pycuba.Vegas(cuba_integrand, **opts)
+		elif integrator_name=='cuhre':
+			print pycuba.Cuhre(cuba_integrand, **opts)
 
 	def rot(self,k,n,cos_theta):
 		l = n*(numpy.dot(n,k)) + cos_theta*numpy.cross(numpy.cross(n,k),n)+numpy.sqrt(1.-cos_theta**2)*numpy.cross(n,k)
@@ -649,6 +695,10 @@ if __name__ == "__main__":
 	import adipy as adipy
 	import time
 	import itertools
+	import pycuba
+
+	import python_integrands.QQAA_numerator as QQAA_numerator
+	import vectors
 	#import warnings
 	#warnings.simplefilter("error")
 	#warnings.simplefilter("ignore", DeprecationWarning)
@@ -657,8 +707,28 @@ if __name__ == "__main__":
 
 	print '='*(2*36+7) + '\n' + '='*36+' hello '+'='*36 + '\n' + '='*(2*36+7)
 	
-	my_LTD = LTD('P3')
-	my_LTD.test_sign_on_fb_intersect(N=1000)
+	#Zhou vs Dario loop momentum
+	# l_zhou = l_dario + p1
+
+	my_LTD = LTD('qq_aa')
+	PS_point = [vectors.LorentzVector(p) for p in my_LTD.p_i]+[vectors.LorentzVector(-sum(my_LTD.p_i))]
+	QQAA = QQAA_numerator.Amplitude('qq_aa')
+	my_numerator = lambda loop_momentum: QQAA(PS_point,vectors.LorentzVector([loop_momentum+my_LTD.k_i[0]]))
+	my_LTD = LTD('qq_aa',my_numerator)
+
+	#with massless kinematics
+	#p1 = numpy.array([ 1.,-1., 0., 0.])
+	#p2 = numpy.array([ 1., 0., 1., 0.])
+	#p3 = numpy.array([-1., 1., 0., 0.])
+	#p4 = -p1-p2-p3
+	#and UV cut at random_variables[0] < 0.9
+	#with vegas (cuhre doesn't converge) converge to
+	#Iteration 9:  27000 integrand evaluations so far
+	#[1] 0.00121004 +- 0.000563324  	chisq 6.00819 (8 df)
+	#[2] -0.00104145 +- 0.000582589  	chisq 9.79345 (8 df)
+
+
+	#my_LTD.test_sign_on_fb_intersect(N=1000)
 
 	#pair = [0,1]
 	#k_a, m_a, k_b, m_b = my_LTD.k_i[pair[0]],my_LTD.m_i[pair[0]],my_LTD.k_i[pair[1]],my_LTD.m_i[pair[1]]
@@ -670,7 +740,8 @@ if __name__ == "__main__":
 	#integr([0.3,0.5,0.9])
 	#stop
 
-	result = my_LTD.integrate(integr,N_refine=1000,share_grid=False)
+	#result = my_LTD.integrate(integr,N_refine=1000,share_grid=False)
+	result = my_LTD.cuba_integrate(integr,integrator_name='vegas')
 	
 	print '='*(2*36+7)
 	print 'I = ', result[0], '+ i',result[1]

@@ -24,6 +24,10 @@ class Contribution(object):
     def prop(p, m_squared):
         return 1./(p.square()-m_squared)
 
+    @staticmethod
+    def inv_prop(p, m_squared):
+        return p.square()-m_squared
+
 class Diagram(Contribution):
 
     def __init__(self, identifier, parameters, **opts):

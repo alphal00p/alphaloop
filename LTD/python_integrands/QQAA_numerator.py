@@ -17,6 +17,7 @@ class Diagram(integrand.Diagram):
         l       = loop_momenta[0]
         params  = self.parameters 
         prop    = self.prop
+        inv_prop= self.inv_prop
         si      = spin_index  # spin_index helps us to sum over all spins/polarizations
 
         def compute_polarization(p): # only for massless case
@@ -79,11 +80,12 @@ class Diagram(integrand.Diagram):
             )
 
         # Define a common propagator factor
-        box = prop(l, 0.)*prop(ps[0]-l, 0.)*prop(ps[1]+l, 0.)*prop(ps[0]+ps[3]-l, 0.)
+        #box = prop(l, 0.)*prop(ps[0]-l, 0.)*prop(ps[1]+l, 0.)*prop(ps[0]+ps[3]-l, 0.)
 
         # Loop diagrams
                 
         if self.identifier == 'D1N':
+            """
             return (
                 -params['alpha_ew']*4*np.pi*params['alpha_s']*4*np.pi*params['C_F']
                 *(1./invs['s14'])
@@ -91,8 +93,17 @@ class Diagram(integrand.Diagram):
                 *compute_gamma_chain(vbar,u, [-1, 5, 1, 6, -1, 3, 2], vecs)
                 /box
             )
+            """
+            # same function as above but simplified, necessary because otherwise divide and multiply by 0 sometimes
+            return (
+                -params['alpha_ew']*4*np.pi*params['alpha_s']*4*np.pi*params['C_F']
+                *(1./invs['s14'])
+                *compute_gamma_chain(vbar,u, [-1, 5, 1, 6, -1, 3, 2], vecs)
+                *inv_prop(ps[0]-l, 0.)
+            )
 
         elif self.identifier == 'D2N':
+            """
             return (
                 -params['alpha_ew']*4*np.pi*params['alpha_s']*4*np.pi*params['C_F']
                 *(1./invs['s14'])
@@ -100,22 +111,45 @@ class Diagram(integrand.Diagram):
                 *compute_gamma_chain(vbar, u, [1, 3, -1, 6, 2, 4, -1], vecs)
                 /box
             )
+            """
+            return (
+                -params['alpha_ew']*4*np.pi*params['alpha_s']*4*np.pi*params['C_F']
+                *(1./invs['s14'])
+                *compute_gamma_chain(vbar, u, [1, 3, -1, 6, 2, 4, -1], vecs)
+                *inv_prop(ps[1]+l, 0.)
+            )
+
 
         elif self.identifier == 'D3N':
+            """
             return (
                 -params['alpha_ew']*4*np.pi*params['alpha_s']*4*np.pi*params['C_F']
                 *prop(ps[1]+l, 0.)*prop(ps[0]-l, 0.)*prop(l, 0.)*prop(ps[0]+ps[3]-l, 0.) 
                 *compute_gamma_chain(vbar, u, [-1, 5, 1, 6, 2, 4, -1], vecs)
                 /box
             )
+            """
+            return (
+                -params['alpha_ew']*4*np.pi*params['alpha_s']*4*np.pi*params['C_F']
+                *compute_gamma_chain(vbar, u, [-1, 5, 1, 6, 2, 4, -1], vecs)
+                *inv_prop(l, 0.)
+            )
 
         elif self.identifier == 'D4N':
+            """
             return (
                 -params['alpha_ew']*4*np.pi*params['alpha_s']*4*np.pi*params['C_F']
                 *(1./invs['s14'])**2
                 *prop(l, 0.)*prop(ps[0]+ps[3]-l, 0.)
                 *compute_gamma_chain(vbar, u, [1, 3, -1, 6, -1, 3, 2], vecs)
                 /box
+            )
+            """
+            return (
+                -params['alpha_ew']*4*np.pi*params['alpha_s']*4*np.pi*params['C_F']
+                *(1./invs['s14'])**2
+                *compute_gamma_chain(vbar, u, [1, 3, -1, 6, -1, 3, 2], vecs)
+                *inv_prop(ps[0]-l, 0.)*inv_prop(ps[1]+l, 0.)
             )
 
         else:
@@ -134,6 +168,7 @@ class Counterterm(integrand.Counterterm):
         l       = loop_momenta[0]
         params  = self.parameters 
         prop    = self.prop
+        inv_prop= self.inv_prop
 
 
         # Instantialize diagrams for use
@@ -143,31 +178,53 @@ class Counterterm(integrand.Counterterm):
         D4 = Diagram('D4N', self.parameters)
 
         # Define a common propagator factor
-        box = prop(l, 0.)*prop(ps[0]-l, 0.)*prop(ps[1]+l, 0.)*prop(ps[0]+ps[3]-l, 0.)
+        #box = prop(l, 0.)*prop(ps[0]-l, 0.)*prop(ps[1]+l, 0.)*prop(ps[0]+ps[3]-l, 0.)
 
         # For the call to gamma_chains, it is necessary to cast LorentzVectors into lists
         if self.identifier == 'UV1N':
+            """
             return (
                 D1(PS_point, loop_momenta, invariants, spin_index)
                 *(prop(ps[1]+l, 0.)*prop(l, 0.)*prop(ps[0]+ps[3]-l, 0.))**(-1)
                 *(prop(l, invs['m_UV2']))**3
             )
+            """
+            return (
+                D1(PS_point, loop_momenta, invariants, spin_index)
+                *inv_prop(ps[1]+l, 0.)*inv_prop(l, 0.)*inv_prop(ps[0]+ps[3]-l, 0.)
+                *(prop(l, invs['m_UV2']))**3
+            )
 
         elif self.identifier == 'UV2N':
+            """
             return (
                 D2(PS_point, loop_momenta, invariants, spin_index)
                 *(prop(ps[0]-l, 0.)*prop(l, 0.)*prop(ps[0]+ps[3]-l, 0.))**(-1)
                 *(prop(l, invs['m_UV2']))**3
             )
+            """
+            return (
+                D2(PS_point, loop_momenta, invariants, spin_index)
+                *inv_prop(ps[0]-l, 0.)*inv_prop(l, 0.)*inv_prop(ps[0]+ps[3]-l, 0.)
+                *(prop(l, invs['m_UV2']))**3
+            )
 
         elif self.identifier == 'UV4N':
+            """
             return (
                 D4(PS_point, loop_momenta, invariants, spin_index)
                 *(prop(l, 0.)*prop(ps[0]+ps[3]-l, 0.))**(-1)
                 *(prop(l-ps[0]/2-ps[3]/2, invs['m_UV2']))**2
             )
+            """
+            return (
+                D4(PS_point, loop_momenta, invariants, spin_index)
+                *inv_prop(l, 0.)*inv_prop(ps[0]+ps[3]-l, 0.)
+                *(prop(l-ps[0]/2-ps[3]/2, invs['m_UV2']))**2
+            )
 
         elif self.identifier == 'SoftN':
+            """
             return (
                 D0(PS_point, loop_momenta, invariants, spin_index)
                 *2*complex(0.,1.)*params['alpha_s']*4*np.pi*params['C_F']
@@ -175,21 +232,44 @@ class Counterterm(integrand.Counterterm):
                 *prop(l, 0.)*prop(ps[1]+l, 0.)*prop(ps[0]-l,0.)
                 /box
             )
+            """
+            return (
+                D0(PS_point, loop_momenta, invariants, spin_index)
+                *2*complex(0.,1.)*params['alpha_s']*4*np.pi*params['C_F']
+                *invs['s12']
+                *inv_prop(ps[0]+ps[3]-l, 0.)
+            )
 
         elif self.identifier == 'Coll1N':
+            """
             return (
                 D0(PS_point, loop_momenta, invariants, spin_index)
                 *(-2)*complex(0.,1.)*params['alpha_s']*4*np.pi*params['C_F']
                 *(prop(ps[0]-l, 0.)*prop(l, 0.)-(prop(l, invs['m_UV2']))**2)
                 /box
             )
+            """
+            return (
+                D0(PS_point, loop_momenta, invariants, spin_index)
+                *(-2)*complex(0.,1.)*params['alpha_s']*4*np.pi*params['C_F']
+                *inv_prop(ps[1]+l, 0.)*inv_prop(ps[0]+ps[3]-l, 0.)
+                *(1.-(prop(l, invs['m_UV2']))**2*inv_prop(ps[0]-l, 0.)*inv_prop(l, 0.))
+            )
 
         elif self.identifier == 'Coll2N':
+            """
             return (
                 D0(PS_point, loop_momenta, invariants, spin_index)
                 *(-2)*complex(0.,1.)*params['alpha_s']*4*np.pi*params['C_F']
                 *(prop(ps[1]+l, 0.)*prop(l, 0.)-(prop(l, invs['m_UV2']))**2) 
                 /box
+            )
+            """
+            return (
+                D0(PS_point, loop_momenta, invariants, spin_index)
+                *(-2)*complex(0.,1.)*params['alpha_s']*4*np.pi*params['C_F']
+                *inv_prop(ps[0]-l, 0.)*inv_prop(ps[0]+ps[3]-l, 0.)
+                *(1.-(prop(l, invs['m_UV2']))**2*inv_prop(ps[1]+l, 0.)*inv_prop(l, 0.))
             )
         else:
             raise NotImplementedError
