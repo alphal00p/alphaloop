@@ -585,10 +585,11 @@ impl Topology {
                         radius
                     }
                     ParameterizationMapping::Linear => {
-                        // r = e_cm * x/(1-x)
+                        // r = e_cm * b * x/(1-x)
+                        let b = Into::<T>::into(self.settings.parameterization.b);
                         let radius =
-                            e_cm * Into::<T>::into(x_r[0]) / (T::one() - Into::<T>::into(x_r[0]));
-                        jac *= <T as num_traits::Float>::powi(e_cm + radius, 2) / e_cm;
+                            e_cm * b * Into::<T>::into(x_r[0]) / (T::one() - Into::<T>::into(x_r[0]));
+                        jac *= <T as num_traits::Float>::powi(e_cm * b + radius, 2) / e_cm / b;
                         radius
                     }
                 };
@@ -659,8 +660,9 @@ impl Topology {
                 x1
             }
             ParameterizationMapping::Linear => {
-                jac /= <T as num_traits::Float>::powi(e_cm + k_r, 2) / e_cm;
-                k_r / (e_cm + k_r)
+                let b = Into::<T>::into(self.settings.parameterization.b);
+                jac /= <T as num_traits::Float>::powi(e_cm * b + k_r, 2) / e_cm / b;
+                k_r / (e_cm * b + k_r)
             }
         };
 
