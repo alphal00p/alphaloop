@@ -241,6 +241,7 @@ if __name__ == '__main__':
     double_box_file_name = 'double_box_scan.yaml'
     triple_box_file_name = 'triple_box_scan_yaml'
     n_points = 21
+    n_analytic_points = 210
     M1sq, M2sq, M3sq, M4sq, s, cosphi = -5., -1., -1., -1., -1., 1./3.
     
 
@@ -249,6 +250,7 @@ if __name__ == '__main__':
 #    costheta_angles = costheta_angles[1:-1]
     
     t_values = [-6. + 5.*i for i in range(n_points+1)]
+    t_values_analytic_line = [-6. + 0.5*i for i in range(n_analytic_points+1)]
 
     box = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
@@ -260,7 +262,7 @@ if __name__ == '__main__':
         ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
     ])
     triplebox = TopologyGenerator([
-        ('q1', 101, 1), ('q1', 102, 2), ('q1', 103, 3), ('q1', 104, 4),
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
         ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
         ('p5', 7, 9), ('p6', 9, 8), ('p7', 8, 6),
         ('p8', 8, 4), ('p9', 4, 3), ('p10', 3, 9)
@@ -279,7 +281,6 @@ if __name__ == '__main__':
 #        PS = generate_two_to_two_at_fixed_angle_negative_s(M1sq, M2sq, M3sq, M4sq, s, costheta, cosphi)
         PS = generate_two_to_two_at_fixed_t_negative_s(M1sq, M2sq, M3sq, M4sq, s, t, cosphi)
 #        PS = generate_two_to_two_at_fixed_t_negative_s(-5., -1., -1., -1., -1.,106., 1./3.)
-        
         external_momenta = { 'q1': PS[0], 'q2': PS[1] , 'q3': PS[2], 'q4': -PS[0]-PS[1]-PS[2] }
         loop_masses = {} # Massless internal lines
 
@@ -302,15 +303,26 @@ if __name__ == '__main__':
             analytic_container.append((t,analytic_result))            
             #print('aa',analytic_result)
             low_level_topology = master_topo.create_loop_topology(
-                "topology_name_%d"%i, 
+                "scan_%d"%(i+1), 
                 ext_mom=external_momenta, 
                 mass_map=loop_masses, 
                 loop_momenta_names=loop_momenta_names, 
                 analytic_result = analytic_result
             )
-            topologies_collection.add_topology(low_level_topology,entry_name = "topology_name_%d"%i)
+            topologies_collection.add_topology(low_level_topology,entry_name = "scan_%d"%(i+1))
 #            print('ana',low_level_topology.analytic_result) 
-    
+   
+    analytic_line_box = []
+    analytic_line_doublebox = []
+    analytic_line_triplebox = []
+    for i, t in enumerate(t_values_analytic_line):
+        u = M1sq+M2sq+M3sq+M4sq-s-t
+        if u==0.: continue
+        analytic_line_box.append((t, analytic_four_point_ladder( M1sq, M2sq, M3sq, M4sq, s, u ,1)))
+        analytic_line_doublebox.append((t, analytic_four_point_ladder( M1sq, M2sq, M3sq, M4sq, s, u,2)))
+        analytic_line_triplebox.append((t, analytic_four_point_ladder( M1sq, M2sq, M3sq, M4sq, s, u,3)))
+
+
     # Now write out the files
     box_topologies.export_to(os.path.join(root_path,'box','topologies.yaml'))
     doublebox_topologies.export_to(os.path.join(root_path,'doublebox','topologies.yaml'))
@@ -327,3 +339,15 @@ if __name__ == '__main__':
     triplebox_analytic = open(os.path.join(root_path,'triplebox','analytic_result.dat'),'w')
     triplebox_analytic.write('\n'.join('%.16e %.16e'%(x,float(abs(y))) for x, y in analytic_triplebox))
     triplebox_analytic.close()
+
+    box_line_analytic = open(os.path.join(root_path,'box','analytic_line_result.dat'),'w')
+    box_line_analytic.write('\n'.join('%.16e %.16e'%(x,float(abs(y))) for x, y in analytic_line_box))
+    box_line_analytic.close()
+
+    doublebox_line_analytic = open(os.path.join(root_path,'doublebox','analytic_line_result.dat'),'w')
+    doublebox_line_analytic.write('\n'.join('%.16e %.16e'%(x,float(abs(y))) for x, y in analytic_line_doublebox))
+    doublebox_line_analytic.close()
+
+    triplebox_line_analytic = open(os.path.join(root_path,'triplebox','analytic_line_result.dat'),'w')
+    triplebox_line_analytic.write('\n'.join('%.16e %.16e'%(x,float(abs(y))) for x, y in analytic_line_triplebox))
+    triplebox_line_analytic.close()
