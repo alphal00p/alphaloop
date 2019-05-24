@@ -13,16 +13,18 @@ extern crate num_traits;
 extern crate rand;
 extern crate serde;
 extern crate serde_yaml;
-use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "use_mpi")]
+pub extern crate mpi;
 
 use arrayvec::ArrayVec;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use ltd::topologies::{Cut, CutList};
 use ltd::LorentzVector;
 use num_traits::real::Real;
-use num_traits::ToPrimitive;
-use num_traits::{NumCast, One, Zero};
+use num_traits::{NumCast, One, ToPrimitive, Zero};
 use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -59,9 +61,73 @@ impl CubaResultDef {
     }
 }
 
-struct UserData {
+struct UserData<'a> {
     integrand: Vec<Integrand>,
     integrated_phase: IntegratedPhase,
+    #[cfg(feature = "use_mpi")]
+    world: &'a mpi::topology::SystemCommunicator,
+    #[cfg(not(feature = "use_mpi"))]
+    phantom_data: std::marker::PhantomData<&'a usize>,
+}
+
+#[cfg(feature = "use_mpi")]
+pub fn evaluate_points(
+    mut integrand: ltd::integrand::Integrand,
+    max_points: usize,
+    world: &mpi::topology::SystemCommunicator,
+) {
+    use mpi::point_to_point::{Destination, Source};
+    use mpi::request::WaitGuard;
+    use mpi::topology::Communicator;
+    use num_traits::ToPrimitive;
+
+    eprintln!("Slave started: {} rank", world.rank());
+    let mut f = vec![0.; max_points * 2];
+    loop {
+        // TODO: check status tag to break the loop
+        let (msg, _status) = world.any_process().receive_vec::<f64>();
+
+        // compute all the points
+        for (i, x) in msg.chunks(3 * integrand.topologies[0].n_loops).enumerate() {
+            let res = integrand.evaluate(x);
+            if res.is_finite() {
+                match integrand.settings.integrator.integrated_phase {
+                    IntegratedPhase::Real => {
+                        f[i] = res.re.to_f64().unwrap();
+                    }
+                    IntegratedPhase::Imag => {
+                        f[i] = res.im.to_f64().unwrap();
+                    }
+                    IntegratedPhase::Both => {
+                        f[i * 2] = res.re.to_f64().unwrap();
+                        f[i * 2 + 1] = res.im.to_f64().unwrap();
+                    }
+                }
+            } else {
+                if integrand.settings.integrator.integrated_phase != IntegratedPhase::Both {
+                    f[i] = 0.
+                } else {
+                    f[i * 2] = 0.;
+                    f[i * 2 + 1] = 0.;
+                }
+            }
+        }
+
+        let num_output = if integrand.settings.integrator.integrated_phase != IntegratedPhase::Both
+        {
+            msg.len() / (3 * integrand.topologies[0].n_loops)
+        } else {
+            msg.len() / (3 * integrand.topologies[0].n_loops) * 2
+        };
+
+        mpi::request::scope(|scope| {
+            let _sreq = WaitGuard::from(
+                world
+                    .process_at_rank(0)
+                    .immediate_send(scope, &f[..num_output]),
+            );
+        });
+    }
 }
 
 #[inline(always)]
@@ -69,26 +135,102 @@ fn integrand(
     x: &[f64],
     f: &mut [f64],
     user_data: &mut UserData,
-    _nvec: usize,
+    nvec: usize,
     core: i32,
 ) -> Result<(), &'static str> {
-    let res = user_data.integrand[(core + 1) as usize].evaluate(x);
+    #[cfg(not(feature = "use_mpi"))]
+    for (i, y) in x
+        .chunks(3 * user_data.integrand[core as usize + 1].topologies[0].n_loops)
+        .enumerate()
+    {
+        let res = user_data.integrand[core as usize + 1].evaluate(y);
 
-    if res.is_finite() {
-        match user_data.integrated_phase {
-            IntegratedPhase::Real => {
-                f[0] = res.re.to_f64().unwrap();
+        if res.is_finite() {
+            match user_data.integrated_phase {
+                IntegratedPhase::Real => {
+                    f[i] = res.re.to_f64().unwrap();
+                }
+                IntegratedPhase::Imag => {
+                    f[i] = res.im.to_f64().unwrap();
+                }
+                IntegratedPhase::Both => {
+                    f[i * 2] = res.re.to_f64().unwrap();
+                    f[i * 2 + 1] = res.im.to_f64().unwrap();
+                }
             }
-            IntegratedPhase::Imag => {
-                f[0] = res.im.to_f64().unwrap();
-            }
-            IntegratedPhase::Both => {
-                f[0] = res.re.to_f64().unwrap();
-                f[1] = res.im.to_f64().unwrap();
+        } else {
+            if user_data.integrated_phase != IntegratedPhase::Both {
+                f[i] = 0.
+            } else {
+                f[i * 2] = 0.;
+                f[i * 2 + 1] = 0.;
             }
         }
-    } else {
-        f[0] = 0.;
+    }
+
+    #[cfg(feature = "use_mpi")]
+    {
+        use mpi::point_to_point::{Destination, Source};
+        use mpi::request::WaitGuard;
+        use mpi::topology::Communicator;
+
+        let workers = (user_data.world.size() - 1) as usize;
+        let segment_length = nvec / workers;
+
+        mpi::request::scope(|scope| {
+            for i in 0..workers {
+                let extra_len = if i == workers - 1 {
+                    // last rank gets to do the rest term too
+                    (nvec % workers) * 3
+                } else {
+                    0
+                };
+
+                if segment_length > 0 || extra_len > 0 {
+                    let _sreq = WaitGuard::from(
+                        user_data
+                            .world
+                            .process_at_rank(i as i32 + 1)
+                            .immediate_send(
+                                scope,
+                                &x[i * segment_length * 3
+                                    ..(i + 1) * segment_length * 3 + extra_len],
+                            ),
+                    );
+                }
+            }
+        });
+
+        let jobs = if segment_length == 0 { 1 } else { workers };
+        for _ in 0..jobs {
+            let (msg, status) = user_data.world.any_process().receive_vec::<f64>();
+            let worker_id = status.source_rank() as usize - 1; // TODO: make sure it's positive
+
+            let len = if worker_id == workers - 1 {
+                // first rank gets to do the rest term too
+                nvec % workers + segment_length
+            } else {
+                segment_length
+            };
+
+            let start = if segment_length == 0 {
+                0
+            } else {
+                worker_id * segment_length
+            };
+
+            match user_data.integrated_phase {
+                IntegratedPhase::Real => {
+                    f[start..start + len].copy_from_slice(&msg[..len]);
+                }
+                IntegratedPhase::Imag => {
+                    f[start..start + len].copy_from_slice(&msg[..len]);
+                }
+                IntegratedPhase::Both => {
+                    f[start * 2..(start + len) * 2].copy_from_slice(&msg[..len * 2]);
+                }
+            }
+        }
     }
 
     Ok(())
@@ -841,16 +983,6 @@ fn main() {
     if let Some(x) = matches.value_of("deformation_strategy") {
         settings.general.deformation_strategy = x.into();
     }
-    let mut ci = CubaIntegrator::new(integrand);
-
-    ci.set_mineval(10)
-        .set_nstart(settings.integrator.n_start as i64)
-        .set_nincrease(settings.integrator.n_increase as i64)
-        .set_maxeval(settings.integrator.n_max as i64)
-        .set_epsabs(0.)
-        .set_epsrel(1e-15)
-        .set_seed(settings.integrator.seed)
-        .set_cores(cores, 1000);
 
     // load the example file
     let mut topologies = Topology::from_file(topology_file, &settings);
@@ -873,6 +1005,54 @@ fn main() {
         inspect(&topo, &mut settings, matches);
         return;
     }
+
+    #[cfg(feature = "use_mpi")]
+    let (universe, world) = {
+        use mpi::topology::Communicator;
+
+        let universe = mpi::initialize().unwrap();
+        let world = universe.world();
+        let rank = world.rank();
+
+        println!("rank = {}", rank);
+        // if we are not the root, we listen for jobs
+        if rank != 0 {
+            evaluate_points(
+                Integrand::new(topo, settings.clone(), rank as usize),
+                settings.integrator.n_vec,
+                &world,
+            );
+
+            return;
+        } else {
+            // set cuba to use 1 core
+            // TODO
+            //   ci.set_cores(1, 1000);
+        }
+        (universe, world)
+    };
+
+    let user_data = UserData {
+        integrand: (0..=cores)
+            .map(|i| Integrand::new(topo, settings.clone(), i))
+            .collect(),
+        integrated_phase: settings.integrator.integrated_phase,
+        #[cfg(feature = "use_mpi")]
+        world: &world,
+        #[cfg(not(feature = "use_mpi"))]
+        phantom_data: std::marker::PhantomData,
+    };
+
+    let mut ci = CubaIntegrator::new(integrand);
+
+    ci.set_mineval(10)
+        .set_nstart(settings.integrator.n_start as i64)
+        .set_nincrease(settings.integrator.n_increase as i64)
+        .set_maxeval(settings.integrator.n_max as i64)
+        .set_epsabs(0.)
+        .set_epsrel(1e-15)
+        .set_seed(settings.integrator.seed)
+        .set_cores(cores, 1000);
 
     println!(
         "Integrating {} with {} samples and deformation '{}'",
@@ -898,15 +1078,10 @@ fn main() {
             } else {
                 1
             },
-            1,
+            settings.integrator.n_vec,
             CubaVerbosity::Progress,
             0,
-            UserData {
-                integrand: (0..=cores)
-                    .map(|i| Integrand::new(topo, settings.clone(), i))
-                    .collect(),
-                integrated_phase: settings.integrator.integrated_phase,
-            },
+            user_data,
         ),
         Integrator::Suave => ci.suave(
             3 * topo.n_loops,
@@ -915,17 +1090,12 @@ fn main() {
             } else {
                 1
             },
-            1,
+            settings.integrator.n_vec,
             settings.integrator.n_new,
             settings.integrator.n_min,
             settings.integrator.flatness,
             CubaVerbosity::Progress,
-            UserData {
-                integrand: (0..=cores)
-                    .map(|i| Integrand::new(topo, settings.clone(), i))
-                    .collect(),
-                integrated_phase: settings.integrator.integrated_phase,
-            },
+            user_data,
         ),
         Integrator::Cuhre => ci.cuhre(
             3 * topo.n_loops,
@@ -934,14 +1104,9 @@ fn main() {
             } else {
                 1
             },
-            1,
+            settings.integrator.n_vec,
             CubaVerbosity::Progress,
-            UserData {
-                integrand: (0..=cores)
-                    .map(|i| Integrand::new(topo, settings.clone(), i))
-                    .collect(),
-                integrated_phase: settings.integrator.integrated_phase,
-            },
+            user_data,
         ),
     };
     println!("{:#?}", cuba_result);

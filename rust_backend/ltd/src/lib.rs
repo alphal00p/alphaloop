@@ -259,6 +259,7 @@ pub struct GeneralSettings {
 #[serde(default)]
 pub struct IntegratorSettings {
     pub integrator: Integrator,
+    pub n_vec: usize,
     pub n_increase: usize,
     pub n_max: usize,
     pub n_start: usize,
@@ -284,6 +285,7 @@ impl Default for IntegratorSettings {
         IntegratorSettings {
             integrator: Integrator::Vegas,
             n_increase: 0,
+            n_vec: 1,
             n_start: 10000,
             n_max: 10000000,
             n_new: 1000,

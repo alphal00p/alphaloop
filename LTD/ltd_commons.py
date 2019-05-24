@@ -48,6 +48,8 @@ hyperparameters = HyperParameters({
         'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e6),
+        # can be set to high values for use with MPI, otherwise leave it at 1
+        'n_vec'             :   1,
         'n_new'             :   100000,
         'n_min'             :   2,
         'flatness'          :   50.,
