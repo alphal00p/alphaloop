@@ -9,6 +9,7 @@ import itertools
 import mpmath
 import math
 import ltd_commons
+import topologies
 import random
 from numpy.linalg import inv
 import pycuba
@@ -27,7 +28,7 @@ class LTDnLoop:
 		self.name               = topology.name
 		self.external_kinematics= topology.external_kinematics
 		self.scale				= self.get_rust_scale()
-		self.analytical_result 	= topology.analytical_result
+		self.analytical_result 	= topology.analytic_result
 		self.cut_structures 	= [CutStructure(cut_structure=ltd_cut_structure, ltd_loop_lines = self.ltd_loop_lines) for ltd_cut_structure in self.ltd_cut_structure]
 		self.lambda_ij			= hyperparameters['Deformation']['scaling']['lambda']
 		self.a_ij				= hyperparameters['Deformation']['additive']['a_ij']
@@ -762,7 +763,7 @@ class CutPropagator(CutObject):
 
 if __name__ == "__main__":	
 	
-	my_topology = ltd_commons.hard_coded_topology_collection['Triangle']
+	my_topology = topologies.hard_coded_topology_collection['manual_DoubleTriangle']
 	hyperparameters = ltd_commons.hyperparameters
 	my_LTD = LTDnLoop(my_topology,hyperparameters)
 	my_LTD.display_surfaces(show_ellipsoids=True,show_hyperboloids=False)
