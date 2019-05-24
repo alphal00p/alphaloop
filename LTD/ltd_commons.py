@@ -36,6 +36,7 @@ hyperparameters = HyperParameters({
         # log statistics to screen
         'log_stats_to_screen'   :   False,
         'log_file_prefix'       :   'stats/statistics',
+        'res_file_prefix'       :   '',        
         'integration_statistics':   True,
         'statistics_interval'   :   100000,
         'debug'                 :   0

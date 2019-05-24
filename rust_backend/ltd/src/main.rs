@@ -958,7 +958,7 @@ fn main() {
     let f = OpenOptions::new()
         .create(true)
         .write(true)
-        .open(settings.general.topology.clone() + "_res.dat")
+        .open(format!("{}{}.dat", settings.general.res_file_prefix, settings.general.topology.clone() + "_res"))
         .expect("Unable to create result file");
     let mut result_file = BufWriter::new(f);
 

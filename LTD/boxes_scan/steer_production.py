@@ -35,8 +35,8 @@ general_hyperparams['Parameterization']['mode'] = 'spherical'
 general_hyperparams['Parameterization']['mapping'] = 'log'
 general_hyperparams['Parameterization']['b'] = 1.0
 general_hyperparams['General']['integration_statistics'] = False
-general_hyperparams['General']['log_file_prefix'] = pjoin(root_path,'integration_statistics')
-general_hyperparams['General']['screen_log_core'] = 0
+general_hyperparams['General']['log_file_prefix'] = pjoin(root_path,'integration_statistics')+'/'
+general_hyperparams['General']['screen_log_core'] = 1
 
 general_hyperparams.export_to(os.path.join(root_path, 'box','hyperparameters.yaml'))
  
@@ -163,6 +163,7 @@ if __name__ == '__main__':
             box_hyperparams['General']['absolute_precision'] = 1.0e+5
             box_hyperparams['Integrator']['integrator'] = 'cuhre'
             box_hyperparams['Integrator']['n_max'] = int(1e6)
+            box_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'box')+'/'            
             box_hyperparams.export_to(os.path.join(root_path, 'box','hyperparameters.yaml'))
 
             # Get topologies
@@ -183,7 +184,8 @@ if __name__ == '__main__':
             doublebox_hyperparams['Integrator']['n_start'] = int(1e6)
             doublebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
             doublebox_hyperparams['Integrator']['n_max'] = int(1e8)
-            doublebox_hyperparams['Integrator']['seed'] = 1            
+            doublebox_hyperparams['Integrator']['seed'] = 1
+            doublebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'doublebox')+'/'            
             doublebox_hyperparams.export_to(os.path.join(root_path, 'doublebox','hyperparameters.yaml'))
 
             # Get topologies
@@ -203,7 +205,8 @@ if __name__ == '__main__':
             triplebox_hyperparams['Integrator']['n_start'] = int(1e7)
             triplebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
             triplebox_hyperparams['Integrator']['n_max'] = int(1e9)
-            triplebox_hyperparams['Integrator']['seed'] = 1            
+            triplebox_hyperparams['Integrator']['seed'] = 1
+            triplebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'triplebox')+'/'            
             triplebox_hyperparams.export_to(os.path.join(root_path, 'triplebox','hyperparameters.yaml'))
 
             # Get topologies

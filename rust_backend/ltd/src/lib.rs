@@ -235,6 +235,7 @@ pub struct ParameterizationSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
     pub log_file_prefix: String,
+    pub res_file_prefix: String,
     pub screen_log_core: Option<usize>,
     pub log_points_to_screen: bool,
     pub log_stats_to_screen: bool,
