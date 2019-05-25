@@ -19,7 +19,7 @@ extern crate nalgebra as na;
 extern crate num_traits;
 extern crate rand;
 
-use num_traits::{Float, FloatConst, FromPrimitive, Num, ToPrimitive, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Num, ToPrimitive, Zero, One};
 use utils::Signum;
 use vector::{Field, RealNumberLike};
 
@@ -567,9 +567,8 @@ py_class!(class LTD |py| {
         let v = topo.evaluate_cut::<float>(&mut moms, cut, mat, &mut cache).unwrap();
         let ct = topo.counterterm::<float>(&moms[..topo.n_loops], &mut cache);
 
-        match v*(1.0+ct){ 
-            res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
-        }
+        let res = v * (ct + float::one());
+        Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
     
     def evaluate_cut_ct_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
