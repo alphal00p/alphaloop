@@ -130,6 +130,163 @@ pub fn evaluate_points(
     }
 }
 
+/// Integrate with Vegas, optionally using survey and refining rounds
+fn vegas_integrate<'a>(
+    topo: &Topology,
+    settings: &Settings,
+    cores: usize,
+    mut ci: CubaIntegrator<UserData<'a>>,
+    user_data: UserData<'a>,
+) -> CubaResult {
+    let state_filename = if let Some(ref name) = settings.integrator.state_filename {
+        name.clone()
+    } else {
+        topo.name.clone() + "_state.dat"
+    };
+    let survey_filename = topo.name.clone() + "_survey.dat";
+
+    ci.set_use_only_last_sample(false)
+        .set_save_state_file(state_filename.clone())
+        .set_keep_state_file(false)
+        .set_reset_vegas_integrator(false);
+
+    if settings.integrator.refine_n_runs > 0 {
+        // Assign cuba flags according to this chosen survey+refine strategy
+        ci.set_save_state_file(state_filename.clone())
+            .set_keep_state_file(true)
+            .set_reset_vegas_integrator(true);
+
+        // First perform the survey, making sure that there is no previously existing file
+        let _ = std::fs::remove_file(&state_filename);
+        let _ = std::fs::remove_file(&survey_filename);
+
+        // Keep track of the total number of failed points
+        let mut total_fails = 0;
+
+        // Now we can run the survey, using the specified number of iterations and sample sampel points
+        println!(
+            ">>> Now running Vegas survey with {} iterations of {} points:",
+            settings.integrator.survey_n_iterations, settings.integrator.survey_n_points
+        );
+
+        ci.set_nstart(settings.integrator.survey_n_points as i64)
+            .set_nincrease(0 as i64)
+            .set_maxeval(
+                (settings.integrator.survey_n_iterations * settings.integrator.survey_n_points)
+                    as i64,
+            );
+        let survey_result = ci.vegas(
+            3 * topo.n_loops,
+            if settings.integrator.integrated_phase == IntegratedPhase::Both {
+                2
+            } else {
+                1
+            },
+            settings.integrator.n_vec,
+            CubaVerbosity::Progress,
+            1, // Save grid in slot 1
+            user_data,
+        );
+
+        total_fails += survey_result.fail;
+        println!(">>> Survey result : {:#?}", survey_result);
+
+        // Now move the saved state
+        let _ = std::fs::rename(&state_filename, &survey_filename);
+        println!("Survey grid files saved in file {}", survey_filename);
+
+        let mut vegas_central_values: Vec<Vec<f64>> =
+            Vec::with_capacity(settings.integrator.refine_n_runs);
+        let mut vegas_errors: Vec<Vec<f64>> = Vec::with_capacity(settings.integrator.refine_n_runs);
+
+        // We can now start the self.settings.refine_n_runs independent runs
+        ci.set_nstart(settings.integrator.refine_n_points as i64)
+            .set_nincrease(0_i64)
+            .set_maxeval(settings.integrator.refine_n_points as i64)
+            .set_reset_vegas_integrator(true)
+            .set_use_only_last_sample(true)
+            .set_keep_state_file(false);
+
+        for i_run in 0..settings.integrator.refine_n_runs {
+            // Udate the seed
+            ci.set_seed((settings.integrator.seed + (i_run as i32) + 1) as i32);
+            // Reinitialise the saved state to the survey grids
+            let _ = std::fs::copy(&survey_filename, &state_filename);
+            println!(
+                ">>> Now running Vegas refine run #{} with {} points:",
+                i_run, settings.integrator.refine_n_points
+            );
+            let refine_result = ci.vegas(
+                3 * topo.n_loops,
+                if settings.integrator.integrated_phase == IntegratedPhase::Both {
+                    2
+                } else {
+                    1
+                },
+                settings.integrator.n_vec,
+                CubaVerbosity::Progress,
+                0,
+                UserData {
+                    integrand: (0..=cores)
+                        .map(|i| Integrand::new(topo, settings.clone(), i))
+                        .collect(),
+                    integrated_phase: settings.integrator.integrated_phase,
+                    #[cfg(feature = "use_mpi")]
+                    world: &world,
+                    #[cfg(not(feature = "use_mpi"))]
+                    phantom_data: std::marker::PhantomData,
+                },
+            );
+
+            total_fails += refine_result.fail;
+            // Make sure to remove any saved state left over
+            let _ = std::fs::remove_file(&state_filename);
+            vegas_central_values.push(refine_result.result.clone());
+            vegas_errors.push(refine_result.error.clone());
+            println!(">>> Refine result #{}: {:#?}", i_run + 1, refine_result);
+        }
+
+        // Now combine the result
+        let mut combined_central: Vec<f64> = vec![0.; survey_result.result.len()];
+        let mut combined_error: Vec<f64> = vec![0.; survey_result.result.len()];
+        for (central, error) in vegas_central_values.iter().zip(vegas_errors.iter()) {
+            for i_component in 0..central.len() {
+                combined_central[i_component] += central[i_component] / error[i_component].powi(2);
+                combined_error[i_component] += 1. / error[i_component].powi(2);
+            }
+        }
+        for i_component in 0..combined_central.len() {
+            combined_central[i_component] /= combined_error[i_component];
+            combined_error[i_component] = 1. / combined_error[i_component].sqrt();
+        }
+        // Now return the corresponding CubaResult
+        // TODO: For now only the first integrand component is handled
+        // The corresponding probability is also not aggregated
+        CubaResult {
+            neval: (settings.integrator.survey_n_points * settings.integrator.survey_n_iterations
+                + settings.integrator.refine_n_points * settings.integrator.refine_n_runs)
+                as i64,
+            fail: total_fails,
+            result: combined_central.clone(),
+            error: combined_error.clone(),
+            prob: vec![-1.; combined_error.len()],
+        }
+    } else {
+        ci.vegas(
+            3 * topo.n_loops,
+            if settings.integrator.integrated_phase == IntegratedPhase::Both {
+                2
+            } else {
+                1
+            },
+            settings.integrator.n_vec,
+            CubaVerbosity::Progress,
+            0,
+            user_data,
+        )
+    }
+}
+
 #[inline(always)]
 fn integrand(
     x: &[f64],
@@ -1025,9 +1182,7 @@ fn main() {
 
             return;
         } else {
-            // set cuba to use 1 core
-            // TODO
-            //   ci.set_cores(1, 1000);
+            cores = 1;
         }
         (universe, world)
     };
@@ -1071,18 +1226,7 @@ fn main() {
     }
 
     let cuba_result = match settings.integrator.integrator {
-        Integrator::Vegas => ci.vegas(
-            3 * topo.n_loops,
-            if settings.integrator.integrated_phase == IntegratedPhase::Both {
-                2
-            } else {
-                1
-            },
-            settings.integrator.n_vec,
-            CubaVerbosity::Progress,
-            0,
-            user_data,
-        ),
+        Integrator::Vegas => vegas_integrate(topo, &settings, cores, ci, user_data),
         Integrator::Suave => ci.suave(
             3 * topo.n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
@@ -1123,7 +1267,11 @@ fn main() {
     let f = OpenOptions::new()
         .create(true)
         .write(true)
-        .open(format!("{}{}.dat", settings.general.res_file_prefix, settings.general.topology.clone() + "_res"))
+        .open(format!(
+            "{}{}.dat",
+            settings.general.res_file_prefix,
+            settings.general.topology.clone() + "_res"
+        ))
         .expect("Unable to create result file");
     let mut result_file = BufWriter::new(f);
 

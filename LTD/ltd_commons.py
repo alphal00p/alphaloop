@@ -54,7 +54,12 @@ hyperparameters = HyperParameters({
         'n_min'             :   2,
         'flatness'          :   50.,
         'seed'              :   1,
-        'integrated_phase'  :  'imag'
+        'integrated_phase'  :  'imag',
+        'state_filename'    :   None,
+        'survey_n_points'   :   0,
+        'survey_n_iterations':  0,
+        'refine_n_runs'      :  0,
+        'refine_n_points'    :  0,
     },
 
     'Deformation'   :   {

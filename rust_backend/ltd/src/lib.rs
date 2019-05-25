@@ -268,6 +268,11 @@ pub struct IntegratorSettings {
     pub flatness: f64,
     pub seed: i32,
     pub integrated_phase: IntegratedPhase,
+    pub state_filename: Option<String>,
+    pub survey_n_points: usize,
+    pub survey_n_iterations: usize,
+    pub refine_n_runs: usize,
+    pub refine_n_points: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -293,6 +298,11 @@ impl Default for IntegratorSettings {
             flatness: 50.,
             seed: 1,
             integrated_phase: IntegratedPhase::Real,
+            state_filename: None,
+            survey_n_points: 0,
+            survey_n_iterations: 0,
+            refine_n_runs: 0,
+            refine_n_points: 0,
         }
     }
 }
