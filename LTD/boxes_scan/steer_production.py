@@ -45,7 +45,7 @@ general_hyperparams['General']['screen_log_core'] = 1
 general_hyperparams['General']['numerical_instability_check'] = True
 general_hyperparams['General']['unstable_point_warning_percentage'] = 200.
 general_hyperparams['General']['num_digits_different_for_inconsistency'] = 100.
-general_hyperparams['General']['return_unstable_point'] = True
+general_hyperparams['General']['minimal_precision_for_returning_result'] = 2.
 
 def load_results_from_yaml(log_file_path):
     """Load a full-fledged scan from a yaml dump"""
@@ -248,10 +248,10 @@ if __name__ == '__main__':
             
             # First refresh configuration files
             doublebox_hyperparams = copy.deepcopy(general_hyperparams)
-#            doublebox_hyperparams['General']['relative_precision'] = 1.0e-10            
+            doublebox_hyperparams['General']['relative_precision'] = 5.        
+            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-10
+#            doublebox_hyperparams['General']['relative_precision'] = 99.
 #            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-99
-            doublebox_hyperparams['General']['relative_precision'] = 99.
-            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-99
             doublebox_hyperparams['Integrator']['integrator'] = 'vegas'
             doublebox_hyperparams['Integrator']['n_start'] = int(1e6)
             doublebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
@@ -260,8 +260,8 @@ if __name__ == '__main__':
             doublebox_hyperparams['Integrator']['integrated_phase'] = 'real'
             doublebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'%sdoublebox'%_PREFIX)+'/'
 
-            doublebox_hyperparams['General']['return_unstable_point'] = True
-            doublebox_hyperparams['Integrator']['state_filename'] = '/users/hirschva/MG5/git_madnklo/PLUGIN/pynloop/LTD/boxes_scan/experiment_doublebox/experiment_state.dat'
+#            doublebox_hyperparams['General']['minimal_precision_for_returning_result'] = 2.
+#            doublebox_hyperparams['Integrator']['state_filename'] = '/users/hirschva/MG5/git_madnklo/PLUGIN/pynloop/LTD/boxes_scan/experiment_doublebox/experiment_state.dat'
 
             doublebox_hyperparams.export_to(os.path.join(root_path, '%sdoublebox'%_PREFIX,'hyperparameters.yaml'))
 
@@ -277,10 +277,10 @@ if __name__ == '__main__':
             
             # First refresh configuration files
             triplebox_hyperparams = copy.deepcopy(general_hyperparams)
-#            triplebox_hyperparams['General']['relative_precision'] = 5.       
-#            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-10
-            triplebox_hyperparams['General']['relative_precision'] = 99.
-            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-99
+            triplebox_hyperparams['General']['relative_precision'] = 5.       
+            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-10
+#            triplebox_hyperparams['General']['relative_precision'] = 99.
+#            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-99
             triplebox_hyperparams['Integrator']['integrator'] = 'vegas'
             triplebox_hyperparams['Integrator']['n_start'] = int(1e6)
             triplebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
