@@ -248,7 +248,7 @@ pub struct GeneralSettings {
     pub relative_precision: f64,
     pub absolute_precision: f64,
     pub numerical_instability_check: bool,
-    pub return_unstable_point: bool,
+    pub minimal_precision_for_returning_result: f64,
     pub num_digits_different_for_inconsistency: f64,
     pub integration_statistics: bool,
     pub statistics_interval: usize,

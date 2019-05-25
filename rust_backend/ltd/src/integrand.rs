@@ -410,7 +410,7 @@ impl Integrand {
                 } else {
                     self.unstable_f128_point_count += 1;
 
-                    if self.settings.general.return_unstable_point {
+                    if d_f128 > NumCast::from(self.settings.general.minimal_precision_for_returning_result).unwrap() {
                         result = Complex::new(
                             <float as NumCast>::from(result_f128.re).unwrap(),
                             <float as NumCast>::from(result_f128.im).unwrap(),
