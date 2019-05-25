@@ -23,6 +23,8 @@ _CLEAN = False
 _SILENCE = False
 _N_CORES = 8
 _CLEAN = False 
+_PREFIX = ''
+_IDS = None
 
 general_hyperparams = copy.deepcopy(ltd_commons.hyperparameters)
 general_hyperparams['General']['absolute_precision'] = 1.0e+5
@@ -114,11 +116,12 @@ def gather_result(all_topologies, dir_name, clean=False):
 
     n_scans = len(all_topologies)
     for index in range(1, n_scans+1):
+        if _IDS is not None and index not in _IDS: continue
         result_path = pjoin(root_path,dir_name,'scan_%d_res.dat'%index)
         if not os.path.isfile(result_path):
             print("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path )
-            data_stream.close()
-            return
+            continue
+
         result = yaml.load(open(result_path,'r'), Loader=Loader)
         topo = all_topologies['scan_%d'%index]
         analytic_result = topo.analytic_result.real if \
@@ -148,37 +151,64 @@ def gather_result(all_topologies, dir_name, clean=False):
 
 if __name__ == '__main__':
 
+    n_cores_user_set = False
+    # Parse options
+    processed_args = []
+    for arg in sys.argv[1:]:
+        if arg.startswith('--'):
+            try:
+                key, value = arg.split('=')
+            except ValueError:
+                key = args
+                value = None
+            key = key[2:]        
+        else:
+            processed_args.append(arg)
+            continue
 
-    if any('quiet' in arg for arg in sys.argv[1:]):
+        if key=='prefix':
+            _PREFIX = value
+        elif key=='ids':
+            _IDS = eval(value)
+        elif key=='cores':
+            _N_CORES = int(value)
+            n_cores_user_set = True
+        else:
+            print('Error: options %s not reckognised.'%arg)
+            sys.exit(1)
+
+
+    if any('quiet' in arg for arg in processed_args):
         _SILENCE = True
         
-    if any('cluster' in arg for arg in sys.argv[1:]):
+    if any('cluster' in arg for arg in processed_args):
 	_RUN_LOCALLY = False
-        _N_CORES = 36
+        if not n_cores_user_set:
+            _N_CORES = 36
 
-    if any('clean' in arg for arg in sys.argv[1:]):
+    if any('clean' in arg for arg in processed_args):
         _CLEAN = True
 
-    if any('gather' in arg for arg in sys.argv[1:]):
+    if any('gather' in arg for arg in processed_args):
 
-        if any('singlebox' in arg for arg in sys.argv[1:]):     
+        if any('singlebox' in arg for arg in processed_args):     
             # Gather box results
-            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'box','topologies.yaml')) 
-            gather_result(topologies, 'box', _CLEAN)
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, '%sbox'%_PREFIX,'topologies.yaml')) 
+            gather_result(topologies, '%sbox'%_PREFIX, _CLEAN)
 
-        if any('doublebox' in arg for arg in sys.argv[1:]):     
+        if any('doublebox' in arg for arg in processed_args):     
             # Gather box results
-            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'doublebox','topologies.yaml')) 
-            gather_result(topologies, 'doublebox', _CLEAN)
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, '%sdoublebox'%_PREFIX,'topologies.yaml')) 
+            gather_result(topologies, '%sdoublebox'%_PREFIX, _CLEAN)
 
-        if any('triplebox' in arg for arg in sys.argv[1:]):     
+        if any('triplebox' in arg for arg in processed_args):     
             # Gather box results
-            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'triplebox','topologies.yaml')) 
-            gather_result(topologies, 'triplebox', _CLEAN)
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, '%striplebox'%_PREFIX,'topologies.yaml')) 
+            gather_result(topologies, '%striplebox'%_PREFIX, _CLEAN)
 
-    if any('run' in arg for arg in sys.argv[1:]):
+    if any('run' in arg for arg in processed_args):
 
-        if any('singlebox' in arg for arg in sys.argv[1:]):
+        if any('singlebox' in arg for arg in processed_args):
             # Run box
             
             # First refresh configuration files
@@ -188,17 +218,18 @@ if __name__ == '__main__':
             box_hyperparams['Integrator']['integrator'] = 'cuhre'
             box_hyperparams['Integrator']['n_max'] = int(1e7)
             box_hyperparams['Integrator']['integrated_phase'] = 'imag'
-            box_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'box')+'/'            
-            box_hyperparams.export_to(os.path.join(root_path, 'box','hyperparameters.yaml'))
+            box_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'%sbox'%_PREFIX)+'/'            
+            box_hyperparams.export_to(os.path.join(root_path, '%sbox'%_PREFIX,'hyperparameters.yaml'))
 
             # Get topologies
-            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'box','topologies.yaml'))
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, '%sbox'%_PREFIX,'topologies.yaml'))
             n_topologies = len(topologies)
             for index in range(1, n_topologies+1):
-                run_topology(topologies['scan_%d'%index],'box', index, _RUN_LOCALLY)
+                if _IDS is not None and index not in _IDS: continue
+                run_topology(topologies['scan_%d'%index],'%sbox'%_PREFIX, index, _RUN_LOCALLY)
 
 
-        if any('doublebox' in arg for arg in sys.argv[1:]):
+        if any('doublebox' in arg for arg in processed_args):
             # Run box
             
             # First refresh configuration files
@@ -211,16 +242,17 @@ if __name__ == '__main__':
             doublebox_hyperparams['Integrator']['n_max'] = int(1e8)
             doublebox_hyperparams['Integrator']['seed'] = 1
             doublebox_hyperparams['Integrator']['integrated_phase'] = 'real'
-            doublebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'doublebox')+'/'            
-            doublebox_hyperparams.export_to(os.path.join(root_path, 'doublebox','hyperparameters.yaml'))
+            doublebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'%sdoublebox'%_PREFIX)+'/'            
+            doublebox_hyperparams.export_to(os.path.join(root_path, '%sdoublebox'%_PREFIX,'hyperparameters.yaml'))
 
             # Get topologies
-            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'doublebox','topologies.yaml'))
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, '%sdoublebox'%_PREFIX,'topologies.yaml'))
             n_topologies = len(topologies)
             for index in range(1, n_topologies+1):
-                run_topology(topologies['scan_%d'%index],'doublebox', index, _RUN_LOCALLY)
+                if _IDS is not None and index not in _IDS: continue
+                run_topology(topologies['scan_%d'%index],'%sdoublebox'%_PREFIX, index, _RUN_LOCALLY)
 
-        if any('triplebox' in arg for arg in sys.argv[1:]):
+        if any('triplebox' in arg for arg in processed_args):
             # Run box
             
             # First refresh configuration files
@@ -233,11 +265,12 @@ if __name__ == '__main__':
             triplebox_hyperparams['Integrator']['n_max'] = int(1e9)
             triplebox_hyperparams['Integrator']['seed'] = 1
             triplebox_hyperparams['Integrator']['integrated_phase'] = 'imag'
-            triplebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'triplebox')+'/'            
-            triplebox_hyperparams.export_to(os.path.join(root_path, 'triplebox','hyperparameters.yaml'))
+            triplebox_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'%striplebox'%_PREFIX)+'/'            
+            triplebox_hyperparams.export_to(os.path.join(root_path, '%striplebox'%_PREFIX,'hyperparameters.yaml'))
 
             # Get topologies
-            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'triplebox','topologies.yaml'))
+            topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, '%striplebox'%_PREFIX,'topologies.yaml'))
             n_topologies = len(topologies)
             for index in range(1, n_topologies+1):
-                run_topology(topologies['scan_%d'%index],'triplebox', index, _RUN_LOCALLY)
+                if _IDS is not None and index not in _IDS: continue
+                run_topology(topologies['scan_%d'%index],'%striplebox'%_PREFIX, index, _RUN_LOCALLY)
