@@ -26,12 +26,14 @@ _CLEAN = False
 _PREFIX = ''
 _IDS = None
 
+_WALL_TIMES = {'box': 1, 'doublebox':10, 'triplebox':24}
+
 general_hyperparams = copy.deepcopy(ltd_commons.hyperparameters)
 general_hyperparams['General']['absolute_precision'] = 1.0e+5
 general_hyperparams['Integrator']['integrator'] = 'vegas'
-general_hyperparams['Integrator']['n_start'] = int(1e7)
-general_hyperparams['Integrator']['n_max'] = int(1e10)
-general_hyperparams['Integrator']['n_increase'] = int(1e6)
+general_hyperparams['Integrator']['n_start'] = int(1e5)
+general_hyperparams['Integrator']['n_max'] = int(1e6)
+general_hyperparams['Integrator']['n_increase'] = int(1e5)
 general_hyperparams['Integrator']['seed'] = 1
 general_hyperparams['Parameterization']['mode'] = 'spherical'
 general_hyperparams['Parameterization']['mapping'] = 'log'
@@ -39,8 +41,10 @@ general_hyperparams['Parameterization']['b'] = 1.0
 general_hyperparams['General']['integration_statistics'] = False
 general_hyperparams['General']['log_file_prefix'] = pjoin(root_path,'integration_statistics')+'/'
 general_hyperparams['General']['screen_log_core'] = 1
-
-general_hyperparams.export_to(os.path.join(root_path, 'box','hyperparameters.yaml'))
+general_hyperparams['General']['numerical_instability_check'] = True
+general_hyperparams['General']['unstable_point_warning_percentage'] = 200.
+general_hyperparams['General']['num_digits_different_for_inconsistency'] = 100.
+general_hyperparams['General']['return_unstable_point'] = True
  
 def load_results_from_yaml(log_file_path):
     """Load a full-fledged scan from a yaml dump"""
@@ -54,7 +58,7 @@ def load_results_from_yaml(log_file_path):
             processed_data[entry_name] = entry_value
     return processed_data
 
-def run_topology(topo,dir_name, index, local=True):
+def run_topology(topo,dir_name, index, n_hours, local=True):
     """ Run topology of specified index and directory locally or on a SLURM scheduled cluster."""
     if _RUN_LOCALLY:
        print "Now running %s topology #%d"%(dir_name, index)
@@ -68,8 +72,6 @@ def run_topology(topo,dir_name, index, local=True):
             '-c','%d'%_N_CORES
     ]
     
-    n_hours = {'box': 1, 'doublebox':10, 'triplebox':24}
-
     #print(' '.join(cmd))
     if _RUN_LOCALLY:
     	with ltd_utils.Silence(active=_SILENCE):
@@ -80,7 +82,7 @@ def run_topology(topo,dir_name, index, local=True):
         submission_script = open(pjoin(root_path,'submission_template.run'),'r').read()
         open(pjoin(root_path,'submitter.run'),'w').write(submission_script%{
 		'job_name' : '%s_scan_%d'%(dir_name, index),
-                'n_hours' : n_hours[dir_name],
+                'n_hours' : n_hours,
                 'n_cpus_per_task' :24,
                 'output' : '%s/LTD_runs/logs/%s_scan_%d.out'%(os.environ['SCRATCH'], dir_name, index),
                 'error' : '%s/LTD_runs/logs/%s_scan_%d.err'%(os.environ['SCRATCH'], dir_name, index),
@@ -121,7 +123,7 @@ def gather_result(all_topologies, dir_name, clean=False):
         if not os.path.isfile(result_path):
             print("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path )
             continue
-
+        
         result = yaml.load(open(result_path,'r'), Loader=Loader)
         topo = all_topologies['scan_%d'%index]
         analytic_result = topo.analytic_result.real if \
@@ -213,10 +215,22 @@ if __name__ == '__main__':
             
             # First refresh configuration files
             box_hyperparams = copy.deepcopy(general_hyperparams)
-            box_hyperparams['General']['relative_precision'] = -10.
-            box_hyperparams['General']['absolute_precision'] = 1.0e+5
-            box_hyperparams['Integrator']['integrator'] = 'cuhre'
-            box_hyperparams['Integrator']['n_max'] = int(1e7)
+
+#            box_hyperparams['General']['relative_precision'] = -10.
+#            box_hyperparams['General']['absolute_precision'] = 1.0e+5
+##            box_hyperparams['General']['relative_precision'] = 99.
+##            box_hyperparams['General']['absolute_precision'] = 1.0e-99
+##            box_hyperparams['Integrator']['integrator'] = 'cuhre'
+##            box_hyperparams['Integrator']['n_max'] = int(1e7)
+
+
+            box_hyperparams['General']['relative_precision'] = 5.
+            box_hyperparams['General']['absolute_precision'] = 1.0e-10
+            box_hyperparams['Integrator']['integrator'] = 'vegas'
+            box_hyperparams['Integrator']['n_start'] = int(1e6)
+            box_hyperparams['Integrator']['n_increase'] = int(1e6)
+            box_hyperparams['Integrator']['n_max'] = int(1e8)
+
             box_hyperparams['Integrator']['integrated_phase'] = 'imag'
             box_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'%sbox'%_PREFIX)+'/'            
             box_hyperparams.export_to(os.path.join(root_path, '%sbox'%_PREFIX,'hyperparameters.yaml'))
@@ -226,7 +240,7 @@ if __name__ == '__main__':
             n_topologies = len(topologies)
             for index in range(1, n_topologies+1):
                 if _IDS is not None and index not in _IDS: continue
-                run_topology(topologies['scan_%d'%index],'%sbox'%_PREFIX, index, _RUN_LOCALLY)
+                run_topology(topologies['scan_%d'%index],'%sbox'%_PREFIX, index, _WALL_TIMES['box'], _RUN_LOCALLY)
 
 
         if any('doublebox' in arg for arg in processed_args):
@@ -234,8 +248,10 @@ if __name__ == '__main__':
             
             # First refresh configuration files
             doublebox_hyperparams = copy.deepcopy(general_hyperparams)
-            doublebox_hyperparams['General']['relative_precision'] = 5.            
-            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-10
+#            doublebox_hyperparams['General']['relative_precision'] = 5.            
+#            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-10
+            doublebox_hyperparams['General']['relative_precision'] = 99.
+            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-99
             doublebox_hyperparams['Integrator']['integrator'] = 'vegas'
             doublebox_hyperparams['Integrator']['n_start'] = int(1e6)
             doublebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
@@ -250,15 +266,17 @@ if __name__ == '__main__':
             n_topologies = len(topologies)
             for index in range(1, n_topologies+1):
                 if _IDS is not None and index not in _IDS: continue
-                run_topology(topologies['scan_%d'%index],'%sdoublebox'%_PREFIX, index, _RUN_LOCALLY)
+                run_topology(topologies['scan_%d'%index],'%sdoublebox'%_PREFIX, index, _WALL_TIMES['doublebox'], _RUN_LOCALLY)
 
         if any('triplebox' in arg for arg in processed_args):
             # Run box
             
             # First refresh configuration files
             triplebox_hyperparams = copy.deepcopy(general_hyperparams)
-            triplebox_hyperparams['General']['relative_precision'] = 5.       
-            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-10
+#            triplebox_hyperparams['General']['relative_precision'] = 5.       
+#            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-10
+            triplebox_hyperparams['General']['relative_precision'] = 99.
+            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-99
             triplebox_hyperparams['Integrator']['integrator'] = 'vegas'
             triplebox_hyperparams['Integrator']['n_start'] = int(1e7)
             triplebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
@@ -273,4 +291,4 @@ if __name__ == '__main__':
             n_topologies = len(topologies)
             for index in range(1, n_topologies+1):
                 if _IDS is not None and index not in _IDS: continue
-                run_topology(topologies['scan_%d'%index],'%striplebox'%_PREFIX, index, _RUN_LOCALLY)
+                run_topology(topologies['scan_%d'%index],'%striplebox'%_PREFIX, index, _WALL_TIMES['triplebox'],  _RUN_LOCALLY)
