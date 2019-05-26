@@ -1236,6 +1236,18 @@ fn main() {
             CubaVerbosity::Progress,
             user_data_generator(),
         ),
+        Integrator::Divonne => ci.divonne(
+            3 * topo.n_loops,
+            if settings.integrator.integrated_phase == IntegratedPhase::Both {
+                2
+            } else {
+                1
+            },
+            settings.integrator.n_vec,
+            &[],
+            CubaVerbosity::Progress,
+            user_data_generator(),
+        ),
         Integrator::Cuhre => ci.cuhre(
             3 * topo.n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
