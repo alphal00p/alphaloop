@@ -131,13 +131,16 @@ pub fn evaluate_points(
 }
 
 /// Integrate with Vegas, optionally using survey and refining rounds
-fn vegas_integrate<'a>(
+fn vegas_integrate<'a, F>(
     topo: &Topology,
     settings: &Settings,
     cores: usize,
     mut ci: CubaIntegrator<UserData<'a>>,
-    user_data: UserData<'a>,
-) -> CubaResult {
+    user_data_generator: F,
+) -> CubaResult
+where
+    F: Fn() -> UserData<'a>,
+{
     let state_filename = if let Some(ref name) = settings.integrator.state_filename {
         name.clone()
     } else {
@@ -185,7 +188,7 @@ fn vegas_integrate<'a>(
             settings.integrator.n_vec,
             CubaVerbosity::Progress,
             1, // Save grid in slot 1
-            user_data,
+            user_data_generator(),
         );
 
         total_fails += survey_result.fail;
@@ -226,16 +229,7 @@ fn vegas_integrate<'a>(
                 settings.integrator.n_vec,
                 CubaVerbosity::Progress,
                 0,
-                UserData {
-                    integrand: (0..=cores)
-                        .map(|i| Integrand::new(topo, settings.clone(), i))
-                        .collect(),
-                    integrated_phase: settings.integrator.integrated_phase,
-                    #[cfg(feature = "use_mpi")]
-                    world: &world,
-                    #[cfg(not(feature = "use_mpi"))]
-                    phantom_data: std::marker::PhantomData,
-                },
+                user_data_generator(),
             );
 
             total_fails += refine_result.fail;
@@ -282,7 +276,7 @@ fn vegas_integrate<'a>(
             settings.integrator.n_vec,
             CubaVerbosity::Progress,
             0,
-            user_data,
+            user_data_generator(),
         )
     }
 }
@@ -1187,17 +1181,6 @@ fn main() {
         (universe, world)
     };
 
-    let user_data = UserData {
-        integrand: (0..=cores)
-            .map(|i| Integrand::new(topo, settings.clone(), i))
-            .collect(),
-        integrated_phase: settings.integrator.integrated_phase,
-        #[cfg(feature = "use_mpi")]
-        world: &world,
-        #[cfg(not(feature = "use_mpi"))]
-        phantom_data: std::marker::PhantomData,
-    };
-
     let mut ci = CubaIntegrator::new(integrand);
 
     ci.set_mineval(10)
@@ -1225,8 +1208,19 @@ fn main() {
         _ => println!("Analytic result not available."),
     }
 
+    let user_data_generator = || UserData {
+        integrand: (0..=cores)
+            .map(|i| Integrand::new(topo, settings.clone(), i))
+            .collect(),
+        integrated_phase: settings.integrator.integrated_phase,
+        #[cfg(feature = "use_mpi")]
+        world: &world,
+        #[cfg(not(feature = "use_mpi"))]
+        phantom_data: std::marker::PhantomData,
+    };
+
     let cuba_result = match settings.integrator.integrator {
-        Integrator::Vegas => vegas_integrate(topo, &settings, cores, ci, user_data),
+        Integrator::Vegas => vegas_integrate(topo, &settings, cores, ci, user_data_generator),
         Integrator::Suave => ci.suave(
             3 * topo.n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
@@ -1239,7 +1233,7 @@ fn main() {
             settings.integrator.n_min,
             settings.integrator.flatness,
             CubaVerbosity::Progress,
-            user_data,
+            user_data_generator(),
         ),
         Integrator::Cuhre => ci.cuhre(
             3 * topo.n_loops,
@@ -1250,7 +1244,7 @@ fn main() {
             },
             settings.integrator.n_vec,
             CubaVerbosity::Progress,
-            user_data,
+            user_data_generator(),
         ),
     };
     println!("{:#?}", cuba_result);
