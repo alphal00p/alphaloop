@@ -327,12 +327,13 @@ fn integrand(
 
         let workers = (user_data.world.size() - 1) as usize;
         let segment_length = nvec / workers;
+        let point_length = 3 * user_data.integrand[0].topologies[0].n_loops;
 
         mpi::request::scope(|scope| {
             for i in 0..workers {
                 let extra_len = if i == workers - 1 {
                     // last rank gets to do the rest term too
-                    (nvec % workers) * 3
+                    (nvec % workers) * point_length
                 } else {
                     0
                 };
@@ -344,8 +345,8 @@ fn integrand(
                             .process_at_rank(i as i32 + 1)
                             .immediate_send(
                                 scope,
-                                &x[i * segment_length * 3
-                                    ..(i + 1) * segment_length * 3 + extra_len],
+                                &x[i * segment_length * point_length
+                                    ..(i + 1) * segment_length * point_length + extra_len],
                             ),
                     );
                 }
@@ -1158,7 +1159,7 @@ fn main() {
     }
 
     #[cfg(feature = "use_mpi")]
-    let (universe, world) = {
+    let (_universe, world) = {
         use mpi::topology::Communicator;
 
         let universe = mpi::initialize().unwrap();
