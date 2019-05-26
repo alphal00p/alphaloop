@@ -146,6 +146,28 @@ hard_coded_topology_collection.add_topology(TriangleBoxTriangle.create_loop_topo
     entry_name = 'TriangleBoxTriangle'
 )
 
+two_loop_6pt = TopologyGenerator([
+    ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4), 
+    ('q5', 105, 5), ('q6', 106, 6), ('p1', 1, 2), ('p2', 2, 3),
+    ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1),
+    ('p7', 6, 7), ('p8', 7, 8), ('p9', 8, 2)
+])
+q1 = vectors.LorentzVector([ 1., 3., 0., 0.])
+q2 = vectors.LorentzVector([-1., 0., 2., 0.])
+q3 = vectors.LorentzVector([ 2.,-4., 0., 1.])
+q4 = vectors.LorentzVector([-3., 5., 1., 2.])
+q5 = vectors.LorentzVector([ 2.,-2., 0.,-2.])
+q6 = vectors.LorentzVector([-1.,-2.,-3.,-1.])
+hard_coded_topology_collection.add_topology(two_loop_6pt.create_loop_topology(
+    'two_loop_6pt_no_ellipse',
+    ext_mom={'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6},
+    loop_momenta_names=('p1', 'p3',),
+    analytic_result = None,
+    contour_closure = [0,0],
+    ),
+    entry_name = 'two_loop_6pt_no_ellipse'
+)
+
 # Example printout
 # ----------------
 #hard_coded_topology_collection['non_planar_four_loop_no_ellipse'].print_topology()
