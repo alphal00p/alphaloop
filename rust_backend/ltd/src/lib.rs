@@ -283,6 +283,8 @@ pub enum Integrator {
     Suave,
     #[serde(rename = "cuhre")]
     Cuhre,
+    #[serde(rename = "divonne")]
+    Divonne,
 }
 
 impl Default for IntegratorSettings {
