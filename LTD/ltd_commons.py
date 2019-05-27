@@ -48,15 +48,8 @@ hyperparameters = HyperParameters({
         'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e6),
-        'eps_rel'           :   1e-15,
-        'eps_abs'           :   0.,
-        # A border set different to zero allows to not probe particular problematic kinematics
-        'border'            :   1.0e-10,
         # can be set to high values for use with MPI, otherwise leave it at 1
         'n_vec'             :   1,
-        'n_new'             :   100000,
-        'n_min'             :   2,
-        'flatness'          :   50.,
         'seed'              :   1,
         'integrated_phase'  :  'imag',
         'state_filename'    :   None,
@@ -64,6 +57,17 @@ hyperparameters = HyperParameters({
         'survey_n_iterations':  0,
         'refine_n_runs'      :  0,
         'refine_n_points'    :  0,
+        # Non-vegas related integrator parameters
+        'eps_rel'           :   1e-3,
+        'eps_abs'           :   0.,
+        # A border set different to zero allows to not probe particular problematic kinematics
+        'border'            :   1.0e-10,
+        'n_new'             :   100000,
+        'n_min'             :   2,
+        'flatness'          :   50.,
+        'max_pass'          :   5,
+        'maxchisq'          :   0.,
+        'mindeviation'      :   0.025,
     },
 
     'Deformation'   :   {

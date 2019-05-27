@@ -39,7 +39,8 @@ general_hyperparams['Integrator']['state_filename'] = None
 general_hyperparams['Parameterization']['mode'] = 'spherical'
 general_hyperparams['Parameterization']['mapping'] = 'log'
 general_hyperparams['Parameterization']['b'] = 1.0
-general_hyperparams['General']['integration_statistics'] = True 
+general_hyperparams['General']['integration_statistics'] = True
+general_hyperparams['General']['statistics_interval'] = 100000000
 general_hyperparams['General']['log_file_prefix'] = pjoin(root_path,'integration_statistics')+'/'
 general_hyperparams['General']['screen_log_core'] = 1
 general_hyperparams['General']['numerical_instability_check'] = True
@@ -49,6 +50,10 @@ general_hyperparams['General']['minimal_precision_for_returning_result'] = 2.
 general_hyperparams['Integrator']['eps_rel'] = 1.0e-3
 general_hyperparams['Integrator']['eps_abs'] = 0.
 general_hyperparams['Integrator']['border'] = 1.0e-10
+general_hyperparams['Integrator']['maxpass'] = 5
+general_hyperparams['Integrator']['maxchisq'] = 10.0
+general_hyperparams['Integrator']['mindeviation'] = 0.25
+
 
 def load_results_from_yaml(log_file_path):
     """Load a full-fledged scan from a yaml dump"""
@@ -75,8 +80,7 @@ def run_topology(topo,dir_name, index, n_hours, local=True):
             '-l','%s'%pjoin(root_path,dir_name,'topologies.yaml'),
             '-c','%d'%_N_CORES
     ]
-    
-    #print(' '.join(cmd))
+     
     if _RUN_LOCALLY:
     	with ltd_utils.Silence(active=_SILENCE):
         	subprocess.call(cmd, cwd=pjoin(root_path,dir_name))
@@ -227,16 +231,25 @@ if __name__ == '__main__':
 ##            box_hyperparams['Integrator']['integrator'] = 'cuhre'
 ##            box_hyperparams['Integrator']['n_max'] = int(1e7)
 
-            box_hyperparams['General']['relative_precision'] = 99.
-            box_hyperparams['General']['absolute_precision'] = 1.0e-99
+            box_hyperparams['General']['relative_precision'] = 5.
+            box_hyperparams['General']['absolute_precision'] = 1.0e-10
             box_hyperparams['Integrator']['integrator'] = 'divonne'
             box_hyperparams['Integrator']['n_start'] = int(1e6)
             box_hyperparams['Integrator']['n_increase'] = int(1e6)
             box_hyperparams['Integrator']['n_max'] = int(1e10)
-            box_hyperparams['Integrator']['eps_rel'] = 0.52e-3
-            box_hyperparams['Integrator']['eps_abs'] = 0.
-            box_hyperparams['Integrator']['border'] = 1.e-10
-            box_hyperparams['General']['numerical_instability_check'] = False 
+
+
+            box_hyperparams['Integrator']['eps_rel'] = 1.0e-3
+#            box_hyperparams['General']['statistics_interval'] = 1
+#            box_hyperparams['General']['debug'] = 1            
+            box_hyperparams['Integrator']['border'] = 1.0e-10
+            box_hyperparams['General']['numerical_instability_check'] = True 
+
+            box_hyperparams['Integrator']['seed'] =2
+
+            box_hyperparams['Integrator']['maxpass'] = 5
+            box_hyperparams['Integrator']['maxchisq'] = 0.
+            box_hyperparams['Integrator']['mindeviation'] = 0.025
 
             box_hyperparams['Integrator']['integrated_phase'] = 'imag'
             box_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'%sbox'%_PREFIX)+'/'            

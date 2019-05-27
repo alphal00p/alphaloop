@@ -1191,6 +1191,9 @@ fn main() {
         .set_epsrel(settings.integrator.eps_rel)
         .set_epsabs(settings.integrator.eps_abs)
         .set_border(settings.integrator.border)
+        .set_maxpass(settings.integrator.maxpass as i32)
+        .set_maxchisq(settings.integrator.maxchisq)
+        .set_mindeviation(settings.integrator.mindeviation)
         .set_seed(settings.integrator.seed)
         .set_cores(cores, 1000);
 
