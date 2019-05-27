@@ -1189,7 +1189,7 @@ fn main() {
         .set_nincrease(settings.integrator.n_increase as i64)
         .set_maxeval(settings.integrator.n_max as i64)
         .set_epsabs(0.)
-        .set_epsrel(1e-15)
+        .set_epsrel(settings.integrator.eps_rel)
         .set_seed(settings.integrator.seed)
         .set_cores(cores, 1000);
 
