@@ -1188,8 +1188,9 @@ fn main() {
         .set_nstart(settings.integrator.n_start as i64)
         .set_nincrease(settings.integrator.n_increase as i64)
         .set_maxeval(settings.integrator.n_max as i64)
-        .set_epsabs(0.)
         .set_epsrel(settings.integrator.eps_rel)
+        .set_epsabs(settings.integrator.eps_abs)
+        .set_border(settings.integrator.border)
         .set_seed(settings.integrator.seed)
         .set_cores(cores, 1000);
 
@@ -1289,5 +1290,5 @@ fn main() {
         serde_yaml::to_string(&CubaResultDef::new(&cuba_result)).unwrap()
     )
     .unwrap();
-    writeln!(&mut result_file, "...").unwrap(); // write end-marker, for easy streaming
+    //writeln!(&mut result_file, "...").unwrap(); // write end-marker, for easy streaming
 }

@@ -15,7 +15,7 @@ set terminal postscript portrait enhanced color dashed lw 1.0 "Helvetica" 14
 
 box = 'VEGAS_box'
 doublebox = 'QP_doublebox'
-triplebox = 'triplebox'
+triplebox = 'NEW_1B_triplebox'
 
 #set size ratio 0.75 
 set key font ",9"
@@ -63,9 +63,9 @@ set tics front
 
 set label "Results for 4-points multi-loop scalar integrals" font ",10" at graph 0.0, graph 0.92 offset 7.0,-0.2
 set xrange [-7.:100.]
-set yrange [1.1:6]
+set yrange [0.7:6]
 set origin 0.00, 0.5
-set size 1, 0.2
+set size 1, 0.23
 set bmargin 0 
 set tmargin 0
 set key spacing 1.5
@@ -108,12 +108,14 @@ unset label
 unset format
 #set label "Normalised deviation" font ",12" at graph 0.05, graph 0.88
 set label "Relative deviation" font ",10" at graph 0.02, graph 0.2
-set origin 0.0, 0.38
-set size 1, 0.12
-set yrange [-2.0+0.1:2.0-0.1]
-set ytics 1 font ",10"
+set origin 0.0, 0.4
+set size 1, 0.10
+set yrange [-0.5+0.05:0.5-0.05]
+set ytics 0.5 font ",8"
+set ytics add (".25" 0.25)
+set ytics add ("-.25" -0.25)
 set mytics 2
-set ylabel "Deviation [%]" offset 1.5, 0 font ",10"
+set ylabel "Deviation [%]" offset 3.0, 0 font ",10"
 #set bmargin 0 
 #set tmargin 0
 #set mytics 5
@@ -142,9 +144,9 @@ unset format y
 unset label
 unset format
 set label "Deviation significance" font ",10" at graph 0.02, graph 0.2
-set origin 0.0, 0.26
-set size 1, 0.12
-set yrange [-10.0:10.0]
+set origin 0.0, 0.3
+set size 1, 0.10
+set yrange [-7.0:7.0]
 set ytics 3.0 font ",10"
 set mytics 3
 set xtics (-7, 0, 25, 50, 75, 100) nomirror font ",10"
