@@ -96,6 +96,104 @@ hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
     entry_name = 'DoubleBox_no_ellipse'
 )
 
+# PRL two-loops
+# PRL_6p_2L
+PRL_6p_2L = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 8), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6), ('p8', 8, 9), ('p9', 9, 7),
+        ('q5', 108, 8), ('q6', 109, 9)
+])
+q1 = vectors.LorentzVector([ 0.2, 0.3, 0.5, 0.6 ])
+q2 = vectors.LorentzVector([-0.1, 0.7, 0.2, 0.1])
+q3 = vectors.LorentzVector([ 0.1, 0.5, -0.3, -0.4])
+q4 = vectors.LorentzVector([-0.3, 0.4, 0.5, 0.2])
+q5 = vectors.LorentzVector([-0.2, 0.3, 0.2, -0.5])
+q6 = -q1-q2-q3-q4-q5
+hard_coded_topology_collection.add_topology(PRL_6p_2L.create_loop_topology(
+        "PRL_6p_2L",
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6 }, 
+        mass_map={}, # no masses 
+        loop_momenta_names=('p4', 'p6'),
+        analytic_result = 0.
+    ),
+    entry_name = 'PRL_6p_2L'
+)
+
+# PRL_6p_2L
+PRL_6p_2L = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 8), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6), ('p8', 8, 9), ('p9', 9, 7),
+        ('q5', 108, 8), ('q6', 109, 9)
+])
+q1 = vectors.LorentzVector([ 0.2, 0.3, 0.5, 0.6 ])
+q2 = vectors.LorentzVector([-0.1, 0.7, 0.2, 0.1])
+q3 = vectors.LorentzVector([ 0.1, 0.5, -0.3, -0.4])
+q4 = vectors.LorentzVector([-0.3, 0.4, 0.5, 0.2])
+q5 = vectors.LorentzVector([-0.2, 0.3, 0.2, -0.5])
+q6 = -q1-q2-q3-q4-q5
+hard_coded_topology_collection.add_topology(PRL_6p_2L.create_loop_topology(
+        "PRL_6p_2L_massive",
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6 }, 
+        mass_map={ 'p1':1., 'p2':1., 'p3':1., 'p4':1., 'p5':1., 'p6':1.,
+                   'p7':1., 'p8':1., 'p9':1. }, # no masses 
+        loop_momenta_names=('p4', 'p6'),
+        analytic_result = 0.
+    ),
+    entry_name = 'PRL_6p_2L_massive'
+)
+
+# PRL_8p_2L
+PRL_8p_2L = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 8), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6), ('p8', 8, 9), ('p9', 9, 10), ('p10', 10, 11), ('p11', 11, 7),
+        ('q5', 108, 8), ('q6', 109, 9), ('q7', 110, 10), ('q8', 111, 11),
+])
+q1 = vectors.LorentzVector([ 0.15, 0.09, 0.23, 0. ])
+q2 = vectors.LorentzVector([-0.2, 0.79, 0.12, 0.11])
+q3 = vectors.LorentzVector([-0.23, 0.14, -0.47, -0.22])
+q4 = vectors.LorentzVector([0.11, -0.59, 0.54, 0.12])
+q5 = vectors.LorentzVector([-0.15, 0.21, 0.10, -0.32])
+q6 = vectors.LorentzVector([0.32,0.84,0.27,0.49])
+q7 = vectors.LorentzVector([0.11,-0.3,-0.12,-0.1])
+q8 = -q1-q2-q3-q4-q5-q6-q7
+hard_coded_topology_collection.add_topology(PRL_8p_2L.create_loop_topology(
+        "PRL_8p_2L_massive",
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6, 'q7': q7, 'q8': q8},
+        mass_map={ 'p1':1., 'p2':1., 'p3':1., 'p4':1., 'p5':1., 'p6':1.,
+                   'p7':1., 'p8':1., 'p9':1., 'p10':1., 'p11':1. }, # no masses 
+        loop_momenta_names=('p4', 'p6'),
+        analytic_result = 0.
+    ),
+    entry_name = 'PRL_8p_2L_massive'
+)
+
+# mercedes three loop 6p
+PRL_mercedes_6p = TopologyGenerator([
+    ('q1', 0, 5), ('p0', 1, 13), ('p1', 5, 2), ('p2', 10, 3), ('p10',13,5),
+    ('p3', 3, 1), ('p4', 1, 8), ('p5', 2, 7), ('p6', 3, 4), ('p7', 2 ,10), ('p8', 7,4), ('p9',8,4),
+    ('q2', 6, 3), ('q3',110,10), ('q4',107,7), ('q5',108,8), ('q6', 113,13),
+])
+q1 = vectors.LorentzVector([ 0.2, 0.3, 0.5, 0.6 ])
+q2 = vectors.LorentzVector([-0.1, 0.7, 0.2, 0.1])
+q3 = vectors.LorentzVector([ 0.1, 0.5, -0.3, -0.4])
+q4 = vectors.LorentzVector([-0.3, 0.4, 0.5, 0.2])
+q5 = vectors.LorentzVector([-0.2, 0.3, 0.2, -0.5])
+q6 = -q1-q2-q3-q4-q5
+hard_coded_topology_collection.add_topology(PRL_mercedes_6p.create_loop_topology(
+    'PRL_Mercedes_6p_massive',
+    ext_mom={'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6},
+    mass_map={ 'p1':1., 'p2':1., 'p3':1., 'p4':1., 'p5':1., 'p6':1.,
+               'p7':1., 'p8':1., 'p9':1., 'p10':1., 'p0':1. }, # no masses
+    loop_momenta_names=('p3', 'p4', 'p6',),
+    analytic_result = 0.,
+    contour_closure = [0,0,1],
+    ),
+    entry_name = 'PRL_Mercedes_6p_massive'
+)
+
 # non planar four loop
 PRL_non_planar_four_loop = TopologyGenerator([
     ('q', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),
