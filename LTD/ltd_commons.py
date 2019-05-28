@@ -52,7 +52,7 @@ hyperparameters = HyperParameters({
         'n_vec'             :   1,
         'seed'              :   1,
         'integrated_phase'  :  'real',
-        'state_filename'    :   None,
+        'state_filename_prefix' :   None,
         'survey_n_points'   :   0,
         'survey_n_iterations':  0,
         'refine_n_runs'      :  0,
