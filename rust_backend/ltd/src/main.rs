@@ -181,7 +181,9 @@ where
             .set_maxeval(
                 (settings.integrator.survey_n_iterations * settings.integrator.survey_n_points)
                     as i64,
-            );
+            ).set_reset_vegas_integrator(settings.integrator.reset_vegas_integrator)
+            .set_use_only_last_sample(settings.integrator.use_only_last_sample)
+            .set_keep_state_file(settings.integrator.keep_state_file);;
         let survey_result = ci.vegas(
             3 * topo.n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
@@ -1297,5 +1299,5 @@ fn main() {
         serde_yaml::to_string(&CubaResultDef::new(&cuba_result)).unwrap()
     )
     .unwrap();
-    //writeln!(&mut result_file, "...").unwrap(); // write end-marker, for easy streaming
+    writeln!(&mut result_file, "...").unwrap(); // write end-marker, for easy streaming
 }

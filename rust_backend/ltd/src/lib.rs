@@ -279,6 +279,9 @@ pub struct IntegratorSettings {
     pub survey_n_iterations: usize,
     pub refine_n_runs: usize,
     pub refine_n_points: usize,
+    pub keep_state_file: bool,
+    pub reset_vegas_integrator: bool,
+    pub use_only_last_sample: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -317,6 +320,9 @@ impl Default for IntegratorSettings {
             survey_n_iterations: 0,
             refine_n_runs: 0,
             refine_n_points: 0,
+            keep_state_file: false,
+            reset_vegas_integrator: true,
+            use_only_last_sample: false,
         }
     }
 }
