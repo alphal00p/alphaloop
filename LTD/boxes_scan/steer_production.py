@@ -11,6 +11,7 @@ sys.path.insert(0, pjoin(root_path,os.pardir))
 sys.path.insert(0, pjoin(root_path,os.pardir,os.pardir))
 
 rust_executable_path = os.path.abspath(pjoin(root_path,os.pardir,os.pardir,'rust_backend','target','release','ltd'))
+pyvegas_executable_path = os.path.abspath(pjoin(root_path,os.pardir,os.pardir,'pyvegas.py'))
 import yaml
 from yaml import Loader, Dumper
 
@@ -18,6 +19,7 @@ import ltd_commons
 import ltd_utils
 from ltd_utils import Colour
 
+_PYVEGAS = False
 _RUN_LOCALLY = True
 _CLEAN = False
 _SILENCE = False
@@ -27,6 +29,8 @@ _PREFIX = ''
 _IDS = None
 
 _WALL_TIMES = {'box': 1, 'doublebox':10, 'triplebox':24}
+
+pyvegas_hyperparms = {'survey_iter': 5, 'survey_neval': int(1e5), 'refine_iter': 10, 'refine_neval': int(1e6), 'phase': 'imag'}
 
 general_hyperparams = copy.deepcopy(ltd_commons.hyperparameters)
 general_hyperparams['General']['absolute_precision'] = 1.0e+5
@@ -74,18 +78,35 @@ def run_topology(topo,dir_name, index, n_hours, local=True):
     else:
        print "Now launch job for %s topology #%d"%(dir_name, index)
 
-    cmd = [ rust_executable_path, 
-            '-t','scan_%d'%index, 
-            '-f','%s'%pjoin(root_path,dir_name,'hyperparameters.yaml'), 
-            '-l','%s'%pjoin(root_path,dir_name,'topologies.yaml'),
-            '-c','%d'%_N_CORES
-    ]
-     
+    print(pjoin(root_path, dir_name, topo.name + '_res.dat'))
+
+    if _PYVEGAS:
+        cmd = [ pyvegas_executable_path,
+                '%d'%topo.n_loops,
+                '-t','scan_%d'%index,
+                '-hf','%s'%pjoin(root_path,dir_name,'hyperparameters.yaml'),
+                '-f','%s'%pjoin(root_path,dir_name,'topologies.yaml'),
+                '-c','%d'%_N_CORES,
+                '--si','%d'%pyvegas_hyperparms['survey_iter'],
+                '--sn','%d'%pyvegas_hyperparms['survey_neval'],
+                '--ri','%d'%pyvegas_hyperparms['refine_neval'],
+                '--rn','%d'%pyvegas_hyperparms['refine_neval'],
+                '--phase',pyvegas_hyperparms['phase'],
+                '--out',pjoin(root_path, dir_name, topo.name + '_res.dat')
+        ]
+    else:
+        cmd = [ rust_executable_path, 
+                '-t','scan_%d'%index,
+                '-f','%s'%pjoin(root_path,dir_name,'hyperparameters.yaml'),
+                '-l','%s'%pjoin(root_path,dir_name,'topologies.yaml'),
+                '-c','%d'%_N_CORES
+        ]
+
     if _RUN_LOCALLY:
     	with ltd_utils.Silence(active=_SILENCE):
-        	subprocess.call(cmd, cwd=pjoin(root_path,dir_name))
-        	# Sleep for a very short while to allow output file flushing
-        	time.sleep(0.3)
+            subprocess.call(cmd, cwd=pjoin(root_path,dir_name))
+            # Sleep for a very short while to allow output file flushing
+            time.sleep(0.3)
     else:
         submission_script = open(pjoin(root_path,'submission_template.run'),'r').read()
         open(pjoin(root_path,'submitter.run'),'w').write(submission_script%{

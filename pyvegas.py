@@ -5,6 +5,7 @@ import vegas
 import ltd
 import signal
 import argparse
+import yaml
 
 class Integrand(vegas.BatchIntegrand):
     def __init__(self, integrand, phase, nproc):
@@ -33,10 +34,6 @@ class Integrand(vegas.BatchIntegrand):
             for y in range(x.shape[0]):
                 ans[y] = integrand.evaluate(x[y])[self.phase]
             q_out.put((i, ans))
-
-    def __del__(self):
-        for p in self.proc:
-            p.join()
 
     def __call__(self, x):
         nx = x.shape[0] // self.nproc + 1
@@ -77,13 +74,15 @@ def main():
     parser.add_argument('-t', default="manual_Box_no_ellipse", type=str,
                         help='Topology')
     parser.add_argument('--survey_iter', '--si', default=5, type=int,
-                        help='an integer for the accumulator')
+                        help='number of survey iterations')
     parser.add_argument('--survey_neval', '--sn', default=int(1e6), type=int,
-                        help='an integer for the accumulator')
+                        help='number of survery evaluations')
     parser.add_argument('--refine_iter', '--ri', default=10, type=int,
-                        help='an integer for the accumulator')
+                        help='number of refine iterations')
     parser.add_argument('--refine_neval', '--rn', default=int(1e7), type=int,
-                        help='an integer for the accumulator')
+                        help='number of refine evaluations')
+    parser.add_argument('--out', default=None, type=str,
+                        help='output file')
 
     args = parser.parse_args()
 
@@ -100,7 +99,21 @@ def main():
     # final results
     result = integ(fparallel, nitn=args.refine_iter, neval=args.refine_neval)
 
+    print(result.summary())
     print('result = %s    Q = %.2f' % (result, result.Q))
+
+    if args.out is not None:
+        data = {
+            'neval': args.survey_iter * args.survey_neval + args.refine_iter * args.refine_neval,
+            'fail': 1,
+            'result': [result.mean],
+            'error': [result.sdev],
+            'prob': [result.Q]
+        }
+
+        with open(args.out, 'w') as outfile:
+            yaml.dump(data, outfile, default_flow_style=False)
+            outfile.write('...\n')
 
 
 if __name__ == '__main__':
