@@ -74,11 +74,37 @@ hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
     entry_name = 'DoubleTriangle_no_ellipse'
 )
 
+
+# PRL_6p_2L
+PRL_6p_2L = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 8), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6), ('p8', 8, 9), ('p9', 9, 7),
+        ('q5', 8, 108), ('q6', 9, 109)
+])
+q1 = vectors.LorentzVector([ 0.2, 0.3, 0.5, 0.6 ])
+q2 = vectors.LorentzVector([-0.1, 0.7, 0.2, 0.1])
+q3 = vectors.LorentzVector([ 0.1, 0.5, -0.3, -0.4])
+q4 = vectors.LorentzVector([-0.3, 0.4, 0.5, 0.2])
+q5 = vectors.LorentzVector([-0.2, 0.3, 0.2, -0.5])
+q6 = -q1-q2-q3-q4-q5
+hard_coded_topology_collection.add_topology(PRL_6p_2L.create_loop_topology(
+        "PRL_6p_2L", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6 }, 
+        mass_map={}, # no masses 
+        loop_momenta_names=('p4', 'p6'), 
+        analytic_result = 0.
+    ),
+    entry_name = 'PRL_6p_2L'
+)
+
+
+
 # double box
 doublebox = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
         ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
-        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6),
 ])
 q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
 q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
