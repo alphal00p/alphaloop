@@ -71,7 +71,7 @@ general_hyperparams['Integrator']['maxchisq'] = 10.
 general_hyperparams['Integrator']['mindeviation'] = 0.25
 
 general_hyperparams['Integrator']['reset_vegas_integrator'] = True
-general_hyperparams['Integrator']['use_only_last_sample'] = False
+general_hyperparams['Integrator']['use_only_last_sample'] = True 
 
 general_hyperparams['input_rescaling'] = [
             [[0., 1.], [0., 1.], [0., 1.]],
