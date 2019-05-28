@@ -1074,11 +1074,35 @@ fn main() {
                 .help("Set the deformation"),
         )
         .arg(
+            Arg::with_name("seed")
+                .long("seed")
+                .value_name("SEED")
+                .help("Specify the integration seed"),
+        )
+        .arg(
             Arg::with_name("topology")
                 .short("t")
                 .long("topology")
                 .value_name("TOPOLOGY")
                 .help("Set the active topology"),
+        )
+        .arg(
+            Arg::with_name("state_filename_prefix")
+                .long("state_filename_prefix")
+                .value_name("STATE_FILENAME")
+                .help("Set the prefix to apply to vegas grid file"),
+        )
+        .arg(
+            Arg::with_name("log_file_prefix")
+                .long("log_file_prefix")
+                .value_name("LOG_FILE_PREFIX")
+                .help("Set the prefix to apply to the integration statistics log"),
+        )
+        .arg(
+            Arg::with_name("res_file_prefix")
+                .long("res_file_prefix")
+                .value_name("RES_FILE_PREFIX")
+                .help("Set the prefix to apply to the result file"),
         )
         .subcommand(SubCommand::with_name("bench").about("Run a benchmark"))
         .subcommand(
@@ -1128,12 +1152,28 @@ fn main() {
         cores = usize::from_str(x).unwrap();
     }
 
+    if let Some(x) = matches.value_of("seed") {
+        settings.integrator.seed = i32::from_str(x).unwrap();
+    }
+
     if let Some(x) = matches.value_of("samples") {
         settings.integrator.n_max = usize::from_str(x).unwrap();
     }
 
     if let Some(x) = matches.value_of("topology") {
         settings.general.topology = x.to_owned();
+    }
+
+    if let Some(x) = matches.value_of("state_filename_prefix") {
+        settings.integrator.state_filename_prefix = serde::export::Some(x.to_owned());
+    }
+
+    if let Some(x) = matches.value_of("log_file_prefix") {
+        settings.general.log_file_prefix = x.to_owned();
+    }
+
+    if let Some(x) = matches.value_of("res_file_prefix") {
+        settings.general.res_file_prefix = x.to_owned();
     }
 
     let topology_file = matches.value_of("topologies").unwrap();
