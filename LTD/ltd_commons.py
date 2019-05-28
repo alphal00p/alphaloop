@@ -44,7 +44,7 @@ hyperparameters = HyperParameters({
 
     'Integrator'    :   {
         # The integrator can be vegas, divonne, cuhre or suave
-        'integrator'        :   'divonne',
+        'integrator'        :   'vegas',
         'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e6),
