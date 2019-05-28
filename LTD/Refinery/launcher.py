@@ -239,7 +239,7 @@ if __name__ == '__main__':
             try:
                 key, value = arg.split('=')
             except ValueError:
-                key = args
+                key = arg
                 value = None
             key = key[2:]        
         else:
