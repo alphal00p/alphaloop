@@ -141,12 +141,16 @@ fn vegas_integrate<'a, F>(
 where
     F: Fn() -> UserData<'a>,
 {
-    let state_filename = if let Some(ref name) = settings.integrator.state_filename {
-        name.clone()
+    let state_filename = if let Some(ref name) = settings.integrator.state_filename_prefix {
+        name.clone() + &topo.name.clone() + "_state.dat"
     } else {
         topo.name.clone() + "_state.dat"
     };
-    let survey_filename = topo.name.clone() + "_survey.dat";
+    let survey_filename = if let Some(ref name) = settings.integrator.state_filename_prefix {
+        name.clone() + &topo.name.clone() + "_survey.dat"
+    } else {
+        topo.name.clone() + "_survey.dat"
+    };
 
     ci.set_use_only_last_sample(false)
         .set_save_state_file(state_filename.clone())

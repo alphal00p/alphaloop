@@ -23,7 +23,7 @@ pub struct Settings {
     pub cores: usize,
     pub seed: i32,
     pub param_mode: String,
-    pub state_filename: Option<String>,
+    pub state_filename_prefix: Option<String>,
     pub topologies: HashMap<String, Topology>,
     pub survey_n_iterations: usize,
     pub survey_n_points: usize,
@@ -57,7 +57,7 @@ impl Default for Settings {
             max_eval: 1000000,
             cores: 4,
             seed: 0,
-            state_filename: None,
+            state_filename_prefix: None,
             param_mode: "weinzierl".to_owned(),
             topologies: HashMap::new(),
             survey_n_iterations: 5,
@@ -159,12 +159,16 @@ impl Aggregator {
             }
         }
 
-        let state_filename = if let Some(ref name) = self.settings.state_filename {
-            name.clone()
+        let state_filename = if let Some(ref name) = self.settings.state_filename_prefix {
+            name.clone() + &self.settings.active_topology.clone() + "_state.dat"
         } else {
             self.settings.active_topology.clone() + "_state.dat"
         };
-        let survey_filename = self.settings.active_topology.clone() + "_survey.dat";
+        let survey_filename = if let Some(ref name) = self.settings.state_filename_prefix {
+            name.clone() + &self.settings.active_topology.clone() + "_survey.dat"
+        } else {
+            self.settings.active_topology.clone() + "_survey.dat"
+        };
 
         let mut ci = CubaIntegrator::new(integrand);
         ci.set_epsabs(0.)

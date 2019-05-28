@@ -44,14 +44,14 @@ hyperparameters = HyperParameters({
 
     'Integrator'    :   {
         # The integrator can be vegas, divonne, cuhre or suave
-        'integrator'        :   'vegas',
+        'integrator'        :   'divonne',
         'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e6),
         # can be set to high values for use with MPI, otherwise leave it at 1
         'n_vec'             :   1,
         'seed'              :   1,
-        'integrated_phase'  :  'imag',
+        'integrated_phase'  :  'real',
         'state_filename'    :   None,
         'survey_n_points'   :   0,
         'survey_n_iterations':  0,
@@ -61,7 +61,7 @@ hyperparameters = HyperParameters({
         'eps_rel'           :   1e-3,
         'eps_abs'           :   0.,
         # A border set different to zero allows to not probe particular problematic kinematics
-        'border'            :   1.0e-10,
+        'border'            :   1.0e-3,
         'n_new'             :   100000,
         'n_min'             :   2,
         'flatness'          :   50.,
@@ -72,7 +72,7 @@ hyperparameters = HyperParameters({
 
     'Deformation'   :   {
         # can be constant, linear or sigmoid
-        'overall_scaling' : 'linear',
+        'overall_scaling' : 'constant',
         # fraction of e_cm used for scaling
         'overall_scaling_constant'  : 1.,
 
@@ -82,7 +82,7 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 1000.0,
+            'lambda'                    : 0.1,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : False,
@@ -96,14 +96,14 @@ hyperparameters = HyperParameters({
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
             'mode'  :   'unity',
-            'a_ij'  :   0.0000001,
+            'a_ij'  :   0.001,
             # set aijs per surface. if the entry isn't there, a_ij is used instead
             'a_ijs' :   [],
         },
 
         'cutgroups' : {
-            'M_ij'  :   0.00001,
-            'sigma' :   0.0,
+            'M_ij'  :   0.00000001,
+            'sigma' :   0.00001,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'softmin',
         }
@@ -113,9 +113,9 @@ hyperparameters = HyperParameters({
         # can be cartesian or spherical
         'mode'      :   'spherical',
         # can be log or linear
-        'mapping'   :   'linear',
+        'mapping'   :   'log',
         # controls the UV behaviour of the spherical log map
-        'b'         :   1.0,
+        'b'         :   0.1,
         # rescale the input from [0,1] to [lo,hi]
         'input_rescaling' : [
             [[0., 1.], [0., 1.], [0., 1.]],
