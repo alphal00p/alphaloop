@@ -146,8 +146,11 @@ def run_topology(topo, dir_name, run_options, result_path, job_name_suffix='', l
         print("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path )
     else:
         result = yaml.load(open(result_path,'r'), Loader=Loader)
-        analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag
-        analytic_result_is_provided = (analytic_result!=0.0)
+        if topo.analytic_result is not None:
+            analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag
+            analytic_result_is_provided = (analytic_result!=0.0)
+        else:
+            analytic_result_is_provided = False
         if analytic_result_is_provided:
             print ">> Analytic result : %.16e"%analytic_result
         else:
@@ -164,9 +167,12 @@ def run_topology(topo, dir_name, run_options, result_path, job_name_suffix='', l
 def gather_result(topo, dir_name, clean=False):
     """ Combine all results into an 'final_result' file."""
   
-    analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag  
-    analytic_result_is_provided = (analytic_result!=0.0)
- 
+    if topo.analytic_result is not None:
+        analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag  
+        analytic_result_is_provided = (analytic_result!=0.0)
+    else:
+        analytic_result_is_provided = False
+
     all_res_files = []
     all_results = {}
     
@@ -214,7 +220,6 @@ def gather_result(topo, dir_name, clean=False):
     final_central_value /= final_error
     final_error = 1./ math.sqrt(final_error)
 
-    n_sigmas = abs((analytic_result-final_central_value)/final_error)
     final_res_lines = [
             "%.16e %.16e"%(final_central_value,final_error),
             "Final result for topology %s"%topo.name, 
@@ -223,6 +228,7 @@ def gather_result(topo, dir_name, clean=False):
             ">> LTD error       : %.16e (%.2g%%)"%(final_error, 100.0*(final_error/final_central_value)),
     ]
     if analytic_result_is_provided:
+        n_sigmas = abs((analytic_result-final_central_value)/final_error)
         final_res_lines.extend([
             ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END),
             ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-final_central_value)/analytic_result)),
