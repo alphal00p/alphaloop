@@ -27,6 +27,7 @@ _N_CORES = 8
 _CLEAN = False 
 _NAME = None
 _IDS = None
+_SCRATCH = None
 
 _N_REFINES = 10
 _REFINE_N_POINTS = int(1e7)
@@ -103,8 +104,13 @@ def run_topology(topo, dir_name, run_options, result_path, job_name_suffix='', l
     """ Run topology of specified index and directory locally or on a SLURM scheduled cluster."""
 
     run_options = dict(run_options)
-    output_log_path = run_options.pop('output_log_path', '%s/LTD_runs/logs/%s%s.out'%(os.environ.get('SCRATCH','/tmp'), dir_name, job_name_suffix))
-    error_log_path = run_options.pop('error_log_path', '%s/LTD_runs/logs/%s%s.err'%(os.environ.get('SCRATCH','/tmp'), dir_name, job_name_suffix))
+
+    if _SCRATCH is not None:
+        output_log_path = run_options.pop('output_log_path', '%s/%s%s.out'%(_SCRATCH, dir_name, job_name_suffix))
+        error_log_path = run_options.pop('error_log_path', '%s/%s%s.err'%(_SCRATCH, dir_name, job_name_suffix))
+    else:
+        output_log_path = run_options.pop('output_log_path', '%s/%s%s.out'%(os.environ.get('SCRATCH','/tmp'), dir_name, job_name_suffix))
+        error_log_path = run_options.pop('error_log_path', '%s/%s%s.err'%(os.environ.get('SCRATCH','/tmp'), dir_name, job_name_suffix))
 
     cmd = [ rust_executable_path, 
             '-t','%s'%topo.name, 
@@ -250,6 +256,8 @@ if __name__ == '__main__':
             n_cores_user_set = True
         elif key=='quiet':
             _SILENCE = True
+        elif key=='scratch':
+            _SCRATCH = value
         elif key=='topology':
             _TOPOLOGY = value
         elif key=='seed':
@@ -318,6 +326,8 @@ if __name__ == '__main__':
 
         rust_run_options['log_file_prefix'] = pjoin(root_path, _NAME, 'integration_statistics', 'survey_')
         rust_run_options['res_file_prefix'] = pjoin(root_path, _NAME, 'survey_')
+        rust_run_options['output_log_path'] = pjoin(root_path, _NAME, 'output_logs', 'survey.out')
+        rust_run_options['error_log_path'] = pjoin(root_path, _NAME, 'output_logs', 'survey.err')
         if os.path.exists(pjoin(root_path, _NAME, 'survey_grid_%s_state.dat'%topology.name)):
             os.remove(pjoin(root_path, _NAME, 'survey_grid_%s_state.dat'%topology.name))
         rust_run_options['state_filename_prefix'] = pjoin(root_path, _NAME, 'survey_grid_')
@@ -343,7 +353,9 @@ if __name__ == '__main__':
                         pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name)))
             rust_run_options['log_file_prefix'] = pjoin(root_path,_NAME,'integration_statistics', 'refine_%d_'%i_refine)
             rust_run_options['res_file_prefix'] = pjoin(root_path, _NAME, 'refine_%d_'%i_refine)
-            rust_run_options['state_filename_prefix'] = pjoin(root_path, _NAME, 'refine_grid_%d_'%i_refine)            
+            rust_run_options['state_filename_prefix'] = pjoin(root_path, _NAME, 'refine_grid_%d_'%i_refine)
+            rust_run_options['output_log_path'] = pjoin(root_path, _NAME, 'output_logs', 'refine_%d.out'%i_refine)
+            rust_run_options['error_log_path'] = pjoin(root_path, _NAME, 'output_logs', 'refine_%d.err'%i_refine)
             rust_run_options['seed'] = _SEED_START + i_refine 
             print "Now %s #%d refine for %s with %dM points."%(running, i_refine, _TOPOLOGY, int(_REFINE_N_POINTS/1.e6))
             run_topology(topology, _NAME, rust_run_options, pjoin(root_path,_NAME,'refine_%d_%s_res.dat'%(i_refine, topology.name)), 

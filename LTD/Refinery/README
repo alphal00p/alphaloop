@@ -1,0 +1,42 @@
+I have completed the script for steering integration ‘ala Becker’, including on the server. Here’s a how-to use it:
+
+a) Get in to the `Refinery` :slightly_smiling_face: with:
+```cd pynloop/LTD/Refinery```
+b) Copy the template run directory to one of a name descriptive of your run:
+```cp -R run_template MyBoxExample```
+c) Run the survey step
+```./launcher.py survey --topology=manual_Box_no_ellipse --dir=MyBoxExample --n_iterations=3 --n_start=1000000 --n_increase=1000000 --phase=imag --cores=8```
+This will run three survey iterations of 1M, 2M and 3M point respectively to generate the grid file `MyBoxExample/survey_grid_manual_Box_no_ellipse_state.dat` (note that the `topologies.yaml` file used is the one inside your run directory and the `hyperparameters.yaml` file is generated automatically by the `launcher.py` and also saved in the run directory, hence facilitating proper documentation of the results obtained.
+d) Run the refine step:
+```./launcher.py refine --topology=manual_Box_no_ellipse --dir=MyBoxExample --n_refines=5 --refine_n_points=1000000 --phase=imag --cores=8```
+Which in this case will run 5 independent run of a single iteration of 1M point, starting from the grids generated at step c).
+e) Combine all the refine results:
+```./launcher.py gather --topology=manual_Box_no_ellipse --dir=MyBoxExample```
+Which will combine the results (and write them in `MyBoxExample/final_result.dat` and give you something like this on-screen:
+```[...]
+Results from refine #4 of topology manual_Box_no_ellipse
+>> Analytic result : 5.0054164554909533e-02
+>> LTD result      : 5.0049807372353074e-02
+>> LTD error       : 1.7821994393092741e-05
+>> LTD discrepancy : 0.24 sigmas
+>> LTD rel. discr. : 0.0087%
+>> LTD n_points    : 10M
+Results from refine #5 of topology manual_Box_no_ellipse
+>> Analytic result : 5.0054164554909533e-02
+>> LTD result      : 5.0041817634610027e-02
+>> LTD error       : 1.7787171246126381e-05
+>> LTD discrepancy : 0.69 sigmas
+>> LTD rel. discr. : 0.025%
+>> LTD n_points    : 10M
+==================================================
+Final result for topology manual_Box_no_ellipse
+>> Analytic result : 5.0054164554909533e-02
+>> LTD result      : 5.0053596665573560e-02
+>> LTD error       : 7.9762137593981398e-06
+>> LTD discrepancy : 0.07 sigmas
+>> LTD rel. discr. : 0.0011%
+>> LTD n_points    : 50M
+==================================================```
+f) Finally you can cleanup your directory (including `final_result.dat`!) with `./clean.sh MyBoxExample` if you want.
+
+The beauty of the above is that if you add the option `--cluster` for step c) and d) it should then seemlessly submit the corresponding necessary jobs on the cluster!
