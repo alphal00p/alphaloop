@@ -38,7 +38,7 @@ _N_INCREASE = int(1e6)
 
 _TOPOLOGY = None
 _SEED_START = 1
-_PHASE = 'real'
+_PHASE = None
 
 _WALL_TIME = 24 # in hours 
 
@@ -147,21 +147,26 @@ def run_topology(topo, dir_name, run_options, result_path, job_name_suffix='', l
     else:
         result = yaml.load(open(result_path,'r'), Loader=Loader)
         analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag
-        print ">> Analytic result : %.16e"%analytic_result
+        analytic_result_is_provided = (analytic_result!=0.0)
+        if analytic_result_is_provided:
+            print ">> Analytic result : %.16e"%analytic_result
+        else:
+            print ">> Analytic result : N/A"
         print ">> LTD result      : %.16e"%(result['result'][0])
-        print ">> LTD error       : %.16e"%(result['error'][0])
-        n_sigmas = abs((analytic_result-result['result'][0])/result['error'][0])
-        print ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END)
-        print ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-result['result'][0])/analytic_result))
+        print ">> LTD error       : %.16e (%.2g%%)"%(result['error'][0],100.0*(result['error'][0]/result['result'][0]))
+        if analytic_result_is_provided:
+            n_sigmas = abs((analytic_result-result['result'][0])/result['error'][0])
+            print ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END)
+            print ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-result['result'][0])/analytic_result))
         print ">> LTD n_points    : %dM"%(int(result['neval']/1.e6))        
         return result
 
 def gather_result(topo, dir_name, clean=False):
     """ Combine all results into an 'final_result' file."""
-   
-    analytic_result = topo.analytic_result.real if \
-                    abs(topo.analytic_result.real)>abs(topo.analytic_result.imag) else topo.analytic_result.imag
-    
+  
+    analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag  
+    analytic_result_is_provided = (analytic_result!=0.0)
+ 
     all_res_files = []
     all_results = {}
     
@@ -184,13 +189,17 @@ def gather_result(topo, dir_name, clean=False):
         n_eval_tot += result['neval']
         these_res_lines = [
             "Results from refine #%d of topology %s"%(refine_id, topo.name), 
-            ">> Analytic result : %.16e"%analytic_result,
+            ">> Analytic result : "+("%.16e"%analytic_result if analytic_result_is_provided else 'N/A'),
             ">> LTD result      : %.16e"%(result['result'][0]),
-            ">> LTD error       : %.16e"%(result['error'][0]),
-            ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END),
-            ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-result['result'][0])/analytic_result)),
-            ">> LTD n_points    : %dM"%(int(result['neval']/1.e6)),
+            ">> LTD error       : %.16e (%.2g%%)"%(result['error'][0],100.0*(result['error'][0]/result['result'][0])),
         ]
+        if analytic_result_is_provided:
+            these_res_lines.extend([
+                ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END),
+                ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-result['result'][0])/analytic_result)),
+            ])
+        these_res_lines.append(">> LTD n_points    : %dM"%(int(result['neval']/1.e6)))
+
         if not _SILENCE:
             print '\n'.join(these_res_lines)
         all_res_lines.extend(these_res_lines)
@@ -209,13 +218,16 @@ def gather_result(topo, dir_name, clean=False):
     final_res_lines = [
             "%.16e %.16e"%(final_central_value,final_error),
             "Final result for topology %s"%topo.name, 
-            ">> Analytic result : %.16e"%analytic_result,
+            ">> Analytic result : "+("%.16e"%analytic_result if analytic_result_is_provided else 'N/A'),
             ">> LTD result      : %.16e"%final_central_value,
-            ">> LTD error       : %.16e"%final_error,
+            ">> LTD error       : %.16e (%.2g%%)"%(final_error, 100.0*(final_error/final_central_value)),
+    ]
+    if analytic_result_is_provided:
+        final_res_lines.extend([
             ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END),
             ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-final_central_value)/analytic_result)),
-            ">> LTD n_points    : %dM"%(n_eval_tot/1.e6),
-    ]
+        ])
+    final_res_lines.append(">> LTD n_points    : %dM"%(int(n_eval_tot/1.e6)))
     if not _SILENCE:
         print '='*50
         print '\n'.join(final_res_lines[1:])
@@ -292,7 +304,16 @@ if __name__ == '__main__':
         sys.exit(1)
 
     topology = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, _NAME,'topologies.yaml'))[_TOPOLOGY]
-    
+   
+    # Automatically guess the relevant phase if not specified
+    if _PHASE is None:
+        if abs(topology.analytic_result.real)==abs(topology.analytic_result.imag)==0:
+            _PHASE = 'real'
+        elif abs(topology.analytic_result.real)>abs(topology.analytic_result.imag):
+            _PHASE = 'real'
+        elif abs(topology.analytic_result.real)<abs(topology.analytic_result.imag):
+            _PHASE = 'imag'
+
     this_params = copy.deepcopy(general_hyperparams)
     this_params['Integrator']['integrated_phase'] = _PHASE
 
