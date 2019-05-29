@@ -31,6 +31,7 @@ _SCRATCH = None
 
 _N_REFINES = 10
 _REFINE_N_POINTS = int(1e7)
+_FIRST_REFINE_NUMBER = 1
 
 _N_ITERATIONS = 10
 _N_START = int(1e6)
@@ -100,7 +101,7 @@ def load_results_from_yaml(log_file_path):
             processed_data[entry_name] = entry_value
     return processed_data
 
-def run_topology(topo, dir_name, run_options, result_path, job_name_suffix='', local=True):
+def run_topology(topo, dir_name, run_options, result_path, job_name_suffix=''):
     """ Run topology of specified index and directory locally or on a SLURM scheduled cluster."""
 
     run_options = dict(run_options)
@@ -288,6 +289,8 @@ if __name__ == '__main__':
             _N_ITERATIONS = int(value)
         elif key=='n_refines':
             _N_REFINES = int(value)
+        elif key=='first_refine_number':
+            _FIRST_REFINE_NUMBER = int(value)
         elif key=='refine_n_points':
             _REFINE_N_POINTS = int(value)
         elif key=='n_start':
@@ -363,7 +366,7 @@ if __name__ == '__main__':
         print "Now %s survey stage for %s (n_start=%dM, n_increase=%dM, n_iteration=%dM => n_max=%dM)"%(
             running, _TOPOLOGY, int(_N_START/1.e6), int(_N_INCREASE/1.e6), int(_N_ITERATIONS/1.e6), int(n_max/1.e6))
         run_topology(topology, _NAME, rust_run_options, pjoin(root_path,_NAME,'survey_%s_res.dat'%topology.name), 
-                     job_name_suffix='_survey', local=True)
+                     job_name_suffix='_survey')
 
     elif subcommand == 'refine':
         
@@ -374,7 +377,7 @@ if __name__ == '__main__':
 
         this_params.export_to(os.path.join(root_path, _NAME, 'hyperparameters.yaml'))
 
-        for i_refine in range(1, _N_REFINES+1):
+        for i_refine in range(_FIRST_REFINE_NUMBER, _N_REFINES+_FIRST_REFINE_NUMBER):
             # Copy the grid for the corresponding refine run
             shutil.copy(pjoin(root_path,_NAME,'survey_grid_%s_state.dat'%topology.name),
                         pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name)))
@@ -386,8 +389,8 @@ if __name__ == '__main__':
             rust_run_options['seed'] = _SEED_START + i_refine 
             print "Now %s #%d refine for %s with %dM points."%(running, i_refine, _TOPOLOGY, int(_REFINE_N_POINTS/1.e6))
             run_topology(topology, _NAME, rust_run_options, pjoin(root_path,_NAME,'refine_%d_%s_res.dat'%(i_refine, topology.name)), 
-                     job_name_suffix='_refine_%d'%(i_refine), local=True)
-            if os.path.exists(pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name))):
+                     job_name_suffix='_refine_%d'%(i_refine) )
+            if _RUN_LOCALLY and os.path.exists(pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name))):
                 os.remove(pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name)))
 
     elif subcommand == 'gather':
