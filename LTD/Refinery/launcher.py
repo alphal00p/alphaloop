@@ -191,8 +191,7 @@ def gather_result(topo, dir_name, clean=False):
     all_res_files = sorted(all_res_files, key=lambda el: el[0])
    
     for refine_id, result_path in all_res_files:
-        result = yaml.load(open(result_path,'r'), Loader=Loader)
-        n_sigmas = abs((analytic_result-result['result'][0])/result['error'][0])
+        result = yaml.load(open(result_path,'r'), Loader=Loader) 
         n_eval_tot += result['neval']
         these_res_lines = [
             "Results from refine #%d of topology %s"%(refine_id, topo.name), 
@@ -201,6 +200,7 @@ def gather_result(topo, dir_name, clean=False):
             ">> LTD error       : %.16e (%.2g%%)"%(result['error'][0],100.0*(result['error'][0]/result['result'][0])),
         ]
         if analytic_result_is_provided:
+            n_sigmas = abs((analytic_result-result['result'][0])/result['error'][0])
             these_res_lines.extend([
                 ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END),
                 ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-result['result'][0])/analytic_result)),
