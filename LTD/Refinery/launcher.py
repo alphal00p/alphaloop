@@ -241,7 +241,7 @@ def gather_result(topo, dir_name, clean=False):
         print '='*50
 
     final_result = open(pjoin(root_path,dir_name,'final_result.dat'),'w')
-    final_result.write('\n'.join(final_res_lines+these_res_lines))
+    final_result.write('\n'.join(final_res_lines+all_res_lines))
     final_result.close()
 
     if _CLEAN:
