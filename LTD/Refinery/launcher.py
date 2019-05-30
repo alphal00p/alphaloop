@@ -31,6 +31,7 @@ _SCRATCH = None
 
 _N_REFINES = 10
 _REFINE_N_POINTS = int(1e7)
+_FIRST_REFINE_NUMBER = 1
 
 _N_ITERATIONS = 10
 _N_START = int(1e6)
@@ -71,7 +72,7 @@ general_hyperparams['Integrator']['maxchisq'] = 10.
 general_hyperparams['Integrator']['mindeviation'] = 0.25
 
 general_hyperparams['Integrator']['reset_vegas_integrator'] = True
-general_hyperparams['Integrator']['use_only_last_sample'] = False
+general_hyperparams['Integrator']['use_only_last_sample'] = True 
 
 general_hyperparams['input_rescaling'] = [
             [[0., 1.], [0., 1.], [0., 1.]],
@@ -100,7 +101,7 @@ def load_results_from_yaml(log_file_path):
             processed_data[entry_name] = entry_value
     return processed_data
 
-def run_topology(topo, dir_name, run_options, result_path, job_name_suffix='', local=True):
+def run_topology(topo, dir_name, run_options, result_path, job_name_suffix=''):
     """ Run topology of specified index and directory locally or on a SLURM scheduled cluster."""
 
     run_options = dict(run_options)
@@ -146,8 +147,11 @@ def run_topology(topo, dir_name, run_options, result_path, job_name_suffix='', l
         print("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path )
     else:
         result = yaml.load(open(result_path,'r'), Loader=Loader)
-        analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag
-        analytic_result_is_provided = (analytic_result!=0.0)
+        if topo.analytic_result is not None:
+            analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag
+            analytic_result_is_provided = (analytic_result!=0.0)
+        else:
+            analytic_result_is_provided = False
         if analytic_result_is_provided:
             print ">> Analytic result : %.16e"%analytic_result
         else:
@@ -164,9 +168,12 @@ def run_topology(topo, dir_name, run_options, result_path, job_name_suffix='', l
 def gather_result(topo, dir_name, clean=False):
     """ Combine all results into an 'final_result' file."""
   
-    analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag  
-    analytic_result_is_provided = (analytic_result!=0.0)
- 
+    if topo.analytic_result is not None:
+        analytic_result = topo.analytic_result.real if _PHASE=='real' else topo.analytic_result.imag  
+        analytic_result_is_provided = (analytic_result!=0.0)
+    else:
+        analytic_result_is_provided = False
+
     all_res_files = []
     all_results = {}
     
@@ -184,8 +191,7 @@ def gather_result(topo, dir_name, clean=False):
     all_res_files = sorted(all_res_files, key=lambda el: el[0])
    
     for refine_id, result_path in all_res_files:
-        result = yaml.load(open(result_path,'r'), Loader=Loader)
-        n_sigmas = abs((analytic_result-result['result'][0])/result['error'][0])
+        result = yaml.load(open(result_path,'r'), Loader=Loader) 
         n_eval_tot += result['neval']
         these_res_lines = [
             "Results from refine #%d of topology %s"%(refine_id, topo.name), 
@@ -194,6 +200,7 @@ def gather_result(topo, dir_name, clean=False):
             ">> LTD error       : %.16e (%.2g%%)"%(result['error'][0],100.0*(result['error'][0]/result['result'][0])),
         ]
         if analytic_result_is_provided:
+            n_sigmas = abs((analytic_result-result['result'][0])/result['error'][0])
             these_res_lines.extend([
                 ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END),
                 ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-result['result'][0])/analytic_result)),
@@ -214,7 +221,6 @@ def gather_result(topo, dir_name, clean=False):
     final_central_value /= final_error
     final_error = 1./ math.sqrt(final_error)
 
-    n_sigmas = abs((analytic_result-final_central_value)/final_error)
     final_res_lines = [
             "%.16e %.16e"%(final_central_value,final_error),
             "Final result for topology %s"%topo.name, 
@@ -223,6 +229,7 @@ def gather_result(topo, dir_name, clean=False):
             ">> LTD error       : %.16e (%.2g%%)"%(final_error, 100.0*(final_error/final_central_value)),
     ]
     if analytic_result_is_provided:
+        n_sigmas = abs((analytic_result-final_central_value)/final_error)
         final_res_lines.extend([
             ">> LTD discrepancy : %s%.2f sigmas%s"%(Colour.GREEN if n_sigmas <=3. else Colour.RED,  n_sigmas, Colour.END),
             ">> LTD rel. discr. : %.2g%%"%(100.0*abs((analytic_result-final_central_value)/analytic_result)),
@@ -234,7 +241,7 @@ def gather_result(topo, dir_name, clean=False):
         print '='*50
 
     final_result = open(pjoin(root_path,dir_name,'final_result.dat'),'w')
-    final_result.write('\n'.join(final_res_lines+these_res_lines))
+    final_result.write('\n'.join(final_res_lines+all_res_lines))
     final_result.close()
 
     if _CLEAN:
@@ -282,6 +289,8 @@ if __name__ == '__main__':
             _N_ITERATIONS = int(value)
         elif key=='n_refines':
             _N_REFINES = int(value)
+        elif key=='first_refine_number':
+            _FIRST_REFINE_NUMBER = int(value)
         elif key=='refine_n_points':
             _REFINE_N_POINTS = int(value)
         elif key=='n_start':
@@ -357,7 +366,7 @@ if __name__ == '__main__':
         print "Now %s survey stage for %s (n_start=%dM, n_increase=%dM, n_iteration=%dM => n_max=%dM)"%(
             running, _TOPOLOGY, int(_N_START/1.e6), int(_N_INCREASE/1.e6), int(_N_ITERATIONS/1.e6), int(n_max/1.e6))
         run_topology(topology, _NAME, rust_run_options, pjoin(root_path,_NAME,'survey_%s_res.dat'%topology.name), 
-                     job_name_suffix='_survey', local=True)
+                     job_name_suffix='_survey')
 
     elif subcommand == 'refine':
         
@@ -368,10 +377,13 @@ if __name__ == '__main__':
 
         this_params.export_to(os.path.join(root_path, _NAME, 'hyperparameters.yaml'))
 
-        for i_refine in range(1, _N_REFINES+1):
-            # Copy the grid for the corresponding refine run
-            shutil.copy(pjoin(root_path,_NAME,'survey_grid_%s_state.dat'%topology.name),
+        for i_refine in range(_FIRST_REFINE_NUMBER, _N_REFINES+_FIRST_REFINE_NUMBER):
+            # Copy the grid for the corresponding refine run (if it exists; it may not if the user wants to do naive MC)
+            if os.path.isfile(pjoin(root_path,_NAME,'survey_grid_%s_state.dat'%topology.name)):
+                shutil.copy(pjoin(root_path,_NAME,'survey_grid_%s_state.dat'%topology.name),
                         pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name)))
+            else:
+                print "WARNING: The refine you initiated will *not* use a prexisting survey grid as there is none available."
             rust_run_options['log_file_prefix'] = pjoin(root_path,_NAME,'integration_statistics', 'refine_%d_'%i_refine)
             rust_run_options['res_file_prefix'] = pjoin(root_path, _NAME, 'refine_%d_'%i_refine)
             rust_run_options['state_filename_prefix'] = pjoin(root_path, _NAME, 'refine_grid_%d_'%i_refine)
@@ -380,8 +392,8 @@ if __name__ == '__main__':
             rust_run_options['seed'] = _SEED_START + i_refine 
             print "Now %s #%d refine for %s with %dM points."%(running, i_refine, _TOPOLOGY, int(_REFINE_N_POINTS/1.e6))
             run_topology(topology, _NAME, rust_run_options, pjoin(root_path,_NAME,'refine_%d_%s_res.dat'%(i_refine, topology.name)), 
-                     job_name_suffix='_refine_%d'%(i_refine), local=True)
-            if os.path.exists(pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name))):
+                     job_name_suffix='_refine_%d'%(i_refine) )
+            if _RUN_LOCALLY and os.path.exists(pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name))):
                 os.remove(pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name)))
 
     elif subcommand == 'gather':

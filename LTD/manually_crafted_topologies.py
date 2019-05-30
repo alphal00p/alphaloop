@@ -1589,7 +1589,7 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
         p29 = external_momenta[28]
         p30 = external_momenta[29]
         psum10 = p1+p2+p3+p4+p5+p6+p7+p8+p9
-        psum20 = psum10+p10+p11+p13+p13+p14+p15+p16+p17+p18+p19
+        psum20 = psum10+p10+p11+p12+p13+p14+p15+p16+p17+p18+p19
         if parameter_values == {}:
             parameters = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.,
                           'm6': 0., 'm7': 0., 'm8': 0., 'm9': 0., 'm10': 0.,
@@ -2819,7 +2819,7 @@ hard_coded_topology_collection.add_topology(
                          },
         name = 'Tringigon_P2_no_ellipse',
     ),
-    entry_name = 'Tringigon_P2_no_ellipse'
+    entry_name = 'TringigonTringigon_P2_no_ellipse'
 )
 
 
