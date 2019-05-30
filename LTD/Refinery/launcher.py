@@ -378,9 +378,12 @@ if __name__ == '__main__':
         this_params.export_to(os.path.join(root_path, _NAME, 'hyperparameters.yaml'))
 
         for i_refine in range(_FIRST_REFINE_NUMBER, _N_REFINES+_FIRST_REFINE_NUMBER):
-            # Copy the grid for the corresponding refine run
-            shutil.copy(pjoin(root_path,_NAME,'survey_grid_%s_state.dat'%topology.name),
+            # Copy the grid for the corresponding refine run (if it exists; it may not if the user wants to do naive MC)
+            if os.path.isfile(pjoin(root_path,_NAME,'survey_grid_%s_state.dat'%topology.name)):
+                shutil.copy(pjoin(root_path,_NAME,'survey_grid_%s_state.dat'%topology.name),
                         pjoin(root_path,_NAME,'refine_grid_%d_%s_state.dat'%(i_refine, topology.name)))
+            else:
+                print "WARNING: The refine you initiated will *not* use a prexisting survey grid as there is none available."
             rust_run_options['log_file_prefix'] = pjoin(root_path,_NAME,'integration_statistics', 'refine_%d_'%i_refine)
             rust_run_options['res_file_prefix'] = pjoin(root_path, _NAME, 'refine_%d_'%i_refine)
             rust_run_options['state_filename_prefix'] = pjoin(root_path, _NAME, 'refine_grid_%d_'%i_refine)
