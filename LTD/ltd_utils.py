@@ -287,8 +287,9 @@ class TopologyGenerator(object):
     def get_thetas_for_residue(self, sigmas, allowed_system, close_contour):
         # close_contour is a list, 0 means contour closed on lower half plane, 1 upper half plane for every int variable
         contour_sign = numpy.prod([-1 for i in close_contour if i == 0])
-        sign = numpy.prod(sigmas)*numpy.linalg.det(allowed_system[2])
-        residue = [[allowed_system[0], sigmas, sign*contour_sign]]
+        cut_struct_sign = numpy.prod(sigmas)
+        det_sign = numpy.linalg.det(allowed_system[2])
+        residue = [[allowed_system[0], sigmas, det_sign*cut_struct_sign*contour_sign]]
         thetas = []
         for n_iter in range(self.n_loops):
             theta = [0 for i in range(self.n_loops)]
@@ -302,7 +303,7 @@ class TopologyGenerator(object):
                 for r in range(n_iter+1):
                     subsub_matrix = numpy.array([[allowed_system[2][i][j] for j in range(
                         n_iter)] for i in range(n_iter+1) if i != r])
-                    theta[allowed_system[1][r]] = (-1.)**(n_iter+r+1)*numpy.linalg.det(
+                    theta[allowed_system[1][r]] = (-1.)**(n_iter+r)*numpy.linalg.det(
                         subsub_matrix)/numpy.linalg.det(sub_matrix)
                     theta[allowed_system[1][r]] *= sigmas[allowed_system[1][r]]
             theta = [th*(-1.)**close_contour[n_iter] for th in theta]
