@@ -232,6 +232,30 @@ hard_coded_topology_collection.add_topology(PRL_physical_BoxBox.create_loop_topo
     entry_name = 'PRL_physical_BoxBox'
 )
 
+
+# PRL physical BoxBox
+PRL_physical_BoxBox_1ellipse = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
+    ])
+q1 = vectors.LorentzVector([1.082,0.2891,0.5276,0.119])
+q2 = vectors.LorentzVector([-0.3978,0.4261,0.1091,0.2143])
+q3 = vectors.LorentzVector([0.1182,0.2192,0.5019,0.3210])
+q4 = -q3-q2-q1
+hard_coded_topology_collection.add_topology(PRL_physical_BoxBox_1ellipse.create_loop_topology(
+    'PRL_physical_BoxBox_1ellipse',
+    ext_mom={'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4},
+    mass_map={},
+    loop_momenta_names=('p4','p2'),
+    analytic_result = analytic_four_point_ladder(
+                    q1.square(), q2.square(), q3.square(), q4.square(),
+                    (q1+q2).square(), (q2+q3).square(), 2),
+    ),
+    entry_name = 'PRL_physical_BoxBox_1ellipse'
+)
+
+
 # PRL BoxBoxBoxBox
 PRL_BoxBoxBoxBox = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
