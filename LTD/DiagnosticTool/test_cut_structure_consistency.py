@@ -9,6 +9,8 @@ import random
 import os
 import sys
 import numpy as np
+import copy
+import math
 
 pjoin = os.path.join
 
@@ -19,6 +21,10 @@ sys.path.insert(0, pjoin(root_path,os.pardir,os.pardir))
 import ltd_utils
 from ltd_utils import TopologyGenerator, TopologyCollection
 import vectors
+
+NO_CUT = ltd_utils.LoopLine.NO_CUT
+POSITIVE_CUT = ltd_utils.LoopLine.POSITIVE_CUT
+NEGATIVE_CUT = ltd_utils.LoopLine.NEGATIVE_CUT
 
 try:
     # Import the rust bindings
@@ -57,7 +63,8 @@ def run_closure_test_for_master_topology(
                 ext_mom=external_momenta,
                 mass_map=loop_masses,  # no masses
                 loop_momenta_names=loop_momenta_basis[0], # Always take the first spanning tree as a defining one for this first test
-                contour_closure=closing_option
+                contour_closure=closing_option,
+                analytic_result=1.
             ),
             entry_name = test_topology_name
         )
@@ -176,11 +183,32 @@ def manual_evaluation(rust_worker, topology, loop_momenta, f128=False):
                         [ [ ( float(vi.real), float(vi.imag) ) for vi in v ] for v in loop_momenta],
                          ltd_cut_index,  cut_index)
             if not math.isnan(res[0]) and not math.isnan(res[1]):
-                evaluation[((ltd_cut_index, tuple(ltd_cut_structure)),(cut_index, cut_structure))] = complex(res[0],res[1])
+                prefactor = (((-2.*math.pi*complex(0.,1.))/((2.*math.pi)**4))**len(loop_momenta))
+                evaluation[((ltd_cut_index, tuple(ltd_cut_structure)),(cut_index, cut_structure))] = complex(res[0],res[1])*prefactor
             else:
                  print("Nan found for entry %s"%str(((ltd_cut_index, ltd_cut_structure),(cut_index, cut_structure))))
 
     return evaluation
+
+def set_cut_structure_to_weinzierl_one(topology, n_loops):
+    """ Change the cut strucutre to correspond to Weinzierl one."""
+
+    correct_cut_structure = copy.deepcopy(topology.ltd_cut_structure)
+    weinzierl_cut_structures = []
+    for cut_structure in correct_cut_structure:
+        for signs in itertools.product([POSITIVE_CUT,NEGATIVE_CUT],repeat=n_loops):
+            weinzierl_cut_structure = [NO_CUT,]*len(cut_structure)            
+            i_cut = 0            
+            for i in range(len(cut_structure)):
+                if cut_structure[i]!=NO_CUT:
+                    weinzierl_cut_structure[i] = signs[i_cut]
+                    i_cut += 1
+                if i_cut == n_loops:
+                    break
+                
+            assert i_cut==n_loops
+            weinzierl_cut_structures.append(weinzierl_cut_structure)
+    topology.ltd_cut_structure = list(weinzierl_cut_structures)
 
 def run_parametrisation_test_for_master_topology(
         master_topology,
@@ -205,8 +233,14 @@ def run_parametrisation_test_for_master_topology(
                 ext_mom=external_momenta,
                 mass_map=loop_masses,  # no masses
                 loop_momenta_names=loop_momenta_basis[0], # Always take the first spanning tree as a defining one
-                contour_closure=[0,]*n_loops # Always close from below for this test
+                contour_closure=[0,]*n_loops, # Always close from below for this test
+                analytic_result=0.
             )
+    #print('Before: %s'%(defining_topology.ltd_cut_structure))
+    # Test weinzierl
+    #set_cut_structure_to_weinzierl_one(defining_topology, n_loops)
+    #print('After: %s'%(defining_topology.ltd_cut_structure))
+    
     conversion_rules = { sorted_collection_names[0]: (np.diag([1,]*n_loops),tuple([vectors.LorentzVector(),]*n_loops) ) }
 
     collection_of_topologies_to_test.add_topology(defining_topology,entry_name = sorted_collection_names[0])
@@ -236,8 +270,14 @@ def run_parametrisation_test_for_master_topology(
                 ext_mom=external_momenta,
                 mass_map=loop_masses,  # no masses
                 loop_momenta_names=a_loop_momenta_basis, # Always take the first spanning tree as a defining one for this first test
-                contour_closure=[0,]*n_loops
+                contour_closure=[0,]*n_loops,
+                analytic_result=1.
             )
+        #print('Before tt: %s'%(test_topology.ltd_cut_structure))
+        # Test weinzierl
+        #set_cut_structure_to_weinzierl_one(test_topology, n_loops)
+        #print('After tt: %s'%(test_topology.ltd_cut_structure))
+
         collection_of_topologies_to_test.add_topology(test_topology, entry_name = test_topology_name)
 
         # Now we must figure out the conversion matrix.
@@ -301,14 +341,25 @@ def run_parametrisation_test_for_master_topology(
             #logging.info(mapped_momenta_config)
             # And map back to x hypercube space
             x_inputs = []
+            x_jac = 1.
             for i_loop, k in enumerate(mapped_momenta_config):
-                x_inputs.extend([float(xi) for xi in multipurpose_rust_worker.inv_parameterize(k, i_loop)][:-1])
+                x_in_and_x_jac = [float(xi) for xi in multipurpose_rust_worker.inv_parameterize(k, i_loop)]
+                x_jac *= x_in_and_x_jac[-1]
+                x_inputs.extend(x_in_and_x_jac[:-1])
             # Sanity check on of the function inv_parametrize:
             three_momentum_reconstructed=[]
+            rev_x_jac = 1.
             for chunk in chunks(x_inputs,3):
-                three_momentum_reconstructed.append([float(ki) for ki in multipurpose_rust_worker.parameterize(chunk, i_loop)][:-1])
+                rev_x_in_and_x_jac = [float(ki) for ki in multipurpose_rust_worker.parameterize(chunk, i_loop)]
+                rev_x_jac *= rev_x_in_and_x_jac[-1]
+                three_momentum_reconstructed.append(rev_x_in_and_x_jac[:-1])
             #print(mapped_momenta_config)
             #print(three_momentum_reconstructed)
+            missmatch = abs(x_jac-1./rev_x_jac)/abs(x_jac)
+            
+            if missmatch>1.0e-12:
+                logging.critical("Inverse parametrisation jacobian not working properly! relative mismatch = %e"%missmatch)
+                return
             for i, k in enumerate(mapped_momenta_config):
                 for j, ki in enumerate(k):
                     missmatch = abs(ki-three_momentum_reconstructed[i][j])/abs(ki)
@@ -324,9 +375,13 @@ def run_parametrisation_test_for_master_topology(
                 name=topology_name,
             )
             result_re, result_im = rust_worker.evaluate(x_inputs)
+            result_re /= rev_x_jac
+            result_im /= rev_x_jac
             logging.info('%-60s = %-20.16e %s%-20.16e*I'%(topology_name+'_f64', result_re, '+' if result_im>=0 else '-', abs(result_im)))
             parametrisation_test_results[topology_name+'_f64'] = complex(result_re, result_im)
             result_re, result_im = rust_worker.evaluate_f128(x_inputs)
+            result_re /= rev_x_jac
+            result_im /= rev_x_jac
             logging.info('%-60s = %-20.16e %s%-20.16e*I'%(topology_name+'_f128', result_re, '+' if result_im>=0 else '-', abs(result_im)))
             parametrisation_test_results[topology_name+'_f128'] = complex(result_re, result_im)
             # Also perform a "manual" evaluation by summing explicitly over duals
@@ -357,6 +412,7 @@ if __name__ == '__main__':
     logging.info('Now testing the parametrisation independence of the one-loop bubble:')
     run_parametrisation_test_for_master_topology(bubble, external_momenta, loop_masses, 1)
     logging.info('')
+    #stop
 
     box = TopologyGenerator([
         ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),
