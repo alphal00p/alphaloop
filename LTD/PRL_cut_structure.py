@@ -1,6 +1,11 @@
+#!/usr/bin/env python2
+
 #PRL_cut_structure.py
 import itertools
 import numpy
+
+CLOSE_ABOVE = True
+CLOSE_BELOW = False
 
 class CutStructureGenerator(object):
 	def __init__(self,loop_line_signatures):
@@ -32,8 +37,8 @@ class CutStructureGenerator(object):
 		return residue_elements
 
 	def get_spanning_tree_generators(self):
-		reference_signature_matrices = list(itertools.combinations(loop_line_signatures, self.n_loops))
-		bases = list(itertools.combinations(range(len(loop_line_signatures)), self.n_loops))
+		reference_signature_matrices = list(itertools.combinations(self.loop_line_signatures, self.n_loops))
+		bases = list(itertools.combinations(range(len(self.loop_line_signatures)), self.n_loops))
 		spanning_trees = []
 		for basis,reference_signature_matrix in zip(bases,reference_signature_matrices):
 			if numpy.linalg.det(reference_signature_matrix) == 0:
@@ -157,24 +162,19 @@ class ThetaGenerator(object):
 			self.sign = 1.
 		return 
 
-CLOSE_ABOVE = True
-CLOSE_BELOW = False
+if __name__ == "__main__":
+    loop_line_signatures = [(1,0,0),(0,1,0),(0,0,1),(1,-1,0),(-1,0,1),(0,1,-1)] # 3-loop mercedes
+    #loop_line_signatures = [(1,0,0),(1,-1,0),(1,-1,-1),(1,-1,0),(0,1,0),(0,0,1)] # 3-loop ladder
+    #loop_line_signatures = [(1,0),(0,1),(1,1)] # 2-loop
+    #loop_line_signatures = [(1)] # 1-loop
 
-loop_line_signatures = [(1,0,0),(0,1,0),(0,0,1),(1,-1,0),(-1,0,1),(0,1,-1)] # 3-loop mercedes
-#loop_line_signatures = [(1,0,0),(1,-1,0),(1,-1,-1),(1,-1,0),(0,1,0),(0,0,1)] # 3-loop ladder
-#loop_line_signatures = [(1,0),(0,1),(1,1)] # 2-loop
-#loop_line_signatures = [(1)] # 1-loop
+    cut_stucture_generator = CutStructureGenerator(loop_line_signatures)
 
-cut_stucture_generator = CutStructureGenerator(loop_line_signatures)
+    for contour_closure in itertools.product(*([[CLOSE_BELOW,CLOSE_ABOVE]]*cut_stucture_generator.n_loops)):
+        residues = cut_stucture_generator.get_residues(contour_closure,simplify=True)
+        for residue in residues:
+            print(residue)
 
-for contour_closure in itertools.product(*([[CLOSE_BELOW,CLOSE_ABOVE]]*cut_stucture_generator.n_loops)):
-	residues = cut_stucture_generator.get_residues(contour_closure,simplify=True)
-	for residue in residues:
-		print residue
-
-contour_closure = [CLOSE_ABOVE,CLOSE_BELOW,CLOSE_BELOW]
-cut_structure = cut_stucture_generator(contour_closure)
-print cut_structure
-
-
-
+    contour_closure = [CLOSE_ABOVE,CLOSE_BELOW,CLOSE_BELOW]
+    cut_structure = cut_stucture_generator(contour_closure)
+    print(cut_structure)
