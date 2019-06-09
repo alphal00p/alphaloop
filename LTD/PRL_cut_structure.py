@@ -17,11 +17,11 @@ class CutStructureGenerator(object):
 	def __call__(self,contour_closure):
 		assert(len(contour_closure) == self.n_loops)
 		residue_elements = self.get_residues(contour_closure)
-		cut_stucture = []
+		cut_structure = []
 		for residue_element in residue_elements:
 			cut_struct_iter = iter(residue_element['sigmas'])
-			cut_stucture += [[next(cut_struct_iter) if i in residue_element['basis'] else 0 for i in range(self.n_loop_lines)]]
-		return cut_stucture
+			cut_structure += [[next(cut_struct_iter) if i in residue_element['basis'] else 0 for i in range(self.n_loop_lines)]]
+		return cut_structure
 
 	def get_residues(self,contour_closure,simplify=True):
 		assert(len(contour_closure) == self.n_loops)
@@ -65,12 +65,12 @@ class SpanningTreeGenerator(object):
 				residues_per_tree += [residue_element]
 		if simplify:
 			for residue_element in list(residues_per_tree):
-				cancelling_residue = {'thetas': list(residue_element['thetas']), 'sign': -residue_element['sign']}
+				cancelling_residue = {'Heavisides': list(residue_element['Heavisides']), 'sign': -residue_element['sign']}
 				if cancelling_residue in list(residues_per_tree):
 					residues_per_tree.remove(cancelling_residue)
 					residues_per_tree.remove(residue_element)
-			if not all(all(theta==[] for theta in residue_element['thetas']) for residue_element in residues_per_tree):
-				print('Error: thetas left in residues: %s' % self.residues)		
+			if not all(all(h==[] for h in residue_element['Heavisides']) for residue_element in residues_per_tree):
+				print('Error: Heavisides left in residues: %s' % self.residues)		
 		for residue_element in residues_per_tree:
 			residue_element.update({'sigmas': sigmas, 'basis': self.basis}) 
 		return residues_per_tree
@@ -101,8 +101,8 @@ class ResidueGenerator(object):
 
 	def get_residue(self,sigmas,contour_closure,simplify = True):
 		sign = self.get_sign(sigmas,contour_closure)
-		thetas, theta_sign = self.get_thetas(sigmas,contour_closure,simplify)
-		residue_element = {'sign': sign*theta_sign, 'thetas': thetas}
+		heavisides, heaviside_sign = self.get_heavisides(sigmas,contour_closure,simplify)
+		residue_element = {'sign': sign*heaviside_sign, 'Heavisides': heavisides}
 		return residue_element
 
 	def get_sign(self,sigmas,contour_closure):
@@ -111,35 +111,35 @@ class ResidueGenerator(object):
 		det_sign = numpy.linalg.det(self.signature_matrix)
 		return contour_sign*cut_struct_sign*det_sign
 
-	def get_thetas(self,sigmas,contour_closure,simplify = True):
-		thetas = []
+	def get_heavisides(self,sigmas,contour_closure,simplify = True):
+		heavisides = []
 		for r in range(self.n_loops):
-			theta = ThetaGenerator(self.n_loops)
+			heaviside = HeavisideGenerator(self.n_loops)
 			sub_matrix = numpy.array([[self.signature_matrix[i][j] for j in range(r+1)] for i in range(r+1)])
 			if r == 0:
 				basis_index = self.permutation[r]
-				theta_value = 1./numpy.linalg.det(sub_matrix) * sigmas[basis_index]
-				theta.add(basis_index,theta_value)
+				heaviside_value = 1./numpy.linalg.det(sub_matrix) * sigmas[basis_index]
+				heaviside.add(basis_index,heaviside_value)
 			else:
 				for m in range(r+1):
 					basis_index = self.permutation[m]
 					# Leibniz formula: expansion along r th column
 					subsub_matrix = numpy.array([[self.signature_matrix[i][j] for j in range(r)] for i in range(r+1) if i != m])
-					theta_value = 1./numpy.linalg.det(sub_matrix)
-					theta_value *= (-1)**(m+r)*numpy.linalg.det(subsub_matrix)
-					theta_value *= sigmas[basis_index]
-					theta.add(basis_index,theta_value)
+					heaviside_value = 1./numpy.linalg.det(sub_matrix)
+					heaviside_value *= (-1)**(m+r)*numpy.linalg.det(subsub_matrix)
+					heaviside_value *= sigmas[basis_index]
+					heaviside.add(basis_index,heaviside_value)
 			if contour_closure[r] == CLOSE_ABOVE:
-				theta.invert_sign()
+				heaviside.invert_sign()
 			if simplify:
-				theta.simplify()
-				if theta.sign == 0.:
+				heaviside.simplify()
+				if heaviside.sign == 0.:
 					return [], 0.
-			if theta.arg != []:
-				thetas += [theta.arg]
-		return thetas, 1.
+			if heaviside.arg != []:
+				heavisides += [heaviside.arg]
+		return heavisides, 1.
 
-class ThetaGenerator(object):
+class HeavisideGenerator(object):
 	def __init__(self,n_loops):
 		self.arg = [None for i in range(n_loops)]
 		self.sign = 1.
@@ -148,33 +148,39 @@ class ThetaGenerator(object):
 		self.arg[index] = value
 
 	def invert_sign(self):
-		self.arg = [-th if th != None else None for th in self.arg]
+		self.arg = [-h if h != None else None for h in self.arg]
 
 	def simplify(self):
-		if all(th is None for th in self.arg):
+		if all(h is None for h in self.arg):
 			self.arg = []
 			self.sign = 0.
-		elif all(th <= 0. or th is None for th in self.arg):
+		elif all(h <= 0. or h is None for h in self.arg):
 			self.arg = []
 			self.sign = 0.
-		elif all(th >= 0. or th is None for th in self.arg):
+		elif all(h >= 0. or h is None for h in self.arg):
 			self.arg = []
 			self.sign = 1.
 		return 
 
 if __name__ == "__main__":
-    loop_line_signatures = [(1,0,0),(0,1,0),(0,0,1),(1,-1,0),(-1,0,1),(0,1,-1)] # 3-loop mercedes
-    #loop_line_signatures = [(1,0,0),(1,-1,0),(1,-1,-1),(1,-1,0),(0,1,0),(0,0,1)] # 3-loop ladder
-    #loop_line_signatures = [(1,0),(0,1),(1,1)] # 2-loop
-    #loop_line_signatures = [(1)] # 1-loop
 
-    cut_stucture_generator = CutStructureGenerator(loop_line_signatures)
+	loop_line_signatures = [(1,0,0),(0,1,0),(0,0,1),(1,-1,0),(-1,0,1),(0,1,-1)] # 3-loop mercedes
+	#loop_line_signatures = [(1,0,0),(1,-1,0),(1,-1,-1),(1,-1,0),(0,1,0),(0,0,1)] # 3-loop ladder
+	#loop_line_signatures = [(1,0),(0,1),(1,1)] # 2-loop
+	#loop_line_signatures = [(1)] # 1-loop
 
-    for contour_closure in itertools.product(*([[CLOSE_BELOW,CLOSE_ABOVE]]*cut_stucture_generator.n_loops)):
-        residues = cut_stucture_generator.get_residues(contour_closure,simplify=True)
-        for residue in residues:
-            print(residue)
+	cut_structure_generator = CutStructureGenerator(loop_line_signatures)
 
-    contour_closure = [CLOSE_ABOVE,CLOSE_BELOW,CLOSE_BELOW]
-    cut_structure = cut_stucture_generator(contour_closure)
-    print(cut_structure)
+	
+	# loop over all possible contour closures and print residues
+	# (simplify = True) evaluates Heaviside functions and removes cancelling residues
+	for contour_closure in itertools.product(*([[CLOSE_BELOW,CLOSE_ABOVE]]*cut_structure_generator.n_loops)):
+			print(contour_closure)
+			residues = cut_structure_generator.get_residues(contour_closure,simplify=True)
+			for residue in residues:
+				print(residue)
+	
+	# compute the cut structure for a particular contour closure
+	contour_closure = [CLOSE_BELOW,CLOSE_BELOW,CLOSE_ABOVE]
+	cut_structure = cut_structure_generator(contour_closure)
+	print(cut_structure)

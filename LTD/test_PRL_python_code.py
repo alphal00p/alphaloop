@@ -31,8 +31,28 @@ for topo_entry_name, topo in sorted(hard_coded_topology_collection.items()):
         print "Considering signature permutation: %s"%str(order_choice)
         loop_lines_signatures = [specify_order(ll.signature,order_choice) for ll in topo.loop_lines]
         cut_stucture_generator = PRL_cut_structure.CutStructureGenerator(loop_lines_signatures)
-
-        contour_closure = [PRL_cut_structure.CLOSE_BELOW,]*topo.n_loops
+        
+        if (topo_entry_name == 'PRL_Mercedes'
+            or topo_entry_name == 'PRL_Mercedes_6p_massive'
+            or topo_entry_name == 'TriangleBoxTriangle'):
+            contour_closure = [PRL_cut_structure.CLOSE_BELOW,PRL_cut_structure.CLOSE_BELOW,PRL_cut_structure.CLOSE_ABOVE]
+        elif topo_entry_name == 'manual_AltDoubleTriangle':
+            contour_closure = [PRL_cut_structure.CLOSE_ABOVE,PRL_cut_structure.CLOSE_BELOW]
+        elif (topo_entry_name == 'manual_TriangleBoxBox_alt'
+            or topo_entry_name == 'manual_TriangleBoxBox_alt_ellipses'
+            or topo_entry_name == 'manual_TriangleBoxTriangle_alt'
+            or topo_entry_name == 'manual_TriangleBoxTriangle_alt_ellipses'):
+            contour_closure = [PRL_cut_structure.CLOSE_ABOVE,PRL_cut_structure.CLOSE_BELOW,PRL_cut_structure.CLOSE_ABOVE]
+        elif (topo_entry_name == 'manual_TriangleBoxBox'
+            or topo_entry_name == 'manual_TriangleBoxBox_ellipses'
+            or topo_entry_name == 'manual_TriangleBoxTriangle'
+            or topo_entry_name == 'manual_TriangleBoxTriangle_ellipses'
+            or topo_entry_name == 'manual_TripleBox'
+            or topo_entry_name == 'manual_TripleBox_Weinzierl'
+            or topo_entry_name == 'manual_TripleBox_no_ellipse'):
+            contour_closure = [PRL_cut_structure.CLOSE_BELOW,PRL_cut_structure.CLOSE_BELOW,PRL_cut_structure.CLOSE_BELOW]
+        else:
+            contour_closure = [PRL_cut_structure.CLOSE_BELOW,]*topo.n_loops
         #print(contour_closure)
         cut_structure = sorted(cut_stucture_generator(contour_closure))
         if not compare_cut_structures(cut_structure, sorted(topo.ltd_cut_structure)):
@@ -40,6 +60,7 @@ for topo_entry_name, topo in sorted(hard_coded_topology_collection.items()):
             print 'vs'
             print 'From  US: ', sorted(topo.ltd_cut_structure)
             print "ERROR, missmatch in cut structures for topology %s!"%topo_entry_name
+
 
         # Only consider the first original signature ordering
         break
