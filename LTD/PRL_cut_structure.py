@@ -8,6 +8,8 @@ CLOSE_ABOVE = True
 CLOSE_BELOW = False
 
 class CutStructureGenerator(object):
+	""" generates the cut structures of all spanning trees of a loop diagram given its signatures """
+	
 	def __init__(self,loop_line_signatures):
 		self.loop_line_signatures = loop_line_signatures
 		self.n_loops = len(loop_line_signatures[0])
@@ -48,6 +50,8 @@ class CutStructureGenerator(object):
 		return spanning_trees
 
 class SpanningTreeGenerator(object):
+	""" finds non-vanishing signature matrices (spanning trees) """
+
 	def __init__(self, reference_signature_matrix, basis):
 		self.n_loops = len(reference_signature_matrix)
 		self.reference_signature_matrix = reference_signature_matrix
@@ -94,6 +98,8 @@ class SpanningTreeGenerator(object):
 		return residues
 
 class ResidueGenerator(object):
+	""" stores the sign and the Heaviside functions the residue comes with """
+
 	def __init__(self,signature_matrix,permutation):
 		self.n_loops = len(signature_matrix)
 		self.signature_matrix = signature_matrix
@@ -140,6 +146,8 @@ class ResidueGenerator(object):
 		return heavisides, 1.
 
 class HeavisideGenerator(object):
+	""" keeps track of each linear independent summand in the argument of the Heaviside function """
+
 	def __init__(self,n_loops):
 		self.arg = [None for i in range(n_loops)]
 		self.sign = 1.
@@ -165,22 +173,21 @@ class HeavisideGenerator(object):
 if __name__ == "__main__":
 
 	loop_line_signatures = [(1,0,0),(0,1,0),(0,0,1),(1,-1,0),(-1,0,1),(0,1,-1)] # 3-loop mercedes
-	#loop_line_signatures = [(1,0,0),(1,-1,0),(1,-1,-1),(1,-1,0),(0,1,0),(0,0,1)] # 3-loop ladder
+	#loop_line_signatures = [(1,0,0),(0,1,0),(0,0,1),(1,-1,0),(1,-1,-1)] # 3-loop ladder
 	#loop_line_signatures = [(1,0),(0,1),(1,1)] # 2-loop
 	#loop_line_signatures = [(1)] # 1-loop
 
 	cut_structure_generator = CutStructureGenerator(loop_line_signatures)
 
-	
-	# loop over all possible contour closures and print residues
-	# (simplify = True) evaluates Heaviside functions and removes cancelling residues
+	""" loop over all possible contour closures and print residues,
+		(simplify = True) evaluates Heaviside functions and removes cancelling residues """
 	for contour_closure in itertools.product(*([[CLOSE_BELOW,CLOSE_ABOVE]]*cut_structure_generator.n_loops)):
 			print(contour_closure)
 			residues = cut_structure_generator.get_residues(contour_closure,simplify=True)
 			for residue in residues:
 				print(residue)
 	
-	# compute the cut structure for a particular contour closure
+	""" compute the cut structure for a particular contour closure """
 	contour_closure = [CLOSE_BELOW,CLOSE_BELOW,CLOSE_ABOVE]
 	cut_structure = cut_structure_generator(contour_closure)
 	print(cut_structure)
