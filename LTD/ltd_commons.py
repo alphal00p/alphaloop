@@ -12,7 +12,7 @@ hyperparameters = HyperParameters({
 
     'General'       :   {
         # can be additive, cutgroups, constant, duals or none
-        'deformation_strategy'  :   'cutgroups',
+        'deformation_strategy'  :   'additive',
         'topology'              :   'Box',
         # specify the name of a python module that contains a function numerator(complex_loop_momenta)
         # that will be called for every cut
@@ -21,9 +21,9 @@ hyperparameters = HyperParameters({
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
         # number of digits that should be the same between integrand and rotated version
-        'relative_precision'    :   5.,
+        'relative_precision'    :   3.,
         # absolute precision, heavily dependent on integral value
-        'absolute_precision'    :   1e-10,
+        'absolute_precision'    :   1e-3,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
         'num_digits_different_for_inconsistency': 10.,
@@ -86,12 +86,12 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 0.1,
+            'lambda'                    : -0.01,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : False,
             'expansion_threshold'       : 0.1,
-            'positive_cut_check'        : True ,
+            'positive_cut_check'        : False ,
             'cut_propagator_check'      : True,
             'non_cut_propagator_check'  : True,
             'skip_hyperboloids'         : True,
@@ -115,11 +115,11 @@ hyperparameters = HyperParameters({
 
     'Parameterization'   :   {
         # can be cartesian or spherical
-        'mode'      :   'spherical',
+        'mode'      :   'cartesian',
         # can be log or linear
-        'mapping'   :   'log',
+        'mapping'   :   'linear',
         # controls the UV behaviour of the spherical log map
-        'b'         :   0.1,
+        'b'         :   1.0e4,
         # rescale the input from [0,1] to [lo,hi]
         'input_rescaling' : [
             [[0., 1.], [0., 1.], [0., 1.]],
@@ -129,7 +129,7 @@ hyperparameters = HyperParameters({
         ],
         # shift the loop momenta. the first component is a rescaling of the radius
         'shifts' : [
-            [1.0, 0., 0., 0.],
+            [0.1, 0., 0., 0.],
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.], 
