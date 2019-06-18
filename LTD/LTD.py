@@ -707,7 +707,7 @@ if __name__ == "__main__":
 
 	print '='*(2*36+7) + '\n' + '='*36+' hello '+'='*36 + '\n' + '='*(2*36+7)
 	
-	#Zhou vs Dario loop momentum
+	#Zhou vs Dario/rust loop momentum
 	# l_zhou = l_dario + p1
 
 	my_LTD = LTD('qq_aa')
