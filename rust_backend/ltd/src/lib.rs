@@ -241,6 +241,8 @@ pub struct GeneralSettings {
     pub log_stats_to_screen: bool,
     pub deformation_strategy: DeformationStrategy,
     pub python_numerator: Option<String>,
+    pub mu_uv_sq_re_im: Vec<f64>,
+    pub use_collinear_ct: bool,
     pub cut_filter: Vec<usize>,
     pub topology: String,
     pub unstable_point_warning_percentage: f64,

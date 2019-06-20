@@ -17,6 +17,9 @@ hyperparameters = HyperParameters({
         # specify the name of a python module that contains a function numerator(complex_loop_momenta)
         # that will be called for every cut
         'python_numerator'      :   None,
+        # counterterms parameters
+        'use_collinear_ct'      :   False,
+        'mu_uv_sq_re_im'        :   [0,1e2],
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
@@ -25,7 +28,7 @@ hyperparameters = HyperParameters({
         # absolute precision, heavily dependent on integral value
         'absolute_precision'    :   1e-3,
         'unstable_point_warning_percentage'  :   1.,
-        'numerical_instability_check': True,
+        'numerical_instability_check': False,
         'num_digits_different_for_inconsistency': 10.,
         # return the unstable point only if it has more stable digits than specified below
         'minimal_precision_for_returning_result': 2.,
@@ -44,14 +47,14 @@ hyperparameters = HyperParameters({
 
     'Integrator'    :   {
         # The integrator can be vegas, divonne, cuhre or suave
-        'integrator'        :   'vegas',
+        'integrator'        :   'cuhre',
         'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e6),
         # can be set to high values for use with MPI, otherwise leave it at 1
         'n_vec'             :   1,
         'seed'              :   1,
-        'integrated_phase'  :  'real',
+        'integrated_phase'  :  'imag',
         'state_filename_prefix' :   None,
         'survey_n_points'   :   0,
         'survey_n_iterations':  0,
@@ -86,10 +89,10 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : -0.01,
+            'lambda'                    : 0,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
-            'expansion_check'           : False,
+            'expansion_check'           : True,
             'expansion_threshold'       : 0.1,
             'positive_cut_check'        : False ,
             'cut_propagator_check'      : True,
@@ -115,11 +118,11 @@ hyperparameters = HyperParameters({
 
     'Parameterization'   :   {
         # can be cartesian or spherical
-        'mode'      :   'cartesian',
+        'mode'      :   'spherical',
         # can be log or linear
         'mapping'   :   'linear',
         # controls the UV behaviour of the spherical log map
-        'b'         :   1.0e4,
+        'b'         :   1.0e0,
         # rescale the input from [0,1] to [lo,hi]
         'input_rescaling' : [
             [[0., 1.], [0., 1.], [0., 1.]],
@@ -129,7 +132,7 @@ hyperparameters = HyperParameters({
         ],
         # shift the loop momenta. the first component is a rescaling of the radius
         'shifts' : [
-            [0.1, 0., 0., 0.],
+            [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.], 
