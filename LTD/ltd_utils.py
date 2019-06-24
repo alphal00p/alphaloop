@@ -720,23 +720,33 @@ class LoopTopology(object):
             formatted_str += '\t(-2 Pi I)^%s (1/(2 Pi)^4)^%s(' % (self.n_loops, self.n_loops)
             for cs in self.ltd_cut_structure:
                 for cut in product(*[[(c, i, p) for i, p in enumerate(ll.propagators)] if c != 0 else [(0,-1,None)] for c, ll in zip(cs, self.loop_lines)]):
+                    # construct the cut basis to loop momentum basis mapping
+                    mat = []
+                    cut_info = []
+                    cut_prop_count = 1
+                    for ll, (cut_sign, cut_prop_index_in_ll, cut_prop) in zip(self.loop_lines, cut):
+                        if cut_sign != 0:
+                            mat.append(ll.signature)
+                            cut_info.append((cut_sign, cut_prop_count + cut_prop_index_in_ll, cut_prop.q[0]))
+                        cut_prop_count += len(ll.propagators)
+                    nmi = numpy.linalg.inv(numpy.array(mat).transpose())
+
                     prop_count = 1
                     formatted_str += '+1/('
                     for ll, (_, cut_prop_index_in_ll, _) in zip(self.loop_lines, cut):
                         cut_energy = ''
-                        cut_prop_count = 1
-                        # FIXME: this is wrong beyond one loop! We need to map the cuts back to the loop momentum basis
-                        # and then filter
-                        for cut_ll, (cut_sig, cut_prop_index, cut_prop) in zip(self.loop_lines, cut):
-                            if cut_sig != 0:
-                                if cut_sig == 1:
-                                    cut_energy += '+delta[[%s]]' % (cut_prop_count + cut_prop_index)
+                        sig_map = nmi.dot(ll.signature)
+
+                        for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
+                            if sig_sign != 0:
+                                if cut_sign * sig_sign == 1:
+                                    cut_energy += '+delta[[%s]]' % index
                                 else:
-                                    cut_energy += '-delta[[%s]]' % (cut_prop_count + cut_prop_index)
-
-                                cut_energy += '-(%s)' % cut_prop.q[0] # add parenthesis to prevent -- operator
-
-                            cut_prop_count += len(ll.propagators)
+                                    cut_energy += '-delta[[%s]]' % index
+                                if sig_sign == 1:
+                                    cut_energy += '-(%s)' % shift # add parenthesis to prevent -- operator
+                                else:
+                                    cut_energy += '+%s' % shift
 
                         for p_index, p in enumerate(ll.propagators):
                             if cut_prop_index_in_ll == p_index:
