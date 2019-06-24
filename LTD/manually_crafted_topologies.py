@@ -1912,6 +1912,26 @@ hard_coded_topology_collection.add_topology(
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
+        'Pentagon', #P15 from Rodrigo, but massless
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([94.79774, -70.04005, -84.77221, 36.09812]),
+                vectors.LorentzVector([-42.15872, -36.33754, -14.72331, -41.24018]),
+                vectors.LorentzVector([73.77293, 88.37064, 33.47296, -24.17542]),
+                vectors.LorentzVector([81.85638, 77.17370, -62.39774, -6.89737]),
+                (   -vectors.LorentzVector([94.79774, -70.04005, -84.77221, 36.09812])
+                    -vectors.LorentzVector([-42.15872, -36.33754, -14.72331, -41.24018])
+                    -vectors.LorentzVector([73.77293, 88.37064, 33.47296, -24.17542])
+                    -vectors.LorentzVector([81.85638, 77.17370, -62.39774, -6.89737])
+                )
+        ]),
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'Pentagon_massless',
+    ),
+    entry_name = 'Pentagon_massless'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]),

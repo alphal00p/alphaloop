@@ -13,6 +13,7 @@ from collections import defaultdict
 from pprint import pformat
 import numpy as numpy
 import numpy.linalg
+from itertools import product
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
@@ -677,21 +678,75 @@ class LoopTopology(object):
         """ Exports this topology to a given format."""
         
         export_format = format.lower()
-        allowed_export_format = ['yaml']
-        if export_format not in ['yaml']:
+        allowed_export_format = ['yaml', 'mathematica']
+        if export_format not in allowed_export_format:
             raise BaseException("Topology can only be exported in the following formats: %s"%(', '.join(allowed_export_format)))
 
-        if export_format=='yaml':
+        if export_format == 'yaml':
             try:
                 import yaml
                 from yaml import Loader, Dumper
             except ImportError:
                 raise BaseException("Install yaml python module in order to export topologies to yaml.")
 
-        if output_path is not None:
-            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
-        else:
-            return yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False)
+            if output_path is not None:
+                open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
+            else:
+                return yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False)
+
+        # convert the dual integrands to a mathematica expression
+        if export_format == 'mathematica':
+            names = ['k', 'l', 'm' ,'n']
+
+            formatted_str = self.name.replace('_','') + '['
+            formatted_str += ','.join('%sx_,%sy_,%sz_' % (name, name, name) for name in names[:self.n_loops])
+            formatted_str += "]:= Module[{delta},\n\tdelta = Table[0, {i, %s}];\n" % sum(len(ll.propagators) for ll in self.loop_lines)
+
+            # compute all deltas
+            prop_count = 1
+            for ll in self.loop_lines:
+                for p in ll.propagators:
+                    formatted_str += '\tdelta[[%s]] = Sqrt[Total[(' % prop_count
+                    for sig, name in zip(p.signature, names):
+                        if sig == 1:
+                            formatted_str += '+{%sx,%sy,%sz}' % (name, name, name)
+                        elif sig == -1:
+                            formatted_str += '-{%sx,%sy,%sz}' % (name, name, name)
+                    formatted_str += '+{%s,%s,%s}' % (p.q[1], p.q[2], p.q[3])
+                    formatted_str += ')^2]+' + str(p.m_squared) + '];\n'
+                    prop_count += 1
+
+            # construct all dual integrands
+            formatted_str += '\t(-2 Pi I)^%s (1/(2 Pi)^4)^%s(' % (self.n_loops, self.n_loops)
+            for cs in self.ltd_cut_structure:
+                for cut in product(*[[(c, i, p) for i, p in enumerate(ll.propagators)] if c != 0 else [(0,-1,None)] for c, ll in zip(cs, self.loop_lines)]):
+                    prop_count = 1
+                    formatted_str += '+1/('
+                    for ll, (_, cut_prop_index_in_ll, _) in zip(self.loop_lines, cut):
+                        cut_energy = ''
+                        cut_prop_count = 1
+                        # FIXME: this is wrong beyond one loop! We need to map the cuts back to the loop momentum basis
+                        # and then filter
+                        for cut_ll, (cut_sig, cut_prop_index, cut_prop) in zip(self.loop_lines, cut):
+                            if cut_sig != 0:
+                                if cut_sig == 1:
+                                    cut_energy += '+delta[[%s]]' % (cut_prop_count + cut_prop_index)
+                                else:
+                                    cut_energy += '-delta[[%s]]' % (cut_prop_count + cut_prop_index)
+
+                                cut_energy += '-(%s)' % cut_prop.q[0] # add parenthesis to prevent -- operator
+
+                            cut_prop_count += len(ll.propagators)
+
+                        for p_index, p in enumerate(ll.propagators):
+                            if cut_prop_index_in_ll == p_index:
+                                formatted_str += '2*delta[[%s]]' % prop_count
+                            else:
+                                formatted_str += '((%s+%s)^2-delta[[%s]]^2)' % (cut_energy, p.q[0], prop_count)
+                            prop_count += 1
+                    formatted_str += ')'
+            formatted_str += ')]'
+            return formatted_str
 
     def to_flat_format(self):
         """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""

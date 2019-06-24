@@ -384,3 +384,7 @@ hard_coded_topology_collection.add_topology(two_loop_6pt.create_loop_topology(
 #test = TopologyCollection.import_from('ExampleTopologyCollectionExport.yaml')
 #test['DoubleTriange'].print_topology()
 
+
+#print(hard_coded_topology_collection['manual_Box_1_cutgroup'].export_to('',format='mathematica'))
+#print(hard_coded_topology_collection['manual_Box_no_ellipse'].export_to('',format='mathematica'))
+#print(hard_coded_topology_collection['manual_DoubleTriangle_no_ellipse'].export_to('',format='mathematica'))
