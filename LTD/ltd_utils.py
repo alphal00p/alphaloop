@@ -716,6 +716,8 @@ class LoopTopology(object):
                     formatted_str += ')^2]+' + str(p.m_squared) + '];\n'
                     prop_count += 1
 
+            surface_equations = []
+
             # construct all dual integrands
             formatted_str += '\t(-2 Pi I)^%s (1/(2 Pi)^4)^%s(' % (self.n_loops, self.n_loops)
             for cs in self.ltd_cut_structure:
@@ -753,10 +755,15 @@ class LoopTopology(object):
                                 formatted_str += '2*delta[[%s]]' % prop_count
                             else:
                                 formatted_str += '((%s+%s)^2-delta[[%s]]^2)' % (cut_energy, p.q[0], prop_count)
+                                # TODO: filter for existence?
+                                surface_equations.append('S%s' % len(surface_equations)
+                                    + '=%s+%s+delta[[%s]];' % (cut_energy, p.q[0], prop_count))
+                                surface_equations.append('S%s' % len(surface_equations)
+                                    + '=%s+%s-delta[[%s]];' % (cut_energy, p.q[0], prop_count))
                             prop_count += 1
                     formatted_str += ')'
-            formatted_str += ')]'
-            return formatted_str
+            formatted_str += ')];'
+            return formatted_str + '\n'.join(surface_equations)
 
     def to_flat_format(self):
         """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
