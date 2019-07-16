@@ -2102,9 +2102,9 @@ hard_coded_topology_collection.add_topology(
     ]),        
         analytic_result =  (0.0-0.021597023958816856j) ,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
-        name = 'Box_massless_1000_ND',
+        name = 'Box_massless_1000_ND1',
     ),
-    entry_name = 'Box_massless_1000_ND'
+    entry_name = 'Box_massless_1000_ND1'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -2121,6 +2121,22 @@ hard_coded_topology_collection.add_topology(
         name = 'Box_massless_1000_ND2',
     ),
     entry_name = 'Box_massless_1000_ND2'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Box',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([-0.2, -0.3,  0.5,  0.1]),
+            vectors.LorentzVector([-0.3, -0.7, -1.2, -1.4]),
+            vectors.LorentzVector([-0.5,  1. ,  0.7,  0.3]),
+            vectors.LorentzVector([1., 0., 0., 1.]),
+    ]),        
+        analytic_result =  (0.0-0.021597023958816856j) ,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_1000_ND3',
+    ),
+    entry_name = 'Box_massless_1000_ND3'
 )
 
 hard_coded_topology_collection.add_topology(
