@@ -11,7 +11,8 @@ from ltd_utils import HyperParameters
 hyperparameters = HyperParameters({
 
     'General'       :   {
-        # can be additive, cutgroups, constant, duals or none
+        'partial_fractioning'   :   False,
+        # can be additive, cutgroups, constant, duals, intersections or none
         'deformation_strategy'  :   'additive',
         'topology'              :   'Box',
         # specify the name of a python module that contains a function numerator(complex_loop_momenta)

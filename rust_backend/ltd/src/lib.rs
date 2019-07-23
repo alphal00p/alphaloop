@@ -89,6 +89,8 @@ pub enum DeformationStrategy {
     CutGroups,
     #[serde(rename = "duals")]
     Duals,
+    #[serde(rename = "intersections")]
+    Intersections,
     #[serde(rename = "constant")]
     Constant,
     #[serde(rename = "none")]
@@ -130,6 +132,7 @@ impl fmt::Display for DeformationStrategy {
             DeformationStrategy::Additive => write!(f, "additive"),
             DeformationStrategy::CutGroups => write!(f, "cutgroups"),
             DeformationStrategy::Duals => write!(f, "duals"),
+            DeformationStrategy::Intersections => write!(f, "intersections"),
             DeformationStrategy::Constant => write!(f, "constant"),
             DeformationStrategy::None => write!(f, "none"),
         }
@@ -234,6 +237,7 @@ pub struct ParameterizationSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
+    pub partial_fractioning: bool,
     pub log_file_prefix: String,
     pub res_file_prefix: String,
     pub screen_log_core: Option<usize>,
@@ -478,14 +482,21 @@ py_class!(class LTD |py| {
         LTD::create_instance(py, RefCell::new(topo), RefCell::new(cache), RefCell::new(cache_f128))
     }
 
+    def __copy__(&self) -> PyResult<LTD> {
+        let topo = self.topo(py).borrow();
+        let cache = topologies::LTDCache::<float>::new(&topo);
+        let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
+        LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(cache), RefCell::new(cache_f128))
+    }
+
     def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, res) = self.topo(py).borrow().evaluate::<float>(&x,
+        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow().evaluate::<float>(&x,
             &mut self.cache(py).borrow_mut(), &None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
     def evaluate_f128(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, res) = self.topo(py).borrow().evaluate::<f128::f128>(&x,
+        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow().evaluate::<f128::f128>(&x,
             &mut self.cache_f128(py).borrow_mut(), &None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
@@ -701,7 +712,7 @@ py_class!(class LTD |py| {
                 float::from_f64(l[2]).unwrap()));
         }
 
-        let (res, jac) = topo.deform::<float>(&moms, None, &mut cache);
+        let (res, jac) = topo.deform::<float>(&moms, None, None, &mut cache);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {
@@ -723,7 +734,7 @@ py_class!(class LTD |py| {
                 f128::f128::from_f64(l[2]).unwrap()));
         }
 
-        let (res, jac) = topo.deform::<f128::f128>(&moms, None, &mut cache);
+        let (res, jac) = topo.deform::<f128::f128>(&moms, None, None, &mut cache);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {

@@ -794,7 +794,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                         // check the pole for non-pinched ellipsoids
                         if surf.ellipsoid && !surf.pinched {
                             // set the loop momenta
-                            let (kappas, _) = topo.deform(&loop_momenta, None, &mut cache);
+                            let (kappas, _) = topo.deform(&loop_momenta, None, None, &mut cache);
                             k_def = (0..topo.n_loops)
                                 .map(|i| {
                                     loop_momenta[i]
@@ -883,7 +883,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                 }
 
                                 // set the loop momenta
-                                let (kappas, _) = topo.deform(&loop_momenta, None, &mut cache);
+                                let (kappas, _) = topo.deform(&loop_momenta, None, None, &mut cache);
                                 k_def = (0..topo.n_loops)
                                     .map(|i| {
                                         loop_momenta[i]
