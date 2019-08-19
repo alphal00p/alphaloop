@@ -57,6 +57,8 @@ pub mod integrand;
 pub mod ltd;
 pub mod topologies;
 pub mod utils;
+pub mod gamma_chain;
+pub mod amplitude;
 
 use arrayvec::ArrayVec;
 use num::Complex;
