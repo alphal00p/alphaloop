@@ -38,7 +38,7 @@ fn compute_polarization(
 ) -> Result<Vec<Complex<f64>>, &'static str> {
     //Only for massless case
     //Spherical coordinates of the spatial part of p
-    let rho = p.spatial_squared();
+    let rho = p.spatial_squared().sqrt();
     let theta = (p[3] / rho).acos();
     let phi = if p[2] == 0.0 && p[1] == 0.0 && p[3] > 0.0 {
         0.0
@@ -46,10 +46,10 @@ fn compute_polarization(
         std::f64::consts::PI
     } else {
         //p.arctan2(p[2], p[1])
-        (p[2] / p[1]).atan()
+        p[2].atan2(p[1])
     };
-
     let phase = (Complex::new(0.0, 1.0) * phi).exp();
+
     // define gamma matrices in Dirac representation, only for the use of computing polarization vectors and possibly change of basis between Dirac and Weyl representations
     let gamma0 = [
         [1., 0., 0., 0.],
@@ -90,7 +90,7 @@ fn compute_polarization(
                     for g in gamma0.iter() {
                         let mut res = Complex::default();
                         for (i, x) in u_plus.iter().enumerate() {
-                            res += x * g[i];
+                            res += x.conj() * g[i];
                         }
                         u_bar_plus.push(res);
                     }
@@ -123,7 +123,7 @@ fn compute_polarization(
                     for g in gamma0.iter() {
                         let mut res = Complex::default();
                         for (i, x) in u_minus.iter().enumerate() {
-                            res += x * g[i];
+                            res += x.conj() * g[i];
                         }
                         u_bar_minus.push(res);
                     }
@@ -228,7 +228,7 @@ impl<T: FloatLike> eeAA<T> {
             .map(|mom| (*mom).map(|x| Complex::new(T::from_f64(x).unwrap(), T::zero())))
             .collect();
         let vectors = vec![
-            k + ps[0],
+            -k - ps[0],
             -k - ps[0] - ps[1],
             -k + ps[3],
             -k,
@@ -260,7 +260,7 @@ impl<T: FloatLike> eeAA<T> {
     }
 
     pub fn compute_amplitude(&mut self) -> Result<Complex<T>, &'static str> {
-        let mut numerator: Complex<T> = Complex::new(-T::one(), T::zero());
+        let mut numerator: Complex<T> = Complex::default();
 
         //invariants
         let s12 = T::from_f64((self.external_kinematics[0] + self.external_kinematics[1]).square())
@@ -273,12 +273,9 @@ impl<T: FloatLike> eeAA<T> {
 
         /* ====== DIAGRAMS ====== */
         //D1
-        let den1 = self.den[1];
-
         let indices = vec![6, 5, -1, 3, 7, 4, -1];
         let chain_res = self.compute_chain(indices).unwrap();
-        numerator += chain_res * (-factor / s23) * den1;
-
+        numerator += chain_res * (-factor / s23) * self.den[1];
         //D2
         let indices = vec![-1, 2, 6, 3, -1, 5, 7];
         let chain_res = self.compute_chain(indices).unwrap();
@@ -292,27 +289,27 @@ impl<T: FloatLike> eeAA<T> {
         //D4
         let indices = vec![6, 5, -1, 3, -1, 5, 7];
         let chain_res = self.compute_chain(indices).unwrap();
-        numerator += chain_res * (-factor / s23 / s23) * (self.den[2] + self.den[4]);
+        numerator += chain_res * (-factor / s23 / s23) * (self.den[1] * self.den[3]);
 
         /* ====== COUNTERTERMS ====== */
         let den_uv = self.den[0] - self.mu_uv;
         let den_uv_sq = den_uv * den_uv;
 
-        let box_den = self.den[0] * den1 * self.den[2] * self.den[3];
+        let box_den = self.den[0] * self.den[1] * self.den[2] * self.den[3];
         //IR
         let indices = vec![-1, 2, 6, 5, 7, 4, -1];
         let chain_res = self.compute_chain(indices).unwrap();
-        numerator -= chain_res * (-factor / s23 / s23) * self.den[2];
+        numerator -= chain_res * (-factor / s23) * self.den[2];
 
         //UV1
         let indices = vec![6, 5, -1, 1, 7, 1, -1];
         let chain_res = self.compute_chain(indices).unwrap();
-        numerator -= chain_res * (-factor / s23 / s23) * box_den * utils::finv(den_uv * den_uv_sq);
+        numerator -= chain_res * (-factor / s23) * box_den * utils::finv(den_uv * den_uv_sq);
 
         //UV2
         let indices = vec![-1, 1, 6, 1, -1, 5, 7];
         let chain_res = self.compute_chain(indices).unwrap();
-        numerator -= chain_res * (-factor / s23 / s23) * box_den * utils::finv(den_uv * den_uv_sq);
+        numerator -= chain_res * (-factor / s23) * box_den * utils::finv(den_uv * den_uv_sq);
 
         //UV4
         let indices = vec![6, 5, -1, 1, -1, 5, 7];
@@ -324,8 +321,48 @@ impl<T: FloatLike> eeAA<T> {
         //UVIR
         let indices = vec![-1, 1, 6, 5, 7, 1, -1];
         let chain_res = self.compute_chain(indices).unwrap();
-        numerator -= chain_res * (factor / s23 / s23) * box_den * utils::finv(den_uv * den_uv_sq);
+        numerator -= chain_res * (factor / s23) * box_den * utils::finv(den_uv * den_uv_sq);
 
         return Ok(numerator);
     }
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+    use topologies::Topology;
+    use Settings;
+
+    #[test]
+    fn test_ee_aa() {
+        let my_top = "manual_Box_massless_1111";
+        let settings = Settings::from_file("../../LTD/hyperparameters.yaml");
+        let mut topologies = Topology::from_file("../../LTD/topologies.yaml", &settings);
+        let topo = topologies.get_mut(my_top).expect("Unknown topology");
+        topo.process();
+
+        //Initialize gamma chain
+
+        //Solve
+        let ll = &topo.loop_lines[0];
+        let one = Complex::new(1.0, 0.0);
+        let k = LorentzVector::from_args(one, one, one, one);
+        //TODO: Make it flexible
+        let props: Vec<Complex<f64>> = ll.propagators.iter().map(|p| (k + p.q).square()).collect();
+        let mut amp = eeAA::new(
+            topo.external_kinematics.clone(),
+            props,
+            k,
+            Complex::new(1e0, 0.0),
+        )
+        .unwrap();
+        let result = amp.compute_amplitude().unwrap();
+        let expected = Complex::new(8.40404179245923, 0.9601747213212951);
+        println!("res: {:?}", result);
+        println!("exp: {:?}", expected);
+
+        assert!((result - expected).norm() < 1e-10);
+    }
+
 }
