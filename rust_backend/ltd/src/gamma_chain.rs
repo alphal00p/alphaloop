@@ -48,7 +48,7 @@ impl<T: FloatLike> GammaChain<T> {
     }
 
     pub fn gamma_multiply(
-        flow: &Vec<Complex<T>>,
+        flow: &[Complex<T>],
         gamma_index: i8,
         factor: Complex<T>,
         res_flow: &mut Vec<Complex<T>>,
