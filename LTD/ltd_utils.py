@@ -467,9 +467,16 @@ class TopologyGenerator(object):
 
             loop_line_vertex_map[sig] = (edges[0][0], edges[0][1])
 
+        # vertices that are fused may again be fused with another vertex
+        def multifuse(v):
+            if v in fuse_map:
+                return multifuse(fuse_map[v])
+            else:
+                return v
+
         # now fuse the vertices in the map
         for sig, edges in loop_line_vertex_map.items():
-            loop_line_vertex_map[sig] = tuple(fuse_map[v] if v in fuse_map else v for v in edges)
+            loop_line_vertex_map[sig] = tuple(multifuse(v) for v in edges)
 
         ll = [LoopLine(
             start_node=loop_line_vertex_map[signature][0],
