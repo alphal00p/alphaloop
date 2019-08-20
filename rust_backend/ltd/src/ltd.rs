@@ -20,6 +20,8 @@ type Dual4<T> = DualN<T, dual_num::U4>;
 type Dual7<T> = DualN<T, dual_num::U7>;
 type Dual10<T> = DualN<T, dual_num::U10>;
 type Dual13<T> = DualN<T, dual_num::U13>;
+type Dual16<T> = DualN<T, dual_num::U16>;
+type Dual19<T> = DualN<T, dual_num::U19>;
 
 impl LoopLine {
     /// Return the inverse of the evaluated loop line
@@ -1529,9 +1531,7 @@ impl Topology {
                 self.deform_intersections(ellipsoid_id.unwrap(), cache)
             }
             DeformationStrategy::Additive => self.deform_ellipsoids(cache),
-            DeformationStrategy::Constant => {
-                self.deform_constant(loop_momenta, ellipsoid_id)
-            }
+            DeformationStrategy::Constant => self.deform_constant(loop_momenta, ellipsoid_id),
             DeformationStrategy::None => unreachable!(),
         };
 
@@ -1656,6 +1656,42 @@ impl Topology {
                     r[1][i + 1][i + 4] = T::one();
                     r[2][i + 1][i + 7] = T::one();
                     r[3][i + 1][i + 10] = T::one();
+                }
+                self.deform_generic(&r, cut, ellipsoid_id, cache)
+            }
+            5 => {
+                let mut r = [LorentzVector::default(); MAX_LOOP];
+                r[0] = loop_momenta[0].map(|x| Dual16::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Dual16::from_real(x));
+                r[2] = loop_momenta[2].map(|x| Dual16::from_real(x));
+                r[3] = loop_momenta[3].map(|x| Dual16::from_real(x));
+                r[4] = loop_momenta[4].map(|x| Dual16::from_real(x));
+
+                for i in 0..3 {
+                    r[0][i + 1][i + 1] = T::one();
+                    r[1][i + 1][i + 4] = T::one();
+                    r[2][i + 1][i + 7] = T::one();
+                    r[3][i + 1][i + 10] = T::one();
+                    r[4][i + 1][i + 13] = T::one();
+                }
+                self.deform_generic(&r, cut, ellipsoid_id, cache)
+            }
+            6 => {
+                let mut r = [LorentzVector::default(); MAX_LOOP];
+                r[0] = loop_momenta[0].map(|x| Dual19::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Dual19::from_real(x));
+                r[2] = loop_momenta[2].map(|x| Dual19::from_real(x));
+                r[3] = loop_momenta[3].map(|x| Dual19::from_real(x));
+                r[4] = loop_momenta[4].map(|x| Dual19::from_real(x));
+                r[5] = loop_momenta[5].map(|x| Dual19::from_real(x));
+
+                for i in 0..3 {
+                    r[0][i + 1][i + 1] = T::one();
+                    r[1][i + 1][i + 4] = T::one();
+                    r[2][i + 1][i + 7] = T::one();
+                    r[3][i + 1][i + 10] = T::one();
+                    r[4][i + 1][i + 13] = T::one();
+                    r[5][i + 1][i + 16] = T::one();
                 }
                 self.deform_generic(&r, cut, ellipsoid_id, cache)
             }
