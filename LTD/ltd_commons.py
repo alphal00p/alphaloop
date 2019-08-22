@@ -29,7 +29,7 @@ hyperparameters = HyperParameters({
         # absolute precision, heavily dependent on integral value
         'absolute_precision'    :   1e-3,
         'unstable_point_warning_percentage'  :   1.,
-        'numerical_instability_check': False,
+        'numerical_instability_check': True,
         'num_digits_different_for_inconsistency': 10.,
         # return the unstable point only if it has more stable digits than specified below
         'minimal_precision_for_returning_result': 2.,

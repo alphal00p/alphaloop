@@ -15,6 +15,10 @@ from analytical_expressions  import ladder_phi, analytic_four_point_ladder, anal
 # Create the collection of hard-coded topologies.
 #############################################################################################################
 
+# The fishnet topology generation takes quite some time. It is therefore disabled by default.
+# Enable it by setting the flag below to True.
+_GENERATE_FISHNETS = False 
+
 hard_coded_topology_collection = TopologyCollection()
 
 # Add the manually crafted topologies
@@ -95,6 +99,159 @@ hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
     ),
     entry_name = 'DoubleBox_no_ellipse'
 )
+
+# Fishnets generation. This is typically pretty slow and thus disabled by default.
+
+if _GENERATE_FISHNETS:
+    # FISHNET_1x2
+    print("DOING 1x2...")
+    FISHNET_1x2 = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 4), ('q3', 103, 6), ('q4', 104, 3),
+        ('p1', 1, 2), ('p2', 2, 3),
+        ('p3', 1, 4), ('p4', 2, 5), ('p5', 3, 6),
+         ('p6', 4, 5), ('p7', 5, 6)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_1x2.create_loop_topology(
+        "FISHNET_1x2", 
+        ext_mom={ 'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4 }, 
+        mass_map={}, # no masses 
+        loop_momenta_names=('p1','p2'), 
+        analytic_result = analytic_four_point_ladder( 
+            q1.square(), q2.square(), q3.square(), q4.square(),
+            (q1+q2).square(), (q2+q3).square(), 2)
+    ),
+    entry_name = 'FISHNET_1x2'
+    )
+    print("DONE")
+
+    # FISHNET_1x4
+    print("DOING 1x4...")
+    FISHNET_1x4 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 6), ('q3', 103, 10), ('q4', 104, 5),
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5),
+            ('p5', 1, 6), ('p6', 2, 7), ('p7', 3, 8), ('p8', 4, 9), ('p9', 5, 10),
+            ('p10', 6, 7), ('p11', 7, 8), ('p12', 8, 9), ('p13', 9, 10)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_1x4.create_loop_topology(
+            "FISHNET_1x4", 
+            ext_mom={ 'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1','p2','p3','p4'), 
+            analytic_result = analytic_four_point_ladder( 
+                q1.square(), q2.square(), q3.square(), q4.square(),
+                (q1+q2).square(), (q2+q3).square(), 4)
+        ),
+        entry_name = 'FISHNET_1x4'
+    )
+    print("DONE")
+
+    # FISHNET_1x5
+    print("DOING 1x5...")
+    FISHNET_1x5 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 7), ('q3', 103, 12), ('q4', 104, 6),
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6),
+            ('p6', 1, 7), ('p7', 2, 8), ('p8', 3, 9), ('p9', 4, 10), ('p10', 5, 11), ('p11', 6, 12),
+            ('p12', 7, 8), ('p13', 8, 9), ('p14', 9, 10), ('p15', 10, 11), ('p16', 11, 12)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_1x5.create_loop_topology(
+            "FISHNET_1x5", 
+            ext_mom={ 'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1','p2','p3','p4','p5'), 
+            analytic_result = analytic_four_point_ladder( 
+                q1.square(), q2.square(), q3.square(), q4.square(),
+                (q1+q2).square(), (q2+q3).square(), 5)
+        ),
+        entry_name = 'FISHNET_1x5'
+    )
+    print("DONE")
+
+    # FISHNET_1x6
+    print("DOING 1x6...")
+    FISHNET_1x6 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 8), ('q3', 103, 14), ('q4', 104, 7),
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 7),
+            ('p7', 1, 8), ('p8', 2, 9), ('p9', 3, 10), ('p10', 4, 11), ('p11', 5, 12), ('p12', 6, 13), ('p13', 7, 14),
+            ('p14', 8, 9), ('p15', 9, 10), ('p16', 10, 11), ('p17', 11, 12), ('p18', 12, 13), ('p19', 13, 14)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_1x6.create_loop_topology(
+            "FISHNET_1x6", 
+            ext_mom={ 'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1','p2','p3','p4','p5','p6'), 
+            analytic_result = analytic_four_point_ladder( 
+                q1.square(), q2.square(), q3.square(), q4.square(),
+                (q1+q2).square(), (q2+q3).square(), 6)
+        ),
+        entry_name = 'FISHNET_1x6'
+    )
+    print("DONE")
+
+    # FISHNET_2x2
+    print("DOING 2x2...")
+    FISHNET_2x2 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 7), ('q3', 103, 9), ('q4', 104, 3),
+            ('p1', 1, 2), ('p2', 2, 3), 
+            ('p3', 1, 4), ('p4', 2, 5), ('p5', 3, 6),
+            ('p6', 4, 5), ('p7', 5, 6), 
+            ('p8', 4, 7), ('p9', 5, 8), ('p10', 6, 9),
+            ('p11', 7, 8), ('p12', 8, 9),
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_2x2.create_loop_topology(
+            "FISHNET_2x2", 
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1', 'p2', 'p11', 'p12'), 
+            analytic_result = 2.6918653677981387e-14
+        ),
+        entry_name = 'FISHNET_2x2'
+    )
+    print("DONE")
+
+    # FISHNET_2x3
+    FISHNET_2x3 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 9), ('q3', 103, 12), ('q4', 104, 4),
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),
+            ('p4', 1, 5), ('p5', 2, 6), ('p6', 3, 7), ('p7', 4, 8),
+            ('p8', 5, 6), ('p9', 6, 7), ('p10', 7, 8),
+            ('p11', 5, 9), ('p12', 6, 10), ('p13', 7, 11), ('p14', 8, 12),
+            ('p15', 9, 10), ('p16', 10, 11), ('p17', 11, 12)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    print("DOING 2x3...")
+    hard_coded_topology_collection.add_topology(FISHNET_2x3.create_loop_topology(
+            "FISHNET_2x3", 
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1', 'p2', 'p3', 'p15', 'p16', 'p17'), 
+            analytic_result = 8.4044862640909e-19
+        ),
+        entry_name = 'FISHNET_2x3'
+    )
+    print("Done 2x3")
 
 # PRL two-loops
 # PRL_6p_2L
