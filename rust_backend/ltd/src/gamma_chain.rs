@@ -2,22 +2,22 @@ use num::Complex;
 use vector::LorentzVector;
 use FloatLike;
 
-pub struct GammaChain<T: FloatLike> {
+pub struct GammaChain<'a, T: FloatLike> {
     vbar: Vec<Complex<T>>,
     u: Vec<Complex<T>>,
-    vectors: Vec<LorentzVector<Complex<T>>>,
-    indices: Vec<i8>,
+    vectors: &'a [LorentzVector<Complex<T>>],
+    indices: &'a [i8],
     repeated_indices_values: Vec<i8>,
     repeated_indices: Vec<i8>,
 }
 
-impl<T: FloatLike> GammaChain<T> {
+impl<'a, T: FloatLike> GammaChain<'a, T> {
     pub fn new(
         vbar: Vec<Complex<T>>,
         u: Vec<Complex<T>>,
-        indices: Vec<i8>,
-        vectors: Vec<LorentzVector<Complex<T>>>,
-    ) -> Result<GammaChain<T>, &'static str> {
+        indices: &'a [i8],
+        vectors: &'a [LorentzVector<Complex<T>>],
+    ) -> Result<GammaChain<'a, T>, &'static str> {
         //Inintialize the value of all repeated indices values to -1
         //i.e not used
         let mut repeated_indices_values = vec![-1; indices.len()];
@@ -35,7 +35,6 @@ impl<T: FloatLike> GammaChain<T> {
         repeated_indices_values.truncate(repeated_indices.len());
 
         //TODO: add check to see if all the repeated indices use consecutive negative numbers
-        //TODO: add check to see if uncontracted indices use consecutive positive numbers
         //TODO: add check to see if there are no 0 indices
         return Ok(GammaChain {
             vbar: vbar,
@@ -101,7 +100,7 @@ impl<T: FloatLike> GammaChain<T> {
         //Follow the spinor flow
         let mut flow: Vec<Complex<T>> = self.vbar.clone();
 
-        for index in &self.indices {
+        for index in self.indices {
             let mut next_flow = vec![zero; 4];
             let pos = (index.abs() - 1) as usize;
             if *index > 0 {
@@ -216,7 +215,7 @@ mod tests {
         ];
 
         //Initialize gamma chain
-        let mut chain = GammaChain::new(vbar, u, indices, vectors).unwrap();
+        let mut chain = GammaChain::new(vbar, u, &indices, &vectors).unwrap();
 
         //Solve
         let result = Complex::new(-78354.8416, 1312.256);
