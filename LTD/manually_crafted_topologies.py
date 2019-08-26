@@ -2251,6 +2251,23 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Box_massless_1111'
 )
 
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector( [0.5, 0.4120803582196727, -0.1731805902843028, 0.224049685378772] ),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector( [0.5, -0.4120803582196727, 0.1731805902843028, -0.224049685378772] ),
+            vectors.LorentzVector( [-0.5, -0.4882081621443385, -0.1006405944587882, 0.0390417873902948] ),
+            vectors.LorentzVector( [-0.5, 0.4882081621443385, 0.1006405944587882, -0.0390417873902948] ),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e3, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude',
+    ),
+    entry_name = 'eeAA_amplitude'
+)
+
 
 
 # ================================================================================
