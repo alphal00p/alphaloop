@@ -218,6 +218,7 @@ impl Topology {
                     ct_numerator
                 }
             }
+            _ => Complex::default(),
         }
     }
 }
