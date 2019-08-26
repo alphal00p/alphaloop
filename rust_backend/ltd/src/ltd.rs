@@ -1954,16 +1954,13 @@ impl Topology {
                         self.compute_complex_cut_energies(&k_def, cache)?;
                     }
 
-                    let v = self.evaluate_cut(&mut k_def, cut, mat, cache)?;
+                    let v = self.evaluate_amplitude_cut(&mut k_def, cut, mat, cache)?;
 
                     // k_def has the correct energy component at this stage
                     if let Some(pn) = python_numerator {
                         result += v * pn.evaluate_numerator(&k_def[..self.n_loops]) * dual_jac_def
                     } else {
-                        // calculate the counterterm cut by cut
-
-                        let ct = self.counterterm(&k_def[..self.n_loops], cache);
-                        result += v * (ct + T::one()) * dual_jac_def
+                        result += v * dual_jac_def
                     }
                 }
                 cut_counter += 1;
@@ -2006,7 +2003,6 @@ impl Topology {
                     + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
                     + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
             );
-
             jac_para *= jac;
         }
 
