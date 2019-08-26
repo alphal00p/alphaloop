@@ -181,7 +181,8 @@ where
             .set_maxeval(
                 (settings.integrator.survey_n_iterations * settings.integrator.survey_n_points)
                     as i64,
-            ).set_reset_vegas_integrator(settings.integrator.reset_vegas_integrator)
+            )
+            .set_reset_vegas_integrator(settings.integrator.reset_vegas_integrator)
             .set_use_only_last_sample(settings.integrator.use_only_last_sample)
             .set_keep_state_file(settings.integrator.keep_state_file);;
         let survey_result = ci.vegas(
@@ -815,11 +816,11 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                 {
                                     for cut in cuts.iter() {
                                         let v = topo
-                                            .evaluate_cut(&mut k_def, cut, mat, &mut cache)
+                                            .evaluate_amplitude_cut(
+                                                &mut k_def, cut, mat, &mut cache,
+                                            )
                                             .unwrap();
-                                        let ct =
-                                            topo.counterterm(&k_def[..topo.n_loops], &mut cache);
-                                        result += v * (ct + f128::f128::one());
+                                        result += v;
 
                                         // check the pole of the on-shell propagator for ellipsoids
                                         if surf.ellipsoid && *cut == surf.cut {
@@ -883,7 +884,8 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                 }
 
                                 // set the loop momenta
-                                let (kappas, _) = topo.deform(&loop_momenta, None, None, &mut cache);
+                                let (kappas, _) =
+                                    topo.deform(&loop_momenta, None, None, &mut cache);
                                 k_def = (0..topo.n_loops)
                                     .map(|i| {
                                         loop_momenta[i]
@@ -903,11 +905,12 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                     {
                                         for cut in cuts.iter() {
                                             let v = topo
-                                                .evaluate_cut(&mut k_def, cut, mat, &mut cache)
+                                                .evaluate_amplitude_cut(
+                                                    &mut k_def, cut, mat, &mut cache,
+                                                )
                                                 .unwrap();
-                                            let ct = topo
-                                                .counterterm(&k_def[..topo.n_loops], &mut cache);
-                                            *probe += v * (ct + f128::f128::one());
+
+                                            *probe += v;
                                         }
                                     }
                                 }
