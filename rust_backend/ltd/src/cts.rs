@@ -1,3 +1,4 @@
+use amplitude::eeAA;
 use arrayvec::ArrayVec;
 use num::Complex;
 use topologies::{LTDCache, Topology};
@@ -86,6 +87,8 @@ impl Topology {
     pub fn counterterm<T: FloatLike>(
         &self,
         k_def: &[LorentzVector<Complex<T>>],
+        cut_2energy: Complex<T>,
+        cut_id: usize,
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
         //Define mu_uv_sq for the collinear counterterms
@@ -93,7 +96,6 @@ impl Topology {
             T::from_f64(self.settings.general.mu_uv_sq_re_im[0]).unwrap(),
             T::from_f64(self.settings.general.mu_uv_sq_re_im[1]).unwrap(),
         );
-
         match self.n_loops {
             1 => {
                 if self.on_shell_flag == 0 {
@@ -126,7 +128,10 @@ impl Topology {
 
                 //Compute CT
                 //Use specific CT whenever possible
-                if self.settings.general.use_collinear_ct && props.len() == 4 && self.on_shell_flag == 8 {
+                if self.settings.general.use_collinear_ct
+                    && props.len() == 4
+                    && self.on_shell_flag == 8
+                {
                     let mut ct_numerator: Complex<T> = Complex::default();
                     //Incoming external: p[n]=q[n]-q[n-1]
                     let x4 =
@@ -212,10 +217,6 @@ impl Topology {
                     }
                     ct_numerator
                 }
-            }
-            _ => {
-                //println!("No CounterTerms");
-                Complex::default()
             }
         }
     }
