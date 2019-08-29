@@ -29,9 +29,8 @@ except ImportError:
         " ./make_lib from within the pyNLoop directory." )
 
 N_points = 100
-
-studied_topology = 'manual_eeAA_amplitude'
-#studied_topology = sys.argv[1]
+studied_topology = 'manual_eeAA_amplitude_E'
+studied_topology = sys.argv[1]
 
 topology = topology_collection[studied_topology]
 
@@ -91,12 +90,14 @@ from scipy.optimize import curve_fit
 min_logx = -15
 max_logx = 0
 
-limits = ['Collinear p1', 'Collinear p2', 'Soft','UV']
-#limits = ['UV']
-
+#limits = ['Collinear p1', 'Collinear p2', 'Soft','UV']
+limits = ['UV']
+#limits = ['Soft']
+#limits = ['Collinear ' + p for p in ['p1','p2','p3','p4']] + ['Soft1', 'Soft3', 'UV']
 #UV and SOFT random vector
-np.random.seed(10)
-l_UV = vectors.LorentzVector(100*np.random.rand(4))
+np.random.seed(0)
+#l_UV = vectors.LorentzVector([3595.2511874644233,-6.148627708775928e-13,-3347.157026856964,-1312.391305414418])/1000.
+l_UV = vectors.LorentzVector(np.random.rand(4))
 l_SOFT = vectors.LorentzVector(np.random.rand(4))
 
 for limit in limits:
@@ -121,28 +122,36 @@ for limit in limits:
         if limit == 'Collinear p1':
             shift = -p1 ; y=0.3
             k ,rust_variables = collinear_limit(y*p1,shift, x)
-            l = k - (shift  + y*p1)
-            scalar_scaling = x**1 #l[1]*l[2]*l[3]
+            scalar_scaling = x**1 
         elif limit == 'Collinear p2': 
             shift = -p1 ; y=-0.3
             k ,rust_variables = collinear_limit(y*p2,shift, x)
-            l = k - (shift  + 0*p2)
-            scalar_scaling = x**1 #l[1]*l[2]*l[3]
-        elif limit == 'Soft': 
+            scalar_scaling = x**1 
+        elif limit == 'Collinear p3': 
+            shift = p4 ; y=0.3
+            k ,rust_variables = collinear_limit(y*p3,shift, x)
+            scalar_scaling = x**1 
+        elif limit == 'Collinear p4': 
+            shift = p4 ; y=-0.3
+            k ,rust_variables = collinear_limit(y*p4,shift, x)
+            scalar_scaling = x**1 
+        elif limit == 'Soft1': 
             k ,rust_variables = soft_limit(l_SOFT,-p1, x)
+            scalar_scaling = x**3
+        elif limit == 'Soft3': 
+            k ,rust_variables = soft_limit(l_SOFT,p4, x)
             scalar_scaling = x**3
         elif limit == 'UV': 
             x = 1./x
             k ,rust_variables = uv_limit(l_UV,[0,0,0,0], x)
             scalar_scaling = x**3
 
-        print "Currently at log(x) = %f..."%np.log(x)
+        print "Currently at log(x) = %f... x = %s"%(np.log(x),rust_variables)
         x_values.append(x) 
-        
-        integrand = rust_instance.evaluate_f128(rust_variables)
+
+        integrand = rust_instance.evaluate(rust_variables)
         plot_lines['integrand_re'].append(integrand[0])
         plot_lines['integrand_im'].append(integrand[1])
-        
         current_point = []
         parametrisation_jac = 1.
         for i, xis in enumerate(chunks(rust_variables,3)):
@@ -179,17 +188,21 @@ for limit in limits:
                            np.array(plot_lines['0_4_re']))
     
     
-    #popt, pcov = curve_fit(line, np.log(x_values),np.log(np.abs(plot_lines['0_0_re'])))
-    #plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'g--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
+    # popt, pcov = curve_fit(line, np.log(x_values),np.log(np.abs(plot_lines['0_0_re'])))
+    # plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'g--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
+    
+    # popt, pcov = curve_fit(line, np.log(x_values[50:70]),np.log(np.abs(plot_lines['sum_re'][50:70])))
+    # plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'g--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
     
     #Fit the integrand
-    popt, pcov = curve_fit(line, np.log(x_values),np.log(np.abs(plot_lines['rescaled_integrand_re'])))
+    popt, pcov = curve_fit(line, np.log(x_values[50:70]),np.log(np.abs(plot_lines['rescaled_integrand_re'][50:70])))
     plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'r--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
         
     selected = ['rescaled_integrand_re', '0_0_re','0_1_re', '0_2_re','0_3_re','0_4_re', '_sum_cut','sum_re','param_jac']
     veto_list= ['param_jac']
     #lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
     #        (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
+    print plot_lines['rescaled_integrand_re']
 
     lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
             (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
