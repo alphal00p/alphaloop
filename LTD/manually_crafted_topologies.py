@@ -2262,10 +2262,26 @@ hard_coded_topology_collection.add_topology(
             vectors.LorentzVector( [-0.5, 0.4882081621443385, 0.1006405944587882, -0.0390417873902948] ),
     ]),        
         analytic_result =  (0.00760695481617+0.000196745763537j) ,
-        parameter_values = {'m1': 0., 'm2':1e3, 'm3': 0., 'm4': 0., 'm5': 0.},
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
         name = 'eeAA_amplitude',
     ),
     entry_name = 'eeAA_amplitude'
+)
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector( [1.0,0.0,0.0,1.0] ),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector( [-1.0,0.0,1.0,0.0] ),
+            vectors.LorentzVector( [1.0,0.0,0.0,-1.0] ),
+            vectors.LorentzVector( [-1.0,0.0,-1.0,0.0] ),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_E',
+    ),
+    entry_name = 'eeAA_amplitude_E'
 )
 
 
