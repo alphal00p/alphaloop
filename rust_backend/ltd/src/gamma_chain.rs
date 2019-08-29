@@ -3,8 +3,8 @@ use vector::LorentzVector;
 use FloatLike;
 
 pub struct GammaChain<'a, T: FloatLike> {
-    vbar: Vec<Complex<T>>,
-    u: Vec<Complex<T>>,
+    vbar: &'a [Complex<T>],
+    u: &'a [Complex<T>],
     vectors: &'a [LorentzVector<Complex<T>>],
     indices: &'a [i8],
     repeated_indices_values: Vec<i8>,
@@ -13,8 +13,8 @@ pub struct GammaChain<'a, T: FloatLike> {
 
 impl<'a, T: FloatLike> GammaChain<'a, T> {
     pub fn new(
-        vbar: Vec<Complex<T>>,
-        u: Vec<Complex<T>>,
+        vbar: &'a [Complex<T>],
+        u: &'a [Complex<T>],
         indices: &'a [i8],
         vectors: &'a [LorentzVector<Complex<T>>],
     ) -> Result<GammaChain<'a, T>, &'static str> {
@@ -50,7 +50,7 @@ impl<'a, T: FloatLike> GammaChain<'a, T> {
         flow: &[Complex<T>],
         gamma_index: i8,
         factor: Complex<T>,
-        res_flow: &mut Vec<Complex<T>>,
+        res_flow: &mut [Complex<T>],
     ) -> Result<(), &'static str> {
         //  Variables declaration
         let ii = Complex::new(T::zero(), T::one());
@@ -98,10 +98,10 @@ impl<'a, T: FloatLike> GammaChain<'a, T> {
         let ii = Complex::new(T::zero(), T::one());
         let zero = Complex::new(T::zero(), T::zero());
         //Follow the spinor flow
-        let mut flow: Vec<Complex<T>> = self.vbar.clone();
+        let mut flow: [Complex<T>; 4] = [self.vbar[0], self.vbar[1], self.vbar[2], self.vbar[3]];
 
         for index in self.indices {
-            let mut next_flow = vec![zero; 4];
+            let mut next_flow = [zero; 4];
             let pos = (index.abs() - 1) as usize;
             if *index > 0 {
                 //Contraction with an external vector
@@ -215,7 +215,7 @@ mod tests {
         ];
 
         //Initialize gamma chain
-        let mut chain = GammaChain::new(vbar, u, &indices, &vectors).unwrap();
+        let mut chain = GammaChain::new(&vbar, &u, &indices, &vectors).unwrap();
 
         //Solve
         let result = Complex::new(-78354.8416, 1312.256);
