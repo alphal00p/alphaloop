@@ -26,6 +26,10 @@ enum Polarizations {
     UMinus,
     UBarPlus,
     UBarMinus,
+    VPlus,
+    VMinus,
+    VBarPlus,
+    VBarMinus,
     APlus,
     AMinus,
 }
@@ -135,45 +139,65 @@ fn compute_polarization<T: FloatLike>(
     };
     let phase = (Complex::new(0.0, 1.0) * phi).exp();
 
-    // define gamma matrices in Dirac representation,
-    // only for the use of computing polarization vectors
-    // and possibly change of basis between Dirac and Weyl representations
+    // define gamma matrices in Weyl representation,
     let gamma0 = [
-        [1., 0., 0., 0.],
-        [0., 1., 0., 0.],
-        [0., 0., -1., 0.],
-        [0., 0., 0., -1.],
-    ];
-    let gamma5 = [
         [0., 0., 1., 0.],
         [0., 0., 0., 1.],
         [1., 0., 0., 0.],
         [0., 1., 0., 0.],
     ];
+    let gamma5 = [
+        [-1., 0., 0., 0.],
+        [0., -1., 0., 0.],
+        [0., 0., 1., 0.],
+        [0., 0., 0., 1.],
+    ];
+
+    //HELAS convention for V_+- to U_-+ conversion
+    // E > 0 : v_plus = -u_minus, v_minus = -u_plus
+    // E < 0 : v_plus = u_minus, v_minus = u_plus
+    let factor = match polarization {
+        Polarizations::VPlus
+        | Polarizations::VBarPlus
+        | Polarizations::VMinus
+        | Polarizations::VBarMinus
+            if p[0] > 0. =>
+        {
+            -1.0
+        }
+        _ => 1.0,
+    };
 
     let pol = match polarization {
-        Polarizations::UPlus | Polarizations::UBarPlus => {
-            assert!(
-                p[0] > 0.0,
-                "Need positiv energy momentum to compute the spinors"
-            );
+        Polarizations::UPlus
+        | Polarizations::UBarPlus
+        | Polarizations::VMinus
+        | Polarizations::VBarMinus => {
             // spinors as documented in HELAS reference, rewritten in Dirac representation and in polar coordinates
-            // according to HELAS convention, v_plus = -u_minus, v_minus = -u_plus
-            let mut u_plus: Vec<Complex<f64>> = vec![
-                Complex::new((1.0 + (theta).cos()).sqrt(), 0.0),
-                (1.0 - (theta).cos()).sqrt() * phase,
-                Complex::new((1.0 + (theta).cos()).sqrt(), 0.0),
-                (1.0 - (theta).cos()).sqrt() * phase,
-            ]
+            let mut u_plus: Vec<Complex<f64>> = if p[0] > 0.0 {
+                vec![
+                    Complex::default(),
+                    Complex::default(),
+                    Complex::new((1.0 + (theta).cos()).sqrt(), 0.0),
+                    (1.0 - (theta).cos()).sqrt() * phase,
+                ]
+            } else {
+                vec![
+                    Complex::new(0.0, (1.0 + (theta).cos()).sqrt()),
+                    Complex::new(0.0, 1.0) * (1.0 - (theta).cos()).sqrt() * phase,
+                    Complex::default(),
+                    Complex::default(),
+                ]
+            }
             .iter()
-            .map(|x| x * (rho / 2.).sqrt())
+            .map(|x| factor * x * (rho).sqrt())
             .collect();
             // this line adjust sign to HELAS convention
             if p[2] == 0.0 && p[1] == 0.0 && p[3] < 0.0 {
                 u_plus = u_plus.iter().map(|x| -x).collect();
             }
             match polarization {
-                Polarizations::UPlus => u_plus,
+                Polarizations::UPlus | Polarizations::VMinus => u_plus,
                 _ => {
                     let mut u_bar_plus = Vec::new();
                     for g in gamma0.iter() {
@@ -187,28 +211,36 @@ fn compute_polarization<T: FloatLike>(
                 }
             }
         }
-        Polarizations::UMinus | Polarizations::UBarMinus => {
-            assert!(
-                p[0] > 0.0,
-                "Need positiv energy momentum to compute the spinors"
-            );
+        Polarizations::UMinus
+        | Polarizations::UBarMinus
+        | Polarizations::VPlus
+        | Polarizations::VBarPlus => {
             // spinors as documented in HELAS reference, rewritten in Dirac representation and in polar coordinates
             // according to HELAS convention, v_plus = -u_minus, v_minus = -u_plus
-            let mut u_minus: Vec<Complex<f64>> = vec![
-                -(1.0 - (theta).cos()).sqrt() / phase,
-                Complex::new((1.0 + (theta).cos()).sqrt(), 0.0),
-                (1.0 - (theta).cos()).sqrt() / phase,
-                Complex::new(-(1.0 + (theta).cos()).sqrt(), 0.0),
-            ]
+            let mut u_minus: Vec<Complex<f64>> = if p[0] > 0.0 {
+                vec![
+                    -(1.0 - (theta).cos()).sqrt() / phase,
+                    Complex::new((1.0 + (theta).cos()).sqrt(), 0.0),
+                    Complex::default(),
+                    Complex::default(),
+                ]
+            } else {
+                vec![
+                    Complex::default(),
+                    Complex::default(),
+                    -Complex::new(0.0, 1.0) * (1.0 - (theta).cos()).sqrt() / phase,
+                    Complex::new(0.0, (1.0 + (theta).cos()).sqrt()),
+                ]
+            }
             .iter()
-            .map(|x| x * (rho / 2.).sqrt())
+            .map(|x| factor * x * (rho).sqrt())
             .collect();
             // this line adjust sign to HELAS convention
             if p[2] == 0.0 && p[1] == 0.0 && p[3] < 0.0 {
                 u_minus = u_minus.iter().map(|x| -x).collect();
             }
             match polarization {
-                Polarizations::UMinus => u_minus,
+                Polarizations::UMinus | Polarizations::VPlus => u_minus,
                 _ => {
                     let mut u_bar_minus = Vec::new();
                     for g in gamma0.iter() {
@@ -297,7 +329,7 @@ impl<'a, T: FloatLike> eeAA<'a, T> {
             &compute_polarization(external_kinematics[3], Polarizations::APlus).unwrap(),
         );
         let a_nu = LorentzVector::from_slice(
-            &compute_polarization(external_kinematics[4], Polarizations::AMinus).unwrap(),
+            &compute_polarization(external_kinematics[4], Polarizations::APlus).unwrap(),
         );
         //Spinors
         //This agrees with HELAS convention
@@ -422,7 +454,11 @@ impl<'a, T: FloatLike> eeAA<'a, T> {
         let s23_inv =
             utils::finv((self.external_kinematics[1] + self.external_kinematics[2]).square());
         let factor = Complex::new(
-            T::from_f64((Parameters::alpha_ew * 4.0 * std::f64::consts::PI).powf(2.0)).unwrap(),
+            T::from_f64(
+                Parameters::alpha_s * Parameters::alpha_ew / 9.0
+                    * (4.0 * std::f64::consts::PI).powf(2.0),
+            )
+            .unwrap(),
             T::zero(),
         );
 
@@ -627,31 +663,110 @@ mod tests {
         let a_mu =
             LorentzVector::from_slice(&compute_polarization(ps[2], Polarizations::APlus).unwrap());
         let a_nu =
-            LorentzVector::from_slice(&compute_polarization(ps[3], Polarizations::AMinus).unwrap());
+            LorentzVector::from_slice(&compute_polarization(ps[3], Polarizations::APlus).unwrap());
         //Spinors
         //This agrees with HELAS convention
-        let u = if ps[0][0] > 0. {
-            compute_polarization(ps[0], Polarizations::UPlus).unwrap()
-        } else {
-            compute_polarization(-ps[0], Polarizations::UPlus).unwrap()
-        };
-        let vbar = if ps[1][0] > 0. {
-            compute_polarization(ps[1], Polarizations::UBarPlus).unwrap()
-        } else {
-            compute_polarization(-ps[1], Polarizations::UBarPlus).unwrap()
-        }; //let box_den = props[0] * props[1] * props[2] * props[3] * props[4];
-        let vectors = [(-ps[1] - ps[2]).map(|x| Complex::new(x, 0.0)), a_mu, a_nu];
+        let u = compute_polarization(ps[0], Polarizations::UPlus).unwrap();
+        let vbar = compute_polarization(-ps[1], Polarizations::UBarPlus).unwrap();
+        let vbar0 = compute_polarization::<f64>(ps[1], Polarizations::VBarPlus).unwrap();
+        println!("Diff: [");
+        for (x0, x) in vbar0.iter().zip(vbar.iter()) {
+            println!("{:.5e}", x0 + x);
+        }
+        println!("]");
+        //let vbar = compute_polarization(ps[1], Polarizations::UBarPlus).unwrap();
+        //let box_den = props[0] * props[1] * props[2] * props[3] * props[4];
+        let gamma_0 = LorentzVector::from_args(
+            Complex::new(1.0, 0.0),
+            Complex::new(0.0, 0.0),
+            Complex::new(0.0, 0.0),
+            Complex::new(0.0, 0.0),
+        );
+        let vectors = [
+            (-ps[1] - ps[2]).map(|x| Complex::new(x, 0.0)),
+            a_mu,
+            a_nu,
+            gamma_0,
+        ];
 
-        let mut num = GammaChain::new(vbar.as_slice(), u.as_slice(), &[2, 1, 3], &vectors).unwrap();
-        let factor = -Complex::new(0.0, 1.0) * (Parameters::alpha_ew * 4.0 * std::f64::consts::PI);
+        let mut num = GammaChain::new(&vbar, &u, &[2, 1, 3], &vectors).unwrap();
+        //let mut num = GammaChain::new(vbar.as_slice(), u.as_slice(), &[2, 1, 3], &vectors).unwrap();
+        let factor = Parameters::alpha_ew * 4.0 * std::f64::consts::PI / 9.0;
         let result = num.compute_chain().unwrap() * factor / (ps[1] + ps[2]).square();
-        println!("vbar: {:.6e}", LorentzVector::from_slice(vbar.as_slice()));
-        println!("u: {:.6e}", LorentzVector::from_slice(u.as_slice()));
-        println!("a_mu: {:.6e}", a_mu);
-        println!("a_nu: {:.6e}", a_nu);
+
+        //println!("chain: {:.6e}", num.compute_chain().unwrap());
+        //println!("vbar: {:.6e}", LorentzVector::from_slice(&vbar));
+        //println!("u: {:.6e}", LorentzVector::from_slice(&u));
+        println!("u: [");
+        for v in u.iter() {
+            println!("{:.5e}", v);
+        }
+        println!("]");
+
+        println!("vbar: [");
+        for v in vbar.iter() {
+            println!("{:.5e}", v);
+        }
+        println!("]");
+
+        println!(
+            "a_mu = [{:.5e}, {:.5e}, {:.5e}, {:.5e}]",
+            a_mu.t, a_mu.x, a_mu.y, a_mu.z,
+        );
+        println!(
+            "a_nu = [{:.5e}, {:.5e}, {:.5e}, {:.5e}]",
+            a_nu.t, a_nu.x, a_nu.y, a_nu.z,
+        );
+
         let expected = Complex::new(8.40404179245923, 0.9601747213212951);
         println!("res: {:.5e}", result);
         println!("exp: {:.5e}", expected);
+
+        let vectors = [
+            ps[0].map(|x| Complex::new(x, 0.0)),
+            ps[1].map(|x| Complex::new(x, 0.0)),
+            ps[2].map(|x| Complex::new(x, 0.0)),
+            ps[3].map(|x| Complex::new(x, 0.0)),
+            (-ps[1] - ps[2]).map(|x| Complex::new(x, 0.0)),
+            a_mu,
+            a_nu,
+        ];
+
+        println!(
+            "M0 = {:?}",
+            GammaChain::new(&vbar, &u, &[6, 5, 7], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap()
+        );
+        println!(
+            "M1 = {:?}",
+            GammaChain::new(&vbar, &u, &[-1, -2, 6, 5, 7, -2, -1], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap()
+        );
+        println!(
+            "M2 = {:?}",
+            GammaChain::new(&vbar, &u, &[-1, 1, 6, 5, 7, 2, -1], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap()
+        );
+        println!(
+            "M3 = {:?}",
+            GammaChain::new(&vbar, &u, &[6, 4, 1, 4, 7], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap()
+        );
+        println!(
+            "M4 = {:?}",
+            GammaChain::new(&vbar, &u, &[6, 3, 2, 3, 7], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap()
+        );
 
         assert!((result - expected).norm() < 1e-10);
     }
