@@ -91,14 +91,41 @@ impl Topology {
                                 _ => Complex::new(T::one(), T::zero()),
                             };
                         }
-                        let mut amp = eeAA::new(
-                            self.external_kinematics.clone(),
-                            props.to_vec(),
-                            k_def[0],
-                            cut_2energy,
-                            cut_id,
-                        )
-                        .unwrap();
+                        //Rotate back PS for numerator
+                        let rot_matrix = self.rotation_matrix;
+                        let mut external_kinematics = self.external_kinematics.clone();
+
+                        for e in &mut external_kinematics {
+                            let old_x = e.x;
+                            let old_y = e.y;
+                            let old_z = e.z;
+                            e.x = rot_matrix[0][0] * old_x
+                                + rot_matrix[1][0] * old_y
+                                + rot_matrix[2][0] * old_z;
+                            e.y = rot_matrix[0][1] * old_x
+                                + rot_matrix[1][1] * old_y
+                                + rot_matrix[2][1] * old_z;
+                            e.z = rot_matrix[0][2] * old_x
+                                + rot_matrix[1][2] * old_y
+                                + rot_matrix[2][2] * old_z;
+                        }
+                        let mut l = k_def[0];
+                        let old_x = l.x;
+                        let old_y = l.y;
+                        let old_z = l.z;
+                        l.x = old_x * T::from_f64(rot_matrix[0][0]).unwrap()
+                            + old_y * T::from_f64(rot_matrix[1][0]).unwrap()
+                            + old_z * T::from_f64(rot_matrix[2][0]).unwrap();
+                        l.y = old_x * T::from_f64(rot_matrix[0][1]).unwrap()
+                            + old_y * T::from_f64(rot_matrix[1][1]).unwrap()
+                            + old_z * T::from_f64(rot_matrix[2][1]).unwrap();
+                        l.z = old_x * T::from_f64(rot_matrix[0][2]).unwrap()
+                            + old_y * T::from_f64(rot_matrix[1][2]).unwrap()
+                            + old_z * T::from_f64(rot_matrix[2][2]).unwrap();
+                        //Create Amplitude
+                        let mut amp =
+                            eeAA::new(external_kinematics, props.to_vec(), l, cut_2energy, cut_id)
+                                .unwrap();
                         return amp.compute_amplitude();
                     }
                     _ => {
@@ -129,9 +156,9 @@ fn compute_polarization<T: FloatLike>(
     //Spherical coordinates of the spatial part of p
     let rho = p.spatial_squared().sqrt();
     let theta = (p[3] / rho).acos();
-    let phi = if p[2] == 0.0 && p[1] == 0.0 && p[3] > 0.0 {
+    let phi = if p[2].abs() < 1e-10 && p[1].abs() < 1e-10 && p[3] > 0.0 {
         0.0
-    } else if p[2] == 0.0 && p[1] == 0.0 && p[3] < 0.0 {
+    } else if p[2].abs() < 1e-10 && p[1].abs() < 1e-10 && p[3] < 0.0 {
         std::f64::consts::PI
     } else {
         //p.arctan2(p[2], p[1])
@@ -341,7 +368,7 @@ impl<'a, T: FloatLike> eeAA<'a, T> {
         let vbar = if external_kinematics[2][0] > 0. {
             compute_polarization(external_kinematics[2], Polarizations::UBarPlus).unwrap()
         } else {
-            compute_polarization(-external_kinematics[2], Polarizations::UBarPlus).unwrap()
+            compute_polarization(external_kinematics[2], Polarizations::VBarPlus).unwrap()
         };
 
         let gamma_0 = LorentzVector::from_args(
@@ -455,7 +482,7 @@ impl<'a, T: FloatLike> eeAA<'a, T> {
             utils::finv((self.external_kinematics[1] + self.external_kinematics[2]).square());
         let factor = Complex::new(
             T::from_f64(
-                Parameters::alpha_s * Parameters::alpha_ew / 9.0
+                Parameters::C_F * Parameters::alpha_s * Parameters::alpha_ew / 9.0
                     * (4.0 * std::f64::consts::PI).powf(2.0),
             )
             .unwrap(),
@@ -632,9 +659,11 @@ impl<'a, T: FloatLike> eeAA<'a, T> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+    use rand::Rng;
     use topologies::Topology;
     use Settings;
 
+    #[allow(non_snake_case, dead_code)]
     #[test]
     fn test_ee_aa() {
         let my_top = "manual_eeAA_amplitude_E";
@@ -642,18 +671,6 @@ mod tests {
         let mut topologies = Topology::from_file("../../LTD/topologies.yaml", &settings);
         let topo = topologies.get_mut(my_top).expect("Unknown topology");
         topo.process();
-
-        //Get PS and loop momentum
-        //let ll = &topo.loop_lines[0];
-        //let one = Complex::new(1e9, 0.0);
-        //let k = LorentzVector::from_args(one, one, one, one);
-
-        //let props: Vec<Complex<f64>> = ll
-        //    .propagators
-        //    .iter()
-        //    .map(|p| (k + p.q).square() - p.m_squared)
-        //    .collect();
-        //let ps = &topo.external_kinematics;
 
         //Tree Level
         let mut ps = topo.external_kinematics.clone();
@@ -664,10 +681,12 @@ mod tests {
             LorentzVector::from_slice(&compute_polarization(ps[2], Polarizations::APlus).unwrap());
         let a_nu =
             LorentzVector::from_slice(&compute_polarization(ps[3], Polarizations::APlus).unwrap());
+
         //Spinors
         //This agrees with HELAS convention
         let u = compute_polarization(ps[0], Polarizations::UPlus).unwrap();
-        let vbar = compute_polarization(-ps[1], Polarizations::UBarPlus).unwrap();
+        let vbar = compute_polarization(ps[1], Polarizations::VBarPlus).unwrap();
+        //let vbar = compute_polarization(-ps[1], Polarizations::UBarPlus).unwrap();
         let vbar0 = compute_polarization::<f64>(ps[1], Polarizations::VBarPlus).unwrap();
         println!("Diff: [");
         for (x0, x) in vbar0.iter().zip(vbar.iter()) {
@@ -691,7 +710,7 @@ mod tests {
 
         let mut num = GammaChain::new(&vbar, &u, &[2, 1, 3], &vectors).unwrap();
         //let mut num = GammaChain::new(vbar.as_slice(), u.as_slice(), &[2, 1, 3], &vectors).unwrap();
-        let factor = Parameters::alpha_ew * 4.0 * std::f64::consts::PI / 9.0;
+        let factor = -Parameters::alpha_ew * 4.0 * std::f64::consts::PI / 9.0;
         let result = num.compute_chain().unwrap() * factor / (ps[1] + ps[2]).square();
 
         //println!("chain: {:.6e}", num.compute_chain().unwrap());
@@ -718,7 +737,7 @@ mod tests {
             a_nu.t, a_nu.x, a_nu.y, a_nu.z,
         );
 
-        let expected = Complex::new(8.40404179245923, 0.9601747213212951);
+        let expected = Complex::new(0.0, 1.49019647202147543e-2);
         println!("res: {:.5e}", result);
         println!("exp: {:.5e}", expected);
 
@@ -731,44 +750,163 @@ mod tests {
             a_mu,
             a_nu,
         ];
-
+        let mu_r = 91.188000000000002;
+        let M0 = GammaChain::new(&vbar, &u, &[6, 5, 7], &vectors)
+            .unwrap()
+            .compute_chain()
+            .unwrap();
+        let M1 = GammaChain::new(&vbar, &u, &[-1, -2, 6, 5, 7, -2, -1], &vectors)
+            .unwrap()
+            .compute_chain()
+            .unwrap();
+        let M2 = GammaChain::new(&vbar, &u, &[-1, 1, 6, 5, 7, 2, -1], &vectors)
+            .unwrap()
+            .compute_chain()
+            .unwrap();
+        let M3 = GammaChain::new(&vbar, &u, &[6, 4, 1, 4, 7], &vectors)
+            .unwrap()
+            .compute_chain()
+            .unwrap();
+        let M4 = GammaChain::new(&vbar, &u, &[6, 3, 2, 3, 7], &vectors)
+            .unwrap()
+            .compute_chain()
+            .unwrap();
+        let M5 = GammaChain::new(&vbar, &u, &[6, 1, 4, 1, 7], &vectors)
+            .unwrap()
+            .compute_chain()
+            .unwrap();
+        println!("M0 = {:?}", M0);
+        println!("M1 = {:?}", M1);
+        println!("M2 = {:?}", M2);
+        println!("M3 = {:?}", M3);
+        println!("M4 = {:?}", M4);
+        println!("M5 = {:?}", M5);
+        println!("M1/M0 = {:?}", M1 / M0);
         println!(
-            "M0 = {:?}",
-            GammaChain::new(&vbar, &u, &[6, 5, 7], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap()
-        );
-        println!(
-            "M1 = {:?}",
-            GammaChain::new(&vbar, &u, &[-1, -2, 6, 5, 7, -2, -1], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap()
-        );
-        println!(
-            "M2 = {:?}",
-            GammaChain::new(&vbar, &u, &[-1, 1, 6, 5, 7, 2, -1], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap()
-        );
-        println!(
-            "M3 = {:?}",
-            GammaChain::new(&vbar, &u, &[6, 4, 1, 4, 7], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap()
-        );
-        println!(
-            "M4 = {:?}",
-            GammaChain::new(&vbar, &u, &[6, 3, 2, 3, 7], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap()
+            "s = {:?}, t = {:?}",
+            (ps[0] + ps[1]).square(),
+            (ps[1] + ps[2]).square(),
         );
 
         assert!((result - expected).norm() < 1e-10);
     }
 
+    #[allow(non_snake_case, dead_code)]
+    #[test]
+    fn test_rot() {
+        let my_top = "manual_eeAA_amplitude_E";
+        let settings = Settings::from_file("../../LTD/hyperparameters.yaml");
+        let mut topologies = Topology::from_file("../../LTD/topologies.yaml", &settings);
+        let topo = topologies.get_mut(my_top).expect("Unknown topology");
+        topo.process();
+        //Rotate
+        let mut topos = vec![topo.clone()];
+        let mut rng = rand::thread_rng();
+        let angle = rng.gen::<f64>() * 2. * std::f64::consts::PI;
+        let mut rv = (rng.gen::<f64>(), rng.gen::<f64>(), rng.gen::<f64>()); // rotation axis
+        let inv_norm = 1.0 / (rv.0 * rv.0 + rv.1 * rv.1 + rv.2 * rv.2).sqrt();
+        rv = (rv.0 * inv_norm, rv.1 * inv_norm, rv.2 * inv_norm);
+        topos.push(topo.rotate(angle, rv));
+
+        for topo in topos.iter() {
+            println!("{:?}", topo.rotation_matrix);
+            //Tree Level
+            let mut ps = topo.external_kinematics.clone();
+            ps.remove(1);
+            let rot_matrix = topo.rotation_matrix;
+            for e in &mut ps {
+                let old_x = e.x;
+                let old_y = e.y;
+                let old_z = e.z;
+                e.x =
+                    rot_matrix[0][0] * old_x + rot_matrix[1][0] * old_y + rot_matrix[2][0] * old_z;
+                e.y =
+                    rot_matrix[0][1] * old_x + rot_matrix[1][1] * old_y + rot_matrix[2][1] * old_z;
+                e.z =
+                    rot_matrix[0][2] * old_x + rot_matrix[1][2] * old_y + rot_matrix[2][2] * old_z;
+            }
+
+            println!("{:?}", ps);
+
+            //For on-shell photons
+            let a_mu = LorentzVector::from_slice(
+                &compute_polarization(ps[2], Polarizations::APlus).unwrap(),
+            );
+            let a_nu = LorentzVector::from_slice(
+                &compute_polarization(ps[3], Polarizations::APlus).unwrap(),
+            );
+
+            //Spinors
+            //This agrees with HELAS convention
+            let u = compute_polarization(ps[0], Polarizations::UPlus).unwrap();
+            let vbar = compute_polarization(ps[1], Polarizations::VBarPlus).unwrap();
+            println!("u: [");
+            for v in u.iter() {
+                println!("{:.5e}", v);
+            }
+            println!("]");
+
+            println!("vbar: [");
+            for v in vbar.iter() {
+                println!("{:.5e}", v);
+            }
+            println!("]");
+
+            println!(
+                "a_mu = [{:.5e}, {:.5e}, {:.5e}, {:.5e}]",
+                a_mu.t, a_mu.x, a_mu.y, a_mu.z,
+            );
+            println!(
+                "a_nu = [{:.5e}, {:.5e}, {:.5e}, {:.5e}]",
+                a_nu.t, a_nu.x, a_nu.y, a_nu.z,
+            );
+
+            let vectors = [
+                ps[0].map(|x| Complex::new(x, 0.0)),
+                ps[1].map(|x| Complex::new(x, 0.0)),
+                ps[2].map(|x| Complex::new(x, 0.0)),
+                ps[3].map(|x| Complex::new(x, 0.0)),
+                (-ps[1] - ps[2]).map(|x| Complex::new(x, 0.0)),
+                a_mu,
+                a_nu,
+            ];
+            let M0 = GammaChain::new(&vbar, &u, &[6, 5, 7], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap();
+            let M1 = GammaChain::new(&vbar, &u, &[-1, -2, 6, 5, 7, -2, -1], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap();
+            let M2 = GammaChain::new(&vbar, &u, &[-1, 1, 6, 5, 7, 2, -1], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap();
+            let M3 = GammaChain::new(&vbar, &u, &[6, 4, 1, 4, 7], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap();
+            let M4 = GammaChain::new(&vbar, &u, &[6, 3, 2, 3, 7], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap();
+            let M5 = GammaChain::new(&vbar, &u, &[6, 1, 4, 1, 7], &vectors)
+                .unwrap()
+                .compute_chain()
+                .unwrap();
+            println!("M0 = {:?}", M0);
+            println!("M1 = {:?}", M1);
+            println!("M2 = {:?}", M2);
+            println!("M3 = {:?}", M3);
+            println!("M4 = {:?}", M4);
+            println!("M5 = {:?}", M5);
+            println!("M1/M0 = {:?}", M1 / M0);
+            println!(
+                "s = {:?}, t = {:?}",
+                (ps[0] + ps[1]).square(),
+                (ps[1] + ps[2]).square(),
+            );
+        }
+        assert!((1.0 - 2.0) < 1e-10);
+    }
 }
