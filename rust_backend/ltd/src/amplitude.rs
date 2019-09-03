@@ -156,9 +156,9 @@ fn compute_polarization<T: FloatLike>(
     //Spherical coordinates of the spatial part of p
     let rho = p.spatial_squared().sqrt();
     let theta = (p[3] / rho).acos();
-    let phi = if p[2].abs() < 1e-10 && p[1].abs() < 1e-10 && p[3] > 0.0 {
+    let phi = if p[2].abs() < p[3].abs() * 1e-10 && p[1].abs() < p[3].abs() * 1e-10 && p[3] > 0.0 {
         0.0
-    } else if p[2].abs() < 1e-10 && p[1].abs() < 1e-10 && p[3] < 0.0 {
+    } else if p[2].abs() < p[3].abs() * 1e-10 && p[1].abs() < p[3].abs() * 1e-10 && p[3] < 0.0 {
         std::f64::consts::PI
     } else {
         //p.arctan2(p[2], p[1])
@@ -220,7 +220,7 @@ fn compute_polarization<T: FloatLike>(
             .map(|x| factor * x * (rho).sqrt())
             .collect();
             // this line adjust sign to HELAS convention
-            if p[2] == 0.0 && p[1] == 0.0 && p[3] < 0.0 {
+            if p[2].abs() < p[3].abs() * 1e-10 && p[1].abs() < p[3].abs() * 1e-10 && p[3] < 0.0 {
                 u_plus = u_plus.iter().map(|x| -x).collect();
             }
             match polarization {
@@ -263,7 +263,7 @@ fn compute_polarization<T: FloatLike>(
             .map(|x| factor * x * (rho).sqrt())
             .collect();
             // this line adjust sign to HELAS convention
-            if p[2] == 0.0 && p[1] == 0.0 && p[3] < 0.0 {
+            if p[2].abs() < p[3].abs() * 1e-10 && p[1].abs() < p[3].abs() * 1e-10 && p[3] < 0.0 {
                 u_minus = u_minus.iter().map(|x| -x).collect();
             }
             match polarization {
