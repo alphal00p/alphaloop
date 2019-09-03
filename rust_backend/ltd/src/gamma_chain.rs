@@ -58,10 +58,10 @@ impl<'a, T: FloatLike> GammaChain<'a, T> {
         // Implementation
         match gamma_index {
             0 => {
-                res_flow[0] += flow[0] * factor;
-                res_flow[1] += flow[1] * factor;
-                res_flow[2] -= flow[2] * factor;
-                res_flow[3] -= flow[3] * factor;
+                res_flow[0] += flow[2] * factor;
+                res_flow[1] += flow[3] * factor;
+                res_flow[2] += flow[0] * factor;
+                res_flow[3] += flow[1] * factor;
             }
             1 => {
                 res_flow[0] -= flow[3] * factor;
@@ -82,10 +82,10 @@ impl<'a, T: FloatLike> GammaChain<'a, T> {
                 res_flow[3] -= flow[1] * factor;
             }
             5 => {
-                res_flow[0] += flow[2] * factor;
-                res_flow[1] += flow[3] * factor;
-                res_flow[2] += flow[0] * factor;
-                res_flow[3] += flow[1] * factor;
+                res_flow[0] -= flow[0] * factor;
+                res_flow[1] -= flow[1] * factor;
+                res_flow[2] += flow[2] * factor;
+                res_flow[3] += flow[3] * factor;
             }
             _ => return Err("Unknown"),
         }
@@ -197,6 +197,10 @@ mod tests {
             Complex::new(2.3, 0.0),
         ));
 
+        let zero = Complex::default();
+        let ii = Complex::new(0.0, 1.0) / (2.0 as f64).sqrt();
+        let one = Complex::new(1.0, 0.0) / (2.0 as f64).sqrt();
+
         //Some beatiful contraction of dummy indices together with some slashed momenta
         let indices = vec![1, -1, -2, 2, -1, -2, -3, -4, -5, -6, -5, -4, -6, -3];
 
@@ -213,9 +217,42 @@ mod tests {
             Complex::new(4.2, 0.0),
             Complex::new(4.3, 0.0),
         ];
+        //Change to Weyl Representation
+        //T = 1/Sqrt(2) ( Id x Id + i \sigma_2 x I )
+        let T = [
+            [one, zero, one, zero],
+            [zero, one, zero, one],
+            [-one, zero, one, zero],
+            [zero, -one, zero, one],
+        ];
 
+        let Tt = [
+            [one, zero, -one, zero],
+            [zero, one, zero, -one],
+            [one, zero, one, zero],
+            [zero, one, zero, one],
+        ];
+        let mut vbarW = Vec::new();
+        for t in Tt.iter() {
+            let mut res = Complex::new(0.0, 0.0);
+            for (x, y) in vbar.iter().zip(t) {
+                res += x * y;
+            }
+            vbarW.push(res);
+        }
+
+        let mut uW = Vec::new();
+        for t in Tt.iter() {
+            let mut res = Complex::new(0.0, 0.0);
+            for (x, y) in u.iter().zip(t) {
+                res += x * y;
+            }
+            uW.push(res);
+        }
+        println!("{:?}", uW);
+        println!("{:?}", vbarW);
         //Initialize gamma chain
-        let mut chain = GammaChain::new(&vbar, &u, &indices, &vectors).unwrap();
+        let mut chain = GammaChain::new(&vbarW, &uW, &indices, &vectors).unwrap();
 
         //Solve
         let result = Complex::new(-78354.8416, 1312.256);
