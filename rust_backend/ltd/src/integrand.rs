@@ -31,7 +31,7 @@ pub struct Integrand {
 
 impl Topology {
     /// Create a rotated version of this topology. The axis needs to be normalized.
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
+    pub fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
         let cos_t = angle.cos();
         let sin_t = angle.sin();
         let cos_t_bar = float::one() - angle.cos();
@@ -410,7 +410,12 @@ impl Integrand {
                 } else {
                     self.unstable_f128_point_count += 1;
 
-                    if d_f128 > NumCast::from(self.settings.general.minimal_precision_for_returning_result).unwrap() {
+                    if d_f128
+                        > NumCast::from(
+                            self.settings.general.minimal_precision_for_returning_result,
+                        )
+                        .unwrap()
+                    {
                         result = Complex::new(
                             <float as NumCast>::from(result_f128.re).unwrap(),
                             <float as NumCast>::from(result_f128.im).unwrap(),
