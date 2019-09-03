@@ -2267,6 +2267,24 @@ hard_coded_topology_collection.add_topology(
     ),
     entry_name = 'eeAA_amplitude'
 )
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([ 0.50000000000000000e+03,  0.00000000000000000e+00,  0.00000000000000000e+00,  0.50000000000000000e+03]),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector([ 0.50000000000000000e+03,  0.00000000000000000e+00,  0.00000000000000000e+00, -0.50000000000000000e+03]),
+            vectors.LorentzVector([-0.49999999999999898e+03,  0.24062102909376753e+03, -0.28047200599112813e+03,  0.33680405908059970e+03]),
+            vectors.LorentzVector([-0.50000000000000119e+03, -0.24062102909376739e+03,  0.28047200599112819e+03, -0.33680405908059970e+03]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_P3',
+    ),
+    entry_name = 'eeAA_amplitude_P3'
+)
+
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
         'Pentagon',
@@ -2279,9 +2297,42 @@ hard_coded_topology_collection.add_topology(
     ]),        
         analytic_result =  (0.00760695481617+0.000196745763537j) ,
         parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
-        name = 'eeAA_amplitude_E',
+        name = 'eeAA_amplitude_E1',
     ),
-    entry_name = 'eeAA_amplitude_E'
+    entry_name = 'eeAA_amplitude_E1'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([ 1.136981102746675,0.6524678079740285,0.633070356251368,0.6828130868666602]),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector([-1.465708047990716,0.5663518310933229,0.9352021966593318,0.9761877569021014]),
+            vectors.LorentzVector([ 1.6747071228567243,-0.7524299677798811,-0.3212591073651294,-1.4612616729623666]),
+            vectors.LorentzVector([-1.3459801776126832,-0.46638967128747016,-1.2470134455455704,-0.1977391708063949]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_E2',
+    ),
+    entry_name = 'eeAA_amplitude_E2'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+        vectors.LorentzVector([0.8690054083239277,0.7222398091064435,0.10944864082835482,0.4707027223831939]),
+        vectors.LorentzVector([-0.8445982525473609,0.5355818253859261,0.5831776477060873,0.2939424224883671]),
+        vectors.LorentzVector([1.075533457776574,-1.0721863994957934,-0.016806589064874644,0.0831028404874663]),
+        vectors.LorentzVector([+1.0999406135531409,-0.18563523499657628,-0.6758196994695674,-0.8477479853590273]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_E3',
+    ),
+    entry_name = 'eeAA_amplitude_E3'
 )
 
 
