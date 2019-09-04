@@ -180,6 +180,7 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
+    #[allow(non_snake_case, dead_code)]
     #[test]
     fn test_gamma() {
         //Initialize some vectors contracted with matrix 1 and 2, respectively
