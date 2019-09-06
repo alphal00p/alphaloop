@@ -1061,7 +1061,7 @@ impl<'a, T: FloatLike> uuWWZ<'a, T> {
             "UVIR" => self.uv_res3(
                 &[-1, 1, 8, 6, 9, 7, 10, 1, -1],
                 &[1, 7],
-                -factor * s23_inv * s15_inv,
+                factor * s23_inv * s15_inv,
             ),
             "D2UV_LO" => self.uv_res3(
                 &[8, 6, 9, 7, -1, 4, 10, 5, -1],
