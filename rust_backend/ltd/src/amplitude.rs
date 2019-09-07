@@ -390,6 +390,19 @@ pub fn compute_chain_residue<T: FloatLike>(
     Ok(res)
 }
 
+//Compute Binomial Coefficient (n,m)
+pub fn binomial_coeff(n: usize, m: usize) -> usize {
+    if m > n - m {
+        binomial_coeff(n, n - m)
+    } else {
+        let mut coeff = 1;
+        for k in 0..m {
+            coeff = (coeff * (n - k)) / (k + 1);
+        }
+        coeff
+    }
+}
+
 #[derive(Debug)]
 #[allow(unused_variables, non_camel_case_types)]
 pub struct eeAA<'a, T: FloatLike> {
@@ -828,7 +841,7 @@ impl<'a, T: FloatLike> uuWWZ<'a, T> {
             Diagram::new("D4UV_LO", &[0], false).unwrap(),
             Diagram::new("D6UV_LO", &[0], false).unwrap(),
             Diagram::new("D7UV_LO", &[0], false).unwrap(),
-            Diagram::new("IRUV_LO", &[0], false).unwrap(),
+            Diagram::new("IRUV_LO", &[0], true).unwrap(),
         ];
 
         return Ok(uuWWZ {
@@ -859,10 +872,10 @@ impl<'a, T: FloatLike> uuWWZ<'a, T> {
 
     pub fn compute_amplitude(&mut self) -> Result<Complex<T>, &'static str> {
         let mut res: Complex<T> = Complex::default();
-        let diaglist = if self.cut_2energy.norm() > T::from_f64(1e5).unwrap() {
+        let diaglist = if self.cut_2energy.norm() > T::from_f64(1e4).unwrap() {
             [
-                "D1", "D2UV_LO", "D3UV_LO", "D4UV_LO", "D5", "D6UV_LO", "D7UV_LO", "D8", "IRUV_LO",
-                "UV2", "UV3", "UV4", "UV6", "UV7", "UVIR",
+                "D1UV_LO", "D2UV_LO", "D3UV_LO", "D4UV_LO", "D5UV_LO", "D6UV_LO", "D7UV_LO",
+                "D8UV_LO", "IRUV_LO", "UV2", "UV3", "UV4", "UV6", "UV7", "UVIR",
             ]
         } else {
             [
@@ -893,83 +906,52 @@ impl<'a, T: FloatLike> uuWWZ<'a, T> {
 
         return Ok(res);
     }
-    pub fn uv_res2(
+
+    pub fn uv_residue(
         &self,
         chain: &[i8],
         loop_momentum_positions: &[i8],
+        order: usize,
         factor: Complex<T>,
     ) -> Complex<T> {
         let gamma_0_pos = 11;
-        let fd = compute_chain_residue(
-            self.vbar.as_slice(),
-            self.u.as_slice(),
-            chain,
-            &self.vectors,
-            loop_momentum_positions,
-            gamma_0_pos,
-            0,
-        )
-        .unwrap()
-            * T::from_f64(-2.).unwrap()
-            * utils::finv(utils::powi(self.cut_2energy, 2));
-
-        let df = -compute_chain_residue(
-            self.vbar.as_slice(),
-            self.u.as_slice(),
-            chain,
-            &self.vectors,
-            loop_momentum_positions,
-            gamma_0_pos,
-            1,
-        )
-        .unwrap()
-            * utils::finv(utils::powi(self.cut_2energy, 1));
-        factor * (fd + df)
-    }
-
-    pub fn uv_res3(
-        &self,
-        chain: &[i8],
-        loop_momentum_positions: &[i8],
-        factor: Complex<T>,
-    ) -> Complex<T> {
-        let gamma_0_pos = 11;
-        let fdd = compute_chain_residue(
-            self.vbar.as_slice(),
-            self.u.as_slice(),
-            chain,
-            &self.vectors,
-            loop_momentum_positions,
-            gamma_0_pos,
-            0,
-        )
-        .unwrap()
-            * T::from_f64(12.).unwrap()
-            * utils::finv(utils::powi(self.cut_2energy, 4));
-        let dfd = -compute_chain_residue(
-            self.vbar.as_slice(),
-            self.u.as_slice(),
-            chain,
-            &self.vectors,
-            loop_momentum_positions,
-            gamma_0_pos,
-            1,
-        )
-        .unwrap()
-            * T::from_f64(-6.).unwrap()
-            * utils::finv(utils::powi(self.cut_2energy, 3));
-        let ddf = compute_chain_residue(
-            self.vbar.as_slice(),
-            self.u.as_slice(),
-            chain,
-            &self.vectors,
-            loop_momentum_positions,
-            gamma_0_pos,
-            2,
-        )
-        .unwrap()
-            * utils::finv(utils::powi(self.cut_2energy, 2));
-        factor / T::from_f64(2.0).unwrap() * (fdd + dfd + ddf)
+        let mut coeff = 1;
+        let mut norm = 1;
+        //The sign variable depends only on order because we choose a negative k
+        let sign = Complex::new(T::one(), T::zero());
+        let mut res = Complex::default();
+        for i in (0..order + 1).rev() {
+            //println!("coeff: {:?}", coeff);
+            //println!(
+            //    "[{},{}, {:?}]",
+            //    i,
+            //    2 * order + i,
+            //    utils::powi(sign, order - i).re
+            //);
+            res += compute_chain_residue(
+                self.vbar.as_slice(),
+                self.u.as_slice(),
+                chain,
+                &self.vectors,
+                loop_momentum_positions,
+                gamma_0_pos,
+                i,
+            )
+            .unwrap()
+                * utils::powi(sign, order - i)
+                * T::from_usize(coeff).unwrap()
+                * utils::finv(utils::powi(self.cut_2energy, 2 * order - i));
+            //Update coefficients
+            if i != 0 {
+                coeff = (coeff * i * (2 * order - i + 1)) / (order - i + 1);
+                norm *= i;
+            }
+        }
+        if order % 2 == 0 {
+            factor * res / T::from_usize(norm).unwrap()
+        } else {
+            -factor * res / T::from_usize(norm).unwrap()
+        }
     }
 
     pub fn numerator(&self, name: &'static str) -> Result<Complex<T>, &'static str> {
@@ -1021,88 +1003,130 @@ impl<'a, T: FloatLike> uuWWZ<'a, T> {
                 (-factor * s23_inv * s15_inv)
                     * self.compute_chain(&[-1, 2, 8, 6, 9, 7, 10, 5, -1]).unwrap()
             }
-            "UV2" => self.uv_res3(
+            "UV2" => self.uv_residue(
                 &[8, 6, 9, 7, -1, 1, 10, 1, -1],
                 &[5, 7],
+                2,
                 -factor * s23_inv * s15_inv,
             ),
-            "UV4" => self.uv_res3(
+            "UV4" => self.uv_residue(
                 &[8, 6, -1, 1, 9, 1, -1, 7, 10],
                 &[3, 5],
+                2,
                 -factor * s23_inv * s15_inv,
             ),
-            "UV6" => self.uv_res3(
+            "UV6" => self.uv_residue(
                 &[-1, 1, 8, 1, -1, 6, 9, 7, 10],
                 &[1, 3],
+                2,
                 -factor * s23_inv * s15_inv,
             ),
             "UV3" => {
-                self.uv_res2(
+                self.uv_residue(
                     &[8, 6, 9, 7, -1, 1, -1, 7, 10],
                     &[5],
+                    1,
                     -factor * s23_inv * utils::powi(s15_inv, 2),
-                ) - self.uv_res3(
+                ) - self.uv_residue(
                     &[8, 6, 9, 7, -1, 1, 7, 1, -1, 7, 10],
                     &[5, 7],
+                    2,
                     -factor * s23_inv * utils::powi(s15_inv, 2),
                 )
             }
             "UV7" => {
-                self.uv_res2(
+                self.uv_residue(
                     &[8, 6, -1, 1, -1, 6, 9, 7, 10],
                     &[3],
+                    1,
                     -factor * utils::powi(s23_inv, 2) * s15_inv,
-                ) - self.uv_res3(
+                ) - self.uv_residue(
                     &[8, 6, -1, 1, 6, 1, -1, 6, 9, 7, 10],
                     &[3, 5],
+                    2,
                     -factor * utils::powi(s23_inv, 2) * s15_inv,
                 )
             }
-            "UVIR" => self.uv_res3(
+            "UVIR" => self.uv_residue(
                 &[-1, 1, 8, 6, 9, 7, 10, 1, -1],
                 &[1, 7],
+                2,
                 factor * s23_inv * s15_inv,
             ),
-            "D2UV_LO" => self.uv_res3(
+            "D1UV_LO" => self.uv_residue(
+                &[8, 6, -1, 3, 9, 4, 10, 5, -1],
+                &[3, 5, 7],
+                3,
+                -factor * s23_inv,
+            ),
+            "D2UV_LO" => self.uv_residue(
                 &[8, 6, 9, 7, -1, 4, 10, 5, -1],
                 &[5, 7],
-                -factor * s23_inv * s15_inv,
-            ),
-            "D4UV_LO" => self.uv_res3(
-                &[8, 6, -1, 3, 9, 4, -1, 7, 10],
-                &[3, 5],
-                -factor * s23_inv * s15_inv,
-            ),
-            "D6UV_LO" => self.uv_res3(
-                &[-1, 2, 8, 3, -1, 6, 9, 7, 10],
-                &[1, 3],
+                2,
                 -factor * s23_inv * s15_inv,
             ),
             "D3UV_LO" => {
-                self.uv_res2(
-                    &[8, 6, 9, 7, -1, 1, -1, 7, 10],
+                self.uv_residue(
+                    &[8, 6, 9, 7, -1, 4, -1, 7, 10],
                     &[5],
+                    1,
                     -factor * s23_inv * utils::powi(s15_inv, 2),
-                ) - self.uv_res3(
-                    &[8, 6, 9, 7, -1, 1, 7, 1, -1, 7, 10],
+                ) - self.uv_residue(
+                    &[8, 6, 9, 7, -1, 5, 7, 4, -1, 7, 10],
                     &[5, 7],
+                    2,
+                    -factor * s23_inv * utils::powi(s15_inv, 2),
+                ) - self.uv_residue(
+                    &[8, 6, 9, 7, -1, 7, 5, 4, -1, 7, 10],
+                    &[6, 7],
+                    2,
                     -factor * s23_inv * utils::powi(s15_inv, 2),
                 )
             }
+            "D4UV_LO" => self.uv_residue(
+                &[8, 6, -1, 3, 9, 4, -1, 7, 10],
+                &[3, 5],
+                2,
+                -factor * s23_inv * s15_inv,
+            ),
+            "D5UV_LO" => self.uv_residue(
+                &[-1, 2, 8, 3, 9, 4, -1, 7, 10],
+                &[1, 3, 5],
+                3,
+                -factor * s15_inv,
+            ),
+            "D6UV_LO" => self.uv_residue(
+                &[-1, 2, 8, 3, -1, 6, 9, 7, 10],
+                &[1, 3],
+                2,
+                -factor * s23_inv * s15_inv,
+            ),
+
             "D7UV_LO" => {
-                self.uv_res2(
-                    &[8, 6, -1, 1, -1, 6, 9, 7, 10],
+                self.uv_residue(
+                    &[8, 6, -1, 3, -1, 6, 9, 7, 10],
                     &[3],
+                    1,
                     -factor * utils::powi(s23_inv, 2) * s15_inv,
-                ) - self.uv_res3(
-                    &[8, 6, -1, 1, 6, 1, -1, 6, 9, 7, 10],
+                ) - self.uv_residue(
+                    &[8, 6, -1, 5, 6, 3, -1, 6, 9, 7, 10],
                     &[3, 5],
+                    2,
+                    -factor * utils::powi(s23_inv, 2) * s15_inv,
+                ) - self.uv_residue(
+                    &[8, 6, -1, 6, 5, 3, -1, 6, 9, 7, 10],
+                    &[4, 5],
+                    2,
                     -factor * utils::powi(s23_inv, 2) * s15_inv,
                 )
             }
-            "IRUV_LO" => self.uv_res3(
+            "D8UV_LO" => {
+                self.uv_residue(&[-1, 2, 8, 3, 9, 4, 10, 5, -1], &[1, 3, 5, 7], 4, -factor)
+            }
+            "IRUV_LO" => self.uv_residue(
                 &[-1, 2, 8, 6, 9, 7, 10, 5, -1],
                 &[1, 7],
+                2,
                 -factor * s23_inv * s15_inv,
             ),
             _ => return panic!("Unknown diagram/counterterm {} for eeAA", name),
