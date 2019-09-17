@@ -2255,6 +2255,23 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
         'Pentagon',
         vectors.LorentzVectorList([
+            vectors.LorentzVector( [  0.123698000000000e+01,   0.652468000000000e+00,   0.633070000000000e+00,   0.682813000000000e+00,   0.487230757964848e+00] ),
+            vectors.LorentzVector( [  0.156571000000000e+01,   0.566352000000000e+00,   0.935202000000000e+00,   0.976188000000000e+00,   0.550588252733383e+00] ),
+            vectors.LorentzVector( [ -0.688161000000000e+00,  +0.238452000000000e+00,  +0.637562000000000e+00,  +0.101098000000000e+00,  -0.310111270447425E-03] ),
+            vectors.LorentzVector( [ -0.473303000000000e+01,  -0.290729000000000e+01,  -0.326645000000000e+01,  -0.366511000000000e+01,  -0.318645399743979e+01] ),
+            vectors.LorentzVector( [ +0.261850100000000e+01,  +0.145001800000000e+01,  +0.106061600000000e+01,  +0.190501100000000e+01,  -0.469862745927113E0-1] ),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0.7071067811865476, 'm2': 0.7071067811865476, 'm3': 0.7071067811865476, 'm4': 0.7071067811865476, 'm5': 0.7071067811865476},
+        name = 'Pairwise_3E',
+    ),
+    entry_name = 'Pairwise_3E'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
             vectors.LorentzVector( [0.5, 0.4120803582196727, -0.1731805902843028, 0.224049685378772] ),
             vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
             vectors.LorentzVector( [0.5, -0.4120803582196727, 0.1731805902843028, -0.224049685378772] ),
