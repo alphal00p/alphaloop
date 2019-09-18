@@ -104,7 +104,7 @@ def run_topology(topo,dir_name, index, n_hours, local=True):
                 '-c','%d'%_N_CORES,
                 '--si','%d'%pyvegas_hyperparms['survey_iter'],
                 '--sn','%d'%pyvegas_hyperparms['survey_neval'],
-                '--ri','%d'%pyvegas_hyperparms['refine_neval'],
+                '--ri','%d'%pyvegas_hyperparms['refine_iter'],
                 '--rn','%d'%pyvegas_hyperparms['refine_neval'],
                 '--phase',pyvegas_hyperparms['phase'],
                 '--out',pjoin(root_path, dir_name, topo.name + '_res.dat')

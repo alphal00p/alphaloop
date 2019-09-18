@@ -603,7 +603,7 @@ class TopologyGenerator(object):
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
-    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None, **opts):
+    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None, fixed_deformation=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -623,6 +623,8 @@ class LoopTopology(object):
             self.analytic_result   = analytic_result(self.external_kinematics)
         else:
             self.analytic_result   = analytic_result
+
+        self.fixed_deformation = fixed_deformation
 
     def evaluate(self, loop_momenta):
         """ Evaluates Loop topology with the provided list loop momenta, given as a list of LorentzVector."""
@@ -780,6 +782,9 @@ class LoopTopology(object):
         res['name'] = self.name
         res['ltd_cut_structure'] = [list(cs) for cs in self.ltd_cut_structure]
         res['n_loops'] = self.n_loops
+
+        if self.fixed_deformation is not None:
+            res['fixed_deformation'] = self.fixed_deformation
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
         res['analytical_result_real'] = float(self.analytic_result.real) if self.analytic_result else 0.

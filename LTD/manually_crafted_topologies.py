@@ -10,7 +10,7 @@ zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 # Definition of hard-coded topol
 #############################################################################################################
 
-def create_hard_coded_topology(topology_type, external_momenta, analytic_result=None, name=None, parameter_values = {}):
+def create_hard_coded_topology(topology_type, external_momenta, analytic_result=None, name=None, parameter_values = {}, fixed_deformation=None):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
@@ -67,7 +67,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.0),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='DoubleTriangle_ala_weinzierl':
@@ -125,7 +126,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.0),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='AltDoubleTriangle':
@@ -170,7 +172,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TriangleBox':
@@ -215,7 +218,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='DoubleBox':
@@ -264,7 +268,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 	
     elif topology_type =='6pt_Weinzierl_a':
@@ -315,7 +320,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='6pt_Weinzierl_b':
@@ -366,8 +372,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='6pt_Weinzierl_c':
         p1 = external_momenta[0]
@@ -417,8 +425,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='6pt_Weinzierl_d':
         p1 = external_momenta[0]
@@ -468,7 +478,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='6pt_Weinzierl_e':
@@ -519,7 +530,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='6pt_Weinzierl_f':
@@ -570,7 +582,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TripleBox':
@@ -649,7 +662,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TriangleBoxBox':
@@ -725,7 +739,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TriangleBoxBox_alt':
@@ -801,7 +816,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TriangleBoxTriangle':
@@ -876,7 +892,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
 
@@ -961,7 +978,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
 
@@ -1049,7 +1067,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
 
@@ -1214,8 +1233,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                     )
                 ),
 
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='TriangleBoxTriangle_alt':
         p1,p2 = external_momenta
@@ -1289,8 +1310,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='Triangle':
         p1 = external_momenta[0]
@@ -1319,8 +1342,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m3']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='Box':
         p1 = external_momenta[0]
@@ -1351,8 +1376,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m4']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='Pentagon':
         p1 = external_momenta[0]
@@ -1385,8 +1412,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m5']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='Hexagon':
         p1 = external_momenta[0]
@@ -1421,7 +1450,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=p1+p2+p3+p4+p5+p6, m_squared=parameters['m6']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='Octogon':
@@ -1461,7 +1491,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=p1+p2+p3+p4+p5+p6+p7+p8, m_squared=parameters['m8']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='Decagon':
@@ -1507,7 +1538,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m10']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='Decagon_ala_weinzierl':
@@ -1554,7 +1586,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m10']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='Tringigon':
@@ -1646,7 +1679,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m30']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     else:
@@ -1925,7 +1959,9 @@ hard_coded_topology_collection.add_topology(
                 )
         ]),
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
+        analytic_result = 6.56938257011534641e-14 -4.51502681165905663e-15j,
         name = 'Pentagon_massless',
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.]], 'excluded_surface_ids': []}],
     ),
     entry_name = 'Pentagon_massless'
 )
@@ -2263,6 +2299,7 @@ hard_coded_topology_collection.add_topology(
     ]),        
         analytic_result =  (-1.52339813764031085e-3 + 2.04369604371007528e-3j) ,
         parameter_values = {'m1': 0.7071067811865476, 'm2': 0.7071067811865476, 'm3': 0.7071067811865476, 'm4': 0.7071067811865476, 'm5': 0.7071067811865476},
+        fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': []}],
         name = 'Pairwise_3E',
     ),
     entry_name = 'Pairwise_3E'

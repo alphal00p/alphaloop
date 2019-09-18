@@ -114,6 +114,7 @@ hyperparameters = HyperParameters({
             'sigma' :   0.00001,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'softmin',
+            'ratios' : [],
         }
     },
 

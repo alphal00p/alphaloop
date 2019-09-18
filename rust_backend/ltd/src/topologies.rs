@@ -299,6 +299,12 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> 
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct FixedDeformation {
+    pub deformation_sources: Vec<LorentzVector<f64>>,
+    pub excluded_surface_ids: Vec<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Topology {
     pub name: String,
     pub n_loops: usize,
@@ -323,6 +329,8 @@ pub struct Topology {
     pub rotation_matrix: [[float; 3]; 3],
     #[serde(skip_deserializing)]
     pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
+    #[serde(default)]
+    pub fixed_deformation: Vec<FixedDeformation>,
 }
 
 impl Topology {

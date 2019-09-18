@@ -19,7 +19,7 @@ extern crate nalgebra as na;
 extern crate num_traits;
 extern crate rand;
 
-use num_traits::{Float, FloatConst, FromPrimitive, Num, ToPrimitive, Zero, One};
+use num_traits::{Float, FloatConst, FromPrimitive, Num, One, ToPrimitive, Zero};
 use utils::Signum;
 use vector::{Field, RealNumberLike};
 
@@ -52,13 +52,13 @@ where
 impl FloatLike for f64 {}
 impl FloatLike for f128::f128 {}
 
+pub mod amplitude;
 pub mod cts;
+pub mod gamma_chain;
 pub mod integrand;
 pub mod ltd;
 pub mod topologies;
 pub mod utils;
-pub mod gamma_chain;
-pub mod amplitude;
 
 use arrayvec::ArrayVec;
 use num::Complex;
@@ -95,6 +95,8 @@ pub enum DeformationStrategy {
     Intersections,
     #[serde(rename = "constant")]
     Constant,
+    #[serde(rename = "fixed")]
+    Fixed,
     #[serde(rename = "none")]
     None,
 }
@@ -122,6 +124,7 @@ impl From<&str> for DeformationStrategy {
             "cutgroups" => DeformationStrategy::CutGroups,
             "duals" => DeformationStrategy::Duals,
             "constant" => DeformationStrategy::Constant,
+            "fixed" => DeformationStrategy::Fixed,
             "none" => DeformationStrategy::None,
             _ => panic!("Unknown deformation strategy {}", s),
         }
@@ -136,6 +139,7 @@ impl fmt::Display for DeformationStrategy {
             DeformationStrategy::Duals => write!(f, "duals"),
             DeformationStrategy::Intersections => write!(f, "intersections"),
             DeformationStrategy::Constant => write!(f, "constant"),
+            DeformationStrategy::Fixed => write!(f, "fixed"),
             DeformationStrategy::None => write!(f, "none"),
         }
     }
@@ -188,6 +192,7 @@ pub struct DeformationCutGroupsSettings {
     #[serde(rename = "M_ij")]
     pub m_ij: f64,
     pub sigma: f64,
+    pub ratios: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -560,7 +565,7 @@ py_class!(class LTD |py| {
             Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
             Err(_) => Ok((0., 0.))
         }
-    }  
+    }
 
     def evaluate_cut_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
         let topo = self.topo(py).borrow();
@@ -606,6 +611,7 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
         let v = topo.evaluate_cut::<float>(&mut moms, cut, mat, &mut cache).unwrap();
@@ -616,7 +622,7 @@ py_class!(class LTD |py| {
         let res = v * (ct + float::one());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
-    
+
     def evaluate_cut_ct_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache_f128(py).borrow_mut();
@@ -634,7 +640,7 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
-        
+
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
         let v = topo.evaluate_cut::<f128::f128>(&mut moms, cut, mat, &mut cache).unwrap();
@@ -665,7 +671,6 @@ py_class!(class LTD |py| {
             return Ok((0., 0.));
         }
         
-        let mut sum = Complex::new(0.0,0.0);
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
         match topo.evaluate_amplitude_cut::<float>(&mut moms, cut, mat, &mut cache).unwrap() {
@@ -691,7 +696,6 @@ py_class!(class LTD |py| {
             return Ok((0., 0.));
         }
         
-        let mut sum = Complex::new(0.0,0.0);
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
         match topo.evaluate_amplitude_cut::<f128::f128>(&mut moms, cut, mat, &mut cache).unwrap() {

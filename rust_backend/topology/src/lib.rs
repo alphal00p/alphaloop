@@ -276,7 +276,11 @@ impl Topology {
     }
 
     /// Construct the cycles used for Weinzierls' deformation
-    pub fn construct_cycles_per_loop_momentum(&self, index: usize, loop_momenta_values: &[f64]) -> Vec<Vec<f64>> {
+    pub fn construct_cycles_per_loop_momentum(
+        &self,
+        index: usize,
+        loop_momenta_values: &[f64],
+    ) -> Vec<Vec<f64>> {
         let mut flows = vec![];
         let paths = self.find_paths(self.loop_momenta[index], self.loop_momenta[index]);
 
@@ -292,7 +296,7 @@ impl Topology {
             }
             flows.push(path_eval);
         }
-        
+
         flows
     }
 }
