@@ -13,6 +13,7 @@ from collections import defaultdict
 from pprint import pformat
 import numpy as numpy
 import numpy.linalg
+from itertools import product
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
@@ -163,7 +164,7 @@ class TopologyGenerator(object):
         self.loop_momenta = None
         self.propagators = None
         self.n_loops = None
-
+    
     def loop_momentum_bases(self):
         trees = []
         self.spanning_trees(trees, tree={self.edges[0][0]})
@@ -287,8 +288,9 @@ class TopologyGenerator(object):
     def get_thetas_for_residue(self, sigmas, allowed_system, close_contour):
         # close_contour is a list, 0 means contour closed on lower half plane, 1 upper half plane for every int variable
         contour_sign = numpy.prod([-1 for i in close_contour if i == 0])
-        sign = numpy.prod(sigmas)*numpy.linalg.det(allowed_system[2])
-        residue = [[allowed_system[0], sigmas, sign*contour_sign]]
+        cut_struct_sign = numpy.prod(sigmas)
+        det_sign = numpy.linalg.det(allowed_system[2])
+        residue = [[allowed_system[0], sigmas, det_sign*cut_struct_sign*contour_sign]]
         thetas = []
         for n_iter in range(self.n_loops):
             theta = [0 for i in range(self.n_loops)]
@@ -302,7 +304,7 @@ class TopologyGenerator(object):
                 for r in range(n_iter+1):
                     subsub_matrix = numpy.array([[allowed_system[2][i][j] for j in range(
                         n_iter)] for i in range(n_iter+1) if i != r])
-                    theta[allowed_system[1][r]] = (-1.)**(n_iter+r+1)*numpy.linalg.det(
+                    theta[allowed_system[1][r]] = (-1.)**(n_iter+r)*numpy.linalg.det(
                         subsub_matrix)/numpy.linalg.det(sub_matrix)
                     theta[allowed_system[1][r]] *= sigmas[allowed_system[1][r]]
             theta = [th*(-1.)**close_contour[n_iter] for th in theta]
@@ -393,7 +395,7 @@ class TopologyGenerator(object):
         return cut_stucture
 
     def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None, 
-                                                        contour_closure=None, analytic_result=None):
+                                        contour_closure=None, analytic_result=None, fixed_deformation=None):
         if loop_momenta_names is None:
             loop_momenta = self.loop_momentum_bases()[0]
         else:
@@ -465,9 +467,16 @@ class TopologyGenerator(object):
 
             loop_line_vertex_map[sig] = (edges[0][0], edges[0][1])
 
+        # vertices that are fused may again be fused with another vertex
+        def multifuse(v):
+            if v in fuse_map:
+                return multifuse(fuse_map[v])
+            else:
+                return v
+
         # now fuse the vertices in the map
         for sig, edges in loop_line_vertex_map.items():
-            loop_line_vertex_map[sig] = tuple(fuse_map[v] if v in fuse_map else v for v in edges)
+            loop_line_vertex_map[sig] = tuple(multifuse(v) for v in edges)
 
         ll = [LoopLine(
             start_node=loop_line_vertex_map[signature][0],
@@ -482,11 +491,17 @@ class TopologyGenerator(object):
         # TODO: the external kinematics are given in a random order!
         external_kinematics = list(ext_mom.values())
         loop_topology = LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
-                            ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result)
+            ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result, fixed_deformation = fixed_deformation)
 
         if analytic_result is None:
             loop_topology.analytic_result = self.guess_analytical_result(loop_momenta, ext_mom, mass_map)
-        
+       
+        if fixed_deformation is None:
+            # TODO generate the source coordinates automatically with cvxpy if 
+            # not specified.
+            pass
+            #loop_topology.fixed_deformation = [...]
+
         return loop_topology
 
     def guess_analytical_result(self, loop_momenta, ext_mom, masses):
@@ -594,7 +609,7 @@ class TopologyGenerator(object):
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
-    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None, **opts):
+    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None, fixed_deformation=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -614,6 +629,8 @@ class LoopTopology(object):
             self.analytic_result   = analytic_result(self.external_kinematics)
         else:
             self.analytic_result   = analytic_result
+
+        self.fixed_deformation = fixed_deformation
 
     def evaluate(self, loop_momenta):
         """ Evaluates Loop topology with the provided list loop momenta, given as a list of LorentzVector."""
@@ -676,21 +693,92 @@ class LoopTopology(object):
         """ Exports this topology to a given format."""
         
         export_format = format.lower()
-        allowed_export_format = ['yaml']
-        if export_format not in ['yaml']:
+        allowed_export_format = ['yaml', 'mathematica']
+        if export_format not in allowed_export_format:
             raise BaseException("Topology can only be exported in the following formats: %s"%(', '.join(allowed_export_format)))
 
-        if export_format=='yaml':
+        if export_format == 'yaml':
             try:
                 import yaml
                 from yaml import Loader, Dumper
             except ImportError:
                 raise BaseException("Install yaml python module in order to export topologies to yaml.")
 
-        if output_path is not None:
-            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
-        else:
-            return yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False)
+            if output_path is not None:
+                open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
+            else:
+                return yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False)
+
+        # convert the dual integrands to a mathematica expression
+        if export_format == 'mathematica':
+            names = ['k', 'l', 'm' ,'n']
+
+            formatted_str = self.name.replace('_','') + '['
+            formatted_str += ','.join('%sx_,%sy_,%sz_' % (name, name, name) for name in names[:self.n_loops])
+            formatted_str += "]:= Module[{delta},\n\tdelta = Table[0, {i, %s}];\n" % sum(len(ll.propagators) for ll in self.loop_lines)
+
+            # compute all deltas
+            prop_count = 1
+            for ll in self.loop_lines:
+                for p in ll.propagators:
+                    formatted_str += '\tdelta[[%s]] = Sqrt[Total[(' % prop_count
+                    for sig, name in zip(p.signature, names):
+                        if sig == 1:
+                            formatted_str += '+{%sx,%sy,%sz}' % (name, name, name)
+                        elif sig == -1:
+                            formatted_str += '-{%sx,%sy,%sz}' % (name, name, name)
+                    formatted_str += '+{%s,%s,%s}' % (p.q[1], p.q[2], p.q[3])
+                    formatted_str += ')^2]+' + str(p.m_squared) + '];\n'
+                    prop_count += 1
+
+            surface_equations = []
+
+            # construct all dual integrands
+            formatted_str += '\t(-2 Pi I)^%s (1/(2 Pi)^4)^%s(' % (self.n_loops, self.n_loops)
+            for cs in self.ltd_cut_structure:
+                for cut in product(*[[(c, i, p) for i, p in enumerate(ll.propagators)] if c != 0 else [(0,-1,None)] for c, ll in zip(cs, self.loop_lines)]):
+                    # construct the cut basis to loop momentum basis mapping
+                    mat = []
+                    cut_info = []
+                    cut_prop_count = 1
+                    for ll, (cut_sign, cut_prop_index_in_ll, cut_prop) in zip(self.loop_lines, cut):
+                        if cut_sign != 0:
+                            mat.append(ll.signature)
+                            cut_info.append((cut_sign, cut_prop_count + cut_prop_index_in_ll, cut_prop.q[0]))
+                        cut_prop_count += len(ll.propagators)
+                    nmi = numpy.linalg.inv(numpy.array(mat).transpose())
+
+                    prop_count = 1
+                    formatted_str += '+1/('
+                    for ll, (_, cut_prop_index_in_ll, _) in zip(self.loop_lines, cut):
+                        cut_energy = ''
+                        sig_map = nmi.dot(ll.signature)
+
+                        for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
+                            if sig_sign != 0:
+                                if cut_sign * sig_sign == 1:
+                                    cut_energy += '+delta[[%s]]' % index
+                                else:
+                                    cut_energy += '-delta[[%s]]' % index
+                                if sig_sign == 1:
+                                    cut_energy += '-(%s)' % shift # add parenthesis to prevent -- operator
+                                else:
+                                    cut_energy += '+%s' % shift
+
+                        for p_index, p in enumerate(ll.propagators):
+                            if cut_prop_index_in_ll == p_index:
+                                formatted_str += '2*delta[[%s]]' % prop_count
+                            else:
+                                formatted_str += '((%s+%s)^2-delta[[%s]]^2)' % (cut_energy, p.q[0], prop_count)
+                                # TODO: filter for existence?
+                                surface_equations.append('S%s' % len(surface_equations)
+                                    + '=%s+%s+delta[[%s]];' % (cut_energy, p.q[0], prop_count))
+                                surface_equations.append('S%s' % len(surface_equations)
+                                    + '=%s+%s-delta[[%s]];' % (cut_energy, p.q[0], prop_count))
+                            prop_count += 1
+                    formatted_str += ')'
+            formatted_str += ')];'
+            return formatted_str + '\n'.join(surface_equations)
 
     def to_flat_format(self):
         """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
@@ -700,6 +788,9 @@ class LoopTopology(object):
         res['name'] = self.name
         res['ltd_cut_structure'] = [list(cs) for cs in self.ltd_cut_structure]
         res['n_loops'] = self.n_loops
+
+        if self.fixed_deformation is not None:
+            res['fixed_deformation'] = self.fixed_deformation
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
         res['analytical_result_real'] = float(self.analytic_result.real) if self.analytic_result else 0.

@@ -42,22 +42,37 @@ general_hyperparams['Integrator']['seed'] = 0
 general_hyperparams['Integrator']['state_filename'] = None
 general_hyperparams['Parameterization']['mode'] = 'spherical'
 general_hyperparams['Parameterization']['mapping'] = 'log'
-general_hyperparams['Parameterization']['b'] = 1.0
-general_hyperparams['General']['integration_statistics'] = True
+general_hyperparams['Parameterization']['b'] = 0.1
+general_hyperparams['General']['integration_statistics'] = False
 general_hyperparams['General']['statistics_interval'] = 100000000
 general_hyperparams['General']['log_file_prefix'] = pjoin(root_path,'integration_statistics')+'/'
 general_hyperparams['General']['screen_log_core'] = 1
-general_hyperparams['General']['numerical_instability_check'] = True
+general_hyperparams['General']['numerical_instability_check'] = True 
 general_hyperparams['General']['unstable_point_warning_percentage'] = 200.
 general_hyperparams['General']['num_digits_different_for_inconsistency'] = 200.
 general_hyperparams['General']['minimal_precision_for_returning_result'] = 2.
 general_hyperparams['Integrator']['eps_rel'] = 1.0e-3
 general_hyperparams['Integrator']['eps_abs'] = 0.
-general_hyperparams['Integrator']['border'] = 1.0e-10
+general_hyperparams['Integrator']['border'] = 1.0e-3
 general_hyperparams['Integrator']['maxpass'] = 5
-general_hyperparams['Integrator']['maxchisq'] = 10.0
+general_hyperparams['Integrator']['maxchisq'] = 10.
 general_hyperparams['Integrator']['mindeviation'] = 0.25
 
+
+general_hyperparams['input_rescaling'] = [
+            [[0., 1.], [0., 1.], [0., 1.]],
+            [[0., 1.], [0., 1.], [0., 1.]],
+            [[0., 1.], [0., 1.], [0., 1.]],
+            [[0., 1.], [0., 1.], [0., 1.]],
+        ]
+
+# shift the loop momenta. the first component is a rescaling of the radius
+general_hyperparams['shifts'] = [
+            [1., 0., 0., 0.],
+            [1.1, 0., 0., 0.],
+            [1.2, 0., 0., 0.],
+            [1.3, 0., 0., 0.],
+        ]
 
 def load_results_from_yaml(log_file_path):
     """Load a full-fledged scan from a yaml dump"""
@@ -89,7 +104,7 @@ def run_topology(topo,dir_name, index, n_hours, local=True):
                 '-c','%d'%_N_CORES,
                 '--si','%d'%pyvegas_hyperparms['survey_iter'],
                 '--sn','%d'%pyvegas_hyperparms['survey_neval'],
-                '--ri','%d'%pyvegas_hyperparms['refine_neval'],
+                '--ri','%d'%pyvegas_hyperparms['refine_iter'],
                 '--rn','%d'%pyvegas_hyperparms['refine_neval'],
                 '--phase',pyvegas_hyperparms['phase'],
                 '--out',pjoin(root_path, dir_name, topo.name + '_res.dat')
@@ -140,7 +155,8 @@ def gather_result(all_topologies, dir_name, clean=False):
     """ Combine all results in scan_# into a file ready for gnuplotting."""
     
     data_stream = open(pjoin(root_path,dir_name,'ltd_results.dat'),'w')
-    
+    data_stream_no_line = open(pjoin(root_path,dir_name,'ltd_results_no_line.dat'),'w')
+ 
     x_values = []
     for line in open(pjoin(root_path,dir_name,'analytic_result.dat'),'r'):
         x_values.append(float(line.split(' ')[0]))
@@ -171,9 +187,12 @@ def gather_result(all_topologies, dir_name, clean=False):
         line = '%.16e %.16e %.16e %d %.16e'%(x_values[index-1], result['result'][0], result['error'][0], result['neval'], analytic_result)
         if index==1:
             data_stream.write(line)
+            data_stream_no_line.write(line+'\n')
         else:
             data_stream.write('\n%s'%line)
+            data_stream_no_line.write('\n%s'%line+'\n')
     data_stream.close()
+    data_stream_no_line.close()
 
     if _CLEAN:
         for index in range(1, n_scans+1):
@@ -252,25 +271,12 @@ if __name__ == '__main__':
 ##            box_hyperparams['Integrator']['integrator'] = 'cuhre'
 ##            box_hyperparams['Integrator']['n_max'] = int(1e7)
 
-            box_hyperparams['General']['relative_precision'] = 5.
-            box_hyperparams['General']['absolute_precision'] = 1.0e-10
+            box_hyperparams['General']['relative_precision'] = 3.
+            box_hyperparams['General']['absolute_precision'] = 1.0e-4
             box_hyperparams['Integrator']['integrator'] = 'divonne'
             box_hyperparams['Integrator']['n_start'] = int(1e6)
             box_hyperparams['Integrator']['n_increase'] = int(1e6)
-            box_hyperparams['Integrator']['n_max'] = int(1e10)
-
-
-            box_hyperparams['Integrator']['eps_rel'] = 1.0e-3
-#            box_hyperparams['General']['statistics_interval'] = 1
-#            box_hyperparams['General']['debug'] = 1            
-            box_hyperparams['Integrator']['border'] = 1.0e-10
-            box_hyperparams['General']['numerical_instability_check'] = True 
-
-            box_hyperparams['Integrator']['seed'] =2
-
-            box_hyperparams['Integrator']['maxpass'] = 5
-            box_hyperparams['Integrator']['maxchisq'] = 0.
-            box_hyperparams['Integrator']['mindeviation'] = 0.025
+            box_hyperparams['Integrator']['n_max'] = int(1e8)
 
             box_hyperparams['Integrator']['integrated_phase'] = 'imag'
             box_hyperparams['General']['res_file_prefix'] = pjoin(root_path,'%sbox'%_PREFIX)+'/'            
@@ -289,14 +295,14 @@ if __name__ == '__main__':
             
             # First refresh configuration files
             doublebox_hyperparams = copy.deepcopy(general_hyperparams)
-            doublebox_hyperparams['General']['relative_precision'] = 5.        
-            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-10
+            doublebox_hyperparams['General']['relative_precision'] = 3.        
+            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-6
 #            doublebox_hyperparams['General']['relative_precision'] = 99.
 #            doublebox_hyperparams['General']['absolute_precision'] = 1.0e-99
             doublebox_hyperparams['Integrator']['integrator'] = 'divonne'
             doublebox_hyperparams['Integrator']['n_start'] = int(1e6)
             doublebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
-            doublebox_hyperparams['Integrator']['n_max'] = int(1e10)
+            doublebox_hyperparams['Integrator']['n_max'] = int(1e8)
             doublebox_hyperparams['Integrator']['seed'] = 1
             doublebox_hyperparams['Integrator']['integrated_phase'] = 'real'
             doublebox_hyperparams['Integrator']['eps_rel'] = 1.0e-3
@@ -319,14 +325,14 @@ if __name__ == '__main__':
             
             # First refresh configuration files
             triplebox_hyperparams = copy.deepcopy(general_hyperparams)
-            triplebox_hyperparams['General']['relative_precision'] = 5.      
-            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-10
+            triplebox_hyperparams['General']['relative_precision'] = 3.      
+            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-8
 #            triplebox_hyperparams['General']['relative_precision'] = 99.
 #            triplebox_hyperparams['General']['absolute_precision'] = 1.0e-99
             triplebox_hyperparams['Integrator']['integrator'] = 'divonne'
             triplebox_hyperparams['Integrator']['n_start'] = int(1e7)
             triplebox_hyperparams['Integrator']['n_increase'] = int(1e6)            
-            triplebox_hyperparams['Integrator']['n_max'] = int(1e10)
+            triplebox_hyperparams['Integrator']['n_max'] = int(1e8)
             triplebox_hyperparams['Integrator']['seed'] = 1
             triplebox_hyperparams['Integrator']['integrated_phase'] = 'imag'
             triplebox_hyperparams['Integrator']['eps_rel'] = 1.0e-3

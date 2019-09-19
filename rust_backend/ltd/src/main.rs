@@ -36,7 +36,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 use ltd::integrand::Integrand;
 use ltd::topologies::{LTDCache, Surface, Topology};
 use ltd::utils::Signum;
-use ltd::{float, IntegratedPhase, Integrator, Settings};
+use ltd::{float, FloatLike, IntegratedPhase, Integrator, Settings};
 
 use colored::*;
 
@@ -181,7 +181,8 @@ where
             .set_maxeval(
                 (settings.integrator.survey_n_iterations * settings.integrator.survey_n_points)
                     as i64,
-            ).set_reset_vegas_integrator(settings.integrator.reset_vegas_integrator)
+            )
+            .set_reset_vegas_integrator(settings.integrator.reset_vegas_integrator)
             .set_use_only_last_sample(settings.integrator.use_only_last_sample)
             .set_keep_state_file(settings.integrator.keep_state_file);;
         let survey_result = ci.vegas(
@@ -487,6 +488,8 @@ fn point_generator<'a>(
         .m_squared
         .into();
 
+    let mass_sum = cut_masses.iter().map(|m2| m2.sqrt()).sum::<f128::f128>() + surf_mass.sqrt();
+
     // sample a random point
     for cm in cut_momenta.iter_mut() {
         for index in 1..4 {
@@ -621,8 +624,9 @@ fn point_generator<'a>(
         // this is the minimal solution
 
         branch = 3; // branch 3: sign is on the surface term
-        for (cm, &s, &mom_sign) in izip!(
+        for (cm, cmass, &s, &mom_sign) in izip!(
             cut_momenta.iter_mut(),
+            cut_masses.iter(),
             surf.signs.iter(),
             surf.sig_ll_in_cb.iter()
         ) {
@@ -630,7 +634,15 @@ fn point_generator<'a>(
                 *cm = -surf.shift.cast().multiply_sign(mom_sign);
                 branch = 4;
             } else {
-                *cm = LorentzVector::default();
+                if mass_sum.is_zero() {
+                    *cm = LorentzVector::default();
+                } else {
+                    // in the case of an ellipsoid with masses, we need to take a weighted average over
+                    // the masses
+                    // TODO: is this also ok for hyperboloids? if not, we should set the term with opposite
+                    // sign to 0 and treat the remainder like an ellipsoid
+                    *cm = -surf.shift.cast().multiply_sign(mom_sign) * cmass.sqrt() / mass_sum;
+                }
             }
         }
     }
@@ -719,6 +731,56 @@ fn evaluate_surface(
     res
 }
 
+fn evaluate_surface_complex<T: FloatLike>(
+    topo: &Topology,
+    surf: &Surface,
+    loop_momenta: &[LorentzVector<num::Complex<T>>],
+) -> num::Complex<T> {
+    let mut res = num::Complex::zero();
+
+    let mut cut_index = 0;
+    for (cut, ll) in izip!(surf.cut.iter(), topo.loop_lines.iter()) {
+        if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *cut {
+            if surf.signs[cut_index] == 0 {
+                cut_index += 1;
+                continue;
+            }
+
+            // construct the cut energy
+            let mut mom = LorentzVector::<num::Complex<T>>::default();
+            for (&cut_sign, lm) in ll.signature.iter().zip(loop_momenta.iter()) {
+                mom += lm.multiply_sign(cut_sign);
+            }
+            // compute the postive cut energy
+            let q: LorentzVector<T> = ll.propagators[i].q.cast();
+            let energy = ((mom + q).spatial_squared()
+                + <T as NumCast>::from(ll.propagators[i].m_squared).unwrap())
+            .sqrt();
+
+            res += energy.multiply_sign(surf.signs[cut_index]);
+
+            cut_index += 1;
+        }
+    }
+
+    // now for the surface term
+    let mut mom = LorentzVector::<num::Complex<T>>::default();
+    let onshell_ll = &topo.loop_lines[surf.onshell_ll_index];
+    let onshell_prop = &onshell_ll.propagators[surf.onshell_prop_index];
+    for (&surf_sign, lm) in onshell_ll.signature.iter().zip(loop_momenta.iter()) {
+        mom += lm.multiply_sign(surf_sign);
+    }
+
+    let q: LorentzVector<T> = onshell_prop.q.cast();
+    let energy = ((mom + q).spatial_squared()
+        + <T as NumCast>::from(onshell_prop.m_squared).unwrap())
+    .sqrt();
+
+    res += energy.multiply_sign(surf.delta_sign);
+    res += <T as NumCast>::from(surf.shift.t).unwrap();
+    res
+}
+
 // TODO: move to diagnostics
 fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches<'a>) {
     let mut loop_momenta = vec![LorentzVector::<f128::f128>::default(); topo.n_loops];
@@ -743,9 +805,9 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
         }
 
         println!(
-            "-> group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
-            surf.group, surf.ellipsoid, surf.pinched, (surf.onshell_ll_index, surf.onshell_prop_index), CutList(&surf.cut), surf.sig_ll_in_cb,
-            surf.signs, surf.delta_sign, surf.shift
+            "-> id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
+            surf_index, surf.group, surf.ellipsoid, surf.pinched, (surf.onshell_ll_index, surf.onshell_prop_index), CutList(&surf.cut),
+            surf.sig_ll_in_cb, surf.signs, surf.delta_sign, surf.shift
         );
 
         let onshell_ll = &topo.loop_lines[surf.onshell_ll_index];
@@ -788,13 +850,13 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
 
                     if res.abs() < 1e-14.into() {
                         if settings.general.debug > 0 {
-                            println!("Found point {}", res);
+                            println!("Found point {:?}: {}", &loop_momenta[..topo.n_loops], res);
                         }
 
                         // check the pole for non-pinched ellipsoids
                         if surf.ellipsoid && !surf.pinched {
                             // set the loop momenta
-                            let (kappas, _) = topo.deform(&loop_momenta, None, &mut cache);
+                            let (kappas, _) = topo.deform(&loop_momenta, None, None, &mut cache);
                             k_def = (0..topo.n_loops)
                                 .map(|i| {
                                     loop_momenta[i]
@@ -804,61 +866,14 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                 })
                                 .collect();
 
-                            // do a full evaluation
-                            let mut result = num::Complex::<f128::f128>::default();
-                            if topo
-                                .compute_complex_cut_energies(&k_def, &mut cache)
-                                .is_ok()
-                            {
-                                for (cuts, mat) in
-                                    topo.ltd_cut_options.iter().zip(topo.cb_to_lmb_mat.iter())
-                                {
-                                    for cut in cuts.iter() {
-                                        let v = topo
-                                            .evaluate_cut(&mut k_def, cut, mat, &mut cache)
-                                            .unwrap();
-                                        let ct =
-                                            topo.counterterm(&k_def[..topo.n_loops], &mut cache);
-                                        result += v * (ct + f128::f128::one());
-
-                                        // check the pole of the on-shell propagator for ellipsoids
-                                        if surf.ellipsoid && *cut == surf.cut {
-                                            let mut e: num::Complex<f128::f128> =
-                                                num::Complex::default();
-                                            for (l, &c) in
-                                                k_def.iter().zip(onshell_ll.signature.iter())
-                                            {
-                                                e += l.t.multiply_sign(c);
-                                            }
-
-                                            let r = ltd::utils::powi(
-                                                e + Into::<f128::f128>::into(onshell_prop.q.t),
-                                                2,
-                                            ) - cache.complex_prop_spatial[onshell_prop.id];
-
-                                            if r.im <= f128::f128::zero() {
-                                                println!(
-                                                    "{} for cut={}, sig={:?}, prop_q={}: {}",
-                                                    "Bad pole detected".red(),
-                                                    CutList(cut),
-                                                    onshell_ll.signature,
-                                                    onshell_prop.q,
-                                                    r.im
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            //println!("Result: {} at distance {}", result, res);
-                            if surf.ellipsoid && result.norm() > Into::<f128::f128>::into(1e8) {
+                            // check the sign of the surface
+                            let res_c = evaluate_surface_complex(topo, surf, &k_def);
+                            if res_c.im.signum() == Into::<f128::f128>::into(surf.delta_sign) {
                                 println!(
-                                    "{} {:e} at distance {} for {:?}",
-                                    "Large result".red(),
-                                    result,
-                                    res,
-                                    loop_momenta
+                                    "{} k={:?}: {}",
+                                    "Bad pole detected".red(),
+                                    k_def,
+                                    res_c.im,
                                 );
                             }
                         } else {
@@ -883,7 +898,8 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                 }
 
                                 // set the loop momenta
-                                let (kappas, _) = topo.deform(&loop_momenta, None, &mut cache);
+                                let (kappas, _) =
+                                    topo.deform(&loop_momenta, None, None, &mut cache);
                                 k_def = (0..topo.n_loops)
                                     .map(|i| {
                                         loop_momenta[i]
@@ -903,18 +919,19 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                     {
                                         for cut in cuts.iter() {
                                             let v = topo
-                                                .evaluate_cut(&mut k_def, cut, mat, &mut cache)
+                                                .evaluate_amplitude_cut(
+                                                    &mut k_def, cut, mat, &mut cache,
+                                                )
                                                 .unwrap();
-                                            let ct = topo
-                                                .counterterm(&k_def[..topo.n_loops], &mut cache);
-                                            *probe += v * (ct + f128::f128::one());
+
+                                            *probe += v;
                                         }
                                     }
                                 }
                             }
 
                             let mut a: Vec<_> = probes.iter().map(|x| x.norm()).collect();
-                            a.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                            a.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less));
 
                             let pv: f128::f128 =
                                 (a.last().unwrap() - a.first().unwrap()) / (a[a.len() / 2]);

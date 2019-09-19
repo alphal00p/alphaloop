@@ -1,4 +1,4 @@
-use dual_num::{DualN, Scalar, U10, U13, U4, U7};
+use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use float;
 use num::Complex;
 use num_traits::Signed;
@@ -177,6 +177,8 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     two_loop: LTDCacheI<T, U7>,
     three_loop: LTDCacheI<T, U10>,
     four_loop: LTDCacheI<T, U13>,
+    five_loop: LTDCacheI<T, U16>,
+    six_loop: LTDCacheI<T, U19>,
     pub complex_cut_energies: Vec<Complex<T>>,
     pub complex_prop_spatial: Vec<Complex<T>>,
     pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
@@ -195,6 +197,8 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
                 num_propagators,
             ),
             four_loop: LTDCacheI::<T, U13>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            five_loop: LTDCacheI::<T, U16>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            six_loop: LTDCacheI::<T, U19>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
             complex_cut_energies: vec![Complex::default(); num_propagators],
             complex_prop_spatial: vec![Complex::default(); num_propagators],
             complex_loop_line_eval: topo
@@ -270,6 +274,36 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U13> for LTDCache<T> 
     }
 }
 
+impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U16> for LTDCache<T> {
+    #[inline]
+    fn get_cache(&self) -> &LTDCacheI<T, U16> {
+        &self.five_loop
+    }
+
+    #[inline]
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U16> {
+        &mut self.five_loop
+    }
+}
+
+impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> {
+    #[inline]
+    fn get_cache(&self) -> &LTDCacheI<T, U19> {
+        &self.six_loop
+    }
+
+    #[inline]
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U19> {
+        &mut self.six_loop
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FixedDeformation {
+    pub deformation_sources: Vec<LorentzVector<f64>>,
+    pub excluded_surface_ids: Vec<usize>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Topology {
     pub name: String,
@@ -295,6 +329,8 @@ pub struct Topology {
     pub rotation_matrix: [[float; 3]; 3],
     #[serde(skip_deserializing)]
     pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
+    #[serde(default)]
+    pub fixed_deformation: Vec<FixedDeformation>,
 }
 
 impl Topology {

@@ -1,10 +1,10 @@
 //#[macro_use]
 //extern crate cpython;
+extern crate cuba;
 extern crate deformation;
 extern crate integrand;
 extern crate num;
 extern crate vector;
-extern crate cuba;
 
 #[macro_use]
 extern crate serde_derive;
@@ -22,7 +22,6 @@ type Complex = num::Complex<f64>;
 
 pub mod aggregator;
 pub mod evaluator;
-
 
 /*
 

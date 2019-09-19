@@ -20,6 +20,8 @@ type Dual4<T> = DualN<T, dual_num::U4>;
 type Dual7<T> = DualN<T, dual_num::U7>;
 type Dual10<T> = DualN<T, dual_num::U10>;
 type Dual13<T> = DualN<T, dual_num::U13>;
+type Dual16<T> = DualN<T, dual_num::U16>;
+type Dual19<T> = DualN<T, dual_num::U19>;
 
 impl LoopLine {
     /// Return the inverse of the evaluated loop line
@@ -107,6 +109,11 @@ impl Topology {
         if self.n_loops > MAX_LOOP {
             panic!("Please increase MAX_LOOP to {}", self.n_loops);
         }
+
+        assert!(
+            self.settings.general.partial_fractioning
+                || self.settings.general.deformation_strategy != DeformationStrategy::Intersections
+        );
 
         // set the identity rotation matrix
         self.rotation_matrix = [
@@ -573,8 +580,6 @@ impl Topology {
                 }
             },
             ParameterizationMode::Spherical => {
-                let e_cm = Into::<T>::into(self.e_cm_squared).sqrt()
-                    * Into::<T>::into(self.settings.parameterization.shifts[loop_index].0);
                 let radius = match self.settings.parameterization.mapping {
                     ParameterizationMapping::Log => {
                         // r = e_cm * ln(1 + b*x/(1-x))
@@ -588,8 +593,8 @@ impl Topology {
                     ParameterizationMapping::Linear => {
                         // r = e_cm * b * x/(1-x)
                         let b = Into::<T>::into(self.settings.parameterization.b);
-                        let radius =
-                            e_cm * b * Into::<T>::into(x_r[0]) / (T::one() - Into::<T>::into(x_r[0]));
+                        let radius = e_cm * b * Into::<T>::into(x_r[0])
+                            / (T::one() - Into::<T>::into(x_r[0]));
                         jac *= <T as num_traits::Float>::powi(e_cm * b + radius, 2) / e_cm / b;
                         radius
                     }
@@ -640,8 +645,6 @@ impl Topology {
         let k_r_sq = x * x + y * y + z * z;
         let k_r = k_r_sq.sqrt();
 
-        jac /= <T as num_traits::Float>::powi(e_cm + k_r, 2) / e_cm;
-
         let x2 = if y < T::zero() {
             T::one() + Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(y, x)
         } else {
@@ -657,7 +660,7 @@ impl Topology {
             ParameterizationMapping::Log => {
                 let b = Into::<T>::into(self.settings.parameterization.b);
                 let x1 = T::one() - b / (-T::one() + b + (k_r / e_cm).exp());
-                jac /= e_cm * b / (T::one() - x) / (T::one() + x * (b - T::one()));
+                jac /= e_cm * b / (T::one() - x1) / (T::one() + x1 * (b - T::one()));
                 x1
             }
             ParameterizationMapping::Linear => {
@@ -963,11 +966,14 @@ impl Topology {
         }
     }
 
-    /// Construct a deformation vector by going through all the ellipsoids
-    fn deform_ellipsoids<U: DimName, T: FloatLike>(
+    /// Compute the normal vector for each ellipsoid.
+    /// Also evaluates the ellipsoid if `full_propagator` is false,
+    /// otherwise it evaluates the full propagator.
+    fn compute_ellipsoid_deformation_vector<U: DimName, T: FloatLike>(
         &self,
+        full_propagator: bool,
         cache: &mut LTDCache<T>,
-    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+    ) -> usize
     where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
         dual_num::Owned<T, U>: Copy,
@@ -975,7 +981,6 @@ impl Topology {
     {
         let mut cut_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
-        let mut kappas = [LorentzVector::default(); MAX_LOOP];
 
         let cache = cache.get_cache_mut();
         let kappa_surf = &mut cache.deform_dirs;
@@ -1048,9 +1053,16 @@ impl Topology {
             }
 
             // evaluate the inverse propagator of the surface
-            inv_surf_prop[group_counter] =
-                (cut_energy + <T as NumCast>::from(surf.shift.t).unwrap()).powi(2)
+            if full_propagator {
+                inv_surf_prop[group_counter] = (cut_energy + Into::<T>::into(surf.shift.t)).powi(2)
                     - cache.cut_info[surface_prop.id].spatial_and_mass_sq;
+            } else {
+                inv_surf_prop[group_counter] = cut_energy
+                    + Into::<T>::into(surf.shift.t)
+                    + cache.cut_info[surface_prop.id]
+                        .real_energy
+                        .multiply_sign(surf.delta_sign);
+            }
 
             for (loop_index, dir) in deform_dirs[..self.n_loops].iter().enumerate() {
                 // note the sign
@@ -1060,6 +1072,26 @@ impl Topology {
 
             group_counter += 1;
         }
+
+        group_counter
+    }
+
+    /// Construct a deformation vector by going through all the ellipsoids
+    fn deform_ellipsoids<U: DimName, T: FloatLike>(
+        &self,
+        cache: &mut LTDCache<T>,
+    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+        dual_num::Owned<T, U>: Copy,
+        LTDCache<T>: CacheSelector<T, U>,
+    {
+        let group_counter = self.compute_ellipsoid_deformation_vector(true, cache);
+
+        let mut kappas = [LorentzVector::default(); MAX_LOOP];
+        let cache = cache.get_cache_mut();
+        let kappa_surf = &mut cache.deform_dirs;
+        let inv_surf_prop = &mut cache.ellipsoid_eval;
 
         // now combine the kappas from the surface using the chosen strategy
         let mut aij: DualN<T, U> = NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
@@ -1098,6 +1130,60 @@ impl Topology {
                 }
 
                 *kappa += dir * dampening * lambda;
+            }
+        }
+
+        kappas
+    }
+
+    /// Compute the deformation for an ellipsoid and its (potential)
+    /// intersections with other ellipsoids.
+    fn deform_intersections<U: DimName, T: FloatLike>(
+        &self,
+        ellipse_id: usize,
+        cache: &mut LTDCache<T>,
+    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+        dual_num::Owned<T, U>: Copy,
+        LTDCache<T>: CacheSelector<T, U>,
+    {
+        let mut kappas = [LorentzVector::default(); MAX_LOOP];
+
+        // determine all vectors per ellipsoid once at the start
+        if ellipse_id == 0 {
+            self.compute_ellipsoid_deformation_vector(false, cache);
+        }
+
+        let cache = cache.get_cache_mut();
+
+        // the vector of the surface is always active
+        // it can get interpolated with vectors from other surfaces near intersections
+        for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
+            *kappa = cache.deform_dirs[ellipse_id * self.n_loops + loop_index];
+        }
+
+        // TODO: filter non-intersecting ellipsoids
+        // TODO: allow for triple intersections
+        let num_ellipsoids = self
+            .surfaces
+            .iter()
+            .enumerate()
+            .filter(|(i, x)| x.ellipsoid && x.group == *i)
+            .count();
+        for j in 0..num_ellipsoids {
+            if ellipse_id == j {
+                continue;
+            }
+
+            // this factor will determine how far away from an intersection we are
+            let j_eval = cache.ellipsoid_eval[j].powi(2);
+
+            for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
+                let dampening = DualN::from_real(T::one())
+                    - (j_eval
+                        / (j_eval + Into::<T>::into(self.settings.deformation.cutgroups.m_ij)));
+                *kappa += cache.deform_dirs[j * self.n_loops + loop_index] * dampening;
             }
         }
 
@@ -1144,6 +1230,58 @@ impl Topology {
         }
 
         deform_dirs
+    }
+
+    /// Evaluate a surface with complex momenta.
+    fn evaluate_surface_complex<T: FloatLike>(
+        &self,
+        surf: &Surface,
+        loop_momenta: &[LorentzVector<num::Complex<T>>],
+    ) -> num::Complex<T> {
+        // TODO: use a cache
+        let mut res = num::Complex::zero();
+
+        let mut cut_index = 0;
+        for (cut, ll) in izip!(surf.cut.iter(), self.loop_lines.iter()) {
+            if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *cut {
+                if surf.signs[cut_index] == 0 {
+                    cut_index += 1;
+                    continue;
+                }
+
+                // construct the cut energy
+                let mut mom = LorentzVector::<num::Complex<T>>::default();
+                for (&cut_sign, lm) in ll.signature.iter().zip(loop_momenta.iter()) {
+                    mom += lm.multiply_sign(cut_sign);
+                }
+                // compute the postive cut energy
+                let q: LorentzVector<T> = ll.propagators[i].q.cast();
+                let energy = ((mom + q).spatial_squared()
+                    + <T as NumCast>::from(ll.propagators[i].m_squared).unwrap())
+                .sqrt();
+
+                res += energy.multiply_sign(surf.signs[cut_index]);
+
+                cut_index += 1;
+            }
+        }
+
+        // now for the surface term
+        let mut mom = LorentzVector::<num::Complex<T>>::default();
+        let onshell_ll = &self.loop_lines[surf.onshell_ll_index];
+        let onshell_prop = &onshell_ll.propagators[surf.onshell_prop_index];
+        for (&surf_sign, lm) in onshell_ll.signature.iter().zip(loop_momenta.iter()) {
+            mom += lm.multiply_sign(surf_sign);
+        }
+
+        let q: LorentzVector<T> = onshell_prop.q.cast();
+        let energy = ((mom + q).spatial_squared()
+            + <T as NumCast>::from(onshell_prop.m_squared).unwrap())
+        .sqrt();
+
+        res += energy.multiply_sign(surf.delta_sign);
+        res += <T as NumCast>::from(surf.shift.t).unwrap();
+        res
     }
 
     /// Construct a deformation vector by going through all cut options
@@ -1314,11 +1452,12 @@ impl Topology {
         kappas
     }
 
-    /// Construct a deformation vector by going through all the constant
+    /// Construct a constant deformation vector.
+    /// If an ellipse id is specified, it will be a different constant per ellipse.
     fn deform_constant<U: DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
-        _cache: &mut LTDCache<T>,
+        ellipsoid_id: Option<usize>,
     ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
     where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
@@ -1329,6 +1468,141 @@ impl Topology {
 
         for i in 0..self.n_loops {
             kappas[i] = loop_momenta[i] / loop_momenta[i].spatial_squared_impr().sqrt();
+
+            if let Some(e) = ellipsoid_id {
+                kappas[i] *= DualN::from_real(Into::<T>::into(e as f64 + 1.));
+            }
+        }
+
+        kappas
+    }
+
+    fn deform_fixed<U: DimName, T: FloatLike>(
+        &self,
+        loop_momenta: &[LorentzVector<DualN<T, U>>],
+        cache: &mut LTDCache<T>,
+    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+        dual_num::Owned<T, U>: Copy,
+        LTDCache<T>: CacheSelector<T, U>,
+    {
+        let cache = cache.get_cache_mut();
+
+        // evaluate all ellipsoids
+        for (i, surf) in self.surfaces.iter().enumerate() {
+            if !surf.ellipsoid || surf.pinched {
+                cache.ellipsoid_eval[i] = DualN::zero();
+                continue;
+            }
+
+            let mut cut_counter = 0;
+            let mut cut_energy = DualN::default();
+            for (c, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
+                if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
+                    if let Cut::PositiveCut(i) = c {
+                        cut_energy += cache.cut_info[ll.propagators[*i].id]
+                            .real_energy
+                            .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
+                    } else {
+                        cut_energy -= cache.cut_info[ll.propagators[*i].id]
+                            .real_energy
+                            .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
+                    }
+
+                    cut_counter += 1;
+                }
+            }
+
+            let surface_prop =
+                &self.loop_lines[surf.onshell_ll_index].propagators[surf.onshell_prop_index];
+            cache.ellipsoid_eval[i] = cut_energy
+                + Into::<T>::into(surf.shift.t)
+                + cache.cut_info[surface_prop.id]
+                    .real_energy
+                    .multiply_sign(surf.delta_sign);
+
+            // TODO: normalize
+            cache.ellipsoid_eval[i] = cache.ellipsoid_eval[i].powi(2); // take the square so that the number if always positive
+        }
+
+        let mut kappas = [LorentzVector::default(); MAX_LOOP];
+        let mut lambda = DualN::one();
+
+        for (i, d) in self.fixed_deformation.iter().enumerate() {
+            if i < self.settings.deformation.lambdas.len() {
+                lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
+            }
+
+            let mut s = DualN::one();
+            let mut softmin_num = DualN::zero();
+            let mut softmin_den = DualN::zero();
+
+            for &surf_index in &d.excluded_surface_ids {
+                // t is the weighing factor that is 0 if we are on both cut_i and cut_j
+                // at the same time and goes to 1 otherwise
+                debug_assert!(
+                    self.surfaces[surf_index].ellipsoid && !self.surfaces[surf_index].pinched
+                );
+                let t = cache.ellipsoid_eval[surf_index];
+
+                let sup = if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
+                    if self.settings.deformation.cutgroups.sigma.is_zero() {
+                        s = s.min(t);
+                        s
+                    } else {
+                        let e =
+                            (-t / Into::<T>::into(self.settings.deformation.cutgroups.sigma)).exp();
+                        softmin_num += t * e;
+                        softmin_den += e;
+                        e
+                    }
+                } else {
+                    let sup = t / (t + Into::<T>::into(self.settings.deformation.cutgroups.m_ij));
+                    s *= sup;
+                    sup
+                };
+
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "  | surf {}: t={:e}, suppression={:e}",
+                        surf_index,
+                        t.real(),
+                        sup.real()
+                    );
+                }
+
+                if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
+                    if !self.settings.deformation.cutgroups.sigma.is_zero() {
+                        s = softmin_num / softmin_den;
+                    }
+
+                    if !self.settings.deformation.cutgroups.m_ij.is_zero() {
+                        s = s / (s + Into::<T>::into(self.settings.deformation.cutgroups.m_ij));
+                    }
+                }
+            }
+
+            if self.settings.general.debug > 2 {
+                println!(
+                    "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
+                    loop_momenta[0].real(),
+                    &d.deformation_sources[i * self.n_loops],
+                    s.real(),
+                    &d.deformation_sources[i * self.n_loops].cast() * s.real(),
+                );
+            }
+
+            for ii in 0..self.n_loops {
+                let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                kappas[ii] -= dir / dir.spatial_distance() * s * lambda;
+            }
+        }
+
+        if self.settings.general.debug > 2 {
+            for ii in 0..self.n_loops {
+                println!("  | kappa{}={:e}\n", ii + 1, kappas[ii].real());
+            }
         }
 
         kappas
@@ -1338,6 +1612,7 @@ impl Topology {
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         cut: Option<(usize, usize)>,
+        ellipsoid_id: Option<usize>,
         cache: &mut LTDCache<T>,
     ) -> ([LorentzVector<T>; MAX_LOOP], Complex<T>)
     where
@@ -1383,8 +1658,12 @@ impl Topology {
                 let cut = &self.ltd_cut_options[co.0][co.1];
                 self.get_deformation_for_cut(cut, co.0, cache)
             }
+            DeformationStrategy::Intersections => {
+                self.deform_intersections(ellipsoid_id.unwrap(), cache)
+            }
             DeformationStrategy::Additive => self.deform_ellipsoids(cache),
-            DeformationStrategy::Constant => self.deform_constant(loop_momenta, cache),
+            DeformationStrategy::Constant => self.deform_constant(loop_momenta, ellipsoid_id),
+            DeformationStrategy::Fixed => self.deform_fixed(loop_momenta, cache),
             DeformationStrategy::None => unreachable!(),
         };
 
@@ -1454,6 +1733,7 @@ impl Topology {
         &self,
         loop_momenta: &[LorentzVector<T>],
         cut: Option<(usize, usize)>,
+        ellipsoid_id: Option<usize>,
         cache: &mut LTDCache<T>,
     ) -> ([LorentzVector<T>; MAX_LOOP], Complex<T>) {
         if DeformationStrategy::None == self.settings.general.deformation_strategy {
@@ -1470,7 +1750,7 @@ impl Topology {
                     r[0][i + 1][i + 1] = T::one();
                 }
 
-                return self.deform_generic(&r, cut, cache);
+                return self.deform_generic(&r, cut, ellipsoid_id, cache);
             }
             2 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1481,7 +1761,7 @@ impl Topology {
                     r[0][i + 1][i + 1] = T::one();
                     r[1][i + 1][i + 4] = T::one();
                 }
-                self.deform_generic(&r, cut, cache)
+                self.deform_generic(&r, cut, ellipsoid_id, cache)
             }
             3 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1494,7 +1774,7 @@ impl Topology {
                     r[1][i + 1][i + 4] = T::one();
                     r[2][i + 1][i + 7] = T::one();
                 }
-                self.deform_generic(&r, cut, cache)
+                self.deform_generic(&r, cut, ellipsoid_id, cache)
             }
             4 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1509,7 +1789,43 @@ impl Topology {
                     r[2][i + 1][i + 7] = T::one();
                     r[3][i + 1][i + 10] = T::one();
                 }
-                self.deform_generic(&r, cut, cache)
+                self.deform_generic(&r, cut, ellipsoid_id, cache)
+            }
+            5 => {
+                let mut r = [LorentzVector::default(); MAX_LOOP];
+                r[0] = loop_momenta[0].map(|x| Dual16::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Dual16::from_real(x));
+                r[2] = loop_momenta[2].map(|x| Dual16::from_real(x));
+                r[3] = loop_momenta[3].map(|x| Dual16::from_real(x));
+                r[4] = loop_momenta[4].map(|x| Dual16::from_real(x));
+
+                for i in 0..3 {
+                    r[0][i + 1][i + 1] = T::one();
+                    r[1][i + 1][i + 4] = T::one();
+                    r[2][i + 1][i + 7] = T::one();
+                    r[3][i + 1][i + 10] = T::one();
+                    r[4][i + 1][i + 13] = T::one();
+                }
+                self.deform_generic(&r, cut, ellipsoid_id, cache)
+            }
+            6 => {
+                let mut r = [LorentzVector::default(); MAX_LOOP];
+                r[0] = loop_momenta[0].map(|x| Dual19::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Dual19::from_real(x));
+                r[2] = loop_momenta[2].map(|x| Dual19::from_real(x));
+                r[3] = loop_momenta[3].map(|x| Dual19::from_real(x));
+                r[4] = loop_momenta[4].map(|x| Dual19::from_real(x));
+                r[5] = loop_momenta[5].map(|x| Dual19::from_real(x));
+
+                for i in 0..3 {
+                    r[0][i + 1][i + 1] = T::one();
+                    r[1][i + 1][i + 4] = T::one();
+                    r[2][i + 1][i + 7] = T::one();
+                    r[3][i + 1][i + 10] = T::one();
+                    r[4][i + 1][i + 13] = T::one();
+                    r[5][i + 1][i + 16] = T::one();
+                }
+                self.deform_generic(&r, cut, ellipsoid_id, cache)
             }
             n => panic!("Binding for deformation at {} loops is not implemented", n),
         }
@@ -1559,7 +1875,7 @@ impl Topology {
         cut: &Vec<Cut>,
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
-    ) -> Result<Complex<T>, &str> {
+    ) -> Result<Complex<T>, &'static str> {
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
 
         let mut r = Complex::new(T::one(), T::zero());
@@ -1674,6 +1990,117 @@ impl Topology {
         Ok(())
     }
 
+    pub fn evaluate_multi_channel<T: FloatLike>(
+        &self,
+        k: &[LorentzVector<T>],
+        cache: &mut LTDCache<T>,
+        python_numerator: &Option<PythonNumerator>,
+    ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
+        let num_ellipsoids = self
+            .surfaces
+            .iter()
+            .enumerate()
+            .filter(|(i, x)| x.ellipsoid && x.group == *i)
+            .count();
+        let mut complex_evals_sq = vec![Complex::default(); num_ellipsoids];
+        let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
+
+        let mut res = Complex::default();
+
+        let mut sum_fac: Complex<T> = Complex::default();
+        for i in 0..num_ellipsoids {
+            // compute the deformation vector for this ellipsoid
+            let (kappas, jac) = self.deform(k, None, Some(i), cache);
+            k_def = (0..self.n_loops)
+                .map(|i| {
+                    k[i].map(|x| Complex::new(x, T::zero()))
+                        + kappas[i].map(|x| Complex::new(T::zero(), x))
+                })
+                .collect();
+
+            self.compute_complex_cut_energies(&k_def, cache)?;
+
+            // compute multi-channeling factors by evaluating every surface
+            let mut index = 0;
+            let mut suppresion_factor = Complex::one();
+            for (ei, e) in self.surfaces.iter().enumerate() {
+                if e.ellipsoid && e.group == ei {
+                    complex_evals_sq[index] =
+                        utils::powi(self.evaluate_surface_complex(e, &k_def), 2);
+                    suppresion_factor *= complex_evals_sq[index];
+                    index += 1;
+                }
+            }
+
+            let mut normalization = Complex::zero();
+            for j in 0..num_ellipsoids {
+                normalization += suppresion_factor / complex_evals_sq[j];
+            }
+
+            let (r, kd) = self.evaluate_all_dual_integrands(k, k_def, cache, python_numerator)?;
+            k_def = kd;
+
+            res += r * jac * suppresion_factor / complex_evals_sq[i] / normalization;
+            sum_fac += suppresion_factor / complex_evals_sq[i] / normalization;
+        }
+
+        Ok((res, k_def))
+    }
+
+    fn evaluate_all_dual_integrands<T: FloatLike>(
+        &self,
+        k: &[LorentzVector<T>],
+        mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        cache: &mut LTDCache<T>,
+        python_numerator: &Option<PythonNumerator>,
+    ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
+        // evaluate all dual integrands
+        let mut result = Complex::default();
+        let mut cut_counter = 0;
+        for (cut_structure_index, (cuts, mat)) in self
+            .ltd_cut_options
+            .iter()
+            .zip(self.cb_to_lmb_mat.iter())
+            .enumerate()
+        {
+            // for each cut coming from the same cut structure
+            for (cut_option_index, cut) in cuts.iter().enumerate() {
+                if self.settings.general.cut_filter.is_empty()
+                    || self.settings.general.cut_filter.contains(&cut_counter)
+                {
+                    let mut dual_jac_def = Complex::one();
+                    if self.settings.general.deformation_strategy == DeformationStrategy::Duals {
+                        let (kappas, jac) = self.deform(
+                            &k,
+                            Some((cut_structure_index, cut_option_index)),
+                            None,
+                            cache,
+                        );
+                        k_def = (0..self.n_loops)
+                            .map(|i| {
+                                k[i].map(|x| Complex::new(x, T::zero()))
+                                    + kappas[i].map(|x| Complex::new(T::zero(), x))
+                            })
+                            .collect();
+                        dual_jac_def = jac;
+                        self.compute_complex_cut_energies(&k_def, cache)?;
+                    }
+
+                    let v = self.evaluate_amplitude_cut(&mut k_def, cut, mat, cache)?;
+
+                    // k_def has the correct energy component at this stage
+                    if let Some(pn) = python_numerator {
+                        result += v * pn.evaluate_numerator(&k_def[..self.n_loops]) * dual_jac_def
+                    } else {
+                        result += v * dual_jac_def
+                    }
+                }
+                cut_counter += 1;
+            }
+        }
+        Ok((result, k_def))
+    }
+
     #[inline]
     pub fn evaluate<'a, T: FloatLike>(
         &self,
@@ -1692,7 +2119,7 @@ impl Topology {
         let mut jac_para = T::one();
         for i in 0..self.n_loops {
             // set the loop index to i + 1 so that we can also shift k
-            let (mut l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3], i);
+            let (l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3], i);
 
             // there could be some rounding here
             let rot = self.rotation_matrix;
@@ -1708,7 +2135,6 @@ impl Topology {
                     + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
                     + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
             );
-
             jac_para *= jac;
         }
 
@@ -1716,69 +2142,39 @@ impl Topology {
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
         let mut jac_def = Complex::one();
 
-        if self.settings.general.deformation_strategy != DeformationStrategy::Duals {
-            let (kappas, jac) = self.deform(&k, None, cache);
-            k_def = (0..self.n_loops)
-                .map(|i| {
-                    k[i].map(|x| Complex::new(x, T::zero()))
-                        + kappas[i].map(|x| Complex::new(T::zero(), x))
-                })
-                .collect();
-            jac_def = jac;
+        let r = if self.settings.general.partial_fractioning {
+            self.evaluate_multi_channel(&k, cache, python_numerator)
+        } else {
+            if self.settings.general.deformation_strategy != DeformationStrategy::Duals {
+                let (kappas, jac) = self.deform(&k, None, None, cache);
+                k_def = (0..self.n_loops)
+                    .map(|i| {
+                        k[i].map(|x| Complex::new(x, T::zero()))
+                            + kappas[i].map(|x| Complex::new(T::zero(), x))
+                    })
+                    .collect();
+                jac_def = jac;
 
-            if self.compute_complex_cut_energies(&k_def, cache).is_err() {
-                return (x, k_def, jac_para, jac_def, Complex::default());
-            }
-        }
-
-        // evaluate all dual integrands
-        let mut result = Complex::default();
-        let mut cut_counter = 0;
-        for (cut_structure_index, (cuts, mat)) in self
-            .ltd_cut_options
-            .iter()
-            .zip(self.cb_to_lmb_mat.iter())
-            .enumerate()
-        {
-            // for each cut coming from the same cut structure
-            for (cut_option_index, cut) in cuts.iter().enumerate() {
-                if self.settings.general.cut_filter.is_empty()
-                    || self.settings.general.cut_filter.contains(&cut_counter)
-                {
-                    let mut dual_jac_def = Complex::one();
-                    if self.settings.general.deformation_strategy == DeformationStrategy::Duals {
-                        let (kappas, jac) =
-                            self.deform(&k, Some((cut_structure_index, cut_option_index)), cache);
-                        k_def = (0..self.n_loops)
-                            .map(|i| {
-                                k[i].map(|x| Complex::new(x, T::zero()))
-                                    + kappas[i].map(|x| Complex::new(T::zero(), x))
-                            })
-                            .collect();
-                        dual_jac_def = jac;
-                        if self.compute_complex_cut_energies(&k_def, cache).is_err() {
-                            return (x, k_def, jac_para, jac_def, Complex::default());
-                        }
-                    }
-                    match self.evaluate_cut(&mut k_def, cut, mat, cache) {
-                        Ok(v) => {
-                            // k_def has the correct energy component at this stage
-                            if let Some(pn) = python_numerator {
-                                result +=
-                                    v * pn.evaluate_numerator(&k_def[..self.n_loops]) * dual_jac_def
-                            } else {
-                                // calculate the counterterm cut by cut
-
-                                let ct = self.counterterm(&k_def[..self.n_loops], cache);
-                                result += v * (ct + T::one()) * dual_jac_def
-                            }
-                        }
-                        Err(_) => return (x, k_def, jac_para, jac_def, Complex::default()),
-                    }
+                if self.compute_complex_cut_energies(&k_def, cache).is_err() {
+                    return (x, k_def, jac_para, jac_def, Complex::default());
                 }
-                cut_counter += 1;
             }
-        }
+
+            self.evaluate_all_dual_integrands(&k, k_def, cache, python_numerator)
+        };
+
+        let (mut result, k_def) = match r {
+            Ok(v) => v,
+            Err(_) => {
+                return (
+                    x,
+                    ArrayVec::default(),
+                    jac_para,
+                    jac_def,
+                    Complex::default(),
+                )
+            }
+        };
 
         result *= utils::powi(
             num::Complex::new(T::zero(), Into::<T>::into(-2.) * <T as FloatConst>::PI()),

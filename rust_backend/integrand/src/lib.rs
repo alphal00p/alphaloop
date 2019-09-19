@@ -2,7 +2,7 @@
 extern crate cpython;
 extern crate num;
 extern crate vector;
-use cpython::{PyResult, PyList, ObjectProtocol, PyErr, exc};
+use cpython::{exc, ObjectProtocol, PyErr, PyList, PyResult};
 use std::cell::RefCell;
 
 pub mod integrands;
@@ -29,7 +29,7 @@ py_class!(class Integrand |py| {
         let mut ext: Vec<vector::LorentzVector<f64>> = Vec::with_capacity(4);
 
         for mom in ext_py.iter(py) {
-            let mut m: Vec<f64> = Vec::with_capacity(4); 
+            let mut m: Vec<f64> = Vec::with_capacity(4);
             for x in mom.extract::<PyList>(py)?.iter(py) {
                 m.push(x.extract(py)?);
             }

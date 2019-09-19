@@ -10,7 +10,7 @@ zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 # Definition of hard-coded topol
 #############################################################################################################
 
-def create_hard_coded_topology(topology_type, external_momenta, analytic_result=None, name=None, parameter_values = {}):
+def create_hard_coded_topology(topology_type, external_momenta, analytic_result=None, name=None, parameter_values = {}, fixed_deformation=None):
     """ Creates a hard-coded topology of the given name with specified kinematics. 
     
     ================================================
@@ -67,7 +67,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.0),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='DoubleTriangle_ala_weinzierl':
@@ -125,7 +126,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.0),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='AltDoubleTriangle':
@@ -170,7 +172,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TriangleBox':
@@ -215,7 +218,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='DoubleBox':
@@ -264,7 +268,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 	
     elif topology_type =='6pt_Weinzierl_a':
@@ -315,7 +320,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='6pt_Weinzierl_b':
@@ -366,8 +372,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='6pt_Weinzierl_c':
         p1 = external_momenta[0]
@@ -417,8 +425,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='6pt_Weinzierl_d':
         p1 = external_momenta[0]
@@ -468,7 +478,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='6pt_Weinzierl_e':
@@ -519,7 +530,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='6pt_Weinzierl_f':
@@ -570,7 +582,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TripleBox':
@@ -649,7 +662,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TriangleBoxBox':
@@ -725,7 +739,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TriangleBoxBox_alt':
@@ -801,7 +816,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='TriangleBoxTriangle':
@@ -876,7 +892,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
 
@@ -961,7 +978,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
 
@@ -1049,7 +1067,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
 
@@ -1214,8 +1233,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                     )
                 ),
 
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='TriangleBoxTriangle_alt':
         p1,p2 = external_momenta
@@ -1289,8 +1310,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=0.),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='Triangle':
         p1 = external_momenta[0]
@@ -1319,8 +1342,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m3']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='Box':
         p1 = external_momenta[0]
@@ -1351,8 +1376,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m4']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='Pentagon':
         p1 = external_momenta[0]
@@ -1385,8 +1412,10 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m5']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
+
 
     elif topology_type =='Hexagon':
         p1 = external_momenta[0]
@@ -1421,7 +1450,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=p1+p2+p3+p4+p5+p6, m_squared=parameters['m6']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='Octogon':
@@ -1461,7 +1491,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=p1+p2+p3+p4+p5+p6+p7+p8, m_squared=parameters['m8']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='Decagon':
@@ -1507,7 +1538,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m10']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='Decagon_ala_weinzierl':
@@ -1554,7 +1586,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m10']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     elif topology_type =='Tringigon':
@@ -1646,7 +1679,8 @@ def create_hard_coded_topology(topology_type, external_momenta, analytic_result=
                         Propagator(q=zero_lv, m_squared=parameters['m30']**2),
                     )
                 ),
-            ) 
+            ),
+            fixed_deformation = fixed_deformation
         )
 
     else:
@@ -1912,6 +1946,28 @@ hard_coded_topology_collection.add_topology(
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
+        'Pentagon', #P15 from Rodrigo, but massless
+        vectors.LorentzVectorList([
+                vectors.LorentzVector([94.79774, -70.04005, -84.77221, 36.09812]),
+                vectors.LorentzVector([-42.15872, -36.33754, -14.72331, -41.24018]),
+                vectors.LorentzVector([73.77293, 88.37064, 33.47296, -24.17542]),
+                vectors.LorentzVector([81.85638, 77.17370, -62.39774, -6.89737]),
+                (   -vectors.LorentzVector([94.79774, -70.04005, -84.77221, 36.09812])
+                    -vectors.LorentzVector([-42.15872, -36.33754, -14.72331, -41.24018])
+                    -vectors.LorentzVector([73.77293, 88.37064, 33.47296, -24.17542])
+                    -vectors.LorentzVector([81.85638, 77.17370, -62.39774, -6.89737])
+                )
+        ]),
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
+        analytic_result = 6.56938257011534641e-14 -4.51502681165905663e-15j,
+        name = 'Pentagon_massless',
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.]], 'excluded_surface_ids': []}],
+    ),
+    entry_name = 'Pentagon_massless'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
                 vectors.LorentzVector([62.80274,-49.71968,-5.53340,-79.44048]),
@@ -2011,10 +2067,10 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
         'Box',
         vectors.LorentzVectorList([
-            vectors.LorentzVector( [-0.4375, 0.4271821418762962, 0.08806052015143966, -0.03416156396650795] ),
-            vectors.LorentzVector( [-0.5625, -0.4271821418762962, -0.08806052015143966, 0.03416156396650795] ),
             vectors.LorentzVector( [0.4444444444444444, -0.3662936517508201, 0.1539383024749358, -0.1991552758922418] ),
             vectors.LorentzVector( [0.5555555555555556, 0.3662936517508201, -0.1539383024749358, 0.1991552758922418] ),
+            vectors.LorentzVector( [-0.4375, 0.4271821418762962, 0.08806052015143966, -0.03416156396650795] ),
+            vectors.LorentzVector( [-0.5625, -0.4271821418762962, -0.08806052015143966, 0.03416156396650795] ),
     ]),        
         analytic_result =  (0.00729873674862+0.00250300955905j) ,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
@@ -2069,6 +2125,54 @@ hard_coded_topology_collection.add_topology(
         name = 'Box_massless_1000',
     ),
     entry_name = 'Box_massless_1000'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Box',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([-0.5,  1. ,  0.7,  0.3]),
+            vectors.LorentzVector([-0.2, -0.3,  0.5,  0.1]),
+            vectors.LorentzVector([-0.3, -0.7, -1.2, -1.4]),
+            vectors.LorentzVector([1., 0., 0., 1.]),
+    ]),        
+        analytic_result =  (0.0-0.021597023958816856j) ,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_1000_ND1',
+    ),
+    entry_name = 'Box_massless_1000_ND1'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Box',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([-0.3, -0.7, -1.2, -1.4]),
+            vectors.LorentzVector([-0.2, -0.3,  0.5,  0.1]),
+            vectors.LorentzVector([-0.5,  1. ,  0.7,  0.3]),
+            vectors.LorentzVector([1., 0., 0., 1.]),
+    ]),        
+        analytic_result =  (0.0-0.021597023958816856j) ,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_1000_ND2',
+    ),
+    entry_name = 'Box_massless_1000_ND2'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Box',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([-0.2, -0.3,  0.5,  0.1]),
+            vectors.LorentzVector([-0.3, -0.7, -1.2, -1.4]),
+            vectors.LorentzVector([-0.5,  1. ,  0.7,  0.3]),
+            vectors.LorentzVector([1., 0., 0., 1.]),
+    ]),        
+        analytic_result =  (0.0-0.021597023958816856j) ,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        name = 'Box_massless_1000_ND3',
+    ),
+    entry_name = 'Box_massless_1000_ND3'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -2181,6 +2285,143 @@ hard_coded_topology_collection.add_topology(
         name = 'Box_massless_1111',
     ),
     entry_name = 'Box_massless_1111'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector( [0.5, 0.4120803582196727, -0.1731805902843028, 0.224049685378772] ),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector( [0.5, -0.4120803582196727, 0.1731805902843028, -0.224049685378772] ),
+            vectors.LorentzVector( [-0.5, -0.4882081621443385, -0.1006405944587882, 0.0390417873902948] ),
+            vectors.LorentzVector( [-0.5, 0.4882081621443385, 0.1006405944587882, -0.0390417873902948] ),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude',
+    ),
+    entry_name = 'eeAA_amplitude'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([ 0.50000000000000000e+03,  0.00000000000000000e+00,  0.00000000000000000e+00,  0.50000000000000000e+03]),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector([ 0.50000000000000000e+03,  0.00000000000000000e+00,  0.00000000000000000e+00, -0.50000000000000000e+03]),
+            vectors.LorentzVector([-0.49999999999999898e+03,  0.24062102909376753e+03, -0.28047200599112813e+03,  0.33680405908059970e+03]),
+            vectors.LorentzVector([-0.50000000000000119e+03, -0.24062102909376739e+03,  0.28047200599112819e+03, -0.33680405908059970e+03]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_P3',
+    ),
+    entry_name = 'eeAA_amplitude_P3'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([0.50000000000000000e+03,  0.00000000000000000e+00,  0.00000000000000000e+00,  0.50000000000000000e+03]),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector([0.50000000000000000e+03,  0.00000000000000000e+00,  0.00000000000000000e+00, -0.50000000000000000e+03]),
+            vectors.LorentzVector([0.50000000000000006e+03,  0.45103521310350459e+03,  0.60479687151794629e+02, -0.20714594850659606e+03]),
+            vectors.LorentzVector([0.50000000000000006e+03, -0.45103521310350459e+03, -0.60479687151794629e+02,  0.20714594850659597e+03]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_P4',
+    ),
+    entry_name = 'eeAA_amplitude_P4'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector( [1.0,0.0,0.0,1.0] ),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector( [-1.0,0.0,1.0,0.0] ),
+            vectors.LorentzVector( [1.0,0.0,0.0,-1.0] ),
+            vectors.LorentzVector( [-1.0,0.0,-1.0,0.0] ),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_E1',
+    ),
+    entry_name = 'eeAA_amplitude_E1'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([ 1.136981102746675,0.6524678079740285,0.633070356251368,0.6828130868666602]),
+            vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+            vectors.LorentzVector([-1.465708047990716,0.5663518310933229,0.9352021966593318,0.9761877569021014]),
+            vectors.LorentzVector([ 1.6747071228567243,-0.7524299677798811,-0.3212591073651294,-1.4612616729623666]),
+            vectors.LorentzVector([-1.3459801776126832,-0.46638967128747016,-1.2470134455455704,-0.1977391708063949]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_E2',
+    ),
+    entry_name = 'eeAA_amplitude_E2'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+        vectors.LorentzVector([0.8690054083239277,0.7222398091064435,0.10944864082835482,0.4707027223831939]),
+        vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+        vectors.LorentzVector([-0.8445982525473609,0.5355818253859261,0.5831776477060873,0.2939424224883671]),
+        vectors.LorentzVector([1.075533457776574,-1.0721863994957934,-0.016806589064874644,0.0831028404874663]),
+        vectors.LorentzVector([-1.0999406135531409,-0.18563523499657628,-0.6758196994695674,-0.8477479853590273]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_E3',
+    ),
+    entry_name = 'eeAA_amplitude_E3'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Pentagon',
+        vectors.LorentzVectorList([
+        vectors.LorentzVector([0.9003551747347461, 0.3113761158140893, 0.5660040004070195, 0.6271553449468614]),
+        vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+        vectors.LorentzVector([-1.035210195192467, 0.1293134122192845, 0.7916359845436349, 0.6544086319924736]),
+        vectors.LorentzVector([-0.975077908616033, -0.1095890892070451, -0.37131644551844556, -0.8949252799453898]),
+        vectors.LorentzVector([1.109932929073754, -0.33110043882632867, -0.9863235394322089, -0.38663869699394515]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
+        name = 'eeAA_amplitude_PE',
+    ),
+    entry_name = 'eeAA_amplitude_PE'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Hexagon',
+        vectors.LorentzVectorList([
+        vectors.LorentzVector([1.136981102746675, 0.6524678079740285, 0.633070356251368, 0.6828130868666602]),
+        vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+        vectors.LorentzVector([1.465708047990716, 0.5663518310933229, 0.9352021966593318, 0.9761877569021014]),
+        vectors.LorentzVector([-0.6881611543101359, 0.23845169482419126, 0.6375622957902416, 0.10109838042029096]),
+        vectors.LorentzVector([-4.733025920198647, -2.907291089081868, -0.7184505101772154, -3.665108695392744]),
+        vectors.LorentzVector([2.8184979237713916, 1.450019755190325, -1.487384338523726, 1.9050094712036916]),
+    ]),        
+        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0., 'm6':0.},
+        name = 'uuWWZ_amplitude',
+    ),
+    entry_name = 'uuWWZ_amplitude'
 )
 
 

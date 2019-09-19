@@ -15,6 +15,10 @@ from analytical_expressions  import ladder_phi, analytic_four_point_ladder, anal
 # Create the collection of hard-coded topologies.
 #############################################################################################################
 
+# The fishnet topology generation takes quite some time. It is therefore disabled by default.
+# Enable it by setting the flag below to True.
+_GENERATE_FISHNETS = False 
+
 hard_coded_topology_collection = TopologyCollection()
 
 # Add the manually crafted topologies
@@ -56,6 +60,50 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
         analytic_result=None # For triangle and box one-loop topology, the analytic result is automatically computed
      ),
      entry_name = 'Box_no_ellipse'
+)
+
+# Box with customised ellipses from mathematica
+
+box = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+])
+q1 = vectors.LorentzVector([23.2, -9.4, -5.6, 0.])
+q2 = vectors.LorentzVector([-50., -18.4, -17.8, 0.])
+q3 = vectors.LorentzVector([30.4, 2.6, -1.8, 0.])
+hard_coded_topology_collection.add_topology(box.create_loop_topology(
+        "Box_3E", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
+        # For now specified by hand as the cvxpy automated implementation is not done yet
+        fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'excluded_surface_ids': [5]},
+                             {'deformation_sources': [[0., 18.399985727313332, 17.800014049513244, 0.]], 'excluded_surface_ids': [2]}]
+     ),
+     entry_name = 'Box_3E'
+)
+
+# Pentagon with customrised ellipses from mathematica
+
+pentagon = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
+])
+q1 = vectors.LorentzVector([0.123698110274668e+01, 0.652467807974028e+00, 0.633070356251368e+00, 0.682813086866660e+00])
+q2 = vectors.LorentzVector([0.156570804799072e+01, 0.566351831093323e+00, 0.935202196659332e+00, 0.976187756902101e+00])
+q3 = vectors.LorentzVector([-0.688161154310136e+00, +0.238451694824191e+00, +0.637562295790242e+00, +0.101098380420291e+00])
+q4 = vectors.LorentzVector([-0.473302592019865e+01, -0.240729108908187e+01, -0.718450510177215e+00, -0.366510869539274e+01])
+hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
+        "Pentagon_pairwise_3E", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': -q4-q3-q2-q1  }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=(-1.52339813764031085e-3 + 2.04369604371007528e-3j), # For triangle and box one-loop topology, the analytic result is automatically computed
+        # For now specified by hand as the cvxpy automated implementation is not done yet
+        fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
+     ),
+     entry_name = 'Pentagon_pairwise_3E'
 )
 
 # double triangle
@@ -121,6 +169,159 @@ hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
     ),
     entry_name = 'DoubleBox_no_ellipse'
 )
+
+# Fishnets generation. This is typically pretty slow and thus disabled by default.
+
+if _GENERATE_FISHNETS:
+    # FISHNET_1x2
+    print("DOING 1x2...")
+    FISHNET_1x2 = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 4), ('q3', 103, 6), ('q4', 104, 3),
+        ('p1', 1, 2), ('p2', 2, 3),
+        ('p3', 1, 4), ('p4', 2, 5), ('p5', 3, 6),
+         ('p6', 4, 5), ('p7', 5, 6)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_1x2.create_loop_topology(
+        "FISHNET_1x2", 
+        ext_mom={ 'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4 }, 
+        mass_map={}, # no masses 
+        loop_momenta_names=('p1','p2'), 
+        analytic_result = analytic_four_point_ladder( 
+            q1.square(), q2.square(), q3.square(), q4.square(),
+            (q1+q2).square(), (q2+q3).square(), 2)
+    ),
+    entry_name = 'FISHNET_1x2'
+    )
+    print("DONE")
+
+    # FISHNET_1x4
+    print("DOING 1x4...")
+    FISHNET_1x4 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 6), ('q3', 103, 10), ('q4', 104, 5),
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5),
+            ('p5', 1, 6), ('p6', 2, 7), ('p7', 3, 8), ('p8', 4, 9), ('p9', 5, 10),
+            ('p10', 6, 7), ('p11', 7, 8), ('p12', 8, 9), ('p13', 9, 10)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_1x4.create_loop_topology(
+            "FISHNET_1x4", 
+            ext_mom={ 'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1','p2','p3','p4'), 
+            analytic_result = analytic_four_point_ladder( 
+                q1.square(), q2.square(), q3.square(), q4.square(),
+                (q1+q2).square(), (q2+q3).square(), 4)
+        ),
+        entry_name = 'FISHNET_1x4'
+    )
+    print("DONE")
+
+    # FISHNET_1x5
+    print("DOING 1x5...")
+    FISHNET_1x5 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 7), ('q3', 103, 12), ('q4', 104, 6),
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6),
+            ('p6', 1, 7), ('p7', 2, 8), ('p8', 3, 9), ('p9', 4, 10), ('p10', 5, 11), ('p11', 6, 12),
+            ('p12', 7, 8), ('p13', 8, 9), ('p14', 9, 10), ('p15', 10, 11), ('p16', 11, 12)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_1x5.create_loop_topology(
+            "FISHNET_1x5", 
+            ext_mom={ 'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1','p2','p3','p4','p5'), 
+            analytic_result = analytic_four_point_ladder( 
+                q1.square(), q2.square(), q3.square(), q4.square(),
+                (q1+q2).square(), (q2+q3).square(), 5)
+        ),
+        entry_name = 'FISHNET_1x5'
+    )
+    print("DONE")
+
+    # FISHNET_1x6
+    print("DOING 1x6...")
+    FISHNET_1x6 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 8), ('q3', 103, 14), ('q4', 104, 7),
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 7),
+            ('p7', 1, 8), ('p8', 2, 9), ('p9', 3, 10), ('p10', 4, 11), ('p11', 5, 12), ('p12', 6, 13), ('p13', 7, 14),
+            ('p14', 8, 9), ('p15', 9, 10), ('p16', 10, 11), ('p17', 11, 12), ('p18', 12, 13), ('p19', 13, 14)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_1x6.create_loop_topology(
+            "FISHNET_1x6", 
+            ext_mom={ 'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1','p2','p3','p4','p5','p6'), 
+            analytic_result = analytic_four_point_ladder( 
+                q1.square(), q2.square(), q3.square(), q4.square(),
+                (q1+q2).square(), (q2+q3).square(), 6)
+        ),
+        entry_name = 'FISHNET_1x6'
+    )
+    print("DONE")
+
+    # FISHNET_2x2
+    print("DOING 2x2...")
+    FISHNET_2x2 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 7), ('q3', 103, 9), ('q4', 104, 3),
+            ('p1', 1, 2), ('p2', 2, 3), 
+            ('p3', 1, 4), ('p4', 2, 5), ('p5', 3, 6),
+            ('p6', 4, 5), ('p7', 5, 6), 
+            ('p8', 4, 7), ('p9', 5, 8), ('p10', 6, 9),
+            ('p11', 7, 8), ('p12', 8, 9),
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    hard_coded_topology_collection.add_topology(FISHNET_2x2.create_loop_topology(
+            "FISHNET_2x2", 
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1', 'p2', 'p11', 'p12'), 
+            analytic_result = 2.6918653677981387e-14
+        ),
+        entry_name = 'FISHNET_2x2'
+    )
+    print("DONE")
+
+    # FISHNET_2x3
+    FISHNET_2x3 = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 9), ('q3', 103, 12), ('q4', 104, 4),
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),
+            ('p4', 1, 5), ('p5', 2, 6), ('p6', 3, 7), ('p7', 4, 8),
+            ('p8', 5, 6), ('p9', 6, 7), ('p10', 7, 8),
+            ('p11', 5, 9), ('p12', 6, 10), ('p13', 7, 11), ('p14', 8, 12),
+            ('p15', 9, 10), ('p16', 10, 11), ('p17', 11, 12)
+    ])
+    q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
+    q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
+    q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+    q4 = -q1-q2-q3
+    print("DOING 2x3...")
+    hard_coded_topology_collection.add_topology(FISHNET_2x3.create_loop_topology(
+            "FISHNET_2x3", 
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1', 'p2', 'p3', 'p15', 'p16', 'p17'), 
+            analytic_result = 8.4044862640909e-19
+        ),
+        entry_name = 'FISHNET_2x3'
+    )
+    print("Done 2x3")
 
 # PRL two-loops
 # PRL_6p_2L
@@ -258,6 +459,51 @@ hard_coded_topology_collection.add_topology(PRL_physical_BoxBox.create_loop_topo
     entry_name = 'PRL_physical_BoxBox'
 )
 
+
+# PRL physical BoxBox
+PRL_physical_BoxBox_1ellipse = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
+    ])
+q1 = vectors.LorentzVector([1.082,0.2891,0.5276,0.119])
+q2 = vectors.LorentzVector([-0.3978,0.4261,0.1091,0.2143])
+q3 = vectors.LorentzVector([0.1182,0.2192,0.5019,0.3210])
+q4 = -q3-q2-q1
+hard_coded_topology_collection.add_topology(PRL_physical_BoxBox_1ellipse.create_loop_topology(
+    'PRL_physical_BoxBox_1ellipse',
+    ext_mom={'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4},
+    mass_map={},
+    loop_momenta_names=('p4','p2'),
+    analytic_result = analytic_four_point_ladder(
+                    q1.square(), q2.square(), q3.square(), q4.square(),
+                    (q1+q2).square(), (q2+q3).square(), 2),
+    ),
+    entry_name = 'PRL_physical_BoxBox_1ellipse'
+)
+
+# PRL physical BoxBox few ellipse
+PRL_physical_BoxBox_fewellipse = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
+    ])
+q1 = vectors.LorentzVector([0.812,-0.2891,0.4372,-0.012])
+q2 = vectors.LorentzVector([0.609,0.4333,-0.291,0.2813])
+q3 = vectors.LorentzVector([-0.7182,0.1229,1.5019,0.3640])
+q4 = -q3-q2-q1
+hard_coded_topology_collection.add_topology(PRL_physical_BoxBox_fewellipse.create_loop_topology(
+    'PRL_physical_BoxBox_fewellipse',
+    ext_mom={'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4},
+    mass_map={},
+    loop_momenta_names=('p4','p2'),
+    analytic_result = analytic_four_point_ladder(
+                    q1.square(), q2.square(), q3.square(), q4.square(),
+                    (q1+q2).square(), (q2+q3).square(), 2),
+    ),
+    entry_name = 'PRL_physical_BoxBox_fewellipse'
+)
+
 # PRL BoxBoxBoxBox
 PRL_BoxBoxBoxBox = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
@@ -357,3 +603,7 @@ hard_coded_topology_collection.add_topology(two_loop_6pt.create_loop_topology(
 #test = TopologyCollection.import_from('ExampleTopologyCollectionExport.yaml')
 #test['DoubleTriange'].print_topology()
 
+
+#print(hard_coded_topology_collection['manual_Box_1_cutgroup'].export_to('',format='mathematica'))
+#print(hard_coded_topology_collection['manual_Box_no_ellipse'].export_to('',format='mathematica'))
+#print(hard_coded_topology_collection['manual_DoubleTriangle_no_ellipse'].export_to('',format='mathematica'))

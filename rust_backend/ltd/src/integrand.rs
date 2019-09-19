@@ -31,7 +31,7 @@ pub struct Integrand {
 
 impl Topology {
     /// Create a rotated version of this topology. The axis needs to be normalized.
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
+    pub fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
         let cos_t = angle.cos();
         let sin_t = angle.sin();
         let cos_t_bar = float::one() - angle.cos();
@@ -106,6 +106,21 @@ impl Topology {
                 rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
             surf.shift.z =
                 rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+        }
+
+        // now rotate the fixed deformation vectors
+        for def in &mut rotated_topology.fixed_deformation {
+            for source in &mut def.deformation_sources {
+                let old_x = source.x;
+                let old_y = source.y;
+                let old_z = source.z;
+                source.x =
+                    rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
+                source.y =
+                    rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
+                source.z =
+                    rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+            }
         }
 
         rotated_topology
@@ -410,7 +425,12 @@ impl Integrand {
                 } else {
                     self.unstable_f128_point_count += 1;
 
-                    if d_f128 > NumCast::from(self.settings.general.minimal_precision_for_returning_result).unwrap() {
+                    if d_f128
+                        > NumCast::from(
+                            self.settings.general.minimal_precision_for_returning_result,
+                        )
+                        .unwrap()
+                    {
                         result = Complex::new(
                             <float as NumCast>::from(result_f128.re).unwrap(),
                             <float as NumCast>::from(result_f128.im).unwrap(),

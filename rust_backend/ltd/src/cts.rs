@@ -1,3 +1,4 @@
+use amplitude::eeAA;
 use arrayvec::ArrayVec;
 use num::Complex;
 use topologies::{LTDCache, Topology};
@@ -86,8 +87,15 @@ impl Topology {
     pub fn counterterm<T: FloatLike>(
         &self,
         k_def: &[LorentzVector<Complex<T>>],
+        cut_2energy: Complex<T>,
+        cut_id: usize,
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
+        //Define mu_uv_sq for the collinear counterterms
+        let mu_uv_sq = Complex::new(
+            T::from_f64(self.settings.general.mu_uv_sq_re_im[0]).unwrap(),
+            T::from_f64(self.settings.general.mu_uv_sq_re_im[1]).unwrap(),
+        );
         match self.n_loops {
             1 => {
                 if self.on_shell_flag == 0 {
@@ -118,56 +126,55 @@ impl Topology {
                     })
                     .collect();
 
-                //Use specific CT whenever possible
-                let use_collinear_ct = true;
                 //Compute CT
-                if use_collinear_ct && props.len() == 4 && self.on_shell_flag == 8 {
+                //Use specific CT whenever possible
+                if self.settings.general.use_collinear_ct
+                    && props.len() == 4
+                    && self.on_shell_flag == 8
+                {
                     let mut ct_numerator: Complex<T> = Complex::default();
                     //Incoming external: p[n]=q[n]-q[n-1]
                     let x4 =
                         self.collinear_x(&kqs[3], &(ll.propagators[3].q - ll.propagators[2].q)); //)self.external_kinematics[3]);
 
-                    let mu_sq = Complex::new(T::zero(), T::from_f64(1e9).unwrap());
+                    //let ct_uv = T::one();
+                    let ct_uv = mu_uv_sq
+                        * mu_uv_sq
+                        * utils::finv(mu_uv_sq - props[2])
+                        * utils::finv(mu_uv_sq - props[3]);
 
-                    let ct_uv = mu_sq
-                        * (mu_sq - props[2] - props[3])
-                        * utils::finv(props[2] - mu_sq)
-                        * utils::finv(props[3] - mu_sq);
+                    // Use explicit expression or limits to compute the coutnerterms
+                    ct_numerator -= if false {
+                        let s = (kqs[1] - kqs[3]).square();
+                        let t = (kqs[0] - kqs[2]).square();
 
-                    if x4.re > T::zero() && x4.re < T::one() {
-                        // Use explicit expression or limits to compute the coutnerterms
-                        ct_numerator -= if false {
-                            let s = (kqs[1] - kqs[3]).square();
-                            let t = (kqs[0] - kqs[2]).square();
+                        let m1 = T::from_f64((self.external_kinematics[0]).square()).unwrap();
+                        let m3 = T::from_f64((self.external_kinematics[2]).square()).unwrap();
 
-                            let m1 = T::from_f64((self.external_kinematics[0]).square()).unwrap();
-                            let m3 = T::from_f64((self.external_kinematics[2]).square()).unwrap();
+                        let x4b: Complex<T> = Complex::new(T::one(), T::zero()) - x4;
 
-                            let x4b: Complex<T> = Complex::new(T::one(), T::zero()) - x4;
-
-                            utils::finv((x4 * t + x4b * m1) * (x4b * s + x4 * m3))
-                                * (props[0] * props[1])
-                                * ct_uv
-                        } else {
-                            let prop0_c4 = self
-                                .eval_porp_limit(
-                                    0,
-                                    3,
-                                    &x4,
-                                    &(ll.propagators[3].q - ll.propagators[2].q),
-                                )
-                                .square();
-                            let prop1_c4 = self
-                                .eval_porp_limit(
-                                    1,
-                                    3,
-                                    &x4,
-                                    &(ll.propagators[3].q - ll.propagators[2].q),
-                                )
-                                .square();
-                            utils::finv(prop0_c4 * prop1_c4) * (props[0] * props[1]) * ct_uv
-                        };
-                    }
+                        utils::finv((x4 * t + x4b * m1) * (x4b * s + x4 * m3))
+                            * (props[0] * props[1])
+                            * ct_uv
+                    } else {
+                        let prop0_c4 = self
+                            .eval_porp_limit(
+                                0,
+                                3,
+                                &x4,
+                                &(ll.propagators[3].q - ll.propagators[2].q),
+                            )
+                            .square();
+                        let prop1_c4 = self
+                            .eval_porp_limit(
+                                1,
+                                3,
+                                &x4,
+                                &(ll.propagators[3].q - ll.propagators[2].q),
+                            )
+                            .square();
+                        utils::finv(prop0_c4 * prop1_c4) * (props[0] * props[1]) * ct_uv
+                    };
                     ct_numerator
                 } else {
                     /*
@@ -211,10 +218,7 @@ impl Topology {
                     ct_numerator
                 }
             }
-            _ => {
-                //println!("No CounterTerms");
-                Complex::default()
-            }
+            _ => Complex::default(),
         }
     }
 }

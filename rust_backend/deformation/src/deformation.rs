@@ -1421,8 +1421,7 @@ impl Deformer<f64> {
             &self.masses,
         )
         .unwrap();
-        dual9_deformer
-            .set_external_momenta_iter(self.ext.iter().map(|x| x.convert()));
+        dual9_deformer.set_external_momenta_iter(self.ext.iter().map(|x| x.convert()));
 
         let mut k_dual9: LorentzVector<Dual9<f64>> = k.convert();
         let mut l_dual9: LorentzVector<Dual9<f64>> = l.convert();
@@ -1479,8 +1478,7 @@ impl Deformer<f64> {
             &self.masses,
         )
         .unwrap();
-        dual_deformer
-            .set_external_momenta_iter(self.ext.iter().map(|x| x.convert()));
+        dual_deformer.set_external_momenta_iter(self.ext.iter().map(|x| x.convert()));
 
         let mut grad = [[Complex::new(0., 0.); 8]; 8];
 
