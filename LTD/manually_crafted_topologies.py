@@ -2307,6 +2307,24 @@ hard_coded_topology_collection.add_topology(
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
+        'Box',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([23.2, -9.4, -5.6, 0.]),
+            vectors.LorentzVector([-50., -18.4, -17.8, 0.]),
+            vectors.LorentzVector([30.4, 2.6, -1.8, 0.]),
+            vectors.LorentzVector([-3.6, 25.2, 25.2, 0.]),
+    ]),        
+        analytic_result = None,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
+        fixed_deformation = [{'deformation_sources': [[0., 9.352659862162191, 5.6626067165195755]], 'excluded_surface_ids': [5]},
+                             {'deformation_sources': [[0., 27.103393947853924, 23.379736194804202]], 'excluded_surface_ids': [2]}],
+        name = 'Box_3E',
+    ),
+    entry_name = 'Box_3E'
+)
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
         'Pentagon',
         vectors.LorentzVectorList([
             vectors.LorentzVector( [0.5, 0.4120803582196727, -0.1731805902843028, 0.224049685378772] ),
