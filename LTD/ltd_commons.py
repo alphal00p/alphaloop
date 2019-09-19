@@ -13,7 +13,7 @@ hyperparameters = HyperParameters({
     'General'       :   {
         'partial_fractioning'   :   False,
         # can be additive, cutgroups, constant, duals, intersections or none
-        'deformation_strategy'  :   'additive',
+        'deformation_strategy'  :   'fixed',
         'topology'              :   'Box',
         # specify the name of a python module that contains a function numerator(complex_loop_momenta)
         # that will be called for every cut
@@ -48,7 +48,7 @@ hyperparameters = HyperParameters({
 
     'Integrator'    :   {
         # The integrator can be vegas, divonne, cuhre or suave
-        'integrator'        :   'cuhre',
+        'integrator'        :   'vegas',
         'n_start'           :   int(1.0e6),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e6),
@@ -90,7 +90,7 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 0,
+            'lambda'                    : -0.1,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : True,
