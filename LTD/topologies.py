@@ -62,6 +62,51 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
      entry_name = 'Box_no_ellipse'
 )
 
+# Box with customised ellipses from mathematica
+
+box = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+])
+q1 = vectors.LorentzVector([23.2, -9.4, -5.6, 0.])
+q2 = vectors.LorentzVector([-50., -18.4, -17.8, 0.])
+q3 = vectors.LorentzVector([30.4, 2.6, -1.8, 0.])
+hard_coded_topology_collection.add_topology(box.create_loop_topology(
+        "Box_3E", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
+        # For now specified by hand as the cvxpy automated implementation is not done yet
+        fixed_deformation = [{'deformation_sources': [[0., 9.352659862162191, 5.6626067165195755]], 'excluded_surface_ids': [5]},
+                             {'deformation_sources': [[0., 27.103393947853924, 23.379736194804202]], 'excluded_surface_ids': [2]}]
+     ),
+     entry_name = 'Box_3E'
+)
+
+
+# Pentagon with customrised ellipses from mathematica
+
+pentagon = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
+])
+q1 = vectors.LorentzVector([0.123698110274668e+01, 0.652467807974028e+00, 0.633070356251368e+00, 0.682813086866660e+00])
+q2 = vectors.LorentzVector([0.156570804799072e+01, 0.566351831093323e+00, 0.935202196659332e+00, 0.976187756902101e+00])
+q3 = vectors.LorentzVector([-0.688161154310136e+00, +0.238451694824191e+00, +0.637562295790242e+00, +0.101098380420291e+00])
+q4 = vectors.LorentzVector([-0.473302592019865e+01, -0.240729108908187e+01, -0.718450510177215e+00, -0.366510869539274e+01])
+hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
+        "Pentagon_pairwise_3E", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': -q4-q3-q2-q1  }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=(-1.52339813764031085e-3 + 2.04369604371007528e-3j), # For triangle and box one-loop topology, the analytic result is automatically computed
+        # For now specified by hand as the cvxpy automated implementation is not done yet
+        fixed_deformation = [{'deformation_sources': [[0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
+     ),
+     entry_name = 'Pentagon_pairwise_3E'
+)
+
 # double triangle
 doubletriangle = TopologyGenerator([
     ('q', 0, 1), ('p1', 1, 2), ('p2', 3, 1), ('p3', 2, 3),
@@ -412,8 +457,6 @@ hard_coded_topology_collection.add_topology(PRL_physical_BoxBox_1ellipse.create_
     entry_name = 'PRL_physical_BoxBox_1ellipse'
 )
 
-
-
 # PRL physical BoxBox few ellipse
 PRL_physical_BoxBox_fewellipse = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
@@ -435,12 +478,6 @@ hard_coded_topology_collection.add_topology(PRL_physical_BoxBox_fewellipse.creat
     ),
     entry_name = 'PRL_physical_BoxBox_fewellipse'
 )
-
-
-
-
-
-
 
 # PRL BoxBoxBoxBox
 PRL_BoxBoxBoxBox = TopologyGenerator([

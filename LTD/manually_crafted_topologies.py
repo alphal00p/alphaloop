@@ -2291,42 +2291,6 @@ hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
         'Pentagon',
         vectors.LorentzVectorList([
-            vectors.LorentzVector([0.123698110274668e+01, 0.652467807974028e+00, 0.633070356251368e+00, 0.682813086866660e+00]),
-            vectors.LorentzVector([0.156570804799072e+01, 0.566351831093323e+00, 0.935202196659332e+00, 0.976187756902101e+00]),
-            vectors.LorentzVector([-0.688161154310136e+00, +0.238451694824191e+00, +0.637562295790242e+00, +0.101098380420291e+00]),
-            vectors.LorentzVector([-0.473302592019865e+01, -0.240729108908187e+01, -0.718450510177215e+00, -0.366510869539274e+01]),
-            vectors.LorentzVector([+0.261849792377139e+01, +0.950019755190325e+00, -0.148738433852373e+01, +0.190500947120369e+01]),
-    ]),        
-        analytic_result =  (-1.52339813764031085e-3 + 2.04369604371007528e-3j) ,
-        parameter_values = {'m1': 0.7071067811865476, 'm2': 0.7071067811865476, 'm3': 0.7071067811865476, 'm4': 0.7071067811865476, 'm5': 0.7071067811865476},
-        fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': []}],
-        name = 'Pairwise_3E',
-    ),
-    entry_name = 'Pairwise_3E'
-)
-
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Box',
-        vectors.LorentzVectorList([
-            vectors.LorentzVector([23.2, -9.4, -5.6, 0.]),
-            vectors.LorentzVector([-50., -18.4, -17.8, 0.]),
-            vectors.LorentzVector([30.4, 2.6, -1.8, 0.]),
-            vectors.LorentzVector([-3.6, 25.2, 25.2, 0.]),
-    ]),        
-        analytic_result = None,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
-        fixed_deformation = [{'deformation_sources': [[0., 9.352659862162191, 5.6626067165195755]], 'excluded_surface_ids': [5]},
-                             {'deformation_sources': [[0., 27.103393947853924, 23.379736194804202]], 'excluded_surface_ids': [2]}],
-        name = 'Box_3E',
-    ),
-    entry_name = 'Box_3E'
-)
-
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Pentagon',
-        vectors.LorentzVectorList([
             vectors.LorentzVector( [0.5, 0.4120803582196727, -0.1731805902843028, 0.224049685378772] ),
             vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
             vectors.LorentzVector( [0.5, -0.4120803582196727, 0.1731805902843028, -0.224049685378772] ),

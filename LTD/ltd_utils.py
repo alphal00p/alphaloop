@@ -164,7 +164,7 @@ class TopologyGenerator(object):
         self.loop_momenta = None
         self.propagators = None
         self.n_loops = None
-
+    
     def loop_momentum_bases(self):
         trees = []
         self.spanning_trees(trees, tree={self.edges[0][0]})
@@ -395,7 +395,7 @@ class TopologyGenerator(object):
         return cut_stucture
 
     def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None, 
-                                                        contour_closure=None, analytic_result=None):
+                                        contour_closure=None, analytic_result=None, fixed_deformation=None):
         if loop_momenta_names is None:
             loop_momenta = self.loop_momentum_bases()[0]
         else:
@@ -491,11 +491,17 @@ class TopologyGenerator(object):
         # TODO: the external kinematics are given in a random order!
         external_kinematics = list(ext_mom.values())
         loop_topology = LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
-                            ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result)
+            ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result, fixed_deformation = fixed_deformation)
 
         if analytic_result is None:
             loop_topology.analytic_result = self.guess_analytical_result(loop_momenta, ext_mom, mass_map)
-        
+       
+        if fixed_deformation is None:
+            # TODO generate the source coordinates automatically with cvxpy if 
+            # not specified.
+            pass
+            #loop_topology.fixed_deformation = [...]
+
         return loop_topology
 
     def guess_analytical_result(self, loop_momenta, ext_mom, masses):
