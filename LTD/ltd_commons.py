@@ -111,7 +111,7 @@ hyperparameters = HyperParameters({
 
         'cutgroups' : {
             'M_ij'  :   0.00000001,
-            'sigma' :   0.00001,
+            'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'softmin',
             'ratios' : [],
