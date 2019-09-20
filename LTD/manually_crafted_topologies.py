@@ -3352,6 +3352,7 @@ hard_coded_topology_collection.add_topology(
         ]),
         analytic_result = -5.4278417251865010e-2 + 3.6222411886952535e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        fixed_deformation = [{'deformation_sources': [[0., -2.81672e-6, 9.64328e-6, 0.]], 'excluded_surface_ids': []}],
         name = 'Box_RodrigoFail',
     ),
     entry_name = 'Box_RodrigoFail'
