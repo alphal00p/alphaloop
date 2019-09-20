@@ -584,6 +584,26 @@ hard_coded_topology_collection.add_topology(two_loop_6pt.create_loop_topology(
     entry_name = 'two_loop_6pt_no_ellipse'
 )
 
+box = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+])
+q1 = vectors.LorentzVector([14.,-6.6,-40.,0.])
+q2 = vectors.LorentzVector([-43., 12., 33., 0.])
+q3 = vectors.LorentzVector([-28., -50., 10., 0.])
+hard_coded_topology_collection.add_topology(box.create_loop_topology(
+        "Box_RodrigoFail2", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0}, 
+        loop_momenta_names=('p4',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
+        # For now specified by hand as the cvxpy automated implementation is not done yet
+        fixed_deformation =  [{'deformation_sources': [[0., 3.984375, 12.6953125, 0.661437827766147]], 'excluded_surface_ids': []}]
+     ),
+     entry_name = 'Box_RodrigoFail2'
+)
+
+
 # Example printout
 # ----------------
 #hard_coded_topology_collection['non_planar_four_loop_no_ellipse'].print_topology()
