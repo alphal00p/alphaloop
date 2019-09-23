@@ -3317,21 +3317,6 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Triangle_1_ellipse_v2'
 )
 
-hard_coded_topology_collection.add_topology(
-    create_hard_coded_topology(
-        'Box',
-        vectors.LorentzVectorList([
-            vectors.LorentzVector([1.0,0.2,0.5,0.1,]),
-            vectors.LorentzVector([-0.3,0.4,0.1,0.2,]),
-            vectors.LorentzVector([0.1,0.2,0.5,0.3,]),
-            vectors.LorentzVector([-0.8,-0.8,-1.1,-0.6,]),
-        ]),        
-        analytic_result = -7.0925418252470673e-2 + 4.4622503183629730e-2j,
-        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
-        name = 'Box_1_ellipse_v1',
-    ),
-    entry_name = 'Box_1_ellipse_v1'
-)
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
@@ -3350,6 +3335,27 @@ hard_coded_topology_collection.add_topology(
         name = 'Box_1_ellipse_v2',
     ),
     entry_name = 'Box_1_ellipse_v2'
+)
+
+
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Box',
+        vectors.LorentzVectorList([
+            vectors.LorentzVector([7.6,6.4,-3.8,0,]),
+            vectors.LorentzVector([6.6,3.6,-6.2,0,]),
+            vectors.LorentzVector([16.4,8.4,-14.2,0,]),
+            (-vectors.LorentzVector([7.6,6.4,-3.8,0,])
+            -vectors.LorentzVector([6.6,3.6,-6.2,0,])
+            -vectors.LorentzVector([16.4,8.4,-14.2,0,])
+			)
+        ]),
+        analytic_result = -5.4278417251865010e-2 + 3.6222411886952535e-2j,
+        parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
+        fixed_deformation = [{'deformation_sources': [[0., -2.81672e-6, 9.64328e-6, 0.]], 'excluded_surface_ids': []}],
+        name = 'Box_RodrigoFail',
+    ),
+    entry_name = 'Box_RodrigoFail'
 )
 
 

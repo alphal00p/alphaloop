@@ -78,12 +78,11 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-        fixed_deformation = [{'deformation_sources': [[0., 9.352659862162191, 5.6626067165195755]], 'excluded_surface_ids': [5]},
-                             {'deformation_sources': [[0., 27.103393947853924, 23.379736194804202]], 'excluded_surface_ids': [2]}]
+        fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'excluded_surface_ids': [5]},
+                             {'deformation_sources': [[0., 18.399985727313332, 17.800014049513244, 0.]], 'excluded_surface_ids': [2]}]
      ),
      entry_name = 'Box_3E'
 )
-
 
 # Pentagon with customrised ellipses from mathematica
 
@@ -102,7 +101,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=(-1.52339813764031085e-3 + 2.04369604371007528e-3j), # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-        fixed_deformation = [{'deformation_sources': [[0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
+        fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
      ),
      entry_name = 'Pentagon_pairwise_3E'
 )
@@ -123,11 +122,37 @@ hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
     entry_name = 'DoubleTriangle_no_ellipse'
 )
 
+
+# PRL_6p_2L
+PRL_6p_2L = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 8), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6), ('p8', 8, 9), ('p9', 9, 7),
+        ('q5', 8, 108), ('q6', 9, 109)
+])
+q1 = vectors.LorentzVector([ 0.2, 0.3, 0.5, 0.6 ])
+q2 = vectors.LorentzVector([-0.1, 0.7, 0.2, 0.1])
+q3 = vectors.LorentzVector([ 0.1, 0.5, -0.3, -0.4])
+q4 = vectors.LorentzVector([-0.3, 0.4, 0.5, 0.2])
+q5 = vectors.LorentzVector([-0.2, 0.3, 0.2, -0.5])
+q6 = -q1-q2-q3-q4-q5
+hard_coded_topology_collection.add_topology(PRL_6p_2L.create_loop_topology(
+        "PRL_6p_2L", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6 }, 
+        mass_map={}, # no masses 
+        loop_momenta_names=('p4', 'p6'), 
+        analytic_result = 0.
+    ),
+    entry_name = 'PRL_6p_2L'
+)
+
+
+
 # double box
 doublebox = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
         ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
-        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6),
 ])
 q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
 q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
@@ -558,6 +583,26 @@ hard_coded_topology_collection.add_topology(two_loop_6pt.create_loop_topology(
     ),
     entry_name = 'two_loop_6pt_no_ellipse'
 )
+
+box = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+])
+q1 = vectors.LorentzVector([14.,-6.6,-40.,0.])
+q2 = vectors.LorentzVector([-43., 12., 33., 0.])
+q3 = vectors.LorentzVector([-28., -50., 10., 0.])
+hard_coded_topology_collection.add_topology(box.create_loop_topology(
+        "Box_RodrigoFail2", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0}, 
+        loop_momenta_names=('p4',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
+        # For now specified by hand as the cvxpy automated implementation is not done yet
+        fixed_deformation =  [{'deformation_sources': [[0., 3.984375, 12.6953125, 0.661437827766147]], 'excluded_surface_ids': []}]
+     ),
+     entry_name = 'Box_RodrigoFail2'
+)
+
 
 # Example printout
 # ----------------

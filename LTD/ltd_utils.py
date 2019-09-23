@@ -499,10 +499,97 @@ class TopologyGenerator(object):
         if fixed_deformation is None:
             # TODO generate the source coordinates automatically with cvxpy if 
             # not specified.
-            pass
-            #loop_topology.fixed_deformation = [...]
+            loop_topology.fixed_deformation = self.build_fixed_deformation()
 
         return loop_topology
+
+    def build_fixed_deformation(self):
+        """ This function identifies the fixed deformation sources for the deformation field as well as a the list of
+        surfaces ids to exclude for each."""
+
+        pass
+        try:
+            import cvxpy
+        except:
+            print("Error: could not import package cvxpy necessary for building the fixed deformation. Make sure it is installed.")
+            return None
+
+        # First build the loop variables
+        source_coordinates = [ cvxpy.Variable(3) for loop_id in range(self.n_loops) ]
+
+        # Then store the shifts and mass from each propagator delta
+        deltas = []
+        for ll in self.loop_lines:
+            for p in ll.propagators:
+                deltas.append( 
+                    sum( sig*source_coordinates[i_loop_momentum] for i_loop_momentum, sig in enumerate(p.signature) if sig!=0 ) +
+                )
+                for sig in p.signature:
+
+                prop_count += 1
+
+        # compute all deltas
+        prop_count = 1
+        for ll in self.loop_lines:
+            for p in ll.propagators:
+                formatted_str += '\tdelta[[%s]] = Sqrt[Total[(' % prop_count
+                for sig, name in zip(p.signature, names):
+                    if sig == 1:
+                        formatted_str += '+{%sx,%sy,%sz}' % (name, name, name)
+                    elif sig == -1:
+                        formatted_str += '-{%sx,%sy,%sz}' % (name, name, name)
+                formatted_str += '+{%s,%s,%s}' % (p.q[1], p.q[2], p.q[3])
+                formatted_str += ')^2]+' + str(p.m_squared) + '];\n'
+                prop_count += 1
+
+        surface_equations = []
+
+        # construct all dual integrands
+        formatted_str += '\t(-2 Pi I)^%s (1/(2 Pi)^4)^%s(' % (self.n_loops, self.n_loops)
+        for cs in self.ltd_cut_structure:
+            for cut in product(*[[(c, i, p) for i, p in enumerate(ll.propagators)] if c != 0 else [(0,-1,None)] for c, ll in zip(cs, self.loop_lines)]):
+                # construct the cut basis to loop momentum basis mapping
+                mat = []
+                cut_info = []
+                cut_prop_count = 1
+                for ll, (cut_sign, cut_prop_index_in_ll, cut_prop) in zip(self.loop_lines, cut):
+                    if cut_sign != 0:
+                        mat.append(ll.signature)
+                        cut_info.append((cut_sign, cut_prop_count + cut_prop_index_in_ll, cut_prop.q[0]))
+                    cut_prop_count += len(ll.propagators)
+                nmi = numpy.linalg.inv(numpy.array(mat).transpose())
+
+                prop_count = 1
+                formatted_str += '+1/('
+                for ll, (_, cut_prop_index_in_ll, _) in zip(self.loop_lines, cut):
+                    cut_energy = ''
+                    sig_map = nmi.dot(ll.signature)
+
+                    for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
+                        if sig_sign != 0:
+                            if cut_sign * sig_sign == 1:
+                                cut_energy += '+delta[[%s]]' % index
+                            else:
+                                cut_energy += '-delta[[%s]]' % index
+                            if sig_sign == 1:
+                                cut_energy += '-(%s)' % shift # add parenthesis to prevent -- operator
+                            else:
+                                cut_energy += '+%s' % shift
+
+                    for p_index, p in enumerate(ll.propagators):
+                        if cut_prop_index_in_ll == p_index:
+                            formatted_str += '2*delta[[%s]]' % prop_count
+                        else:
+                            formatted_str += '((%s+%s)^2-delta[[%s]]^2)' % (cut_energy, p.q[0], prop_count)
+                            # TODO: filter for existence?
+                            surface_equations.append('S%s' % len(surface_equations)
+                                + '=%s+%s+delta[[%s]];' % (cut_energy, p.q[0], prop_count))
+                            surface_equations.append('S%s' % len(surface_equations)
+                                + '=%s+%s-delta[[%s]];' % (cut_energy, p.q[0], prop_count))
+                        prop_count += 1
+                formatted_str += ')'
+        formatted_str += ')];'
+        return formatted_str + '\n'.join(surface_equations)
 
     def guess_analytical_result(self, loop_momenta, ext_mom, masses):
         """ Try and guess the analytic value for this particular loop topology."""
@@ -657,7 +744,7 @@ class LoopTopology(object):
         try:
             from graphviz import Digraph
         except ImportError:
-            print "The print function of the LoopTopology requires the package graphviz."
+            print("The print function of the LoopTopology requires the package graphviz.")
 
         dot = Digraph(comment=self.name if self.name else 'Topology',
                         graph_attr={'fontsize':'8','sep':'10', 'splines':'true'},
