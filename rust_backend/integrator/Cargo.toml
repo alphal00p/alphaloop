@@ -8,8 +8,8 @@ name = "integrator"
 crate-type = ["cdylib", "lib"]
 
 [dependencies.cpython]
-git = "https://github.com/dgrunwald/rust-cpython"
-version = "0.2"
+#git = "https://github.com/dgrunwald/rust-cpython"
+version = "0.3"
 default-features = false
 features = ["python27-sys"]
 

@@ -499,97 +499,9 @@ class TopologyGenerator(object):
         if fixed_deformation is None:
             # TODO generate the source coordinates automatically with cvxpy if 
             # not specified.
-            loop_topology.fixed_deformation = self.build_fixed_deformation()
+            loop_topology.build_fixed_deformation()
 
         return loop_topology
-
-    def build_fixed_deformation(self):
-        """ This function identifies the fixed deformation sources for the deformation field as well as a the list of
-        surfaces ids to exclude for each."""
-
-        pass
-        try:
-            import cvxpy
-        except:
-            print("Error: could not import package cvxpy necessary for building the fixed deformation. Make sure it is installed.")
-            return None
-
-        # First build the loop variables
-        source_coordinates = [ cvxpy.Variable(3) for loop_id in range(self.n_loops) ]
-
-        # Then store the shifts and mass from each propagator delta
-        deltas = []
-        for ll in self.loop_lines:
-            for p in ll.propagators:
-                deltas.append( 
-                    sum( sig*source_coordinates[i_loop_momentum] for i_loop_momentum, sig in enumerate(p.signature) if sig!=0 ) +
-                )
-                for sig in p.signature:
-
-                prop_count += 1
-
-        # compute all deltas
-        prop_count = 1
-        for ll in self.loop_lines:
-            for p in ll.propagators:
-                formatted_str += '\tdelta[[%s]] = Sqrt[Total[(' % prop_count
-                for sig, name in zip(p.signature, names):
-                    if sig == 1:
-                        formatted_str += '+{%sx,%sy,%sz}' % (name, name, name)
-                    elif sig == -1:
-                        formatted_str += '-{%sx,%sy,%sz}' % (name, name, name)
-                formatted_str += '+{%s,%s,%s}' % (p.q[1], p.q[2], p.q[3])
-                formatted_str += ')^2]+' + str(p.m_squared) + '];\n'
-                prop_count += 1
-
-        surface_equations = []
-
-        # construct all dual integrands
-        formatted_str += '\t(-2 Pi I)^%s (1/(2 Pi)^4)^%s(' % (self.n_loops, self.n_loops)
-        for cs in self.ltd_cut_structure:
-            for cut in product(*[[(c, i, p) for i, p in enumerate(ll.propagators)] if c != 0 else [(0,-1,None)] for c, ll in zip(cs, self.loop_lines)]):
-                # construct the cut basis to loop momentum basis mapping
-                mat = []
-                cut_info = []
-                cut_prop_count = 1
-                for ll, (cut_sign, cut_prop_index_in_ll, cut_prop) in zip(self.loop_lines, cut):
-                    if cut_sign != 0:
-                        mat.append(ll.signature)
-                        cut_info.append((cut_sign, cut_prop_count + cut_prop_index_in_ll, cut_prop.q[0]))
-                    cut_prop_count += len(ll.propagators)
-                nmi = numpy.linalg.inv(numpy.array(mat).transpose())
-
-                prop_count = 1
-                formatted_str += '+1/('
-                for ll, (_, cut_prop_index_in_ll, _) in zip(self.loop_lines, cut):
-                    cut_energy = ''
-                    sig_map = nmi.dot(ll.signature)
-
-                    for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
-                        if sig_sign != 0:
-                            if cut_sign * sig_sign == 1:
-                                cut_energy += '+delta[[%s]]' % index
-                            else:
-                                cut_energy += '-delta[[%s]]' % index
-                            if sig_sign == 1:
-                                cut_energy += '-(%s)' % shift # add parenthesis to prevent -- operator
-                            else:
-                                cut_energy += '+%s' % shift
-
-                    for p_index, p in enumerate(ll.propagators):
-                        if cut_prop_index_in_ll == p_index:
-                            formatted_str += '2*delta[[%s]]' % prop_count
-                        else:
-                            formatted_str += '((%s+%s)^2-delta[[%s]]^2)' % (cut_energy, p.q[0], prop_count)
-                            # TODO: filter for existence?
-                            surface_equations.append('S%s' % len(surface_equations)
-                                + '=%s+%s+delta[[%s]];' % (cut_energy, p.q[0], prop_count))
-                            surface_equations.append('S%s' % len(surface_equations)
-                                + '=%s+%s-delta[[%s]];' % (cut_energy, p.q[0], prop_count))
-                        prop_count += 1
-                formatted_str += ')'
-        formatted_str += ')];'
-        return formatted_str + '\n'.join(surface_equations)
 
     def guess_analytical_result(self, loop_momenta, ext_mom, masses):
         """ Try and guess the analytic value for this particular loop topology."""
@@ -919,6 +831,129 @@ class LoopTopology(object):
             return LoopTopology.from_flat_format(yaml.load(input_path, Loader=Loader))
         else:
             return LoopTopology.from_flat_format(yaml.load(open(input_path,'r'), Loader=Loader))
+
+    def build_fixed_deformation(self):
+        """ This function identifies the fixed deformation sources for the deformation field as well as a the list of
+        surfaces ids to exclude for each."""
+
+        try:
+            import cvxpy
+            import numpy as np
+        except:
+            print("Error: could not import package cvxpy necessary for building the fixed deformation. Make sure it is installed.")
+            return None
+
+        # First build the loop variables
+        source_coordinates = [cvxpy.Variable(3)] * self.n_loops
+
+        # Then store the shifts and mass from each propagator delta
+        deltas = []
+        delta_func = []
+        for ll in self.loop_lines:
+            for p in ll.propagators:
+                mom = sum(source_coordinates[i_loop_momentum] * sig for i_loop_momentum, sig in enumerate(p.signature) if sig!=0)
+                mom += p.q[1:]
+                deltas.append(cvxpy.norm(cvxpy.hstack([math.sqrt(p.m_squared), mom]), 2))
+                delta_func.append(([(i_loop_momentum, sig) for i_loop_momentum, sig in enumerate(p.signature) if sig!=0], p.q[1:], math.sqrt(p.m_squared)))
+
+        # construct all ellipsoid surfaces
+        ellipsoids = {}
+        ellipsoid_fun = {}
+        for cs in self.ltd_cut_structure:
+            for cut in product(*[[(c, i, p) for i, p in enumerate(ll.propagators)] if c != 0 else [(0,-1,None)] for c, ll in zip(cs, self.loop_lines)]):
+                # construct the cut basis to loop momentum basis mapping
+                mat = []
+                cut_info = []
+                cut_prop_count = 0
+                for ll, (cut_sign, cut_prop_index_in_ll, cut_prop) in zip(self.loop_lines, cut):
+                    if cut_sign != 0:
+                        mat.append(ll.signature)
+                        cut_info.append((cut_sign, cut_prop_count + cut_prop_index_in_ll, cut_prop.q[0]))
+                    cut_prop_count += len(ll.propagators)
+                nmi = numpy.linalg.inv(numpy.array(mat).transpose())
+
+                prop_count = 0
+                for ll, (_, cut_prop_index_in_ll, _) in zip(self.loop_lines, cut):
+                    sig_map = nmi.dot(ll.signature)
+
+                    eq = 0.
+                    eq_fn = []
+                    is_ellipsoid = True
+                    surf_sign = 0
+
+                    for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
+                        if sig_sign != 0:
+                            eq += cut_sign * sig_sign * deltas[index]
+                            eq -= sig_sign * shift
+                            eq_fn.append([cut_sign * sig_sign, index, sig_sign * shift])
+
+                            if surf_sign == 0:
+                                surf_sign = cut_sign * sig_sign
+                            if surf_sign != cut_sign * sig_sign:
+                                is_ellipsoid = False
+
+                    for p_index, p in enumerate(ll.propagators):
+                        if cut_prop_index_in_ll != p_index and is_ellipsoid:
+                            # TODO: check sign
+                            ellipsoid_fun[(tuple((c[0], c[1]) for c in cut), p_index)] = [surf_sign, eq_fn + [(surf_sign, prop_count, -p.q[0])]]
+
+                            if surf_sign == -1:
+                                # multiply everyting with -1
+                                ellipsoids[(tuple((c[0], c[1]) for c in cut), p_index)] = -eq - p.q[0] + deltas[prop_count]
+                            else:
+                                ellipsoids[(tuple((c[0], c[1]) for c in cut), p_index)] = eq + p.q[0] + deltas[prop_count]
+                        prop_count += 1
+
+        # Filter non-existing ellipsoids
+        for ev in list(ellipsoids):
+            e = ellipsoids[ev]
+            p = cvxpy.Problem(cvxpy.Minimize(e), [])
+            result = p.solve()
+            if result < -1e-8:
+                pass
+            else:
+                del ellipsoids[ev]
+                del ellipsoid_fun[ev]
+
+        # Find the point of maximal overlap
+        if len(ellipsoids) > 0:
+            radii = [cvxpy.Variable(1)] * self.n_loops
+            centers = [cvxpy.Variable(3)] * self.n_loops
+            directions = [
+                cvxpy.Parameter(3, value=np.array([-1., 0., 0.])),
+                cvxpy.Parameter(3, value=np.array([+1., 0., 0.])),
+                cvxpy.Parameter(3, value=np.array([0., +1., 0.])),
+                cvxpy.Parameter(3, value=np.array([0.,-1., 0.])),
+            ]
+
+            # now construct several constaints from the ellipsoid function
+            constraints = []
+            for directions in product(directions, repeat=self.n_loops):
+                source_shifted = [s + d*r for d, r, s in zip(directions, radii, source_coordinates)]
+                for (overall_sign, foci) in ellipsoid_fun.values():
+                    expr = 0
+                    for (sign, delta_index, shift) in foci:
+                        mom = 0
+                        (mom_dep, shift1, m1) = delta_func[delta_index]
+                        for (loop_index, sign) in mom_dep:
+                            mom += source_shifted[loop_index] * sign
+                        mom += shift1
+                        expr += sign * cvxpy.norm(cvxpy.hstack([math.sqrt(m1), mom]), 2) - shift
+                    expr *= overall_sign
+                    #print(expr)
+                    constraints.append(expr <= 0)
+
+            # objective
+            objective = cvxpy.Maximize(sum(radii))
+            p = cvxpy.Problem(objective, constraints)
+            try:
+                result = p.solve()
+            except:
+                pass
+            #print('status =',p.status, ', res=', result, 'k', source_coordinates[0].value)
+            #print(centers[0].value)
+
+        self.fixed_deformation = None # TODO: set
 
 class LoopLine(object):
     """ A simple container for describing a loop line."""
