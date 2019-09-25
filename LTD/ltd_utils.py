@@ -13,7 +13,7 @@ from collections import defaultdict
 from pprint import pformat
 import numpy as numpy
 import numpy.linalg
-from itertools import product
+from itertools import product, combinations
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
@@ -915,10 +915,45 @@ class LoopTopology(object):
                 del ellipsoids[ev]
                 del ellipsoid_fun[ev]
 
+        # Find the maximal overlap between all ellipsoids
+        # This algorithm is only fast enough for simple cases
+        el = list(ellipsoids.values())
+        el_fun = list(ellipsoid_fun.values())
+        max_overlap = [(i,) for i in range(len(ellipsoid_fun))]
+
+        done_overlaps = []
+        for n in range(1, len(el)):
+            unused = set(max_overlap)
+            new_max_overlap = []
+            for x in combinations(max_overlap, n + 1):
+                tot = [z for y in x for z in y]
+
+                if any(tot.count(v) != n for v in tot):
+                    continue
+
+                unique = tuple(set(tuple(tot)))
+
+                p = cvxpy.Problem(cvxpy.Minimize(1), [el[e] <= 0 for e in unique])
+                result = p.solve()
+                if p.status == cvxpy.OPTIMAL:
+                    new_max_overlap.append(unique)
+                    for y in x:
+                        if y in unused:
+                            unused.remove(y)
+
+            for x in unused:
+                done_overlaps.append(x)
+
+            max_overlap = new_max_overlap
+
+        all_overlaps = max_overlap + done_overlaps
+        print('Overlap structure of %s: %s' % (self.name, all_overlaps))
+
+        self.fixed_deformation = []
+
         # Find the point of maximal overlap
-        if len(ellipsoids) > 0:
+        for overlap in all_overlaps:
             radii = [cvxpy.Variable(1)] * self.n_loops
-            centers = [cvxpy.Variable(3)] * self.n_loops
             directions = [
                 cvxpy.Parameter(3, value=np.array([-1., 0., 0.])),
                 cvxpy.Parameter(3, value=np.array([+1., 0., 0.])),
@@ -930,7 +965,8 @@ class LoopTopology(object):
             constraints = []
             for directions in product(directions, repeat=self.n_loops):
                 source_shifted = [s + d*r for d, r, s in zip(directions, radii, source_coordinates)]
-                for (overall_sign, foci) in ellipsoid_fun.values():
+                for overlap_ellipse_ids in overlap:
+                    (overall_sign, foci) = el_fun[overlap_ellipse_ids]
                     expr = 0
                     for (sign, delta_index, shift) in foci:
                         mom = 0
@@ -940,7 +976,6 @@ class LoopTopology(object):
                         mom += shift1
                         expr += sign * cvxpy.norm(cvxpy.hstack([math.sqrt(m1), mom]), 2) - shift
                     expr *= overall_sign
-                    #print(expr)
                     constraints.append(expr <= 0)
 
             # objective
@@ -948,12 +983,16 @@ class LoopTopology(object):
             p = cvxpy.Problem(objective, constraints)
             try:
                 result = p.solve()
-            except:
-                pass
-            #print('status =',p.status, ', res=', result, 'k', source_coordinates[0].value)
-            #print(centers[0].value)
 
-        self.fixed_deformation = None # TODO: set
+                # FIXME: the ID of the excluded surfaces does not match with Rust
+                excluded = [i for i in range(len(el)) if i not in overlap]
+
+                self.fixed_deformation.append(([[0., c.value[0], c.value[1], c.value[2]] for c in source_coordinates], excluded))
+            except:
+                raise AssertionError("Could not solve system, it should have a solution")
+
+        print('Fixed deformation', self.fixed_deformation)
+
 
 class LoopLine(object):
     """ A simple container for describing a loop line."""
