@@ -149,13 +149,13 @@ doubletriangle = TopologyGenerator([
     ('p4', 3, 4), ('p5', 4, 2), ('-q', 4, 5)])
 q = vectors.LorentzVector([1.0, 0, 0., 0])
 hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
-        "DoubleTriangle_no_ellipse", 
+        "DoubleTriangle_massive_physical", 
         ext_mom={'q': q , '-q' : -q}, 
-        mass_map={'p1': 0.1, 'p2': 0.2, 'p3': 0.3}, 
+        mass_map={'p1': 0.1, 'p2': 0.2, 'p3': 0.3, 'p4': 0.25, 'p5':0.3}, 
         loop_momenta_names=('p1', 'p5'), 
         analytic_result= 0.,
         contour_closure = [0,0],
-        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.]], 'excluded_surface_ids': []},]
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'excluded_surface_ids': []},]
         
     ),
     entry_name = 'DoubleTriangle_massive_physical'
