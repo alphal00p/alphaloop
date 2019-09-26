@@ -151,7 +151,7 @@ q = vectors.LorentzVector([1.0, 0, 0., 0])
 hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
         "DoubleTriangle_massive_physical", 
         ext_mom={'q': q , '-q' : -q}, 
-        mass_map={'p1': 0.1, 'p2': 0.2, 'p3': 0.3, 'p4': 0.25, 'p5':0.3}, 
+        mass_map={'p1': 0., 'p2': 0., 'p3': 0., 'p4': 0., 'p5':0.}, 
         loop_momenta_names=('p1', 'p5'), 
         analytic_result= 0.,
         contour_closure = [0,0],
@@ -160,6 +160,7 @@ hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
     ),
     entry_name = 'DoubleTriangle_massive_physical'
 )
+
 
 # PRL_6p_2L
 PRL_6p_2L = TopologyGenerator([
@@ -207,6 +208,34 @@ hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
     ),
     entry_name = 'DoubleBox_no_ellipse'
 )
+
+
+# double box
+doublebox = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 6, 1), ('p2', 1, 2), ('p3', 2, 7), ('p4', 7, 6),
+        ('p5', 6, 3), ('p6', 3, 4), ('p7', 4, 7),
+])
+q1 = vectors.LorentzVector([  1,  0., 0., 0.3])
+q2 = vectors.LorentzVector([  1, 0.,   0., -0.3 ])
+q3 = vectors.LorentzVector([ -1.3,  0., 0., 0.2 ])
+q4 = -q1-q2-q3
+hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
+        "DoubleBox_physical", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+        mass_map={}, # no masses 
+        loop_momenta_names=('p5', 'p1'), 
+        analytic_result = analytic_four_point_ladder( 
+            q1.square(), q2.square(), q3.square(), q4.square(),
+            (q1+q2).square(), (q2+q3).square(), 2),
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'excluded_surface_ids': []},]
+        
+    ),
+    entry_name = 'DoubleBox_physical'
+)
+
+
+
 
 # Fishnets generation. This is typically pretty slow and thus disabled by default.
 
@@ -589,7 +618,7 @@ TriangleBoxTriangle = TopologyGenerator([
     ('p3', 4, 5), ('p4', 5, 6), ('p5', 6, 1), ('p6', 6, 2),
     ('p7', 5, 3), ('-q', 7, 4)
 ])
-q = vectors.LorentzVector([ 1., 3., 0., 0.])
+q = vectors.LorentzVector([ 1., 1., 1., 0.])
 hard_coded_topology_collection.add_topology(TriangleBoxTriangle.create_loop_topology(
     'TriangleBoxTriangle',
     ext_mom={'q': q, '-q': -q},
@@ -598,6 +627,24 @@ hard_coded_topology_collection.add_topology(TriangleBoxTriangle.create_loop_topo
     contour_closure = [0,0,1],
     ),
     entry_name = 'TriangleBoxTriangle'
+)
+
+# triangle box triangle
+TriangleBoxTriangle = TopologyGenerator([
+    ('q', 0, 1), ('p0', 1, 2), ('p1', 2, 3), ('p2', 3, 4),
+    ('p3', 4, 5), ('p4', 5, 6), ('p5', 6, 1), ('p6', 6, 2),
+    ('p7', 5, 3), ('-q', 7, 4)
+])
+q = vectors.LorentzVector([ 1., 0., 0., 0.])
+hard_coded_topology_collection.add_topology(TriangleBoxTriangle.create_loop_topology(
+    'TriangleBoxTriangle_physical',
+    ext_mom={'q': q, '-q': -q},
+    loop_momenta_names=('p5', 'p6', 'p7',),
+    analytic_result = analytic_two_point_ladder(q.square(),3),
+    contour_closure = [0,0,1],
+    fixed_deformation = [{'deformation_sources': [[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.]], 'excluded_surface_ids':[]}],
+    ),
+    entry_name = 'TriangleBoxTriangle_physical'
 )
 
 two_loop_6pt = TopologyGenerator([
