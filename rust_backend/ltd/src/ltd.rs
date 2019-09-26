@@ -1744,7 +1744,7 @@ impl Topology {
         let jac = utils::determinant(jac_mat, 3 * self.n_loops);
         // take the real part
         let mut r = [LorentzVector::default(); MAX_LOOP];
-        for (rr, k) in r.iter_mut().zip_eq(&kappas[..self.n_loops]) {
+        for (rr, k) in r[..self.n_loops].iter_mut().zip_eq(&kappas[..self.n_loops]) {
             *rr = k.real();
         }
         (r, jac)
@@ -1771,7 +1771,7 @@ impl Topology {
                     r[0][i + 1][i + 1] = T::one();
                 }
 
-                return self.deform_generic(&r, cut, ellipsoid_id, cache);
+                return self.deform_generic(&r[..self.n_loops], cut, ellipsoid_id, cache);
             }
             2 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1782,7 +1782,7 @@ impl Topology {
                     r[0][i + 1][i + 1] = T::one();
                     r[1][i + 1][i + 4] = T::one();
                 }
-                self.deform_generic(&r, cut, ellipsoid_id, cache)
+                self.deform_generic(&r[..self.n_loops], cut, ellipsoid_id, cache)
             }
             3 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1795,7 +1795,7 @@ impl Topology {
                     r[1][i + 1][i + 4] = T::one();
                     r[2][i + 1][i + 7] = T::one();
                 }
-                self.deform_generic(&r, cut, ellipsoid_id, cache)
+                self.deform_generic(&r[..self.n_loops], cut, ellipsoid_id, cache)
             }
             4 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1810,7 +1810,7 @@ impl Topology {
                     r[2][i + 1][i + 7] = T::one();
                     r[3][i + 1][i + 10] = T::one();
                 }
-                self.deform_generic(&r, cut, ellipsoid_id, cache)
+                self.deform_generic(&r[..self.n_loops], cut, ellipsoid_id, cache)
             }
             5 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1827,7 +1827,7 @@ impl Topology {
                     r[3][i + 1][i + 10] = T::one();
                     r[4][i + 1][i + 13] = T::one();
                 }
-                self.deform_generic(&r, cut, ellipsoid_id, cache)
+                self.deform_generic(&r[..self.n_loops], cut, ellipsoid_id, cache)
             }
             6 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -1846,7 +1846,7 @@ impl Topology {
                     r[4][i + 1][i + 13] = T::one();
                     r[5][i + 1][i + 16] = T::one();
                 }
-                self.deform_generic(&r, cut, ellipsoid_id, cache)
+                self.deform_generic(&r[..self.n_loops], cut, ellipsoid_id, cache)
             }
             n => panic!("Binding for deformation at {} loops is not implemented", n),
         }
