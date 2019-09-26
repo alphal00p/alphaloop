@@ -4,7 +4,8 @@ use disjoint_sets::UnionFind;
 use dual_num::{DimName, DualN};
 use itertools::Itertools;
 use num::Complex;
-use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, Signed, Zero};
+use num_traits::ops::inv::Inv;
+use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
 use utils::Signum;
 use vector::LorentzVector;
@@ -55,7 +56,7 @@ impl LoopLine {
             }
             Cut::NoCut => {
                 let mut e: num::Complex<T> = Complex::default();
-                for (l, &c) in loop_momenta.iter().zip(self.signature.iter()) {
+                for (l, &c) in loop_momenta.iter().zip_eq(self.signature.iter()) {
                     e += l.t * T::from_i8(c).unwrap();
                 }
                 e
@@ -159,7 +160,7 @@ impl Topology {
             .iter()
             .map(|cs| {
                 cs.iter()
-                    .zip(self.loop_lines.iter())
+                    .zip_eq(self.loop_lines.iter())
                     .map(|(ll_cut, ll)| match ll_cut {
                         0 => vec![Cut::NoCut],
                         -1 => (0..ll.propagators.len())
@@ -179,17 +180,19 @@ impl Topology {
         for (cut_index, (residue_sign, cut_options)) in self
             .ltd_cut_structure
             .iter()
-            .zip(self.ltd_cut_options.iter())
+            .zip_eq(self.ltd_cut_options.iter())
             .enumerate()
         {
             let mut cut_signatures_matrix = vec![];
+            let mut cut_residue_sign = vec![];
 
             // note that negative cuts will be treated later
-            for (c, ll) in residue_sign.iter().zip(self.loop_lines.iter()) {
+            for (c, ll) in residue_sign.iter().zip_eq(self.loop_lines.iter()) {
                 if *c != 0 {
                     for mom in &ll.signature {
                         cut_signatures_matrix.push(*mom as f64);
                     }
+                    cut_residue_sign.push(*c);
                 }
             }
 
@@ -205,7 +208,7 @@ impl Topology {
             for (cut_option_index, cut_option) in cut_options.iter().enumerate() {
                 let mut cut_shift: Vec<LorentzVector<float>> = vec![]; // qs of cut
                 let mut cut_mass = vec![];
-                for (cut, ll) in cut_option.iter().zip(self.loop_lines.iter()) {
+                for (cut, ll) in cut_option.iter().zip_eq(self.loop_lines.iter()) {
                     if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut
                     {
                         cut_shift.push(ll.propagators[*cut_prop_index].q.cast());
@@ -229,7 +232,7 @@ impl Topology {
                         }
 
                         let mut surface_shift: LorentzVector<float> = onshell_prop.q.cast();
-                        for (&sign, q) in sig_ll_in_cb.iter().zip(cut_shift.iter()) {
+                        for (&sign, q) in sig_ll_in_cb.iter().zip_eq(cut_shift.iter()) {
                             surface_shift -= q.multiply_sign(sign);
                         }
 
@@ -241,14 +244,14 @@ impl Topology {
                         if surface_shift.t != float::zero() {
                             // multiply the residue sign
                             let mut surface_signs = sig_ll_in_cb.clone();
-                            for (ss, sign) in surface_signs.iter_mut().zip(residue_sign) {
+                            for (ss, sign) in surface_signs.iter_mut().zip_eq(&cut_residue_sign) {
                                 if *sign < 0 {
                                     *ss *= -1;
                                 }
                             }
 
                             let mut cut_mass_sum = float::zero();
-                            for (ss, mass) in surface_signs.iter().zip(cut_mass.iter()) {
+                            for (ss, mass) in surface_signs.iter().zip_eq(cut_mass.iter()) {
                                 cut_mass_sum += mass.multiply_sign(*ss);
                             }
 
@@ -314,7 +317,7 @@ impl Topology {
                                         (1, _) | (_, 1) => {
                                             let mut eval = float::zero();
                                             for (&ss, mass) in
-                                                surface_signs.iter().zip(cut_mass.iter())
+                                                surface_signs.iter().zip_eq(cut_mass.iter())
                                             {
                                                 if pos_surface_signs_count == 1 && ss == 1
                                                     || neg_surface_signs_count == 1 && ss == -1
@@ -379,11 +382,15 @@ impl Topology {
         // Identify similar surfaces and put them in the same group
         // If a surface is the first of a new group, the group id will be the index
         // in the surface list
-        let mut group_representative: Vec<(Vec<((usize, usize), i8)>, usize)> = vec![];
+        let mut group_representative: Vec<(Vec<((usize, usize), i8, i8)>, usize)> = vec![];
         for (surf_index, s) in &mut self.surfaces.iter_mut().enumerate() {
             // create a tuple that identifies a surface:
-            // (p_i, s_i) where p_i is a cut propagator or an on-shell one
-            // and s_i is the surface sign
+            // (p_i, s_i, ss_i) where p_i is a cut propagator or an on-shell one
+            // and s_i is the surface sign, and ss_i is the signature sign
+            // The signature sign is used to see if the constant term in the
+            // surface equation is the same. Since the sign of the constant coming
+            // from the on-shell propagator is always of opposite sign,
+            // we add a minus.
             // create a list of propagators that are cut or are on-shell
             // we sort it with their respective
             let mut s_cut_sorted = s
@@ -391,21 +398,28 @@ impl Topology {
                 .iter()
                 .enumerate()
                 .filter(|(_, x)| **x != Cut::NoCut)
-                .zip(s.signs.iter())
-                .filter_map(|((lli, c), s)| match c {
-                    Cut::PositiveCut(i) | Cut::NegativeCut(i) if *s != 0 => Some(((lli, *i), *s)),
+                .zip_eq(s.signs.iter())
+                .zip_eq(s.sig_ll_in_cb.iter())
+                .filter_map(|(((lli, c), s), ss)| match c {
+                    Cut::PositiveCut(i) | Cut::NegativeCut(i) if *s != 0 => {
+                        Some(((lli, *i), *s, *ss))
+                    }
                     _ => None,
                 })
                 .collect::<Vec<_>>();
 
             // now add the surface sign
-            s_cut_sorted.push(((s.onshell_ll_index, s.onshell_prop_index), s.delta_sign));
+            s_cut_sorted.push((
+                (s.onshell_ll_index, s.onshell_prop_index),
+                s.delta_sign,
+                -s.delta_sign,
+            ));
             s_cut_sorted.sort();
 
             // also try with opposite signs
             let s_cut_sorted_inv = s_cut_sorted
                 .iter()
-                .map(|(c, s)| (*c, -s))
+                .map(|(c, s, ss)| (*c, -s, -ss))
                 .collect::<Vec<_>>();
 
             let mut is_new = false;
@@ -489,7 +503,7 @@ impl Topology {
             let mut cs = s
                 .cut
                 .iter()
-                .zip(&self.loop_lines)
+                .zip_eq(&self.loop_lines)
                 .filter_map(|(c, ll)| {
                     if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
                         Some(ll.propagators[*i].id)
@@ -677,10 +691,10 @@ impl Topology {
         jac /= k_r * k_r;
 
         let mut x = [x1, x2, x3];
-        for (xi, &(lo, hi)) in izip!(
-            &mut x,
-            &self.settings.parameterization.input_rescaling[loop_index]
-        ) {
+        for (xi, &(lo, hi)) in x
+            .iter_mut()
+            .zip_eq(&self.settings.parameterization.input_rescaling[loop_index])
+        {
             *xi = (*xi - Into::<T>::into(lo)) / Into::<T>::into(hi - lo);
             jac /= Into::<T>::into(hi - lo);
         }
@@ -735,7 +749,7 @@ impl Topology {
 
         for ll in &self.loop_lines {
             let mut kappa_cut = LorentzVector::default();
-            for (kappa, &sign) in kappas.iter().zip(ll.signature.iter()) {
+            for (kappa, &sign) in kappas.iter().zip_eq(ll.signature.iter()) {
                 kappa_cut += kappa.multiply_sign(sign);
             }
 
@@ -820,18 +834,21 @@ impl Topology {
         if self.settings.deformation.scaling.non_cut_propagator_check {
             let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
 
-            for (cuts, cb_to_lmb_mat) in self.ltd_cut_options.iter().zip(self.cb_to_lmb_mat.iter())
+            for (cuts, cb_to_lmb_mat) in self
+                .ltd_cut_options
+                .iter()
+                .zip_eq(self.cb_to_lmb_mat.iter())
             {
                 for cut in cuts {
                     let mut index = 0;
-                    for (c, ll) in cut.iter().zip(self.loop_lines.iter()) {
+                    for (c, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
                         if let Cut::NegativeCut(i) | Cut::PositiveCut(i) = c {
                             cut_infos[index] = &cache.cut_info[ll.propagators[*i].id];
                             index += 1;
                         }
                     }
 
-                    for (ll_cut, onshell_ll) in cut.iter().zip(self.loop_lines.iter()) {
+                    for (ll_cut, onshell_ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
                         // store a bit flag to see if we have checked a loop line with a cut already
                         // 1 => positive cut computed, 2 => negative cut computed
                         match *ll_cut {
@@ -899,8 +916,9 @@ impl Topology {
                         let mut a = DualN::from_real(T::zero());
                         let mut b = DualN::from_real(T::zero());
                         let mut c = DualN::from_real(T::zero());
-                        for (cut_info, &sign) in
-                            cut_infos[..self.n_loops].iter().zip(onshell_signs.iter())
+                        for (cut_info, &sign) in cut_infos[..self.n_loops]
+                            .iter()
+                            .zip_eq(onshell_signs.iter())
                         {
                             if sign != 0 {
                                 a += cut_info.a.multiply_sign(sign);
@@ -1001,7 +1019,7 @@ impl Topology {
             // the 0th component is to be ignored
             let mut cut_counter = 0;
             let mut cut_energy = DualN::default();
-            for (c, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
+            for (c, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
                 if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
                     cut_dirs[cut_counter] = cache.cut_info[ll.propagators[*i].id].momentum
                         / cache.cut_info[ll.propagators[*i].id].real_energy;
@@ -1033,7 +1051,7 @@ impl Topology {
             // we update cut_dirs from v_i to n_i
             for (cut_dir, &sign) in cut_dirs[..self.n_loops]
                 .iter_mut()
-                .zip(surf.sig_ll_in_cb.iter())
+                .zip_eq(surf.sig_ll_in_cb.iter())
             {
                 if sign != 0 {
                     *cut_dir += surface_dir_norm.multiply_sign(sign);
@@ -1046,7 +1064,7 @@ impl Topology {
                 for (&sign, cut_dir) in self.cb_to_lmb_mat[surf.cut_structure_index]
                     [i * self.n_loops..(i + 1) * self.n_loops]
                     .iter()
-                    .zip(cut_dirs[..self.n_loops].iter())
+                    .zip_eq(cut_dirs[..self.n_loops].iter())
                 {
                     *deform_dir += cut_dir.multiply_sign(sign);
                 }
@@ -1207,7 +1225,7 @@ impl Topology {
         // TODO: precompute this map by mapping cut indices to cut propagator ids
         let mut index = 0;
         let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
-        for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
+        for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
             if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
                 cut_infos[index] = &cache.cut_info[ll.propagators[i].id];
                 index += 1;
@@ -1220,7 +1238,7 @@ impl Topology {
             for (&sign, &cut_info) in self.cb_to_lmb_mat[cut_structure_index]
                 [i * self.n_loops..(i + 1) * self.n_loops]
                 .iter()
-                .zip(cut_infos.iter())
+                .zip_eq(cut_infos.iter())
             {
                 let mom_normalized = cut_info.momentum / cut_info.real_energy;
                 deform_dir += mom_normalized.multiply_sign(sign);
@@ -1242,7 +1260,7 @@ impl Topology {
         let mut res = num::Complex::zero();
 
         let mut cut_index = 0;
-        for (cut, ll) in izip!(surf.cut.iter(), self.loop_lines.iter()) {
+        for (cut, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
             if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *cut {
                 if surf.signs[cut_index] == 0 {
                     cut_index += 1;
@@ -1251,7 +1269,7 @@ impl Topology {
 
                 // construct the cut energy
                 let mut mom = LorentzVector::<num::Complex<T>>::default();
-                for (&cut_sign, lm) in ll.signature.iter().zip(loop_momenta.iter()) {
+                for (&cut_sign, lm) in ll.signature.iter().zip_eq(loop_momenta.iter()) {
                     mom += lm.multiply_sign(cut_sign);
                 }
                 // compute the postive cut energy
@@ -1270,7 +1288,7 @@ impl Topology {
         let mut mom = LorentzVector::<num::Complex<T>>::default();
         let onshell_ll = &self.loop_lines[surf.onshell_ll_index];
         let onshell_prop = &onshell_ll.propagators[surf.onshell_prop_index];
-        for (&surf_sign, lm) in onshell_ll.signature.iter().zip(loop_momenta.iter()) {
+        for (&surf_sign, lm) in onshell_ll.signature.iter().zip_eq(loop_momenta.iter()) {
             mom += lm.multiply_sign(surf_sign);
         }
 
@@ -1627,7 +1645,7 @@ impl Topology {
             let cache = cache.get_cache_mut();
             for ll in &self.loop_lines {
                 let mut mom = LorentzVector::default();
-                for (l, &c) in loop_momenta.iter().zip(ll.signature.iter()) {
+                for (l, &c) in loop_momenta.iter().zip_eq(ll.signature.iter()) {
                     mom += l.multiply_sign(c);
                 }
 
@@ -1674,7 +1692,10 @@ impl Topology {
             )
             .unwrap(),
         );
-        for (kappa, k) in &mut kappas[..self.n_loops].iter_mut().zip(loop_momenta.iter()) {
+        for (kappa, k) in &mut kappas[..self.n_loops]
+            .iter_mut()
+            .zip_eq(loop_momenta.iter())
+        {
             match self.settings.deformation.overall_scaling {
                 OverallDeformationScaling::Constant => *kappa *= scale,
                 OverallDeformationScaling::Linear => {
@@ -1723,7 +1744,7 @@ impl Topology {
         let jac = utils::determinant(jac_mat, 3 * self.n_loops);
         // take the real part
         let mut r = [LorentzVector::default(); MAX_LOOP];
-        for (rr, k) in r.iter_mut().zip(&kappas[..self.n_loops]) {
+        for (rr, k) in r.iter_mut().zip_eq(&kappas[..self.n_loops]) {
             *rr = k.real();
         }
         (r, jac)
@@ -1844,7 +1865,7 @@ impl Topology {
         // compute the cut energy for each loop line
         let mut cut_energy = [Complex::default(); MAX_LOOP];
         let mut index = 0;
-        for (&ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
+        for (&ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
             if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = ll_cut {
                 let e = cache.complex_cut_energies[ll.propagators[j].id];
                 if let Cut::PositiveCut(_) = ll_cut {
@@ -1861,7 +1882,7 @@ impl Topology {
             l.t = Complex::default();
             for (c, e) in mat[i * self.n_loops..(i + 1) * self.n_loops]
                 .iter()
-                .zip(&cut_energy[..self.n_loops])
+                .zip_eq(&cut_energy[..self.n_loops])
             {
                 l.t += e.multiply_sign(*c);
             }
@@ -1879,7 +1900,7 @@ impl Topology {
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
 
         let mut r = Complex::new(T::one(), T::zero());
-        for (i, (ll_cut, ll)) in cut.iter().zip(self.loop_lines.iter()).enumerate() {
+        for (i, (ll_cut, ll)) in cut.iter().zip_eq(self.loop_lines.iter()).enumerate() {
             // get the loop line result from the cache if possible
             r *= match ll_cut {
                 Cut::PositiveCut(j) => cache.complex_loop_line_eval[i][*j][0],
@@ -1945,7 +1966,7 @@ impl Topology {
         // compute all complex cut energies
         for (ll_index, ll) in self.loop_lines.iter().enumerate() {
             let mut mom = LorentzVector::default();
-            for (l, &c) in k_def.iter().zip(ll.signature.iter()) {
+            for (l, &c) in k_def.iter().zip_eq(ll.signature.iter()) {
                 mom += l.multiply_sign(c);
             }
 
@@ -2060,7 +2081,7 @@ impl Topology {
         for (cut_structure_index, (cuts, mat)) in self
             .ltd_cut_options
             .iter()
-            .zip(self.cb_to_lmb_mat.iter())
+            .zip_eq(self.cb_to_lmb_mat.iter())
             .enumerate()
         {
             // for each cut coming from the same cut structure
