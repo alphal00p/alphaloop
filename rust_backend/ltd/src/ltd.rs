@@ -288,6 +288,7 @@ impl Topology {
                                             sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
                                             signs: surface_signs.iter().cloned().collect(),
                                             shift: surface_shift.clone(),
+                                            id: vec![],
                                         });
                                     }
                                 } else {
@@ -365,6 +366,7 @@ impl Topology {
                                             sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
                                             signs: surface_signs.iter().cloned().collect(),
                                             shift: surface_shift.clone(),
+                                            id: vec![],
                                         });
                                     }
                                 }
@@ -414,6 +416,8 @@ impl Topology {
                     *focus = (focus.0, -focus.1, -focus.2);
                 }
             }
+
+            s.id = s_cut_sorted.clone();
 
             match group_representative.iter().find(|r| r.0 == s_cut_sorted) {
                 Some(i) => s.group = i.1,
@@ -536,6 +540,18 @@ impl Topology {
                 if self.ltd_cut_options[cut_index].len() == cut_opt_index {
                     cut_index += 1;
                     cut_opt_index = 0;
+                }
+            }
+        }
+
+        self.all_excluded_surfaces = vec![false; self.surfaces.len()];
+        for d in &mut self.fixed_deformation {
+            for surf_id in &d.excluded_surface_ids {
+                for (i, s) in self.surfaces.iter().enumerate() {
+                    if s.id == *surf_id {
+                        d.excluded_surface_indices.push(i);
+                        self.all_excluded_surfaces[i] = true;
+                    }
                 }
             }
         }
@@ -1492,16 +1508,17 @@ impl Topology {
     {
         let cache = cache.get_cache_mut();
 
-        // evaluate all ellipsoids
+        // evaluate all excluded ellipsoids
         for (i, surf) in self.surfaces.iter().enumerate() {
-            if !surf.ellipsoid || surf.pinched {
+            if !surf.ellipsoid || surf.pinched || surf.group != i || !self.all_excluded_surfaces[i]
+            {
                 cache.ellipsoid_eval[i] = DualN::zero();
                 continue;
             }
 
             let mut cut_counter = 0;
             let mut cut_energy = DualN::default();
-            for (c, ll) in surf.cut.iter().zip(self.loop_lines.iter()) {
+            for (c, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
                 if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
                     if let Cut::PositiveCut(i) = c {
                         cut_energy += cache.cut_info[ll.propagators[*i].id]
@@ -1541,7 +1558,7 @@ impl Topology {
             let mut softmin_num = DualN::zero();
             let mut softmin_den = DualN::zero();
 
-            for &surf_index in &d.excluded_surface_ids {
+            for &surf_index in &d.excluded_surface_indices {
                 // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                 // at the same time and goes to 1 otherwise
                 debug_assert!(
@@ -1590,9 +1607,9 @@ impl Topology {
                 println!(
                     "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
                     loop_momenta[0].real(),
-                    &d.deformation_sources[i * self.n_loops],
+                    &d.deformation_sources[0],
                     s.real(),
-                    &d.deformation_sources[i * self.n_loops].cast() * s.real(),
+                    &d.deformation_sources[0].cast() * s.real(),
                 );
             }
 

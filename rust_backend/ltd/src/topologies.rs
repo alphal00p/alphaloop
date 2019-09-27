@@ -24,6 +24,7 @@ pub struct Surface {
     pub sig_ll_in_cb: Vec<i8>,
     pub signs: Vec<i8>,
     pub shift: LorentzVector<float>,
+    pub id: Vec<((usize, usize), i8, i8)>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -301,7 +302,9 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FixedDeformation {
     pub deformation_sources: Vec<LorentzVector<f64>>,
-    pub excluded_surface_ids: Vec<usize>,
+    pub excluded_surface_ids: Vec<Vec<((usize, usize), i8, i8)>>,
+    #[serde(skip_deserializing)]
+    pub excluded_surface_indices: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -331,6 +334,8 @@ pub struct Topology {
     pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
     #[serde(default)]
     pub fixed_deformation: Vec<FixedDeformation>,
+    #[serde(skip_deserializing)]
+    pub all_excluded_surfaces: Vec<bool>,
 }
 
 impl Topology {

@@ -78,8 +78,8 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-        fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'excluded_surface_ids': [5]},
-                             {'deformation_sources': [[0., 18.399985727313332, 17.800014049513244, 0.]], 'excluded_surface_ids': [2]}]
+        #fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'excluded_surface_ids': [5]},
+        #                     {'deformation_sources': [[0., 18.399985727313332, 17.800014049513244, 0.]], 'excluded_surface_ids': [2]}]
      ),
      entry_name = 'Box_3E'
 )
@@ -121,7 +121,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=(-1.52339813764031085e-3 + 2.04369604371007528e-3j), # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-        fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
+        #fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
      ),
      entry_name = 'Pentagon_pairwise_3E'
 )

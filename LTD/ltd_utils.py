@@ -939,35 +939,41 @@ class LoopTopology(object):
         # Find the maximal overlap between all ellipsoids
         # This algorithm is only fast enough for simple cases
         el = list(ellipsoids.values())
-        el_fun = list(ellipsoid_fun.values())
+        el_fun = [(surf_id, surf) for surf_id, surf in ellipsoid_fun.items()]
         max_overlap = [(i,) for i in range(len(ellipsoid_fun))]
 
-        done_overlaps = []
-        for n in range(1, len(el)):
-            unused = set(max_overlap)
-            new_max_overlap = []
-            for x in combinations(max_overlap, n + 1):
-                tot = [z for y in x for z in y]
+        if len(ellipsoids) > 7:
+            print('Ignoring topology since it is too complicated')
+            all_overlaps = []
+        else:
+            done_overlaps = []
+            for n in range(1, len(el)):
+                unused = set(max_overlap)
+                new_max_overlap = []
+                for x in combinations(max_overlap, n + 1):
+                    tot = [z for y in x for z in y]
 
-                if any(tot.count(v) != n for v in tot):
-                    continue
+                    if any(tot.count(v) != n for v in tot):
+                        continue
 
-                unique = tuple(set(tuple(tot)))
+                    unique = tuple(set(tuple(tot)))
 
-                p = cvxpy.Problem(cvxpy.Minimize(1), [el[e] <= 0 for e in unique])
-                result = p.solve()
-                if p.status == cvxpy.OPTIMAL:
-                    new_max_overlap.append(unique)
-                    for y in x:
-                        if y in unused:
-                            unused.remove(y)
+                    p = cvxpy.Problem(cvxpy.Minimize(1), [el[e] <= 0 for e in unique])
+                    result = p.solve()
+                    if p.status == cvxpy.OPTIMAL:
+                        new_max_overlap.append(unique)
+                        for y in x:
+                            if y in unused:
+                                unused.remove(y)
 
-            for x in unused:
-                done_overlaps.append(x)
+                for x in unused:
+                    done_overlaps.append(x)
 
-            max_overlap = new_max_overlap
+                max_overlap = new_max_overlap
 
-        all_overlaps = max_overlap + done_overlaps
+            all_overlaps = max_overlap + done_overlaps
+
+
         print('Overlap structure of %s: %s' % (self.name, all_overlaps))
 
         self.fixed_deformation = []
@@ -987,7 +993,7 @@ class LoopTopology(object):
             for directions in product(directions, repeat=self.n_loops):
                 source_shifted = [s + d*r for d, r, s in zip(directions, radii, source_coordinates)]
                 for overlap_ellipse_ids in overlap:
-                    (overall_sign, foci) = el_fun[overlap_ellipse_ids]
+                    (overall_sign, foci) = el_fun[overlap_ellipse_ids][1]
                     expr = 0
                     for (sign, delta_index, shift) in foci:
                         mom = 0
@@ -1005,10 +1011,9 @@ class LoopTopology(object):
             try:
                 result = p.solve()
 
-                # FIXME: the ID of the excluded surfaces does not match with Rust
-                excluded = [i for i in range(len(el)) if i not in overlap]
+                excluded = [[[list(x), a, b] for x, a, b in el_fun[i][0] ] for i in range(len(el)) if i not in overlap]
 
-                self.fixed_deformation.append(([[0., c.value[0], c.value[1], c.value[2]] for c in source_coordinates], excluded))
+                self.fixed_deformation.append([[[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates], excluded])
             except:
                 raise AssertionError("Could not solve system, it should have a solution")
 
