@@ -1,10 +1,15 @@
 use arrayvec::ArrayVec;
 use gamma_chain::GammaChain;
 use num::Complex;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs::File;
 use topologies::{Cut, LTDCache, Topology};
 use utils;
-use vector::LorentzVector;
+use vector::{Field, LorentzVector}; //, RealNumberLike};
 use FloatLike;
+use GeneralSettings;
+//use Settings;
 use MAX_LOOP;
 
 #[allow(
@@ -18,40 +23,501 @@ pub mod Parameters {
     pub const alpha_s: f64 = 1.180000e-01;
     pub const alpha_ew: f64 = 1. / 1.325070e+02;
     pub const C_F: f64 = 4. / 3.;
+    pub const q_u: f64 = 2. / 3.;
+    pub const q_d: f64 = -1. / 3.;
 }
 
 #[allow(non_camel_case_types, dead_code)]
-enum Polarizations {
+#[derive(Debug, Copy, Deserialize, Clone)]
+pub enum Polarizations {
+    #[serde(rename = "u+")]
     UPlus,
+    #[serde(rename = "u-")]
     UMinus,
+    #[serde(rename = "ubar+")]
     UBarPlus,
+    #[serde(rename = "ubar-")]
     UBarMinus,
+    #[serde(rename = "v+")]
     VPlus,
+    #[serde(rename = "v-")]
     VMinus,
+    #[serde(rename = "vbar+")]
     VBarPlus,
+    #[serde(rename = "vbar-")]
     VBarMinus,
+    #[serde(rename = "a+")]
     APlus,
+    #[serde(rename = "a-")]
     AMinus,
 }
 
-#[derive(Debug)]
-struct Diagram<'a> {
-    alias: &'static str,
-    cuts: &'a [usize],
+impl Polarizations {
+    pub fn complement(&self) -> Polarizations {
+        match self {
+            Polarizations::UPlus => Polarizations::VMinus,
+            Polarizations::UMinus => Polarizations::VPlus,
+            Polarizations::UBarPlus => Polarizations::VBarMinus,
+            Polarizations::UBarMinus => Polarizations::VBarPlus,
+            Polarizations::VPlus => Polarizations::UMinus,
+            Polarizations::VMinus => Polarizations::UPlus,
+            Polarizations::VBarPlus => Polarizations::UBarMinus,
+            Polarizations::VBarMinus => Polarizations::UBarPlus,
+            Polarizations::APlus => Polarizations::AMinus,
+            Polarizations::AMinus => Polarizations::APlus,
+        }
+    }
+}
+
+// Giving Serde some love
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "Complex")]
+pub struct ComplexDef<T> {
+    pub re: T,
+    pub im: T,
+}
+// This should be enough love
+
+#[derive(Default, Debug, Clone, Deserialize)]
+pub struct DiagramFullRust {
+    name: String,
+    denominators: Vec<usize>,
+    pows: Vec<usize>,
+    chain: Vec<i8>,
+    positions: Vec<i8>,
+    loop_signature: i8,
+    #[serde(with = "ComplexDef", rename = "factor")]
+    factor_f64: Complex<f64>,
     ct: bool,
 }
 
-impl<'a> Diagram<'a> {
-    pub fn new(
-        diag_name: &'static str,
-        cuts: &'a [usize],
-        ct: bool,
-    ) -> Result<Diagram<'a>, &'static str> {
-        Ok(Diagram {
-            alias: diag_name,
-            cuts: cuts,
-            ct: ct,
-        })
+#[derive(Default, Debug, Clone, Deserialize)]
+pub struct SlashedMomentum<T: Field> {
+    pub loop_mom: Vec<i8>,
+    //#[serde(with = "LorentzVectorDef")]
+    pub const_mom: LorentzVector<T>,
+}
+
+impl SlashedMomentum<Complex<f64>> {
+    fn evaluate<T: FloatLike>(
+        &self,
+        loop_momenta: &Vec<LorentzVector<Complex<T>>>,
+    ) -> LorentzVector<Complex<T>> {
+        let mut res = LorentzVector::default();
+        if self.loop_mom.len() > 0 {
+            for (l, c) in loop_momenta.iter().zip(self.loop_mom.iter()) {
+                res += l * Complex::new(T::from_i8(*c).unwrap(), T::zero());
+            }
+            res += self
+                .const_mom
+                .map(|x| Complex::new(Into::<T>::into(x.re), Into::<T>::into(x.im)));
+        } else {
+            res += self
+                .const_mom
+                .map(|x| Complex::new(Into::<T>::into(x.re), Into::<T>::into(x.im)));
+        }
+        res
+    }
+}
+
+impl<T: Field> std::fmt::Display for SlashedMomentum<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "loop_mom: {:?},\nconst_mom: {}",
+            self.loop_mom, self.const_mom
+        )
+    }
+}
+
+#[derive(Default, Debug, Clone, Deserialize)]
+pub struct Amplitude {
+    pub name: String,
+    pub amp_type: String,
+    pub topology: String,
+    pub sets: Vec<Vec<String>>,
+    #[serde(rename = "vectors")]
+    pub vectors_f64: Vec<SlashedMomentum<f64>>,
+    #[serde(skip_deserializing)]
+    pub vectors: Vec<SlashedMomentum<Complex<f64>>>,
+    pub pols_type: Vec<Polarizations>,
+    pub ps: Vec<LorentzVector<f64>>,
+    pub mu_uv_sq: f64,
+    #[serde(skip_deserializing)]
+    pub polarizations: Vec<ArrayVec<[Complex<f64>; 4]>>,
+    pub diagrams: Vec<DiagramFullRust>,
+}
+
+// Implement Setup functions
+impl Amplitude {
+    pub fn from_file(filename: &str) -> HashMap<String, Amplitude> {
+        let f = File::open(filename).expect("Could not open amplitude file");
+        println!("{}", filename);
+        let amplitudes: Vec<Amplitude> = serde_yaml::from_reader(f).unwrap();
+        amplitudes
+            .into_iter()
+            .map(|a| (a.name.clone(), a))
+            .collect()
+    }
+
+    pub fn process(&mut self, settings: &GeneralSettings) {
+        //Compute the needed polarizations
+        self.polarizations = Vec::new();
+        for (pol, p) in self.pols_type.iter().zip(self.ps.iter()) {
+            self.polarizations.push(if p[0] < 0.0 {
+                match pol {
+                    Polarizations::AMinus | Polarizations::APlus => {
+                        compute_polarization(*p, pol.complement()).unwrap()
+                    }
+                    _ => compute_polarization(-*p, pol.complement())
+                        .unwrap()
+                        .iter()
+                        .map(|x| -x)
+                        .collect(),
+                }
+            } else {
+                compute_polarization(*p, *pol).unwrap()
+            })
+        }
+
+        if settings.debug > 2 {
+            for (i, (pol, p)) in self
+                .pols_type
+                .iter()
+                .zip(self.polarizations.iter())
+                .enumerate()
+            {
+                print!("  | (p{}, {:?}) \t= [", i, pol);
+                for x in p.iter() {
+                    print!(" {:+.5e}", x);
+                }
+                println!("]");
+            }
+        }
+        //Attach the polarizations to vectors (based on the amplitude)
+        match self.amp_type.as_ref() {
+            "qqbar_photons" => {
+                // Convert the input coming from vectorsf64 to allow complex vectors
+                self.vectors = Vec::new();
+                for slashed in self.vectors_f64.iter() {
+                    self.vectors.push(SlashedMomentum {
+                        loop_mom: slashed.loop_mom.clone(),
+                        const_mom: slashed.const_mom.map(|x| Complex::new(x, 0.0)),
+                    });
+                }
+                //Attach polarizaitons
+                for p in self.polarizations[2..].iter() {
+                    self.vectors.push(SlashedMomentum {
+                        loop_mom: Vec::default(),
+                        const_mom: LorentzVector::from_slice(&p),
+                    });
+                }
+
+                // Print vector elements
+                if settings.debug > 2 {
+                    for v in self.vectors.iter() {
+                        println!("{}", v);
+                    }
+                }
+            }
+            _ => panic!("Unknown amplitude type: {}", self.amp_type),
+        };
+    }
+}
+
+// Implement Evaluation Functions
+impl Amplitude {
+    pub fn compute_chain<T: FloatLike>(
+        &self,
+        indices: &[i8],
+        vbar: &[Complex<T>],
+        u: &[Complex<T>],
+        vectors: &Vec<LorentzVector<Complex<T>>>,
+    ) -> Result<Complex<T>, &'static str> {
+        GammaChain::new(vbar, u, indices, vectors)
+            .unwrap()
+            .compute_chain()
+    }
+
+    pub fn compute_amplitude<T: FloatLike>(
+        &self,
+        propagators: &Vec<Complex<T>>,
+        loop_momenta: &Vec<LorentzVector<Complex<T>>>,
+        vectors: &Vec<LorentzVector<Complex<T>>>,
+        cut_2energy: Complex<T>,
+        cut_id: usize,
+        settings: &GeneralSettings,
+        e_cm_sq: T,
+    ) -> Result<Complex<T>, &'static str> {
+        let mut res: Complex<T> = Complex::default();
+
+        // Select which set of diagrams to consider
+        // sets1: with UV approximation for all the diagrams
+        // sets0: regular amplitude
+        let diaglist = if cut_2energy.norm() > e_cm_sq * T::from_f64(1e6).unwrap() {
+            self.sets[1].clone()
+        } else {
+            self.sets[0].clone()
+        };
+        if settings.debug > 2 {
+            println!("Set of diagrams: {:?}", diaglist);
+        }
+
+        //TODO: avoid converting them all the time
+        let vbar: ArrayVec<[Complex<T>; 4]> = self.polarizations[1]
+            .iter()
+            .map(|x| Complex::new(T::from_f64(x.re).unwrap(), T::from_f64(x.im).unwrap()))
+            .collect();
+        let u: ArrayVec<[Complex<T>; 4]> = self.polarizations[0]
+            .iter()
+            .map(|x| Complex::new(T::from_f64(x.re).unwrap(), T::from_f64(x.im).unwrap()))
+            .collect();
+
+        for diag_and_cut in self.diagrams.iter() {
+            if diag_and_cut.denominators.iter().any(|v| *v == cut_id)
+                & diaglist.iter().any(|v| v == &diag_and_cut.name)
+            {
+                let res0 = res;
+                let chain = diag_and_cut.chain.to_vec();
+                //Compute denominator
+                let mut diag_den = Complex::new(T::one(), T::zero());
+                for cut in diag_and_cut.denominators.iter() {
+                    diag_den *= propagators[*cut];
+                }
+                //Compute numerator
+                let factor = Complex::new(
+                    T::from_f64(diag_and_cut.factor_f64.re).unwrap(),
+                    T::from_f64(diag_and_cut.factor_f64.im).unwrap(),
+                );
+                let pow_position = diag_and_cut
+                    .denominators
+                    .iter()
+                    .position(|&x| x == cut_id)
+                    .unwrap();
+                let diag_num = self.uv_residue(
+                    &chain,
+                    &diag_and_cut.positions,
+                    vectors,
+                    vbar.as_slice(),
+                    u.as_slice(),
+                    diag_and_cut.pows[pow_position] - 1,
+                    cut_2energy,
+                    factor,
+                );
+                res += match diag_and_cut.ct {
+                    true => -diag_num * utils::finv(diag_den),
+                    false => diag_num * utils::finv(diag_den),
+                };
+                if settings.debug > 2 {
+                    println!(
+                        "  |cut[{}]: {} \t=> {:e}",
+                        cut_id,
+                        diag_and_cut.name,
+                        res - res0
+                    );
+                }
+            }
+        }
+        return Ok(res);
+    }
+
+    pub fn uv_residue<T: FloatLike>(
+        &self,
+        chain: &[i8],
+        loop_momentum_positions: &[i8],
+        vectors: &Vec<LorentzVector<Complex<T>>>,
+        vbar: &[Complex<T>],
+        u: &[Complex<T>],
+        order: usize,
+        cut_2energy: Complex<T>,
+        factor: Complex<T>,
+    ) -> Complex<T> {
+        //TODO: use try_into
+        let gamma_0_pos = vectors.len() as i8;
+        let mut coeff = 1;
+        let mut norm = 1;
+        //The sign variable depends only on order because we choose a negative k
+        let sign = Complex::new(T::one(), T::zero());
+        let mut res = Complex::default();
+        for i in (0..order + 1).rev() {
+            //println!("coeff: {:?}", coeff);
+            //println!(
+            //    "[{},{}, {:?}]",
+            //    i,
+            //    2 * order - i,
+            //    utils::powi(sign, order - i).re
+            //);
+            res += self
+                .compute_chain_residue(
+                    vbar,
+                    u,
+                    chain,
+                    vectors,
+                    loop_momentum_positions,
+                    gamma_0_pos,
+                    i,
+                )
+                .unwrap()
+                * utils::powi(sign, order - i)
+                * T::from_usize(coeff).unwrap()
+                * utils::finv(utils::powi(cut_2energy, 2 * order - i));
+            //Update coefficients
+            if i != 0 {
+                coeff = (coeff * i * (2 * order - i + 1)) / (order - i + 1);
+                norm *= i;
+            }
+        }
+        if order % 2 == 0 {
+            factor * res / T::from_usize(norm).unwrap()
+        } else {
+            -factor * res / T::from_usize(norm).unwrap()
+        }
+    }
+    //Compute the n-th derivative w.r.t. k0 giving the corresponding gamma chain list
+    //Needs the gamma0 position inside vectors.
+    pub fn compute_chain_residue<T: FloatLike>(
+        &self,
+        vbar: &[Complex<T>],
+        u: &[Complex<T>],
+        indices: &[i8],
+        vectors: &[LorentzVector<Complex<T>>],
+        loop_momentum_positions: &[i8],
+        gamma_0_pos: i8,
+        order: usize,
+    ) -> Result<Complex<T>, &'static str> {
+        if order == 0 {
+            return GammaChain::new(vbar, u, indices, vectors)
+                .unwrap()
+                .compute_chain();
+        }
+        let mut res = Complex::default();
+        let factor = T::from_usize(order).unwrap();
+        let mut left_indices = loop_momentum_positions.to_vec();
+        for (i, pos) in loop_momentum_positions.iter().enumerate() {
+            if i > order {
+                break;
+            }
+            left_indices.remove(0);
+            let mut diff_indices = indices.to_vec();
+            diff_indices[*pos as usize] = gamma_0_pos;
+            res += self
+                .compute_chain_residue(
+                    vbar,
+                    u,
+                    &diff_indices,
+                    vectors,
+                    &left_indices,
+                    gamma_0_pos,
+                    order - 1,
+                )
+                .unwrap()
+                * factor;
+        }
+        Ok(res)
+    }
+    pub fn evaluate<T: FloatLike>(
+        &self,
+        propagators: &Vec<Complex<T>>,
+        loop_momenta: &Vec<LorentzVector<Complex<T>>>,
+        cut_2energy: Complex<T>,
+        cut_id: usize,
+        e_cm_sq: T,
+        settings: &GeneralSettings,
+    ) -> Result<Complex<T>, &'static str> {
+        let gamma_0 = LorentzVector::from_args(
+            Complex::new(T::one(), T::zero()),
+            Complex::new(T::zero(), T::zero()),
+            Complex::new(T::zero(), T::zero()),
+            Complex::new(T::zero(), T::zero()),
+        );
+
+        //Get the incormation about the slashed vectors
+        let mut vectors: ArrayVec<[LorentzVector<Complex<T>>; 20]> = self
+            .vectors
+            .iter()
+            .map(|v| v.evaluate(&loop_momenta.to_vec()))
+            .collect();
+        vectors.push(gamma_0);
+
+        self.compute_amplitude(
+            propagators,
+            loop_momenta,
+            &vectors.to_vec(),
+            cut_2energy,
+            cut_id,
+            settings,
+            e_cm_sq,
+        )
+    }
+    //In debug mode the integrated counterterms can be seen
+    pub fn print_integrated_ct(&self) {
+        match self.amp_type.as_ref() {
+            "qqbar_photons" => {
+                //Get the incormation about the slashed vectors
+                let loop_mom = vec![LorentzVector::default()];
+                let vectors: ArrayVec<[LorentzVector<Complex<f64>>; 20]> =
+                    self.vectors.iter().map(|v| v.evaluate(&loop_mom)).collect();
+
+                //Spinors
+                let vbar = self.polarizations[1].clone();
+                let u = self.polarizations[0].clone();
+
+                // Compute Born
+                let mut res: Complex<f64> = Complex::default();
+                for diag_and_cut in self.diagrams.iter() {
+                    if diag_and_cut.name == "born" {
+                        //Compute gamma chain
+                        let chain = GammaChain::new(
+                            vbar.as_slice(),
+                            u.as_slice(),
+                            &diag_and_cut.chain,
+                            vectors.as_slice(),
+                        )
+                        .unwrap()
+                        .compute_chain()
+                        .unwrap();
+                        res = diag_and_cut.factor_f64 * chain;
+                    }
+                }
+
+                let born = res;
+
+                // Get right expression from the logarithm
+                let mu_r = self.mu_uv_sq;
+                let s12 = (self.ps[0] + self.ps[1]).square();
+                let ln = if s12 < 0.0 {
+                    Complex::new((-mu_r * mu_r / s12).ln(), 0.0)
+                } else {
+                    Complex::new((mu_r * mu_r / s12).ln(), std::f64::consts::PI)
+                };
+
+                // Get integrated CT poles and finite part
+                let epm2 = born * 2.0 * Parameters::C_F / (4.0 * std::f64::consts::PI)
+                    * Parameters::alpha_s;
+                let epm1 = epm2 * (ln + 1.5);
+                let ep0 = epm2 * (ln * (ln + 3.) * 0.5 + 4.);
+                // Print polarizations
+                for (i, (pol, p)) in self
+                    .pols_type
+                    .iter()
+                    .zip(self.polarizations.iter())
+                    .enumerate()
+                {
+                    //println!("  | p{}        \t= {:.5e} ", i, self.ps[i]);
+                    print!("  | (p{}, {:?}) \t= [", i, pol);
+                    for x in p.iter() {
+                        print!(" {:+.5e}", x);
+                    }
+                    println!("]");
+                }
+                // Print CT
+                println!("\n  | born    \t: {:.5e}", born);
+                println!("  | 1/ep**2 \t: {:.5e}", epm2);
+                println!("  | 1/ep    \t: {:.5e}", epm1);
+                println!("  | Finite  \t: {:?}", ep0);
+            }
+            _ => panic!("Unknown integrated counterterm for {}.", self.amp_type),
+        }
     }
 }
 
@@ -65,12 +531,12 @@ impl Topology {
     ) -> Result<Complex<T>, &'static str> {
         match self.n_loops {
             1 => {
-                match &self.name {
-                    v if v.contains("amplitude") => {
+                match self.amplitude.amp_type.as_ref() {
+                    "qqbar_photons" => {
                         self.set_loop_momentum_energies(k_def, cut, mat, cache);
                         let ll = &self.loop_lines[0];
                         // compute propagators
-                        let props: ArrayVec<[num::Complex<T>; 10]> = ll
+                        let mut props: ArrayVec<[num::Complex<T>; 10]> = ll
                             .propagators
                             .iter()
                             .map(|p| {
@@ -91,24 +557,13 @@ impl Topology {
                                 _ => Complex::new(T::one(), T::zero()),
                             };
                         }
+
+                        //Replace the cut propagator by its 2E
+                        props[cut_id] = cut_2energy;
+
                         //Rotate back PS for numerator
                         let rot_matrix = self.rotation_matrix;
-                        let mut external_kinematics = self.external_kinematics.clone();
 
-                        for e in &mut external_kinematics {
-                            let old_x = e.x;
-                            let old_y = e.y;
-                            let old_z = e.z;
-                            e.x = rot_matrix[0][0] * old_x
-                                + rot_matrix[1][0] * old_y
-                                + rot_matrix[2][0] * old_z;
-                            e.y = rot_matrix[0][1] * old_x
-                                + rot_matrix[1][1] * old_y
-                                + rot_matrix[2][1] * old_z;
-                            e.z = rot_matrix[0][2] * old_x
-                                + rot_matrix[1][2] * old_y
-                                + rot_matrix[2][2] * old_z;
-                        }
                         let mut l = k_def[0];
                         let old_x = l.x;
                         let old_y = l.y;
@@ -122,36 +577,28 @@ impl Topology {
                         l.z = old_x * T::from_f64(rot_matrix[0][2]).unwrap()
                             + old_y * T::from_f64(rot_matrix[1][2]).unwrap()
                             + old_z * T::from_f64(rot_matrix[2][2]).unwrap();
-                        //Create Amplitude
-                        let amp = match v {
-                            process if process.contains("eeAA") => eeAA::new(
-                                external_kinematics,
-                                props.to_vec(),
-                                l,
-                                cut_2energy,
-                                cut_id,
-                            )
-                            .unwrap()
-                            .compute_amplitude(),
-                            process if process.contains("uuWWZ") => uuWWZ::new(
-                                external_kinematics,
-                                props.to_vec(),
-                                l,
-                                cut_2energy,
-                                cut_id,
-                            )
-                            .unwrap()
-                            .compute_amplitude(),
-                            _ => panic!("Unknown Amplitude: {}", v),
-                        };
-
-                        return amp;
+                        let l_def = vec![l];
+                        //Evaluate Amplitude
+                        self.amplitude.evaluate(
+                            &props.to_vec(),
+                            &l_def,
+                            cut_2energy,
+                            cut_id,
+                            Into::<T>::into(self.e_cm_squared),
+                            &self.settings.general,
+                        )
                     }
                     _ => {
+                        if self.settings.general.use_amplitude {
+                            panic!("Unknown amplitude type: {}", self.amplitude.amp_type);
+                        }
                         let v = self.evaluate_cut(&mut k_def, cut, mat, cache)?;
                         // Assuming that there is no need for the residue energy or the cut_id
-                        let ct =
-                            self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache);
+                        let ct = if self.settings.general.use_ct {
+                            self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
+                        } else {
+                            Complex::default()
+                        };
                         Ok(v * (ct + T::one()))
                     }
                 }
@@ -159,7 +606,12 @@ impl Topology {
             _ => {
                 let v = self.evaluate_cut(&mut k_def, cut, mat, cache)?;
                 // Assuming that there is no need for the residue energy or the cut_id
-                let ct = self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache);
+                let ct = if self.settings.general.use_ct {
+                    self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
+                } else {
+                    Complex::default()
+                };
+
                 Ok(v * (ct + T::one()))
             }
         }
@@ -346,1017 +798,3 @@ fn compute_polarization<T: FloatLike>(
         .collect())
 }
 //END compute_polarization
-
-//Compute the n-th derivative w.r.t. k0 giving the corresponding gamma chain list
-//Needs the gamma0 position inside vectors.
-pub fn compute_chain_residue<T: FloatLike>(
-    vbar: &[Complex<T>],
-    u: &[Complex<T>],
-    indices: &[i8],
-    vectors: &[LorentzVector<Complex<T>>],
-    loop_momentum_positions: &[i8],
-    gamma_0_pos: i8,
-    order: usize,
-) -> Result<Complex<T>, &'static str> {
-    if order == 0 {
-        //println!("indices: {:?}", indices);
-        return GammaChain::new(vbar, u, indices, vectors)
-            .unwrap()
-            .compute_chain();
-    }
-    let mut res = Complex::default();
-    let factor = T::from_usize(order).unwrap();
-    let mut left_indices = loop_momentum_positions.to_vec();
-    for (i, pos) in loop_momentum_positions.iter().enumerate() {
-        if i > order {
-            break;
-        }
-        left_indices.remove(0);
-        let mut diff_indices = indices.to_vec();
-        diff_indices[*pos as usize] = gamma_0_pos;
-
-        res += compute_chain_residue(
-            vbar,
-            u,
-            &diff_indices,
-            vectors,
-            &left_indices,
-            gamma_0_pos,
-            order - 1,
-        )
-        .unwrap()
-            * factor;
-    }
-    Ok(res)
-}
-
-//Compute Binomial Coefficient (n,m)
-pub fn binomial_coeff(n: usize, m: usize) -> usize {
-    if m > n - m {
-        binomial_coeff(n, n - m)
-    } else {
-        let mut coeff = 1;
-        for k in 0..m {
-            coeff = (coeff * (n - k)) / (k + 1);
-        }
-        coeff
-    }
-}
-
-#[derive(Debug)]
-#[allow(unused_variables, non_camel_case_types)]
-pub struct eeAA<'a, T: FloatLike> {
-    external_kinematics: Vec<LorentzVector<Complex<T>>>,
-    den: Vec<Complex<T>>,
-    vectors: [LorentzVector<Complex<T>>; 8],
-    vbar: ArrayVec<[Complex<T>; 4]>,
-    u: ArrayVec<[Complex<T>; 4]>,
-    a_mu: LorentzVector<Complex<T>>,
-    a_nu: LorentzVector<Complex<T>>,
-    cut_2energy: Complex<T>,
-    diags_and_cuts: [Diagram<'a>; 14],
-    cut_id: usize,
-}
-
-#[allow(unused_variables, non_camel_case_types)]
-impl<'a, T: FloatLike> eeAA<'a, T> {
-    pub fn new(
-        external_kinematics: Vec<LorentzVector<f64>>,
-        propagators: Vec<Complex<T>>,
-        loop_momentum: LorentzVector<Complex<T>>,
-        cut_2energy: Complex<T>,
-        cut_id: usize,
-    ) -> Result<eeAA<'a, T>, &'static str> {
-        //For on-shell photons
-        let a_mu = LorentzVector::from_slice(
-            &compute_polarization(external_kinematics[3], Polarizations::APlus).unwrap(),
-        );
-        let a_nu = LorentzVector::from_slice(
-            &compute_polarization(external_kinematics[4], Polarizations::APlus).unwrap(),
-        );
-        //Spinors
-        //This agrees with HELAS convention
-        let u = if external_kinematics[0][0] > 0. {
-            compute_polarization(external_kinematics[0], Polarizations::UPlus).unwrap()
-        } else {
-            compute_polarization(-external_kinematics[0], Polarizations::UPlus).unwrap()
-        };
-        let vbar = if external_kinematics[2][0] > 0. {
-            compute_polarization(external_kinematics[2], Polarizations::UBarPlus).unwrap()
-        } else {
-            compute_polarization::<T>(-external_kinematics[2], Polarizations::UBarPlus)
-                .unwrap()
-                .iter()
-                .map(|x| -x)
-                .collect()
-        };
-
-        let gamma_0 = LorentzVector::from_args(
-            Complex::new(T::one(), T::zero()),
-            Complex::new(T::zero(), T::zero()),
-            Complex::new(T::zero(), T::zero()),
-            Complex::new(T::zero(), T::zero()),
-        );
-
-        let k = loop_momentum;
-        let mut ps: Vec<LorentzVector<Complex<T>>> = external_kinematics
-            .iter()
-            .map(|mom| (*mom).map(|x| Complex::new(T::from_f64(x).unwrap(), T::zero())))
-            .collect();
-
-        let mut den = propagators;
-        den[cut_id] = cut_2energy;
-        // When considering also the UV propagators
-        ps.remove(1);
-        let vectors = [
-            -k - ps[0],
-            -k - ps[0] - ps[1],
-            -k + ps[3],
-            -k,
-            -ps[1] - ps[2],
-            a_mu,
-            a_nu,
-            gamma_0,
-        ];
-        let diags_and_cuts = [
-            //Diagrams
-            Diagram::new("D1", &[0, 3, 4], false).unwrap(),
-            Diagram::new("D2", &[0, 2, 3], false).unwrap(),
-            Diagram::new("D3", &[0, 2, 3, 4], false).unwrap(),
-            Diagram::new("D4", &[0, 3], false).unwrap(),
-            //Counterterms
-            Diagram::new("IR", &[0, 2, 4], true).unwrap(),
-            Diagram::new("UV1", &[1], true).unwrap(),
-            Diagram::new("UV2", &[1], true).unwrap(),
-            Diagram::new("UV4", &[1], true).unwrap(),
-            Diagram::new("UVIR", &[1], true).unwrap(),
-            //UV approximations of relevant contributions
-            Diagram::new("D1UV_LO", &[0], false).unwrap(),
-            Diagram::new("D2UV_LO", &[0], false).unwrap(),
-            Diagram::new("D3UV_LO", &[0], false).unwrap(),
-            Diagram::new("D4UV_LO", &[0], false).unwrap(),
-            Diagram::new("IRUV_LO", &[0], false).unwrap(),
-        ];
-
-        return Ok(eeAA {
-            external_kinematics: ps,
-            den: den,
-            vectors: vectors,
-            u: u,
-            vbar: vbar,
-            a_mu: a_mu,
-            a_nu: a_nu,
-            diags_and_cuts: diags_and_cuts,
-            cut_2energy: cut_2energy,
-            cut_id: cut_id,
-        });
-    }
-
-    pub fn compute_chain(&self, indices: &[i8]) -> Result<Complex<T>, &'static str> {
-        GammaChain::new(
-            self.vbar.as_slice(),
-            self.u.as_slice(),
-            indices,
-            &self.vectors,
-        )
-        .unwrap()
-        .compute_chain()
-    }
-
-    pub fn compute_amplitude(&mut self) -> Result<Complex<T>, &'static str> {
-        let mut res: Complex<T> = Complex::default();
-        let diaglist = if self.cut_2energy.norm() > T::from_f64(1e5).unwrap() {
-            [
-                "D1UV_LO", "D2UV_LO", "D3UV_LO", "D4UV_LO", "IRUV_LO", "UV1", "UV2", "UV4", "UVIR",
-            ]
-        } else {
-            ["D1", "D2", "D3", "D4", "IR", "UV1", "UV2", "UV4", "UVIR"]
-        };
-        //Use diagram own denominator
-        for diag_and_cut in self.diags_and_cuts.iter() {
-            res += if diag_and_cut.cuts.iter().any(|v| v == &self.cut_id)
-                & diaglist.iter().any(|v| v == &diag_and_cut.alias)
-            {
-                //Compute denominator
-                let mut diag_den = Complex::new(T::one(), T::zero());
-                for cut in diag_and_cut.cuts.iter() {
-                    diag_den *= self.den[*cut];
-                }
-                //Check if it is a counter term and return result
-                if diag_and_cut.ct {
-                    -self.numerator(diag_and_cut.alias).unwrap() * utils::finv(diag_den)
-                } else {
-                    self.numerator(diag_and_cut.alias).unwrap() * utils::finv(diag_den)
-                }
-            } else {
-                Complex::default()
-            };
-        }
-
-        return Ok(res);
-    }
-    pub fn numerator(&self, name: &'static str) -> Result<Complex<T>, &'static str> {
-        //invariants
-        let s23_inv =
-            utils::finv((self.external_kinematics[1] + self.external_kinematics[2]).square());
-        let factor = Complex::new(T::zero(), -T::one())
-            * Complex::new(
-                T::from_f64(
-                    Parameters::C_F * Parameters::alpha_s * Parameters::alpha_ew / 9.0
-                        * (4.0 * std::f64::consts::PI).powf(2.0),
-                )
-                .unwrap(),
-                T::zero(),
-            );
-
-        let numerator = match name {
-            "D1" => (-factor * s23_inv) * self.compute_chain(&[6, 5, -1, 3, 7, 4, -1]).unwrap(),
-            "D2" => (-factor * s23_inv) * self.compute_chain(&[-1, 2, 6, 3, -1, 5, 7]).unwrap(),
-            "D3" => (-factor) * self.compute_chain(&[-1, 2, 6, 3, 7, 4, -1]).unwrap(),
-            "D4" => {
-                (-factor * s23_inv * s23_inv)
-                    * self.compute_chain(&[6, 5, -1, 3, -1, 5, 7]).unwrap()
-            }
-            "IR" => (-factor * s23_inv) * self.compute_chain(&[-1, 2, 6, 5, 7, 4, -1]).unwrap(),
-            "UV1" => {
-                //First contribution of the double derivative
-                let fdd = self.compute_chain(&[6, 5, -1, 1, 7, 1, -1]).unwrap()
-                    * T::from_f64(12.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                //Second contribution of the double derivative
-                let dfd = -(self.compute_chain(&[6, 5, -1, 8, 7, 1, -1]).unwrap()
-                    + self.compute_chain(&[6, 5, -1, 1, 7, 8, -1]).unwrap())
-                    * T::from_f64(-6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                //Third contribution of the double derivative
-                let ddf = self.compute_chain(&[6, 5, -1, 8, 7, 8, -1]).unwrap()
-                    * T::from_f64(2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-
-                (-factor * s23_inv / T::from_f64(2.0).unwrap()) * (fdd + dfd + ddf)
-            }
-            "UV2" => {
-                let fdd = self.compute_chain(&[-1, 1, 6, 1, -1, 5, 7]).unwrap()
-                    * T::from_f64(12.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                let dfd = -(self.compute_chain(&[-1, 8, 6, 1, -1, 5, 7]).unwrap()
-                    + self.compute_chain(&[-1, 1, 6, 8, -1, 5, 7]).unwrap())
-                    * T::from_f64(-6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                let ddf = self.compute_chain(&[-1, 8, 6, 8, -1, 5, 7]).unwrap()
-                    * T::from_f64(2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-                (-factor * s23_inv / T::from_f64(2.0).unwrap()) * (fdd + dfd + ddf)
-            }
-            "UV4" => {
-                //LEADING DIVERGENCE
-                let fd = self.compute_chain(&[6, 5, -1, 1, -1, 5, 7]).unwrap()
-                    * T::from_f64(-2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-
-                let df = -self.compute_chain(&[6, 5, -1, 8, -1, 5, 7]).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 1));
-                //SUBLEADING DIVERGENCE
-                let fdd = self.compute_chain(&[6, 5, -1, 1, 5, 1, -1, 5, 7]).unwrap()
-                    * T::from_f64(12.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                let dfd = -(self.compute_chain(&[6, 5, -1, 8, 5, 1, -1, 5, 7]).unwrap()
-                    + self.compute_chain(&[6, 5, -1, 1, 5, 8, -1, 5, 7]).unwrap())
-                    * T::from_f64(-6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                let ddf = self.compute_chain(&[6, 5, -1, 8, 5, 8, -1, 5, 7]).unwrap()
-                    * T::from_f64(2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-
-                (-factor * s23_inv * s23_inv)
-                    * ((fd + df) - (fdd + dfd + ddf) / T::from_f64(2.0).unwrap())
-            }
-            "UVIR" => {
-                let fdd = self.compute_chain(&[-1, 1, 6, 5, 7, 1, -1]).unwrap()
-                    * T::from_f64(12.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                let dfd = -(self.compute_chain(&[-1, 8, 6, 5, 7, 1, -1]).unwrap()
-                    + self.compute_chain(&[-1, 1, 6, 5, 7, 8, -1]).unwrap())
-                    * T::from_f64(-6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                let ddf = self.compute_chain(&[-1, 8, 6, 5, 7, 8, -1]).unwrap()
-                    * T::from_f64(2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-                (factor * s23_inv / T::from_f64(2.0).unwrap()) * (fdd + dfd + ddf)
-            }
-            "D1UV_LO" => {
-                let fdd = self.compute_chain(&[6, 5, -1, 3, 7, 4, -1]).unwrap()
-                    * T::from_f64(12.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                let dfd = -(self.compute_chain(&[6, 5, -1, 8, 7, 4, -1]).unwrap()
-                    + self.compute_chain(&[6, 5, -1, 3, 7, 8, -1]).unwrap())
-                    * T::from_f64(-6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                let ddf = self.compute_chain(&[6, 5, -1, 8, 7, 8, -1]).unwrap()
-                    * T::from_f64(2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-                (-factor * s23_inv / T::from_f64(2.0).unwrap()) * (fdd + dfd + ddf)
-            }
-            "D2UV_LO" => {
-                let fdd = self.compute_chain(&[-1, 2, 6, 3, -1, 5, 7]).unwrap()
-                    * T::from_f64(12.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                let dfd = -(self.compute_chain(&[-1, 8, 6, 3, -1, 5, 7]).unwrap()
-                    + self.compute_chain(&[-1, 2, 6, 8, -1, 5, 7]).unwrap())
-                    * T::from_f64(-6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                let ddf = self.compute_chain(&[-1, 8, 6, 8, -1, 5, 7]).unwrap()
-                    * T::from_f64(2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-                (-factor * s23_inv / T::from_f64(2.0).unwrap()) * (fdd + dfd + ddf)
-            }
-            "D3UV_LO" => {
-                let fddd = self.compute_chain(&[-1, 2, 6, 3, 7, 4, -1]).unwrap()
-                    * T::from_f64(-120.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 6));
-                let dfdd = -(self.compute_chain(&[-1, 8, 6, 3, 7, 4, -1]).unwrap()
-                    + self.compute_chain(&[-1, 2, 6, 8, 7, 4, -1]).unwrap()
-                    + self.compute_chain(&[-1, 2, 6, 3, 7, 8, -1]).unwrap())
-                    * T::from_f64(60.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 5));
-                let ddfd = (self.compute_chain(&[-1, 8, 6, 8, 7, 4, -1]).unwrap()
-                    + self.compute_chain(&[-1, 8, 6, 3, 7, 8, -1]).unwrap()
-                    + self.compute_chain(&[-1, 2, 6, 8, 7, 8, -1]).unwrap())
-                    * T::from_f64(-24.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                let dddf = -self.compute_chain(&[-1, 8, 6, 8, 7, 8, -1]).unwrap()
-                    * T::from_f64(6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                (-factor / T::from_f64(6.0).unwrap()) * (fddd + dfdd + ddfd + dddf)
-            }
-            "D4UV_LO" => {
-                //LEADING DIVERGENCE
-                let fd = self.compute_chain(&[6, 5, -1, 3, -1, 5, 7]).unwrap()
-                    * T::from_f64(-2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-
-                let df = -self.compute_chain(&[6, 5, -1, 8, -1, 5, 7]).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 1));
-                //SUBLEADING DIVERGENCE
-                let fdd = (self.compute_chain(&[6, 5, -1, 3, 1, 5, -1, 5, 7]).unwrap()
-                    + self.compute_chain(&[6, 5, -1, 3, 5, 1, -1, 5, 7]).unwrap())
-                    * T::from_f64(12.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                let dfd = -(self.compute_chain(&[6, 5, -1, 8, 1, 5, -1, 5, 7]).unwrap()
-                    + self.compute_chain(&[6, 5, -1, 8, 5, 1, -1, 5, 7]).unwrap()
-                    + self.compute_chain(&[6, 5, -1, 3, 8, 5, -1, 5, 7]).unwrap()
-                    + self.compute_chain(&[6, 5, -1, 3, 5, 8, -1, 5, 7]).unwrap())
-                    * T::from_f64(-6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                let ddf = (self.compute_chain(&[6, 5, -1, 8, 5, 8, -1, 5, 7]).unwrap()
-                    + self.compute_chain(&[6, 5, -1, 8, 8, 5, -1, 5, 7]).unwrap())
-                    * T::from_f64(2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-                (-factor * s23_inv * s23_inv)
-                    * ((fd + df) - (fdd + dfd + ddf) / T::from_f64(2.0).unwrap())
-            }
-            "IRUV_LO" => {
-                let fdd = self.compute_chain(&[-1, 2, 6, 5, 7, 4, -1]).unwrap()
-                    * T::from_f64(12.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 4));
-                let dfd = -(self.compute_chain(&[-1, 8, 6, 5, 7, 4, -1]).unwrap()
-                    + self.compute_chain(&[-1, 2, 6, 5, 7, 8, -1]).unwrap())
-                    * T::from_f64(-6.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 3));
-                let ddf = self.compute_chain(&[-1, 8, 6, 5, 7, 8, -1]).unwrap()
-                    * T::from_f64(2.).unwrap()
-                    * utils::finv(utils::powi(self.cut_2energy, 2));
-                (factor * s23_inv / T::from_f64(2.0).unwrap()) * (fdd + dfd + ddf)
-            }
-            _ => return panic!("Unknown diagram/counterterm {} for eeAA", name),
-        };
-        return Ok(numerator);
-    }
-}
-
-//uuWWZ
-#[derive(Debug)]
-#[allow(unused_variables, non_camel_case_types)]
-pub struct uuWWZ<'a, T: FloatLike> {
-    external_kinematics: Vec<LorentzVector<Complex<T>>>,
-    den: Vec<Complex<T>>,
-    vectors: [LorentzVector<Complex<T>>; 11],
-    vbar: ArrayVec<[Complex<T>; 4]>,
-    u: ArrayVec<[Complex<T>; 4]>,
-    a_mu: LorentzVector<Complex<T>>,
-    a_nu: LorentzVector<Complex<T>>,
-    a_rho: LorentzVector<Complex<T>>,
-    cut_2energy: Complex<T>,
-    diags_and_cuts: [Diagram<'a>; 21],
-    cut_id: usize,
-}
-
-#[allow(unused_variables, non_camel_case_types)]
-impl<'a, T: FloatLike> uuWWZ<'a, T> {
-    pub fn new(
-        external_kinematics: Vec<LorentzVector<f64>>,
-        propagators: Vec<Complex<T>>,
-        loop_momentum: LorentzVector<Complex<T>>,
-        cut_2energy: Complex<T>,
-        cut_id: usize,
-    ) -> Result<uuWWZ<'a, T>, &'static str> {
-        //For on-shell photons
-        let a_mu = LorentzVector::from_slice(
-            &compute_polarization(external_kinematics[3], Polarizations::APlus).unwrap(),
-        );
-        let a_nu = LorentzVector::from_slice(
-            &compute_polarization(external_kinematics[4], Polarizations::APlus).unwrap(),
-        );
-        let a_rho = LorentzVector::from_slice(
-            &compute_polarization(external_kinematics[5], Polarizations::APlus).unwrap(),
-        );
-        //Spinors
-        //This agrees with HELAS convention
-        let u = if external_kinematics[0][0] > 0. {
-            compute_polarization(external_kinematics[0], Polarizations::UPlus).unwrap()
-        } else {
-            compute_polarization(-external_kinematics[0], Polarizations::UPlus).unwrap()
-        };
-        let vbar = if external_kinematics[2][0] > 0. {
-            compute_polarization(external_kinematics[2], Polarizations::UBarPlus).unwrap()
-        } else {
-            compute_polarization::<T>(-external_kinematics[2], Polarizations::UBarPlus)
-                .unwrap()
-                .iter()
-                .map(|x| -x)
-                .collect()
-        };
-
-        let gamma_0 = LorentzVector::from_args(
-            Complex::new(T::one(), T::zero()),
-            Complex::new(T::zero(), T::zero()),
-            Complex::new(T::zero(), T::zero()),
-            Complex::new(T::zero(), T::zero()),
-        );
-
-        let k = loop_momentum;
-        let mut ps: Vec<LorentzVector<Complex<T>>> = external_kinematics
-            .iter()
-            .map(|mom| (*mom).map(|x| Complex::new(T::from_f64(x).unwrap(), T::zero())))
-            .collect();
-
-        let mut den = propagators;
-        den[cut_id] = cut_2energy;
-        // When considering also the UV propagators
-        ps.remove(1);
-        let vectors = [
-            -k - ps[0],
-            -k - ps[0] - ps[1],
-            -k + ps[3] + ps[4],
-            -k + ps[4],
-            -k,
-            -ps[1] - ps[2],
-            ps[0] + ps[4],
-            a_mu,
-            a_nu,
-            a_rho,
-            gamma_0,
-        ];
-        let diags_and_cuts = [
-            //Diagrams
-            Diagram::new("D1", &[0, 3, 4, 5], false).unwrap(),
-            Diagram::new("D2", &[0, 4, 5], false).unwrap(),
-            Diagram::new("D3", &[0, 4], false).unwrap(),
-            Diagram::new("D4", &[0, 3, 4], false).unwrap(),
-            Diagram::new("D5", &[0, 2, 3, 4], false).unwrap(),
-            Diagram::new("D6", &[0, 2, 3], false).unwrap(),
-            Diagram::new("D7", &[0, 3], false).unwrap(),
-            Diagram::new("D8", &[0, 2, 3, 4, 5], false).unwrap(),
-            //Counterterms
-            Diagram::new("IR", &[0, 2, 5], true).unwrap(),
-            Diagram::new("UV2", &[1], true).unwrap(),
-            Diagram::new("UV3", &[1], true).unwrap(),
-            Diagram::new("UV4", &[1], true).unwrap(),
-            Diagram::new("UV6", &[1], true).unwrap(),
-            Diagram::new("UV7", &[1], true).unwrap(),
-            Diagram::new("UVIR", &[1], true).unwrap(),
-            //UV approximations of relevant contributions
-            Diagram::new("D2UV_LO", &[0], false).unwrap(),
-            Diagram::new("D3UV_LO", &[0], false).unwrap(),
-            Diagram::new("D4UV_LO", &[0], false).unwrap(),
-            Diagram::new("D6UV_LO", &[0], false).unwrap(),
-            Diagram::new("D7UV_LO", &[0], false).unwrap(),
-            Diagram::new("IRUV_LO", &[0], true).unwrap(),
-        ];
-
-        return Ok(uuWWZ {
-            external_kinematics: ps,
-            den: den,
-            vectors: vectors,
-            u: u,
-            vbar: vbar,
-            a_mu: a_mu,
-            a_nu: a_nu,
-            a_rho: a_rho,
-            diags_and_cuts: diags_and_cuts,
-            cut_2energy: cut_2energy,
-            cut_id: cut_id,
-        });
-    }
-
-    pub fn compute_chain(&self, indices: &[i8]) -> Result<Complex<T>, &'static str> {
-        GammaChain::new(
-            self.vbar.as_slice(),
-            self.u.as_slice(),
-            indices,
-            &self.vectors,
-        )
-        .unwrap()
-        .compute_chain()
-    }
-
-    pub fn compute_amplitude(&mut self) -> Result<Complex<T>, &'static str> {
-        let mut res: Complex<T> = Complex::default();
-        let diaglist = if self.cut_2energy.norm() > T::from_f64(1e4).unwrap() {
-            [
-                "D1UV_LO", "D2UV_LO", "D3UV_LO", "D4UV_LO", "D5UV_LO", "D6UV_LO", "D7UV_LO",
-                "D8UV_LO", "IRUV_LO", "UV2", "UV3", "UV4", "UV6", "UV7", "UVIR",
-            ]
-        } else {
-            [
-                "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "IR", "UV2", "UV3", "UV4", "UV6",
-                "UV7", "UVIR",
-            ]
-        };
-        //Use diagram own denominator
-        for diag_and_cut in self.diags_and_cuts.iter() {
-            res += if diag_and_cut.cuts.iter().any(|v| v == &self.cut_id)
-                & diaglist.iter().any(|v| v == &diag_and_cut.alias)
-            {
-                //Compute denominator
-                let mut diag_den = Complex::new(T::one(), T::zero());
-                for cut in diag_and_cut.cuts.iter() {
-                    diag_den *= self.den[*cut];
-                }
-                //Check if it is a counter term and return result
-                if diag_and_cut.ct {
-                    -self.numerator(diag_and_cut.alias).unwrap() * utils::finv(diag_den)
-                } else {
-                    self.numerator(diag_and_cut.alias).unwrap() * utils::finv(diag_den)
-                }
-            } else {
-                Complex::default()
-            };
-        }
-
-        return Ok(res);
-    }
-
-    pub fn uv_residue(
-        &self,
-        chain: &[i8],
-        loop_momentum_positions: &[i8],
-        order: usize,
-        factor: Complex<T>,
-    ) -> Complex<T> {
-        let gamma_0_pos = 11;
-        let mut coeff = 1;
-        let mut norm = 1;
-        //The sign variable depends only on order because we choose a negative k
-        let sign = Complex::new(T::one(), T::zero());
-        let mut res = Complex::default();
-        for i in (0..order + 1).rev() {
-            //println!("coeff: {:?}", coeff);
-            //println!(
-            //    "[{},{}, {:?}]",
-            //    i,
-            //    2 * order + i,
-            //    utils::powi(sign, order - i).re
-            //);
-            res += compute_chain_residue(
-                self.vbar.as_slice(),
-                self.u.as_slice(),
-                chain,
-                &self.vectors,
-                loop_momentum_positions,
-                gamma_0_pos,
-                i,
-            )
-            .unwrap()
-                * utils::powi(sign, order - i)
-                * T::from_usize(coeff).unwrap()
-                * utils::finv(utils::powi(self.cut_2energy, 2 * order - i));
-            //Update coefficients
-            if i != 0 {
-                coeff = (coeff * i * (2 * order - i + 1)) / (order - i + 1);
-                norm *= i;
-            }
-        }
-        if order % 2 == 0 {
-            factor * res / T::from_usize(norm).unwrap()
-        } else {
-            -factor * res / T::from_usize(norm).unwrap()
-        }
-    }
-
-    pub fn numerator(&self, name: &'static str) -> Result<Complex<T>, &'static str> {
-        //invariants
-        let s23_inv =
-            utils::finv((self.external_kinematics[1] + self.external_kinematics[2]).square());
-        let s15_inv =
-            utils::finv((self.external_kinematics[0] + self.external_kinematics[4]).square());
-        let factor = Complex::new(T::zero(), -T::one())
-            * Complex::new(
-                T::from_f64(
-                    Parameters::C_F * Parameters::alpha_s * Parameters::alpha_ew / 9.0
-                        * (4.0 * std::f64::consts::PI).powf(2.0),
-                )
-                .unwrap(),
-                T::zero(),
-            );
-
-        let numerator = match name {
-            "D1" => {
-                (-factor * s23_inv) * self.compute_chain(&[8, 6, -1, 3, 9, 4, 10, 5, -1]).unwrap()
-            }
-            "D2" => {
-                (-factor * s23_inv * s15_inv)
-                    * self.compute_chain(&[8, 6, 9, 7, -1, 4, 10, 5, -1]).unwrap()
-            }
-            "D3" => {
-                (-factor * s23_inv * utils::powi(s15_inv, 2))
-                    * self.compute_chain(&[8, 6, 9, 7, -1, 4, -1, 7, 10]).unwrap()
-            }
-            "D4" => {
-                (-factor * s23_inv * s15_inv)
-                    * self.compute_chain(&[8, 6, -1, 3, 9, 4, -1, 7, 10]).unwrap()
-            }
-            "D5" => {
-                (-factor * s15_inv) * self.compute_chain(&[-1, 2, 8, 3, 9, 4, -1, 7, 10]).unwrap()
-            }
-            "D6" => {
-                (-factor * s23_inv * s15_inv)
-                    * self.compute_chain(&[-1, 2, 8, 3, -1, 6, 9, 7, 10]).unwrap()
-            }
-            "D7" => {
-                (-factor * utils::powi(s23_inv, 2) * s15_inv)
-                    * self.compute_chain(&[8, 6, -1, 3, -1, 6, 9, 7, 10]).unwrap()
-            }
-            "D8" => (-factor) * self.compute_chain(&[-1, 2, 8, 3, 9, 4, 10, 5, -1]).unwrap(),
-
-            "IR" => {
-                (-factor * s23_inv * s15_inv)
-                    * self.compute_chain(&[-1, 2, 8, 6, 9, 7, 10, 5, -1]).unwrap()
-            }
-            "UV2" => self.uv_residue(
-                &[8, 6, 9, 7, -1, 1, 10, 1, -1],
-                &[5, 7],
-                2,
-                -factor * s23_inv * s15_inv,
-            ),
-            "UV4" => self.uv_residue(
-                &[8, 6, -1, 1, 9, 1, -1, 7, 10],
-                &[3, 5],
-                2,
-                -factor * s23_inv * s15_inv,
-            ),
-            "UV6" => self.uv_residue(
-                &[-1, 1, 8, 1, -1, 6, 9, 7, 10],
-                &[1, 3],
-                2,
-                -factor * s23_inv * s15_inv,
-            ),
-            "UV3" => {
-                self.uv_residue(
-                    &[8, 6, 9, 7, -1, 1, -1, 7, 10],
-                    &[5],
-                    1,
-                    -factor * s23_inv * utils::powi(s15_inv, 2),
-                ) - self.uv_residue(
-                    &[8, 6, 9, 7, -1, 1, 7, 1, -1, 7, 10],
-                    &[5, 7],
-                    2,
-                    -factor * s23_inv * utils::powi(s15_inv, 2),
-                )
-            }
-            "UV7" => {
-                self.uv_residue(
-                    &[8, 6, -1, 1, -1, 6, 9, 7, 10],
-                    &[3],
-                    1,
-                    -factor * utils::powi(s23_inv, 2) * s15_inv,
-                ) - self.uv_residue(
-                    &[8, 6, -1, 1, 6, 1, -1, 6, 9, 7, 10],
-                    &[3, 5],
-                    2,
-                    -factor * utils::powi(s23_inv, 2) * s15_inv,
-                )
-            }
-            "UVIR" => self.uv_residue(
-                &[-1, 1, 8, 6, 9, 7, 10, 1, -1],
-                &[1, 7],
-                2,
-                factor * s23_inv * s15_inv,
-            ),
-            "D1UV_LO" => self.uv_residue(
-                &[8, 6, -1, 3, 9, 4, 10, 5, -1],
-                &[3, 5, 7],
-                3,
-                -factor * s23_inv,
-            ),
-            "D2UV_LO" => self.uv_residue(
-                &[8, 6, 9, 7, -1, 4, 10, 5, -1],
-                &[5, 7],
-                2,
-                -factor * s23_inv * s15_inv,
-            ),
-            "D3UV_LO" => {
-                self.uv_residue(
-                    &[8, 6, 9, 7, -1, 4, -1, 7, 10],
-                    &[5],
-                    1,
-                    -factor * s23_inv * utils::powi(s15_inv, 2),
-                ) - self.uv_residue(
-                    &[8, 6, 9, 7, -1, 5, 7, 4, -1, 7, 10],
-                    &[5, 7],
-                    2,
-                    -factor * s23_inv * utils::powi(s15_inv, 2),
-                ) - self.uv_residue(
-                    &[8, 6, 9, 7, -1, 7, 5, 4, -1, 7, 10],
-                    &[6, 7],
-                    2,
-                    -factor * s23_inv * utils::powi(s15_inv, 2),
-                )
-            }
-            "D4UV_LO" => self.uv_residue(
-                &[8, 6, -1, 3, 9, 4, -1, 7, 10],
-                &[3, 5],
-                2,
-                -factor * s23_inv * s15_inv,
-            ),
-            "D5UV_LO" => self.uv_residue(
-                &[-1, 2, 8, 3, 9, 4, -1, 7, 10],
-                &[1, 3, 5],
-                3,
-                -factor * s15_inv,
-            ),
-            "D6UV_LO" => self.uv_residue(
-                &[-1, 2, 8, 3, -1, 6, 9, 7, 10],
-                &[1, 3],
-                2,
-                -factor * s23_inv * s15_inv,
-            ),
-
-            "D7UV_LO" => {
-                self.uv_residue(
-                    &[8, 6, -1, 3, -1, 6, 9, 7, 10],
-                    &[3],
-                    1,
-                    -factor * utils::powi(s23_inv, 2) * s15_inv,
-                ) - self.uv_residue(
-                    &[8, 6, -1, 5, 6, 3, -1, 6, 9, 7, 10],
-                    &[3, 5],
-                    2,
-                    -factor * utils::powi(s23_inv, 2) * s15_inv,
-                ) - self.uv_residue(
-                    &[8, 6, -1, 6, 5, 3, -1, 6, 9, 7, 10],
-                    &[4, 5],
-                    2,
-                    -factor * utils::powi(s23_inv, 2) * s15_inv,
-                )
-            }
-            "D8UV_LO" => {
-                self.uv_residue(&[-1, 2, 8, 3, 9, 4, 10, 5, -1], &[1, 3, 5, 7], 4, -factor)
-            }
-            "IRUV_LO" => self.uv_residue(
-                &[-1, 2, 8, 6, 9, 7, 10, 5, -1],
-                &[1, 7],
-                2,
-                -factor * s23_inv * s15_inv,
-            ),
-            _ => return panic!("Unknown diagram/counterterm {} for eeAA", name),
-        };
-        return Ok(numerator);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
-    use rand::Rng;
-    use topologies::Topology;
-    use Settings;
-
-    #[allow(non_snake_case, dead_code)]
-    #[test]
-    fn test_ee_aa() {
-        let my_top = "manual_eeAA_amplitude_P3";
-        let settings = Settings::from_file("../../LTD/hyperparameters.yaml");
-        let mut topologies = Topology::from_file("../../LTD/topologies.yaml", &settings);
-        let topo = topologies.get_mut(my_top).expect("Unknown topology");
-        topo.process();
-
-        //Tree Level
-        let mut ps = topo.external_kinematics.clone();
-        ps.remove(1);
-
-        //For on-shell photons
-        let a_mu =
-            LorentzVector::from_slice(&compute_polarization(ps[2], Polarizations::APlus).unwrap());
-        let a_nu =
-            LorentzVector::from_slice(&compute_polarization(ps[3], Polarizations::APlus).unwrap());
-        //Spinors
-        //This agrees with HELAS convention
-        let u = compute_polarization(ps[0], Polarizations::UPlus).unwrap();
-        let vbar = compute_polarization(ps[1], Polarizations::VBarMinus).unwrap();
-        //let vbar: ArrayVec<[Complex<f64>; 4]> =
-        //    compute_polarization::<f64>(-ps[1], Polarizations::UBarPlus)
-        //        .unwrap()
-        //        .iter()
-        //        .map(|x| -x)
-        //        .collect();
-
-        println!("u: [");
-        for v in u.iter() {
-            println!("{:.5e}", v);
-        }
-        println!("]");
-
-        println!("vbar: [");
-        for v in vbar.iter() {
-            println!("{:.5e}", v);
-        }
-        println!("]");
-
-        println!(
-            "a_mu = [{:.5e}, {:.5e}, {:.5e}, {:.5e}]",
-            a_mu.t, a_mu.x, a_mu.y, a_mu.z,
-        );
-        println!(
-            "a_nu = [{:.5e}, {:.5e}, {:.5e}, {:.5e}]",
-            a_nu.t, a_nu.x, a_nu.y, a_nu.z,
-        );
-
-        //let expected = Complex::new(0.0, 1.49019647202147543e-2);
-        //println!("res: {:.5e}", result);
-        //println!("exp: {:.5e}", expected);
-
-        let vectors = [
-            ps[0].map(|x| Complex::new(x, 0.0)),
-            ps[1].map(|x| Complex::new(x, 0.0)),
-            ps[2].map(|x| Complex::new(x, 0.0)),
-            ps[3].map(|x| Complex::new(x, 0.0)),
-            (-ps[1] - ps[2]).map(|x| Complex::new(x, 0.0)),
-            a_mu,
-            a_nu,
-        ];
-        let M0 = GammaChain::new(&vbar, &u, &[6, 5, 7], &vectors)
-            .unwrap()
-            .compute_chain()
-            .unwrap();
-        let M0b = GammaChain::new(&vbar, &u, &[7, 5, 6], &vectors)
-            .unwrap()
-            .compute_chain()
-            .unwrap();
-        println!("M0 = {:?}", M0);
-        println!("M0b = {:?}", M0b);
-        println!(
-            "s = {:?}, t = {:?}",
-            (ps[0] + ps[1]).square(),
-            (ps[1] + ps[2]).square(),
-        );
-        let mu_r = 91.188000000000002;
-        let mu_uv = 1e2;
-        let s = (ps[0] + ps[1]).square();
-        let t = (ps[1] + ps[2]).square();
-        let ln = if s < 0.0 {
-            Complex::new((-mu_r * mu_r / s).ln(), 0.0)
-        } else {
-            Complex::new((mu_r * mu_r / s).ln(), std::f64::consts::PI)
-        };
-        let epm2 = 8.0 / 27.0 / t * Parameters::alpha_ew * Parameters::alpha_s * M0;
-        let epm1 = epm2 * (1.5 + ln);
-        let ep0 = epm2 * (4. + 0.5 * ln * (3. + ln));
-        println!("1/ep**2 \t: {:?}", epm2);
-        println!("1/ep    \t: {:?}", epm1);
-        println!("Finite  \t: {:?}", ep0);
-
-        assert!((1.0 - 2.0) < 1e-10);
-        //assert!((result - expected).norm() < 1e-10);
-    }
-
-    #[allow(non_snake_case, dead_code)]
-    #[test]
-    fn test_rot() {
-        let my_top = "manual_eeAA_amplitude_E2";
-        let settings = Settings::from_file("../../LTD/hyperparameters.yaml");
-        let mut topologies = Topology::from_file("../../LTD/topologies.yaml", &settings);
-        let topo = topologies.get_mut(my_top).expect("Unknown topology");
-        topo.process();
-        //Rotate
-        let mut topos = vec![topo.clone()];
-        let mut rng = rand::thread_rng();
-        let angle = rng.gen::<f64>() * 2. * std::f64::consts::PI;
-        let mut rv = (rng.gen::<f64>(), rng.gen::<f64>(), rng.gen::<f64>()); // rotation axis
-        let inv_norm = 1.0 / (rv.0 * rv.0 + rv.1 * rv.1 + rv.2 * rv.2).sqrt();
-        rv = (rv.0 * inv_norm, rv.1 * inv_norm, rv.2 * inv_norm);
-        topos.push(topo.rotate(angle, rv));
-
-        for topo in topos.iter() {
-            println!("{:?}", topo.rotation_matrix);
-            //Tree Level
-            let mut ps = topo.external_kinematics.clone();
-            ps.remove(1);
-            let rot_matrix = topo.rotation_matrix;
-            for e in &mut ps {
-                let old_x = e.x;
-                let old_y = e.y;
-                let old_z = e.z;
-                e.x =
-                    rot_matrix[0][0] * old_x + rot_matrix[1][0] * old_y + rot_matrix[2][0] * old_z;
-                e.y =
-                    rot_matrix[0][1] * old_x + rot_matrix[1][1] * old_y + rot_matrix[2][1] * old_z;
-                e.z =
-                    rot_matrix[0][2] * old_x + rot_matrix[1][2] * old_y + rot_matrix[2][2] * old_z;
-            }
-
-            println!("{:?}", ps);
-
-            //For on-shell photons
-            let a_mu = LorentzVector::from_slice(
-                &compute_polarization(ps[2], Polarizations::APlus).unwrap(),
-            );
-            let a_nu = LorentzVector::from_slice(
-                &compute_polarization(ps[3], Polarizations::APlus).unwrap(),
-            );
-
-            //Spinors
-            //This agrees with HELAS convention
-            let u = compute_polarization(ps[0], Polarizations::UPlus).unwrap();
-            let vbar = compute_polarization(ps[1], Polarizations::VBarPlus).unwrap();
-            println!("u: [");
-            for v in u.iter() {
-                println!("{:.5e}", v);
-            }
-            println!("]");
-
-            println!("vbar: [");
-            for v in vbar.iter() {
-                println!("{:.5e}", v);
-            }
-            println!("]");
-
-            println!(
-                "a_mu = [{:.5e}, {:.5e}, {:.5e}, {:.5e}]",
-                a_mu.t, a_mu.x, a_mu.y, a_mu.z,
-            );
-            println!(
-                "a_nu = [{:.5e}, {:.5e}, {:.5e}, {:.5e}]",
-                a_nu.t, a_nu.x, a_nu.y, a_nu.z,
-            );
-
-            let vectors = [
-                ps[0].map(|x| Complex::new(x, 0.0)),
-                ps[1].map(|x| Complex::new(x, 0.0)),
-                ps[2].map(|x| Complex::new(x, 0.0)),
-                ps[3].map(|x| Complex::new(x, 0.0)),
-                (-ps[1] - ps[2]).map(|x| Complex::new(x, 0.0)),
-                a_mu,
-                a_nu,
-            ];
-            let M0 = GammaChain::new(&vbar, &u, &[6, 5, 7], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap();
-            let M1 = GammaChain::new(&vbar, &u, &[-1, -2, 6, 5, 7, -2, -1], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap();
-            let M2 = GammaChain::new(&vbar, &u, &[-1, 1, 6, 5, 7, 2, -1], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap();
-            let M3 = GammaChain::new(&vbar, &u, &[6, 4, 1, 4, 7], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap();
-            let M4 = GammaChain::new(&vbar, &u, &[6, 3, 2, 3, 7], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap();
-            let M5 = GammaChain::new(&vbar, &u, &[6, 1, 4, 1, 7], &vectors)
-                .unwrap()
-                .compute_chain()
-                .unwrap();
-            println!("M0 = {:?}", M0);
-            println!("M1 = {:?}", M1);
-            println!("M2 = {:?}", M2);
-            println!("M3 = {:?}", M3);
-            println!("M4 = {:?}", M4);
-            println!("M5 = {:?}", M5);
-            println!("M1/M0 = {:?}", M1 / M0);
-            println!(
-                "s = {:?}, t = {:?}",
-                (ps[0] + ps[1]).square(),
-                (ps[1] + ps[2]).square(),
-            );
-        }
-        assert!((1.0 - 2.0) < 1e-10);
-    }
-}
