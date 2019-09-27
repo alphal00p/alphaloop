@@ -1,3 +1,4 @@
+use amplitude::Amplitude;
 use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use float;
 use num::Complex;
@@ -7,6 +8,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use vector::{LorentzVector, RealNumberLike};
+use FloatLike;
 use Settings;
 
 /// Ellipsoid and hyperboloid surfaces
@@ -308,7 +310,7 @@ pub struct FixedDeformation {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Topology {
+pub struct Topology  {
     pub name: String,
     pub n_loops: usize,
     pub analytical_result_real: Option<f64>,
@@ -336,6 +338,8 @@ pub struct Topology {
     pub fixed_deformation: Vec<FixedDeformation>,
     #[serde(skip_deserializing)]
     pub all_excluded_surfaces: Vec<bool>,
+    #[serde(default)]
+    pub amplitude: Amplitude
 }
 
 impl Topology {
