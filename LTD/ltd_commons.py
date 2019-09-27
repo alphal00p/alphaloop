@@ -15,12 +15,14 @@ hyperparameters = HyperParameters({
         # can be additive, cutgroups, constant, duals, intersections or none
         'deformation_strategy'  :   'fixed',
         'topology'              :   'Box',
+        'amplitude'             :  '',
         # specify the name of a python module that contains a function numerator(complex_loop_momenta)
         # that will be called for every cut
         'python_numerator'      :   None,
         # counterterms parameters
+        'use_ct'                :   False,
         'use_collinear_ct'      :   False,
-        'mu_uv_sq_re_im'        :   [0,1e2],
+        'mu_uv_sq_re_im'        :   [1e4,0],
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
@@ -55,7 +57,7 @@ hyperparameters = HyperParameters({
         # can be set to high values for use with MPI, otherwise leave it at 1
         'n_vec'             :   1,
         'seed'              :   1,
-        'integrated_phase'  :  'imag',
+        'integrated_phase'  :  'both',
         'state_filename_prefix' :   None,
         'survey_n_points'   :   0,
         'survey_n_iterations':  0,
@@ -124,7 +126,7 @@ hyperparameters = HyperParameters({
         # can be log or linear
         'mapping'   :   'linear',
         # controls the UV behaviour of the spherical log map
-        'b'         :   1.0e0,
+        'b'         :   1.0e1,
         # rescale the input from [0,1] to [lo,hi]
         'input_rescaling' : [
             [[0., 1.], [0., 1.], [0., 1.]],
