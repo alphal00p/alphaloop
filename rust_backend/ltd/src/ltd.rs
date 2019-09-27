@@ -382,17 +382,13 @@ impl Topology {
         // Identify similar surfaces and put them in the same group
         // If a surface is the first of a new group, the group id will be the index
         // in the surface list
+        let mut unique_ellipsoids = 0;
         let mut group_representative: Vec<(Vec<((usize, usize), i8, i8)>, usize)> = vec![];
         for (surf_index, s) in &mut self.surfaces.iter_mut().enumerate() {
-            // create a tuple that identifies a surface:
-            // (p_i, s_i, ss_i) where p_i is a cut propagator or an on-shell one
-            // and s_i is the surface sign, and ss_i is the signature sign
-            // The signature sign is used to see if the constant term in the
-            // surface equation is the same. Since the sign of the constant coming
-            // from the on-shell propagator is always of opposite sign,
-            // we add a minus.
-            // create a list of propagators that are cut or are on-shell
-            // we sort it with their respective
+            // create a vector of tuples that identifies a surface:
+            // [(x_1, a_1, b_1)] where (x,a,b) means a*E_x+b*p_x^0
+            // the sorted list is a unique ID when set the a_1=1 by
+            // an overall sign multiplication
             let mut s_cut_sorted = s
                 .cut
                 .iter()
@@ -402,45 +398,32 @@ impl Topology {
                 .zip_eq(s.sig_ll_in_cb.iter())
                 .filter_map(|(((lli, c), s), ss)| match c {
                     Cut::PositiveCut(i) | Cut::NegativeCut(i) if *s != 0 => {
-                        Some(((lli, *i), *s, *ss))
+                        Some(((lli, *i), *s, -*ss))
                     }
                     _ => None,
                 })
                 .collect::<Vec<_>>();
 
-            // now add the surface sign
-            s_cut_sorted.push((
-                (s.onshell_ll_index, s.onshell_prop_index),
-                s.delta_sign,
-                -s.delta_sign,
-            ));
+            // now add the surface focus. it always as +p^0
+            s_cut_sorted.push(((s.onshell_ll_index, s.onshell_prop_index), s.delta_sign, 1));
             s_cut_sorted.sort();
 
-            // also try with opposite signs
-            let s_cut_sorted_inv = s_cut_sorted
-                .iter()
-                .map(|(c, s, ss)| (*c, -s, -ss))
-                .collect::<Vec<_>>();
-
-            let mut is_new = false;
-            match group_representative.iter().find(|r| r.0 == s_cut_sorted) {
-                Some(i) => s.group = i.1,
-                None => {
-                    match group_representative
-                        .iter()
-                        .find(|r| r.0 == s_cut_sorted_inv)
-                    {
-                        Some(j) => s.group = j.1,
-                        None => {
-                            is_new = true;
-                        }
-                    }
+            // normalize such that the first focus has positive sign
+            if s_cut_sorted[0].1 == -1 {
+                for focus in s_cut_sorted.iter_mut() {
+                    *focus = (focus.0, -focus.1, -focus.2);
                 }
             }
 
-            if is_new {
-                s.group = surf_index;
-                group_representative.push((s_cut_sorted, surf_index));
+            match group_representative.iter().find(|r| r.0 == s_cut_sorted) {
+                Some(i) => s.group = i.1,
+                None => {
+                    if s.ellipsoid {
+                        unique_ellipsoids += 1;
+                    }
+                    s.group = surf_index;
+                    group_representative.push((s_cut_sorted, surf_index));
+                }
             }
 
             if self.settings.general.debug > 1 {
@@ -453,6 +436,7 @@ impl Topology {
         }
 
         if self.settings.general.debug > 1 {
+            println!("Number of unique ellipsoids: {}", unique_ellipsoids);
             println!("Surfaces not appearing in cut:");
         }
 
@@ -526,6 +510,7 @@ impl Topology {
             let mut new = true;
             for x in &mut dual_groups_rep {
                 if x.0 == cs {
+                    new = false;
                     dual_groups.union(x.1, cut_index);
                     break;
                 }

@@ -13,7 +13,7 @@ from collections import defaultdict
 from pprint import pformat
 import numpy as numpy
 import numpy.linalg
-from itertools import product, combinations
+from itertools import product, combinations, permutations
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
@@ -856,6 +856,13 @@ class LoopTopology(object):
                 deltas.append(cvxpy.norm(cvxpy.hstack([math.sqrt(p.m_squared), mom]), 2))
                 delta_func.append(([(i_loop_momentum, sig) for i_loop_momentum, sig in enumerate(p.signature) if sig!=0], p.q[1:], math.sqrt(p.m_squared)))
 
+        prop_id_to_ll_map = {}
+        counter = 0
+        for ll_index, ll in enumerate(self.loop_lines):
+            for p_index, p in enumerate(ll.propagators):
+                prop_id_to_ll_map[counter] = (ll_index, p_index)
+                counter +=1
+
         # construct all ellipsoid surfaces
         ellipsoids = {}
         ellipsoid_fun = {}
@@ -881,11 +888,13 @@ class LoopTopology(object):
                     is_ellipsoid = True
                     surf_sign = 0
 
+                    sig_sign_map = []
                     for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
                         if sig_sign != 0:
                             eq += cut_sign * sig_sign * deltas[index]
                             eq -= sig_sign * shift
                             eq_fn.append([cut_sign * sig_sign, index, sig_sign * shift])
+                            sig_sign_map.append((index, sig_sign))
 
                             if surf_sign == 0:
                                 surf_sign = cut_sign * sig_sign
@@ -894,26 +903,38 @@ class LoopTopology(object):
 
                     for p_index, p in enumerate(ll.propagators):
                         if cut_prop_index_in_ll != p_index and is_ellipsoid:
-                            # TODO: check sign
-                            ellipsoid_fun[(tuple((c[0], c[1]) for c in cut), p_index)] = [surf_sign, eq_fn + [(surf_sign, prop_count, -p.q[0])]]
-
-                            if surf_sign == -1:
-                                # multiply everyting with -1
-                                ellipsoids[(tuple((c[0], c[1]) for c in cut), p_index)] = -eq - p.q[0] + deltas[prop_count]
+                            # create an tuple of tuples that identifies a surface:
+                            # [(x_1, a_1, b_1)] where (x,a,b) means a*E_x+b*p_x^0
+                            # the sorted list with a=1 is a unique ID
+                            if surf_sign == -1.:
+                                surf_id = tuple([(prop_id_to_ll_map[x[0]], -int(surf_sign), int(x[1])) for x in sig_sign_map] +
+                                        [(prop_id_to_ll_map[prop_count], -int(surf_sign), -1)])
                             else:
-                                ellipsoids[(tuple((c[0], c[1]) for c in cut), p_index)] = eq + p.q[0] + deltas[prop_count]
+                                surf_id = tuple([(prop_id_to_ll_map[x[0]], int(surf_sign), -int(x[1])) for x in sig_sign_map] +
+                                        [(prop_id_to_ll_map[prop_count], int(surf_sign), 1)])
+
+                            # make the sign it unique
+                            surf_id = tuple(sorted(surf_id))
+
+                            ellipsoid_fun[surf_id] = [surf_sign, eq_fn + [(surf_sign, prop_count, -p.q[0])]]
+
+                            if surf_sign == -1.:
+                                ellipsoids[surf_id] = eq*-1.0 - p.q[0] + deltas[prop_count]
+                            else:
+                                ellipsoids[surf_id] = eq + p.q[0] + deltas[prop_count]
+
                         prop_count += 1
 
         # Filter non-existing ellipsoids
-        for ev in list(ellipsoids):
-            e = ellipsoids[ev]
+        for surf_id in list(ellipsoids):
+            e = ellipsoids[surf_id]
             p = cvxpy.Problem(cvxpy.Minimize(e), [])
             result = p.solve()
-            if result < -1e-8:
-                pass
-            else:
-                del ellipsoids[ev]
-                del ellipsoid_fun[ev]
+            if result > -1e-8:
+                del ellipsoids[surf_id]
+                del ellipsoid_fun[surf_id]
+
+        print('Number of ellipsoids %s: %s' % (self.name, len(ellipsoids)))
 
         # Find the maximal overlap between all ellipsoids
         # This algorithm is only fast enough for simple cases
