@@ -806,9 +806,15 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
         }
 
         println!(
-            "-> id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
-            surf_index, surf.group, surf.ellipsoid, surf.pinched, (surf.onshell_ll_index, surf.onshell_prop_index), CutList(&surf.cut),
-            surf.sig_ll_in_cb, surf.signs, surf.delta_sign, surf.shift
+            "-> id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, id={:?}, shift={}",
+            surf_index,
+            surf.group,
+            surf.ellipsoid,
+            surf.pinched,
+            (surf.onshell_ll_index, surf.onshell_prop_index),
+            CutList(&surf.cut),
+            surf.id,
+            surf.shift
         );
 
         let onshell_ll = &topo.loop_lines[surf.onshell_ll_index];

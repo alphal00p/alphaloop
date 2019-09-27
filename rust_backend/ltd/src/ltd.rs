@@ -432,9 +432,8 @@ impl Topology {
 
             if self.settings.general.debug > 1 {
                 println!(
-                    "  | id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, mom_map={:?}, signs={:?}, marker={}, shift={}",
-                    surf_index, s.group, s.ellipsoid, s.pinched, (s.onshell_ll_index, s.onshell_prop_index), CutList(&s.cut), s.sig_ll_in_cb,
-                    s.signs, s.delta_sign, s.shift
+                    "  | id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, id={:?}, shift={}",
+                    surf_index, s.group, s.ellipsoid, s.pinched, (s.onshell_ll_index, s.onshell_prop_index), CutList(&s.cut), s.id, s.shift
                 );
             }
         }

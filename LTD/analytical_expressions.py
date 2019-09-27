@@ -13,7 +13,7 @@ def ladder_phi(x,y,l):
 
     bb = -1./(math.factorial(l)*ladder_lambda(x,y))
     summand = 0.
-    for j in xrange(l,2*l+1):
+    for j in range(l,2*l+1):
         cc = (-1.)**j*math.factorial(j)*numpy.log(y/x+0j)**(2*l-j)
         dd = math.factorial(j-l)*math.factorial(2*l-j)
         ee = mpmath.polylog(j,-1./(x*ladder_rho(x,y)))-mpmath.polylog(j,-y*ladder_rho(x,y))

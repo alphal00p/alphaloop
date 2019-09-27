@@ -1,4 +1,3 @@
-use amplitude::eeAA;
 use arrayvec::ArrayVec;
 use num::Complex;
 use topologies::{LTDCache, Topology};
