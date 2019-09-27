@@ -31,13 +31,19 @@ except ImportError:
 N_points = 100
 studied_topology = 'manual_eeAA_amplitude_E'
 studied_topology = sys.argv[1]
+studied_amplitude = ''
+if len(sys.argv) == 3:
+    studied_amplitude = sys.argv[2]
+
 
 topology = topology_collection[studied_topology]
 
 rust_instance = LTD(
         settings_file = pjoin(os.path.pardir,'hyperparameters.yaml'),
         topology_file = pjoin(os.path.pardir,'topologies.yaml'),
-        name = studied_topology,
+        top_name = studied_topology,
+        amplitude_file = pjoin(os.path.pardir,'amplitudes.yaml'),
+        amp_name = studied_amplitude, 
     )
 
 def evaluate(point):
@@ -90,7 +96,7 @@ from scipy.optimize import curve_fit
 min_logx = -15
 max_logx = 0
 
-#limits = ['Collinear p1', 'Collinear p2', 'Soft','UV']
+#limits = ['Collinear p1', 'Collinear p2', 'Soft1','UV']
 limits = ['UV']
 #limits = ['Soft']
 #limits = ['Collinear ' + p for p in ['p1','p2','p3','p4']] + ['Soft1', 'Soft3', 'UV']
