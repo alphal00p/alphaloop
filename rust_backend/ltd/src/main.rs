@@ -33,6 +33,7 @@ use std::io::{BufWriter, Write};
 
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
+use ltd::amplitude::Amplitude;
 use ltd::integrand::Integrand;
 use ltd::topologies::{LTDCache, Surface, Topology};
 use ltd::utils::Signum;
@@ -975,7 +976,6 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
             pt.len()
         );
     }
-
     if matches.is_present("full_integrand") {
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
@@ -1075,6 +1075,14 @@ fn main() {
                 .help("Set the topology file"),
         )
         .arg(
+            Arg::with_name("amplitudes")
+                .short("p")
+                .long("amplitudes")
+                .value_name("AMPLITUDE_FILE")
+                .default_value("../LTD/amplitudes.yaml")
+                .help("Set the amplitude file"),
+        )
+        .arg(
             Arg::with_name("config")
                 .short("f")
                 .long("config")
@@ -1104,6 +1112,13 @@ fn main() {
                 .help("Set the active topology"),
         )
         .arg(
+            Arg::with_name("amplitude")
+                .short("a")
+                .long("amplitude")
+                .value_name("AMPLITUDE")
+                .help("Set the active amplitude"),
+        )
+        .arg(
             Arg::with_name("state_filename_prefix")
                 .long("state_filename_prefix")
                 .value_name("STATE_FILENAME")
@@ -1120,6 +1135,10 @@ fn main() {
                 .long("res_file_prefix")
                 .value_name("RES_FILE_PREFIX")
                 .help("Set the prefix to apply to the result file"),
+        )
+        .subcommand(
+            SubCommand::with_name("integrated_ct")
+                .about("Gives the integrated CT for the selected amplitude"),
         )
         .subcommand(SubCommand::with_name("bench").about("Run a benchmark"))
         .subcommand(
@@ -1181,6 +1200,10 @@ fn main() {
         settings.general.topology = x.to_owned();
     }
 
+    if let Some(x) = matches.value_of("amplitude") {
+        settings.general.amplitude = x.to_owned();
+    }
+
     if let Some(x) = matches.value_of("state_filename_prefix") {
         settings.integrator.state_filename_prefix = serde::export::Some(x.to_owned());
     }
@@ -1200,10 +1223,34 @@ fn main() {
     }
 
     // load the example file
+    // Start with the amplitudes
+    let amplitude_file = matches.value_of("amplitudes").unwrap();
+    let mut amplitudes = Amplitude::from_file(amplitude_file);
+    let mut amp0 = Amplitude::default();
+    let amp: &mut ltd::amplitude::Amplitude = if settings.general.amplitude != "" {
+        settings.general.use_amplitude = true;
+        amplitudes
+            .get_mut(&settings.general.amplitude)
+            .expect("Unknown amplitude")
+    } else {
+        settings.general.use_amplitude = false;
+        &mut amp0
+    };
+    // Ensure that it's using the right topology and process the amplitude
+    if amp.topology != "" {
+        if amp.topology != settings.general.topology {
+            println!("Changing Topology to fit the amplitude setup");
+        }
+        settings.general.topology = amp.topology.clone();
+        amp.process(&settings.general);
+    }
+
+    // Call topology
     let mut topologies = Topology::from_file(topology_file, &settings);
     let topo = topologies
         .get_mut(&settings.general.topology)
         .expect("Unknown topology");
+    topo.amplitude = amp.clone();
     topo.process();
 
     if let Some(_) = matches.subcommand_matches("bench") {
@@ -1218,6 +1265,11 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("inspect") {
         inspect(&topo, &mut settings, matches);
+        return;
+    }
+
+    if let Some(_) = matches.subcommand_matches("integrated_ct") {
+        amp.print_integrated_ct();
         return;
     }
 
