@@ -731,6 +731,7 @@ class LoopTopology(object):
                     prop_count += 1
 
             surface_equations = []
+            surface_ids = []
 
             # construct all dual integrands
             formatted_str += '\t(-2 Pi I)^%s (1/(2 Pi)^4)^%s(' % (self.n_loops, self.n_loops)
@@ -749,10 +750,11 @@ class LoopTopology(object):
 
                     prop_count = 1
                     formatted_str += '+1/('
-                    for ll, (_, cut_prop_index_in_ll, _) in zip(self.loop_lines, cut):
+                    for ll_index, (ll, (_, cut_prop_index_in_ll, _)) in enumerate(zip(self.loop_lines, cut)):
                         cut_energy = ''
                         sig_map = nmi.dot(ll.signature)
 
+                        surf_id = []
                         for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
                             if sig_sign != 0:
                                 if cut_sign * sig_sign == 1:
@@ -763,6 +765,7 @@ class LoopTopology(object):
                                     cut_energy += '-(%s)' % shift # add parenthesis to prevent -- operator
                                 else:
                                     cut_energy += '+%s' % shift
+                                surf_id.append(((ll_index, cut_prop_index_in_ll), int(cut_sign * sig_sign), -int(sig_sign)))
 
                         for p_index, p in enumerate(ll.propagators):
                             if cut_prop_index_in_ll == p_index:
@@ -774,10 +777,24 @@ class LoopTopology(object):
                                     + '=%s+%s+delta[[%s]];' % (cut_energy, p.q[0], prop_count))
                                 surface_equations.append('S%s' % len(surface_equations)
                                     + '=%s+%s-delta[[%s]];' % (cut_energy, p.q[0], prop_count))
+
+                                surf_id_pos = surf_id + [((ll_index, p_index), +1, +1)]
+                                surf_id_pos = tuple(sorted(surf_id_pos))
+                                surface_ids.append(('SurfaceID[%s]=%s;' % (len(surface_ids), surf_id_pos)).replace('(','{').replace(')','}'))
+
+                                surf_id_neg = surf_id + [((ll_index, p_index), -1, +1)]
+                                surf_id_neg = tuple(sorted(surf_id_neg))
+                                surface_ids.append(('SurfaceID[%s]=%s;' % (len(surface_ids), surf_id_neg)).replace('(','{').replace(')','}'))
                             prop_count += 1
                     formatted_str += ')'
+
+                    surf_id = list(sorted(surf_id))
+                    if surf_id[0][1] == -1:
+                        surf_id = [(x, -a, -b) for x, a, b in surf_id]
+
             formatted_str += ')];'
-            return formatted_str + '\n'.join(surface_equations)
+
+            return formatted_str + '\n' + '\n'.join(surface_equations) + '\n'  + '\n'.join(surface_ids)
 
     def to_flat_format(self):
         """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
