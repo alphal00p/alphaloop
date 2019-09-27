@@ -253,9 +253,13 @@ pub struct GeneralSettings {
     pub deformation_strategy: DeformationStrategy,
     pub python_numerator: Option<String>,
     pub mu_uv_sq_re_im: Vec<f64>,
+    pub use_ct: bool,
     pub use_collinear_ct: bool,
     pub cut_filter: Vec<usize>,
     pub topology: String,
+    #[serde(default)]
+    pub use_amplitude: bool,
+    pub amplitude: String,
     pub unstable_point_warning_percentage: f64,
     pub numerical_threshold: f64,
     pub relative_precision: f64,
@@ -477,12 +481,25 @@ py_class!(class LTD |py| {
     data cache: RefCell<topologies::LTDCache<float>>;
     data cache_f128: RefCell<topologies::LTDCache<f128::f128>>;
 
-    def __new__(_cls, topology_file: &str, name: &str, settings_file: &str)
+    def __new__(_cls, topology_file: &str, top_name: &str, amplitude_file: &str, amp_name: &str, settings_file: &str)
     -> PyResult<LTD> {
-        let settings = Settings::from_file(settings_file);
+        let mut settings = Settings::from_file(settings_file);
         let mut topologies = topologies::Topology::from_file(topology_file, &settings);
-        let mut topo = topologies.remove(name).expect("Unknown topology");
+        let mut topo = topologies.remove(top_name).expect("Unknown topology");
         topo.process();
+        //Skip amplitude with no name is set
+        let mut amp= amplitude::Amplitude::default();
+        if amp_name == ""{
+            settings.general.use_amplitude = false;
+        }else{
+            let mut amplitudes = amplitude::Amplitude::from_file(amplitude_file);
+            settings.general.use_amplitude = true;
+            amp=amplitudes.remove(amp_name).expect("Unknown amplitude");
+            assert_eq!(amp.topology,top_name);
+        }
+        amp.process(&settings.general);
+        topo.amplitude= amp.clone();
+
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
 
