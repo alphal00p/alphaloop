@@ -496,10 +496,10 @@ class TopologyGenerator(object):
         if analytic_result is None:
             loop_topology.analytic_result = self.guess_analytical_result(loop_momenta, ext_mom, mass_map)
        
-        if fixed_deformation is None:
+        if (fixed_deformation is None) or (fixed_deformation is True):
             # TODO generate the source coordinates automatically with cvxpy if 
             # not specified.
-            loop_topology.build_fixed_deformation()
+            loop_topology.build_fixed_deformation(force=(fixed_deformation is True))
 
         return loop_topology
 
@@ -849,7 +849,7 @@ class LoopTopology(object):
         else:
             return LoopTopology.from_flat_format(yaml.load(open(input_path,'r'), Loader=Loader))
 
-    def build_fixed_deformation(self):
+    def build_fixed_deformation(self, force=False):
         """ This function identifies the fixed deformation sources for the deformation field as well as a the list of
         surfaces ids to exclude for each."""
 
@@ -959,7 +959,7 @@ class LoopTopology(object):
         el_fun = [(surf_id, surf) for surf_id, surf in ellipsoid_fun.items()]
         max_overlap = [(i,) for i in range(len(ellipsoid_fun))]
 
-        if len(ellipsoids) > 7:
+        if (not force) and len(ellipsoids) > 7:
             print('Ignoring topology since it is too complicated')
             all_overlaps = []
         else:
