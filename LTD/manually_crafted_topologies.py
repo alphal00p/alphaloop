@@ -2419,6 +2419,7 @@ hard_coded_topology_collection.add_topology(
     ]),        
         analytic_result =  (0.00760695481617+0.000196745763537j) ,
         parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0., 'm6':0.},
+        fixed_deformation = [{'deformation_sources': [[0., -0.5090471257245934, -0.6569087088593859, -0.6710689345531541]], 'excluded_surface_ids': []}],
         name = 'uuWWZ_amplitude',
     ),
     entry_name = 'uuWWZ_amplitude'
