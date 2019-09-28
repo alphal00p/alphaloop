@@ -800,13 +800,36 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
     let samples = usize::from_str(matches.value_of("samples").unwrap()).unwrap();
     let rescaling = f64::from_str(matches.value_of("rescaling").unwrap()).unwrap();
 
+    let mut n_unique_E_surface = 0;
+    println!("");
+    println!(">>> Start of the listing of unique non-pinched E-surfaces");
+    for (surf_index, surf) in topo.surfaces.iter().enumerate() {
+        if !ids.is_empty() && !ids.contains(&surf_index) {
+            continue;
+        }
+        if ((surf_index != surf.group) || (!surf.ellipsoid) || (surf.pinched)) {
+            continue;            
+        }
+        n_unique_E_surface += 1;
+        println!(
+            "|-> group={}, prop={:?} cut={}, full_id={:?}, shift={}",
+            surf.group,
+            (surf.onshell_ll_index, surf.onshell_prop_index),
+            CutList(&surf.cut),
+            surf.id,
+            surf.shift
+        );
+    }
+    println!(">>> End of the listing of {} unique non-pinched E-surfaces",n_unique_E_surface);
+    println!("");
+
     for (surf_index, surf) in topo.surfaces.iter().enumerate() {
         if !ids.is_empty() && !ids.contains(&surf_index) {
             continue;
         }
 
         println!(
-            "-> id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, id={:?}, shift={}",
+            "-> id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, full_id={:?}, shift={}",
             surf_index,
             surf.group,
             surf.ellipsoid,
