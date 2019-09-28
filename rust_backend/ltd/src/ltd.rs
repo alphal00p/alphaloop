@@ -545,14 +545,26 @@ impl Topology {
 
         self.all_excluded_surfaces = vec![false; self.surfaces.len()];
         for d in &mut self.fixed_deformation {
+            let mut found = false;
             for surf_id in &d.excluded_surface_ids {
                 for (i, s) in self.surfaces.iter().enumerate() {
-                    if s.id == *surf_id {
+                    if s.id == *surf_id && i == s.group {
                         d.excluded_surface_indices.push(i);
                         self.all_excluded_surfaces[i] = true;
+                        found = true;
                     }
                 }
+
+                if !found {
+                    panic!("Unkown surface id in fixed deformation: {:?}", surf_id);
+                }
             }
+        }
+
+        if self.settings.general.deformation_strategy == DeformationStrategy::Fixed
+            && self.fixed_deformation.is_empty()
+        {
+            panic!("Fixed deformation strategy selected but none was provided.");
         }
     }
 
@@ -918,7 +930,7 @@ impl Topology {
                         let mut c = DualN::from_real(T::zero());
                         for (cut_info, &sign) in cut_infos[..self.n_loops]
                             .iter()
-                            .zip_eq(onshell_signs.iter())
+                            .zip_eq(onshell_signs[..self.n_loops].iter())
                         {
                             if sign != 0 {
                                 a += cut_info.a.multiply_sign(sign);
@@ -1541,8 +1553,10 @@ impl Topology {
                     .real_energy
                     .multiply_sign(surf.delta_sign);
 
-            // TODO: normalize
-            cache.ellipsoid_eval[i] = cache.ellipsoid_eval[i].powi(2); // take the square so that the number if always positive
+            // TODO: properly normalize
+            // take the square so that the number if always positive
+            cache.ellipsoid_eval[i] =
+                cache.ellipsoid_eval[i].powi(2) / Into::<T>::into(self.e_cm_squared);
         }
 
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
@@ -1718,7 +1732,11 @@ impl Topology {
         }
 
         let lambda = if self.settings.deformation.scaling.lambda > 0. {
-            self.determine_lambda(&kappas, self.settings.deformation.scaling.lambda, cache)
+            self.determine_lambda(
+                &kappas[..self.n_loops],
+                self.settings.deformation.scaling.lambda,
+                cache,
+            )
         } else {
             NumCast::from(self.settings.deformation.scaling.lambda.abs()).unwrap()
         };
