@@ -955,32 +955,64 @@ class LoopTopology(object):
 
         # Find the maximal overlap between all ellipsoids
         # This algorithm is only fast enough for simple cases
-        el = list(ellipsoids.values())
-        el_fun = [(surf_id, surf) for surf_id, surf in ellipsoid_fun.items()]
+        el_fun = [(surf_id, ellipsoids[surf_id], surf) for surf_id, surf in ellipsoid_fun.items()]
         max_overlap = [(i,) for i in range(len(ellipsoid_fun))]
 
-        if (not force) and len(ellipsoids) > 7:
+        # Already group together ellipsoids that share a focus
+        # For these matches, we do not need to test
+        grouped = {}
+        for i, (surf_id, _, _) in enumerate(el_fun):
+            for focus, _, _ in surf_id:
+                if focus not in grouped:
+                    grouped[focus] = {i}
+                else:
+                    grouped[focus].add(i)
+
+        if not force and len(ellipsoids) > 13:
             print('Ignoring topology since it is too complicated')
             all_overlaps = []
         else:
             done_overlaps = []
-            for n in range(1, len(el)):
+            for n in range(1, len(el_fun)):
                 unused = set(max_overlap)
                 new_max_overlap = []
-                for x in combinations(max_overlap, n + 1):
-                    tot = [z for y in x for z in y]
+                print('Processing overlap level %s with %s options' % (n, len(max_overlap)))
 
-                    if any(tot.count(v) != n for v in tot):
+                current_indices = [i for o in max_overlap for i in o]
+                # do a quick filter of the indices
+                possible_indices = [i for i in set(current_indices) if current_indices.count(i) >= n]
+
+                for x in combinations(possible_indices, n + 1):
+                    # if we know they are connected, simply add them
+                    connected = False
+                    for groups in grouped.values():
+                        if set(x).issubset(groups):
+                            connected = True
+                            new_max_overlap.append(x)
+                            for y in list(unused):
+                                if set(y).issubset(x):
+                                    unused.remove(y)
+                            break
+                    if connected:
                         continue
 
-                    unique = tuple(set(tuple(tot)))
+                    # now check if it's possible by checking if all combinations of the
+                    # indices appear
+                    possible = True
+                    for y in combinations(x, n):
+                        if y not in max_overlap:
+                            possible = False
+                            break
 
-                    p = cvxpy.Problem(cvxpy.Minimize(1), [el[e] <= 0 for e in unique])
+                    if not possible:
+                        continue
+
+                    p = cvxpy.Problem(cvxpy.Minimize(1), [el_fun[e][1] <= 0 for e in x])
                     result = p.solve()
                     if p.status == cvxpy.OPTIMAL:
-                        new_max_overlap.append(unique)
-                        for y in x:
-                            if y in unused:
+                        new_max_overlap.append(x)
+                        for y in list(unused):
+                            if set(y).issubset(x):
                                 unused.remove(y)
 
                 for x in unused:
@@ -1010,7 +1042,7 @@ class LoopTopology(object):
             for directions in product(directions, repeat=self.n_loops):
                 source_shifted = [s + d*r for d, r, s in zip(directions, radii, source_coordinates)]
                 for overlap_ellipse_ids in overlap:
-                    (overall_sign, foci) = el_fun[overlap_ellipse_ids][1]
+                    (overall_sign, foci) = el_fun[overlap_ellipse_ids][2]
                     expr = 0
                     for (sign, delta_index, shift) in foci:
                         mom = 0
@@ -1028,7 +1060,7 @@ class LoopTopology(object):
             try:
                 result = p.solve()
 
-                excluded = [[[list(x), a, b] for x, a, b in el_fun[i][0] ] for i in range(len(el)) if i not in overlap]
+                excluded = [[[list(x), a, b] for x, a, b in el_fun[i][0] ] for i in range(len(el_fun)) if i not in overlap]
 
                 self.fixed_deformation.append([[[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates], excluded])
             except:
