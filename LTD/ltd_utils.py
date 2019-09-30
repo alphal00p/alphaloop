@@ -849,7 +849,7 @@ class LoopTopology(object):
         else:
             return LoopTopology.from_flat_format(yaml.load(open(input_path,'r'), Loader=Loader))
 
-    def build_fixed_deformation(self, force=False):
+    def build_fixed_deformation(self, force=False, bottom_up=False):
         """ This function identifies the fixed deformation sources for the deformation field as well as a the list of
         surfaces ids to exclude for each."""
 
@@ -972,55 +972,75 @@ class LoopTopology(object):
             print('Ignoring topology since it is too complicated')
             all_overlaps = []
         else:
-            done_overlaps = []
-            for n in range(1, len(el_fun)):
-                unused = set(max_overlap)
-                new_max_overlap = []
-                print('Processing overlap level %s with %s options' % (n, len(max_overlap)))
+            if bottom_up:
+                done_overlaps = []
+                for n in range(1, len(el_fun)):
+                    unused = set(max_overlap)
+                    new_max_overlap = []
+                    print('Processing overlap level %s with %s options' % (n, len(max_overlap)))
 
-                current_indices = [i for o in max_overlap for i in o]
-                # do a quick filter of the indices
-                possible_indices = [i for i in set(current_indices) if current_indices.count(i) >= n]
+                    current_indices = [i for o in max_overlap for i in o]
+                    # do a quick filter of the indices
+                    possible_indices = [i for i in set(current_indices) if current_indices.count(i) >= n]
 
-                for x in combinations(possible_indices, n + 1):
-                    # if we know they are connected, simply add them
-                    connected = False
-                    for groups in grouped.values():
-                        if set(x).issubset(groups):
-                            connected = True
+                    for x in combinations(possible_indices, n + 1):
+                        # if we know they are connected, simply add them
+                        connected = False
+                        for groups in grouped.values():
+                            if set(x).issubset(groups):
+                                connected = True
+                                new_max_overlap.append(x)
+                                for y in list(unused):
+                                    if set(y).issubset(x):
+                                        unused.remove(y)
+                                break
+                        if connected:
+                            continue
+
+                        # now check if it's possible by checking if all combinations of the
+                        # indices appear
+                        possible = True
+                        for y in combinations(x, n):
+                            if y not in max_overlap:
+                                possible = False
+                                break
+
+                        if not possible:
+                            continue
+
+                        p = cvxpy.Problem(cvxpy.Minimize(1), [el_fun[e][1] <= 0 for e in x])
+                        result = p.solve()
+                        if p.status == cvxpy.OPTIMAL:
                             new_max_overlap.append(x)
                             for y in list(unused):
                                 if set(y).issubset(x):
                                     unused.remove(y)
-                            break
-                    if connected:
-                        continue
 
-                    # now check if it's possible by checking if all combinations of the
-                    # indices appear
-                    possible = True
-                    for y in combinations(x, n):
-                        if y not in max_overlap:
-                            possible = False
-                            break
+                    for x in unused:
+                        done_overlaps.append(x)
 
-                    if not possible:
-                        continue
+                    max_overlap = new_max_overlap
 
-                    p = cvxpy.Problem(cvxpy.Minimize(1), [el_fun[e][1] <= 0 for e in x])
-                    result = p.solve()
-                    if p.status == cvxpy.OPTIMAL:
-                        new_max_overlap.append(x)
-                        for y in list(unused):
-                            if set(y).issubset(x):
-                                unused.remove(y)
+                all_overlaps = list(sorted(max_overlap + done_overlaps))
+            else:
+                overlap_structure = [] # make them sets
+                indices = list(range(len(el_fun)))
+                for n in range(len(el_fun), 0, -1):
+                    for x in combinations(indices, n):
+                        seen = False
+                        for y in overlap_structure:
+                            if set(x).issubset(y):
+                                seen = True
+                                break
+                        if seen:
+                            continue
 
-                for x in unused:
-                    done_overlaps.append(x)
+                        p = cvxpy.Problem(cvxpy.Minimize(1), [el_fun[e][1] <= 0 for e in x])
+                        result = p.solve()
+                        if p.status == cvxpy.OPTIMAL:
+                            overlap_structure.append(set(x))
 
-                max_overlap = new_max_overlap
-
-            all_overlaps = max_overlap + done_overlaps
+                all_overlaps = list(sorted(tuple(i) for i in overlap_structure))
 
 
         print('Overlap structure of %s: %s' % (self.name, all_overlaps))
