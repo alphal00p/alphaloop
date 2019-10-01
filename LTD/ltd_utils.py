@@ -1055,6 +1055,8 @@ class LoopTopology(object):
                 cvxpy.Parameter(3, value=np.array([+1., 0., 0.])),
                 cvxpy.Parameter(3, value=np.array([0., +1., 0.])),
                 cvxpy.Parameter(3, value=np.array([0.,-1., 0.])),
+                cvxpy.Parameter(3, value=np.array([0., 0., +1.])),
+                cvxpy.Parameter(3, value=np.array([0., 0., -1.])),
             ]
 
             # now construct several constaints from the ellipsoid function
@@ -1083,8 +1085,14 @@ class LoopTopology(object):
                 excluded = [[[list(x), a, b] for x, a, b in el_fun[i][0] ] for i in range(len(el_fun)) if i not in overlap]
 
                 self.fixed_deformation.append([[[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates], excluded])
-            except:
-                raise AssertionError("Could not solve system, it should have a solution")
+            except Exception as e:
+                print("Could not solve system, it should have a solution")
+                for i_c, c in enumerate(constraints):
+                    print("Constraint id=%d"%i_c)
+                    print("Constraint: '%s' "%(str(c)))
+                    print("Is dcp: %s"%c.is_dcp())
+
+                raise
 
         print('Fixed deformation', self.fixed_deformation)
 
