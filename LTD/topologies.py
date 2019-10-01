@@ -78,8 +78,8 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-        #fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'excluded_surface_ids': [5]},
-        #                     {'deformation_sources': [[0., 18.399985727313332, 17.800014049513244, 0.]], 'excluded_surface_ids': [2]}]
+#        fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'excluded_surface_ids': [5]},
+#                             {'deformation_sources': [[0., 18.399985727313332, 17.800014049513244, 0.]], 'excluded_surface_ids': [2]}]
      ),
      entry_name = 'Box_3E'
 )
@@ -100,8 +100,7 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-        # fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.]], 'excluded_surface_ids': []}]
-        fixed_deformation=None
+ #       fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.]], 'excluded_surface_ids': []}]
      ),
      entry_name = 'Box_5E'
 )
@@ -122,7 +121,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=(-1.52339813764031085e-3 + 2.04369604371007528e-3j), # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-        #fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
+    #    fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
      ),
      entry_name = 'Pentagon_pairwise_3E'
 )
@@ -162,6 +161,26 @@ hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
     entry_name = 'DoubleTriangle_massive_physical'
 )
 
+
+# trianglebox
+trianglebox = TopologyGenerator([
+    ('q1', 0, 1), ('p1', 2, 1), ('p2', 1, 3), ('p3', 2, 3),
+    ('p4', 4, 3), ('p5', 6, 4), ('p6', 2,6), ('q2', 5, 4), ('q3', 7, 6)])
+q1 = vectors.LorentzVector([1, 0, 0., 0.])
+q2 = vectors.LorentzVector([-0.5, 0., 0., 0.2])
+q3=-q1-q2
+hard_coded_topology_collection.add_topology(trianglebox.create_loop_topology(
+        "TriangleBox_physical", 
+        ext_mom={'q1': q1 , 'q2' : q2, 'q3' : -q1-q2}, 
+        mass_map={'p1': 0., 'p2': 0., 'p3': 0., 'p4': 0., 'p5':0., 'p6':0.}, 
+        loop_momenta_names=('p1', 'p6'), 
+        analytic_result= analytic_three_point_ladder(q2.square(),q3.square(),q1.square(),2),
+        contour_closure = [1,0],
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'excluded_surface_ids': []},]
+        
+    ),
+    entry_name = 'TriangleBox_physical'
+)
 
 # PRL_6p_2L
 PRL_6p_2L = TopologyGenerator([
@@ -235,36 +254,7 @@ hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
     entry_name = 'DoubleBox_physical'
 )
 
-topology_name = 'PRL_DoubleBox'
-PS = vectors.LorentzVectorList([
-  vectors.LorentzVector([19.6586,-7.15252,-0.206016,8.96383]),
-  vectors.LorentzVector([26.874,7.04203,-0.0501295,-12.9055]),
-  vectors.LorentzVector([-90.,0.,0.,0.]),
-  vectors.LorentzVector([43.4674,0.110491,0.256146,3.9417]),
-])
-# double box
-topology_gen = TopologyGenerator([
-        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
-        ('p1', 6, 1), ('p2', 1, 2), ('p3', 2, 7), ('p4', 7, 6),
-        ('p5', 6, 3), ('p6', 3, 4), ('p7', 4, 7),
-])
-#q1 = vectors.LorentzVector([  1,  0., 0., 0.3])
-#q2 = vectors.LorentzVector([  1, 0.,   0., -0.3 ])
-#q3 = vectors.LorentzVector([ -1.3,  0., 0., 0.2 ])
-#q4 = -q1-q2-q3
-hard_coded_topology_collection.add_topology(topology_gen.create_loop_topology(
-        topology_name,
-        #ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
-        ext_mom={ 'q1': PS[0], 'q2': PS[1] , 'q3': PS[2], 'q4': PS[3] },
-        mass_map={}, # no masses
-        loop_momenta_names=('p5', 'p1'),
-        analytic_result = analytic_four_point_ladder(
-            PS[0].square(), PS[1].square(), PS[3].square(), PS[2].square(),
-            (PS[0]+PS[1]).square(), (PS[1]+PS[3]).square(), 2),
-        fixed_deformation = True
-    ),
-    entry_name = topology_name
-)
+
 
 
 # Fishnets generation. This is typically pretty slow and thus disabled by default.
