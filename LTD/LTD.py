@@ -10,9 +10,9 @@ class LTD: #one loop
 		self.k_i = self.__get_k_i()
 		self.sing_matrix = self.__find_singularity_matrix()
 		self.ellips_sing = self.__get_ellipsoid_singularities()
-		self.lambda_ij,self.A_ij = self.__set_deformation(1.,1e1)
-		self.max_scaling = 0.1
-		print 'Max. deformation scaling = ', self.max_scaling
+		self.lambda_ij,self.A_ij = self.__set_deformation(10.,1e1)
+		self.max_scaling = 1.
+		print('Max. deformation scaling = ', self.max_scaling)
 		self.curr_min_scaling = self.max_scaling
 		if numerator == None:
 			self.numerator = 1.
@@ -33,7 +33,7 @@ class LTD: #one loop
 				sqrt_s = -1j*numpy.sqrt(s)
 			factor = numpy.pi**(3./2.)/(2*numpy.pi)**len(p_i[0])
 			analytic = lambda s: factor*numpy.pi**(3./2.)/sqrt_s
-			print 'analytic: ', analytic(s)
+			print('analytic: ', analytic(s))
 		elif s == '3d_test':
 			m1 = 10.
 			m2 = 50.
@@ -60,7 +60,7 @@ class LTD: #one loop
 			analytic = lambda s,m: 1./factor*1./(2*s)*(numpy.log(-(1/2.*(1-numpy.sqrt(1.-4*m**2/s)))/(1/2.*(1+numpy.sqrt(1.-4*m**2/s)))))**2
 			p3 = -p1 - p2
 			s = p3[0]**2 - self.norm(p3[1:])**2
-			print 'analytic: ', analytic(s,m)
+			print('analytic: ', analytic(s,m))
 		elif s == 'P1':
 			#P1 in https://arxiv.org/pdf/1510.00187.pdf
 			p1 = numpy.array([5.23923,-4.18858,0.74966,-3.05669])
@@ -143,6 +143,15 @@ class LTD: #one loop
 			m2 = m4 = 51.13181
 			p_i = [p1,p2,p3]
 			m_i = [m1,m2,m3,m4]
+		elif s == 'uuWWZ':
+			mytop = topologies.hard_coded_topology_collection['manual_uuWWZ_amplitude']
+			ps = mytop.external_kinematics
+			ps = [ps[0],ps[1],ps[2],ps[3],ps[4],ps[5]]
+			print(ps)
+			m2 = 1e2
+			m1 = m3 = m4 = m5 = m6 = 0.
+			p_i = [ps[0],ps[1],ps[2],ps[3],ps[4]]
+			m_i = [m1,m2,m3,m4,m5,m6]
 		elif s == 'qq_aa':
 			p1 = numpy.array([ 1.,-1., 0., 0.])
 			p2 = numpy.array([ 1., 0., 1., 0.])
@@ -152,24 +161,24 @@ class LTD: #one loop
 			p_i = [p1,p2,p3]
 			m_i = [m1,m2,m3,m4]	
 		else:
-			print "No configuration with name ", s, " found." 
+			print("No configuration with name ", s, " found.")
 			return None, None
 	
 		propagator_string = '-i / (2*pi)^%d  x  ' %(len(p_i[0])) +'\int d^%dl / ' %(len(p_i[0]))
-		for i in xrange(len(p_i)):
+		for i in range(len(p_i)):
 			propagator_string += '[(l+p%d)^2-m%d^2] ' %(i+1,i+1)
 		propagator_string += '[l^2-m%d^2]' %(len(p_i)+1)
-		print propagator_string
+		print(propagator_string)
 		for i,p in enumerate(p_i):
-			print 'p%d = '%(i+1), p, 'p%d^2 = '%(i+1), p[0]**2-self.norm(p[1:])**2
+			print('p%d = '%(i+1), p, 'p%d^2 = '%(i+1), p[0]**2-self.norm(p[1:])**2)
 		#p_n = numpy.sum(p_i,axis=0)
 		#print 'p%d = '%(len(p_i)+1), p_n, 'p%d^2 = '%(len(p_i)+1), p_n[0]**2-self.norm(p_n[1:])**2
 		m_string = {'m%d'%(i+1): m for i,m in enumerate(m_i)}
-		print m_string
+		print(m_string)
 		return p_i, m_i
 	
 	def __get_k_i(self):
-		k_i = [numpy.sum(self.p_i[:(i+1)],axis=0) for i in xrange(len(self.p_i))]
+		k_i = [numpy.sum(self.p_i[:(i+1)],axis=0) for i in range(len(self.p_i))]
 		k_i += [numpy.zeros(len(k_i[0]))]
 		return k_i
 	
@@ -181,13 +190,13 @@ class LTD: #one loop
 		p_sum = sum(p_posE)
 		s = p_sum[0]**2 - self.norm(p_sum[1:])**2
 		scale = numpy.sqrt(abs(s))
-		print 'scale = ', scale
+		print('scale = ', scale)
 		return scale
 		
 	def __find_singularity_matrix(self):
 		sing_matrix = numpy.empty([self.n,self.n],dtype=str)
-		for i in xrange(self.n):
-			for j in xrange(self.n):
+		for i in range(self.n):
+			for j in range(self.n):
 				if i != j:
 					k_ji = self.k_i[j]-self.k_i[i]
 					if k_ji[0]**2 - self.norm(k_ji[1:])**2 - (self.m_i[j]+self.m_i[i])**2 > 0. and k_ji[0] < 0.:
@@ -200,13 +209,13 @@ class LTD: #one loop
 						sing_matrix[i,j] = '0'
 				else:
 					sing_matrix[i,i] = '0'
-		print 'Singularity Matrix = \n', sing_matrix
+		print('Singularity Matrix = \n', sing_matrix)
 		return sing_matrix
 
 	def __get_ellipsoid_singularities(self):	
 		ellips_sing = []
-		for i in xrange(self.n):
-			for j in xrange(self.n):
+		for i in range(self.n):
+			for j in range(self.n):
 				if j != i:
 					if self.sing_matrix[i,j] == 'E':
 						ellips_sing += [[i,j]]
@@ -218,8 +227,8 @@ class LTD: #one loop
 		A_ij = numpy.ones([self.n,self.n])
 		lambda_ij *= l
 		A_ij *= A
-		print 'lambda_ij ~ ', l
-		print 'A_ij ~ ', A
+		print('lambda_ij ~ ', l)
+		print('A_ij ~ ', A)
 		return lambda_ij, A_ij
 	
 	def norm(self,q):
@@ -241,8 +250,8 @@ class LTD: #one loop
 
 	def get_dual_vector(self,vec):
 		vec_dual = [0.]*self.dim
-		for i in xrange(self.dim):
-			vec_dual[i] = adipy.ad(vec[i], numpy.array([0. if j !=i  else 1. for j in xrange(self.dim)]))
+		for i in range(self.dim):
+			vec_dual[i] = adipy.ad(vec[i], numpy.array([0. if j !=i  else 1. for j in range(self.dim)]))
 		return vec_dual
 
 	def dual_function(self,which,l_space):
@@ -254,7 +263,10 @@ class LTD: #one loop
 		delta_factor = 1./(2.*q_i0p[which])
 		propagators = [1./self.inv_G_D(q_i0p[which],q_j0p,self.k_i[j][0]-self.k_i[which][0])
 									for j,q_j0p in enumerate(q_i0p) if j != which]
-		numerator_fct = self.numerator([q_i0p[which]-self.k_i[which][0],
+		if self.numerator == 1.:
+			numerator_fct = 1.
+		else:
+			numerator_fct = self.numerator([q_i0p[which]-self.k_i[which][0],
 										l_space[0],
 										l_space[1],
 										l_space[2]])
@@ -262,8 +274,8 @@ class LTD: #one loop
 	
 	def parametrize_numerical(self,random):
 		random_dual = [0.]*self.dim
-		for i in xrange(self.dim):
-			random_dual[i] = adipy.ad(random[i], numpy.array([0. if j !=i  else 1. for j in xrange(self.dim)]))
+		for i in range(self.dim):
+			random_dual[i] = adipy.ad(random[i], numpy.array([0. if j !=i  else 1. for j in range(self.dim)]))
 		random = random_dual
 		radius = self.scale*random[0]/(1.-random[0])
 		phi = 2*numpy.pi*random[1]
@@ -335,16 +347,16 @@ class LTD: #one loop
 		if per_point_rescale:
 			scaling_param = self.get_scaling_param(l_space,kappa)
 			if numerical_jac:
-				for i in xrange(self.dim):
+				for i in range(self.dim):
 					kappa[i] *= scaling_param
 			else:
 					kappa *= self.max_scaling
 					jac *= self.max_scaling
 			if scaling_param < self.curr_min_scaling:
 				self.curr_min_scaling = scaling_param
-				print 'Current min. scaling', self.curr_min_scaling
+				print('Current min. scaling', self.curr_min_scaling)
 				if not numerical_jac:
-					print 'Per point rescaling with analytical jacobian is not implemented!'
+					print('Per point rescaling with analytical jacobian is not implemented!')
 		else:
 			kappa *= self.max_scaling
 			if not numerical_jac:
@@ -427,7 +439,7 @@ class LTD: #one loop
 				ff[1] = result.imag
 			else:
 				self.n_bad_points += 1
-				print 'bad point = ', self.n_bad_points
+				print('bad point = ', self.n_bad_points)
 				ff[0] = 0.
 				ff[1] = 0.
 			return 0
@@ -442,9 +454,9 @@ class LTD: #one loop
 				}
 
 		if integrator_name=='vegas':
-			print pycuba.Vegas(cuba_integrand, **opts)
+			print(pycuba.Vegas(cuba_integrand, **opts))
 		elif integrator_name=='cuhre':
-			print pycuba.Cuhre(cuba_integrand, **opts)
+			print(pycuba.Cuhre(cuba_integrand, **opts))
 
 	def rot(self,k,n,cos_theta):
 		l = n*(numpy.dot(n,k)) + cos_theta*numpy.cross(numpy.cross(n,k),n)+numpy.sqrt(1.-cos_theta**2)*numpy.cross(n,k)
@@ -481,13 +493,13 @@ class LTD: #one loop
 		is_solution = lambda absq_a: ness_cond(absq_a) and suff_cond(absq_a)
 		
 		if is_solution(absq_aplus) and is_solution(absq_aminus) and absq_aplus != absq_aminus:
-			print 'Two solutions found, this is suspicious. We pick the first one.'
+			print('Two solutions found, this is suspicious. We pick the first one.')
 		if is_solution(absq_aplus):
 			absq_a = absq_aplus
 		elif is_solution(absq_aminus):
 			absq_a = absq_aminus
 		else:
-			print 'No forward-forward intersection found with random cos_theta = ',cos_theta
+			print('No forward-forward intersection found with random cos_theta = ',cos_theta)
 			return numpy.array([None,None,None])
 	
 		q_aspace = self.generate_fixed_SP_vector(absq_a,k_baspace,cos_theta)
@@ -511,7 +523,7 @@ class LTD: #one loop
 			# n is perpendicular to k
 			n_a, n_b = numpy.random.rand(2)
 			c = numpy.where(n_dir != 0.)[0][0]
-			a,b = [i for i in xrange(self.dim) if i != c]
+			a,b = [i for i in range(self.dim) if i != c]
 			n = numpy.empty(3)
 			n[a] = n_a
 			n[b] = n_b
@@ -535,7 +547,7 @@ class LTD: #one loop
 		# NOT SYMMETRIC in k_a,m_a,k_b,m_b = k_b,m_b,k_a,m_a
 		k_ba = k_b-k_a
 		if k_ba[0] > 0.:
-			print 'No forward-backward intersection for k_ba0 =',k_ba[0]
+			print('No forward-backward intersection for k_ba0 =',k_ba[0])
 			return
 		k_ba0 = k_ba[0]
 		k_baspace = k_ba[1:]
@@ -559,13 +571,13 @@ class LTD: #one loop
 		is_solution = lambda absq_a: ness_cond(absq_a) and suff_cond(absq_a)
 		
 		if is_solution(absq_aplus) and is_solution(absq_aminus) and absq_aplus != absq_aminus:
-			print 'Two solutions found, this is suspicious. We pick the first one.'
+			print('Two solutions found, this is suspicious. We pick the first one.')
 		if is_solution(absq_aplus):
 			absq_a = absq_aplus
 		elif is_solution(absq_aminus):
 			absq_a = absq_aminus
 		else:
-			print 'No forward-backward intersection found.'
+			print('No forward-backward intersection found.')
 			return numpy.array([None,None,None])
 		
 		q_aspace = self.generate_fixed_SP_vector(absq_a,k_baspace,cos_theta)
@@ -583,18 +595,18 @@ class LTD: #one loop
 			m_f,m_b = [self.m_i[which_f],self.m_i[which_b]]
 			k_bf0 = k_b[0]-k_f[0]
 	
-			for i in xrange(N):
+			for i in range(N):
 				l_space = self.generate_point_on_fb_intersect(k_f,m_f,k_b,m_b)
 				if any(x == None for x in l_space):
-					print 'Sign test failed'
+					print('Sign test failed')
 					return
 				kappa, wgt = self.deform_contour(l_space, numerical_jac = True, per_point_rescale = True)
 				q_fspace,q_bspace = [l_space+1j*kappa + k_f[1:],l_space+1j*kappa + k_b[1:]]
 				dual_prop = self.inv_G_D(self.q_0p(q_fspace,m_f),self.q_0p(q_bspace,m_b),k_bf0)
 				# ASSERT
 				if not (numpy.sign(dual_prop.imag) == -1*numpy.sign(k_bf0)):
-					print 'Wroing sign of imag part on Ellipsoid, ', which_f,which_b, ' with dual_prop = ', dual_prop
-		print 'Sign test successful'
+					print('Wroing sign of imag part on Ellipsoid, ', which_f,which_b, ' with dual_prop = ', dual_prop)
+		print('Sign test successful')
 		return
 	
 	def scaling_condition(self,X,Y):
@@ -617,8 +629,8 @@ class LTD: #one loop
 	
 	def get_scaling_param(self,l_space,kappa):
 		curr_min = self.max_scaling
-		for i in xrange(self.n):
-			for j in xrange(self.n):
+		for i in range(self.n):
+			for j in range(self.n):
 				if j == i: # "propagator" coming from delta function cut
 					q_a = self.k_i[i][1:] + l_space
 					m_a = self.m_i[i]
@@ -668,7 +680,7 @@ class LTD: #one loop
 	def get_expansion_param(self,l_space,kappa,exp_factor=0.1):
 		curr_min = self.max_scaling
 		for exp_f in [exp_factor,-exp_factor]: # expand factor negative gives different solutions but is also valid
-			for i in xrange(self.n):
+			for i in range(self.n):
 				q_a = self.k_i[i][1:] + l_space
 				m_a = self.m_i[i]
 				A = -self.norm(kappa)**2
@@ -692,29 +704,36 @@ if __name__ == "__main__":
 	import numpy as numpy
 	import scipy.special as sc
 	import vegas
-	import adipy as adipy
+	from adipy import adipy
 	import time
 	import itertools
 	import pycuba
 
-	import python_integrands.QQAA_numerator as QQAA_numerator
-	import vectors
+	#import python_integrands.QQAA_numerator as QQAA_numerator
+	#import vectors
+	#import python_integrands.uuWWZ.uuWWZ_oneloop_num as uuWWZ_numerator
+	import topologies
 	#import warnings
 	#warnings.simplefilter("error")
 	#warnings.simplefilter("ignore", DeprecationWarning)
 	
 	t0 = time.time()
 
-	print '='*(2*36+7) + '\n' + '='*36+' hello '+'='*36 + '\n' + '='*(2*36+7)
+	print('='*(2*36+7) + '\n' + '='*36+' hello '+'='*36 + '\n' + '='*(2*36+7))
 	
 	#Zhou vs Dario/rust loop momentum
 	# l_zhou = l_dario + p1
 
-	my_LTD = LTD('qq_aa')
-	PS_point = [vectors.LorentzVector(p) for p in my_LTD.p_i]+[vectors.LorentzVector(-sum(my_LTD.p_i))]
-	QQAA = QQAA_numerator.Amplitude('qq_aa')
-	my_numerator = lambda loop_momentum: QQAA(PS_point,vectors.LorentzVector([loop_momentum+my_LTD.k_i[0]]))
-	my_LTD = LTD('qq_aa',my_numerator)
+	my_LTD = LTD('uuWWZ')
+	#p_i = my_LTD.p_i
+	#PS_point = vectors.LorentzVector([my_LTD.p_i[0],my_LTD.p_i[2],my_LTD.p_i[3],my_LTD.p_i[4],-numpy.sum(my_LTD.p_i,axis=0)])
+	#uuWWZ = uuWWZ_numerator.Amplitude('ee_aa')
+	#my_numerator = lambda loop_momentum: uuWWZ(PS_point,vectors.LorentzVector([loop_momentum+my_LTD.k_i[0]]))
+	#my_LTD = LTD('uuWWZ',my_numerator)
+	#PS_point = [vectors.LorentzVector(p) for p in my_LTD.p_i]+[vectors.LorentzVector(-sum(my_LTD.p_i))]
+	#QQAA = QQAA_numerator.Amplitude('qq_aa')
+	#my_numerator = lambda loop_momentum: QQAA(PS_point,vectors.LorentzVector([loop_momentum+my_LTD.k_i[0]]))
+	#my_LTD = LTD('qq_aa',my_numerator)
 
 	#with massless kinematics
 	#p1 = numpy.array([ 1.,-1., 0., 0.])
@@ -737,14 +756,15 @@ if __name__ == "__main__":
 	all_duals = range(my_LTD.n)
 	integr = lambda x: my_LTD.dual_integrand(x,which_duals=all_duals)
 
-	#integr([0.3,0.5,0.9])
+	#print my_numerator([1,2,3,4])
+	#print integr([0.3,0.5,0.9])
 	#stop
 
 	#result = my_LTD.integrate(integr,N_refine=1000,share_grid=False)
 	result = my_LTD.cuba_integrate(integr,integrator_name='vegas')
 	
-	print '='*(2*36+7)
-	print 'I = ', result[0], '+ i',result[1]
-	print '='*(2*36+7)
+	print('='*(2*36+7))
+	print('I = ', result[0], '+ i',result[1])
+	print('='*(2*36+7))
 
-	print 'Time: %.2f s' % (time.time()-t0)
+	print('Time: %.2f s' % (time.time()-t0))

@@ -1,15 +1,15 @@
 # n loop LTD
 import sys
-sys.setrecursionlimit(100)
 import numpy as numpy
 import vegas
-import adipy as adipy
+from adipy import adipy
 import time
 import itertools
 import mpmath
 import math
 import ltd_commons
 import topologies
+#import manually_crafted_topologies as topologies
 import random
 from numpy.linalg import inv
 import pycuba
@@ -55,7 +55,8 @@ class LTDnLoop:
 		return surfaces
 
 	def normalize_surface(self,surface):
-		sorted_deltas = sorted(surface['deltas'])#, key=lambda delta: (delta['loop_line_index'],delta['propagator_index']))
+		sorted_deltas = sorted(surface['deltas'], key=lambda x: x['loop_line_index'], reverse=False)
+		#python 2: sorted_deltas = sorted(surface['deltas'])#, key=lambda delta: (delta['loop_line_index'],delta['propagator_index']))
 		ll_i = sorted_deltas[-1]['loop_line_index']
 		prop_i = sorted_deltas[-1]['propagator_index']
 		signatures = numpy.array([self.ltd_loop_lines[delta['loop_line_index']].signature for delta in sorted_deltas])
@@ -105,9 +106,9 @@ class LTDnLoop:
 		digits = 7
 		title_element_width = 24
 		title_prop_str = '{:^{width}}'.format('loopline & propagator',width=title_element_width)
-		title_prop_str += '{:^{width}}'.format('signature',width=title_element_width/2)
-		title_prop_str += '{:^{width}}'.format('type',width=title_element_width/(self.n_loops+1))
-		title_prop_str += '{:^{width}}'.format('multiplicity',width=title_element_width/2)
+		title_prop_str += '{:^{width}}'.format('signature',width=int(title_element_width/2))
+		title_prop_str += '{:^{width}}'.format('type',width=int(title_element_width/(self.n_loops+1)))
+		title_prop_str += '{:^{width}}'.format('multiplicity',width=int(title_element_width/2))
 		title_prop_str += '{:^{width}}'.format('p_shift',width=4*digits+5)
 		if (show_ellipsoids and n_ellipsoids>0) or (show_hyperboloids and n_hyperboloids>0):
 			print(title_prop_str)
@@ -115,14 +116,14 @@ class LTDnLoop:
 			if (surface['is_ellipsoid'] and not show_ellipsoids) or (not surface['is_ellipsoid'] and not show_hyperboloids):
 					continue
 			if surface['is_ellipsoid']:
-				type_str = '{:^{width}}'.format('E', width = title_element_width/(self.n_loops+1))
+				type_str = '{:^{width}}'.format('E', width = int(title_element_width/(self.n_loops+1)))
 			else:
-				type_str = '{:^{width}}'.format('H', width = title_element_width/(self.n_loops+1))
+				type_str = '{:^{width}}'.format('H', width = int(title_element_width/(self.n_loops+1)))
 			prop_arr = ['{:^{width}}'.format('({} {})'.format(	delta['loop_line_index'],delta['propagator_index']),
-																width = title_element_width/len(surface['deltas'])) for delta in surface['deltas']]
+																width = int(title_element_width/len(surface['deltas']))) for delta in surface['deltas']]
 			sign_arr = ['+' if delta['sign'] == 1. else '-' for delta in surface['deltas']]
-			sign_arr = ['{:^{width}}'.format(sign, width = title_element_width/2/len(sign_arr)) for sign in sign_arr]
-			multiplicity = '{:^{width}}'.format(surface['multiplicity'], width = title_element_width/2)
+			sign_arr = ['{:^{width}}'.format(sign, width = int(title_element_width/2/len(sign_arr))) for sign in sign_arr]
+			multiplicity = '{:^{width}}'.format(float(surface['multiplicity']), width = int(title_element_width/2))
 			p_shift_str = '[{0:{digits}},{1:{digits}},{2:{digits}},{3:{digits}}]'.format(*surface['p_shift'],digits=digits)
 			print(''.join(prop_arr) + ''.join(sign_arr) + type_str + multiplicity + p_shift_str)
 
@@ -186,12 +187,12 @@ class LTDnLoop:
 	def dual(self,loop_momenta):
 		vec = numpy.array(loop_momenta).flatten()
 		dim = len(vec)
-		dual_vec = [adipy.ad(vec[i], numpy.array([0. if j !=i  else 1. for j in xrange(dim)])) for i in xrange(dim)]
-		dual_momenta = [dual_vec[i*3:(i+1)*3] for i in xrange(self.n_loops)]
+		dual_vec = [adipy.ad(vec[i], numpy.array([0. if j !=i  else 1. for j in range(dim)])) for i in range(dim)]
+		dual_momenta = [dual_vec[i*3:(i+1)*3] for i in range(self.n_loops)]
 		return numpy.array(dual_momenta)
 
 	def rescale_with_expansion_parameter(self,kappas,loop_momenta,real_deltas):
-		self.curr_min_lambda = adipy.ad(1.,numpy.array([0. for i in xrange(self.n_loops*3)]))
+		self.curr_min_lambda = adipy.ad(1.,numpy.array([0. for i in range(self.n_loops*3)]))
 		all_prop_deltas = [{'loop_line_index': loop_line_index,'propagator_index': propagator_index}
 									for loop_line_index,loop_line in enumerate(self.ltd_loop_lines)
 									for propagator_index,propagator in enumerate(loop_line.propagators)]
@@ -223,12 +224,12 @@ class LTDnLoop:
 					self.curr_min_lambda = lambda_j
 		if self.curr_min_lambda.nom < self.abs_min_lambda:
 			self.abs_min_lambda = self.curr_min_lambda.nom
-			print self.abs_min_lambda
+			print(self.abs_min_lambda)
 		kappas = numpy.array([[self.curr_min_lambda*k for k in kappa] for kappa in kappas])
 		return kappas
 
 	def rescale_with_branch_cut_condition(self,kappas,loop_momenta):
-		self.curr_min_lambda = adipy.ad(1.,numpy.array([0. for i in xrange(self.n_loops*3)]))
+		self.curr_min_lambda = adipy.ad(1.,numpy.array([0. for i in range(self.n_loops*3)]))
 		all_prop_deltas = [{'loop_line_index': loop_line_index,'propagator_index': propagator_index}
 									for loop_line_index,loop_line in enumerate(self.ltd_loop_lines)
 									for propagator_index,propagator in enumerate(loop_line.propagators)]
@@ -250,12 +251,12 @@ class LTDnLoop:
 				self.curr_min_lambda = lambda_j
 		if self.curr_min_lambda.nom < self.abs_min_lambda:
 			self.abs_min_lambda = self.curr_min_lambda.nom
-			print self.abs_min_lambda
+			print(self.abs_min_lambda)
 		kappas = numpy.array([[self.curr_min_lambda*k for k in kappa] for kappa in kappas])
 		return kappas
 
 	def rescale_from_complex_zeros(self,kappas,loop_momenta,real_deltas):
-		curr_min = adipy.ad(1.,numpy.array([0. for i in xrange(self.n_loops*3)]))
+		curr_min = adipy.ad(1.,numpy.array([0. for i in range(self.n_loops*3)]))
 		for surface in self.surfaces:
 			# solve (linearized_surface(lambda) = 0) <=> A*lambda^2 + i*B*lambda + C = 0
 			A = B = C = 0.
@@ -278,12 +279,12 @@ class LTDnLoop:
 					curr_min = scaling_param
 		if curr_min.nom < self.abs_min_lambda:
 			self.abs_min_lambda = curr_min.nom
-			print 'abs_min_lambda: ', self.abs_min_lambda
+			print('abs_min_lambda: ', self.abs_min_lambda)
 		kappas = numpy.array([[curr_min*k for k in kappa] for kappa in kappas])
 		return kappas
 
 	def estimate_distance_to_ellipsoid(self,this_surface,kappas,loop_momenta,real_deltas):
-		curr_min = adipy.ad(10,numpy.array([0. for i in xrange(self.n_loops*3)]))
+		curr_min = adipy.ad(10,numpy.array([0. for i in range(self.n_loops*3)]))
 		for i,kappa_i in enumerate(kappas):
 			if kappa_i.dot(kappa_i) > 0:
 				for surface in self.surfaces:
@@ -311,7 +312,7 @@ class LTDnLoop:
 		min_distance = self.norm(distance_vector)
 		if min_distance.nom < self.abs_min_distance:
 			self.abs_min_distance = min_distance.nom
-			print 'abs_min_distance: ', self.abs_min_distance
+			print('abs_min_distance: ', self.abs_min_distance)
 		return min_distance
 
 	def scaling_condition(self,X,Y):
@@ -332,7 +333,7 @@ class LTDnLoop:
 			shift_space = [self.ltd_loop_lines[delta['loop_line_index']].propagators[delta['propagator_index']].q[1:] for delta in surface['deltas']]
 			surf_momenta = all_signatures.dot(loop_momenta) + shift_space
 			surf_deltas = [real_deltas[surf_delta['loop_line_index']][surf_delta['propagator_index']] for surf_delta in surface['deltas']]
-			for index in xrange(self.n_loops):
+			for index in range(self.n_loops):
 				kappa_index = numpy.sum([signature[index]*surf_momenta[i]/surf_deltas[i] for i,signature in enumerate(all_signatures)],axis=0)
 				#if kappa_index.dot(kappa_index) > 0.:
 				#	kappa_index *= 1./self.norm(kappa_index)
@@ -388,9 +389,9 @@ class LTDnLoop:
 
 	def ltd_integrand(self,x):
 		assert(len(x) == self.n_loops*3)
-		loop_momenta = [numpy.zeros(3) for i in xrange(self.n_loops)]
+		loop_momenta = [numpy.zeros(3) for i in range(self.n_loops)]
 		wgt = numpy.zeros(self.n_loops)
-		for i in xrange(self.n_loops):
+		for i in range(self.n_loops):
 			loop_momenta[i], wgt[i] = self.parametrize_analytic(x[(i*3):(i+1)*3])
 		#kappas,jac = self.deform_on_prop(loop_momenta)
 		kappas,jac = self.deform(loop_momenta)
@@ -443,7 +444,7 @@ class LTDnLoop:
 				ff[1] = result.imag
 			else:
 				self.n_bad_points += 1
-				print 'bad point = ', self.n_bad_points
+				print('bad point = ', self.n_bad_points)
 				ff[0] = 0.
 				ff[1] = 0.
 			return 0
@@ -465,9 +466,9 @@ class LTDnLoop:
 		#MAXEVAL = hyperparameters['Integrator']['n_max']
 
 		if integrator_name=='vegas':
-			print pycuba.Vegas(cuba_integrand, **opts)
+			print(pycuba.Vegas(cuba_integrand, **opts))
 		elif integrator_name=='cuhre':
-			print pycuba.Cuhre(cuba_integrand, **opts)
+			print(pycuba.Cuhre(cuba_integrand, **opts))
 
 	def nested_cuhre_integrate(self,integrand,**opts):
 		def inner_integrand(ndim,xx,ncomp,ff,userdata):
@@ -494,12 +495,12 @@ class LTDnLoop:
 				ff[1] = 0.
 			return 0
 		
-		print pycuba.Cuhre(outer_integrand, ndim=3, ncomp= 2, maxeval = 1000, seed = 0, verbose=2,key=11)
+		print(pycuba.Cuhre(outer_integrand, ndim=3, ncomp= 2, maxeval = 1000, seed = 0, verbose=2,key=11))
 
 	def nested_integrate(self,integrand,**opts):
 		from scipy import integrate
 		real_integrand = lambda x1,x2,x3: integrand([x1,x2,x3]).real
-		print integrate.nquad(real_integrand,[[0,1],[0,1],[0,1]],opts={'epsrel': 1.49e-01,'epsabs': 1.49e-01},full_output=True)
+		print(integrate.nquad(real_integrand,[[0,1],[0,1],[0,1]],opts={'epsrel': 1.49e-01,'epsabs': 1.49e-01},full_output=True))
 
 	def analytic_three_point_ladder(self,s1,s2,s3,l):
 		aa = (1j/(16*numpy.pi**2*s3))**l
@@ -508,7 +509,7 @@ class LTDnLoop:
 		def phi(x,y,l):
 			bb = -1./(math.factorial(l)*lambd(x,y))
 			summand = 0.
-			for j in xrange(l,2*l+1):
+			for j in range(l,2*l+1):
 				cc = (-1.)**j*math.factorial(j)*numpy.log(y/x)**(2*l-j)
 				dd = math.factorial(j-l)*math.factorial(2*l-j)
 				ee = mpmath.polylog(j,-1./(x*rho(x,y)))-mpmath.polylog(j,-y*rho(x,y))
@@ -646,7 +647,7 @@ class CutPropagator(CutObject):
 		#total shift i.e. affine surface term
 		self.total_shift = self.own_shift + self.cut_shift
 	
-		s = self.total_shift[0]**2 - self.norm(self.total_shift[1:])
+		s = self.total_shift[0]**2 - self.norm(self.total_shift[1:])**2
 		self.is_plus_ellipsoid = (self.has_positive_signature and self.total_shift[0] < 0.) and (s > 0.)
 		self.is_minus_ellipsoid = (self.has_negative_signature and self.total_shift[0] > 0.) and (s > 0.)
 		self.is_ellipsoid = (self.is_plus_ellipsoid or self.is_minus_ellipsoid)
