@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # This file contains the description of some aplitudes
 #import topologies
 import vectors
@@ -277,7 +279,7 @@ if __name__ == "__main__":
     # Polarizations
     amp = Amplitude("manual_uuWWZ_amplitude",  # name of topology
                     zip(["u", "vbar", "a", "a", "a"],  # polarizations
-                        ["+", "-", "-", "-", "+"]),
+                        ["+", "-", "+", "+", "+"]),
                     1,  # uv_pos
                     1e4)  # mu_uv_sq
     #Diagrams and vectors
