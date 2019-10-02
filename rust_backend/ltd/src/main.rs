@@ -35,7 +35,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::amplitude::Amplitude;
 use ltd::integrand::Integrand;
-use ltd::topologies::{LTDCache, Surface, Topology};
+use ltd::topologies::{LTDCache, Surface, SurfaceType, Topology};
 use ltd::utils::Signum;
 use ltd::{float, FloatLike, IntegratedPhase, Integrator, Settings};
 
@@ -135,7 +135,6 @@ pub fn evaluate_points(
 fn vegas_integrate<'a, F>(
     topo: &Topology,
     settings: &Settings,
-    cores: usize,
     mut ci: CubaIntegrator<UserData<'a>>,
     user_data_generator: F,
 ) -> CubaResult
@@ -290,6 +289,7 @@ where
 }
 
 #[inline(always)]
+#[allow(unused_variables)]
 fn integrand(
     x: &[f64],
     f: &mut [f64],
@@ -299,10 +299,10 @@ fn integrand(
 ) -> Result<(), &'static str> {
     #[cfg(not(feature = "use_mpi"))]
     for (i, y) in x
-        .chunks(3 * user_data.integrand[core as usize + 1].topologies[0].n_loops)
+        .chunks(3 * user_data.integrand[(core + 1) as usize].topologies[0].n_loops)
         .enumerate()
     {
-        let res = user_data.integrand[core as usize + 1].evaluate(y);
+        let res = user_data.integrand[(core + 1) as usize].evaluate(y);
 
         if res.is_finite() {
             match user_data.integrated_phase {
@@ -615,8 +615,9 @@ fn point_generator<'a>(
                 / q2
                 - f128::f128::one();
 
-            cut_momenta[indices[0]] -= cut_momenta[indices[1]] * lambda * s.into();
-            cut_momenta[indices[1]] += cut_momenta[indices[1]] * lambda;
+            let old_mom = cut_momenta[indices[1]];
+            cut_momenta[indices[0]] -= old_mom * lambda * s.into();
+            cut_momenta[indices[1]] += old_mom * lambda;
             branch = 2;
         }
     } else {
@@ -800,17 +801,17 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
     let samples = usize::from_str(matches.value_of("samples").unwrap()).unwrap();
     let rescaling = f64::from_str(matches.value_of("rescaling").unwrap()).unwrap();
 
-    let mut n_unique_E_surface = 0;
+    let mut n_unique_e_surface = 0;
     println!("");
     println!(">>> Start of the listing of unique non-pinched E-surfaces");
     for (surf_index, surf) in topo.surfaces.iter().enumerate() {
         if !ids.is_empty() && !ids.contains(&surf_index) {
             continue;
         }
-        if ((surf_index != surf.group) || (!surf.ellipsoid) || (surf.pinched)) {
+        if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid {
             continue;            
         }
-        n_unique_E_surface += 1;
+        n_unique_e_surface += 1;
         println!(
             "|-> group={}, prop={:?} cut={}, full_id={:?}, shift={}",
             surf.group,
@@ -820,7 +821,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
             surf.shift
         );
     }
-    println!(">>> End of the listing of {} unique non-pinched E-surfaces",n_unique_E_surface);
+    println!(">>> End of the listing of {} unique non-pinched E-surfaces", n_unique_e_surface);
     println!("");
 
     for (surf_index, surf) in topo.surfaces.iter().enumerate() {
@@ -829,19 +830,15 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
         }
 
         println!(
-            "-> id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, full_id={:?}, shift={}",
+            "-> id={}, group={}, type={:?}, prop={:?} cut={}, full_id={:?}, shift={}",
             surf_index,
             surf.group,
-            surf.ellipsoid,
-            surf.pinched,
+            surf.surface_type,
             (surf.onshell_ll_index, surf.onshell_prop_index),
             CutList(&surf.cut),
             surf.id,
             surf.shift
         );
-
-        let onshell_ll = &topo.loop_lines[surf.onshell_ll_index];
-        let onshell_prop = &onshell_ll.propagators[surf.onshell_prop_index];
 
         for _ in 0..samples {
             let mut did_break = false;
@@ -884,7 +881,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                         }
 
                         // check the pole for non-pinched ellipsoids
-                        if surf.ellipsoid && !surf.pinched {
+                        if surf.surface_type == SurfaceType::Ellipsoid {
                             // set the loop momenta
                             let (kappas, _) = topo.deform(&loop_momenta, None, None, &mut cache);
                             k_def = (0..topo.n_loops)
@@ -1369,7 +1366,7 @@ fn main() {
     };
 
     let cuba_result = match settings.integrator.integrator {
-        Integrator::Vegas => vegas_integrate(topo, &settings, cores, ci, user_data_generator),
+        Integrator::Vegas => vegas_integrate(topo, &settings, ci, user_data_generator),
         Integrator::Suave => ci.suave(
             3 * topo.n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {

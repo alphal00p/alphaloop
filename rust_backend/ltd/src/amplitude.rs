@@ -152,7 +152,6 @@ pub struct Amplitude {
 impl Amplitude {
     pub fn from_file(filename: &str) -> HashMap<String, Amplitude> {
         let f = File::open(filename).expect("Could not open amplitude file");
-        println!("{}", filename);
         let amplitudes: Vec<Amplitude> = serde_yaml::from_reader(f).unwrap();
         amplitudes
             .into_iter()
@@ -242,7 +241,7 @@ impl Amplitude {
     pub fn compute_amplitude<T: FloatLike>(
         &self,
         propagators: &Vec<Complex<T>>,
-        loop_momenta: &Vec<LorentzVector<Complex<T>>>,
+        _loop_momenta: &Vec<LorentzVector<Complex<T>>>,
         vectors: &Vec<LorentzVector<Complex<T>>>,
         cut_2energy: Complex<T>,
         cut_id: usize,

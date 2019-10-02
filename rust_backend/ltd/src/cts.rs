@@ -86,8 +86,8 @@ impl Topology {
     pub fn counterterm<T: FloatLike>(
         &self,
         k_def: &[LorentzVector<Complex<T>>],
-        cut_2energy: Complex<T>,
-        cut_id: usize,
+        _cut_2energy: Complex<T>,
+        _cut_id: usize,
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
         //Define mu_uv_sq for the collinear counterterms

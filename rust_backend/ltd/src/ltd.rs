@@ -6,7 +6,7 @@ use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
-use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, Topology};
+use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, SurfaceType, Topology};
 use utils::Signum;
 use vector::LorentzVector;
 use {float, PythonNumerator};
@@ -274,11 +274,16 @@ impl Topology {
                                         >= Into::<float>::into(-1e-13 * self.e_cm_squared)
                                         && surface_shift.t.multiply_sign(delta_sign) < float::zero()
                                     {
+                                        let is_pinch = surface_shift.square().abs()
+                                            < Into::<float>::into(1e-13 * self.e_cm_squared);
+
                                         self.surfaces.push(Surface {
                                             group,
-                                            ellipsoid: true,
-                                            pinched: surface_shift.square().abs()
-                                                < Into::<float>::into(1e-13 * self.e_cm_squared),
+                                            surface_type: if is_pinch {
+                                                SurfaceType::Pinch
+                                            } else {
+                                                SurfaceType::Ellipsoid
+                                            },
                                             cut_structure_index: cut_index,
                                             cut_option_index,
                                             cut: cut_option.clone(),
@@ -355,8 +360,7 @@ impl Topology {
                                     } {
                                         self.surfaces.push(Surface {
                                             group,
-                                            ellipsoid: false,
-                                            pinched: false,
+                                            surface_type: SurfaceType::Hyperboloid,
                                             cut_structure_index: cut_index,
                                             cut_option_index,
                                             cut: cut_option.clone(),
@@ -422,7 +426,7 @@ impl Topology {
             match group_representative.iter().find(|r| r.0 == s_cut_sorted) {
                 Some(i) => s.group = i.1,
                 None => {
-                    if s.ellipsoid {
+                    if s.surface_type == SurfaceType::Ellipsoid {
                         unique_ellipsoids += 1;
                     }
                     s.group = surf_index;
@@ -432,8 +436,14 @@ impl Topology {
 
             if self.settings.general.debug > 1 {
                 println!(
-                    "  | id={}, group={}, ellipsoid={}, pinched={}, prop={:?} cut={}, id={:?}, shift={}",
-                    surf_index, s.group, s.ellipsoid, s.pinched, (s.onshell_ll_index, s.onshell_prop_index), CutList(&s.cut), s.id, s.shift
+                    "  | id={}, group={}, type={:?}, prop={:?} cut={}, id={:?}, shift={}",
+                    surf_index,
+                    s.group,
+                    s.surface_type,
+                    (s.onshell_ll_index, s.onshell_prop_index),
+                    CutList(&s.cut),
+                    s.id,
+                    s.shift
                 );
             }
         }
@@ -452,7 +462,7 @@ impl Topology {
 
                 for (surf_index, s) in self.surfaces.iter().enumerate() {
                     // only go through ellipsoid representatives
-                    if !s.ellipsoid || s.group != surf_index {
+                    if s.surface_type != SurfaceType::Ellipsoid || s.group != surf_index {
                         continue;
                     }
 
@@ -483,7 +493,7 @@ impl Topology {
         let mut dual_groups_rep: Vec<(Vec<usize>, usize)> = vec![];
         let mut dual_groups = UnionFind::new(self.ltd_cut_options.iter().map(|x| x.len()).sum());
         for s in &self.surfaces {
-            if s.ellipsoid {
+            if s.surface_type != SurfaceType::Hyperboloid {
                 continue;
             }
 
@@ -1022,7 +1032,7 @@ impl Topology {
         let mut group_counter = 0;
         for (surf_index, surf) in self.surfaces.iter().enumerate() {
             // only deform the set of different ellipsoids
-            if !surf.ellipsoid || surf.group != surf_index {
+            if surf.surface_type != SurfaceType::Ellipsoid || surf.group != surf_index {
                 continue;
             }
 
@@ -1199,7 +1209,7 @@ impl Topology {
             .surfaces
             .iter()
             .enumerate()
-            .filter(|(i, x)| x.ellipsoid && x.group == *i)
+            .filter(|(i, x)| x.surface_type == SurfaceType::Ellipsoid && x.group == *i)
             .count();
         for j in 0..num_ellipsoids {
             if ellipse_id == j {
@@ -1212,7 +1222,7 @@ impl Topology {
             for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
                 let dampening = DualN::from_real(T::one())
                     - (j_eval
-                        / (j_eval + Into::<T>::into(self.settings.deformation.cutgroups.m_ij)));
+                        / (j_eval + Into::<T>::into(self.settings.deformation.fixed.m_ij)));
                 *kappa += cache.deform_dirs[j * self.n_loops + loop_index] * dampening;
             }
         }
@@ -1314,174 +1324,6 @@ impl Topology {
         res
     }
 
-    /// Construct a deformation vector by going through all cut options
-    /// and make sure it is 0 on all other cut options
-    fn deform_cutgroups<U: DimName, T: FloatLike>(
-        &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
-        cache: &mut LTDCache<T>,
-    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
-    where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
-    {
-        // go through all cuts that contain ellipsoids
-        // by going through all ellipsoids and skipping ones that are in the same cut
-        // TODO: precompute non-empty cuts
-        let mut last_cut = None;
-        let mut non_empty_cut_count = 0;
-        for (surf_index, surf) in self.surfaces.iter().enumerate() {
-            if !surf.ellipsoid {
-                continue;
-            }
-
-            // evaluate ellipsoid representatives
-            if surf.group == surf_index {
-                let cache = cache.get_cache_mut();
-
-                // calculate the cut momenta
-                let mut normalization = DualN::zero();
-                let mut res = DualN::zero();
-                let mut index = 0;
-                for (ll_cut, ll) in izip!(surf.cut.iter(), self.loop_lines.iter()) {
-                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *ll_cut {
-                        // always take the positive energy since we know all the signs will be the same
-                        // for an ellipsoid
-                        if surf.sig_ll_in_cb[index] != 0 {
-                            let e = cache.cut_info[ll.propagators[i].id].real_energy;
-                            res += e;
-                            normalization += e * e;
-                        }
-                        index += 1;
-                    }
-                }
-
-                // shift in the cut basis
-                let shift: LorentzVector<DualN<T, U>> = surf.shift.cast();
-
-                // add the surface term
-                res += cache.cut_info[self.loop_lines[surf.onshell_ll_index].propagators
-                    [surf.onshell_prop_index]
-                    .id]
-                    .real_energy;
-                res += shift.t.multiply_sign(surf.delta_sign); // add the shift with the right sign
-                normalization += shift.spatial_squared_impr();
-                cache.ellipsoid_eval[surf_index] = res * res / normalization;
-            }
-
-            if Some(&surf.cut) != last_cut {
-                let mut deform_dirs_cut =
-                    self.get_deformation_for_cut(&surf.cut, surf.cut_structure_index, cache);
-
-                for i in 0..self.n_loops {
-                    cache.get_cache_mut().deform_dirs[non_empty_cut_count * self.n_loops + i] =
-                        deform_dirs_cut[i];
-                }
-
-                cache.get_cache_mut().non_empty_cuts[non_empty_cut_count] =
-                    (surf.cut_structure_index, surf.cut_option_index);
-
-                last_cut = Some(&surf.cut);
-                non_empty_cut_count += 1;
-            }
-        }
-
-        let cache = cache.get_cache();
-        let mut kappas = [LorentzVector::default(); MAX_LOOP];
-        let mut lambda = DualN::one();
-        for (i, &(cut_structure_index, cut_option_index)) in cache.non_empty_cuts
-            [..non_empty_cut_count]
-            .iter()
-            .enumerate()
-        {
-            if i < self.settings.deformation.lambdas.len() {
-                lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
-            }
-
-            if self.settings.general.debug > 2 {
-                println!(
-                    "Surface contributions for cut {}:",
-                    CutList(&self.ltd_cut_options[cut_structure_index][cut_option_index])
-                );
-            }
-
-            let mut s = DualN::one();
-            let mut softmin_num = DualN::zero();
-            let mut softmin_den = DualN::zero();
-
-            if self.settings.deformation.cutgroups.mode != AdditiveMode::Unity {
-                for &surf_index in
-                    &self.ellipsoids_not_in_cuts[cut_structure_index][cut_option_index]
-                {
-                    // t is the weighing factor that is 0 if we are on both cut_i and cut_j
-                    // at the same time and goes to 1 otherwise
-                    let t = cache.ellipsoid_eval[surf_index];
-
-                    let sup = if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
-                        if self.settings.deformation.cutgroups.sigma.is_zero() {
-                            s = s.min(t);
-                            s
-                        } else {
-                            let e = (-t
-                                / Into::<T>::into(self.settings.deformation.cutgroups.sigma))
-                            .exp();
-                            softmin_num += t * e;
-                            softmin_den += e;
-                            e
-                        }
-                    } else {
-                        let sup =
-                            t / (t + Into::<T>::into(self.settings.deformation.cutgroups.m_ij));
-                        s *= sup;
-                        sup
-                    };
-
-                    if self.settings.general.debug > 2 {
-                        println!(
-                            "  | surf {}: t={:e}, suppression={:e}",
-                            surf_index,
-                            t.real(),
-                            sup.real()
-                        );
-                    }
-                }
-
-                if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
-                    if !self.settings.deformation.cutgroups.sigma.is_zero() {
-                        s = softmin_num / softmin_den;
-                    }
-
-                    if !self.settings.deformation.cutgroups.m_ij.is_zero() {
-                        s = s / (s + Into::<T>::into(self.settings.deformation.cutgroups.m_ij));
-                    }
-                }
-            }
-
-            if self.settings.general.debug > 2 {
-                println!(
-                    "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
-                    loop_momenta[0].real(),
-                    &cache.deform_dirs[i * self.n_loops].real(),
-                    s.real(),
-                    &cache.deform_dirs[i * self.n_loops].real() * s.real(),
-                );
-            }
-
-            for ii in 0..self.n_loops {
-                kappas[ii] -= cache.deform_dirs[i * self.n_loops + ii] * s * lambda;
-            }
-        }
-
-        if self.settings.general.debug > 2 {
-            for ii in 0..self.n_loops {
-                println!("  | kappa{}={:e}\n", ii + 1, kappas[ii].real());
-            }
-        }
-
-        kappas
-    }
-
     /// Construct a constant deformation vector.
     /// If an ellipse id is specified, it will be a different constant per ellipse.
     fn deform_constant<U: DimName, T: FloatLike>(
@@ -1521,7 +1363,9 @@ impl Topology {
 
         // evaluate all excluded ellipsoids
         for (i, surf) in self.surfaces.iter().enumerate() {
-            if !surf.ellipsoid || surf.pinched || surf.group != i || !self.all_excluded_surfaces[i]
+            if surf.surface_type != SurfaceType::Ellipsoid
+                || surf.group != i
+                || !self.all_excluded_surfaces[i]
             {
                 cache.ellipsoid_eval[i] = DualN::zero();
                 continue;
@@ -1561,6 +1405,7 @@ impl Topology {
 
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let mut lambda = DualN::one();
+        let mut mij = Into::<T>::into(self.settings.deformation.fixed.m_ij);
 
         for (i, d) in self.fixed_deformation.iter().enumerate() {
             if i < self.settings.deformation.lambdas.len() {
@@ -1572,26 +1417,28 @@ impl Topology {
             let mut softmin_den = DualN::zero();
 
             for &surf_index in &d.excluded_surface_indices {
+                if surf_index < self.settings.deformation.fixed.m_ijs.len() {
+                    mij = Into::<T>::into(self.settings.deformation.fixed.m_ijs[surf_index]);
+                }
+
                 // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                 // at the same time and goes to 1 otherwise
-                debug_assert!(
-                    self.surfaces[surf_index].ellipsoid && !self.surfaces[surf_index].pinched
-                );
+                debug_assert!(self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid);
                 let t = cache.ellipsoid_eval[surf_index];
 
-                let sup = if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
-                    if self.settings.deformation.cutgroups.sigma.is_zero() {
+                let sup = if self.settings.deformation.fixed.mode == AdditiveMode::SoftMin {
+                    if self.settings.deformation.fixed.sigma.is_zero() {
                         s = s.min(t);
                         s
                     } else {
                         let e =
-                            (-t / Into::<T>::into(self.settings.deformation.cutgroups.sigma)).exp();
+                            (-t / Into::<T>::into(self.settings.deformation.fixed.sigma)).exp();
                         softmin_num += t * e;
                         softmin_den += e;
                         e
                     }
                 } else {
-                    let sup = t / (t + Into::<T>::into(self.settings.deformation.cutgroups.m_ij));
+                    let sup = t / (t + mij);
                     s *= sup;
                     sup
                 };
@@ -1605,13 +1452,13 @@ impl Topology {
                     );
                 }
 
-                if self.settings.deformation.cutgroups.mode == AdditiveMode::SoftMin {
-                    if !self.settings.deformation.cutgroups.sigma.is_zero() {
+                if self.settings.deformation.fixed.mode == AdditiveMode::SoftMin {
+                    if !self.settings.deformation.fixed.sigma.is_zero() {
                         s = softmin_num / softmin_den;
                     }
 
-                    if !self.settings.deformation.cutgroups.m_ij.is_zero() {
-                        s = s / (s + Into::<T>::into(self.settings.deformation.cutgroups.m_ij));
+                    if !self.settings.deformation.fixed.m_ij.is_zero() {
+                        s = s / (s + mij);
                     }
                 }
             }
@@ -1685,7 +1532,6 @@ impl Topology {
         }
 
         let mut kappas = match self.settings.general.deformation_strategy {
-            DeformationStrategy::CutGroups => self.deform_cutgroups(loop_momenta, cache),
             DeformationStrategy::Duals => {
                 let co = cut.unwrap();
                 let cut = &self.ltd_cut_options[co.0][co.1];
@@ -2040,7 +1886,7 @@ impl Topology {
             .surfaces
             .iter()
             .enumerate()
-            .filter(|(i, x)| x.ellipsoid && x.group == *i)
+            .filter(|(i, x)| x.surface_type == SurfaceType::Ellipsoid && x.group == *i)
             .count();
         let mut complex_evals_sq = vec![Complex::default(); num_ellipsoids];
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
@@ -2064,7 +1910,7 @@ impl Topology {
             let mut index = 0;
             let mut suppresion_factor = Complex::one();
             for (ei, e) in self.surfaces.iter().enumerate() {
-                if e.ellipsoid && e.group == ei {
+                if e.surface_type == SurfaceType::Ellipsoid && e.group == ei {
                     complex_evals_sq[index] =
                         utils::powi(self.evaluate_surface_complex(e, &k_def), 2);
                     suppresion_factor *= complex_evals_sq[index];

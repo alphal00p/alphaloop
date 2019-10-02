@@ -12,7 +12,7 @@ hyperparameters = HyperParameters({
 
     'General'       :   {
         'partial_fractioning'   :   False,
-        # can be additive, cutgroups, constant, duals, intersections or none
+        # can be additive, fixed, constant, duals, intersections or none
         'deformation_strategy'  :   'fixed',
         'topology'              :   'Box',
         'amplitude'             :  '',
@@ -86,7 +86,7 @@ hyperparameters = HyperParameters({
         # fraction of e_cm used for scaling
         'overall_scaling_constant'  : 1.,
 
-        # optionally set a lambda per surface/cutgroup
+        # optionally set a different lambda per surface
         'lambdas'   : [],
 
         'scaling'   :   {
@@ -111,12 +111,13 @@ hyperparameters = HyperParameters({
             'a_ijs' :   [],
         },
 
-        'cutgroups' : {
+        'fixed' : {
             'M_ij'  :   0.00000001,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
-            'mode'  :   'softmin',
-            'ratios' : [],
+            'mode'  :   'hyperbolic',
+            # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
+            'm_ijs' : [],
         }
     },
 

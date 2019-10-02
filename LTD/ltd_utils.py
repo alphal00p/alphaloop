@@ -903,17 +903,17 @@ class LoopTopology(object):
                     eq = 0.
                     eq_fn = []
                     is_ellipsoid = True
-                    surf_sign = 0
+                    surf_sign = None
 
                     sig_sign_map = []
                     for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
                         if sig_sign != 0:
                             eq += cut_sign * sig_sign * deltas[index]
-                            eq -= sig_sign * shift
+                            eq += (-sig_sign) * shift
                             eq_fn.append([cut_sign * sig_sign, index, sig_sign * shift])
                             sig_sign_map.append((index, sig_sign))
 
-                            if surf_sign == 0:
+                            if surf_sign is None:
                                 surf_sign = cut_sign * sig_sign
                             if surf_sign != cut_sign * sig_sign:
                                 is_ellipsoid = False
@@ -1050,6 +1050,7 @@ class LoopTopology(object):
         # Find the point of maximal overlap
         for overlap in all_overlaps:
             radii = [cvxpy.Variable(1)] * self.n_loops
+            # note: the opposite direction needs to be in there
             directions = [
                 cvxpy.Parameter(3, value=np.array([-1., 0., 0.])),
                 cvxpy.Parameter(3, value=np.array([+1., 0., 0.])),
@@ -1072,9 +1073,12 @@ class LoopTopology(object):
                         for (loop_index, sign) in mom_dep:
                             mom += source_shifted[loop_index] * sign
                         mom += shift1
-                        expr += sign * cvxpy.norm(cvxpy.hstack([math.sqrt(m1), mom]), 2) - shift
-                    expr *= overall_sign
-                    constraints.append(expr <= 0)
+                        expr += int(sign) * cvxpy.norm(cvxpy.hstack([math.sqrt(m1), mom]), 2) + (-shift)
+
+                    if overall_sign < 0:
+                        constraints.append(expr >= 0)
+                    else:
+                        constraints.append(expr <= 0)
 
             # objective
             objective = cvxpy.Maximize(sum(radii))

@@ -8,15 +8,20 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use vector::{LorentzVector, RealNumberLike};
-use FloatLike;
 use Settings;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SurfaceType {
+    Ellipsoid,
+    Hyperboloid,
+    Pinch
+}
 
 /// Ellipsoid and hyperboloid surfaces
 #[derive(Debug, Clone)]
 pub struct Surface {
     pub group: usize,
-    pub ellipsoid: bool,
-    pub pinched: bool,
+    pub surface_type: SurfaceType,
     pub cut_structure_index: usize,
     pub cut_option_index: usize,
     pub cut: Vec<Cut>,

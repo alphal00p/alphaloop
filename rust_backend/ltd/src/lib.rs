@@ -87,8 +87,6 @@ pub struct Scaling {
 pub enum DeformationStrategy {
     #[serde(rename = "additive")]
     Additive,
-    #[serde(rename = "cutgroups")]
-    CutGroups,
     #[serde(rename = "duals")]
     Duals,
     #[serde(rename = "intersections")]
@@ -121,7 +119,6 @@ impl From<&str> for DeformationStrategy {
     fn from(s: &str) -> Self {
         match s {
             "additive" => DeformationStrategy::Additive,
-            "cutgroups" => DeformationStrategy::CutGroups,
             "duals" => DeformationStrategy::Duals,
             "constant" => DeformationStrategy::Constant,
             "fixed" => DeformationStrategy::Fixed,
@@ -135,7 +132,6 @@ impl fmt::Display for DeformationStrategy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             DeformationStrategy::Additive => write!(f, "additive"),
-            DeformationStrategy::CutGroups => write!(f, "cutgroups"),
             DeformationStrategy::Duals => write!(f, "duals"),
             DeformationStrategy::Intersections => write!(f, "intersections"),
             DeformationStrategy::Constant => write!(f, "constant"),
@@ -187,12 +183,12 @@ pub struct DeformationAdditiveSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct DeformationCutGroupsSettings {
+pub struct DeformationFixedSettings {
     pub mode: AdditiveMode,
     #[serde(rename = "M_ij")]
     pub m_ij: f64,
     pub sigma: f64,
-    pub ratios: Vec<f64>,
+    pub m_ijs: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -202,7 +198,7 @@ pub struct DeformationSettings {
     pub overall_scaling_constant: f64,
     pub lambdas: Vec<f64>,
     pub additive: DeformationAdditiveSettings,
-    pub cutgroups: DeformationCutGroupsSettings,
+    pub fixed: DeformationFixedSettings,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
