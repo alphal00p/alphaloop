@@ -156,7 +156,7 @@ pentagon = TopologyGenerator([
     ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
 ])
 q1 = vectors.LorentzVector([-32.,19.4,-12.4, 0.])
-q2 = vectors.LorentzVector([1.4,-33.2,5.8,0.])
+q2 = vectors.LorentzVector([1.4,-33.2,-5.8,0.])
 q3 = vectors.LorentzVector([17,8.4,-14.2,0.])
 q4= vectors.LorentzVector([28.6,-4,-13.4,0])
 hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
@@ -798,4 +798,4 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
 
 #print(hard_coded_topology_collection['manual_Box_1_cutgroup'].export_to('',format='mathematica'))
 #print(hard_coded_topology_collection['manual_Box_no_ellipse'].export_to('',format='mathematica'))
-#print(hard_coded_topology_collection['manual_DoubleTriangle_no_ellipse'].export_to('',format='mathematica'))
+print(hard_coded_topology_collection['Pentagon_6E_4s'].export_to('',format='mathematica'))
