@@ -72,6 +72,8 @@ class Amplitude(object):
             if top['name'] == topology:
                 mytop = top
                 break
+        else:
+            raise AssertionError("Could not find topology %s" % topology)
         self.topology_name = topology
         self.ps = [vectors.LorentzVector(p)
                    for p in mytop['external_kinematics']]
