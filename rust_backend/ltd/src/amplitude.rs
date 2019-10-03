@@ -142,7 +142,11 @@ pub struct Amplitude {
     pub vectors: Vec<SlashedMomentum<Complex<f64>>>,
     pub pols_type: Vec<Polarizations>,
     pub ps: Vec<LorentzVector<f64>>,
-    pub mu_uv_sq: f64,
+    pub mu_r_sq: f64,
+    #[serde(skip_deserializing)]
+    pub born: Complex<f64>,
+    #[serde(skip_deserializing)]
+    pub int_ct: Vec<Complex<f64>>,
     #[serde(skip_deserializing)]
     pub polarizations: Vec<ArrayVec<[Complex<f64>; 4]>>,
     pub diagrams: Vec<DiagramFullRust>,
@@ -218,6 +222,8 @@ impl Amplitude {
                         println!("{}", v);
                     }
                 }
+                //Compute the integrated counterterms
+                self.integrated_ct();
             }
             _ => panic!("Unknown amplitude type: {}", self.amp_type),
         };
@@ -241,7 +247,6 @@ impl Amplitude {
     pub fn compute_amplitude<T: FloatLike>(
         &self,
         propagators: &Vec<Complex<T>>,
-        _loop_momenta: &Vec<LorentzVector<Complex<T>>>,
         vectors: &Vec<LorentzVector<Complex<T>>>,
         cut_2energy: Complex<T>,
         cut_id: usize,
@@ -440,7 +445,6 @@ impl Amplitude {
 
         self.compute_amplitude(
             propagators,
-            loop_momenta,
             &vectors.to_vec(),
             cut_2energy,
             cut_id,
@@ -449,7 +453,7 @@ impl Amplitude {
         )
     }
     //In debug mode the integrated counterterms can be seen
-    pub fn print_integrated_ct(&self) {
+    pub fn integrated_ct(&mut self) {
         match self.amp_type.as_ref() {
             "qqbar_photons" => {
                 //Get the incormation about the slashed vectors
@@ -479,22 +483,31 @@ impl Amplitude {
                     }
                 }
 
-                let born = res;
+                self.born = res;
 
                 // Get right expression from the logarithm
-                let mu_r = self.mu_uv_sq;
+                let mu_r = self.mu_r_sq;
                 let s12 = (self.ps[0] + self.ps[1]).square();
                 let ln = if s12 < 0.0 {
                     Complex::new((-mu_r * mu_r / s12).ln(), 0.0)
                 } else {
                     Complex::new((mu_r * mu_r / s12).ln(), std::f64::consts::PI)
                 };
-
                 // Get integrated CT poles and finite part
-                let epm2 = born * 2.0 * Parameters::C_F / (4.0 * std::f64::consts::PI)
+                let epm2 = -self.born * 2.0 * Parameters::C_F / (4.0 * std::f64::consts::PI)
                     * Parameters::alpha_s;
                 let epm1 = epm2 * (ln + 1.5);
                 let ep0 = epm2 * (ln * (ln + 3.) * 0.5 + 4.);
+                //Store the integrated counterterms
+                self.int_ct = vec![ep0, epm1, epm2];
+            }
+            _ => panic!("Unknown integrated counterterm for {}.", self.amp_type),
+        }
+    }
+    //Print out the result for the integrated counterterms
+    pub fn print_integrated_ct(&self) {
+        match self.amp_type.as_ref() {
+            "qqbar_photons" => {
                 // Print polarizations
                 for (i, (pol, p)) in self
                     .pols_type
@@ -510,10 +523,14 @@ impl Amplitude {
                     println!("]");
                 }
                 // Print CT
-                println!("\n  | born    \t: {:.5e}", born);
-                println!("  | 1/ep**2 \t: {:.5e}", epm2);
-                println!("  | 1/ep    \t: {:.5e}", epm1);
-                println!("  | Finite  \t: {:?}", ep0);
+                println!("\n  | born    \t: {:.5e}", self.born);
+                for (i, val) in self.int_ct.iter().enumerate() {
+                    match i {
+                        0 => println!("  | Finite  \t: {:+.5e}", val),
+                        1 => println!("  | 1/ep    \t: {:+.5e}", val),
+                        _ => println!("  | 1/ep**{} \t: {:+.5e}", i, val),
+                    };
+                }
             }
             _ => panic!("Unknown integrated counterterm for {}.", self.amp_type),
         }
