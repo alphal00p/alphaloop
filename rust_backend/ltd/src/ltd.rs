@@ -2077,6 +2077,20 @@ impl Topology {
         ); // loop momentum factor
         result *= jac_def * jac_para;
 
-        (x, k_def, jac_para, jac_def, result)
+        if self.settings.general.use_amplitude {
+            (
+                x,
+                k_def,
+                jac_para,
+                jac_def,
+                result
+                    + Complex::new(
+                        Into::<T>::into(self.amplitude.int_ct[0].re),
+                        Into::<T>::into(self.amplitude.int_ct[0].im),
+                    ),
+            )
+        } else {
+            (x, k_def, jac_para, jac_def, result)
+        }
     }
 }
