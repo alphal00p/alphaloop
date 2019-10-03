@@ -57,10 +57,10 @@ class qqbar_diagram(object):
 
 
 class Amplitude(object):
-    def __init__(self, topology, polarizations=None, uv_pos=-1, mu_uv_sq=1e2):
+    def __init__(self, topology, polarizations=None, uv_pos=-1, mu_r_sq=1e2):
         """
             uv_pos:       position of the uv propagator
-            mu_uv_sq: mass squared for the uv propagator
+            mu_r_sq:  mu renormalization for the CT
         """
 
         with open("topologies.yaml", 'r') as stream:
@@ -79,7 +79,7 @@ class Amplitude(object):
         if uv_pos >= 0:
             del self.ps[uv_pos]
         self.compute_invariants(polarizations)
-        self.mu_uv_sq = mu_uv_sq
+        self.mu_r_sq = mu_r_sq
 
     def compute_invariants(self, polarizations):
         self.sij = {}
@@ -227,7 +227,7 @@ class Amplitude(object):
         res['ps'] = [[float(v) for v in vec] for vec in self.ps]
         res['pols_type'] = self.polarizations
         res['sets'] = self.sets
-        res['mu_uv_sq'] = self.mu_uv_sq
+        res['mu_r_sq'] = self.mu_r_sq
 
         return res
 
@@ -272,16 +272,16 @@ if __name__ == "__main__":
     amplitudes_collection = AmplitudesCollection()
 
     """ =================== add amplitude uuAAA ======================="""
-    factor = -1j * params['C_F'] * params['q_u']**3 / 8.0\
-        * params['alpha_ew']**1.5\
-        * params['alpha_s']\
-        * (4.0 * np.pi)**2.5
+    tree_factor = -params['alpha_ew']**1.5*params['q_u']**3 / \
+        8.0 * (4.0 * np.pi)**1.5
+    factor = 1j * params['C_F'] * tree_factor\
+        * params['alpha_s'] * (4.0 * np.pi)
     # Polarizations
-    amp = Amplitude("manual_uuWWZ_amplitude",  # name of topology
+    amp = Amplitude("manual_uuWWZ_amplitude_P2",  # name of topology
                     zip(["u", "vbar", "a", "a", "a"],  # polarizations
                         ["+", "-", "+", "+", "+"]),
                     1,  # uv_pos
-                    1e4)  # mu_uv_sq
+                    91.188)  # mu_r_sq
     #Diagrams and vectors
     amp.create_amplitude(
         'qqbar_photons',
@@ -327,22 +327,22 @@ if __name__ == "__main__":
         ],
     )
     # The born as to be added at the end
-    born_factor = params['alpha_ew']**1.5*params['q_u']**3 / \
-        8.0 / amp.sij['s23'] / amp.sij['s15'] * (4.0 * np.pi)**1.5
+    born_factor = tree_factor / amp.sij['s23'] / amp.sij['s15']
     amp.add_born([8, 6, 9, 7, 10], born_factor)
     # Store
     amplitudes_collection.add(amp)
 
     """ =================== add amplitude ddAA ======================="""
-    factor = -1j * params['C_F'] * params['q_d']**2\
-        * params['alpha_s'] * params['alpha_ew']\
-        * (4.0 * np.pi)**2
+    tree_factor = -params['alpha_ew'] * \
+        params['q_d']**2 * (4.0 * np.pi)
+    factor = 1j*params['C_F'] * tree_factor\
+        * params['alpha_s'] * (4.0 * np.pi)
     # Polarizations
-    amp = Amplitude("manual_eeAA_amplitude_E3",  # name of topology
+    amp = Amplitude("manual_eeAA_amplitude_PE",  # name of topology
                     zip(["u", "vbar", "a", "a"],  # polarizations
-                        ["+", "-", "-", "-"]),
+                        ["+", "-", "+", "+"]),
                     1,  # uv_pos
-                    1e4)  # mu_uv_sq
+                    91.188)  # mu_r_sq
     #Diagrams and vectors
     amp.create_amplitude(
         'qqbar_photons',
@@ -368,8 +368,7 @@ if __name__ == "__main__":
         ],
     )
     # The born as to be added at the end
-    born_factor = params['alpha_ew'] * \
-        params['q_d']**2 / amp.sij['s23'] * (4.0 * np.pi)
+    born_factor = tree_factor / amp.sij['s23']
     amp.add_born([6, 5, 7], born_factor)
     # Store
     amplitudes_collection.add(amp)
