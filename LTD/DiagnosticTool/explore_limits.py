@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -7,6 +7,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from pprint import pprint
+import yaml
 
 pjoin = os.path.join
 
@@ -16,9 +17,7 @@ sys.path.insert(0, pjoin(file_path,os.pardir,os.pardir))
 
 import vectors
 import ltd_commons 
-import topologies 
 hyperparameters = ltd_commons.hyperparameters
-topology_collection = topologies.hard_coded_topology_collection
 
 try:
     # Import the rust bindings
@@ -36,7 +35,18 @@ if len(sys.argv) == 3:
     studied_amplitude = sys.argv[2]
 
 
-topology = topology_collection[studied_topology]
+with open("../topologies.yaml", 'r') as stream:
+    try:
+        topologies = yaml.load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
+    for top in topologies:
+        if top['name'] == studied_topology:
+            topology = top
+            break
+    else:
+        raise BaseException(
+            "No topology known with this name %s" %studied_topology)
 
 rust_instance = LTD(
         settings_file = pjoin(os.path.pardir,'hyperparameters.yaml'),
@@ -48,8 +58,8 @@ rust_instance = LTD(
 
 def evaluate(point):
     evaluation = {}
-    for ltd_cut_index, ltd_cut_structure in enumerate(topology.ltd_cut_structure):
-        cut_propagator_indices = [[index*c for index in range(1,len(topology.loop_lines[i].propagators)+1)] if c!=0 else [0,] 
+    for ltd_cut_index, ltd_cut_structure in enumerate(topology['ltd_cut_structure']):
+        cut_propagator_indices = [[index*c for index in range(1,len(topology['loop_lines'][i]['propagators'])+1)] if c!=0 else [0,] 
                                              for i, c in enumerate(ltd_cut_structure)]
         for cut_index, cut_structure  in enumerate(itertools.product( *cut_propagator_indices )):
             #res = rust_instance.evaluate_cut_ct_f128(
@@ -100,10 +110,10 @@ max_logx = 0
 limits = ['UV']
 #limits = ['Soft']
 #limits = ['Collinear ' + p for p in ['p1','p2','p3','p4']] + ['Soft1', 'Soft3', 'UV']
+#limits = ['Collinear ' + p for p in ['p1','p2']] + ['Soft1', 'UV']
 #UV and SOFT random vector
 np.random.seed(0)
-#l_UV = vectors.LorentzVector([3595.2511874644233,-6.148627708775928e-13,-3347.157026856964,-1312.391305414418])/1000.
-l_UV = vectors.LorentzVector(np.random.rand(4))
+l_UV = vectors.LorentzVector([3595.2511874644233,-6.148627708775928e-13,-3347.157026856964,-1312.391305414418])/1000. #vectors.LorentzVector(100*np.random.rand(4))
 l_SOFT = vectors.LorentzVector(np.random.rand(4))
 
 for limit in limits:
@@ -120,10 +130,10 @@ for limit in limits:
     plt.figure()
     for x in np.logspace(min_logx, max_logx, num=N_points):
         #Get limit
-        p1= topology.external_kinematics[0]
-        p2= topology.external_kinematics[2]
-        p3= topology.external_kinematics[3]
-        p4= topology.external_kinematics[4]
+        p1= topology['external_kinematics'][0]
+        p2= topology['external_kinematics'][2]
+        p3= topology['external_kinematics'][3]
+        p4= topology['external_kinematics'][4]
         scalar_scaling = 1.0
         if limit == 'Collinear p1':
             shift = -p1 ; y=0.3
@@ -152,7 +162,7 @@ for limit in limits:
             k ,rust_variables = uv_limit(l_UV,[0,0,0,0], x)
             scalar_scaling = x**3
 
-        print "Currently at log(x) = %f... x = %s"%(np.log(x),rust_variables)
+        print("Currently at log(x) = %f... x = %s"%(np.log(x),rust_variables))
         x_values.append(x) 
 
         integrand = rust_instance.evaluate(rust_variables)
@@ -188,27 +198,23 @@ for limit in limits:
                 plot_lines['%d_%d_im'%(d[0][0],d[1][0])]=[v.imag * scalar_scaling,]
 
     #Sum of non-uv cuts
-    plot_lines['sum_re'] = (np.array(plot_lines['0_0_re'])+
-                           np.array(plot_lines['0_2_re'])+
-                           np.array(plot_lines['0_3_re'])+
-                           np.array(plot_lines['0_4_re']))
+    plot_lines['sum_re'] = sum( [ np.array(plot_lines['0_%d_re'%i]) for i in range(len(topology['loop_lines'][0]['propagators'])-1)] )
     
+    #popt, pcov = curve_fit(line, np.log(x_values),np.log(np.abs(plot_lines['0_0_re'])))
+    #plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'g--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
     
-    # popt, pcov = curve_fit(line, np.log(x_values),np.log(np.abs(plot_lines['0_0_re'])))
-    # plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'g--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
-    
-    # popt, pcov = curve_fit(line, np.log(x_values[50:70]),np.log(np.abs(plot_lines['sum_re'][50:70])))
-    # plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'g--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
+    popt, pcov = curve_fit(line, np.log(x_values[50:70]),np.log(np.abs(plot_lines['sum_re'][50:70])))
+    plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'g--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
     
     #Fit the integrand
-    popt, pcov = curve_fit(line, np.log(x_values[50:70]),np.log(np.abs(plot_lines['rescaled_integrand_re'][50:70])))
-    plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'r--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
+    #popt, pcov = curve_fit(line, np.log(x_values[50:70]),np.log(np.abs(plot_lines['rescaled_integrand_re'][50:70])))
+    #plt.plot(x_values,np.exp(popt[1])*x_values**popt[0], 'r--', label=r'fit subtracted: $\delta^{%2.1f}$' % popt[0], linewidth = 1.)
         
     selected = ['rescaled_integrand_re', '0_0_re','0_1_re', '0_2_re','0_3_re','0_4_re', '_sum_cut','sum_re','param_jac']
     veto_list= ['param_jac']
     #lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
     #        (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
-    print plot_lines['rescaled_integrand_re']
+    print(plot_lines['rescaled_integrand_re'])
 
     lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
             (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
