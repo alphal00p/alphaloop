@@ -861,7 +861,7 @@ class LoopTopology(object):
             return None
 
         # First build the loop variables
-        source_coordinates = [cvxpy.Variable(3)] * self.n_loops
+        source_coordinates = [cvxpy.Variable(3) for _ in range(self.n_loops)]
 
         # Then store the shifts and mass from each propagator delta
         deltas = []
@@ -1049,7 +1049,7 @@ class LoopTopology(object):
 
         # Find the point of maximal overlap
         for overlap in all_overlaps:
-            radii = [cvxpy.Variable(1)] * self.n_loops
+            radii = [cvxpy.Variable(3,nonneg=True) for _ in range(self.n_loops)]
             # note: the opposite direction needs to be in there
             directions = [
                 cvxpy.Parameter(3, value=np.array([-1., 0., 0.])),
@@ -1081,7 +1081,7 @@ class LoopTopology(object):
                         constraints.append(expr <= 0)
 
             # objective
-            objective = cvxpy.Maximize(sum(radii))
+            objective = cvxpy.Maximize(sum(sum(radius) for radius in radii))
             p = cvxpy.Problem(objective, constraints)
             try:
                 result = p.solve()
