@@ -2299,9 +2299,9 @@ hard_coded_topology_collection.add_topology(
     ]),        
         analytic_result =  (0.00760695481617+0.000196745763537j) ,
         parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
-        name = 'eeAA_amplitude',
+        name = 'eeAA_amplitude_P1',
     ),
-    entry_name = 'eeAA_amplitude'
+    entry_name = 'eeAA_amplitude_P1'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -2316,9 +2316,9 @@ hard_coded_topology_collection.add_topology(
     ]),        
         analytic_result =  (0.00760695481617+0.000196745763537j) ,
         parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
-        name = 'eeAA_amplitude_P3',
+        name = 'eeAA_amplitude_P2',
     ),
-    entry_name = 'eeAA_amplitude_P3'
+    entry_name = 'eeAA_amplitude_P2'
 )
 
 hard_coded_topology_collection.add_topology(
@@ -2333,10 +2333,13 @@ hard_coded_topology_collection.add_topology(
     ]),        
         analytic_result =  (0.00760695481617+0.000196745763537j) ,
         parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0.},
-        name = 'eeAA_amplitude_P4',
+        name = 'eeAA_amplitude_P3',
     ),
-    entry_name = 'eeAA_amplitude_P4'
+    entry_name = 'eeAA_amplitude_P3'
 )
+hard_coded_topology_collection['eeAA_amplitude_P1'].build_fixed_deformation(force=True)
+hard_coded_topology_collection['eeAA_amplitude_P2'].build_fixed_deformation(force=True)
+hard_coded_topology_collection['eeAA_amplitude_P3'].build_fixed_deformation(force=True)
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
@@ -2388,6 +2391,9 @@ hard_coded_topology_collection.add_topology(
     ),
     entry_name = 'eeAA_amplitude_E3'
 )
+hard_coded_topology_collection['eeAA_amplitude_E1'].build_fixed_deformation(force=True)
+hard_coded_topology_collection['eeAA_amplitude_E2'].build_fixed_deformation(force=True)
+hard_coded_topology_collection['eeAA_amplitude_E3'].build_fixed_deformation(force=True)
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
