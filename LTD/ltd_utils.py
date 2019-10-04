@@ -947,7 +947,7 @@ class LoopTopology(object):
             e = ellipsoids[surf_id]
             p = cvxpy.Problem(cvxpy.Minimize(e), [])
             result = p.solve()
-            if result > -1e-8:
+            if result > -1e-6:
                 del ellipsoids[surf_id]
                 del ellipsoid_fun[surf_id]
 
