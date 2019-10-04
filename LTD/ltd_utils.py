@@ -733,6 +733,11 @@ class LoopTopology(object):
             surface_equations = []
             surface_ids = []
 
+            prop_to_tuple = []
+            for (ll_index, ll) in enumerate(self.loop_lines):
+                for p_index, p in enumerate(ll.propagators):
+                    prop_to_tuple.append((ll_index, p_index))
+
             # construct all dual integrands
             formatted_str += '\t(-2 Pi I)^%s (1/(2 Pi)^4)^%s(' % (self.n_loops, self.n_loops)
             for cs in self.ltd_cut_structure:
@@ -765,7 +770,7 @@ class LoopTopology(object):
                                     cut_energy += '-(%s)' % shift # add parenthesis to prevent -- operator
                                 else:
                                     cut_energy += '+%s' % shift
-                                surf_id.append(((ll_index, cut_prop_index_in_ll), int(cut_sign * sig_sign), -int(sig_sign)))
+                                surf_id.append((prop_to_tuple[index - 1], int(cut_sign * sig_sign), -int(sig_sign)))
 
                         for p_index, p in enumerate(ll.propagators):
                             if cut_prop_index_in_ll == p_index:
