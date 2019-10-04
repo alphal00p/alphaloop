@@ -258,7 +258,7 @@ impl Amplitude {
         // Select which set of diagrams to consider
         // sets1: with UV approximation for all the diagrams
         // sets0: regular amplitude
-        let diaglist = if cut_2energy.norm() > e_cm_sq * T::from_f64(1e6).unwrap() {
+        let diaglist = if cut_2energy.norm() > e_cm_sq * Into::<T>::into(settings.mu_uv_sq_re_im[0]) {
             self.sets[1].clone()
         } else {
             self.sets[0].clone()
