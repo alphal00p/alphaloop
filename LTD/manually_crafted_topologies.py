@@ -2405,6 +2405,7 @@ hard_coded_topology_collection.add_topology(
     ),
     entry_name = 'eeAA_amplitude_PE'
 )
+hard_coded_topology_collection['eeAA_amplitude_PE'].build_fixed_deformation(force=True)
 
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
@@ -2417,15 +2418,35 @@ hard_coded_topology_collection.add_topology(
         vectors.LorentzVector([-4.733025920198647, -2.907291089081868, -0.7184505101772154, -3.665108695392744]),
         vectors.LorentzVector([2.8184979237713916, 1.450019755190325, -1.487384338523726, 1.9050094712036916]),
     ]),        
-        analytic_result =  (0.00760695481617+0.000196745763537j) ,
+        analytic_result =  None,
         parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0., 'm6':0.},
         fixed_deformation = [{'deformation_sources': [[0., -0.5090471257245934, -0.6569087088593859, -0.6710689345531541]], 'excluded_surface_ids': []}],
-        name = 'uuWWZ_amplitude',
+        name = 'uuWWZ_amplitude_P1',
     ),
-    entry_name = 'uuWWZ_amplitude'
+    entry_name = 'uuWWZ_amplitude_P1'
 )
+hard_coded_topology_collection['uuWWZ_amplitude_P1'].build_fixed_deformation(force=True)
 
-
+hard_coded_topology_collection.add_topology(
+    create_hard_coded_topology(
+        'Hexagon',
+        vectors.LorentzVectorList([
+	    vectors.LorentzVector([0.5, 0.13149128298399584, -0.22366346845971433, 0.42741630218768345]),
+        vectors.LorentzVector( [0.0, 0.0, 0.0, 0.0] ),
+	    vectors.LorentzVector([0.5, -0.13149128298399584, 0.22366346845971433, -0.42741630218768345]),
+	    vectors.LorentzVector([-0.22559324803633762, -0.1429873405337816, -0.16922530367392905, 0.04254092856447099]),
+	    vectors.LorentzVector([-0.39004941959532663, 0.04698511237720604, 0.02658291580681445, -0.3862956089949253]),
+	    vectors.LorentzVector([-0.38435733236833586, 0.09600222815657555, 0.14264238786711458, 0.3437546804304543]),
+     ]),        
+        analytic_result =  None,
+        parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0., 'm6':0.},
+        fixed_deformation = None, 
+        name = 'uuWWZ_amplitude_P2',
+    )
+    ,
+    entry_name = 'uuWWZ_amplitude_P2'
+)
+hard_coded_topology_collection['uuWWZ_amplitude_P2'].build_fixed_deformation(force=True)
 
 # ================================================================================
 # Decagons with 10 external particles with masses increasing from 100 GeV to 2 TeV
