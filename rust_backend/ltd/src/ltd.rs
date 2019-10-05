@@ -588,7 +588,7 @@ impl Topology {
                     && !d.excluded_surface_indices.contains(&surf_index)
                 {
                     let r = self.evaluate_surface_complex(surf, &loop_momenta);
-                    if r.re >= 0. {
+                    if surf.delta_sign > 0 && r.re >= 0. || surf.delta_sign < 0 && r.re <= 0. {
                         panic!(
                             "Deformation source {:?} is not on the inside of surface {}: {}",
                             d.deformation_sources, surf_index, r.re
