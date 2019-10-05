@@ -594,8 +594,8 @@ hard_coded_topology_collection.add_topology(PRL_non_planar_four_loop.create_loop
 # PRL physical BoxBox
 PRL_physical_BoxBox = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
-        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
-        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
+        ('p1', 6, 1), ('p2', 7, 6), ('p3', 2, 7), ('p4', 1, 2),
+        ('p5', 3, 7), ('p6', 4, 3), ('p7', 6, 4)
     ])
 q1 = vectors.LorentzVector([ 1.5, 0.2, 0.1, -0.4 ])
 q2 = vectors.LorentzVector([ 0.4, -0.3, 0.1, 0.2 ])
@@ -605,7 +605,7 @@ hard_coded_topology_collection.add_topology(PRL_physical_BoxBox.create_loop_topo
     'PRL_physical_BoxBox',
     ext_mom={'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4},
     mass_map={},
-    loop_momenta_names=('p4','p2'),
+    loop_momenta_names=('p7','p1'),
     analytic_result = analytic_four_point_ladder(
                     q1.square(), q2.square(), q3.square(), q4.square(),
                     (q1+q2).square(), (q2+q3).square(), 2),
@@ -620,9 +620,9 @@ PRL_physical_BoxBox_1ellipse = TopologyGenerator([
         ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
         ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
     ])
-q1 = vectors.LorentzVector([1.082,0.2891,0.5276,0.119])
-q2 = vectors.LorentzVector([-0.3978,0.4261,0.1091,0.2143])
-q3 = vectors.LorentzVector([0.1182,0.2192,0.5019,0.3210])
+q1 = vectors.LorentzVector([1.082,0.,0.,0.])
+q2 = vectors.LorentzVector([0.4,0.,0.,0.])
+q3 = vectors.LorentzVector([0.7,0.,0.,0.])
 q4 = -q3-q2-q1
 hard_coded_topology_collection.add_topology(PRL_physical_BoxBox_1ellipse.create_loop_topology(
     'PRL_physical_BoxBox_1ellipse',
@@ -798,4 +798,4 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
 
 #print(hard_coded_topology_collection['manual_Box_1_cutgroup'].export_to('',format='mathematica'))
 #print(hard_coded_topology_collection['manual_Box_no_ellipse'].export_to('',format='mathematica'))
-print(hard_coded_topology_collection['Pentagon_6E_4s'].export_to('',format='mathematica'))
+print(hard_coded_topology_collection['PRL_physical_BoxBox'].export_to('',format='mathematica'))
