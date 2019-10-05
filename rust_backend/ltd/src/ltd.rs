@@ -576,6 +576,27 @@ impl Topology {
         {
             panic!("Fixed deformation strategy selected but none was provided.");
         }
+
+        // check if the deformation sources satisfy their constraints
+        for d in &self.fixed_deformation {
+            let loop_momenta = (0..self.n_loops)
+                .map(|i| d.deformation_sources[i].map(|x| Complex::new(x, 0.)))
+                .collect::<Vec<_>>();
+            for (surf_index, surf) in self.surfaces.iter().enumerate() {
+                if surf.group == surf_index
+                    && surf.surface_type == SurfaceType::Ellipsoid
+                    && !d.excluded_surface_indices.contains(&surf_index)
+                {
+                    let r = self.evaluate_surface_complex(surf, &loop_momenta);
+                    if r.re >= 0. {
+                        panic!(
+                            "Deformation source {:?} is not on the inside of surface {}: {}",
+                            d.deformation_sources, surf_index, r.re
+                        );
+                    }
+                }
+            }
+        }
     }
 
     /// Map a vector in the unit hypercube to the infinite hypercube.
