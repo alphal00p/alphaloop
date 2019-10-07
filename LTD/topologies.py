@@ -131,7 +131,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
 
 pentagon = TopologyGenerator([
     ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
-    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5)
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
 ])
 q1 = vectors.LorentzVector([-32.6,1.4,-2.6,0])
 q2 = vectors.LorentzVector([-37,-0.4,-3,0])
@@ -153,7 +153,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
 
 pentagon = TopologyGenerator([
     ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
-    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5)
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
 ])
 q1 = vectors.LorentzVector([-32.,19.4,-12.4, 0.])
 q2 = vectors.LorentzVector([1.4,-33.2,-5.8,0.])
@@ -164,7 +164,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
         ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': -q4-q3-q2-q1  }, 
         mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
-        analytic_result=(4.17837e-10-8.9920e-11j), # For triangle and box one-loop topology, the analytic result is automatically computed
+        analytic_result=(-2.82935e-8 + 2.63906e-3j)/(16*(math.pi**2)), # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
    #     fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
      ),
@@ -175,7 +175,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
 
 pentagon = TopologyGenerator([
     ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
-    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5)
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
 ])
 q1 = vectors.LorentzVector([42.6,21.2,-2.6,0])
 q2 = vectors.LorentzVector([45,3.4,-40.2,0])
@@ -186,11 +186,128 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
         ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': -q4-q3-q2-q1  }, 
         mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
-        analytic_result=(4.1186969920099767e-15-2.180571892964913412e-13j), # For triangle and box one-loop topology, the analytic result is automatically computed
+        analytic_result=(-3.47721e-11 -4.37955e-13j)/(16.*(math.pi**2.)), # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
    #     fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
      ),
      entry_name = 'Pentagon_8E_5s'
+)
+
+# Hexagon with customised ellipses from mathematica
+
+hexagon = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+])
+q1 = vectors.LorentzVector([24.,-21.2,71.,0.])
+q2 = vectors.LorentzVector([50.4,15.8,-18.8,0.])
+q3 = vectors.LorentzVector([-0.2,46.2,8.6,0.])
+q4 = vectors.LorentzVector([-33.2,2.6,-70.8,0.])
+q5 = vectors.LorentzVector([-80.,-5.6,-40,0.])
+hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
+        "Hexagon_6E_4s", 
+        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': -q5-q4-q3-q2-q1  }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=-2.7216841734816e-15-1.2089609024538e-14j,
+     ),
+     entry_name = 'Hexagon_6E_4s'
+)
+
+hexagon = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+])
+q1 = vectors.LorentzVector([-80.,29.,-70.,0.])
+q2 = vectors.LorentzVector([83.5,14.0,70.,0.])
+q3 = vectors.LorentzVector([88.5,6.5,-6.,0.])
+q4 = vectors.LorentzVector([36.5,-71.,97.5,0.])
+q5 = vectors.LorentzVector([12.5,-83.5,-57.5,0.])
+hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
+        "Hexagon_10E_4s", 
+        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': -q5-q4-q3-q2-q1  }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=-3.0193937848736e-17-7.73337287748906e-17j,
+     ),
+     entry_name = 'Hexagon_10E_4s'
+)
+
+hexagon = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+])
+q1 = vectors.LorentzVector([-100.   ,-80.5  ,-56.5  ,0.])
+q2 = vectors.LorentzVector([-64.    ,83.    ,-51.   ,0.])
+q3 = vectors.LorentzVector([100.    ,-87.0  ,-47.5  ,0.])
+q4 = vectors.LorentzVector([100.    ,92.5   ,-17.5  ,0.])
+q5 = vectors.LorentzVector([100.    ,-39.5  ,-88.5  ,0.])
+hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
+        "Hexagon_9E_4s", 
+        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': -q5-q4-q3-q2-q1  }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=2.83771892273698e-17+8.3141576190839e-18j,
+     ),
+     entry_name = 'Hexagon_9E_4s'
+)
+
+hexagon = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+])
+q1 = vectors.LorentzVector([42.6    ,21.2   ,-2.6   ,0])*1e-03 #m1^2 = 1358.6 *1e-6
+q2 = vectors.LorentzVector([45      ,3.4    ,-40.2  ,0])*1e-03 #m2^2 = 397.4
+q3 = vectors.LorentzVector([68      ,-64.4  ,6.4    ,0])*1e-03 #m3^2 = 435.68
+q4 = vectors.LorentzVector([-57.4    ,-48.8  ,-4.2  ,0])*1e-03 #m4^2 = 895.68
+q5 = vectors.LorentzVector([-39.5   ,65.5   ,94.0   ,0])*1e-03 #m5^2 = -11566
+hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
+        "Hexagon_10E_7s", 
+        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': -q5-q4-q3-q2-q1  }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=2.11928148966e-02+6.4030325864e-03j
+     ),
+     entry_name = 'Hexagon_10E_7s'
+)
+
+hexagon = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+])
+q1 = vectors.LorentzVector([42.6    ,21.2   ,-2.6   ,0])*1e-02
+q2 = vectors.LorentzVector([45      ,3.4    ,-40.2  ,0])*1e-02
+q3 = vectors.LorentzVector([68      ,-64.4  ,6.4    ,0])*1e-02
+q4 = vectors.LorentzVector([-57.4    ,-32.5  ,-4.2   ,0])*1e-02
+q5 = vectors.LorentzVector([-39.5   ,65.5   ,14.5   ,0.])*1e-02
+hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
+        "Hexagon_10E_5s", 
+        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': -q5-q4-q3-q2-q1  }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=-2.81475384+2.4732705j
+     ),
+     entry_name = 'Hexagon_10E_5s'
+)
+
+# Hexagon with a disconnected ellipsoid
+hexagon = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+])
+q1 = vectors.LorentzVector([-12.    ,-16.   ,-53.5  ,0])*1e-02
+q2 = vectors.LorentzVector([47.     ,-3.5    ,-14.0  ,0])*1e-02
+q3 = vectors.LorentzVector([-4.     ,-12.  ,14.5    ,0])*1e-02
+q4 = vectors.LorentzVector([31.    ,10.5  ,-5.5   ,0])*1e-02
+q5 = vectors.LorentzVector([3.5   ,39.5   ,88.5   ,0.])*1e-02
+hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
+        "Hexagon_6E_2s", 
+        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': -q5-q4-q3-q2-q1  }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=-20.7013988797142+4.234325146404j
+     ),
+     entry_name = 'Hexagon_6E_2s'
 )
 
 # double triangle
@@ -594,8 +711,8 @@ hard_coded_topology_collection.add_topology(PRL_non_planar_four_loop.create_loop
 # PRL physical BoxBox
 PRL_physical_BoxBox = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
-        ('p1', 6, 1), ('p2', 7, 6), ('p3', 2, 7), ('p4', 1, 2),
-        ('p5', 3, 7), ('p6', 4, 3), ('p7', 6, 4)
+        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
     ])
 q1 = vectors.LorentzVector([ 1.5, 0.2, 0.1, -0.4 ])
 q2 = vectors.LorentzVector([ 0.4, -0.3, 0.1, 0.2 ])
@@ -605,7 +722,7 @@ hard_coded_topology_collection.add_topology(PRL_physical_BoxBox.create_loop_topo
     'PRL_physical_BoxBox',
     ext_mom={'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4},
     mass_map={},
-    loop_momenta_names=('p7','p1'),
+    loop_momenta_names=('p4','p2'),
     analytic_result = analytic_four_point_ladder(
                     q1.square(), q2.square(), q3.square(), q4.square(),
                     (q1+q2).square(), (q2+q3).square(), 2),
@@ -620,9 +737,9 @@ PRL_physical_BoxBox_1ellipse = TopologyGenerator([
         ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
         ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6)
     ])
-q1 = vectors.LorentzVector([1.082,0.,0.,0.])
-q2 = vectors.LorentzVector([0.4,0.,0.,0.])
-q3 = vectors.LorentzVector([0.7,0.,0.,0.])
+q1 = vectors.LorentzVector([1.082,0.2891,0.5276,0.119])
+q2 = vectors.LorentzVector([-0.3978,0.4261,0.1091,0.2143])
+q3 = vectors.LorentzVector([0.1182,0.2192,0.5019,0.3210])
 q4 = -q3-q2-q1
 hard_coded_topology_collection.add_topology(PRL_physical_BoxBox_1ellipse.create_loop_topology(
     'PRL_physical_BoxBox_1ellipse',
@@ -798,4 +915,4 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
 
 #print(hard_coded_topology_collection['manual_Box_1_cutgroup'].export_to('',format='mathematica'))
 #print(hard_coded_topology_collection['manual_Box_no_ellipse'].export_to('',format='mathematica'))
-print(hard_coded_topology_collection['PRL_physical_BoxBox'].export_to('',format='mathematica'))
+#print(hard_coded_topology_collection['Hexagon_10E_7s'].export_to('',format='mathematica'))

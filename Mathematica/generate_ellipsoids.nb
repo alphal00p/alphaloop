@@ -3,10 +3,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[         0,          0]
-NotebookDataLength[     75722,       1677]
-NotebookOptionsPosition[     73579,       1632]
-NotebookOutlinePosition[     73941,       1648]
-CellTagsIndexPosition[     73898,       1645]
+NotebookDataLength[     53255,       1156]
+NotebookOptionsPosition[     51144,       1112]
+NotebookOutlinePosition[     51484,       1127]
+CellTagsIndexPosition[     51441,       1124]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -86,9 +86,9 @@ Cell[BoxData[
   3.7778749391326447`*^9, 3.7778749936611633`*^9}, {3.777875038139999*^9, 
   3.777875065669683*^9}, {3.777875208843912*^9, 3.777875225367258*^9}, {
   3.7778756863733253`*^9, 3.7778756921570253`*^9}, {3.777876548126237*^9, 
-  3.7778765504166193`*^9}, {3.777876734235898*^9, 
-  3.777876737344894*^9}},ExpressionUUID->"ea93b374-b456-4850-86c2-\
-549d481ba651"],
+  3.7778765504166193`*^9}, {3.777876734235898*^9, 3.777876737344894*^9}},
+ CellLabel->
+  "In[947]:=",ExpressionUUID->"ea93b374-b456-4850-86c2-549d481ba651"],
 
 Cell[BoxData[
  RowBox[{
@@ -113,9 +113,9 @@ Cell[BoxData[
  CellChangeTimes->{{3.777875081606978*^9, 3.77787517713992*^9}, {
   3.777875213053809*^9, 3.777875310327627*^9}, {3.777875410620657*^9, 
   3.7778754153134127`*^9}, {3.777876242311985*^9, 3.777876248437668*^9}, {
-  3.777876325820863*^9, 
-  3.777876377205792*^9}},ExpressionUUID->"2c96f312-6eb8-429e-ac80-\
-0078949f066a"],
+  3.777876325820863*^9, 3.777876377205792*^9}},
+ CellLabel->
+  "In[948]:=",ExpressionUUID->"2c96f312-6eb8-429e-ac80-0078949f066a"],
 
 Cell[BoxData[""], "Input",
  CellChangeTimes->{{3.777875321344863*^9, 3.777875325238205*^9}, 
@@ -129,52 +129,101 @@ Cell[BoxData[
   "\[IndentingNewLine]", 
   RowBox[{"Manipulate", "[", "\[IndentingNewLine]", 
    RowBox[{
-    RowBox[{"Show", "[", "\[IndentingNewLine]", 
-     RowBox[{
-      RowBox[{"(", 
-       RowBox[{
-        RowBox[{"RegionPlot", "[", "\[IndentingNewLine]", 
-         RowBox[{"#1", "\[IndentingNewLine]", ",", 
+    RowBox[{"Column", "[", 
+     RowBox[{"{", "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"Show", "[", "\[IndentingNewLine]", 
+        RowBox[{
+         RowBox[{"(", 
+          RowBox[{
+           RowBox[{"RegionPlot", "[", "\[IndentingNewLine]", 
+            RowBox[{"#1", "\[IndentingNewLine]", ",", 
+             RowBox[{"{", 
+              RowBox[{"kx", ",", "MinKx", ",", "MaxKx"}], "}"}], ",", 
+             RowBox[{"{", 
+              RowBox[{"ky", ",", "MinKy", ",", "MaxKy"}], "}"}]}], 
+            "\[IndentingNewLine]", "]"}], "&"}], ")"}], "[", 
+         RowBox[{"BoxIntegrand", "[", 
+          RowBox[{
+           RowBox[{"{", 
+            RowBox[{"kx", ",", "ky"}], "}"}], ",", 
+           RowBox[{"{", 
+            RowBox[{"p1x", ",", "p1y"}], "}"}], ",", 
+           RowBox[{"{", 
+            RowBox[{"p2x", ",", "p2y"}], "}"}], ",", 
+           RowBox[{"{", 
+            RowBox[{"p3x", ",", "p3y"}], "}"}], ",", "p01", ",", "p02", ",", 
+           "p03"}], "]"}], "]"}], "\[IndentingNewLine]", "]"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{"Grid", "[", 
+        RowBox[{"{", 
+         RowBox[{
           RowBox[{"{", 
-           RowBox[{"kx", ",", "MinKx", ",", "MaxKx"}], "}"}], ",", 
+           RowBox[{"\"\<m1_sq\>\"", ",", 
+            RowBox[{
+             RowBox[{"p01", "^", "2"}], "-", 
+             RowBox[{"p1x", "^", "2"}], "-", 
+             RowBox[{"p1y", "^", "2"}]}]}], "}"}], ",", 
           RowBox[{"{", 
-           RowBox[{"ky", ",", "MinKy", ",", "MaxKy"}], "}"}]}], 
-         "\[IndentingNewLine]", "]"}], "&"}], ")"}], "[", 
-      RowBox[{"BoxIntegrand", "[", 
-       RowBox[{
-        RowBox[{"{", 
-         RowBox[{"kx", ",", "ky"}], "}"}], ",", 
-        RowBox[{"{", 
-         RowBox[{"p1x", ",", "p1y"}], "}"}], ",", 
-        RowBox[{"{", 
-         RowBox[{"p2x", ",", "p2y"}], "}"}], ",", 
-        RowBox[{"{", 
-         RowBox[{"p3x", ",", "p3y"}], "}"}], ",", "p01", ",", "p02", ",", 
-        "p03"}], "]"}], "]"}], "\[IndentingNewLine]", "]"}], ",", 
-    "\[IndentingNewLine]", "\[IndentingNewLine]", "Delimiter", ",", 
+           RowBox[{"\"\<m2_sq\>\"", ",", 
+            RowBox[{
+             RowBox[{"p02", "^", "2"}], "-", 
+             RowBox[{"p2x", "^", "2"}], "-", 
+             RowBox[{"p2y", "^", "2"}]}]}], "}"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"\"\<m3_sq\>\"", ",", 
+            RowBox[{
+             RowBox[{"p03", "^", "2"}], "-", 
+             RowBox[{"p3x", "^", "2"}], "-", 
+             RowBox[{"p3y", "^", "2"}]}]}], "}"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"\"\<m4_sq\>\"", ",", 
+            RowBox[{
+             RowBox[{
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"-", "p01"}], "-", "p02", "-", "p03"}], ")"}], "^", 
+              "2"}], "-", 
+             RowBox[{
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"-", "p1x"}], "-", "p2x", "-", "p3x"}], ")"}], "^", 
+              "2"}], "-", 
+             RowBox[{
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"-", "p1y"}], "-", "p2y", "-", "p3y"}], ")"}], "^", 
+              "2"}]}]}], "}"}]}], "}"}], "]"}]}], "\[IndentingNewLine]", 
+      "}"}], "]"}], ",", "\[IndentingNewLine]", "Delimiter", ",", 
     "\[IndentingNewLine]", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
        RowBox[{"MinKx", ",", 
-        RowBox[{"-", "50"}]}], "}"}], ",", "MinRange", ",", "MaxRange"}], 
-     "}"}], ",", "\[IndentingNewLine]", 
+        RowBox[{"-", "50"}]}], "}"}], ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
-       RowBox[{"MaxKx", ",", "50"}], "}"}], ",", "MinRange", ",", 
-      "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+       RowBox[{"MaxKx", ",", "50"}], "}"}], ",", "MinRange", ",", "MaxRange", 
+      ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
        RowBox[{"MinKy", ",", 
-        RowBox[{"-", "50"}]}], "}"}], ",", "MinRange", ",", "MaxRange"}], 
-     "}"}], ",", "\[IndentingNewLine]", 
+        RowBox[{"-", "50"}]}], "}"}], ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
-       RowBox[{"MaxKy", ",", "50"}], "}"}], ",", "MinRange", ",", 
-      "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+       RowBox[{"MaxKy", ",", "50"}], "}"}], ",", "MinRange", ",", "MaxRange", 
+      ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -182,7 +231,9 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "1", "]"}], "]"}], "[", "\"\<pt\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -190,7 +241,9 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "1", "]"}], "]"}], "[", "\"\<px\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -198,7 +251,9 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "1", "]"}], "]"}], "[", "\"\<py\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -206,7 +261,9 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "2", "]"}], "]"}], "[", "\"\<pt\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -214,7 +271,9 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "2", "]"}], "]"}], "[", "\"\<px\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -222,7 +281,9 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "2", "]"}], "]"}], "[", "\"\<py\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -230,7 +291,9 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "3", "]"}], "]"}], "[", "\"\<pt\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -238,7 +301,9 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "3", "]"}], "]"}], "[", "\"\<px\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", 
     RowBox[{"{", 
      RowBox[{
       RowBox[{"{", 
@@ -246,8 +311,10 @@ Cell[BoxData[
         RowBox[{
          RowBox[{"defaults", "[", 
           RowBox[{"[", "3", "]"}], "]"}], "[", "\"\<py\>\"", "]"}]}], "}"}], 
-      ",", "MinRange", ",", "MaxRange"}], "}"}], ",", "\[IndentingNewLine]", 
-    "Delimiter", ",", "\[IndentingNewLine]", "\[IndentingNewLine]", 
+      ",", "MinRange", ",", "MaxRange", ",", 
+      RowBox[{"Appearance", " ", "\[Rule]", " ", "\"\<Labeled\>\""}]}], "}"}],
+     ",", "\[IndentingNewLine]", "Delimiter", ",", "\[IndentingNewLine]", 
+    "\[IndentingNewLine]", 
     RowBox[{"Button", "[", 
      RowBox[{"\"\<Store Ellipses parameters\>\"", ",", 
       RowBox[{"EllipsesParameters", "=", "\[IndentingNewLine]", 
@@ -296,8 +363,10 @@ Cell[BoxData[
    3.777888665971281*^9, 3.777888709141184*^9}, {3.7778887945174294`*^9, 
    3.7778887975066757`*^9}, {3.777888857308361*^9, 3.777888932565607*^9}, {
    3.777888967038477*^9, 3.777888973182823*^9}, {3.777898761022509*^9, 
-   3.777898854602488*^9}},ExpressionUUID->"c526df9f-57a5-4b07-a3b0-\
-72795d83bd9d"],
+   3.777898854602488*^9}, {3.7794428285781813`*^9, 3.77944288729462*^9}, {
+   3.779442936873556*^9, 3.779442943932699*^9}},
+ CellLabel->
+  "In[949]:=",ExpressionUUID->"c526df9f-57a5-4b07-a3b0-72795d83bd9d"],
 
 Cell[CellGroupData[{
 
@@ -306,546 +375,83 @@ Cell[BoxData[
   RowBox[{"EllipsesParameters", ",", 
    RowBox[{"-", "50"}], ",", "50"}], "]"}]], "Input",
  CellChangeTimes->{{3.777888611025869*^9, 3.777888629370865*^9}, {
-  3.777888726107576*^9, 3.777888728278878*^9}, {3.7778887601093903`*^9, 
-  3.777888761787513*^9}},ExpressionUUID->"10e94444-a0ba-401c-b4d8-\
-e73eb8137158"],
+   3.777888726107576*^9, 3.777888728278878*^9}, {3.7778887601093903`*^9, 
+   3.777888761787513*^9}, 3.779442907191205*^9, 3.7794430150160933`*^9},
+ CellLabel->
+  "In[952]:=",ExpressionUUID->"10e94444-a0ba-401c-b4d8-e73eb8137158"],
 
 Cell[BoxData[
- FormBox[
-  TagBox[
-   FormBox[
-    StyleBox[
-     DynamicModuleBox[{$CellContext`MaxKx$$ = 50, $CellContext`MaxKy$$ = 
-      50, $CellContext`MinKx$$ = -50, $CellContext`MinKy$$ = -50, \
-$CellContext`p01$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-          Part]]], $CellContext`p02$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-          Part]]], $CellContext`p03$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-          Part]]], $CellContext`p1x$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-          Part]]], $CellContext`p1y$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-          Part]]], $CellContext`p2x$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-          Part]]], $CellContext`p2y$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-          Part]]], $CellContext`p3x$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-          Part]]], $CellContext`p3y$$ = Failure[Dataset, 
-       Association[
-       "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-        "MessageParameters" -> 
-        Association[
-         "Type" -> TypeSystem`Struct[{
-            "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-             "constant"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Integer], 
-             TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> Part]]], 
-      Typeset`show$$ = True, Typeset`bookmarkList$$ = {}, 
-      Typeset`bookmarkMode$$ = "Menu", Typeset`animator$$, Typeset`animvar$$ =
-       1, Typeset`name$$ = "\"untitled\"", Typeset`specs$$ = {{{
-         Hold[$CellContext`MinKx$$], -50}, -50, 50}, {{
-         Hold[$CellContext`MaxKx$$], 50}, -50, 50}, {{
-         Hold[$CellContext`MinKy$$], -50}, -50, 50}, {{
-         Hold[$CellContext`MaxKy$$], 50}, -50, 50}, {{
-         Hold[$CellContext`p01$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-             Part]]]}, -50, 50}, {{
-         Hold[$CellContext`p1x$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-             Part]]]}, -50, 50}, {{
-         Hold[$CellContext`p1y$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-             Part]]]}, -50, 50}, {{
-         Hold[$CellContext`p02$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-             Part]]]}, -50, 50}, {{
-         Hold[$CellContext`p2x$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-             Part]]]}, -50, 50}, {{
-         Hold[$CellContext`p2y$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-             Part]]]}, -50, 50}, {{
-         Hold[$CellContext`p03$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-             Part]]]}, -50, 50}, {{
-         Hold[$CellContext`p3x$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-             Part]]]}, -50, 50}, {{
-         Hold[$CellContext`p3y$$], 
-         Failure[Dataset, 
-          Association[
-          "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-           "MessageParameters" -> 
-           Association[
-            "Type" -> TypeSystem`Struct[{
-               "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                "constant"}, {
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Real], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Integer], 
-                TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-             Part]]]}, -50, 50}, {
-        Hold[
-         Button[
-         "Store Ellipses parameters", $CellContext`EllipsesParameters = 
-          Dataset[{
-             
-             Association[{
-              "pt" -> $CellContext`p01$$, "px" -> $CellContext`p1x$$, 
-               "py" -> $CellContext`p1y$$}], 
-             
-             Association[{
-              "pt" -> $CellContext`p02$$, "px" -> $CellContext`p2x$$, 
-               "py" -> $CellContext`p2y$$}], 
-             
-             Association[{
-              "pt" -> $CellContext`p03$$, "px" -> $CellContext`p3x$$, 
-               "py" -> $CellContext`p3y$$}]}]]], 
-        Manipulate`Dump`ThisIsNotAControl}}, Typeset`size$$ = {
-      360., {175., 181.}}, Typeset`update$$ = 0, Typeset`initDone$$, 
-      Typeset`skipInitDone$$ = True, $CellContext`MinKx$186574$$ = 
-      0, $CellContext`MaxKx$186575$$ = 0, $CellContext`MinKy$186576$$ = 
-      0, $CellContext`MaxKy$186577$$ = 0, $CellContext`p01$186578$$ = 
-      0, $CellContext`p1x$186579$$ = 0, $CellContext`p1y$186580$$ = 
-      0, $CellContext`p02$186581$$ = 0, $CellContext`p2x$186582$$ = 
-      0, $CellContext`p2y$186583$$ = 0}, 
-      DynamicBox[Manipulate`ManipulateBoxes[
-       1, TraditionalForm, 
-        "Variables" :> {$CellContext`MaxKx$$ = 50, $CellContext`MaxKy$$ = 
-          50, $CellContext`MinKx$$ = -50, $CellContext`MinKy$$ = -50, \
-$CellContext`p01$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-               Part]]], $CellContext`p02$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-               Part]]], $CellContext`p03$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-               Part]]], $CellContext`p1x$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-               Part]]], $CellContext`p1y$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-               Part]]], $CellContext`p2x$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-               Part]]], $CellContext`p2y$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-               Part]]], $CellContext`p3x$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> 
-               TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-               Part]]], $CellContext`p3y$$ = Failure[Dataset, 
-            Association[
-            "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-             "MessageParameters" -> 
-             Association[
-              "Type" -> TypeSystem`Struct[{
-                 "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                  "constant"}, {
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Real], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Integer], 
-                  TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-               Part]]]}, "ControllerVariables" :> {
-          Hold[$CellContext`MinKx$$, $CellContext`MinKx$186574$$, 0], 
-          Hold[$CellContext`MaxKx$$, $CellContext`MaxKx$186575$$, 0], 
-          Hold[$CellContext`MinKy$$, $CellContext`MinKy$186576$$, 0], 
-          Hold[$CellContext`MaxKy$$, $CellContext`MaxKy$186577$$, 0], 
-          Hold[$CellContext`p01$$, $CellContext`p01$186578$$, 0], 
-          Hold[$CellContext`p1x$$, $CellContext`p1x$186579$$, 0], 
-          Hold[$CellContext`p1y$$, $CellContext`p1y$186580$$, 0], 
-          Hold[$CellContext`p02$$, $CellContext`p02$186581$$, 0], 
-          Hold[$CellContext`p2x$$, $CellContext`p2x$186582$$, 0], 
-          Hold[$CellContext`p2y$$, $CellContext`p2y$186583$$, 0]}, 
-        "OtherVariables" :> {
-         Typeset`show$$, Typeset`bookmarkList$$, Typeset`bookmarkMode$$, 
-          Typeset`animator$$, Typeset`animvar$$, Typeset`name$$, 
-          Typeset`specs$$, Typeset`size$$, Typeset`update$$, 
-          Typeset`initDone$$, Typeset`skipInitDone$$}, "Body" :> Show[
+ TagBox[
+  StyleBox[
+   DynamicModuleBox[{$CellContext`MaxKx$$ = 50, $CellContext`MaxKy$$ = 
+    50, $CellContext`MinKx$$ = -50, $CellContext`MinKy$$ = -50, \
+$CellContext`p01$$ = -50.5, $CellContext`p02$$ = -100., $CellContext`p03$$ = \
+-54.5, $CellContext`p1x$$ = -48.5, $CellContext`p1y$$ = -13., \
+$CellContext`p2x$$ = -82., $CellContext`p2y$$ = -57., $CellContext`p3x$$ = \
+-23.5, $CellContext`p3y$$ = -49., Typeset`show$$ = True, 
+    Typeset`bookmarkList$$ = {}, Typeset`bookmarkMode$$ = "Menu", 
+    Typeset`animator$$, Typeset`animvar$$ = 1, Typeset`name$$ = 
+    "\"untitled\"", Typeset`specs$$ = {{{
+       Hold[$CellContext`MinKx$$], -50}, -50, 50}, {{
+       Hold[$CellContext`MaxKx$$], 50}, -50, 50}, {{
+       Hold[$CellContext`MinKy$$], -50}, -50, 50}, {{
+       Hold[$CellContext`MaxKy$$], 50}, -50, 50}, {{
+       Hold[$CellContext`p01$$], -50.5}, -50, 50}, {{
+       Hold[$CellContext`p1x$$], -48.5}, -50, 50}, {{
+       Hold[$CellContext`p1y$$], -13.}, -50, 50}, {{
+       Hold[$CellContext`p02$$], -100.}, -50, 50}, {{
+       Hold[$CellContext`p2x$$], -82.}, -50, 50}, {{
+       Hold[$CellContext`p2y$$], -57.}, -50, 50}, {{
+       Hold[$CellContext`p03$$], -54.5}, -50, 50}, {{
+       Hold[$CellContext`p3x$$], -23.5}, -50, 50}, {{
+       Hold[$CellContext`p3y$$], -49.}, -50, 50}, {
+      Hold[
+       Button[
+       "Store Ellipses parameters", $CellContext`EllipsesParameters = Dataset[{
+           
+           Association[{
+            "pt" -> $CellContext`p01$$, "px" -> $CellContext`p1x$$, 
+             "py" -> $CellContext`p1y$$}], 
+           
+           Association[{
+            "pt" -> $CellContext`p02$$, "px" -> $CellContext`p2x$$, 
+             "py" -> $CellContext`p2y$$}], 
+           
+           Association[{
+            "pt" -> $CellContext`p03$$, "px" -> $CellContext`p3x$$, 
+             "py" -> $CellContext`p3y$$}]}]]], 
+      Manipulate`Dump`ThisIsNotAControl}}, Typeset`size$$ = {
+    180., {121.634033203125, 127.365966796875}}, Typeset`update$$ = 0, 
+    Typeset`initDone$$, Typeset`skipInitDone$$ = 
+    True, $CellContext`MinKx$2217303$$ = 0, $CellContext`MaxKx$2217304$$ = 
+    0, $CellContext`MinKy$2217305$$ = 0, $CellContext`MaxKy$2217306$$ = 
+    0, $CellContext`p01$2217307$$ = 0, $CellContext`p1x$2217308$$ = 
+    0, $CellContext`p1y$2217309$$ = 0, $CellContext`p02$2217310$$ = 
+    0, $CellContext`p2x$2217311$$ = 0, $CellContext`p2y$2217312$$ = 0}, 
+    DynamicBox[Manipulate`ManipulateBoxes[
+     1, StandardForm, 
+      "Variables" :> {$CellContext`MaxKx$$ = 50, $CellContext`MaxKy$$ = 
+        50, $CellContext`MinKx$$ = -50, $CellContext`MinKy$$ = -50, \
+$CellContext`p01$$ = -50.5, $CellContext`p02$$ = -100., $CellContext`p03$$ = \
+-54.5, $CellContext`p1x$$ = -48.5, $CellContext`p1y$$ = -13., \
+$CellContext`p2x$$ = -82., $CellContext`p2y$$ = -57., $CellContext`p3x$$ = \
+-23.5, $CellContext`p3y$$ = -49.}, "ControllerVariables" :> {
+        Hold[$CellContext`MinKx$$, $CellContext`MinKx$2217303$$, 0], 
+        Hold[$CellContext`MaxKx$$, $CellContext`MaxKx$2217304$$, 0], 
+        Hold[$CellContext`MinKy$$, $CellContext`MinKy$2217305$$, 0], 
+        Hold[$CellContext`MaxKy$$, $CellContext`MaxKy$2217306$$, 0], 
+        Hold[$CellContext`p01$$, $CellContext`p01$2217307$$, 0], 
+        Hold[$CellContext`p1x$$, $CellContext`p1x$2217308$$, 0], 
+        Hold[$CellContext`p1y$$, $CellContext`p1y$2217309$$, 0], 
+        Hold[$CellContext`p02$$, $CellContext`p02$2217310$$, 0], 
+        Hold[$CellContext`p2x$$, $CellContext`p2x$2217311$$, 0], 
+        Hold[$CellContext`p2y$$, $CellContext`p2y$2217312$$, 0]}, 
+      "OtherVariables" :> {
+       Typeset`show$$, Typeset`bookmarkList$$, Typeset`bookmarkMode$$, 
+        Typeset`animator$$, Typeset`animvar$$, Typeset`name$$, 
+        Typeset`specs$$, Typeset`size$$, Typeset`update$$, Typeset`initDone$$,
+         Typeset`skipInitDone$$}, "Body" :> Column[{
+         Show[
           (
           RegionPlot[#, {$CellContext`kx, $CellContext`MinKx$$, \
 $CellContext`MaxKx$$}, {$CellContext`ky, $CellContext`MinKy$$, \
@@ -854,206 +460,68 @@ $CellContext`MaxKy$$}]& )[
 {$CellContext`p1x$$, $CellContext`p1y$$}, {$CellContext`p2x$$, \
 $CellContext`p2y$$}, {$CellContext`p3x$$, $CellContext`p3y$$}, \
 $CellContext`p01$$, $CellContext`p02$$, $CellContext`p03$$]]], 
-        "Specifications" :> {
-         Delimiter, {{$CellContext`MinKx$$, -50}, -50, 
-           50}, {{$CellContext`MaxKx$$, 50}, -50, 
-           50}, {{$CellContext`MinKy$$, -50}, -50, 
-           50}, {{$CellContext`MaxKy$$, 50}, -50, 50}, {{$CellContext`p01$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-                Part]]]}, -50, 50}, {{$CellContext`p1x$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-                Part]]]}, -50, 50}, {{$CellContext`p1y$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-                Part]]]}, -50, 50}, {{$CellContext`p02$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-                Part]]]}, -50, 50}, {{$CellContext`p2x$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-                Part]]]}, -50, 50}, {{$CellContext`p2y$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-                Part]]]}, -50, 50}, {{$CellContext`p03$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "pt", "Symbol" -> 
-                Part]]]}, -50, 50}, {{$CellContext`p3x$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "px", "Symbol" -> 
-                Part]]]}, -50, 50}, {{$CellContext`p3y$$, 
-            Failure[Dataset, 
-             Association[
-             "MessageTemplate" :> MessageName[Dataset, "partmismatch"], 
-              "MessageParameters" -> 
-              Association[
-               "Type" -> TypeSystem`Struct[{
-                  "qAx", "qAy", "qAz", "mA", "qBx", "qBy", "qBz", "mB", 
-                   "constant"}, {
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Real], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Integer], 
-                   TypeSystem`Atom[Real]}], "Part" -> "py", "Symbol" -> 
-                Part]]]}, -50, 50}, Delimiter, 
-          Button[
-          "Store Ellipses parameters", $CellContext`EllipsesParameters = 
-           Dataset[{
-              Association[{
-               "pt" -> $CellContext`p01$$, "px" -> $CellContext`p1x$$, 
-                "py" -> $CellContext`p1y$$}], 
-              
-              Association[{
-               "pt" -> $CellContext`p02$$, "px" -> $CellContext`p2x$$, 
-                "py" -> $CellContext`p2y$$}], 
-              
-              Association[{
-               "pt" -> $CellContext`p03$$, "px" -> $CellContext`p3x$$, 
-                "py" -> $CellContext`p3y$$}]}]]}, "Options" :> {}, 
-        "DefaultOptions" :> {}],
-       ImageSizeCache->{652., {218., 225.}},
-       SingleEvaluation->True],
-      Deinitialization:>None,
-      DynamicModuleValues:>{},
-      SynchronousInitialization->True,
-      UndoTrackedVariables:>{Typeset`show$$, Typeset`bookmarkMode$$},
-      UnsavedVariables:>{Typeset`initDone$$},
-      UntrackedVariables:>{Typeset`size$$}], "Manipulate",
-     Deployed->True,
-     StripOnInput->False],
-    TraditionalForm],
-   Manipulate`InterpretManipulate[1]], TraditionalForm]], "Output",
+         Grid[{{
+           "m1_sq", $CellContext`p01$$^2 - $CellContext`p1x$$^2 - \
+$CellContext`p1y$$^2}, {
+           "m2_sq", $CellContext`p02$$^2 - $CellContext`p2x$$^2 - \
+$CellContext`p2y$$^2}, {
+           "m3_sq", $CellContext`p03$$^2 - $CellContext`p3x$$^2 - \
+$CellContext`p3y$$^2}, {
+           "m4_sq", (-$CellContext`p01$$ - $CellContext`p02$$ - \
+$CellContext`p03$$)^2 - (-$CellContext`p1x$$ - $CellContext`p2x$$ - \
+$CellContext`p3x$$)^2 - (-$CellContext`p1y$$ - $CellContext`p2y$$ - \
+$CellContext`p3y$$)^2}}]}], 
+      "Specifications" :> {
+       Delimiter, {{$CellContext`MinKx$$, -50}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`MaxKx$$, 50}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`MinKy$$, -50}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`MaxKy$$, 50}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p01$$, -50.5}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p1x$$, -48.5}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p1y$$, -13.}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p02$$, -100.}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p2x$$, -82.}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p2y$$, -57.}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p03$$, -54.5}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p3x$$, -23.5}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p3y$$, -49.}, -50, 50, Appearance -> 
+         "Labeled"}, Delimiter, 
+        Button[
+        "Store Ellipses parameters", $CellContext`EllipsesParameters = 
+         Dataset[{
+            
+            Association[{
+             "pt" -> $CellContext`p01$$, "px" -> $CellContext`p1x$$, 
+              "py" -> $CellContext`p1y$$}], 
+            
+            Association[{
+             "pt" -> $CellContext`p02$$, "px" -> $CellContext`p2x$$, 
+              "py" -> $CellContext`p2y$$}], 
+            
+            Association[{
+             "pt" -> $CellContext`p03$$, "px" -> $CellContext`p3x$$, 
+              "py" -> $CellContext`p3y$$}]}]]}, "Options" :> {}, 
+      "DefaultOptions" :> {}],
+     ImageSizeCache->{550., {202., 208.}},
+     SingleEvaluation->True],
+    Deinitialization:>None,
+    DynamicModuleValues:>{},
+    SynchronousInitialization->True,
+    UndoTrackedVariables:>{Typeset`show$$, Typeset`bookmarkMode$$},
+    UnsavedVariables:>{Typeset`initDone$$},
+    UntrackedVariables:>{Typeset`size$$}], "Manipulate",
+   Deployed->True,
+   StripOnInput->False],
+  Manipulate`InterpretManipulate[1]]], "Output",
  CellChangeTimes->{
   3.777888629896537*^9, 3.777888678997243*^9, 3.777888729004537*^9, {
    3.77788876299757*^9, 3.777888778987316*^9}, {3.7778889554026117`*^9, 
-   3.777889002219501*^9}, 3.777898524562796*^9, 
-   3.777898858647193*^9},ExpressionUUID->"3930e033-d5e0-4a26-81ab-\
-105a85a33401"]
+   3.777889002219501*^9}, 3.777898524562796*^9, 3.777898858647193*^9, {
+   3.779442893234356*^9, 3.779442907694757*^9}, {3.7794429518313017`*^9, 
+   3.779442960222084*^9}, {3.779443007074296*^9, 3.779443015989593*^9}, 
+   3.7794430701600637`*^9},
+ CellLabel->
+  "Out[952]=",ExpressionUUID->"f15abee1-e21c-472e-a27e-8c993c911103"]
 }, Open  ]],
 
 Cell[BoxData["\[IndentingNewLine]"], "Input",
@@ -1145,50 +613,48 @@ Cell[BoxData[
         RowBox[{"-", "14.199999999999996"}]}]}], "|>"}]}], "}"}], 
    "]"}]}]], "Input",
  CellChangeTimes->{{3.7778985363145943`*^9, 3.777898550235291*^9}, {
-  3.777898582860998*^9, 
-  3.777898616231135*^9}},ExpressionUUID->"5ac2dda3-fe2e-403d-9f10-\
-8992515668c5"],
+  3.777898582860998*^9, 3.777898616231135*^9}},
+ CellLabel->
+  "In[944]:=",ExpressionUUID->"5ac2dda3-fe2e-403d-9f10-8992515668c5"],
 
 Cell[BoxData[
- FormBox[
-  TemplateBox[{TagBox[
-     DynamicModuleBox[{
-      TypeSystem`NestedGrid`PackagePrivate`$state$$ = 
-       Data`UnorderedAssociation[
-        "RowCount" -> 3, "Length" -> 3, "InitialType" -> TypeSystem`Vector[
-           TypeSystem`Struct[{"pt", "px", "py"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real]}], 3], "Shape" -> 
-         TypeSystem`PackageScope`HeaderShape[
-           Association[{All, "pt"} -> 1, {All, "px"} -> 1, {All, "py"} -> 1], 
-           
-           TypeSystem`PackageScope`Limited[
-            TypeSystem`PackageScope`ColumnShape[
-             TypeSystem`PackageScope`RowShape[
-              Association[
-              "pt" -> TypeSystem`PackageScope`AtomShape[60], "px" -> 
-               TypeSystem`PackageScope`AtomShape[60], "py" -> 
-               TypeSystem`PackageScope`AtomShape[60]]]], 3, {}]], 
-         "InitialData" -> TypeSystem`PackageScope`CacheHandle[2123790798], 
-         "Type" -> TypeSystem`Vector[
-           TypeSystem`Struct[{"pt", "px", "py"}, {
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real], 
-             TypeSystem`Atom[Real]}], 3], "HandleQ" -> True, "RowTarget" -> 
-         20, "Data" -> TypeSystem`PackageScope`CacheHandle[2123790798]], 
-       TypeSystem`NestedGrid`PackagePrivate`$path$$ = {}, 
-       TypeSystem`NestedGrid`PackagePrivate`$pos$$ = 1, 
-       TypeSystem`NestedGrid`PackagePrivate`$grid$$ = 
-       DynamicModule[{
-         TypeSystem`NestedGrid`PackagePrivate`renderedGrid = Deploy[
-            Style[
-             Grid[{{
-                Item[
-                 Annotation[
-                  EventHandler[
-                   MouseAppearance[
-                    Mouseover[
+ TemplateBox[{TagBox[
+    DynamicModuleBox[{
+     TypeSystem`NestedGrid`PackagePrivate`$state$$ = 
+      Data`UnorderedAssociation[
+       "RowCount" -> 3, "Length" -> 3, "InitialType" -> TypeSystem`Vector[
+          TypeSystem`Struct[{"pt", "px", "py"}, {
+            TypeSystem`Atom[Real], 
+            TypeSystem`Atom[Real], 
+            TypeSystem`Atom[Real]}], 3], "Shape" -> 
+        TypeSystem`PackageScope`HeaderShape[
+          Association[{All, "pt"} -> 1, {All, "px"} -> 1, {All, "py"} -> 1], 
+          TypeSystem`PackageScope`Limited[
+           TypeSystem`PackageScope`ColumnShape[
+            TypeSystem`PackageScope`RowShape[
+             Association[
+             "pt" -> TypeSystem`PackageScope`AtomShape[60], "px" -> 
+              TypeSystem`PackageScope`AtomShape[60], "py" -> 
+              TypeSystem`PackageScope`AtomShape[60]]]], 3, {}]], 
+        "InitialData" -> TypeSystem`PackageScope`CacheHandle[2058808754], 
+        "Type" -> TypeSystem`Vector[
+          TypeSystem`Struct[{"pt", "px", "py"}, {
+            TypeSystem`Atom[Real], 
+            TypeSystem`Atom[Real], 
+            TypeSystem`Atom[Real]}], 3], "HandleQ" -> True, "RowTarget" -> 20,
+         "Data" -> TypeSystem`PackageScope`CacheHandle[2058808754]], 
+      TypeSystem`NestedGrid`PackagePrivate`$path$$ = {}, 
+      TypeSystem`NestedGrid`PackagePrivate`$pos$$ = 1, 
+      TypeSystem`NestedGrid`PackagePrivate`$grid$$ = 
+      DynamicModule[{
+        TypeSystem`NestedGrid`PackagePrivate`renderedGrid = Deploy[
+           Style[
+            Grid[{{
+               Item[
+                Annotation[
+                 EventHandler[
+                  MouseAppearance[
+                   Mouseover[
                     Pane[
                     RawBoxes[
                     StyleBox["\"pt\"", FontColor -> GrayLevel[0.4]]], {{
@@ -1204,20 +670,20 @@ Cell[BoxData[
                     RGBColor[
                     0.27450980392156865`, 0.5372549019607843, 
                     0.792156862745098]]], "LinkHand"], {"MouseClicked", 1} :> 
-                   TypeSystem`NestedGrid`PackagePrivate`updateState[
-                    TypeSystem`NestedGrid`PackagePrivate`$state$$, 
+                  TypeSystem`NestedGrid`PackagePrivate`updateState[
+                   TypeSystem`NestedGrid`PackagePrivate`$state$$, 
                     TypeSystem`NestedGrid`PackagePrivate`$path$$, 
                     TypeSystem`NestedGrid`PackagePrivate`$pos$$, 
-                    TypeSystem`NestedGrid`PackagePrivate`$grid$$, 482605276][{
-                    All, "pt"}]], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[All, "pt"]], "Mouse"], Background -> 
-                 GrayLevel[0.95], Alignment -> {Left, Baseline}], 
-                Item[
-                 Annotation[
-                  EventHandler[
-                   MouseAppearance[
-                    Mouseover[
+                    TypeSystem`NestedGrid`PackagePrivate`$grid$$, 
+                    1774915202][{All, "pt"}]], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[All, "pt"]], "Mouse"], Background -> 
+                GrayLevel[0.95], Alignment -> {Left, Baseline}], 
+               Item[
+                Annotation[
+                 EventHandler[
+                  MouseAppearance[
+                   Mouseover[
                     Pane[
                     RawBoxes[
                     StyleBox["\"px\"", FontColor -> GrayLevel[0.4]]], {{
@@ -1233,20 +699,20 @@ Cell[BoxData[
                     RGBColor[
                     0.27450980392156865`, 0.5372549019607843, 
                     0.792156862745098]]], "LinkHand"], {"MouseClicked", 1} :> 
-                   TypeSystem`NestedGrid`PackagePrivate`updateState[
-                    TypeSystem`NestedGrid`PackagePrivate`$state$$, 
+                  TypeSystem`NestedGrid`PackagePrivate`updateState[
+                   TypeSystem`NestedGrid`PackagePrivate`$state$$, 
                     TypeSystem`NestedGrid`PackagePrivate`$path$$, 
                     TypeSystem`NestedGrid`PackagePrivate`$pos$$, 
-                    TypeSystem`NestedGrid`PackagePrivate`$grid$$, 482605276][{
-                    All, "px"}]], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[All, "px"]], "Mouse"], Background -> 
-                 GrayLevel[0.95], Alignment -> {Left, Baseline}], 
-                Item[
-                 Annotation[
-                  EventHandler[
-                   MouseAppearance[
-                    Mouseover[
+                    TypeSystem`NestedGrid`PackagePrivate`$grid$$, 
+                    1774915202][{All, "px"}]], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[All, "px"]], "Mouse"], Background -> 
+                GrayLevel[0.95], Alignment -> {Left, Baseline}], 
+               Item[
+                Annotation[
+                 EventHandler[
+                  MouseAppearance[
+                   Mouseover[
                     Pane[
                     RawBoxes[
                     StyleBox["\"py\"", FontColor -> GrayLevel[0.4]]], {{
@@ -1262,221 +728,221 @@ Cell[BoxData[
                     RGBColor[
                     0.27450980392156865`, 0.5372549019607843, 
                     0.792156862745098]]], "LinkHand"], {"MouseClicked", 1} :> 
-                   TypeSystem`NestedGrid`PackagePrivate`updateState[
-                    TypeSystem`NestedGrid`PackagePrivate`$state$$, 
+                  TypeSystem`NestedGrid`PackagePrivate`updateState[
+                   TypeSystem`NestedGrid`PackagePrivate`$state$$, 
                     TypeSystem`NestedGrid`PackagePrivate`$path$$, 
                     TypeSystem`NestedGrid`PackagePrivate`$pos$$, 
-                    TypeSystem`NestedGrid`PackagePrivate`$grid$$, 482605276][{
-                    All, "py"}]], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[All, "py"]], "Mouse"], Background -> 
-                 GrayLevel[0.95], Alignment -> {Left, Baseline}]}, {
-                Pane[
-                 Annotation[
-                  RawBoxes["7.6"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[1, 
-                    Key["pt"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}], 
-                Pane[
-                 Annotation[
-                  RawBoxes["6.4"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[1, 
-                    Key["px"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}], 
-                Pane[
-                 Annotation[
-                  RawBoxes["-3.8"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[1, 
-                    Key["py"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}]}, {
-                Pane[
-                 Annotation[
-                  RawBoxes["6.6"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[2, 
-                    Key["pt"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}], 
-                Pane[
-                 Annotation[
-                  RawBoxes["3.6"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[2, 
-                    Key["px"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}], 
-                Pane[
-                 Annotation[
-                  RawBoxes["-6.2"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[2, 
-                    Key["py"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}]}, {
-                Pane[
-                 Annotation[
-                  RawBoxes["16.4"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[3, 
-                    Key["pt"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}], 
-                Pane[
-                 Annotation[
-                  RawBoxes["8.4"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[3, 
-                    Key["px"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}], 
-                Pane[
-                 Annotation[
-                  RawBoxes["-14.2"], 
-                  TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-                   GeneralUtilities`Slice[3, 
-                    Key["py"]]], "Mouse"], 
-                 ImageSize -> {{60, Full}, Automatic}, 
-                 Alignment -> {Left, Baseline}]}}, BaseStyle -> {ContextMenu -> {
-                  MenuItem["Copy position to clipboard", 
-                   KernelExecute[
-                    TypeSystem`NestedGrid`PackagePrivate`toCurrentPosition[
+                    TypeSystem`NestedGrid`PackagePrivate`$grid$$, 
+                    1774915202][{All, "py"}]], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[All, "py"]], "Mouse"], Background -> 
+                GrayLevel[0.95], Alignment -> {Left, Baseline}]}, {
+               Pane[
+                Annotation[
+                 RawBoxes["7.6"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[1, 
+                   Key["pt"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}], 
+               Pane[
+                Annotation[
+                 RawBoxes["6.4"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[1, 
+                   Key["px"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}], 
+               Pane[
+                Annotation[
+                 RawBoxes["-3.8"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[1, 
+                   Key["py"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}]}, {
+               Pane[
+                Annotation[
+                 RawBoxes["6.6"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[2, 
+                   Key["pt"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}], 
+               Pane[
+                Annotation[
+                 RawBoxes["3.6"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[2, 
+                   Key["px"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}], 
+               Pane[
+                Annotation[
+                 RawBoxes["-6.2"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[2, 
+                   Key["py"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}]}, {
+               Pane[
+                Annotation[
+                 RawBoxes["16.4"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[3, 
+                   Key["pt"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}], 
+               Pane[
+                Annotation[
+                 RawBoxes["8.4"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[3, 
+                   Key["px"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}], 
+               Pane[
+                Annotation[
+                 RawBoxes["-14.2"], 
+                 TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+                  GeneralUtilities`Slice[3, 
+                   Key["py"]]], "Mouse"], 
+                ImageSize -> {{60, Full}, Automatic}, 
+                Alignment -> {Left, Baseline}]}}, BaseStyle -> {ContextMenu -> {
+                 MenuItem["Copy position to clipboard", 
+                  KernelExecute[
+                   TypeSystem`NestedGrid`PackagePrivate`toCurrentPosition[
+                   TypeSystem`NestedGrid`PackagePrivate`copyClip]], 
+                  MenuEvaluator -> Automatic], 
+                 MenuItem["Copy data to clipboard", 
+                  KernelExecute[
+                   TypeSystem`NestedGrid`PackagePrivate`toCurrentData[
+                   TypeSystem`NestedGrid`PackagePrivate`$state$$, 
                     TypeSystem`NestedGrid`PackagePrivate`copyClip]], 
-                   MenuEvaluator -> Automatic], 
-                  MenuItem["Copy data to clipboard", 
-                   KernelExecute[
-                    TypeSystem`NestedGrid`PackagePrivate`toCurrentData[
-                    TypeSystem`NestedGrid`PackagePrivate`$state$$, 
-                    TypeSystem`NestedGrid`PackagePrivate`copyClip]], 
-                   MenuEvaluator -> Automatic], Delimiter, 
-                  MenuItem["Paste position in new cell", 
-                   KernelExecute[
-                    TypeSystem`NestedGrid`PackagePrivate`toCurrentPosition[
+                  MenuEvaluator -> Automatic], Delimiter, 
+                 MenuItem["Paste position in new cell", 
+                  KernelExecute[
+                   TypeSystem`NestedGrid`PackagePrivate`toCurrentPosition[
+                   TypeSystem`NestedGrid`PackagePrivate`cellPaste]], 
+                  MenuEvaluator -> Automatic], 
+                 MenuItem["Paste data in new cell", 
+                  KernelExecute[
+                   TypeSystem`NestedGrid`PackagePrivate`toCurrentData[
+                   TypeSystem`NestedGrid`PackagePrivate`$state$$, 
                     TypeSystem`NestedGrid`PackagePrivate`cellPaste]], 
-                   MenuEvaluator -> Automatic], 
-                  MenuItem["Paste data in new cell", 
-                   KernelExecute[
-                    TypeSystem`NestedGrid`PackagePrivate`toCurrentData[
-                    TypeSystem`NestedGrid`PackagePrivate`$state$$, 
-                    TypeSystem`NestedGrid`PackagePrivate`cellPaste]], 
-                   MenuEvaluator -> Automatic]}, FontFamily -> "Verdana", 
-                FontSize -> 12}, Alignment -> Left, RowMinHeight -> 1.5, 
-              Dividers -> All, FrameStyle -> GrayLevel[0.85], 
-              BaseStyle -> {FontFamily -> "Verdana", FontSize -> 12}], 
-             LineBreakWithin -> False, ContextMenu -> {}, NumberMarks -> 
-             False, ShowAutoStyles -> False]], 
-          TypeSystem`NestedGrid`PackagePrivate`initialQ = True, 
-          TypeSystem`NestedGrid`PackagePrivate`self = $Failed}, 
-         Dynamic[
-          TypeSystem`NestedGrid`PackagePrivate`setupViewPath[
-          TypeSystem`NestedGrid`PackagePrivate`$path$$, If[
-             Not[TypeSystem`NestedGrid`PackagePrivate`initialQ], 
-             
-             Module[{TypeSystem`NestedGrid`PackagePrivate`tmpGrid$ = $Failed, 
-               TypeSystem`NestedGrid`PackagePrivate`tmpData$ = 
-               TypeSystem`NestedGrid`PackagePrivate`LookupCacheValue[
-                 TypeSystem`NestedGrid`PackagePrivate`$state$$["Data"]]}, 
-              TypeSystem`NestedGrid`PackagePrivate`tmpGrid$ = 
-               If[TypeSystem`NestedGrid`PackagePrivate`tmpData$ === 
-                 TypeSystem`NestedGrid`PackagePrivate`$NotCached, 
-                 TypeSystem`NestedGrid`PackagePrivate`renderedGrid, 
-                 TypeSystem`NestedGrid`PackagePrivate`renderGrid[
-                 TypeSystem`NestedGrid`PackagePrivate`$state$$, 
-                  TypeSystem`NestedGrid`PackagePrivate`$path$$, 
-                  TypeSystem`NestedGrid`PackagePrivate`$pos$$, 
-                  TypeSystem`NestedGrid`PackagePrivate`$grid$$, 482605276][
-                 TypeSystem`NestedGrid`PackagePrivate`tmpData$]]; If[
-                Not[
-                 FailureQ[TypeSystem`NestedGrid`PackagePrivate`tmpGrid$]], 
-                TypeSystem`NestedGrid`PackagePrivate`renderedGrid = 
-                TypeSystem`NestedGrid`PackagePrivate`tmpGrid$]; Null]]; 
-           TypeSystem`NestedGrid`PackagePrivate`initialQ = False; 
-           TypeSystem`NestedGrid`PackagePrivate`$pos$$; If[
-             FailureQ[TypeSystem`NestedGrid`PackagePrivate`renderedGrid], 
-             TypeSystem`SparseGrid[
-              TypeSystem`H["(data no longer present)"]], 
-             If[GeneralUtilities`$DebugMode, 
-              Row[{TypeSystem`NestedGrid`PackagePrivate`renderedGrid, "  ", 
-                TypeSystem`NestedGrid`PackagePrivate`formatState[
+                  MenuEvaluator -> Automatic]}, FontFamily -> "Verdana", 
+               FontSize -> 12}, Alignment -> Left, RowMinHeight -> 1.5, 
+             Dividers -> All, FrameStyle -> GrayLevel[0.85], 
+             BaseStyle -> {FontFamily -> "Verdana", FontSize -> 12}], 
+            LineBreakWithin -> False, ContextMenu -> {}, NumberMarks -> False,
+             ShowAutoStyles -> False]], 
+         TypeSystem`NestedGrid`PackagePrivate`initialQ = True, 
+         TypeSystem`NestedGrid`PackagePrivate`self = $Failed}, 
+        Dynamic[
+         TypeSystem`NestedGrid`PackagePrivate`setupViewPath[
+         TypeSystem`NestedGrid`PackagePrivate`$path$$, If[
+            Not[TypeSystem`NestedGrid`PackagePrivate`initialQ], 
+            
+            Module[{TypeSystem`NestedGrid`PackagePrivate`tmpGrid$ = $Failed, 
+              TypeSystem`NestedGrid`PackagePrivate`tmpData$ = 
+              TypeSystem`NestedGrid`PackagePrivate`LookupCacheValue[
+                TypeSystem`NestedGrid`PackagePrivate`$state$$["Data"]]}, 
+             TypeSystem`NestedGrid`PackagePrivate`tmpGrid$ = 
+              If[TypeSystem`NestedGrid`PackagePrivate`tmpData$ === 
+                TypeSystem`NestedGrid`PackagePrivate`$NotCached, 
+                TypeSystem`NestedGrid`PackagePrivate`renderedGrid, 
+                TypeSystem`NestedGrid`PackagePrivate`renderGrid[
                 TypeSystem`NestedGrid`PackagePrivate`$state$$, 
                  TypeSystem`NestedGrid`PackagePrivate`$path$$, 
-                 TypeSystem`NestedGrid`PackagePrivate`$pos$$]}], 
-              TypeSystem`NestedGrid`PackagePrivate`renderedGrid]]], 
-          TrackedSymbols :> {TypeSystem`NestedGrid`PackagePrivate`$pos$$}], 
-         DynamicModuleValues :> {}], 
-       TypeSystem`NestedGrid`PackagePrivate`$posCell$$, 
-       TypeSystem`NestedGrid`PackagePrivate`$topBar$$ = Dynamic[
-         TypeSystem`NestedGrid`PackagePrivate`alignBar[
-         TypeSystem`NestedGrid`PackagePrivate`$state$$][
-          TypeSystem`NestedGrid`PackagePrivate`makeFramedBar[
-           TypeSystem`PackageScope`Pathbar[
-           TypeSystem`NestedGrid`PackagePrivate`$path$$, 
-            TypeSystem`NestedGrid`PackagePrivate`updateState[
-            TypeSystem`NestedGrid`PackagePrivate`$state$$, 
-             TypeSystem`NestedGrid`PackagePrivate`$path$$, 
-             TypeSystem`NestedGrid`PackagePrivate`$pos$$, 
-             TypeSystem`NestedGrid`PackagePrivate`$grid$$, 482605276]]]], 
-         TrackedSymbols :> {TypeSystem`NestedGrid`PackagePrivate`$path$$}], 
-       TypeSystem`NestedGrid`PackagePrivate`$bottomBar$$ = Framed[
-         Dynamic[
-          Replace[
-           MouseAnnotation[Null], {
-           TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][Null] -> 
-            "", TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[482605276][
-              Pattern[TypeSystem`NestedGrid`PackagePrivate`path, 
-               Blank[]]] :> (
-             TypeSystem`NestedGrid`PackagePrivate`$lastPath = 
-              TypeSystem`NestedGrid`PackagePrivate`path; 
-             TypeSystem`NestedGrid`PackagePrivate`makePathTrail[
-              TypeSystem`NestedGrid`PackagePrivate`path, 
-               TypeSystem`NestedGrid`PackagePrivate`makePathElements]), Null :> 
-            Spacer[10], Blank[] :> Spacer[10]}], TrackedSymbols :> {}], 
-         FrameStyle -> None, ImageMargins -> 0, FrameMargins -> 0, Alignment -> 
-         Top, ImageSize -> {Automatic, 14}]}, 
-      DynamicBox[
-       ToBoxes[
-        Column[
-         If[TypeSystem`NestedGrid`PackagePrivate`$path$$ == {}, {
-           TypeSystem`NestedGrid`PackagePrivate`displayScrollBar[
-           TypeSystem`NestedGrid`PackagePrivate`$grid$$, 
-            TypeSystem`NestedGrid`PackagePrivate`$state$$, 
-            TypeSystem`NestedGrid`PackagePrivate`$pos$$], 
-           TypeSystem`NestedGrid`PackagePrivate`onDesktopShow[
-            TypeSystem`NestedGrid`PackagePrivate`alignBar[
-            TypeSystem`NestedGrid`PackagePrivate`$state$$][
-            TypeSystem`NestedGrid`PackagePrivate`$bottomBar$$]]}, {
-          TypeSystem`NestedGrid`PackagePrivate`$topBar$$, 
-           TypeSystem`NestedGrid`PackagePrivate`displayScrollBar[
-           TypeSystem`NestedGrid`PackagePrivate`$grid$$, 
-            TypeSystem`NestedGrid`PackagePrivate`$state$$, 
-            TypeSystem`NestedGrid`PackagePrivate`$pos$$], 
-           TypeSystem`NestedGrid`PackagePrivate`onDesktopShow[
-            TypeSystem`NestedGrid`PackagePrivate`alignBar[
-            TypeSystem`NestedGrid`PackagePrivate`$state$$][
-            TypeSystem`NestedGrid`PackagePrivate`$bottomBar$$]]}], Spacings -> 
-         If[TypeSystem`NestedGrid`PackagePrivate`$path$$ == {}, 
-           0, {{}, {0, 0.05, 0}}]], StandardForm], 
-       ImageSizeCache -> {209., {54.4150390625, 60.5849609375}}, 
-       TrackedSymbols :> {
-        TypeSystem`NestedGrid`PackagePrivate`$state$$, 
-         TypeSystem`NestedGrid`PackagePrivate`$grid$$}], 
-      BaseStyle -> {LineBreakWithin -> False}, Deinitialization :> 
-      TypeSystem`NestedGrid`PackagePrivate`deleteState[
-       TypeSystem`NestedGrid`PackagePrivate`$state$$], 
-      DynamicModuleValues :> {}, Initialization :> 
-      Block[{$ContextPath = $ContextPath}, 
-        Needs["TypeSystem`"]]], Deploy, DefaultBaseStyle -> "Deploy"]},
-   "CopyTag",
-   DisplayFunction->(#& ),
-   InterpretationFunction->("Dataset[<>]"& )], TraditionalForm]], "Output",
- CellChangeTimes->{
-  3.7778986166189957`*^9},ExpressionUUID->"70b89518-d4b3-4957-b8d2-\
-c16c2616bcee"]
+                 TypeSystem`NestedGrid`PackagePrivate`$pos$$, 
+                 TypeSystem`NestedGrid`PackagePrivate`$grid$$, 1774915202][
+                TypeSystem`NestedGrid`PackagePrivate`tmpData$]]; If[
+               Not[
+                FailureQ[TypeSystem`NestedGrid`PackagePrivate`tmpGrid$]], 
+               TypeSystem`NestedGrid`PackagePrivate`renderedGrid = 
+               TypeSystem`NestedGrid`PackagePrivate`tmpGrid$]; Null]]; 
+          TypeSystem`NestedGrid`PackagePrivate`initialQ = False; 
+          TypeSystem`NestedGrid`PackagePrivate`$pos$$; If[
+            FailureQ[TypeSystem`NestedGrid`PackagePrivate`renderedGrid], 
+            TypeSystem`SparseGrid[
+             TypeSystem`H["(data no longer present)"]], 
+            If[GeneralUtilities`$DebugMode, 
+             Row[{TypeSystem`NestedGrid`PackagePrivate`renderedGrid, "  ", 
+               TypeSystem`NestedGrid`PackagePrivate`formatState[
+               TypeSystem`NestedGrid`PackagePrivate`$state$$, 
+                TypeSystem`NestedGrid`PackagePrivate`$path$$, 
+                TypeSystem`NestedGrid`PackagePrivate`$pos$$]}], 
+             TypeSystem`NestedGrid`PackagePrivate`renderedGrid]]], 
+         TrackedSymbols :> {TypeSystem`NestedGrid`PackagePrivate`$pos$$}], 
+        DynamicModuleValues :> {}], 
+      TypeSystem`NestedGrid`PackagePrivate`$posCell$$, 
+      TypeSystem`NestedGrid`PackagePrivate`$topBar$$ = Dynamic[
+        TypeSystem`NestedGrid`PackagePrivate`alignBar[
+        TypeSystem`NestedGrid`PackagePrivate`$state$$][
+         TypeSystem`NestedGrid`PackagePrivate`makeFramedBar[
+          TypeSystem`PackageScope`Pathbar[
+          TypeSystem`NestedGrid`PackagePrivate`$path$$, 
+           TypeSystem`NestedGrid`PackagePrivate`updateState[
+           TypeSystem`NestedGrid`PackagePrivate`$state$$, 
+            TypeSystem`NestedGrid`PackagePrivate`$path$$, 
+            TypeSystem`NestedGrid`PackagePrivate`$pos$$, 
+            TypeSystem`NestedGrid`PackagePrivate`$grid$$, 1774915202]]]], 
+        TrackedSymbols :> {TypeSystem`NestedGrid`PackagePrivate`$path$$}], 
+      TypeSystem`NestedGrid`PackagePrivate`$bottomBar$$ = Framed[
+        Dynamic[
+         Replace[
+          MouseAnnotation[Null], {
+          TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][Null] -> 
+           "", TypeSystem`NestedGrid`PackagePrivate`$SliceMarker[1774915202][
+             Pattern[TypeSystem`NestedGrid`PackagePrivate`path, 
+              Blank[]]] :> (
+            TypeSystem`NestedGrid`PackagePrivate`$lastPath = 
+             TypeSystem`NestedGrid`PackagePrivate`path; 
+            TypeSystem`NestedGrid`PackagePrivate`makePathTrail[
+             TypeSystem`NestedGrid`PackagePrivate`path, 
+              TypeSystem`NestedGrid`PackagePrivate`makePathElements]), Null :> 
+           Spacer[10], Blank[] :> Spacer[10]}], TrackedSymbols :> {}], 
+        FrameStyle -> None, ImageMargins -> 0, FrameMargins -> 0, Alignment -> 
+        Top, ImageSize -> {Automatic, 14}]}, 
+     DynamicBox[
+      ToBoxes[
+       Column[
+        If[TypeSystem`NestedGrid`PackagePrivate`$path$$ == {}, {
+          TypeSystem`NestedGrid`PackagePrivate`displayScrollBar[
+          TypeSystem`NestedGrid`PackagePrivate`$grid$$, 
+           TypeSystem`NestedGrid`PackagePrivate`$state$$, 
+           TypeSystem`NestedGrid`PackagePrivate`$pos$$], 
+          TypeSystem`NestedGrid`PackagePrivate`onDesktopShow[
+           TypeSystem`NestedGrid`PackagePrivate`alignBar[
+           TypeSystem`NestedGrid`PackagePrivate`$state$$][
+           TypeSystem`NestedGrid`PackagePrivate`$bottomBar$$]]}, {
+         TypeSystem`NestedGrid`PackagePrivate`$topBar$$, 
+          TypeSystem`NestedGrid`PackagePrivate`displayScrollBar[
+          TypeSystem`NestedGrid`PackagePrivate`$grid$$, 
+           TypeSystem`NestedGrid`PackagePrivate`$state$$, 
+           TypeSystem`NestedGrid`PackagePrivate`$pos$$], 
+          TypeSystem`NestedGrid`PackagePrivate`onDesktopShow[
+           TypeSystem`NestedGrid`PackagePrivate`alignBar[
+           TypeSystem`NestedGrid`PackagePrivate`$state$$][
+           TypeSystem`NestedGrid`PackagePrivate`$bottomBar$$]]}], Spacings -> 
+        If[TypeSystem`NestedGrid`PackagePrivate`$path$$ == {}, 
+          0, {{}, {0, 0.05, 0}}]], StandardForm], 
+      ImageSizeCache -> {209., {54.634033203125, 60.365966796875}}, 
+      TrackedSymbols :> {
+       TypeSystem`NestedGrid`PackagePrivate`$state$$, 
+        TypeSystem`NestedGrid`PackagePrivate`$grid$$}], 
+     BaseStyle -> {LineBreakWithin -> False}, Deinitialization :> 
+     TypeSystem`NestedGrid`PackagePrivate`deleteState[
+      TypeSystem`NestedGrid`PackagePrivate`$state$$], 
+     DynamicModuleValues :> {}, Initialization :> 
+     Block[{$ContextPath = $ContextPath}, 
+       Needs["TypeSystem`"]]], Deploy, DefaultBaseStyle -> "Deploy"]},
+  "CopyTag",
+  DisplayFunction->(#& ),
+  InterpretationFunction->("Dataset[<>]"& )]], "Output",
+ CellChangeTimes->{3.7778986166189957`*^9, 3.779442958236876*^9},
+ CellLabel->
+  "Out[944]=",ExpressionUUID->"81ce705c-2241-4c96-95f0-401ee678c306"]
 }, Open  ]],
 
 Cell[CellGroupData[{
@@ -1485,94 +951,90 @@ Cell[BoxData[
  RowBox[{"CraftTopology", "[", 
   RowBox[{"ZenoEllipses", ",", 
    RowBox[{"-", "50"}], ",", "50"}], "]"}]], "Input",
- CellChangeTimes->{
-  3.777898560241098*^9},ExpressionUUID->"2d9fcc7c-2d4d-4460-bd51-\
-5601e7f4a80e"],
+ CellChangeTimes->{3.777898560241098*^9},
+ CellLabel->
+  "In[946]:=",ExpressionUUID->"2d9fcc7c-2d4d-4460-bd51-5601e7f4a80e"],
 
 Cell[BoxData[
- FormBox[
-  TagBox[
-   FormBox[
-    StyleBox[
-     DynamicModuleBox[{$CellContext`MaxKx$$ = 
-      6.600000000000001, $CellContext`MaxKy$$ = 
-      24.799999999999997`, $CellContext`MinKx$$ = -35.4, $CellContext`MinKy$$ \
-= -6.199999999999996, $CellContext`p01$$ = 
-      7.6000000000000085`, $CellContext`p02$$ = 
-      6.6000000000000085`, $CellContext`p03$$ = 
-      16.400000000000006`, $CellContext`p1x$$ = 
-      6.400000000000006, $CellContext`p1y$$ = -3.799999999999997, \
-$CellContext`p2x$$ = 
-      3.6000000000000014`, $CellContext`p2y$$ = -6.199999999999996, \
-$CellContext`p3x$$ = 
-      8.400000000000006, $CellContext`p3y$$ = -14.199999999999996`, 
-      Typeset`show$$ = True, Typeset`bookmarkList$$ = {}, 
-      Typeset`bookmarkMode$$ = "Menu", Typeset`animator$$, Typeset`animvar$$ =
-       1, Typeset`name$$ = "\"untitled\"", Typeset`specs$$ = {{{
-         Hold[$CellContext`MinKx$$], -50}, -50, 50}, {{
-         Hold[$CellContext`MaxKx$$], 50}, -50, 50}, {{
-         Hold[$CellContext`MinKy$$], -50}, -50, 50}, {{
-         Hold[$CellContext`MaxKy$$], 50}, -50, 50}, {{
-         Hold[$CellContext`p01$$], 7.6000000000000085`}, -50, 50}, {{
-         Hold[$CellContext`p1x$$], 6.400000000000006}, -50, 50}, {{
-         Hold[$CellContext`p1y$$], -3.799999999999997}, -50, 50}, {{
-         Hold[$CellContext`p02$$], 6.6000000000000085`}, -50, 50}, {{
-         Hold[$CellContext`p2x$$], 3.6000000000000014`}, -50, 50}, {{
-         Hold[$CellContext`p2y$$], -6.199999999999996}, -50, 50}, {{
-         Hold[$CellContext`p03$$], 16.400000000000006`}, -50, 50}, {{
-         Hold[$CellContext`p3x$$], 8.400000000000006}, -50, 50}, {{
-         Hold[$CellContext`p3y$$], -14.199999999999996`}, -50, 50}, {
-        Hold[
-         Button[
-         "Store Ellipses parameters", $CellContext`EllipsesParameters = 
-          Dataset[{
-             
-             Association[{
-              "pt" -> $CellContext`p01$$, "px" -> $CellContext`p1x$$, 
-               "py" -> $CellContext`p1y$$}], 
-             Association[{
-              "pt" -> $CellContext`p02$$, "px" -> $CellContext`p2x$$, 
-               "py" -> $CellContext`p2y$$}], 
-             
-             Association[{
-              "pt" -> $CellContext`p03$$, "px" -> $CellContext`p3x$$, 
-               "py" -> $CellContext`p3y$$}]}]]], 
-        Manipulate`Dump`ThisIsNotAControl}}, Typeset`size$$ = {
-      360., {178., 184.}}, Typeset`update$$ = 0, Typeset`initDone$$, 
-      Typeset`skipInitDone$$ = True, $CellContext`MinKx$187010$$ = 
-      0, $CellContext`MaxKx$187011$$ = 0, $CellContext`MinKy$187012$$ = 
-      0, $CellContext`MaxKy$187013$$ = 0, $CellContext`p01$187014$$ = 
-      0, $CellContext`p1x$187015$$ = 0, $CellContext`p1y$187016$$ = 
-      0, $CellContext`p02$187017$$ = 0, $CellContext`p2x$187018$$ = 
-      0, $CellContext`p2y$187019$$ = 0}, 
-      DynamicBox[Manipulate`ManipulateBoxes[
-       1, TraditionalForm, 
-        "Variables" :> {$CellContext`MaxKx$$ = 50, $CellContext`MaxKy$$ = 
-          50, $CellContext`MinKx$$ = -50, $CellContext`MinKy$$ = -50, \
+ TagBox[
+  StyleBox[
+   DynamicModuleBox[{$CellContext`MaxKx$$ = 50, $CellContext`MaxKy$$ = 
+    50, $CellContext`MinKx$$ = -50, $CellContext`MinKy$$ = -50, \
 $CellContext`p01$$ = 7.6000000000000085`, $CellContext`p02$$ = 
-          6.6000000000000085`, $CellContext`p03$$ = 
-          16.400000000000006`, $CellContext`p1x$$ = 
-          6.400000000000006, $CellContext`p1y$$ = -3.799999999999997, \
+    6.6000000000000085`, $CellContext`p03$$ = 
+    16.400000000000006`, $CellContext`p1x$$ = 
+    6.400000000000006, $CellContext`p1y$$ = -3.799999999999997, \
 $CellContext`p2x$$ = 
-          3.6000000000000014`, $CellContext`p2y$$ = -6.199999999999996, \
+    3.6000000000000014`, $CellContext`p2y$$ = -6.199999999999996, \
 $CellContext`p3x$$ = 
-          8.400000000000006, $CellContext`p3y$$ = -14.199999999999996`}, 
-        "ControllerVariables" :> {
-          Hold[$CellContext`MinKx$$, $CellContext`MinKx$187010$$, 0], 
-          Hold[$CellContext`MaxKx$$, $CellContext`MaxKx$187011$$, 0], 
-          Hold[$CellContext`MinKy$$, $CellContext`MinKy$187012$$, 0], 
-          Hold[$CellContext`MaxKy$$, $CellContext`MaxKy$187013$$, 0], 
-          Hold[$CellContext`p01$$, $CellContext`p01$187014$$, 0], 
-          Hold[$CellContext`p1x$$, $CellContext`p1x$187015$$, 0], 
-          Hold[$CellContext`p1y$$, $CellContext`p1y$187016$$, 0], 
-          Hold[$CellContext`p02$$, $CellContext`p02$187017$$, 0], 
-          Hold[$CellContext`p2x$$, $CellContext`p2x$187018$$, 0], 
-          Hold[$CellContext`p2y$$, $CellContext`p2y$187019$$, 0]}, 
-        "OtherVariables" :> {
-         Typeset`show$$, Typeset`bookmarkList$$, Typeset`bookmarkMode$$, 
-          Typeset`animator$$, Typeset`animvar$$, Typeset`name$$, 
-          Typeset`specs$$, Typeset`size$$, Typeset`update$$, 
-          Typeset`initDone$$, Typeset`skipInitDone$$}, "Body" :> Show[
+    8.400000000000006, $CellContext`p3y$$ = -14.199999999999996`, 
+    Typeset`show$$ = True, Typeset`bookmarkList$$ = {}, 
+    Typeset`bookmarkMode$$ = "Menu", Typeset`animator$$, Typeset`animvar$$ = 
+    1, Typeset`name$$ = "\"untitled\"", Typeset`specs$$ = {{{
+       Hold[$CellContext`MinKx$$], -50}, -50, 50}, {{
+       Hold[$CellContext`MaxKx$$], 50}, -50, 50}, {{
+       Hold[$CellContext`MinKy$$], -50}, -50, 50}, {{
+       Hold[$CellContext`MaxKy$$], 50}, -50, 50}, {{
+       Hold[$CellContext`p01$$], 7.6000000000000085`}, -50, 50}, {{
+       Hold[$CellContext`p1x$$], 6.400000000000006}, -50, 50}, {{
+       Hold[$CellContext`p1y$$], -3.799999999999997}, -50, 50}, {{
+       Hold[$CellContext`p02$$], 6.6000000000000085`}, -50, 50}, {{
+       Hold[$CellContext`p2x$$], 3.6000000000000014`}, -50, 50}, {{
+       Hold[$CellContext`p2y$$], -6.199999999999996}, -50, 50}, {{
+       Hold[$CellContext`p03$$], 16.400000000000006`}, -50, 50}, {{
+       Hold[$CellContext`p3x$$], 8.400000000000006}, -50, 50}, {{
+       Hold[$CellContext`p3y$$], -14.199999999999996`}, -50, 50}, {
+      Hold[
+       Button[
+       "Store Ellipses parameters", $CellContext`EllipsesParameters = Dataset[{
+           
+           Association[{
+            "pt" -> $CellContext`p01$$, "px" -> $CellContext`p1x$$, 
+             "py" -> $CellContext`p1y$$}], 
+           
+           Association[{
+            "pt" -> $CellContext`p02$$, "px" -> $CellContext`p2x$$, 
+             "py" -> $CellContext`p2y$$}], 
+           Association[{
+            "pt" -> $CellContext`p03$$, "px" -> $CellContext`p3x$$, 
+             "py" -> $CellContext`p3y$$}]}]]], 
+      Manipulate`Dump`ThisIsNotAControl}}, Typeset`size$$ = {
+    180., {121.634033203125, 127.365966796875}}, Typeset`update$$ = 0, 
+    Typeset`initDone$$, Typeset`skipInitDone$$ = 
+    True, $CellContext`MinKx$2199969$$ = 0, $CellContext`MaxKx$2199970$$ = 
+    0, $CellContext`MinKy$2199971$$ = 0, $CellContext`MaxKy$2199972$$ = 
+    0, $CellContext`p01$2199973$$ = 0, $CellContext`p1x$2199974$$ = 
+    0, $CellContext`p1y$2199975$$ = 0, $CellContext`p02$2199976$$ = 
+    0, $CellContext`p2x$2199977$$ = 0, $CellContext`p2y$2199978$$ = 0}, 
+    DynamicBox[Manipulate`ManipulateBoxes[
+     1, StandardForm, 
+      "Variables" :> {$CellContext`MaxKx$$ = 50, $CellContext`MaxKy$$ = 
+        50, $CellContext`MinKx$$ = -50, $CellContext`MinKy$$ = -50, \
+$CellContext`p01$$ = 7.6000000000000085`, $CellContext`p02$$ = 
+        6.6000000000000085`, $CellContext`p03$$ = 
+        16.400000000000006`, $CellContext`p1x$$ = 
+        6.400000000000006, $CellContext`p1y$$ = -3.799999999999997, \
+$CellContext`p2x$$ = 
+        3.6000000000000014`, $CellContext`p2y$$ = -6.199999999999996, \
+$CellContext`p3x$$ = 
+        8.400000000000006, $CellContext`p3y$$ = -14.199999999999996`}, 
+      "ControllerVariables" :> {
+        Hold[$CellContext`MinKx$$, $CellContext`MinKx$2199969$$, 0], 
+        Hold[$CellContext`MaxKx$$, $CellContext`MaxKx$2199970$$, 0], 
+        Hold[$CellContext`MinKy$$, $CellContext`MinKy$2199971$$, 0], 
+        Hold[$CellContext`MaxKy$$, $CellContext`MaxKy$2199972$$, 0], 
+        Hold[$CellContext`p01$$, $CellContext`p01$2199973$$, 0], 
+        Hold[$CellContext`p1x$$, $CellContext`p1x$2199974$$, 0], 
+        Hold[$CellContext`p1y$$, $CellContext`p1y$2199975$$, 0], 
+        Hold[$CellContext`p02$$, $CellContext`p02$2199976$$, 0], 
+        Hold[$CellContext`p2x$$, $CellContext`p2x$2199977$$, 0], 
+        Hold[$CellContext`p2y$$, $CellContext`p2y$2199978$$, 0]}, 
+      "OtherVariables" :> {
+       Typeset`show$$, Typeset`bookmarkList$$, Typeset`bookmarkMode$$, 
+        Typeset`animator$$, Typeset`animvar$$, Typeset`name$$, 
+        Typeset`specs$$, Typeset`size$$, Typeset`update$$, Typeset`initDone$$,
+         Typeset`skipInitDone$$}, "Body" :> Column[{
+         Show[
           (
           RegionPlot[#, {$CellContext`kx, $CellContext`MinKx$$, \
 $CellContext`MaxKx$$}, {$CellContext`ky, $CellContext`MinKy$$, \
@@ -1581,59 +1043,76 @@ $CellContext`MaxKy$$}]& )[
 {$CellContext`p1x$$, $CellContext`p1y$$}, {$CellContext`p2x$$, \
 $CellContext`p2y$$}, {$CellContext`p3x$$, $CellContext`p3y$$}, \
 $CellContext`p01$$, $CellContext`p02$$, $CellContext`p03$$]]], 
-        "Specifications" :> {
-         Delimiter, {{$CellContext`MinKx$$, -50}, -50, 
-           50}, {{$CellContext`MaxKx$$, 50}, -50, 
-           50}, {{$CellContext`MinKy$$, -50}, -50, 
-           50}, {{$CellContext`MaxKy$$, 50}, -50, 
-           50}, {{$CellContext`p01$$, 7.6000000000000085`}, -50, 
-           50}, {{$CellContext`p1x$$, 6.400000000000006}, -50, 
-           50}, {{$CellContext`p1y$$, -3.799999999999997}, -50, 
-           50}, {{$CellContext`p02$$, 6.6000000000000085`}, -50, 
-           50}, {{$CellContext`p2x$$, 3.6000000000000014`}, -50, 
-           50}, {{$CellContext`p2y$$, -6.199999999999996}, -50, 
-           50}, {{$CellContext`p03$$, 16.400000000000006`}, -50, 
-           50}, {{$CellContext`p3x$$, 8.400000000000006}, -50, 
-           50}, {{$CellContext`p3y$$, -14.199999999999996`}, -50, 50}, 
-          Delimiter, 
-          Button[
-          "Store Ellipses parameters", $CellContext`EllipsesParameters = 
-           Dataset[{
-              
-              Association[{
-               "pt" -> $CellContext`p01$$, "px" -> $CellContext`p1x$$, 
-                "py" -> $CellContext`p1y$$}], 
-              
-              Association[{
-               "pt" -> $CellContext`p02$$, "px" -> $CellContext`p2x$$, 
-                "py" -> $CellContext`p2y$$}], 
-              
-              Association[{
-               "pt" -> $CellContext`p03$$, "px" -> $CellContext`p3x$$, 
-                "py" -> $CellContext`p3y$$}]}]]}, "Options" :> {}, 
-        "DefaultOptions" :> {}],
-       ImageSizeCache->{652., {218., 225.}},
-       SingleEvaluation->True],
-      Deinitialization:>None,
-      DynamicModuleValues:>{},
-      SynchronousInitialization->True,
-      UndoTrackedVariables:>{Typeset`show$$, Typeset`bookmarkMode$$},
-      UnsavedVariables:>{Typeset`initDone$$},
-      UntrackedVariables:>{Typeset`size$$}], "Manipulate",
-     Deployed->True,
-     StripOnInput->False],
-    TraditionalForm],
-   Manipulate`InterpretManipulate[1]], TraditionalForm]], "Output",
+         Grid[{{
+           "m1_sq", $CellContext`p01$$^2 - $CellContext`p1x$$^2 - \
+$CellContext`p1y$$^2}, {
+           "m2_sq", $CellContext`p02$$^2 - $CellContext`p2x$$^2 - \
+$CellContext`p2y$$^2}, {
+           "m3_sq", $CellContext`p03$$^2 - $CellContext`p3x$$^2 - \
+$CellContext`p3y$$^2}, {
+           "m4_sq", (-$CellContext`p01$$ - $CellContext`p02$$ - \
+$CellContext`p03$$)^2 - (-$CellContext`p1x$$ - $CellContext`p2x$$ - \
+$CellContext`p3x$$)^2 - (-$CellContext`p1y$$ - $CellContext`p2y$$ - \
+$CellContext`p3y$$)^2}}]}], 
+      "Specifications" :> {
+       Delimiter, {{$CellContext`MinKx$$, -50}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`MaxKx$$, 50}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`MinKy$$, -50}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`MaxKy$$, 50}, -50, 50, Appearance -> 
+         "Labeled"}, {{$CellContext`p01$$, 7.6000000000000085`}, -50, 50, 
+         Appearance -> 
+         "Labeled"}, {{$CellContext`p1x$$, 6.400000000000006}, -50, 50, 
+         Appearance -> 
+         "Labeled"}, {{$CellContext`p1y$$, -3.799999999999997}, -50, 50, 
+         Appearance -> 
+         "Labeled"}, {{$CellContext`p02$$, 6.6000000000000085`}, -50, 50, 
+         Appearance -> 
+         "Labeled"}, {{$CellContext`p2x$$, 3.6000000000000014`}, -50, 50, 
+         Appearance -> 
+         "Labeled"}, {{$CellContext`p2y$$, -6.199999999999996}, -50, 50, 
+         Appearance -> 
+         "Labeled"}, {{$CellContext`p03$$, 16.400000000000006`}, -50, 50, 
+         Appearance -> 
+         "Labeled"}, {{$CellContext`p3x$$, 8.400000000000006}, -50, 50, 
+         Appearance -> 
+         "Labeled"}, {{$CellContext`p3y$$, -14.199999999999996`}, -50, 50, 
+         Appearance -> "Labeled"}, Delimiter, 
+        Button[
+        "Store Ellipses parameters", $CellContext`EllipsesParameters = 
+         Dataset[{
+            
+            Association[{
+             "pt" -> $CellContext`p01$$, "px" -> $CellContext`p1x$$, 
+              "py" -> $CellContext`p1y$$}], 
+            
+            Association[{
+             "pt" -> $CellContext`p02$$, "px" -> $CellContext`p2x$$, 
+              "py" -> $CellContext`p2y$$}], 
+            
+            Association[{
+             "pt" -> $CellContext`p03$$, "px" -> $CellContext`p3x$$, 
+              "py" -> $CellContext`p3y$$}]}]]}, "Options" :> {}, 
+      "DefaultOptions" :> {}],
+     ImageSizeCache->{510., {220., 226.}},
+     SingleEvaluation->True],
+    Deinitialization:>None,
+    DynamicModuleValues:>{},
+    SynchronousInitialization->True,
+    UndoTrackedVariables:>{Typeset`show$$, Typeset`bookmarkMode$$},
+    UnsavedVariables:>{Typeset`initDone$$},
+    UntrackedVariables:>{Typeset`size$$}], "Manipulate",
+   Deployed->True,
+   StripOnInput->False],
+  Manipulate`InterpretManipulate[1]]], "Output",
  CellChangeTimes->{{3.777898561164638*^9, 3.777898576581593*^9}, 
-   3.777898618017139*^9, 
-   3.777898862968158*^9},ExpressionUUID->"1bcd051a-c547-4ba4-9307-\
-0dd0f5aa3f65"]
+   3.777898618017139*^9, 3.777898862968158*^9, 3.779442994880797*^9},
+ CellLabel->
+  "Out[946]=",ExpressionUUID->"cb836405-b927-4053-8844-820869ba3060"]
 }, Open  ]]
 },
 WindowSize->{2560, 1376},
 WindowMargins->{{325, Automatic}, {Automatic, 40}},
-FrontEndVersion->"11.2 for Mac OS X x86 (32-bit, 64-bit Kernel) (September \
-10, 2017)",
+FrontEndVersion->"12.0 for Mac OS X x86 (64-bit) (April 8, 2019)",
 StyleDefinitions->"Default.nb"
 ]
 (* End of Notebook Content *)
@@ -1647,30 +1126,30 @@ CellTagsIndex->{}
 *)
 (*NotebookFileOutline
 Notebook[{
-Cell[400, 13, 2822, 77, 30, "Input",ExpressionUUID->"ea93b374-b456-4850-86c2-549d481ba651"],
-Cell[3225, 92, 1002, 25, 30, "Input",ExpressionUUID->"2c96f312-6eb8-429e-ac80-0078949f066a"],
-Cell[4230, 119, 175, 3, 30, "Input",ExpressionUUID->"f49d8ad2-4120-4db5-a9cb-383a0b3488f5"],
-Cell[4408, 124, 7343, 175, 997, "Input",ExpressionUUID->"c526df9f-57a5-4b07-a3b0-72795d83bd9d"],
+Cell[400, 13, 2845, 77, 52, "Input",ExpressionUUID->"ea93b374-b456-4850-86c2-549d481ba651"],
+Cell[3248, 92, 1025, 25, 30, "Input",ExpressionUUID->"2c96f312-6eb8-429e-ac80-0078949f066a"],
+Cell[4276, 119, 175, 3, 30, "Input",ExpressionUUID->"f49d8ad2-4120-4db5-a9cb-383a0b3488f5"],
+Cell[4454, 124, 10132, 244, 1039, "Input",ExpressionUUID->"c526df9f-57a5-4b07-a3b0-72795d83bd9d"],
 Cell[CellGroupData[{
-Cell[11776, 303, 360, 7, 30, "Input",ExpressionUUID->"10e94444-a0ba-401c-b4d8-e73eb8137158"],
-Cell[12139, 312, 33276, 743, 462, "Output",ExpressionUUID->"3930e033-d5e0-4a26-81ab-105a85a33401"]
+Cell[14611, 372, 434, 8, 30, "Input",ExpressionUUID->"10e94444-a0ba-401c-b4d8-e73eb8137158"],
+Cell[15048, 382, 7443, 141, 429, "Output",ExpressionUUID->"f15abee1-e21c-472e-a27e-8c993c911103"]
 }, Open  ]],
-Cell[45430, 1058, 147, 3, 52, "Input",ExpressionUUID->"8f36076f-2199-4f10-b2a0-d205d3873af9"],
+Cell[22506, 526, 147, 3, 52, "Input",ExpressionUUID->"8f36076f-2199-4f10-b2a0-d205d3873af9"],
 Cell[CellGroupData[{
-Cell[45602, 1065, 325, 6, 30, "Input",ExpressionUUID->"084f1381-ba69-4eda-b8ee-112310759afc"],
-Cell[45930, 1073, 1286, 21, 99, "Output",ExpressionUUID->"39d9b226-5b09-45c4-8f74-d1ef794e53e5"]
+Cell[22678, 533, 325, 6, 30, "Input",ExpressionUUID->"084f1381-ba69-4eda-b8ee-112310759afc"],
+Cell[23006, 541, 1286, 21, 88, "Output",ExpressionUUID->"39d9b226-5b09-45c4-8f74-d1ef794e53e5"]
 }, Open  ]],
-Cell[47231, 1097, 201, 4, 30, "Input",ExpressionUUID->"468943c1-f5b0-4081-9949-33efd5e926ed"],
-Cell[47435, 1103, 152, 3, 30, "Input",ExpressionUUID->"c3c1d0ab-5234-4bc6-a4c0-d38546f95fdf"],
-Cell[47590, 1108, 152, 3, 30, "Input",ExpressionUUID->"86229c37-2e66-4c94-aae5-67312169c0b6"],
-Cell[47745, 1113, 152, 3, 30, "Input",ExpressionUUID->"4adf9ab4-d027-45cc-b3df-90a11bc10322"],
+Cell[24307, 565, 201, 4, 30, "Input",ExpressionUUID->"468943c1-f5b0-4081-9949-33efd5e926ed"],
+Cell[24511, 571, 152, 3, 30, "Input",ExpressionUUID->"c3c1d0ab-5234-4bc6-a4c0-d38546f95fdf"],
+Cell[24666, 576, 152, 3, 30, "Input",ExpressionUUID->"86229c37-2e66-4c94-aae5-67312169c0b6"],
+Cell[24821, 581, 152, 3, 30, "Input",ExpressionUUID->"4adf9ab4-d027-45cc-b3df-90a11bc10322"],
 Cell[CellGroupData[{
-Cell[47922, 1120, 1205, 29, 73, "Input",ExpressionUUID->"5ac2dda3-fe2e-403d-9f10-8992515668c5"],
-Cell[49130, 1151, 17028, 327, 134, "Output",ExpressionUUID->"70b89518-d4b3-4957-b8d2-c16c2616bcee"]
+Cell[24998, 588, 1228, 29, 73, "Input",ExpressionUUID->"5ac2dda3-fe2e-403d-9f10-8992515668c5"],
+Cell[26229, 619, 16793, 325, 135, "Output",ExpressionUUID->"81ce705c-2241-4c96-95f0-401ee678c306"]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[66195, 1483, 233, 6, 30, "Input",ExpressionUUID->"2d9fcc7c-2d4d-4460-bd51-5601e7f4a80e"],
-Cell[66431, 1491, 7132, 138, 462, "Output",ExpressionUUID->"1bcd051a-c547-4ba4-9307-0dd0f5aa3f65"]
+Cell[43059, 949, 256, 6, 30, "Input",ExpressionUUID->"2d9fcc7c-2d4d-4460-bd51-5601e7f4a80e"],
+Cell[43318, 957, 7810, 152, 465, "Output",ExpressionUUID->"cb836405-b927-4053-8844-820869ba3060"]
 }, Open  ]]
 }
 ]
