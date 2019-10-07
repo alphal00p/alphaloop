@@ -483,7 +483,7 @@ class TopologyGenerator(object):
             end_node=loop_line_vertex_map[signature][1],
             signature=signature,
             propagators=tuple(
-                Propagator(q=q, m_squared=mass)
+                Propagator(q=q, m_squared=mass**2)
                 for (q, mass) in propagators)) for signature, propagators in loop_line_map.items()]
 
         cs = self.get_cut_structures(ll, contour_closure)
@@ -1078,7 +1078,7 @@ class LoopTopology(object):
                         for (loop_index, sign) in mom_dep:
                             mom += source_shifted[loop_index] * sign
                         mom += shift1
-                        expr += int(sign) * cvxpy.norm(cvxpy.hstack([math.sqrt(m1), mom]), 2) + (-shift)
+                        expr += int(sign) * cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + (-shift)
 
                     if overall_sign < 0:
                         constraints.append(expr >= 0)

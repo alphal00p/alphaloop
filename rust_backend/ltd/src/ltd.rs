@@ -213,7 +213,7 @@ impl Topology {
                     {
                         cut_shift.push(ll.propagators[*cut_prop_index].q.cast());
                         cut_mass.push(
-                            float::from_f64(ll.propagators[*cut_prop_index].m_squared).unwrap(),
+                            float::from_f64(ll.propagators[*cut_prop_index].m_squared.sqrt()).unwrap(),
                         );
                     }
                 }
