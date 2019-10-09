@@ -304,7 +304,7 @@ if __name__ == "__main__":
          qqbar_diagram("D5", [0, 2, 3, 4], [1, 1, 1, 1],
                        [-1, 2, 8, 3, 9, 4, -1, 7, 10], [1, 3, 5],
                        -1, -factor / amp.sij["s15"], False, False,),
-         qqbar_diagram("D6", [0, 2, 3], [1, 1, 1, 1],
+         qqbar_diagram("D6", [0, 2, 3], [1, 1, 1],
                        [-1, 2, 8, 3, -1, 6, 9, 7, 10], [1, 3],
                        -1, -factor / amp.sij["s23"] / amp.sij["s15"], False, True,),
          qqbar_diagram("D7", [0, 3], [1, 1],
