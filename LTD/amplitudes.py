@@ -15,7 +15,7 @@ params = {
     'alpha_ew':   1./1.325070e+02,
     'C_F':   4./3.,
     'q_u': 2. / 3.,
-    'q_d': 1. / 3.,
+    'q_d': -1. / 3.,
 }
 
 
@@ -281,24 +281,23 @@ class AmplitudesCollection(dict):
 if __name__ == "__main__":
     amplitudes_collection = AmplitudesCollection()
 
-    """ =================== add amplitude uuAAA ======================="""
-    tree_factor = params['alpha_ew']**1.5*params['q_u']**3 / \
-        8.0 * (4.0 * np.pi)**1.5
-    # Polarizations
-    amp = Amplitude("manual_uuWWZ_amplitude_P3",  # name of topology
-                    'qqbar_photons',  # process type
-                    zip(["u", "vbar", "a", "a", "a"],  # polarizations
+    # =================== add amplitude ddAAA ======================= #
+    tree_factor = params['alpha_ew']**1.5*params['q_d']**3 * (4.0 * np.pi)**1.5
+    # Initialize
+    amp = Amplitude("manual_uuWWZ_amplitude_P2",      # name of topology
+                    'qqbar_photons',                  # process type
+                    zip(["u", "vbar", "a", "a", "a"], # polarizations
                         ["+", "-", "+", "+", "+"]),
-                    1,  # uv_pos
-                    91.188)  # mu_r_sq
+                    1,                                # uv_pos
+                    91.188)                           # mu_r_sq
     # Born Level Diagram
     born_factor = tree_factor / amp.sij['s23'] / amp.sij['s15']
-    amp.add_born([8, 6, 9, 7, 10], 0*born_factor)
+    amp.add_born([8, 6, 9, 7, 10], born_factor)
     # Diagrams and vectors
     factor = -1j * params['C_F'] * tree_factor\
         * params['alpha_s'] * (4.0 * np.pi)
     amp.create_amplitude(
-        'uuAAA',
+        'ddAAA',
         1,
         [qqbar_diagram("D1", [0, 3, 4, 5], [1, 1, 1, 1], [8, 6, -1, 3, 9, 4, 10, 5, -1], factor/amp.sij["s23"], False, False),
          qqbar_diagram("D2", [0, 4, 5], [1, 1, 1], [8, 6, 9, 7, -1, 4, 10, 5, -1], factor/amp.sij["s23"]/amp.sij["s15"], False, True,),
@@ -306,7 +305,7 @@ if __name__ == "__main__":
          qqbar_diagram("D4", [0, 3, 4], [1, 1, 1], [8, 6, -1, 3, 9, 4, -1, 7, 10], factor/amp.sij["s23"]/amp.sij["s15"], False, True,),
          qqbar_diagram("D5", [0, 2, 3, 4], [1, 1, 1, 1], [-1, 2, 8, 3, 9, 4, -1, 7, 10], factor/amp.sij["s15"], False, False,),
          qqbar_diagram("D6", [0, 2, 3], [1, 1, 1], [-1, 2, 8, 3, -1, 6, 9, 7, 10], factor/amp.sij["s23"]/amp.sij["s15"], False, True,),
-         qqbar_diagram("D7", [0, 3], [1, 1], [8, 6, -1, 3, -1, 6, 9, 7, 10], factor/amp.sij["s23"]*2/amp.sij["s15"], False, True,),
+         qqbar_diagram("D7", [0, 3], [1, 1], [8, 6, -1, 3, -1, 6, 9, 7, 10], factor/amp.sij["s23"]**2/amp.sij["s15"], False, True,),
          qqbar_diagram("D8", [0, 2, 3, 4, 5], [1, 1, 1, 1, 1], [-1, 2, 8, 3, 9, 4, 10, 5, -1], factor, False, False,),
          qqbar_diagram("IR", [0, 2, 5], [1, 1, 1], [-1, 2, 8, 6, 9, 7, 10, 5, -1], factor/amp.sij["s23"]/amp.sij["s15"], True, True,),
          ],
@@ -324,16 +323,15 @@ if __name__ == "__main__":
     # Store
     amplitudes_collection.add(amp)
 
-    """ =================== add amplitude ddAA ======================="""
-    tree_factor = params['alpha_ew'] * \
-        params['q_d']**2 * (4.0 * np.pi)
-    # Polarizations
+    # =================== add amplitude ddAA ======================= #
+    tree_factor = params['alpha_ew'] * params['q_d']**2 * (4.0 * np.pi)
+    # Initialize
     amp = Amplitude("manual_eeAA_amplitude_P2",  # name of topology
-                    'qqbar_photons',
-                    zip(["u", "vbar", "a", "a"],  # polarizations
+                    'qqbar_photons',             # process type
+                    zip(["u", "vbar", "a", "a"], # polarizations
                         ["+", "-", "+", "+"]),
-                    1,  # uv_pos
-                    91.188)  # mu_r_sq
+                    1,                           # uv_pos
+                    91.188)                      # mu_r_sq
     # Born Level Diagram
     born_factor = tree_factor / amp.sij['s23']
     amp.add_born([6, 5, 7], born_factor)
