@@ -1511,9 +1511,24 @@ impl Topology {
                 );
             }
 
-            for ii in 0..self.n_loops {
-                let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
-                kappas[ii] -= dir / dir.spatial_distance() * s * lambda;
+            if self.settings.deformation.fixed.overall_normalization {
+                let mut normalization = DualN::zero();
+                for ii in 0..self.n_loops {
+                    let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                    normalization += dir.spatial_squared_impr();
+                }
+
+                normalization = normalization.sqrt();
+
+                for ii in 0..self.n_loops {
+                    let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                    kappas[ii] -= dir / normalization * s * lambda;
+                }
+            } else {
+                for ii in 0..self.n_loops {
+                    let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                    kappas[ii] -= dir / dir.spatial_distance() * s * lambda;
+                }
             }
         }
 
