@@ -1091,9 +1091,12 @@ class LoopTopology(object):
             try:
                 result = p.solve()
 
+                excluded_loop_lines = list(range(len(self.loop_lines))) # for now, exclude all loop lines for the branch cut check
                 excluded = [[[list(x), a, b] for x, a, b in el_fun[i][0] ] for i in range(len(el_fun)) if i not in overlap]
 
-                self.fixed_deformation.append([[[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates], excluded])
+                fixed_deformation = {'deformation_sources': [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates], 
+                        'excluded_loop_lines': excluded_loop_lines, 'excluded_surface_ids': excluded}
+                self.fixed_deformation.append(fixed_deformation)
             except Exception as e:
                 print("Could not solve system, it should have a solution")
                 for i_c, c in enumerate(constraints):

@@ -773,7 +773,7 @@ impl Topology {
         kappas: &[LorentzVector<DualN<T, U>>],
         lambda_max: f64,
         cache: &mut LTDCache<T>,
-    ) -> [DualN<T, U>; MAX_LOOP]
+    ) -> DualN<T, U>
     where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
         dual_num::Owned<T, U>: Copy,
@@ -789,8 +789,6 @@ impl Topology {
 
         // update the cut information with the kappa-dependent information
         let cache = cache.get_cache_mut();
-
-        let mut lambda_i_sq = [lambda_sq; MAX_LOOP];
 
         for ll in &self.loop_lines {
             let mut kappa_cut = LorentzVector::default();
@@ -846,18 +844,10 @@ impl Topology {
                         * DualN::from_real(Into::<T>::into(0.95));
 
                     if sigma.is_zero() {
-                        let loop_var_count = Into::<T>::into(
-                            ll.signature.iter().filter(|i| **i != 0).count() as f64,
-                        );
-                        for (lambda_ii, loop_mom) in lambda_i_sq.iter_mut().zip(&ll.signature) {
-                            if *loop_mom != 0 {
-                                if lambda_disc_sq / loop_var_count / loop_var_count < *lambda_ii {
-                                    *lambda_ii = lambda_disc_sq / loop_var_count / loop_var_count;
-                                }
-                            }
+                        if lambda_disc_sq < lambda_sq {
+                            lambda_sq = lambda_disc_sq;
                         }
                     } else {
-                        // FIXME: not supported
                         let e = (-lambda_disc_sq / sigma).exp();
                         smooth_min_num += lambda_disc_sq * e;
                         smooth_min_den += e;
@@ -1030,19 +1020,10 @@ impl Topology {
             }
         }
 
-        for lambda_ii in &mut lambda_i_sq[..self.n_loops] {
-            if lambda_sq < *lambda_ii {
-                *lambda_ii = lambda_sq;
-            }
-
-            *lambda_ii = lambda_ii.sqrt();
-        }
-
         if sigma.is_zero() {
-            lambda_i_sq
+            lambda_sq.sqrt()
         } else {
-            unimplemented!()
-            //(smooth_min_num / smooth_min_den).sqrt()
+            (smooth_min_num / smooth_min_den).sqrt()
         }
     }
 
@@ -1443,6 +1424,7 @@ impl Topology {
         }
 
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
+        let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
         let mut lambda = DualN::one();
         let mut mij = Into::<T>::into(self.settings.deformation.fixed.m_ij);
 
@@ -1511,6 +1493,7 @@ impl Topology {
                 );
             }
 
+            // normalize the deformation vector per source
             if self.settings.deformation.fixed.overall_normalization {
                 let mut normalization = DualN::zero();
                 for ii in 0..self.n_loops {
@@ -1522,13 +1505,42 @@ impl Topology {
 
                 for ii in 0..self.n_loops {
                     let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
-                    kappas[ii] -= dir / normalization * s * lambda;
+                    kappa_source[ii] = -dir / normalization * s * lambda;
                 }
             } else {
                 for ii in 0..self.n_loops {
                     let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
-                    kappas[ii] -= dir / dir.spatial_distance() * s * lambda;
+                    kappa_source[ii] = -dir / dir.spatial_distance() * s * lambda;
                 }
+            }
+
+            // now do the branch cut check per non-excluded loop line
+            // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
+            let mut lambda_sq = DualN::one();
+            for (ll_index, ll) in self.loop_lines.iter().enumerate() {
+                if d.excluded_loop_lines.contains(&ll_index) {
+                    continue;
+                }
+
+                let mut kappa_cut = LorentzVector::default();
+                for (kappa, &sign) in kappa_source.iter().zip_eq(ll.signature.iter()) {
+                    kappa_cut += kappa.multiply_sign(sign);
+                }
+
+                for p in &ll.propagators {
+                    let lambda_disc_sq = cache.cut_info[p.id].spatial_and_mass_sq
+                        / kappa_cut.spatial_squared_impr()
+                        * DualN::from_real(Into::<T>::into(0.95));
+                    if lambda_disc_sq < lambda_sq {
+                        lambda_sq = lambda_disc_sq;
+                    }
+                }
+            }
+
+            let lambda = lambda_sq.sqrt();
+
+            for ii in 0..self.n_loops {
+                kappas[ii] += kappa_source[ii] * lambda;
             }
         }
 
@@ -1637,18 +1649,15 @@ impl Topology {
                 cache,
             )
         } else {
-            [NumCast::from(self.settings.deformation.scaling.lambda.abs()).unwrap(); MAX_LOOP]
+            NumCast::from(self.settings.deformation.scaling.lambda.abs()).unwrap()
         };
 
-        for (k, lambda_i) in kappas[..self.n_loops]
-            .iter_mut()
-            .zip_eq(&lambda[..self.n_loops])
-        {
-            if self.settings.general.debug > 2 {
-                println!("  | lambda={:e}\n", lambda_i.real());
-            }
+        if self.settings.general.debug > 2 {
+            println!("  | lambda={:e}\n", lambda.real());
+        }
 
-            *k *= *lambda_i;
+        for k in kappas[..self.n_loops].iter_mut() {
+            *k *= lambda;
             k.t = DualN::zero(); // make sure we do not have a left-over deformation
         }
 

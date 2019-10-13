@@ -309,6 +309,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FixedDeformation {
     pub deformation_sources: Vec<LorentzVector<f64>>,
+    pub excluded_loop_lines: Vec<usize>,
     pub excluded_surface_ids: Vec<Vec<((usize, usize), i8, i8)>>,
     #[serde(skip_deserializing)]
     pub excluded_surface_indices: Vec<usize>,
