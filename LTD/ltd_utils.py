@@ -1075,8 +1075,8 @@ class LoopTopology(object):
                     for (sign, delta_index, shift) in foci:
                         mom = 0
                         (mom_dep, shift1, m1) = delta_func[delta_index]
-                        for (loop_index, sign) in mom_dep:
-                            mom += source_shifted[loop_index] * sign
+                        for (loop_index, mom_sign) in mom_dep:
+                            mom += source_shifted[loop_index] * mom_sign
                         mom += shift1
                         expr += int(sign) * cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + (-shift)
 
