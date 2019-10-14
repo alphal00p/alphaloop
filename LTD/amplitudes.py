@@ -65,7 +65,7 @@ class Amplitude(object):
 
         with open("topologies.yaml", 'r') as stream:
             try:
-                topologies = yaml.load(stream)
+                topologies = yaml.safe_load(stream)
             except yaml.YAMLError as exc:
                 print(exc)
         for top in topologies:
