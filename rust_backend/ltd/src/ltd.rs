@@ -589,7 +589,7 @@ impl Topology {
                 {
                     let r = self.evaluate_surface_complex(surf, &loop_momenta);
                     if surf.delta_sign > 0 && r.re >= 0. || surf.delta_sign < 0 && r.re <= 0. {
-                        panic!(
+                        println!(
                             "Deformation source {:?} is not on the inside of surface {}: {}",
                             d.deformation_sources, surf_index, r.re
                         );
@@ -1539,7 +1539,10 @@ impl Topology {
                 }
 
                 let mut kappa_cut = LorentzVector::default();
-                for (kappa, &sign) in kappa_source.iter().zip_eq(ll.signature.iter()) {
+                for (kappa, &sign) in kappa_source[..self.n_loops]
+                    .iter()
+                    .zip_eq(ll.signature.iter())
+                {
                     kappa_cut += kappa.multiply_sign(sign);
                 }
 
