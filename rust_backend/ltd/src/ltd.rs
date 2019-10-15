@@ -1497,20 +1497,28 @@ impl Topology {
             if self.settings.deformation.fixed.overall_normalization {
                 let mut normalization = DualN::zero();
                 for ii in 0..self.n_loops {
-                    let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                    let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
+                        * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
                     normalization += dir.spatial_squared_impr();
                 }
 
                 normalization = normalization.sqrt();
 
                 for ii in 0..self.n_loops {
-                    let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                    let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
+                        * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
                     kappa_source[ii] = -dir / normalization * s * lambda;
                 }
             } else {
                 for ii in 0..self.n_loops {
-                    let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
-                    kappa_source[ii] = -dir / dir.spatial_distance() * s * lambda;
+                    let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
+                        * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
+                    let length = dir.spatial_distance();
+                    if length.real().is_zero() {
+                        kappa_source[ii] = LorentzVector::default();
+                    } else {
+                        kappa_source[ii] = -dir / length * s * lambda;
+                    }
                 }
             }
 

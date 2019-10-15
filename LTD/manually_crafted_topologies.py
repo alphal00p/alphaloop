@@ -1961,7 +1961,7 @@ hard_coded_topology_collection.add_topology(
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0., 'm5': 0.},
         analytic_result = 6.56938257011534641e-14 -4.51502681165905663e-15j,
         name = 'Pentagon_massless',
-        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.]], 'excluded_loop_lines': [0], 'excluded_surface_ids': []}],
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.]], 'weight_per_source': [1], 'excluded_loop_lines': [0], 'excluded_surface_ids': []}],
     ),
     entry_name = 'Pentagon_massless'
 )
@@ -2426,7 +2426,7 @@ hard_coded_topology_collection.add_topology(
     ]),        
         analytic_result =  None,
         parameter_values = {'m1': 0., 'm2':1e2, 'm3': 0., 'm4': 0., 'm5': 0., 'm6':0.},
-        fixed_deformation = [{'deformation_sources': [[0., -0.5090471257245934, -0.6569087088593859, -0.6710689345531541]], 'excluded_loop_lines': [0], 'excluded_surface_ids': []}],
+        fixed_deformation = [{'deformation_sources': [[0., -0.5090471257245934, -0.6569087088593859, -0.6710689345531541]], 'weight_per_source': [1], 'excluded_loop_lines': [0], 'excluded_surface_ids': []}],
         name = 'uuWWZ_amplitude_P1',
     ),
     entry_name = 'uuWWZ_amplitude_P1'
@@ -3380,7 +3380,7 @@ hard_coded_topology_collection.add_topology(
         ]),
         analytic_result = -5.4278417251865010e-2 + 3.6222411886952535e-2j,
         parameter_values = {'m1': 0., 'm2': 0., 'm3': 0., 'm4': 0.},
-        fixed_deformation = [{'deformation_sources': [[0., -2.81672e-6, 9.64328e-6, 0.]], 'excluded_loop_lines': [0], 'excluded_surface_ids': []}],
+        fixed_deformation = [{'deformation_sources': [[0., -2.81672e-6, 9.64328e-6, 0.]], 'weight_per_source': [1], 'excluded_loop_lines': [0], 'excluded_surface_ids': []}],
         name = 'Box_RodrigoFail',
     ),
     entry_name = 'Box_RodrigoFail'

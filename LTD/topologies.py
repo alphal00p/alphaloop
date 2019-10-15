@@ -78,7 +78,7 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-    #    fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'excluded_surface_ids': [5]},
+    #    fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'weight_per_source': [1], 'excluded_surface_ids': [5]},
      #                        {'deformation_sources': [[0., 18.399985727313332, 17.800014049513244, 0.]], 'excluded_surface_ids': [2]}]
      ),
      entry_name = 'Box_3E'
@@ -339,8 +339,7 @@ hard_coded_topology_collection.add_topology(doubletriangle.create_loop_topology(
         loop_momenta_names=('p1', 'p5'), 
         analytic_result= 0.,
         contour_closure = [0,0],
-        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'excluded_loop_lines': [0, 1, 2], 'excluded_surface_ids': []},]
-        
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'weight_per_source': [1,1], 'excluded_loop_lines': [0, 1, 2], 'excluded_surface_ids': []},]
     ),
     entry_name = 'DoubleTriangle_massive_physical'
 )
@@ -360,7 +359,7 @@ hard_coded_topology_collection.add_topology(trianglebox.create_loop_topology(
         loop_momenta_names=('p1', 'p6'), 
         analytic_result= analytic_three_point_ladder(q2.square(),q3.square(),q1.square(),2),
         contour_closure = [1,0],
-        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'excluded_loop_lines': [0, 1, 2], 'excluded_surface_ids': []},]
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'weight_per_source': [1,1], 'excluded_loop_lines': [0, 1, 2], 'excluded_surface_ids': []},]
         
     ),
     entry_name = 'TriangleBox_physical'
@@ -432,7 +431,7 @@ hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
         analytic_result = analytic_four_point_ladder( 
             q1.square(), q2.square(), q3.square(), q4.square(),
             (q1+q2).square(), (q2+q3).square(), 2),
-        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'excluded_loop_lines': [0, 1, 2], 'excluded_surface_ids': []},]
+        fixed_deformation = [{'deformation_sources': [[0., 0., 0., 0.],[0.,0.,0.,0.]], 'weight_per_source': [1,1], 'excluded_loop_lines': [0, 1, 2], 'excluded_surface_ids': []},]
         
     ),
     entry_name = 'DoubleBox_physical'
@@ -846,7 +845,7 @@ hard_coded_topology_collection.add_topology(TriangleBoxTriangle.create_loop_topo
     loop_momenta_names=('p5', 'p6', 'p7',),
     analytic_result = analytic_two_point_ladder(q.square(),3),
     contour_closure = [0,0,1],
-    fixed_deformation = [{'deformation_sources': [[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.]], 'excluded_loop_lines': [0,1,2,3,4,5], 'excluded_surface_ids':[]}],
+    fixed_deformation = [{'deformation_sources': [[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.]], 'weight_per_source': [1,1], 'excluded_loop_lines': [0,1,2,3,4,5], 'excluded_surface_ids':[]}],
     ),
     entry_name = 'TriangleBoxTriangle_physical'
 )
@@ -887,7 +886,7 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
         loop_momenta_names=('p4',), # If not specified an arbitrary spanning tree will be used for momentum routing 
         analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
-        fixed_deformation =  [{'deformation_sources': [[0., 6.2, 11.8, 0.]], 'excluded_loop_lines': [0], 'excluded_surface_ids': []}]
+        fixed_deformation =  [{'deformation_sources': [[0., 6.2, 11.8, 0.]], 'weight_per_source': [1], 'excluded_loop_lines': [0], 'excluded_surface_ids': []}]
      ),
      entry_name = 'Box_RodrigoFail2'
 )

@@ -1095,6 +1095,7 @@ class LoopTopology(object):
                 excluded = [[[list(x), a, b] for x, a, b in el_fun[i][0] ] for i in range(len(el_fun)) if i not in overlap]
 
                 fixed_deformation = {'deformation_sources': [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates], 
+                        'weight_per_source': [1. for _ in source_coordinates],
                         'excluded_loop_lines': excluded_loop_lines, 'excluded_surface_ids': excluded}
                 self.fixed_deformation.append(fixed_deformation)
             except Exception as e:
