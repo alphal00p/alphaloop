@@ -119,6 +119,7 @@ hyperparameters = HyperParameters({
             # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
             'm_ijs' : [],
             'overall_normalization': False,
+            'no_normalization': False,
         }
     },
 

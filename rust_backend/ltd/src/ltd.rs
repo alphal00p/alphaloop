@@ -1509,6 +1509,14 @@ impl Topology {
                         * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
                     kappa_source[ii] = -dir / normalization * s * lambda;
                 }
+            } else if self.settings.deformation.fixed.no_normalization {
+                for ii in 0..self.n_loops {
+                    let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
+                        * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
+                    // the kappa returned by this function is expected to be dimensionless
+                    kappa_source[ii] = -dir * s * lambda
+                        / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
+                }
             } else {
                 for ii in 0..self.n_loops {
                     let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
