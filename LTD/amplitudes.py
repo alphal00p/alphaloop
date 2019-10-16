@@ -110,7 +110,7 @@ class Amplitude(object):
 
     def qSQ(self, n):
         if self.type == 'qqbar_photons':
-            return sum(p for p in self.ps[:n]).square()
+            return sum(p for p in self.ps[1:n+1]).square()
         else:
             raise BaseException(
                 "Not knonw diagram structure for %s" % self.type)
