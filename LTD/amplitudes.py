@@ -108,6 +108,13 @@ class Amplitude(object):
                     raise BaseException(
                         "No polarization known with this name %s" % pol[0])
 
+    def qSQ(self, n):
+        if self.type == 'qqbar_photons':
+            return sum(p for p in self.ps[:n]).square()
+        else:
+            raise BaseException(
+                "Not knonw diagram structure for %s" % self.type)
+
     def add_born(self, chain, factor):
         if self.type == 'qqbar_photons':
             diag = qqbar_diagram("born", [], [], chain, factor, False, False)
@@ -125,8 +132,11 @@ class Amplitude(object):
         loop_dependent = [
             i+1 for (i, v) in enumerate(vectors) if len(v[0]) > 0]
         for diag in diags:
-            diag.positions = [pos for (pos, v_id) in enumerate(diag.chain) if any(v_id == i for i in loop_dependent)]
-            diag.loop_signature = vectors[diag.positions[0]-1][0][0]
+            (positions, v_ids) = np.array(
+                [(pos,v_id) for (pos, v_id) in enumerate(diag.chain) if any(v_id == i for i in loop_dependent)]
+                ).transpose()
+            diag.positions = positions.tolist()
+            diag.signs = vectors[v_ids[0]-1][0][0]
 
         # Add new diagram to the amplitude
         self.diags.extend(diags)
