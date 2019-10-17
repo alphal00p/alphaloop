@@ -73,6 +73,10 @@ def main():
                         help='Hyperparameters file')
     parser.add_argument('-t', default="manual_Box_no_ellipse", type=str,
                         help='Topology')
+    parser.add_argument('-af', default="LTD/amplitudes.yaml", type=str,
+                        help='Amplitude file')
+    parser.add_argument('-a', default="", type=str,
+                        help='Amplitude')
     parser.add_argument('--survey_iter', '--si', default=5, type=int,
                         help='number of survey iterations')
     parser.add_argument('--survey_neval', '--sn', default=int(1e6), type=int,
@@ -86,7 +90,7 @@ def main():
 
     args = parser.parse_args()
 
-    l1 = ltd.LTD(args.f, args.t, args.hf)
+    l1 = ltd.LTD(args.f, args.t, args.af, args.a, args.hf)
 
     print('Integrating %s with %s iterations survey with eval=%s, %s iterations refine eval=%s' % (
         args.t, args.survey_iter, args.survey_neval, args.refine_iter, args.refine_neval))

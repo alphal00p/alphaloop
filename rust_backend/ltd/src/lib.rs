@@ -487,16 +487,17 @@ py_class!(class LTD |py| {
         topo.process();
         //Skip amplitude with no name is set
         let mut amp= amplitude::Amplitude::default();
-        if amp_name == ""{
+        if amp_name == "" {
             settings.general.use_amplitude = false;
-        }else{
+        } else {
             let mut amplitudes = amplitude::Amplitude::from_file(amplitude_file);
             settings.general.use_amplitude = true;
             amp=amplitudes.remove(amp_name).expect("Unknown amplitude");
             assert_eq!(amp.topology,top_name);
+            amp.process(&settings.general);
         }
-        amp.process(&settings.general);
-        topo.amplitude= amp.clone();
+
+        topo.amplitude = amp.clone();
 
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
