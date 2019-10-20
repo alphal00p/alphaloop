@@ -7,6 +7,8 @@ root_path = os.path.dirname(os.path.realpath( __file__ ))
 sys.path.insert(0, root_path)
 
 import vectors
+import pprint
+import copy
 import math
 import itertools
 from collections import defaultdict
@@ -14,6 +16,11 @@ from pprint import pformat
 import numpy as numpy
 import numpy.linalg
 from itertools import product, combinations, permutations
+
+try:
+    import cvxpy
+except:
+    print("Error: could not import package cvxpy necessary for building the fixed deformation. Make sure it is installed.")
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
@@ -859,25 +866,83 @@ class LoopTopology(object):
         """ This function identifies the fixed deformation sources for the deformation field as well as a the list of
         surfaces ids to exclude for each."""
 
-        try:
-            import cvxpy
-            import numpy as np
-        except:
-            print("Error: could not import package cvxpy necessary for building the fixed deformation. Make sure it is installed.")
-            return None
-
-        # First build the loop variables
         source_coordinates = [cvxpy.Variable(3) for _ in range(self.n_loops)]
 
+        ellipsoids, ellipsoid_param, delta_param = self.build_existing_ellipsoids(source_coordinates)
+
+        print('Number of ellipsoids %s: %s' % (self.name, len(ellipsoids)))
+
+        self.fixed_deformation = []
+
+        if len(ellipsoids) == 0:
+            return
+
+        # We set all combinations of independent propagators on-shell from 0 to n-1 propagators
+        for num_cuts in range(self.n_loops):
+            for ll_combs in combinations(range(len(self.loop_lines)), num_cuts):
+                for prop_combs in product(*[range(len(self.loop_lines[ll].propagators)) for ll in ll_combs]):
+                    # TODO: only set propagators on-shell whose delta appears in an ellipsoid
+
+                    # construct the on-shell constraints
+                    constraints = []
+                    for (ll_index, prop_index) in zip(ll_combs, prop_combs):
+                        q = self.loop_lines[ll_index].propagators[prop_index].q
+                        constraint = cvxpy.Constant(numpy.array([q[1], q[2], q[3]]))
+                        for source, sign in zip(source_coordinates, self.loop_lines[ll_index].signature):
+                            constraint += source * int(sign)
+                        constraints.append(constraint == 0)
+
+                    # check if the system has a solution
+                    try:
+                        cvxpy.Problem(cvxpy.Minimize(1), constraints).solve()
+                    except Exception as e:
+                        continue
+
+                    # Filter non-existing ellipsoids under the extra constraints
+                    non_existing_ellipsoids = set()
+                    for surf_id in list(ellipsoids):
+                        e = ellipsoids[surf_id]
+                        p = cvxpy.Problem(cvxpy.Minimize(e), constraints)
+                        result = p.solve()
+                        if result > -1e-6:
+                            non_existing_ellipsoids.add(surf_id)
+
+                    if len(non_existing_ellipsoids) > 0:
+                        print('Non-existing ellipsoids in limit:', non_existing_ellipsoids)
+
+                    ellipsoid_list = [(surf_id, ellipsoids[surf_id], surf) for surf_id, surf in ellipsoid_param.items() if surf_id not in non_existing_ellipsoids]
+
+                    all_overlaps = self.find_overlap_structure(ellipsoid_list, constraints, bottom_up)
+                    print('Overlap structure of %s with cuts %s: %s' % (self.name, list(zip(ll_combs, prop_combs)), all_overlaps))
+
+                    current_deformation = []
+                    for overlap in all_overlaps:
+                        sources = self.determine_overlap_center(source_coordinates, overlap, ellipsoid_list, delta_param, constraints)
+                        excluded_ellipsoids = list(non_existing_ellipsoids) + list(ellipsoid_list[i][0] for i in range(len(ellipsoid_list)) if i not in overlap)
+
+                        # produce yaml-friendly deformation structure
+                        d = {'deformation_sources': sources, 
+                             'excluded_surface_ids': [[[list(focus[0]), focus[1], focus[2]] for focus in surf_id] for surf_id in excluded_ellipsoids]
+                            }
+                        current_deformation.append(d)
+
+                    if len(current_deformation) > 0:
+                        self.fixed_deformation.append({'deformation_per_overlap': current_deformation, 
+                                                    'excluded_propagators': [list(x) for x in zip(ll_combs, prop_combs)]
+                                                    })
+
+        print('Fixed deformation: %s' % pprint.pprint(self.fixed_deformation))
+
+    def build_existing_ellipsoids(self, source_coordinates):
         # Then store the shifts and mass from each propagator delta
         deltas = []
-        delta_func = []
+        delta_param = []
         for ll in self.loop_lines:
             for p in ll.propagators:
                 mom = sum(source_coordinates[i_loop_momentum] * sig for i_loop_momentum, sig in enumerate(p.signature) if sig!=0)
                 mom += p.q[1:]
                 deltas.append(cvxpy.norm(cvxpy.hstack([math.sqrt(p.m_squared), mom]), 2))
-                delta_func.append(([(i_loop_momentum, sig) for i_loop_momentum, sig in enumerate(p.signature) if sig!=0], p.q[1:], math.sqrt(p.m_squared)))
+                delta_param.append(([(i_loop_momentum, sig) for i_loop_momentum, sig in enumerate(p.signature) if sig!=0], p.q[1:], math.sqrt(p.m_squared)))
 
         prop_id_to_ll_map = {}
         counter = 0
@@ -888,7 +953,7 @@ class LoopTopology(object):
 
         # construct all ellipsoid surfaces
         ellipsoids = {}
-        ellipsoid_fun = {}
+        ellipsoid_param = {}
         for cs in self.ltd_cut_structure:
             for cut in product(*[[(c, i, p) for i, p in enumerate(ll.propagators)] if c != 0 else [(0,-1,None)] for c, ll in zip(cs, self.loop_lines)]):
                 # construct the cut basis to loop momentum basis mapping
@@ -939,7 +1004,7 @@ class LoopTopology(object):
                             # make the sign it unique
                             surf_id = tuple(sorted(surf_id))
 
-                            ellipsoid_fun[surf_id] = [surf_sign, eq_fn + [(surf_sign, prop_count, -p.q[0])]]
+                            ellipsoid_param[surf_id] = [surf_sign, eq_fn + [(surf_sign, prop_count, -p.q[0])]]
 
                             if surf_sign == -1.:
                                 ellipsoids[surf_id] = eq*-1.0 - p.q[0] + deltas[prop_count]
@@ -955,161 +1020,165 @@ class LoopTopology(object):
             result = p.solve()
             if result > -1e-6:
                 del ellipsoids[surf_id]
-                del ellipsoid_fun[surf_id]
+                del ellipsoid_param[surf_id]
 
-        print('Number of ellipsoids %s: %s' % (self.name, len(ellipsoids)))
+        return ellipsoids, ellipsoid_param, delta_param
 
+    def find_overlap_structure(self, ellipsoid_list, extra_constraints, bottom_up):
+        if bottom_up:
+            return self.find_overlap_structure_bottom_up(ellipsoid_list, extra_constraints)
+        else:
+            return self.find_overlap_structure_top_down(ellipsoid_list, extra_constraints)
+
+    def find_overlap_structure_top_down(self, ellipsoid_list, extra_constraints):
+        overlap_structure = []
+        indices = list(range(len(ellipsoid_list)))
+        for n in range(len(ellipsoid_list), 0, -1):
+            for x in combinations(indices, n):
+                seen = False
+                for y in overlap_structure:
+                    if set(x).issubset(y):
+                        seen = True
+                        break
+                if seen:
+                    continue
+
+                constraints = [ellipsoid_list[e][1] <= 0 for e in x]
+
+                p = cvxpy.Problem(cvxpy.Minimize(1), constraints + extra_constraints)
+                result = p.solve()
+                if p.status == cvxpy.OPTIMAL:
+                    overlap_structure.append(set(x))
+
+        return list(sorted(tuple(i) for i in overlap_structure))
+
+    def find_overlap_structure_bottom_up(self, ellipsoid_list, extra_constraints):
         # Find the maximal overlap between all ellipsoids
         # This algorithm is only fast enough for simple cases
-        el_fun = [(surf_id, ellipsoids[surf_id], surf) for surf_id, surf in ellipsoid_fun.items()]
-        max_overlap = [(i,) for i in range(len(ellipsoid_fun))]
+        max_overlap = [(i,) for i in range(len(ellipsoid_list))]
 
         # Already group together ellipsoids that share a focus
         # For these matches, we do not need to test
         grouped = {}
-        for i, (surf_id, _, _) in enumerate(el_fun):
+        for i, (surf_id, _, _) in enumerate(ellipsoid_list):
             for focus, _, _ in surf_id:
                 if focus not in grouped:
                     grouped[focus] = {i}
                 else:
                     grouped[focus].add(i)
 
-        if not force and len(ellipsoids) > 13:
-            print('Ignoring topology since it is too complicated')
-            all_overlaps = []
-        else:
-            if bottom_up:
-                done_overlaps = []
-                for n in range(1, len(el_fun)):
-                    unused = set(max_overlap)
-                    new_max_overlap = []
-                    print('Processing overlap level %s with %s options' % (n, len(max_overlap)))
+        done_overlaps = []
+        for n in range(1, len(ellipsoid_list)):
+            unused = set(max_overlap)
+            new_max_overlap = []
+            print('Processing overlap level %s with %s options' % (n, len(max_overlap)))
 
-                    current_indices = [i for o in max_overlap for i in o]
-                    # do a quick filter of the indices
-                    possible_indices = [i for i in set(current_indices) if current_indices.count(i) >= n]
+            current_indices = [i for o in max_overlap for i in o]
+            # do a quick filter of the indices
+            possible_indices = [i for i in set(current_indices) if current_indices.count(i) >= n]
 
-                    for x in combinations(possible_indices, n + 1):
-                        # if we know they are connected, simply add them
-                        connected = False
-                        for groups in grouped.values():
-                            if set(x).issubset(groups):
-                                connected = True
-                                new_max_overlap.append(x)
-                                for y in list(unused):
-                                    if set(y).issubset(x):
-                                        unused.remove(y)
-                                break
-                        if connected:
-                            continue
+            for x in combinations(possible_indices, n + 1):
+                # if we know they are connected, simply add them
+                connected = False
+                for groups in grouped.values():
+                    if set(x).issubset(groups):
+                        connected = True
+                        new_max_overlap.append(x)
+                        for y in list(unused):
+                            if set(y).issubset(x):
+                                unused.remove(y)
+                        break
+                if connected:
+                    continue
 
-                        # now check if it's possible by checking if all combinations of the
-                        # indices appear
-                        possible = True
-                        for y in combinations(x, n):
-                            if y not in max_overlap:
-                                possible = False
-                                break
+                # now check if it's possible by checking if all combinations of the
+                # indices appear
+                possible = True
+                for y in combinations(x, n):
+                    if y not in max_overlap:
+                        possible = False
+                        break
 
-                        if not possible:
-                            continue
+                if not possible:
+                    continue
 
-                        p = cvxpy.Problem(cvxpy.Minimize(1), [el_fun[e][1] <= 0 for e in x])
-                        result = p.solve()
-                        if p.status == cvxpy.OPTIMAL:
-                            new_max_overlap.append(x)
-                            for y in list(unused):
-                                if set(y).issubset(x):
-                                    unused.remove(y)
+                p = cvxpy.Problem(cvxpy.Minimize(1), [ellipsoid_list[e][1] <= 0 for e in x] + extra_constraints)
+                result = p.solve()
+                if p.status == cvxpy.OPTIMAL:
+                    new_max_overlap.append(x)
+                    for y in list(unused):
+                        if set(y).issubset(x):
+                            unused.remove(y)
 
-                    for x in unused:
-                        done_overlaps.append(x)
+            for x in unused:
+                done_overlaps.append(x)
 
-                    max_overlap = new_max_overlap
+            max_overlap = new_max_overlap
 
-                all_overlaps = list(sorted(max_overlap + done_overlaps))
-            else:
-                overlap_structure = [] # make them sets
-                indices = list(range(len(el_fun)))
-                for n in range(len(el_fun), 0, -1):
-                    for x in combinations(indices, n):
-                        seen = False
-                        for y in overlap_structure:
-                            if set(x).issubset(y):
-                                seen = True
-                                break
-                        if seen:
-                            continue
+        return list(sorted(max_overlap + done_overlaps))
 
-                        p = cvxpy.Problem(cvxpy.Minimize(1), [el_fun[e][1] <= 0 for e in x])
-                        result = p.solve()
-                        if p.status == cvxpy.OPTIMAL:
-                            overlap_structure.append(set(x))
+    def determine_overlap_center(self, source_coordinates, overlap, ellipsoid_list, delta_param, extra_constraints):
+        """ Find the center in a region of overlap. Note that all source_coordinates must be used in the constraints."""
+        # Determine all involved loop momenta
+        involved_loop_momenta = [False for _ in range(self.n_loops)]
+        loop_line_indices = [ll_index for surf_id, _, _ in ellipsoid_list for (ll_index, _), _, _ in surf_id]
+        for ll_index in loop_line_indices:
+            for mom_index, sig in enumerate(self.loop_lines[ll_index].signature):
+                involved_loop_momenta[mom_index] |= sig != 0
+        n_radii = len([m for m in involved_loop_momenta if m])
 
-                all_overlaps = list(sorted(tuple(i) for i in overlap_structure))
-
-
-        print('Overlap structure of %s: %s' % (self.name, all_overlaps))
-
-        self.fixed_deformation = []
 
         # Find the point of maximal overlap
-        for overlap in all_overlaps:
-            radii = [cvxpy.Variable(3,nonneg=True) for _ in range(self.n_loops)]
-            # note: the opposite direction needs to be in there
-            directions = [
-                cvxpy.Parameter(3, value=np.array([-1., 0., 0.])),
-                cvxpy.Parameter(3, value=np.array([+1., 0., 0.])),
-                cvxpy.Parameter(3, value=np.array([0., +1., 0.])),
-                cvxpy.Parameter(3, value=np.array([0.,-1., 0.])),
-                cvxpy.Parameter(3, value=np.array([0., 0., +1.])),
-                cvxpy.Parameter(3, value=np.array([0., 0., -1.])),
-            ]
+        radii = [cvxpy.Variable(3,nonneg=True) for _ in range(n_radii)]
+        # note: the opposite direction needs to be in there
+        directions = [
+            cvxpy.Constant(numpy.array([-1., 0., 0.])),
+            cvxpy.Constant(numpy.array([+1., 0., 0.])),
+            cvxpy.Constant(numpy.array([0., +1., 0.])),
+            cvxpy.Constant(numpy.array([0.,-1., 0.])),
+            cvxpy.Constant(numpy.array([0., 0., +1.])),
+            cvxpy.Constant(numpy.array([0., 0., -1.])),
+        ]
 
-            # now construct several constaints from the ellipsoid function
-            constraints = []
-            for directions in product(directions, repeat=self.n_loops):
-                source_shifted = [s + d*r for d, r, s in zip(directions, radii, source_coordinates)]
-                for overlap_ellipse_ids in overlap:
-                    (overall_sign, foci) = el_fun[overlap_ellipse_ids][2]
-                    expr = 0
-                    for (sign, delta_index, shift) in foci:
-                        mom = 0
-                        (mom_dep, shift1, m1) = delta_func[delta_index]
-                        for (loop_index, mom_sign) in mom_dep:
-                            mom += source_shifted[loop_index] * mom_sign
-                        mom += shift1
-                        expr += int(sign) * cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + (-shift)
+        # now construct several constaints from the ellipsoid function
+        constraints = [c for c in extra_constraints]
+        for direction in product(directions, repeat=n_radii):
+            source_shifted = [None for _ in source_coordinates]
+            radius_direction_index = 0
+            for i, (is_involved, s) in enumerate(zip(involved_loop_momenta, source_coordinates)):
+                if is_involved:
+                    source_shifted[i] = s + direction[radius_direction_index] * radii[radius_direction_index]
+                    radius_direction_index += 1
 
-                    if overall_sign < 0:
-                        constraints.append(expr >= 0)
-                    else:
-                        constraints.append(expr <= 0)
+            for overlap_ellipse_ids in overlap:
+                (overall_sign, foci) = ellipsoid_list[overlap_ellipse_ids][2]
+                expr = 0
+                for (sign, delta_index, shift) in foci:
+                    mom = 0
+                    (mom_dep, shift1, m1) = delta_param[delta_index]
+                    for (loop_index, mom_sign) in mom_dep:
+                        mom += source_shifted[loop_index] * mom_sign
+                    mom += shift1
+                    expr += int(sign) * cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + (-shift)
 
-            # objective
-            objective = cvxpy.Maximize(sum(sum(radius) for radius in radii))
-            p = cvxpy.Problem(objective, constraints)
-            try:
-                result = p.solve()
+                if overall_sign < 0:
+                    constraints.append(expr >= 0)
+                else:
+                    constraints.append(expr <= 0)
 
-                excluded_loop_lines = list(range(len(self.loop_lines))) # for now, exclude all loop lines for the branch cut check
-                excluded = [[[list(x), a, b] for x, a, b in el_fun[i][0] ] for i in range(len(el_fun)) if i not in overlap]
-
-                fixed_deformation = {'deformation_sources': [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates], 
-                        'weight_per_source': [1. for _ in source_coordinates],
-                        'excluded_loop_lines': excluded_loop_lines, 'excluded_surface_ids': excluded}
-                self.fixed_deformation.append(fixed_deformation)
-            except Exception as e:
-                print("Could not solve system, it should have a solution")
-                for i_c, c in enumerate(constraints):
-                    print("Constraint id=%d"%i_c)
-                    print("Constraint: '%s' "%(str(c)))
-                    print("Is dcp: %s"%c.is_dcp())
-
-                raise
-
-        print('Fixed deformation', self.fixed_deformation)
-
+        # objective
+        objective = cvxpy.Maximize(sum(sum(radius) for radius in radii))
+        p = cvxpy.Problem(objective, constraints)
+        try:
+            p.solve()
+            return [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates]
+        except Exception as e:
+            print("Could not solve system, it should have a solution")
+            for i_c, c in enumerate(constraints):
+                print("Constraint id=%d"%i_c)
+                print("Constraint: '%s' "%(str(c)))
+                print("Is dcp: %s"%c.is_dcp())
+            raise
 
 class LoopLine(object):
     """ A simple container for describing a loop line."""

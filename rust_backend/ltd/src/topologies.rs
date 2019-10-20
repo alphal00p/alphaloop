@@ -14,7 +14,7 @@ use Settings;
 pub enum SurfaceType {
     Ellipsoid,
     Hyperboloid,
-    Pinch
+    Pinch,
 }
 
 /// Ellipsoid and hyperboloid surfaces
@@ -307,17 +307,21 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> 
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct FixedDeformation {
+pub struct FixedDeformationOverlap {
     pub deformation_sources: Vec<LorentzVector<f64>>,
-    pub weight_per_source: Vec<f64>,
-    pub excluded_loop_lines: Vec<usize>,
     pub excluded_surface_ids: Vec<Vec<((usize, usize), i8, i8)>>,
     #[serde(skip_deserializing)]
     pub excluded_surface_indices: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Topology  {
+pub struct FixedDeformationLimit {
+    pub deformation_per_overlap: Vec<FixedDeformationOverlap>,
+    pub excluded_propagators: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Topology {
     pub name: String,
     pub n_loops: usize,
     pub analytical_result_real: Option<f64>,
@@ -342,11 +346,11 @@ pub struct Topology  {
     #[serde(skip_deserializing)]
     pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
     #[serde(default)]
-    pub fixed_deformation: Vec<FixedDeformation>,
+    pub fixed_deformation: Vec<FixedDeformationLimit>,
     #[serde(skip_deserializing)]
     pub all_excluded_surfaces: Vec<bool>,
     #[serde(default)]
-    pub amplitude: Amplitude
+    pub amplitude: Amplitude,
 }
 
 impl Topology {

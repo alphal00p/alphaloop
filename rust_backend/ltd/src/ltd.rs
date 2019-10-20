@@ -554,19 +554,21 @@ impl Topology {
         }
 
         self.all_excluded_surfaces = vec![false; self.surfaces.len()];
-        for d in &mut self.fixed_deformation {
-            let mut found = false;
-            for surf_id in &d.excluded_surface_ids {
-                for (i, s) in self.surfaces.iter().enumerate() {
-                    if s.id == *surf_id && i == s.group {
-                        d.excluded_surface_indices.push(i);
-                        self.all_excluded_surfaces[i] = true;
-                        found = true;
+        for d_lim in &mut self.fixed_deformation {
+            for d in &mut d_lim.deformation_per_overlap {
+                let mut found = false;
+                for surf_id in &d.excluded_surface_ids {
+                    for (i, s) in self.surfaces.iter().enumerate() {
+                        if s.id == *surf_id && i == s.group {
+                            d.excluded_surface_indices.push(i);
+                            self.all_excluded_surfaces[i] = true;
+                            found = true;
+                        }
                     }
-                }
 
-                if !found {
-                    panic!("Unkown surface id in fixed deformation: {:?}", surf_id);
+                    if !found {
+                        panic!("Unkown surface id in fixed deformation: {:?}", surf_id);
+                    }
                 }
             }
         }
@@ -578,21 +580,23 @@ impl Topology {
         }
 
         // check if the deformation sources satisfy their constraints
-        for d in &self.fixed_deformation {
-            let loop_momenta = (0..self.n_loops)
-                .map(|i| d.deformation_sources[i].map(|x| Complex::new(x, 0.)))
-                .collect::<Vec<_>>();
-            for (surf_index, surf) in self.surfaces.iter().enumerate() {
-                if surf.group == surf_index
-                    && surf.surface_type == SurfaceType::Ellipsoid
-                    && !d.excluded_surface_indices.contains(&surf_index)
-                {
-                    let r = self.evaluate_surface_complex(surf, &loop_momenta);
-                    if surf.delta_sign > 0 && r.re >= 0. || surf.delta_sign < 0 && r.re <= 0. {
-                        println!(
-                            "Deformation source {:?} is not on the inside of surface {}: {}",
-                            d.deformation_sources, surf_index, r.re
-                        );
+        for d_lim in &self.fixed_deformation {
+            for d in &d_lim.deformation_per_overlap {
+                let loop_momenta = (0..self.n_loops)
+                    .map(|i| d.deformation_sources[i].map(|x| Complex::new(x, 0.)))
+                    .collect::<Vec<_>>();
+                for (surf_index, surf) in self.surfaces.iter().enumerate() {
+                    if surf.group == surf_index
+                        && surf.surface_type == SurfaceType::Ellipsoid
+                        && !d.excluded_surface_indices.contains(&surf_index)
+                    {
+                        let r = self.evaluate_surface_complex(surf, &loop_momenta);
+                        if surf.delta_sign > 0 && r.re >= 0. || surf.delta_sign < 0 && r.re <= 0. {
+                            println!(
+                                "Deformation source {:?} is not on the inside of surface {}: {}",
+                                d.deformation_sources, surf_index, r.re
+                            );
+                        }
                     }
                 }
             }
@@ -1425,107 +1429,110 @@ impl Topology {
 
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
-        let mut lambda = DualN::one();
         let mut mij = Into::<T>::into(self.settings.deformation.fixed.m_ij);
 
-        for (i, d) in self.fixed_deformation.iter().enumerate() {
-            if i < self.settings.deformation.lambdas.len() {
-                lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
+        for d_lim in &self.fixed_deformation {
+            for k in &mut kappa_source {
+                *k = LorentzVector::default();
             }
 
-            let mut s = DualN::one();
-            let mut softmin_num = DualN::zero();
-            let mut softmin_den = DualN::zero();
+            for d in &d_lim.deformation_per_overlap {
+                let mut lambda = DualN::one();
+                // TODO: index
+                /*if i < self.settings.deformation.lambdas.len() {
+                    lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
+                }*/
 
-            for &surf_index in &d.excluded_surface_indices {
-                if surf_index < self.settings.deformation.fixed.m_ijs.len() {
-                    mij = Into::<T>::into(self.settings.deformation.fixed.m_ijs[surf_index]);
-                }
+                let mut s = DualN::one();
+                let mut softmin_num = DualN::zero();
+                let mut softmin_den = DualN::zero();
 
-                // t is the weighing factor that is 0 if we are on both cut_i and cut_j
-                // at the same time and goes to 1 otherwise
-                debug_assert!(self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid);
-                let t = cache.ellipsoid_eval[surf_index];
-
-                let sup = if self.settings.deformation.fixed.mode == AdditiveMode::SoftMin {
-                    if self.settings.deformation.fixed.sigma.is_zero() {
-                        s = s.min(t);
-                        s
-                    } else {
-                        let e = (-t / Into::<T>::into(self.settings.deformation.fixed.sigma)).exp();
-                        softmin_num += t * e;
-                        softmin_den += e;
-                        e
+                for &surf_index in &d.excluded_surface_indices {
+                    if surf_index < self.settings.deformation.fixed.m_ijs.len() {
+                        mij = Into::<T>::into(self.settings.deformation.fixed.m_ijs[surf_index]);
                     }
-                } else {
-                    let sup = t / (t + mij);
-                    s *= sup;
-                    sup
-                };
 
+                    // t is the weighing factor that is 0 if we are on both cut_i and cut_j
+                    // at the same time and goes to 1 otherwise
+                    debug_assert!(self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid);
+                    let t = cache.ellipsoid_eval[surf_index];
+
+                    let sup = if self.settings.deformation.fixed.mode == AdditiveMode::SoftMin {
+                        if self.settings.deformation.fixed.sigma.is_zero() {
+                            s = s.min(t);
+                            s
+                        } else {
+                            let e =
+                                (-t / Into::<T>::into(self.settings.deformation.fixed.sigma)).exp();
+                            softmin_num += t * e;
+                            softmin_den += e;
+                            e
+                        }
+                    } else {
+                        let sup = t / (t + mij);
+                        s *= sup;
+                        sup
+                    };
+
+                    if self.settings.general.debug > 2 {
+                        println!(
+                            "  | surf {}: t={:e}, suppression={:e}",
+                            surf_index,
+                            t.real(),
+                            sup.real()
+                        );
+                    }
+
+                    if self.settings.deformation.fixed.mode == AdditiveMode::SoftMin {
+                        if !self.settings.deformation.fixed.sigma.is_zero() {
+                            s = softmin_num / softmin_den;
+                        }
+
+                        if !self.settings.deformation.fixed.m_ij.is_zero() {
+                            s = s / (s + mij);
+                        }
+                    }
+                }
                 if self.settings.general.debug > 2 {
                     println!(
-                        "  | surf {}: t={:e}, suppression={:e}",
-                        surf_index,
-                        t.real(),
-                        sup.real()
+                        "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
+                        loop_momenta[0].real(),
+                        &d.deformation_sources[0],
+                        s.real(),
+                        &d.deformation_sources[0].cast() * s.real(),
                     );
                 }
 
-                if self.settings.deformation.fixed.mode == AdditiveMode::SoftMin {
-                    if !self.settings.deformation.fixed.sigma.is_zero() {
-                        s = softmin_num / softmin_den;
+                // normalize the deformation vector per source
+                if self.settings.deformation.fixed.overall_normalization {
+                    let mut normalization = DualN::zero();
+                    for ii in 0..self.n_loops {
+                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                        normalization += dir.spatial_squared_impr();
                     }
 
-                    if !self.settings.deformation.fixed.m_ij.is_zero() {
-                        s = s / (s + mij);
+                    normalization = normalization.sqrt();
+
+                    for ii in 0..self.n_loops {
+                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                        kappa_source[ii] += -dir / normalization * s * lambda;
                     }
-                }
-            }
-
-            if self.settings.general.debug > 2 {
-                println!(
-                    "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
-                    loop_momenta[0].real(),
-                    &d.deformation_sources[0],
-                    s.real(),
-                    &d.deformation_sources[0].cast() * s.real(),
-                );
-            }
-
-            // normalize the deformation vector per source
-            if self.settings.deformation.fixed.overall_normalization {
-                let mut normalization = DualN::zero();
-                for ii in 0..self.n_loops {
-                    let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
-                        * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
-                    normalization += dir.spatial_squared_impr();
-                }
-
-                normalization = normalization.sqrt();
-
-                for ii in 0..self.n_loops {
-                    let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
-                        * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
-                    kappa_source[ii] = -dir / normalization * s * lambda;
-                }
-            } else if self.settings.deformation.fixed.no_normalization {
-                for ii in 0..self.n_loops {
-                    let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
-                        * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
-                    // the kappa returned by this function is expected to be dimensionless
-                    kappa_source[ii] = -dir * s * lambda
-                        / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
-                }
-            } else {
-                for ii in 0..self.n_loops {
-                    let dir = (loop_momenta[ii] - d.deformation_sources[ii].cast())
-                        * DualN::from_real(Into::<T>::into(d.weight_per_source[ii]));
-                    let length = dir.spatial_distance();
-                    if length.real().is_zero() {
-                        kappa_source[ii] = LorentzVector::default();
-                    } else {
-                        kappa_source[ii] = -dir / length * s * lambda;
+                } else if self.settings.deformation.fixed.no_normalization {
+                    for ii in 0..self.n_loops {
+                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                        // the kappa returned by this function is expected to be dimensionless
+                        kappa_source[ii] += -dir * s * lambda
+                            / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
+                    }
+                } else {
+                    for ii in 0..self.n_loops {
+                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                        let length = dir.spatial_distance();
+                        if length.real().is_zero() {
+                            kappa_source[ii] += LorentzVector::default();
+                        } else {
+                            kappa_source[ii] += -dir / length * s * lambda;
+                        }
                     }
                 }
             }
@@ -1534,10 +1541,6 @@ impl Topology {
             // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
             let mut lambda_sq = DualN::one();
             for (ll_index, ll) in self.loop_lines.iter().enumerate() {
-                if d.excluded_loop_lines.contains(&ll_index) {
-                    continue;
-                }
-
                 let mut kappa_cut = LorentzVector::default();
                 for (kappa, &sign) in kappa_source[..self.n_loops]
                     .iter()
@@ -1546,7 +1549,11 @@ impl Topology {
                     kappa_cut += kappa.multiply_sign(sign);
                 }
 
-                for p in &ll.propagators {
+                for (prop_index, p) in ll.propagators.iter().enumerate() {
+                    if d_lim.excluded_propagators.contains(&(ll_index, prop_index)) {
+                        continue;
+                    }
+
                     let lambda_disc_sq = cache.cut_info[p.id].spatial_and_mass_sq
                         / kappa_cut.spatial_squared_impr()
                         * DualN::from_real(Into::<T>::into(0.95));

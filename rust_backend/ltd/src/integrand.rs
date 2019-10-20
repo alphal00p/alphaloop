@@ -3,8 +3,8 @@ use colored::Colorize;
 use f128::f128;
 use float;
 use num::Complex;
-use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
 use num_traits::ops::inv::Inv;
+use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
 use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -110,17 +110,22 @@ impl Topology {
         }
 
         // now rotate the fixed deformation vectors
-        for def in &mut rotated_topology.fixed_deformation {
-            for source in &mut def.deformation_sources {
-                let old_x = source.x;
-                let old_y = source.y;
-                let old_z = source.z;
-                source.x =
-                    rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-                source.y =
-                    rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-                source.z =
-                    rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+        for d_lim in &mut rotated_topology.fixed_deformation {
+            for d in &mut d_lim.deformation_per_overlap {
+                for source in &mut d.deformation_sources {
+                    let old_x = source.x;
+                    let old_y = source.y;
+                    let old_z = source.z;
+                    source.x = rot_matrix[0][0] * old_x
+                        + rot_matrix[0][1] * old_y
+                        + rot_matrix[0][2] * old_z;
+                    source.y = rot_matrix[1][0] * old_x
+                        + rot_matrix[1][1] * old_y
+                        + rot_matrix[1][2] * old_z;
+                    source.z = rot_matrix[2][0] * old_x
+                        + rot_matrix[2][1] * old_y
+                        + rot_matrix[2][2] * old_z;
+                }
             }
         }
 
