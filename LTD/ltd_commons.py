@@ -92,12 +92,12 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : -0.1,
+            'lambda'                    : 0.1,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : True,
             'expansion_threshold'       : 0.1,
-            'positive_cut_check'        : False ,
+            'positive_cut_check'        : True,
             'cut_propagator_check'      : True,
             'non_cut_propagator_check'  : True,
             'skip_hyperboloids'         : True,
@@ -118,7 +118,7 @@ hyperparameters = HyperParameters({
             'mode'  :   'hyperbolic',
             # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
             'm_ijs' : [],
-            'overall_normalization': False,
+            'overall_normalization': True,
             'no_normalization': False,
         }
     },
