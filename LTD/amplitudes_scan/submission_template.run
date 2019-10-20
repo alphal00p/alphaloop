@@ -1,0 +1,19 @@
+#!/bin/bash -l
+
+#SBATCH --job-name="%(job_name)s"
+#SBATCH --time=%(n_hours)d:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-core=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=%(n_cpus_per_task)d
+#SBATCH --partition=normal
+#SBATCH --constraint=mc
+#SBATCH --output=%(output)s
+#SBATCH --error=%(error)s
+#SBATCH --mail-type=start,end,fail
+
+echo $SLURM_CPUS_PER_TASK
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+srun %(executable_line)s
