@@ -1,9 +1,9 @@
-F2PY = f2py
+F2PY = f2py3
 FC = gfortran
-ONELOOP_LIB_PATH = /users/hirschva/MG5/HEPTools/oneloop
-ONELOOP_INC_PATH = /users/hirschva/MG5/HEPTools/oneloop
-#ONELOOP_LIB_PATH = /Users/valentin/Documents/MG5/HEPTools/oneloop
-#ONELOOP_INC_PATH = /Users/valentin/Documents/MG5/HEPTools/oneloop
+#ONELOOP_LIB_PATH = /users/hirschva/MG5/HEPTools/oneloop
+#ONELOOP_INC_PATH = /users/hirschva/MG5/HEPTools/oneloop
+ONELOOP_LIB_PATH = /Users/valentin/Documents/MG5/HEPTools/oneloop
+ONELOOP_INC_PATH = /Users/valentin/Documents/MG5/HEPTools/oneloop
 
 all: pyAVH_OneLOop_hook.so
 
