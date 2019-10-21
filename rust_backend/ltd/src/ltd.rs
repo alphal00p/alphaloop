@@ -1536,6 +1536,13 @@ impl Topology {
                     );
                 }
 
+                // make sure the lambda growth coming from multiple sources is under control
+                for ii in 0..self.n_loops {
+                    kappa_source[ii] *= DualN::from_real(Into::<T>::into(
+                        1. / d_lim.deformation_per_overlap.len() as f64,
+                    ));
+                }
+
                 // normalize the deformation vector per source
                 if self.settings.deformation.fixed.no_normalization {
                     for ii in 0..self.n_loops {
@@ -1562,7 +1569,13 @@ impl Topology {
 
             // now do the branch cut check per non-excluded loop line
             // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
-            let mut lambda_sq = DualN::one();
+            let mut lambda_sq = DualN::from_real(Into::<T>::into(
+                self.settings
+                    .deformation
+                    .scaling
+                    .source_branch_cut_threshold
+                    .powi(2),
+            ));
             for (ll_index, ll) in self.loop_lines.iter().enumerate() {
                 let mut kappa_cut = LorentzVector::default();
                 for (kappa, &sign) in kappa_source[..self.n_loops]
@@ -1589,7 +1602,9 @@ impl Topology {
             let lambda = lambda_sq.sqrt();
 
             for ii in 0..self.n_loops {
-                kappas[ii] += kappa_source[ii] * lambda;
+                kappas[ii] += kappa_source[ii]
+                    * lambda
+                    * DualN::from_real(Into::<T>::into(1. / self.fixed_deformation.len() as f64));
             }
         }
 

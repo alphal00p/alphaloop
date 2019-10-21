@@ -81,6 +81,7 @@ pub struct Scaling {
     pub cut_propagator_check: bool,
     pub non_cut_propagator_check: bool,
     pub skip_hyperboloids: bool,
+    pub source_branch_cut_threshold: f64,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
