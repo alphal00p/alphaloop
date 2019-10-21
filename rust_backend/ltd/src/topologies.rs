@@ -321,6 +321,12 @@ pub struct FixedDeformationLimit {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct ConstantDeformation {
+    pub alpha: Vec<LorentzVector<f64>>,
+    pub beta: Vec<LorentzVector<f64>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Topology {
     pub name: String,
     pub n_loops: usize,
@@ -347,6 +353,7 @@ pub struct Topology {
     pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
     #[serde(default)]
     pub fixed_deformation: Vec<FixedDeformationLimit>,
+    pub constant_deformation: Option<ConstantDeformation>,
     #[serde(skip_deserializing)]
     pub all_excluded_surfaces: Vec<bool>,
     #[serde(default)]

@@ -402,7 +402,7 @@ class TopologyGenerator(object):
         return cut_stucture
 
     def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None, 
-                                        contour_closure=None, analytic_result=None, fixed_deformation=None):
+                                contour_closure=None, analytic_result=None, fixed_deformation=None, constant_deformation=None):
         if loop_momenta_names is None:
             loop_momenta = self.loop_momentum_bases()[0]
         else:
@@ -499,7 +499,8 @@ class TopologyGenerator(object):
         external_kinematics = [ext_mom[key] for key in sorted(ext_mom.keys())]
         
         loop_topology = LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
-            ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result, fixed_deformation = fixed_deformation)
+            ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result, fixed_deformation = fixed_deformation,
+            constant_deformation = constant_deformation)
 
         if analytic_result is None:
             loop_topology.analytic_result = self.guess_analytical_result(loop_momenta, ext_mom, mass_map)
@@ -508,6 +509,9 @@ class TopologyGenerator(object):
             # TODO generate the source coordinates automatically with cvxpy if 
             # not specified.
             loop_topology.build_fixed_deformation(force=(fixed_deformation is True))
+        
+        if constant_deformation is None:
+            loop_topology.build_constant_deformation()
 
         return loop_topology
 
@@ -616,7 +620,8 @@ class TopologyGenerator(object):
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
-    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None, fixed_deformation=None, **opts):
+    def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
+        fixed_deformation=None, constant_deformation=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -638,6 +643,7 @@ class LoopTopology(object):
             self.analytic_result   = analytic_result
 
         self.fixed_deformation = fixed_deformation
+        self.constant_deformation = constant_deformation
 
     def evaluate(self, loop_momenta):
         """ Evaluates Loop topology with the provided list loop momenta, given as a list of LorentzVector."""
@@ -820,6 +826,7 @@ class LoopTopology(object):
 
         if self.fixed_deformation is not None:
             res['fixed_deformation'] = self.fixed_deformation
+        res['constant_deformation'] = self.constant_deformation
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
         res['analytical_result_real'] = float(self.analytic_result.real) if self.analytic_result else 0.
@@ -881,8 +888,6 @@ class LoopTopology(object):
         for num_cuts in range(self.n_loops):
             for ll_combs in combinations(range(len(self.loop_lines)), num_cuts):
                 for prop_combs in product(*[range(len(self.loop_lines[ll].propagators)) for ll in ll_combs]):
-                    # TODO: only set propagators on-shell whose delta appears in an ellipsoid
-
                     # construct the on-shell constraints
                     constraints = []
                     for (ll_index, prop_index) in zip(ll_combs, prop_combs):
@@ -931,7 +936,7 @@ class LoopTopology(object):
                                                     'excluded_propagators': [list(x) for x in zip(ll_combs, prop_combs)]
                                                     })
 
-        print('Fixed deformation: %s' % pprint.pprint(self.fixed_deformation))
+        print('Fixed deformation: %s' % pprint.pformat(self.fixed_deformation))
 
     def build_existing_ellipsoids(self, source_coordinates):
         # Then store the shifts and mass from each propagator delta
@@ -1179,6 +1184,13 @@ class LoopTopology(object):
                 print("Constraint: '%s' "%(str(c)))
                 print("Is dcp: %s"%c.is_dcp())
             raise
+
+    def build_constant_deformation(self):
+        # deform with constant a * k/|k| + b
+        self.constant_deformation = {
+            'a'  :  [0, 0, 0, 1],
+            'b' :   [0, 0, 0, 0],
+        }
 
 class LoopLine(object):
     """ A simple container for describing a loop line."""

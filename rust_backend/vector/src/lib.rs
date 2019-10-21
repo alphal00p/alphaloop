@@ -210,6 +210,11 @@ impl<T: Field> LorentzVector<T> {
     }
 
     #[inline]
+    pub fn comp_mul(&self, other: &LorentzVector<T>) -> LorentzVector<T> {
+        LorentzVector::from_args(self.t * other.t, self.x * other.x, self.y * other.y, self.z * other.z)
+    }
+
+    #[inline]
     pub fn euclidean_dot(&self, other: &LorentzVector<T>) -> T {
         self.t * other.t + self.x * other.x + self.y * other.y + self.z * other.z
     }

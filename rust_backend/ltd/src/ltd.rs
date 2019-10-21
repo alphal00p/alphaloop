@@ -579,6 +579,12 @@ impl Topology {
             panic!("Fixed deformation strategy selected but none was provided.");
         }
 
+        if self.settings.general.deformation_strategy == DeformationStrategy::Constant
+            && self.constant_deformation.is_none()
+        {
+            panic!("Constant deformation strategy selected but none was provided.");
+        }
+
         // check if the deformation sources satisfy their constraints
         for d_lim in &self.fixed_deformation {
             for d in &d_lim.deformation_per_overlap {
@@ -1349,11 +1355,9 @@ impl Topology {
     }
 
     /// Construct a constant deformation vector.
-    /// If an ellipse id is specified, it will be a different constant per ellipse.
     fn deform_constant<U: DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
-        ellipsoid_id: Option<usize>,
     ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
     where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
@@ -1361,13 +1365,42 @@ impl Topology {
         LTDCache<T>: CacheSelector<T, U>,
     {
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
+        let cd = self.constant_deformation.as_ref().unwrap();
 
         for i in 0..self.n_loops {
             kappas[i] = loop_momenta[i] / loop_momenta[i].spatial_squared_impr().sqrt();
 
-            if let Some(e) = ellipsoid_id {
-                kappas[i] *= DualN::from_real(Into::<T>::into(e as f64 + 1.));
-            }
+            let rot_matrix = &self.rotation_matrix;
+
+            // rotate the k back to the original frame
+            let old_x = kappas[i].x;
+            let old_y = kappas[i].y;
+            let old_z = kappas[i].z;
+            kappas[i].x = old_x * Into::<T>::into(rot_matrix[0][0])
+                + old_y * Into::<T>::into(rot_matrix[1][0])
+                + old_z * Into::<T>::into(rot_matrix[2][0]);
+            kappas[i].y = old_x * Into::<T>::into(rot_matrix[0][1])
+                + old_y * Into::<T>::into(rot_matrix[1][1])
+                + old_z * Into::<T>::into(rot_matrix[2][1]);
+            kappas[i].z = old_x * Into::<T>::into(rot_matrix[0][2])
+                + old_y * Into::<T>::into(rot_matrix[1][2])
+                + old_z * Into::<T>::into(rot_matrix[2][2]);
+
+            kappas[i] = kappas[i].comp_mul(&cd.alpha[i].cast()) + cd.beta[i].cast();
+
+            // now rotate the constant deformation for rotated topologies
+            let old_x = kappas[i].x;
+            let old_y = kappas[i].y;
+            let old_z = kappas[i].z;
+            kappas[i].x = old_x * Into::<T>::into(rot_matrix[0][0])
+                + old_y * Into::<T>::into(rot_matrix[0][1])
+                + old_z * Into::<T>::into(rot_matrix[0][2]);
+            kappas[i].y = old_x * Into::<T>::into(rot_matrix[1][0])
+                + old_y * Into::<T>::into(rot_matrix[1][1])
+                + old_z * Into::<T>::into(rot_matrix[1][2]);
+            kappas[i].z = old_x * Into::<T>::into(rot_matrix[2][0])
+                + old_y * Into::<T>::into(rot_matrix[2][1])
+                + old_z * Into::<T>::into(rot_matrix[2][2]);
         }
 
         kappas
@@ -1504,7 +1537,14 @@ impl Topology {
                 }
 
                 // normalize the deformation vector per source
-                if self.settings.deformation.fixed.overall_normalization {
+                if self.settings.deformation.fixed.no_normalization {
+                    for ii in 0..self.n_loops {
+                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                        // the kappa returned by this function is expected to be dimensionless
+                        kappa_source[ii] += -dir * s * lambda
+                            / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
+                    }
+                } else {
                     let mut normalization = DualN::zero();
                     for ii in 0..self.n_loops {
                         let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
@@ -1516,23 +1556,6 @@ impl Topology {
                     for ii in 0..self.n_loops {
                         let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
                         kappa_source[ii] += -dir / normalization * s * lambda;
-                    }
-                } else if self.settings.deformation.fixed.no_normalization {
-                    for ii in 0..self.n_loops {
-                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
-                        // the kappa returned by this function is expected to be dimensionless
-                        kappa_source[ii] += -dir * s * lambda
-                            / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
-                    }
-                } else {
-                    for ii in 0..self.n_loops {
-                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
-                        let length = dir.spatial_distance();
-                        if length.real().is_zero() {
-                            kappa_source[ii] += LorentzVector::default();
-                        } else {
-                            kappa_source[ii] += -dir / length * s * lambda;
-                        }
                     }
                 }
             }
@@ -1632,7 +1655,7 @@ impl Topology {
                 self.deform_intersections(ellipsoid_id.unwrap(), cache)
             }
             DeformationStrategy::Additive => self.deform_ellipsoids(cache),
-            DeformationStrategy::Constant => self.deform_constant(loop_momenta, ellipsoid_id),
+            DeformationStrategy::Constant => self.deform_constant(loop_momenta),
             DeformationStrategy::Fixed => self.deform_fixed(loop_momenta, cache),
             DeformationStrategy::None => unreachable!(),
         };
