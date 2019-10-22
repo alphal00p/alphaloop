@@ -190,6 +190,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub complex_cut_energies: Vec<Complex<T>>,
     pub complex_prop_spatial: Vec<Complex<T>>,
     pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
+    pub overall_lambda: T, // used to log the minimum
 }
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
@@ -214,6 +215,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
                 .iter()
                 .map(|ll| vec![[Complex::default(); 2]; ll.propagators.len()])
                 .collect(),
+            overall_lambda: T::zero(),
         }
     }
 }
