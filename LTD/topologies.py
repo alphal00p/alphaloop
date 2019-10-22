@@ -164,7 +164,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
         ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': -q4-q3-q2-q1  }, 
         mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
-        analytic_result=(-2.82935e-8 + 2.63906e-3j)/(16*(math.pi**2)), # For triangle and box one-loop topology, the analytic result is automatically computed
+        analytic_result=(4.17837e-10 + 8.9920e-11j), # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
    #     fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
      ),
@@ -186,7 +186,7 @@ hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
         ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': -q4-q3-q2-q1  }, 
         mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
         loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
-        analytic_result=(-3.47721e-11 -4.37955e-13j)/(16.*(math.pi**2.)), # For triangle and box one-loop topology, the analytic result is automatically computed
+        analytic_result=4.11869699200997676e-15 - 2.18057189296491341e-13j, # For triangle and box one-loop topology, the analytic result is automatically computed
         # For now specified by hand as the cvxpy automated implementation is not done yet
    #     fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
      ),
