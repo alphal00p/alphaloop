@@ -20,6 +20,7 @@ pub struct Integrand {
     pub cache_float: LTDCache<float>,
     pub cache_f128: LTDCache<f128>,
     pub running_max: Complex<float>,
+    pub running_min_lambda: float,
     pub total_samples: usize,
     pub nan_point_count: usize,
     pub unstable_point_count: usize,
@@ -168,6 +169,7 @@ impl Integrand {
             unstable_point_count: 0,
             unstable_f128_point_count: 0,
             nan_point_count: 0,
+            running_min_lambda: float::infinity(),
             log: BufWriter::new(
                 File::create(format!("{}{}.log", settings.general.log_file_prefix, id))
                     .expect("Could not create log file"),
@@ -253,19 +255,20 @@ impl Integrand {
                 || self.settings.general.screen_log_core == Some(self.id))
         {
             eprintln!(
-            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
+            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)\n  | running min lambda={}",
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_f128_point_count, self.unstable_f128_point_count as f64 / self.total_samples as f64 * 100.,
-            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.);
+            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100., self.running_min_lambda);
         }
 
         writeln!(self.log,
-            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)",
+            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)\n  | running min lambda={}",
             self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
             self.unstable_f128_point_count, self.unstable_f128_point_count as f64 / self.total_samples as f64 * 100.,
-            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.).unwrap();
+            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.,
+            self.running_min_lambda).unwrap();
     }
 
     fn check_stability<T: FloatLike>(
@@ -332,6 +335,10 @@ impl Integrand {
             self.topologies[0].evaluate(x, &mut cache_float, &self.python_numerator);
         let (d, diff, result_rot) = self.check_stability(x, result, &mut cache_float);
         std::mem::swap(&mut self.cache_float, &mut cache_float);
+
+        if self.cache_float.overall_lambda < self.running_min_lambda {
+            self.running_min_lambda = self.cache_float.overall_lambda;
+        }
 
         self.total_samples += 1;
 
