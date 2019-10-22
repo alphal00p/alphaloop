@@ -1175,6 +1175,7 @@ class LoopTopology(object):
         objective = cvxpy.Maximize(sum(sum(radius) for radius in radii))
         p = cvxpy.Problem(objective, constraints)
         try:
+            #p.solve(verbose=True)
             p.solve()
             return [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates]
         except Exception as e:

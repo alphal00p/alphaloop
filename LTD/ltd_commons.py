@@ -29,7 +29,7 @@ hyperparameters = HyperParameters({
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   3.,
         # absolute precision, heavily dependent on integral value
-        'absolute_precision'    :   1e-3,
+        'absolute_precision'    :   1e+99,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
         'num_digits_different_for_inconsistency': 10.,
