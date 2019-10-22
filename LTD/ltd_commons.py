@@ -85,6 +85,9 @@ hyperparameters = HyperParameters({
         'overall_scaling' : 'constant',
         # fraction of e_cm used for scaling
         'overall_scaling_constant'  : 1.,
+        # A negative number indicates this normalisation is disabled
+        # A positive number indicate the value to use in the T function for this normalisation strategy
+        'normalize_on_E_surfaces_m' : 0.1,
 
         # optionally set a different lambda per surface
         'lambdas'   : [],

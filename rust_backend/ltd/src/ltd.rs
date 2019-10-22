@@ -1617,6 +1617,86 @@ impl Topology {
         kappas
     }
 
+    fn normalize_on_E_surfaces<U: DimName, T: FloatLike>(
+        &self,
+        kappas: &mut[LorentzVector<DualN<T, U>>],
+        selector_M: f64,
+        cache: &mut LTDCache<T>,
+    )
+    where
+        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
+        dual_num::Owned<T, U>: Copy,
+        LTDCache<T>: CacheSelector<T, U>,
+    {
+
+        // Start cache
+        let cache = cache.get_cache_mut();
+
+        let mut E_surfaces_selection = DualN::one();
+
+       // First evaluate all E-surfaces and multiply them into the selector 
+        for (i, surf) in self.surfaces.iter().enumerate() {
+            if surf.surface_type != SurfaceType::Ellipsoid
+            {
+                cache.ellipsoid_eval[i] = DualN::zero();
+                continue;
+            }
+
+            let mut cut_counter = 0;
+            let mut cut_energy = DualN::default();
+            for (c, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
+                if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
+                    if let Cut::PositiveCut(i) = c {
+                        cut_energy += cache.cut_info[ll.propagators[*i].id]
+                            .real_energy
+                            .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
+                    } else {
+                        cut_energy -= cache.cut_info[ll.propagators[*i].id]
+                            .real_energy
+                            .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
+                    }
+
+                    cut_counter += 1;
+                }
+            }
+
+            let surface_prop =
+                &self.loop_lines[surf.onshell_ll_index].propagators[surf.onshell_prop_index];
+            cache.ellipsoid_eval[i] = cut_energy
+                + Into::<T>::into(surf.shift.t)
+                + cache.cut_info[surface_prop.id]
+                    .real_energy
+                    .multiply_sign(surf.delta_sign);
+
+            // take the square so that the number is always positive
+            cache.ellipsoid_eval[i] =
+                cache.ellipsoid_eval[i].powi(2) / Into::<T>::into(self.e_cm_squared);
+            
+            let t = cache.ellipsoid_eval[i];
+
+            let m = Into::<T>::into(selector_M.abs());
+
+            E_surfaces_selection *= (t / (t + m));
+
+        }
+
+        // Sum of \vec{kappa}^2 for the kappa of each loop
+        let mut current_norm = DualN::zero();
+        for ii in 0..self.n_loops {
+            current_norm += kappas[ii].spatial_squared_impr();
+        }
+        current_norm = (current_norm / DualN::from_real(Into::<T>::into( self.n_loops as f64 ))  ).sqrt();
+
+        let normalisation = DualN::one()/((E_surfaces_selection*(DualN::one()-current_norm) + current_norm));
+        
+        //println!("normalisation_on_E_surfaces={:e}\n", normalisation.real());
+
+        for k in kappas[..self.n_loops].iter_mut() {
+            *k *= normalisation;
+        }
+
+    }
+
     fn deform_generic<U: DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
@@ -1674,6 +1754,15 @@ impl Topology {
             DeformationStrategy::Fixed => self.deform_fixed(loop_momenta, cache),
             DeformationStrategy::None => unreachable!(),
         };
+        
+        // Force normalisation of the kappa on the E-surfaces
+        if self.settings.deformation.normalize_on_E_surfaces_m > 0. {
+            self.normalize_on_E_surfaces(
+                &mut kappas[..self.n_loops],
+                self.settings.deformation.scaling.lambda,
+                cache,
+            );
+        }
 
         // make sure the kappa has the right dimension by multiplying in the scale
         let scale = DualN::from_real(

@@ -196,6 +196,7 @@ pub struct DeformationFixedSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
     pub scaling: Scaling,
+    pub normalize_on_E_surfaces_m : f64,
     pub overall_scaling: OverallDeformationScaling,
     pub overall_scaling_constant: f64,
     pub lambdas: Vec<f64>,
