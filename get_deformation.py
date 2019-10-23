@@ -43,7 +43,7 @@ while True:
         break
     try:
         momenta_to_deform = momenta_to_deform.split(' ')
-        momenta_to_deform = [ [float(k) for k in momenta_to_deform[il*4:(il+1)*4]] for il in range(len(momenta_to_deform)/4) ]
+        momenta_to_deform = [ [float(k) for k in momenta_to_deform[il*3:(il+1)*3]] for il in range(len(momenta_to_deform)/3) ]
     except Exception as e:
         print "Parsing error of: %s"%momenta_to_deform
         print "Exception: %s"%str(e)
