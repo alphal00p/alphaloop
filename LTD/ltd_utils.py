@@ -1173,7 +1173,13 @@ class LoopTopology(object):
 
         # objective
         objective = cvxpy.Maximize(sum(sum(radius) for radius in radii))
+
+        # Example of how to force the z-component of the sources to be zero
+        #for c in source_coordinates:
+        #    constraints.append(c[2]==0.)
+
         p = cvxpy.Problem(objective, constraints)
+
         try:
             #p.solve(verbose=True)
             p.solve()

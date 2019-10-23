@@ -104,6 +104,59 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
      entry_name = 'Box_4E'
 )
 
+fixed_deformation = [{'deformation_per_overlap': [{'deformation_sources': [[0.0,
+                                                        1.7753337683882497,
+                                                        -6.34420992878801,
+                                                        0.0 ]],
+                               'excluded_surface_ids': [[[[0, 1], 1, 1],
+                                                         [[0, 3], 1, -1]],
+                                                        [[[0, 2], 1, 1],
+                                                         [[0, 3], 1, -1]]]},
+                              {'deformation_sources': [[0.0,
+                                                        -10.98354824164586,
+                                                        -29.54587623647136,
+                                                        0.0 ]],
+                               'excluded_surface_ids': [[[[0, 0], 1, -1],
+                                                         [[0, 2], 1, 1]],
+                                                        [[[0, 2], 1, 1],
+                                                         [[0, 3], 1, -1]]]},
+                              {'deformation_sources': [[0.0,
+                                                        27.596641411742628,
+                                                        -40.27143847946829,
+                                                        0.0 ]],
+                               'excluded_surface_ids': [[[[0, 0], 1, -1],
+                                                         [[0, 1], 1, 1]],
+                                                        [[[0, 1], 1, 1],
+                                                         [[0, 3], 1, -1]]]},
+                              {'deformation_sources': [[0.0,
+                                                        -2.62336418048707,
+                                                        -37.6748195962582,
+                                                        0.0 ]],
+                               'excluded_surface_ids': [[[[0, 0], 1, -1],
+                                                         [[0, 1], 1, 1]],
+                                                        [[[0, 0], 1, -1],
+                                                         [[0, 2], 1, 1]]]}],
+  'excluded_propagators': []}]
+box = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+])
+q1 = vectors.LorentzVector([14.0, -6.6, -40.0, 0.])
+q2 = vectors.LorentzVector([-43.0, 15.2, 33.0, 0.])
+q3 = vectors.LorentzVector([-17.9, -50.0, 11.8, 0.])
+hard_coded_topology_collection.add_topology(box.create_loop_topology(
+        "Box_4E_no_z_component_sources", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
+        fixed_deformation=fixed_deformation
+     ),
+     entry_name = 'Box_4E_no_z_component_sources'
+)
+
+
+
 # Box with customised ellipses from mathematica
 
 box = TopologyGenerator([
