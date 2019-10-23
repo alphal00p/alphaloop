@@ -133,7 +133,7 @@ where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
 {
-    pub ellipsoid_eval: Vec<DualN<T, U>>,
+    pub ellipsoid_eval: Vec<Option<DualN<T, U>>>,
     pub deform_dirs: Vec<LorentzVector<DualN<T, U>>>,
     pub non_empty_cuts: Vec<(usize, usize)>,
     pub deformation_jacobian: Vec<Complex<T>>,
@@ -168,7 +168,7 @@ where
 {
     fn new(num_loops: usize, num_surfaces: usize, num_propagators: usize) -> LTDCacheI<T, U> {
         LTDCacheI {
-            ellipsoid_eval: vec![DualN::default(); num_surfaces],
+            ellipsoid_eval: vec![None; num_surfaces],
             deform_dirs: vec![LorentzVector::default(); num_surfaces * num_loops],
             non_empty_cuts: vec![(0, 0); num_surfaces],
             deformation_jacobian: vec![Complex::default(); 9 * num_loops * num_loops],

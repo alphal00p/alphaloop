@@ -111,11 +111,6 @@ impl Topology {
             panic!("Please increase MAX_LOOP to {}", self.n_loops);
         }
 
-        assert!(
-            self.settings.general.partial_fractioning
-                || self.settings.general.deformation_strategy != DeformationStrategy::Intersections
-        );
-
         // set the identity rotation matrix
         self.rotation_matrix = [
             [float::one(), float::zero(), float::zero()],
@@ -1038,15 +1033,12 @@ impl Topology {
         }
     }
 
-    /// Compute the normal vector for each ellipsoid.
-    /// Also evaluates the ellipsoid if `full_propagator` is false,
-    /// otherwise it evaluates the full propagator.
+    /// Compute the normal vector for each ellipsoid and evaluate each ellipsoid.
     fn compute_ellipsoid_deformation_vector<U: DimName, T: FloatLike>(
         &self,
-        full_propagator: bool,
+        normalize: bool,
         cache: &mut LTDCache<T>,
-    ) -> usize
-    where
+    ) where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
@@ -1061,7 +1053,6 @@ impl Topology {
         // surface equation:
         // m*|sum_i^L a_i q_i^cut + p_vec| + sum_i^L a_i*r_i * |q_i^cut| - p^0 = 0
         // where m=delta_sign a = sig_ll_in_cb, r = residue_sign
-        let mut group_counter = 0;
         for (surf_index, surf) in self.surfaces.iter().enumerate() {
             // only deform the set of different ellipsoids
             if surf.surface_type != SurfaceType::Ellipsoid || surf.group != surf_index {
@@ -1124,28 +1115,31 @@ impl Topology {
                 }
             }
 
-            // evaluate the inverse propagator of the surface
-            if full_propagator {
-                inv_surf_prop[group_counter] = (cut_energy + Into::<T>::into(surf.shift.t)).powi(2)
-                    - cache.cut_info[surface_prop.id].spatial_and_mass_sq;
-            } else {
-                inv_surf_prop[group_counter] = cut_energy
+            inv_surf_prop[surf_index] = Some(
+                cut_energy
                     + Into::<T>::into(surf.shift.t)
                     + cache.cut_info[surface_prop.id]
                         .real_energy
-                        .multiply_sign(surf.delta_sign);
-            }
+                        .multiply_sign(surf.delta_sign),
+            );
+
+            let inv_normalization = if normalize {
+                let mut normalization = DualN::zero();
+
+                for d in deform_dirs[..self.n_loops].iter() {
+                    normalization += d.spatial_squared_impr();
+                }
+
+                normalization.sqrt().inv()
+            } else {
+                DualN::one()
+            };
 
             for (loop_index, dir) in deform_dirs[..self.n_loops].iter().enumerate() {
                 // note the sign
-                kappa_surf[group_counter * self.n_loops + loop_index] =
-                    -dir / dir.spatial_squared_impr().sqrt();
+                kappa_surf[surf_index * self.n_loops + loop_index] = -dir * inv_normalization;
             }
-
-            group_counter += 1;
         }
-
-        group_counter
     }
 
     /// Construct a deformation vector by going through all the ellipsoids
@@ -1158,7 +1152,7 @@ impl Topology {
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
     {
-        let group_counter = self.compute_ellipsoid_deformation_vector(true, cache);
+        self.compute_ellipsoid_deformation_vector(true, cache);
 
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let cache = cache.get_cache_mut();
@@ -1169,7 +1163,13 @@ impl Topology {
         let mut aij: DualN<T, U> = NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
         let mut lambda: DualN<T, U> = DualN::one();
 
-        for (i, &inv) in inv_surf_prop[..group_counter].iter().enumerate() {
+        for (i, &inv) in inv_surf_prop.iter().enumerate() {
+            // not a unique ellipsoid
+            if inv.is_none() {
+                continue;
+            }
+            let inv = inv.unwrap();
+
             if i < self.settings.deformation.additive.a_ijs.len() {
                 aij = NumCast::from(self.settings.deformation.additive.a_ijs[i]).unwrap();
             }
@@ -1179,11 +1179,11 @@ impl Topology {
             }
 
             let dampening = match self.settings.deformation.additive.mode {
-                AdditiveMode::Exponential => (-inv * inv
-                    / (aij * <T as Float>::powi(Into::<T>::into(self.e_cm_squared), 2)))
-                .exp(),
+                AdditiveMode::Exponential => {
+                    (-inv * inv / (aij * Into::<T>::into(self.e_cm_squared))).exp()
+                }
                 AdditiveMode::Hyperbolic => {
-                    let t = inv * inv / <T as Float>::powi(Into::<T>::into(self.e_cm_squared), 2);
+                    let t = inv * inv / Into::<T>::into(self.e_cm_squared);
                     t / (t + aij)
                 }
                 AdditiveMode::Unity => DualN::one(),
@@ -1195,66 +1195,13 @@ impl Topology {
                 if self.settings.general.debug > 2 {
                     println!(
                         "Deformation contribution for surface {}:\n  | dir={}\n  | exp={}",
-                        group_counter,
+                        i,
                         dir,
                         dampening.real()
                     );
                 }
 
                 *kappa += dir * dampening * lambda;
-            }
-        }
-
-        kappas
-    }
-
-    /// Compute the deformation for an ellipsoid and its (potential)
-    /// intersections with other ellipsoids.
-    fn deform_intersections<U: DimName, T: FloatLike>(
-        &self,
-        ellipse_id: usize,
-        cache: &mut LTDCache<T>,
-    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
-    where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
-    {
-        let mut kappas = [LorentzVector::default(); MAX_LOOP];
-
-        // determine all vectors per ellipsoid once at the start
-        if ellipse_id == 0 {
-            self.compute_ellipsoid_deformation_vector(false, cache);
-        }
-
-        let cache = cache.get_cache_mut();
-
-        // the vector of the surface is always active
-        // it can get interpolated with vectors from other surfaces near intersections
-        for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
-            *kappa = cache.deform_dirs[ellipse_id * self.n_loops + loop_index];
-        }
-
-        // TODO: filter non-intersecting ellipsoids
-        // TODO: allow for triple intersections
-        let num_ellipsoids = self
-            .surfaces
-            .iter()
-            .enumerate()
-            .filter(|(i, x)| x.surface_type == SurfaceType::Ellipsoid && x.group == *i)
-            .count();
-        for j in 0..num_ellipsoids {
-            if ellipse_id == j {
-                continue;
-            }
-
-            // this factor will determine how far away from an intersection we are
-            let j_eval = cache.ellipsoid_eval[j].powi(2);
-
-            for (loop_index, kappa) in kappas[..self.n_loops].iter_mut().enumerate() {
-                let dampening = DualN::from_real(T::one())
-                    - (j_eval / (j_eval + Into::<T>::into(self.settings.deformation.fixed.m_ij)));
-                *kappa += cache.deform_dirs[j * self.n_loops + loop_index] * dampening;
             }
         }
 
@@ -1417,6 +1364,17 @@ impl Topology {
         dual_num::Owned<T, U>: Copy,
         LTDCache<T>: CacheSelector<T, U>,
     {
+        let mut kappas = [LorentzVector::default(); MAX_LOOP];
+        let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
+        let mut mij = Into::<T>::into(self.settings.deformation.fixed.m_ij);
+
+        if self.settings.deformation.fixed.include_normal_source {
+            self.compute_ellipsoid_deformation_vector(
+                self.settings.deformation.fixed.normalize_per_source,
+                cache,
+            );
+        }
+
         let cache = cache.get_cache_mut();
 
         // evaluate all excluded ellipsoids
@@ -1424,8 +1382,8 @@ impl Topology {
             if surf.surface_type != SurfaceType::Ellipsoid
                 || surf.group != i
                 || !self.all_excluded_surfaces[i]
+                || cache.ellipsoid_eval[i].is_some()
             {
-                cache.ellipsoid_eval[i] = DualN::zero();
                 continue;
             }
 
@@ -1449,25 +1407,81 @@ impl Topology {
 
             let surface_prop =
                 &self.loop_lines[surf.onshell_ll_index].propagators[surf.onshell_prop_index];
-            cache.ellipsoid_eval[i] = cut_energy
-                + Into::<T>::into(surf.shift.t)
-                + cache.cut_info[surface_prop.id]
-                    .real_energy
-                    .multiply_sign(surf.delta_sign);
+            let eval = Some(
+                cut_energy
+                    + Into::<T>::into(surf.shift.t)
+                    + cache.cut_info[surface_prop.id]
+                        .real_energy
+                        .multiply_sign(surf.delta_sign),
+            );
 
-            // TODO: properly normalize
-            // take the square so that the number if always positive
-            cache.ellipsoid_eval[i] =
-                cache.ellipsoid_eval[i].powi(2) / Into::<T>::into(self.e_cm_squared);
+            cache.ellipsoid_eval[i] = eval;
         }
-
-        let mut kappas = [LorentzVector::default(); MAX_LOOP];
-        let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
-        let mut mij = Into::<T>::into(self.settings.deformation.fixed.m_ij);
 
         for d_lim in &self.fixed_deformation {
             for k in &mut kappa_source {
                 *k = LorentzVector::default();
+            }
+
+            // add the normal for each surface to the deformation
+            // TODO: call the additive function instead
+            if self.settings.deformation.fixed.include_normal_source
+                && d_lim.excluded_propagators.len() == 0
+            {
+                let kappa_surf = &mut cache.deform_dirs;
+                let inv_surf_prop = &mut cache.ellipsoid_eval;
+
+                // now combine the kappas from the surface using the chosen strategy
+                let mut aij: DualN<T, U> =
+                    NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
+                let mut lambda: DualN<T, U> = DualN::one();
+
+                for (i, &inv) in inv_surf_prop.iter().enumerate() {
+                    if inv.is_none() {
+                        continue;
+                    }
+                    let inv = inv.unwrap();
+
+                    if i < self.settings.deformation.additive.a_ijs.len() {
+                        aij = NumCast::from(self.settings.deformation.additive.a_ijs[i]).unwrap();
+                    }
+
+                    if i < self.settings.deformation.lambdas.len() {
+                        lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
+                    }
+
+                    let mut dampening = match self.settings.deformation.additive.mode {
+                        AdditiveMode::Exponential => (-inv * inv
+                            / (aij * <T as Float>::powi(Into::<T>::into(self.e_cm_squared), 2)))
+                        .exp(),
+                        AdditiveMode::Hyperbolic => {
+                            let t = inv * inv
+                                / <T as Float>::powi(Into::<T>::into(self.e_cm_squared), 2);
+                            t / (t + aij)
+                        }
+                        AdditiveMode::Unity => DualN::one(),
+                        AdditiveMode::SoftMin => unimplemented!(),
+                    };
+
+                    // now exclude all other surfaces
+                    for (surf_index, surf) in self.surfaces.iter().enumerate() {
+                        if i == surf_index
+                            || surf.surface_type != SurfaceType::Ellipsoid
+                            || surf_index != surf.group
+                        {
+                            continue;
+                        }
+
+                        let t = inv_surf_prop[surf_index].unwrap().powi(2)
+                            / Into::<T>::into(self.e_cm_squared);
+                        dampening *= t / (t + mij);
+                    }
+
+                    for (loop_index, kappa) in kappa_source[..self.n_loops].iter_mut().enumerate() {
+                        let dir = kappa_surf[i * self.n_loops + loop_index];
+                        *kappa += dir * dampening * lambda;
+                    }
+                }
             }
 
             for d in &d_lim.deformation_per_overlap {
@@ -1489,7 +1503,8 @@ impl Topology {
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                     // at the same time and goes to 1 otherwise
                     debug_assert!(self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid);
-                    let t = cache.ellipsoid_eval[surf_index];
+                    let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
+                        / Into::<T>::into(self.e_cm_squared);
 
                     let sup = if self.settings.deformation.fixed.mode == AdditiveMode::SoftMin {
                         if self.settings.deformation.fixed.sigma.is_zero() {
@@ -1537,22 +1552,8 @@ impl Topology {
                     );
                 }
 
-                // make sure the lambda growth coming from multiple sources is under control
-                for ii in 0..self.n_loops {
-                    kappa_source[ii] *= DualN::from_real(Into::<T>::into(
-                        1. / d_lim.deformation_per_overlap.len() as f64,
-                    ));
-                }
-
                 // normalize the deformation vector per source
-                if self.settings.deformation.fixed.no_normalization {
-                    for ii in 0..self.n_loops {
-                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
-                        // the kappa returned by this function is expected to be dimensionless
-                        kappa_source[ii] += -dir * s * lambda
-                            / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
-                    }
-                } else {
+                if self.settings.deformation.fixed.normalize_per_source {
                     let mut normalization = DualN::zero();
                     for ii in 0..self.n_loops {
                         let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
@@ -1565,6 +1566,20 @@ impl Topology {
                         let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
                         kappa_source[ii] += -dir / normalization * s * lambda;
                     }
+                } else {
+                    for ii in 0..self.n_loops {
+                        let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
+                        // the kappa returned by this function is expected to be dimensionless
+                        kappa_source[ii] += -dir * s * lambda
+                            / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
+                    }
+                }
+
+                // make sure the lambda growth coming from multiple sources is under control
+                for ii in 0..self.n_loops {
+                    kappa_source[ii] *= DualN::from_real(Into::<T>::into(
+                        1. / d_lim.deformation_per_overlap.len() as f64,
+                    ));
                 }
             }
 
@@ -1634,43 +1649,43 @@ impl Topology {
         let mut E_surfaces_selection = DualN::one();
 
         // First evaluate all unique E-surfaces and multiply them into the selector
-        // TODO: don't recompute the evaluation if we have already determined it
         for (i, surf) in self.surfaces.iter().enumerate() {
             if surf.surface_type != SurfaceType::Ellipsoid || i != surf.group {
-                cache.ellipsoid_eval[i] = DualN::zero();
                 continue;
             }
 
-            let mut cut_counter = 0;
-            let mut cut_energy = DualN::default();
-            for (c, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
-                if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
-                    if let Cut::PositiveCut(i) = c {
-                        cut_energy += cache.cut_info[ll.propagators[*i].id]
-                            .real_energy
-                            .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
-                    } else {
-                        cut_energy -= cache.cut_info[ll.propagators[*i].id]
-                            .real_energy
-                            .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
-                    }
+            if cache.ellipsoid_eval[i].is_none() {
+                let mut cut_counter = 0;
+                let mut cut_energy = DualN::default();
+                for (c, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
+                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
+                        if let Cut::PositiveCut(i) = c {
+                            cut_energy += cache.cut_info[ll.propagators[*i].id]
+                                .real_energy
+                                .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
+                        } else {
+                            cut_energy -= cache.cut_info[ll.propagators[*i].id]
+                                .real_energy
+                                .multiply_sign(surf.sig_ll_in_cb[cut_counter]);
+                        }
 
-                    cut_counter += 1;
+                        cut_counter += 1;
+                    }
                 }
+
+                let surface_prop =
+                    &self.loop_lines[surf.onshell_ll_index].propagators[surf.onshell_prop_index];
+                cache.ellipsoid_eval[i] = Some(
+                    cut_energy
+                        + Into::<T>::into(surf.shift.t)
+                        + cache.cut_info[surface_prop.id]
+                            .real_energy
+                            .multiply_sign(surf.delta_sign),
+                );
             }
 
-            let surface_prop =
-                &self.loop_lines[surf.onshell_ll_index].propagators[surf.onshell_prop_index];
-            cache.ellipsoid_eval[i] = cut_energy
-                + Into::<T>::into(surf.shift.t)
-                + cache.cut_info[surface_prop.id]
-                    .real_energy
-                    .multiply_sign(surf.delta_sign);
-
             // take the square so that the number is always positive
-            cache.ellipsoid_eval[i] =
-                cache.ellipsoid_eval[i].powi(2) / Into::<T>::into(self.e_cm_squared);
-            let t = cache.ellipsoid_eval[i];
+            let t = cache.ellipsoid_eval[i].unwrap().powi(2) / Into::<T>::into(self.e_cm_squared);;
 
             let m = Into::<T>::into(selector_M.abs());
 
@@ -1711,6 +1726,12 @@ impl Topology {
             || self.settings.deformation.scaling.lambda > 0.
         {
             let cache = cache.get_cache_mut();
+
+            // reset surface evaluations
+            for e in &mut cache.ellipsoid_eval {
+                *e = None;
+            }
+
             for ll in &self.loop_lines {
                 let mut mom = LorentzVector::default();
                 for (l, &c) in loop_momenta.iter().zip_eq(ll.signature.iter()) {
@@ -1737,21 +1758,29 @@ impl Topology {
             }
         }
 
+        // add a warning if we are close to a focus
+        for (i, x) in cache.get_cache().cut_energies.iter().enumerate() {
+            if *x < Into::<T>::into(0.0000000001) {
+                println!(
+                    "id={}, x={}, point={:?}",
+                    i,
+                    x.real(),
+                    loop_momenta[..self.n_loops].iter().map(|x| x.real())
+                );
+            }
+        }
+
         let mut kappas = match self.settings.general.deformation_strategy {
             DeformationStrategy::Duals => {
                 let co = cut.unwrap();
                 let cut = &self.ltd_cut_options[co.0][co.1];
                 self.get_deformation_for_cut(cut, co.0, cache)
             }
-            DeformationStrategy::Intersections => {
-                self.deform_intersections(ellipsoid_id.unwrap(), cache)
-            }
             DeformationStrategy::Additive => self.deform_ellipsoids(cache),
             DeformationStrategy::Constant => self.deform_constant(loop_momenta),
             DeformationStrategy::Fixed => self.deform_fixed(loop_momenta, cache),
             DeformationStrategy::None => unreachable!(),
         };
-        
         // Force normalisation of the kappa on the E-surfaces
         if self.settings.deformation.normalize_on_E_surfaces_m > 0. {
             self.normalize_on_E_surfaces(

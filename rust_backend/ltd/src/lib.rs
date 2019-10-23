@@ -90,8 +90,6 @@ pub enum DeformationStrategy {
     Additive,
     #[serde(rename = "duals")]
     Duals,
-    #[serde(rename = "intersections")]
-    Intersections,
     #[serde(rename = "constant")]
     Constant,
     #[serde(rename = "fixed")]
@@ -134,7 +132,6 @@ impl fmt::Display for DeformationStrategy {
         match self {
             DeformationStrategy::Additive => write!(f, "additive"),
             DeformationStrategy::Duals => write!(f, "duals"),
-            DeformationStrategy::Intersections => write!(f, "intersections"),
             DeformationStrategy::Constant => write!(f, "constant"),
             DeformationStrategy::Fixed => write!(f, "fixed"),
             DeformationStrategy::None => write!(f, "none"),
@@ -190,7 +187,8 @@ pub struct DeformationFixedSettings {
     pub m_ij: f64,
     pub sigma: f64,
     pub m_ijs: Vec<f64>,
-    pub no_normalization: bool,
+    pub normalize_per_source: bool,
+    pub include_normal_source: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
