@@ -84,6 +84,26 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
      entry_name = 'Box_3E'
 )
 
+box = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+])
+q1 = vectors.LorentzVector([14.0, -6.6, -40.0, 0.])
+q2 = vectors.LorentzVector([-43.0, 15.2, 33.0, 0.])
+q3 = vectors.LorentzVector([-17.9, -50.0, 11.8, 0.])
+hard_coded_topology_collection.add_topology(box.create_loop_topology(
+        "Box_4E", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0}, 
+        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
+        # For now specified by hand as the cvxpy automated implementation is not done yet
+    #    fixed_deformation = [{'deformation_sources': [[0., -9.01288e-6, -5.91311e-6, 0.]], 'weight_per_source': [1], 'excluded_surface_ids': [5]},
+     #                        {'deformation_sources': [[0., 18.399985727313332, 17.800014049513244, 0.]], 'excluded_surface_ids': [2]}]
+     ),
+     entry_name = 'Box_4E'
+)
+
 # Box with customised ellipses from mathematica
 
 box = TopologyGenerator([
@@ -284,6 +304,15 @@ q2 = vectors.LorentzVector([45      ,3.4    ,-40.2  ,0])*1e-02 #m2^2 = 397.4
 q3 = vectors.LorentzVector([68      ,-64.4  ,6.4    ,0])*1e-02 #m3^2 = 435.68
 q4 = vectors.LorentzVector([-57.4    ,-48.8  ,-4.2  ,0])*1e-02 #m4^2 = 895.68
 q5 = vectors.LorentzVector([-39.5   ,65.5   ,94.0   ,0])*1e-02 #m5^2 = -11566
+
+boost_vecA = vectors.LorentzVector([42.6    ,21.2   ,-2.6   ,0])
+boost_vecB = vectors.LorentzVector([math.sqrt(boost_vecA.square())    ,0.   ,0.   ,0])
+q1 = q1.rotoboost(boost_vecA,boost_vecB)
+q2 = q2.rotoboost(boost_vecA,boost_vecB)
+q3 = q3.rotoboost(boost_vecA,boost_vecB)
+q4 = q4.rotoboost(boost_vecA,boost_vecB)
+q5 = q5.rotoboost(boost_vecA,boost_vecB)
+
 hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
         "Hexagon_10E_7s", 
         ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': -q5-q4-q3-q2-q1  }, 
