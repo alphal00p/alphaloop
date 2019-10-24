@@ -105,6 +105,7 @@ hyperparameters = HyperParameters({
             'non_cut_propagator_check'  : True,
             'skip_hyperboloids'         : True,
             'source_branch_cut_threshold' : 0.8,
+            'old_expansion_check'       : True,
         },
 
         'additive'              :   {

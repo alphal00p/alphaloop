@@ -823,14 +823,26 @@ impl Topology {
                 }
 
                 // we have to make sure that our linear expansion for the deformation vectors is reasonable
-                // for that we need lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
+                // for that we need:
+                // old check: lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
+                // new check: lambda^2 < (-2*kappa_i.q_i^2 + sqrt(4*kappa_i.q_i^4 + kappa^4 c^2 (q_i^2+m_i^2)^2))/kappa^4
                 if self.settings.deformation.scaling.expansion_check {
-                    let lambda_exp = DualN::from_real(Into::<T>::into(
+                    let c = DualN::from_real(Into::<T>::into(
                         self.settings.deformation.scaling.expansion_threshold,
-                    )) * info.spatial_and_mass_sq
-                        / info.kappa_dot_mom.abs(); // note: not holomorphic
+                    ));
 
-                    let lambda_exp_sq = lambda_exp * lambda_exp;
+                    let lambda_exp_sq = if self.settings.deformation.scaling.old_expansion_check {
+                        let lambda_exp = c * info.spatial_and_mass_sq / info.kappa_dot_mom.abs(); // note: not holomorphic
+                        lambda_exp * lambda_exp
+                    } else {
+                        let a = info.kappa_sq * info.kappa_sq;
+                        let b = info.kappa_dot_mom * info.kappa_dot_mom;
+                        let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
+
+                        (-b * Into::<T>::into(2.)
+                            + (b * b * Into::<T>::into(4.) + a * c * c * d).sqrt())
+                            / a
+                    };
 
                     if sigma.is_zero() {
                         if lambda_exp_sq < lambda_sq {
