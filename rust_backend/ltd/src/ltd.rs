@@ -1381,7 +1381,7 @@ impl Topology {
         for (i, surf) in self.surfaces.iter().enumerate() {
             if surf.surface_type != SurfaceType::Ellipsoid
                 || surf.group != i
-                || !self.all_excluded_surfaces[i]
+                || (!self.all_excluded_surfaces[i] && !self.settings.deformation.fixed.local)
                 || cache.ellipsoid_eval[i].is_some()
             {
                 continue;
@@ -1613,8 +1613,28 @@ impl Topology {
                     }
                 }
             }
-
-            let lambda = lambda_sq.sqrt();
+            let lambda = if self.settings.deformation.fixed.local {
+                //make the deformation localised around the surfaces
+                //Set threshold for lambda
+                let mut lambda0: DualN<T, U> = DualN::zero();
+                let a = Into::<T>::into(self.settings.deformation.fixed.a_ijs[0]);
+                let eij = &mut cache.ellipsoid_eval;
+                for (surf_index, surf) in self.surfaces.iter().enumerate() {
+                    if surf.surface_type != SurfaceType::Ellipsoid || surf.group != surf_index {
+                        continue;
+                    } else {
+                        let t =
+                            eij[surf_index].unwrap().powi(2) / Into::<T>::into(self.e_cm_squared);
+                        lambda0 += (-t / a).exp();
+                    }
+                }
+                if Into::<T>::into(1.0) < lambda0.real() {
+                    lambda0 = DualN::one();
+                }
+                lambda_sq.sqrt() * lambda0
+            } else {
+                lambda_sq.sqrt()
+            };
 
             for ii in 0..self.n_loops {
                 kappas[ii] += kappa_source[ii]

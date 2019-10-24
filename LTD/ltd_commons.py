@@ -122,6 +122,9 @@ hyperparameters = HyperParameters({
             'mode'  :   'hyperbolic',
             # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
             'm_ijs' : [],
+            # localizes the deformation around the ellipsoids using an exponential function with variance a_ij
+            'local' : False,
+            'a_ijs' : [],
             'normalize_per_source': True,
             # add the normal vector for every ellipsoid which is excluded on all other ellipsoids
             'include_normal_source': False,

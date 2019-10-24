@@ -187,6 +187,8 @@ pub struct DeformationFixedSettings {
     pub m_ij: f64,
     pub sigma: f64,
     pub m_ijs: Vec<f64>,
+    pub local: bool,
+    pub a_ijs: Vec<f64>,
     pub normalize_per_source: bool,
     pub include_normal_source: bool,
 }
