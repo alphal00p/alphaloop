@@ -1451,12 +1451,11 @@ impl Topology {
                     }
 
                     let mut dampening = match self.settings.deformation.additive.mode {
-                        AdditiveMode::Exponential => (-inv * inv
-                            / (aij * <T as Float>::powi(Into::<T>::into(self.e_cm_squared), 2)))
-                        .exp(),
+                        AdditiveMode::Exponential => {
+                            (-inv * inv / (aij * Into::<T>::into(self.e_cm_squared))).exp()
+                        }
                         AdditiveMode::Hyperbolic => {
-                            let t = inv * inv
-                                / <T as Float>::powi(Into::<T>::into(self.e_cm_squared), 2);
+                            let t = inv * inv / Into::<T>::into(self.e_cm_squared);
                             t / (t + aij)
                         }
                         AdditiveMode::Unity => DualN::one(),
@@ -1574,13 +1573,13 @@ impl Topology {
                             / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
                     }
                 }
+            }
 
-                // make sure the lambda growth coming from multiple sources is under control
-                for ii in 0..self.n_loops {
-                    kappa_source[ii] *= DualN::from_real(Into::<T>::into(
-                        1. / d_lim.deformation_per_overlap.len() as f64,
-                    ));
-                }
+            // make sure the lambda growth coming from multiple sources is under control
+            for ii in 0..self.n_loops {
+                kappa_source[ii] *= DualN::from_real(Into::<T>::into(
+                    1. / d_lim.deformation_per_overlap.len() as f64,
+                ));
             }
 
             // now do the branch cut check per non-excluded loop line
