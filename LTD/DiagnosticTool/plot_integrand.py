@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -15,9 +15,10 @@ sys.path.insert(0, pjoin(file_path,os.pardir))
 sys.path.insert(0, pjoin(file_path,os.pardir,os.pardir))
 
 import vectors
+import ltd_utils
 import ltd_commons 
 hyperparameters = ltd_commons.hyperparameters
-topology_collection = ltd_commons.hard_coded_topology_collection
+topology_collection = ltd_utils.TopologyCollection.import_from(pjoin(file_path,os.pardir,'topologies.yaml'))
 
 try:
     # Import the rust bindings
@@ -44,9 +45,11 @@ topology = topology_collection[studied_topology]
 
 scan_args = eval(' '.join(sys.argv[2:]))
 rust_instance = LTD(
-        settings_file = pjoin(os.path.pardir,'hyperparameters.yaml'),
-        topology_file = pjoin(os.path.pardir,'topologies.yaml'),
-        name = studied_topology,
+        settings_file = pjoin(file_path, os.path.pardir,'hyperparameters.yaml'),
+        topology_file = pjoin(file_path, os.path.pardir,'topologies.yaml'),
+        amplitude_file = pjoin(file_path, os.path.pardir,'amplitudes.yaml'),
+        top_name = studied_topology,
+        amp_name = ''
     )
 
 def evaluate(point):
@@ -92,7 +95,7 @@ max_x = 1.0
 #max_x = 0.3260626059740
 for t in range(1,N_points+1):
     if t%100==0:
-        print "Currently at sample #%d..."%t
+        print("Currently at sample #%d..."%t)
     x = min_x+(float(t)/float(N_points+1))*(max_x-min_x)
     x_values.append(x)
     random_variables = [(v if v>=0. else x) for v in scan_args]
