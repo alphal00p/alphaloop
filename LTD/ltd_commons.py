@@ -87,7 +87,7 @@ hyperparameters = HyperParameters({
         'overall_scaling_constant'  : 1.,
         # A negative number indicates this normalisation is disabled
         # A positive number indicate the value to use in the T function for this normalisation strategy
-        'normalize_on_E_surfaces_m' : 0.1,
+        'normalize_on_E_surfaces_m' : -0.1,
 
         # optionally set a different lambda per surface
         'lambdas'   : [],
@@ -95,7 +95,7 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 0.1,
+            'lambda'                    : 0.01,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : True,
@@ -116,7 +116,7 @@ hyperparameters = HyperParameters({
         },
 
         'fixed' : {
-            'M_ij'  :   0.00000001,
+            'M_ij'  :   0.001,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
@@ -125,7 +125,7 @@ hyperparameters = HyperParameters({
             # localizes the deformation around the ellipsoids using an exponential function with variance a_ij
             'local' : False,
             'a_ijs' : [],
-            'normalize_per_source': True,
+            'normalize_per_source': False,
             # add the normal vector for every ellipsoid which is excluded on all other ellipsoids
             'include_normal_source': False,
         }
