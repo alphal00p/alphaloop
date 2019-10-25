@@ -858,8 +858,16 @@ impl Topology {
                 // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
                 // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
                 if self.settings.deformation.scaling.positive_cut_check {
-                    let lambda_disc_sq = info.spatial_and_mass_sq / info.kappa_sq
+                    let mut lambda_disc_sq = info.spatial_and_mass_sq / info.kappa_sq
                         * DualN::from_real(Into::<T>::into(0.95));
+
+                    if self.settings.deformation.scaling.branch_cut_m > 0. {
+                        let branch_cut_check_m = DualN::from_real(Into::<T>::into(
+                            self.settings.deformation.scaling.branch_cut_m,
+                        ));
+                        lambda_disc_sq *= (DualN::one() + (info.kappa_dot_mom*info.kappa_dot_mom)/
+                            (branch_cut_check_m*Into::<T>::into(self.e_cm_squared)*Into::<T>::into(self.e_cm_squared)));
+                    }
 
                     if sigma.is_zero() {
                         if lambda_disc_sq < lambda_sq {
@@ -1606,13 +1614,7 @@ impl Topology {
 
             // now do the branch cut check per non-excluded loop line
             // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
-            let mut lambda_sq = DualN::from_real(Into::<T>::into(
-                self.settings
-                    .deformation
-                    .scaling
-                    .source_branch_cut_threshold
-                    .powi(2),
-            ));
+            let mut lambda_sq = DualN::one();
             for (ll_index, ll) in self.loop_lines.iter().enumerate() {
                 let mut kappa_cut = LorentzVector::default();
                 for (kappa, &sign) in kappa_source[..self.n_loops]
@@ -1626,10 +1628,21 @@ impl Topology {
                     if d_lim.excluded_propagators.contains(&(ll_index, prop_index)) {
                         continue;
                     }
-
-                    let lambda_disc_sq = cache.cut_info[p.id].spatial_and_mass_sq
+ 
+                    let mut lambda_disc_sq = cache.cut_info[p.id].spatial_and_mass_sq
                         / kappa_cut.spatial_squared_impr()
-                        * DualN::from_real(Into::<T>::into(0.95));
+                        * DualN::from_real(Into::<T>::into(0.95))
+                        * DualN::from_real(Into::<T>::into(
+                            self.settings.deformation.scaling.source_branch_cut_threshold.powi(2) ));
+                    if self.settings.deformation.scaling.source_branch_cut_m > 0. {
+                        let branch_cut_check_m = DualN::from_real(Into::<T>::into(
+                            self.settings.deformation.scaling.source_branch_cut_m,
+                        ));
+                        lambda_disc_sq *= (DualN::one() + 
+                                (cache.cut_info[p.id].kappa_dot_mom*cache.cut_info[p.id].kappa_dot_mom)
+                                    /(branch_cut_check_m*Into::<T>::into(self.e_cm_squared)*Into::<T>::into(self.e_cm_squared)));
+                    }
+
                     if lambda_disc_sq < lambda_sq {
                         lambda_sq = lambda_disc_sq;
                     }

@@ -77,6 +77,8 @@ pub struct Scaling {
     pub softmin_sigma: f64,
     pub expansion_check: bool,
     pub expansion_threshold: f64,
+    pub branch_cut_m: f64,
+    pub source_branch_cut_m: f64,
     pub positive_cut_check: bool,
     pub cut_propagator_check: bool,
     pub non_cut_propagator_check: bool,

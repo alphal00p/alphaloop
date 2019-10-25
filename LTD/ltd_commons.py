@@ -99,8 +99,12 @@ hyperparameters = HyperParameters({
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : True,
-            'expansion_threshold'       : 0.1,
+            'expansion_threshold'       : 0.01,
             'positive_cut_check'        : True,
+            # The two branchcut M parameters below allow the argument of the square roots
+            # to visit all four complex quadrants while still never crossing a branchcut
+            'branch_cut_m'              : -0.1,
+            'source_branch_cut_m'       : -0.1,
             'cut_propagator_check'      : True,
             'non_cut_propagator_check'  : True,
             'skip_hyperboloids'         : True,
