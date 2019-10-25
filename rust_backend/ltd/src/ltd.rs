@@ -1328,7 +1328,7 @@ impl Topology {
         let cd = self.constant_deformation.as_ref().unwrap();
 
         for i in 0..self.n_loops {
-            kappas[i] = loop_momenta[i] / loop_momenta[i].spatial_squared_impr().sqrt();
+            kappas[i] = loop_momenta[i];
 
             let rot_matrix = &self.rotation_matrix;
 
@@ -1361,6 +1361,16 @@ impl Topology {
             kappas[i].z = old_x * Into::<T>::into(rot_matrix[2][0])
                 + old_y * Into::<T>::into(rot_matrix[2][1])
                 + old_z * Into::<T>::into(rot_matrix[2][2]);
+        }
+
+        let mut normalization = DualN::zero();
+        for i in 0..self.n_loops {
+            normalization += kappas[i].spatial_squared_impr();
+        }
+        normalization = normalization.sqrt().inv();
+
+        for i in 0..self.n_loops {
+            kappas[i] *= normalization;
         }
 
         kappas

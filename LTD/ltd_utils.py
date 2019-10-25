@@ -1193,7 +1193,7 @@ class LoopTopology(object):
             raise
 
     def build_constant_deformation(self):
-        # deform with constant a * k/|k| + b
+        # deform with constant norm(a * k + b)
 
         # TODO compute the right deformation vectors for n_legs <= 4
         # TODO this should come together with an automatic boosting in a proper frame for such topologies
