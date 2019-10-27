@@ -51,9 +51,9 @@ hyperparameters = HyperParameters({
     'Integrator'    :   {
         # The integrator can be vegas, divonne, cuhre or suave
         'integrator'        :   'vegas',
-        'n_start'           :   int(1.0e6),
+        'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
-        'n_increase'        :   int(1.0e6),
+        'n_increase'        :   int(1.0e5),
         # can be set to high values for use with MPI, otherwise leave it at 1
         'n_vec'             :   1,
         'seed'              :   1,
@@ -68,7 +68,7 @@ hyperparameters = HyperParameters({
         'reset_vegas_integrator' : True,
         'use_only_last_sample' : False,
         # Non-vegas related integrator parameters
-        'eps_rel'           :   1e-3,
+        'eps_rel'           :   1e-5,
         'eps_abs'           :   0.,
         # A border set different to zero allows to not probe particular problematic kinematics
         'border'            :   1.0e-3,
@@ -84,7 +84,7 @@ hyperparameters = HyperParameters({
         # can be constant, linear or sigmoid
         'overall_scaling' : 'constant',
         # fraction of e_cm used for scaling
-        'overall_scaling_constant'  : 1.,
+        'overall_scaling_constant'  : 1.0,
         # A negative number indicates this normalisation is disabled
         # A positive number indicate the value to use in the T function for this normalisation strategy
         'normalize_on_E_surfaces_m' : -0.1,
@@ -95,33 +95,39 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 0.01,
+            'lambda'                    : 1.0e99,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : True,
-            'expansion_threshold'       : 0.01,
-            'positive_cut_check'        : True,
+            # The expansion check strategy can either be
+            # first_lambda_order : c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut| 
+            # full_lambda_dependence : lambda^2 < (-2*kappa_i.q_i^2 + 
+            #           sqrt(4*kappa_i.q_i^4 + kappa^4 c^2 (q_i^2+m_i^2)^2))/kappa^4
+            # magic_fudge : self-explanatory :)
+            'expansion_check_strategy'  : 'magic_fudge',
+            'expansion_threshold'       : 0.9,
+            'positive_cut_check'        : False,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
-            'branch_cut_m'              : -0.1,
-            'source_branch_cut_m'       : -0.1,
-            'cut_propagator_check'      : True,
-            'non_cut_propagator_check'  : True,
-            'skip_hyperboloids'         : True,
-            'source_branch_cut_threshold' : 0.8,
-            'old_expansion_check'       : True,
+            'branch_cut_m'              : -1.0,
+            'source_branch_cut_m'       : -1.0,
+            'cut_propagator_check'      : False,
+            'non_cut_propagator_check'  : False,
+            'skip_hyperboloids'         : False,
+            'source_branch_cut_threshold'  : 0.8,
+            'source_branch_cut_multiplier' : 0.8,
         },
 
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
-            'mode'  :   'unity',
-            'a_ij'  :   0.001,
+            'mode'  :   'exponential',
+            'a_ij'  :   0.01,
             # set aijs per surface. if the entry isn't there, a_ij is used instead
             'a_ijs' :   [],
         },
 
         'fixed' : {
-            'M_ij'  :   0.001,
+            'M_ij'  :   0.01,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
@@ -145,7 +151,7 @@ hyperparameters = HyperParameters({
         'b'         :   1.0e1,
         # rescale the input from [0,1] to [lo,hi]
         'input_rescaling' : [
-            [[0., 1.], [0., 1.], [0., 1.]],
+            [[0. ,1.], [0., 1.], [0., 1.]],
             [[0., 1.], [0., 1.], [0., 1.]],
             [[0., 1.], [0., 1.], [0., 1.]],
             [[0., 1.], [0., 1.], [0., 1.]],
@@ -154,7 +160,7 @@ hyperparameters = HyperParameters({
         ],
         # shift the loop momenta. the first component is a rescaling of the radius
         'shifts' : [
-            [1.0, 0., 0., 0.],
+            [1.0, 0., 0., 0.],            
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],
             [1.0, 0., 0., 0.],

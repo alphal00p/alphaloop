@@ -84,7 +84,8 @@ pub struct Scaling {
     pub non_cut_propagator_check: bool,
     pub skip_hyperboloids: bool,
     pub source_branch_cut_threshold: f64,
-    pub old_expansion_check: bool,
+    pub source_branch_cut_multiplier: f64,    
+    pub expansion_check_strategy: ExpansionCheckStrategy,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
@@ -99,6 +100,16 @@ pub enum DeformationStrategy {
     Fixed,
     #[serde(rename = "none")]
     None,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+pub enum ExpansionCheckStrategy {
+    #[serde(rename = "first_lambda_order")]
+    FirstLambdaOrder,
+    #[serde(rename = "full_lambda_dependence")]
+    FullLambdaDependence,
+    #[serde(rename = "magic_fudge")]
+    MagicFudge
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
@@ -127,6 +138,33 @@ impl From<&str> for DeformationStrategy {
             "none" => DeformationStrategy::None,
             _ => panic!("Unknown deformation strategy {}", s),
         }
+    }
+}
+
+impl From<&str> for ExpansionCheckStrategy {
+    fn from(s: &str) -> Self {
+        match s {
+            "first_lambda_order" => ExpansionCheckStrategy::FirstLambdaOrder,
+            "full_lambda_dependence" => ExpansionCheckStrategy::FullLambdaDependence,
+            "magic_fudge" => ExpansionCheckStrategy::MagicFudge,
+            _ => panic!("Unknown expansion check strategy {}", s),            
+        }
+    }
+}
+
+impl fmt::Display for ExpansionCheckStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ExpansionCheckStrategy::FirstLambdaOrder => write!(f, "first lambda order"),
+            ExpansionCheckStrategy::FullLambdaDependence => write!(f, "full lambda dependence"),
+            ExpansionCheckStrategy::MagicFudge => write!(f, "magic fudge"),
+        }
+    }
+}
+
+impl Default for ExpansionCheckStrategy {
+    fn default() -> ExpansionCheckStrategy {
+        ExpansionCheckStrategy::MagicFudge
     }
 }
 

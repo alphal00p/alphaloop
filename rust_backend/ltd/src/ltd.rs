@@ -11,7 +11,7 @@ use utils::Signum;
 use vector::LorentzVector;
 use {float, PythonNumerator};
 use {
-    AdditiveMode, DeformationStrategy, FloatLike, OverallDeformationScaling,
+    AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike, OverallDeformationScaling,
     ParameterizationMapping, ParameterizationMode, MAX_LOOP,
 };
 
@@ -831,18 +831,33 @@ impl Topology {
                         self.settings.deformation.scaling.expansion_threshold,
                     ));
 
-                    let lambda_exp_sq = if self.settings.deformation.scaling.old_expansion_check {
-                        let lambda_exp = c * info.spatial_and_mass_sq / info.kappa_dot_mom.abs(); // note: not holomorphic
-                        lambda_exp * lambda_exp
-                    } else {
-                        let a = info.kappa_sq * info.kappa_sq;
-                        let b = info.kappa_dot_mom * info.kappa_dot_mom;
-                        let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
+                    let lambda_exp_sq = match self.settings.deformation.scaling.expansion_check_strategy {
+                        ExpansionCheckStrategy::FirstLambdaOrder => {
+                            let lambda_exp = c * info.spatial_and_mass_sq / info.kappa_dot_mom.abs(); // note: not holomorphic
+                            lambda_exp * lambda_exp
+                        }
+                        ExpansionCheckStrategy::FullLambdaDependence => {
+                            let a = info.kappa_sq * info.kappa_sq;
+                            let b = info.kappa_dot_mom * info.kappa_dot_mom;
+                            let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
+                            ((-b * Into::<T>::into(2.)
+                                + (b * b * Into::<T>::into(4.) + a * c * c * d).sqrt())
+                            / a)
 
-                        (-b * Into::<T>::into(2.)
-                            + (b * b * Into::<T>::into(4.) + a * c * c * d).sqrt())
-                            / a
+                        }
+                        ExpansionCheckStrategy::MagicFudge => {
+                            let a = info.kappa_sq * info.kappa_sq;
+                            let b = info.kappa_dot_mom * info.kappa_dot_mom;
+                            let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
+                            if a < b {
+                                c * c * ( d / (b + d ) )
+                            } else {
+                                c * c * ( d / (a + d ) )
+                            }
+                        }
+                        _ => unreachable!(),
                     };
+
 
                     if sigma.is_zero() {
                         if lambda_exp_sq < lambda_sq {
@@ -1614,7 +1629,8 @@ impl Topology {
 
             // now do the branch cut check per non-excluded loop line
             // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
-            let mut lambda_sq = DualN::one();
+            //let mut lambda_sq = DualN::one();
+            let mut lambda_sq = DualN::from_real(Into::<T>::into(self.settings.deformation.scaling.source_branch_cut_threshold));
             for (ll_index, ll) in self.loop_lines.iter().enumerate() {
                 let mut kappa_cut = LorentzVector::default();
                 for (kappa, &sign) in kappa_source[..self.n_loops]
@@ -1633,7 +1649,7 @@ impl Topology {
                         / kappa_cut.spatial_squared_impr()
                         * DualN::from_real(Into::<T>::into(0.95))
                         * DualN::from_real(Into::<T>::into(
-                            self.settings.deformation.scaling.source_branch_cut_threshold.powi(2) ));
+                            self.settings.deformation.scaling.source_branch_cut_multiplier ));
                     if self.settings.deformation.scaling.source_branch_cut_m > 0. {
                         let branch_cut_check_m = DualN::from_real(Into::<T>::into(
                             self.settings.deformation.scaling.source_branch_cut_m,
@@ -1813,6 +1829,7 @@ impl Topology {
         }
 
         // add a warning if we are close to a focus
+/*
         for (i, x) in cache.get_cache().cut_energies.iter().enumerate() {
             if *x < Into::<T>::into(0.0000000001) {
                 println!(
@@ -1823,7 +1840,7 @@ impl Topology {
                 );
             }
         }
-
+*/
         let mut kappas = match self.settings.general.deformation_strategy {
             DeformationStrategy::Duals => {
                 let co = cut.unwrap();
@@ -2142,6 +2159,8 @@ impl Topology {
                 if self.settings.deformation.scaling.positive_cut_check
                     && cm.re < T::zero()
                     && cm.im < T::zero()
+                    && self.settings.deformation.scaling.branch_cut_m < 0.
+                    && self.settings.deformation.scaling.source_branch_cut_m < 0.
                 {
                     eprintln!(
                         "{} for prop {}, ll sig={:?}, ks={:?}: {}",
@@ -2390,6 +2409,7 @@ impl Topology {
                     ),
             )
         } else {
+            // println!("RES {:e} {:e} {:e} {:e}",x[0],x[1],x[2],result);
             (x, k_def, jac_para, jac_def, result)
         }
     }
