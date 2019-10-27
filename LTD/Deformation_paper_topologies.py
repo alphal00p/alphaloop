@@ -23,25 +23,26 @@ def load(selected_topologies=None):
 
     topology_name = "T1_Pentabox_physical"
     if selected_topologies is None or topology_name in selected_topologies:
-
+        
+        rescaling = 1.0e-3
         # This topology correspond to a two-loop pentabox with physical kinematics borrowed from
         # the process `t t~ > w+ z w-` at 1 TeV E_com.
         q1 = vectors.LorentzVector(
             # mass: 173.0 incoming top quark
             [0.5980260048915123e+03,   0.0000000000000000e+00,   0.0000000000000000e+00,   0.5724562014045295e+03]
-        ) 
+        )*rescaling 
         q2 = vectors.LorentzVector(
             # mass: 173.0 incoming anti-top quark
             [0.5980260048915123e+03,   0.0000000000000000e+00,   0.0000000000000000e+00,   -0.5724562014045295e+03]
-        )
+        )*rescaling
         q3 = vectors.LorentzVector(
             # mass: 80.419 outgoing W+
             [-0.5394473213122507e+03,   -0.1971081698462961e+03,   -0.4416135519343869e+03,  0.2250822886064787e+03]
-        )
+        )*rescaling
         q4 = vectors.LorentzVector(
             # mass: 91.188 outgoing Z
             [-0.2255538754188549e+03,  0.1757868459829899e+03,   0.3716353112335996e+02,   -0.1013763093935658e+03]            
-        )
+        )*rescaling
         # mass: 80.419 outgoing W-
         q5 = -q4-q3-q2-q1
 

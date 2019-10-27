@@ -159,6 +159,7 @@ class HyperParameters(dict):
 #############################################################################################################
 
 class TopologyGenerator(object):
+
     def __init__(self, edge_map_lin):
         self.edge_map_lin = edge_map_lin
         self.edge_name_map = {name: i for (
@@ -630,6 +631,8 @@ def solve_constraint_problem(id_and_constraints):
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
+    _cvxpy_threshold = 1.0e-6
+
     def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
         fixed_deformation=None, constant_deformation=None, **opts):
         """
@@ -919,7 +922,7 @@ class LoopTopology(object):
                         e = ellipsoids[surf_id]
                         p = cvxpy.Problem(cvxpy.Minimize(e), constraints)
                         result = p.solve()
-                        if result > -1e-6:
+                        if result > -self._cvxpy_threshold*self.get_com_energy():
                             non_existing_ellipsoids.add(surf_id)
 
                     if len(non_existing_ellipsoids) > 0:
@@ -1033,7 +1036,7 @@ class LoopTopology(object):
             e = ellipsoids[surf_id]
             p = cvxpy.Problem(cvxpy.Minimize(e), [])
             result = p.solve()
-            if result > -1e-6:
+            if result > -self._cvxpy_threshold*self.get_com_energy():
                 del ellipsoids[surf_id]
                 del ellipsoid_param[surf_id]
 
@@ -1219,6 +1222,7 @@ class LoopTopology(object):
         except cvxpy.SolverError:
             print('Solving failed. Trying again with SCS solver')
             p.solve(solver=cvxpy.SCS)
+            print('SCS solved problem status: %s'%p.status)
             return [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates]
         except Exception as e:
             print("Could not solve system, it should have a solution")
