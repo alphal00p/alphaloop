@@ -1076,6 +1076,8 @@ class LoopTopology(object):
                 if r and r not in overlap_structure:
                     overlap_structure.append(r)
 
+        pool.close()
+
         return list(sorted(tuple(i) for i in overlap_structure))
 
     def find_overlap_structure_bottom_up(self, ellipsoid_list, extra_constraints):
