@@ -187,7 +187,7 @@ def load(selected_topologies=None):
 
 if __name__=='__main__':
     
-    selected_topologies = sys.argv[1:]
+    args = sys.argv[1:]
 
 #    selected_topologies = [
 #        'T1_Pentabox_physical',
@@ -199,16 +199,19 @@ if __name__=='__main__':
 #        'T2_6P_2L_Weinzierl_F',        
 #    ]
 
-    if len(selected_topologies)==0:
+    if len(args)==0:
         print("Now processing all topologies...")
-        selected_topologies = None
+        list_of_selected_topologies = [None,]
     else:
-        print("Now processing the following topologies: %s"%(', '.join(selected_topologies)))
+        list_of_selected_topologies = [ [topology,] for topology in args]
+        print("Now processing the following topologies: %s"%(', '.join(args)))
 
-    all_topologies = load(selected_topologies)
+   
+    for selected_topologies in list_of_selected_topologies:
+        all_topologies = load(selected_topologies)
 
-    # Write out topoloies one by one in separate yaml files given the time it
-    # takes to generate them and their size.
-    for topology_name, topology in all_topologies.items():
-        TopologyCollection({topology_name:topology}).export_to(os.path.join('.', '%s.yaml'%topology_name))
+        # Write out topoloies one by one in separate yaml files given the time it
+        # takes to generate them and their size.
+        for topology_name, topology in all_topologies.items():
+            TopologyCollection({topology_name:topology}).export_to(os.path.join('.', '%s.yaml'%topology_name))
 
