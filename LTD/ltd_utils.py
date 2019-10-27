@@ -16,6 +16,8 @@ from pprint import pformat
 import numpy as numpy
 import numpy.linalg
 from itertools import product, combinations, permutations
+import multiprocessing
+import signal
 
 try:
     import cvxpy
@@ -617,6 +619,14 @@ class TopologyGenerator(object):
 # Define topology structures
 #############################################################################################################
 
+def solve_constraint_problem(id_and_constraints):
+    """ Solve a constraint problem using cvxpy. The input is a tuple (id, constraints). On success, this function
+    returns the id. Otherwise, it returns `None`."""
+    p = cvxpy.Problem(cvxpy.Minimize(1), id_and_constraints[1])
+    p.solve()
+    if p.status == cvxpy.OPTIMAL:
+        return id_and_constraints[0]
+
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
@@ -1038,22 +1048,33 @@ class LoopTopology(object):
     def find_overlap_structure_top_down(self, ellipsoid_list, extra_constraints):
         overlap_structure = []
         indices = list(range(len(ellipsoid_list)))
+
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        pool = multiprocessing.Pool(None) # use all available cores
+        signal.signal(signal.SIGINT, original_sigint_handler)
+
         for n in range(len(ellipsoid_list), 0, -1):
-            for x in combinations(indices, n):
+            # Construct all plausible new subsets of length n
+            options = set()
+            for r in combinations(indices, n):
                 seen = False
                 for y in overlap_structure:
-                    if set(x).issubset(y):
+                    if set(r).issubset(y):
                         seen = True
                         break
-                if seen:
-                    continue
+                if not seen:
+                    options.add(tuple(r))
 
-                constraints = [ellipsoid_list[e][1] <= 0 for e in x]
+            if len(options) == 0:
+                continue
 
-                p = cvxpy.Problem(cvxpy.Minimize(1), constraints + extra_constraints)
-                result = p.solve()
-                if p.status == cvxpy.OPTIMAL:
-                    overlap_structure.append(set(x))
+            print('Progress: n={}, options to consider={} current structure={}'.format(n, len(options), overlap_structure))
+
+            id_and_constraints = [(x, [ellipsoid_list[e][1] <= 0 for e in x] + extra_constraints) for x in options]
+
+            for r in pool.imap_unordered(solve_constraint_problem, id_and_constraints):
+                if r and r not in overlap_structure:
+                    overlap_structure.append(r)
 
         return list(sorted(tuple(i) for i in overlap_structure))
 
