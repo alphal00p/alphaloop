@@ -1207,6 +1207,10 @@ class LoopTopology(object):
             #p.solve(verbose=True)
             p.solve()
             return [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates]
+        except cvxpy.SolverError:
+            print('Solving failed. Trying again with SCS solver')
+            p.solve(solver=cvxpy.SCS)
+            return [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates]
         except Exception as e:
             print("Could not solve system, it should have a solution")
             for i_c, c in enumerate(constraints):
