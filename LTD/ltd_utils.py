@@ -1049,6 +1049,13 @@ class LoopTopology(object):
         overlap_structure = []
         indices = list(range(len(ellipsoid_list)))
 
+        # first collect basic overlap info for all pairs
+        pair_non_overlap = [set() for _ in indices]
+        for es in combinations(indices, 2):
+            if not solve_constraint_problem((1, [ellipsoid_list[e][1] <= 0 for e in es] + extra_constraints)):
+                pair_non_overlap[es[0]].add(es[1])
+                pair_non_overlap[es[1]].add(es[0])
+
         original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         pool = multiprocessing.Pool(None) # use all available cores
         signal.signal(signal.SIGINT, original_sigint_handler)
@@ -1063,7 +1070,9 @@ class LoopTopology(object):
                         seen = True
                         break
                 if not seen:
-                    options.add(tuple(r))
+                    # an option is only possible if all pairs of ellipsoids overlap
+                    if all(len(pair_non_overlap[e] & set(r)) == 0 for e in r):
+                        options.add(tuple(r))
 
             if len(options) == 0:
                 continue
