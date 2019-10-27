@@ -106,14 +106,14 @@ hyperparameters = HyperParameters({
             # magic_fudge : self-explanatory :)
             'expansion_check_strategy'  : 'magic_fudge',
             'expansion_threshold'       : 0.9,
-            'positive_cut_check'        : False,
+            'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,
             'source_branch_cut_m'       : -1.0,
-            'cut_propagator_check'      : False,
-            'non_cut_propagator_check'  : False,
-            'skip_hyperboloids'         : False,
+            'cut_propagator_check'      : True,
+            'non_cut_propagator_check'  : True,
+            'skip_hyperboloids'         : True,
             'source_branch_cut_threshold'  : 0.8,
             'source_branch_cut_multiplier' : 0.8,
         },
