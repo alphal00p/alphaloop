@@ -183,6 +183,58 @@ def load(selected_topologies=None):
              entry_name = topology_name
         )
 
+    # Setting up Weinzierl's kinematic for the four-point double and triple box of Weinzierl's paper.
+    # See Eq. 35 of ref. https://arxiv.org/pdf/1211.0509.pdf
+    rescaling = 1.0e-2
+    q1 = vectors.LorentzVector(
+        [-19.6586,7.15252,0.206016,-8.96383]
+    )*rescaling 
+    q2 = vectors.LorentzVector(
+        [-26.874,-7.04203,0.0501295,12.9055]
+    )*rescaling
+    q4 = vectors.LorentzVector(
+        [90.0, 0., 0., 0.] 
+    )*rescaling
+    q3 = -q1-q2-q4
+
+    topology_name = "T3_DoubleBox_Weinzierl"
+    if selected_topologies is None or topology_name in selected_topologies:
+        factory = TopologyGenerator([
+            ('p1', 2, 5), ('p2', 5, 6), ('p3', 6, 1), ('p4', 1, 2),
+            ('p5', 5, 3), ('p6', 3, 4), ('p7', 4, 6),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+        ])
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0, 'p7': 0.0}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=complex(-5.897e-2,0.0j)
+             ),
+             entry_name = topology_name
+        )
+
+    topology_name = "T4_TripleBox_Weinzierl"
+    if selected_topologies is None or topology_name in selected_topologies:
+        factory = TopologyGenerator([
+            ('p1', 2, 5), ('p2', 5, 6), ('p3', 6, 1), ('p4', 1, 2),
+            ('p5', 5, 7), ('p6', 7, 8), ('p7', 8, 6),
+            ('p8', 7, 3), ('p9', 3, 4), ('p10', 4, 8),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+        ])
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 
+                          'p5': 0.0, 'p6': 0.0, 'p7': 0.0, 'p8': 0.0, 
+                          'p9': 0.0, 'p10': 0.0}, 
+                loop_momenta_names=('p1','p5','p8'), 
+                analytic_result=complex(0.0,-6.744e-3j)
+             ),
+             entry_name = topology_name
+        )
+
+
     return all_topologies
 
 if __name__=='__main__':
@@ -196,7 +248,9 @@ if __name__=='__main__':
 #        'T2_6P_2L_Weinzierl_C',
 #        'T2_6P_2L_Weinzierl_D',
 #        'T2_6P_2L_Weinzierl_E',
-#        'T2_6P_2L_Weinzierl_F',        
+#        'T2_6P_2L_Weinzierl_F',
+#        'T3_DoubleBox_Weinzierl',
+#        'T4_TripleBox_Weinzierl',
 #    ]
 
     if len(args)==0:
