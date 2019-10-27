@@ -43,7 +43,7 @@ def load(selected_topologies=None):
             [-0.2255538754188549e+03,  0.1757868459829899e+03,   0.3716353112335996e+02,   -0.1013763093935658e+03]            
         )
         # mass: 80.419 outgoing W-
-        q5 = q4-q3-q2-q1
+        q5 = -q4-q3-q2-q1
 
         factory = TopologyGenerator([
             ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),  
