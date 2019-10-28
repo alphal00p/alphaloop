@@ -111,8 +111,8 @@ hyperparameters = HyperParameters({
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,
             'source_branch_cut_m'       : -1.0,
-            'cut_propagator_check'      : True,
-            'non_cut_propagator_check'  : True,
+            'cut_propagator_check'      : False,
+            'non_cut_propagator_check'  : False,
             'skip_hyperboloids'         : True,
             'source_branch_cut_threshold'  : 0.8,
             'source_branch_cut_multiplier' : 0.8,
@@ -146,7 +146,7 @@ hyperparameters = HyperParameters({
         # can be cartesian or spherical
         'mode'      :   'spherical',
         # can be log or linear
-        'mapping'   :   'linear',
+        'mapping'   :   'log',
         # controls the UV behaviour of the spherical log map
         'b'         :   1.0e1,
         # rescale the input from [0,1] to [lo,hi]
