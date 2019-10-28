@@ -18,6 +18,7 @@ import numpy.linalg
 from itertools import product, combinations, permutations
 import multiprocessing
 import signal
+import time
 
 try:
     import cvxpy
@@ -628,6 +629,20 @@ def solve_constraint_problem(id_and_constraints):
     if p.status == cvxpy.OPTIMAL:
         return id_and_constraints[0]
 
+def solve_constraint_problem_given_problem(id_and_problem):
+    ret_id, source_coordinates, p = id_and_problem
+    try:
+        p.solve()
+        return (ret_id, [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
+    except cvxpy.SolverError:
+        print('Solving failed. Trying again with SCS solver')
+        p.solve(solver=cvxpy.SCS)
+        print('SCS solved problem status: %s'%p.status)
+        return (ret_id, [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
+    except Exception as e:
+        print("Could not solve system, it should have a solution", p)
+        raise
+
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
@@ -897,6 +912,12 @@ class LoopTopology(object):
         if len(ellipsoids) == 0:
             return
 
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        pool = multiprocessing.Pool(None) # use all available cores
+        signal.signal(signal.SIGINT, original_sigint_handler)
+
+        center_problems = []
+
         # We set all combinations of independent propagators on-shell from 0 to n-1 propagators
         for num_cuts in range(self.n_loops):
             for ll_combs in combinations(range(len(self.loop_lines)), num_cuts):
@@ -930,24 +951,29 @@ class LoopTopology(object):
 
                     ellipsoid_list = [(surf_id, ellipsoids[surf_id], surf) for surf_id, surf in ellipsoid_param.items() if surf_id not in non_existing_ellipsoids]
 
-                    all_overlaps = self.find_overlap_structure(ellipsoid_list, constraints, bottom_up)
+                    all_overlaps = self.find_overlap_structure(ellipsoid_list, constraints, bottom_up, pool)
                     print('Overlap structure of %s with cuts %s: %s' % (self.name, list(zip(ll_combs, prop_combs)), all_overlaps))
 
-                    current_deformation = []
                     for overlap in all_overlaps:
-                        sources = self.determine_overlap_center(source_coordinates, overlap, ellipsoid_list, delta_param, constraints)
                         excluded_ellipsoids = list(non_existing_ellipsoids) + list(ellipsoid_list[i][0] for i in range(len(ellipsoid_list)) if i not in overlap)
+                        problem = self.determine_overlap_center_problem(source_coordinates, overlap, ellipsoid_list, delta_param, constraints)
+                        center_problems.append(((zip(ll_combs, prop_combs), excluded_ellipsoids), source_coordinates, problem))
 
-                        # produce yaml-friendly deformation structure
-                        d = {'deformation_sources': sources, 
-                             'excluded_surface_ids': [[[list(focus[0]), focus[1], focus[2]] for focus in surf_id] for surf_id in excluded_ellipsoids]
-                            }
-                        current_deformation.append(d)
+        print('Determining centers of {} cases'.format(len(center_problems)))
+        deformation_per_sub_source = defaultdict(list)
+        for (prop_combs, excluded_ellipsoids), sources in pool.imap_unordered(solve_constraint_problem_given_problem, center_problems):
+            # produce yaml-friendly deformation structure
+            d = {'deformation_sources': sources,
+                    'excluded_surface_ids': [[[list(focus[0]), focus[1], focus[2]] for focus in surf_id] for surf_id in excluded_ellipsoids]
+                }
+            deformation_per_sub_source[tuple(prop_combs)].append(d)
 
-                    if len(current_deformation) > 0:
-                        self.fixed_deformation.append({'deformation_per_overlap': current_deformation, 
-                                                    'excluded_propagators': [list(x) for x in zip(ll_combs, prop_combs)]
-                                                    })
+        for ll_prop_combs, current_deformation in deformation_per_sub_source.items():
+            self.fixed_deformation.append({'deformation_per_overlap': current_deformation,
+                                        'excluded_propagators': [list(x) for x in ll_prop_combs]
+                                        })
+
+        pool.close()
 
         print('Fixed deformation: %s' % pprint.pformat(self.fixed_deformation))
 
@@ -1042,19 +1068,15 @@ class LoopTopology(object):
 
         return ellipsoids, ellipsoid_param, delta_param
 
-    def find_overlap_structure(self, ellipsoid_list, extra_constraints, bottom_up):
+    def find_overlap_structure(self, ellipsoid_list, extra_constraints, bottom_up, pool):
         if bottom_up:
             return self.find_overlap_structure_bottom_up(ellipsoid_list, extra_constraints)
         else:
-            return self.find_overlap_structure_top_down(ellipsoid_list, extra_constraints)
+            return self.find_overlap_structure_top_down(ellipsoid_list, extra_constraints, pool)
 
-    def find_overlap_structure_top_down(self, ellipsoid_list, extra_constraints):
+    def find_overlap_structure_top_down(self, ellipsoid_list, extra_constraints, pool):
         overlap_structure = []
         indices = list(range(len(ellipsoid_list)))
-
-        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-        pool = multiprocessing.Pool(None) # use all available cores
-        signal.signal(signal.SIGINT, original_sigint_handler)
 
         # first collect basic overlap info for all pairs
         pair_non_overlap = [set() for _ in indices]
@@ -1117,8 +1139,6 @@ class LoopTopology(object):
             for r in pool.imap_unordered(solve_constraint_problem, id_and_constraints):
                 if r and r not in overlap_structure:
                     overlap_structure.append(r)
-
-        pool.close()
 
         return list(sorted(tuple(i) for i in overlap_structure))
 
@@ -1187,7 +1207,7 @@ class LoopTopology(object):
 
         return list(sorted(max_overlap + done_overlaps))
 
-    def determine_overlap_center(self, source_coordinates, overlap, ellipsoid_list, delta_param, extra_constraints):
+    def determine_overlap_center_problem(self, source_coordinates, overlap, ellipsoid_list, delta_param, extra_constraints):
         """ Find the center in a region of overlap. Note that all source_coordinates must be used in the constraints."""
         # Determine all involved loop momenta
         involved_loop_momenta = [False for _ in range(self.n_loops)]
@@ -1242,25 +1262,7 @@ class LoopTopology(object):
         # Example of how to force the z-component of the sources to be zero
         #for c in source_coordinates:
         #    constraints.append(c[2]==0.)
-
-        p = cvxpy.Problem(objective, constraints)
-
-        try:
-            #p.solve(verbose=True)
-            p.solve()
-            return [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates]
-        except cvxpy.SolverError:
-            print('Solving failed. Trying again with SCS solver')
-            p.solve(solver=cvxpy.SCS)
-            print('SCS solved problem status: %s'%p.status)
-            return [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates]
-        except Exception as e:
-            print("Could not solve system, it should have a solution")
-            for i_c, c in enumerate(constraints):
-                print("Constraint id=%d"%i_c)
-                print("Constraint: '%s' "%(str(c)))
-                print("Is dcp: %s"%c.is_dcp())
-            raise
+        return cvxpy.Problem(objective, constraints)
 
     def build_constant_deformation(self):
         # deform with constant norm(a * k + b)
