@@ -997,29 +997,6 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
      entry_name = 'Box_RodrigoFail2'
 )
 
-# Topologies for the deformation paper
-
-pentagon = TopologyGenerator([
-    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
-    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
-])
-q1 = vectors.LorentzVector([ 4.812500e+01,0.000000e+00,0.000000e+00,4.786455e+01])
-q2 = vectors.LorentzVector([ 5.187500e+01,0.000000e+00,0.000000e+00,-4.786455e+01])
-q3 = vectors.LorentzVector([ -3.319087e+01,4.234357e+00,-3.141040e+00,-1.318475e+01])
-q4 = vectors.LorentzVector([ -2.090788e+01,-1.143512e+01,-4.165504e-01,9.011335e+00])
-q5 = vectors.LorentzVector([ -4.590125e+01,7.200760e+00,3.557590e+00,4.173417e+00])
-hard_coded_topology_collection.add_topology(pentagon.create_loop_topology(
-        "paper_pentagon_ps1", 
-        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5  }, 
-        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
-        loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
-        analytic_result=-8.39048452581577133E-013-1.71340504218085295E-012, # For triangle and box one-loop topology, the analytic result is automatically computed
-        # For now specified by hand as the cvxpy automated implementation is not done yet
-    #    fixed_deformation = [{'deformation_sources': [[0., 0.0424834862261251, -1.5779576840628833, 0.47971132471067496]], 'excluded_surface_ids': [5]},]
-     ),
-     entry_name = 'paper_pentagon_ps1' #8E 2s with a point from MadGraph's FLatInvertiblePhaseSpace
-)
-
 # Example printout
 # ----------------
 #hard_coded_topology_collection['non_planar_four_loop_no_ellipse'].print_topology()

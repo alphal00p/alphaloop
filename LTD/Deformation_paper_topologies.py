@@ -235,6 +235,75 @@ def load(selected_topologies=None):
         )
 
 
+    # Setting up One Loop topologies with uniformly generated PS points
+
+    topology_name = "Pentagon_1s"
+    # 8 ellipsoids 1 source with a point from MadGraph's FLatInvertiblePhaseSpace
+    if selected_topologies is None or topology_name in selected_topologies:
+        pentagon = TopologyGenerator([
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
+        ])
+        q1 = vectors.LorentzVector([5.1000000000000000e+01, 0.0000000000000000e+00, 0.0000000000000000e+00, 4.8744230427815765e+01])    #m = 15
+        q2 = vectors.LorentzVector([4.9000000000000000e+01, 0.0000000000000000e+00, 0.0000000000000000e+00, -4.8744230427815765e+01])   #m = 5
+        q3 = vectors.LorentzVector([-2.7232566433392297e+01, -5.5485178014592513e+00, 1.6209175964465906e+01, 6.9346405320676556e+00])  #m = 20 
+        q4 = vectors.LorentzVector([-3.2743923031870672e+01, 1.2995389184547482e+01, -5.1743016921802543e-01, 1.7368423875527190e+00])  #m = 30
+        q5 = vectors.LorentzVector([-4.0023510534737028e+01, -7.4468713830882312e+00, -1.5691745795247881e+01, -8.6714829196203738e+00])#m = 35
+        all_topologies.add_topology(pentagon.create_loop_topology(
+                "Pentagon_1s", 
+                ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5  }, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
+                loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=-3.44342331910881e-012-2.56487078110481e-012j,
+             ),
+             entry_name = 'Pentagon_1s'
+        )
+
+    topology_name = "Pentagon_2s"
+    # 8 ellipsoids 2 sources with a point from MadGraph's FLatInvertiblePhaseSpace
+    if selected_topologies is None or topology_name in selected_topologies:
+        pentagon = TopologyGenerator([
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
+        ])
+        q1 = vectors.LorentzVector([ 4.812500e+01,0.000000e+00,0.000000e+00,4.786455e+01])      # m = 5
+        q2 = vectors.LorentzVector([ 5.187500e+01,0.000000e+00,0.000000e+00,-4.786455e+01])     # m = 20
+        q3 = vectors.LorentzVector([ -3.319087e+01,4.234357e+00,-3.141040e+00,-1.318475e+01])   # m = 30
+        q4 = vectors.LorentzVector([ -2.090788e+01,-1.143512e+01,-4.165504e-01,9.011335e+00])   # m = 15
+        q5 = vectors.LorentzVector([ -4.590125e+01,7.200760e+00,3.557590e+00,4.173417e+00])     # m = 45
+        all_topologies.add_topology(pentagon.create_loop_topology(
+                "Pentagon_2s", 
+                ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5  }, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
+                loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=-8.39048452581577133E-013-1.71340504218085295E-012j,
+             ),
+             entry_name = 'Pentagon_2s' #8E 2s with a point from MadGraph's FLatInvertiblePhaseSpace
+        )
+
+    topology_name = "Pentagon_3s"
+    # 8 ellipsoids 3 sources with a point from MadGraph's FLatInvertiblePhaseSpace
+    if selected_topologies is None or topology_name in selected_topologies:
+        pentagon = TopologyGenerator([
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
+        ])
+        q1 = vectors.LorentzVector([ 4.809394e+01,0.000000e+00,0.000000e+00,4.805087e+01]) #m=2
+        q2 = vectors.LorentzVector([ 5.190606e+01,0.000000e+00,0.000000e+00,-4.805087e+01]) #m=19
+        q3 = vectors.LorentzVector([ -3.068412e+01,6.865600e+00,-2.846056e+01,5.413178e-01]) #m=9
+        q4 = vectors.LorentzVector([ -3.607736e+01,-9.406076e+00,2.938819e+01,1.081775e+01]) #m=15
+        q5 = vectors.LorentzVector([ -3.323852e+01,2.540476e+00,-9.276298e-01,-1.135907e+01]) #m=31
+        all_topologies.add_topology(pentagon.create_loop_topology(
+                "Pentagon_3s", 
+                ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5  }, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0}, 
+                loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=-3.48997234169132E-012-3.90012989047481E-012j,
+             ),
+             entry_name = 'Pentagon_3s' #8E 3s with a point from MadGraph's FLatInvertiblePhaseSpace
+        )
+
+
     return all_topologies
 
 if __name__=='__main__':
@@ -267,5 +336,5 @@ if __name__=='__main__':
         # Write out topoloies one by one in separate yaml files given the time it
         # takes to generate them and their size.
         for topology_name, topology in all_topologies.items():
-            TopologyCollection({topology_name:topology}).export_to(os.path.join('.', '%s.yaml'%topology_name))
+            TopologyCollection({topology_name:topology}).export_to(os.path.join('topologies/.', '%s.yaml'%topology_name))
 
