@@ -499,8 +499,9 @@ class TopologyGenerator(object):
 
         cs = self.get_cut_structures(ll, contour_closure)
 
-        # the external kinematics are given in alphabetic order
-        external_kinematics = [ext_mom[key] for key in sorted(ext_mom.keys())]
+        # the external kinematics are stored in the right order
+        # TODO: check that the externals are submitted in the form "qn" with n a number
+        external_kinematics = [ext_mom["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in ext_mom.keys()])]
         
         loop_topology = LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
             ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result, fixed_deformation = fixed_deformation,
