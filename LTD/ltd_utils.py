@@ -1052,21 +1052,51 @@ class LoopTopology(object):
         overlap_structure = []
         indices = list(range(len(ellipsoid_list)))
 
-        # first collect basic overlap info for all pairs
-        pair_non_overlap = [set() for _ in indices]
-        for es in combinations(indices, 2):
-            if not solve_constraint_problem((1, [ellipsoid_list[e][1] <= 0 for e in es] + extra_constraints)):
-                pair_non_overlap[es[0]].add(es[1])
-                pair_non_overlap[es[1]].add(es[0])
-
         original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         pool = multiprocessing.Pool(None) # use all available cores
         signal.signal(signal.SIGINT, original_sigint_handler)
 
+        # first collect basic overlap info for all pairs
+        pair_non_overlap = [set() for _ in indices]
+        pair_overlap = [{i,} for i in indices]
+        for es in pool.imap_unordered(solve_constraint_problem, ((r, [ellipsoid_list[e][1] <= 0 for e in r] + extra_constraints) for r in combinations(indices, 2))):
+            if es:
+                pair_overlap[es[0]].add(es[1])
+                pair_overlap[es[1]].add(es[0])
+
+        for i in indices:
+            pair_non_overlap[i] = set(indices) - pair_overlap[i]
+
         for n in range(len(ellipsoid_list), 0, -1):
             # Construct all plausible new subsets of length n
+            ellipsoids_not_in_overlap = [e for e in indices if all(e not in o for o in overlap_structure)]
+
+            # take one element from the ellipsoids that are not in an overlap yet and pad it with all possible
+            # other ellipsoids that overlap with it
+            suggested_options = set()
+            for e in ellipsoids_not_in_overlap:
+                compatible_completion = [i for i in indices if i != e and i not in pair_non_overlap[e]]
+                suggested_options.update(tuple(sorted(set({e,}) | set(a))) for a in combinations(compatible_completion, n - 1))
+
+            # construct all possible 2-tuples from elements that are in two overlaps but are not fully in any overlap structure
+            if n > 1:
+                disjoint_set_ellipsoids_options = set()
+                for o1, o2 in combinations(overlap_structure, 2):
+                    left_set = set(o1).difference(set(o2))
+                    right_set = set(o2).difference(set(o1))
+
+                    for a in set(product(*[left_set, right_set])):
+                        # filter for compatiblity
+                        if all(not set(a).issubset(o) for o in overlap_structure) and a[0] not in pair_non_overlap[a[1]]:
+                            disjoint_set_ellipsoids_options.add(tuple(sorted(a)))
+
+                for a in disjoint_set_ellipsoids_options:
+                    compatible_completion = [i for i in indices if i != a[0] and i != a[1] and i not in pair_non_overlap[a[0]] and i not in  pair_non_overlap[a[1]]]
+                    suggested_options.update(tuple(sorted(set(a) | set(b))) for b in combinations(compatible_completion, n - 2))
+
+            # filter any subsets of the overlap structure that are still there
             options = set()
-            for r in combinations(indices, n):
+            for r in suggested_options:
                 seen = False
                 for y in overlap_structure:
                     if set(r).issubset(y):
@@ -1077,10 +1107,10 @@ class LoopTopology(object):
                     if all(len(pair_non_overlap[e] & set(r)) == 0 for e in r):
                         options.add(tuple(r))
 
+            print('Progress: n={}, options to consider={} current structure={}'.format(n, len(options), overlap_structure))
+
             if len(options) == 0:
                 continue
-
-            print('Progress: n={}, options to consider={} current structure={}'.format(n, len(options), overlap_structure))
 
             id_and_constraints = [(x, [ellipsoid_list[e][1] <= 0 for e in x] + extra_constraints) for x in options]
 
