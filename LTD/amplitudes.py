@@ -9,6 +9,15 @@ import numpy as np
 import copy
 import yaml
 
+with open("topologies.yaml", 'r') as stream:
+    try:
+        print("Importing topologies from yaml for the creation of the amplitudes...")
+        topologies = {top['name']: top for top in yaml.safe_load(stream)}
+        print("done")
+    except yaml.YAMLError as exc:
+        print(exc)
+
+
 params = {
     'g_f':   1.166390e-05,
     'alpha_s':   1.180000e-01,
@@ -63,17 +72,22 @@ class Amplitude(object):
             mu_r_sq:  mu renormalization for the CT
         """
 
-        with open("topologies.yaml", 'r') as stream:
-            try:
-                topologies = yaml.safe_load(stream)
-            except yaml.YAMLError as exc:
-                print(exc)
-        for top in topologies:
-            if top['name'] == topology:
-                mytop = top
-                break
-        else:
-            raise AssertionError("Could not find topology %s" % topology)
+        #with open("topologies.yaml", 'r') as stream:
+        #    try:
+        #        topologies = yaml.safe_load(stream)
+        #    except yaml.YAMLError as exc:
+        #        print(exc)
+        #for top in topologies:
+        #    if top['name'] == topology:
+        #        mytop = top
+        #        break
+        #else:
+        #    raise AssertionError("Could not find topology %s" % topology)
+        try:
+            mytop = topologies[topology]
+        except:
+            raise AssertionError("Could not find topology %s" %topology)
+
         self.topology_name = topology
         self.type = amp_type
         self.ps = [vectors.LorentzVector(p)
@@ -223,7 +237,8 @@ class Amplitude(object):
                             n_UV_LO_diags += 1
 
             # Set of diagrams to compute the amplitude and to do the same using the UV approximation
-            set_amp = [d.name for d in self.diags if not "UV_LO" in d.name and not "born" in d.name]
+            set_amp = [
+                d.name for d in self.diags if not "UV_LO" in d.name and not "born" in d.name]
             set_uv = [d.name for d in self.diags if "UV" in d.name]
             self.sets = [set_amp, set_uv]
 
@@ -330,6 +345,16 @@ if __name__ == "__main__":
             [[], amp.ps[0]+amp.ps[4]],
         ],
     )
+    print("old D1 => {}".format(factor/amp.sij["s23"]-factor/amp.qSQ(2)))
+    print("old D2 => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]-factor/(amp.qSQ(2)*amp.qSQ(3))))
+    print("old D3 => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]**2-factor/(amp.qSQ(2)*amp.qSQ(3)**2)))
+    print("old D4 => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]-factor/(amp.qSQ(2)*amp.qSQ(3))))
+    print("old D5 => {}".format(factor/amp.sij["s15"]-factor/amp.qSQ(3)))
+    print("old D6 => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]-factor/(amp.qSQ(2)*amp.qSQ(3))))
+    print("old D7 => {}".format(factor/amp.sij["s23"]**2/amp.sij["s15"]-factor/(amp.qSQ(2)**2*amp.qSQ(3))))
+    print("old D8 => {}".format(factor-factor))
+    print("old IR => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]-factor/(amp.qSQ(2)*amp.qSQ(3))))
+    print( "{} :: {}".format(amp.sij["s23"],amp.sij["s15"]-amp.qSQ(2),amp.qSQ(3)))
     # Store
     amplitudes_collection.add(amp)
 
@@ -368,6 +393,123 @@ if __name__ == "__main__":
     # Store
     amplitudes_collection.add(amp)
 
+    # =================== add amplitude ddAAAA ======================= #
+    tree_factor = params['alpha_ew']**2 * params['q_d']**4 * (4.0 * np.pi)**2
+    # Initialize
+    amp = Amplitude("manual_ddAAAA_amplitude",  # name of topology
+                    'qqbar_photons',             # process type
+                    zip(["u", "vbar", "a", "a", "a", "a"],  # polarizations
+                        ["+", "-", "+", "+", "+", "+"]),
+                    1,                           # uv_pos
+                    91.188)                      # mu_r_sq
+    # Born Level Diagram
+    born_factor = tree_factor / (amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4))
+    amp.add_born([10, 7, 11, 8, 12, 9, 13], born_factor)
+    # Diagrams and vectors
+    factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
+    amp.create_amplitude(
+       'ddAAAA',
+       1,
+       [
+       qqbar_diagram("D1", [0, 2, 3, 4, 5, 6],[1, 1, 1, 1, 1, 1],[-1, 2, 10, 3, 11, 4, 12, 5, 13, 6, -1],factor,False,False),
+       qqbar_diagram("D2", [0, 2, 3, 4, 5],   [1, 1, 1, 1, 1],   [-1, 2, 10, 3, 11, 4, 12, 5, -1, 9, 13],factor/ amp.qSQ(4),False,False),
+       qqbar_diagram("D3", [0, 2, 3, 4],      [1, 1, 1, 1],      [-1, 2, 10, 3, 11, 4, -1, 8, 12, 9, 13],factor/(amp.qSQ(3)*amp.qSQ(4)),False,False),
+       qqbar_diagram("D4", [0, 2, 3],         [1, 1, 1],         [-1, 2, 10, 3, -1, 7, 11, 8, 12, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,True),
+       qqbar_diagram("D5", [0, 3, 4, 5, 6],   [1, 1, 1, 1, 1],   [10, 7, -1, 3, 11, 4, 12, 5, 13, 6, -1],factor/ amp.qSQ(2),False,False),
+       qqbar_diagram("D6", [0, 3, 4, 5],      [1, 1, 1, 1],      [10, 7, -1, 3, 11, 4, 12, 5, -1, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(4)),False,False),
+       qqbar_diagram("D7", [0, 3, 4],         [1, 1, 1],         [10, 7, -1, 3, 11, 4, -1, 8, 12, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,True),
+       qqbar_diagram("D8", [0, 3],            [1, 1],            [10, 7, -1, 3, -1, 7, 11, 8, 12, 9, 13],factor/(amp.qSQ(2)**2*amp.qSQ(3)*amp.qSQ(4)),False,True),
+       qqbar_diagram("D9", [0, 4, 5, 6],      [1, 1, 1, 1],      [10, 7, 11, 8, -1, 4, 12, 5, 13, 6, -1],factor/(amp.qSQ(2)*amp.qSQ(3)),False,False),
+       qqbar_diagram("D10",[0, 4, 5],         [1, 1, 1],         [10, 7, 11, 8, -1, 4, 12, 5, -1, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,True),
+       qqbar_diagram("D11",[0, 4],            [1, 1],            [10, 7, 11, 8, -1, 4, -1, 8, 12, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)**2*amp.qSQ(4)),False,True),
+       qqbar_diagram("D12",[0, 5, 6],         [1, 1, 1],         [10, 7, 11, 8, 12, 9, -1, 5, 13, 6, -1],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,True),
+       qqbar_diagram("D13",[0, 5],            [1, 1],            [10, 7, 11, 8, 12, 9, -1, 5, -1, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)**2),False,True),
+       qqbar_diagram("IR", [0, 2, 6],         [1, 1, 1],         [-1, 2, 10, 7, 11, 8, 12, 9, 13, 6, -1],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),True,True),
+       ],
+       # Vectors [loopmomenta, externals]
+       [
+           [[-1], -amp.ps[0]],
+           [[-1], -amp.ps[0]-amp.ps[1]],
+           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]],
+           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]],
+           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]],
+           [[-1], vectors.LorentzVector([0, 0, 0, 0])],
+           [[], -amp.ps[1]-amp.ps[2]],
+           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]],
+           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]],
+           ]
+    )
+    # Store
+    amplitudes_collection.add(amp)
+
+
+    # =================== add amplitude dd6A ======================= #
+    tree_factor = params['alpha_ew']**(6/2) * params['q_d']**4 * (4.0 * np.pi)**(6/2)
+    # Initialize
+    amp = Amplitude("dd6A",  # name of topology
+                    'qqbar_photons',             # process type
+                    zip(["u", "vbar", "a", "a", "a", "a", "a", "a"],  # polarizations
+                        ["+", "-", "+", "+", "+", "+", "+", "+"]),
+                    1,                           # uv_pos
+                    91.188)                      # mu_r_sq
+    # Born Level Diagram
+    born_factor = tree_factor / (amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6))
+    amp.add_born([-1, 2, 14, 9, 15, 10, 16, 11, 17, 12, 18, 13, 19, 8, -1], born_factor)
+    # Diagrams and vectors
+    factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
+    amp.create_amplitude(
+       'dd6A',
+       1,
+            [
+        qqbar_diagram("D1",[0, 2, 3, 4, 5, 6, 7, 8],[1, 1, 1, 1, 1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, 16, 5, 17, 6, 18, 7, 19, 8, -1],1,False,False),
+        qqbar_diagram("D2",[0, 2, 3, 4, 5, 6, 7],[1, 1, 1, 1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, 16, 5, 17, 6, 18, 7, -1, 13, 19],1/amp.qSQ(6),False,False),
+        qqbar_diagram("D3",[0, 2, 3, 4, 5, 6],[1, 1, 1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, 16, 5, 17, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(5)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D4",[0, 2, 3, 4, 5],[1, 1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, 16, 5, -1, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D5",[0, 2, 3, 4],[1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, -1, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D6",[0, 2, 3],[1, 1, 1],[-1, 2, 14, 3, -1, 9, 15, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D7",[0, 3, 4, 5, 6, 7, 8],[1, 1, 1, 1, 1, 1, 1],[14, 9, -1, 3, 15, 4, 16, 5, 17, 6, 18, 7, 19, 8, -1],1/amp.qSQ(2),False,False),
+        qqbar_diagram("D8",[0, 3, 4, 5, 6, 7],[1, 1, 1, 1, 1, 1],[14, 9, -1, 3, 15, 4, 16, 5, 17, 6, 18, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D9",[0, 3, 4, 5, 6],[1, 1, 1, 1, 1],[14, 9, -1, 3, 15, 4, 16, 5, 17, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(5)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D10",[0, 3, 4, 5],[1, 1, 1, 1],[14, 9, -1, 3, 15, 4, 16, 5, -1, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D11",[0, 3, 4],[1, 1, 1],[14, 9, -1, 3, 15, 4, -1, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D12",[0, 3],[1, 1],[14, 9, -1, 3, -1, 9, 15, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)**2*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D13",[0, 4, 5, 6, 7, 8],[1, 1, 1, 1, 1, 1],[14, 9, 15, 10, -1, 4, 16, 5, 17, 6, 18, 7, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)),False,False),
+        qqbar_diagram("D14",[0, 4, 5, 6, 7],[1, 1, 1, 1, 1],[14, 9, 15, 10, -1, 4, 16, 5, 17, 6, 18, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D15",[0, 4, 5, 6],[1, 1, 1, 1],[14, 9, 15, 10, -1, 4, 16, 5, 17, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(5)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D16",[0, 4, 5],[1, 1, 1],[14, 9, 15, 10, -1, 4, 16, 5, -1, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D17",[0, 4],[1, 1],[14, 9, 15, 10, -1, 4, -1, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)**2*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D18",[0, 5, 6, 7, 8],[1, 1, 1, 1, 1],[14, 9, 15, 10, 16, 11, -1, 5, 17, 6, 18, 7, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,False),
+        qqbar_diagram("D19",[0, 5, 6, 7],[1, 1, 1, 1],[14, 9, 15, 10, 16, 11, -1, 5, 17, 6, 18, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(6)),False,False),
+        qqbar_diagram("D20",[0, 5, 6],[1, 1, 1],[14, 9, 15, 10, 16, 11, -1, 5, 17, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D21",[0, 5],[1, 1],[14, 9, 15, 10, 16, 11, -1, 5, -1, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)**2*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D22",[0, 6, 7, 8],[1, 1, 1, 1],[14, 9, 15, 10, 16, 11, 17, 12, -1, 6, 18, 7, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)),False,False),
+        qqbar_diagram("D23",[0, 6, 7],[1, 1, 1],[14, 9, 15, 10, 16, 11, 17, 12, -1, 6, 18, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D24",[0, 6],[1, 1],[14, 9, 15, 10, 16, 11, 17, 12, -1, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)**2*amp.qSQ(6)),False,True),
+        qqbar_diagram("D25",[0, 7, 8],[1, 1, 1],[14, 9, 15, 10, 16, 11, 17, 12, 18, 13, -1, 7, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
+        qqbar_diagram("D26",[0, 7],[1, 1],[14, 9, 15, 10, 16, 11, 17, 12, 18, 13, -1, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)**2),False,True),
+        qqbar_diagram("IR",[0, 2, 8],[1, 1, 1],[-1, 2, 14, 9, 15, 10, 16, 11, 17, 12, 18, 13, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),True,True),
+        ],
+       # Vectors [loopmomenta, externals]
+       [
+           [[-1], -amp.ps[0]],
+           [[-1], -amp.ps[0]-amp.ps[1]],
+           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]],
+           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]],
+           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]],
+           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]-amp.ps[5]],
+           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]-amp.ps[5]-amp.ps[6]],
+           [[-1], vectors.LorentzVector([0, 0, 0, 0])],
+           [[], -amp.ps[1]-amp.ps[2]],
+           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]],
+           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]],
+           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]-amp.ps[5]],
+           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]-amp.ps[5]-amp.ps[6]],
+           ]
+    )
+    # Store
+    amplitudes_collection.add(amp)
+
+    
     # Export amplitudes
     root_dir = ''
     amplitudes_collection.export_to(os.path.join(root_dir, 'amplitudes.yaml'))
