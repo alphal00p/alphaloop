@@ -631,8 +631,9 @@ def solve_constraint_problem(id_and_constraints):
         return id_and_constraints[0]
 
 def solve_constraint_problem_given_problem(id_and_problem):
-    ret_id, source_coordinates, p = id_and_problem
+    ret_id, source_coordinates, (objective, constraints) = id_and_problem
     try:
+        p = cvxpy.Problem(objective, constraints)
         p.solve()
         return (ret_id, [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
     except cvxpy.SolverError:
@@ -902,6 +903,10 @@ class LoopTopology(object):
         """ This function identifies the fixed deformation sources for the deformation field as well as a the list of
         surfaces ids to exclude for each."""
 
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        pool = multiprocessing.Pool(None) # use all available cores
+        signal.signal(signal.SIGINT, original_sigint_handler)
+
         source_coordinates = [cvxpy.Variable(3) for _ in range(self.n_loops)]
 
         ellipsoids, ellipsoid_param, delta_param = self.build_existing_ellipsoids(source_coordinates)
@@ -912,10 +917,6 @@ class LoopTopology(object):
 
         if len(ellipsoids) == 0:
             return
-
-        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-        pool = multiprocessing.Pool(None) # use all available cores
-        signal.signal(signal.SIGINT, original_sigint_handler)
 
         center_problems = []
 
@@ -1263,7 +1264,7 @@ class LoopTopology(object):
         # Example of how to force the z-component of the sources to be zero
         #for c in source_coordinates:
         #    constraints.append(c[2]==0.)
-        return cvxpy.Problem(objective, constraints)
+        return (objective, constraints)
 
     def build_constant_deformation(self):
         # deform with constant norm(a * k + b)
