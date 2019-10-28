@@ -1,0 +1,103 @@
+- analytical_result_imag: 0.0
+  analytical_result_real: -0.05897
+  constant_deformation:
+    alpha:
+    - &id001 [0.0, 0.0, 0.0, 1.0]
+    - *id001
+    beta:
+    - &id002 [0.0, 0.0, 0.0, 0.0]
+    - *id002
+  external_kinematics:
+  - [-0.196586, 0.0715252, 0.00206016, -0.0896383]
+  - [-0.26874, -0.07042029999999999, 0.000501295, 0.129055]
+  - [-0.434674, -0.0011049000000000059, -0.0025614550000000002, -0.0394167]
+  - [0.9, 0.0, 0.0, 0.0]
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -0.05214691257094262, 0.001027785549936816, 0.10615423032865695]
+      - [0.0, -0.016384517720831798, 0.0020578349514328922, 0.06133533155217546]
+      excluded_surface_ids: []
+    excluded_propagators: []
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -9.621061410718552e-13, -6.928951786525618e-13, 1.133107142444345e-12]
+      - [0.0, -0.0011117131065020807, -0.0003800729827584405, 0.018132634074721012]
+      excluded_surface_ids: []
+    excluded_propagators:
+    - [0, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 0.0011048999998382871, 0.0025614549999038163, 0.039416700000223265]
+      - [0.0, -0.00016675367030048052, 0.001289801329675812, 0.03814504632964904]
+      excluded_surface_ids: []
+    excluded_propagators:
+    - [0, 1]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -0.07042029999986726, 0.0005012950001516263, 0.1290550000001268]
+      - [0.0, -0.034657546165157496, 0.0015313267772571492, 0.08423573560107124]
+      excluded_surface_ids: []
+    excluded_propagators:
+    - [0, 2]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -0.02957331381930784, -0.0007957313310616872, 0.07212480255578912]
+      - [0.0, -0.029573313819677094, -0.0007957313315837391, 0.07212480255639944]
+      excluded_surface_ids: []
+    excluded_propagators:
+    - [1, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -0.03521003012256921, 0.0002506753700582393, 0.06452725655061976]
+      - [0.0, 2.229136804837194e-13, 4.795767421662094e-13, 1.7736032293086557e-12]
+      excluded_surface_ids: []
+    excluded_propagators:
+    - [2, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -0.034658148786054416, 0.0015313676014630565, 0.08423633766180579]
+      - [0.0, 0.0011048999994363003, 0.002561454999033576, 0.03941669999862552]
+      excluded_surface_ids: []
+    excluded_propagators:
+    - [2, 1]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -0.034658148786054416, 0.0015313676014630565, 0.08423633766180579]
+      - [0.0, 0.0011048999994363003, 0.002561454999033576, 0.03941669999862552]
+      excluded_surface_ids: []
+    excluded_propagators:
+    - [2, 2]
+  loop_lines:
+  - end_node: 5
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [0.465326, -0.0011049000000000059, -0.0025614550000000002, -0.0394167]
+    - m_squared: 0.0
+      q: [0.26874, 0.07042029999999999, -0.000501295, -0.129055]
+    signature: [1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, -1]
+    start_node: 5
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [-0.434674, -0.0011049000000000059, -0.0025614550000000002, -0.0394167]
+    - m_squared: 0.0
+      q: [0.465326, -0.0011049000000000059, -0.0025614550000000002, -0.0394167]
+    signature: [0, 1]
+    start_node: 5
+  ltd_cut_structure:
+  - [0, 1, 1]
+  - [1, 0, 1]
+  - [1, -1, 0]
+  n_loops: 2
+  name: T3_DoubleBox_Weinzierl
