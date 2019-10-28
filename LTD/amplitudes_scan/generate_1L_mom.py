@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python3
 
 import numpy as np
 import itertools
@@ -102,8 +102,8 @@ def split_mom_angles(p,msq1,msq2,phi,theta):
     p2[0] = np.sign(p[0]) * np.sqrt(v2_norm+msq2)
     
     v_boost = -np.array(p[1:])/np.sqrt(sp2(p)+v_sq(p))
-    if abs((p1[0]+p2[0])/(boost(p,-v_boost)[0])-1.0) > 1e-15:
-        print("Invalid split: needs negative energies.")
+    if abs((p1[0]+p2[0])/(boost(p,-v_boost)[0])-1.0) > 1e-14:
+        print("Invalid split: needs negative energies. [{}]".format((p1+p2)[0]/boost(p,-v_boost)[0]-1.0))
         return(None,None)
     return (boost(p1,v_boost),boost(p2,v_boost))
  
@@ -120,12 +120,16 @@ def generate_moms_2to3_scan(external_masses, s45, theta, alpha, beta,final_state
     externals += [p1,p2]
     #OUTGOING
     q=np.array([1.0,0.0,0.0,0.0])
+    
     (p3,q) = split_mom_angles(q,m2[2],s45, alpha ,theta)
+    if p3 is None or q is None:
+        return None
+    
     (p4,p5) = split_mom_angles(q,m2[3],m2[4], alpha ,theta -np.pi/2.0+beta)
-    if p3 is None or p4 is None or p4 is None:
+    if p4 is None or p4 is None:
         return None
 
-    print("s45_alpha={}".format(np.arccos((p5[1]*p4[1]+p5[2]*p4[2]+p5[3]*p4[3])/np.sqrt(v_sq(p4))/np.sqrt(v_sq(p5)))/np.pi))
+    #print("s45_alpha={}".format(np.arccos((p5[1]*p4[1]+p5[2]*p4[2]+p5[3]*p4[3])/np.sqrt(v_sq(p4))/np.sqrt(v_sq(p5)))/np.pi))
 
     externals.extend([-p3,-p4,-p5])
     
