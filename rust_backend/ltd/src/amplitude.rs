@@ -184,6 +184,9 @@ impl Amplitude {
         }
 
         if settings.debug > 2 {
+            for (i, (pol, p)) in self.pols_type.iter().zip(self.ps.iter()).enumerate() {
+                println!("  | p{} = {:?}", i, p);
+            }
             for (i, (pol, p)) in self
                 .pols_type
                 .iter()
@@ -258,7 +261,8 @@ impl Amplitude {
         // Select which set of diagrams to consider
         // sets1: with UV approximation for all the diagrams
         // sets0: regular amplitude
-        let diaglist = if cut_2energy.norm() > e_cm_sq * Into::<T>::into(settings.mu_uv_sq_re_im[0]) {
+        let diaglist = if cut_2energy.norm() > e_cm_sq * Into::<T>::into(settings.mu_uv_sq_re_im[0])
+        {
             self.sets[1].clone()
         } else {
             self.sets[0].clone()
@@ -436,7 +440,7 @@ impl Amplitude {
         );
 
         //Get the incormation about the slashed vectors
-        let mut vectors: ArrayVec<[LorentzVector<Complex<T>>; 20]> = self
+        let mut vectors: ArrayVec<[LorentzVector<Complex<T>>; 32]> = self
             .vectors
             .iter()
             .map(|v| v.evaluate(&loop_momenta.to_vec()))
@@ -458,7 +462,7 @@ impl Amplitude {
             "qqbar_photons" => {
                 //Get the incormation about the slashed vectors
                 let loop_mom = vec![LorentzVector::default()];
-                let vectors: ArrayVec<[LorentzVector<Complex<f64>>; 20]> =
+                let vectors: ArrayVec<[LorentzVector<Complex<f64>>; 32]> =
                     self.vectors.iter().map(|v| v.evaluate(&loop_mom)).collect();
 
                 //Spinors
@@ -552,7 +556,7 @@ impl Topology {
                         self.set_loop_momentum_energies(k_def, cut, mat, cache);
                         let ll = &self.loop_lines[0];
                         // compute propagators
-                        let mut props: ArrayVec<[num::Complex<T>; 10]> = ll
+                        let mut props: ArrayVec<[num::Complex<T>; 14]> = ll
                             .propagators
                             .iter()
                             .map(|p| {
