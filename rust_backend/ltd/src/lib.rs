@@ -232,6 +232,7 @@ pub struct DeformationFixedSettings {
     pub a_ijs: Vec<f64>,
     pub normalize_per_source: bool,
     pub include_normal_source: bool,
+    pub source_dampening_factor: f64,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

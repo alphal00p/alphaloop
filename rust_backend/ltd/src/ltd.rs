@@ -11,8 +11,8 @@ use utils::Signum;
 use vector::LorentzVector;
 use {float, PythonNumerator};
 use {
-    AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike, OverallDeformationScaling,
-    ParameterizationMapping, ParameterizationMode, MAX_LOOP,
+    AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike,
+    OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, MAX_LOOP,
 };
 
 use utils;
@@ -831,32 +831,32 @@ impl Topology {
                         self.settings.deformation.scaling.expansion_threshold,
                     ));
 
-                    let lambda_exp_sq = match self.settings.deformation.scaling.expansion_check_strategy {
-                        ExpansionCheckStrategy::FirstLambdaOrder => {
-                            let lambda_exp = c * info.spatial_and_mass_sq / info.kappa_dot_mom.abs(); // note: not holomorphic
-                            lambda_exp * lambda_exp
-                        }
-                        ExpansionCheckStrategy::FullLambdaDependence => {
-                            let a = info.kappa_sq * info.kappa_sq;
-                            let b = info.kappa_dot_mom * info.kappa_dot_mom;
-                            let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
-                            ((-b * Into::<T>::into(2.)
-                                + (b * b * Into::<T>::into(4.) + a * c * c * d).sqrt())
-                            / a)
-
-                        }
-                        ExpansionCheckStrategy::MagicFudge => {
-                            let a = info.kappa_sq * info.kappa_sq;
-                            let b = info.kappa_dot_mom * info.kappa_dot_mom;
-                            let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
-                            if a < b {
-                                c * c * ( d / (b + d ) )
-                            } else {
-                                c * c * ( d / (a + d ) )
+                    let lambda_exp_sq =
+                        match self.settings.deformation.scaling.expansion_check_strategy {
+                            ExpansionCheckStrategy::FirstLambdaOrder => {
+                                let lambda_exp =
+                                    c * info.spatial_and_mass_sq / info.kappa_dot_mom.abs(); // note: not holomorphic
+                                lambda_exp * lambda_exp
                             }
-                        }
-                        _ => unreachable!(),
-                    };
+                            ExpansionCheckStrategy::FullLambdaDependence => {
+                                let a = info.kappa_sq * info.kappa_sq;
+                                let b = info.kappa_dot_mom * info.kappa_dot_mom;
+                                let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
+                                ((-b * Into::<T>::into(2.)
+                                    + (b * b * Into::<T>::into(4.) + a * c * c * d).sqrt())
+                                    / a)
+                            }
+                            ExpansionCheckStrategy::MagicFudge => {
+                                let a = info.kappa_sq * info.kappa_sq;
+                                let b = info.kappa_dot_mom * info.kappa_dot_mom;
+                                let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
+                                if a < b {
+                                    c * c * (d / (b + d))
+                                } else {
+                                    c * c * (d / (a + d))
+                                }
+                            }
+                        };
 
 
                     if sigma.is_zero() {
@@ -880,8 +880,11 @@ impl Topology {
                         let branch_cut_check_m = DualN::from_real(Into::<T>::into(
                             self.settings.deformation.scaling.branch_cut_m,
                         ));
-                        lambda_disc_sq *= (DualN::one() + (info.kappa_dot_mom*info.kappa_dot_mom)/
-                            (branch_cut_check_m*Into::<T>::into(self.e_cm_squared)*Into::<T>::into(self.e_cm_squared)));
+                        lambda_disc_sq *= DualN::one()
+                            + (info.kappa_dot_mom * info.kappa_dot_mom)
+                                / (branch_cut_check_m
+                                    * Into::<T>::into(self.e_cm_squared)
+                                    * Into::<T>::into(self.e_cm_squared));
                     }
 
                     if sigma.is_zero() {
@@ -1463,6 +1466,30 @@ impl Topology {
             cache.ellipsoid_eval[i] = eval;
         }
 
+        let mut source_scaling = DualN::zero();
+        if self.settings.deformation.fixed.source_dampening_factor > 0. {
+            let aij: DualN<T, U> =
+                NumCast::from(self.settings.deformation.fixed.source_dampening_factor).unwrap();
+
+            for (surf1_index, surf1) in self.surfaces.iter().enumerate() {
+                for (surf2_index, surf2) in self.surfaces.iter().enumerate() {
+                    if surf1.group == surf1_index
+                        && surf1.surface_type == SurfaceType::Ellipsoid
+                        && surf2.group == surf2_index
+                        && surf2.surface_type == SurfaceType::Ellipsoid
+                        && surf2_index > surf1_index
+                    {
+                        let eval1 = cache.ellipsoid_eval[surf1_index].unwrap().powi(2);
+                        let eval2 = cache.ellipsoid_eval[surf2_index].unwrap().powi(2);
+                        source_scaling +=
+                            (-(eval1 + eval2) / (aij * Into::<T>::into(self.e_cm_squared))).exp();
+                    }
+                }
+            }
+        } else {
+            source_scaling = DualN::one();
+        }
+
         for d_lim in &self.fixed_deformation {
             for k in &mut kappa_source {
                 *k = LorentzVector::default();
@@ -1608,13 +1635,13 @@ impl Topology {
 
                     for ii in 0..self.n_loops {
                         let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
-                        kappa_source[ii] += -dir / normalization * s * lambda;
+                        kappa_source[ii] += -dir / normalization * s * lambda * source_scaling;
                     }
                 } else {
                     for ii in 0..self.n_loops {
                         let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
                         // the kappa returned by this function is expected to be dimensionless
-                        kappa_source[ii] += -dir * s * lambda
+                        kappa_source[ii] += -dir * s * lambda * source_scaling
                             / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
                     }
                 }
@@ -1630,7 +1657,12 @@ impl Topology {
             // now do the branch cut check per non-excluded loop line
             // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
             //let mut lambda_sq = DualN::one();
-            let mut lambda_sq = DualN::from_real(Into::<T>::into(self.settings.deformation.scaling.source_branch_cut_threshold));
+            let mut lambda_sq = DualN::from_real(Into::<T>::into(
+                self.settings
+                    .deformation
+                    .scaling
+                    .source_branch_cut_threshold,
+            ));
             for (ll_index, ll) in self.loop_lines.iter().enumerate() {
                 let mut kappa_cut = LorentzVector::default();
                 for (kappa, &sign) in kappa_source[..self.n_loops]
@@ -1644,19 +1676,25 @@ impl Topology {
                     if d_lim.excluded_propagators.contains(&(ll_index, prop_index)) {
                         continue;
                     }
- 
                     let mut lambda_disc_sq = cache.cut_info[p.id].spatial_and_mass_sq
                         / kappa_cut.spatial_squared_impr()
                         * DualN::from_real(Into::<T>::into(0.95))
                         * DualN::from_real(Into::<T>::into(
-                            self.settings.deformation.scaling.source_branch_cut_multiplier ));
+                            self.settings
+                                .deformation
+                                .scaling
+                                .source_branch_cut_multiplier,
+                        ));
                     if self.settings.deformation.scaling.source_branch_cut_m > 0. {
                         let branch_cut_check_m = DualN::from_real(Into::<T>::into(
                             self.settings.deformation.scaling.source_branch_cut_m,
                         ));
-                        lambda_disc_sq *= (DualN::one() + 
-                                (cache.cut_info[p.id].kappa_dot_mom*cache.cut_info[p.id].kappa_dot_mom)
-                                    /(branch_cut_check_m*Into::<T>::into(self.e_cm_squared)*Into::<T>::into(self.e_cm_squared)));
+                        lambda_disc_sq *= DualN::one()
+                            + (cache.cut_info[p.id].kappa_dot_mom
+                                * cache.cut_info[p.id].kappa_dot_mom)
+                                / (branch_cut_check_m
+                                    * Into::<T>::into(self.e_cm_squared)
+                                    * Into::<T>::into(self.e_cm_squared));
                     }
 
                     if lambda_disc_sq < lambda_sq {

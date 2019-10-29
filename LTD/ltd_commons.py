@@ -139,6 +139,8 @@ hyperparameters = HyperParameters({
             'normalize_per_source': False,
             # add the normal vector for every ellipsoid which is excluded on all other ellipsoids
             'include_normal_source': False,
+            # dampen the fixed sources away from intersections. Use this parameter only when include_normal_source is true
+            'source_dampening_factor': -1,
         }
     },
 
