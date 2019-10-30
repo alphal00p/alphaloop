@@ -53,7 +53,7 @@ hyperparameters = HyperParameters({
         'integrator'        :   'vegas',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
-        'n_increase'        :   int(1.0e5),
+        'n_increase'        :   int(1.0e4),
         # can be set to high values for use with MPI, otherwise leave it at 1
         'n_vec'             :   1,
         'seed'              :   1,
@@ -127,7 +127,7 @@ hyperparameters = HyperParameters({
         },
 
         'fixed' : {
-            'M_ij'  :   0.01,
+            'M_ij'  :   0.001,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
