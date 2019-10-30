@@ -349,28 +349,52 @@ def load(selected_topologies=None):
              entry_name = 'Hexagon_2s'
         )
 
-    topology_name = "Hexagon_3s"
-    # 12 ellipsoids 3 sources with a point from MadGraph's FLatInvertiblePhaseSpace
+    topology_name = "Hexagon_4s"
+    # 12 ellipsoids 4 sources with a point from MadGraph's FLatInvertiblePhaseSpace
     if selected_topologies is None or topology_name in selected_topologies:
         hexagon = TopologyGenerator([
             ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 1),
             ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
         ])
-        q1 = vectors.LorentzVector([ 4.985662e+01,0.000000e+00,0.000000e+00,4.730301e+01]) #m=15
-        q2 = vectors.LorentzVector([ 5.014338e+01,0.000000e+00,0.000000e+00,-4.730301e+01]) #m=16
-        q3 = vectors.LorentzVector([ -3.486485e+01,-1.788869e+01,-1.469927e+01,1.505380e+01]) #m=21
-        q4 = vectors.LorentzVector([ -3.840282e+01,-6.608328e+00,1.577700e+01,-6.996772e+00]) #m=33
-        q5 = vectors.LorentzVector([ -5.458171e+01,1.142579e+01,2.208155e+01,6.664659e+00]) #m=48
-        q6 = vectors.LorentzVector([ -4.188032e+01,1.307122e+01,-2.315927e+01,-1.472169e+01]) #m=28
+        q1 = vectors.LorentzVector([ 4.2745528739922953e+01,0.0000000000000000e+00,0.0000000000000000e+00,3.9734245060394706e+01]) #m=15.759759
+        q2 = vectors.LorentzVector([ 5.7254471260077047e+01,0.0000000000000000e+00,0.0000000000000000e+00,-3.9734245060394706e+01]) #m=41.222133
+        q3 = vectors.LorentzVector([ -3.4238985949421256e+01,-1.7923525330384898e+01,7.8375531169491950e+00,1.8894060234548277e+01]) #m=20.800064
+        q4 = vectors.LorentzVector([ -2.6647614743187443e+01,1.0053514550024701e+01,6.9280420963147478e+00,-2.1196780134595919e+01]) #m=10.569814
+        q5 = vectors.LorentzVector([ -1.7206142231165188e+01,-8.3577938813141195e+00,-1.4264811689133330e+01,-2.4369559632230517e+00]) #m=4.095730
+        q6 = vectors.LorentzVector([ -2.1907257076226109e+01,1.6227804661674316e+01,-5.0078352413061289e-01,4.7396758632706932e+00]) #m=13.923755
+        all_topologies.add_topology(hexagon.create_loop_topology(
+                "Hexagon_4s", 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6  }, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0}, 
+                loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=7.93962056654444536E-017-1.15281776541741777E-014j,
+             ),
+             entry_name = 'Hexagon_4s'
+        )
+
+    topology_name = "Hexagon_3s"        
+    # 12 ellipsoids 4 sources with a point from MadGraph's FLatInvertiblePhaseSpace
+    if selected_topologies is None or topology_name in selected_topologies:
+        hexagon = TopologyGenerator([
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 1),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+        ])
+        q1 = vectors.LorentzVector([ 5.4189671909701467e+01,0.0000000000000000e+00,0.0000000000000000e+00,4.4892435038200482e+01]) #m=30.351109
+        q2 = vectors.LorentzVector([ 4.5810328090298533e+01,0.0000000000000000e+00,0.0000000000000000e+00,-4.4892435038200482e+01]) #m=9.124442
+        q3 = vectors.LorentzVector([ -1.1052241235704336e+01,4.7965011605217480e+00,2.9270203579361931e-01,-9.9496941946437296e+00]) #m=0.252039
+        q4 = vectors.LorentzVector([ -3.6743682919549229e+01,2.0343318097720404e+00,1.7505904174804598e+01,-1.2330041917636034e+01]) #m=29.790487
+        q5 = vectors.LorentzVector([ -2.7515446756514880e+01,-1.0275942918391802e+01,-1.1985662984602909e+01,1.3882072879012041e+01]) #m=17.752091
+        q6 = vectors.LorentzVector([ -2.4688629088231536e+01,3.4451099480980139e+00,-5.8129432259953102e+00,8.3976632332677230e+00]) #m=22.211451
         all_topologies.add_topology(hexagon.create_loop_topology(
                 "Hexagon_3s", 
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6  }, 
                 mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0}, 
                 loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
-                analytic_result=1.50331533860499557E-017-1.18249949138974501E-016j,
+                analytic_result=1.29770369586567909E-015-2.16589510654016577E-015j,
              ),
              entry_name = 'Hexagon_3s'
         )
+
 
     return all_topologies
 
