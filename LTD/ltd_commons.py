@@ -104,7 +104,8 @@ hyperparameters = HyperParameters({
             # full_lambda_dependence : lambda^2 < (-2*kappa_i.q_i^2 + 
             #           sqrt(4*kappa_i.q_i^4 + kappa^4 c^2 (q_i^2+m_i^2)^2))/kappa^4
             # magic_fudge : self-explanatory :)
-            'expansion_check_strategy'  : 'magic_fudge',
+            # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
+            'expansion_check_strategy'  : 'ratio',
             'expansion_threshold'       : 0.9,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots

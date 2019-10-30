@@ -856,6 +856,13 @@ impl Topology {
                                     c * c * (d / (a + d))
                                 }
                             }
+                            ExpansionCheckStrategy::Ratio => {
+                                let a = info.kappa_sq * info.kappa_sq;
+                                let b = info.kappa_dot_mom * info.kappa_dot_mom;
+                                let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
+                                // note that if c < 1/2, the branch cut check is always satisfied
+                                c * Into::<T>::into(2.) * a * a / (a * d - b * b)
+                            }
                         };
 
 

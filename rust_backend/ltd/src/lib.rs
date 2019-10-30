@@ -109,7 +109,9 @@ pub enum ExpansionCheckStrategy {
     #[serde(rename = "full_lambda_dependence")]
     FullLambdaDependence,
     #[serde(rename = "magic_fudge")]
-    MagicFudge
+    MagicFudge,
+    #[serde(rename = "ratio")]
+    Ratio,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
@@ -146,6 +148,7 @@ impl From<&str> for ExpansionCheckStrategy {
         match s {
             "first_lambda_order" => ExpansionCheckStrategy::FirstLambdaOrder,
             "full_lambda_dependence" => ExpansionCheckStrategy::FullLambdaDependence,
+            "ratio" => ExpansionCheckStrategy::Ratio,
             "magic_fudge" => ExpansionCheckStrategy::MagicFudge,
             _ => panic!("Unknown expansion check strategy {}", s),            
         }
@@ -158,13 +161,14 @@ impl fmt::Display for ExpansionCheckStrategy {
             ExpansionCheckStrategy::FirstLambdaOrder => write!(f, "first lambda order"),
             ExpansionCheckStrategy::FullLambdaDependence => write!(f, "full lambda dependence"),
             ExpansionCheckStrategy::MagicFudge => write!(f, "magic fudge"),
+            ExpansionCheckStrategy::Ratio => write!(f, "ratio"),
         }
     }
 }
 
 impl Default for ExpansionCheckStrategy {
     fn default() -> ExpansionCheckStrategy {
-        ExpansionCheckStrategy::MagicFudge
+        ExpansionCheckStrategy::Ratio
     }
 }
 
