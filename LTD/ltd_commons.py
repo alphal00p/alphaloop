@@ -95,7 +95,7 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 1.0e99,
+            'lambda'                    : 1.0,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : True,
@@ -105,7 +105,7 @@ hyperparameters = HyperParameters({
             #           sqrt(4*kappa_i.q_i^4 + kappa^4 c^2 (q_i^2+m_i^2)^2))/kappa^4
             # magic_fudge : self-explanatory :)
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
-            'expansion_check_strategy'  : 'ratio',
+            'expansion_check_strategy'  : 'magic_fudge',
             'expansion_threshold'       : 0.9,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
@@ -122,13 +122,13 @@ hyperparameters = HyperParameters({
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
             'mode'  :   'exponential',
-            'a_ij'  :   0.01,
+            'a_ij'  :   0.001,
             # set aijs per surface. if the entry isn't there, a_ij is used instead
             'a_ijs' :   [],
         },
 
         'fixed' : {
-            'M_ij'  :   0.001,
+            'M_ij'  :   0.01,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
