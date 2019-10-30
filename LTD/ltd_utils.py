@@ -631,16 +631,16 @@ def solve_constraint_problem(id_and_constraints):
         return id_and_constraints[0]
 
 def solve_constraint_problem_given_problem(id_and_problem):
-    ret_id, source_coordinates, (objective, constraints) = id_and_problem
+    ret_id, source_coordinates, (objective, radius, constraints) = id_and_problem
     try:
         p = cvxpy.Problem(objective, constraints)
         p.solve()
-        return (ret_id, [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
+        return (ret_id, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
     except cvxpy.SolverError:
         print('Solving failed. Trying again with SCS solver')
         p.solve(solver=cvxpy.SCS)
         print('SCS solved problem status: %s'%p.status)
-        return (ret_id, [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
+        return (ret_id, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
     except Exception as e:
         print("Could not solve system, it should have a solution", p)
         raise
@@ -963,10 +963,13 @@ class LoopTopology(object):
 
         print('Determining centers of {} cases'.format(len(center_problems)))
         deformation_per_sub_source = defaultdict(list)
-        for (prop_combs, excluded_ellipsoids), sources in pool.imap_unordered(solve_constraint_problem_given_problem, center_problems):
+        for (prop_combs, excluded_ellipsoids), radius, sources in pool.imap_unordered(solve_constraint_problem_given_problem, center_problems):
+            print("Found center for {} with radius {}".format(tuple(prop_combs), radius))
+
             # produce yaml-friendly deformation structure
-            d = {'deformation_sources': sources,
-                    'excluded_surface_ids': [[[list(focus[0]), focus[1], focus[2]] for focus in surf_id] for surf_id in excluded_ellipsoids]
+            d = { 'deformation_sources': sources,
+                  'excluded_surface_ids': [[[list(focus[0]), focus[1], focus[2]] for focus in surf_id] for surf_id in excluded_ellipsoids],
+                  'radius': radius,
                 }
             deformation_per_sub_source[tuple(prop_combs)].append(d)
 
@@ -976,6 +979,7 @@ class LoopTopology(object):
                                         })
 
         pool.close()
+        pool.join()
 
         print('Fixed deformation: %s' % pprint.pformat(self.fixed_deformation))
 
@@ -1221,7 +1225,8 @@ class LoopTopology(object):
 
 
         # Find the point of maximal overlap
-        radii = [cvxpy.Variable(3,nonneg=True) for _ in range(n_radii)]
+        radius = cvxpy.Variable(1,nonneg=True)
+
         # note: the opposite direction needs to be in there
         directions = [
             cvxpy.Constant(numpy.array([-1., 0., 0.])),
@@ -1236,11 +1241,11 @@ class LoopTopology(object):
         constraints = [c for c in extra_constraints]
         for direction in product(directions, repeat=n_radii):
             source_shifted = [None for _ in source_coordinates]
-            radius_direction_index = 0
+            direction_index = 0
             for i, (is_involved, s) in enumerate(zip(involved_loop_momenta, source_coordinates)):
                 if is_involved:
-                    source_shifted[i] = s + direction[radius_direction_index] * radii[radius_direction_index]
-                    radius_direction_index += 1
+                    source_shifted[i] = s + direction[direction_index] * radius
+                    direction_index += 1
 
             for overlap_ellipse_ids in overlap:
                 (overall_sign, foci) = ellipsoid_list[overlap_ellipse_ids][2]
@@ -1264,7 +1269,9 @@ class LoopTopology(object):
         # Example of how to force the z-component of the sources to be zero
         #for c in source_coordinates:
         #    constraints.append(c[2]==0.)
-        return (objective, constraints)
+
+        objective = cvxpy.Maximize(radius)
+        return (objective, radius, constraints)
 
     def build_constant_deformation(self):
         # deform with constant norm(a * k + b)
