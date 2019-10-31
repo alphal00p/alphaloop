@@ -331,7 +331,7 @@ def load(selected_topologies=None):
                 topology_name,
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
                 mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0, 
-                          'p7': 0.0, 'p8': 0.0,, 'p9': 0.0, 'p10': 0.0, 'p11': 0.0},
+                          'p7': 0.0, 'p8': 0.0, 'p9': 0.0, 'p10': 0.0, 'p11': 0.0},
                 loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
                 analytic_result=None
              ),
@@ -367,7 +367,7 @@ def load(selected_topologies=None):
                 topology_name,
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
                 mass_map={'p1': 0.35, 'p2': 0.35, 'p3': 0.35, 'p4': 0.35, 'p5': 0.35, 'p6': 0.35, 
-                          'p7': 0.35, 'p8': 0.35,, 'p9': 0.35, 'p10': 0.35, 'p11': 0.35},
+                          'p7': 0.35, 'p8': 0.35, 'p9': 0.35, 'p10': 0.35, 'p11': 0.35},
                 loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
                 analytic_result=None
              ),
@@ -383,7 +383,7 @@ def load(selected_topologies=None):
     if selected_topologies is None or topology_name in selected_topologies:
         pentagon = TopologyGenerator([
             ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
-            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5)
         ])
         q1 = vectors.LorentzVector([5.1000000000000000e+01, 0.0000000000000000e+00, 0.0000000000000000e+00, 4.8744230427815765e+01])    #m = 15
         q2 = vectors.LorentzVector([4.9000000000000000e+01, 0.0000000000000000e+00, 0.0000000000000000e+00, -4.8744230427815765e+01])   #m = 5
@@ -405,7 +405,7 @@ def load(selected_topologies=None):
     if selected_topologies is None or topology_name in selected_topologies:
         pentagon = TopologyGenerator([
             ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
-            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5)
         ])
         q1 = vectors.LorentzVector([ 4.812500e+01,0.000000e+00,0.000000e+00,4.786455e+01])      # m = 5
         q2 = vectors.LorentzVector([ 5.187500e+01,0.000000e+00,0.000000e+00,-4.786455e+01])     # m = 20
@@ -427,7 +427,7 @@ def load(selected_topologies=None):
     if selected_topologies is None or topology_name in selected_topologies:
         pentagon = TopologyGenerator([
             ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 1),
-            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q4', 105,5)
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5)
         ])
         q1 = vectors.LorentzVector([ 4.809394e+01,0.000000e+00,0.000000e+00,4.805087e+01]) #m=2
         q2 = vectors.LorentzVector([ 5.190606e+01,0.000000e+00,0.000000e+00,-4.805087e+01]) #m=19
