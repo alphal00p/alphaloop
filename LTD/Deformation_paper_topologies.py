@@ -331,7 +331,7 @@ def load(selected_topologies=None):
                 topology_name,
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
                 mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0, 
-                          'p7': 0.0, 'p8': 0.0,, 'p9': 0.0, 'p10': 0.0, 'p11': 0.0},
+                          'p7': 0.0, 'p8': 0.0, 'p9': 0.0, 'p10': 0.0, 'p11': 0.0},
                 loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
                 analytic_result=None
              ),
@@ -367,7 +367,7 @@ def load(selected_topologies=None):
                 topology_name,
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
                 mass_map={'p1': 0.35, 'p2': 0.35, 'p3': 0.35, 'p4': 0.35, 'p5': 0.35, 'p6': 0.35, 
-                          'p7': 0.35, 'p8': 0.35,, 'p9': 0.35, 'p10': 0.35, 'p11': 0.35},
+                          'p7': 0.35, 'p8': 0.35, 'p9': 0.35, 'p10': 0.35, 'p11': 0.35},
                 loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
                 analytic_result=None
              ),
