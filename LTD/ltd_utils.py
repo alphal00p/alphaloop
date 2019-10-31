@@ -630,10 +630,55 @@ def solve_constraint_problem(id_and_constraints):
     if p.status == cvxpy.OPTIMAL:
         return id_and_constraints[0]
 
-def solve_constraint_problem_given_problem(id_and_problem):
-    ret_id, source_coordinates, (objective, radius, constraints) = id_and_problem
+def solve_center_problem(id_and_problem):
+    """ Find the center in a region of overlap. Note that all source_coordinates must be used in the constraints."""
+    ret_id, involved_loop_momenta, source_coordinates, radius, overlap, ellipsoid_list, delta_param, extra_constraints = id_and_problem
+
+    n_radii = len([m for m in involved_loop_momenta if m])
+
+    # note: the opposite direction needs to be in there
+    directions = [
+        cvxpy.Constant(numpy.array([-1., 0., 0.])),
+        cvxpy.Constant(numpy.array([+1., 0., 0.])),
+        cvxpy.Constant(numpy.array([0., +1., 0.])),
+        cvxpy.Constant(numpy.array([0.,-1., 0.])),
+        cvxpy.Constant(numpy.array([0., 0., +1.])),
+        cvxpy.Constant(numpy.array([0., 0., -1.])),
+    ]
+
+    # now construct several constaints from the ellipsoid function
+    constraints = [c for c in extra_constraints]
+    for direction in product(directions, repeat=n_radii):
+        source_shifted = [None for _ in source_coordinates]
+        direction_index = 0
+        for i, (is_involved, s) in enumerate(zip(involved_loop_momenta, source_coordinates)):
+            if is_involved:
+                source_shifted[i] = s + direction[direction_index] * radius
+                direction_index += 1
+
+        for overlap_ellipse_ids in overlap:
+            (overall_sign, foci) = ellipsoid_list[overlap_ellipse_ids][2]
+            expr = 0
+            for (sign, delta_index, shift) in foci:
+                mom = 0
+                (mom_dep, shift1, m1) = delta_param[delta_index]
+                for (loop_index, mom_sign) in mom_dep:
+                    mom += source_shifted[loop_index] * mom_sign
+                mom += shift1
+                expr += int(sign) * cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + (-shift)
+
+            if overall_sign < 0:
+                constraints.append(expr >= 0)
+            else:
+                constraints.append(expr <= 0)
+
+    # Example of how to force the z-component of the sources to be zero
+    #for c in source_coordinates:
+    #    constraints.append(c[2]==0.)
+
+    objective = cvxpy.Maximize(radius)
+    p = cvxpy.Problem(objective, constraints)
     try:
-        p = cvxpy.Problem(objective, constraints)
         p.solve()
         return (ret_id, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
     except cvxpy.SolverError:
@@ -903,11 +948,13 @@ class LoopTopology(object):
         """ This function identifies the fixed deformation sources for the deformation field as well as a the list of
         surfaces ids to exclude for each."""
 
+        # note that all variables need to be created before the pool starts to prevent duplicating variable ids
+        source_coordinates = [cvxpy.Variable(3) for _ in range(self.n_loops)]
+        radius = cvxpy.Variable(1, nonneg=True)
+
         original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         pool = multiprocessing.Pool(None) # use all available cores
         signal.signal(signal.SIGINT, original_sigint_handler)
-
-        source_coordinates = [cvxpy.Variable(3) for _ in range(self.n_loops)]
 
         ellipsoids, ellipsoid_param, delta_param = self.build_existing_ellipsoids(source_coordinates)
 
@@ -953,23 +1000,31 @@ class LoopTopology(object):
 
                     ellipsoid_list = [(surf_id, ellipsoids[surf_id], surf) for surf_id, surf in ellipsoid_param.items() if surf_id not in non_existing_ellipsoids]
 
+                    # Determine all involved loop momenta
+                    involved_loop_momenta = [False for _ in range(self.n_loops)]
+                    loop_line_indices = [ll_index for surf_id, _, _ in ellipsoid_list for (ll_index, _), _, _ in surf_id]
+                    for ll_index in loop_line_indices:
+                        for mom_index, sig in enumerate(self.loop_lines[ll_index].signature):
+                            involved_loop_momenta[mom_index] |= sig != 0
+
                     all_overlaps = self.find_overlap_structure(ellipsoid_list, constraints, bottom_up, pool)
                     print('Overlap structure of %s with cuts %s: %s' % (self.name, list(zip(ll_combs, prop_combs)), all_overlaps))
 
                     for overlap in all_overlaps:
                         excluded_ellipsoids = list(non_existing_ellipsoids) + list(ellipsoid_list[i][0] for i in range(len(ellipsoid_list)) if i not in overlap)
-                        problem = self.determine_overlap_center_problem(source_coordinates, overlap, ellipsoid_list, delta_param, constraints)
-                        center_problems.append(((zip(ll_combs, prop_combs), excluded_ellipsoids), source_coordinates, problem))
+                        center_problems.append(((zip(ll_combs, prop_combs), excluded_ellipsoids), involved_loop_momenta,
+                            source_coordinates, radius, overlap, ellipsoid_list, delta_param, constraints))
 
         print('Determining centers of {} cases'.format(len(center_problems)))
+
         deformation_per_sub_source = defaultdict(list)
-        for (prop_combs, excluded_ellipsoids), radius, sources in pool.imap_unordered(solve_constraint_problem_given_problem, center_problems):
-            print("Found center for {} with radius {}".format(tuple(prop_combs), radius))
+        for (prop_combs, excluded_ellipsoids), radius_value, sources in pool.imap_unordered(solve_center_problem, center_problems):
+            print("Found center for {} with radius {}".format(tuple(prop_combs), radius_value))
 
             # produce yaml-friendly deformation structure
             d = { 'deformation_sources': sources,
                   'excluded_surface_ids': [[[list(focus[0]), focus[1], focus[2]] for focus in surf_id] for surf_id in excluded_ellipsoids],
-                  'radius': radius,
+                  'radius': radius_value,
                 }
             deformation_per_sub_source[tuple(prop_combs)].append(d)
 
@@ -1212,63 +1267,6 @@ class LoopTopology(object):
             max_overlap = new_max_overlap
 
         return list(sorted(max_overlap + done_overlaps))
-
-    def determine_overlap_center_problem(self, source_coordinates, overlap, ellipsoid_list, delta_param, extra_constraints):
-        """ Find the center in a region of overlap. Note that all source_coordinates must be used in the constraints."""
-        # Determine all involved loop momenta
-        involved_loop_momenta = [False for _ in range(self.n_loops)]
-        loop_line_indices = [ll_index for surf_id, _, _ in ellipsoid_list for (ll_index, _), _, _ in surf_id]
-        for ll_index in loop_line_indices:
-            for mom_index, sig in enumerate(self.loop_lines[ll_index].signature):
-                involved_loop_momenta[mom_index] |= sig != 0
-        n_radii = len([m for m in involved_loop_momenta if m])
-
-
-        # Find the point of maximal overlap
-        radius = cvxpy.Variable(1,nonneg=True)
-
-        # note: the opposite direction needs to be in there
-        directions = [
-            cvxpy.Constant(numpy.array([-1., 0., 0.])),
-            cvxpy.Constant(numpy.array([+1., 0., 0.])),
-            cvxpy.Constant(numpy.array([0., +1., 0.])),
-            cvxpy.Constant(numpy.array([0.,-1., 0.])),
-            cvxpy.Constant(numpy.array([0., 0., +1.])),
-            cvxpy.Constant(numpy.array([0., 0., -1.])),
-        ]
-
-        # now construct several constaints from the ellipsoid function
-        constraints = [c for c in extra_constraints]
-        for direction in product(directions, repeat=n_radii):
-            source_shifted = [None for _ in source_coordinates]
-            direction_index = 0
-            for i, (is_involved, s) in enumerate(zip(involved_loop_momenta, source_coordinates)):
-                if is_involved:
-                    source_shifted[i] = s + direction[direction_index] * radius
-                    direction_index += 1
-
-            for overlap_ellipse_ids in overlap:
-                (overall_sign, foci) = ellipsoid_list[overlap_ellipse_ids][2]
-                expr = 0
-                for (sign, delta_index, shift) in foci:
-                    mom = 0
-                    (mom_dep, shift1, m1) = delta_param[delta_index]
-                    for (loop_index, mom_sign) in mom_dep:
-                        mom += source_shifted[loop_index] * mom_sign
-                    mom += shift1
-                    expr += int(sign) * cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + (-shift)
-
-                if overall_sign < 0:
-                    constraints.append(expr >= 0)
-                else:
-                    constraints.append(expr <= 0)
-
-        # Example of how to force the z-component of the sources to be zero
-        #for c in source_coordinates:
-        #    constraints.append(c[2]==0.)
-
-        objective = cvxpy.Maximize(radius)
-        return (objective, radius, constraints)
 
     def build_constant_deformation(self):
         # deform with constant norm(a * k + b)
