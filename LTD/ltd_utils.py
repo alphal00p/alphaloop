@@ -632,9 +632,7 @@ def solve_constraint_problem(id_and_constraints):
 
 def solve_center_problem(id_and_problem):
     """ Find the center in a region of overlap. Note that all source_coordinates must be used in the constraints."""
-    ret_id, involved_loop_momenta, source_coordinates, radius, overlap, ellipsoid_list, delta_param, extra_constraints = id_and_problem
-
-    n_radii = len([m for m in involved_loop_momenta if m])
+    ret_id, constraint_signatures, source_coordinates, radius, overlap, ellipsoid_list, delta_param, extra_constraints = id_and_problem
 
     # note: the opposite direction needs to be in there
     directions = [
@@ -648,16 +646,31 @@ def solve_center_problem(id_and_problem):
 
     # now construct several constaints from the ellipsoid function
     constraints = [c for c in extra_constraints]
-    for direction in product(directions, repeat=n_radii):
-        source_shifted = [None for _ in source_coordinates]
-        direction_index = 0
-        for i, (is_involved, s) in enumerate(zip(involved_loop_momenta, source_coordinates)):
-            if is_involved:
-                source_shifted[i] = s + direction[direction_index] * radius
-                direction_index += 1
 
-        for overlap_ellipse_ids in overlap:
-            (overall_sign, foci) = ellipsoid_list[overlap_ellipse_ids][2]
+    for overlap_ellipse_ids in overlap:
+        (overall_sign, foci) = ellipsoid_list[overlap_ellipse_ids][2]
+
+        # get the number of loop momenta involved in this surface
+        involved_loop_momenta = [False for _ in source_coordinates]
+        for (_, delta_index, _) in foci:
+            for (loop_index, _) in delta_param[delta_index][0]:
+                involved_loop_momenta[loop_index] = True
+
+        n_dir = len([m for m in involved_loop_momenta if m])
+
+        for direction in product(directions, repeat=n_dir):
+            # TODO: check the correlation constraints using the extra constraints
+            #if any(numpy.any(d1.value * s1 for d1, s1 in zip(direction, constraint)) for constraint in constraint_signatures):
+            #    print('Skipping', direction, constraint_signatures)
+            #    continue
+
+            source_shifted = [None for _ in source_coordinates]
+            direction_index = 0
+            for i, (is_involved, s) in enumerate(zip(involved_loop_momenta, source_coordinates)):
+                if is_involved:
+                    source_shifted[i] = s + direction[direction_index] * radius
+                    direction_index += 1
+
             expr = 0
             for (sign, delta_index, shift) in foci:
                 mom = 0
@@ -973,9 +986,11 @@ class LoopTopology(object):
                 for prop_combs in product(*[range(len(self.loop_lines[ll].propagators)) for ll in ll_combs]):
                     # construct the on-shell constraints
                     constraints = []
+                    constraint_signatures = []
                     for (ll_index, prop_index) in zip(ll_combs, prop_combs):
                         q = self.loop_lines[ll_index].propagators[prop_index].q
                         constraint = cvxpy.Constant(numpy.array([q[1], q[2], q[3]]))
+                        constraint_signatures.append(self.loop_lines[ll_index].signature)
                         for source, sign in zip(source_coordinates, self.loop_lines[ll_index].signature):
                             constraint += source * int(sign)
                         constraints.append(constraint == 0)
@@ -1000,19 +1015,12 @@ class LoopTopology(object):
 
                     ellipsoid_list = [(surf_id, ellipsoids[surf_id], surf) for surf_id, surf in ellipsoid_param.items() if surf_id not in non_existing_ellipsoids]
 
-                    # Determine all involved loop momenta
-                    involved_loop_momenta = [False for _ in range(self.n_loops)]
-                    loop_line_indices = [ll_index for surf_id, _, _ in ellipsoid_list for (ll_index, _), _, _ in surf_id]
-                    for ll_index in loop_line_indices:
-                        for mom_index, sig in enumerate(self.loop_lines[ll_index].signature):
-                            involved_loop_momenta[mom_index] |= sig != 0
-
                     all_overlaps = self.find_overlap_structure(ellipsoid_list, constraints, bottom_up, pool)
                     print('Overlap structure of %s with cuts %s: %s' % (self.name, list(zip(ll_combs, prop_combs)), all_overlaps))
 
                     for overlap in all_overlaps:
                         excluded_ellipsoids = list(non_existing_ellipsoids) + list(ellipsoid_list[i][0] for i in range(len(ellipsoid_list)) if i not in overlap)
-                        center_problems.append(((tuple(zip(ll_combs, prop_combs)), excluded_ellipsoids), involved_loop_momenta,
+                        center_problems.append(((tuple(zip(ll_combs, prop_combs)), excluded_ellipsoids), constraint_signatures,
                             source_coordinates, radius, overlap, ellipsoid_list, delta_param, constraints))
 
         print('Determining centers of {} cases'.format(len(center_problems)))
