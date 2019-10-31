@@ -850,14 +850,14 @@ impl Topology {
                                 let a = info.kappa_sq * info.kappa_sq;
                                 let b = info.kappa_dot_mom * info.kappa_dot_mom;
                                 let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
-                                c * c * (d / (b + d))
-                                /*
+                                // c * c * (d / (b + d))
+                            
                                 if a < b {
                                     c * c * (d / (b + d))
                                 } else {
                                     c * c * (d / (a + d))
                                 }
-                                */
+                                
                             }
                             ExpansionCheckStrategy::Ratio => {
                                 let a = info.kappa_sq;

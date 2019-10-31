@@ -106,7 +106,7 @@ hyperparameters = HyperParameters({
             # magic_fudge : self-explanatory :)
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
             'expansion_check_strategy'  : 'magic_fudge',
-            'expansion_threshold'       : 0.9,
+            'expansion_threshold'       : 0.45,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
@@ -122,13 +122,13 @@ hyperparameters = HyperParameters({
         'additive'              :   {
             # can be exponential, hyperbolic, or unity
             'mode'  :   'exponential',
-            'a_ij'  :   0.001,
+            'a_ij'  :   0.01,
             # set aijs per surface. if the entry isn't there, a_ij is used instead
             'a_ijs' :   [],
         },
 
         'fixed' : {
-            'M_ij'  :   0.01,
+            'M_ij'  :   0.001,
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
@@ -141,7 +141,7 @@ hyperparameters = HyperParameters({
             # add the normal vector for every ellipsoid which is excluded on all other ellipsoids
             'include_normal_source': False,
             # dampen the fixed sources away from intersections. Use this parameter only when include_normal_source is true
-            'source_dampening_factor': -1,
+            'source_dampening_factor': -0.1,
         }
     },
 
