@@ -683,7 +683,7 @@ def solve_center_problem(id_and_problem):
         return (ret_id, overlap, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
     except cvxpy.SolverError:
         print('Solving failed. Trying again with SCS solver')
-        p.solve(solver=cvxpy.SCS)
+        p.solve(solver=cvxpy.SCS, eps=1e-9)
         print('SCS solved problem status: %s'%p.status)
         return (ret_id, overlap, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
     except Exception as e:
