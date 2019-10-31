@@ -302,6 +302,79 @@ def load(selected_topologies=None):
              entry_name = topology_name
         )
 
+    topology_name = "T5_3L_5P"
+    if selected_topologies is None or topology_name in selected_topologies:
+
+        rescaling = 1.0e0
+        # This topology correspond to a two-loop pentabox with physical kinematics
+        q1 = vectors.LorentzVector(
+            [0.149500000000000E+01,    0.000000000000000E+00,    0.000000000000000E+00,    0.149165176901313E+01]
+        )*rescaling
+        q2 = vectors.LorentzVector(
+            [0.150500000000000E+01,    0.000000000000000E+00,    0.000000000000000E+00,   -0.149165176901313E+01]
+        )*rescaling
+        q3 = vectors.LorentzVector(
+            [-0.126041949101381e+01,    -0.452362952912639e+00,    -0.101350243653045e+01,   0.516563513332600e+00]
+        )*rescaling
+        q4 = vectors.LorentzVector(
+            [-0.105098730574850e+01,   0.489324061520790e-01,   0.928212188578101e+00,    -0.283905035967510e+00]
+        )*rescaling
+        q5 = -q4-q3-q2-q1
+
+        factory = TopologyGenerator([
+            ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
+            ('p5', 7, 8), ('p6', 8, 9), ('p7', 9, 6),
+            ('p8', 8, 3), ('p9', 3, 4), ('p10', 4, 5), ('p11', 5, 9),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5),
+        ])
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name,
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0, 
+                          'p7': 0.0, 'p8': 0.0,, 'p9': 0.0, 'p10': 0.0, 'p11': 0.0},
+                loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
+                analytic_result=None
+             ),
+             entry_name = topology_name
+        )
+
+    topology_name = "T5_3L_5P_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+
+        rescaling = 1.0e0
+        # This topology correspond to a two-loop pentabox with physical kinematics
+        q1 = vectors.LorentzVector(
+            [0.149500000000000E+01,    0.000000000000000E+00,    0.000000000000000E+00,    0.149165176901313E+01]
+        )*rescaling
+        q2 = vectors.LorentzVector(
+            [0.150500000000000E+01,    0.000000000000000E+00,    0.000000000000000E+00,   -0.149165176901313E+01]
+        )*rescaling
+        q3 = vectors.LorentzVector(
+            [-0.126041949101381e+01,    -0.452362952912639e+00,    -0.101350243653045e+01,   0.516563513332600e+00]
+        )*rescaling
+        q4 = vectors.LorentzVector(
+            [-0.105098730574850e+01,   0.489324061520790e-01,   0.928212188578101e+00,    -0.283905035967510e+00]
+        )*rescaling
+        q5 = -q4-q3-q2-q1
+
+        factory = TopologyGenerator([
+            ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
+            ('p5', 7, 8), ('p6', 8, 9), ('p7', 9, 6),
+            ('p8', 8, 3), ('p9', 3, 4), ('p10', 4, 5), ('p11', 5, 9),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5),
+        ])
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name,
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
+                mass_map={'p1': 0.35, 'p2': 0.35, 'p3': 0.35, 'p4': 0.35, 'p5': 0.35, 'p6': 0.35, 
+                          'p7': 0.35, 'p8': 0.35,, 'p9': 0.35, 'p10': 0.35, 'p11': 0.35},
+                loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
+                analytic_result=None
+             ),
+             entry_name = topology_name
+        )
+
+
 
     # Setting up One Loop topologies with uniformly generated PS points
 
