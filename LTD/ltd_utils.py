@@ -680,12 +680,12 @@ def solve_center_problem(id_and_problem):
     p = cvxpy.Problem(objective, constraints)
     try:
         p.solve()
-        return (ret_id, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
+        return (ret_id, overlap, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
     except cvxpy.SolverError:
         print('Solving failed. Trying again with SCS solver')
         p.solve(solver=cvxpy.SCS)
         print('SCS solved problem status: %s'%p.status)
-        return (ret_id, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
+        return (ret_id, overlap, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
     except Exception as e:
         print("Could not solve system, it should have a solution", p)
         raise
@@ -1012,19 +1012,20 @@ class LoopTopology(object):
 
                     for overlap in all_overlaps:
                         excluded_ellipsoids = list(non_existing_ellipsoids) + list(ellipsoid_list[i][0] for i in range(len(ellipsoid_list)) if i not in overlap)
-                        center_problems.append(((zip(ll_combs, prop_combs), excluded_ellipsoids), involved_loop_momenta,
+                        center_problems.append(((tuple(zip(ll_combs, prop_combs)), excluded_ellipsoids), involved_loop_momenta,
                             source_coordinates, radius, overlap, ellipsoid_list, delta_param, constraints))
 
         print('Determining centers of {} cases'.format(len(center_problems)))
 
         deformation_per_sub_source = defaultdict(list)
-        for (prop_combs, excluded_ellipsoids), radius_value, sources in pool.imap_unordered(solve_center_problem, center_problems):
+        for (prop_combs, excluded_ellipsoids), overlap, radius_value, sources in pool.imap_unordered(solve_center_problem, center_problems):
             print("Found center for {} with radius {}".format(tuple(prop_combs), radius_value))
 
             # produce yaml-friendly deformation structure
             d = { 'deformation_sources': sources,
                   'excluded_surface_ids': [[[list(focus[0]), focus[1], focus[2]] for focus in surf_id] for surf_id in excluded_ellipsoids],
                   'radius': radius_value,
+                  'overlap': list(overlap),
                 }
             deformation_per_sub_source[tuple(prop_combs)].append(d)
 
