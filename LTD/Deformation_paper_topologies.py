@@ -251,6 +251,80 @@ def load(selected_topologies=None):
              entry_name = topology_name
         )
 
+
+
+    #2>N 3LOOP kinematics
+
+
+    q1 = vectors.LorentzVector(
+        [3, 0., 0., 1.21]
+    )*rescaling 
+    q2 = vectors.LorentzVector(
+        [3.893, 0., 0., -1.21]
+    )*rescaling
+    q4 = vectors.LorentzVector(
+        [-2.527, 0., 0.9736, -0.4657] 
+    )*rescaling
+    q3 = -q1-q2-q4
+
+
+
+    topology_name = "2to2_TripleBox_v1"
+    if selected_topologies is None or topology_name in selected_topologies:
+        factory = TopologyGenerator([
+            ('p1', 2, 5), ('p2', 5, 6), ('p3', 6, 1), ('p4', 1, 2),
+            ('p5', 5, 7), ('p6', 7, 8), ('p7', 8, 6),
+            ('p8', 7, 3), ('p9', 3, 4), ('p10', 4, 8),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+        ])
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 
+                          'p5': 0.0, 'p6': 0.0, 'p7': 0.0, 'p8': 0.0, 
+                          'p9': 0.0, 'p10': 0.0}, 
+                loop_momenta_names=('p1','p5','p8'), 
+                analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(), (q1+q2).square(), (q2+q3).square(), 3)
+             ),
+             entry_name = topology_name
+        )
+
+
+    #DoubleBox 2to2 kinematics
+
+    rescaling = 1
+    q1 = vectors.LorentzVector(
+        [2.,0.,0.,0.45]
+    )*rescaling 
+    q2 = vectors.LorentzVector(
+        [1.43,0.,0.,-0.45]
+    )*rescaling
+    q4 = vectors.LorentzVector(
+        [-1.012, 0., 0.5281, -0.278] 
+    )*rescaling
+    q3 = -q1-q2-q4
+
+    topology_name = "2to2_DoubleBox"
+    if selected_topologies is None or topology_name in selected_topologies:
+        factory = TopologyGenerator([
+            ('p1', 2, 5), ('p2', 5, 6), ('p3', 6, 1), ('p4', 1, 2),
+            ('p5', 5, 3), ('p6', 3, 4), ('p7', 4, 6),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+        ])
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0, 'p7': 0.0}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(),(q1+q2).square(),(q2+q3).square(),2)
+             ),
+             entry_name = topology_name
+        )
+
+
+
+
+
     # Setting up Weinzierl's kinematic for the four-point double and triple box of Weinzierl's paper.
     # See Eq. 35 of ref. https://arxiv.org/pdf/1211.0509.pdf
     rescaling = 1.0e-2
