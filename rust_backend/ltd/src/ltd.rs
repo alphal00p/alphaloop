@@ -594,11 +594,35 @@ impl Topology {
                     {
                         let r = self.evaluate_surface_complex(surf, &loop_momenta);
                         if surf.delta_sign > 0 && r.re >= 0. || surf.delta_sign < 0 && r.re <= 0. {
-                            println!(
+                            panic!(
                                 "Deformation source {:?} is not on the inside of surface {}: {}",
                                 d.deformation_sources, surf_index, r.re
                             );
                         }
+                    }
+                }
+
+                // now test if the source is equal to the shift of the propagators
+                for (ll_index, prop_index) in &d_lim.excluded_propagators {
+                    // determine the sum of sources using the signature
+                    let mut source_sum: LorentzVector<float> = LorentzVector::default();
+                    for (sign, source) in self.loop_lines[*ll_index]
+                        .signature
+                        .iter()
+                        .zip_eq(&d.deformation_sources)
+                    {
+                        source_sum += source.multiply_sign(*sign);
+                    }
+
+                    let diff: LorentzVector<float> =
+                        source_sum + self.loop_lines[*ll_index].propagators[*prop_index].q;
+
+                    if diff.spatial_squared() > 1e-10 * self.e_cm_squared {
+                        panic!(
+                            "Deformation source {:?} is not on a focus of propagator {:?}",
+                            d.deformation_sources,
+                            (ll_index, prop_index)
+                        );
                     }
                 }
             }
