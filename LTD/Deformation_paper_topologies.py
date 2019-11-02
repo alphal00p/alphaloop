@@ -536,6 +536,33 @@ def load(selected_topologies=None):
              entry_name = 'Hexagon_3s'
         )
 
+    topology_name = "T4_Quadruple_Box_Weinzierl"
+
+    if selected_topologies is None or topology_name in selected_topologies:
+        rescaling = 1.0e-2
+        q1 = vectors.LorentzVector([-19.6586,7.15252,0.206016,-8.96383])*rescaling
+        q2 = vectors.LorentzVector([-26.874,-7.04203,0.0501295,12.9055])*rescaling
+        q4 = vectors.LorentzVector([90.0, 0., 0., 0.])*rescaling
+        q3 = -q1-q2-q4
+
+        factory = TopologyGenerator([
+                        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),
+                        ('p5', 1, 5), ('p6', 5, 6), ('p7', 6, 4),
+                        ('p8', 5, 7), ('p9', 7, 8), ('p10', 8, 6),
+                        ('p11', 7, 9), ('p12', 9, 10), ('p13', 10, 8),
+                        ('q1', 101,2), ('q2', 102,3), ('q3', 103,9), ('q4', 104,10)])
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
+            mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0,
+                'p5': 0.0, 'p6': 0.0, 'p7': 0.0, 'p8': 0.0,
+                'p9': 0.0, 'p10': 0.0, 'p11': 0.0, 'p12': 0.0, 'p13': 0.0},
+            loop_momenta_names=('p1','p5','p8','p11'),
+            analytic_result=analytic_four_point_ladder(q1.square(), q2.square(), q3.square(), q4.square(), (q1+q2).square(), (q1+q3).square(), 4),
+            ),
+            entry_name = topology_name
+        )
+
 
     return all_topologies
 
