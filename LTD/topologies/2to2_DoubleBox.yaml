@@ -1,0 +1,155 @@
+- analytical_result_imag: 0.0
+  analytical_result_real: -3.3750833254565377e-06
+  constant_deformation:
+    alpha:
+    - &id001 [0.0, 0.0, 0.0, 1.0]
+    - *id001
+    beta:
+    - &id002 [0.0, 0.0, 0.0, 0.0]
+    - *id002
+  external_kinematics:
+  - [2.0, 0.0, 0.0, 0.45]
+  - [1.43, 0.0, 0.0, -0.45]
+  - [-2.4179999999999997, -0.0, -0.5281, 0.278]
+  - [-1.012, 0.0, 0.5281, -0.278]
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 6.611544803994312e-19, -0.03316239089602225, 0.013633809803465836]
+      - [0.0, 7.532640308005123e-28, 8.829661331008214e-15, 2.183298888758379e-14]
+      excluded_surface_ids:
+      - - - [0, 2]
+          - 1
+          - -1
+        - - [1, 0]
+          - 1
+          - 1
+        - - [2, 1]
+          - 1
+          - 1
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.12297294355092377
+    excluded_propagators:
+    - [2, 2]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -1.8496527500749105e-25, 1.9129460319834714e-13, -9.08439008470317e-14]
+      - [0.0, 1.0403829417544086e-17, 0.16908440936653082, -0.10870746243118523]
+      excluded_surface_ids:
+      - - - [0, 2]
+          - 1
+          - -1
+        - - [1, 0]
+          - 1
+          - 1
+        - - [2, 1]
+          - 1
+          - 1
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.17120860193479176
+    excluded_propagators:
+    - [0, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 6.611544803994312e-19, -0.03316239089602225, 0.013633809803465836]
+      - [0.0, 7.532640308005123e-28, 8.829661331008214e-15, 2.183298888758379e-14]
+      excluded_surface_ids:
+      - - - [0, 2]
+          - 1
+          - -1
+        - - [1, 0]
+          - 1
+          - 1
+        - - [2, 1]
+          - 1
+          - 1
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.12297294355092377
+    excluded_propagators:
+    - [2, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -1.8496527500749105e-25, 1.9129460319834714e-13, -9.08439008470317e-14]
+      - [0.0, 1.0403829417544086e-17, 0.16908440936653082, -0.10870746243118523]
+      excluded_surface_ids:
+      - - - [0, 2]
+          - 1
+          - -1
+        - - [1, 0]
+          - 1
+          - 1
+        - - [2, 1]
+          - 1
+          - 1
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.17120860193479176
+    excluded_propagators:
+    - [0, 1]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -1.301063067121297e-21, 0.2320029533888331, -0.2577536100799457]
+      - [0.0, 6.53017058049043e-22, 0.4128965265032798, -0.27706987953194234]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      radius: 0.15567163691966168
+    excluded_propagators: []
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -1.1606661645182364e-21, 0.5076074101676525, -0.25997491232142855]
+      - [0.0, -1.1606662309886147e-21, 0.5076074101673695, -0.25997491232135245]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      radius: 0.10748823055807043
+    excluded_propagators:
+    - [1, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 5.886669414854204e-15, -1.8633185615893296e-12, -0.4500000000022019]
+      - [0.0, 1.518071511533619e-10, 0.2640940849981861, -0.3664611137632963]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      radius: 0.0049538341643234575
+    excluded_propagators:
+    - [0, 2]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -1.0459805782104663e-19, 0.39213334063513594, -0.3199431104791957]
+      - [0.0, -3.2763503862851945e-27, 0.528099999999996, -0.2779999999999987]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      radius: 0.11707811339560142
+    excluded_propagators:
+    - [2, 1]
+  loop_lines:
+  - end_node: 5
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [-3.4299999999999997, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [-1.43, 0.0, 0.0, 0.45]
+    signature: [1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, -1]
+    start_node: 5
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [-2.4179999999999997, 0.0, -0.5281, 0.278]
+    - m_squared: 0.0
+      q: [-3.4299999999999997, 0.0, 0.0, 0.0]
+    signature: [0, 1]
+    start_node: 5
+  ltd_cut_structure:
+  - [0, 1, 1]
+  - [1, 0, 1]
+  - [1, -1, 0]
+  n_loops: 2
+  name: 2to2_DoubleBox
