@@ -1024,12 +1024,11 @@ class LoopTopology(object):
                             constraint += source * int(sign)
                         constraints.append(constraint == 0)
 
-                    # check if the system has a solution
-                    # FIXME: is this check valid when there are no shifts?
-                    try:
-                        cvxpy.Problem(cvxpy.Minimize(1), constraints).solve()
-                    except Exception as e:
-                        continue
+                    # check for the independence of the constraints
+                    if len(extra_constraints) > 0:
+                        _, s, _ = numpy.linalg.svd([cs[:-1] for cs in extra_constraints])
+                        if numpy.sum(s > 1e-14) != len(extra_constraints):
+                            continue
 
                     # Filter non-existing ellipsoids under the extra constraints
                     non_existing_ellipsoids = set()
