@@ -19,6 +19,7 @@ from itertools import product, combinations, permutations
 import multiprocessing
 import signal
 import time
+from sympy import Matrix, S, nsimplify, eye
 
 try:
     import cvxpy
@@ -632,58 +633,75 @@ def solve_constraint_problem(id_and_constraints):
 
 def solve_center_problem(id_and_problem):
     """ Find the center in a region of overlap. Note that all source_coordinates must be used in the constraints."""
-    ret_id, constraint_signatures, source_coordinates, radius, overlap, ellipsoid_list, delta_param, extra_constraints = id_and_problem
+    ret_id, extra_constraints, source_coordinates, radius, overlap, ellipsoid_list, delta_param = id_and_problem
 
-    # note: the opposite direction needs to be in there
-    directions = [
-        cvxpy.Constant(numpy.array([-1., 0., 0.])),
-        cvxpy.Constant(numpy.array([+1., 0., 0.])),
-        cvxpy.Constant(numpy.array([0., +1., 0.])),
-        cvxpy.Constant(numpy.array([0.,-1., 0.])),
-        cvxpy.Constant(numpy.array([0., 0., +1.])),
-        cvxpy.Constant(numpy.array([0., 0., -1.])),
-    ]
+    constraints = []
 
-    # now construct several constaints from the ellipsoid function
-    constraints = [c for c in extra_constraints]
+    # do a basis change of this surface to the constrainted basis
+    if len(extra_constraints) > 0:
+        M = Matrix([cs[:-1] for cs in extra_constraints])
+        # pad the constraints with the nullspace to form a basis
+        nullspace = nsimplify(M, rational=True).nullspace()
+        total_m = M.tolist()
+        total_m.extend(r for x in nullspace for r in x.T.tolist())
+        total_m = Matrix(total_m)
+        # this is the matrix suitable for mapping signature vectors
+        inv = total_m.T**-1
+
+        # construct the rhs, note the minus sign
+        rhs = [-numpy.copy(cs[-1]) for cs in extra_constraints]
+        num_free_momenta = len(nullspace)
+        rhs.extend(source_coordinates[:num_free_momenta])
+    else:
+        num_free_momenta = len(source_coordinates)
+        rhs = [x for x in source_coordinates]
+        inv = eye(num_free_momenta)
 
     for overlap_ellipse_ids in overlap:
         (overall_sign, foci) = ellipsoid_list[overlap_ellipse_ids][2]
 
-        # get the number of loop momenta involved in this surface
-        involved_loop_momenta = [False for _ in source_coordinates]
-        for (_, delta_index, _) in foci:
-            for (loop_index, _) in delta_param[delta_index][0]:
-                involved_loop_momenta[loop_index] = True
+        for direction in range(len(extra_constraints), len(source_coordinates)):
+            # go through all cartesian directions in 3*L space
+            for dir_sign in [-3,-2,-1,1,2,3]:
+                new_rhs = [x for x in rhs]
+                dir_vector = [0, 0, 0]
+                dir_vector[abs(dir_sign) - 1] = -1 if dir_sign < 0 else 1
+                new_rhs[direction] = new_rhs[direction] + cvxpy.Constant(dir_vector) * radius
 
-        n_dir = len([m for m in involved_loop_momenta if m])
+                expr = cvxpy.Constant(0)
+                is_direction_used = False
+                for (sign, delta_index, shift) in foci:
+                    (mom_dep, shift1, m1) = delta_param[delta_index]
+                    mom = numpy.copy(shift1)
+                    for (loop_index, mom_sign) in mom_dep:
+                        vec = Matrix([0]*len(source_coordinates))
+                        vec[loop_index] = mom_sign
 
-        for direction in product(directions, repeat=n_dir):
-            # TODO: check the correlation constraints using the extra constraints
-            #if any(numpy.any(d1.value * s1 for d1, s1 in zip(direction, constraint)) for constraint in constraint_signatures):
-            #    print('Skipping', direction, constraint_signatures)
-            #    continue
+                        for i, (a,b) in enumerate(zip(inv * vec, new_rhs)):
+                            if a != 0.:
+                                is_direction_used |= i == direction
+                                if a == 1.:
+                                    mom += b
+                                elif a == -1:
+                                    mom += (-b)
+                                else:
+                                    mom += float(a) * b
 
-            source_shifted = [None for _ in source_coordinates]
-            direction_index = 0
-            for i, (is_involved, s) in enumerate(zip(involved_loop_momenta, source_coordinates)):
-                if is_involved:
-                    source_shifted[i] = s + direction[direction_index] * radius
-                    direction_index += 1
+                    if int(sign) == 1:
+                        expr += cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + (-shift)
+                    elif int(sign) == -1:
+                        expr -= cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + shift
+                    else:
+                        assert(False)
 
-            expr = 0
-            for (sign, delta_index, shift) in foci:
-                mom = 0
-                (mom_dep, shift1, m1) = delta_param[delta_index]
-                for (loop_index, mom_sign) in mom_dep:
-                    mom += source_shifted[loop_index] * mom_sign
-                mom += shift1
-                expr += int(sign) * cvxpy.norm(cvxpy.hstack([m1, mom]), 2) + (-shift)
+                if not is_direction_used:
+                    # the radius does not appear in this constraints, so we can skip it
+                    continue
 
-            if overall_sign < 0:
-                constraints.append(expr >= 0)
-            else:
-                constraints.append(expr <= 0)
+                if overall_sign < 0:
+                    constraints.append(expr >= 0)
+                else:
+                    constraints.append(expr <= 0)
 
     # Example of how to force the z-component of the sources to be zero
     #for c in source_coordinates:
@@ -693,15 +711,26 @@ def solve_center_problem(id_and_problem):
     p = cvxpy.Problem(objective, constraints)
     try:
         p.solve()
-        return (ret_id, overlap, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
+        print('ECOS solved problem status: %s and radius %s' % (p.status, radius.value))
     except cvxpy.SolverError:
         print('Solving failed. Trying again with SCS solver')
         p.solve(solver=cvxpy.SCS, eps=1e-9)
-        print('SCS solved problem status: %s'%p.status)
-        return (ret_id, overlap, float(radius.value), [[0., float(c.value[0]), float(c.value[1]), float(c.value[2])] for c in source_coordinates])
+        print('SCS solved problem status: %s and radius %s' % (p.status, radius.value))
     except Exception as e:
-        print("Could not solve system, it should have a solution", p)
+        print('Error: %s' % e)
+        #print("Could not solve system, it should have a solution", p)
         raise
+
+    # rotate sources back
+    new_rhs = [x for x in rhs[:len(extra_constraints)]] + [numpy.array([float(c.value[0]), float(c.value[1]), float(c.value[2])]) for c in source_coordinates[:num_free_momenta]]
+
+    res = [numpy.array([0., 0., 0.]) for _ in source_coordinates]
+    for i in range(len(source_coordinates)):
+        for j in range(len(source_coordinates)):
+            # take the transpose of the inverse matrix for the signatures
+            res[i] += new_rhs[j] * float(inv[(j,i)])
+
+    return (ret_id, overlap, float(radius.value), [[0., float(x[0]), float(x[1]), float(x[2])] for x in res])
 
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
@@ -986,16 +1015,17 @@ class LoopTopology(object):
                 for prop_combs in product(*[range(len(self.loop_lines[ll].propagators)) for ll in ll_combs]):
                     # construct the on-shell constraints
                     constraints = []
-                    constraint_signatures = []
+                    extra_constraints = []
                     for (ll_index, prop_index) in zip(ll_combs, prop_combs):
                         q = self.loop_lines[ll_index].propagators[prop_index].q
                         constraint = cvxpy.Constant(numpy.array([q[1], q[2], q[3]]))
-                        constraint_signatures.append(self.loop_lines[ll_index].signature)
+                        extra_constraints.append(list(self.loop_lines[ll_index].signature) + [numpy.array([q[1], q[2], q[3]])])
                         for source, sign in zip(source_coordinates, self.loop_lines[ll_index].signature):
                             constraint += source * int(sign)
                         constraints.append(constraint == 0)
 
                     # check if the system has a solution
+                    # FIXME: is this check valid when there are no shifts?
                     try:
                         cvxpy.Problem(cvxpy.Minimize(1), constraints).solve()
                     except Exception as e:
@@ -1005,7 +1035,7 @@ class LoopTopology(object):
                     non_existing_ellipsoids = set()
                     for surf_id in list(ellipsoids):
                         e = ellipsoids[surf_id]
-                        p = cvxpy.Problem(cvxpy.Minimize(e), constraints)
+                        p = cvxpy.Problem(cvxpy.Minimize(e), [x for x in constraints])
                         result = p.solve()
                         if result > -self._cvxpy_threshold*self.get_com_energy():
                             non_existing_ellipsoids.add(surf_id)
@@ -1020,8 +1050,8 @@ class LoopTopology(object):
 
                     for overlap in all_overlaps:
                         excluded_ellipsoids = list(non_existing_ellipsoids) + list(ellipsoid_list[i][0] for i in range(len(ellipsoid_list)) if i not in overlap)
-                        center_problems.append(((tuple(zip(ll_combs, prop_combs)), excluded_ellipsoids), constraint_signatures,
-                            source_coordinates, radius, overlap, ellipsoid_list, delta_param, constraints))
+                        center_problems.append(((tuple(zip(ll_combs, prop_combs)), excluded_ellipsoids), extra_constraints,
+                            source_coordinates, radius, overlap, ellipsoid_list, delta_param))
 
         print('Determining centers of {} cases'.format(len(center_problems)))
 
