@@ -332,7 +332,7 @@ def save_to_history(samples, output_path):
 
     historical_data.extend(samples)
 
-    with open('historical_benchmarks.json', 'w') as f:
+    with open(output_path, 'w') as f:
         json.dump(historical_data, f)
 
 def get_score_for_sample(sample, number_of_samples):
