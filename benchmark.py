@@ -15,7 +15,7 @@ O  = '\033[33m' # orange
 B  = '\033[34m' # blue
 P  = '\033[35m' # purple
 
-def get_rust_result(topology, phase, num_samples):
+def get_rust_result(topology, phase, num_samples, cores):
     # remove info from old runs
     try:
         os.remove("rust_backend/%s_res.dat" % topology)
@@ -24,7 +24,7 @@ def get_rust_result(topology, phase, num_samples):
 
     # TODO: check for errors
     output = subprocess.check_output(["cargo", "run", "--quiet", "--release", "--bin", "ltd", "--", "-t", 
-        topology, "-s", str(num_samples)], cwd="rust_backend").strip().decode()
+        topology, "-s", str(num_samples), "-c", str(cores)], cwd="rust_backend").strip().decode()
 
     # read the output file
     with open("rust_backend/%s_res.dat" % topology, 'r') as f:
@@ -97,7 +97,7 @@ def render_data(samples):
                 continue
             
             data.append(
-                [sample['topology'] + ' ' + phase_name, sample['num_samples'],
+                [sample['topology'] + ' ' + phase_name, "{:,}".format(int(sample['num_samples'])),
                     ufloat(sample['result'][phase], sample['error'][phase]), 
                     sample['analytical_result'][phase],
                     R + str(score[phase]) + W if score[phase] > 2.0 else G + str(score[phase]) + W,
@@ -112,6 +112,7 @@ if __name__ == "__main__":
     parser.add_argument('topologies', metavar='topologies', type=str, nargs='+',
                         help='topologies to test')
     parser.add_argument('-s', default='100000', help='number of samples')
+    parser.add_argument('-c', default='4', help='number of cores')
     parser.add_argument('--phase', default='both', choices=['real','imag','both'], help='the phase for the integration')
     args = parser.parse_args()
 
@@ -119,11 +120,11 @@ if __name__ == "__main__":
     pbar = tqdm(args.topologies)
     for topology in pbar:
         pbar.set_description(topology)
-        result = get_rust_result(topology, args.phase, args.s)
+        result = get_rust_result(topology, args.phase, args.s, args.c)
         samples.append(result)
 
     render_data(samples)
 
     # ask to save data
     if input("Do you want to save the new run? [y/N]: ") in ['y','Y']:
-        historical_data.append(output)
+       save_to_history(samples)
