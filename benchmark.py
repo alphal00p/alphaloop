@@ -7,6 +7,7 @@ import json
 from tqdm import tqdm
 import os
 import argparse
+from math import sqrt
 
 W  = '\033[0m'  # white (normal)
 R  = '\033[31m' # red
@@ -78,35 +79,39 @@ def save_to_history(samples):
     with open('historical_benchmarks.json', 'w') as f:
         json.dump(historical_data, f)
 
-def get_score_for_sample(sample):
+def get_score_for_sample(sample, number_of_samples):
     scores = [None, None]
 
     for phase in [0, 1]:
         if sample['result'][phase] is not None:
-            scores[phase] = abs(sample['analytical_result'][phase] - sample['result'][phase]) / sample['error'][phase]
+            scores[phase] = (abs(sample['analytical_result'][phase] - sample['result'][phase]) / sample['error'][phase],
+                sample['error'][phase] * sqrt(number_of_samples) / abs(sample['analytical_result'][phase]))
 
     return scores
 
-def render_data(samples):
+def render_data(samples, number_of_samples):
     """ Render the data in a table. """
     data = []
 
     for sample in samples:
-        score = get_score_for_sample(sample)
+        score = get_score_for_sample(sample, number_of_samples)
 
         for (phase, phase_name) in [(0, 'Real'), (1, 'Imag')]:
             if sample['result'][phase] is None:
                 continue
+
+            (accuracy, precision) = score[phase]
             
             data.append(
                 [sample['topology'] + ' ' + phase_name, "{:,}".format(int(sample['num_samples'])),
                     ufloat(sample['result'][phase], sample['error'][phase]), 
                     sample['analytical_result'][phase],
-                    R + str(score[phase]) + W if score[phase] > 2.0 else G + str(score[phase]) + W,
+                    R + str(accuracy) + W if accuracy > 2.0 else G + str(accuracy) + W,
+                    precision,
                     sample['revision'], sample['diff'] == '']
             )
 
-    print(tabulate(data, ['Topology', '# Samples', 'Result', 'Reference', 'Score', 'Tag', 'Clean'], tablefmt="fancy_grid"))
+    print(tabulate(data, ['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Tag', 'Clean'], tablefmt="fancy_grid"))
 
 
 if __name__ == "__main__":
@@ -114,7 +119,7 @@ if __name__ == "__main__":
     parser.add_argument('topologies', metavar='topologies', type=str, nargs='+',
                         help='topologies to test')
     parser.add_argument('--from_history', action='store_true', help='Read the topology data from the history')
-    parser.add_argument('-s', default='100000', help='number of samples')
+    parser.add_argument('-s', default='100000', type=int, help='number of samples')
     parser.add_argument('-c', default='4', help='number of cores')
     parser.add_argument('--phase', default='both', choices=['real','imag','both'], help='the phase for the integration')
     args = parser.parse_args()
@@ -129,9 +134,11 @@ if __name__ == "__main__":
         for topology in pbar:
             pbar.set_description(topology)
             result = get_rust_result(topology, args.phase, args.s, args.c)
+            render_data([result], args.s)
             samples.append(result)
 
-    render_data(samples)
+    if len(args.topologies) > 1:
+        render_data(samples, args.s)
 
     # ask to save data
     if not args.from_history and input("Do you want to save the new run? [y/N]: ") in ['y','Y']:
