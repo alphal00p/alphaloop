@@ -23,6 +23,7 @@ B  = '\033[34m' # blue
 P  = '\033[35m' # purple
 
 _VERBOSITY = 0
+_TABLE_FORMAT = "fancy_grid"
 
 class Units:
     K = 1000
@@ -384,8 +385,8 @@ def render_data(samples, number_of_samples, sort=False):
                     (R + '%.2g'%percentage + W if percentage > 1.0 else G + '%.2g'%percentage + W) if percentage is not None else 'N/A',
                     sample['revision'], sample['diff'] == '']
             )
-    
-    print(tabulate(data, ['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean'], tablefmt="fancy_grid"))
+   
+    print(tabulate(data, ['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean'], tablefmt=_TABLE_FORMAT))
 
 
 if __name__ == "__main__":
@@ -395,6 +396,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', default='100000', type=int, help='number of samples')
     parser.add_argument('-c', default='4', help='number of cores')
     parser.add_argument('-v', default='0', type=int, help='Set verbosity: 0-10')
+    parser.add_argument('--table_format', default='fancy_grid', help="Chose the table render format, useful to disable some non-utf8 characters not supported by some terminals. Choose in: simple, plain, grid, fancy_grid, github, pipe, html, and more..." )
     parser.add_argument('-b', default='manual', help="benchmark name, in: 'manual' (select topologies by hand) or, "+
                                                       "'1loop', '2loop', '3loop', 'quick', 'long' which can be combined with a '+' sign.")
     parser.add_argument('--phase', default='both', choices=['real','imag','both'], help='the phase for the integration')
@@ -406,7 +408,8 @@ if __name__ == "__main__":
 
     samples = []
 
-    _VERBOSITY = args.v    
+    _VERBOSITY = args.v
+    _TABLE_FORMAT = args.table_format
     
     # A list of runs to be considered, each identified by a dictionary with the following entries:
     # {
@@ -445,7 +448,7 @@ if __name__ == "__main__":
             if _VERBOSITY>0: render_data([result], benchmark_runs[i_run]['samples'])
             samples.append(result)
 
-    if args.from_history or len(benchmark_runs) > 1:
+    if args.from_history or len(benchmark_runs) >= 1:
         print("All results for: %s%s"%(
             '-t %s '%(' '.join(args.t)) if args.t else '',
             '-b %s '%args.b if args.b!='manual' else ''
