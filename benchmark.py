@@ -199,11 +199,26 @@ class BenchmarkRunNloop(BenchmarkRun):
 class Benchmark(list):
 
     _ALL_1LOOP_TOPOLOGIES = [
-        # Older topologies
-        "Pentagon_pairwise_3E", 
         
+        # Dario customised ones
+        "Pentagon_1s",
+        "Pentagon_2s",
+        "Pentagon_3s",
+        "Hexagon_1s",
+        "Hexagon_2s",
+        "Hexagon_3s",
+        "Hexagon_4s",
+
         # Zeno customised ones
+        "Pentagon_10E_1s",
+        "Pentagon_6E_4s",
         "Pentagon_8E_5s",
+        "Hexagon_6E_4s",
+        "Hexagon_10E_4s",
+        "Hexagon_9E_4s",
+        "Hexagon_10E_7s",
+        "Hexagon_10E_5s",
+        "Hexagon_6E_2s",
 
     ]
 
@@ -233,7 +248,8 @@ class Benchmark(list):
             if not hasattr(self, "get_%s"%benchmark_name):
                 print("Benchmark named '%s' not recognized."%benchmark_name)
                 sys.exit(1)
-            self.extend(eval("self.get_%s()"%benchmark_name))
+            additional_runs = eval("self.get_%s()"%benchmark_name)
+            self.extend([r for r in additional_runs if r['topology'] not in [_['topology'] for _ in self]])
 
     #TODO Below please all contribute to create nice benchmarks that balance speed and sensitivity!
 
@@ -273,9 +289,25 @@ class Benchmark(list):
 
     def get_Valentin(self):
         res = []
-        res.append(BenchmarkRun1loop("Box_4E"))
-        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_B", n_start=100*Units.K, n_increase=10*Units.K, samples=10*Units.M))
-        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_F", n_start=100*Units.K, n_increase=10*Units.K, samples=10*Units.M))        
+        
+        # 1-loop topologies
+        res.extend(self.get_1loop())
+
+        # 2-loop topologies
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_A", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_B", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_C", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_D", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))        
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_E", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_F", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T3_DoubleBox_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        
+        # 3-loop topologies
+        res.append(BenchmarkRun3loop("T4_TripleBox_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+ 
+        # 4-loop topologies
+        res.append(BenchmarkRun3loop("T4_Quadruple_Box_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+
         return res
 
 
@@ -414,7 +446,10 @@ if __name__ == "__main__":
             samples.append(result)
 
     if args.from_history or len(benchmark_runs) > 1:
-        print("All results:")        
+        print("All results for: %s%s"%(
+            '-t %s '%(' '.join(args.t)) if args.t else '',
+            '-b %s '%args.b if args.b!='manual' else ''
+        )) 
         render_data(samples, args.s, sort=True)
 
     # ask to save data
