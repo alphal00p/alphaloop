@@ -1093,6 +1093,24 @@ fn main() {
                 .help("Number of samples per integration"),
         )
         .arg(
+            Arg::with_name("n_start")
+                .long("n_start")
+                .value_name("N_START")
+                .help("Number of starting samples for Vegas"),
+        )
+        .arg(
+            Arg::with_name("n_increase")
+                .long("n_increase")
+                .value_name("N_INCREASE")
+                .help("Number of increase samples for Vegas"),
+        )
+        .arg(
+            Arg::with_name("integrator")
+                .long("integrator")
+                .value_name("INTEGRATOR")
+                .help("Select the integrator (Vegas, Cuhre, Suave, Divonne)"),
+        )
+        .arg(
             Arg::with_name("topologies")
                 .short("l")
                 .long("topologies")
@@ -1220,6 +1238,18 @@ fn main() {
 
     if let Some(x) = matches.value_of("samples") {
         settings.integrator.n_max = usize::from_str(x).unwrap();
+    }
+
+    if let Some(x) = matches.value_of("n_start") {
+        settings.integrator.n_start = usize::from_str(x).unwrap();
+    }
+
+    if let Some(x) = matches.value_of("n_increase") {
+        settings.integrator.n_increase = usize::from_str(x).unwrap();
+    }
+
+    if let Some(x) = matches.value_of("integrator") {
+        settings.integrator.integrator = serde_yaml::from_str::<Integrator>(x).unwrap();
     }
 
     if let Some(x) = matches.value_of("topology") {
