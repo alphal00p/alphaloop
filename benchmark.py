@@ -54,8 +54,7 @@ def get_rust_result(topology, phase, num_samples, cores):
         'time': time.time()
     }
 
-def compare_with_history():
-    # now load historical data
+def get_history():
     historical_data = []
 
     try:
@@ -64,17 +63,20 @@ def compare_with_history():
     except:
         pass
 
+    return historical_data
+
 def save_to_history(samples):
+    historical_data = []
     try:
         with open("historical_benchmarks.json", 'r') as f:
             historical_data = json.load(f)
-
-        historical_data.extend(samples)
-
-        with open('historical_benchmarks.json', 'w') as f:
-            json.dump(historical_data, f)
     except:
         pass
+
+    historical_data.extend(samples)
+
+    with open('historical_benchmarks.json', 'w') as f:
+        json.dump(historical_data, f)
 
 def get_score_for_sample(sample):
     scores = [None, None]
@@ -111,20 +113,26 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Benchmark hyperparameters')
     parser.add_argument('topologies', metavar='topologies', type=str, nargs='+',
                         help='topologies to test')
+    parser.add_argument('--from_history', action='store_true', help='Read the topology data from the history')
     parser.add_argument('-s', default='100000', help='number of samples')
     parser.add_argument('-c', default='4', help='number of cores')
     parser.add_argument('--phase', default='both', choices=['real','imag','both'], help='the phase for the integration')
     args = parser.parse_args()
 
     samples = []
-    pbar = tqdm(args.topologies)
-    for topology in pbar:
-        pbar.set_description(topology)
-        result = get_rust_result(topology, args.phase, args.s, args.c)
-        samples.append(result)
+    
+    if args.from_history:
+        historical_data = get_history()
+        samples = [d for d in historical_data if d['topology'] in args.topologies]
+    else:
+        pbar = tqdm(args.topologies)
+        for topology in pbar:
+            pbar.set_description(topology)
+            result = get_rust_result(topology, args.phase, args.s, args.c)
+            samples.append(result)
 
     render_data(samples)
 
     # ask to save data
-    if input("Do you want to save the new run? [y/N]: ") in ['y','Y']:
+    if not args.from_history and input("Do you want to save the new run? [y/N]: ") in ['y','Y']:
        save_to_history(samples)
