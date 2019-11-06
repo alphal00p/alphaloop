@@ -116,7 +116,7 @@ hyperparameters = HyperParameters({
             'cut_propagator_check'      : False,
             'non_cut_propagator_check'  : False,
             'skip_hyperboloids'         : True,
-            'source_branch_cut_threshold'  : 0.8,
+            'source_branch_cut_threshold'  : 0.25,
             'source_branch_cut_multiplier' : 0.8,
         },
 
@@ -147,7 +147,7 @@ hyperparameters = HyperParameters({
             # add the normal vector for every ellipsoid which is excluded on all other ellipsoids
             'include_normal_source': False,
             # dampen the fixed sources away from intersections. Use this parameter only when include_normal_source is true
-            'source_dampening_factor': -0.1,
+            'source_dampening_factor': -0.0005,
         }
     },
 
