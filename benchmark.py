@@ -89,9 +89,22 @@ def get_score_for_sample(sample, number_of_samples):
 
     return scores
 
-def render_data(samples, number_of_samples):
+def render_data(samples, number_of_samples, sort=False):
     """ Render the data in a table. """
     data = []
+
+    def sort_by_accuracy(sample):
+        score = get_score_for_sample(sample, number_of_samples)
+        if score[0] is not None:
+            return score[0][0]
+        else:
+            return score[1][0]
+
+    if sort:
+        samples = sorted(samples, key=sort_by_accuracy)
+        for sample in samples:
+            score = get_score_for_sample(sample, number_of_samples)
+            score[0]
 
     for sample in samples:
         score = get_score_for_sample(sample, number_of_samples)
@@ -137,8 +150,8 @@ if __name__ == "__main__":
             render_data([result], args.s)
             samples.append(result)
 
-    if len(args.topologies) > 1:
-        render_data(samples, args.s)
+    if args.from_history or len(args.topologies) > 1:
+        render_data(samples, args.s, sort=True)
 
     # ask to save data
     if not args.from_history and input("Do you want to save the new run? [y/N]: ") in ['y','Y']:

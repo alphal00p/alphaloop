@@ -1696,13 +1696,12 @@ impl Topology {
 
             // now do the branch cut check per non-excluded loop line
             // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
-            //let mut lambda_sq = DualN::one();
             let mut lambda_sq = DualN::from_real(Into::<T>::into(
                 self.settings
                     .deformation
                     .scaling
                     .source_branch_cut_threshold,
-            ));
+            )).powi(2);
             for (ll_index, ll) in self.loop_lines.iter().enumerate() {
                 let mut kappa_cut = LorentzVector::default();
                 for (kappa, &sign) in kappa_source[..self.n_loops]
