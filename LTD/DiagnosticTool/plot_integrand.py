@@ -80,7 +80,10 @@ plot_lines = {
     'integrand_im' : [],
     'deform_jac_re' : [],
     'deform_jac_im' : [],
-    'param_jac' : []
+    'param_jac' : [],
+    'kappas_x' : [],
+    'kappas_y' : [],
+    'kappas_z' : [],
 }
 
 x_values = []
@@ -111,7 +114,13 @@ for t in range(1,N_points+1):
         current_point.append(vectors.Vector([p[0],p[1],p[2]]))
     plot_lines['param_jac'].append(parametrisation_jac)
 
+    print('k=',current_point[0])
     kappas, jac_re, jac_im = rust_instance.deform([list(v) for v in current_point])
+    print('kappa=',kappas[0])
+    plot_lines['kappas_x'].append(kappas[0][0])
+    plot_lines['kappas_y'].append(kappas[0][1])
+    plot_lines['kappas_z'].append(kappas[0][2])
+
     deformed_point = [current_point[i]+vectors.Vector(kappas[i])*complex(0.,1.) for i in range(len(kappas))]
 
     plot_lines['deform_jac_re'].append(jac_re)
@@ -121,22 +130,25 @@ for t in range(1,N_points+1):
     for d, v in duals.items():
         if ('%d_%d_re'%(d[0][0],d[1][0]) in plot_lines) or ('%d_%d_im'%(d[0][0],d[1][0]) in plot_lines):
             plot_lines['%d_%d_re'%(d[0][0],d[1][0])].append(v.real)
-            #plot_lines['%d_%d_im'%(d[0][0],d[1][0])].append(v.imag)            
+            plot_lines['%d_%d_im'%(d[0][0],d[1][0])].append(v.imag)            
         else:
             plot_lines['%d_%d_re'%(d[0][0],d[1][0])]=[v.real,]
-            #plot_lines['%d_%d_im'%(d[0][0],d[1][0])]=[v.imag,]
+            plot_lines['%d_%d_im'%(d[0][0],d[1][0])]=[v.imag,]
 
 selected = ['integrand_re', 'integrand_im', '0_0_re', '0_0_im', '0_1_re', '0_1_im','deform_jac_re', 'deform_jac_im','ALL']
 veto_list=['param_jac','deform_jac_im']
+
+selected = ['integrand_re', 'integrand_im', 'param_jac','deform_jac_re','deform_jac_im', 'kappas_x','kappas_y','kappas_z']
+veto_list = []
 
 
 #lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
 #        (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
 
-lines = [(k, (x_values, [vi for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
+lines = [(k, (x_values, [abs(vi) for vi in v])) for k,v in sorted(plot_lines.items(), key=lambda el: el[0]) if
         (((k in selected) or ('ALL' in selected)) and ((k not in veto_list) or 'NONE' in veto_list ) and len(v)>0)]
 
-NORMALISE = False
+NORMALISE = False 
 for line_name, (x_data, y_data) in lines:
     if NORMALISE:
         max_y_data = max(y_data)

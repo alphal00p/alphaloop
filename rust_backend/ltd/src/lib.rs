@@ -110,6 +110,8 @@ pub enum ExpansionCheckStrategy {
     FullLambdaDependence,
     #[serde(rename = "magic_fudge")]
     MagicFudge,
+    #[serde(rename = "magic_fudge_with_min")]
+    MagicFudgeWithMin,
     #[serde(rename = "ratio")]
     Ratio,
 }
@@ -150,7 +152,8 @@ impl From<&str> for ExpansionCheckStrategy {
             "full_lambda_dependence" => ExpansionCheckStrategy::FullLambdaDependence,
             "ratio" => ExpansionCheckStrategy::Ratio,
             "magic_fudge" => ExpansionCheckStrategy::MagicFudge,
-            _ => panic!("Unknown expansion check strategy {}", s),            
+            "magic_fudge_with_min" => ExpansionCheckStrategy::MagicFudgeWithMin,
+            _ => panic!("Unknown expansion check strategy {}", s),
         }
     }
 }
@@ -161,6 +164,7 @@ impl fmt::Display for ExpansionCheckStrategy {
             ExpansionCheckStrategy::FirstLambdaOrder => write!(f, "first lambda order"),
             ExpansionCheckStrategy::FullLambdaDependence => write!(f, "full lambda dependence"),
             ExpansionCheckStrategy::MagicFudge => write!(f, "magic fudge"),
+            ExpansionCheckStrategy::MagicFudgeWithMin => write!(f, "magic fudge with min"),
             ExpansionCheckStrategy::Ratio => write!(f, "ratio"),
         }
     }
@@ -235,6 +239,8 @@ pub struct DeformationFixedSettings {
     pub local: bool,
     pub a_ijs: Vec<f64>,
     pub normalize_per_source: bool,
+    pub normalisation_of_subspace_components: bool,
+    pub normalisation_per_number_of_sources: bool,
     pub include_normal_source: bool,
     pub source_dampening_factor: f64,
 }

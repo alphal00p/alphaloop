@@ -875,13 +875,17 @@ impl Topology {
                                 let b = info.kappa_dot_mom * info.kappa_dot_mom;
                                 let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
                                 c * c * (d / (b + d))
+                            }
+                            ExpansionCheckStrategy::MagicFudgeWithMin => {
+                                let a = info.kappa_sq * info.kappa_sq;
+                                let b = info.kappa_dot_mom * info.kappa_dot_mom;
+                                let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
                             
-                                //if a < b {
-                                //    c * c * (d / (b + d))
-                                //} else {
-                                //    c * c * (d / (a + d))
-                                //}
-                                
+                                if a < b {
+                                    c * c * (d / (b + d))
+                                } else {
+                                    c * c * (d / (a + d))
+                                }
                             }
                             ExpansionCheckStrategy::Ratio => {
                                 let a = info.kappa_sq;
@@ -1682,11 +1686,13 @@ impl Topology {
             }
 
             // make sure the lambda growth coming from multiple sources is under control
-            //for ii in 0..self.n_loops {
-            //    kappa_source[ii] *= DualN::from_real(Into::<T>::into(
-            //        1. / d_lim.deformation_per_overlap.len() as f64,
-            //    ));
-            //}
+            if self.settings.deformation.fixed.normalisation_of_subspace_components {
+                for ii in 0..self.n_loops {
+                    kappa_source[ii] *= DualN::from_real(Into::<T>::into(
+                        1. / d_lim.deformation_per_overlap.len() as f64,
+                    ));
+                }
+            }
 
             // now do the branch cut check per non-excluded loop line
             // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
@@ -1760,9 +1766,14 @@ impl Topology {
             };
 
             for ii in 0..self.n_loops {
-                kappas[ii] += kappa_source[ii]
-                    * lambda;
-                    //* DualN::from_real(Into::<T>::into(1. / self.fixed_deformation.len() as f64));
+                kappas[ii] += kappa_source[ii] * lambda;
+            }
+
+        }
+
+        if self.settings.deformation.fixed.normalisation_per_number_of_sources {
+            for ii in 0..self.n_loops {
+                kappas[ii] *= DualN::from_real(Into::<T>::into(1. / self.fixed_deformation.len() as f64));
             }
         }
 

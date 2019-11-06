@@ -50,7 +50,7 @@ hyperparameters = HyperParameters({
 
     'Integrator'    :   {
         # The integrator can be vegas, divonne, cuhre or suave
-        'integrator'        :   'vegas',
+        'integrator'        :   'cuhre',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e4),
@@ -103,7 +103,8 @@ hyperparameters = HyperParameters({
             # first_lambda_order : c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut| 
             # full_lambda_dependence : lambda^2 < (-2*kappa_i.q_i^2 + 
             #           sqrt(4*kappa_i.q_i^4 + kappa^4 c^2 (q_i^2+m_i^2)^2))/kappa^4
-            # magic_fudge : self-explanatory :)
+            # magic_fudge : c * c * (d / (b + d))
+            # magic_fudge_with_min : min( c * c * (d / (b + d)), c * c * (d / (a + d)))
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
             'expansion_check_strategy'  : 'magic_fudge',
             'expansion_threshold'       : 0.45,
@@ -137,7 +138,12 @@ hyperparameters = HyperParameters({
             # localizes the deformation around the ellipsoids using an exponential function with variance a_ij
             'local' : False,
             'a_ijs' : [],
+            # Normalize to each source
             'normalize_per_source': False,
+            # Normalise the deformation of each subspace with the number of sources in that subspace
+            'normalisation_of_subspace_components' : True,
+            # Normalise the overall fixed deformation with respect to the number of its building elements (i.e. subspaces)
+            'normalisation_per_number_of_sources' : True,
             # add the normal vector for every ellipsoid which is excluded on all other ellipsoids
             'include_normal_source': False,
             # dampen the fixed sources away from intersections. Use this parameter only when include_normal_source is true
