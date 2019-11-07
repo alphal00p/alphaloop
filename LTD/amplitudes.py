@@ -303,13 +303,10 @@ class AmplitudesCollection(dict):
             return yaml.dump(flat_record, Dumper=Dumper)
 
 
-if __name__ == "__main__":
-    amplitudes_collection = AmplitudesCollection()
-
-    # =================== add amplitude ddAAA ======================= #
+def hard_coded_ddAAA(amp_name, topo_name):
     tree_factor = params['alpha_ew']**1.5*params['q_d']**3 * (4.0 * np.pi)**1.5
     # Initialize
-    amp = Amplitude("manual_uuWWZ_amplitude_P2",      # name of topology
+    amp = Amplitude(topo_name,                        # name of topology
                     'qqbar_photons',                  # process type
                     zip(["u", "vbar", "a", "a", "a"], # polarizations
                         ["+", "-", "+", "+", "+"]),
@@ -322,7 +319,7 @@ if __name__ == "__main__":
     factor = -1j * params['C_F'] * tree_factor\
         * params['alpha_s'] * (4.0 * np.pi)
     amp.create_amplitude(
-        'ddAAA',
+        amp_name,
         1,
         [qqbar_diagram("D1", [0, 3, 4, 5], [1, 1, 1, 1], [8, 6, -1, 3, 9, 4, 10, 5, -1], factor/amp.sij["s23"], False, False),
          qqbar_diagram("D2", [0, 4, 5], [1, 1, 1], [8, 6, 9, 7, -1, 4, 10, 5, -1], factor/amp.sij["s23"]/amp.sij["s15"], False, True,),
@@ -345,23 +342,12 @@ if __name__ == "__main__":
             [[], amp.ps[0]+amp.ps[4]],
         ],
     )
-    print("old D1 => {}".format(factor/amp.sij["s23"]-factor/amp.qSQ(2)))
-    print("old D2 => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]-factor/(amp.qSQ(2)*amp.qSQ(3))))
-    print("old D3 => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]**2-factor/(amp.qSQ(2)*amp.qSQ(3)**2)))
-    print("old D4 => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]-factor/(amp.qSQ(2)*amp.qSQ(3))))
-    print("old D5 => {}".format(factor/amp.sij["s15"]-factor/amp.qSQ(3)))
-    print("old D6 => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]-factor/(amp.qSQ(2)*amp.qSQ(3))))
-    print("old D7 => {}".format(factor/amp.sij["s23"]**2/amp.sij["s15"]-factor/(amp.qSQ(2)**2*amp.qSQ(3))))
-    print("old D8 => {}".format(factor-factor))
-    print("old IR => {}".format(factor/amp.sij["s23"]/amp.sij["s15"]-factor/(amp.qSQ(2)*amp.qSQ(3))))
-    print( "{} :: {}".format(amp.sij["s23"],amp.sij["s15"]-amp.qSQ(2),amp.qSQ(3)))
-    # Store
-    amplitudes_collection.add(amp)
+    return(amp)
 
-    # =================== add amplitude ddAA ======================= #
+def hard_coded_ddAA(amp_name, topo_name):
     tree_factor = params['alpha_ew'] * params['q_d']**2 * (4.0 * np.pi)
     # Initialize
-    amp = Amplitude("manual_eeAA_amplitude_P2",  # name of topology
+    amp = Amplitude(topo_name,                   # name of topology
                     'qqbar_photons',             # process type
                     zip(["u", "vbar", "a", "a"], # polarizations
                         ["+", "-", "+", "+"]),
@@ -373,7 +359,7 @@ if __name__ == "__main__":
     # Diagrams and vectors
     factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
     amp.create_amplitude(
-        'ddAA',
+        amp_name,
         1,
         [qqbar_diagram("D1", [0, 3, 4], [1, 1, 1], [6, 5, -1, 3, 7, 4, -1], factor/amp.sij["s23"], False, True,),
          qqbar_diagram("D2", [0, 2, 3], [1, 1, 1], [-1, 2, 6, 3, -1, 5, 7], factor/amp.sij["s23"], False, True),
@@ -390,13 +376,12 @@ if __name__ == "__main__":
             [[], -amp.ps[1]-amp.ps[2]],
         ],
     )
-    # Store
-    amplitudes_collection.add(amp)
+    return(amp)
 
-    # =================== add amplitude ddAAAA ======================= #
+def hard_coded_dd4A(amp_name, topo_name):
     tree_factor = params['alpha_ew']**2 * params['q_d']**4 * (4.0 * np.pi)**2
     # Initialize
-    amp = Amplitude("manual_ddAAAA_amplitude",  # name of topology
+    amp = Amplitude(topo_name,                   # name of topology
                     'qqbar_photons',             # process type
                     zip(["u", "vbar", "a", "a", "a", "a"],  # polarizations
                         ["+", "-", "+", "+", "+", "+"]),
@@ -407,109 +392,177 @@ if __name__ == "__main__":
     amp.add_born([10, 7, 11, 8, 12, 9, 13], born_factor)
     # Diagrams and vectors
     factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
+    
+    vector_list=[ [[-1], sum(-amp.ps[i] for i in range(i+1))] for i in range(5) ] # add k+p slashed from prop
+    vector_list.extend([[[-1], vectors.LorentzVector([0, 0, 0, 0])]])
+    vector_list.extend([ [[], sum(-amp.ps[i] for i in range(1,i+1))] for i in range(2,5) ]) # add k+p when k is soft
+    
     amp.create_amplitude(
-       'ddAAAA',
+       amp_name,
        1,
-       [
-       qqbar_diagram("D1", [0, 2, 3, 4, 5, 6],[1, 1, 1, 1, 1, 1],[-1, 2, 10, 3, 11, 4, 12, 5, 13, 6, -1],factor,False,False),
-       qqbar_diagram("D2", [0, 2, 3, 4, 5],   [1, 1, 1, 1, 1],   [-1, 2, 10, 3, 11, 4, 12, 5, -1, 9, 13],factor/ amp.qSQ(4),False,False),
-       qqbar_diagram("D3", [0, 2, 3, 4],      [1, 1, 1, 1],      [-1, 2, 10, 3, 11, 4, -1, 8, 12, 9, 13],factor/(amp.qSQ(3)*amp.qSQ(4)),False,False),
-       qqbar_diagram("D4", [0, 2, 3],         [1, 1, 1],         [-1, 2, 10, 3, -1, 7, 11, 8, 12, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,True),
-       qqbar_diagram("D5", [0, 3, 4, 5, 6],   [1, 1, 1, 1, 1],   [10, 7, -1, 3, 11, 4, 12, 5, 13, 6, -1],factor/ amp.qSQ(2),False,False),
-       qqbar_diagram("D6", [0, 3, 4, 5],      [1, 1, 1, 1],      [10, 7, -1, 3, 11, 4, 12, 5, -1, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(4)),False,False),
-       qqbar_diagram("D7", [0, 3, 4],         [1, 1, 1],         [10, 7, -1, 3, 11, 4, -1, 8, 12, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,True),
-       qqbar_diagram("D8", [0, 3],            [1, 1],            [10, 7, -1, 3, -1, 7, 11, 8, 12, 9, 13],factor/(amp.qSQ(2)**2*amp.qSQ(3)*amp.qSQ(4)),False,True),
-       qqbar_diagram("D9", [0, 4, 5, 6],      [1, 1, 1, 1],      [10, 7, 11, 8, -1, 4, 12, 5, 13, 6, -1],factor/(amp.qSQ(2)*amp.qSQ(3)),False,False),
-       qqbar_diagram("D10",[0, 4, 5],         [1, 1, 1],         [10, 7, 11, 8, -1, 4, 12, 5, -1, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,True),
-       qqbar_diagram("D11",[0, 4],            [1, 1],            [10, 7, 11, 8, -1, 4, -1, 8, 12, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)**2*amp.qSQ(4)),False,True),
-       qqbar_diagram("D12",[0, 5, 6],         [1, 1, 1],         [10, 7, 11, 8, 12, 9, -1, 5, 13, 6, -1],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,True),
-       qqbar_diagram("D13",[0, 5],            [1, 1],            [10, 7, 11, 8, 12, 9, -1, 5, -1, 9, 13],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)**2),False,True),
-       qqbar_diagram("IR", [0, 2, 6],         [1, 1, 1],         [-1, 2, 10, 7, 11, 8, 12, 9, 13, 6, -1],factor/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),True,True),
-       ],
+       generate_qqbar_diags(amp,4,factor),
        # Vectors [loopmomenta, externals]
-       [
-           [[-1], -amp.ps[0]],
-           [[-1], -amp.ps[0]-amp.ps[1]],
-           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]],
-           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]],
-           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]],
-           [[-1], vectors.LorentzVector([0, 0, 0, 0])],
-           [[], -amp.ps[1]-amp.ps[2]],
-           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]],
-           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]],
-           ]
-    )
-    # Store
-    amplitudes_collection.add(amp)
-
-
-    # =================== add amplitude dd6A ======================= #
-    tree_factor = params['alpha_ew']**(6/2) * params['q_d']**4 * (4.0 * np.pi)**(6/2)
+       vector_list)
+    return(amp)
+def generate_qqbar_photons(amp_name, topo_name,n):
     # Initialize
-    amp = Amplitude("dd6A",  # name of topology
-                    'qqbar_photons',             # process type
-                    zip(["u", "vbar", "a", "a", "a", "a", "a", "a"],  # polarizations
-                        ["+", "-", "+", "+", "+", "+", "+", "+"]),
-                    1,                           # uv_pos
-                    91.188)                      # mu_r_sq
+    pols_name = ["u","vbar"]
+    pols_name.extend(["a"]*n)
+    pols_type = ["+","-"]
+    pols_type.extend(["+"]*n)
+    
+    amp = Amplitude(topo_name,                 # name of topology
+                    'qqbar_photons',           # process type
+                    zip(pols_name,pols_type),  # polarizations
+                    1,                         # uv_pos
+                    91.188)                    # mu_r_sq
+    #Factors
+    tree_factor = params['alpha_ew']**(n/2.) * params['q_d']**n * (4.0 * np.pi)**(n/2.)
+    
+    born_factor = tree_factor
+    for i in range(2,n+1):
+        born_factor /= amp.qSQ(i)
+    
+    NLO_factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
+
     # Born Level Diagram
-    born_factor = tree_factor / (amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6))
-    amp.add_born([-1, 2, 14, 9, 15, 10, 16, 11, 17, 12, 18, 13, 19, 8, -1], born_factor)
-    # Diagrams and vectors
-    factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
+    amp.add_born(generate_qqbar_born_chain(n), born_factor)
+    
+    # NLO Diagrams and vectors
+    vector_list=[ [[-1], sum(-amp.ps[i] for i in range(i+1))] for i in range(n+1) ] # add k+p slashed from prop
+    vector_list.extend([[[-1], vectors.LorentzVector([0, 0, 0, 0])]])
+    vector_list.extend([ [[], sum(-amp.ps[i] for i in range(1,i+1))] for i in range(2,n+1) ]) # add k+p when k is soft
+    
     amp.create_amplitude(
-       'dd6A',
+       amp_name,
        1,
-            [
-        qqbar_diagram("D1",[0, 2, 3, 4, 5, 6, 7, 8],[1, 1, 1, 1, 1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, 16, 5, 17, 6, 18, 7, 19, 8, -1],1,False,False),
-        qqbar_diagram("D2",[0, 2, 3, 4, 5, 6, 7],[1, 1, 1, 1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, 16, 5, 17, 6, 18, 7, -1, 13, 19],1/amp.qSQ(6),False,False),
-        qqbar_diagram("D3",[0, 2, 3, 4, 5, 6],[1, 1, 1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, 16, 5, 17, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(5)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D4",[0, 2, 3, 4, 5],[1, 1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, 16, 5, -1, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D5",[0, 2, 3, 4],[1, 1, 1, 1],[-1, 2, 14, 3, 15, 4, -1, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D6",[0, 2, 3],[1, 1, 1],[-1, 2, 14, 3, -1, 9, 15, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D7",[0, 3, 4, 5, 6, 7, 8],[1, 1, 1, 1, 1, 1, 1],[14, 9, -1, 3, 15, 4, 16, 5, 17, 6, 18, 7, 19, 8, -1],1/amp.qSQ(2),False,False),
-        qqbar_diagram("D8",[0, 3, 4, 5, 6, 7],[1, 1, 1, 1, 1, 1],[14, 9, -1, 3, 15, 4, 16, 5, 17, 6, 18, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D9",[0, 3, 4, 5, 6],[1, 1, 1, 1, 1],[14, 9, -1, 3, 15, 4, 16, 5, 17, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(5)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D10",[0, 3, 4, 5],[1, 1, 1, 1],[14, 9, -1, 3, 15, 4, 16, 5, -1, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D11",[0, 3, 4],[1, 1, 1],[14, 9, -1, 3, 15, 4, -1, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D12",[0, 3],[1, 1],[14, 9, -1, 3, -1, 9, 15, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)**2*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D13",[0, 4, 5, 6, 7, 8],[1, 1, 1, 1, 1, 1],[14, 9, 15, 10, -1, 4, 16, 5, 17, 6, 18, 7, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)),False,False),
-        qqbar_diagram("D14",[0, 4, 5, 6, 7],[1, 1, 1, 1, 1],[14, 9, 15, 10, -1, 4, 16, 5, 17, 6, 18, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D15",[0, 4, 5, 6],[1, 1, 1, 1],[14, 9, 15, 10, -1, 4, 16, 5, 17, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(5)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D16",[0, 4, 5],[1, 1, 1],[14, 9, 15, 10, -1, 4, 16, 5, -1, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D17",[0, 4],[1, 1],[14, 9, 15, 10, -1, 4, -1, 10, 16, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)**2*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D18",[0, 5, 6, 7, 8],[1, 1, 1, 1, 1],[14, 9, 15, 10, 16, 11, -1, 5, 17, 6, 18, 7, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)),False,False),
-        qqbar_diagram("D19",[0, 5, 6, 7],[1, 1, 1, 1],[14, 9, 15, 10, 16, 11, -1, 5, 17, 6, 18, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(6)),False,False),
-        qqbar_diagram("D20",[0, 5, 6],[1, 1, 1],[14, 9, 15, 10, 16, 11, -1, 5, 17, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D21",[0, 5],[1, 1],[14, 9, 15, 10, 16, 11, -1, 5, -1, 11, 17, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)**2*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D22",[0, 6, 7, 8],[1, 1, 1, 1],[14, 9, 15, 10, 16, 11, 17, 12, -1, 6, 18, 7, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)),False,False),
-        qqbar_diagram("D23",[0, 6, 7],[1, 1, 1],[14, 9, 15, 10, 16, 11, 17, 12, -1, 6, 18, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D24",[0, 6],[1, 1],[14, 9, 15, 10, 16, 11, 17, 12, -1, 6, -1, 12, 18, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)**2*amp.qSQ(6)),False,True),
-        qqbar_diagram("D25",[0, 7, 8],[1, 1, 1],[14, 9, 15, 10, 16, 11, 17, 12, 18, 13, -1, 7, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),False,True),
-        qqbar_diagram("D26",[0, 7],[1, 1],[14, 9, 15, 10, 16, 11, 17, 12, 18, 13, -1, 7, -1, 13, 19],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)**2),False,True),
-        qqbar_diagram("IR",[0, 2, 8],[1, 1, 1],[-1, 2, 14, 9, 15, 10, 16, 11, 17, 12, 18, 13, 19, 8, -1],1/(amp.qSQ(2)*amp.qSQ(3)*amp.qSQ(4)*amp.qSQ(5)*amp.qSQ(6)),True,True),
-        ],
+       generate_qqbar_diags(amp,n,NLO_factor),
        # Vectors [loopmomenta, externals]
-       [
-           [[-1], -amp.ps[0]],
-           [[-1], -amp.ps[0]-amp.ps[1]],
-           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]],
-           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]],
-           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]],
-           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]-amp.ps[5]],
-           [[-1], -amp.ps[0]-amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]-amp.ps[5]-amp.ps[6]],
-           [[-1], vectors.LorentzVector([0, 0, 0, 0])],
-           [[], -amp.ps[1]-amp.ps[2]],
-           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]],
-           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]],
-           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]-amp.ps[5]],
-           [[], -amp.ps[1]-amp.ps[2]-amp.ps[3]-amp.ps[4]-amp.ps[5]-amp.ps[6]],
-           ]
-    )
-    # Store
-    amplitudes_collection.add(amp)
+       vector_list)
+    return(amp)
+    
+def generate_qqbar_born_chain(n):
+    #Polarization position
+    pol=(n+2)+n
+    
+    chain=[]
+    for i in range(n):
+        chain+=[pol+i]
+        chain+=[i+3+n]
+    del chain[-1]
+    return(chain)
+
+def generate_qqbar_diags(amp,n,factor):
+    #Polarization position
+    pol=(n+2)+n
+    
+    #Define the propagators
+    max_props=[0]
+    max_props.extend(range(2,n+3))
+    max_den_pows=[1]*(n+2)
+    max_factor = factor
+    
+    #Create the numerator for the largest loop
+    max_chain=[-1]
+    for i in range(n+1):
+        max_chain+=[i+2]
+        max_chain+=[pol+i]
+    max_chain[-1]=-1
+    
+    #Define max diagram
+    max_diag=(max_props,max_den_pows,max_chain,max_factor)
+    diags=[max_diag]
+
+    diags=right_left_reduce(amp,diags[-1],n)
+        
+    complete_diags=[]
+    diag_n = 1
+    for diag in diags:
+        #print("D%i"%diag_n,diag[0],diag[1],diag[2],diag[3],False,len(diag[0])<4)
+        complete_diags+=[qqbar_diagram("D%i"%diag_n,diag[0],diag[1],diag[2],diag[3],False,len(diag[0])<4)]
+        diag_n += 1
+    
+    #ADD IR
+    ir_chain=[-1,2]
+    ir_chain.extend(generate_qqbar_born_chain(n))
+    ir_chain.extend([n+2,-1])
+
+    ir_factor=factor
+    for i in range(2,n+1):
+        ir_factor/=amp.qSQ(i)
+    complete_diags+=[qqbar_diagram("IR",[0,2,n+2],[1,1,1],ir_chain, ir_factor,True,True)]
 
     
+    return(complete_diags)
+
+def right_reduce(amp,diag,n):
+    chain = diag[2];  dens=diag[0]; factor=diag[3]
+
+    #position of right -1
+    pos = chain.index(-1)
+    pos = chain.index(-1,pos+1)
+    #Move -1 across this pair
+    pair = chain[pos-2:pos]
+    
+    #Define new diagram
+    #Change from loop propagator to externals propagator
+    #Swap position of the polarization vector pair[0]
+    new_chain = chain.copy()
+    new_chain[pos-2]=-1
+    new_chain[pos-1], new_chain[pos] = pair[1]+(n-1), pair[0]
+    new_dens = dens[:-1]
+    new_pows = [1]*(len(new_dens))
+    new_factor = factor/amp.qSQ(pair[1]-2)
+    return (new_dens,new_pows,new_chain,new_factor)
+
+def left_reduce(amp,diag,n):
+    chain = diag[2];  dens=diag[0]; factor=diag[3]
+
+    #position of right -1
+    pos = chain.index(-1)
+    #Move -1 across this pair
+    pair = chain[pos+1:pos+3]
+    #Define new diagram
+    #Change from loop propagator to externals propagator
+    #Swap position of the polarization vector pair[1]
+    new_chain = chain.copy()
+    new_chain[pos+2]=-1
+    new_chain[pos+1], new_chain[pos] = pair[0]+(n+1), pair[1]
+    new_dens = dens.copy(); del new_dens[1]
+    new_pows = [1]*(len(new_dens))
+    new_factor = factor/amp.qSQ(pair[0])
+    
+    return (new_dens,new_pows,new_chain,new_factor)
+
+def right_left_reduce(amp,diag,n):
+    diags=[]
+    #Do all the reductions from the left
+    l_diags=[diag]
+    for i in range(n-1):
+        l_diags += [left_reduce(amp,l_diags[-1],n)]
+    #Do all the reductions from the right
+    for diag in l_diags:
+        diags +=[diag]
+        #Positions of the two -1
+        pos1=diag[2].index(-1)
+        pos2=diag[2].index(-1,pos1+1)
+        while len(diags[-1][0])!=2 and (pos1+4 != 2*n-1) and (pos2-4 != 0):
+            diags += [right_reduce(amp,diags[-1],n)]
+            pos1=diags[-1][2].index(-1)
+            pos2=diags[-1][2].index(-1,pos1+1)
+    return(diags)
+
+
+if __name__ == "__main__":
+    amplitudes_collection = AmplitudesCollection()
+    
+    
+    amplitudes_collection.add(generate_qqbar_photons("manual_uuWWZ_amplitude_P2","ddAAA",3))
+    #amplitudes_collection.add(generate_qqbar_photons("dd4A","dd4A",4))
+    #amplitudes_collection.add(generate_qqbar_photons("dd6A","dd6A",6))
+    #amplitudes_collection.add(generate_qqbar_photons("dd10A","dd10A",10))
+
+
     # Export amplitudes
     root_dir = ''
     amplitudes_collection.export_to(os.path.join(root_dir, 'amplitudes.yaml'))
