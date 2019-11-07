@@ -800,6 +800,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
 
     let samples = usize::from_str(matches.value_of("samples").unwrap()).unwrap();
     let rescaling = f64::from_str(matches.value_of("rescaling").unwrap()).unwrap();
+    let evaluate_after_deformation = matches.is_present("evaluate_after_deformation");
 
     let mut n_unique_e_surface = 0;
     println!("");
@@ -809,7 +810,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
             continue;
         }
         if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid {
-            continue;            
+            continue;
         }
         n_unique_e_surface += 1;
         println!(
@@ -861,7 +862,21 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                         *lm = (pl + nl) * Into::<f128::f128>::into(0.5);
                     }
 
-                    let res = evaluate_surface(topo, surf, &loop_momenta);
+                    // optionally evaluate the real part of the surface with complex momentum
+                    let res = if evaluate_after_deformation {
+                        let (kappas, _) = topo.deform(&loop_momenta, None, None, &mut cache);
+                        k_def = (0..topo.n_loops)
+                            .map(|i| {
+                                loop_momenta[i].map(|x| num::Complex::new(x, f128::f128::zero()))
+                                    + kappas[i].map(|x| num::Complex::new(f128::f128::zero(), x))
+                            })
+                            .collect();
+
+                        let res = evaluate_surface_complex(topo, surf, &k_def);
+                        res.re
+                    } else {
+                        evaluate_surface(topo, surf, &loop_momenta)
+                    };
 
                     // update the bounds
                     if res < f128::f128::zero() {
@@ -1205,6 +1220,11 @@ fn main() {
                         .short("r")
                         .default_value("1.")
                         .help("Rescale the sampling range by this factor"),
+                )
+                .arg(
+                    Arg::with_name("evaluate_after_deformation")
+                        .short("d")
+                        .help("Probe surfaces after deforming"),
                 ),
         )
         .subcommand(
