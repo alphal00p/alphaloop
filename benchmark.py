@@ -11,6 +11,7 @@ import argparse
 from math import sqrt
 import sys
 from pprint import pprint, pformat
+from datetime import datetime
 
 file_path = os.path.dirname(os.path.realpath( __file__ ))
 pjoin = os.path.join
@@ -21,6 +22,7 @@ G  = '\033[32m' # green
 O  = '\033[33m' # orange
 B  = '\033[34m' # blue
 P  = '\033[35m' # purple
+BOLD = '\033[1m'# bold
 
 _VERBOSITY = 0
 _TABLE_FORMAT = "fancy_grid"
@@ -147,13 +149,12 @@ class BenchmarkRun(dict):
 
         result = {
             'revision': git_revision,
-            'diff': git_diff,
+            'diff': git_diff == '',
             'num_samples': num_samples,
             'topology': topology,
             'result': tuple(integral_result),
             'error': tuple(error),
             'analytical_result': analytical_result,
-            'time': time.time()
         }
         return result
 
@@ -324,17 +325,34 @@ def get_history(history_path):
     return historical_data
 
 def save_to_history(samples, output_path):
-    historical_data = []
+    t  = time.time()
+
+    # get the hyperpamater file for this run
+    hyperparam_resource = pjoin(file_path, "LTD","hyperparameters.yaml")
+    hyperparamaters = {}
     try:
-        with open(output_path, 'r') as f:
-            historical_data = json.load(f)
+        with open(hyperparam_resource, 'r') as f:
+            hyperparamaters = yaml.safe_load(f)
     except:
         pass
 
-    historical_data.extend(samples)
+    git_diff = subprocess.check_output(["git", "diff"]).strip().decode()
+
+    historical_data = {t: {
+            'hyperparameters': hyperparamaters,
+            'diff': git_diff,
+            'samples': samples,
+        }
+    }
+
+    try:
+        with open(output_path, 'r') as f:
+            historical_data.update(json.load(f))
+    except:
+        pass
 
     with open(output_path, 'w') as f:
-        json.dump(historical_data, f)
+        json.dump(historical_data, f, indent=4)
 
 def get_score_for_sample(sample, number_of_samples):
     scores = {'real': None, 'imag': None}
@@ -381,9 +399,9 @@ def render_data(samples, number_of_samples, sort=False):
                     ufloat(sample['result'][i_phase], sample['error'][i_phase]), 
                     sample['analytical_result'][i_phase],
                     R + str(accuracy) + W if accuracy > 2.0 else G + str(accuracy) + W,
-                    precision if precision is not None else 'N/A',
+                    "{:6}".format(precision) if precision is not None else 'N/A',
                     (R + '%.2g'%percentage + W if percentage > 1.0 else G + '%.2g'%percentage + W) if percentage is not None else 'N/A',
-                    sample['revision'], sample['diff'] == '']
+                    sample['revision'], sample['diff']]
             )
    
     print(tabulate(data, ['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean'], tablefmt=_TABLE_FORMAT))
@@ -404,6 +422,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_start', default='100000', help='n_start for vegas')
     parser.add_argument('--n_increase', default='100000', help='n_increase for vegas')
     parser.add_argument('--history_path', default='default', help='specify a JSON file path to store the result')
+    parser.add_argument('--show_hyperparameters', default='0', choices=[0,1,2,3], type=int, help='level of hyperparameter printing in history mode')
     args = parser.parse_args()
 
     samples = []
@@ -434,13 +453,51 @@ if __name__ == "__main__":
 
     if args.from_history:
         historical_data = get_history(pjoin(file_path,"historical_benchmarks.json") if args.history_path=='default' else args.history_path)
-        samples = [d for d in historical_data if d['topology'] in [r['topology'] for r in benchmark_runs]]
+
+        for t, v in historical_data.items():
+            samples = [s for s in v['samples'] if s['topology'] in [r['topology'] for r in benchmark_runs]]
+            if len(samples) > 0:
+                print(BOLD + 'Run from {}'.format(datetime.fromtimestamp(float(t)).strftime("%a %d %H:%M:%S")) + W)
+                
+                if args.show_hyperparameters == 1:
+                    # print some basic hyperparameters
+                    dh = v['hyperparameters']['Deformation']
+                    basic_params = [{
+                        'fixed': {
+                                'M_ij': dh['fixed']['M_ij'],
+                                'include_normal_source': dh['fixed']['include_normal_source'],
+                                'normalisation_of_subspace_components': dh['fixed']['normalisation_of_subspace_components'],
+                                'normalisation_per_number_of_sources': dh['fixed']['normalisation_per_number_of_sources'],
+                                'normalize_per_source': dh['fixed']['normalize_per_source'],
+                                },
+                        'normalize_on_E_surfaces_m': dh['normalize_on_E_surfaces_m'],
+                        'overall_scaling_constant': dh['overall_scaling_constant'],
+                        'scaling': {
+                            'branch_cut_m':  dh['scaling']['branch_cut_m'],
+                            'cut_propagator_check': dh['scaling']['cut_propagator_check'],
+                            'expansion_check': dh['scaling']['expansion_check'],
+                            'expansion_check_strategy': dh['scaling']['expansion_check_strategy'],
+                            'expansion_threshold': dh['scaling']['expansion_threshold'],
+                            'lambda': dh['scaling']['lambda'],
+                            'non_cut_propagator_check':dh['scaling']['non_cut_propagator_check'],
+                            'positive_cut_check': dh['scaling']['positive_cut_check'],
+                            'source_branch_cut_m': dh['scaling']['source_branch_cut_m'],
+                            'source_branch_cut_multiplier': dh['scaling']['source_branch_cut_multiplier'],
+                            'source_branch_cut_threshold': dh['scaling']['source_branch_cut_threshold'],
+                        }
+                    }]
+                    print(yaml.dump(basic_params, indent=4, sort_keys=True))
+                elif args.show_hyperparameters == 2:
+                    print(yaml.dump([v['hyperparameters']['Deformation']], indent=4, sort_keys=True))
+                elif args.show_hyperparameters == 3:
+                    print(yaml.dump([v['hyperparameters']], indent=4, sort_keys=True))
+
+                render_data(samples, args.s, sort=True)
     else:
-        pbar = tqdm([run['topology'] for run in benchmark_runs])
-        print('')
         print("Now running a benchmark involving the following topologies:")
         print(">>> %s"%(', '.join(r['topology'] for r in benchmark_runs)))
-        print('')
+        print('')        
+        pbar = tqdm([run['topology'] for run in benchmark_runs])
         for i_run, pbar_element in enumerate(pbar):
             pbar.set_description(pbar_element)
             result = benchmark_runs[i_run](n_cores=args.c)
@@ -448,12 +505,12 @@ if __name__ == "__main__":
             if _VERBOSITY>0: render_data([result], benchmark_runs[i_run]['samples'])
             samples.append(result)
 
-    if args.from_history or len(benchmark_runs) >= 1:
-        print("All results for: %s%s"%(
-            '-t %s '%(' '.join(args.t)) if args.t else '',
-            '-b %s '%args.b if args.b!='manual' else ''
-        )) 
-        render_data(samples, args.s, sort=True)
+        if len(benchmark_runs) >= 1:
+            print("All results for: %s%s"%(
+                '-t %s '%(' '.join(args.t)) if args.t else '',
+                '-b %s '%args.b if args.b!='manual' else ''
+            )) 
+            render_data(samples, args.s, sort=True)
 
     # ask to save data
     if not args.from_history:
