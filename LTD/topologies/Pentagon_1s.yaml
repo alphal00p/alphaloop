@@ -14,10 +14,10 @@
   fixed_deformation:
   - deformation_per_overlap:
     - deformation_sources:
-      - [0.0, -0.10795456335033074, -1.4850113256826454, 39.71726505851337]
+      - [0.0, -0.10795456279982643, -1.4850113255330766, 39.717265055616465]
       excluded_surface_ids: []
       overlap: [0, 1, 2, 3, 4, 5, 6, 7]
-      radius: 0.4608861942054175
+      radius: 0.46088619415160126
     excluded_propagators: []
   loop_lines:
   - end_node: 5

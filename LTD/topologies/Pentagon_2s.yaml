@@ -14,18 +14,7 @@
   fixed_deformation:
   - deformation_per_overlap:
     - deformation_sources:
-      - [0.0, 6.637986689556635e-10, 1.0786787645017443e-08, 40.020264281938374]
-      excluded_surface_ids:
-      - - - [0, 2]
-          - 1
-          - -1
-        - - [0, 3]
-          - 1
-          - 1
-      overlap: [0, 1, 2, 3, 4, 6, 7]
-      radius: 1.859091908787598
-    - deformation_sources:
-      - [0.0, 1.1909740776252038, 1.2588632387489402, 49.07405956308308]
+      - [0.0, 1.19097407783742, 1.258863238976279, 49.074059562966504]
       excluded_surface_ids:
       - - - [0, 0]
           - 1
@@ -34,7 +23,18 @@
           - 1
           - 1
       overlap: [1, 2, 3, 4, 5, 6, 7]
-      radius: 0.4032752670663053
+      radius: 0.40327526710787615
+    - deformation_sources:
+      - [0.0, -4.220749070269538e-09, 1.182392813389554e-09, 40.02026427691097]
+      excluded_surface_ids:
+      - - - [0, 2]
+          - 1
+          - -1
+        - - [0, 3]
+          - 1
+          - 1
+      overlap: [0, 1, 2, 3, 4, 6, 7]
+      radius: 1.8590919065967688
     excluded_propagators: []
   loop_lines:
   - end_node: 5
