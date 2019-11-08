@@ -163,7 +163,7 @@ class BenchmarkRun1loop(BenchmarkRun):
     def __init__(self,*args,**opts):
         super(BenchmarkRun1loop, self).__init__(*args,**opts)
         self['phase'] = self.get('phase','both')        
-        self['samples'] = self.get('samples',10*Units.M)
+        self['samples'] = self.get('samples',100*Units.M)
         self['integrator'] = self.get('integrator','cuhre')
         self['n_start'] = self.get('n_start',100*Units.K)
         self['n_increase'] = self.get('n_increase',100*Units.K)
@@ -305,10 +305,10 @@ class Benchmark(list):
         res.append(BenchmarkRun2loop("T3_DoubleBox_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
         
         # 3-loop topologies
-        res.append(BenchmarkRun3loop("T4_TripleBox_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun3loop("T4_TripleBox_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=Units.B))
  
         # 4-loop topologies
-        res.append(BenchmarkRun3loop("T4_Quadruple_Box_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun3loop("T4_Quadruple_Box_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=Units.B))
 
         return res
 
