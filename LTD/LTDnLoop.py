@@ -35,9 +35,10 @@ class LTDnLoop:
 		self.surfaces 			= self.get_surfaces()
 		self.abs_min_lambda		= 1.
 		self.abs_min_distance	= 1e10
+		self.n_channels			= numpy.sum([len(cut_structure.cuts) for cut_structure in self.cut_structures])
 
 		print('{:=^90}'.format(' '+ self.name + ' '))
-		print('{:=^90}'.format(' '+ 'scale = %f' %self.scale + ' '))
+		print('{:=^90}'.format(' '+ 'scale = %e' %self.scale + ' '))
 		print('{:=^90}'.format(' analytical result = {num.real} + {num.imag}j '.format(num=self.analytical_result)))
 
 	def get_surfaces(self):
@@ -387,27 +388,44 @@ class LTDnLoop:
 		kappas = [numpy.array([kapp.nom for kapp in kappa]) for kappa in kappas]
 		return kappas, det_jac
 
-	def ltd_integrand(self,x):
+	def ltd_integrand(self,x,multi_channel_index=None):
 		assert(len(x) == self.n_loops*3)
 		loop_momenta = [numpy.zeros(3) for i in range(self.n_loops)]
 		wgt = numpy.zeros(self.n_loops)
 		for i in range(self.n_loops):
 			loop_momenta[i], wgt[i] = self.parametrize_analytic(x[(i*3):(i+1)*3])
-		#kappas,jac = self.deform_on_prop(loop_momenta)
-		kappas,jac = self.deform(loop_momenta)
+		if abs(numpy.prod(wgt)) < self.scale*1e-20:
+			return 0.
+		if multi_channel_index is not None:
+			# basis transformation to cut basis st jacobian cancels integrable singularities ~1/E
+			channel_cut_structure = self.cut_structures[multi_channel_index[0]]
+			channel_cut = channel_cut_structure.cuts[multi_channel_index[1]]
+			channel_basis_trsf = channel_cut_structure.inv_basis_trsf
+			channel_basis_shift = numpy.array([q[1:] for q in channel_cut.basis_shift])
+			loop_momenta = channel_basis_trsf.dot(loop_momenta - channel_basis_shift)
+
+		kappas,jac = self.deform_on_prop(loop_momenta)
 		#stop
 		loop_momenta = [loop_momentum+1j*kappa for loop_momentum,kappa in zip(loop_momenta,kappas)]
 		deltas = self.get_deltas(loop_momenta)
+	
+		if multi_channel_index is not None:
+			multi_channel_factors = [cut_structure.get_multi_channel_factors(deltas) for cut_structure in self.cut_structures]
+			channel_factor = multi_channel_factors[multi_channel_index[0]][multi_channel_index[1]]/numpy.sum(numpy.sum(multi_channel_factors))
+			if abs(channel_factor) < self.scale*1e-20:
+				return 0.
+		else:
+			channel_factor = 1.
+
 		full_residue = self.evaluate(deltas)
-		ltd_factor = (-2*numpy.pi*1j)**self.n_loops
-		standard_factor = (1./(2.*numpy.pi)**4)**self.n_loops
-		return full_residue*numpy.prod(wgt)*ltd_factor*standard_factor*jac
+		full_residue *= (-2*numpy.pi*1j)**self.n_loops
+		full_residue *= (1./(2.*numpy.pi)**4)**self.n_loops
+
+		return full_residue*numpy.prod(wgt)*jac*channel_factor
 
 	def evaluate(self,deltas):
-		res = 0.
-		for cut_structure in self.cut_structures:
-			res += cut_structure.evaluate(deltas)
-		return res
+		res = [cut_structure.evaluate(deltas) for cut_structure in self.cut_structures]
+		return numpy.sum(res)
 
 	def vegas_integrate(self,integrand, N_train=1000, itn_train = 7, N_refine=1000, itn_refine = 10):
 		print('{:=^90}'.format(' integrating ... '))
@@ -434,7 +452,7 @@ class LTDnLoop:
 		print('{:=^90}'.format(' Time: %.2f s ' % (time.time()-t0)))
 		return result
 
-	def cuba_integrate(self,integrand,integrator_name='vegas',**opts):
+	def cuba_integrate(self,integrand,integrator_name='vegas',neval=10000,**opts):
 		self.n_bad_points = 0
 		def cuba_integrand(ndim,xx,ncomp,ff,userdata):
 			random_variables = [xx[i] for i in range(ndim.contents.value)]
@@ -451,11 +469,12 @@ class LTDnLoop:
 		
 		opts = {'ndim': self.n_loops*3,
 				'ncomp': 2,
-				'maxeval': 1000000,
-				'mineval': 1000000,
+				'maxeval': neval,
+				'mineval': neval,
 				'seed': 1,
 				'verbose': 1,
 				#'nincrease': 100, #vegas only
+				#'nstart': neval,
 				}
 		
 
@@ -466,9 +485,78 @@ class LTDnLoop:
 		#MAXEVAL = hyperparameters['Integrator']['n_max']
 
 		if integrator_name=='vegas':
-			print(pycuba.Vegas(cuba_integrand, **opts))
+			return pycuba.Vegas(cuba_integrand, **opts)
 		elif integrator_name=='cuhre':
-			print(pycuba.Cuhre(cuba_integrand, **opts))
+			return pycuba.Cuhre(cuba_integrand, **opts)
+
+	def cuba_mc_integrate(self,integrator_name='vegas',neval=10000,**opts):
+		self.n_bad_points = 0
+		def cuba_integrand(ndim,xx,ncomp,ff,userdata):
+			random_variables = [xx[i] for i in range(ndim.contents.value)]
+			single_channel_res = self.ltd_integrand(random_variables)
+			multi_channel_res = [self.ltd_integrand(random_variables,(cut_structure_index,cut_index))
+											for cut_structure_index, cut_structure in enumerate(self.cut_structures)
+											for cut_index,  cut in enumerate(cut_structure.cuts)]
+			if numpy.isfinite(single_channel_res):
+				ff[0] = single_channel_res.real
+				ff[1] = single_channel_res.imag
+			else:
+				self.n_bad_points += 1
+				print('bad point = ', self.n_bad_points)
+				ff[0] = 0.
+				ff[1] = 0.
+
+			for channel_nr, channel_result in enumerate(multi_channel_res):
+				if numpy.isfinite(channel_result):
+					ff[2*(channel_nr+1)] = channel_result.real
+					ff[2*(channel_nr+1)+1] = channel_result.imag
+				else:
+					self.n_bad_points += 1
+					print('bad point = ', self.n_bad_points)
+					ff[2*(channel_nr+1)] = 0.
+					ff[2*(channel_nr+1)+1] = 0.
+			return 0
+		
+		opts = {'ndim': int(self.n_loops*3),
+				'ncomp': int((self.n_channels+1)*2),
+				'maxeval': neval,
+				'mineval': neval,
+				'seed': 1,
+				'verbose': 1,
+				#'nincrease': 100, #vegas only
+				#'nstart': neval, #vegas only
+				}
+		
+
+  		#NNEW = hyperparameters['Integrator']['n_new']
+  		#NMIN = hyperparameters['Integrator']['n_start']
+  		#FLATNESS = hyperparameters['Integrator']['flatness']
+		#MINEVAL = hyperparameters['Integrator']['n_min']
+		#MAXEVAL = hyperparameters['Integrator']['n_max']
+
+		if integrator_name=='vegas':
+			return pycuba.Vegas(cuba_integrand, **opts)
+		elif integrator_name=='cuhre':
+			return pycuba.Cuhre(cuba_integrand, **opts)
+
+	def print_mc_results(self,result):
+		for channel_nr in range(self.n_channels):
+			channel_re = result['results'][2*channel_nr+2]
+			channel_im = result['results'][2*channel_nr+3]
+			if channel_nr != self.n_channels:
+				print('Multi-Channel %i: 	Re %e +- %e 	Im %e +- %e'%(channel_nr,channel_re['integral'],channel_re['error'],
+																					channel_im['integral'],channel_im['error']))
+		channel_sum_int_re = numpy.sum([result['results'][2*channel_nr+2]['integral'] for channel_nr in range(self.n_channels)])
+		channel_sum_int_im = numpy.sum([result['results'][2*channel_nr+3]['integral'] for channel_nr in range(self.n_channels)])
+		channel_sum_err_re = numpy.sqrt(numpy.sum([result['results'][2*channel_nr+2]['error']**2 for channel_nr in range(self.n_channels)]))
+		channel_sum_err_im = numpy.sqrt(numpy.sum([result['results'][2*channel_nr+3]['error']**2 for channel_nr in range(self.n_channels)]))
+		print('Multi-Channel sum: 	Re %e +- %e 	Im %e +- %e'%(channel_sum_int_re,channel_sum_err_re,
+																					channel_sum_int_im,channel_sum_err_im))
+		single_channel_re = result['results'][0]
+		single_channel_im = result['results'][1]
+		print('Single-Channel: 	Re %e +- %e 	Im %e +- %e'%(single_channel_re['integral'],single_channel_re['error'],
+																					single_channel_im['integral'],single_channel_im['error']))
+		return
 
 	def nested_cuhre_integrate(self,integrand,**opts):
 		def inner_integrand(ndim,xx,ncomp,ff,userdata):
@@ -585,10 +673,11 @@ class CutStructure(CutObject):
 		return signature
 
 	def evaluate(self,deltas):
-		cut_residues = []
-		for cut in self.cuts:
-			cut_residues += [cut.evaluate(deltas)]
+		cut_residues = [cut.evaluate(deltas) for cut in self.cuts]
 		return numpy.sum(cut_residues)
+
+	def get_multi_channel_factors(self,deltas):
+		return [cut.get_multi_channel_factor(deltas) for cut in self.cuts]
 
 class Cut(CutObject):
 
@@ -604,13 +693,17 @@ class Cut(CutObject):
 		basis_shift = [loop_line.propagators[next(cut_indices_iter)].q for line, loop_line in zip(self.cut_structure,self.ltd_loop_lines) if abs(line) != 0]
 		return basis_shift
 	
+	def get_multi_channel_factor(self,deltas):
+		channel_factor = 1.
+		for ll_deltas, loop_line in zip(deltas,self.loop_lines):
+			for prop_delta, propagator  in zip(ll_deltas,loop_line.propagators):
+				if not propagator.is_cut:
+					channel_factor *= prop_delta
+		return channel_factor
+
 	def evaluate(self,deltas):
-		ll_residues = []
-		for ll_nr,loop_line in enumerate(self.loop_lines):
-			ll_residues += [loop_line.evaluate(deltas)]
-		cut_residue =  numpy.prod(ll_residues)
-		#print self.cut_structure, self.cut_indices, cut_residue
-		return cut_residue
+		ll_residues = [loop_line.evaluate(deltas) for loop_line in self.loop_lines]
+		return numpy.prod(ll_residues)
 
 class CutLoopLine(CutObject):
 
@@ -627,10 +720,8 @@ class CutLoopLine(CutObject):
 		self.propagators = [CutPropagator(propagator_index = a, **opts) for a,propagator in enumerate(this_loop_line.propagators)]
 
 	def evaluate(self,deltas):
-		ll_residue = 1.
-		for a,propagator in enumerate(self.propagators):
-			ll_residue *= propagator.evaluate(deltas)
-		return ll_residue
+		propagator_res = [propagator.evaluate(deltas) for propagator in self.propagators]
+		return numpy.prod(propagator_res)
 
 class CutPropagator(CutObject):
 
@@ -758,13 +849,25 @@ class CutPropagator(CutObject):
 		if not self.is_cut:
 			energy = self.delta_signature.dot(cut_deltas) + self.total_shift[0]
 			inv_prop = self.inv_G(energy,delta)
+			if abs(inv_prop) < 1e-20:
+				if ((all(sign >= 0. for sign in self.delta_signature) and energy < 0.)
+					or (all(sign <= 0. for sign in self.delta_signature) and energy > 0.)):
+					raise ValueError('Hit ellipsoid singularity')
+				#print('a non cut propagator is zero')
+				#print(cut_deltas,self.cut_structure,self.cut_indices,energy,delta,self.delta_signature)
+				#raise ValueError('a non cut propagator is zero')
+				return 0.
 		else:
 			inv_prop = 2*delta
+			if inv_prop == 0.:
+				print('a cut propagator is zero')
+				print(cut_deltas,self.cut_structure,self.cut_indices,energy,delta,self.delta_signature)
+				#raise ValueError('a cut propagator is zero')
 		return 1./inv_prop
 
 if __name__ == "__main__":	
 	
-	my_topology = topologies.hard_coded_topology_collection['manual_DoubleTriangle']
+	my_topology = topologies.hard_coded_topology_collection['Box_4E']
 	hyperparameters = ltd_commons.hyperparameters
 	my_LTD = LTDnLoop(my_topology,hyperparameters)
 	my_LTD.display_surfaces(show_ellipsoids=True,show_hyperboloids=False)
@@ -775,8 +878,14 @@ if __name__ == "__main__":
 	#s = [p[0]**2-numpy.sum(p[1:]**2) for p in external_momenta]
 	#print my_LTD.analytic_three_point_ladder(s[0],s[1],s[2],3)
 
-	#result = my_LTD.nested_cuhre_integrate(my_LTD.ltd_integrand)
-	result = my_LTD.cuba_integrate(my_LTD.ltd_integrand,integrator_name='vegas')
+	#result = my_LTD.cuba_integrate(my_LTD.ltd_integrand,integrator_name='cuhre',neval=800000)
+	#result = my_LTD.cuba_integrate(lambda x: my_LTD.ltd_integrand(x,(0,2)),integrator_name='vegas',neval=80000)
+
+	#print(my_LTD.ltd_integrand([0.,0.,0.,0.,0.,0.],multi_channel_index=(2,1)))
+
+	result = my_LTD.cuba_mc_integrate(integrator_name='vegas',neval=100000)
+	my_LTD.print_mc_results(result)
+
 	#result = my_LTD.vegas_integrate(my_LTD.ltd_integrand, N_refine=1000)#, N_train = 500)
 
 
