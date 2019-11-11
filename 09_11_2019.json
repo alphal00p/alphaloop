@@ -1,0 +1,682 @@
+{
+    "1573439578.1492562": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1e-05,
+                    "a_ijs": [],
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "normalize_on_E_surfaces_m": -0.1,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "magic_fudge",
+                    "expansion_threshold": 0.45,
+                    "lambda": 1.0,
+                    "non_cut_propagator_check": false,
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.5
+                }
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": true,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "partial_fractioning": false,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-05,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "cuhre",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 10000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 10.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "log",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex 3234514..6ca3e6c 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -116,7 +116,7 @@ hyperparameters = HyperParameters({\n             'cut_propagator_check'      : False,\n             'non_cut_propagator_check'  : False,\n             'skip_hyperboloids'         : True,\n-            'source_branch_cut_threshold'  : 0.25,\n+            'source_branch_cut_threshold'  : 0.5,\n             'source_branch_cut_multiplier' : 0.8,\n         },\n \n@@ -129,7 +129,7 @@ hyperparameters = HyperParameters({\n         },\n \n         'fixed' : {\n-            'M_ij'  :   0.001,\n+            'M_ij'  :   0.00001,\n             'sigma' :   0.0,\n             # can be hyperbolic, softmin, or unity\n             'mode'  :   'hyperbolic',\ndiff --git a/benchmark.py b/benchmark.py\nindex b3fb835..d1a4ee6 100755\n--- a/benchmark.py\n+++ b/benchmark.py\n@@ -296,19 +296,19 @@ class Benchmark(list):\n         res.extend(self.get_1loop())\n \n         # 2-loop topologies\n-        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_A\", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))\n-        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_B\", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))\n-        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_C\", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))\n-        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_D\", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))        \n-        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_E\", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))\n-        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_F\", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))\n-        res.append(BenchmarkRun2loop(\"T3_DoubleBox_Weinzierl\",n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_A\", n_start=1000*Units.K, n_increase=10*Units.K, samples=1000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_B\", n_start=1000*Units.K, n_increase=10*Units.K, samples=1000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_C\", n_start=1000*Units.K, n_increase=10*Units.K, samples=1000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_D\", n_start=1000*Units.K, n_increase=10*Units.K, samples=1000*Units.M))        \n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_E\", n_start=1000*Units.K, n_increase=10*Units.K, samples=1000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_F\", n_start=1000*Units.K, n_increase=10*Units.K, samples=1000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T3_DoubleBox_Weinzierl\",n_start=1000*Units.K, n_increase=10*Units.K, samples=1000*Units.M))\n         \n         # 3-loop topologies\n-        res.append(BenchmarkRun3loop(\"T4_TripleBox_Weinzierl\",n_start=100*Units.K, n_increase=10*Units.K, samples=Units.B))\n+        res.append(BenchmarkRun3loop(\"T4_TripleBox_Weinzierl\",n_start=1000*Units.K, n_increase=10*Units.K, samples=Units.B))\n  \n         # 4-loop topologies\n-        res.append(BenchmarkRun3loop(\"T4_Quadruple_Box_Weinzierl\",n_start=100*Units.K, n_increase=10*Units.K, samples=Units.B))\n+        res.append(BenchmarkRun3loop(\"T4_Quadruple_Box_Weinzierl\",n_start=1000*Units.K, n_increase=10*Units.K, samples=Units.B))\n \n         return res",
+        "samples": [
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_1s",
+                "result": [
+                    -3.4434304951323037e-12,
+                    -2.564875965455562e-12
+                ],
+                "error": [
+                    3.443419654075628e-17,
+                    2.5648684948534173e-17
+                ],
+                "analytical_result": [
+                    -3.44342331910881e-12,
+                    -2.56487078110481e-12
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_2s",
+                "result": [
+                    -8.390433340884726e-13,
+                    -1.7134068128737504e-12
+                ],
+                "error": [
+                    8.390414844954269e-18,
+                    1.7124378546403008e-17
+                ],
+                "analytical_result": [
+                    -8.390484525815771e-13,
+                    -1.713405042180853e-12
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_3s",
+                "result": [
+                    -3.4899503789432927e-12,
+                    -3.900108180616823e-12
+                ],
+                "error": [
+                    3.4899426796472615e-17,
+                    3.9000990352932245e-17
+                ],
+                "analytical_result": [
+                    -3.48997234169132e-12,
+                    -3.90012989047481e-12
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_1s",
+                "result": [
+                    3.0398628797014737e-15,
+                    -1.1768265920324646e-13
+                ],
+                "error": [
+                    3.62026164086439e-19,
+                    3.821194952063865e-19
+                ],
+                "analytical_result": [
+                    3.039790437605862e-15,
+                    -1.1768253326142644e-13
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_2s",
+                "result": [
+                    1.3691891693522078e-15,
+                    -2.2589800741667715e-15
+                ],
+                "error": [
+                    3.5786403602839765e-19,
+                    3.6056203235304545e-19
+                ],
+                "analytical_result": [
+                    1.3691802654305414e-15,
+                    -2.259008667111004e-15
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_3s",
+                "result": [
+                    1.2976969160853716e-15,
+                    -2.1658905056423967e-15
+                ],
+                "error": [
+                    3.6289942450216665e-19,
+                    3.6942455198150846e-19
+                ],
+                "analytical_result": [
+                    1.297703695865679e-15,
+                    -2.1658951065401658e-15
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_4s",
+                "result": [
+                    7.388558435878362e-17,
+                    -1.1567134477574727e-14
+                ],
+                "error": [
+                    4.1848680298142074e-19,
+                    5.776589348809044e-19
+                ],
+                "analytical_result": [
+                    7.939620566544445e-17,
+                    -1.1528177654174178e-14
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_10E_1s",
+                "result": [
+                    2.313270207040387e-19,
+                    5.971434470014832e-13
+                ],
+                "error": [
+                    7.544880604037626e-19,
+                    1.1614036091267828e-18
+                ],
+                "analytical_result": [
+                    0.0,
+                    5.971433616274931e-13
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_6E_4s",
+                "result": [
+                    1.2298919542745317e-10,
+                    4.688354002867067e-10
+                ],
+                "error": [
+                    4.2404476119774125e-12,
+                    7.62515133266803e-12
+                ],
+                "analytical_result": [
+                    8.992e-11,
+                    4.17837e-10
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_8E_5s",
+                "result": [
+                    -5.715548234755954e-15,
+                    -1.7265490720693168e-13
+                ],
+                "error": [
+                    2.0450989590997535e-16,
+                    3.6481707741555867e-16
+                ],
+                "analytical_result": [
+                    4.118696992009977e-15,
+                    -2.1805718929649134e-13
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_6E_4s",
+                "result": [
+                    -5.068129935831673e-15,
+                    -8.929399478068222e-15
+                ],
+                "error": [
+                    1.573913126576161e-16,
+                    2.5622143218015525e-16
+                ],
+                "analytical_result": [
+                    -2.7216841734816e-15,
+                    -1.2089609024538e-14
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_10E_4s",
+                "result": [
+                    -3.019699930781498e-17,
+                    -7.733322684208842e-17
+                ],
+                "error": [
+                    3.5430588618337515e-19,
+                    3.555211970809187e-19
+                ],
+                "analytical_result": [
+                    -3.0193937848736e-17,
+                    -7.73337287748906e-17
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_9E_4s",
+                "result": [
+                    2.85472584521212e-17,
+                    1.2395124342126827e-17
+                ],
+                "error": [
+                    3.5388782970422456e-19,
+                    3.5389369044649284e-19
+                ],
+                "analytical_result": [
+                    2.83771892273698e-17,
+                    8.3141576190839e-18
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_10E_7s",
+                "result": [
+                    0.6321739020362519,
+                    -0.4739176072757111
+                ],
+                "error": [
+                    0.006910071567036636,
+                    0.005180227974394499
+                ],
+                "analytical_result": [
+                    0.0211928148966,
+                    0.0064030325864
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_10E_5s",
+                "result": [
+                    -2.8125611283045986,
+                    2.475256323689791
+                ],
+                "error": [
+                    0.0024873135255935796,
+                    0.0021890150120439256
+                ],
+                "analytical_result": [
+                    -2.81475384,
+                    2.4732705
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_6E_2s",
+                "result": [
+                    -32.95377760501256,
+                    -1.1356248116431327
+                ],
+                "error": [
+                    1.5554605749114114,
+                    1.646616242311004
+                ],
+                "analytical_result": [
+                    -20.7013988797142,
+                    4.234325146404
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T2_6P_2L_Weinzierl_A",
+                "result": [
+                    -86.02841608206509,
+                    0.08017994951218577
+                ],
+                "error": [
+                    0.35895374350758136,
+                    0.36292586605093435
+                ],
+                "analytical_result": [
+                    -86.07,
+                    0.0
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T2_6P_2L_Weinzierl_B",
+                "result": [
+                    -118.76001877797879,
+                    -0.41868740107455715
+                ],
+                "error": [
+                    0.6960078351009098,
+                    0.6964115451711105
+                ],
+                "analytical_result": [
+                    -118.09,
+                    0.0
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T2_6P_2L_Weinzierl_C",
+                "result": [
+                    -77.24331907397851,
+                    1.074590692086418
+                ],
+                "error": [
+                    0.4036711072398022,
+                    0.4078078097262181
+                ],
+                "analytical_result": [
+                    -75.48,
+                    0.0
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T2_6P_2L_Weinzierl_D",
+                "result": [
+                    -18.343714370786486,
+                    0.0764426404117935
+                ],
+                "error": [
+                    0.051885483840119456,
+                    0.052343273372238985
+                ],
+                "analytical_result": [
+                    -18.22,
+                    0.0
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T2_6P_2L_Weinzierl_E",
+                "result": [
+                    -46.30050790147382,
+                    -0.11119278361918365
+                ],
+                "error": [
+                    0.234805057639963,
+                    0.23932116514628884
+                ],
+                "analytical_result": [
+                    -45.45,
+                    0.0
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T2_6P_2L_Weinzierl_F",
+                "result": [
+                    -102.11912109761953,
+                    0.9668893513270775
+                ],
+                "error": [
+                    0.6263424540844355,
+                    0.6366061127142225
+                ],
+                "analytical_result": [
+                    -102.71,
+                    0.0
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T3_DoubleBox_Weinzierl",
+                "result": [
+                    -0.05898518835266345,
+                    -0.00012191671331675422
+                ],
+                "error": [
+                    9.518512094332835e-05,
+                    9.566756979023556e-05
+                ],
+                "analytical_result": [
+                    -0.05897,
+                    0.0
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T4_TripleBox_Weinzierl",
+                "result": [
+                    0.00017338385887721435,
+                    -0.006743558406500245
+                ],
+                "error": [
+                    0.00013975399437047797,
+                    0.00013997698295336523
+                ],
+                "analytical_result": [
+                    0.0,
+                    -0.006744
+                ]
+            },
+            {
+                "revision": "7a76e83",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T4_Quadruple_Box_Weinzierl",
+                "result": [
+                    0.0006453112232131178,
+                    -0.0002826309127756611
+                ],
+                "error": [
+                    0.000230363419921925,
+                    0.00022925626303867935
+                ],
+                "analytical_result": [
+                    0.0007411275671528255,
+                    0.0
+                ]
+            }
+        ]
+    }
+}
