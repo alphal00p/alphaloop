@@ -496,26 +496,116 @@ hard_coded_topology_collection.add_topology(PRL_6p_2L.create_loop_topology(
 
 
 # double box
-doublebox = TopologyGenerator([
+TM1_top = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
-        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
-        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 6),
+        ('p1', 1, 6), ('p2', 6, 3), ('p3', 3, 2), ('p4', 2, 1),
+        ('p6', 3, 4), ('p7', 4, 6),
 ])
-q1 = vectors.LorentzVector([  1.2,  2.2,   1.0, 0.4 ])
-q2 = vectors.LorentzVector([  2.0, -5.2,   2.1, 0.0 ])
-q3 = vectors.LorentzVector([ -1.6,  0.1, -12.5, 2.4 ])
+q1 = vectors.LorentzVector([2.23606798,0.,0.,2.23606798])
+q2 = vectors.LorentzVector([2.23606798,0.,0.,-2.23606798 ])
+q3 = vectors.LorentzVector([-2.18016628,0.78660664,1.36244266,-1.50934588])
 q4 = -q1-q2-q3
-hard_coded_topology_collection.add_topology(doublebox.create_loop_topology(
-        "DoubleBox_no_ellipse", 
+hard_coded_topology_collection.add_topology(TM1_top.create_loop_topology(
+        "TM1_top", 
         ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
-        mass_map={}, # no masses 
+        mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
         loop_momenta_names=('p4', 'p6'), 
-        analytic_result = analytic_four_point_ladder( 
-            q1.square(), q2.square(), q3.square(), q4.square(),
-            (q1+q2).square(), (q2+q3).square(), 2)
+        analytic_result = 0.
     ),
-    entry_name = 'DoubleBox_no_ellipse'
+    entry_name = 'TM1_top'
 )
+
+
+
+# double box
+TM1_top_v2 = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 3), ('p3', 3, 2), ('p4', 2, 1),
+        ('p6', 3, 4), ('p7', 4, 6),
+])
+q1 = vectors.LorentzVector([2.23606798,0.,0.,-2.23606798])
+q2 = vectors.LorentzVector([2.23606798,0.,0.,2.23606798 ])
+q3 = vectors.LorentzVector([-2.18016628,0.78660664,1.36244266,-1.50934588])
+q4 = -q1-q2-q3
+hard_coded_topology_collection.add_topology(TM1_top_v2.create_loop_topology(
+        "TM1_top_v2", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+        mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
+        loop_momenta_names=('p4', 'p6'), 
+        analytic_result = 0.
+    ),
+    entry_name = 'TM1_top_v2'
+)
+
+
+
+# double box
+TM1_bot = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 3), ('p3', 3, 2), ('p4', 2, 1),
+        ('p6', 3, 4), ('p7', 4, 6),
+])
+q1 = vectors.LorentzVector([4.7587112858938056e+01,0.0000000000000000e+00,0.0000000000000000e+00,4.7587112858938056e+01])
+q2 = vectors.LorentzVector([4.7587112858938056e+01,0.0000000000000000e+00,0.0000000000000000e+00,-4.7587112858938056e+01])
+q3 = vectors.LorentzVector([-4.2875517526369933e+01,1.2805858466523055e+01,2.2180397498554001e+01,-3.4385316035999658e+01])
+q4 = -q1-q2-q3
+hard_coded_topology_collection.add_topology(TM1_bot.create_loop_topology(
+        "TM1_bot", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+        mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
+        loop_momenta_names=('p4', 'p6'), 
+        analytic_result = 0.
+    ),
+    entry_name = 'TM1_bot'
+)
+
+
+# double box
+TM1_bot_v2 = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 3), ('p3', 3, 2), ('p4', 2, 1),
+        ('p6', 3, 4), ('p7', 4, 6),
+])
+q1 = vectors.LorentzVector([4.7587112858938056e+01,0.0000000000000000e+00,0.0000000000000000e+00,-4.7587112858938056e+01])
+q2 = vectors.LorentzVector([4.7587112858938056e+01,0.0000000000000000e+00,0.0000000000000000e+00,4.7587112858938056e+01])
+q3 = vectors.LorentzVector([-4.2875517526369933e+01,1.2805858466523055e+01,2.2180397498554001e+01,-3.4385316035999658e+01])
+q4 = -q1-q2-q3
+hard_coded_topology_collection.add_topology(TM1_bot_v2.create_loop_topology(
+        "TM1_bot_v2", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+        mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
+        loop_momenta_names=('p4', 'p6'), 
+        analytic_result = 0.
+    ),
+    entry_name = 'TM1_bot_v2'
+)
+
+
+
+
+
+
+# double box
+TM2_top = TopologyGenerator([
+        ('q1', 101, 1), ('q2', 102, 1), ('q3', 103, 3), ('q4', 104, 4),
+        ('p1', 1, 6), ('p2', 6, 3), ('p3', 3, 1),
+        ('p6', 3, 4), ('p7', 4, 6),
+])
+q1 = vectors.LorentzVector([1.5811388300841897, 0., 0., 1.5811388300841897])
+q2 = vectors.LorentzVector([1.5811388300841897, 0., 0., -1.5811388300841897])
+q3 = vectors.LorentzVector([-1.502081888579980, 0, -1.095445115010332, -1.027740239554723])
+q4 = -q1-q2-q3
+hard_coded_topology_collection.add_topology(TM2_top.create_loop_topology(
+        "TM2_top", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+        mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p6': 1., 'p7': 1.}, # no masses 
+        loop_momenta_names=('p3', 'p6'), 
+        analytic_result = 0.
+    ),
+    entry_name = 'TM2_top'
+)
+
+
 
 
 # double box
