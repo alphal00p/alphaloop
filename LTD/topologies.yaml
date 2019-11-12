@@ -7572,8 +7572,8 @@
     - 0
   n_loops: 2
   name: PRL_physical_BoxBox_fewellipse
-- analytical_result_imag: 0.0
-  analytical_result_real: -5.971433616274931e-13
+- analytical_result_imag: 5.971433616274931e-13
+  analytical_result_real: 0.0
   constant_deformation:
     alpha:
     - - 0.0
