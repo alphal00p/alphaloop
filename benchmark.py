@@ -10,6 +10,7 @@ import os
 import argparse
 from math import sqrt
 import sys
+import time
 from pprint import pprint, pformat
 from datetime import datetime
 
@@ -26,6 +27,10 @@ BOLD = '\033[1m'# bold
 
 _VERBOSITY = 0
 _TABLE_FORMAT = "fancy_grid"
+_CONFIG_FILE_PATH = pjoin(file_path,"LTD", "hyperparameters.yaml")
+
+# Specify a prefix so as to avoid collisions with other runs
+_PREFIX = str(time.time()).replace('.','_')+'_'
 
 class Units:
     K = 1000
@@ -76,11 +81,11 @@ class BenchmarkRun(dict):
     
         # remove info from old runs
         try:
-            os.remove(pjoin(file_path,"rust_backend","%s_res.dat" % topology))
+            os.remove(pjoin(file_path,"rust_backend","%s%s_res.dat" % (_PREFIX,topology)))
         except:
             pass
         try:
-            os.remove(pjoin(file_path,"rust_backend","%s_state.dat" % topology))
+            os.remove(pjoin(file_path,"rust_backend","%s%s_state.dat" % (_PREFIX,topology)))
         except:
             pass
        
@@ -88,9 +93,10 @@ class BenchmarkRun(dict):
         if _VERBOSITY<=1:
             cargo_options.append("--quiet")
 
-        ltd_options = [ "-t", topology]
+        ltd_options = [ "-t", topology, "--state_filename_prefix", _PREFIX, "--log_file_prefix", _PREFIX, "--res_file_prefix", _PREFIX]
         ltd_options.extend(["-s", str(num_samples)])
         ltd_options.extend(["-c", str(cores)])
+        ltd_options.extend(["-f", _CONFIG_FILE_PATH])
         ltd_options.extend(["-l", str(topology_resource)])
         if integrator.lower()=='auto':
             if n_loops>1:
@@ -126,7 +132,7 @@ class BenchmarkRun(dict):
             ).strip().decode()
 
         # read the output file
-        with open(pjoin(file_path,"rust_backend","%s_res.dat" % topology), 'r') as f:
+        with open(pjoin(file_path,"rust_backend","%s%s_res.dat" % (_PREFIX,topology) ), 'r') as f:
             rust_result = yaml.safe_load(f)
 
         # get git revision
@@ -296,19 +302,19 @@ class Benchmark(list):
         res.extend(self.get_1loop())
 
         # 2-loop topologies
-        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_A", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
-        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_B", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
-        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_C", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
-        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_D", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))        
-        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_E", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
-        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_F", n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
-        res.append(BenchmarkRun2loop("T3_DoubleBox_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_A", n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_B", n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_C", n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_D", n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))        
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_E", n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_F", n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        res.append(BenchmarkRun2loop("T3_DoubleBox_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
         
         # 3-loop topologies
-        res.append(BenchmarkRun3loop("T4_TripleBox_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=Units.B))
+        res.append(BenchmarkRun3loop("T4_TripleBox_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
  
         # 4-loop topologies
-        res.append(BenchmarkRun3loop("T4_Quadruple_Box_Weinzierl",n_start=100*Units.K, n_increase=10*Units.K, samples=Units.B))
+        res.append(BenchmarkRun3loop("T4_Quadruple_Box_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
 
         return res
 
@@ -328,7 +334,7 @@ def save_to_history(samples, output_path):
     t  = time.time()
 
     # get the hyperpamater file for this run
-    hyperparam_resource = pjoin(file_path, "LTD","hyperparameters.yaml")
+    hyperparam_resource = _CONFIG_FILE_PATH
     hyperparamaters = {}
     try:
         with open(hyperparam_resource, 'r') as f:
@@ -422,6 +428,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_start', default='100000', help='n_start for vegas')
     parser.add_argument('--n_increase', default='100000', help='n_increase for vegas')
     parser.add_argument('--history_path', default='default', help='specify a JSON file path to store the result')
+    parser.add_argument('--config_path', default=pjoin(file_path, 'LTD', 'hyperparameters.yaml'), help='specify a path to a hyperparameters.yaml file to consider.')
     parser.add_argument('--show_hyperparameters', default='0', choices=[0,1,2,3], type=int, help='level of hyperparameter printing in history mode')
     args = parser.parse_args()
 
@@ -429,7 +436,8 @@ if __name__ == "__main__":
 
     _VERBOSITY = args.v
     _TABLE_FORMAT = args.table_format
-    
+    _CONFIG_FILE_PATH = args.config_path
+
     # A list of runs to be considered, each identified by a dictionary with the following entries:
     # {
     #   'topology'   : <topology_name>,
