@@ -629,6 +629,17 @@ impl Topology {
         }
     }
 
+    #[inline]
+    fn compute_min_mij(&self) -> f64 {
+        // TODO make this quantity static as it does not need to be recomputed statically every
+        // time.
+        let m = self.settings.deformation.fixed.m_ij;
+        let d = self.settings.deformation.fixed.delta;
+        let e = self.settings.deformation.scaling.expansion_threshold;
+
+        e*e / ( (2.0 - e*e) * (d/(1.-d)).sqrt() )
+    }
+
     /// Map a vector in the unit hypercube to the infinite hypercube.
     /// Also compute the Jacobian.
     pub fn parameterize<T: FloatLike>(&self, x: &[f64], loop_index: usize) -> ([T; 3], T) {
@@ -1453,6 +1464,7 @@ impl Topology {
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
         let mut mij = Into::<T>::into(self.settings.deformation.fixed.m_ij);
+        let mij_min = Into::<T>::into(self.compute_min_mij());
 
         if self.settings.deformation.fixed.include_normal_source {
             self.compute_ellipsoid_deformation_vector(
@@ -1608,12 +1620,19 @@ impl Topology {
                     if surf_index < self.settings.deformation.fixed.m_ijs.len() {
                         mij = Into::<T>::into(self.settings.deformation.fixed.m_ijs[surf_index]);
                     }
+                    
+                    
 
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                     // at the same time and goes to 1 otherwise
                     debug_assert!(self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid);
+
+                    // We do not want to normalize by e_cm_squared anymore here
+                    // let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
+                    //    / Into::<T>::into(self.e_cm_squared);
+                    // The surface shift should never be zero at this stage.
                     let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
-                        / Into::<T>::into(self.e_cm_squared);
+                        / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
                     let sup = if self.settings.deformation.fixed.mode == AdditiveMode::SoftMin {
                         if self.settings.deformation.fixed.sigma.is_zero() {
@@ -1627,7 +1646,7 @@ impl Topology {
                             e
                         }
                     } else {
-                        let sup = t / (t + mij);
+                        let sup = t / (t + mij*mij*mij_min*mij_min);
                         s *= sup;
                         sup
                     };
@@ -1647,7 +1666,7 @@ impl Topology {
                         }
 
                         if !self.settings.deformation.fixed.m_ij.is_zero() {
-                            s = s / (s + mij);
+                            s = s / (s + mij*mij*mij_min*mij_min);
                         }
                     }
                 }
@@ -1751,8 +1770,9 @@ impl Topology {
                     if surf.surface_type != SurfaceType::Ellipsoid || surf.group != surf_index {
                         continue;
                     } else {
-                        let t =
-                            eij[surf_index].unwrap().powi(2) / Into::<T>::into(self.e_cm_squared);
+                        // We do not want to normalize by e_cm_squared anymore here
+                        // let t = eij[surf_index].unwrap().powi(2) / Into::<T>::into(self.e_cm_squared);
+                        let t = eij[surf_index].unwrap().powi(2) / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
                         lambda0 += (-t / a).exp();
                     }
                 }
@@ -1800,6 +1820,8 @@ impl Topology {
 
         let mut E_surfaces_selection = DualN::one();
 
+        let mij_min = Into::<T>::into(self.compute_min_mij());
+
         // First evaluate all unique E-surfaces and multiply them into the selector
         for (i, surf) in self.surfaces.iter().enumerate() {
             if surf.surface_type != SurfaceType::Ellipsoid || i != surf.group {
@@ -1837,11 +1859,13 @@ impl Topology {
             }
 
             // take the square so that the number is always positive
-            let t = cache.ellipsoid_eval[i].unwrap().powi(2) / Into::<T>::into(self.e_cm_squared);;
+            // We do not want to normalize by e_cm_squared anymore here
+            // let t = cache.ellipsoid_eval[i].unwrap().powi(2) / Into::<T>::into(self.e_cm_squared);
+            let t = cache.ellipsoid_eval[i].unwrap().powi(2) / Into::<T>::into(self.surfaces[i].shift.t.powi(2));
 
             let m = Into::<T>::into(selector_M.abs());
 
-            E_surfaces_selection *= t / (t + m);
+            E_surfaces_selection *= t / (t + m*m*mij_min*mij_min);
         }
 
         // Sum of \vec{kappa}^2 for the kappa of each loop

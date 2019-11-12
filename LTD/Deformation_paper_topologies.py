@@ -624,7 +624,8 @@ def load(selected_topologies=None):
         q2 = vectors.LorentzVector([-26.874,-7.04203,0.0501295,12.9055])*rescaling
         q4 = vectors.LorentzVector([90.0, 0., 0., 0.])*rescaling
         q3 = -q1-q2-q4
-
+        analytic_result = analytic_four_point_ladder(q1.square(), q2.square(), q3.square(), q4.square(), (q1+q2).square(), (q1+q3).square(), 4)
+        analytic_result = complex(analytic_result.real, 0.0)
         factory = TopologyGenerator([
                         ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),
                         ('p5', 1, 5), ('p6', 5, 6), ('p7', 6, 4),
@@ -638,7 +639,7 @@ def load(selected_topologies=None):
                 'p5': 0.0, 'p6': 0.0, 'p7': 0.0, 'p8': 0.0,
                 'p9': 0.0, 'p10': 0.0, 'p11': 0.0, 'p12': 0.0, 'p13': 0.0},
             loop_momenta_names=('p1','p5','p8','p11'),
-            analytic_result=analytic_four_point_ladder(q1.square(), q2.square(), q3.square(), q4.square(), (q1+q2).square(), (q1+q3).square(), 4),
+            analytic_result=analytic_result,
             ),
             entry_name = topology_name
         )
@@ -649,18 +650,6 @@ def load(selected_topologies=None):
 if __name__=='__main__':
     
     args = sys.argv[1:]
-
-#    selected_topologies = [
-#        'T1_Pentabox_physical',
-#        'T2_6P_2L_Weinzierl_A',
-#        'T2_6P_2L_Weinzierl_B',
-#        'T2_6P_2L_Weinzierl_C',
-#        'T2_6P_2L_Weinzierl_D',
-#        'T2_6P_2L_Weinzierl_E',
-#        'T2_6P_2L_Weinzierl_F',
-#        'T3_DoubleBox_Weinzierl',
-#        'T4_TripleBox_Weinzierl',
-#    ]
 
     if len(args)==0:
         print("Now processing all topologies...")

@@ -234,6 +234,7 @@ pub struct DeformationFixedSettings {
     pub mode: AdditiveMode,
     #[serde(rename = "M_ij")]
     pub m_ij: f64,
+    pub delta: f64,
     pub sigma: f64,
     pub m_ijs: Vec<f64>,
     pub local: bool,

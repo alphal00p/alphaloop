@@ -11,7 +11,12 @@ from ltd_utils import HyperParameters
 hyperparameters = HyperParameters({
 
     'General'       :   {
+        # Consider a multi-channeling treatment of the integrand with shifted parametrisations regularising
+        # integrable singularities for which one has no deformation.
         'multi_channeling'      :   False,
+        # Instead of None, one can specify here a list of indices, like 0,2,7 which corresponds to
+        # the channel IDs to consider. A channel ID corresponds to its index in the list produced by the
+        # cartesian product of the cut_structure with the propagators in each of the loop lines.
         'multi_channeling_channel': None,
         # can be additive, fixed, constant, duals, intersections or none
         'deformation_strategy'  :   'fixed',
@@ -51,10 +56,10 @@ hyperparameters = HyperParameters({
 
     'Integrator'    :   {
         # The integrator can be vegas, divonne, cuhre or suave
-        'integrator'        :   'cuhre',
+        'integrator'        :   'vegas',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
-        'n_increase'        :   int(1.0e4),
+        'n_increase'        :   int(1.0e5),
         # can be set to high values for use with MPI, otherwise leave it at 1
         'n_vec'             :   1,
         'seed'              :   1,
@@ -69,7 +74,7 @@ hyperparameters = HyperParameters({
         'reset_vegas_integrator' : True,
         'use_only_last_sample' : False,
         # Non-vegas related integrator parameters
-        'eps_rel'           :   1e-5,
+        'eps_rel'           :   1e-8,
         'eps_abs'           :   0.,
         # A border set different to zero allows to not probe particular problematic kinematics
         'border'            :   1.0e-3,
@@ -88,7 +93,7 @@ hyperparameters = HyperParameters({
         'overall_scaling_constant'  : 1.0,
         # A negative number indicates this normalisation is disabled
         # A positive number indicate the value to use in the T function for this normalisation strategy
-        'normalize_on_E_surfaces_m' : -0.1,
+        'normalize_on_E_surfaces_m' : -1.0,
 
         # optionally set a different lambda per surface
         'lambdas'   : [],
@@ -107,8 +112,8 @@ hyperparameters = HyperParameters({
             # magic_fudge : c * c * (d / (b + d))
             # magic_fudge_with_min : min( c * c * (d / (b + d)), c * c * (d / (a + d)))
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
-            'expansion_check_strategy'  : 'magic_fudge',
-            'expansion_threshold'       : 0.45,
+            'expansion_check_strategy'  : 'ratio',
+            'expansion_threshold'       : 0.2,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
@@ -130,7 +135,15 @@ hyperparameters = HyperParameters({
         },
 
         'fixed' : {
-            'M_ij'  :   0.001,
+            # Maximum allowed value for the anti-selector on an E-surface.
+            'delta' : 0.01,
+            # Argument of the anti-selector of the form  E_i^2 / ( E_i^2 + M_ij^2 * M^\star ^2 * (p_i^0)^2 )
+            # where: E_i is the equation of the E-surface #i
+            #        M^\star is the maximum value that M can take for the anti-selector to be < \delta on E-surfaces.
+            #        M_ij is the multiplier of M^\star (should typically be >=1.0)
+            #        p_i^0 is the "surface shift" of E_surface #i.
+            'M_ij'  :   1.0,
+            # The parameter below is used only for the `softmin` anti-selection.
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
@@ -155,8 +168,9 @@ hyperparameters = HyperParameters({
     'Parameterization'   :   {
         # can be cartesian or spherical
         'mode'      :   'spherical',
-        # can be log or linear
-        'mapping'   :   'log',
+        # can be log or linear,
+        # Warning: log is badly behaved in the UV as it does not allow to probe that region enough. Keep linear for safety.
+        'mapping'   :   'linear',
         # controls the UV behaviour of the spherical log map
         'b'         :   1.0e1,
         # rescale the input from [0,1] to [lo,hi]
