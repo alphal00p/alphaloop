@@ -84,7 +84,7 @@ pub struct Scaling {
     pub non_cut_propagator_check: bool,
     pub skip_hyperboloids: bool,
     pub source_branch_cut_threshold: f64,
-    pub source_branch_cut_multiplier: f64,    
+    pub source_branch_cut_multiplier: f64,
     pub expansion_check_strategy: ExpansionCheckStrategy,
 }
 
@@ -248,7 +248,7 @@ pub struct DeformationFixedSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationSettings {
     pub scaling: Scaling,
-    pub normalize_on_E_surfaces_m : f64,
+    pub normalize_on_E_surfaces_m: f64,
     pub overall_scaling: OverallDeformationScaling,
     pub overall_scaling_constant: f64,
     pub lambdas: Vec<f64>,
@@ -295,7 +295,8 @@ pub struct ParameterizationSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
-    pub partial_fractioning: bool,
+    pub multi_channeling: bool,
+    pub multi_channeling_channel: Option<usize>,
     pub log_file_prefix: String,
     pub res_file_prefix: String,
     pub screen_log_core: Option<usize>,

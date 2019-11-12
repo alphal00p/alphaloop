@@ -2282,53 +2282,110 @@ impl Topology {
         k: &[LorentzVector<T>],
         cache: &mut LTDCache<T>,
         python_numerator: &Option<PythonNumerator>,
+        channel: Option<usize>,
     ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
-        let num_ellipsoids = self
-            .surfaces
-            .iter()
-            .enumerate()
-            .filter(|(i, x)| x.surface_type == SurfaceType::Ellipsoid && x.group == *i)
-            .count();
-        let mut complex_evals_sq = vec![Complex::default(); num_ellipsoids];
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
+        let mut shifted_k: ArrayVec<[LorentzVector<T>; MAX_LOOP]> = (0..self.n_loops)
+            .map(|_| LorentzVector::default())
+            .collect();
+        let mut cut_shifts: ArrayVec<[LorentzVector<T>; MAX_LOOP]> = (0..self.n_loops)
+            .map(|_| LorentzVector::default())
+            .collect();
 
-        let mut res = Complex::default();
+        let mut res: Complex<T> = Complex::default();
 
-        let mut sum_fac: Complex<T> = Complex::default();
-        for i in 0..num_ellipsoids {
-            // compute the deformation vector for this ellipsoid
-            let (kappas, jac) = self.deform(k, None, Some(i), cache);
-            k_def = (0..self.n_loops)
-                .map(|i| {
-                    k[i].map(|x| Complex::new(x, T::zero()))
-                        + kappas[i].map(|x| Complex::new(T::zero(), x))
-                })
-                .collect();
-
-            self.compute_complex_cut_energies(&k_def, cache)?;
-
-            // compute multi-channeling factors by evaluating every surface
-            let mut index = 0;
-            let mut suppresion_factor = Complex::one();
-            for (ei, e) in self.surfaces.iter().enumerate() {
-                if e.surface_type == SurfaceType::Ellipsoid && e.group == ei {
-                    complex_evals_sq[index] =
-                        utils::powi(self.evaluate_surface_complex(e, &k_def), 2);
-                    suppresion_factor *= complex_evals_sq[index];
-                    index += 1;
+        let mut cut_counter = 0;
+        for (cuts, mat) in self
+            .ltd_cut_options
+            .iter()
+            .zip_eq(self.cb_to_lmb_mat.iter())
+        {
+            for cut in cuts {
+                if let Some(channel_id) = channel {
+                    if channel_id != cut_counter {
+                        cut_counter += 1;
+                        continue;
+                    }
                 }
+
+                // compute the deformation vector for this propagator
+                // shift and rotate the origin to the focus
+                for (new_k, sign_map) in shifted_k.iter_mut().zip(mat.chunks_exact(self.n_loops)) {
+                    let mut cut_index = 0;
+                    for (ll_cut_sig, ll_cut) in cut.iter().zip_eq(&self.loop_lines) {
+                        if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut_sig {
+                            cut_shifts[cut_index] = ll_cut.propagators[*i].q.cast();
+                            cut_index += 1;
+                        }
+                    }
+
+                    *new_k = LorentzVector::default();
+                    for ((j, kk), shift) in sign_map[..self.n_loops]
+                        .iter()
+                        .zip_eq(&k[..self.n_loops])
+                        .zip_eq(&cut_shifts[..self.n_loops])
+                    {
+                        *new_k += (kk - shift).multiply_sign(*j);
+                    }
+                    new_k.t = T::zero();
+                }
+
+                let (kappas, jac) = self.deform(&shifted_k, None, None, cache);
+                k_def = (0..self.n_loops)
+                    .map(|i| {
+                        shifted_k[i].map(|x| Complex::new(x, T::zero()))
+                            + kappas[i].map(|x| Complex::new(T::zero(), x))
+                    })
+                    .collect();
+
+                self.compute_complex_cut_energies(&k_def, cache)?;
+
+                // compute all multi-channeling factors
+                let mut other_cut_counter = 0;
+                let mut normalization: Complex<T> = Complex::zero();
+                let mut suppresion_factor: Complex<T> = Complex::zero();
+                for other_cuts in &self.ltd_cut_options {
+                    for other_cut in other_cuts {
+                        let mut other_suppresion_factor: Complex<T> = Complex::one();
+                        for (other_ll_cut_sig, other_ll_cut) in
+                            other_cut.iter().zip_eq(&self.loop_lines)
+                        {
+                            for prop in &other_ll_cut.propagators {
+                                if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = other_ll_cut_sig
+                                {
+                                    if *i != prop.id {
+                                        other_suppresion_factor *=
+                                            cache.complex_cut_energies[prop.id];
+                                    }
+                                } else {
+                                    other_suppresion_factor *= cache.complex_cut_energies[prop.id];
+                                }
+                            }
+                        }
+
+                        if other_cut_counter == cut_counter {
+                            suppresion_factor = other_suppresion_factor;
+                        }
+
+                        normalization += other_suppresion_factor;
+
+                        other_cut_counter += 1;
+                    }
+                }
+
+                cut_counter += 1;
+
+                let channel_factor: Complex<T> = suppresion_factor / normalization;
+                if channel_factor.norm_sqr() < Into::<T>::into(self.e_cm_squared * 1e-16) {
+                    continue;
+                }
+
+                let (r, kd) =
+                    self.evaluate_all_dual_integrands(&shifted_k, k_def, cache, python_numerator)?;
+                k_def = kd;
+
+                res += r * jac * channel_factor;
             }
-
-            let mut normalization = Complex::zero();
-            for j in 0..num_ellipsoids {
-                normalization += suppresion_factor / complex_evals_sq[j];
-            }
-
-            let (r, kd) = self.evaluate_all_dual_integrands(k, k_def, cache, python_numerator)?;
-            k_def = kd;
-
-            res += r * jac * suppresion_factor / complex_evals_sq[i] / normalization;
-            sum_fac += suppresion_factor / complex_evals_sq[i] / normalization;
         }
 
         Ok((res, k_def))
@@ -2429,8 +2486,13 @@ impl Topology {
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
         let mut jac_def = Complex::one();
 
-        let r = if self.settings.general.partial_fractioning {
-            self.evaluate_multi_channel(&k, cache, python_numerator)
+        let r = if self.settings.general.multi_channeling {
+            self.evaluate_multi_channel(
+                &k,
+                cache,
+                python_numerator,
+                self.settings.general.multi_channeling_channel,
+            )
         } else {
             if self.settings.general.deformation_strategy != DeformationStrategy::Duals {
                 let (kappas, jac) = self.deform(&k, None, None, cache);

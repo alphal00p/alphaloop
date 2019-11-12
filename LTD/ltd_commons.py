@@ -11,7 +11,8 @@ from ltd_utils import HyperParameters
 hyperparameters = HyperParameters({
 
     'General'       :   {
-        'partial_fractioning'   :   False,
+        'multi_channeling'      :   False,
+        'multi_channeling_channel': None,
         # can be additive, fixed, constant, duals, intersections or none
         'deformation_strategy'  :   'fixed',
         'topology'              :   'Box',
