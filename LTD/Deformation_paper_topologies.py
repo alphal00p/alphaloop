@@ -770,6 +770,8 @@ def load(selected_topologies=None):
         q3 = vectors.LorentzVector([-4.6733820729745602e+01, -1.5580614736124998e+01, -4.4068633339876151e+01, -5.0000000000000000e-01])
         q4 = -q1-q2-q3
         analytic_result = analytic_four_point_ladder(q1.square(), q2.square(), q3.square(), q4.square(), (q1+q2).square(), (q2+q3).square(), 1)
+        # HOTFIX incorrect analytic continuation in the above
+        analytic_result = complex(-analytic_result.real, analytic_result.imag)
         factory = TopologyGenerator([
             ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
             ('p1', 1, 4), ('p2', 4, 3), ('p3', 3, 2), ('p4', 2, 1),

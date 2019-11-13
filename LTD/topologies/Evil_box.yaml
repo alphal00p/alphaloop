@@ -1,5 +1,5 @@
 - analytical_result_imag: -0.0004610239951879112
-  analytical_result_real: 0.0014394804080726349
+  analytical_result_real: -0.0014394804080726349
   constant_deformation:
     alpha:
     - - 0.0
