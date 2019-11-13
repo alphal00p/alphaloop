@@ -547,6 +547,70 @@ def load(selected_topologies=None):
              entry_name = 'Hexagon_1s'
         )
 
+
+    topology_name = "Decagon_phys"
+    # 12 ellipsoids 1 source with a point from MadGraph's FLatInvertiblePhaseSpace
+    if selected_topologies is None or topology_name in selected_topologies:
+        Decagon_phys = TopologyGenerator([
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 7),('p7', 7, 8),('p8', 8, 9),('p9', 9, 10),('p10', 10, 1),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6),('q7', 107,7),('q8', 108,8),('q9', 109,9),('q10', 110,10),
+        ])
+        q1 = vectors.LorentzVector([0.8249090909090908E+00,0.0000000000000000E+00,0.0000000000000000E+00,0.8248484759423774E+00]) #m=44.852746
+        q2 = vectors.LorentzVector([0.8250909090909090E+00,0.0000000000000000E+00,0.0000000000000000E+00,-0.8248484759423774E+00]) #m=39.484736
+        q3 = vectors.LorentzVector([-0.1085133239146588E+00,0.1167616774783045E-01,-0.6413747334200047E-01,0.8139528909609182E-01]) #m=22.348531
+        q4 = vectors.LorentzVector([-0.1871911023039417E+00,0.7334738260816014E-01,0.1671281314565328E+00,-0.1135156033965376E-01]) #m=0.799353
+        q5 = vectors.LorentzVector([-0.1046974473941988E+00,0.8070338217617294E-01,0.4122487429560785E-01,-0.1578066334153676E-01]) #m=21.671014
+        q6 = vectors.LorentzVector([-0.5167577589181960E+00,-0.2202964129865497E+00,-0.4438512772975853E+00,0.1338062609473788E+00]) #m=48.961591
+        q7 = vectors.LorentzVector([-0.9935413704930492E-01,0.3830140390088815E-01,-0.3044895751950545E-02,-0.5911831880130597E-01]) #m=22.348531
+        q8 = vectors.LorentzVector([-0.2749069123381626E+00,0.3654135698965530E-01,0.7048580448475607E-01,-0.2507394884073777E+00]) #m=0.799353
+        q9 = vectors.LorentzVector([-0.1942267082273213E+00,-0.7883355524646646E-01,0.1183158353754920E+00,0.9700849372824423E-01]) #m=21.671014
+        q10 = vectors.LorentzVector([-0.1643526098542161E+00,0.5856027481030913E-01,0.1138790007791476E+00,0.2477998711815934E-01]) #m=48.961591
+
+        all_topologies.add_topology(Decagon_phys.create_loop_topology(
+                "Decagon_phys", 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6, 'q7': q7, 'q8': q8, 'q9': q9, 'q10': q10}, 
+                mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0, 'p7': 0., 'p8': 0., 'p9': 0., 'p10': 0.}, 
+                loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=232.45130851452109 - 4342.3577516872392j,
+             ),
+             entry_name = 'Decagon_phys'
+        )
+
+
+    topology_name = "Decagon_phys_massive"
+    # 12 ellipsoids 1 source with a point from MadGraph's FLatInvertiblePhaseSpace
+    if selected_topologies is None or topology_name in selected_topologies:
+        Decagon_phys_massive = TopologyGenerator([
+            ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 5),  ('p5', 5, 6), ('p6', 6, 7),('p7', 7, 8),('p8', 8, 9),('p9', 9, 10),('p10', 10, 1),
+            ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6),('q7', 107,7),('q8', 108,8),('q9', 109,9),('q10', 110,10),
+        ])
+        q1 = vectors.LorentzVector([0.8249090909090908E+00,0.0000000000000000E+00,0.0000000000000000E+00,0.8248484759423774E+00]) #m=44.852746
+        q2 = vectors.LorentzVector([0.8250909090909090E+00,0.0000000000000000E+00,0.0000000000000000E+00,-0.8248484759423774E+00]) #m=39.484736
+        q3 = vectors.LorentzVector([-0.1085133239146588E+00,0.1167616774783045E-01,-0.6413747334200047E-01,0.8139528909609182E-01]) #m=22.348531
+        q4 = vectors.LorentzVector([-0.1871911023039417E+00,0.7334738260816014E-01,0.1671281314565328E+00,-0.1135156033965376E-01]) #m=0.799353
+        q5 = vectors.LorentzVector([-0.1046974473941988E+00,0.8070338217617294E-01,0.4122487429560785E-01,-0.1578066334153676E-01]) #m=21.671014
+        q6 = vectors.LorentzVector([-0.5167577589181960E+00,-0.2202964129865497E+00,-0.4438512772975853E+00,0.1338062609473788E+00]) #m=48.961591
+        q7 = vectors.LorentzVector([-0.9935413704930492E-01,0.3830140390088815E-01,-0.3044895751950545E-02,-0.5911831880130597E-01]) #m=22.348531
+        q8 = vectors.LorentzVector([-0.2749069123381626E+00,0.3654135698965530E-01,0.7048580448475607E-01,-0.2507394884073777E+00]) #m=0.799353
+        q9 = vectors.LorentzVector([-0.1942267082273213E+00,-0.7883355524646646E-01,0.1183158353754920E+00,0.9700849372824423E-01]) #m=21.671014
+        q10 = vectors.LorentzVector([-0.1643526098542161E+00,0.5856027481030913E-01,0.1138790007791476E+00,0.2477998711815934E-01]) #m=48.961591
+
+        all_topologies.add_topology(Decagon_phys_massive.create_loop_topology(
+                "Decagon_phys_massive", 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6, 'q7': q7, 'q8': q8, 'q9': q9, 'q10': q10}, 
+                mass_map={'p1': 0.045, 'p2': 0.045, 'p3': 0.045, 'p4': 0.045, 'p5': 0.045, 'p6': 0.045, 'p7': 0.045, 'p8': 0.045, 'p9': 0.045, 'p10': 0.045}, 
+                loop_momenta_names=('p1',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=-3000.1965833281529 +2125.2823773318205j,
+             ),
+             entry_name = 'Decagon_phys_massive'
+        )
+
+
+
+
+
+
+
     topology_name = "Hexagon_2s"
     # 12 ellipsoids 2 sources with a point from MadGraph's FLatInvertiblePhaseSpace
     if selected_topologies is None or topology_name in selected_topologies:
