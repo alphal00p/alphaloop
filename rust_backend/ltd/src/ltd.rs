@@ -2374,10 +2374,10 @@ impl Topology {
                         for (other_ll_cut_sig, other_ll_cut) in
                             other_cut.iter().zip_eq(&self.loop_lines)
                         {
-                            for prop in &other_ll_cut.propagators {
+                            for (prop_index, prop) in other_ll_cut.propagators.iter().enumerate() {
                                 if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = other_ll_cut_sig
                                 {
-                                    if *i != prop.id {
+                                    if *i != prop_index {
                                         other_suppresion_factor *=
                                             cache.complex_cut_energies[prop.id];
                                     }
