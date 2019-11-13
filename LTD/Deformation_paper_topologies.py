@@ -763,6 +763,29 @@ def load(selected_topologies=None):
             entry_name = topology_name
         )
 
+    topology_name = "Evil_box"
+    if selected_topologies is None or topology_name in selected_topologies:
+        q1 = vectors.LorentzVector([1.1180339887498949e+00, 0.0000000000000000e+00, 0.0000000000000000e+00, 2.5000000000000000e+00])
+        q2 = vectors.LorentzVector([-1.1180339887498949e+00, 0.0000000000000000e+00, 0.0000000000000000e+00, -1.5000000000000000e+00])
+        q3 = vectors.LorentzVector([-4.6733820729745602e+01, -1.5580614736124998e+01, -4.4068633339876151e+01, -5.0000000000000000e-01])
+        q4 = -q1-q2-q3
+        analytic_result = analytic_four_point_ladder(q1.square(), q2.square(), q3.square(), q4.square(), (q1+q2).square(), (q2+q3).square(), 1)
+        factory = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+            ('p1', 1, 4), ('p2', 4, 3), ('p3', 3, 2), ('p4', 2, 1),
+        ])
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
+            mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0},
+            loop_momenta_names=('p4',),
+            analytic_result=analytic_result,
+            ),
+            entry_name = topology_name
+        )
+
+
+
 
     return all_topologies
 
