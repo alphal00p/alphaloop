@@ -49,14 +49,14 @@ hyperparameters = HyperParameters({
         'log_stats_to_screen'   :   False,
         'log_file_prefix'       :   'stats/statistics',
         'res_file_prefix'       :   '',        
-        'integration_statistics':   True,
+        'integration_statistics':   False,
         'statistics_interval'   :   100000,
         'debug'                 :   0
     },
 
     'Integrator'    :   {
         # The integrator can be vegas, divonne, cuhre or suave
-        'integrator'        :   'vegas',
+        'integrator'        :   'cuhre',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e5),
@@ -113,7 +113,7 @@ hyperparameters = HyperParameters({
             # magic_fudge_with_min : min( c * c * (d / (b + d)), c * c * (d / (a + d)))
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
             'expansion_check_strategy'  : 'ratio',
-            'expansion_threshold'       : 0.2,
+            'expansion_threshold'       : 0.15,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
@@ -122,7 +122,7 @@ hyperparameters = HyperParameters({
             'cut_propagator_check'      : False,
             'non_cut_propagator_check'  : False,
             'skip_hyperboloids'         : True,
-            'source_branch_cut_threshold'  : 0.25,
+            'source_branch_cut_threshold'  : 0.8,
             'source_branch_cut_multiplier' : 0.8,
         },
 
@@ -136,7 +136,7 @@ hyperparameters = HyperParameters({
 
         'fixed' : {
             # Maximum allowed value for the anti-selector on an E-surface.
-            'delta' : 0.01,
+            'delta' : 0.03,
             # Argument of the anti-selector of the form  E_i^2 / ( E_i^2 + M_ij^2 * M^\star ^2 * (p_i^0)^2 )
             # where: E_i is the equation of the E-surface #i
             #        M^\star is the maximum value that M can take for the anti-selector to be < \delta on E-surfaces.
@@ -172,7 +172,7 @@ hyperparameters = HyperParameters({
         # Warning: log is badly behaved in the UV as it does not allow to probe that region enough. Keep linear for safety.
         'mapping'   :   'linear',
         # controls the UV behaviour of the spherical log map
-        'b'         :   1.0e1,
+        'b'         :   1.0,
         # rescale the input from [0,1] to [lo,hi]
         'input_rescaling' : [
             [[0. ,1.], [0., 1.], [0., 1.]],
