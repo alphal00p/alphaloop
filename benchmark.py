@@ -261,11 +261,11 @@ class Benchmark(list):
 
     #TODO Below please all contribute to create nice benchmarks that balance speed and sensitivity!
 
-    def get_1loop(self):
+    def get_1loop(self, **opts):
         
         res = []
         for topology in self._ALL_1LOOP_TOPOLOGIES:
-            res.append(BenchmarkRun1loop(topology))
+            res.append(BenchmarkRun1loop(topology, **opts))
 
         return res
 
@@ -293,6 +293,29 @@ class Benchmark(list):
         res = []
         res.append(BenchmarkRun1loop("Box_3E"))
         res.append(BenchmarkRun1loop("Box_4E"))
+        return res
+
+    def get_short_Valentin(self):
+        res = []
+
+        # 1-loop topologies
+        res.extend(self.get_1loop(samples=20*Units.M))
+
+        # 2-loop topologies
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_A", n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_B", n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_C", n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_D", n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_E", n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T2_6P_2L_Weinzierl_F", n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRun2loop("T3_DoubleBox_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+
+        # 3-loop topologies
+        res.append(BenchmarkRun3loop("T4_TripleBox_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+
+        # 4-loop topologies
+        res.append(BenchmarkRun3loop("T4_Quadruple_Box_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+
         return res
 
     def get_Valentin(self):
