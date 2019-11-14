@@ -1,0 +1,684 @@
+{
+    "1573731073.2835002": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.03,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": 0.15,
+                    "lambda": 1.0,
+                    "non_cut_propagator_check": false,
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8
+                }
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "cuhre",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/Deformation_paper_topologies.py b/LTD/Deformation_paper_topologies.py\nindex 260bd80..2ba5c1f 100755\n--- a/LTD/Deformation_paper_topologies.py\n+++ b/LTD/Deformation_paper_topologies.py\n@@ -232,8 +232,9 @@ def load(selected_topologies=None):\n                 topology_name, \n                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, \n                 mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0, 'p5': 0.0, 'p6': 0.0, 'p7': 0.0, 'p8': 0.0, 'p9': 0.0}, \n-                loop_momenta_names=('p1','p6'), \n-                # 45.4459598582354531 - 0.188225725121877622*I +/- ( 0.115356519900322018 + 0.0285153450900536506*I )\n+                loop_momenta_names=('p1','p6'),\n+                # higher-stat : 45.9306553282958365 - 0.0227134030759781315*I +/- ( 0.0448969823894826872 + 0.00814578717986984305*I )\n+                # low-stat : 45.4459598582354531 - 0.188225725121877622*I +/- ( 0.115356519900322018 + 0.0285153450900536506*I )\n                 analytic_result=complex(-45.45,0.0j)\n              ),\n              entry_name = topology_name\ndiff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex cb2b9f0..6d883e0 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -161,7 +161,7 @@ hyperparameters = HyperParameters({\n             # add the normal vector for every ellipsoid which is excluded on all other ellipsoids\n             'include_normal_source': False,\n             # dampen the fixed sources away from intersections. Use this parameter only when include_normal_source is true\n-            'source_dampening_factor': -0.0005,\n+            'source_dampening_factor': -0.05,\n         }\n     },",
+        "samples": [
+            {
+                "revision": "593769d",
+                "diff": true,
+                "num_samples": 100000000,
+                "topology": "Pentagon_1s",
+                "result": [
+                    -3.443390835920982e-12,
+                    -2.564890130667994e-12
+                ],
+                "error": [
+                    3.442159843570228e-17,
+                    2.5639766104041582e-17
+                ],
+                "analytical_result": [
+                    -3.44342331910881e-12,
+                    -2.56487078110481e-12
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": true,
+                "num_samples": 100000000,
+                "topology": "Pentagon_2s",
+                "result": [
+                    -8.39045613938581e-13,
+                    -1.713416766264807e-12
+                ],
+                "error": [
+                    1.1652719398775111e-17,
+                    1.892304588855914e-17
+                ],
+                "analytical_result": [
+                    -8.390484525815771e-13,
+                    -1.713405042180853e-12
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": true,
+                "num_samples": 100000000,
+                "topology": "Pentagon_3s",
+                "result": [
+                    -3.4899650914000333e-12,
+                    -3.900151784657602e-12
+                ],
+                "error": [
+                    3.7920601674967386e-17,
+                    4.23775382457283e-17
+                ],
+                "analytical_result": [
+                    -3.48997234169132e-12,
+                    -3.90012989047481e-12
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": true,
+                "num_samples": 100000000,
+                "topology": "Hexagon_1s",
+                "result": [
+                    3.0398383585036583e-15,
+                    -1.1768235962150554e-13
+                ],
+                "error": [
+                    4.215071379574496e-19,
+                    5.153535936007717e-19
+                ],
+                "analytical_result": [
+                    3.039790437605862e-15,
+                    -1.1768253326142644e-13
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": true,
+                "num_samples": 100000000,
+                "topology": "Hexagon_2s",
+                "result": [
+                    1.369157804707884e-15,
+                    -2.258973026711109e-15
+                ],
+                "error": [
+                    3.553456054114967e-19,
+                    3.5700221163815863e-19
+                ],
+                "analytical_result": [
+                    1.3691802654305414e-15,
+                    -2.259008667111004e-15
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_3s",
+                "result": [
+                    1.2977205883227766e-15,
+                    -2.1658631266037845e-15
+                ],
+                "error": [
+                    3.5524674225758564e-19,
+                    3.562693884970603e-19
+                ],
+                "analytical_result": [
+                    1.297703695865679e-15,
+                    -2.1658951065401658e-15
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_4s",
+                "result": [
+                    7.932144439364469e-17,
+                    -1.1528054365867239e-14
+                ],
+                "error": [
+                    3.7319492025711192e-19,
+                    3.9698696710491214e-19
+                ],
+                "analytical_result": [
+                    7.939620566544445e-17,
+                    -1.1528177654174178e-14
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_10E_1s",
+                "result": [
+                    -1.1835434049292808e-18,
+                    5.971427985430272e-13
+                ],
+                "error": [
+                    1.8286670944671042e-18,
+                    2.856974206091107e-18
+                ],
+                "analytical_result": [
+                    0.0,
+                    5.971433616274931e-13
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_6E_4s",
+                "result": [
+                    8.992102767737735e-11,
+                    4.178404130726195e-10
+                ],
+                "error": [
+                    6.168722686989283e-15,
+                    1.0724802519195445e-14
+                ],
+                "analytical_result": [
+                    8.992e-11,
+                    4.17837e-10
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Pentagon_8E_5s",
+                "result": [
+                    4.120938143356843e-15,
+                    -2.1805852026590562e-13
+                ],
+                "error": [
+                    1.2122951393969627e-17,
+                    2.0561540582584642e-17
+                ],
+                "analytical_result": [
+                    4.118696992009977e-15,
+                    -2.1805718929649134e-13
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_6E_4s",
+                "result": [
+                    -2.72166738225227e-15,
+                    -1.2089537304227646e-14
+                ],
+                "error": [
+                    3.5868765291642334e-19,
+                    3.644677116316969e-19
+                ],
+                "analytical_result": [
+                    -2.7216841734816e-15,
+                    -1.2089609024538e-14
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_10E_4s",
+                "result": [
+                    -3.0193039770737396e-17,
+                    -7.733328092717707e-17
+                ],
+                "error": [
+                    3.5389604653450385e-19,
+                    3.5389683306791118e-19
+                ],
+                "analytical_result": [
+                    -3.0193937848736e-17,
+                    -7.73337287748906e-17
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_9E_4s",
+                "result": [
+                    2.8376280881117426e-17,
+                    8.31140729624854e-18
+                ],
+                "error": [
+                    3.5388121384159682e-19,
+                    3.538822186342021e-19
+                ],
+                "analytical_result": [
+                    2.83771892273698e-17,
+                    8.3141576190839e-18
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_10E_7s",
+                "result": [
+                    0.021219594004733226,
+                    0.006402695833481463
+                ],
+                "error": [
+                    7.772605917124209e-05,
+                    5.215185377770039e-05
+                ],
+                "analytical_result": [
+                    0.0211928148966,
+                    0.0064030325864
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_10E_5s",
+                "result": [
+                    -2.814807027756851,
+                    2.4732755268785516
+                ],
+                "error": [
+                    0.00013768657345950407,
+                    0.00012098142803554365
+                ],
+                "analytical_result": [
+                    -2.81475384,
+                    2.4732705
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "Hexagon_6E_2s",
+                "result": [
+                    -20.700104603946066,
+                    4.234581782202349
+                ],
+                "error": [
+                    0.0016547131979999178,
+                    0.0009552063361962286
+                ],
+                "analytical_result": [
+                    -20.7013988797142,
+                    4.234325146404
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T2_6P_2L_Weinzierl_A",
+                "result": [
+                    -86.18129110518294,
+                    0.2410537251756481
+                ],
+                "error": [
+                    0.2772819684497912,
+                    0.27671719653796256
+                ],
+                "analytical_result": [
+                    -86.07,
+                    0.0
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T2_6P_2L_Weinzierl_B",
+                "result": [
+                    -119.00244146923305,
+                    -0.6411470058201473
+                ],
+                "error": [
+                    0.5494598685009325,
+                    0.5484813611521433
+                ],
+                "analytical_result": [
+                    -118.09,
+                    0.0
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T2_6P_2L_Weinzierl_C",
+                "result": [
+                    -75.84959210450178,
+                    0.014902343602283256
+                ],
+                "error": [
+                    0.4324018512822876,
+                    0.4294019475250167
+                ],
+                "analytical_result": [
+                    -75.48,
+                    0.0
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T2_6P_2L_Weinzierl_D",
+                "result": [
+                    -18.371105554780076,
+                    0.010824523882086177
+                ],
+                "error": [
+                    0.049735473210154355,
+                    0.049768367402405554
+                ],
+                "analytical_result": [
+                    -18.22,
+                    0.0
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T2_6P_2L_Weinzierl_E",
+                "result": [
+                    -46.295248615594915,
+                    0.18277697546810634
+                ],
+                "error": [
+                    0.2615592309220796,
+                    0.26847434486284555
+                ],
+                "analytical_result": [
+                    -45.45,
+                    0.0
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T2_6P_2L_Weinzierl_F",
+                "result": [
+                    -103.72631431007642,
+                    1.0870040503378056
+                ],
+                "error": [
+                    0.7265806431373272,
+                    0.7334947268681588
+                ],
+                "analytical_result": [
+                    -102.71,
+                    0.0
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T3_DoubleBox_Weinzierl",
+                "result": [
+                    -0.059028020918990495,
+                    -8.324466756087116e-05
+                ],
+                "error": [
+                    8.145128099729702e-05,
+                    7.870785952390568e-05
+                ],
+                "analytical_result": [
+                    -0.05897,
+                    0.0
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T4_TripleBox_Weinzierl",
+                "result": [
+                    -3.9689052424579806e-05,
+                    -0.006718683438378596
+                ],
+                "error": [
+                    6.858410396040812e-05,
+                    6.821191599933891e-05
+                ],
+                "analytical_result": [
+                    0.0,
+                    -0.006744
+                ]
+            },
+            {
+                "revision": "faf877d",
+                "diff": false,
+                "num_samples": 300000000,
+                "topology": "T4_Quadruple_Box_Weinzierl",
+                "result": [
+                    0.000840776304528118,
+                    -0.00014071744029825828
+                ],
+                "error": [
+                    0.00010556415683199533,
+                    0.00010520539225377252
+                ],
+                "analytical_result": [
+                    0.0007411275671528255,
+                    0.0
+                ]
+            }
+        ]
+    }
+}
