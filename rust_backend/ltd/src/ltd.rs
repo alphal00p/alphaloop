@@ -2452,7 +2452,7 @@ impl Topology {
         }
 
         if let Some(sc) = sampled_cuts {
-            res *= Into::<T>::into(sc.len() as f64 / num_cuts as f64);
+            res *= Into::<T>::into( (num_cuts as f64) / (sc.len() as f64) );
         }
 
         Ok((res, k_def))

@@ -1393,6 +1393,29 @@ fn main() {
         settings.general.topology, settings.integrator.n_max, settings.general.deformation_strategy
     );
 
+    let num_cuts : usize = topo.ltd_cut_options.iter().map(|c| c.len()).sum();
+    println!("Number of cuts: {}", num_cuts);
+    let mut n_unique_e_surface = 0;
+    let ids: Vec<_> = match matches.values_of("ids") {
+        Some(x) => x.map(|x| usize::from_str(x).unwrap()).collect(),
+        None => vec![],
+    };
+    for (surf_index, surf) in topo.surfaces.iter().enumerate() {
+        if !ids.is_empty() && !ids.contains(&surf_index) {
+            continue;
+        }
+        if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid {
+            continue;
+        }
+        n_unique_e_surface += 1;
+    }
+    println!("Number of unique existing non-pinched E-surfaces: {}", n_unique_e_surface);
+    if topo.fixed_deformation.len() > 0 {
+        let maximal_overlap_structure : Vec<i32> = topo.fixed_deformation[0].deformation_per_overlap.iter().map(
+                                  |c| ( n_unique_e_surface - (c.excluded_surface_ids.len() as i32)) ).collect();
+        println!("Number of E-surfaces part of each maximal overlap: {:?}", maximal_overlap_structure);        
+    }
+
     match topo.analytical_result_real {
         Some(_) => println!(
             "Analytic result: {:e}",
