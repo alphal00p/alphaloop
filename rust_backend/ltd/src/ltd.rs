@@ -6,6 +6,7 @@ use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
+use rand::seq::IteratorRandom;
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, SurfaceType, Topology};
 use utils::Signum;
 use vector::LorentzVector;
@@ -2306,7 +2307,7 @@ impl Topology {
         k: &[LorentzVector<T>],
         cache: &mut LTDCache<T>,
         python_numerator: &Option<PythonNumerator>,
-        channel: Option<usize>,
+        channel: Option<isize>,
     ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
         let mut shifted_k: ArrayVec<[LorentzVector<T>; MAX_LOOP]> = (0..self.n_loops)
@@ -2315,6 +2316,22 @@ impl Topology {
         let mut cut_shifts: ArrayVec<[LorentzVector<T>; MAX_LOOP]> = (0..self.n_loops)
             .map(|_| LorentzVector::default())
             .collect();
+
+        let num_cuts = self.ltd_cut_options.iter().map(|c| c.len()).sum();
+
+        let mut sampled_cuts: Option<Vec<usize>> = None;
+        if let Some(c) = channel {
+            if c < 0 {
+                // randomly sample |c| cuts
+                // TODO: prevent allocation?
+                let mut rng = rand::thread_rng();
+                sampled_cuts = Some(
+                    (0..num_cuts)
+                        .into_iter()
+                        .choose_multiple(&mut rng, -c as usize),
+                );
+            }
+        }
 
         let mut res: Complex<T> = Complex::default();
 
@@ -2326,7 +2343,14 @@ impl Topology {
         {
             for cut in cuts {
                 if let Some(channel_id) = channel {
-                    if channel_id != cut_counter {
+                    if channel_id >= 0 && channel_id != cut_counter as isize {
+                        cut_counter += 1;
+                        continue;
+                    }
+                }
+
+                if let Some(sc) = &sampled_cuts {
+                    if !sc.contains(&cut_counter) {
                         cut_counter += 1;
                         continue;
                     }
@@ -2410,6 +2434,10 @@ impl Topology {
 
                 res += r * jac * channel_factor;
             }
+        }
+
+        if let Some(sc) = sampled_cuts {
+            res *= Into::<T>::into(sc.len() as f64 / num_cuts as f64);
         }
 
         Ok((res, k_def))

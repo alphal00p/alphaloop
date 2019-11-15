@@ -297,7 +297,7 @@ pub struct ParameterizationSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
     pub multi_channeling: bool,
-    pub multi_channeling_channel: Option<usize>,
+    pub multi_channeling_channel: Option<isize>,
     pub log_file_prefix: String,
     pub res_file_prefix: String,
     pub screen_log_core: Option<usize>,
