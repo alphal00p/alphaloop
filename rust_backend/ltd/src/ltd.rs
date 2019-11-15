@@ -7,6 +7,8 @@ use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
 use rand::seq::IteratorRandom;
+use rand::{Rng, SeedableRng};
+use rand::rngs::StdRng;
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, SurfaceType, Topology};
 use utils::Signum;
 use vector::LorentzVector;
@@ -2324,7 +2326,12 @@ impl Topology {
             if c < 0 {
                 // randomly sample |c| cuts
                 // TODO: prevent allocation?
-                let mut rng = rand::thread_rng();
+                let seed : [u8; 32] = if let Some(global_seed) = self.global_seed {
+                    global_seed
+                } else {
+                    rand::thread_rng().gen()
+                };
+                let mut rng : StdRng = SeedableRng::from_seed(seed);
                 sampled_cuts = Some(
                     (0..num_cuts)
                         .into_iter()
@@ -2332,6 +2339,14 @@ impl Topology {
                 );
             }
         }
+
+        /*
+        if let Some(cs) = &sampled_cuts {
+            for c in cs.iter() {
+                println!("selected cut: {}", c)
+            }
+        }
+        */
 
         let mut res: Complex<T> = Complex::default();
 

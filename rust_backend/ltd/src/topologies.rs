@@ -335,6 +335,8 @@ pub struct Topology {
     pub analytical_result_real: Option<f64>,
     pub analytical_result_imag: Option<f64>,
     #[serde(default)]
+    pub global_seed: Option<[u8; 32]>, 
+    #[serde(default)]
     pub e_cm_squared: f64,
     #[serde(default)]
     pub on_shell_flag: usize,

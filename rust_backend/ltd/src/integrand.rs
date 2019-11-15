@@ -6,6 +6,7 @@ use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
 use rand::Rng;
+use rand::seq::IteratorRandom;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::{LTDCache, Topology};
@@ -314,6 +315,13 @@ impl Integrand {
             && self.total_samples % self.settings.general.statistics_interval == 0
         {
             self.print_statistics();
+        }
+
+            
+        // First set a global seed equal in all topologies
+        let global_seed : [u8; 32] = rand::thread_rng().gen();
+        for topo in self.topologies.iter_mut() {
+            topo.global_seed = Some(global_seed);
         }
 
         // print warnings for unstable points and try to make sure the screen output does not
