@@ -95,6 +95,12 @@ hyperparameters = HyperParameters({
         # A positive number indicate the value to use in the T function for this normalisation strategy
         'normalize_on_E_surfaces_m' : -1.0,
 
+        # Maximum number of iterations for refinement of the deformation direction by taking shifts
+        # of previous deformations into account
+        'max_iterations': 1,
+        # The stability threshold for when the difference between deformations is considered negligible.
+        'stability_threshold': -1,
+
         # optionally set a different lambda per surface
         'lambdas'   : [],
 

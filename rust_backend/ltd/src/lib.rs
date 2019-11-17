@@ -255,6 +255,8 @@ pub struct DeformationSettings {
     pub lambdas: Vec<f64>,
     pub additive: DeformationAdditiveSettings,
     pub fixed: DeformationFixedSettings,
+    pub max_iterations: usize,
+    pub stability_threshold: f64,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]

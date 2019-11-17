@@ -60,6 +60,13 @@ impl Field for f128::f128 {}
 impl RealNumberLike for f64 {}
 impl RealNumberLike for f32 {}
 impl RealNumberLike for f128::f128 {}
+impl<U, T: RealNumberLike + dual_num::FloatConst + Signed + 'static> RealNumberLike for DualN<T, U>
+where
+    U: Dim + DimName,
+    DefaultAllocator: Allocator<T, U>,
+    Owned<T, U>: Copy,
+{
+}
 
 impl<T: RealNumberLike> Field for num::Complex<T> {}
 impl<U, T: RealNumberLike + Signed + 'static> Field for DualN<T, U>
@@ -211,7 +218,12 @@ impl<T: Field> LorentzVector<T> {
 
     #[inline]
     pub fn comp_mul(&self, other: &LorentzVector<T>) -> LorentzVector<T> {
-        LorentzVector::from_args(self.t * other.t, self.x * other.x, self.y * other.y, self.z * other.z)
+        LorentzVector::from_args(
+            self.t * other.t,
+            self.x * other.x,
+            self.y * other.y,
+            self.z * other.z,
+        )
     }
 
     #[inline]
