@@ -6,9 +6,9 @@ use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
+use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, SurfaceType, Topology};
 use utils::Signum;
 use vector::LorentzVector;
@@ -1543,7 +1543,7 @@ impl Topology {
             source_scaling = DualN::one();
         }
 
-        for d_lim in &self.fixed_deformation {
+        for (source_index, d_lim) in self.fixed_deformation.iter().enumerate() {
             for k in &mut kappa_source {
                 *k = LorentzVector::default();
             }
@@ -1608,12 +1608,19 @@ impl Topology {
                 }
             }
 
-            for d in &d_lim.deformation_per_overlap {
+            for (overlap_index, d) in d_lim.deformation_per_overlap.iter().enumerate() {
                 let mut lambda = DualN::one();
                 // TODO: index
                 /*if i < self.settings.deformation.lambdas.len() {
                     lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
                 }*/
+
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "Deformation contribution from source {} and overlap {}:",
+                        source_index, overlap_index
+                    );
+                }
 
                 let mut s = DualN::one();
                 let mut softmin_num = DualN::zero();
@@ -1813,7 +1820,7 @@ impl Topology {
 
         if self.settings.general.debug > 2 {
             for ii in 0..self.n_loops {
-                println!("  | kappa{}={:e}\n", ii + 1, kappas[ii].real());
+                println!("  | kappa{}={:e}", ii + 1, kappas[ii].real());
             }
         }
 
@@ -2022,7 +2029,7 @@ impl Topology {
 
         if self.settings.general.debug > 2 {
             for ii in 0..self.n_loops {
-                println!("  | kappa{} scaled={:e}\n", ii + 1, kappas[ii].real());
+                println!("kappa{} scaled={:e}", ii + 1, kappas[ii].real());
             }
         }
 
@@ -2039,7 +2046,7 @@ impl Topology {
         cache.overall_lambda = lambda.real();
 
         if self.settings.general.debug > 2 {
-            println!("  | lambda={:e}\n", lambda.real());
+            println!("lambda={:e}", lambda.real());
         }
 
         for k in kappas[..self.n_loops].iter_mut() {
@@ -2085,6 +2092,14 @@ impl Topology {
             }
 
             previous_deformation = kappas;
+
+            if self.settings.general.debug > 2 {
+                println!("Iteration {} summary:", i);
+                for ii in 0..self.n_loops {
+                    println!("  | kappa{}={:e}", ii + 1, kappas[ii].real());
+                }
+                println!("  | stability={:e}\n", stability.real());
+            }
 
             if stability
                 < Into::<T>::into(self.settings.deformation.stability_threshold * self.e_cm_squared)
@@ -2411,12 +2426,12 @@ impl Topology {
             if c < 0 {
                 // randomly sample |c| cuts
                 // TODO: prevent allocation?
-                let seed : [u8; 32] = if let Some(global_seed) = self.global_seed {
+                let seed: [u8; 32] = if let Some(global_seed) = self.global_seed {
                     global_seed
                 } else {
                     rand::thread_rng().gen()
                 };
-                let mut rng : StdRng = SeedableRng::from_seed(seed);
+                let mut rng: StdRng = SeedableRng::from_seed(seed);
                 sampled_cuts = Some(
                     (0..num_cuts)
                         .into_iter()
@@ -2454,6 +2469,10 @@ impl Topology {
                         cut_counter += 1;
                         continue;
                     }
+                }
+
+                if self.settings.general.debug > 2 {
+                    println!("Evaluating channel {}", cut_counter);
                 }
 
                 // compute the deformation vector for this propagator
@@ -2537,7 +2556,7 @@ impl Topology {
         }
 
         if let Some(sc) = sampled_cuts {
-            res *= Into::<T>::into( (num_cuts as f64) / (sc.len() as f64) );
+            res *= Into::<T>::into((num_cuts as f64) / (sc.len() as f64));
         }
 
         Ok((res, k_def))

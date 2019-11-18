@@ -279,6 +279,10 @@ impl Integrand {
         cache: &mut LTDCache<T>,
     ) -> (T, T, Complex<T>) {
         if self.settings.general.numerical_instability_check {
+            if self.settings.general.debug > 2 {
+                println!("Evaluating integrand with rotated topology");
+            }
+
             let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
                 self.topologies[1].evaluate(x, cache, &self.python_numerator);
 
