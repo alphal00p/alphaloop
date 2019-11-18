@@ -263,8 +263,6 @@ def load(selected_topologies=None):
 
 
     #2>N 3LOOP kinematics
-
-
     q1 = vectors.LorentzVector(
         [3, 0., 0., 1.21]
     )*rescaling 
@@ -275,9 +273,6 @@ def load(selected_topologies=None):
         [-2.527, 0., 0.9736, -0.4657] 
     )*rescaling
     q3 = -q1-q2-q4
-
-
-
     topology_name = "2to2_TripleBox_v1"
     if selected_topologies is None or topology_name in selected_topologies:
         factory = TopologyGenerator([
@@ -300,7 +295,6 @@ def load(selected_topologies=None):
 
 
     #DoubleBox 2to2 kinematics
-
     rescaling = 1
     q1 = vectors.LorentzVector(
         [2.,0.,0.,0.45]
@@ -608,7 +602,6 @@ def load(selected_topologies=None):
              entry_name = 'Decagon_phys_massive'
         )
 
-
     topology_name = "Decagon_phys_ez"
     # 12 ellipsoids 1 source with a point from MadGraph's FLatInvertiblePhaseSpace
     if selected_topologies is None or topology_name in selected_topologies:
@@ -637,7 +630,6 @@ def load(selected_topologies=None):
              entry_name = 'Decagon_phys_ez'
         )
 
-
     topology_name = "Decagon_phys_massive_ez"
     # 12 ellipsoids 1 source with a point from MadGraph's FLatInvertiblePhaseSpace
     if selected_topologies is None or topology_name in selected_topologies:
@@ -665,9 +657,6 @@ def load(selected_topologies=None):
              ),
              entry_name = 'Decagon_phys_massive_ez'
         )
-
-
-
 
     topology_name = "Hexagon_2s"
     # 12 ellipsoids 2 sources with a point from MadGraph's FLatInvertiblePhaseSpace
@@ -829,18 +818,11 @@ def load(selected_topologies=None):
             entry_name = topology_name
         )
 
+    ###############################################################################
+    # PAPER: Now a series of topologies with specific external_kinematics for the paper
+    ###############################################################################
 
-
-
-
-
-
-    factory = TopologyGenerator([
-        ('p1', 1, 7), ('p2', 7, 8), ('p3', 8, 1),
-        ('p4', 7, 2), ('p5', 2, 3), ('p6', 3, 4), ('p7', 4, 5), ('p8', 5, 6), ('p9', 6, 8),
-        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
-    ])
-
+    # 6P PS1
     rescaling = 1.0
     q1 = vectors.LorentzVector(
         [0.900000000000000E+01, 0.000000000000000E+00, 0.000000000000000E+00, 0.894427190999916E+01]
@@ -859,39 +841,72 @@ def load(selected_topologies=None):
     )*rescaling
     q6 = -q5-q4-q3-q2-q1
 
+    # 1L
+    factory = TopologyGenerator([
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+    ])
+
     mass=0.
-
-    topology_name = "2L_6P_A_PS1"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p4'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    topology_name = "1L_6P_PS1"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-6.04399581694419651E-009, +6.96338774260588204E-008),
+            ),
+            entry_name = topology_name
+        )
 
 
     mass=0.25
+    topology_name = "1L_6P_PS1_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(2.19936376909663045E-008, +6.37930575804718533E-008)
+            ),
+            entry_name = topology_name
+        )
 
+    # 2L
+    factory = TopologyGenerator([
+        ('p1', 1, 7), ('p2', 7, 8), ('p3', 8, 1),
+        ('p4', 7, 2), ('p5', 2, 3), ('p6', 3, 4), ('p7', 4, 5), ('p8', 5, 6), ('p9', 6, 8),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+    ])
+
+    mass=0.
+    topology_name = "2L_6P_A_PS1"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
+
+
+    mass=0.25
     topology_name = "2L_6P_A_PS1_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p4'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     rescaling = 1.0
@@ -912,42 +927,71 @@ def load(selected_topologies=None):
     )*rescaling
     q6 = -q5-q4-q3-q2-q1
 
+    # 1L
+    factory = TopologyGenerator([
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+    ])
+
     mass=0.
+    topology_name = "1L_6P_PS2"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-4.06595380412787312E-013, +2.51955969166405794E-012),
+            ),
+            entry_name = topology_name
+        )
 
+
+    mass=1.0
+    topology_name = "1L_6P_PS2_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(1.27623847914047270E-012, + 2.26088552166129903E-012)
+            ),
+            entry_name = topology_name
+        )
+
+    # 2L
+    factory = TopologyGenerator([
+        ('p1', 1, 7), ('p2', 7, 8), ('p3', 8, 1),
+        ('p4', 7, 2), ('p5', 2, 3), ('p6', 3, 4), ('p7', 4, 5), ('p8', 5, 6), ('p9', 6, 8),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+    ])
+
+    mass=0.
     topology_name = "2L_6P_A_PS2"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p4'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None,
+            ),
+            entry_name = topology_name
+        )
 
     mass=1.
-
     topology_name = "2L_6P_A_PS2_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p4'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None,
+            ),
+            entry_name = topology_name
+        )
 
     factory = TopologyGenerator([
         ('p1', 2, 7), ('p2', 7, 8), ('p3', 8, 1), ('p4', 1, 2),
@@ -955,8 +999,6 @@ def load(selected_topologies=None):
         ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
     ])
 
-
-
     rescaling = 1.0
     q1 = vectors.LorentzVector(
         [0.900000000000000E+01, 0.000000000000000E+00, 0.000000000000000E+00, 0.894427190999916E+01]
@@ -976,39 +1018,31 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_B_PS1"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p5'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     mass=0.25
-
     topology_name = "2L_6P_B_PS1_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p5'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     rescaling = 1.0
     q1 = vectors.LorentzVector(
@@ -1029,40 +1063,30 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_B_PS2"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p5'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     mass=1.
-
     topology_name = "2L_6P_B_PS2_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p5'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     factory = TopologyGenerator([
         ('p1', 3, 7), ('p2', 7, 8), ('p3', 8, 1), ('p4', 1, 2), ('p5', 2, 3),
@@ -1070,7 +1094,6 @@ def load(selected_topologies=None):
         ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
     ])
 
-
     rescaling = 1.0
     q1 = vectors.LorentzVector(
         [0.900000000000000E+01, 0.000000000000000E+00, 0.000000000000000E+00, 0.894427190999916E+01]
@@ -1090,39 +1113,30 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_C_PS1"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p6'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p6'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     mass=0.25
-
     topology_name = "2L_6P_C_PS1_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p6'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p6'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     rescaling = 1.0
     q1 = vectors.LorentzVector(
@@ -1143,37 +1157,31 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_C_PS2"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p6'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p6'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     mass=1.
-
     topology_name = "2L_6P_C_PS2_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p6'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p6'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
 
@@ -1182,9 +1190,6 @@ def load(selected_topologies=None):
         ('p5', 7, 2), ('p6', 2, 3), ('p7', 3, 4), ('p8', 4, 5), ('p9', 5, 8),
         ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
     ])
-
-
-
     rescaling = 1.0
     q1 = vectors.LorentzVector(
         [0.900000000000000E+01, 0.000000000000000E+00, 0.000000000000000E+00, 0.894427190999916E+01]
@@ -1204,37 +1209,31 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_D_PS1"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p5'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     mass=0.25
-
     topology_name = "2L_6P_D_PS1_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p5'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
 
@@ -1257,41 +1256,30 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_D_PS2"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p5'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     mass=1.
-
     topology_name = "2L_6P_D_PS2_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p5'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     factory = TopologyGenerator([
         ('p1', 1, 7), ('p2', 7, 6), ('p3', 6, 5), ('p4', 5, 8), ('p5', 8, 1),
@@ -1299,9 +1287,6 @@ def load(selected_topologies=None):
         ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
     ])
 
-
-
-
     rescaling = 1.0
     q1 = vectors.LorentzVector(
         [0.900000000000000E+01, 0.000000000000000E+00, 0.000000000000000E+00, 0.894427190999916E+01]
@@ -1321,38 +1306,31 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_E_PS1"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p6'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p6'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     mass=0.25
-
     topology_name = "2L_6P_E_PS1_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p6'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p6'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     rescaling = 1.0
@@ -1374,39 +1352,31 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_E_PS2"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p6'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p6'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     mass=1.
-
     topology_name = "2L_6P_E_PS2_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p6'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p6'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     factory = TopologyGenerator([
         ('p1', 2, 7), ('p2', 7, 6), ('p3', 6, 5), ('p4', 5, 8), ('p5', 8, 1), ('p6', 1, 2),
@@ -1414,8 +1384,6 @@ def load(selected_topologies=None):
         ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
     ])
 
-
-
     rescaling = 1.0
     q1 = vectors.LorentzVector(
         [0.900000000000000E+01, 0.000000000000000E+00, 0.000000000000000E+00, 0.894427190999916E+01]
@@ -1435,39 +1403,31 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_F_PS1"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p7'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p7'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     mass=0.25
-
     topology_name = "2L_6P_F_PS1_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p7'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p7'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     rescaling = 1.0
     q1 = vectors.LorentzVector(
@@ -1488,49 +1448,30 @@ def load(selected_topologies=None):
     q6 = -q5-q4-q3-q2-q1
 
     mass=0.
-
     topology_name = "2L_6P_F_PS2"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p7'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p7'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     mass=1.
-
     topology_name = "2L_6P_F_PS2_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
-            loop_momenta_names=('p1','p7'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
-
-
-
-    factory = TopologyGenerator([
-        ('p1', 10, 1), ('p2', 1, 2), ('p3', 2, 11), ('p4', 11, 3),  
-        ('p5', 3, 4), ('p6', 4, 10), ('p7', 10, 5), ('p8', 5, 6),
-        ('p9', 6, 7), ('p10', 7, 8), ('p11', 8, 11), 
-        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), 
-        ('q6', 106, 6), ('q7', 107, 7), ('q8', 108, 8)
-    ])
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p7'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     rescaling = 1.0
     q1 = vectors.LorentzVector(
@@ -1556,41 +1497,73 @@ def load(selected_topologies=None):
     )*rescaling
     q8 = -q7-q6-q5-q4-q3-q2-q1
 
+    # 1L
+    factory = TopologyGenerator([
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 7), ('p7', 7, 8), ('p8', 8, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6), ('q7', 107,7), ('q8', 108,8)
+    ])
+
     mass=0.
-
-    topology_name = "2L_8P_PS1"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7':q7, 'q8':q8}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass}, 
-            loop_momenta_names=('p1','p4'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
+    topology_name = "1L_8P_PS1"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7': q7, 'q8':q8}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(4.20915144753003114E-012, -1.95288751055433100E-012),
+            ),
+            entry_name = topology_name
+        )
 
 
     mass=0.25
+    topology_name = "1L_8P_PS1_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7': q7, 'q8':q8}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-1.14718008873370900E-012, -2.70586855351436128E-012),
+            ),
+            entry_name = topology_name
+        )
 
+    # 2L
+    factory = TopologyGenerator([
+        ('p1', 10, 1), ('p2', 1, 2), ('p3', 2, 11), ('p4', 11, 3),  
+        ('p5', 3, 4), ('p6', 4, 10), ('p7', 10, 5), ('p8', 5, 6),
+        ('p9', 6, 7), ('p10', 7, 8), ('p11', 8, 11), 
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), 
+        ('q6', 106, 6), ('q7', 107, 7), ('q8', 108, 8)
+    ])
+
+    mass=0.
+    topology_name = "2L_8P_PS1"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7':q7, 'q8':q8}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
+
+    mass=0.25
     topology_name = "2L_8P_PS1_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7': q7, 'q8':q8}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass}, 
-            loop_momenta_names=('p1','p4'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7': q7, 'q8':q8}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     q1 = vectors.LorentzVector(
         [0.539861111111111E+02, 0.000000000000000E+00, 0.000000000000000E+00, 0.539768486751610E+02]
@@ -1615,55 +1588,74 @@ def load(selected_topologies=None):
     )*rescaling
     q8 = -q7-q6-q5-q4-q3-q2-q1
 
-    mass=0.
-
-    topology_name = "2L_8P_PS2"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7':q7, 'q8':q8}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass}, 
-            loop_momenta_names=('p1','p4'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
-    mass=0.25
-
-    topology_name = "2L_8P_PS2_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7':q7, 'q8':q8}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass}, 
-            loop_momenta_names=('p1','p4'), 
-                # 86.0768134710165628 - 0.0552231059543505382*I +/- ( 0.0858487113390352118 + 0.0297582753855115178*I )
-            analytic_result=complex(-86.07 , 0.0j)
-         ),
-         entry_name = topology_name
-    )
-
-
-
-
-
-
-
-
-
-        
-    rescaling = 1.0
-
+    # 1L
     factory = TopologyGenerator([
-        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),  
-        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 5), ('p8', 5, 6),
-        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5),
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 7), ('p7', 7, 8), ('p8', 8, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6), ('q7', 107,7), ('q8', 108,8)
     ])
+
+    mass=0.
+    topology_name = "1L_8P_PS2"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7': q7, 'q8':q8}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(1.27379153209995714E-019, -8.25671397891757203E-020),
+            ),
+            entry_name = topology_name
+        )
+
+    mass=1.0
+    topology_name = "1L_8P_PS2_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7': q7, 'q8':q8}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-5.68050041076084999E-021, -4.11546542907940264E-020),
+            ),
+            entry_name = topology_name
+        )
+
+    # 2L
+    factory = TopologyGenerator([
+        ('p1', 10, 1), ('p2', 1, 2), ('p3', 2, 11), ('p4', 11, 3),  
+        ('p5', 3, 4), ('p6', 4, 10), ('p7', 10, 5), ('p8', 5, 6),
+        ('p9', 6, 7), ('p10', 7, 8), ('p11', 8, 11), 
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), 
+        ('q6', 106, 6), ('q7', 107, 7), ('q8', 108, 8)
+    ])
+
+    mass=0.
+    topology_name = "2L_8P_PS2"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7':q7, 'q8':q8}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
+
+    mass=1.0
+    topology_name = "2L_8P_PS2_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6, 'q7':q7, 'q8':q8}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
+
+    rescaling = 1.0
 
     q1 = vectors.LorentzVector(
         [0.750000000000000E+01, 0.000000000000000E+00, 0.000000000000000E+00, 0.743303437365925E+01]
@@ -1678,36 +1670,71 @@ def load(selected_topologies=None):
         [0.542550551344167E+01, -0.268481025976676E+00, -0.509288997436551E+01, 0.155772260819559E+01]            
     )*rescaling
     q5 = -q4-q3-q2-q1
-    topology_name = "2L_5P_Planar_PS1"
+
+    # 1L
+    factory = TopologyGenerator([
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5),
+    ])
 
     mass=0.
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
-            loop_momenta_names=('p4','p5'), # If not specified an arbitrary spanning tree will be used for momentum routing 
-            analytic_result=None
-         ),
-         entry_name = topology_name
-    )
-
-        
-
-
-    topology_name = "2L_5P_Planar_PS1_massive"
+    topology_name = "1L_5P_PS1"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5 }, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass }, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-1.51075539128628032E-007, -1.80678677132336518E-006),
+            ),
+            entry_name = topology_name
+        )
 
     mass=0.25
+    topology_name = "1L_5P_PS1_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5 }, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass },  
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-4.83026877573232252E-007, -3.27695172838049434E-006),
+            ),
+            entry_name = topology_name
+        )
 
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
-            loop_momenta_names=('p4','p5'), # If not specified an arbitrary spanning tree will be used for momentum routing 
-            analytic_result=None
-         ),
-         entry_name = topology_name
-    )
+    # 2L
+    factory = TopologyGenerator([
+        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),  
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 5), ('p8', 5, 6),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5),
+    ])
+
+    topology_name = "2L_5P_Planar_PS1"
+    mass=0.
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p4','p5'), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
+
+    topology_name = "2L_5P_Planar_PS1_massive"
+    mass=0.25
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p4','p5'), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     q1 = vectors.LorentzVector(
@@ -1723,53 +1750,79 @@ def load(selected_topologies=None):
         [0.160754655359130E+02, -0.783904683744953E+00, -0.148701022360130E+02, 0.454820240684721E+01]            
     )*rescaling
     q5 = -q4-q3-q2-q1
-    topology_name = "2L_5P_Planar_PS2"
+
+    # 1L
+    factory = TopologyGenerator([
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5),
+    ])
 
     mass=0.
+    topology_name = "1L_5P_PS2"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5 }, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass }, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-6.62401397282335361E-010, -1.23531216614665428E-009),
+            ),
+            entry_name = topology_name
+        )
 
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
-            loop_momenta_names=('p4','p5'), # If not specified an arbitrary spanning tree will be used for momentum routing 
-            analytic_result=None
-         ),
-         entry_name = topology_name
-    )
+    mass=1.0
+    topology_name = "1L_5P_PS2_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5 }, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass },  
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-1.21496673675206204E-009, -1.53816973650855041E-009),
+            ),
+            entry_name = topology_name
+        )
 
-        
+    # 2L
+    factory = TopologyGenerator([
+        ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),  
+        ('p5', 7, 3), ('p6', 3, 4), ('p7', 4, 5), ('p8', 5, 6),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5),
+    ])
 
+    topology_name = "2L_5P_Planar_PS2"
+    mass=0.
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p4','p5'), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     topology_name = "2L_5P_Planar_PS2_massive"
-
     mass=1.
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
-            loop_momenta_names=('p4','p5'), # If not specified an arbitrary spanning tree will be used for momentum routing 
-            analytic_result=None
-         ),
-         entry_name = topology_name
-    )
-
-
-
-
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p4','p5'), # If not specified an arbitrary spanning tree will be used for momentum routing 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     rescaling = 1.0e0
-
     factory = TopologyGenerator([
         ('p1', 1, 6), ('p2', 6, 7), ('p3', 7, 2), ('p4', 2, 1),
         ('p5', 7, 8), ('p6', 8, 9), ('p7', 9, 6),
         ('p8', 8, 3), ('p9', 3, 4), ('p10', 4, 5), ('p11', 5, 9),
         ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5),
     ])
-
     q1 = vectors.LorentzVector(
         [0.149500000000000E+01,    0.000000000000000E+00,    0.000000000000000E+00,    0.149165176901313E+01]
     )*rescaling
@@ -1785,37 +1838,32 @@ def load(selected_topologies=None):
     q5 = -q4-q3-q2-q1
 
     topology_name = "3L_5P_Planar_PS1"
-    
     mass=0.
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name,
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 
-                      'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass},
-            loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
-            analytic_result=None
-         ),
-         entry_name = topology_name
-    )
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name,
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 
+                        'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass},
+                loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     topology_name = "3L_5P_Planar_PS1_massive"
-    
     mass=0.25
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name,
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 
-                      'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass},
-            loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
-            analytic_result=None
-         ),
-         entry_name = topology_name
-    )
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name,
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 
+                        'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass},
+                loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     q1 = vectors.LorentzVector(
         [0.224666666666667E+02, 0.000000000000000E+00, 0.000000000000000E+00, 0.224444004400009E+02]
@@ -1833,58 +1881,37 @@ def load(selected_topologies=None):
 
 
     topology_name = "3L_5P_Planar_PS2"
-    
     mass=0.
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name,
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 
-                      'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass},
-            loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
-            analytic_result=None
-         ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name,
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 
+                        'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass},
+                loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
 
     topology_name = "3L_5P_Planar_PS2_massive"
-    
     mass=1.
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name,
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 
-                      'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass},
-            loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
-            analytic_result=None
-         ),
-         entry_name = topology_name
-    )
-
-
-
-
-
-
-
-
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name,
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5},
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 
+                        'p7': mass, 'p8': mass, 'p9': mass, 'p10': mass, 'p11': mass},
+                loop_momenta_names=('p3','p5','p8'), # If not specified an arbitrary spanning tree will be used for momentum routing
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     mass=0
     rescaling = 1
-
-
-    factory = TopologyGenerator([
-        ('p1', 2, 5), ('p2', 5, 6), ('p3', 6, 1), ('p4', 1, 2),
-        ('p5', 5, 3), ('p6', 3, 4), ('p7', 4, 6),
-        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
-    ])
-
 
     q1 = vectors.LorentzVector(
         [6.0,0.,0.,5.91607978309962]
@@ -1897,31 +1924,70 @@ def load(selected_topologies=None):
     )*rescaling
     q4 = -q1-q2-q3
 
+    # 1L
+    factory = TopologyGenerator([
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+    ])
+
+    mass=0.
+    topology_name = "1L_4P_PS1"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass }, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(5.71928373468859384E-005, -7.24005031692044203E-005),
+            ),
+            entry_name = topology_name
+        )
+
+    mass=0.25
+    topology_name = "1L_4P_PS1_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass }, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(3.02700896981466728E-005, -1.08125136760749764E-004),
+            ),
+            entry_name = topology_name
+        )
+
+    # 2L
+    factory = TopologyGenerator([
+        ('p1', 2, 5), ('p2', 5, 6), ('p3', 6, 1), ('p4', 1, 2),
+        ('p5', 5, 3), ('p6', 3, 4), ('p7', 4, 6),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+    ])
     mass=0.
     topology_name = "2L_4P_Ladder_PS1"
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
-            loop_momenta_names=('p1','p5'), 
-            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(),(q1+q2).square(),(q2+q3).square(),2)
-        ),
-        entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                # Complex[3.110526761263476`*^-8,9.538852709003075`*^-8]
+                analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(),(q1+q2).square(),(q2+q3).square(),2)
+            ),
+            entry_name = topology_name
+        )
 
     mass=0.25
     topology_name = "2L_4P_Ladder_PS1_massive"
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
-            loop_momenta_names=('p1','p5'), 
-            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(),(q1+q2).square(),(q2+q3).square(),2)
-        ),
-        entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
 
     q1 = vectors.LorentzVector(
@@ -1935,40 +2001,69 @@ def load(selected_topologies=None):
     )*rescaling
     q4 = -q1-q2-q3
 
+    # 1L
+    factory = TopologyGenerator([
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+    ])
+    mass=0.
+    topology_name = "1L_4P_PS2"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass }, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(1.55382259557521411E-006, -2.06993924914093002E-006),
+            ),
+            entry_name = topology_name
+        )
+
+    mass=1.0
+    topology_name = "1L_4P_PS2_massive"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass }, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-1.79348897991097843E-007, -2.29184464605969399E-006),
+            ),
+            entry_name = topology_name
+        )
+
+    # 2L
+    factory = TopologyGenerator([
+        ('p1', 2, 5), ('p2', 5, 6), ('p3', 6, 1), ('p4', 1, 2),
+        ('p5', 5, 3), ('p6', 3, 4), ('p7', 4, 6),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+    ])
     mass=0.
     topology_name = "2L_4P_Ladder_PS2"
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
-            loop_momenta_names=('p1','p5'), 
-            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(),(q1+q2).square(),(q2+q3).square(),2)
-        ),
-         entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                # Complex[1.7037231361181443`*^-10,4.564972190075811`*^-10]
+                analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(),(q1+q2).square(),(q2+q3).square(),2)
+            ),
+            entry_name = topology_name
+        )
 
     mass=1.0
     topology_name = "2L_4P_Ladder_PS2_massive"
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
-            loop_momenta_names=('p1','p5'), 
-            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(),(q1+q2).square(),(q2+q3).square(),2)
-        ),
-         entry_name = topology_name
-    )
-
-
-
-
-
-
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
+                loop_momenta_names=('p1','p5'), 
+                analytic_result=None,
+            ),
+            entry_name = topology_name
+        )
 
     factory = TopologyGenerator([
         ('p1', 2, 5), ('p2', 5, 6), ('p3', 6, 1), ('p4', 1, 2),
@@ -1976,7 +2071,6 @@ def load(selected_topologies=None):
         ('p8', 7, 3), ('p9', 3, 4), ('p10', 4, 8),
         ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
     ])
-
     q1 = vectors.LorentzVector(
         [6.0,0.,0.,5.91607978309962]
     )*rescaling 
@@ -1989,42 +2083,35 @@ def load(selected_topologies=None):
     q4 = -q1-q2-q3
 
     mass=0.
-
-
     topology_name = "3L_4P_Ladder_PS1"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 
-                      'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 
-                      'p9': mass, 'p10': mass}, 
-            loop_momenta_names=('p1','p5','p8'), 
-            analytic_result=0.
-        ),
-        entry_name = topology_name
-    )
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 
+                        'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 
+                        'p9': mass, 'p10': mass}, 
+                loop_momenta_names=('p1','p5','p8'), 
+                # Complex[-5.3030947706862534`*^-11,-1.0780299639363004`*^-11]
+                analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(), (q1+q2).square(), (q2+q3).square(), 3)
+            ),
+            entry_name = topology_name
+        )
 
     mass=0.25
-
-
     topology_name = "3L_4P_Ladder_PS1_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 
-                      'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 
-                      'p9': mass, 'p10': mass}, 
-            loop_momenta_names=('p1','p5','p8'), 
-            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(), (q1+q2).square(), (q2+q3).square(), 3)
-        ),
-        entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 
+                        'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 
+                        'p9': mass, 'p10': mass}, 
+                loop_momenta_names=('p1','p5','p8'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     q1 = vectors.LorentzVector(
         [0.149500000000000E+02, 0.000000000000000E+00, 0.000000000000000E+00, 0.149165176901313E+02 ]
@@ -2038,49 +2125,35 @@ def load(selected_topologies=None):
     q4 = -q1-q2-q3
 
     mass=0.
-
     topology_name = "3L_4P_Ladder_PS2"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 
-                      'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 
-                      'p9': mass, 'p10': mass}, 
-            loop_momenta_names=('p1','p5','p8'), 
-            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(), (q1+q2).square(), (q2+q3).square(), 3)
-        ),
-        entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 
+                        'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 
+                        'p9': mass, 'p10': mass}, 
+                loop_momenta_names=('p1','p5','p8'), 
+                # Complex[-4.470474117170373`*^-14,-6.638346523199431`*^-15]
+                analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(), (q1+q2).square(), (q2+q3).square(), 3)
+            ),
+            entry_name = topology_name
+        )
 
     mass=1.
-
     topology_name = "3L_4P_Ladder_PS2_massive"
-
-
-    all_topologies.add_topology(factory.create_loop_topology(
-            topology_name, 
-            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
-            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 
-                      'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 
-                      'p9': mass, 'p10': mass}, 
-            loop_momenta_names=('p1','p5','p8'), 
-            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(), (q1+q2).square(), (q2+q3).square(), 3)
-        ),
-        entry_name = topology_name
-    )
-
-
-
-
-
-
-
-
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 
+                        'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 
+                        'p9': mass, 'p10': mass}, 
+                loop_momenta_names=('p1','p5','p8'), 
+                analytic_result=None
+            ),
+            entry_name = topology_name
+        )
 
     factory = TopologyGenerator([
                     ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),
@@ -2088,8 +2161,7 @@ def load(selected_topologies=None):
                     ('p8', 5, 7), ('p9', 7, 8), ('p10', 8, 6),
                     ('p11', 7, 9), ('p12', 9, 10), ('p13', 10, 8),
                     ('q1', 101,2), ('q2', 102,3), ('q3', 103,9), ('q4', 104,10)])
-    
-            
+     
     q1 = vectors.LorentzVector(
         [6.0,0.,0.,5.91607978309962]
     )*rescaling 
@@ -2102,36 +2174,35 @@ def load(selected_topologies=None):
     q4 = -q1-q2-q3
 
     mass=0.
-  
     topology_name = "4L_4P_Ladder_PS1"
-                
-    all_topologies.add_topology(factory.create_loop_topology(
-        topology_name,
-        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
-        mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
-            'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
-            'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass, 'p13': mass},
-        loop_momenta_names=('p1','p5','p8','p11'),
-        analytic_result=analytic_result,
-        ),
-        entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:     
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
+            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
+                'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
+                'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass, 'p13': mass},
+            loop_momenta_names=('p1','p5','p8','p11'),
+            # Complex[1.1020376702707358`*^-14,-1.4741193204679985`*^-14]
+            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(), (q1+q2).square(), (q2+q3).square(), 4),
+            ),
+            entry_name = topology_name
+        )
 
     mass=0.25
-  
     topology_name = "4L_4P_Ladder_PS1_massive"
-                
-    all_topologies.add_topology(factory.create_loop_topology(
-        topology_name,
-        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
-        mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
-            'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
-            'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass, 'p13': mass},
-        loop_momenta_names=('p1','p5','p8','p11'),
-        analytic_result=analytic_result,
-        ),
-        entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
+            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
+                'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
+                'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass, 'p13': mass},
+            loop_momenta_names=('p1','p5','p8','p11'),
+            analytic_result=None,
+            ),
+            entry_name = topology_name
+        )
 
     q1 = vectors.LorentzVector(
         [0.149500000000000E+02, 0.000000000000000E+00, 0.000000000000000E+00, 0.149165176901313E+02 ]
@@ -2144,43 +2215,36 @@ def load(selected_topologies=None):
     )*rescaling
     q4 = -q1-q2-q3
 
-
     mass=0.
-  
-    topology_name = "4L_4P_Ladder_PS1"
-                
-    all_topologies.add_topology(factory.create_loop_topology(
-        topology_name,
-        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
-        mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
-            'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
-            'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass, 'p13': mass},
-        loop_momenta_names=('p1','p5','p8','p11'),
-        analytic_result=analytic_result,
-        ),
-        entry_name = topology_name
-    )
+    topology_name = "4L_4P_Ladder_PS2"
+    if selected_topologies is None or topology_name in selected_topologies:                
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
+            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
+                'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
+                'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass, 'p13': mass},
+            loop_momenta_names=('p1','p5','p8','p11'),
+            # Complex[1.4474899563458067`*^-18,-2.188966109775833`*^-18]
+            analytic_result=analytic_four_point_ladder(q1.square(),q2.square(),q3.square(),q4.square(), (q1+q2).square(), (q2+q3).square(), 4),
+            ),
+            entry_name = topology_name
+        )
 
     mass=1.
-  
-    topology_name = "4L_4P_Ladder_PS1_massive"
-                
-    all_topologies.add_topology(factory.create_loop_topology(
-        topology_name,
-        ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
-        mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
-            'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
-            'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass, 'p13': mass},
-        loop_momenta_names=('p1','p5','p8','p11'),
-        analytic_result=analytic_result,
-        ),
-        entry_name = topology_name
-    )
-
-
-
-
-
+    topology_name = "4L_4P_Ladder_PS2_massive"
+    if selected_topologies is None or topology_name in selected_topologies:       
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4},
+            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
+                'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
+                'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass, 'p13': mass},
+            loop_momenta_names=('p1','p5','p8','p11'),
+            analytic_result=None,
+            ),
+            entry_name = topology_name
+        )
 
     factory = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 7), ('q3', 103, 9), ('q4', 104, 3),
@@ -2202,37 +2266,34 @@ def load(selected_topologies=None):
     q4 = -q1-q2-q3
 
     mass=0.
-  
-
     topology_name = "FISHNET_2x2_PS1"
-
-    all_topologies.add_topology(factory.create_loop_topology(
-        topology_name,
-        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
-        mass_map={}, # no masses 
-        loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
-        analytic_result = 2.6918653677981387e-14
-        ),
-        entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
+            # Complex[-2.2872050115559266`*^-11,2.5813298062484836`*^-11]
+            analytic_result = complex(-2.2872050115559266e-11, 2.5813298062484836e-11)
+            ),
+            entry_name = topology_name
+        )
                                     
 
     mass=0.25
-  
-
     topology_name = "FISHNET_2x2_PS1_massive"
-
-    all_topologies.add_topology(factory.create_loop_topology(
-        topology_name,
-        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
-        mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
-            'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
-            'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass},
-        loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
-        analytic_result = 2.6918653677981387e-14
-        ),
-        entry_name = topology_name
-    )
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
+            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
+                'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
+                'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass},
+            loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
+            analytic_result = None
+            ),
+            entry_name = topology_name
+        )
                                     
 
     q1 = vectors.LorentzVector(
@@ -2246,47 +2307,33 @@ def load(selected_topologies=None):
     )*rescaling
     q4 = -q1-q2-q3
 
-
     mass=0.
-  
-
     topology_name = "FISHNET_2x2_PS2"
-
-    all_topologies.add_topology(factory.create_loop_topology(
-        topology_name,
-        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
-        mass_map={}, # no masses 
-        loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
-        analytic_result = 2.6918653677981387e-14
-        ),
-        entry_name = topology_name
-    )
-                                    
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
+            mass_map={}, # no masses 
+            loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
+            analytic_result = complex(-1.8967404778606168e-14, 2.4601018170911512e-14)
+            ),
+            entry_name = topology_name
+        )
 
     mass=1.
-  
-
     topology_name = "FISHNET_2x2_PS2_massive"
-
-    all_topologies.add_topology(factory.create_loop_topology(
-        topology_name,
-        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
-        mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
-            'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
-            'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass},
-        loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
-        analytic_result = 2.6918653677981387e-14
-        ),
-        entry_name = topology_name
-    )
-                                    
-
-
-
-
-
-
-
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
+            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
+                'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
+                'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass},
+            loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
+            analytic_result = None
+            ),
+            entry_name = topology_name
+        )
 
     return all_topologies
 
@@ -2294,13 +2341,110 @@ if __name__=='__main__':
     
     args = sys.argv[1:]
 
+    # PS1 / PS2 paper topologies
+    PS1PS2_paper_topologies = [
+'1L_6P_PS1',
+'1L_6P_PS1_massive',
+'1L_6P_PS2',
+'1L_6P_PS2_massive',
+
+'2L_6P_A_PS1',
+'2L_6P_A_PS1_massive',
+'2L_6P_A_PS2',
+'2L_6P_A_PS2_massive',
+
+'2L_6P_B_PS1',
+'2L_6P_B_PS1_massive',
+'2L_6P_B_PS2',
+'2L_6P_B_PS2_massive',
+
+'2L_6P_C_PS1',
+'2L_6P_C_PS1_massive',
+'2L_6P_C_PS2',
+'2L_6P_C_PS2_massive',
+
+'2L_6P_D_PS1',
+'2L_6P_D_PS1_massive',
+'2L_6P_D_PS2',
+'2L_6P_D_PS2_massive',
+
+'2L_6P_E_PS1',
+'2L_6P_E_PS1_massive',
+'2L_6P_E_PS2',
+'2L_6P_E_PS2_massive',
+
+'2L_6P_F_PS1',
+'2L_6P_F_PS1_massive',
+'2L_6P_F_PS2',
+'2L_6P_F_PS2_massive',
+
+'1L_8P_PS1',
+'1L_8P_PS1_massive',
+'1L_8P_PS2',
+'1L_8P_PS2_massive',
+
+'2L_8P_PS1',
+'2L_8P_PS1_massive',
+'2L_8P_PS2',
+'2L_8P_PS2_massive',
+
+'1L_5P_PS1',
+'1L_5P_PS1_massive',
+'1L_5P_PS2',
+'1L_5P_PS2_massive',
+
+'2L_5P_Planar_PS1',
+'2L_5P_Planar_PS1_massive',
+'2L_5P_Planar_PS2',
+'2L_5P_Planar_PS2_massive',
+
+'3L_5P_Planar_PS1',
+'3L_5P_Planar_PS1_massive',
+'3L_5P_Planar_PS2',
+'3L_5P_Planar_PS2_massive',
+
+'1L_4P_PS1',
+'1L_4P_PS1_massive',
+'1L_4P_PS2',
+'1L_4P_PS2_massive',
+
+'2L_4P_Ladder_PS1',
+'2L_4P_Ladder_PS1_massive',
+'2L_4P_Ladder_PS2',
+'2L_4P_Ladder_PS2_massive',
+
+'3L_4P_Ladder_PS1',
+'3L_4P_Ladder_PS1_massive',
+'3L_4P_Ladder_PS2',
+'3L_4P_Ladder_PS2_massive',
+
+'4L_4P_Ladder_PS1',
+'4L_4P_Ladder_PS1_massive',
+'4L_4P_Ladder_PS2',
+'4L_4P_Ladder_PS2_massive',
+
+'FISHNET_2x2_PS1',
+'FISHNET_2x2_PS1_massive',
+'FISHNET_2x2_PS2',
+'FISHNET_2x2_PS2_massive',
+    ]
+
+
     if len(args)==0:
         print("Now processing all topologies...")
-        list_of_selected_topologies = [None,]
+        raw_list_of_selected_topologies = [None,]
     else:
-        list_of_selected_topologies = [ [topology,] for topology in args]
+        raw_list_of_selected_topologies = args
         print("Now processing the following topologies: %s"%(', '.join(args)))
 
+    list_of_selected_topologies = []
+    for topo_name in raw_list_of_selected_topologies:
+        if topo_name == 'PS1PS2_paper':
+            list_of_selected_topologies.append(PS1PS2_paper_topologies)
+        elif topo_name == 'PS1PS2_paper_individual':
+            list_of_selected_topologies.extend([[t,] for t in PS1PS2_paper_topologies])
+        else:
+            list_of_selected_topologies.append([topo_name,])
    
     for selected_topologies in list_of_selected_topologies:
         all_topologies = load(selected_topologies)
