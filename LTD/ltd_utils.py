@@ -735,7 +735,7 @@ def solve_center_problem(id_and_problem):
 class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
-    _cvxpy_threshold = 1.0e-6
+    _cvxpy_threshold = 1.0e-12
 
     def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
         fixed_deformation=None, constant_deformation=None, **opts):
