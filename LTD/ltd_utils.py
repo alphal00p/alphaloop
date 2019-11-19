@@ -1208,8 +1208,6 @@ class LoopTopology(object):
                 del ellipsoids[surf_id]
                 del ellipsoid_param[surf_id]
                 continue
-            print(existence_equation, shift_E)
-            print(result)
             if result > self._cvxpy_threshold*self.get_com_energy():
                 print("WARNING: cvxpy detects the ellipsoid following E-surface to be non-existent even though it does exist!")
                 print('E-surface ID         = %s'%str(surf_id))
