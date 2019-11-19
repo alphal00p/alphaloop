@@ -195,7 +195,8 @@ def combine_results(results, verbose=True, individual_channel_results=True):
     n_tot_points = 0
     for i_channel, channel_result in enumerate(results['channel_results']):
         if verbose and individual_channel_results:
-            print("Result for channel %d = %.8e +/- %.3e"%(i_channel, channel_result[0][0], channel_result[0][1]))
+            print("Result for channel %d = %.8e +/- %.3e (n_points=%.1fM)"%(
+                i_channel, channel_result[0][0], channel_result[0][1],channel_result[1]/1.0e6))
         central += channel_result[0][0]
         error += channel_result[0][1]**2
         n_tot_points += channel_result[1]
@@ -398,11 +399,12 @@ if __name__ == '__main__':
                         analytic_result = topology.analytic_result.imag
                     while (combined_results['error'] / abs(combined_results['central_value'])) > _TARGET_ACCURACY:
                         n_sigmas = abs(combined_results['central_value']-analytic_result)/combined_results['error']
-                        print "%s Current result: %.8e +/- %.8e (%.3g%%) vs %.8e (n_sigmas=%.2g). %s"%(
+                        print "%s Current result: %.8e +/- %.8e (%.3g%%) vs %.8e with n_tot_points=%d (n_sigmas=%.2g) %s"%(
                             Colour.GREEN if n_sigmas < 3.0 else Colour.RED,
                             combined_results['central_value'], combined_results['error'], 
                             (combined_results['error'] / abs(combined_results['central_value']))*100.0,
                             analytic_result,
+                            combined_results['n_tot_points'],
                             n_sigmas,
                             Colour.END
                         )

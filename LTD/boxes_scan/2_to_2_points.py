@@ -223,7 +223,39 @@ p2z)*(p1z*p2z - t))**2 + 2*E1**2*(p1z + p2z)*(M4sq*p1z - M3sq*(2*p1z \
     ]
 
 if __name__ == '__main__':
-    
+   
+#    PS = generate_two_to_two_at_fixed_t_positive_s(0.0,0.0,0.0,0.5,20.0, -3., 0.5)
+#    print ','.join('%.16e'%el for el in PS[0])
+#    print ','.join('%.16e'%el for el in PS[1])
+#    print ','.join('%.16e'%el for el in PS[2])
+#    print ','.join('%.16e'%el for el in PS[3])
+#
+#    print 'p1^2=',PS[0].square()
+#    print 'p2^2=',PS[1].square()
+#    print 'p3^2=',PS[2].square()
+#    print 'p4^2=',PS[3].square()
+#    print 's=',(PS[0]+PS[1]).square()
+#    print 't=',(PS[0]+PS[2]).square()
+#
+#
+#    print '='*80
+#
+#    # s -> 32699861/3610, t -> -(29462251/36461), pp4 -> 323761/361
+#
+#    PS = generate_two_to_two_at_fixed_t_positive_s(0.0,0.0,0.0,323761.0/361.0,32699861.0/3610.0, -(29462251.0/36461.0), 0.5)
+#    print ','.join('%.16e'%el for el in PS[0])
+#    print ','.join('%.16e'%el for el in PS[1])
+#    print ','.join('%.16e'%el for el in PS[2])
+#    print ','.join('%.16e'%el for el in PS[3])
+#
+#    print 'p1^2=',PS[0].square(), 0.
+#    print 'p2^2=',PS[1].square(), 0.
+#    print 'p3^2=',PS[2].square(), 0.
+#    print 'p4^2=',PS[3].square(), 323761.0/361.0
+#    print 's=',(PS[0]+PS[1]).square(), 32699861.0/3610.0
+#    print 't=',(PS[0]+PS[2]).square(), -29462251.0/36461.0
+#
+
 #    print "Hard-coded benchmark points:"
 #    test_PS_point(euclidean_2_to_2_points)
 #    test_PS_point(physical_2_to_2_points)

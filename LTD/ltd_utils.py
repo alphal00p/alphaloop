@@ -998,9 +998,10 @@ class LoopTopology(object):
         pool = multiprocessing.Pool(None) # use all available cores
         signal.signal(signal.SIGINT, original_sigint_handler)
 
-        ellipsoids, ellipsoid_param, delta_param = self.build_existing_ellipsoids(source_coordinates)
+        ellipsoids, ellipsoid_param, delta_param, expansion_threshold = self.build_existing_ellipsoids(source_coordinates)
 
         print('Number of ellipsoids %s: %s' % (self.name, len(ellipsoids)))
+        print('Maximum expansion threshold allowed: %.3g'%expansion_threshold)
 
         self.fixed_deformation = []
 
@@ -1077,7 +1078,8 @@ class LoopTopology(object):
         print('Fixed deformation: %s' % pprint.pformat(self.fixed_deformation))
 
     def build_existing_ellipsoids(self, source_coordinates):
-        # Then store the shifts and mass from each propagator delta
+
+        # Store the shifts and mass from each propagator delta
         deltas = []
         delta_param = []
         for ll in self.loop_lines:
@@ -1097,6 +1099,7 @@ class LoopTopology(object):
         # construct all ellipsoid surfaces
         ellipsoids = {}
         ellipsoid_param = {}
+        ellipsoid_shift_and_masses_in_cut_basis = {}
         for cs in self.ltd_cut_structure:
             for cut in product(*[[(c, i, p) for i, p in enumerate(ll.propagators)] if c != 0 else [(0,-1,None)] for c, ll in zip(cs, self.loop_lines)]):
                 # construct the cut basis to loop momentum basis mapping
@@ -1106,24 +1109,29 @@ class LoopTopology(object):
                 for ll, (cut_sign, cut_prop_index_in_ll, cut_prop) in zip(self.loop_lines, cut):
                     if cut_sign != 0:
                         mat.append(ll.signature)
-                        cut_info.append((cut_sign, cut_prop_count + cut_prop_index_in_ll, cut_prop.q[0]))
+                        cut_info.append((cut_sign, cut_prop_count + cut_prop_index_in_ll, cut_prop.q[0], cut_prop.q.space(), cut_prop.m_squared))
                     cut_prop_count += len(ll.propagators)
                 nmi = numpy.linalg.inv(numpy.array(mat).transpose())
 
                 prop_count = 0
                 for ll, (_, cut_prop_index_in_ll, _) in zip(self.loop_lines, cut):
                     sig_map = nmi.dot(ll.signature)
-
                     eq = 0.
+                    shift_energy = 0.
+                    shift_vector = vectors.Vector([0.,0.,0.])
+                    ellipsoid_masses = []
                     eq_fn = []
                     is_ellipsoid = True
                     surf_sign = None
 
                     sig_sign_map = []
-                    for (sig_sign, (cut_sign, index, shift)) in zip(sig_map, cut_info):
+                    for (sig_sign, (cut_sign, index, shift, shift_v, cut_m_squared)) in zip(sig_map, cut_info):
                         if sig_sign != 0:
                             eq += cut_sign * sig_sign * deltas[index]
                             eq += (-sig_sign) * shift
+                            shift_energy += (-sig_sign) * shift
+                            shift_vector += (-sig_sign) * shift_v
+                            ellipsoid_masses.append(cut_m_squared)
                             eq_fn.append([cut_sign * sig_sign, index, sig_sign * shift])
                             sig_sign_map.append((index, sig_sign))
 
@@ -1148,24 +1156,63 @@ class LoopTopology(object):
                             surf_id = tuple(sorted(surf_id))
 
                             ellipsoid_param[surf_id] = [surf_sign, eq_fn + [(surf_sign, prop_count, -p.q[0])]]
-
                             if surf_sign == -1.:
-                                ellipsoids[surf_id] = eq*-1.0 - p.q[0] + deltas[prop_count]
+                                ellipsoids[surf_id] = eq * -1.0 - p.q[0] + deltas[prop_count]
+                                this_ellipsoid_shift_energy = shift_energy*-1.0 - p.q[0]
+                                this_ellipsoid_shift_vector = shift_vector*-1.0 - p.q.space()
                             else:
                                 ellipsoids[surf_id] = eq + p.q[0] + deltas[prop_count]
+                                this_ellipsoid_shift_energy = shift_energy + p.q[0]
+                                this_ellipsoid_shift_vector = shift_vector + p.q.space()
+                            this_ellipsoid_masses = ellipsoid_masses + [p.m_squared,]
+
+                            ellipsoid_shift_and_masses_in_cut_basis[surf_id] = (this_ellipsoid_shift_energy, this_ellipsoid_shift_vector, this_ellipsoid_masses)
 
                         prop_count += 1
 
+        # We will compute an upper bound on the expansion threshold here
+        expansion_threshold = 1.0
         # Filter non-existing ellipsoids
         for surf_id in list(ellipsoids):
             e = ellipsoids[surf_id]
             p = cvxpy.Problem(cvxpy.Minimize(e), [])
             result = p.solve()
-            if result > -self._cvxpy_threshold*self.get_com_energy():
+            shift_E, shift_v, masses_squared = ellipsoid_shift_and_masses_in_cut_basis[surf_id]
+            mass_term = sum(math.sqrt(m_sq) for m_sq in masses_squared)**2
+            existence_equation = shift_E**2 - shift_v.square() - mass_term
+            if existence_equation < 0. or shift_E > 0:
+                if result < -self._cvxpy_threshold*self.get_com_energy():
+                    print("WARNING: cvxpy detects the ellipsoid for the following E-surface to be existing even though it does not!")
+                    print('> E-surface ID         = %s'%str(surf_id))
+                    print('> E-surface params     = %s'%str(ellipsoid_param[surf_id]))
+                    print("> cvxpy result         = %.6e < %.6e"%(result, -self._cvxpy_threshold*self.get_com_energy()))
+                    print("> shift_E              = %.6e"%shift_E)
+                    print("> shift_v              = (%s)"%(', '.join('%.6e'%v_i for v_i in shift_v)))
+                    print("> masses_squared       = %s"%(', '.join('%.6e'%m_sq_i for m_sq_i in masses_squared)))
+                    print("> existence condition: = %.6e < 0. or shift_E > 0"%existence_equation)
+
+                # This is a non-existing E-surface, update the expansion threshold only if it is non-existing *despite*
+                # the energy shift having the right sign
+                if shift_E < 0.:
+                    max_threshold_for_this_non_existing_ellipsoid = math.sqrt(1.0 - math.sqrt(
+                            1.0 + existence_equation/(shift_v.square() + mass_term)
+                        )
+                    )
+                    expansion_threshold = min(expansion_threshold, max_threshold_for_this_non_existing_ellipsoid)
                 del ellipsoids[surf_id]
                 del ellipsoid_param[surf_id]
+                continue
+            if result > self._cvxpy_threshold*self.get_com_energy():
+                print("WARNING: cvxpy detects the ellipsoid following E-surface to be non-existent even though it does exist!")
+                print('E-surface ID         = %s'%str(surf_id))
+                print('E-surface params     = %s'%str(ellipsoid_param[surf_id]))
+                print("cvxpy result         = %.6e > %.6e "%(result, self._cvxpy_threshold*self.get_com_energy()))
+                print("shift_E              = %.6e"%shift_E)
+                print("shift_v              = (%s)"%(', '.join('%.6e'%v_i for v_i in shift_v)))
+                print("masses_squared       = %s"%(', '.join('%.6e'%m_sq_i for m_sq_i in masses_squared)))
+                print("existence condition: = %.6e > 0."%existence_equation)
 
-        return ellipsoids, ellipsoid_param, delta_param
+        return ellipsoids, ellipsoid_param, delta_param, expansion_threshold
 
     def find_overlap_structure(self, ellipsoid_list, extra_constraints, bottom_up, pool):
         if bottom_up:
