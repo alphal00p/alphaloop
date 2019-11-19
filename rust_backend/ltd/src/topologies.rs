@@ -312,6 +312,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> 
 pub struct FixedDeformationOverlap {
     pub deformation_sources: Vec<LorentzVector<f64>>,
     pub excluded_surface_ids: Vec<Vec<((usize, usize), i8, i8)>>,
+    pub overlap: Option<Vec<usize>>,
     #[serde(skip_deserializing)]
     pub excluded_surface_indices: Vec<usize>,
 }
@@ -335,7 +336,7 @@ pub struct Topology {
     pub analytical_result_real: Option<f64>,
     pub analytical_result_imag: Option<f64>,
     #[serde(default)]
-    pub global_seed: Option<[u8; 32]>, 
+    pub global_seed: Option<[u8; 32]>,
     #[serde(default)]
     pub e_cm_squared: f64,
     #[serde(default)]

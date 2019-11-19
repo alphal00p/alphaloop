@@ -273,8 +273,17 @@ impl Topology {
                                         >= Into::<float>::into(-1e-13 * self.e_cm_squared)
                                         && surface_shift.t.multiply_sign(delta_sign) < float::zero()
                                     {
-                                        let is_pinch = surface_shift.square().abs()
-                                            < Into::<float>::into(1e-13 * self.e_cm_squared);
+                                        let mut is_pinch = false;
+                                        if surface_shift.square().abs()
+                                            < Into::<float>::into(1e-13 * self.e_cm_squared)
+                                        {
+                                            if surface_mass.is_zero() {
+                                                is_pinch = true;
+                                            } else {
+                                                // we do not consider pointlike ellipsoids to exist
+                                                continue;
+                                            }
+                                        }
 
                                         self.surfaces.push(Surface {
                                             group,
@@ -587,6 +596,13 @@ impl Topology {
         // check if the deformation sources satisfy their constraints
         for d_lim in &self.fixed_deformation {
             for d in &d_lim.deformation_per_overlap {
+                if let Some(overlap) = &d.overlap {
+                    if overlap.len() + d.excluded_surface_ids.len() != unique_ellipsoids {
+                        println!("Number of ellipsoids between fixed deformation and Rust is different: {} vs {}",
+                    overlap.len() + d.excluded_surface_ids.len(), unique_ellipsoids);
+                    }
+                }
+
                 let loop_momenta = (0..self.n_loops)
                     .map(|i| d.deformation_sources[i].map(|x| Complex::new(x, 0.)))
                     .collect::<Vec<_>>();
