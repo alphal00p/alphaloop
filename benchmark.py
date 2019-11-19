@@ -194,6 +194,16 @@ class BenchmarkRun3loop(BenchmarkRun):
         self['n_start'] = self.get('n_start', Units.M)
         self['n_increase'] = self.get('n_increase',100*Units.K)
 
+class BenchmarkRunHighloop(BenchmarkRun):
+
+    def __init__(self,*args,**opts):
+        super(BenchmarkRunHighloop, self).__init__(*args,**opts)
+        self['phase'] = self.get('phase','both')        
+        self['samples'] = self.get('samples',Units.B)
+        self['integrator'] = self.get('integrator','vegas')
+        self['n_start'] = self.get('n_start', Units.M)
+        self['n_increase'] = self.get('n_increase',100*Units.K)
+
 class BenchmarkRunNloop(BenchmarkRun):
 
     def __init__(self,*args,**opts):
@@ -314,7 +324,7 @@ class Benchmark(list):
         res.append(BenchmarkRun3loop("T4_TripleBox_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
 
         # 4-loop topologies
-        res.append(BenchmarkRun3loop("T4_Quadruple_Box_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
+        res.append(BenchmarkRunHighloop("T4_Quadruple_Box_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=100*Units.M))
 
         return res
 
@@ -337,9 +347,131 @@ class Benchmark(list):
         res.append(BenchmarkRun3loop("T4_TripleBox_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
  
         # 4-loop topologies
-        res.append(BenchmarkRun3loop("T4_Quadruple_Box_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        res.append(BenchmarkRunHighloop("T4_Quadruple_Box_Weinzierl",n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
 
         return res
+
+    def get_PS1PS2_1loop(self):
+        
+        res = []        
+        PS1PS2_1loop = [
+
+'1L_4P_PS1',
+'1L_4P_PS1_massive',
+'1L_4P_PS2',
+'1L_4P_PS2_massive'
+
+'1L_5P_PS1',
+'1L_5P_PS1_massive',
+'1L_5P_PS2',
+'1L_5P_PS2_massive',
+
+'1L_6P_PS1',
+'1L_6P_PS1_massive',
+'1L_6P_PS2',
+'1L_6P_PS2_massive',
+
+'1L_8P_PS1',
+'1L_8P_PS1_massive',
+'1L_8P_PS2',
+'1L_8P_PS2_massive',
+
+]
+        for topo in PS1PS2_1loop
+            res.append(self.BenchmarkRun1loop(topo, samples=20*Units.M))
+
+    def get_PS1PS2_2loop(self):
+
+        res = []        
+        PS1PS2_2loop = [
+
+'2L_4P_Ladder_PS1',
+'2L_4P_Ladder_PS1_massive',
+'2L_4P_Ladder_PS2',
+'2L_4P_Ladder_PS2_massive',
+
+'2L_5P_Planar_PS1',
+'2L_5P_Planar_PS1_massive',
+'2L_5P_Planar_PS2',
+'2L_5P_Planar_PS2_massive',
+
+'2L_6P_A_PS1',
+'2L_6P_A_PS1_massive',
+'2L_6P_A_PS2',
+'2L_6P_A_PS2_massive',
+
+'2L_6P_B_PS1',
+'2L_6P_B_PS1_massive',
+'2L_6P_B_PS2',
+'2L_6P_B_PS2_massive',
+
+'2L_6P_C_PS1',
+'2L_6P_C_PS1_massive',
+'2L_6P_C_PS2',
+'2L_6P_C_PS2_massive',
+
+'2L_6P_D_PS1',
+'2L_6P_D_PS1_massive',
+'2L_6P_D_PS2',
+'2L_6P_D_PS2_massive',
+
+'2L_6P_E_PS1',
+'2L_6P_E_PS1_massive',
+'2L_6P_E_PS2',
+'2L_6P_E_PS2_massive',
+
+'2L_6P_F_PS1',
+'2L_6P_F_PS1_massive',
+'2L_6P_F_PS2',
+'2L_6P_F_PS2_massive',
+
+#'2L_8P_PS1', # TOO HARD?
+#'2L_8P_PS1_massive', # TOO HARD?
+#'2L_8P_PS2', # TOO HARD?
+#'2L_8P_PS2_massive', # TOO HARD?
+
+]
+        for topo in PS1PS2_2loop
+            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+
+    def get_PS1PS2_3loop(self):
+
+        res = []        
+        PS1PS2_3loop = [
+
+'3L_4P_Ladder_PS1',
+'3L_4P_Ladder_PS1_massive',
+'3L_4P_Ladder_PS2',
+# '3L_4P_Ladder_PS2_massive', # FAILURE OF ECOX SOLVER
+
+'3L_5P_Planar_PS1',
+'3L_5P_Planar_PS1_massive',
+'3L_5P_Planar_PS2',
+# '3L_5P_Planar_PS2_massive', # FAILURE OF ECOX SOLVER
+
+
+]
+        for topo in PS1PS2_3loop
+            res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+
+    def get_PS1PS2_4loop(self):
+
+        res = []        
+        PS1PS2_4loop = [
+
+'4L_4P_Ladder_PS1',
+'4L_4P_Ladder_PS1_massive',
+'4L_4P_Ladder_PS2',
+'4L_4P_Ladder_PS2_massive',
+
+'FISHNET_2x2_PS1',
+'FISHNET_2x2_PS1_massive',
+'FISHNET_2x2_PS2',
+'FISHNET_2x2_PS2_massive',
+
+]
+        for topo in PS1PS2_4loop
+            res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
 
 
 def get_history(history_path):
