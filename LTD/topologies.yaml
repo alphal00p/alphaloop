@@ -18922,7 +18922,7 @@
   maximum_ratio_expansion_threshold: 0.7326135918325728
   n_loops: 2
   name: PRL_physical_BoxBox_fewellipse
-- analytical_result_imag: -5.971433616274931e-13
+- analytical_result_imag: 5.971433616274931e-13
   analytical_result_real: -0.0
   constant_deformation:
     alpha:
