@@ -652,7 +652,8 @@ impl Topology {
     pub fn get_expansion_threshold(&self) -> f64 {
         match self.settings.deformation.scaling.expansion_check_strategy {
             ExpansionCheckStrategy::Ratio => {
-                if self.settings.deformation.scaling.expansion_threshold < 0. {
+                if (self.settings.deformation.scaling.expansion_threshold < 0. || 
+                    self.maximum_ratio_expansion_threshold < 0. ) {
                     self.settings.deformation.scaling.expansion_threshold.abs()
                 } else {
                     self.settings.deformation.scaling.expansion_threshold*self.maximum_ratio_expansion_threshold

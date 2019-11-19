@@ -136,32 +136,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 1.466567426255647
-        - -5.140763478090166
-        - 3.186166725148569e-20
-      excluded_surface_ids:
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 3
-          - 1
-          - -1
-      - - - - 0
-            - 2
-          - 1
-          - 1
-        - - - 0
-            - 3
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 1
-      radius: 4.59973216770996
-    - deformation_sources:
-      - - 0.0
         - -3.08528616817606
         - -39.61935072882065
         - -6.256542048590877e-18
@@ -186,6 +160,32 @@
       - 2
       - 3
       radius: 6.098745922921185
+    - deformation_sources:
+      - - 0.0
+        - 1.466567426255647
+        - -5.140763478090166
+        - 3.186166725148569e-20
+      excluded_surface_ids:
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 3
+          - 1
+          - -1
+      - - - - 0
+            - 2
+          - 1
+          - 1
+        - - - 0
+            - 3
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 1
+      radius: 4.59973216770996
     - deformation_sources:
       - - 0.0
         - 28.060606025895375
@@ -427,7 +427,7 @@
     start_node: 4
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: Box_4E_no_z_component_sources
 - analytical_result_imag: -2.810236005086342e-08
@@ -464,33 +464,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 12.184831453566837
-        - -7.572305843782691
-        - -5.711925646065123e-10
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 1
-      - 4
-      radius: 2.7873061470938216
-    - deformation_sources:
-      - - 0.0
         - -0.6671149568511696
         - -4.919365800633961
         - -1.6108762592511014e-08
@@ -516,6 +489,33 @@
       - 2
       - 4
       radius: 1.5390237670683775
+    - deformation_sources:
+      - - 0.0
+        - 12.184831453566837
+        - -7.572305843782691
+        - -5.711925646065123e-10
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 1
+      - 4
+      radius: 2.7873061470938216
     - deformation_sources:
       - - 0.0
         - -2.54052964447325
@@ -640,33 +640,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 4.989101302805041
-        - -21.633948798946385
-        - 2.8522645598670134e-10
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      - - - - 0
-            - 0
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      overlap:
-      - 1
-      - 3
-      - 4
-      radius: 3.7601357576598295
-    - deformation_sources:
-      - - 0.0
         - -2.54052964447325
         - -19.11343561902814
         - -1.4476103286025945e-09
@@ -692,6 +665,33 @@
       - 3
       - 4
       radius: 2.262431628277168
+    - deformation_sources:
+      - - 0.0
+        - 12.184831453566837
+        - -7.572305843782691
+        - -5.711925646065123e-10
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 1
+      - 4
+      radius: 2.7873061470938216
     - deformation_sources:
       - - 0.0
         - -0.6671149568511696
@@ -721,10 +721,18 @@
       radius: 1.5390237670683775
     - deformation_sources:
       - - 0.0
-        - 12.184831453566837
-        - -7.572305843782691
-        - -5.711925646065123e-10
+        - 4.989101302805041
+        - -21.633948798946385
+        - 2.8522645598670134e-10
       excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
       - - - - 0
             - 0
           - 1
@@ -733,19 +741,11 @@
             - 2
           - 1
           - -1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
       overlap:
-      - 0
       - 1
+      - 3
       - 4
-      radius: 2.7873061470938216
+      radius: 3.7601357576598295
     excluded_propagators: []
   loop_lines:
   - end_node: 4
@@ -843,9 +843,9 @@
       radius: 15.390237661812215
     - deformation_sources:
       - - 0.0
-        - -25.405089206537504
-        - -191.13433151858365
-        - -1.6352721577833123e-08
+        - 49.89131969917946
+        - -216.33961724304828
+        - -1.2780467425290779e-11
       excluded_surface_ids:
       - - - - 0
             - 0
@@ -856,18 +856,18 @@
           - 1
           - 1
       - - - - 0
-            - 1
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 2
           - 1
           - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
       overlap:
-      - 2
+      - 1
       - 3
       - 4
-      radius: 22.624316210655827
+      radius: 37.60135757464966
     - deformation_sources:
       - - 0.0
         - 121.84831450341159
@@ -897,9 +897,9 @@
       radius: 27.873061461242052
     - deformation_sources:
       - - 0.0
-        - 49.89131969917946
-        - -216.33961724304828
-        - -1.2780467425290779e-11
+        - -25.405089206537504
+        - -191.13433151858365
+        - -1.6352721577833123e-08
       excluded_surface_ids:
       - - - - 0
             - 0
@@ -910,18 +910,18 @@
           - 1
           - 1
       - - - - 0
-            - 0
-          - 1
-          - 1
-        - - - 0
-            - 2
+            - 1
           - 1
           - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
       overlap:
-      - 1
+      - 2
       - 3
       - 4
-      radius: 37.60135757464966
+      radius: 22.624316210655827
     excluded_propagators: []
   loop_lines:
   - end_node: 4
@@ -1019,33 +1019,6 @@
       radius: 376.01357575775535
     - deformation_sources:
       - - 0.0
-        - -66.71149800852528
-        - -491.93657426319413
-        - -2.431711472655973e-06
-      excluded_surface_ids:
-      - - - - 0
-            - 1
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 2
-      - 4
-      radius: 153.9023780241435
-    - deformation_sources:
-      - - 0.0
         - -254.05175978115756
         - -1911.343419171295
         - 8.902547366115563e-08
@@ -1071,6 +1044,33 @@
       - 3
       - 4
       radius: 226.24316255953528
+    - deformation_sources:
+      - - 0.0
+        - -66.71149800852528
+        - -491.93657426319413
+        - -2.431711472655973e-06
+      excluded_surface_ids:
+      - - - - 0
+            - 1
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 2
+      - 4
+      radius: 153.9023780241435
     - deformation_sources:
       - - 0.0
         - 1218.4831453518939
@@ -1222,33 +1222,6 @@
       radius: 1539.0237769171072
     - deformation_sources:
       - - 0.0
-        - 12184.831464939758
-        - -7572.305840185472
-        - 1.9194583313656977e-06
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 1
-      - 4
-      radius: 2787.3061477275905
-    - deformation_sources:
-      - - 0.0
         - -2540.5200483836816
         - -19113.434522026026
         - -1.0373135092194698e-05
@@ -1274,6 +1247,33 @@
       - 3
       - 4
       radius: 2262.4316275682363
+    - deformation_sources:
+      - - 0.0
+        - 12184.831464939758
+        - -7572.305840185472
+        - 1.9194583313656977e-06
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 1
+      - 4
+      radius: 2787.3061477275905
     excluded_propagators: []
   loop_lines:
   - end_node: 4
@@ -1344,60 +1344,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - -25405.175114823534
-        - -191134.34663265053
-        - 2.186209891932762e-05
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      - - - - 0
-            - 1
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      overlap:
-      - 2
-      - 3
-      - 4
-      radius: 22624.316236418563
-    - deformation_sources:
-      - - 0.0
-        - 121848.31406969034
-        - -75723.05863756679
-        - 2.6082679737711337e-05
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 1
-      - 4
-      radius: 27873.061298059045
-    - deformation_sources:
-      - - 0.0
         - 49891.40391846054
         - -216339.65275039972
         - -6.523547602069192e-06
@@ -1450,6 +1396,60 @@
       - 2
       - 4
       radius: 15390.237340307023
+    - deformation_sources:
+      - - 0.0
+        - 121848.31406969034
+        - -75723.05863756679
+        - 2.6082679737711337e-05
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 1
+      - 4
+      radius: 27873.061298059045
+    - deformation_sources:
+      - - 0.0
+        - -25405.175114823534
+        - -191134.34663265053
+        - 2.186209891932762e-05
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      - - - - 0
+            - 1
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      overlap:
+      - 2
+      - 3
+      - 4
+      radius: 22624.316236418563
     excluded_propagators: []
   loop_lines:
   - end_node: 4
@@ -1547,33 +1547,6 @@
       radius: 0.1539023768918478
     - deformation_sources:
       - - 0.0
-        - 1.2184831444370514
-        - -0.7572305846639247
-        - 1.708198188776012e-10
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 1
-      - 4
-      radius: 0.2787306147459824
-    - deformation_sources:
-      - - 0.0
         - 0.49890904902512806
         - -2.1633944244641685
         - -1.3580375048057547e-12
@@ -1599,6 +1572,33 @@
       - 3
       - 4
       radius: 0.37601357601544416
+    - deformation_sources:
+      - - 0.0
+        - 1.2184831444370514
+        - -0.7572305846639247
+        - 1.708198188776012e-10
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 1
+      - 4
+      radius: 0.2787306147459824
     - deformation_sources:
       - - 0.0
         - -0.2540517949454327
@@ -1723,6 +1723,33 @@
       radius: 0.037601357620031146
     - deformation_sources:
       - - 0.0
+        - -0.0066711484406813265
+        - -0.0491936597446846
+        - -1.64721876338581e-11
+      excluded_surface_ids:
+      - - - - 0
+            - 1
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 2
+      - 4
+      radius: 0.015390237804825114
+    - deformation_sources:
+      - - 0.0
         - 0.12184831528119401
         - -0.07572305816727623
         - 2.7857467153792886e-11
@@ -1775,33 +1802,6 @@
       - 3
       - 4
       radius: 0.022624318635755626
-    - deformation_sources:
-      - - 0.0
-        - -0.0066711484406813265
-        - -0.0491936597446846
-        - -1.64721876338581e-11
-      excluded_surface_ids:
-      - - - - 0
-            - 1
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 2
-      - 4
-      radius: 0.015390237804825114
     excluded_propagators: []
   loop_lines:
   - end_node: 4
@@ -1870,6 +1870,33 @@
     - -0.0
   fixed_deformation:
   - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - -0.0025402994864157542
+        - -0.019113440824595568
+        - 1.0394907563696992e-14
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      - - - - 0
+            - 1
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      overlap:
+      - 2
+      - 3
+      - 4
+      radius: 0.002262434342515761
     - deformation_sources:
       - - 0.0
         - 0.012184830584373795
@@ -1951,33 +1978,6 @@
       - 2
       - 4
       radius: 0.0015390239626029759
-    - deformation_sources:
-      - - 0.0
-        - -0.0025402994864157542
-        - -0.019113440824595568
-        - 1.0394907563696992e-14
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      - - - - 0
-            - 1
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      overlap:
-      - 2
-      - 3
-      - 4
-      radius: 0.002262434342515761
     excluded_propagators: []
   loop_lines:
   - end_node: 4
@@ -2075,33 +2075,6 @@
       radius: 0.0002787306637355744
     - deformation_sources:
       - - 0.0
-        - -6.686487225699954e-05
-        - -0.0004916895580830383
-        - -3.375025357386696e-09
-      excluded_surface_ids:
-      - - - - 0
-            - 1
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 2
-      - 4
-      radius: 0.00015390355266840035
-    - deformation_sources:
-      - - 0.0
         - 0.0004988973341799684
         - -0.0021633895319267244
         - 3.8999264154097103e-14
@@ -2154,6 +2127,33 @@
       - 3
       - 4
       radius: 0.00022624330713063337
+    - deformation_sources:
+      - - 0.0
+        - -6.686487225699954e-05
+        - -0.0004916895580830383
+        - -3.375025357386696e-09
+      excluded_surface_ids:
+      - - - - 0
+            - 1
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 2
+      - 4
+      radius: 0.00015390355266840035
     excluded_propagators: []
   loop_lines:
   - end_node: 4
@@ -2413,6 +2413,62 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - -2.2422418110978622e-14
+        - -3.877921500690579e-15
+        - -2.4696020995351317e-10
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      radius: 0.24999999970967263
+    excluded_propagators:
+    - - 2
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - -2.2422418110978622e-14
+        - -3.877921500690579e-15
+        - -2.4696020995351317e-10
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      radius: 0.24999999970967263
+    excluded_propagators:
+    - - 2
+      - 2
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
         - -2.5261455935257197e-20
         - -3.5511107120324074e-20
         - -0.05000000000004516
@@ -2441,13 +2497,13 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
+        - -2.5261455935257197e-20
+        - -3.5511107120324074e-20
+        - -0.05000000000004516
       - - 0.0
-        - -2.2422418110978622e-14
-        - -3.877921500690579e-15
-        - -2.4696020995351317e-10
+        - 0.0
+        - 0.0
+        - 0.0
       excluded_surface_ids: []
       overlap:
       - 0
@@ -2462,37 +2518,9 @@
       - 9
       - 10
       - 11
-      radius: 0.24999999970967263
+      radius: 0.2999999999998075
     excluded_propagators:
-    - - 2
-      - 0
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
-      - - 0.0
-        - -2.2422418110978622e-14
-        - -3.877921500690579e-15
-        - -2.4696020995351317e-10
-      excluded_surface_ids: []
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
-      - 10
-      - 11
-      radius: 0.24999999970967263
-    excluded_propagators:
-    - - 2
+    - - 0
       - 2
   - deformation_per_overlap:
     - deformation_sources:
@@ -2522,34 +2550,6 @@
     excluded_propagators:
     - - 2
       - 1
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
-        - -2.5261455935257197e-20
-        - -3.5511107120324074e-20
-        - -0.05000000000004516
-      - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
-      excluded_surface_ids: []
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
-      - 10
-      - 11
-      radius: 0.2999999999998075
-    excluded_propagators:
-    - - 0
-      - 2
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -2708,13 +2708,13 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
-      - - 0.0
         - 2.3332148955937344e-17
         - -3.462512648927647e-17
         - -7.171267428910202e-17
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
       excluded_surface_ids: []
       overlap:
       - 0
@@ -2723,8 +2723,8 @@
       - 3
       radius: 0.49999999999139805
     excluded_propagators:
-    - - 0
-      - 1
+    - - 2
+      - 0
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -2744,7 +2744,7 @@
       radius: 0.49999999999139805
     excluded_propagators:
     - - 0
-      - 0
+      - 1
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -2768,13 +2768,13 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
         - 2.3332148955937344e-17
         - -3.462512648927647e-17
         - -7.171267428910202e-17
-      - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
       excluded_surface_ids: []
       overlap:
       - 0
@@ -2783,7 +2783,7 @@
       - 3
       radius: 0.49999999999139805
     excluded_propagators:
-    - - 2
+    - - 0
       - 0
   - deformation_per_overlap:
     - deformation_sources:
@@ -14332,45 +14332,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 8.115521464896307
-        - -37.46533858768105
-        - -1.1711309820064875e-18
-      excluded_surface_ids:
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 3
-          - 1
-          - -1
-      - - - - 0
-            - 3
-          - 1
-          - -1
-        - - - 0
-            - 5
-          - 1
-          - 1
-      - - - - 0
-            - 4
-          - 1
-          - -1
-        - - - 0
-            - 5
-          - 1
-          - 1
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 7
-      - 9
-      radius: 6.457329370098939
-    - deformation_sources:
-      - - 0.0
         - -6.879591753756418
         - -68.51178805340435
         - 9.405204937588866e-17
@@ -14408,6 +14369,45 @@
       - 5
       - 7
       radius: 6.157254610266891
+    - deformation_sources:
+      - - 0.0
+        - 8.115521464896307
+        - -37.46533858768105
+        - -1.1711309820064875e-18
+      excluded_surface_ids:
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 3
+          - 1
+          - -1
+      - - - - 0
+            - 3
+          - 1
+          - -1
+        - - - 0
+            - 5
+          - 1
+          - 1
+      - - - - 0
+            - 4
+          - 1
+          - -1
+        - - - 0
+            - 5
+          - 1
+          - 1
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 7
+      - 9
+      radius: 6.457329370098939
     - deformation_sources:
       - - 0.0
         - 21.0368524014686
@@ -15635,44 +15635,6 @@
       radius: 2.5426262273096256
     - deformation_sources:
       - - 0.0
-        - -54.81421570988634
-        - 70.29341501826745
-        - -1.2194478459844324e-16
-      excluded_surface_ids:
-      - - - - 0
-            - 2
-          - 1
-          - 1
-        - - - 0
-            - 3
-          - 1
-          - -1
-      - - - - 0
-            - 3
-          - 1
-          - 1
-        - - - 0
-            - 4
-          - 1
-          - -1
-      - - - - 0
-            - 0
-          - 1
-          - 1
-        - - - 0
-            - 5
-          - 1
-          - -1
-      overlap:
-      - 0
-      - 1
-      - 3
-      - 4
-      - 5
-      - 8
-      radius: 0.30646636815479317
-    - deformation_sources:
-      - - 0.0
         - -4.678782379468517
         - 93.91639857805467
         - 2.3207535381792242e-08
@@ -15709,6 +15671,44 @@
       - 4
       - 5
       radius: 4.007638428677227
+    - deformation_sources:
+      - - 0.0
+        - -54.81421570988634
+        - 70.29341501826745
+        - -1.2194478459844324e-16
+      excluded_surface_ids:
+      - - - - 0
+            - 2
+          - 1
+          - 1
+        - - - 0
+            - 3
+          - 1
+          - -1
+      - - - - 0
+            - 3
+          - 1
+          - 1
+        - - - 0
+            - 4
+          - 1
+          - -1
+      - - - - 0
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 5
+          - 1
+          - -1
+      overlap:
+      - 0
+      - 1
+      - 3
+      - 4
+      - 5
+      - 8
+      radius: 0.30646636815479317
     excluded_propagators: []
   loop_lines:
   - end_node: 6
@@ -18010,6 +18010,34 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
+        - -0.18372089128826002
+        - 0.060407706017710505
+        - 0.1274764581919497
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      radius: 0.07105116208079858
+    excluded_propagators:
+    - - 1
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
         - -0.1685597242610355
         - 0.05618528049361887
         - 0.1185500173056588
@@ -18064,34 +18092,6 @@
     excluded_propagators:
     - - 2
       - 2
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
-        - -0.18372089128826002
-        - 0.060407706017710505
-        - 0.1274764581919497
-      - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
-      excluded_surface_ids: []
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      - 8
-      - 9
-      - 10
-      - 11
-      radius: 0.07105116208079858
-    excluded_propagators:
-    - - 1
-      - 0
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -18326,24 +18326,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
-      - - 0.0
-        - 0.14454999999772325
-        - 0.2637999999954855
-        - 0.05949999999913237
-      excluded_surface_ids: []
-      overlap:
-      - 0
-      - 1
-      radius: 0.4484283154385266
-    excluded_propagators:
-    - - 0
-      - 2
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
         - -0.1445499999997375
         - -0.26379999999806336
         - -0.05950000000039979
@@ -18388,6 +18370,24 @@
     excluded_propagators:
     - - 0
       - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.14454999999772325
+        - 0.2637999999954855
+        - 0.05949999999913237
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      radius: 0.4484283154385266
+    excluded_propagators:
+    - - 0
+      - 2
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -18627,48 +18627,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 0.4333
-        - -0.291
-        - 0.2813
-      - - 0.0
-        - 9.252177781553934e-12
-        - 9.352164208479384e-12
-        - 1.865305930996382e-12
-      excluded_surface_ids:
-      - - - - 0
-            - 2
-          - 1
-          - 1
-        - - - 1
-            - 0
-          - 1
-          - -1
-        - - - 2
-            - 2
-          - 1
-          - 1
-      - - - - 0
-            - 0
-          - 1
-          - -1
-        - - - 0
-            - 2
-          - 1
-          - 1
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      radius: 0.008037700542343111
-    excluded_propagators:
-    - - 0
-      - 1
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
         - 0.2891
         - -0.4372
         - 0.012
@@ -18708,6 +18666,48 @@
     excluded_propagators:
     - - 0
       - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.4333
+        - -0.291
+        - 0.2813
+      - - 0.0
+        - 9.252177781553934e-12
+        - 9.352164208479384e-12
+        - 1.865305930996382e-12
+      excluded_surface_ids:
+      - - - - 0
+            - 2
+          - 1
+          - 1
+        - - - 1
+            - 0
+          - 1
+          - -1
+        - - - 2
+            - 2
+          - 1
+          - 1
+      - - - - 0
+            - 0
+          - 1
+          - -1
+        - - - 0
+            - 2
+          - 1
+          - 1
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      radius: 0.008037700542343111
+    excluded_propagators:
+    - - 0
+      - 1
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -19369,43 +19369,6 @@
       radius: 2.9355389326095365
     - deformation_sources:
       - - 0.0
-        - 28.286657988134703
-        - 0.8253593967077208
-        - 3.283048491866602e-09
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - 1
-        - - - 0
-            - 1
-          - 1
-          - -1
-      - - - - 0
-            - 1
-          - 1
-          - 1
-        - - - 0
-            - 2
-          - 1
-          - -1
-      - - - - 0
-            - 2
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      overlap:
-      - 0
-      - 2
-      - 3
-      - 6
-      - 7
-      radius: 3.333681420924147
-    - deformation_sources:
-      - - 0.0
         - -0.765209618209008
         - 6.667163316230527
         - -3.8178370761826814e-13
@@ -19478,6 +19441,43 @@
       - 4
       - 6
       radius: 3.6642297363342218
+    - deformation_sources:
+      - - 0.0
+        - 28.286657988134703
+        - 0.8253593967077208
+        - 3.283048491866602e-09
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 1
+          - 1
+          - -1
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 0
+            - 2
+          - 1
+          - -1
+      - - - - 0
+            - 2
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      overlap:
+      - 0
+      - 2
+      - 3
+      - 6
+      - 7
+      radius: 3.333681420924147
     excluded_propagators: []
   loop_lines:
   - end_node: 5
@@ -19594,42 +19594,6 @@
       radius: 0.08594537403435941
     - deformation_sources:
       - - 0.0
-        - -0.40525275100777103
-        - -0.8881055562049718
-        - -0.641484684785915
-      excluded_surface_ids:
-      - - - - 0
-            - 0
-          - 1
-          - -1
-        - - - 0
-            - 3
-          - 1
-          - 1
-      - - - - 0
-            - 0
-          - 1
-          - -1
-        - - - 0
-            - 4
-          - 1
-          - 1
-      - - - - 0
-            - 3
-          - 1
-          - 1
-        - - - 0
-            - 4
-          - 1
-          - -1
-      overlap:
-      - 2
-      - 3
-      - 4
-      - 5
-      radius: 0.03381656405075921
-    - deformation_sources:
-      - - 0.0
         - 1.40910017515794
         - -0.5653001313935327
         - 2.2068173341426633
@@ -19666,33 +19630,40 @@
       radius: 0.14406678955978908
     - deformation_sources:
       - - 0.0
-        - 0.6639447122550579
-        - 0.611517168748068
-        - 0.7070109922017547
+        - -0.40525275100777103
+        - -0.8881055562049718
+        - -0.641484684785915
       excluded_surface_ids:
       - - - - 0
             - 0
-          - 1
-          - 1
-        - - - 0
-            - 1
-          - 1
-          - -1
-      - - - - 0
-            - 2
           - 1
           - -1
         - - - 0
             - 3
           - 1
           - 1
+      - - - - 0
+            - 0
+          - 1
+          - -1
+        - - - 0
+            - 4
+          - 1
+          - 1
+      - - - - 0
+            - 3
+          - 1
+          - 1
+        - - - 0
+            - 4
+          - 1
+          - -1
       overlap:
-      - 0
-      - 1
+      - 2
       - 3
       - 4
-      - 6
-      radius: 0.0378530828180424
+      - 5
+      radius: 0.03381656405075921
     - deformation_sources:
       - - 0.0
         - 0.005679028822033077
@@ -19722,6 +19693,35 @@
       - 3
       - 4
       radius: 0.0609123260751782
+    - deformation_sources:
+      - - 0.0
+        - 0.6639447122550579
+        - 0.611517168748068
+        - 0.7070109922017547
+      excluded_surface_ids:
+      - - - - 0
+            - 0
+          - 1
+          - 1
+        - - - 0
+            - 1
+          - 1
+          - -1
+      - - - - 0
+            - 2
+          - 1
+          - -1
+        - - - 0
+            - 3
+          - 1
+          - 1
+      overlap:
+      - 0
+      - 1
+      - 3
+      - 4
+      - 6
+      radius: 0.0378530828180424
     excluded_propagators: []
   loop_lines:
   - end_node: 5
@@ -19867,7 +19867,7 @@
       radius: 14.524407558010083
     excluded_propagators:
     - - 0
-      - 0
+      - 1
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -19887,7 +19887,7 @@
       radius: 14.524407558010083
     excluded_propagators:
     - - 0
-      - 1
+      - 0
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -20121,6 +20121,46 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
+        - 0.0
+        - 0.0
+        - 47.587112858938056
+      - - 0.0
+        - 6.410971784842961
+        - 11.104121536955054
+        - -17.214205305442146
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      radius: 14.524407554307501
+    excluded_propagators:
+    - - 0
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 47.587112858938056
+      - - 0.0
+        - 6.410971784842961
+        - 11.104121536955054
+        - -17.214205305442146
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      radius: 14.524407554307501
+    excluded_propagators:
+    - - 0
+      - 1
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
         - 7.154070154027468e-15
         - -3.058319694111807e-15
         - 47.587112858938056
@@ -20141,26 +20181,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 0.0
-        - 0.0
-        - 47.587112858938056
-      - - 0.0
-        - 6.410971784842961
-        - 11.104121536955054
-        - -17.214205305442146
-      excluded_surface_ids: []
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      radius: 14.524407554307501
-    excluded_propagators:
-    - - 0
-      - 1
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
         - 6.411031042471253
         - 11.104239608804964
         - 30.372651644002012
@@ -20177,26 +20197,6 @@
       radius: 14.52440755579502
     excluded_propagators:
     - - 2
-      - 0
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
-        - 0.0
-        - 0.0
-        - 47.587112858938056
-      - - 0.0
-        - 6.410971784842961
-        - 11.104121536955054
-        - -17.214205305442146
-      excluded_surface_ids: []
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      radius: 14.524407554307501
-    excluded_propagators:
-    - - 0
       - 0
   - deformation_per_overlap:
     - deformation_sources:
@@ -20385,7 +20385,7 @@
       radius: 1.5920644023373223
     excluded_propagators:
     - - 0
-      - 1
+      - 0
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -20403,7 +20403,7 @@
       radius: 1.5920644023373223
     excluded_propagators:
     - - 0
-      - 0
+      - 1
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -20605,7 +20605,7 @@
       radius: 1.592064402337268
     excluded_propagators:
     - - 0
-      - 1
+      - 0
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -20623,7 +20623,7 @@
       radius: 1.592064402337268
     excluded_propagators:
     - - 0
-      - 0
+      - 1
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -20825,7 +20825,7 @@
       radius: 0.8499011821476652
     excluded_propagators:
     - - 0
-      - 1
+      - 0
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -20843,7 +20843,7 @@
       radius: 0.8499011821476652
     excluded_propagators:
     - - 0
-      - 0
+      - 1
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -21269,7 +21269,7 @@
     - -1
     - 1
     - 0
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: TriangleBoxTriangle_physical
 - analytical_result_imag: 0.0
@@ -21306,54 +21306,6 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - -1.8850725486874681e-16
-        - -2.0259516935935268e-16
-        - 4.773444106590041e-16
-      - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
-      excluded_surface_ids: []
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      radius: 0.14999999999855215
-    excluded_propagators:
-    - - 2
-      - 2
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
-        - -1.8850725486874681e-16
-        - -2.0259516935935268e-16
-        - 4.773444106590041e-16
-      - - 0.0
-        - 0.0
-        - 0.0
-        - 0.0
-      excluded_surface_ids: []
-      overlap:
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 6
-      - 7
-      radius: 0.14999999999855215
-    excluded_propagators:
-    - - 2
-      - 0
-  - deformation_per_overlap:
-    - deformation_sources:
-      - - 0.0
         - 1.0201685711888453e-13
         - -1.2567489163486366e-13
         - -0.0999973233824681
@@ -21375,6 +21327,54 @@
     excluded_propagators:
     - - 2
       - 1
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - -1.8850725486874681e-16
+        - -2.0259516935935268e-16
+        - 4.773444106590041e-16
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      radius: 0.14999999999855215
+    excluded_propagators:
+    - - 2
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - -1.8850725486874681e-16
+        - -2.0259516935935268e-16
+        - 4.773444106590041e-16
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      radius: 0.14999999999855215
+    excluded_propagators:
+    - - 2
+      - 2
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
@@ -21704,7 +21704,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_6pt_Weinzierl_a
 - analytical_result_imag: 0.0
@@ -21818,7 +21818,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_6pt_Weinzierl_b
 - analytical_result_imag: 0.0
@@ -21932,7 +21932,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_6pt_Weinzierl_c
 - analytical_result_imag: 0.0
@@ -22046,7 +22046,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_6pt_Weinzierl_d
 - analytical_result_imag: 0.0
@@ -22160,7 +22160,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_6pt_Weinzierl_e
 - analytical_result_imag: 0.0
@@ -22274,7 +22274,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_6pt_Weinzierl_f
 - analytical_result_imag: 0.0
@@ -22348,7 +22348,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_AltDoubleTriangle
 - analytical_result_imag: -2.38766e-10
@@ -22403,7 +22403,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box
 - analytical_result_imag: -0.006121783574538727
@@ -22458,7 +22458,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_1_cutgroup
 - analytical_result_imag: 0.036222411886952535
@@ -22513,7 +22513,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_1_ellipse_v2
 - analytical_result_imag: 0.054445896486842775
@@ -22568,7 +22568,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_2_ellipse_intersection
 - analytical_result_imag: 0.003472591018673251
@@ -22623,7 +22623,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_2_ellipse_standing_near
 - analytical_result_imag: -0.1455948963560482
@@ -22678,7 +22678,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_P1
 - analytical_result_imag: -0.07954982544395878
@@ -22733,7 +22733,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_P2
 - analytical_result_imag: -0.0002364952092761439
@@ -22788,7 +22788,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_P3_large_external_masses
 - analytical_result_imag: -0.0014382344141782378
@@ -22843,7 +22843,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_P4_close_to_collinear_singularity
 - analytical_result_imag: 0.0
@@ -22898,7 +22898,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_P5_very_close_to_collinear_singularity
 - analytical_result_imag: 0.036222411886952535
@@ -22953,7 +22953,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_RodrigoFail
 - analytical_result_imag: -2.432412361669758e-10
@@ -23008,7 +23008,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless
 - analytical_result_imag: 0.141409878353
@@ -23063,7 +23063,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_0000
 - analytical_result_imag: 0.0346130772022
@@ -23118,7 +23118,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_0001
 - analytical_result_imag: 0.0522957199083
@@ -23173,7 +23173,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_0010
 - analytical_result_imag: 0.0162949865643
@@ -23228,7 +23228,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_0011
 - analytical_result_imag: 0.0450554534193
@@ -23283,7 +23283,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_0100
 - analytical_result_imag: 0.00250300955905
@@ -23338,7 +23338,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_0101
 - analytical_result_imag: 0.0153543619066
@@ -23393,7 +23393,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_0110
 - analytical_result_imag: 0.00119190859883
@@ -23448,7 +23448,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_0111
 - analytical_result_imag: 0.0526569868822
@@ -23503,7 +23503,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1000
 - analytical_result_imag: -0.021597023958816856
@@ -23558,7 +23558,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1000_ND1
 - analytical_result_imag: -0.021597023958816856
@@ -23613,7 +23613,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1000_ND2
 - analytical_result_imag: -0.021597023958816856
@@ -23668,7 +23668,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1000_ND3
 - analytical_result_imag: 0.0126391702466
@@ -23723,7 +23723,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1001
 - analytical_result_imag: 0.00450933358674
@@ -23778,7 +23778,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1010
 - analytical_result_imag: 0.00189733858847
@@ -23833,7 +23833,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1011
 - analytical_result_imag: 0.0199818093451
@@ -23888,7 +23888,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1100
 - analytical_result_imag: 0.00128642107233
@@ -23943,7 +23943,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1101
 - analytical_result_imag: 0.00206223420012
@@ -23998,7 +23998,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1110
 - analytical_result_imag: 0.000196745763537
@@ -24053,7 +24053,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_massless_1111
 - analytical_result_imag: 0.05005416455490953
@@ -24108,7 +24108,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Box_no_ellipse
 - analytical_result_imag: 1.5053041800555285e-63
@@ -24223,7 +24223,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P1_no_ellipse_massive
 - analytical_result_imag: -1.692921363751793e-63
@@ -24338,7 +24338,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P1_no_ellipse_massless
 - analytical_result_imag: 0.007690761552242684
@@ -24453,7 +24453,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P1_one_ellipse_massless
 - analytical_result_imag: 6.86568168003053e-63
@@ -24568,7 +24568,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P1_physical_massive
 - analytical_result_imag: -8.49710641987077e-63
@@ -24683,7 +24683,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P1_physical_massless
 - analytical_result_imag: 4.3163820244765263e-07
@@ -24798,7 +24798,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P2_no_ellipse_massive
 - analytical_result_imag: 1.5873308071907166e-05
@@ -24913,7 +24913,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P2_no_ellipse_massless
 - analytical_result_imag: 3.174661614381433e-05
@@ -25029,7 +25029,7 @@
   ltd_cut_structure:
   - - 1
   - - -1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P2_no_ellipse_massless_ala_weinzierl
 - analytical_result_imag: 1.6139200911221022e-05
@@ -25144,7 +25144,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P2_one_ellipse_massless
 - analytical_result_imag: -5.620460768232938e-10
@@ -25259,7 +25259,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P2_physical_massless
 - analytical_result_imag: -5.688762573105345e-05
@@ -25374,7 +25374,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Decagon_P3_physical_massless
 - analytical_result_imag: -7.565683712429229e-33
@@ -25468,7 +25468,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_DoubleBox
 - analytical_result_imag: 1.5330205035452998e-24
@@ -25562,7 +25562,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_DoubleBox_no_ellipse
 - analytical_result_imag: 0.0
@@ -25636,7 +25636,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_DoubleTriangle
 - analytical_result_imag: 0.0
@@ -25710,7 +25710,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_DoubleTriangle_no_ellipse
 - analytical_result_imag: 0.0
@@ -25811,7 +25811,7 @@
   - - -1
     - -1
     - 0
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_DoubleTriangle_no_ellipse_ala_weinzierl
 - analytical_result_imag: -0.009252228561047385
@@ -25886,7 +25886,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Hexagon_1_ellipsoid
 - analytical_result_imag: 3.8733947302606166
@@ -25961,7 +25961,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Hexagon_P1
 - analytical_result_imag: 0.41631362208434963
@@ -26036,7 +26036,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Hexagon_P2
 - analytical_result_imag: -0.006637435821463473
@@ -26111,7 +26111,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Hexagon_no_ellipse
 - analytical_result_imag: 6.583082894844295e-07
@@ -26308,7 +26308,7 @@
     - 1
     - 1
     - 0
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_Mercedes
 - analytical_result_imag: 6.583082894844295e-07
@@ -26505,7 +26505,7 @@
     - -1
     - 1
     - 0
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_Mercedesv2
 - analytical_result_imag: 1.6607244555010336
@@ -26600,7 +26600,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Octogon_1_ellipsoid
 - analytical_result_imag: -6.696803109749835
@@ -26695,7 +26695,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Octogon_P1
 - analytical_result_imag: -27.323268154802545
@@ -26790,7 +26790,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Octogon_P2
 - analytical_result_imag: 0.20681419918162766
@@ -26885,7 +26885,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Octogon_no_ellipse
 - analytical_result_imag: -4.29464e-15
@@ -26950,7 +26950,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Pentagon
 - analytical_result_imag: 0.2500220227859519
@@ -27015,7 +27015,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Pentagon_1_cutgroup
 - analytical_result_imag: -12.884728238217672
@@ -27080,7 +27080,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Pentagon_P1
 - analytical_result_imag: -5.044001943294636
@@ -27145,7 +27145,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Pentagon_P2
 - analytical_result_imag: -4.515026811659057e-15
@@ -27210,7 +27210,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Pentagon_massless
 - analytical_result_imag: -0.005785187416792927
@@ -27275,7 +27275,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Pentagon_no_ellipse
 - analytical_result_imag: 0.000537305
@@ -27320,7 +27320,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Triangle
 - analytical_result_imag: 0.0
@@ -27404,7 +27404,7 @@
   - - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 2
   name: manual_TriangleBox
 - analytical_result_imag: 4.528874195987468e-11
@@ -27593,7 +27593,7 @@
     - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TriangleBoxBox
 - analytical_result_imag: 0.0
@@ -28153,7 +28153,7 @@
     - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 4
   name: manual_TriangleBoxBoxTriangle
 - analytical_result_imag: 4.528874195987468e-11
@@ -28342,7 +28342,7 @@
     - -1
     - 1
     - 0
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TriangleBoxBox_alt
 - analytical_result_imag: -5.388974489324994e-17
@@ -28531,7 +28531,7 @@
     - -1
     - 1
     - 0
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TriangleBoxBox_alt_ellipses
 - analytical_result_imag: -5.388974489324994e-17
@@ -28720,7 +28720,7 @@
     - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TriangleBoxBox_ellipses
 - analytical_result_imag: -8.228853618555367e-08
@@ -28899,7 +28899,7 @@
     - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TriangleBoxTriangle
 - analytical_result_imag: -8.228853618555367e-08
@@ -29078,7 +29078,7 @@
     - -1
     - 1
     - 0
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TriangleBoxTriangle_alt
 - analytical_result_imag: -8.026926254954178e-14
@@ -29257,7 +29257,7 @@
     - -1
     - 1
     - 0
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TriangleBoxTriangle_alt_ellipses
 - analytical_result_imag: -8.026926254954178e-14
@@ -29436,7 +29436,7 @@
     - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TriangleBoxTriangle_ellipses
 - analytical_result_imag: -0.0189256473770611
@@ -29481,7 +29481,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Triangle_1_ellipse_v1
 - analytical_result_imag: -0.019547015029750356
@@ -29526,7 +29526,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Triangle_1_ellipse_v2
 - analytical_result_imag: -5.6137e-07
@@ -29571,7 +29571,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Triangle_P4
 - analytical_result_imag: -0.04577461513639265
@@ -29616,7 +29616,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Triangle_no_ellipse
 - analytical_result_imag: 0.35864077119483945
@@ -29931,7 +29931,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Tringigon_P1_no_ellipse
 - analytical_result_imag: 4.549377071042384
@@ -30246,7 +30246,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Tringigon_P1_one_ellipse
 - analytical_result_imag: -0.010073977698353031
@@ -30561,7 +30561,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Tringigon_P1_physical_few_ellipses
 - analytical_result_imag: -2.9916543732184364e-09
@@ -30876,7 +30876,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Tringigon_P1_physical_many_ellipses
 - analytical_result_imag: 3.219317451433753e-07
@@ -31191,7 +31191,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Tringigon_P2_no_ellipse
 - analytical_result_imag: -4.166376555649402e-12
@@ -31506,7 +31506,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Tringigon_P2_physical_few_ellipses
 - analytical_result_imag: -1.757747887439102e-07
@@ -31821,7 +31821,7 @@
     start_node: 1
   ltd_cut_structure:
   - - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 1
   name: manual_Tringigon_P2_physical_many_ellipses
 - analytical_result_imag: -7.329971042787588e-13
@@ -32020,7 +32020,7 @@
     - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TripleBox
 - analytical_result_imag: -6.743557047035493e-19
@@ -32219,7 +32219,7 @@
     - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TripleBox_Weinzierl
 - analytical_result_imag: -7.770680252209436e-13
@@ -32418,7 +32418,7 @@
     - 0
     - 1
     - 1
-  maximum_ratio_expansion_threshold: null
+  maximum_ratio_expansion_threshold: -1.0
   n_loops: 3
   name: manual_TripleBox_no_ellipse
 - analytical_result_imag: 0.000196745763537

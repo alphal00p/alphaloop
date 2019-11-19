@@ -313,6 +313,7 @@ pub struct FixedDeformationOverlap {
     pub deformation_sources: Vec<LorentzVector<f64>>,
     pub excluded_surface_ids: Vec<Vec<((usize, usize), i8, i8)>>,
     pub overlap: Option<Vec<usize>>,
+    #[serde(default)]
     pub radius: f64,
     #[serde(skip_deserializing)]
     pub excluded_surface_indices: Vec<usize>,

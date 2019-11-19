@@ -1416,7 +1416,11 @@ fn main() {
         let radii : Vec<f64> = topo.fixed_deformation.iter().flat_map(|fd| {
             fd.deformation_per_overlap.iter().map(|fdo| fdo.radius)
         }).collect();
+        let n_sources : usize = topo.fixed_deformation.iter().flat_map(|fd| {
+            fd.deformation_per_overlap.iter().map(|fdo| 1)
+        }).sum();
         println!("Number of E-surfaces part of each maximal overlap: {:?}", maximal_overlap_structure);
+        println!("Total number of sources: {}", n_sources);        
         println!("Min radius: {}", radii.iter().fold(std::f64::INFINITY, |acc, x| f64::min(acc, *x)));
         println!("Max radius: {}", radii.iter().fold(std::f64::NEG_INFINITY, |acc, x| f64::max(acc, *x)));
     }
