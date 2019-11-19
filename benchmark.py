@@ -359,7 +359,7 @@ class Benchmark(list):
 '1L_4P_PS1',
 '1L_4P_PS1_massive',
 '1L_4P_PS2',
-'1L_4P_PS2_massive'
+'1L_4P_PS2_massive',
 
 '1L_5P_PS1',
 '1L_5P_PS1_massive',
