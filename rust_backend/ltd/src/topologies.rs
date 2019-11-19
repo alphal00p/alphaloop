@@ -355,6 +355,8 @@ pub struct Topology {
     pub settings: Settings,
     #[serde(default, skip_deserializing)]
     pub surfaces: Vec<Surface>,
+    #[serde(default, skip_deserializing)]
+    pub all_ellipsoid_surfaces: Vec<Surface>,
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
     #[serde(skip_deserializing)]

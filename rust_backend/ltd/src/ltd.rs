@@ -986,7 +986,36 @@ impl Topology {
                     let x = (info.kappa_dot_mom / info.kappa_sq).powi(2);
                     let y = info.spatial_and_mass_sq / info.kappa_sq;
 
-                    let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+                    let mut prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+
+                    if self.settings.deformation.scaling.exact_pole_check {
+                        // compute the lambda for which we have 0
+                        let zero_lambda_plus = (Complex::new(DualN::zero(), info.kappa_dot_mom)
+                            + (Complex::new(
+                                info.spatial_and_mass_sq * info.kappa_sq
+                                    - info.kappa_dot_mom.powi(2),
+                                DualN::zero(),
+                            ))
+                            .sqrt())
+                            / info.kappa_sq;
+                        let zero_lambda_min = (Complex::new(DualN::zero(), info.kappa_dot_mom)
+                            - (Complex::new(
+                                info.spatial_and_mass_sq * info.kappa_sq
+                                    - info.kappa_dot_mom.powi(2),
+                                DualN::zero(),
+                            ))
+                            .sqrt())
+                            / info.kappa_sq;
+
+                        if zero_lambda_plus.re * zero_lambda_plus.re < prop_lambda_sq {
+                            prop_lambda_sq = zero_lambda_plus.re * zero_lambda_plus.re;
+                        }
+
+                        // TODO: check if zero_lambda_min.re is negative?
+                        if zero_lambda_min.re * zero_lambda_min.re < prop_lambda_sq {
+                            prop_lambda_sq = zero_lambda_min.re * zero_lambda_min.re;
+                        }
+                    }
 
                     if sigma.is_zero() {
                         if prop_lambda_sq < lambda_sq {
@@ -1139,6 +1168,81 @@ impl Topology {
                                     let e = (-prop_lambda_sq / sigma).exp();
                                     smooth_min_num += prop_lambda_sq * e;
                                     smooth_min_den += e;
+                                }
+
+                                if self.n_loops == 1
+                                    && self.settings.deformation.scaling.exact_pole_check
+                                {
+                                    // now determine the exact solution for one-loop surfaces
+                                    let p0 = on_shell_info.shift.t - cut_infos[0].shift.t;
+                                    let a = cut_infos[0].spatial_and_mass_sq
+                                        - on_shell_info.spatial_and_mass_sq
+                                        - p0.powi(2);
+
+                                    let b = kappas[0].spatial_dot(
+                                        &(cut_infos[0].momentum - on_shell_info.momentum),
+                                    ) * Into::<T>::into(2.);
+
+                                    let A = kappas[0].spatial_squared()
+                                        * p0.powi(2)
+                                        * Into::<T>::into(4.)
+                                        - b * b;
+                                    let B = (a * b
+                                        - kappas[0].spatial_dot(&on_shell_info.momentum)
+                                            * p0.powi(2)
+                                            * Into::<T>::into(4.))
+                                        * Into::<T>::into(2.);
+                                    let C = a * a
+                                        - on_shell_info.spatial_and_mass_sq
+                                            * p0.powi(2)
+                                            * Into::<T>::into(4.);
+
+                                    let mut lambda_plus = (-Complex::new(DualN::zero(), B)
+                                        + (Complex::new(
+                                            -B * B - A * C * Into::<T>::into(4.),
+                                            DualN::zero(),
+                                        ))
+                                        .sqrt())
+                                        / (A * Into::<T>::into(2.));
+                                    let mut lambda_min = (-Complex::new(DualN::zero(), B)
+                                        - (Complex::new(
+                                            -B * B - A * C * Into::<T>::into(4.),
+                                            DualN::zero(),
+                                        ))
+                                        .sqrt())
+                                        / (A * Into::<T>::into(2.));
+
+                                    if A.real().is_zero() {
+                                        lambda_plus = Complex::new(DualN::zero(), C / B);
+                                        lambda_min = Complex::new(DualN::zero(), C / B);
+                                    }
+
+                                    // evaluate the surface with lambda
+                                    for lambda in &[lambda_plus, lambda_min] {
+                                        let def = kappas[0].real().to_complex(false)
+                                            * Complex::new(lambda.re.real(), lambda.im.real());
+                                        let surf = ((cut_infos[0]
+                                            .momentum
+                                            .real()
+                                            .to_complex(true)
+                                            + def)
+                                            .spatial_squared()
+                                            + cut_infos[0].mass.real()) // note, this is mass^2
+                                        .sqrt()
+                                            + ((on_shell_info.momentum.real().to_complex(true)
+                                                + def)
+                                                .spatial_squared()
+                                                + on_shell_info.mass.real())
+                                            .sqrt()
+                                            + p0.real();
+
+                                        if surf.norm() < Into::<T>::into(1e-5) {
+                                            let new_lambda = lambda.re.abs() * lambda.re.abs();
+                                            if new_lambda < lambda_sq {
+                                                lambda_sq = new_lambda;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

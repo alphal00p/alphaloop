@@ -86,6 +86,7 @@ pub struct Scaling {
     pub source_branch_cut_threshold: f64,
     pub source_branch_cut_multiplier: f64,
     pub expansion_check_strategy: ExpansionCheckStrategy,
+    pub exact_pole_check: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]

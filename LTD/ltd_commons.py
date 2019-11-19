@@ -133,6 +133,8 @@ hyperparameters = HyperParameters({
             'skip_hyperboloids'         : True,
             'source_branch_cut_threshold'  : 0.8,
             'source_branch_cut_multiplier' : 0.8,
+            # use the exact pole check for one-loop topologies
+            'exact_pole_check'          : False,
         },
 
         'additive'              :   {
