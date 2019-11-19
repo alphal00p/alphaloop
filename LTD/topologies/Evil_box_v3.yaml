@@ -1,0 +1,31 @@
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.007968390283228252
+  constant_deformation:
+    alpha:
+    - [0.0, 0.0, 0.0, 1.0]
+    beta:
+    - [0.0, 0.0, 0.0, 0.0]
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-1.118033988749895, -0.4714045207910317, -1.3333333333333333, -0.5]
+  - [1.118033988749895, 0.4714045207910317, 1.3333333333333333, -0.5]
+  fixed_deformation: []
+  loop_lines:
+  - end_node: 4
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [2.23606797749979, 0.4714045207910317, 1.3333333333333333, 2.0]
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 1.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1]
+    start_node: 4
+  ltd_cut_structure:
+  - [1]
+  maximum_ratio_expansion_threshold: 0.29517633852448794
+  n_loops: 1
+  name: Evil_box_v3

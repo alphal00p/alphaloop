@@ -1,0 +1,38 @@
+- analytical_result_imag: -0.00044180461139
+  analytical_result_real: -0.0018314315398
+  constant_deformation:
+    alpha:
+    - [0.0, 0.0, 0.0, 1.0]
+    beta:
+    - [0.0, 0.0, 0.0, 0.0]
+  external_kinematics:
+  - [1.118033988749895, 0.0, 0.0, 2.5]
+  - [-1.118033988749895, 0.0, 0.0, -1.5]
+  - [-33.31741286474686, -11.109555446651418, -31.42256796918065, -0.49999999999999994]
+  - [33.31741286474686, 11.109555446651418, 31.42256796918065, -0.5]
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -5.554777714953999, -15.711283960829842, -0.9999999986457576]
+      excluded_surface_ids: []
+      overlap: [0]
+      radius: 4.220198792358492
+    excluded_propagators: []
+  loop_lines:
+  - end_node: 4
+    propagators:
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 2.5]
+    - m_squared: 0.0
+      q: [34.43544685349676, 11.109555446651418, 31.42256796918065, 2.0]
+    - m_squared: 0.0
+      q: [1.118033988749895, 0.0, 0.0, 1.5]
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1]
+    start_node: 4
+  ltd_cut_structure:
+  - [1]
+  maximum_ratio_expansion_threshold: 0.02121617444534872
+  n_loops: 1
+  name: Evil_box_v2
