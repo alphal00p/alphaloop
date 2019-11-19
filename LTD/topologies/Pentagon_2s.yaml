@@ -1,0 +1,58 @@
+- analytical_result_imag: -1.713405042180853e-12
+  analytical_result_real: -8.390484525815771e-13
+  constant_deformation:
+    alpha:
+    - [0.0, 0.0, 0.0, 1.0]
+    beta:
+    - [0.0, 0.0, 0.0, 0.0]
+  external_kinematics:
+  - [48.125, 0.0, 0.0, 47.86455]
+  - [51.875, 0.0, 0.0, -47.86455]
+  - [-33.19087, 4.234357, -3.14104, -13.18475]
+  - [-20.90788, -11.43512, -0.4165504, 9.011335]
+  - [-45.90125, 7.20076, 3.55759, 4.173417]
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 1.19097407783742, 1.258863238976279, 49.074059562966504]
+      excluded_surface_ids:
+      - - - [0, 0]
+          - 1
+          - -1
+        - - [0, 4]
+          - 1
+          - 1
+      overlap: [1, 2, 3, 4, 5, 6, 7]
+      radius: 0.40327526710787615
+    - deformation_sources:
+      - [0.0, -4.220749070269538e-09, 1.182392813389554e-09, 40.02026427691097]
+      excluded_surface_ids:
+      - - - [0, 2]
+          - 1
+          - -1
+        - - [0, 3]
+          - 1
+          - 1
+      overlap: [0, 1, 2, 3, 4, 6, 7]
+      radius: 1.8590919065967688
+    excluded_propagators: []
+  loop_lines:
+  - end_node: 5
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [51.875, 0.0, 0.0, -47.86455]
+    - m_squared: 0.0
+      q: [18.684130000000003, 4.234357, -3.14104, -61.0493]
+    - m_squared: 0.0
+      q: [-2.2237499999999955, -7.200762999999999, -3.5575903999999996, -52.037965]
+    - m_squared: 0.0
+      q: [-48.125, 0.0, 0.0, -47.86455]
+    signature: [1]
+    start_node: 5
+  ltd_cut_structure:
+  - [1]
+  maximum_ratio_expansion_threshold: 0.8337176043100791
+  n_loops: 1
+  name: Pentagon_2s
