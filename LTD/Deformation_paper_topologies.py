@@ -217,7 +217,7 @@ def load(selected_topologies=None):
                 loop_momenta_names=('p1','p5'),
                 # eps^0: 18.3271249575150019 - 0.0102603219383815086*I +/- ( 0.0171281153680031097 + 0.00439019843081463525*I )
                 # eps^0: 18.2273146863270607 - 0.0351072120390151432*I +/- ( 0.0506710500921387608 + 0.0125415378798960689*I )
-                analytic_result=complex(-18.22,0.0j)
+                analytic_result=complex(-18.327,0.0j)
              ),
              entry_name = topology_name
         )
@@ -237,7 +237,7 @@ def load(selected_topologies=None):
                 # diff. seed : 45.9727585576039985 - 0.00210426401936783294*I +/- ( 0.0443921298216177022 + 0.0027359584173322363*I )
                 # higher-stat : 45.9306553282958365 - 0.0227134030759781315*I +/- ( 0.0448969823894826872 + 0.00814578717986984305*I )
                 # low-stat : 45.4459598582354531 - 0.188225725121877622*I +/- ( 0.115356519900322018 + 0.0285153450900536506*I )
-                analytic_result=complex(-45.45,0.0j)
+                analytic_result=complex(-45.972,0.0j)
              ),
              entry_name = topology_name
         )
@@ -2343,80 +2343,80 @@ if __name__=='__main__':
 
     # PS1 / PS2 paper topologies
     PS1PS2_paper_topologies = [
-#'1L_6P_PS1',
-#'1L_6P_PS1_massive',
-#'1L_6P_PS2',
-#'1L_6P_PS2_massive',
+'1L_6P_PS1',
+'1L_6P_PS1_massive',
+'1L_6P_PS2',
+'1L_6P_PS2_massive',
 
-#'2L_6P_A_PS1',
-#'2L_6P_A_PS1_massive',
-#'2L_6P_A_PS2',
-#'2L_6P_A_PS2_massive',
+'2L_6P_A_PS1',
+'2L_6P_A_PS1_massive',
+'2L_6P_A_PS2',
+'2L_6P_A_PS2_massive',
 
-#'2L_6P_B_PS1',
-#'2L_6P_B_PS1_massive',
-#'2L_6P_B_PS2',
-#'2L_6P_B_PS2_massive',
+'2L_6P_B_PS1',
+'2L_6P_B_PS1_massive',
+'2L_6P_B_PS2',
+'2L_6P_B_PS2_massive',
 
-#'2L_6P_C_PS1',
-#'2L_6P_C_PS1_massive',
-#'2L_6P_C_PS2',
-#'2L_6P_C_PS2_massive',
+'2L_6P_C_PS1',
+'2L_6P_C_PS1_massive',
+'2L_6P_C_PS2',
+'2L_6P_C_PS2_massive',
 
-#'2L_6P_D_PS1',
-#'2L_6P_D_PS1_massive',
-#'2L_6P_D_PS2',
-#'2L_6P_D_PS2_massive',
+'2L_6P_D_PS1',
+'2L_6P_D_PS1_massive',
+'2L_6P_D_PS2',
+'2L_6P_D_PS2_massive',
 
-#'2L_6P_E_PS1',
-#'2L_6P_E_PS1_massive',
-#'2L_6P_E_PS2',
-#'2L_6P_E_PS2_massive',
+'2L_6P_E_PS1',
+'2L_6P_E_PS1_massive',
+'2L_6P_E_PS2',
+'2L_6P_E_PS2_massive',
 
-#'2L_6P_F_PS1',
-#'2L_6P_F_PS1_massive',
-#'2L_6P_F_PS2',
-#'2L_6P_F_PS2_massive',
+'2L_6P_F_PS1',
+'2L_6P_F_PS1_massive',
+'2L_6P_F_PS2',
+'2L_6P_F_PS2_massive',
 
-#'1L_8P_PS1',
-#'1L_8P_PS1_massive',
-#'1L_8P_PS2',
-#'1L_8P_PS2_massive',
+'1L_8P_PS1',
+'1L_8P_PS1_massive',
+'1L_8P_PS2',
+'1L_8P_PS2_massive',
 
 #'2L_8P_PS1', # TOO HARD?
 #'2L_8P_PS1_massive', # TOO HARD?
 #'2L_8P_PS2', # TOO HARD?
 #'2L_8P_PS2_massive', # TOO HARD?
 
-#'1L_5P_PS1',
-#'1L_5P_PS1_massive',
-#'1L_5P_PS2',
-#'1L_5P_PS2_massive',
+'1L_5P_PS1',
+'1L_5P_PS1_massive',
+'1L_5P_PS2',
+'1L_5P_PS2_massive',
 
-#'2L_5P_Planar_PS1',
-#'2L_5P_Planar_PS1_massive',
-#'2L_5P_Planar_PS2',
-#'2L_5P_Planar_PS2_massive',
+'2L_5P_Planar_PS1',
+'2L_5P_Planar_PS1_massive',
+'2L_5P_Planar_PS2',
+'2L_5P_Planar_PS2_massive',
 
-#'3L_5P_Planar_PS1',
-#'3L_5P_Planar_PS1_massive',
-#'3L_5P_Planar_PS2',
-#'3L_5P_Planar_PS2_massive', # FAILURE OF ECOX SOLVER
+'3L_5P_Planar_PS1',
+'3L_5P_Planar_PS1_massive',
+'3L_5P_Planar_PS2',
+'3L_5P_Planar_PS2_massive', # FAILURE OF ECOX SOLVER
 
-#'1L_4P_PS1',
-#'1L_4P_PS1_massive',
-#'1L_4P_PS2',
-#'1L_4P_PS2_massive',
+'1L_4P_PS1',
+'1L_4P_PS1_massive',
+'1L_4P_PS2',
+'1L_4P_PS2_massive',
 
-#'2L_4P_Ladder_PS1',
-#'2L_4P_Ladder_PS1_massive',
-#'2L_4P_Ladder_PS2',
-#'2L_4P_Ladder_PS2_massive',
+'2L_4P_Ladder_PS1',
+'2L_4P_Ladder_PS1_massive',
+'2L_4P_Ladder_PS2',
+'2L_4P_Ladder_PS2_massive',
 
-#'3L_4P_Ladder_PS1',
-#'3L_4P_Ladder_PS1_massive',
-#'3L_4P_Ladder_PS2',
-#'3L_4P_Ladder_PS2_massive', # FAILURE OF ECOX SOLVER
+'3L_4P_Ladder_PS1',
+'3L_4P_Ladder_PS1_massive',
+'3L_4P_Ladder_PS2',
+'3L_4P_Ladder_PS2_massive', # FAILURE OF ECOX SOLVER
 
 '4L_4P_Ladder_PS1',
 '4L_4P_Ladder_PS1_massive',
@@ -2429,6 +2429,38 @@ if __name__=='__main__':
 #'FISHNET_2x2_PS2_massive', # TOO HARD ?
     ]
 
+    other_topologies = [
+'T1_Pentabox_physical',
+'T1_Pentabox_physical_bis',
+'T1_Pentabox_physical_bis_massive',
+'T2_6P_2L_Weinzierl_A',
+'T2_6P_2L_Weinzierl_B',
+'T2_6P_2L_Weinzierl_C',
+'T2_6P_2L_Weinzierl_D',
+'T2_6P_2L_Weinzierl_E',
+'T2_6P_2L_Weinzierl_F',
+'2to2_TripleBox_v1',
+'2to2_DoubleBox',
+'T3_DoubleBox_Weinzierl',
+'T4_TripleBox_Weinzierl',
+'T5_3L_5P',
+'T5_3L_5P_massive',
+'Pentagon_1s',
+'Pentagon_2s',
+'Pentagon_3s',
+'Hexagon_1s',
+'Decagon_phys',
+'Decagon_phys_massive',
+'Decagon_phys_ez',
+'Decagon_phys_massive_ez',
+'Hexagon_2s',
+'Hexagon_3s',
+'Hexagon_4s',
+'T4_Quadruple_Box_Weinzierl',
+'Evil_box',
+'Evil_box_v2',
+'Evil_box_v3',
+    ]
 
     if len(args)==0:
         print("Now processing all topologies...")
@@ -2443,6 +2475,10 @@ if __name__=='__main__':
             list_of_selected_topologies.append(PS1PS2_paper_topologies)
         elif topo_name == 'PS1PS2_paper_individual':
             list_of_selected_topologies.extend([[t,] for t in PS1PS2_paper_topologies])
+        if topo_name == 'other':
+            list_of_selected_topologies.append(other_topologies)
+        elif topo_name == 'other_individual':
+            list_of_selected_topologies.extend([[t,] for t in other_topologies])
         else:
             list_of_selected_topologies.append([topo_name,])
    
