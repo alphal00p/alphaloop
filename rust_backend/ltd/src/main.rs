@@ -184,7 +184,7 @@ where
             )
             .set_reset_vegas_integrator(settings.integrator.reset_vegas_integrator)
             .set_use_only_last_sample(settings.integrator.use_only_last_sample)
-            .set_keep_state_file(settings.integrator.keep_state_file);;
+            .set_keep_state_file(settings.integrator.keep_state_file);
         let survey_result = ci.vegas(
             3 * topo.n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
@@ -1413,8 +1413,16 @@ fn main() {
     if topo.fixed_deformation.len() > 0 {
         let maximal_overlap_structure : Vec<i32> = topo.fixed_deformation[0].deformation_per_overlap.iter().map(
                                   |c| ( n_unique_e_surface - (c.excluded_surface_ids.len() as i32)) ).collect();
-        println!("Number of E-surfaces part of each maximal overlap: {:?}", maximal_overlap_structure);        
+        let radii : Vec<f64> = topo.fixed_deformation.iter().flat_map(|fd| {
+            fd.deformation_per_overlap.iter().map(|fdo| fdo.radius)
+        }).collect();
+        println!("Number of E-surfaces part of each maximal overlap: {:?}", maximal_overlap_structure);
+        println!("Min radius: {}", radii.iter().fold(std::f64::INFINITY, |acc, x| f64::min(acc, *x)));
+        println!("Max radius: {}", radii.iter().fold(std::f64::NEG_INFINITY, |acc, x| f64::max(acc, *x)));
     }
+
+    println!("Expansion threshold considered: {}",topo.get_expansion_threshold());
+    println!("M_ij considered: {}",topo.settings.deformation.fixed.m_ij*topo.compute_min_mij());
 
     match topo.analytical_result_real {
         Some(_) => println!(

@@ -649,12 +649,28 @@ impl Topology {
     }
 
     #[inline]
-    fn compute_min_mij(&self) -> f64 {
+    pub fn get_expansion_threshold(&self) -> f64 {
+        match self.settings.deformation.scaling.expansion_check_strategy {
+            ExpansionCheckStrategy::Ratio => {
+                if self.settings.deformation.scaling.expansion_threshold < 0. {
+                    self.settings.deformation.scaling.expansion_threshold.abs()
+                } else {
+                    self.settings.deformation.scaling.expansion_threshold*self.maximum_ratio_expansion_threshold
+                }
+            }
+            _ => {
+                self.settings.deformation.scaling.expansion_threshold.abs()
+            }
+        }
+    }
+
+    #[inline]
+    pub fn compute_min_mij(&self) -> f64 {
         // TODO make this quantity static as it does not need to be recomputed statically every
         // time.
         let m = self.settings.deformation.fixed.m_ij;
         let d = self.settings.deformation.fixed.delta;
-        let e = self.settings.deformation.scaling.expansion_threshold;
+        let e = self.get_expansion_threshold();
 
         e * e / ((2.0 - e * e) * (d / (1. - d)).sqrt())
     }
@@ -881,9 +897,7 @@ impl Topology {
                 // old check: lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
                 // new check: lambda^2 < (-2*kappa_i.q_i^2 + sqrt(4*kappa_i.q_i^4 + kappa^4 c^2 (q_i^2+m_i^2)^2))/kappa^4
                 if self.settings.deformation.scaling.expansion_check {
-                    let c = DualN::from_real(Into::<T>::into(
-                        self.settings.deformation.scaling.expansion_threshold,
-                    ));
+                    let c = DualN::from_real(Into::<T>::into(self.get_expansion_threshold()));
 
                     let lambda_exp_sq =
                         match self.settings.deformation.scaling.expansion_check_strategy {
@@ -921,7 +935,7 @@ impl Topology {
                                 let a = info.kappa_sq;
                                 let b = info.kappa_dot_mom;
                                 let d = info.spatial_and_mass_sq;
-                                // note that if c < 1/2, the branch cut check is always satisfied
+                                // note that if c < 1, the branch cut check is always satisfied
                                 c * c * Into::<T>::into(2.) * d * d / (a * d - b * b)
                             }
                         };

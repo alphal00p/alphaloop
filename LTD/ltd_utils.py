@@ -738,7 +738,7 @@ class LoopTopology(object):
     _cvxpy_threshold = 1.0e-12
 
     def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
-        fixed_deformation=None, constant_deformation=None, **opts):
+        fixed_deformation=None, constant_deformation=None, maximum_ratio_expansion_threshold=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -761,6 +761,7 @@ class LoopTopology(object):
 
         self.fixed_deformation = fixed_deformation
         self.constant_deformation = constant_deformation
+        self.maximum_ratio_expansion_threshold = maximum_ratio_expansion_threshold
 
     def evaluate(self, loop_momenta):
         """ Evaluates Loop topology with the provided list loop momenta, given as a list of LorentzVector."""
@@ -944,6 +945,7 @@ class LoopTopology(object):
         if self.fixed_deformation is not None:
             res['fixed_deformation'] = self.fixed_deformation
         res['constant_deformation'] = self.constant_deformation
+        res['maximum_ratio_expansion_threshold'] = self.maximum_ratio_expansion_threshold
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
         res['analytical_result_real'] = float(self.analytic_result.real) if self.analytic_result else 0.
@@ -962,7 +964,9 @@ class LoopTopology(object):
             loop_lines          =   tuple([LoopLine.from_flat_format(ll) for ll in flat_dict['loop_lines']]),
             external_kinematics =   vectors.LorentzVectorList([vectors.LorentzVector(v) for v in flat_dict['external_kinematics']]),
             analytic_result   =   (None if (flat_dict['analytical_result_real']==0. and flat_dict['analytical_result_imag']==0.) 
-                                     else complex(flat_dict['analytical_result_real'],flat_dict['analytical_result_imag']))
+                                     else complex(flat_dict['analytical_result_real'],flat_dict['analytical_result_imag'])),
+            fixed_deformation =  flat_dict['fixed_deformation'] if 'fixed_deformation' in flat_dict else None,
+            maximum_ratio_expansion_threshold = flat_dict['maximum_ratio_expansion_threshold']
         ) 
 
     @staticmethod
@@ -1002,6 +1006,8 @@ class LoopTopology(object):
 
         print('Number of ellipsoids %s: %s' % (self.name, len(ellipsoids)))
         print('Maximum expansion threshold allowed: %.3g'%expansion_threshold)
+        if self.maximum_ratio_expansion_threshold is None:
+            self.maximum_ratio_expansion_threshold = expansion_threshold
 
         self.fixed_deformation = []
 
