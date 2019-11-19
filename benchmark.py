@@ -377,8 +377,9 @@ class Benchmark(list):
 '1L_8P_PS2_massive',
 
 ]
-        for topo in PS1PS2_1loop
-            res.append(self.BenchmarkRun1loop(topo, samples=20*Units.M))
+        for topo in PS1PS2_1loop:
+            res.append(BenchmarkRun1loop(topo, samples=20*Units.M))
+        return res
 
     def get_PS1PS2_2loop(self):
 
@@ -425,14 +426,18 @@ class Benchmark(list):
 '2L_6P_F_PS2',
 '2L_6P_F_PS2_massive',
 
+'TM1_bot',
+'TM2_top',
+
 #'2L_8P_PS1', # TOO HARD?
 #'2L_8P_PS1_massive', # TOO HARD?
 #'2L_8P_PS2', # TOO HARD?
 #'2L_8P_PS2_massive', # TOO HARD?
 
 ]
-        for topo in PS1PS2_2loop
+        for topo in PS1PS2_2loop:
             res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        return res
 
     def get_PS1PS2_3loop(self):
 
@@ -451,8 +456,9 @@ class Benchmark(list):
 
 
 ]
-        for topo in PS1PS2_3loop
+        for topo in PS1PS2_3loop:
             res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        return res
 
     def get_PS1PS2_4loop(self):
 
@@ -464,15 +470,15 @@ class Benchmark(list):
 '4L_4P_Ladder_PS2',
 '4L_4P_Ladder_PS2_massive',
 
-'FISHNET_2x2_PS1',
-'FISHNET_2x2_PS1_massive',
-'FISHNET_2x2_PS2',
-'FISHNET_2x2_PS2_massive',
+# 'FISHNET_2x2_PS1', # TOO HARD? 
+# 'FISHNET_2x2_PS1_massive', # TOO HARD?
+# 'FISHNET_2x2_PS2', # TOO HARD?
+# 'FISHNET_2x2_PS2_massive', # TOO HARD?
 
 ]
-        for topo in PS1PS2_4loop
+        for topo in PS1PS2_4loop:
             res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
-
+        return res
 
 def get_history(history_path):
     historical_data = []

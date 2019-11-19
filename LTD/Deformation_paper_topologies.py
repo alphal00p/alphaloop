@@ -2343,90 +2343,90 @@ if __name__=='__main__':
 
     # PS1 / PS2 paper topologies
     PS1PS2_paper_topologies = [
-'1L_6P_PS1',
-'1L_6P_PS1_massive',
-'1L_6P_PS2',
-'1L_6P_PS2_massive',
+#'1L_6P_PS1',
+#'1L_6P_PS1_massive',
+#'1L_6P_PS2',
+#'1L_6P_PS2_massive',
 
-'2L_6P_A_PS1',
-'2L_6P_A_PS1_massive',
-'2L_6P_A_PS2',
-'2L_6P_A_PS2_massive',
+#'2L_6P_A_PS1',
+#'2L_6P_A_PS1_massive',
+#'2L_6P_A_PS2',
+#'2L_6P_A_PS2_massive',
 
-'2L_6P_B_PS1',
-'2L_6P_B_PS1_massive',
-'2L_6P_B_PS2',
-'2L_6P_B_PS2_massive',
+#'2L_6P_B_PS1',
+#'2L_6P_B_PS1_massive',
+#'2L_6P_B_PS2',
+#'2L_6P_B_PS2_massive',
 
-'2L_6P_C_PS1',
-'2L_6P_C_PS1_massive',
-'2L_6P_C_PS2',
-'2L_6P_C_PS2_massive',
+#'2L_6P_C_PS1',
+#'2L_6P_C_PS1_massive',
+#'2L_6P_C_PS2',
+#'2L_6P_C_PS2_massive',
 
-'2L_6P_D_PS1',
-'2L_6P_D_PS1_massive',
-'2L_6P_D_PS2',
-'2L_6P_D_PS2_massive',
+#'2L_6P_D_PS1',
+#'2L_6P_D_PS1_massive',
+#'2L_6P_D_PS2',
+#'2L_6P_D_PS2_massive',
 
-'2L_6P_E_PS1',
-'2L_6P_E_PS1_massive',
-'2L_6P_E_PS2',
-'2L_6P_E_PS2_massive',
+#'2L_6P_E_PS1',
+#'2L_6P_E_PS1_massive',
+#'2L_6P_E_PS2',
+#'2L_6P_E_PS2_massive',
 
-'2L_6P_F_PS1',
-'2L_6P_F_PS1_massive',
-'2L_6P_F_PS2',
-'2L_6P_F_PS2_massive',
+#'2L_6P_F_PS1',
+#'2L_6P_F_PS1_massive',
+#'2L_6P_F_PS2',
+#'2L_6P_F_PS2_massive',
 
-'1L_8P_PS1',
-'1L_8P_PS1_massive',
-'1L_8P_PS2',
-'1L_8P_PS2_massive',
+#'1L_8P_PS1',
+#'1L_8P_PS1_massive',
+#'1L_8P_PS2',
+#'1L_8P_PS2_massive',
 
-'2L_8P_PS1',
-'2L_8P_PS1_massive',
-'2L_8P_PS2',
-'2L_8P_PS2_massive',
+#'2L_8P_PS1', # TOO HARD?
+#'2L_8P_PS1_massive', # TOO HARD?
+#'2L_8P_PS2', # TOO HARD?
+#'2L_8P_PS2_massive', # TOO HARD?
 
-'1L_5P_PS1',
-'1L_5P_PS1_massive',
-'1L_5P_PS2',
-'1L_5P_PS2_massive',
+#'1L_5P_PS1',
+#'1L_5P_PS1_massive',
+#'1L_5P_PS2',
+#'1L_5P_PS2_massive',
 
-'2L_5P_Planar_PS1',
-'2L_5P_Planar_PS1_massive',
-'2L_5P_Planar_PS2',
-'2L_5P_Planar_PS2_massive',
+#'2L_5P_Planar_PS1',
+#'2L_5P_Planar_PS1_massive',
+#'2L_5P_Planar_PS2',
+#'2L_5P_Planar_PS2_massive',
 
-'3L_5P_Planar_PS1',
-'3L_5P_Planar_PS1_massive',
-'3L_5P_Planar_PS2',
-'3L_5P_Planar_PS2_massive',
+#'3L_5P_Planar_PS1',
+#'3L_5P_Planar_PS1_massive',
+#'3L_5P_Planar_PS2',
+#'3L_5P_Planar_PS2_massive', # FAILURE OF ECOX SOLVER
 
-'1L_4P_PS1',
-'1L_4P_PS1_massive',
-'1L_4P_PS2',
-'1L_4P_PS2_massive',
+#'1L_4P_PS1',
+#'1L_4P_PS1_massive',
+#'1L_4P_PS2',
+#'1L_4P_PS2_massive',
 
-'2L_4P_Ladder_PS1',
-'2L_4P_Ladder_PS1_massive',
-'2L_4P_Ladder_PS2',
-'2L_4P_Ladder_PS2_massive',
+#'2L_4P_Ladder_PS1',
+#'2L_4P_Ladder_PS1_massive',
+#'2L_4P_Ladder_PS2',
+#'2L_4P_Ladder_PS2_massive',
 
-'3L_4P_Ladder_PS1',
-'3L_4P_Ladder_PS1_massive',
-'3L_4P_Ladder_PS2',
-'3L_4P_Ladder_PS2_massive',
+#'3L_4P_Ladder_PS1',
+#'3L_4P_Ladder_PS1_massive',
+#'3L_4P_Ladder_PS2',
+#'3L_4P_Ladder_PS2_massive', # FAILURE OF ECOX SOLVER
 
 '4L_4P_Ladder_PS1',
 '4L_4P_Ladder_PS1_massive',
 '4L_4P_Ladder_PS2',
 '4L_4P_Ladder_PS2_massive',
 
-'FISHNET_2x2_PS1',
-'FISHNET_2x2_PS1_massive',
-'FISHNET_2x2_PS2',
-'FISHNET_2x2_PS2_massive',
+#'FISHNET_2x2_PS1', # TOO HARD?
+#'FISHNET_2x2_PS1_massive', # TOO HARD?
+#'FISHNET_2x2_PS2', # TOO HARD ?
+#'FISHNET_2x2_PS2_massive', # TOO HARD ?
     ]
 
 

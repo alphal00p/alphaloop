@@ -17,7 +17,7 @@ from analytical_expressions  import ladder_phi, analytic_four_point_ladder, anal
 
 # The fishnet topology generation takes quite some time. It is therefore disabled by default.
 # Enable it by setting the flag below to True.
-_GENERATE_FISHNETS = False 
+_GENERATE_FISHNETS = True 
 
 hard_coded_topology_collection = TopologyCollection()
 
@@ -540,6 +540,8 @@ hard_coded_topology_collection.add_topology(TM1_top_v2.create_loop_topology(
 
 
 # double box
+import math
+conversion_factor = ((complex(0.,1.)**2 * math.pi**2)**2)/((4.0*math.pi)**(4*2))
 TM1_bot = TopologyGenerator([
         ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
         ('p1', 1, 6), ('p2', 6, 3), ('p3', 3, 2), ('p4', 2, 1),
@@ -553,12 +555,13 @@ hard_coded_topology_collection.add_topology(TM1_bot.create_loop_topology(
         "TM1_bot", 
         ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
         mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
-        loop_momenta_names=('p4', 'p6'), 
-        analytic_result = 0.
+        loop_momenta_names=('p4', 'p6'),
+        # CHECK CONVENTIONS
+        # -7.073228553437603e-06 - 8.43523051593438e-06j
+        analytic_result = complex(-7.073228553437603e-06, -8.43523051593438e-06)*conversion_factor
     ),
     entry_name = 'TM1_bot'
 )
-
 
 # double box
 TM1_bot_v2 = TopologyGenerator([
@@ -575,14 +578,10 @@ hard_coded_topology_collection.add_topology(TM1_bot_v2.create_loop_topology(
         ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
         mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
         loop_momenta_names=('p4', 'p6'), 
-        analytic_result = 0.
+        analytic_result = None
     ),
     entry_name = 'TM1_bot_v2'
 )
-
-
-
-
 
 
 # double box
@@ -599,8 +598,10 @@ hard_coded_topology_collection.add_topology(TM2_top.create_loop_topology(
         "TM2_top", 
         ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
         mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p6': 1., 'p7': 1.}, # no masses 
-        loop_momenta_names=('p3', 'p6'), 
-        analytic_result = 0.
+        loop_momenta_names=('p3', 'p6'),
+        # CHCK CONVENTIONS
+        # -5.363247505909005e-6 - 2.358757591703302e-05j
+        analytic_result = complex(-5.363247505909005e-6, -2.358757591703302e-05)*conversion_factor
     ),
     entry_name = 'TM2_top'
 )
