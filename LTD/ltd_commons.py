@@ -122,7 +122,7 @@ hyperparameters = HyperParameters({
             # The expansion_threshold is considered as a multiplier of the maximum threshold detected and stored
             # during the pre-processing. Note instead that a negative value is allowed and the absolute value will
             # then directly be used as an input.
-            'expansion_threshold'       : 0.9,
+            'expansion_threshold'       : 0.3,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut

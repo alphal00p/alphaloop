@@ -947,7 +947,7 @@ class LoopTopology(object):
         if self.fixed_deformation is not None:
             res['fixed_deformation'] = self.fixed_deformation
         res['constant_deformation'] = self.constant_deformation
-        res['maximum_ratio_expansion_threshold'] = self.maximum_ratio_expansion_threshold
+        res['maximum_ratio_expansion_threshold'] = -1.0 if self.maximum_ratio_expansion_threshold is None else self.maximum_ratio_expansion_threshold 
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
         res['analytical_result_real'] = float(self.analytic_result.real) if self.analytic_result else 0.
@@ -968,7 +968,7 @@ class LoopTopology(object):
             analytic_result   =   (None if (flat_dict['analytical_result_real']==0. and flat_dict['analytical_result_imag']==0.) 
                                      else complex(flat_dict['analytical_result_real'],flat_dict['analytical_result_imag'])),
             fixed_deformation =  flat_dict['fixed_deformation'] if 'fixed_deformation' in flat_dict else None,
-            maximum_ratio_expansion_threshold = flat_dict['maximum_ratio_expansion_threshold']
+            maximum_ratio_expansion_threshold = None if flat_dict['maximum_ratio_expansion_threshold']<0. else flat_dict['maximum_ratio_expansion_threshold']
         ) 
 
     @staticmethod
