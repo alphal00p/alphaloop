@@ -2475,7 +2475,7 @@ if __name__=='__main__':
             list_of_selected_topologies.append(PS1PS2_paper_topologies)
         elif topo_name == 'PS1PS2_paper_individual':
             list_of_selected_topologies.extend([[t,] for t in PS1PS2_paper_topologies])
-        if topo_name == 'other':
+        elif topo_name == 'other':
             list_of_selected_topologies.append(other_topologies)
         elif topo_name == 'other_individual':
             list_of_selected_topologies.extend([[t,] for t in other_topologies])

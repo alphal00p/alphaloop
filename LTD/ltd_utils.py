@@ -736,7 +736,9 @@ class LoopTopology(object):
     """ A simple container for describing a loop topology."""
 
     _cvxpy_threshold = 1.0e-12
-
+    # The existence condition itself is inaccurate because of the kinematics being not exactly on-shell
+    # and squaring + squareroots decreases the accuracy down to less than 16/2 digits.
+    _existence_threshold = 1.0e-7
     def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
         fixed_deformation=None, constant_deformation=None, maximum_ratio_expansion_threshold=None, **opts):
         """
@@ -1186,8 +1188,9 @@ class LoopTopology(object):
             shift_E, shift_v, masses_squared = ellipsoid_shift_and_masses_in_cut_basis[surf_id]
             mass_term = sum(math.sqrt(m_sq) for m_sq in masses_squared)**2
             existence_equation = shift_E**2 - shift_v.square() - mass_term
-            if existence_equation <= 0. or shift_E >= 0.:
-                if existence_equation != 0. and result < -self._cvxpy_threshold*self.get_com_energy():
+            # Be lose in the condition below so as to really only keep true E-surface with non-zero volume
+            if existence_equation <= (self._existence_threshold*self.get_com_energy())**2 or shift_E >= -self._existence_threshold*self.get_com_energy():
+                if existence_equation < -(self._existence_threshold*self.get_com_energy())**2 and result < -self._cvxpy_threshold*self.get_com_energy():
                     print("WARNING: cvxpy detects the ellipsoid for the following E-surface to be existing even though it does not!")
                     print('> E-surface ID         = %s'%str(surf_id))
                     print('> E-surface params     = %s'%str(ellipsoid_param[surf_id]))
@@ -1195,11 +1198,13 @@ class LoopTopology(object):
                     print("> shift_E              = %.6e"%shift_E)
                     print("> shift_v              = (%s)"%(', '.join('%.6e'%v_i for v_i in shift_v)))
                     print("> masses_squared       = %s"%(', '.join('%.6e'%m_sq_i for m_sq_i in masses_squared)))
-                    print("> existence condition: = %.6e < 0. or shift_E > 0"%existence_equation)
+                    print("> existence condition: = %.6e < %.6e or shift_E > %.6e"%
+                          (existence_equation, -(self._existence_threshold*self.get_com_energy())**2, -self._existence_threshold*self.get_com_energy()))
 
                 # This is a non-existing E-surface, update the expansion threshold only if it is non-existing *despite*
                 # the energy shift having the right sign
-                if shift_E < 0.:
+                # Be strict in the condition below so as to limit the expansion threshold only for non-existing E-surface which are physical.
+                if shift_E < -self._existence_threshold*self.get_com_energy() and existence_equation<-(self._existence_threshold*self.get_com_energy())**2:
                     max_threshold_for_this_non_existing_ellipsoid = math.sqrt(1.0 - math.sqrt(
                             1.0 + existence_equation/(shift_v.square() + mass_term)
                         )
@@ -1208,7 +1213,9 @@ class LoopTopology(object):
                 del ellipsoids[surf_id]
                 del ellipsoid_param[surf_id]
                 continue
-            if result > self._cvxpy_threshold*self.get_com_energy():
+            if (existence_equation > (self._existence_threshold*self.get_com_energy())**2) and \
+               shift_E < -self._existence_threshold*self.get_com_energy() and \
+               result > self._cvxpy_threshold*self.get_com_energy():
                 print("WARNING: cvxpy detects the ellipsoid following E-surface to be non-existent even though it does exist!")
                 print('E-surface ID         = %s'%str(surf_id))
                 print('E-surface params     = %s'%str(ellipsoid_param[surf_id]))
@@ -1216,7 +1223,8 @@ class LoopTopology(object):
                 print("shift_E              = %.6e"%shift_E)
                 print("shift_v              = (%s)"%(', '.join('%.6e'%v_i for v_i in shift_v)))
                 print("masses_squared       = %s"%(', '.join('%.6e'%m_sq_i for m_sq_i in masses_squared)))
-                print("existence condition: = %.6e > 0."%existence_equation)
+                print("existence condition: = %.6e > %.6e and shift_E < %.6e"%
+                      (existence_equation, (self._existence_threshold*self.get_com_energy())**2, -self._existence_threshold*self.get_com_energy() ))
 
         return ellipsoids, ellipsoid_param, delta_param, expansion_threshold
 
