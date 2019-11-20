@@ -156,11 +156,11 @@ class BenchmarkRun(dict):
 
         if no_analytical_found:
             if phase == 'both':
-                analytical_result = complex(rust_result['result'][0], rust_result['result'][1])
+                analytical_result = (rust_result['result'][0], rust_result['result'][1])
             elif phase == 'imag':
-                analytical_result = complex(0.0, rust_result['result'][0]).imag
+                analytical_result = (0.0, rust_result['result'][0])
             elif phase == 'real':
-                analytical_result = complex(rust_result['result'][0], 0.0).real
+                analytical_result = (rust_result['result'][0], 0.0)
 
         result = {
             'revision': git_revision,
