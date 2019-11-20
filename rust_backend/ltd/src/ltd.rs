@@ -268,11 +268,19 @@ impl Topology {
                                 if (surface_sign_sum + delta_sign).abs()
                                     == surface_signs_abs_sum + delta_sign.abs()
                                 {
+                                    // we do not consider pointlike ellipsoids to exist                                    
+                                    if (surface_shift.square()
+                                        - (cut_mass_sum.abs() + surface_mass).powi(2)).is_zero() {
+                                        continue
+                                    }
                                     if surface_shift.square()
                                         - (cut_mass_sum.abs() + surface_mass).powi(2)
                                         >= Into::<float>::into(-1e-13 * self.e_cm_squared)
                                         && surface_shift.t.multiply_sign(delta_sign) < float::zero()
                                     {
+                                        println!("{}",surface_shift.square()
+                                        - (cut_mass_sum.abs() + surface_mass).powi(2));
+                                        println!("{}",-1e-13 * self.e_cm_squared);
                                         let mut is_pinch = false;
                                         if surface_shift.square().abs()
                                             < Into::<float>::into(1e-13 * self.e_cm_squared)
