@@ -1,0 +1,156 @@
+- analytical_result_imag: 9.538852706631552e-08
+  analytical_result_real: 3.110526759643106e-08
+  constant_deformation:
+    alpha:
+    - &id001 [0.0, 0.0, 0.0, 1.0]
+    - *id001
+    beta:
+    - &id002 [0.0, 0.0, 0.0, 0.0]
+    - *id002
+  external_kinematics:
+  - [6.0, 0.0, 0.0, 5.91607978309962]
+  - [6.0, 0.0, 0.0, -5.91607978309962]
+  - [-6.0, -1.3124738333059, -5.26330888118183, 2.36114210884473]
+  - [-6.0, 1.3124738333059, 5.26330888118183, -2.36114210884473]
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 0.0, 0.0, -5.91607978309962]
+      - [0.0, 0.013103111197271025, 0.06440465617357848, -0.10205452528068842]
+      excluded_surface_ids:
+      - - - [0, 0]
+          - 1
+          - -1
+        - - [1, 0]
+          - 1
+          - 1
+        - - [2, 1]
+          - 1
+          - 1
+      - - - [0, 1]
+          - 1
+          - 1
+        - - [1, 0]
+          - 1
+          - -1
+        - - [2, 1]
+          - 1
+          - -1
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      radius: 0.0880900337854307
+    excluded_propagators:
+    - [0, 2]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 0.013102298184337407, 0.06440564476200378, -0.10205628872841983]
+      - [0.0, 1.3124738333059, 5.26330888118183, -2.36114210884473]
+      excluded_surface_ids:
+      - - - [0, 2]
+          - 1
+          - -1
+        - - [1, 0]
+          - 1
+          - 1
+        - - [2, 2]
+          - 1
+          - 1
+      - - - [0, 2]
+          - 1
+          - 1
+        - - [1, 0]
+          - 1
+          - -1
+        - - [2, 0]
+          - 1
+          - -1
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      radius: 0.08809003396302487
+    excluded_propagators:
+    - [2, 1]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 0.0, 0.0, 0.0]
+      - [0.0, -1.8717403793393754e-12, -1.5531418652506773e-12, 7.29539606854331e-14]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.04196010844828645
+    excluded_propagators:
+    - [0, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -2.452694552742313e-17, 9.581325055146015e-18, 2.9903443823194117e-13]
+      - [0.0, 0.0, 0.0, 0.0]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.04196010844983175
+    excluded_propagators:
+    - [2, 2]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, -2.452694552742313e-17, 9.581325055146015e-18, 2.9903443823194117e-13]
+      - [0.0, 0.0, 0.0, 0.0]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.04196010844983175
+    excluded_propagators:
+    - [2, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 0.0, 0.0, 0.0]
+      - [0.0, -1.8717403793393754e-12, -1.5531418652506773e-12, 7.29539606854331e-14]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.04196010844828645
+    excluded_propagators:
+    - [0, 1]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 0.013089917265831542, 0.06439143942312453, -0.1020269388585975]
+      - [0.0, 0.013089917265831542, 0.06439143942312453, -0.1020269388585975]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.17618006342593306
+    excluded_propagators:
+    - [1, 0]
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 1.7812704771551282e-09, 7.1890272709926564e-09, -5.397863142709105e-09]
+      - [0.0, 1.908088028674401e-09, 6.465805563111118e-09, -3.857870408055202e-09]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      radius: 0.041960107233557066
+    excluded_propagators: []
+  loop_lines:
+  - end_node: 5
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [-12.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [-6.0, 0.0, 0.0, 5.91607978309962]
+    signature: [1, 0]
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    signature: [1, -1]
+    start_node: 5
+  - end_node: 6
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [-6.0, -1.3124738333059, -5.26330888118183, 2.36114210884473]
+    - m_squared: 0.0
+      q: [-12.0, 0.0, 0.0, 0.0]
+    signature: [0, 1]
+    start_node: 5
+  ltd_cut_structure:
+  - [0, 1, 1]
+  - [1, 0, 1]
+  - [1, -1, 0]
+  maximum_ratio_expansion_threshold: 1.0
+  n_loops: 2
+  name: 2L_4P_Ladder_PS1

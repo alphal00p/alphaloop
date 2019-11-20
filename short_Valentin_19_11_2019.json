@@ -1,0 +1,686 @@
+{
+    "1574220292.0826488": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.03,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "max_iterations": 1,
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": 0.3,
+                    "lambda": 1.0,
+                    "non_cut_propagator_check": false,
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8
+                },
+                "stability_threshold": -1
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "cuhre",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/Deformation_paper_topologies.py b/LTD/Deformation_paper_topologies.py\nindex 5d606ef..c878351 100755\n--- a/LTD/Deformation_paper_topologies.py\n+++ b/LTD/Deformation_paper_topologies.py\n@@ -2449,10 +2449,6 @@ if __name__=='__main__':\n 'Pentagon_2s',\n 'Pentagon_3s',\n 'Hexagon_1s',\n-'Decagon_phys',\n-'Decagon_phys_massive',\n-'Decagon_phys_ez',\n-'Decagon_phys_massive_ez',\n 'Hexagon_2s',\n 'Hexagon_3s',\n 'Hexagon_4s',\n@@ -2462,6 +2458,13 @@ if __name__=='__main__':\n 'Evil_box_v3',\n     ]\n \n+    Decagon_topologies = [\n+'Decagon_phys',\n+'Decagon_phys_massive',\n+'Decagon_phys_ez',\n+'Decagon_phys_massive_ez',\n+    ]\n+\n     if len(args)==0:\n         print(\"Now processing all topologies...\")\n         raw_list_of_selected_topologies = [None,]\n@@ -2479,6 +2482,10 @@ if __name__=='__main__':\n             list_of_selected_topologies.append(other_topologies)\n         elif topo_name == 'other_individual':\n             list_of_selected_topologies.extend([[t,] for t in other_topologies])\n+        elif topo_name == 'decagon':\n+            list_of_selected_topologies.append(Decagon_topologies)\n+        elif topo_name == 'decagon_individual':\n+            list_of_selected_topologies.extend([[t,] for t in Decagon_topologies])\n         else:\n             list_of_selected_topologies.append([topo_name,])\n    \ndiff --git a/benchmark.py b/benchmark.py\nindex aaf7272..35ff273 100755\n--- a/benchmark.py\n+++ b/benchmark.py\n@@ -359,22 +359,22 @@ class Benchmark(list):\n '1L_4P_PS1',\n '1L_4P_PS1_massive',\n '1L_4P_PS2',\n-'1L_4P_PS2_massive',\n+#'1L_4P_PS2_massive',\n \n '1L_5P_PS1',\n '1L_5P_PS1_massive',\n '1L_5P_PS2',\n-'1L_5P_PS2_massive',\n+#'1L_5P_PS2_massive',\n \n '1L_6P_PS1',\n '1L_6P_PS1_massive',\n '1L_6P_PS2',\n-'1L_6P_PS2_massive',\n+#'1L_6P_PS2_massive',\n \n '1L_8P_PS1',\n '1L_8P_PS1_massive',\n '1L_8P_PS2',\n-'1L_8P_PS2_massive',\n+#'1L_8P_PS2_massive',\n \n ]\n         for topo in PS1PS2_1loop:\n@@ -389,42 +389,42 @@ class Benchmark(list):\n '2L_4P_Ladder_PS1',\n '2L_4P_Ladder_PS1_massive',\n '2L_4P_Ladder_PS2',\n-'2L_4P_Ladder_PS2_massive',\n+#'2L_4P_Ladder_PS2_massive',\n \n '2L_5P_Planar_PS1',\n '2L_5P_Planar_PS1_massive',\n '2L_5P_Planar_PS2',\n-'2L_5P_Planar_PS2_massive',\n+#'2L_5P_Planar_PS2_massive',\n \n '2L_6P_A_PS1',\n '2L_6P_A_PS1_massive',\n '2L_6P_A_PS2',\n-'2L_6P_A_PS2_massive',\n+#'2L_6P_A_PS2_massive',\n \n '2L_6P_B_PS1',\n '2L_6P_B_PS1_massive',\n '2L_6P_B_PS2',\n-'2L_6P_B_PS2_massive',\n+#'2L_6P_B_PS2_massive',\n \n '2L_6P_C_PS1',\n '2L_6P_C_PS1_massive',\n '2L_6P_C_PS2',\n-'2L_6P_C_PS2_massive',\n+#'2L_6P_C_PS2_massive',\n \n '2L_6P_D_PS1',\n '2L_6P_D_PS1_massive',\n '2L_6P_D_PS2',\n-'2L_6P_D_PS2_massive',\n+#'2L_6P_D_PS2_massive',\n \n '2L_6P_E_PS1',\n '2L_6P_E_PS1_massive',\n '2L_6P_E_PS2',\n-'2L_6P_E_PS2_massive',\n+#'2L_6P_E_PS2_massive',\n \n '2L_6P_F_PS1',\n '2L_6P_F_PS1_massive',\n '2L_6P_F_PS2',\n-'2L_6P_F_PS2_massive',\n+#'2L_6P_F_PS2_massive',\n \n 'TM1_bot',\n 'TM2_top',\n@@ -447,12 +447,12 @@ class Benchmark(list):\n '3L_4P_Ladder_PS1',\n '3L_4P_Ladder_PS1_massive',\n '3L_4P_Ladder_PS2',\n-# '3L_4P_Ladder_PS2_massive', # FAILURE OF ECOX SOLVER\n+# '3L_4P_Ladder_PS2_massive', # FAILURE OF ECOS SOLVER\n \n '3L_5P_Planar_PS1',\n '3L_5P_Planar_PS1_massive',\n '3L_5P_Planar_PS2',\n-# '3L_5P_Planar_PS2_massive', # FAILURE OF ECOX SOLVER\n+# '3L_5P_Planar_PS2_massive', # FAILURE OF ECOS SOLVER\n \n \n ]\n@@ -468,7 +468,7 @@ class Benchmark(list):\n '4L_4P_Ladder_PS1',\n '4L_4P_Ladder_PS1_massive',\n '4L_4P_Ladder_PS2',\n-'4L_4P_Ladder_PS2_massive',\n+#'4L_4P_Ladder_PS2_massive',\n \n # 'FISHNET_2x2_PS1', # TOO HARD? \n # 'FISHNET_2x2_PS1_massive', # TOO HARD?\ndiff --git a/rust_backend/ltd/src/lib.rs b/rust_backend/ltd/src/lib.rs\nindex 53d2121..addda0f 100644\n--- a/rust_backend/ltd/src/lib.rs\n+++ b/rust_backend/ltd/src/lib.rs\n@@ -23,7 +23,7 @@ use num_traits::{Float, FloatConst, FromPrimitive, Num, One, ToPrimitive, Zero};\n use utils::Signum;\n use vector::{Field, RealNumberLike};\n \n-pub const MAX_LOOP: usize = 4;\n+pub const MAX_LOOP: usize = 6;\n \n #[allow(non_camel_case_types)]\n #[cfg(feature = \"use_f128\")]",
+        "samples": [
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Pentagon_1s",
+                "result": [
+                    -3.443326099981856e-12,
+                    -2.5649368733831717e-12
+                ],
+                "error": [
+                    1.7137019904648045e-16,
+                    1.2766725041692703e-16
+                ],
+                "analytical_result": [
+                    -3.44342331910881e-12,
+                    -2.56487078110481e-12
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Pentagon_2s",
+                "result": [
+                    -8.390770898362777e-13,
+                    -1.713472070373442e-12
+                ],
+                "error": [
+                    4.52907959492193e-17,
+                    8.62107391169707e-17
+                ],
+                "analytical_result": [
+                    -8.390484525815771e-13,
+                    -1.713405042180853e-12
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Pentagon_3s",
+                "result": [
+                    -3.489977678130379e-12,
+                    -3.9000548965563535e-12
+                ],
+                "error": [
+                    1.3887771301696177e-16,
+                    1.5519596755295645e-16
+                ],
+                "analytical_result": [
+                    -3.48997234169132e-12,
+                    -3.90012989047481e-12
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_1s",
+                "result": [
+                    3.039124123500197e-15,
+                    -1.176808572816042e-13
+                ],
+                "error": [
+                    1.6559043847553704e-18,
+                    2.7440097239948028e-18
+                ],
+                "analytical_result": [
+                    3.039790437605862e-15,
+                    -1.1768253326142644e-13
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_2s",
+                "result": [
+                    1.3693336591136113e-15,
+                    -2.25895824726368e-15
+                ],
+                "error": [
+                    8.046481180503537e-19,
+                    8.223596173059089e-19
+                ],
+                "analytical_result": [
+                    1.3691802654305414e-15,
+                    -2.259008667111004e-15
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_3s",
+                "result": [
+                    1.2976941080026817e-15,
+                    -2.1659832587527347e-15
+                ],
+                "error": [
+                    8.104918047862849e-19,
+                    8.222817184880228e-19
+                ],
+                "analytical_result": [
+                    1.297703695865679e-15,
+                    -2.1658951065401658e-15
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_4s",
+                "result": [
+                    7.926175938648669e-17,
+                    -1.1527504509931278e-14
+                ],
+                "error": [
+                    1.0587716804713167e-18,
+                    1.832755377115558e-18
+                ],
+                "analytical_result": [
+                    7.939620566544445e-17,
+                    -1.1528177654174178e-14
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Pentagon_10E_1s",
+                "result": [
+                    1.933068091081332e-18,
+                    5.971510792037843e-13
+                ],
+                "error": [
+                    1.4604671312791864e-17,
+                    2.3420262947948606e-17
+                ],
+                "analytical_result": [
+                    0.0,
+                    5.971433616274931e-13
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Pentagon_6E_4s",
+                "result": [
+                    8.99212318246599e-11,
+                    4.178267710207403e-10
+                ],
+                "error": [
+                    1.1732496645039585e-14,
+                    2.049562846258012e-14
+                ],
+                "analytical_result": [
+                    8.992e-11,
+                    4.17837e-10
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Pentagon_8E_5s",
+                "result": [
+                    4.118101336138304e-15,
+                    -2.1805403631376817e-13
+                ],
+                "error": [
+                    3.1301018009954103e-17,
+                    5.0810368084249247e-17
+                ],
+                "analytical_result": [
+                    4.118696992009977e-15,
+                    -2.1805718929649134e-13
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_6E_4s",
+                "result": [
+                    -2.71928534295873e-15,
+                    -1.2086525929439713e-14
+                ],
+                "error": [
+                    4.1612976133245e-18,
+                    6.377263189721608e-18
+                ],
+                "analytical_result": [
+                    -2.7216841734816e-15,
+                    -1.2089609024538e-14
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_10E_4s",
+                "result": [
+                    -3.020934377021167e-17,
+                    -7.731931477513723e-17
+                ],
+                "error": [
+                    7.917054468030187e-19,
+                    7.918529364073728e-19
+                ],
+                "analytical_result": [
+                    -3.0193937848736e-17,
+                    -7.73337287748906e-17
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_9E_4s",
+                "result": [
+                    2.838940126317127e-17,
+                    8.312493949823648e-18
+                ],
+                "error": [
+                    7.913078701573507e-19,
+                    7.913038070356632e-19
+                ],
+                "analytical_result": [
+                    2.83771892273698e-17,
+                    8.3141576190839e-18
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_10E_7s",
+                "result": [
+                    0.021164597169051887,
+                    0.006516220738845451
+                ],
+                "error": [
+                    0.0005795107721816703,
+                    0.0004030575710714894
+                ],
+                "analytical_result": [
+                    0.0211928148966,
+                    0.0064030325864
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_10E_5s",
+                "result": [
+                    -2.8146774573280067,
+                    2.472654792106236
+                ],
+                "error": [
+                    0.0011490370251068037,
+                    0.0010094182394308326
+                ],
+                "analytical_result": [
+                    -2.81475384,
+                    2.4732705
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 20000000,
+                "topology": "Hexagon_6E_2s",
+                "result": [
+                    -27.252720973527342,
+                    -5.473819507584856
+                ],
+                "error": [
+                    4.110333681871089,
+                    4.870323675551035
+                ],
+                "analytical_result": [
+                    -20.7013988797142,
+                    4.234325146404
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T2_6P_2L_Weinzierl_A",
+                "result": [
+                    -86.6038932995297,
+                    0.18170159017882742
+                ],
+                "error": [
+                    0.32088362711483015,
+                    0.3179045922937478
+                ],
+                "analytical_result": [
+                    -86.07,
+                    0.0
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T2_6P_2L_Weinzierl_B",
+                "result": [
+                    -119.53472999556804,
+                    -2.0408149651800347
+                ],
+                "error": [
+                    0.6867447159253083,
+                    0.6944483076455868
+                ],
+                "analytical_result": [
+                    -118.09,
+                    0.0
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T2_6P_2L_Weinzierl_C",
+                "result": [
+                    -76.40108413626193,
+                    -0.3257686234807802
+                ],
+                "error": [
+                    0.3836841442175668,
+                    0.3832572827066624
+                ],
+                "analytical_result": [
+                    -75.48,
+                    0.0
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T2_6P_2L_Weinzierl_D",
+                "result": [
+                    -18.34582079577376,
+                    0.056110707950678414
+                ],
+                "error": [
+                    0.04973597771335849,
+                    0.049426166860651086
+                ],
+                "analytical_result": [
+                    -18.327,
+                    0.0
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T2_6P_2L_Weinzierl_E",
+                "result": [
+                    -46.57166331250333,
+                    0.051029872491570434
+                ],
+                "error": [
+                    0.2502842572609175,
+                    0.2516069281638958
+                ],
+                "analytical_result": [
+                    -45.972,
+                    0.0
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T2_6P_2L_Weinzierl_F",
+                "result": [
+                    -103.13036525846123,
+                    -0.6413086270418791
+                ],
+                "error": [
+                    0.7647428355164332,
+                    0.7604925009454437
+                ],
+                "analytical_result": [
+                    -102.71,
+                    0.0
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T3_DoubleBox_Weinzierl",
+                "result": [
+                    -0.05906228487557934,
+                    -9.550887811974819e-05
+                ],
+                "error": [
+                    6.05307052545622e-05,
+                    6.0446424918567126e-05
+                ],
+                "analytical_result": [
+                    -0.05897,
+                    0.0
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T4_TripleBox_Weinzierl",
+                "result": [
+                    -0.00012685025205669728,
+                    -0.00677962308660466
+                ],
+                "error": [
+                    4.172273512725457e-05,
+                    4.063893943169786e-05
+                ],
+                "analytical_result": [
+                    0.0,
+                    -0.006744
+                ]
+            },
+            {
+                "revision": "c8abbac",
+                "diff": false,
+                "num_samples": 100000000,
+                "topology": "T4_Quadruple_Box_Weinzierl",
+                "result": [
+                    0.0007424253011533304,
+                    2.9352365637824476e-06
+                ],
+                "error": [
+                    2.9645592351823274e-05,
+                    2.964473986653182e-05
+                ],
+                "analytical_result": [
+                    0.0007411275671528255,
+                    0.0
+                ]
+            }
+        ]
+    }
+}

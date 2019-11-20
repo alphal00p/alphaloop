@@ -1,0 +1,38 @@
+- analytical_result_imag: -2.06993924914093e-06
+  analytical_result_real: 1.5538225955752141e-06
+  constant_deformation:
+    alpha:
+    - [0.0, 0.0, 0.0, 1.0]
+    beta:
+    - [0.0, 0.0, 0.0, 0.0]
+  external_kinematics:
+  - [14.95, 0.0, 0.0, 14.9165176901313]
+  - [15.05, 0.0, 0.0, -14.9165176901313]
+  - [-14.8833333333333, -3.23407440276709, -12.9693500125724, 5.81810399699641]
+  - [-15.1166666666667, 3.23407440276709, 12.9693500125724, -5.81810399699641]
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - [0.0, 2.314816609475663e-08, 4.320247458031013e-08, 14.664268668380984]
+      excluded_surface_ids: []
+      overlap: [0, 1, 2, 3, 4]
+      radius: 0.13292445730757685
+    excluded_propagators: []
+  loop_lines:
+  - end_node: 4
+    propagators:
+    - m_squared: 0.0
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 0.0
+      q: [15.05, 0.0, 0.0, -14.9165176901313]
+    - m_squared: 0.0
+      q: [0.16666666666669983, -3.23407440276709, -12.9693500125724, -9.09841369313489]
+    - m_squared: 0.0
+      q: [-14.95, 0.0, 0.0, -14.9165176901313]
+    signature: [1]
+    start_node: 4
+  ltd_cut_structure:
+  - [1]
+  maximum_ratio_expansion_threshold: 0.9948328322268088
+  n_loops: 1
+  name: 1L_4P_PS2

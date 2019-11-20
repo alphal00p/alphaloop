@@ -2449,10 +2449,6 @@ if __name__=='__main__':
 'Pentagon_2s',
 'Pentagon_3s',
 'Hexagon_1s',
-'Decagon_phys',
-'Decagon_phys_massive',
-'Decagon_phys_ez',
-'Decagon_phys_massive_ez',
 'Hexagon_2s',
 'Hexagon_3s',
 'Hexagon_4s',
@@ -2460,6 +2456,13 @@ if __name__=='__main__':
 'Evil_box',
 'Evil_box_v2',
 'Evil_box_v3',
+    ]
+
+    Decagon_topologies = [
+'Decagon_phys',
+'Decagon_phys_massive',
+'Decagon_phys_ez',
+'Decagon_phys_massive_ez',
     ]
 
     if len(args)==0:
@@ -2479,6 +2482,10 @@ if __name__=='__main__':
             list_of_selected_topologies.append(other_topologies)
         elif topo_name == 'other_individual':
             list_of_selected_topologies.extend([[t,] for t in other_topologies])
+        elif topo_name == 'decagon':
+            list_of_selected_topologies.append(Decagon_topologies)
+        elif topo_name == 'decagon_individual':
+            list_of_selected_topologies.extend([[t,] for t in Decagon_topologies])
         else:
             list_of_selected_topologies.append([topo_name,])
    
