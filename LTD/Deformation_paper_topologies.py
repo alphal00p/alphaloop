@@ -855,7 +855,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(-6.04399581694419651E-009, +6.96338774260588204E-008),
+                analytic_result=complex(6.04399581694419651E-009, -6.96338774260588204E-008),
             ),
             entry_name = topology_name
         )
@@ -869,7 +869,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(2.19936376909663045E-008, +6.37930575804718533E-008)
+                analytic_result=complex(-2.19936376909663045E-008, -6.37930575804718533E-008)
             ),
             entry_name = topology_name
         )
@@ -941,7 +941,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(-4.06595380412787312E-013, +2.51955969166405794E-012),
+                analytic_result=complex(4.06595380412787312E-013, -2.51955969166405794E-012),
             ),
             entry_name = topology_name
         )
@@ -955,7 +955,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(1.27623847914047270E-012, + 2.26088552166129903E-012)
+                analytic_result=complex(-1.27623847914047270E-012, -2.26088552166129903E-012)
             ),
             entry_name = topology_name
         )
