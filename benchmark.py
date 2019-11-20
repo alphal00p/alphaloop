@@ -75,9 +75,10 @@ class BenchmarkRun(dict):
                 print("Could not extract analytic result and/or load information for topology: %s"%topology)
                 sys.exit(1)
     
+        no_analytical_found = False
         if analytical_result[0]==analytical_result[1]==0.:
-            print("Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result."%topology)
-            sys.exit(1)
+            print("WARNING: Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result, so we will set the analytical result equal to the one obtained by RUST."%topology)
+            no_analytical_found = True
     
         # remove info from old runs
         try:
@@ -152,6 +153,14 @@ class BenchmarkRun(dict):
         elif phase == 'real':
             integral_result[0] = rust_result['result'][0]
             error[0] = rust_result['error'][0]
+
+        if no_analytical_found:
+            if phase == 'both':
+                analytical_result = complex(rust_result['result'][0], rust_result['result'][1])
+            elif phase == 'imag':
+                analytical_result = complex(0.0, rust_result['result'][0])
+            elif phase == 'real':
+                analytical_result = complex(rust_result['result'][0], 0.0)
 
         result = {
             'revision': git_revision,
