@@ -1,5 +1,5 @@
-- analytical_result_imag: -0.0
-  analytical_result_real: 0.006744
+- analytical_result_imag: -0.006744
+  analytical_result_real: 0.0
   constant_deformation:
     alpha:
     - &id001 [0.0, 0.0, 0.0, 1.0]

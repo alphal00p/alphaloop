@@ -374,7 +374,7 @@ def load(selected_topologies=None):
                           'p5': 0.0, 'p6': 0.0, 'p7': 0.0, 'p8': 0.0, 
                           'p9': 0.0, 'p10': 0.0}, 
                 loop_momenta_names=('p1','p5','p8'), 
-                analytic_result=complex(0.0,-6.744e-3j)
+                analytic_result=complex(0.0,-6.744e-3)
              ),
              entry_name = topology_name
         )
