@@ -118,11 +118,11 @@ hyperparameters = HyperParameters({
             # magic_fudge : c * c * (d / (b + d))
             # magic_fudge_with_min : min( c * c * (d / (b + d)), c * c * (d / (a + d)))
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
-            'expansion_check_strategy'  : 'ratio',
-            # The expansion_threshold is considered as a multiplier of the maximum threshold detected and stored
+            'expansion_check_strategy'  : 'magic_fudge',
+            # The expansion_threshold considered is min(e_th, 0.5*e_th_max), with e_th_max computed 
             # during the pre-processing. Note instead that a negative value is allowed and the absolute value will
             # then directly be used as an input.
-            'expansion_threshold'       : 0.3,
+            'expansion_threshold'       : 0.1,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
@@ -147,7 +147,7 @@ hyperparameters = HyperParameters({
 
         'fixed' : {
             # Maximum allowed value for the anti-selector on an E-surface.
-            'delta' : 0.03,
+            'delta' : 0.05,
             # Argument of the anti-selector of the form  E_i^2 / ( E_i^2 + M_ij^2 * M^\star ^2 * (p_i^0)^2 )
             # where: E_i is the equation of the E-surface #i
             #        M^\star is the maximum value that M can take for the anti-selector to be < \delta on E-surfaces.

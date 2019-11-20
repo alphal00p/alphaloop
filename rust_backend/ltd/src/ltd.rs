@@ -667,7 +667,11 @@ impl Topology {
                     self.maximum_ratio_expansion_threshold < 0. ) {
                     self.settings.deformation.scaling.expansion_threshold.abs()
                 } else {
-                    self.settings.deformation.scaling.expansion_threshold*self.maximum_ratio_expansion_threshold
+                    if (self.settings.deformation.scaling.expansion_threshold > 0.5*self.maximum_ratio_expansion_threshold) {
+                        0.5*self.maximum_ratio_expansion_threshold
+                    } else {
+                        self.settings.deformation.scaling.expansion_threshold                      
+                    }
                 }
             }
             _ => {
