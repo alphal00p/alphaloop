@@ -62,6 +62,25 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
      entry_name = 'Box_no_ellipse'
 )
 
+# box without ellipse but close to threshold
+box = TopologyGenerator([
+    ('p1', 1, 4), ('p2', 4, 3), ('p3', 3, 2),  ('p4', 2, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+])
+q1 = vectors.LorentzVector([1.11803399, 0.        , 0.        , 2.5       ])
+q2 = vectors.LorentzVector([-1.11803399,  0.        ,  0.        , -1.5       ])
+q3 = vectors.LorentzVector([-1.11803399, -0.47140452, -1.33333333, -0.5       ])
+hard_coded_topology_collection.add_topology(box.create_loop_topology(
+        "Box_threshold", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0}, 
+        loop_momenta_names=('p4',), # If not specified an arbitrary spanning tree will be used for momentum routing 
+        analytic_result=None, # For triangle and box one-loop topology, the analytic result is automatically computed
+     ),
+     entry_name = 'Box_threshold'
+)
+
+
 # Box with customised ellipses from mathematica
 
 box = TopologyGenerator([
