@@ -489,6 +489,90 @@ class Benchmark(list):
             res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
         return res
 
+
+    def get_PS3_1loop(self):
+        
+        res = []        
+        PS1PS2_1loop = [
+'1L_4P_PS3',
+'1L_4P_PS3_massive',
+'1L_5P_PS3',
+'1L_5P_PS3_massive',
+'1L_6P_PS3',
+'1L_6P_PS3_massive',
+'1L_8P_PS3',
+'1L_8P_PS3_massive',
+]
+        for topo in PS1PS2_1loop:
+            res.append(BenchmarkRun1loop(topo, samples=30*Units.M))
+        return res
+
+    def get_PS3_2loop(self):
+
+        res = []        
+        PS1PS2_2loop = [ 
+'TM1_bot',
+'TM2_top',
+
+'2L_4P_Ladder_PS3',
+'2L_4P_Ladder_PS3_massive',
+'2L_5P_Planar_PS3',
+'2L_5P_Planar_PS3_massive',
+'2L_6P_A_PS3',
+'2L_6P_A_PS3_massive',
+'2L_6P_B_PS3',
+'2L_6P_B_PS3_massive',
+'2L_6P_C_PS3',
+'2L_6P_C_PS3_massive',
+'2L_6P_D_PS3',
+'2L_6P_D_PS3_massive',
+'2L_6P_E_PS3',
+'2L_6P_E_PS3_massive',
+'2L_6P_F_PS3',
+'2L_6P_F_PS3_massive',
+'2L_8P_PS3',
+'2L_8P_PS3_massive',
+]
+        for topo in PS1PS2_2loop:
+            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        return res
+
+    def get_PS3_3loop(self):
+
+        res = []        
+        PS1PS2_3loop = [
+
+'3L_4P_Ladder_PS3',
+'3L_4P_Ladder_PS3_massive',
+'3L_5P_Planar_PS3',
+'3L_5P_Planar_PS3_massive',
+
+
+]
+        for topo in PS1PS2_3loop:
+            res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        return res
+
+    def get_PS3_4loop(self):
+
+        res = []        
+        PS1PS2_4loop = [
+
+'4L_4P_Ladder_PS1',
+'4L_4P_Ladder_PS1_massive',
+'4L_4P_Ladder_PS2',
+'4L_4P_Ladder_PS2_massive',
+
+# 'FISHNET_2x2_PS1', # Too hard for cvxpy? 
+# 'FISHNET_2x2_PS1_massive', # Too hard for cvxpy?
+# 'FISHNET_2x2_PS2', # Too hard for cvxpy?
+# 'FISHNET_2x2_PS2_massive', # Too hard for cvxpy?
+
+]
+        for topo in PS1PS2_4loop:
+            res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        return res
+
 def get_history(history_path):
     historical_data = []
 

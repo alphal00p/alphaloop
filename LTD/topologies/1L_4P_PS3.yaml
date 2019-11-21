@@ -1,0 +1,81 @@
+- analytical_result_imag: -0.000554873377676577
+  analytical_result_real: 0.001131164514452931
+  constant_deformation:
+    alpha:
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    beta:
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+  external_kinematics:
+  - - 14.95
+    - 0.0
+    - 0.0
+    - 14.9165176901313
+  - - 2.55075098814229
+    - 0.0
+    - 0.0
+    - -2.30137580666628
+  - - -2.50529644268775
+    - -0.487890866972676
+    - -1.95654973685581
+    - 0.877716295210478
+  - - -14.995454545454539
+    - 0.487890866972676
+    - 1.95654973685581
+    - -13.492858178675498
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.05588226829688337
+        - 0.09970804426851182
+        - 2.1751129458850933
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      radius: 0.22310571116013325
+    excluded_propagators: []
+  loop_lines:
+  - end_node: 4
+    propagators:
+    - m_squared: 0.0
+      q:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - m_squared: 0.0
+      q:
+      - 2.55075098814229
+      - 0.0
+      - 0.0
+      - -2.30137580666628
+    - m_squared: 0.0
+      q:
+      - 0.045454545454540085
+      - -0.487890866972676
+      - -1.95654973685581
+      - -1.4236595114558022
+    - m_squared: 0.0
+      q:
+      - -14.95
+      - 0.0
+      - 0.0
+      - -14.9165176901313
+    signature:
+    - 1
+    start_node: 4
+  ltd_cut_structure:
+  - - 1
+  maximum_ratio_expansion_threshold: 0.9907498771711429
+  n_loops: 1
+  name: 1L_4P_PS3
