@@ -86,7 +86,7 @@ pub struct Scaling {
     pub source_branch_cut_threshold: f64,
     pub source_branch_cut_multiplier: f64,
     pub expansion_check_strategy: ExpansionCheckStrategy,
-    pub exact_pole_check: bool,
+    pub pole_check_strategy: PoleCheckStrategy,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
@@ -115,6 +115,22 @@ pub enum ExpansionCheckStrategy {
     MagicFudgeWithMin,
     #[serde(rename = "ratio")]
     Ratio,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+pub enum PoleCheckStrategy {
+    #[serde(rename = "exact")]
+    Exact,
+    #[serde(rename = "real_solution")]
+    RealSolution,
+    #[serde(rename = "tangent_check")]
+    TangentCheck,
+}
+
+impl Default for PoleCheckStrategy {
+    fn default() -> PoleCheckStrategy {
+        PoleCheckStrategy::RealSolution
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
@@ -167,6 +183,27 @@ impl fmt::Display for ExpansionCheckStrategy {
             ExpansionCheckStrategy::MagicFudge => write!(f, "magic fudge"),
             ExpansionCheckStrategy::MagicFudgeWithMin => write!(f, "magic fudge with min"),
             ExpansionCheckStrategy::Ratio => write!(f, "ratio"),
+        }
+    }
+}
+
+impl From<&str> for PoleCheckStrategy {
+    fn from(s: &str) -> Self {
+        match s {
+            "exact" => PoleCheckStrategy::Exact,
+            "real_solution" => PoleCheckStrategy::RealSolution,
+            "tangent_check" => PoleCheckStrategy::TangentCheck,
+            _ => panic!("Unknown pole check strategy {}", s),
+        }
+    }
+}
+
+impl fmt::Display for PoleCheckStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PoleCheckStrategy::Exact => write!(f, "exact"),
+            PoleCheckStrategy::RealSolution => write!(f, "real solution"),
+            PoleCheckStrategy::TangentCheck => write!(f, "tangent check"),
         }
     }
 }

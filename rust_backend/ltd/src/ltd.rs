@@ -15,7 +15,8 @@ use vector::LorentzVector;
 use {float, PythonNumerator};
 use {
     AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike,
-    OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, MAX_LOOP,
+    OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
+    MAX_LOOP,
 };
 
 use utils;
@@ -268,11 +269,12 @@ impl Topology {
                                 if (surface_sign_sum + delta_sign).abs()
                                     == surface_signs_abs_sum + delta_sign.abs()
                                 {
-                                    // we do not consider pointlike ellipsoids to exist                                    
+                                    // we do not consider pointlike ellipsoids to exist
                                     if surface_shift.square()
                                         - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                        < Into::<float>::into(1e-10 * self.e_cm_squared) {
-                                        continue
+                                        < Into::<float>::into(1e-10 * self.e_cm_squared)
+                                    {
+                                        continue;
                                     }
                                     if surface_shift.square()
                                         - (cut_mass_sum.abs() + surface_mass).powi(2)
@@ -663,20 +665,21 @@ impl Topology {
     pub fn get_expansion_threshold(&self) -> f64 {
         match self.settings.deformation.scaling.expansion_check_strategy {
             ExpansionCheckStrategy::Ratio => {
-                if (self.settings.deformation.scaling.expansion_threshold < 0. || 
-                    self.maximum_ratio_expansion_threshold < 0. ) {
+                if (self.settings.deformation.scaling.expansion_threshold < 0.
+                    || self.maximum_ratio_expansion_threshold < 0.)
+                {
                     self.settings.deformation.scaling.expansion_threshold.abs()
                 } else {
-                    if (self.settings.deformation.scaling.expansion_threshold > 0.5*self.maximum_ratio_expansion_threshold) {
-                        0.5*self.maximum_ratio_expansion_threshold
+                    if (self.settings.deformation.scaling.expansion_threshold
+                        > 0.5 * self.maximum_ratio_expansion_threshold)
+                    {
+                        0.5 * self.maximum_ratio_expansion_threshold
                     } else {
-                        self.settings.deformation.scaling.expansion_threshold                      
+                        self.settings.deformation.scaling.expansion_threshold
                     }
                 }
             }
-            _ => {
-                self.settings.deformation.scaling.expansion_threshold.abs()
-            }
+            _ => self.settings.deformation.scaling.expansion_threshold.abs(),
         }
     }
 
@@ -940,7 +943,6 @@ impl Topology {
                                 let a = info.kappa_sq * info.kappa_sq;
                                 let b = info.kappa_dot_mom * info.kappa_dot_mom;
                                 let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
-                            
                                 if a < b {
                                     c * c * (d / (b + d))
                                 } else {
@@ -1003,32 +1005,38 @@ impl Topology {
 
                     let mut prop_lambda_sq = Topology::compute_lambda_factor(x, y);
 
-                    if self.settings.deformation.scaling.exact_pole_check {
-                        // compute the lambda for which we have 0
-                        let zero_lambda_plus = (Complex::new(DualN::zero(), info.kappa_dot_mom)
-                            + (Complex::new(
-                                info.spatial_and_mass_sq * info.kappa_sq
-                                    - info.kappa_dot_mom.powi(2),
-                                DualN::zero(),
-                            ))
-                            .sqrt())
-                            / info.kappa_sq;
-                        let zero_lambda_min = (Complex::new(DualN::zero(), info.kappa_dot_mom)
-                            - (Complex::new(
-                                info.spatial_and_mass_sq * info.kappa_sq
-                                    - info.kappa_dot_mom.powi(2),
-                                DualN::zero(),
-                            ))
-                            .sqrt())
-                            / info.kappa_sq;
+                    match self.settings.deformation.scaling.pole_check_strategy {
+                        PoleCheckStrategy::Exact => {
+                            // compute the lambda for which we have 0
+                            let zero_lambda_plus =
+                                (Complex::new(DualN::zero(), info.kappa_dot_mom)
+                                    + (Complex::new(
+                                        info.spatial_and_mass_sq * info.kappa_sq
+                                            - info.kappa_dot_mom.powi(2),
+                                        DualN::zero(),
+                                    ))
+                                    .sqrt())
+                                    / info.kappa_sq;
+                            let zero_lambda_min = (Complex::new(DualN::zero(), info.kappa_dot_mom)
+                                - (Complex::new(
+                                    info.spatial_and_mass_sq * info.kappa_sq
+                                        - info.kappa_dot_mom.powi(2),
+                                    DualN::zero(),
+                                ))
+                                .sqrt())
+                                / info.kappa_sq;
 
-                        if zero_lambda_plus.re * zero_lambda_plus.re < prop_lambda_sq {
-                            prop_lambda_sq = zero_lambda_plus.re * zero_lambda_plus.re;
+                            if zero_lambda_plus.re * zero_lambda_plus.re < prop_lambda_sq {
+                                prop_lambda_sq = zero_lambda_plus.re * zero_lambda_plus.re;
+                            }
+
+                            // TODO: check if zero_lambda_min.re is negative?
+                            if zero_lambda_min.re * zero_lambda_min.re < prop_lambda_sq {
+                                prop_lambda_sq = zero_lambda_min.re * zero_lambda_min.re;
+                            }
                         }
-
-                        // TODO: check if zero_lambda_min.re is negative?
-                        if zero_lambda_min.re * zero_lambda_min.re < prop_lambda_sq {
-                            prop_lambda_sq = zero_lambda_min.re * zero_lambda_min.re;
+                        PoleCheckStrategy::RealSolution | PoleCheckStrategy::TangentCheck => {
+                            // TODO: what to do for the tangent case?
                         }
                     }
 
@@ -1162,18 +1170,124 @@ impl Topology {
                                     continue;
                                 }
 
-                                let a_tot = (a + on_shell_info.a * sign) * Into::<T>::into(-0.5);
-                                let a_tot_inv = a_tot.inv();
-                                let b_tot = b + on_shell_info.b * sign;
-                                let c_tot = c + on_shell_info.c * sign + on_shell_info.shift.t;
-                                let x = (b_tot * a_tot_inv).powi(2) * Into::<T>::into(0.25);
-                                let y = -c_tot * a_tot_inv;
+                                let prop_lambda_sq = match self
+                                    .settings
+                                    .deformation
+                                    .scaling
+                                    .pole_check_strategy
+                                {
+                                    PoleCheckStrategy::Exact => {
+                                        assert_eq!(self.n_loops, 1);
+                                        // now determine the exact solution for one-loop surfaces
+                                        let p0 = on_shell_info.shift.t - cut_infos[0].shift.t;
+                                        let a = cut_infos[0].spatial_and_mass_sq
+                                            - on_shell_info.spatial_and_mass_sq
+                                            - p0.powi(2);
 
-                                let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+                                        let b = kappas[0].spatial_dot(
+                                            &(cut_infos[0].momentum - on_shell_info.momentum),
+                                        ) * Into::<T>::into(2.);
 
-                                if a_tot.real().is_zero() {
-                                    continue;
-                                }
+                                        let A = kappas[0].spatial_squared()
+                                            * p0.powi(2)
+                                            * Into::<T>::into(4.)
+                                            - b * b;
+                                        let B = (a * b
+                                            - kappas[0].spatial_dot(&on_shell_info.momentum)
+                                                * p0.powi(2)
+                                                * Into::<T>::into(4.))
+                                            * Into::<T>::into(2.);
+                                        let C = a * a
+                                            - on_shell_info.spatial_and_mass_sq
+                                                * p0.powi(2)
+                                                * Into::<T>::into(4.);
+
+                                        let mut lambda_plus = (-Complex::new(DualN::zero(), B)
+                                            + (Complex::new(
+                                                -B * B - A * C * Into::<T>::into(4.),
+                                                DualN::zero(),
+                                            ))
+                                            .sqrt())
+                                            / (A * Into::<T>::into(2.));
+                                        let mut lambda_min = (-Complex::new(DualN::zero(), B)
+                                            - (Complex::new(
+                                                -B * B - A * C * Into::<T>::into(4.),
+                                                DualN::zero(),
+                                            ))
+                                            .sqrt())
+                                            / (A * Into::<T>::into(2.));
+
+                                        if A.real().is_zero() {
+                                            lambda_plus = Complex::new(DualN::zero(), C / B);
+                                            lambda_min = Complex::new(DualN::zero(), C / B);
+                                        }
+
+                                        // evaluate the surface with lambda
+                                        let mut prop_lambda_sq = lambda_sq;
+                                        for lambda in &[lambda_plus, lambda_min] {
+                                            let def = kappas[0].real().to_complex(false)
+                                                * Complex::new(lambda.re.real(), lambda.im.real());
+                                            let surf =
+                                                ((cut_infos[0].momentum.real().to_complex(true)
+                                                    + def)
+                                                    .spatial_squared()
+                                                    + cut_infos[0].mass.real()) // note, this is mass^2
+                                                .sqrt()
+                                                    + ((on_shell_info
+                                                        .momentum
+                                                        .real()
+                                                        .to_complex(true)
+                                                        + def)
+                                                        .spatial_squared()
+                                                        + on_shell_info.mass.real())
+                                                    .sqrt()
+                                                    + p0.real();
+
+                                            if surf.norm() < Into::<T>::into(1e-5) {
+                                                let new_lambda = lambda.norm_sqr();
+                                                if new_lambda < prop_lambda_sq {
+                                                    prop_lambda_sq = new_lambda
+                                                }
+                                            }
+                                        }
+                                        prop_lambda_sq
+                                    }
+                                    PoleCheckStrategy::RealSolution => {
+                                        let a_tot =
+                                            (a + on_shell_info.a * sign) * Into::<T>::into(-0.5);
+                                        let a_tot_inv = a_tot.inv();
+                                        let b_tot = b + on_shell_info.b * sign;
+                                        let c_tot =
+                                            c + on_shell_info.c * sign + on_shell_info.shift.t;
+                                        let x = (b_tot * a_tot_inv).powi(2) * Into::<T>::into(0.25);
+                                        let y = -c_tot * a_tot_inv;
+                                        let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+                                        if a_tot.real().is_zero() {
+                                            continue;
+                                        }
+                                        prop_lambda_sq
+                                    }
+                                    PoleCheckStrategy::TangentCheck => {
+                                        // TODO: compute the normal
+                                        //let a = cut_infos[0]
+
+                                        let delta_r = c * sign
+                                            + on_shell_info.c
+                                            + on_shell_info.shift.t * sign;
+
+                                        // TODO: solve the equation
+                                        let mut correction = DualN::zero();
+                                        for info in &cut_infos[..self.n_loops] {
+                                            let a = info.kappa_sq;
+                                            let b = info.kappa_dot_mom;
+                                            let d = info.spatial_and_mass_sq;
+                                            correction -=
+                                                info.real_energy * d * d / (a * d - b * b);
+                                        }
+
+                                        lambda_sq
+                                    }
+                                };
 
                                 if sigma.is_zero() {
                                     if prop_lambda_sq < lambda_sq {
@@ -1183,81 +1297,6 @@ impl Topology {
                                     let e = (-prop_lambda_sq / sigma).exp();
                                     smooth_min_num += prop_lambda_sq * e;
                                     smooth_min_den += e;
-                                }
-
-                                if self.n_loops == 1
-                                    && self.settings.deformation.scaling.exact_pole_check
-                                {
-                                    // now determine the exact solution for one-loop surfaces
-                                    let p0 = on_shell_info.shift.t - cut_infos[0].shift.t;
-                                    let a = cut_infos[0].spatial_and_mass_sq
-                                        - on_shell_info.spatial_and_mass_sq
-                                        - p0.powi(2);
-
-                                    let b = kappas[0].spatial_dot(
-                                        &(cut_infos[0].momentum - on_shell_info.momentum),
-                                    ) * Into::<T>::into(2.);
-
-                                    let A = kappas[0].spatial_squared()
-                                        * p0.powi(2)
-                                        * Into::<T>::into(4.)
-                                        - b * b;
-                                    let B = (a * b
-                                        - kappas[0].spatial_dot(&on_shell_info.momentum)
-                                            * p0.powi(2)
-                                            * Into::<T>::into(4.))
-                                        * Into::<T>::into(2.);
-                                    let C = a * a
-                                        - on_shell_info.spatial_and_mass_sq
-                                            * p0.powi(2)
-                                            * Into::<T>::into(4.);
-
-                                    let mut lambda_plus = (-Complex::new(DualN::zero(), B)
-                                        + (Complex::new(
-                                            -B * B - A * C * Into::<T>::into(4.),
-                                            DualN::zero(),
-                                        ))
-                                        .sqrt())
-                                        / (A * Into::<T>::into(2.));
-                                    let mut lambda_min = (-Complex::new(DualN::zero(), B)
-                                        - (Complex::new(
-                                            -B * B - A * C * Into::<T>::into(4.),
-                                            DualN::zero(),
-                                        ))
-                                        .sqrt())
-                                        / (A * Into::<T>::into(2.));
-
-                                    if A.real().is_zero() {
-                                        lambda_plus = Complex::new(DualN::zero(), C / B);
-                                        lambda_min = Complex::new(DualN::zero(), C / B);
-                                    }
-
-                                    // evaluate the surface with lambda
-                                    for lambda in &[lambda_plus, lambda_min] {
-                                        let def = kappas[0].real().to_complex(false)
-                                            * Complex::new(lambda.re.real(), lambda.im.real());
-                                        let surf = ((cut_infos[0]
-                                            .momentum
-                                            .real()
-                                            .to_complex(true)
-                                            + def)
-                                            .spatial_squared()
-                                            + cut_infos[0].mass.real()) // note, this is mass^2
-                                        .sqrt()
-                                            + ((on_shell_info.momentum.real().to_complex(true)
-                                                + def)
-                                                .spatial_squared()
-                                                + on_shell_info.mass.real())
-                                            .sqrt()
-                                            + p0.real();
-
-                                        if surf.norm() < Into::<T>::into(1e-5) {
-                                            let new_lambda = lambda.re.abs() * lambda.re.abs();
-                                            if new_lambda < lambda_sq {
-                                                lambda_sq = new_lambda;
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -1780,9 +1819,6 @@ impl Topology {
                     if surf_index < self.settings.deformation.fixed.m_ijs.len() {
                         mij = Into::<T>::into(self.settings.deformation.fixed.m_ijs[surf_index]);
                     }
-                    
-                    
-
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                     // at the same time and goes to 1 otherwise
                     debug_assert!(self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid);
