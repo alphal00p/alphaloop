@@ -839,7 +839,7 @@ def load(selected_topologies=None):
             loop_momenta_names=('p4', 'p6'),
             analytic_result = -3.82891e-6+4.6684e-6j
             ),
-            entry_name = 'TM1_top'
+            entry_name = topology_name
         )
 
 
@@ -862,7 +862,7 @@ def load(selected_topologies=None):
             loop_momenta_names=('p4', 'p6'),
             analytic_result = -2.8364703e-10+3.3826534e-10j
             ),
-            entry_name = 'TM1_top'
+            entry_name = topology_name
         )
 
 

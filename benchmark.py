@@ -436,7 +436,7 @@ class Benchmark(list):
 '2L_6P_F_PS2_massive',
 
 'TM1_bot',
-'TM2_top',
+'TM1_top',
 
 #'2L_8P_PS1', # TOO HARD?
 #'2L_8P_PS1_massive', # TOO HARD?
