@@ -818,6 +818,101 @@ def load(selected_topologies=None):
             entry_name = topology_name
         )
 
+
+    # double box
+
+    topology_name = "TM1_top"
+    if selected_topologies is None or topology_name in selected_topologies:
+
+        factory = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+                    ('p1', 1, 6), ('p2', 6, 3), ('p3', 3, 2), ('p4', 2, 1),
+                            ('p6', 3, 4), ('p7', 4, 6),])
+        q1 = vectors.LorentzVector([2.23606798,0.,0.,2.23606798])
+        q2 = vectors.LorentzVector([2.23606798,0.,0.,-2.23606798 ])
+        q3 = vectors.LorentzVector([-2.18016628,0.78660664,1.36244266,-1.50934588])
+        q4 = -q1-q2-q3
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
+            mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
+            loop_momenta_names=('p4', 'p6'),
+            analytic_result = -3.82891e-6+4.6684e-6j
+            ),
+            entry_name = 'TM1_top'
+        )
+
+
+
+    topology_name = "TM1_bot"
+    if selected_topologies is None or topology_name in selected_topologies:
+
+        factory = TopologyGenerator([
+            ('q1', 101, 1), ('q2', 102, 2), ('q3', 103, 3), ('q4', 104, 4),
+                    ('p1', 1, 6), ('p2', 6, 3), ('p3', 3, 2), ('p4', 2, 1),
+                            ('p6', 3, 4), ('p7', 4, 6),])
+        q1 = vectors.LorentzVector([4.7587112858938056e+01,0.0000000000000000e+00,0.0000000000000000e+00,4.7587112858938056e+01])
+        q2 = vectors.LorentzVector([4.7587112858938056e+01,0.0000000000000000e+00,0.0000000000000000e+00,-4.7587112858938056e+01])
+        q3 = vectors.LorentzVector([-4.2875517526369933e+01,1.2805858466523055e+01,2.2180397498554001e+01,-3.4385316035999658e+01])
+        q4 = -q1-q2-q3
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
+            mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
+            loop_momenta_names=('p4', 'p6'),
+            analytic_result = -2.8364703e-10+3.3826534e-10j
+            ),
+            entry_name = 'TM1_top'
+        )
+
+
+
+
+
+
+    rescaling = 1.0
+    q1 = vectors.LorentzVector(
+        [-94.0089, -32.6691, -103.507, -5.55638]
+    )*rescaling 
+    q2 = vectors.LorentzVector(
+        [59.2545, 13.2078, 36.1233, 5.56925]
+    )*rescaling
+    q3 = vectors.LorentzVector(
+        [6.54172, -11.6003, 15.699, 0.133222]
+    )*rescaling
+    q4 = vectors.LorentzVector(
+        [49.1508, 23.1031, 32.3094, 4.20104] 
+    )*rescaling
+    q5 = vectors.LorentzVector(
+        [133.724, 61.0775, 153.232, 7.1925]            
+    )*rescaling
+    q6 = -q5-q4-q3-q2-q1
+
+    # 1L
+    factory = TopologyGenerator([
+        ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1),
+        ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4), ('q5', 105,5), ('q6', 106,6)
+    ])
+
+    mass=0.
+    topology_name = "Hexagon_6E_2s_boosted"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(6.04399581694419651E-009, -6.96338774260588204E-008),
+            ),
+            entry_name = topology_name
+        )
+
+
+
+
+
+
+
     ###############################################################################
     # PAPER: Now a series of topologies with specific external_kinematics for the paper
     ###############################################################################
