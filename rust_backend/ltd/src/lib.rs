@@ -87,6 +87,9 @@ pub struct Scaling {
     pub source_branch_cut_multiplier: f64,
     pub expansion_check_strategy: ExpansionCheckStrategy,
     pub pole_check_strategy: PoleCheckStrategy,
+    pub theta_r_out: f64,
+    pub theta_r_in: f64,
+    pub theta_c: f64,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]

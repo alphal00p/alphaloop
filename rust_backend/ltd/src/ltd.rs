@@ -1268,24 +1268,30 @@ impl Topology {
                                         prop_lambda_sq
                                     }
                                     PoleCheckStrategy::TangentCheck => {
-                                        // TODO: compute the normal
-                                        //let a = cut_infos[0]
+                                        // make sure the surface has a plus sign in front of the foci
+                                        let a_tot =
+                                            (a * sign + on_shell_info.a) * Into::<T>::into(-0.5); // kappa^2 part
+                                        let b_tot = b * sign + on_shell_info.b; // kappa part
+                                        let c_tot =
+                                            c * sign + on_shell_info.c + on_shell_info.shift.t; // kappa^0 part
 
-                                        let delta_r = c * sign
-                                            + on_shell_info.c
-                                            + on_shell_info.shift.t * sign;
+                                        let t_out = c_tot
+                                            / Into::<T>::into(
+                                                self.settings.deformation.scaling.theta_r_out,
+                                            );
+                                        let t_in = c_tot
+                                            * Into::<T>::into(
+                                                self.settings.deformation.scaling.theta_r_in,
+                                            );
 
-                                        // TODO: solve the equation
-                                        let mut correction = DualN::zero();
-                                        for info in &cut_infos[..self.n_loops] {
-                                            let a = info.kappa_sq;
-                                            let b = info.kappa_dot_mom;
-                                            let d = info.spatial_and_mass_sq;
-                                            correction -=
-                                                info.real_energy * d * d / (a * d - b * b);
-                                        }
+                                        let t_c = t_out
+                                            + b_tot
+                                                / Into::<T>::into(
+                                                    self.settings.deformation.scaling.theta_c,
+                                                );
+                                        let rhs = t_out.min(t_in).min(t_c);
 
-                                        lambda_sq
+                                        (c_tot - rhs) / a_tot
                                     }
                                 };
 

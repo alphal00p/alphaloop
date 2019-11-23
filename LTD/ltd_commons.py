@@ -134,7 +134,10 @@ hyperparameters = HyperParameters({
             'source_branch_cut_threshold'  : 0.8,
             'source_branch_cut_multiplier' : 0.8,
             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check
-            'pole_check_strategy'          : 'real_solution',
+            'pole_check_strategy'       : 'real_solution',
+            'theta_r_out'               : 2.,
+            'theta_r_in'                : 2.,
+            'theta_c'                   : 2.,
         },
 
         'additive'              :   {
