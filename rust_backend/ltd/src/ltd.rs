@@ -1107,12 +1107,13 @@ impl Topology {
                         }
 
                         // multiply the signature by the sign of the cut
+                        let mut surface_signs = [0; MAX_LOOP];
                         let mut index = 0;
                         for x in cut {
                             match x {
                                 Cut::PositiveCut(_) => index += 1,
                                 Cut::NegativeCut(_) => {
-                                    onshell_signs[index] *= -1;
+                                    surface_signs[index] *= -1;
                                     index += 1;
                                 }
                                 Cut::NoCut => {}
@@ -1138,14 +1139,16 @@ impl Topology {
                         let mut a = DualN::from_real(T::zero());
                         let mut b = DualN::from_real(T::zero());
                         let mut c = DualN::from_real(T::zero());
-                        for (cut_info, &sign) in cut_infos[..self.n_loops]
-                            .iter()
-                            .zip_eq(onshell_signs[..self.n_loops].iter())
-                        {
-                            if sign != 0 {
-                                a += cut_info.a.multiply_sign(sign);
-                                b += cut_info.b.multiply_sign(sign);
-                                c += cut_info.c.multiply_sign(sign);
+                        for (cut_info, &onshell_sign, &surface_sign) in izip!(
+                            &cut_infos[..self.n_loops],
+                            &onshell_signs[..self.n_loops],
+                            &surface_signs[..self.n_loops]
+                        ) {
+                            if surface_sign != 0 {
+                                a += cut_info.a.multiply_sign(surface_sign);
+                                b += cut_info.b.multiply_sign(surface_sign);
+                                c += cut_info.c.multiply_sign(surface_sign)
+                                    - cut_info.shift.t.multiply_sign(onshell_sign);
                             }
                         }
 
@@ -1291,7 +1294,7 @@ impl Topology {
                                                 );
                                         let rhs = t_out.min(t_in).min(t_c);
 
-                                        (c_tot - rhs) / a_tot
+                                        (rhs - c_tot) / a_tot
                                     }
                                 };
 
