@@ -1122,7 +1122,7 @@ impl Topology {
                         }
 
                         let mut ellipse_flag = 0;
-                        for x in &onshell_signs {
+                        for x in &surface_signs {
                             match x {
                                 1 => ellipse_flag |= 1,
                                 -1 => ellipse_flag |= 2,
