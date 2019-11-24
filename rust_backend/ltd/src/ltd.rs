@@ -1098,16 +1098,17 @@ impl Topology {
                         // TODO: this should be precomputed
                         // determine the map from loop line momentum to cut momenta
                         let mut onshell_signs = [0; MAX_LOOP];
+                        let mut surface_signs = [0; MAX_LOOP];
                         for ii in 0..self.n_loops {
                             for jj in 0..self.n_loops {
                                 // note we are taking the transpose of cb_to_lmb_mat
                                 onshell_signs[ii] += cb_to_lmb_mat[jj * self.n_loops + ii]
                                     * onshell_ll.signature[jj];
                             }
+                            surface_signs[ii] = onshell_signs[ii];
                         }
 
                         // multiply the signature by the sign of the cut
-                        let mut surface_signs = [0; MAX_LOOP];
                         let mut index = 0;
                         for x in cut {
                             match x {
