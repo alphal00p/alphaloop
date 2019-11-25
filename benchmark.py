@@ -7,9 +7,11 @@ import yaml
 import json
 from tqdm import tqdm
 import os
+import shutil
 import argparse
 from math import sqrt
 import sys
+import glob 
 import time
 from pprint import pprint, pformat
 from datetime import datetime
@@ -32,6 +34,11 @@ _CONFIG_FILE_PATH = pjoin(file_path,"LTD", "hyperparameters.yaml")
 # Specify a prefix so as to avoid collisions with other runs
 _PREFIX = str(time.time()).replace('.','_')+'_'
 
+_RUN_LOCALLY = True
+_N_CORES = 8
+_RUN_DIR = pjoin(file_path,'run_dir')
+_WALL_TIME = 24
+
 class Units:
     K = 1000
     M = 1000*K
@@ -45,16 +52,17 @@ class BenchmarkRun(dict):
         if len(args)==1:
             self['topology'] = args[0]
 
-    def __call__(self,n_cores=1):
+    def __call__(self,n_cores=1,**opts):
         return self.get_rust_result(self['topology'], self['phase'], self['samples'], n_cores, self['integrator'],
-            [
+            ltd_extra_args=[
                 '--n_start', str(self['n_start']),
                 '--n_increase', str(self['n_increase']),               
-            ]
+            ],
+            **opts
         )
 
     @classmethod
-    def get_rust_result(cls,topology, phase, num_samples, cores, integrator, ltd_extra_args=None):
+    def get_rust_result(cls,topology, phase, num_samples, cores, integrator, ltd_extra_args=None, collect_only=False):
 
         # Check if there exists a yaml specification file for that topology
         topology_resource = pjoin(file_path,"LTD","topologies.yaml")
@@ -79,25 +87,24 @@ class BenchmarkRun(dict):
         if analytical_result[0]==analytical_result[1]==0.:
             print("WARNING: Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result, so we will set the analytical result equal to the one obtained by RUST."%topology)
             no_analytical_found = True
-    
-        # remove info from old runs
-        try:
-            os.remove(pjoin(file_path,"rust_backend","%s%s_res.dat" % (_PREFIX,topology)))
-        except:
-            pass
-        try:
-            os.remove(pjoin(file_path,"rust_backend","%s%s_state.dat" % (_PREFIX,topology)))
-        except:
-            pass
-       
-        cargo_options = ["run", "--release", "--bin", "ltd"]
-        if _VERBOSITY<=1:
-            cargo_options.append("--quiet")
-
-        ltd_options = [ "-t", topology, "--state_filename_prefix", _PREFIX, "--log_file_prefix", _PREFIX, "--res_file_prefix", _PREFIX]
+        
+        #cargo_options = ["cargo","run", "--release", "--bin", "ltd"]
+        #if _VERBOSITY<=1:
+        #    cargo_options.append("--quiet")
+        #cargo_options.append("--")
+        # Run the executable directly:
+        ltd_exe = pjoin(file_path,"rust_backend","target","release","ltd")
+        cargo_options = [ltd_exe,]
+            
+        prefix = pjoin(_RUN_DIR,'_'.join([_PREFIX,topology])+'_')
+        ltd_options = [ "-t", topology, 
+                       "--state_filename_prefix", prefix, 
+                       "--log_file_prefix", prefix, 
+                       "--res_file_prefix", prefix ]
         ltd_options.extend(["-s", str(num_samples)])
         ltd_options.extend(["-c", str(cores)])
-        ltd_options.extend(["-f", _CONFIG_FILE_PATH])
+        ltd_options.extend(["-f", pjoin(_RUN_DIR,'hyperparameters.yaml')])
+        ltd_options.extend(["-p", pjoin(_RUN_DIR,'amplitudes.yaml')])        
         ltd_options.extend(["-l", str(topology_resource)])
         if integrator.lower()=='auto':
             if n_loops>1:
@@ -109,31 +116,61 @@ class BenchmarkRun(dict):
 
         if ltd_extra_args:
             ltd_options.extend(ltd_extra_args)
-    
+
         # TODO: check for errors
         subprocess_options = {
             'stderr': subprocess.STDOUT,
-            'cwd' : pjoin(file_path,"rust_backend")
+            'cwd' : _RUN_DIR,
         }
-        if _VERBOSITY>1: 
-            print("Running command: %s"%(' '.join(str(opt) for opt in ["cargo",]+cargo_options+["--",]+ltd_options)))
-            subprocess_options['stdout'] = subprocess.PIPE
+        if not collect_only:
+            # remove info from old runs
+            try:
+                os.remove(pjoin(_RUN_DIR,"%s%s_res.dat" % (prefix,topology) ))
+            except:
+                pass
+            try:
+                os.remove(pjoin(_RUN_DIR,"%s%s_state.dat" % (prefix,topology) ))
+            except:
+                pass
+            if _RUN_LOCALLY:
+                print("Now running topology %s"%topology)
+                if _VERBOSITY>1: 
+                    print("Running command: %s"%(' '.join(str(opt) for opt in ["cargo",]+cargo_options+["--",]+ltd_options)))
+                    subprocess_options['stdout'] = subprocess.PIPE
        
-        if _VERBOSITY>1:
-            rust_process = subprocess.Popen(
-                ["cargo",]+cargo_options+["--",]+ltd_options, 
-                **subprocess_options
-            )
-            for line in iter(rust_process.stdout.readline, b''):
-                sys.stdout.write(line.decode())
-        else:
-            output = subprocess.check_output(
-                ["cargo",]+cargo_options+["--",]+ltd_options, 
-                **subprocess_options
-            ).strip().decode()
+                if _VERBOSITY>1:
+                    rust_process = subprocess.Popen(
+                        cargo_options+ltd_options, 
+                        **subprocess_options
+                    )
+                    for line in iter(rust_process.stdout.readline, b''):
+                        sys.stdout.write(line.decode())
+                else:
+                    output = subprocess.check_output(
+                        cargo_options+ltd_options, 
+                        **subprocess_options
+                    ).strip().decode()
+            else:
+                print("Now launch job for topology %s"%topology)
+                submission_script = open(pjoin(file_path,'submission_template.run'),'r').read()
+                open(pjoin(_RUN_DIR,'submitter.run'),'w').write(submission_script%{
+		    'job_name' : '%s_job'%prefix,
+                    'n_hours' : _WALL_TIME,
+                    'n_cpus_per_task' : cores,
+                    'output' : '%s/LTD_runs/logs/%s_job.out'%(os.environ['SCRATCH'], prefix),
+                    'error' : '%s/LTD_runs/logs/%s_job.err'%(os.environ['SCRATCH'], prefix),
+                    'executable_line' : ' '.join(cargo_options+ltd_options)
+	        })
+                subprocess.call(['sbatch','submitter.run'], cwd=_RUN_DIR)
+                return None
+
+
+
+        if not os.path.isfile(pjoin(_RUN_DIR,"%s%s_res.dat" % (prefix,topology) )):
+            return None
 
         # read the output file
-        with open(pjoin(file_path,"rust_backend","%s%s_res.dat" % (_PREFIX,topology) ), 'r') as f:
+        with open(pjoin(_RUN_DIR,"%s%s_res.dat" % (prefix,topology) ), 'r') as f:
             rust_result = yaml.safe_load(f)
 
         # get git revision
@@ -387,7 +424,8 @@ class Benchmark(list):
 
 ]
         for topo in PS1PS2_1loop:
-            res.append(BenchmarkRun1loop(topo, samples=20*Units.M))
+            #res.append(BenchmarkRun1loop(topo, samples=50*Units.M))
+            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
 
     def get_PS1PS2_2loop(self):
@@ -435,9 +473,6 @@ class Benchmark(list):
 '2L_6P_F_PS2',
 '2L_6P_F_PS2_massive',
 
-'TM1_bot',
-'TM1_top',
-
 #'2L_8P_PS1', # TOO HARD?
 #'2L_8P_PS1_massive', # TOO HARD?
 #'2L_8P_PS2', # TOO HARD?
@@ -445,7 +480,7 @@ class Benchmark(list):
 
 ]
         for topo in PS1PS2_2loop:
-            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
 
     def get_PS1PS2_3loop(self):
@@ -466,7 +501,7 @@ class Benchmark(list):
 
 ]
         for topo in PS1PS2_3loop:
-            res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+            res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
 
     def get_PS1PS2_4loop(self):
@@ -486,7 +521,7 @@ class Benchmark(list):
 
 ]
         for topo in PS1PS2_4loop:
-            res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+            res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
 
 
@@ -504,15 +539,16 @@ class Benchmark(list):
 '1L_8P_PS3_massive',
 ]
         for topo in PS1PS2_1loop:
-            res.append(BenchmarkRun1loop(topo, samples=30*Units.M))
+            #res.append(BenchmarkRun1loop(topo, samples=50*Units.M))
+            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
 
     def get_PS3_2loop(self):
 
         res = []        
-        PS1PS2_2loop = [ 
+        PS3_2loop = [ 
 'TM1_bot',
-'TM2_top',
+'TM1_top',
 
 '2L_4P_Ladder_PS3',
 '2L_4P_Ladder_PS3_massive',
@@ -533,14 +569,14 @@ class Benchmark(list):
 '2L_8P_PS3',
 '2L_8P_PS3_massive',
 ]
-        for topo in PS1PS2_2loop:
-            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        for topo in PS3_2loop:
+            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
 
     def get_PS3_3loop(self):
 
         res = []        
-        PS1PS2_3loop = [
+        PS3_3loop = [
 
 '3L_4P_Ladder_PS3',
 '3L_4P_Ladder_PS3_massive',
@@ -549,14 +585,14 @@ class Benchmark(list):
 
 
 ]
-        for topo in PS1PS2_3loop:
-            res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        for topo in PS3_3loop:
+            res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
 
     def get_PS3_4loop(self):
 
         res = []        
-        PS1PS2_4loop = [
+        PS3_4loop = [
 
 '4L_4P_Ladder_PS1',
 '4L_4P_Ladder_PS1_massive',
@@ -569,8 +605,8 @@ class Benchmark(list):
 # 'FISHNET_2x2_PS2_massive', # Too hard for cvxpy?
 
 ]
-        for topo in PS1PS2_4loop:
-            res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=10*Units.K, samples=300*Units.M))
+        for topo in PS3_4loop:
+            res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
 
 def get_history(history_path):
@@ -588,7 +624,7 @@ def save_to_history(samples, output_path):
     t  = time.time()
 
     # get the hyperpamater file for this run
-    hyperparam_resource = _CONFIG_FILE_PATH
+    hyperparam_resource = pjoin(_RUN_DIR,'hyperparameters.yaml')
     hyperparamaters = {}
     try:
         with open(hyperparam_resource, 'r') as f:
@@ -683,6 +719,12 @@ if __name__ == "__main__":
     parser.add_argument('--n_increase', default='100000', help='n_increase for vegas')
     parser.add_argument('--history_path', default='default', help='specify a JSON file path to store the result')
     parser.add_argument('--config_path', default=pjoin(file_path, 'LTD', 'hyperparameters.yaml'), help='specify a path to a hyperparameters.yaml file to consider.')
+    parser.add_argument('--prefix', default='benchmark', help='Specify a prefix for the results.')
+    parser.add_argument('--gather', action='store_true', help='Gather results.')
+    parser.add_argument('--clean', action='store_true', help='Clean existing results.')
+    parser.add_argument('--cluster', action='store_true', help='Launch jobs on cluster.')
+    parser.add_argument('--save', action='store_true', help='Save results in json dump.')    
+    parser.add_argument('--run_dir', default=pjoin(file_path, 'run_dir'), help='Specify the run directory.')    
     parser.add_argument('--show_hyperparameters', default='0', choices=[0,1,2,3], type=int, help='level of hyperparameter printing in history mode')
     args = parser.parse_args()
 
@@ -691,7 +733,27 @@ if __name__ == "__main__":
     _VERBOSITY = args.v
     _TABLE_FORMAT = args.table_format
     _CONFIG_FILE_PATH = args.config_path
+    _RUN_DIR = pjoin(file_path,args.run_dir)
 
+    if args.clean:
+        print("Cleaning up directory %s."%_RUN_DIR)
+        for f in ( glob.glob(pjoin(_RUN_DIR,'*_state.dat'))+
+                   glob.glob(pjoin(_RUN_DIR,'*_res.dat'))+
+                  glob.glob(pjoin(_RUN_DIR,'*.log')) ):
+            os.remove(f)
+        sys.exit(1)
+        
+    _PREFIX = args.prefix
+    _RUN_LOCALLY = (not args.cluster)
+    if not os.path.isdir(_RUN_DIR):
+        print("Run directory %s not found."%_RUN_DIR)
+        sys.exit(1)
+
+    if _CONFIG_FILE_PATH != pjoin(_RUN_DIR,'hyperparameters.yaml'):
+        shutil.copyfile(_CONFIG_FILE_PATH, pjoin(_RUN_DIR,'hyperparameters.yaml'))
+    
+    if not os.path.isfile(pjoin(_RUN_DIR,'amplitudes.yaml')):
+        shutil.copyfile(pjoin(file_path,'LTD','amplitudes.yaml'), pjoin(_RUN_DIR,'amplitudes.yaml'))
     # A list of runs to be considered, each identified by a dictionary with the following entries:
     # {
     #   'topology'   : <topology_name>,
@@ -714,7 +776,8 @@ if __name__ == "__main__":
     ])
 
     if args.from_history:
-        historical_data = get_history(pjoin(file_path,"historical_benchmarks.json") if args.history_path=='default' else args.history_path)
+        historical_data = get_history(
+            pjoin(_RUN_DIR,"historical_benchmarks.json") if args.history_path=='default' else args.history_path)
 
         for t, v in historical_data.items():
             samples = [s for s in v['samples'] if s['topology'] in [r['topology'] for r in benchmark_runs]]
@@ -759,15 +822,20 @@ if __name__ == "__main__":
         print("Now running a benchmark involving the following topologies:")
         print(">>> %s"%(', '.join(r['topology'] for r in benchmark_runs)))
         print('')        
-        pbar = tqdm([run['topology'] for run in benchmark_runs])
+        if _RUN_LOCALLY and not args.gather: 
+            pbar = tqdm([run['topology'] for run in benchmark_runs])
+        else:
+            pbar = [run['topology'] for run in benchmark_runs]
         for i_run, pbar_element in enumerate(pbar):
-            pbar.set_description(pbar_element)
-            result = benchmark_runs[i_run](n_cores=args.c)
+            if _RUN_LOCALLY and not args.gather: pbar.set_description(pbar_element)
+            result = benchmark_runs[i_run](n_cores=args.c,collect_only=args.gather)
+            if result is None:
+                continue
             if _VERBOSITY>0: print("Result for topology '%s':"%benchmark_runs[i_run]['topology'])          
             if _VERBOSITY>0: render_data([result], benchmark_runs[i_run]['samples'])
             samples.append(result)
 
-        if len(benchmark_runs) >= 1:
+        if (len(benchmark_runs) >= 1 and len(samples)>1) or (_VERBOSITY==0 and len(samples)==1):
             print("All results for: %s%s"%(
                 '-t %s '%(' '.join(args.t)) if args.t else '',
                 '-b %s '%args.b if args.b!='manual' else ''
@@ -775,9 +843,11 @@ if __name__ == "__main__":
             render_data(samples, args.s, sort=True)
 
     # ask to save data
-    if not args.from_history:
+    if not args.from_history and args.save:
         if args.history_path.lower()=='default':
-            if input("Do you want to save the new run? [y/N]: ") in ['y','Y']:
-                save_to_history(samples, pjoin(file_path,"historical_benchmarks.json"))
+            #if input("Do you want to save the new run? [y/N]: ") in ['y','Y']:
+            print("Saving result to file %s."%pjoin(_RUN_DIR,"historical_benchmarks.json"))                
+            save_to_history(samples, pjoin(_RUN_DIR,"historical_benchmarks.json"))
         else:
+            print("Saving result to file %s."%pjoin(file_path,args.history_path))            
             save_to_history(samples, pjoin(file_path,args.history_path))
