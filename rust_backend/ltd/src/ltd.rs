@@ -1104,7 +1104,12 @@ impl Topology {
 
                             let t_c = t_out
                                 + b / Into::<T>::into(self.settings.deformation.scaling.theta_c);
-                            let rhs = t_out.min(t_in).min(t_c);
+
+                            let rhs = if s.exists {
+                                t_out.min(t_in).min(t_c)
+                            } else {
+                                t_out
+                            };
 
                             (rhs - c) / a
                         }
