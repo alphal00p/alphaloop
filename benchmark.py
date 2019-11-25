@@ -355,6 +355,7 @@ class Benchmark(list):
 
     def get_explore_1loop(self):
 
+        res = []
         explore_1loop = [
 
         # Dario customised ones
