@@ -1,0 +1,528 @@
+{
+    "1574719820.0670822": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.3,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "max_iterations": 1,
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": -0.3,
+                    "lambda": 10.0,
+                    "non_cut_propagator_check": true,
+                    "pole_check_strategy": "tangent_check",
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8,
+                    "theta_c": 2.0,
+                    "theta_r_in": 2.0,
+                    "theta_r_out": 2.0
+                },
+                "stability_threshold": -1
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "vegas",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex 328aa81..eadafe0 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -134,10 +134,10 @@ hyperparameters = HyperParameters({\n             'source_branch_cut_threshold'  : 0.8,\n             'source_branch_cut_multiplier' : 0.8,\n             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check\n-            'pole_check_strategy'       : 'real_solution',\n-            'theta_r_out'               : 10.,\n-            'theta_r_in'                : 10.,\n-            'theta_c'                   : 10.,\n+            'pole_check_strategy'       : 'tangent_check',\n+            'theta_r_out'               : 2.,\n+            'theta_r_in'                : 2.,\n+            'theta_c'                   : 2.,\n         },\n \n         'additive'              :   {\ndiff --git a/benchmark.py b/benchmark.py\nindex f9c6bb0..b656381 100755\n--- a/benchmark.py\n+++ b/benchmark.py\n@@ -382,7 +382,53 @@ class Benchmark(list):\n \n         for topo in explore_1loop:\n             #res.append(BenchmarkRun1loop(topo, samples=50*Units.M))\n-            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRun2loop(topo, n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+        return res\n+\n+    def get_explore_HigherLoop(self):\n+        res = []\n+\n+        # 1-loop topologies\n+        #res.extend(self.get_1loop())\n+\n+        # 2-loop topologies\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_A\", n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_B\", n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_C\", n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_D\", n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_E\", n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_F\", n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+        res.append(BenchmarkRun2loop(\"T3_DoubleBox_Weinzierl\",n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+\n+        # 3-loop topologies\n+        res.append(BenchmarkRun3loop(\"T4_TripleBox_Weinzierl\",n_start=3000*Units.K, n_increase=1000*Units.K, samples=1000*Units.M))\n+\n+        # 4-loop topologies\n+        res.append(BenchmarkRunHighloop(\"T4_Quadruple_Box_Weinzierl\",n_start=1000*Units.K, n_increase=1000*Units.K, samples=500*Units.M))\n+\n+        return res\n+\n+    def get_explore_HigherLoop_low_stat(self):\n+        res = []\n+\n+        # 1-loop topologies\n+        #res.extend(self.get_1loop())\n+\n+        # 2-loop topologies\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_A\", n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_B\", n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_C\", n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_D\", n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_E\", n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+        res.append(BenchmarkRun2loop(\"T2_6P_2L_Weinzierl_F\", n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+        res.append(BenchmarkRun2loop(\"T3_DoubleBox_Weinzierl\",n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+\n+        # 3-loop topologies\n+        res.append(BenchmarkRun3loop(\"T4_TripleBox_Weinzierl\",n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+\n+        # 4-loop topologies\n+        res.append(BenchmarkRunHighloop(\"T4_Quadruple_Box_Weinzierl\",n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+\n         return res\n \n     def get_short_Valentin(self):\n@@ -459,7 +505,8 @@ class Benchmark(list):\n ]\n         for topo in PS1PS2_1loop:\n             #res.append(BenchmarkRun1loop(topo, samples=50*Units.M))\n-            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRun2loop(topo, n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n+            #res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=100*Units.K, samples=1000*Units.M))\n         return res\n \n     def get_PS1PS2_2loop(self):\n@@ -514,7 +561,7 @@ class Benchmark(list):\n \n ]\n         for topo in PS1PS2_2loop:\n-            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRun2loop(topo, n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n         return res\n \n     def get_PS1PS2_3loop(self):\n@@ -535,7 +582,7 @@ class Benchmark(list):\n \n ]\n         for topo in PS1PS2_3loop:\n-            res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRun3loop(topo, n_start=3000*Units.K, n_increase=1000*Units.K, samples=1000*Units.M))\n         return res\n \n     def get_PS1PS2_4loop(self):\n@@ -555,7 +602,7 @@ class Benchmark(list):\n \n ]\n         for topo in PS1PS2_4loop:\n-            res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRunHighloop(topo,n_start=1000*Units.K, n_increase=1000*Units.K, samples=500*Units.M))\n         return res\n \n \n@@ -574,7 +621,7 @@ class Benchmark(list):\n ]\n         for topo in PS3_1loop:\n             #res.append(BenchmarkRun1loop(topo, samples=50*Units.M))\n-            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRun2loop(topo, n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n         return res\n \n     def get_PS3_2loop(self):\n@@ -604,7 +651,7 @@ class Benchmark(list):\n '2L_8P_PS3_massive',\n ]\n         for topo in PS3_2loop:\n-            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRun2loop(topo, n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n         return res\n \n     def get_PS3_3loop(self):\n@@ -620,7 +667,7 @@ class Benchmark(list):\n \n ]\n         for topo in PS3_3loop:\n-            res.append(BenchmarkRun3loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRun3loop(topo,n_start=3000*Units.K, n_increase=1000*Units.K, samples=1000*Units.M))\n         return res\n \n     def get_PS3_4loop(self):\n@@ -640,7 +687,7 @@ class Benchmark(list):\n \n ]\n         for topo in PS3_4loop:\n-            res.append(BenchmarkRunHighloop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))\n+            res.append(BenchmarkRunHighloop(topo,n_start=1000*Units.K, n_increase=1000*Units.K, samples=500*Units.M))\n         return res\n \n def get_history(history_path):\ndiff --git a/submission_template.run b/submission_template.run\nindex c871b1c..0142515 100644\n--- a/submission_template.run\n+++ b/submission_template.run\n@@ -11,6 +11,7 @@\n #SBATCH --output=%(output)s\n #SBATCH --error=%(error)s\n #SBATCH --mail-type=start,end,fail\n+#SBATCH --account=%(account)s\n \n echo $SLURM_CPUS_PER_TASK",
+        "samples": [
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_4P_PS1",
+                "result": [
+                    5.7197457856282084e-05,
+                    -7.2419472869101e-05
+                ],
+                "error": [
+                    9.468045898963123e-09,
+                    9.091606038248712e-09
+                ],
+                "analytical_result": [
+                    5.719283734688594e-05,
+                    -7.240050316920442e-05
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_4P_PS1_massive",
+                "result": [
+                    3.026867397730214e-05,
+                    -0.00010813884403642552
+                ],
+                "error": [
+                    6.6978599380704854e-09,
+                    6.707912440631364e-09
+                ],
+                "analytical_result": [
+                    3.0270089698146673e-05,
+                    -0.00010812513676074976
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_4P_PS2",
+                "result": [
+                    1.5539006803295543e-06,
+                    -2.0703475725204764e-06
+                ],
+                "error": [
+                    2.0971876620020537e-10,
+                    2.0717376676427447e-10
+                ],
+                "analytical_result": [
+                    1.5538225955752141e-06,
+                    -2.06993924914093e-06
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_4P_PS2_massive",
+                "result": [
+                    -1.7948799154412914e-07,
+                    -2.2919892351672596e-06
+                ],
+                "error": [
+                    8.757977775097677e-11,
+                    1.450829459518688e-10
+                ],
+                "analytical_result": [
+                    -1.7934889799109784e-07,
+                    -2.291844646059694e-06
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_5P_PS1",
+                "result": [
+                    -1.5110507819797941e-07,
+                    -1.8066889287254425e-06
+                ],
+                "error": [
+                    5.501939362161207e-10,
+                    5.686112947246327e-10
+                ],
+                "analytical_result": [
+                    -1.5107553912862803e-07,
+                    -1.8067867713233652e-06
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_5P_PS1_massive",
+                "result": [
+                    -4.819684870440196e-07,
+                    -3.2770493853671897e-06
+                ],
+                "error": [
+                    1.0303077680075305e-09,
+                    1.065203703068433e-09
+                ],
+                "analytical_result": [
+                    -4.830268775732323e-07,
+                    -3.2769517283804943e-06
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_5P_PS2",
+                "result": [
+                    -6.628228785221201e-10,
+                    -1.235204993046796e-09
+                ],
+                "error": [
+                    5.547464866114212e-13,
+                    5.594020965575765e-13
+                ],
+                "analytical_result": [
+                    -6.624013972823354e-10,
+                    -1.2353121661466543e-09
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_5P_PS2_massive",
+                "result": [
+                    -1.2148132108155212e-09,
+                    -1.5378542299292753e-09
+                ],
+                "error": [
+                    3.498700232442727e-13,
+                    3.574633393736132e-13
+                ],
+                "analytical_result": [
+                    -1.214966736752062e-09,
+                    -1.5381697365085504e-09
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_6P_PS1",
+                "result": [
+                    6.0889644899326985e-09,
+                    -6.960277199399436e-08
+                ],
+                "error": [
+                    3.728161346649956e-11,
+                    3.682321924797109e-11
+                ],
+                "analytical_result": [
+                    6.0439958169441965e-09,
+                    -6.963387742605882e-08
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_6P_PS1_massive",
+                "result": [
+                    -2.2099674155936993e-08,
+                    -6.380191389785324e-08
+                ],
+                "error": [
+                    4.164493253142131e-11,
+                    4.383126495140645e-11
+                ],
+                "analytical_result": [
+                    -2.1993637690966305e-08,
+                    -6.379305758047185e-08
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_6P_PS2",
+                "result": [
+                    4.040196350706001e-13,
+                    -2.5201950631912363e-12
+                ],
+                "error": [
+                    2.613780436590566e-15,
+                    2.7905807200508692e-15
+                ],
+                "analytical_result": [
+                    4.065953804127873e-13,
+                    -2.519559691664058e-12
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_6P_PS2_massive",
+                "result": [
+                    -1.2760734900804822e-12,
+                    -2.2597217556753223e-12
+                ],
+                "error": [
+                    1.5616235595390308e-15,
+                    1.6111708120880953e-15
+                ],
+                "analytical_result": [
+                    -1.2762384791404727e-12,
+                    -2.260885521661299e-12
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_8P_PS1",
+                "result": [
+                    4.2126085100227586e-12,
+                    -1.953765023121446e-12
+                ],
+                "error": [
+                    7.257503130998533e-15,
+                    6.811644254219512e-15
+                ],
+                "analytical_result": [
+                    4.209151447530031e-12,
+                    -1.952887510554331e-12
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_8P_PS1_massive",
+                "result": [
+                    -1.188860638476891e-12,
+                    -2.6910538723589934e-12
+                ],
+                "error": [
+                    1.2219392956786027e-14,
+                    1.4593905060034402e-14
+                ],
+                "analytical_result": [
+                    -1.147180088733709e-12,
+                    -2.7058685535143613e-12
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_8P_PS2",
+                "result": [
+                    1.2803328877618555e-19,
+                    -8.218122010884848e-20
+                ],
+                "error": [
+                    7.02433074965912e-21,
+                    6.984054784602305e-21
+                ],
+                "analytical_result": [
+                    1.2737915320999571e-19,
+                    -8.256713978917572e-20
+                ]
+            },
+            {
+                "revision": "b3d2e03",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "1L_8P_PS2_massive",
+                "result": [
+                    -5.735637258441798e-21,
+                    -4.121232904859069e-20
+                ],
+                "error": [
+                    6.984054784602305e-21,
+                    6.984054784602305e-21
+                ],
+                "analytical_result": [
+                    -5.68050041076085e-21,
+                    -4.1154654290794026e-20
+                ]
+            }
+        ]
+    }
+}
