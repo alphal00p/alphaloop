@@ -353,6 +353,37 @@ class Benchmark(list):
         res.append(BenchmarkRun1loop("Box_4E"))
         return res
 
+    def get_explore_1loop(self):
+
+        explore_1loop = [
+
+        # Dario customised ones
+        "Pentagon_1s",
+        "Pentagon_2s",
+        "Pentagon_3s",
+        "Hexagon_1s",
+        "Hexagon_2s",
+        "Hexagon_3s",
+        "Hexagon_4s",
+
+        # Zeno customised ones
+        "Pentagon_10E_1s",
+        "Pentagon_6E_4s",
+        "Pentagon_8E_5s",
+        "Hexagon_6E_4s",
+        "Hexagon_10E_4s",
+        "Hexagon_9E_4s",
+        "Hexagon_10E_7s",
+        "Hexagon_10E_5s",
+        "Hexagon_6E_2s",
+
+        ]
+
+        for topo in explore_1loop:
+            #res.append(BenchmarkRun1loop(topo, samples=50*Units.M))
+            res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
+        return res
+
     def get_short_Valentin(self):
         res = []
 
@@ -530,7 +561,7 @@ class Benchmark(list):
     def get_PS3_1loop(self):
         
         res = []        
-        PS1PS2_1loop = [
+        PS3_1loop = [
 '1L_4P_PS3',
 '1L_4P_PS3_massive',
 '1L_5P_PS3',
@@ -540,7 +571,7 @@ class Benchmark(list):
 '1L_8P_PS3',
 '1L_8P_PS3_massive',
 ]
-        for topo in PS1PS2_1loop:
+        for topo in PS3_1loop:
             #res.append(BenchmarkRun1loop(topo, samples=50*Units.M))
             res.append(BenchmarkRun2loop(topo, n_start=1000*Units.K, n_increase=1000*Units.K, samples=300*Units.M))
         return res
