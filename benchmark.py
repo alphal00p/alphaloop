@@ -35,7 +35,7 @@ _CONFIG_FILE_PATH = pjoin(file_path,"LTD", "hyperparameters.yaml")
 _PREFIX = str(time.time()).replace('.','_')+'_'
 
 _RUN_LOCALLY = True
-_N_CORES = 8
+_N_CORES = 4
 _RUN_DIR = pjoin(file_path,'run_dir')
 _WALL_TIME = 24
 _ACCOUNT = 'eth5e'
@@ -751,6 +751,10 @@ if __name__ == "__main__":
         
     _PREFIX = args.prefix
     _RUN_LOCALLY = (not args.cluster)
+    if _RUN_LOCALLY:
+       _N_CORES = args.c
+    else:
+       _N_CORES = 36
     if not os.path.isdir(_RUN_DIR):
         print("Run directory %s not found."%_RUN_DIR)
         sys.exit(1)
@@ -834,7 +838,7 @@ if __name__ == "__main__":
             pbar = [run['topology'] for run in benchmark_runs]
         for i_run, pbar_element in enumerate(pbar):
             if _RUN_LOCALLY and not args.gather: pbar.set_description(pbar_element)
-            result = benchmark_runs[i_run](n_cores=args.c,collect_only=args.gather)
+            result = benchmark_runs[i_run](n_cores=_N_CORES,collect_only=args.gather)
             if result is None:
                 continue
             if _VERBOSITY>0: print("Result for topology '%s':"%benchmark_runs[i_run]['topology'])          
