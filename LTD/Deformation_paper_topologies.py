@@ -837,7 +837,7 @@ def load(selected_topologies=None):
             ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
             mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
             loop_momenta_names=('p4', 'p6'),
-            analytic_result = -3.82891e-6+4.6684e-6j
+            analytic_result = 3.82891e-6-4.6684e-6j
             ),
             entry_name = topology_name
         )
@@ -860,7 +860,7 @@ def load(selected_topologies=None):
             ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
             mass_map={'p1': 1., 'p2': 0., 'p3': 1., 'p4': 1., 'p6': 1., 'p7': 1.}, # no masses 
             loop_momenta_names=('p4', 'p6'),
-            analytic_result = -2.8364703e-10+3.3826534e-10j
+            analytic_result = 2.8364703e-10+3.3826534e-10j
             ),
             entry_name = topology_name
         )

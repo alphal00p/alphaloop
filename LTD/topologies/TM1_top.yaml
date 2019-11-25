@@ -1,0 +1,220 @@
+- analytical_result_imag: -4.6684e-06
+  analytical_result_real: 3.82891e-06
+  constant_deformation:
+    alpha:
+    - &id001
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    - *id001
+    beta:
+    - &id002
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - *id002
+  external_kinematics:
+  - - 2.23606798
+    - 0.0
+    - 0.0
+    - 2.23606798
+  - - 2.23606798
+    - 0.0
+    - 0.0
+    - -2.23606798
+  - - -2.18016628
+    - 0.78660664
+    - 1.36244266
+    - -1.50934588
+  - - -2.2919696800000002
+    - -0.78660664
+    - -1.36244266
+    - 1.50934588
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 2.4843731786728087e-13
+        - 6.183094296473629e-14
+        - -2.236067980000279
+      - - 0.0
+        - 0.7866066399996485
+        - 1.362442659999923
+        - -1.5093458799999475
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      radius: 1.5920644023327766
+    excluded_propagators: []
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - -2.23606798
+      - - 0.0
+        - 0.786606640000008
+        - 1.3624426600000252
+        - -1.5093458799999961
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      radius: 1.5920644023373223
+    excluded_propagators:
+    - - 0
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - -2.23606798
+      - - 0.0
+        - 0.786606640000008
+        - 1.3624426600000252
+        - -1.5093458799999961
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      radius: 1.5920644023373223
+    excluded_propagators:
+    - - 0
+      - 1
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - -5.645484080218921e-14
+        - -3.3728575488112256e-13
+        - -2.2360679800000676
+      - - 0.0
+        - 0.7866066400000564
+        - 1.3624426600003372
+        - -1.5093458799999329
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      radius: 4.000000003906121
+    excluded_propagators:
+    - - 1
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - -3.8285582624470775e-14
+        - -3.3437526016854376e-13
+        - -2.2360679799999352
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      excluded_surface_ids:
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 1
+            - 0
+          - 1
+          - -1
+        - - - 2
+            - 1
+          - 1
+          - 1
+      overlap:
+      - 0
+      radius: 2.0000000027012304
+    excluded_propagators:
+    - - 2
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 1.1853325396980105e-13
+        - 1.6286298437718092e-13
+        - -2.2360679799999827
+      - - 0.0
+        - 0.78660664
+        - 1.36244266
+        - -1.50934588
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      radius: 1.5920644026193693
+    excluded_propagators:
+    - - 2
+      - 1
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 1.0
+      q:
+      - 2.23606798
+      - 0.0
+      - 0.0
+      - 2.23606798
+    - m_squared: 1.0
+      q:
+      - -2.23606798
+      - 0.0
+      - 0.0
+      - 2.23606798
+    - m_squared: 1.0
+      q:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    signature:
+    - 1
+    - 0
+    start_node: 3
+  - end_node: 3
+    propagators:
+    - m_squared: 0.0
+      q:
+      - -0.055901700000000165
+      - -0.78660664
+      - -1.36244266
+      - 3.74541386
+    signature:
+    - 1
+    - 1
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 1.0
+      q:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - m_squared: 1.0
+      q:
+      - -2.2919696800000002
+      - -0.78660664
+      - -1.36244266
+      - 1.50934588
+    signature:
+    - 0
+    - 1
+    start_node: 3
+  ltd_cut_structure:
+  - - 0
+    - 1
+    - 1
+  - - 1
+    - 0
+    - 1
+  - - -1
+    - 1
+    - 0
+  maximum_ratio_expansion_threshold: 0.4746695207679732
+  n_loops: 2
+  name: TM1_top

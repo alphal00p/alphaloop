@@ -1,0 +1,270 @@
+- analytical_result_imag: 3.3826534e-10
+  analytical_result_real: 2.8364703e-10
+  constant_deformation:
+    alpha:
+    - &id001
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    - *id001
+    beta:
+    - &id002
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - *id002
+  external_kinematics:
+  - - 47.587112858938056
+    - 0.0
+    - 0.0
+    - 47.587112858938056
+  - - 47.587112858938056
+    - 0.0
+    - 0.0
+    - -47.587112858938056
+  - - -42.87551752636993
+    - 12.805858466523055
+    - 22.180397498554
+    - -34.38531603599966
+  - - -52.29870819150618
+    - -12.805858466523055
+    - -22.180397498554
+    - 34.38531603599966
+  fixed_deformation:
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 3.8837325484663436
+        - 6.237822731811402
+        - -57.10651202115722
+      - - 0.0
+        - 3.8837325475174453
+        - 6.237822725784783
+        - -9.519399165645938
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      radius: 13.01569235662242
+    excluded_propagators: []
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - -47.587112858938056
+      - - 0.0
+        - 6.410971784525281
+        - 11.10412153732612
+        - -17.21420530642778
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      radius: 14.524407558010083
+    excluded_propagators:
+    - - 0
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - -47.587112858938056
+      - - 0.0
+        - 6.410971784525281
+        - 11.10412153732612
+        - -17.21420530642778
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      radius: 14.524407558010083
+    excluded_propagators:
+    - - 0
+      - 1
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 6.4029106902504935
+        - 11.090149431561986
+        - -17.192581558928996
+      excluded_surface_ids:
+      - - - - 0
+            - 1
+          - 1
+          - 1
+        - - - 1
+            - 0
+          - 1
+          - -1
+        - - - 2
+            - 1
+          - 1
+          - 1
+      - - - - 0
+            - 0
+          - 1
+          - -1
+        - - - 0
+            - 1
+          - 1
+          - 1
+      - - - - 0
+            - 0
+          - 1
+          - -1
+        - - - 1
+            - 0
+          - 1
+          - 1
+        - - - 2
+            - 0
+          - 1
+          - -1
+      overlap:
+      - 0
+      radius: 15.409338959003257
+    excluded_propagators:
+    - - 0
+      - 2
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 6.403081392734477
+        - 11.090558709637591
+        - -64.78042714867055
+      - - 0.0
+        - 6.402777073788578
+        - 11.08983878891641
+        - -17.19200174626716
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      radius: 30.818677813838196
+    excluded_propagators:
+    - - 1
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - 6.411031045979625
+        - 11.104239611241544
+        - -64.80157407926878
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      radius: 14.524407554538413
+    excluded_propagators:
+    - - 2
+      - 0
+  - deformation_per_overlap:
+    - deformation_sources:
+      - - 0.0
+        - -5.0656712561839e-15
+        - -5.587180569323338e-15
+        - -47.58711285893797
+      - - 0.0
+        - 12.805858466523055
+        - 22.180397498554
+        - -34.38531603599966
+      excluded_surface_ids: []
+      overlap:
+      - 0
+      - 1
+      - 2
+      - 3
+      radius: 4.652638969363104
+    excluded_propagators:
+    - - 2
+      - 1
+  loop_lines:
+  - end_node: 6
+    propagators:
+    - m_squared: 1.0
+      q:
+      - 47.587112858938056
+      - 0.0
+      - 0.0
+      - 47.587112858938056
+    - m_squared: 1.0
+      q:
+      - -47.587112858938056
+      - 0.0
+      - 0.0
+      - 47.587112858938056
+    - m_squared: 1.0
+      q:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    signature:
+    - 1
+    - 0
+    start_node: 3
+  - end_node: 3
+    propagators:
+    - m_squared: 0.0
+      q:
+      - -4.711595332568123
+      - -12.805858466523055
+      - -22.180397498554
+      - 81.9724288949377
+    signature:
+    - 1
+    - 1
+    start_node: 6
+  - end_node: 6
+    propagators:
+    - m_squared: 1.0
+      q:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - m_squared: 1.0
+      q:
+      - -52.29870819150618
+      - -12.805858466523055
+      - -22.180397498554
+      - 34.38531603599966
+    signature:
+    - 0
+    - 1
+    start_node: 3
+  ltd_cut_structure:
+  - - 0
+    - 1
+    - 1
+  - - 1
+    - 0
+    - 1
+  - - -1
+    - 1
+    - 0
+  maximum_ratio_expansion_threshold: 0.029698752170344456
+  n_loops: 2
+  name: TM1_bot
