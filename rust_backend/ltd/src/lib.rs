@@ -288,6 +288,7 @@ pub struct DeformationFixedSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[allow(non_snake_case)]
 pub struct DeformationSettings {
     pub scaling: Scaling,
     pub normalize_on_E_surfaces_m: f64,

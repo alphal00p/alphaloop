@@ -175,7 +175,6 @@ impl Topology {
             })
             .collect();
 
-        // solve the linear system for fixing the energy component of each loop line
         for (cut_index, (residue_sign, cut_options)) in self
             .ltd_cut_structure
             .iter()
@@ -185,6 +184,7 @@ impl Topology {
             let mut cut_signatures_matrix = vec![];
             let mut cut_residue_sign = vec![];
 
+            // solve the linear system for fixing the energy component of each loop line
             // note that negative cuts will be treated later
             for (c, ll) in residue_sign.iter().zip_eq(self.loop_lines.iter()) {
                 if *c != 0 {
@@ -236,164 +236,154 @@ impl Topology {
                             surface_shift -= q.multiply_sign(sign);
                         }
 
-                        // now see if we have an ellipsoid
-                        // 1. surface_shift != 0
-                        // 2. surface_shift^2 - (sum_i m_i)^2 >= 0
-                        // 3. all signs need to be the same (except 0)
-                        // 4. surface_shift.t needs to have the opposite sign as in step 3.
-                        if surface_shift.t != float::zero() {
-                            // multiply the residue sign
-                            let mut surface_signs = sig_ll_in_cb.clone();
-                            for (ss, sign) in surface_signs.iter_mut().zip_eq(&cut_residue_sign) {
-                                if *sign < 0 {
-                                    *ss *= -1;
-                                }
+                        // multiply the residue sign
+                        let mut surface_signs = sig_ll_in_cb.clone();
+                        for (ss, sign) in surface_signs.iter_mut().zip_eq(&cut_residue_sign) {
+                            if *sign < 0 {
+                                *ss *= -1;
                             }
+                        }
 
-                            let mut cut_mass_sum = float::zero();
-                            for (ss, mass) in surface_signs.iter().zip_eq(cut_mass.iter()) {
-                                cut_mass_sum += mass.multiply_sign(*ss);
-                            }
+                        let mut cut_mass_sum = float::zero();
+                        for (ss, mass) in surface_signs.iter().zip_eq(cut_mass.iter()) {
+                            cut_mass_sum += mass.multiply_sign(*ss);
+                        }
 
-                            let surface_mass =
-                                float::from_f64(onshell_prop.m_squared.sqrt()).unwrap();
+                        let surface_mass = float::from_f64(onshell_prop.m_squared.sqrt()).unwrap();
 
-                            let group = self.surfaces.len(); // every surface is in a different group at first
-                            let surface_sign_sum = surface_signs.iter().sum::<i8>();
-                            let surface_signs_abs_sum =
-                                surface_signs.iter().map(|x| x.abs()).sum::<i8>();
-                            // check the two branches Delta+ and Delta-
-                            for &delta_sign in &[-1, 1] {
-                                // if all non-zero coefficients are the same, we have an ellipse
-                                // otherwise, we have a hyperboloid
-                                if (surface_sign_sum + delta_sign).abs()
-                                    == surface_signs_abs_sum + delta_sign.abs()
+                        let group = self.surfaces.len(); // every surface is in a different group at first
+                        let surface_sign_sum = surface_signs.iter().sum::<i8>();
+                        let surface_signs_abs_sum =
+                            surface_signs.iter().map(|x| x.abs()).sum::<i8>();
+                        // check the two branches Delta+ and Delta-
+                        for &delta_sign in &[-1, 1] {
+                            // if all non-zero coefficients are the same, we have an ellipse
+                            // otherwise, we have a hyperboloid
+                            if (surface_sign_sum + delta_sign).abs()
+                                == surface_signs_abs_sum + delta_sign.abs()
+                            {
+                                // now see if the ellipsoid exists
+                                // 1. surface_shift != 0
+                                // 2. surface_shift^2 - (sum_i m_i)^2 >= 0
+                                // 3. all signs need to be the same (except 0)
+                                // 4. surface_shift.t needs to have the opposite sign as in step 3.
+                                let mut exists = true;
+                                let mut is_pinch = false;
+                                if surface_shift.square()
+                                    - (cut_mass_sum.abs() + surface_mass).powi(2)
+                                    >= Into::<float>::into(-1e-13 * self.e_cm_squared)
+                                    && surface_shift.t.multiply_sign(delta_sign) < float::zero()
                                 {
-                                    // we do not consider pointlike ellipsoids to exist
                                     if surface_shift.square()
                                         - (cut_mass_sum.abs() + surface_mass).powi(2)
                                         < Into::<float>::into(1e-10 * self.e_cm_squared)
                                     {
-                                        continue;
-                                    }
-                                    if surface_shift.square()
-                                        - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                        >= Into::<float>::into(-1e-13 * self.e_cm_squared)
-                                        && surface_shift.t.multiply_sign(delta_sign) < float::zero()
-                                    {
-                                        /*
-                                        println!("{}",surface_shift.square()
-                                        - (cut_mass_sum.abs() + surface_mass).powi(2));
-                                        println!("{}",-1e-13 * self.e_cm_squared);
-                                        */
-                                        let mut is_pinch = false;
-                                        if surface_shift.square().abs()
-                                            < Into::<float>::into(1e-13 * self.e_cm_squared)
-                                        {
-                                            if surface_mass.is_zero() {
-                                                is_pinch = true;
-                                            } else {
-                                                // we do not consider pointlike ellipsoids to exist
-                                                continue;
-                                            }
+                                        if surface_mass.is_zero() {
+                                            is_pinch = true;
+                                        } else {
+                                            // we do not consider pointlike ellipsoids to exist
+                                            exists = false;
                                         }
-
-                                        self.surfaces.push(Surface {
-                                            group,
-                                            surface_type: if is_pinch {
-                                                SurfaceType::Pinch
-                                            } else {
-                                                SurfaceType::Ellipsoid
-                                            },
-                                            cut_structure_index: cut_index,
-                                            cut_option_index,
-                                            cut: cut_option.clone(),
-                                            onshell_ll_index: ll_index,
-                                            onshell_prop_index,
-                                            delta_sign,
-                                            sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
-                                            signs: surface_signs.iter().cloned().collect(),
-                                            shift: surface_shift.clone(),
-                                            id: vec![],
-                                        });
                                     }
                                 } else {
-                                    let mut neg_surface_signs_count =
-                                        surface_signs.iter().filter(|x| **x == -1).count();
-                                    let mut pos_surface_signs_count =
-                                        surface_signs.iter().filter(|x| **x == 1).count();
+                                    exists = false;
+                                }
 
-                                    if delta_sign > 0 {
-                                        pos_surface_signs_count += 1;
+                                self.surfaces.push(Surface {
+                                    exists,
+                                    group,
+                                    surface_type: if is_pinch {
+                                        SurfaceType::Pinch
                                     } else {
-                                        neg_surface_signs_count += 1;
+                                        SurfaceType::Ellipsoid
+                                    },
+                                    cut_structure_index: cut_index,
+                                    cut_option_index,
+                                    cut: cut_option.clone(),
+                                    onshell_ll_index: ll_index,
+                                    onshell_prop_index,
+                                    delta_sign,
+                                    sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
+                                    signs: surface_signs.iter().cloned().collect(),
+                                    shift: surface_shift.clone(),
+                                    id: vec![],
+                                });
+                            } else {
+                                let mut neg_surface_signs_count =
+                                    surface_signs.iter().filter(|x| **x == -1).count();
+                                let mut pos_surface_signs_count =
+                                    surface_signs.iter().filter(|x| **x == 1).count();
+
+                                if delta_sign > 0 {
+                                    pos_surface_signs_count += 1;
+                                } else {
+                                    neg_surface_signs_count += 1;
+                                }
+
+                                // if we have at least two positive and two negative foci,
+                                // the hyperboloid always exists. If we have one negative focus,
+                                // we require the surface equation to be negative at qi=0.
+                                // For one positive focus, we require it to be positive.
+                                // For the case with one positive and one negative focus, we
+                                // use a known condition.
+                                if match (pos_surface_signs_count, neg_surface_signs_count) {
+                                    (1, 1) => {
+                                        surface_shift.square()
+                                            - (surface_mass - cut_mass_sum.abs()).powi(2)
+                                            <= Into::<float>::into(-1e-13 * self.e_cm_squared)
                                     }
-
-                                    // if we have at least two positive and two negative foci,
-                                    // the hyperboloid always exists. If we have one negative focus,
-                                    // we require the surface equation to be negative at qi=0.
-                                    // For one positive focus, we require it to be positive.
-                                    // For the case with one positive and one negative focus, we
-                                    // use a known condition.
-                                    if match (pos_surface_signs_count, neg_surface_signs_count) {
-                                        (1, 1) => {
-                                            surface_shift.square()
-                                                - (surface_mass - cut_mass_sum.abs()).powi(2)
-                                                <= Into::<float>::into(-1e-13 * self.e_cm_squared)
-                                        }
-                                        (1, _) | (_, 1) => {
-                                            let mut eval = float::zero();
-                                            for (&ss, mass) in
-                                                surface_signs.iter().zip_eq(cut_mass.iter())
-                                            {
-                                                if pos_surface_signs_count == 1 && ss == 1
-                                                    || neg_surface_signs_count == 1 && ss == -1
-                                                {
-                                                    eval += (surface_shift.spatial_squared()
-                                                        + mass * mass)
-                                                        .sqrt()
-                                                        .multiply_sign(ss);
-                                                } else {
-                                                    eval += mass.multiply_sign(ss);
-                                                }
-                                            }
-
-                                            if pos_surface_signs_count == 1 && delta_sign == 1
-                                                || neg_surface_signs_count == 1 && delta_sign == -1
+                                    (1, _) | (_, 1) => {
+                                        let mut eval = float::zero();
+                                        for (&ss, mass) in
+                                            surface_signs.iter().zip_eq(cut_mass.iter())
+                                        {
+                                            if pos_surface_signs_count == 1 && ss == 1
+                                                || neg_surface_signs_count == 1 && ss == -1
                                             {
                                                 eval += (surface_shift.spatial_squared()
-                                                    + Into::<float>::into(onshell_prop.m_squared))
+                                                    + mass * mass)
+                                                    .sqrt()
+                                                    .multiply_sign(ss);
+                                            } else {
+                                                eval += mass.multiply_sign(ss);
+                                            }
+                                        }
+
+                                        if pos_surface_signs_count == 1 && delta_sign == 1
+                                            || neg_surface_signs_count == 1 && delta_sign == -1
+                                        {
+                                            eval += (surface_shift.spatial_squared()
+                                                + Into::<float>::into(onshell_prop.m_squared))
+                                            .sqrt()
+                                            .multiply_sign(delta_sign);
+                                        } else {
+                                            eval += Into::<float>::into(onshell_prop.m_squared)
                                                 .sqrt()
                                                 .multiply_sign(delta_sign);
-                                            } else {
-                                                eval += Into::<float>::into(onshell_prop.m_squared)
-                                                    .sqrt()
-                                                    .multiply_sign(delta_sign);
-                                            }
-
-                                            eval += surface_shift.t;
-
-                                            pos_surface_signs_count == 1 && eval > float::zero()
-                                                || neg_surface_signs_count == 1
-                                                    && eval < float::zero()
                                         }
-                                        _ => true,
-                                    } {
-                                        self.surfaces.push(Surface {
-                                            group,
-                                            surface_type: SurfaceType::Hyperboloid,
-                                            cut_structure_index: cut_index,
-                                            cut_option_index,
-                                            cut: cut_option.clone(),
-                                            onshell_ll_index: ll_index,
-                                            onshell_prop_index,
-                                            delta_sign,
-                                            sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
-                                            signs: surface_signs.iter().cloned().collect(),
-                                            shift: surface_shift.clone(),
-                                            id: vec![],
-                                        });
+
+                                        eval += surface_shift.t;
+
+                                        pos_surface_signs_count == 1 && eval > float::zero()
+                                            || neg_surface_signs_count == 1 && eval < float::zero()
                                     }
+                                    _ => true,
+                                } {
+                                    self.surfaces.push(Surface {
+                                        exists: true, // we only store existing hyperboloids
+                                        group,
+                                        surface_type: SurfaceType::Hyperboloid,
+                                        cut_structure_index: cut_index,
+                                        cut_option_index,
+                                        cut: cut_option.clone(),
+                                        onshell_ll_index: ll_index,
+                                        onshell_prop_index,
+                                        delta_sign,
+                                        sig_ll_in_cb: sig_ll_in_cb.iter().cloned().collect(),
+                                        signs: surface_signs.iter().cloned().collect(),
+                                        shift: surface_shift.clone(),
+                                        id: vec![],
+                                    });
                                 }
                             }
                         }
@@ -447,7 +437,7 @@ impl Topology {
             match group_representative.iter().find(|r| r.0 == s_cut_sorted) {
                 Some(i) => s.group = i.1,
                 None => {
-                    if s.surface_type == SurfaceType::Ellipsoid {
+                    if s.surface_type == SurfaceType::Ellipsoid && s.exists {
                         unique_ellipsoids += 1;
                     }
                     s.group = surf_index;
@@ -455,7 +445,7 @@ impl Topology {
                 }
             }
 
-            if self.settings.general.debug > 1 {
+            if self.settings.general.debug > 1 && s.exists {
                 println!(
                     "  | id={}, group={}, type={:?}, prop={:?} cut={}, id={:?}, shift={}",
                     surf_index,
@@ -483,7 +473,10 @@ impl Topology {
 
                 for (surf_index, s) in self.surfaces.iter().enumerate() {
                     // only go through ellipsoid representatives
-                    if s.surface_type != SurfaceType::Ellipsoid || s.group != surf_index {
+                    if s.surface_type != SurfaceType::Ellipsoid
+                        || s.group != surf_index
+                        || !s.exists
+                    {
                         continue;
                     }
 
@@ -580,7 +573,7 @@ impl Topology {
                 let mut found = false;
                 for surf_id in &d.excluded_surface_ids {
                     for (i, s) in self.surfaces.iter().enumerate() {
-                        if s.id == *surf_id && i == s.group {
+                        if s.id == *surf_id && i == s.group && s.exists {
                             d.excluded_surface_indices.push(i);
                             self.all_excluded_surfaces[i] = true;
                             found = true;
@@ -621,6 +614,7 @@ impl Topology {
                     .collect::<Vec<_>>();
                 for (surf_index, surf) in self.surfaces.iter().enumerate() {
                     if surf.group == surf_index
+                        && surf.exists
                         && surf.surface_type == SurfaceType::Ellipsoid
                         && !d.excluded_surface_indices.contains(&surf_index)
                     {
@@ -665,13 +659,13 @@ impl Topology {
     pub fn get_expansion_threshold(&self) -> f64 {
         match self.settings.deformation.scaling.expansion_check_strategy {
             ExpansionCheckStrategy::Ratio => {
-                if (self.settings.deformation.scaling.expansion_threshold < 0.
-                    || self.maximum_ratio_expansion_threshold < 0.)
+                if self.settings.deformation.scaling.expansion_threshold < 0.
+                    || self.maximum_ratio_expansion_threshold < 0.
                 {
                     self.settings.deformation.scaling.expansion_threshold.abs()
                 } else {
-                    if (self.settings.deformation.scaling.expansion_threshold
-                        > 0.5 * self.maximum_ratio_expansion_threshold)
+                    if self.settings.deformation.scaling.expansion_threshold
+                        > 0.5 * self.maximum_ratio_expansion_threshold
                     {
                         0.5 * self.maximum_ratio_expansion_threshold
                     } else {
@@ -687,7 +681,7 @@ impl Topology {
     pub fn compute_min_mij(&self) -> f64 {
         // TODO make this quantity static as it does not need to be recomputed statically every
         // time.
-        let m = self.settings.deformation.fixed.m_ij;
+        let _m = self.settings.deformation.fixed.m_ij;
         let d = self.settings.deformation.fixed.delta;
         let e = self.get_expansion_threshold();
 
@@ -902,7 +896,8 @@ impl Topology {
                 if self.settings.deformation.scaling.non_cut_propagator_check {
                     info.a = (info.kappa_sq * info.real_energy.powi(2)
                         - info.kappa_dot_mom.powi(2))
-                        / info.real_energy.powi(3);
+                        / info.real_energy.powi(3)
+                        * Into::<T>::into(-0.5);
                     info.b = info.kappa_dot_mom / info.real_energy;
                     info.c = info.real_energy;
                 }
@@ -934,7 +929,7 @@ impl Topology {
                                     / a)
                             }
                             ExpansionCheckStrategy::MagicFudge => {
-                                let a = info.kappa_sq * info.kappa_sq;
+                                let _a = info.kappa_sq * info.kappa_sq;
                                 let b = info.kappa_dot_mom * info.kappa_dot_mom;
                                 let d = info.spatial_and_mass_sq * info.spatial_and_mass_sq;
                                 c * c * (d / (b + d))
@@ -997,48 +992,123 @@ impl Topology {
                         smooth_min_den += e;
                     }
                 }
+            }
+        }
 
-                // check the on-shell propagator for zeros
-                if self.settings.deformation.scaling.cut_propagator_check {
-                    let x = (info.kappa_dot_mom / info.kappa_sq).powi(2);
-                    let y = info.spatial_and_mass_sq / info.kappa_sq;
+        if self.settings.deformation.scaling.non_cut_propagator_check {
+            // TODO: rename
+            // process all existing and non-existing ellipsoids
+            for (surf_index, s) in self.surfaces.iter().enumerate() {
+                if surf_index == s.group && s.surface_type == SurfaceType::Ellipsoid {
+                    let mut a = DualN::from_real(T::zero());
+                    let mut b = DualN::from_real(T::zero());
+                    let mut c = DualN::from_real(T::zero());
+                    for ((ll_index, prop_index), delta_sign, os_sign) in &s.id {
+                        let info =
+                            &cache.cut_info[self.loop_lines[*ll_index].propagators[*prop_index].id];
+                        a += info.a;
+                        b += info.b;
+                        c += info.c + info.shift.t.multiply_sign(os_sign * delta_sign);
+                    }
 
-                    let mut prop_lambda_sq = Topology::compute_lambda_factor(x, y);
-
-                    match self.settings.deformation.scaling.pole_check_strategy {
+                    let prop_lambda_sq = match self.settings.deformation.scaling.pole_check_strategy
+                    {
                         PoleCheckStrategy::Exact => {
-                            // compute the lambda for which we have 0
-                            let zero_lambda_plus =
-                                (Complex::new(DualN::zero(), info.kappa_dot_mom)
-                                    + (Complex::new(
-                                        info.spatial_and_mass_sq * info.kappa_sq
-                                            - info.kappa_dot_mom.powi(2),
-                                        DualN::zero(),
-                                    ))
-                                    .sqrt())
-                                    / info.kappa_sq;
-                            let zero_lambda_min = (Complex::new(DualN::zero(), info.kappa_dot_mom)
-                                - (Complex::new(
-                                    info.spatial_and_mass_sq * info.kappa_sq
-                                        - info.kappa_dot_mom.powi(2),
+                            assert_eq!(self.n_loops, 1);
+
+                            let cut_info = &cache.cut_info
+                                [self.loop_lines[(s.id[0].0).0].propagators[(s.id[0].0).1].id];
+                            let on_shell_info = &cache.cut_info
+                                [self.loop_lines[(s.id[1].0).0].propagators[(s.id[1].0).1].id];
+
+                            // now determine the exact solution for one-loop surfaces
+                            let p0 = on_shell_info.shift.t - cut_info.shift.t;
+                            let a = cut_info.spatial_and_mass_sq
+                                - on_shell_info.spatial_and_mass_sq
+                                - p0.powi(2);
+
+                            let b = kappas[0]
+                                .spatial_dot(&(cut_info.momentum - on_shell_info.momentum))
+                                * Into::<T>::into(2.);
+
+                            let aa = kappas[0].spatial_squared() * p0.powi(2) * Into::<T>::into(4.)
+                                - b * b;
+                            let bb = (a * b
+                                - kappas[0].spatial_dot(&on_shell_info.momentum)
+                                    * p0.powi(2)
+                                    * Into::<T>::into(4.))
+                                * Into::<T>::into(2.);
+                            let cc = a * a
+                                - on_shell_info.spatial_and_mass_sq
+                                    * p0.powi(2)
+                                    * Into::<T>::into(4.);
+
+                            let mut lambda_plus = (-Complex::new(DualN::zero(), bb)
+                                + (Complex::new(
+                                    -bb * bb - aa * cc * Into::<T>::into(4.),
                                     DualN::zero(),
                                 ))
                                 .sqrt())
-                                / info.kappa_sq;
+                                / (aa * Into::<T>::into(2.));
+                            let mut lambda_min = (-Complex::new(DualN::zero(), bb)
+                                - (Complex::new(
+                                    -bb * bb - aa * cc * Into::<T>::into(4.),
+                                    DualN::zero(),
+                                ))
+                                .sqrt())
+                                / (aa * Into::<T>::into(2.));
 
-                            if zero_lambda_plus.re * zero_lambda_plus.re < prop_lambda_sq {
-                                prop_lambda_sq = zero_lambda_plus.re * zero_lambda_plus.re;
+                            if aa.real().is_zero() {
+                                lambda_plus = Complex::new(DualN::zero(), cc / bb);
+                                lambda_min = Complex::new(DualN::zero(), cc / bb);
                             }
 
-                            // TODO: check if zero_lambda_min.re is negative?
-                            if zero_lambda_min.re * zero_lambda_min.re < prop_lambda_sq {
-                                prop_lambda_sq = zero_lambda_min.re * zero_lambda_min.re;
+                            // evaluate the surface with lambda
+                            let mut prop_lambda_sq = lambda_sq;
+                            for lambda in &[lambda_plus, lambda_min] {
+                                let def = kappas[0].real().to_complex(false)
+                                    * Complex::new(lambda.re.real(), lambda.im.real());
+                                let surf = ((cut_info.momentum.real().to_complex(true) + def)
+                                    .spatial_squared()
+                                    + cut_info.mass.real()) // note, this is mass^2
+                                .sqrt()
+                                    + ((on_shell_info.momentum.real().to_complex(true) + def)
+                                        .spatial_squared()
+                                        + on_shell_info.mass.real())
+                                    .sqrt()
+                                    + p0.real();
+
+                                if surf.norm() < Into::<T>::into(1e-5) {
+                                    let new_lambda = lambda.norm_sqr();
+                                    if new_lambda < prop_lambda_sq {
+                                        prop_lambda_sq = new_lambda
+                                    }
+                                }
                             }
+                            prop_lambda_sq
                         }
-                        PoleCheckStrategy::RealSolution | PoleCheckStrategy::TangentCheck => {
-                            // TODO: what to do for the tangent case?
+                        PoleCheckStrategy::RealSolution => {
+                            let x = (b / a).powi(2) * Into::<T>::into(0.25);
+                            let y = -c / a;
+                            let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
+                            if a.real().is_zero() {
+                                continue;
+                            }
+                            prop_lambda_sq
                         }
-                    }
+                        PoleCheckStrategy::TangentCheck => {
+                            let t_out =
+                                c / Into::<T>::into(self.settings.deformation.scaling.theta_r_out);
+                            let t_in =
+                                c * Into::<T>::into(self.settings.deformation.scaling.theta_r_in);
+
+                            let t_c = t_out
+                                + b / Into::<T>::into(self.settings.deformation.scaling.theta_c);
+                            let rhs = t_out.min(t_in).min(t_c);
+
+                            (rhs - c) / a
+                        }
+                    };
 
                     if sigma.is_zero() {
                         if prop_lambda_sq < lambda_sq {
@@ -1048,268 +1118,6 @@ impl Topology {
                         let e = (-prop_lambda_sq / sigma).exp();
                         smooth_min_num += prop_lambda_sq * e;
                         smooth_min_den += e;
-                    }
-                }
-            }
-        }
-
-        if self.settings.deformation.scaling.non_cut_propagator_check {
-            let mut cut_infos = [&cache.cut_info[0]; MAX_LOOP];
-
-            for (cuts, cb_to_lmb_mat) in self
-                .ltd_cut_options
-                .iter()
-                .zip_eq(self.cb_to_lmb_mat.iter())
-            {
-                for cut in cuts {
-                    let mut index = 0;
-                    for (c, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
-                        if let Cut::NegativeCut(i) | Cut::PositiveCut(i) = c {
-                            cut_infos[index] = &cache.cut_info[ll.propagators[*i].id];
-                            index += 1;
-                        }
-                    }
-
-                    for (ll_cut, onshell_ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
-                        // store a bit flag to see if we have checked a loop line with a cut already
-                        // 1 => positive cut computed, 2 => negative cut computed
-                        match *ll_cut {
-                            Cut::PositiveCut(cut_prop) => {
-                                if cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] & 1
-                                    == 0
-                                {
-                                    cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] |= 1;
-                                } else {
-                                    continue;
-                                }
-                            }
-                            Cut::NegativeCut(cut_prop) => {
-                                if cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] & 2
-                                    == 0
-                                {
-                                    cache.computed_cut_ll[onshell_ll.propagators[cut_prop].id] |= 2;
-                                } else {
-                                    continue;
-                                }
-                            }
-                            Cut::NoCut => {}
-                        }
-
-                        // TODO: this should be precomputed
-                        // determine the map from loop line momentum to cut momenta
-                        let mut onshell_signs = [0; MAX_LOOP];
-                        let mut surface_signs = [0; MAX_LOOP];
-                        for ii in 0..self.n_loops {
-                            for jj in 0..self.n_loops {
-                                // note we are taking the transpose of cb_to_lmb_mat
-                                onshell_signs[ii] += cb_to_lmb_mat[jj * self.n_loops + ii]
-                                    * onshell_ll.signature[jj];
-                            }
-                            surface_signs[ii] = onshell_signs[ii];
-                        }
-
-                        // multiply the signature by the sign of the cut
-                        let mut index = 0;
-                        for x in cut {
-                            match x {
-                                Cut::PositiveCut(_) => index += 1,
-                                Cut::NegativeCut(_) => {
-                                    surface_signs[index] *= -1;
-                                    index += 1;
-                                }
-                                Cut::NoCut => {}
-                            }
-                        }
-
-                        let mut ellipse_flag = 0;
-                        for x in &surface_signs {
-                            match x {
-                                1 => ellipse_flag |= 1,
-                                -1 => ellipse_flag |= 2,
-                                0 => {}
-                                _ => unreachable!(),
-                            }
-                        }
-
-                        if ellipse_flag == 3 && self.settings.deformation.scaling.skip_hyperboloids
-                        {
-                            continue;
-                        }
-
-                        // treat the cut part of the surface equation
-                        let mut a = DualN::from_real(T::zero());
-                        let mut b = DualN::from_real(T::zero());
-                        let mut c = DualN::from_real(T::zero());
-                        for (cut_info, &onshell_sign, &surface_sign) in izip!(
-                            &cut_infos[..self.n_loops],
-                            &onshell_signs[..self.n_loops],
-                            &surface_signs[..self.n_loops]
-                        ) {
-                            if surface_sign != 0 {
-                                a += cut_info.a.multiply_sign(surface_sign);
-                                b += cut_info.b.multiply_sign(surface_sign);
-                                c += cut_info.c.multiply_sign(surface_sign)
-                                    - cut_info.shift.t.multiply_sign(onshell_sign);
-                            }
-                        }
-
-                        // TODO: we are checking surfaces more than once. The ones that depend on only
-                        // one loop momentum for example
-                        for (prop_index, onshell_prop) in onshell_ll.propagators.iter().enumerate()
-                        {
-                            let on_shell_info = &cache.cut_info[onshell_prop.id];
-
-                            if *ll_cut == Cut::PositiveCut(prop_index)
-                                || *ll_cut == Cut::NegativeCut(prop_index)
-                            {
-                                continue;
-                            }
-
-                            // construct the on-shell part of the propagator
-                            for &sign in &[-T::one(), T::one()] {
-                                if self.settings.deformation.scaling.skip_hyperboloids
-                                    && (ellipse_flag == 1 && !sign.is_one()
-                                        || ellipse_flag == 2 && sign.is_one())
-                                {
-                                    continue;
-                                }
-
-                                let prop_lambda_sq = match self
-                                    .settings
-                                    .deformation
-                                    .scaling
-                                    .pole_check_strategy
-                                {
-                                    PoleCheckStrategy::Exact => {
-                                        assert_eq!(self.n_loops, 1);
-                                        // now determine the exact solution for one-loop surfaces
-                                        let p0 = on_shell_info.shift.t - cut_infos[0].shift.t;
-                                        let a = cut_infos[0].spatial_and_mass_sq
-                                            - on_shell_info.spatial_and_mass_sq
-                                            - p0.powi(2);
-
-                                        let b = kappas[0].spatial_dot(
-                                            &(cut_infos[0].momentum - on_shell_info.momentum),
-                                        ) * Into::<T>::into(2.);
-
-                                        let A = kappas[0].spatial_squared()
-                                            * p0.powi(2)
-                                            * Into::<T>::into(4.)
-                                            - b * b;
-                                        let B = (a * b
-                                            - kappas[0].spatial_dot(&on_shell_info.momentum)
-                                                * p0.powi(2)
-                                                * Into::<T>::into(4.))
-                                            * Into::<T>::into(2.);
-                                        let C = a * a
-                                            - on_shell_info.spatial_and_mass_sq
-                                                * p0.powi(2)
-                                                * Into::<T>::into(4.);
-
-                                        let mut lambda_plus = (-Complex::new(DualN::zero(), B)
-                                            + (Complex::new(
-                                                -B * B - A * C * Into::<T>::into(4.),
-                                                DualN::zero(),
-                                            ))
-                                            .sqrt())
-                                            / (A * Into::<T>::into(2.));
-                                        let mut lambda_min = (-Complex::new(DualN::zero(), B)
-                                            - (Complex::new(
-                                                -B * B - A * C * Into::<T>::into(4.),
-                                                DualN::zero(),
-                                            ))
-                                            .sqrt())
-                                            / (A * Into::<T>::into(2.));
-
-                                        if A.real().is_zero() {
-                                            lambda_plus = Complex::new(DualN::zero(), C / B);
-                                            lambda_min = Complex::new(DualN::zero(), C / B);
-                                        }
-
-                                        // evaluate the surface with lambda
-                                        let mut prop_lambda_sq = lambda_sq;
-                                        for lambda in &[lambda_plus, lambda_min] {
-                                            let def = kappas[0].real().to_complex(false)
-                                                * Complex::new(lambda.re.real(), lambda.im.real());
-                                            let surf =
-                                                ((cut_infos[0].momentum.real().to_complex(true)
-                                                    + def)
-                                                    .spatial_squared()
-                                                    + cut_infos[0].mass.real()) // note, this is mass^2
-                                                .sqrt()
-                                                    + ((on_shell_info
-                                                        .momentum
-                                                        .real()
-                                                        .to_complex(true)
-                                                        + def)
-                                                        .spatial_squared()
-                                                        + on_shell_info.mass.real())
-                                                    .sqrt()
-                                                    + p0.real();
-
-                                            if surf.norm() < Into::<T>::into(1e-5) {
-                                                let new_lambda = lambda.norm_sqr();
-                                                if new_lambda < prop_lambda_sq {
-                                                    prop_lambda_sq = new_lambda
-                                                }
-                                            }
-                                        }
-                                        prop_lambda_sq
-                                    }
-                                    PoleCheckStrategy::RealSolution => {
-                                        let a_tot =
-                                            (a + on_shell_info.a * sign) * Into::<T>::into(-0.5);
-                                        let a_tot_inv = a_tot.inv();
-                                        let b_tot = b + on_shell_info.b * sign;
-                                        let c_tot =
-                                            c + on_shell_info.c * sign + on_shell_info.shift.t;
-                                        let x = (b_tot * a_tot_inv).powi(2) * Into::<T>::into(0.25);
-                                        let y = -c_tot * a_tot_inv;
-                                        let prop_lambda_sq = Topology::compute_lambda_factor(x, y);
-                                        if a_tot.real().is_zero() {
-                                            continue;
-                                        }
-                                        prop_lambda_sq
-                                    }
-                                    PoleCheckStrategy::TangentCheck => {
-                                        // make sure the surface has a plus sign in front of the foci
-                                        let a_tot =
-                                            (a * sign + on_shell_info.a) * Into::<T>::into(-0.5); // kappa^2 part
-                                        let b_tot = b * sign + on_shell_info.b; // kappa part
-                                        let c_tot =
-                                            c * sign + on_shell_info.c + on_shell_info.shift.t; // kappa^0 part
-
-                                        let t_out = c_tot
-                                            / Into::<T>::into(
-                                                self.settings.deformation.scaling.theta_r_out,
-                                            );
-                                        let t_in = c_tot
-                                            * Into::<T>::into(
-                                                self.settings.deformation.scaling.theta_r_in,
-                                            );
-
-                                        let t_c = t_out
-                                            + b_tot
-                                                / Into::<T>::into(
-                                                    self.settings.deformation.scaling.theta_c,
-                                                );
-                                        let rhs = t_out.min(t_in).min(t_c);
-
-                                        (rhs - c_tot) / a_tot
-                                    }
-                                };
-
-                                if sigma.is_zero() {
-                                    if prop_lambda_sq < lambda_sq {
-                                        lambda_sq = prop_lambda_sq;
-                                    }
-                                } else {
-                                    let e = (-prop_lambda_sq / sigma).exp();
-                                    smooth_min_num += prop_lambda_sq * e;
-                                    smooth_min_den += e;
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -1344,7 +1152,10 @@ impl Topology {
         // where m=delta_sign a = sig_ll_in_cb, r = residue_sign
         for (surf_index, surf) in self.surfaces.iter().enumerate() {
             // only deform the set of different ellipsoids
-            if surf.surface_type != SurfaceType::Ellipsoid || surf.group != surf_index {
+            if surf.surface_type != SurfaceType::Ellipsoid
+                || surf.group != surf_index
+                || !surf.exists
+            {
                 continue;
             }
 
@@ -1681,6 +1492,7 @@ impl Topology {
         for (i, surf) in self.surfaces.iter().enumerate() {
             if surf.surface_type != SurfaceType::Ellipsoid
                 || surf.group != i
+                || !surf.exists
                 || (!self.all_excluded_surfaces[i] && !self.settings.deformation.fixed.local)
                 || cache.ellipsoid_eval[i].is_some()
             {
@@ -1730,6 +1542,8 @@ impl Topology {
                         && surf2.group == surf2_index
                         && surf2.surface_type == SurfaceType::Ellipsoid
                         && surf2_index > surf1_index
+                        && surf1.exists
+                        && surf2.exists
                     {
                         let eval1 = cache.ellipsoid_eval[surf1_index].unwrap().powi(2);
                         let eval2 = cache.ellipsoid_eval[surf2_index].unwrap().powi(2);
@@ -1791,6 +1605,7 @@ impl Topology {
                         if i == surf_index
                             || surf.surface_type != SurfaceType::Ellipsoid
                             || surf_index != surf.group
+                            || !surf.exists
                         {
                             continue;
                         }
@@ -1808,7 +1623,7 @@ impl Topology {
             }
 
             for (overlap_index, d) in d_lim.deformation_per_overlap.iter().enumerate() {
-                let mut lambda = DualN::one();
+                let lambda = DualN::one();
                 // TODO: index
                 /*if i < self.settings.deformation.lambdas.len() {
                     lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
@@ -1831,7 +1646,10 @@ impl Topology {
                     }
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                     // at the same time and goes to 1 otherwise
-                    debug_assert!(self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid);
+                    debug_assert!(
+                        self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid
+                            && self.surfaces[surf_index].exists
+                    );
 
                     // We do not want to normalize by e_cm_squared anymore here
                     // let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
@@ -1979,7 +1797,10 @@ impl Topology {
                 let a = Into::<T>::into(self.settings.deformation.fixed.a_ijs[0]);
                 let eij = &mut cache.ellipsoid_eval;
                 for (surf_index, surf) in self.surfaces.iter().enumerate() {
-                    if surf.surface_type != SurfaceType::Ellipsoid || surf.group != surf_index {
+                    if surf.surface_type != SurfaceType::Ellipsoid
+                        || surf.group != surf_index
+                        || !surf.exists
+                    {
                         continue;
                     } else {
                         // We do not want to normalize by e_cm_squared anymore here
@@ -2023,10 +1844,10 @@ impl Topology {
         kappas
     }
 
-    fn normalize_on_E_surfaces<U: DimName, T: FloatLike>(
+    fn normalize_on_e_surfaces<U: DimName, T: FloatLike>(
         &self,
         kappas: &mut [LorentzVector<DualN<T, U>>],
-        selector_M: f64,
+        selector_m: f64,
         cache: &mut LTDCache<T>,
     ) where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
@@ -2036,13 +1857,13 @@ impl Topology {
         // Start cache
         let cache = cache.get_cache_mut();
 
-        let mut E_surfaces_selection = DualN::one();
+        let mut e_surfaces_selection = DualN::one();
 
         let mij_min = Into::<T>::into(self.compute_min_mij());
 
         // First evaluate all unique E-surfaces and multiply them into the selector
         for (i, surf) in self.surfaces.iter().enumerate() {
-            if surf.surface_type != SurfaceType::Ellipsoid || i != surf.group {
+            if surf.surface_type != SurfaceType::Ellipsoid || i != surf.group || !surf.exists {
                 continue;
             }
 
@@ -2082,9 +1903,9 @@ impl Topology {
             let t = cache.ellipsoid_eval[i].unwrap().powi(2)
                 / Into::<T>::into(self.surfaces[i].shift.t.powi(2));
 
-            let m = Into::<T>::into(selector_M.abs());
+            let m = Into::<T>::into(selector_m.abs());
 
-            E_surfaces_selection *= t / (t + m * m * mij_min * mij_min);
+            e_surfaces_selection *= t / (t + m * m * mij_min * mij_min);
         }
 
         // Sum of \vec{kappa}^2 for the kappa of each loop
@@ -2096,7 +1917,7 @@ impl Topology {
             (current_norm / DualN::from_real(Into::<T>::into(self.n_loops as f64))).sqrt();
 
         let normalisation =
-            DualN::one() / (E_surfaces_selection * (DualN::one() - current_norm) + current_norm);
+            DualN::one() / (e_surfaces_selection * (DualN::one() - current_norm) + current_norm);
         //println!("normalisation_on_E_surfaces={:e}\n", normalisation.real());
 
         for k in kappas[..self.n_loops].iter_mut() {
@@ -2109,7 +1930,7 @@ impl Topology {
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         previous_deformation: &[LorentzVector<DualN<T, U>>],
         cut: Option<(usize, usize)>,
-        ellipsoid_id: Option<usize>,
+        _ellipsoid_id: Option<usize>,
         cache: &mut LTDCache<T>,
     ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
     where
@@ -2191,7 +2012,7 @@ impl Topology {
         };
         // Force normalisation of the kappa on the E-surfaces
         if self.settings.deformation.normalize_on_E_surfaces_m > 0. {
-            self.normalize_on_E_surfaces(
+            self.normalize_on_e_surfaces(
                 &mut kappas[..self.n_loops],
                 self.settings.deformation.scaling.lambda,
                 cache,

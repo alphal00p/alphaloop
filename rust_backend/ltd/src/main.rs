@@ -809,7 +809,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
         if !ids.is_empty() && !ids.contains(&surf_index) {
             continue;
         }
-        if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid {
+        if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid || !surf.exists {
             continue;
         }
         n_unique_e_surface += 1;
@@ -822,11 +822,14 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
             surf.shift
         );
     }
-    println!(">>> End of the listing of {} unique non-pinched E-surfaces", n_unique_e_surface);
+    println!(
+        ">>> End of the listing of {} unique non-pinched E-surfaces",
+        n_unique_e_surface
+    );
     println!("");
 
     for (surf_index, surf) in topo.surfaces.iter().enumerate() {
-        if !ids.is_empty() && !ids.contains(&surf_index) {
+        if !ids.is_empty() && !ids.contains(&surf_index) || !surf.exists {
             continue;
         }
 
@@ -1393,7 +1396,7 @@ fn main() {
         settings.general.topology, settings.integrator.n_max, settings.general.deformation_strategy
     );
 
-    let num_cuts : usize = topo.ltd_cut_options.iter().map(|c| c.len()).sum();
+    let num_cuts: usize = topo.ltd_cut_options.iter().map(|c| c.len()).sum();
     println!("Number of cuts: {}", num_cuts);
     let mut n_unique_e_surface = 0;
     let ids: Vec<_> = match matches.values_of("ids") {
@@ -1404,29 +1407,58 @@ fn main() {
         if !ids.is_empty() && !ids.contains(&surf_index) {
             continue;
         }
-        if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid {
+        if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid || !surf.exists {
             continue;
         }
         n_unique_e_surface += 1;
     }
-    println!("Number of unique existing non-pinched E-surfaces: {}", n_unique_e_surface);
+    println!(
+        "Number of unique existing non-pinched E-surfaces: {}",
+        n_unique_e_surface
+    );
     if topo.fixed_deformation.len() > 0 {
-        let maximal_overlap_structure : Vec<i32> = topo.fixed_deformation[0].deformation_per_overlap.iter().map(
-                                  |c| ( n_unique_e_surface - (c.excluded_surface_ids.len() as i32)) ).collect();
-        let radii : Vec<f64> = topo.fixed_deformation.iter().flat_map(|fd| {
-            fd.deformation_per_overlap.iter().map(|fdo| fdo.radius)
-        }).collect();
-        let n_sources : usize = topo.fixed_deformation.iter().flat_map(|fd| {
-            fd.deformation_per_overlap.iter().map(|fdo| 1)
-        }).sum();
-        println!("Number of E-surfaces part of each maximal overlap: {:?}", maximal_overlap_structure);
-        println!("Total number of sources: {}", n_sources);        
-        println!("Min radius: {}", radii.iter().fold(std::f64::INFINITY, |acc, x| f64::min(acc, *x)));
-        println!("Max radius: {}", radii.iter().fold(std::f64::NEG_INFINITY, |acc, x| f64::max(acc, *x)));
+        let maximal_overlap_structure: Vec<i32> = topo.fixed_deformation[0]
+            .deformation_per_overlap
+            .iter()
+            .map(|c| (n_unique_e_surface - (c.excluded_surface_ids.len() as i32)))
+            .collect();
+        let radii: Vec<f64> = topo
+            .fixed_deformation
+            .iter()
+            .flat_map(|fd| fd.deformation_per_overlap.iter().map(|fdo| fdo.radius))
+            .collect();
+        let n_sources: usize = topo
+            .fixed_deformation
+            .iter()
+            .flat_map(|fd| fd.deformation_per_overlap.iter().map(|_| 1))
+            .sum();
+        println!(
+            "Number of E-surfaces part of each maximal overlap: {:?}",
+            maximal_overlap_structure
+        );
+        println!("Total number of sources: {}", n_sources);
+        println!(
+            "Min radius: {}",
+            radii
+                .iter()
+                .fold(std::f64::INFINITY, |acc, x| f64::min(acc, *x))
+        );
+        println!(
+            "Max radius: {}",
+            radii
+                .iter()
+                .fold(std::f64::NEG_INFINITY, |acc, x| f64::max(acc, *x))
+        );
     }
 
-    println!("Expansion threshold considered: {}",topo.get_expansion_threshold());
-    println!("M_ij considered: {}",topo.settings.deformation.fixed.m_ij*topo.compute_min_mij());
+    println!(
+        "Expansion threshold considered: {}",
+        topo.get_expansion_threshold()
+    );
+    println!(
+        "M_ij considered: {}",
+        topo.settings.deformation.fixed.m_ij * topo.compute_min_mij()
+    );
 
     match topo.analytical_result_real {
         Some(_) => println!(

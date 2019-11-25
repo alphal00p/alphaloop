@@ -21,6 +21,7 @@ pub enum SurfaceType {
 #[derive(Debug, Clone)]
 pub struct Surface {
     pub group: usize,
+    pub exists: bool,
     pub surface_type: SurfaceType,
     pub cut_structure_index: usize,
     pub cut_option_index: usize,
@@ -337,7 +338,7 @@ pub struct Topology {
     pub n_loops: usize,
     pub analytical_result_real: Option<f64>,
     pub analytical_result_imag: Option<f64>,
-    pub maximum_ratio_expansion_threshold : f64,
+    pub maximum_ratio_expansion_threshold: f64,
     #[serde(default)]
     pub global_seed: Option<[u8; 32]>,
     #[serde(default)]

@@ -184,7 +184,7 @@ impl Amplitude {
         }
 
         if settings.debug > 2 {
-            for (i, (pol, p)) in self.pols_type.iter().zip(self.ps.iter()).enumerate() {
+            for (i, (_pol, p)) in self.pols_type.iter().zip(self.ps.iter()).enumerate() {
                 println!("  | p{} = {:?}", i, p);
             }
             for (i, (pol, p)) in self

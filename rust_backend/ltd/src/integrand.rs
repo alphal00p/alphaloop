@@ -6,7 +6,6 @@ use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
 use rand::Rng;
-use rand::seq::IteratorRandom;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::{LTDCache, Topology};
