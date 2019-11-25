@@ -13,7 +13,7 @@ hyperparameters = HyperParameters({
     'General'       :   {
         # Consider a multi-channeling treatment of the integrand with shifted parametrisations regularising
         # integrable singularities for which one has no deformation.
-        'multi_channeling'      :   True,
+        'multi_channeling'      :   False,
         # Instead of None, one can specify here a list of indices, like 0,2,7 which corresponds to
         # the channel IDs to consider. A channel ID corresponds to its index in the list produced by the
         # cartesian product of the cut_structure with the propagators in each of the loop lines.
@@ -107,7 +107,7 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 10.0,
+            'lambda'                    : 1.0,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             'expansion_check'           : True,
@@ -118,26 +118,26 @@ hyperparameters = HyperParameters({
             # magic_fudge : c * c * (d / (b + d))
             # magic_fudge_with_min : min( c * c * (d / (b + d)), c * c * (d / (a + d)))
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
-            'expansion_check_strategy'  : 'full_lambda_dependence',
+            'expansion_check_strategy'  : 'ratio',
             # The expansion_threshold considered is min(e_th, 0.5*e_th_max), with e_th_max computed 
             # during the pre-processing. Note instead that a negative value is allowed and the absolute value will
             # then directly be used as an input.
-            'expansion_threshold'       : -0.15,
+            'expansion_threshold'       : 0.15,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,
             'source_branch_cut_m'       : -1.0,
-            'cut_propagator_check'      : True,
-            'non_cut_propagator_check'  : True,
+            'cut_propagator_check'      : False,
+            'non_cut_propagator_check'  : False,
             'skip_hyperboloids'         : True,
             'source_branch_cut_threshold'  : 0.8,
             'source_branch_cut_multiplier' : 0.8,
             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check
             'pole_check_strategy'       : 'real_solution',
-            'theta_r_out'               : 10.,
-            'theta_r_in'                : 10.,
-            'theta_c'                   : 10.,
+            'theta_r_out'               : 2.,
+            'theta_r_in'                : 2.,
+            'theta_c'                   : 2.,
         },
 
         'additive'              :   {
