@@ -13,7 +13,7 @@ hyperparameters = HyperParameters({
     'General'       :   {
         # Consider a multi-channeling treatment of the integrand with shifted parametrisations regularising
         # integrable singularities for which one has no deformation.
-        'multi_channeling'      :   True,
+        'multi_channeling'      :   False,
         # Instead of None, one can specify here a list of indices, like 0,2,7 which corresponds to
         # the channel IDs to consider. A channel ID corresponds to its index in the list produced by the
         # cartesian product of the cut_structure with the propagators in each of the loop lines.
@@ -118,17 +118,17 @@ hyperparameters = HyperParameters({
             # magic_fudge : c * c * (d / (b + d))
             # magic_fudge_with_min : min( c * c * (d / (b + d)), c * c * (d / (a + d)))
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
-            'expansion_check_strategy'  : 'full_lambda_dependence',
+            'expansion_check_strategy'  : 'ratio',
             # The expansion_threshold considered is min(e_th, 0.5*e_th_max), with e_th_max computed 
             # during the pre-processing. Note instead that a negative value is allowed and the absolute value will
             # then directly be used as an input.
-            'expansion_threshold'       : -0.15,
+            'expansion_threshold'       : -0.3,
             'positive_cut_check'        : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,
             'source_branch_cut_m'       : -1.0,
-            'cut_propagator_check'      : True,
+            'cut_propagator_check'      : False,
             'non_cut_propagator_check'  : True,
             'skip_hyperboloids'         : True,
             'source_branch_cut_threshold'  : 0.8,
@@ -150,7 +150,7 @@ hyperparameters = HyperParameters({
 
         'fixed' : {
             # Maximum allowed value for the anti-selector on an E-surface.
-            'delta' : 0.03,
+            'delta' : 0.3,
             # Argument of the anti-selector of the form  E_i^2 / ( E_i^2 + M_ij^2 * M^\star ^2 * (p_i^0)^2 )
             # where: E_i is the equation of the E-surface #i
             #        M^\star is the maximum value that M can take for the anti-selector to be < \delta on E-surfaces.
