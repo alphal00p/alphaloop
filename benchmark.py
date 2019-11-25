@@ -38,6 +38,7 @@ _RUN_LOCALLY = True
 _N_CORES = 8
 _RUN_DIR = pjoin(file_path,'run_dir')
 _WALL_TIME = 24
+_ACCOUNT = 'eth5e'
 
 class Units:
     K = 1000
@@ -154,11 +155,12 @@ class BenchmarkRun(dict):
                 print("Now launch job for topology %s"%topology)
                 submission_script = open(pjoin(file_path,'submission_template.run'),'r').read()
                 open(pjoin(_RUN_DIR,'submitter.run'),'w').write(submission_script%{
-		    'job_name' : '%s_job'%prefix,
+		    'job_name' : '%sjob'%os.path.basename(os.path.normpath(prefix)),
                     'n_hours' : _WALL_TIME,
-                    'n_cpus_per_task' : cores,
-                    'output' : '%s/LTD_runs/logs/%s_job.out'%(os.environ['SCRATCH'], prefix),
-                    'error' : '%s/LTD_runs/logs/%s_job.err'%(os.environ['SCRATCH'], prefix),
+                    'n_cpus_per_task' : int(cores),
+                    'account': _ACCOUNT,
+                    'output' : '%s/LTD_runs/logs/%sjob.out'%(os.environ['SCRATCH'], os.path.basename(os.path.normpath(prefix))),
+                    'error' : '%s/LTD_runs/logs/%sjob.err'%(os.environ['SCRATCH'], os.path.basename(os.path.normpath(prefix))),
                     'executable_line' : ' '.join(cargo_options+ltd_options)
 	        })
                 subprocess.call(['sbatch','submitter.run'], cwd=_RUN_DIR)
@@ -709,6 +711,7 @@ if __name__ == "__main__":
     parser.add_argument('--from_history', action='store_true', help='Read the topology data from the history')
     parser.add_argument('-s', default='100000', type=int, help='number of samples')
     parser.add_argument('-c', default='4', help='number of cores')
+    parser.add_argument('--wall_time', default='24', type=int, help='Set wall time')
     parser.add_argument('-v', default='0', type=int, help='Set verbosity: 0-10')
     parser.add_argument('--table_format', default='fancy_grid', help="Chose the table render format, useful to disable some non-utf8 characters not supported by some terminals. Choose in: simple, plain, grid, fancy_grid, github, pipe, html, and more..." )
     parser.add_argument('-b', default='manual', help="benchmark name, in: 'manual' (select topologies by hand) or, "+
@@ -719,21 +722,24 @@ if __name__ == "__main__":
     parser.add_argument('--n_increase', default='100000', help='n_increase for vegas')
     parser.add_argument('--history_path', default='default', help='specify a JSON file path to store the result')
     parser.add_argument('--config_path', default=pjoin(file_path, 'LTD', 'hyperparameters.yaml'), help='specify a path to a hyperparameters.yaml file to consider.')
-    parser.add_argument('--prefix', default='benchmark', help='Specify a prefix for the results.')
+    parser.add_argument('--prefix', default='bm', help='Specify a prefix for the results.')
     parser.add_argument('--gather', action='store_true', help='Gather results.')
     parser.add_argument('--clean', action='store_true', help='Clean existing results.')
     parser.add_argument('--cluster', action='store_true', help='Launch jobs on cluster.')
     parser.add_argument('--save', action='store_true', help='Save results in json dump.')    
     parser.add_argument('--run_dir', default=pjoin(file_path, 'run_dir'), help='Specify the run directory.')    
+    parser.add_argument('--account',default='eth5e', help='Cluster account to budget the job to.')
     parser.add_argument('--show_hyperparameters', default='0', choices=[0,1,2,3], type=int, help='level of hyperparameter printing in history mode')
     args = parser.parse_args()
 
     samples = []
 
     _VERBOSITY = args.v
+    _WALL_TIME = args.wall_time
     _TABLE_FORMAT = args.table_format
     _CONFIG_FILE_PATH = args.config_path
     _RUN_DIR = pjoin(file_path,args.run_dir)
+    _ACCOUNT = args.account
 
     if args.clean:
         print("Cleaning up directory %s."%_RUN_DIR)
