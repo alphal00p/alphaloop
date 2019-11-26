@@ -1,0 +1,708 @@
+{
+    "1574804534.6170654": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.3,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "max_iterations": 1,
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": -0.3,
+                    "lambda": 10.0,
+                    "non_cut_propagator_check": true,
+                    "pole_check_strategy": "real_solution",
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8,
+                    "theta_c": 2.0,
+                    "theta_r_in": 2.0,
+                    "theta_r_out": 2.0
+                },
+                "stability_threshold": -1
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "vegas",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex 328aa81..ae096ac 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -135,9 +135,9 @@ hyperparameters = HyperParameters({\n             'source_branch_cut_multiplier' : 0.8,\n             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check\n             'pole_check_strategy'       : 'real_solution',\n-            'theta_r_out'               : 10.,\n-            'theta_r_in'                : 10.,\n-            'theta_c'                   : 10.,\n+            'theta_r_out'               : 2.,\n+            'theta_r_in'                : 2.,\n+            'theta_c'                   : 2.,\n         },\n \n         'additive'              :   {\ndiff --git a/submission_template.run b/submission_template.run\nindex c871b1c..0142515 100644\n--- a/submission_template.run\n+++ b/submission_template.run\n@@ -11,6 +11,7 @@\n #SBATCH --output=%(output)s\n #SBATCH --error=%(error)s\n #SBATCH --mail-type=start,end,fail\n+#SBATCH --account=%(account)s\n \n echo $SLURM_CPUS_PER_TASK",
+        "samples": [
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "TM1_bot",
+                "result": [
+                    2.837419527673531e-10,
+                    3.3816274353817967e-10
+                ],
+                "error": [
+                    7.23533051319116e-14,
+                    6.583106595790451e-14
+                ],
+                "analytical_result": [
+                    2.8364703e-10,
+                    3.3826534e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "TM1_top",
+                "result": [
+                    3.8287457662958945e-06,
+                    -4.668432479411096e-06
+                ],
+                "error": [
+                    1.4832225194461826e-10,
+                    1.7317841992558968e-10
+                ],
+                "analytical_result": [
+                    3.82891e-06,
+                    -4.6684e-06
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS3",
+                "result": [
+                    -1.0865569568621127e-06,
+                    2.8670165672210967e-06
+                ],
+                "error": [
+                    1.2657885062773707e-09,
+                    1.251046451492476e-09
+                ],
+                "analytical_result": [
+                    -1.0840618909337886e-06,
+                    2.8682065140371712e-06
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS3_massive",
+                "result": [
+                    2.8009427083679474e-06,
+                    3.348659088803095e-06
+                ],
+                "error": [
+                    2.260349818536281e-10,
+                    2.49459160675762e-10
+                ],
+                "analytical_result": [
+                    2.8009427083679474e-06,
+                    3.348659088803095e-06
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS3",
+                "result": [
+                    2.7367797276598244e-08,
+                    1.4475974733707977e-07
+                ],
+                "error": [
+                    1.311766659311891e-10,
+                    1.2943532548551087e-10
+                ],
+                "analytical_result": [
+                    2.7367797276598244e-08,
+                    1.4475974733707977e-07
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS3_massive",
+                "result": [
+                    1.5158556712039272e-07,
+                    1.3145060306449708e-07
+                ],
+                "error": [
+                    2.677262289548489e-11,
+                    2.697286907823743e-11
+                ],
+                "analytical_result": [
+                    1.5158556712039272e-07,
+                    1.3145060306449708e-07
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_A_PS3",
+                "result": [
+                    4.586880483703951e-09,
+                    5.041436879537774e-09
+                ],
+                "error": [
+                    5.1321424730926896e-11,
+                    5.075024111613905e-11
+                ],
+                "analytical_result": [
+                    4.586880483703951e-09,
+                    5.041436879537774e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_A_PS3_massive",
+                "result": [
+                    -1.043164099085841e-09,
+                    -4.424683276337059e-09
+                ],
+                "error": [
+                    3.524676444722722e-10,
+                    3.542131667194179e-10
+                ],
+                "analytical_result": [
+                    -1.043164099085841e-09,
+                    -4.424683276337059e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS3",
+                "result": [
+                    1.173361238955554e-09,
+                    3.99808942246947e-09
+                ],
+                "error": [
+                    8.88370879428507e-12,
+                    8.963717522890748e-12
+                ],
+                "analytical_result": [
+                    1.173361238955554e-09,
+                    3.99808942246947e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS3_massive",
+                "result": [
+                    5.3521684488417905e-09,
+                    3.815788129229549e-09
+                ],
+                "error": [
+                    1.5291598279113074e-12,
+                    1.5048785860189302e-12
+                ],
+                "analytical_result": [
+                    5.3521684488417905e-09,
+                    3.815788129229549e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS3",
+                "result": [
+                    4.909739233158918e-09,
+                    -2.1397445614830277e-09
+                ],
+                "error": [
+                    1.4065552522805434e-11,
+                    1.4338559768647407e-11
+                ],
+                "analytical_result": [
+                    4.909739233158918e-09,
+                    -2.1397445614830277e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS3_massive",
+                "result": [
+                    1.0593350037416441e-08,
+                    1.0369813351059061e-08
+                ],
+                "error": [
+                    1.584987152700319e-09,
+                    1.531197199590578e-09
+                ],
+                "analytical_result": [
+                    1.0593350037416441e-08,
+                    1.0369813351059061e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS3",
+                "result": [
+                    1.904868882884369e-08,
+                    -3.552666507831093e-08
+                ],
+                "error": [
+                    5.752881124054693e-10,
+                    5.74576163153678e-10
+                ],
+                "analytical_result": [
+                    1.904868882884369e-08,
+                    -3.552666507831093e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS3_massive",
+                "result": [
+                    -2.9741923394900618e-08,
+                    -2.188473190569712e-08
+                ],
+                "error": [
+                    9.60550121074216e-11,
+                    9.567954582440155e-11
+                ],
+                "analytical_result": [
+                    -2.9741923394900618e-08,
+                    -2.188473190569712e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS3",
+                "result": [
+                    2.878328966371659e-07,
+                    1.9993672595567684e-07
+                ],
+                "error": [
+                    9.506280474907003e-10,
+                    9.607632864467475e-10
+                ],
+                "analytical_result": [
+                    2.878328966371659e-07,
+                    1.9993672595567684e-07
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS3_massive",
+                "result": [
+                    1.673323640402303e-07,
+                    -2.1787859891425965e-08
+                ],
+                "error": [
+                    5.782775083743756e-10,
+                    5.708151337469726e-10
+                ],
+                "analytical_result": [
+                    1.673323640402303e-07,
+                    -2.1787859891425965e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_F_PS3",
+                "result": [
+                    -9.548625218666172e-09,
+                    3.285299428564327e-08
+                ],
+                "error": [
+                    8.900717482652499e-11,
+                    8.894410030321487e-11
+                ],
+                "analytical_result": [
+                    -9.548625218666172e-09,
+                    3.285299428564327e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_F_PS3_massive",
+                "result": [
+                    2.551042218603786e-08,
+                    -1.630186212871744e-08
+                ],
+                "error": [
+                    2.079853597150805e-11,
+                    2.054853249187672e-11
+                ],
+                "analytical_result": [
+                    2.551042218603786e-08,
+                    -1.630186212871744e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_8P_PS3",
+                "result": [
+                    -5.154377792883945e-12,
+                    6.7854612837397856e-12
+                ],
+                "error": [
+                    3.310276873772029e-14,
+                    3.24286084304697e-14
+                ],
+                "analytical_result": [
+                    -5.154377792883945e-12,
+                    6.7854612837397856e-12
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS3",
+                "result": [
+                    -2.4329874022716066e-09,
+                    -3.417966004793199e-09
+                ],
+                "error": [
+                    3.927087537968193e-11,
+                    3.956173966011676e-11
+                ],
+                "analytical_result": [
+                    -2.424229927669986e-09,
+                    -3.4003495610895258e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS3_massive",
+                "result": [
+                    -3.895876847508128e-09,
+                    3.891272518797578e-09
+                ],
+                "error": [
+                    1.7309927000242575e-12,
+                    1.654570998353939e-12
+                ],
+                "analytical_result": [
+                    -3.895876847508128e-09,
+                    3.891272518797578e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS3",
+                "result": [
+                    -1.0629751721300443e-10,
+                    -8.855694269253754e-11
+                ],
+                "error": [
+                    2.8431688744459054e-12,
+                    2.8745588742584192e-12
+                ],
+                "analytical_result": [
+                    -1.0629751721300443e-10,
+                    -8.855694269253754e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS3_massive",
+                "result": [
+                    -1.2621951764677813e-10,
+                    1.0612372823683079e-10
+                ],
+                "error": [
+                    1.2430298947071214e-13,
+                    1.2307453863450574e-13
+                ],
+                "analytical_result": [
+                    -1.2621951764677813e-10,
+                    1.0612372823683079e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS3",
+                "result": [
+                    3.619624658469241e-12,
+                    -2.0527445803375738e-12
+                ],
+                "error": [
+                    9.950475725998295e-13,
+                    9.897342748196721e-13
+                ],
+                "analytical_result": [
+                    4.03555168296597e-12,
+                    -1.0244887725916831e-12
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS3_massive",
+                "result": [
+                    -4.341185922203902e-12,
+                    -2.772440006911523e-12
+                ],
+                "error": [
+                    1.166146491467198e-14,
+                    1.1603225347636856e-14
+                ],
+                "analytical_result": [
+                    -4.341185922203902e-12,
+                    -2.772440006911523e-12
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "FISHNET_2x2_PS3_massive",
+                "result": [
+                    1.2872458880134014e-09,
+                    2.9556807430732778e-09
+                ],
+                "error": [
+                    6.368621491471027e-12,
+                    6.4201082117639486e-12
+                ],
+                "analytical_result": [
+                    1.2872458880134014e-09,
+                    2.9556807430732778e-09
+                ]
+            }
+        ]
+    }
+}

@@ -968,7 +968,7 @@ class LoopTopology(object):
             analytic_result   =   (None if (flat_dict['analytical_result_real']==0. and flat_dict['analytical_result_imag']==0.) 
                                      else complex(flat_dict['analytical_result_real'],flat_dict['analytical_result_imag'])),
             fixed_deformation =  flat_dict['fixed_deformation'] if 'fixed_deformation' in flat_dict else None,
-            maximum_ratio_expansion_threshold = None if flat_dict['maximum_ratio_expansion_threshold']<0. else flat_dict['maximum_ratio_expansion_threshold']
+            maximum_ratio_expansion_threshold = None if ('maximum_ratio_expansion_threshold' not in flat_dict or flat_dict['maximum_ratio_expansion_threshold']<0.) else flat_dict['maximum_ratio_expansion_threshold']
         ) 
 
     @staticmethod
@@ -1001,7 +1001,7 @@ class LoopTopology(object):
         radius = cvxpy.Variable(1, nonneg=True)
 
         original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-        pool = multiprocessing.Pool(None) # use all available cores
+        pool = multiprocessing.Pool(1) # use all available cores
         signal.signal(signal.SIGINT, original_sigint_handler)
 
         ellipsoids, ellipsoid_param, delta_param, expansion_threshold = self.build_existing_ellipsoids(source_coordinates)

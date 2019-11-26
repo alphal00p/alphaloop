@@ -1,0 +1,798 @@
+{
+    "1574804410.777751": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.3,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "max_iterations": 1,
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": -0.3,
+                    "lambda": 10.0,
+                    "non_cut_propagator_check": true,
+                    "pole_check_strategy": "real_solution",
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8,
+                    "theta_c": 2.0,
+                    "theta_r_in": 2.0,
+                    "theta_r_out": 2.0
+                },
+                "stability_threshold": -1
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "vegas",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex 328aa81..ae096ac 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -135,9 +135,9 @@ hyperparameters = HyperParameters({\n             'source_branch_cut_multiplier' : 0.8,\n             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check\n             'pole_check_strategy'       : 'real_solution',\n-            'theta_r_out'               : 10.,\n-            'theta_r_in'                : 10.,\n-            'theta_c'                   : 10.,\n+            'theta_r_out'               : 2.,\n+            'theta_r_in'                : 2.,\n+            'theta_c'                   : 2.,\n         },\n \n         'additive'              :   {\ndiff --git a/submission_template.run b/submission_template.run\nindex c871b1c..0142515 100644\n--- a/submission_template.run\n+++ b/submission_template.run\n@@ -11,6 +11,7 @@\n #SBATCH --output=%(output)s\n #SBATCH --error=%(error)s\n #SBATCH --mail-type=start,end,fail\n+#SBATCH --account=%(account)s\n \n echo $SLURM_CPUS_PER_TASK",
+        "samples": [
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS1",
+                "result": [
+                    3.096462376065025e-08,
+                    9.539519190341305e-08
+                ],
+                "error": [
+                    6.959881148187004e-11,
+                    7.059843045426797e-11
+                ],
+                "analytical_result": [
+                    3.110526759643106e-08,
+                    9.538852706631552e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS1_massive",
+                "result": [
+                    8.155594786354984e-08,
+                    6.102773177540178e-08
+                ],
+                "error": [
+                    1.2308024455964698e-11,
+                    1.2385850671170905e-11
+                ],
+                "analytical_result": [
+                    8.155594786354984e-08,
+                    6.102773177540178e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS2",
+                "result": [
+                    1.7025288982884703e-10,
+                    4.56488312942612e-10
+                ],
+                "error": [
+                    2.8498338693386363e-13,
+                    2.913236408165091e-13
+                ],
+                "analytical_result": [
+                    1.7037231328859816e-10,
+                    4.5649721854137276e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS1",
+                "result": [
+                    1.0856798894901441e-09,
+                    1.7872468708059762e-09
+                ],
+                "error": [
+                    3.416821624676311e-12,
+                    3.3939799738775208e-12
+                ],
+                "analytical_result": [
+                    1.0856798894901441e-09,
+                    1.7872468708059762e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS1_massive",
+                "result": [
+                    1.977983177724209e-09,
+                    1.1320930167596504e-09
+                ],
+                "error": [
+                    1.3936901047640799e-11,
+                    1.1729515237014419e-11
+                ],
+                "analytical_result": [
+                    1.977983177724209e-09,
+                    1.1320930167596504e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS2",
+                "result": [
+                    2.0984793198905064e-13,
+                    2.0402187779153092e-13
+                ],
+                "error": [
+                    6.478084648015487e-16,
+                    6.480375172938463e-16
+                ],
+                "analytical_result": [
+                    2.0984793198905064e-13,
+                    2.0402187779153092e-13
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_A_PS1",
+                "result": [
+                    5.116165131447944e-11,
+                    -5.556959240002467e-12
+                ],
+                "error": [
+                    2.343113654073892e-12,
+                    2.3883112774493996e-12
+                ],
+                "analytical_result": [
+                    5.116165131447944e-11,
+                    -5.556959240002467e-12
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_A_PS1_massive",
+                "result": [
+                    5.839327657372826e-12,
+                    -3.7152741134555785e-11
+                ],
+                "error": [
+                    1.1373629306538307e-11,
+                    6.689445850009276e-12
+                ],
+                "analytical_result": [
+                    5.839327657372826e-12,
+                    -3.7152741134555785e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS1",
+                "result": [
+                    2.956566121482507e-11,
+                    4.68119639272256e-11
+                ],
+                "error": [
+                    3.4165020399556855e-13,
+                    3.5082981883533075e-13
+                ],
+                "analytical_result": [
+                    2.956566121482507e-11,
+                    4.68119639272256e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS1_massive",
+                "result": [
+                    5.1500178915463075e-11,
+                    2.3205006761738405e-11
+                ],
+                "error": [
+                    9.716122218938914e-13,
+                    9.093617043744624e-13
+                ],
+                "analytical_result": [
+                    5.1500178915463075e-11,
+                    2.3205006761738405e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS2",
+                "result": [
+                    1.4090938630627075e-16,
+                    1.9220833299969164e-16
+                ],
+                "error": [
+                    9.403455143125121e-18,
+                    7.902968764949365e-18
+                ],
+                "analytical_result": [
+                    1.4090938630627075e-16,
+                    1.9220833299969164e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS1",
+                "result": [
+                    8.182824072432374e-11,
+                    -2.7105629297488067e-11
+                ],
+                "error": [
+                    2.245729540825606e-12,
+                    2.25385190073319e-12
+                ],
+                "analytical_result": [
+                    8.182824072432374e-11,
+                    -2.7105629297488067e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS1_massive",
+                "result": [
+                    1.009647003657765e-10,
+                    1.1284877224939933e-11
+                ],
+                "error": [
+                    1.316769694620832e-12,
+                    1.2843776386091794e-12
+                ],
+                "analytical_result": [
+                    1.009647003657765e-10,
+                    1.1284877224939933e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS2",
+                "result": [
+                    1.3334868120266596e-16,
+                    -1.3219353010413515e-16
+                ],
+                "error": [
+                    1.1528580725557766e-17,
+                    1.104004887566747e-17
+                ],
+                "analytical_result": [
+                    1.3334868120266596e-16,
+                    -1.3219353010413515e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS1",
+                "result": [
+                    -2.1374391603194317e-10,
+                    -2.2802544193371526e-10
+                ],
+                "error": [
+                    4.393772360139206e-11,
+                    4.441193362548826e-11
+                ],
+                "analytical_result": [
+                    -2.1374391603194317e-10,
+                    -2.2802544193371526e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS1_massive",
+                "result": [
+                    7.259545159811602e-12,
+                    3.325486351763833e-10
+                ],
+                "error": [
+                    2.0970565807064986e-10,
+                    1.8465981368028412e-10
+                ],
+                "analytical_result": [
+                    7.259545159811602e-12,
+                    3.325486351763833e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS2",
+                "result": [
+                    -1.122887180222142e-15,
+                    -7.517955108256789e-16
+                ],
+                "error": [
+                    2.883410310553921e-16,
+                    2.5681550343684556e-16
+                ],
+                "analytical_result": [
+                    -1.122887180222142e-15,
+                    -7.517955108256789e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS1",
+                "result": [
+                    -1.8607212414278776e-10,
+                    1.05299878179026e-10
+                ],
+                "error": [
+                    1.7348673011411574e-10,
+                    1.5253574088842638e-10
+                ],
+                "analytical_result": [
+                    -1.8607212414278776e-10,
+                    1.05299878179026e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS1_massive",
+                "result": [
+                    2.996070070987269e-10,
+                    -8.660060559902229e-10
+                ],
+                "error": [
+                    5.959039118889163e-10,
+                    6.934309694380763e-10
+                ],
+                "analytical_result": [
+                    2.996070070987269e-10,
+                    -8.660060559902229e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS2",
+                "result": [
+                    -6.100933120775711e-16,
+                    -8.017450547953937e-16
+                ],
+                "error": [
+                    3.9645106712309796e-16,
+                    3.4339132523998653e-16
+                ],
+                "analytical_result": [
+                    -6.100933120775711e-16,
+                    -8.017450547953937e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_F_PS1",
+                "result": [
+                    1.3663200007070824e-10,
+                    -4.202614169157134e-11
+                ],
+                "error": [
+                    6.681053581175865e-11,
+                    5.6376226849911584e-11
+                ],
+                "analytical_result": [
+                    1.3663200007070824e-10,
+                    -4.202614169157134e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_F_PS2",
+                "result": [
+                    4.72004266330888e-16,
+                    1.9382232988940075e-16
+                ],
+                "error": [
+                    5.672252402429817e-17,
+                    4.913813749759046e-17
+                ],
+                "analytical_result": [
+                    4.72004266330888e-16,
+                    1.9382232988940075e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS1",
+                "result": [
+                    -5.3675882160942215e-11,
+                    -1.0582632422333834e-11
+                ],
+                "error": [
+                    1.410997778697291e-12,
+                    1.3398520901632602e-12
+                ],
+                "analytical_result": [
+                    -5.303094768489694e-11,
+                    -1.078029964042433e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS1_massive",
+                "result": [
+                    -3.155807574416003e-11,
+                    2.973675043217186e-11
+                ],
+                "error": [
+                    6.394996863044947e-14,
+                    6.330568178511108e-14
+                ],
+                "analytical_result": [
+                    -3.155807574416003e-11,
+                    2.973675043217186e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS2",
+                "result": [
+                    -4.462258052820368e-14,
+                    -7.294134047842756e-15
+                ],
+                "error": [
+                    1.002211744783152e-15,
+                    9.918203091504948e-16
+                ],
+                "analytical_result": [
+                    -4.470474109666373e-14,
+                    -6.638346528721428e-15
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS1",
+                "result": [
+                    -3.287944403956112e-06,
+                    -2.902185433713156e-07
+                ],
+                "error": [
+                    7.308165156385945e-08,
+                    7.634534686679064e-08
+                ],
+                "analytical_result": [
+                    -3.287944403956112e-06,
+                    -2.902185433713156e-07
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS1_massive",
+                "result": [
+                    4.586402157435065e-07,
+                    1.805228129447466e-07
+                ],
+                "error": [
+                    6.09269648196224e-10,
+                    6.447258433307229e-10
+                ],
+                "analytical_result": [
+                    4.586402157435065e-07,
+                    1.805228129447466e-07
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS2",
+                "result": [
+                    -1.614751730144308e-17,
+                    2.56543509909929e-18
+                ],
+                "error": [
+                    1.4276672029058236e-18,
+                    1.3621411151470087e-18
+                ],
+                "analytical_result": [
+                    -1.614751730144308e-17,
+                    2.56543509909929e-18
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS1",
+                "result": [
+                    6.098247366997505e-15,
+                    5.630690356750322e-15
+                ],
+                "error": [
+                    1.0104867699509024e-14,
+                    1.0089107769829973e-14
+                ],
+                "analytical_result": [
+                    1.1020376698775988e-14,
+                    -1.4741193196133204e-14
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS1_massive",
+                "result": [
+                    -6.6831580354940224e-15,
+                    -6.7982587272047286e-15
+                ],
+                "error": [
+                    1.771965851544091e-16,
+                    1.7766505132787742e-16
+                ],
+                "analytical_result": [
+                    -6.6831580354940224e-15,
+                    -6.7982587272047286e-15
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS2",
+                "result": [
+                    2.731968361970202e-18,
+                    -2.1396544346030555e-18
+                ],
+                "error": [
+                    1.4483024606962559e-18,
+                    1.5636701035885256e-18
+                ],
+                "analytical_result": [
+                    1.4474899542195504e-18,
+                    -2.1889661046627023e-18
+                ]
+            }
+        ]
+    }
+}
