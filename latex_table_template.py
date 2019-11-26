@@ -13,39 +13,50 @@ pjoin = os.path.join
 ps_pts_per_topology = [2,3,2,2,1] #number of ps points per topology
 columns = []
 columns += [{'header': r'Topology',
+			'shared': True,
 			'json_link': lambda sample: sample['topology'] if sample is not None else '?'}]
 columns += [{'header': r'PS point',
+			'shared': True,
 			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['ps_name']}]
-columns += [{'header': r'$N_e$',
+columns += [{'header': r'$N_{\text{e}}$',
+			'shared': True,
 			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['n_ellipsoids']}]
-columns += [{'header': r'$N_s$',
+columns += [{'header': r'$N_{\text{s}}$',
+			'shared': True,
 			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['n_sources']}]
-columns += [{'header': r'$\epsilon_{\text{th}}$',
-			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['Threshold']}]
-columns += [{'header': r'',
-			'json_link': lambda sample: '?' if sample is not None else '?'}]
-columns += [{'header': r'Numerical LTD',
+columns += [{'header': r'$L_{\text{max}}$',
+			'shared': True,
+			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['n_sources']}]
+columns += [{'header': r'$N_{\text{points}}$',
+			'shared': True,
+			'json_link': lambda sample: sample['num_samples'] if sample is not None else '?'}]
+columns += [{'header': r'$\frac{t}{p} [\mu \text{s}]$',
+			'shared': True,
+			'json_link': lambda sample: '?'}]
+columns += [{'header': r'Phase',
+			'shared': False,
+			'json_link': [lambda sample: r'$\Re$',
+						lambda sample: r'$\Im$']}]
+columns += [{'header': r'Reference result',
+			'shared': False,
+			'json_link': [lambda sample: '{:.5e}'.format(sample['analytical_result'][0]) if sample is not None else '?',
+							lambda sample: '{:.5e}'.format(sample['analytical_result'][1]) if sample is not None else '?']}]
+columns += [{'header': r'numerical LTD',
+			'shared': False,
 			'json_link': [lambda sample: ufloat(sample['result'][0], sample['error'][0]) if sample is not None else '?',
 						lambda sample: ufloat(sample['result'][1], sample['error'][1]) if sample is not None else '?']
 			}]
-columns += [{'header': r'Reference',
-			'json_link': [lambda sample: '{:.5e}'.format(sample['analytical_result'][0]) if sample is not None else '?',
-							lambda sample: '{:.5e}'.format(sample['analytical_result'][1]) if sample is not None else '?']}]
-columns += [{'header': r'Accuracy',
+columns += [{'header': r'$\Delta[\sigma]$',
+			'shared': False,
 			'json_link': [lambda sample: '{:.2f}'.format(sample['accuracy'][0]) if sample is not None else '?',
 							lambda sample: '{:.2f}'.format(sample['accuracy'][1]) if sample is not None else '?']}]
-columns += [{'header': r'Precision',
-			'json_link': [lambda sample: '{:.2f}'.format(sample['precision'][0]) if sample is not None else '?',
-							lambda sample: '{:.2f}'.format(sample['precision'][1]) if sample is not None else '?']}]
-columns += [{'header': r'Percentage',
+columns += [{'header': r'$\Delta[\%]$',
+			'shared': False,
 			'json_link': [lambda sample: '{:.2f}'.format(sample['percentage'][0]) if sample is not None else '?',
 							lambda sample: '{:.2f}'.format(sample['percentage'][1]) if sample is not None else '?']}]
-columns += [{'header': r'Samples',
-			'json_link': [lambda sample: sample['num_samples'] if sample is not None else '?',
-							lambda sample: sample['num_samples'] if sample is not None else '?']}]
-columns += [{'header': r'Time',
-			'json_link': [lambda sample: '?' if sample is not None else '?',
-							lambda sample: '?' if sample is not None else '?']}]
+columns += [{'header': r'$\Delta[\%] |\cdot|$',
+			'shared': True,
+			'json_link': lambda sample: '{:.2e}'.format(sample['abs_error']) if sample is not None else '?'}]
 
 NHEADER = len(columns)
 
@@ -66,6 +77,23 @@ def set_topology(n_ps_points,data=None):
 			topology_string += r'\multirow{%i}{*}{'%(2*n_ps_points) +topology_name+'}' +'\n'
 		else:
 			topology_string += r'\cline{2-%i}'%NHEADER +'\n'
+		for column in columns[1:]:
+			if column['shared']:
+				column_str = str(column['json_link'](data))
+				topology_string += r'& \multirow{2}{*}{'+column_str+'}'
+			else:
+				column_str = str(column['json_link'][0](data))
+				topology_string +=  r'& ' + column_str	
+		topology_string += r'\\'+'\n'
+		for column in columns[1:]:
+			if column['shared']:
+				topology_string += r'& '
+			else:
+				column_str = str(column['json_link'][1](data))
+				topology_string +=  r'& ' + column_str	
+		topology_string += r'\\'+'\n'
+	return topology_string
+	"""
 		for column in columns[1:5]:
 			name = str(column['json_link'](data))
 			topology_string += r'& \multirow{2}{*}{'+name+'}'
@@ -82,6 +110,7 @@ def set_topology(n_ps_points,data=None):
 			topology_string += r' & ' + name
 		topology_string += r'\\'+'\n'
 	return topology_string
+	"""
 
 def set_table(columns,ps_pts_per_topology,data=None):
 	table_string = r'\begin{table}[tbp]'+'\n'
@@ -112,8 +141,11 @@ def get_history(history_path):
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description='Tootl to tabulates json data')
-	parser.add_argument('--path', help='Specify the path to the json file.', required=True)
+
+	DEFAULT_PATH = pjoin(file_path,"deformation_paper_results/explore_1loop_3B.json")
+
+	parser = argparse.ArgumentParser(description='Tootl to tabulate json data')
+	parser.add_argument('--path', default=DEFAULT_PATH ,help='Specify the path to the json file.')
 	args = parser.parse_args()
 
 	PATH = args.path
@@ -130,10 +162,13 @@ if __name__ == "__main__":
 		sample['accuracy'] = [abs(sample['analytical_result'][i_phase] - sample['result'][i_phase]) / sample['error'][i_phase] for i_phase in [0,1]]
 		sample['precision'] = [sample['error'][i_phase] * numpy.sqrt(sample['num_samples']) / abs(sample['analytical_result'][i_phase])
 				if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
-		sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
-				if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
-	#print(sample_data)
-
+		#sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
+		#		if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
+		sample['percentage'] = [100.0*(abs(sample['error'][i_phase]/sample['result'][i_phase])) for i_phase in [0,1]]
+		sample['abs_error'] = numpy.sqrt(sample['error'][0]**2 + sample['error'][1]**2)/numpy.sqrt(sample['result'][0]**2+sample['result'][1]**2)
+	#print(sample_daty.
+	sample_data=sorted(sample_data,key=lambda x: x['topology'])
+	#print(sorted_data)
 	print(set_table(columns,[1 for i in range(len(sample_data))],data=sample_data))
 
 
