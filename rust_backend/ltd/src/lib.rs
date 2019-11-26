@@ -79,10 +79,7 @@ pub struct Scaling {
     pub expansion_threshold: f64,
     pub branch_cut_m: f64,
     pub source_branch_cut_m: f64,
-    pub positive_cut_check: bool,
-    pub cut_propagator_check: bool,
-    pub non_cut_propagator_check: bool,
-    pub skip_hyperboloids: bool,
+    pub branch_cut_check: bool,
     pub source_branch_cut_threshold: f64,
     pub source_branch_cut_multiplier: f64,
     pub expansion_check_strategy: ExpansionCheckStrategy,
@@ -118,6 +115,8 @@ pub enum ExpansionCheckStrategy {
     MagicFudgeWithMin,
     #[serde(rename = "ratio")]
     Ratio,
+    #[serde(rename = "none")]
+    None,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
@@ -128,6 +127,8 @@ pub enum PoleCheckStrategy {
     RealSolution,
     #[serde(rename = "tangent_check")]
     TangentCheck,
+    #[serde(rename = "none")]
+    None,
 }
 
 impl Default for PoleCheckStrategy {
@@ -173,6 +174,7 @@ impl From<&str> for ExpansionCheckStrategy {
             "ratio" => ExpansionCheckStrategy::Ratio,
             "magic_fudge" => ExpansionCheckStrategy::MagicFudge,
             "magic_fudge_with_min" => ExpansionCheckStrategy::MagicFudgeWithMin,
+            "none" => ExpansionCheckStrategy::None,
             _ => panic!("Unknown expansion check strategy {}", s),
         }
     }
@@ -186,6 +188,7 @@ impl fmt::Display for ExpansionCheckStrategy {
             ExpansionCheckStrategy::MagicFudge => write!(f, "magic fudge"),
             ExpansionCheckStrategy::MagicFudgeWithMin => write!(f, "magic fudge with min"),
             ExpansionCheckStrategy::Ratio => write!(f, "ratio"),
+            ExpansionCheckStrategy::None => write!(f, "none"),
         }
     }
 }
@@ -196,6 +199,7 @@ impl From<&str> for PoleCheckStrategy {
             "exact" => PoleCheckStrategy::Exact,
             "real_solution" => PoleCheckStrategy::RealSolution,
             "tangent_check" => PoleCheckStrategy::TangentCheck,
+            "none" => PoleCheckStrategy::None,
             _ => panic!("Unknown pole check strategy {}", s),
         }
     }
@@ -207,6 +211,7 @@ impl fmt::Display for PoleCheckStrategy {
             PoleCheckStrategy::Exact => write!(f, "exact"),
             PoleCheckStrategy::RealSolution => write!(f, "real solution"),
             PoleCheckStrategy::TangentCheck => write!(f, "tangent check"),
+            PoleCheckStrategy::None => write!(f, "none"),
         }
     }
 }
@@ -297,8 +302,6 @@ pub struct DeformationSettings {
     pub lambdas: Vec<f64>,
     pub additive: DeformationAdditiveSettings,
     pub fixed: DeformationFixedSettings,
-    pub max_iterations: usize,
-    pub stability_threshold: f64,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]

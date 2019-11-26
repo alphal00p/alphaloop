@@ -118,22 +118,20 @@ hyperparameters = HyperParameters({
             # magic_fudge : c * c * (d / (b + d))
             # magic_fudge_with_min : min( c * c * (d / (b + d)), c * c * (d / (a + d)))
             # ratio: lambda^2 < c * a * a / (a * d - b * b), if c < 1/2 the branch cut check is always satisfied
+            # none
             'expansion_check_strategy'  : 'ratio',
             # The expansion_threshold considered is min(e_th, 0.5*e_th_max), with e_th_max computed 
             # during the pre-processing. Note instead that a negative value is allowed and the absolute value will
             # then directly be used as an input.
             'expansion_threshold'       : -0.3,
-            'positive_cut_check'        : True,
+            'branch_cut_check'          : True,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,
             'source_branch_cut_m'       : -1.0,
-            'cut_propagator_check'      : False,
-            'non_cut_propagator_check'  : True,
-            'skip_hyperboloids'         : True,
             'source_branch_cut_threshold'  : 0.8,
             'source_branch_cut_multiplier' : 0.8,
-            # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check
+            # the strategy can be none, real_solution (the old method), exact (for 1 loop), and tangent_check
             'pole_check_strategy'       : 'real_solution',
             'theta_r_out'               : 10.,
             'theta_r_in'                : 10.,

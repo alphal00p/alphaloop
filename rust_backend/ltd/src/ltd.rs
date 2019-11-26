@@ -893,7 +893,8 @@ impl Topology {
                 info.kappa_sq = kappa_cut.spatial_squared_impr();
                 info.kappa_dot_mom = kappa_cut.spatial_dot_impr(&info.momentum);
 
-                if self.settings.deformation.scaling.non_cut_propagator_check {
+                if self.settings.deformation.scaling.pole_check_strategy != PoleCheckStrategy::None
+                {
                     info.a = (info.kappa_sq * info.real_energy.powi(2)
                         - info.kappa_dot_mom.powi(2))
                         / info.real_energy.powi(3)
@@ -910,7 +911,9 @@ impl Topology {
                 // for that we need:
                 // old check: lambda < c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut|
                 // new check: lambda^2 < (-2*kappa_i.q_i^2 + sqrt(4*kappa_i.q_i^4 + kappa^4 c^2 (q_i^2+m_i^2)^2))/kappa^4
-                if self.settings.deformation.scaling.expansion_check {
+                if self.settings.deformation.scaling.expansion_check_strategy
+                    != ExpansionCheckStrategy::None
+                {
                     let c = DualN::from_real(Into::<T>::into(self.get_expansion_threshold()));
 
                     let lambda_exp_sq =
@@ -951,6 +954,7 @@ impl Topology {
                                 // note that if c < 1, the branch cut check is always satisfied
                                 c * c * Into::<T>::into(2.) * d * d / (a * d - b * b)
                             }
+                            ExpansionCheckStrategy::None => unreachable!(),
                         };
 
 
@@ -967,7 +971,7 @@ impl Topology {
 
                 // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
                 // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
-                if self.settings.deformation.scaling.positive_cut_check {
+                if self.settings.deformation.scaling.branch_cut_check {
                     let mut lambda_disc_sq = info.spatial_and_mass_sq / info.kappa_sq
                         * DualN::from_real(Into::<T>::into(0.95));
 
@@ -995,7 +999,7 @@ impl Topology {
             }
         }
 
-        if self.settings.deformation.scaling.non_cut_propagator_check {
+        if self.settings.deformation.scaling.pole_check_strategy != PoleCheckStrategy::None {
             // TODO: rename
             // process all existing and non-existing ellipsoids
             for (surf_index, s) in self.surfaces.iter().enumerate() {
@@ -1113,6 +1117,7 @@ impl Topology {
 
                             (rhs - c) / a
                         }
+                        PoleCheckStrategy::None => unreachable!(),
                     };
 
                     if sigma.is_zero() {
@@ -1930,14 +1935,13 @@ impl Topology {
         }
     }
 
-    fn deform_generic_iteration<U: DimName, T: FloatLike>(
+    fn deform_generic<U: DimName, T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
-        previous_deformation: &[LorentzVector<DualN<T, U>>],
         cut: Option<(usize, usize)>,
         _ellipsoid_id: Option<usize>,
         cache: &mut LTDCache<T>,
-    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+    ) -> ([LorentzVector<T>; MAX_LOOP], Complex<T>)
     where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
         dual_num::Owned<T, U>: Copy,
@@ -1956,14 +1960,8 @@ impl Topology {
 
             for ll in &self.loop_lines {
                 let mut mom = LorentzVector::default();
-                let mut prev_def = LorentzVector::default();
-                for (l, pd, &c) in izip!(
-                    loop_momenta.iter(),
-                    previous_deformation.iter(),
-                    ll.signature.iter()
-                ) {
+                for (l, &c) in izip!(loop_momenta.iter(), ll.signature.iter()) {
                     mom += l.multiply_sign(c);
-                    prev_def += pd.multiply_sign(c);
                 }
 
                 // update the cut info
@@ -1972,19 +1970,15 @@ impl Topology {
                     let mass = DualN::from_real(Into::<T>::into(p.m_squared));
 
                     let cm = (mom + q).spatial_squared_impr() + mass;
-
-                    let energy = ((mom + q).to_complex(true) + prev_def.to_complex(false))
-                        .spatial_squared_impr()
-                        + mass;
-                    let energy = energy.sqrt().re;
+                    let energy = cm.sqrt();
                     cache.cut_energies[p.id] = energy;
 
                     let info = &mut cache.cut_info[p.id];
                     info.id = p.id;
-                    info.momentum = mom + q; // NOTE: this cannot be shifted by a prev deformation
+                    info.momentum = mom + q;
                     info.real_energy = energy;
-                    info.spatial_and_mass_sq = cm; // NOTE: this cannot be shifted by a prev deformation
-                                                   // TODO: these two never change and can be set at the start!
+                    info.spatial_and_mass_sq = cm;
+                    // TODO: these two never change and can be set at the start!
                     info.shift = q;
                     info.mass = mass;
                 }
@@ -2076,77 +2070,12 @@ impl Topology {
             k.t = DualN::zero(); // make sure we do not have a left-over deformation
         }
 
-        kappas
-    }
-
-    fn deform_generic<U: DimName, T: FloatLike>(
-        &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
-        cut: Option<(usize, usize)>,
-        ellipsoid_id: Option<usize>,
-        cache: &mut LTDCache<T>,
-    ) -> ([LorentzVector<T>; MAX_LOOP], Complex<T>)
-    where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
-    {
-        let mut previous_deformation: [LorentzVector<DualN<T, U>>; MAX_LOOP] =
-            [LorentzVector::default(); MAX_LOOP];
-
-        let mut stability = DualN::zero();
-        for i in 0..self.settings.deformation.max_iterations {
-            let kappas = self.deform_generic_iteration(
-                &loop_momenta,
-                &previous_deformation,
-                cut,
-                ellipsoid_id,
-                cache,
-            );
-
-            // check if the deformation changed much between iterations
-            stability = DualN::zero();
-            for (pd, k) in previous_deformation[..self.n_loops]
-                .iter()
-                .zip_eq(&kappas[..self.n_loops])
-            {
-                stability += (pd - k).spatial_squared();
-            }
-
-            previous_deformation = kappas;
-
-            if self.settings.general.debug > 2 {
-                println!("Iteration {} summary:", i);
-                for ii in 0..self.n_loops {
-                    println!("  | kappa{}={:e}", ii + 1, kappas[ii].real());
-                }
-                println!("  | stability={:e}\n", stability.real());
-            }
-
-            if stability
-                < Into::<T>::into(self.settings.deformation.stability_threshold * self.e_cm_squared)
-            {
-                break;
-            }
-        }
-
-        if self.settings.deformation.max_iterations > 1
-            && self.settings.deformation.stability_threshold > 0.
-            && stability
-                > Into::<T>::into(self.settings.deformation.stability_threshold * self.e_cm_squared)
-        {
-            println!(
-                "Could not reached desired precision, but reached {}",
-                stability.real()
-            );
-        }
-
         let jac_mat = &mut cache.get_cache_mut().deformation_jacobian;
         for i in 0..3 * self.n_loops {
             for j in 0..3 * self.n_loops {
                 // first index: loop momentum, second: xyz, third: dual
                 jac_mat[i * 3 * self.n_loops + j] =
-                    Complex::new(T::zero(), previous_deformation[i / 3][i % 3 + 1][j + 1]);
+                    Complex::new(T::zero(), kappas[i / 3][i % 3 + 1][j + 1]);
             }
             jac_mat[i * 3 * self.n_loops + i] += Complex::one();
         }
@@ -2154,10 +2083,7 @@ impl Topology {
         let jac = utils::determinant(jac_mat, 3 * self.n_loops);
         // take the real part
         let mut r = [LorentzVector::default(); MAX_LOOP];
-        for (rr, k) in r[..self.n_loops]
-            .iter_mut()
-            .zip_eq(&previous_deformation[..self.n_loops])
-        {
+        for (rr, k) in r[..self.n_loops].iter_mut().zip_eq(&kappas[..self.n_loops]) {
             *rr = k.real();
         }
         (r, jac)
@@ -2387,7 +2313,7 @@ impl Topology {
                 let q: LorentzVector<Complex<T>> = p.q.cast();
                 let cm = (mom + q).spatial_squared() + Into::<T>::into(p.m_squared);
 
-                if self.settings.deformation.scaling.positive_cut_check
+                if self.settings.deformation.scaling.branch_cut_check
                     && cm.re < T::zero()
                     && cm.im < T::zero()
                     && self.settings.deformation.scaling.branch_cut_m < 0.
