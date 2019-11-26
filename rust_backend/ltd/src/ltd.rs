@@ -1486,8 +1486,8 @@ impl Topology {
     {
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
-        let mut mij = Into::<T>::into(self.settings.deformation.fixed.m_ij);
-        let mij_min = Into::<T>::into(self.compute_min_mij());
+        let mij_min_sq = Into::<T>::into(self.compute_min_mij().powi(2));
+        let mut mij_sq = Into::<T>::into(self.settings.deformation.fixed.m_ij.powi(2)) * mij_min_sq;
 
         if self.settings.deformation.fixed.include_normal_source {
             self.compute_ellipsoid_deformation_vector(
@@ -1622,7 +1622,7 @@ impl Topology {
 
                         let t = inv_surf_prop[surf_index].unwrap().powi(2)
                             / Into::<T>::into(self.e_cm_squared);
-                        dampening *= t / (t + mij);
+                        dampening *= t / (t + mij_sq);
                     }
 
                     for (loop_index, kappa) in kappa_source[..self.n_loops].iter_mut().enumerate() {
@@ -1652,7 +1652,9 @@ impl Topology {
 
                 for &surf_index in &d.excluded_surface_indices {
                     if surf_index < self.settings.deformation.fixed.m_ijs.len() {
-                        mij = Into::<T>::into(self.settings.deformation.fixed.m_ijs[surf_index]);
+                        mij_sq = Into::<T>::into(
+                            self.settings.deformation.fixed.m_ijs[surf_index].powi(2),
+                        ) * mij_min_sq;
                     }
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                     // at the same time and goes to 1 otherwise
@@ -1680,7 +1682,7 @@ impl Topology {
                             e
                         }
                     } else {
-                        let sup = t / (t + mij * mij * mij_min * mij_min);
+                        let sup = t / (t + mij_sq);
                         s *= sup;
                         sup
                     };
@@ -1700,7 +1702,7 @@ impl Topology {
                         }
 
                         if !self.settings.deformation.fixed.m_ij.is_zero() {
-                            s = s / (s + mij * mij * mij_min * mij_min);
+                            s = s / (s + mij_sq);
                         }
                     }
                 }
