@@ -3,7 +3,6 @@ import subprocess
 from tabulate import tabulate
 from uncertainties import ufloat
 import time
-import yaml
 import json
 from tqdm import tqdm
 import os
@@ -16,8 +15,18 @@ import time
 from pprint import pprint, pformat
 from datetime import datetime
 
+import yaml
+from yaml import Loader, Dumper
+
 file_path = os.path.dirname(os.path.realpath( __file__ ))
 pjoin = os.path.join
+root_path = os.path.dirname(os.path.realpath( __file__ ))
+sys.path.insert(0, root_path)
+sys.path.insert(0, pjoin(root_path,'LTD'))
+
+import ltd_commons
+import ltd_utils
+from ltd_utils import Colour
 
 W  = '\033[0m'  # white (normal)
 R  = '\033[31m' # red
@@ -39,6 +48,11 @@ _N_CORES = 4
 _RUN_DIR = pjoin(file_path,'run_dir')
 _WALL_TIME = 24
 _ACCOUNT = 'eth5e'
+
+_FULL_DETAILS = False
+
+loaded_topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'LTD','topologies.yaml'))
+ 
 
 class Units:
     K = 1000
@@ -66,27 +80,27 @@ class BenchmarkRun(dict):
     def get_rust_result(cls,topology, phase, num_samples, cores, integrator, ltd_extra_args=None, collect_only=False):
 
         # Check if there exists a yaml specification file for that topology
-        topology_resource = pjoin(file_path,"LTD","topologies.yaml")
         if os.path.isfile(pjoin(file_path,"LTD","topologies","%s.yaml"%topology)):
             topology_resource = pjoin(file_path,"LTD","topologies","%s.yaml"%topology)
-    
+            new_topologies = ltd_utils.TopologyCollection.import_from(topology_resource)
+            for topo_name, topo in new_topologies.items():
+                loaded_topologies[topo_name] = topo
+
         # get analytical result
         analytical_result = (0.,0.)
         n_loops = 0
-        with open(topology_resource, 'r') as f:
-            topologies = yaml.safe_load(f)
-            try:
-                for t in topologies:
-                    if t['name'] == topology:
-                        analytical_result = (t['analytical_result_real'], t['analytical_result_imag'])
-                        n_loops = t['n_loops'] 
-            except:
-                print("Could not extract analytic result and/or load information for topology: %s"%topology)
-                sys.exit(1)
-    
+        if topology not in loaded_topologies:
+            print("Could not extract analytic result and/or load information for topology: %s"%topology)
+            sys.exit(1)
+        analytical_result = (
+          loaded_topologies[topology].analytic_result.real if loaded_topologies[topology].analytic_result else 0.,
+          loaded_topologies[topology].analytic_result.imag if loaded_topologies[topology].analytic_result else 0.
+        )
+        n_loops = loaded_topologies[topology].n_loops
+
         no_analytical_found = False
         if analytical_result[0]==analytical_result[1]==0.:
-            print("WARNING: Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result, so we will set the analytical result equal to the one obtained by RUST."%topology)
+            #print("WARNING: Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result, so we will set the analytical result equal to the one obtained by RUST."%topology)
             no_analytical_found = True
         
         #cargo_options = ["cargo","run", "--release", "--bin", "ltd"]
@@ -648,7 +662,7 @@ class Benchmark(list):
 '2L_6P_F_PS3',
 '2L_6P_F_PS3_massive',
 '2L_8P_PS3',
-'2L_8P_PS3_massive',
+#'2L_8P_PS3_massive',
 ]
         for topo in PS3_2loop:
             res.append(BenchmarkRun2loop(topo, n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))
@@ -742,6 +756,103 @@ def get_score_for_sample(sample, number_of_samples):
 
     return scores
 
+def add_meta_data_to_sample(sample):
+    """ Add information like number of sources, time per point etc.. to sample. """
+
+    topo_name = sample['topology']
+    if topo_name not in loaded_topologies:
+        # Check if there exists a yaml specification file for that topology
+        if os.path.isfile(pjoin(file_path,"LTD","topologies","%s.yaml"%topo_name)):
+            topology_resource = pjoin(file_path,"LTD","topologies","%s.yaml"%topo_name)
+            new_topologies = ltd_utils.TopologyCollection.import_from(topology_resource)
+            for a_topo_name, topo in new_topologies.items():
+                loaded_topologies[a_topo_name] = topo
+
+    if topo_name not in loaded_topologies:
+        return
+
+    topo = loaded_topologies[topo_name]
+    maximal_overlap = [ source['overlap'] for source in topo.fixed_deformation[0]['deformation_per_overlap'] ]
+    E_surfaces = set(sum(maximal_overlap, []))
+    n_sources = 0
+    max_radius = None
+    min_radius = None
+    for space in topo.fixed_deformation:
+        for source in space['deformation_per_overlap']:
+            n_sources += 1
+            if max_radius is None or max_radius<source['radius']:
+                max_radius=source['radius']
+            if min_radius is None or min_radius>source['radius']:
+                min_radius=source['radius']
+    if max_radius is None:
+        max_radius = 0.
+    if min_radius is None:
+        min_radius = 0.
+
+    n_propagators_per_loop_line = [len(ll.propagators) for ll in topo.loop_lines]
+    n_channels = 0
+    for cs in topo.ltd_cut_structure:
+        n_channels_for_this_cut = 1
+        for i_ll, cut_sign in enumerate(cs):
+            if cut_sign != 0:
+                n_channels_for_this_cut *= n_propagators_per_loop_line[i_ll]
+        n_channels += n_channels_for_this_cut
+    n_cuts = n_channels
+
+    if topo.n_loops == 1:
+        timing_stats = 50000
+    elif topo.n_loops == 2:
+        timing_stats = 5000
+    elif topo.n_loops == 3:
+        timing_stats = 500
+    else:
+        timing_stats = 500
+
+    if os.path.isfile(pjoin(file_path,"LTD","topologies","%s.yaml"%topo_name)):
+        topology_file = pjoin(file_path,"LTD","topologies","%s.yaml"%topo_name)
+    else:
+        topology_file = pjoin(file_path,"LTD", "topologies.yaml")
+    cmd = [
+        pjoin(file_path,'rust_backend','target','release','ltd'),
+        '-s',str(timing_stats),        
+        '-t',topo_name,
+        '-c','1',
+        '-l', topology_file,        
+        '-p', pjoin(file_path,'LTD','amplitudes.yaml'),
+        '-f', pjoin(file_path,'LTD','hyperparameters.yaml'),
+        'bench'
+    ]
+    
+    timing = None
+    previous_timing = None
+    n_iter = 0
+    while (timing is None) or (previous_timing is None) or (abs(previous_timing-timing)/timing > 0.2):
+        n_iter += 1
+        previous_timing = timing
+        cmd[2] = str(timing_stats)
+        raw_output = subprocess.check_output(cmd)
+        timing = float(eval(raw_output.decode().replace('ms','*1.0e-3').replace('s','*1.0')))/float(timing_stats)
+        if n_iter >= 5:
+            print("WARNING: Could not get a stable timing estimate for topology %s, even with stats=%d. best estimate so far: %.3e"%(
+                topo_name, timing_stats, timing
+            ))
+            break
+        timing_stats *= 2     
+
+
+    # Now add the information collected to the sample
+    sample['n_unique_existing_E_surface'] = len(E_surfaces)    
+    sample['n_sources'] = n_sources
+    sample['maximal_overlap'] = maximal_overlap
+    sample['max_radius'] = max_radius
+    sample['min_radius'] = min_radius
+    sample['min_radius'] = min_radius
+    sample['n_cuts'] = n_cuts
+    sample['t_per_ps_point_in_s'] = timing
+    
+    #pprint(sample)
+    return
+
 def render_data(samples, number_of_samples, sort=False):
     """ Render the data in a table. """
     data = []
@@ -760,13 +871,16 @@ def render_data(samples, number_of_samples, sort=False):
 
     for sample in samples:
         score = get_score_for_sample(sample, number_of_samples)
+        
+        # Augment information in sample
+        if _FULL_DETAILS:
+            add_meta_data_to_sample(sample)
 
         for i_phase, (phase,phase_name) in enumerate( [('real', 'Real'), ('imag', 'Imag')]):
             if sample['result'][i_phase] is None:
                 continue
 
             (accuracy, precision, percentage) = score[phase]['accuracy'], score[phase]['precision'], score[phase]['percentage']
-            
             data.append(
                 [sample['topology'] + ' ' + phase_name, "{:,}".format(int(sample['num_samples'])),
                     ufloat(sample['result'][i_phase], sample['error'][i_phase]), 
@@ -776,14 +890,27 @@ def render_data(samples, number_of_samples, sort=False):
                     (R + '%.2g'%percentage + W if percentage > 1.0 else G + '%.2g'%percentage + W) if percentage is not None else 'N/A',
                     sample['revision'], sample['diff']]
             )
-   
-    print(tabulate(data, ['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean'], tablefmt=_TABLE_FORMAT))
+            if _FULL_DETAILS:
+                data[-1].extend([
+                    sample['n_cuts'],                    
+                    sample['n_unique_existing_E_surface'],    
+                    sample['n_sources'],
+                    str([len(ov) for ov in sample['maximal_overlap']]),
+                    sample['min_radius'],                    
+                    sample['max_radius'],
+                    '%.4g'%(sample['t_per_ps_point_in_s']*1.0e6)
+                ])
+    header=['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean']
+    if _FULL_DETAILS:
+        header.extend(['# cuts','# E-surfaces','# sources', 'Maximum overlap','Min. radius','Max. radius',' t/p [mus]'])
+    print(tabulate(data, header, tablefmt=_TABLE_FORMAT))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Tool for benchmarking hyperparameters')
     parser.add_argument('-t', metavar='topologies', type=str, nargs='+', help='topologies to test', required=False)
     parser.add_argument('--from_history', action='store_true', help='Read the topology data from the history')
+    parser.add_argument('--full_details', action='store_true', help='Render and include in the json file the complete details of the topology')    
     parser.add_argument('-s', default='100000', type=int, help='number of samples')
     parser.add_argument('-c', default='4', help='number of cores')
     parser.add_argument('--wall_time', default='24', type=int, help='Set wall time')
@@ -815,6 +942,7 @@ if __name__ == "__main__":
     _CONFIG_FILE_PATH = args.config_path
     _RUN_DIR = pjoin(file_path,args.run_dir)
     _ACCOUNT = args.account
+    _FULL_DETAILS = args.full_details
 
     if args.clean:
         print("Cleaning up directory %s."%_RUN_DIR)
@@ -923,7 +1051,7 @@ if __name__ == "__main__":
                 '-t %s '%(' '.join(args.t)) if args.t else '',
                 '-b %s '%args.b if args.b!='manual' else ''
             )) 
-            render_data(samples, args.s, sort=True)
+            render_data(samples, args.s, sort=False)
 
     # ask to save data
     if not args.from_history and args.save:

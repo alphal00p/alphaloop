@@ -1,0 +1,1230 @@
+{
+    "1574874933.8684866": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.3,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "max_iterations": 1,
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": -0.3,
+                    "lambda": 10.0,
+                    "non_cut_propagator_check": true,
+                    "pole_check_strategy": "real_solution",
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8,
+                    "theta_c": 2.0,
+                    "theta_r_in": 2.0,
+                    "theta_r_out": 2.0
+                },
+                "stability_threshold": -1
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "vegas",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex 328aa81..ae096ac 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -135,9 +135,9 @@ hyperparameters = HyperParameters({\n             'source_branch_cut_multiplier' : 0.8,\n             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check\n             'pole_check_strategy'       : 'real_solution',\n-            'theta_r_out'               : 10.,\n-            'theta_r_in'                : 10.,\n-            'theta_c'                   : 10.,\n+            'theta_r_out'               : 2.,\n+            'theta_r_in'                : 2.,\n+            'theta_c'                   : 2.,\n         },\n \n         'additive'              :   {\ndiff --git a/benchmark.py b/benchmark.py\nindex 2e54734..9aa5674 100755\n--- a/benchmark.py\n+++ b/benchmark.py\n@@ -3,7 +3,6 @@ import subprocess\n from tabulate import tabulate\n from uncertainties import ufloat\n import time\n-import yaml\n import json\n from tqdm import tqdm\n import os\n@@ -16,8 +15,18 @@ import time\n from pprint import pprint, pformat\n from datetime import datetime\n \n+import yaml\n+from yaml import Loader, Dumper\n+\n file_path = os.path.dirname(os.path.realpath( __file__ ))\n pjoin = os.path.join\n+root_path = os.path.dirname(os.path.realpath( __file__ ))\n+sys.path.insert(0, root_path)\n+sys.path.insert(0, pjoin(root_path,'LTD'))\n+\n+import ltd_commons\n+import ltd_utils\n+from ltd_utils import Colour\n \n W  = '\\033[0m'  # white (normal)\n R  = '\\033[31m' # red\n@@ -40,6 +49,11 @@ _RUN_DIR = pjoin(file_path,'run_dir')\n _WALL_TIME = 24\n _ACCOUNT = 'eth5e'\n \n+_FULL_DETAILS = False\n+\n+loaded_topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'LTD','topologies.yaml'))\n+ \n+\n class Units:\n     K = 1000\n     M = 1000*K\n@@ -66,27 +80,27 @@ class BenchmarkRun(dict):\n     def get_rust_result(cls,topology, phase, num_samples, cores, integrator, ltd_extra_args=None, collect_only=False):\n \n         # Check if there exists a yaml specification file for that topology\n-        topology_resource = pjoin(file_path,\"LTD\",\"topologies.yaml\")\n         if os.path.isfile(pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topology)):\n             topology_resource = pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topology)\n-    \n+            new_topologies = ltd_utils.TopologyCollection.import_from(topology_resource)\n+            for topo_name, topo in new_topologies.items():\n+                loaded_topologies[topo_name] = topo\n+\n         # get analytical result\n         analytical_result = (0.,0.)\n         n_loops = 0\n-        with open(topology_resource, 'r') as f:\n-            topologies = yaml.safe_load(f)\n-            try:\n-                for t in topologies:\n-                    if t['name'] == topology:\n-                        analytical_result = (t['analytical_result_real'], t['analytical_result_imag'])\n-                        n_loops = t['n_loops'] \n-            except:\n-                print(\"Could not extract analytic result and/or load information for topology: %s\"%topology)\n-                sys.exit(1)\n-    \n+        if topology not in loaded_topologies:\n+            print(\"Could not extract analytic result and/or load information for topology: %s\"%topology)\n+            sys.exit(1)\n+        analytical_result = (\n+          loaded_topologies[topology].analytic_result.real if loaded_topologies[topology].analytic_result else 0.,\n+          loaded_topologies[topology].analytic_result.imag if loaded_topologies[topology].analytic_result else 0.\n+        )\n+        n_loops = loaded_topologies[topology].n_loops\n+\n         no_analytical_found = False\n         if analytical_result[0]==analytical_result[1]==0.:\n-            print(\"WARNING: Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result, so we will set the analytical result equal to the one obtained by RUST.\"%topology)\n+            #print(\"WARNING: Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result, so we will set the analytical result equal to the one obtained by RUST.\"%topology)\n             no_analytical_found = True\n         \n         #cargo_options = [\"cargo\",\"run\", \"--release\", \"--bin\", \"ltd\"]\n@@ -648,7 +662,7 @@ class Benchmark(list):\n '2L_6P_F_PS3',\n '2L_6P_F_PS3_massive',\n '2L_8P_PS3',\n-'2L_8P_PS3_massive',\n+#'2L_8P_PS3_massive',\n ]\n         for topo in PS3_2loop:\n             res.append(BenchmarkRun2loop(topo, n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n@@ -742,6 +756,103 @@ def get_score_for_sample(sample, number_of_samples):\n \n     return scores\n \n+def add_meta_data_to_sample(sample):\n+    \"\"\" Add information like number of sources, time per point etc.. to sample. \"\"\"\n+\n+    topo_name = sample['topology']\n+    if topo_name not in loaded_topologies:\n+        # Check if there exists a yaml specification file for that topology\n+        if os.path.isfile(pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topo_name)):\n+            topology_resource = pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topo_name)\n+            new_topologies = ltd_utils.TopologyCollection.import_from(topology_resource)\n+            for a_topo_name, topo in new_topologies.items():\n+                loaded_topologies[a_topo_name] = topo\n+\n+    if topo_name not in loaded_topologies:\n+        return\n+\n+    topo = loaded_topologies[topo_name]\n+    maximal_overlap = [ source['overlap'] for source in topo.fixed_deformation[0]['deformation_per_overlap'] ]\n+    E_surfaces = set(sum(maximal_overlap, []))\n+    n_sources = 0\n+    max_radius = None\n+    min_radius = None\n+    for space in topo.fixed_deformation:\n+        for source in space['deformation_per_overlap']:\n+            n_sources += 1\n+            if max_radius is None or max_radius<source['radius']:\n+                max_radius=source['radius']\n+            if min_radius is None or min_radius>source['radius']:\n+                min_radius=source['radius']\n+    if max_radius is None:\n+        max_radius = 0.\n+    if min_radius is None:\n+        min_radius = 0.\n+\n+    n_propagators_per_loop_line = [len(ll.propagators) for ll in topo.loop_lines]\n+    n_channels = 0\n+    for cs in topo.ltd_cut_structure:\n+        n_channels_for_this_cut = 1\n+        for i_ll, cut_sign in enumerate(cs):\n+            if cut_sign != 0:\n+                n_channels_for_this_cut *= n_propagators_per_loop_line[i_ll]\n+        n_channels += n_channels_for_this_cut\n+    n_cuts = n_channels\n+\n+    if topo.n_loops == 1:\n+        timing_stats = 50000\n+    elif topo.n_loops == 2:\n+        timing_stats = 5000\n+    elif topo.n_loops == 3:\n+        timing_stats = 500\n+    else:\n+        timing_stats = 500\n+\n+    if os.path.isfile(pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topo_name)):\n+        topology_file = pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topo_name)\n+    else:\n+        topology_file = pjoin(file_path,\"LTD\", \"topologies.yaml\")\n+    cmd = [\n+        pjoin(file_path,'rust_backend','target','release','ltd'),\n+        '-s',str(timing_stats),        \n+        '-t',topo_name,\n+        '-c','1',\n+        '-l', topology_file,        \n+        '-p', pjoin(file_path,'LTD','amplitudes.yaml'),\n+        '-f', pjoin(file_path,'LTD','hyperparameters.yaml'),\n+        'bench'\n+    ]\n+    \n+    timing = None\n+    previous_timing = None\n+    n_iter = 0\n+    while (timing is None) or (previous_timing is None) or (abs(previous_timing-timing)/timing > 0.2):\n+        n_iter += 1\n+        previous_timing = timing\n+        cmd[2] = str(timing_stats)\n+        raw_output = subprocess.check_output(cmd)\n+        timing = float(eval(raw_output.decode().replace('ms','*1.0e-3').replace('s','*1.0')))/float(timing_stats)\n+        if n_iter >= 5:\n+            print(\"WARNING: Could not get a stable timing estimate for topology %s, even with stats=%d. best estimate so far: %.3e\"%(\n+                topo_name, timing_stats, timing\n+            ))\n+            break\n+        timing_stats *= 2     \n+\n+\n+    # Now add the information collected to the sample\n+    sample['n_unique_existing_E_surface'] = len(E_surfaces)    \n+    sample['n_sources'] = n_sources\n+    sample['maximal_overlap'] = maximal_overlap\n+    sample['max_radius'] = max_radius\n+    sample['min_radius'] = min_radius\n+    sample['min_radius'] = min_radius\n+    sample['n_cuts'] = n_cuts\n+    sample['t_per_ps_point_in_s'] = timing\n+    \n+    #pprint(sample)\n+    return\n+\n def render_data(samples, number_of_samples, sort=False):\n     \"\"\" Render the data in a table. \"\"\"\n     data = []\n@@ -760,13 +871,16 @@ def render_data(samples, number_of_samples, sort=False):\n \n     for sample in samples:\n         score = get_score_for_sample(sample, number_of_samples)\n+        \n+        # Augment information in sample\n+        if _FULL_DETAILS:\n+            add_meta_data_to_sample(sample)\n \n         for i_phase, (phase,phase_name) in enumerate( [('real', 'Real'), ('imag', 'Imag')]):\n             if sample['result'][i_phase] is None:\n                 continue\n \n             (accuracy, precision, percentage) = score[phase]['accuracy'], score[phase]['precision'], score[phase]['percentage']\n-            \n             data.append(\n                 [sample['topology'] + ' ' + phase_name, \"{:,}\".format(int(sample['num_samples'])),\n                     ufloat(sample['result'][i_phase], sample['error'][i_phase]), \n@@ -776,14 +890,27 @@ def render_data(samples, number_of_samples, sort=False):\n                     (R + '%.2g'%percentage + W if percentage > 1.0 else G + '%.2g'%percentage + W) if percentage is not None else 'N/A',\n                     sample['revision'], sample['diff']]\n             )\n-   \n-    print(tabulate(data, ['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean'], tablefmt=_TABLE_FORMAT))\n+            if _FULL_DETAILS:\n+                data[-1].extend([\n+                    sample['n_cuts'],                    \n+                    sample['n_unique_existing_E_surface'],    \n+                    sample['n_sources'],\n+                    str([len(ov) for ov in sample['maximal_overlap']]),\n+                    sample['min_radius'],                    \n+                    sample['max_radius'],\n+                    '%.4g'%(sample['t_per_ps_point_in_s']*1.0e6)\n+                ])\n+    header=['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean']\n+    if _FULL_DETAILS:\n+        header.extend(['# cuts','# E-surfaces','# sources', 'Maximum overlap','Min. radius','Max. radius',' t/p [mus]'])\n+    print(tabulate(data, header, tablefmt=_TABLE_FORMAT))\n \n \n if __name__ == \"__main__\":\n     parser = argparse.ArgumentParser(description='Tool for benchmarking hyperparameters')\n     parser.add_argument('-t', metavar='topologies', type=str, nargs='+', help='topologies to test', required=False)\n     parser.add_argument('--from_history', action='store_true', help='Read the topology data from the history')\n+    parser.add_argument('--full_details', action='store_true', help='Render and include in the json file the complete details of the topology')    \n     parser.add_argument('-s', default='100000', type=int, help='number of samples')\n     parser.add_argument('-c', default='4', help='number of cores')\n     parser.add_argument('--wall_time', default='24', type=int, help='Set wall time')\n@@ -815,6 +942,7 @@ if __name__ == \"__main__\":\n     _CONFIG_FILE_PATH = args.config_path\n     _RUN_DIR = pjoin(file_path,args.run_dir)\n     _ACCOUNT = args.account\n+    _FULL_DETAILS = args.full_details\n \n     if args.clean:\n         print(\"Cleaning up directory %s.\"%_RUN_DIR)\n@@ -884,13 +1012,11 @@ if __name__ == \"__main__\":\n                         'overall_scaling_constant': dh['overall_scaling_constant'],\n                         'scaling': {\n                             'branch_cut_m':  dh['scaling']['branch_cut_m'],\n-                            'cut_propagator_check': dh['scaling']['cut_propagator_check'],\n-                            'expansion_check': dh['scaling']['expansion_check'],\n                             'expansion_check_strategy': dh['scaling']['expansion_check_strategy'],\n                             'expansion_threshold': dh['scaling']['expansion_threshold'],\n                             'lambda': dh['scaling']['lambda'],\n-                            'non_cut_propagator_check':dh['scaling']['non_cut_propagator_check'],\n-                            'positive_cut_check': dh['scaling']['positive_cut_check'],\n+                            'pole_check_strategy':dh['scaling']['pole_check_strategy'],\n+                            'branch_cut_check': dh['scaling']['branch_cut_check'],\n                             'source_branch_cut_m': dh['scaling']['source_branch_cut_m'],\n                             'source_branch_cut_multiplier': dh['scaling']['source_branch_cut_multiplier'],\n                             'source_branch_cut_threshold': dh['scaling']['source_branch_cut_threshold'],\n@@ -925,7 +1051,7 @@ if __name__ == \"__main__\":\n                 '-t %s '%(' '.join(args.t)) if args.t else '',\n                 '-b %s '%args.b if args.b!='manual' else ''\n             )) \n-            render_data(samples, args.s, sort=True)\n+            render_data(samples, args.s, sort=False)\n \n     # ask to save data\n     if not args.from_history and args.save:\ndiff --git a/submission_template.run b/submission_template.run\nindex c871b1c..0142515 100644\n--- a/submission_template.run\n+++ b/submission_template.run\n@@ -11,6 +11,7 @@\n #SBATCH --output=%(output)s\n #SBATCH --error=%(error)s\n #SBATCH --mail-type=start,end,fail\n+#SBATCH --account=%(account)s\n \n echo $SLURM_CPUS_PER_TASK",
+        "samples": [
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_A",
+                "result": [
+                    -86.40452723040747,
+                    -0.02196765606789217
+                ],
+                "error": [
+                    0.03920188595086991,
+                    0.03933842892490154
+                ],
+                "analytical_result": [
+                    -86.07,
+                    0.0
+                ],
+                "n_unique_existing_E_surface": 20,
+                "n_sources": 14,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19
+                    ]
+                ],
+                "max_radius": 0.07050275195419664,
+                "min_radius": 0.018237621518260402,
+                "n_cuts": 20,
+                "t_per_ps_point_in_s": 8.84123401e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_B",
+                "result": [
+                    -119.03965571447556,
+                    0.14667908039728614
+                ],
+                "error": [
+                    0.09173994728492472,
+                    0.09249294748088782
+                ],
+                "analytical_result": [
+                    -118.09,
+                    0.0
+                ],
+                "n_unique_existing_E_surface": 23,
+                "n_sources": 18,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22
+                    ]
+                ],
+                "max_radius": 0.07050275195586463,
+                "min_radius": 0.0005031349885062371,
+                "n_cuts": 23,
+                "t_per_ps_point_in_s": 9.50534223e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_C",
+                "result": [
+                    -76.28556821869347,
+                    -0.005151884648003674
+                ],
+                "error": [
+                    0.071561634547486,
+                    0.07236178049938638
+                ],
+                "analytical_result": [
+                    -75.48,
+                    0.0
+                ],
+                "n_unique_existing_E_surface": 24,
+                "n_sources": 20,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        23
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        10,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        10,
+                        11,
+                        12,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23
+                    ]
+                ],
+                "max_radius": 0.07050275196220562,
+                "min_radius": 0.009645486594662646,
+                "n_cuts": 24,
+                "t_per_ps_point_in_s": 9.39812574e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_D",
+                "result": [
+                    -18.363853948488416,
+                    -0.004241443507671837
+                ],
+                "error": [
+                    0.007546296849257057,
+                    0.0075106750609876885
+                ],
+                "analytical_result": [
+                    -18.327,
+                    0.0
+                ],
+                "n_unique_existing_E_surface": 23,
+                "n_sources": 15,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22
+                    ]
+                ],
+                "max_radius": 0.07050275195780743,
+                "min_radius": 0.0054972166085082135,
+                "n_cuts": 24,
+                "t_per_ps_point_in_s": 9.07934969e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_E",
+                "result": [
+                    -46.10943654071008,
+                    0.04038260504041252
+                ],
+                "error": [
+                    0.04231789546719395,
+                    0.043005089335174156
+                ],
+                "analytical_result": [
+                    -45.972,
+                    0.0
+                ],
+                "n_unique_existing_E_surface": 26,
+                "n_sources": 19,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25
+                    ]
+                ],
+                "max_radius": 0.049879683047465505,
+                "min_radius": 0.0007517064734738974,
+                "n_cuts": 26,
+                "t_per_ps_point_in_s": 0.00010061968340000001
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_F",
+                "result": [
+                    -102.72347277742307,
+                    0.1651365647395267
+                ],
+                "error": [
+                    0.11053672271886722,
+                    0.1115965803160673
+                ],
+                "analytical_result": [
+                    -102.71,
+                    0.0
+                ],
+                "n_unique_existing_E_surface": 33,
+                "n_sources": 20,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        8,
+                        9,
+                        10,
+                        11,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        23,
+                        24,
+                        25,
+                        26,
+                        27,
+                        28,
+                        29,
+                        30,
+                        31,
+                        32
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25,
+                        26,
+                        27,
+                        28,
+                        29,
+                        30,
+                        31,
+                        32
+                    ]
+                ],
+                "max_radius": 0.06048251301694897,
+                "min_radius": 0.00020851448531257168,
+                "n_cuts": 27,
+                "t_per_ps_point_in_s": 0.00011871462999999999
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T3_DoubleBox_Weinzierl",
+                "result": [
+                    -0.05897943814639601,
+                    1.115215835131411e-05
+                ],
+                "error": [
+                    9.875994636989332e-06,
+                    9.520950646288118e-06
+                ],
+                "analytical_result": [
+                    -0.05897,
+                    0.0
+                ],
+                "n_unique_existing_E_surface": 13,
+                "n_sources": 8,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                    ]
+                ],
+                "max_radius": 0.15966756683940309,
+                "min_radius": 0.014965929301217129,
+                "n_cuts": 15,
+                "t_per_ps_point_in_s": 5.54597715e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T4_TripleBox_Weinzierl",
+                "result": [
+                    7.95569665602891e-06,
+                    -0.006737859840330156
+                ],
+                "error": [
+                    8.77372717632242e-06,
+                    8.564931514421111e-06
+                ],
+                "analytical_result": [
+                    0.0,
+                    -0.006744
+                ],
+                "n_unique_existing_E_surface": 22,
+                "n_sources": 49,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21
+                    ]
+                ],
+                "max_radius": 0.23950135028900368,
+                "min_radius": 0.005026065127015309,
+                "n_cuts": 56,
+                "t_per_ps_point_in_s": 0.000345960401
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "T4_Quadruple_Box_Weinzierl",
+                "result": [
+                    0.0007966542465845755,
+                    7.616700237107171e-06
+                ],
+                "error": [
+                    1.1280913070000496e-05,
+                    1.1857667105857283e-05
+                ],
+                "analytical_result": [
+                    0.0007411275671528255,
+                    0.0
+                ],
+                "n_unique_existing_E_surface": 33,
+                "n_sources": 270,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25,
+                        26,
+                        27,
+                        28,
+                        29,
+                        30,
+                        31,
+                        32
+                    ]
+                ],
+                "max_radius": 0.3193351339613453,
+                "min_radius": 0.0014298176331636152,
+                "n_cuts": 209,
+                "t_per_ps_point_in_s": 0.0027115995320000003
+            }
+        ]
+    },
+    "1574804299.1883295": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.3,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "max_iterations": 1,
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": -0.3,
+                    "lambda": 10.0,
+                    "non_cut_propagator_check": true,
+                    "pole_check_strategy": "real_solution",
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8,
+                    "theta_c": 2.0,
+                    "theta_r_in": 2.0,
+                    "theta_r_out": 2.0
+                },
+                "stability_threshold": -1
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "vegas",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex 328aa81..ae096ac 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -135,9 +135,9 @@ hyperparameters = HyperParameters({\n             'source_branch_cut_multiplier' : 0.8,\n             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check\n             'pole_check_strategy'       : 'real_solution',\n-            'theta_r_out'               : 10.,\n-            'theta_r_in'                : 10.,\n-            'theta_c'                   : 10.,\n+            'theta_r_out'               : 2.,\n+            'theta_r_in'                : 2.,\n+            'theta_c'                   : 2.,\n         },\n \n         'additive'              :   {\ndiff --git a/submission_template.run b/submission_template.run\nindex c871b1c..0142515 100644\n--- a/submission_template.run\n+++ b/submission_template.run\n@@ -11,6 +11,7 @@\n #SBATCH --output=%(output)s\n #SBATCH --error=%(error)s\n #SBATCH --mail-type=start,end,fail\n+#SBATCH --account=%(account)s\n \n echo $SLURM_CPUS_PER_TASK",
+        "samples": [
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_A",
+                "result": [
+                    -86.40452723040747,
+                    -0.02196765606789217
+                ],
+                "error": [
+                    0.03920188595086991,
+                    0.03933842892490154
+                ],
+                "analytical_result": [
+                    -86.07,
+                    0.0
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_B",
+                "result": [
+                    -119.03965571447556,
+                    0.14667908039728614
+                ],
+                "error": [
+                    0.09173994728492472,
+                    0.09249294748088782
+                ],
+                "analytical_result": [
+                    -118.09,
+                    0.0
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_C",
+                "result": [
+                    -76.28556821869347,
+                    -0.005151884648003674
+                ],
+                "error": [
+                    0.071561634547486,
+                    0.07236178049938638
+                ],
+                "analytical_result": [
+                    -75.48,
+                    0.0
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_D",
+                "result": [
+                    -18.363853948488416,
+                    -0.004241443507671837
+                ],
+                "error": [
+                    0.007546296849257057,
+                    0.0075106750609876885
+                ],
+                "analytical_result": [
+                    -18.327,
+                    0.0
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_E",
+                "result": [
+                    -46.10943654071008,
+                    0.04038260504041252
+                ],
+                "error": [
+                    0.04231789546719395,
+                    0.043005089335174156
+                ],
+                "analytical_result": [
+                    -45.972,
+                    0.0
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T2_6P_2L_Weinzierl_F",
+                "result": [
+                    -102.72347277742307,
+                    0.1651365647395267
+                ],
+                "error": [
+                    0.11053672271886722,
+                    0.1115965803160673
+                ],
+                "analytical_result": [
+                    -102.71,
+                    0.0
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "T3_DoubleBox_Weinzierl",
+                "result": [
+                    -0.05897943814639601,
+                    1.115215835131411e-05
+                ],
+                "error": [
+                    9.875994636989332e-06,
+                    9.520950646288118e-06
+                ],
+                "analytical_result": [
+                    -0.05897,
+                    0.0
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "T4_TripleBox_Weinzierl",
+                "result": [
+                    7.95569665602891e-06,
+                    -0.006737859840330156
+                ],
+                "error": [
+                    8.77372717632242e-06,
+                    8.564931514421111e-06
+                ],
+                "analytical_result": [
+                    0.0,
+                    -0.006744
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "T4_Quadruple_Box_Weinzierl",
+                "result": [
+                    0.0007966542465845755,
+                    7.616700237107171e-06
+                ],
+                "error": [
+                    1.1280913070000496e-05,
+                    1.1857667105857283e-05
+                ],
+                "analytical_result": [
+                    0.0007411275671528255,
+                    0.0
+                ]
+            }
+        ]
+    }
+}

@@ -1,0 +1,2828 @@
+{
+    "1574872806.466686": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.3,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "max_iterations": 1,
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": -0.3,
+                    "lambda": 10.0,
+                    "non_cut_propagator_check": true,
+                    "pole_check_strategy": "real_solution",
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8,
+                    "theta_c": 2.0,
+                    "theta_r_in": 2.0,
+                    "theta_r_out": 2.0
+                },
+                "stability_threshold": -1
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "vegas",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex 328aa81..ae096ac 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -135,9 +135,9 @@ hyperparameters = HyperParameters({\n             'source_branch_cut_multiplier' : 0.8,\n             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check\n             'pole_check_strategy'       : 'real_solution',\n-            'theta_r_out'               : 10.,\n-            'theta_r_in'                : 10.,\n-            'theta_c'                   : 10.,\n+            'theta_r_out'               : 2.,\n+            'theta_r_in'                : 2.,\n+            'theta_c'                   : 2.,\n         },\n \n         'additive'              :   {\ndiff --git a/benchmark.py b/benchmark.py\nindex 2e54734..9aa5674 100755\n--- a/benchmark.py\n+++ b/benchmark.py\n@@ -3,7 +3,6 @@ import subprocess\n from tabulate import tabulate\n from uncertainties import ufloat\n import time\n-import yaml\n import json\n from tqdm import tqdm\n import os\n@@ -16,8 +15,18 @@ import time\n from pprint import pprint, pformat\n from datetime import datetime\n \n+import yaml\n+from yaml import Loader, Dumper\n+\n file_path = os.path.dirname(os.path.realpath( __file__ ))\n pjoin = os.path.join\n+root_path = os.path.dirname(os.path.realpath( __file__ ))\n+sys.path.insert(0, root_path)\n+sys.path.insert(0, pjoin(root_path,'LTD'))\n+\n+import ltd_commons\n+import ltd_utils\n+from ltd_utils import Colour\n \n W  = '\\033[0m'  # white (normal)\n R  = '\\033[31m' # red\n@@ -40,6 +49,11 @@ _RUN_DIR = pjoin(file_path,'run_dir')\n _WALL_TIME = 24\n _ACCOUNT = 'eth5e'\n \n+_FULL_DETAILS = False\n+\n+loaded_topologies = ltd_utils.TopologyCollection.import_from(os.path.join(root_path, 'LTD','topologies.yaml'))\n+ \n+\n class Units:\n     K = 1000\n     M = 1000*K\n@@ -66,27 +80,27 @@ class BenchmarkRun(dict):\n     def get_rust_result(cls,topology, phase, num_samples, cores, integrator, ltd_extra_args=None, collect_only=False):\n \n         # Check if there exists a yaml specification file for that topology\n-        topology_resource = pjoin(file_path,\"LTD\",\"topologies.yaml\")\n         if os.path.isfile(pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topology)):\n             topology_resource = pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topology)\n-    \n+            new_topologies = ltd_utils.TopologyCollection.import_from(topology_resource)\n+            for topo_name, topo in new_topologies.items():\n+                loaded_topologies[topo_name] = topo\n+\n         # get analytical result\n         analytical_result = (0.,0.)\n         n_loops = 0\n-        with open(topology_resource, 'r') as f:\n-            topologies = yaml.safe_load(f)\n-            try:\n-                for t in topologies:\n-                    if t['name'] == topology:\n-                        analytical_result = (t['analytical_result_real'], t['analytical_result_imag'])\n-                        n_loops = t['n_loops'] \n-            except:\n-                print(\"Could not extract analytic result and/or load information for topology: %s\"%topology)\n-                sys.exit(1)\n-    \n+        if topology not in loaded_topologies:\n+            print(\"Could not extract analytic result and/or load information for topology: %s\"%topology)\n+            sys.exit(1)\n+        analytical_result = (\n+          loaded_topologies[topology].analytic_result.real if loaded_topologies[topology].analytic_result else 0.,\n+          loaded_topologies[topology].analytic_result.imag if loaded_topologies[topology].analytic_result else 0.\n+        )\n+        n_loops = loaded_topologies[topology].n_loops\n+\n         no_analytical_found = False\n         if analytical_result[0]==analytical_result[1]==0.:\n-            print(\"WARNING: Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result, so we will set the analytical result equal to the one obtained by RUST.\"%topology)\n+            #print(\"WARNING: Topology '%s' does not exist or does not specify an analytical result. The benchmark tool is meant to be used for topologies with a target result, so we will set the analytical result equal to the one obtained by RUST.\"%topology)\n             no_analytical_found = True\n         \n         #cargo_options = [\"cargo\",\"run\", \"--release\", \"--bin\", \"ltd\"]\n@@ -648,7 +662,7 @@ class Benchmark(list):\n '2L_6P_F_PS3',\n '2L_6P_F_PS3_massive',\n '2L_8P_PS3',\n-'2L_8P_PS3_massive',\n+#'2L_8P_PS3_massive',\n ]\n         for topo in PS3_2loop:\n             res.append(BenchmarkRun2loop(topo, n_start=10000*Units.K, n_increase=1000*Units.K, samples=3000*Units.M))\n@@ -742,6 +756,103 @@ def get_score_for_sample(sample, number_of_samples):\n \n     return scores\n \n+def add_meta_data_to_sample(sample):\n+    \"\"\" Add information like number of sources, time per point etc.. to sample. \"\"\"\n+\n+    topo_name = sample['topology']\n+    if topo_name not in loaded_topologies:\n+        # Check if there exists a yaml specification file for that topology\n+        if os.path.isfile(pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topo_name)):\n+            topology_resource = pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topo_name)\n+            new_topologies = ltd_utils.TopologyCollection.import_from(topology_resource)\n+            for a_topo_name, topo in new_topologies.items():\n+                loaded_topologies[a_topo_name] = topo\n+\n+    if topo_name not in loaded_topologies:\n+        return\n+\n+    topo = loaded_topologies[topo_name]\n+    maximal_overlap = [ source['overlap'] for source in topo.fixed_deformation[0]['deformation_per_overlap'] ]\n+    E_surfaces = set(sum(maximal_overlap, []))\n+    n_sources = 0\n+    max_radius = None\n+    min_radius = None\n+    for space in topo.fixed_deformation:\n+        for source in space['deformation_per_overlap']:\n+            n_sources += 1\n+            if max_radius is None or max_radius<source['radius']:\n+                max_radius=source['radius']\n+            if min_radius is None or min_radius>source['radius']:\n+                min_radius=source['radius']\n+    if max_radius is None:\n+        max_radius = 0.\n+    if min_radius is None:\n+        min_radius = 0.\n+\n+    n_propagators_per_loop_line = [len(ll.propagators) for ll in topo.loop_lines]\n+    n_channels = 0\n+    for cs in topo.ltd_cut_structure:\n+        n_channels_for_this_cut = 1\n+        for i_ll, cut_sign in enumerate(cs):\n+            if cut_sign != 0:\n+                n_channels_for_this_cut *= n_propagators_per_loop_line[i_ll]\n+        n_channels += n_channels_for_this_cut\n+    n_cuts = n_channels\n+\n+    if topo.n_loops == 1:\n+        timing_stats = 50000\n+    elif topo.n_loops == 2:\n+        timing_stats = 5000\n+    elif topo.n_loops == 3:\n+        timing_stats = 500\n+    else:\n+        timing_stats = 500\n+\n+    if os.path.isfile(pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topo_name)):\n+        topology_file = pjoin(file_path,\"LTD\",\"topologies\",\"%s.yaml\"%topo_name)\n+    else:\n+        topology_file = pjoin(file_path,\"LTD\", \"topologies.yaml\")\n+    cmd = [\n+        pjoin(file_path,'rust_backend','target','release','ltd'),\n+        '-s',str(timing_stats),        \n+        '-t',topo_name,\n+        '-c','1',\n+        '-l', topology_file,        \n+        '-p', pjoin(file_path,'LTD','amplitudes.yaml'),\n+        '-f', pjoin(file_path,'LTD','hyperparameters.yaml'),\n+        'bench'\n+    ]\n+    \n+    timing = None\n+    previous_timing = None\n+    n_iter = 0\n+    while (timing is None) or (previous_timing is None) or (abs(previous_timing-timing)/timing > 0.2):\n+        n_iter += 1\n+        previous_timing = timing\n+        cmd[2] = str(timing_stats)\n+        raw_output = subprocess.check_output(cmd)\n+        timing = float(eval(raw_output.decode().replace('ms','*1.0e-3').replace('s','*1.0')))/float(timing_stats)\n+        if n_iter >= 5:\n+            print(\"WARNING: Could not get a stable timing estimate for topology %s, even with stats=%d. best estimate so far: %.3e\"%(\n+                topo_name, timing_stats, timing\n+            ))\n+            break\n+        timing_stats *= 2     \n+\n+\n+    # Now add the information collected to the sample\n+    sample['n_unique_existing_E_surface'] = len(E_surfaces)    \n+    sample['n_sources'] = n_sources\n+    sample['maximal_overlap'] = maximal_overlap\n+    sample['max_radius'] = max_radius\n+    sample['min_radius'] = min_radius\n+    sample['min_radius'] = min_radius\n+    sample['n_cuts'] = n_cuts\n+    sample['t_per_ps_point_in_s'] = timing\n+    \n+    #pprint(sample)\n+    return\n+\n def render_data(samples, number_of_samples, sort=False):\n     \"\"\" Render the data in a table. \"\"\"\n     data = []\n@@ -760,13 +871,16 @@ def render_data(samples, number_of_samples, sort=False):\n \n     for sample in samples:\n         score = get_score_for_sample(sample, number_of_samples)\n+        \n+        # Augment information in sample\n+        if _FULL_DETAILS:\n+            add_meta_data_to_sample(sample)\n \n         for i_phase, (phase,phase_name) in enumerate( [('real', 'Real'), ('imag', 'Imag')]):\n             if sample['result'][i_phase] is None:\n                 continue\n \n             (accuracy, precision, percentage) = score[phase]['accuracy'], score[phase]['precision'], score[phase]['percentage']\n-            \n             data.append(\n                 [sample['topology'] + ' ' + phase_name, \"{:,}\".format(int(sample['num_samples'])),\n                     ufloat(sample['result'][i_phase], sample['error'][i_phase]), \n@@ -776,14 +890,27 @@ def render_data(samples, number_of_samples, sort=False):\n                     (R + '%.2g'%percentage + W if percentage > 1.0 else G + '%.2g'%percentage + W) if percentage is not None else 'N/A',\n                     sample['revision'], sample['diff']]\n             )\n-   \n-    print(tabulate(data, ['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean'], tablefmt=_TABLE_FORMAT))\n+            if _FULL_DETAILS:\n+                data[-1].extend([\n+                    sample['n_cuts'],                    \n+                    sample['n_unique_existing_E_surface'],    \n+                    sample['n_sources'],\n+                    str([len(ov) for ov in sample['maximal_overlap']]),\n+                    sample['min_radius'],                    \n+                    sample['max_radius'],\n+                    '%.4g'%(sample['t_per_ps_point_in_s']*1.0e6)\n+                ])\n+    header=['Topology', '# Samples', 'Result', 'Reference', 'Accuracy', 'Precision', 'Percentage', 'Tag', 'Clean']\n+    if _FULL_DETAILS:\n+        header.extend(['# cuts','# E-surfaces','# sources', 'Maximum overlap','Min. radius','Max. radius',' t/p [mus]'])\n+    print(tabulate(data, header, tablefmt=_TABLE_FORMAT))\n \n \n if __name__ == \"__main__\":\n     parser = argparse.ArgumentParser(description='Tool for benchmarking hyperparameters')\n     parser.add_argument('-t', metavar='topologies', type=str, nargs='+', help='topologies to test', required=False)\n     parser.add_argument('--from_history', action='store_true', help='Read the topology data from the history')\n+    parser.add_argument('--full_details', action='store_true', help='Render and include in the json file the complete details of the topology')    \n     parser.add_argument('-s', default='100000', type=int, help='number of samples')\n     parser.add_argument('-c', default='4', help='number of cores')\n     parser.add_argument('--wall_time', default='24', type=int, help='Set wall time')\n@@ -815,6 +942,7 @@ if __name__ == \"__main__\":\n     _CONFIG_FILE_PATH = args.config_path\n     _RUN_DIR = pjoin(file_path,args.run_dir)\n     _ACCOUNT = args.account\n+    _FULL_DETAILS = args.full_details\n \n     if args.clean:\n         print(\"Cleaning up directory %s.\"%_RUN_DIR)\n@@ -884,13 +1012,11 @@ if __name__ == \"__main__\":\n                         'overall_scaling_constant': dh['overall_scaling_constant'],\n                         'scaling': {\n                             'branch_cut_m':  dh['scaling']['branch_cut_m'],\n-                            'cut_propagator_check': dh['scaling']['cut_propagator_check'],\n-                            'expansion_check': dh['scaling']['expansion_check'],\n                             'expansion_check_strategy': dh['scaling']['expansion_check_strategy'],\n                             'expansion_threshold': dh['scaling']['expansion_threshold'],\n                             'lambda': dh['scaling']['lambda'],\n-                            'non_cut_propagator_check':dh['scaling']['non_cut_propagator_check'],\n-                            'positive_cut_check': dh['scaling']['positive_cut_check'],\n+                            'pole_check_strategy':dh['scaling']['pole_check_strategy'],\n+                            'branch_cut_check': dh['scaling']['branch_cut_check'],\n                             'source_branch_cut_m': dh['scaling']['source_branch_cut_m'],\n                             'source_branch_cut_multiplier': dh['scaling']['source_branch_cut_multiplier'],\n                             'source_branch_cut_threshold': dh['scaling']['source_branch_cut_threshold'],\n@@ -925,7 +1051,7 @@ if __name__ == \"__main__\":\n                 '-t %s '%(' '.join(args.t)) if args.t else '',\n                 '-b %s '%args.b if args.b!='manual' else ''\n             )) \n-            render_data(samples, args.s, sort=True)\n+            render_data(samples, args.s, sort=False)\n \n     # ask to save data\n     if not args.from_history and args.save:\ndiff --git a/submission_template.run b/submission_template.run\nindex c871b1c..0142515 100644\n--- a/submission_template.run\n+++ b/submission_template.run\n@@ -11,6 +11,7 @@\n #SBATCH --output=%(output)s\n #SBATCH --error=%(error)s\n #SBATCH --mail-type=start,end,fail\n+#SBATCH --account=%(account)s\n \n echo $SLURM_CPUS_PER_TASK",
+        "samples": [
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS1",
+                "result": [
+                    3.096462376065025e-08,
+                    9.539519190341305e-08
+                ],
+                "error": [
+                    6.959881148187004e-11,
+                    7.059843045426797e-11
+                ],
+                "analytical_result": [
+                    3.110526759643106e-08,
+                    9.538852706631552e-08
+                ],
+                "n_unique_existing_E_surface": 10,
+                "n_sources": 8,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9
+                    ]
+                ],
+                "max_radius": 0.17618006342593306,
+                "min_radius": 0.041960107233557066,
+                "n_cuts": 15,
+                "t_per_ps_point_in_s": 5.5432412e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS1_massive",
+                "result": [
+                    8.155594786354984e-08,
+                    6.102773177540178e-08
+                ],
+                "error": [
+                    1.2308024455964698e-11,
+                    1.2385850671170905e-11
+                ],
+                "analytical_result": [
+                    8.155594786354984e-08,
+                    6.102773177540178e-08
+                ],
+                "n_unique_existing_E_surface": 6,
+                "n_sources": 13,
+                "maximal_overlap": [
+                    [
+                        0,
+                        2,
+                        4,
+                        5
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4
+                    ]
+                ],
+                "max_radius": 0.8875194274613715,
+                "min_radius": 0.2720118596108976,
+                "n_cuts": 15,
+                "t_per_ps_point_in_s": 7.66570438e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS2",
+                "result": [
+                    1.7025288982884703e-10,
+                    4.56488312942612e-10
+                ],
+                "error": [
+                    2.8498338693386363e-13,
+                    2.913236408165091e-13
+                ],
+                "analytical_result": [
+                    1.7037231328859816e-10,
+                    4.5649721854137276e-10
+                ],
+                "n_unique_existing_E_surface": 10,
+                "n_sources": 8,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9
+                    ]
+                ],
+                "max_radius": 0.2658488055789599,
+                "min_radius": 0.016741154932749604,
+                "n_cuts": 15,
+                "t_per_ps_point_in_s": 5.644690440000001e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS1",
+                "result": [
+                    1.0856798894901441e-09,
+                    1.7872468708059762e-09
+                ],
+                "error": [
+                    3.416821624676311e-12,
+                    3.3939799738775208e-12
+                ],
+                "analytical_result": [
+                    1.0856798894901441e-09,
+                    1.7872468708059762e-09
+                ],
+                "n_unique_existing_E_surface": 13,
+                "n_sources": 19,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        6,
+                        7,
+                        9
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                    ]
+                ],
+                "max_radius": 0.4159338949703277,
+                "min_radius": 0.033482813142338155,
+                "n_cuts": 19,
+                "t_per_ps_point_in_s": 8.64951569e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS1_massive",
+                "result": [
+                    1.977983177724209e-09,
+                    1.1320930167596504e-09
+                ],
+                "error": [
+                    1.3936901047640799e-11,
+                    1.1729515237014419e-11
+                ],
+                "analytical_result": [
+                    1.977983177724209e-09,
+                    1.1320930167596504e-09
+                ],
+                "n_unique_existing_E_surface": 10,
+                "n_sources": 20,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        5,
+                        6,
+                        8,
+                        9
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9
+                    ]
+                ],
+                "max_radius": 0.878529589709522,
+                "min_radius": 0.03015452495369546,
+                "n_cuts": 19,
+                "t_per_ps_point_in_s": 9.679733460000001e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS2",
+                "result": [
+                    2.0984793198905064e-13,
+                    2.0402187779153092e-13
+                ],
+                "error": [
+                    6.478084648015487e-16,
+                    6.480375172938463e-16
+                ],
+                "analytical_result": [
+                    2.0984793198905064e-13,
+                    2.0402187779153092e-13
+                ],
+                "n_unique_existing_E_surface": 13,
+                "n_sources": 19,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        6,
+                        7,
+                        9
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                    ]
+                ],
+                "max_radius": 1.676590159348396,
+                "min_radius": 0.011133113326724767,
+                "n_cuts": 19,
+                "t_per_ps_point_in_s": 8.64442922e-05
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_A_PS1",
+                "result": [
+                    5.116165131447944e-11,
+                    -5.556959240002467e-12
+                ],
+                "error": [
+                    2.343113654073892e-12,
+                    2.3883112774493996e-12
+                ],
+                "analytical_result": [
+                    5.116165131447944e-11,
+                    -5.556959240002467e-12
+                ],
+                "n_unique_existing_E_surface": 8,
+                "n_sources": 27,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7
+                    ]
+                ],
+                "max_radius": 0.528879035810358,
+                "min_radius": 0.006991331734381879,
+                "n_cuts": 20,
+                "t_per_ps_point_in_s": 0.0001280367319
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_A_PS1_massive",
+                "result": [
+                    5.839327657372826e-12,
+                    -3.7152741134555785e-11
+                ],
+                "error": [
+                    1.1373629306538307e-11,
+                    6.689445850009276e-12
+                ],
+                "analytical_result": [
+                    5.839327657372826e-12,
+                    -3.7152741134555785e-11
+                ],
+                "n_unique_existing_E_surface": 3,
+                "n_sources": 26,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2
+                    ]
+                ],
+                "max_radius": 0.9222336272830339,
+                "min_radius": 0.001378736757543833,
+                "n_cuts": 20,
+                "t_per_ps_point_in_s": 0.0001317517467
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS1",
+                "result": [
+                    2.956566121482507e-11,
+                    4.68119639272256e-11
+                ],
+                "error": [
+                    3.4165020399556855e-13,
+                    3.5082981883533075e-13
+                ],
+                "analytical_result": [
+                    2.956566121482507e-11,
+                    4.68119639272256e-11
+                ],
+                "n_unique_existing_E_surface": 17,
+                "n_sources": 30,
+                "maximal_overlap": [
+                    [
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14
+                    ],
+                    [
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        12,
+                        13,
+                        14
+                    ],
+                    [
+                        3,
+                        4,
+                        5,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        8,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        10,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16
+                    ]
+                ],
+                "max_radius": 0.5288790436155362,
+                "min_radius": 0.013482133325152187,
+                "n_cuts": 23,
+                "t_per_ps_point_in_s": 0.0001239934836
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS1_massive",
+                "result": [
+                    5.1500178915463075e-11,
+                    2.3205006761738405e-11
+                ],
+                "error": [
+                    9.716122218938914e-13,
+                    9.093617043744624e-13
+                ],
+                "analytical_result": [
+                    5.1500178915463075e-11,
+                    2.3205006761738405e-11
+                ],
+                "n_unique_existing_E_surface": 13,
+                "n_sources": 27,
+                "maximal_overlap": [
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        11
+                    ],
+                    [
+                        2,
+                        3,
+                        4,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11
+                    ],
+                    [
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        10,
+                        11
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        6,
+                        7,
+                        9,
+                        11,
+                        12
+                    ],
+                    [
+                        0,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        11,
+                        12
+                    ]
+                ],
+                "max_radius": 0.922233627127567,
+                "min_radius": 0.0013787357571654116,
+                "n_cuts": 23,
+                "t_per_ps_point_in_s": 0.0001275511154
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS2",
+                "result": [
+                    1.4090938630627075e-16,
+                    1.9220833299969164e-16
+                ],
+                "error": [
+                    9.403455143125121e-18,
+                    7.902968764949365e-18
+                ],
+                "analytical_result": [
+                    1.4090938630627075e-16,
+                    1.9220833299969164e-16
+                ],
+                "n_unique_existing_E_surface": 17,
+                "n_sources": 22,
+                "maximal_overlap": [
+                    [
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14
+                    ],
+                    [
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        10,
+                        12,
+                        13,
+                        14
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        7,
+                        8,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16
+                    ]
+                ],
+                "max_radius": 1.3350515757354544,
+                "min_radius": 0.000743122367722821,
+                "n_cuts": 23,
+                "t_per_ps_point_in_s": 0.0001097007576
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS1",
+                "result": [
+                    8.182824072432374e-11,
+                    -2.7105629297488067e-11
+                ],
+                "error": [
+                    2.245729540825606e-12,
+                    2.25385190073319e-12
+                ],
+                "analytical_result": [
+                    8.182824072432374e-11,
+                    -2.7105629297488067e-11
+                ],
+                "n_unique_existing_E_surface": 11,
+                "n_sources": 42,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        6,
+                        7,
+                        8
+                    ],
+                    [
+                        2,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        4,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10
+                    ]
+                ],
+                "max_radius": 0.5288790360067178,
+                "min_radius": 0.00887559913578973,
+                "n_cuts": 24,
+                "t_per_ps_point_in_s": 0.0001497874644
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS1_massive",
+                "result": [
+                    1.009647003657765e-10,
+                    1.1284877224939933e-11
+                ],
+                "error": [
+                    1.316769694620832e-12,
+                    1.2843776386091794e-12
+                ],
+                "analytical_result": [
+                    1.009647003657765e-10,
+                    1.1284877224939933e-11
+                ],
+                "n_unique_existing_E_surface": 8,
+                "n_sources": 29,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        4,
+                        5,
+                        6
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        4,
+                        6,
+                        7
+                    ]
+                ],
+                "max_radius": 0.6733668397133831,
+                "min_radius": 0.0013787363113005973,
+                "n_cuts": 24,
+                "t_per_ps_point_in_s": 0.0001463209416
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS2",
+                "result": [
+                    1.3334868120266596e-16,
+                    -1.3219353010413515e-16
+                ],
+                "error": [
+                    1.1528580725557766e-17,
+                    1.104004887566747e-17
+                ],
+                "analytical_result": [
+                    1.3334868120266596e-16,
+                    -1.3219353010413515e-16
+                ],
+                "n_unique_existing_E_surface": 11,
+                "n_sources": 29,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8
+                    ],
+                    [
+                        1,
+                        2,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10
+                    ]
+                ],
+                "max_radius": 1.3350515565339256,
+                "min_radius": 0.0006750639054137242,
+                "n_cuts": 24,
+                "t_per_ps_point_in_s": 0.0001213317593
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS1",
+                "result": [
+                    -2.1374391603194317e-10,
+                    -2.2802544193371526e-10
+                ],
+                "error": [
+                    4.393772360139206e-11,
+                    4.441193362548826e-11
+                ],
+                "analytical_result": [
+                    -2.1374391603194317e-10,
+                    -2.2802544193371526e-10
+                ],
+                "n_unique_existing_E_surface": 14,
+                "n_sources": 42,
+                "maximal_overlap": [
+                    [
+                        1,
+                        11,
+                        12,
+                        13
+                    ],
+                    [
+                        7,
+                        9,
+                        10,
+                        11,
+                        13
+                    ],
+                    [
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        11,
+                        12
+                    ],
+                    [
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        11
+                    ]
+                ],
+                "max_radius": 0.5762233021043146,
+                "min_radius": 0.006991330818143148,
+                "n_cuts": 24,
+                "t_per_ps_point_in_s": 0.00016573885020000002
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS1_massive",
+                "result": [
+                    7.259545159811602e-12,
+                    3.325486351763833e-10
+                ],
+                "error": [
+                    2.0970565807064986e-10,
+                    1.8465981368028412e-10
+                ],
+                "analytical_result": [
+                    7.259545159811602e-12,
+                    3.325486351763833e-10
+                ],
+                "n_unique_existing_E_surface": 9,
+                "n_sources": 43,
+                "maximal_overlap": [
+                    [
+                        0
+                    ],
+                    [
+                        4,
+                        5,
+                        7,
+                        8
+                    ],
+                    [
+                        3,
+                        4,
+                        5,
+                        6,
+                        7
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        7
+                    ],
+                    [
+                        1,
+                        4,
+                        5,
+                        6,
+                        7
+                    ]
+                ],
+                "max_radius": 0.8709768434836987,
+                "min_radius": 7.424927592696945e-05,
+                "n_cuts": 24,
+                "t_per_ps_point_in_s": 0.00018238465020000002
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS2",
+                "result": [
+                    -1.122887180222142e-15,
+                    -7.517955108256789e-16
+                ],
+                "error": [
+                    2.883410310553921e-16,
+                    2.5681550343684556e-16
+                ],
+                "analytical_result": [
+                    -1.122887180222142e-15,
+                    -7.517955108256789e-16
+                ],
+                "n_unique_existing_E_surface": 14,
+                "n_sources": 35,
+                "maximal_overlap": [
+                    [
+                        7,
+                        9,
+                        10,
+                        11,
+                        13
+                    ],
+                    [
+                        1,
+                        11,
+                        12,
+                        13
+                    ],
+                    [
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11
+                    ],
+                    [
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        11
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        11,
+                        12
+                    ],
+                    [
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        11
+                    ]
+                ],
+                "max_radius": 2.2782755985131717,
+                "min_radius": 0.0009034374774049209,
+                "n_cuts": 24,
+                "t_per_ps_point_in_s": 0.0001534603232
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS1",
+                "result": [
+                    -1.8607212414278776e-10,
+                    1.05299878179026e-10
+                ],
+                "error": [
+                    1.7348673011411574e-10,
+                    1.5253574088842638e-10
+                ],
+                "analytical_result": [
+                    -1.8607212414278776e-10,
+                    1.05299878179026e-10
+                ],
+                "n_unique_existing_E_surface": 14,
+                "n_sources": 54,
+                "maximal_overlap": [
+                    [
+                        7,
+                        8,
+                        10,
+                        13
+                    ],
+                    [
+                        1,
+                        2,
+                        9,
+                        10,
+                        11,
+                        12
+                    ],
+                    [
+                        1,
+                        2,
+                        10,
+                        11,
+                        12,
+                        13
+                    ],
+                    [
+                        2,
+                        9,
+                        10,
+                        12,
+                        13
+                    ],
+                    [
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        10
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        10,
+                        11,
+                        12
+                    ]
+                ],
+                "max_radius": 0.8672080126685481,
+                "min_radius": 0.0069913317322468195,
+                "n_cuts": 26,
+                "t_per_ps_point_in_s": 0.00020349362040000002
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS1_massive",
+                "result": [
+                    2.996070070987269e-10,
+                    -8.660060559902229e-10
+                ],
+                "error": [
+                    5.959039118889163e-10,
+                    6.934309694380763e-10
+                ],
+                "analytical_result": [
+                    2.996070070987269e-10,
+                    -8.660060559902229e-10
+                ],
+                "n_unique_existing_E_surface": 9,
+                "n_sources": 60,
+                "maximal_overlap": [
+                    [
+                        4,
+                        5,
+                        6
+                    ],
+                    [
+                        2,
+                        5,
+                        6
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        8
+                    ],
+                    [
+                        0,
+                        1,
+                        7,
+                        8
+                    ],
+                    [
+                        2,
+                        3,
+                        4,
+                        5
+                    ]
+                ],
+                "max_radius": 1.8444672566685956,
+                "min_radius": 7.302643283766954e-05,
+                "n_cuts": 26,
+                "t_per_ps_point_in_s": 0.00024012152090000001
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS2",
+                "result": [
+                    -6.100933120775711e-16,
+                    -8.017450547953937e-16
+                ],
+                "error": [
+                    3.9645106712309796e-16,
+                    3.4339132523998653e-16
+                ],
+                "analytical_result": [
+                    -6.100933120775711e-16,
+                    -8.017450547953937e-16
+                ],
+                "n_unique_existing_E_surface": 14,
+                "n_sources": 45,
+                "maximal_overlap": [
+                    [
+                        6,
+                        7,
+                        8,
+                        10
+                    ],
+                    [
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        10
+                    ],
+                    [
+                        7,
+                        8,
+                        10,
+                        13
+                    ],
+                    [
+                        1,
+                        2,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        10,
+                        11,
+                        12
+                    ]
+                ],
+                "max_radius": 1.931707398007825,
+                "min_radius": 0.0012575291032826386,
+                "n_cuts": 26,
+                "t_per_ps_point_in_s": 0.000193123193
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_F_PS1",
+                "result": [
+                    1.3663200007070824e-10,
+                    -4.202614169157134e-11
+                ],
+                "error": [
+                    6.681053581175865e-11,
+                    5.6376226849911584e-11
+                ],
+                "analytical_result": [
+                    1.3663200007070824e-10,
+                    -4.202614169157134e-11
+                ],
+                "n_unique_existing_E_surface": 13,
+                "n_sources": 47,
+                "maximal_overlap": [
+                    [
+                        5,
+                        6,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        8,
+                        9,
+                        10
+                    ],
+                    [
+                        2,
+                        3,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11
+                    ],
+                    [
+                        0,
+                        1,
+                        4,
+                        5,
+                        6,
+                        8,
+                        9,
+                        10
+                    ],
+                    [
+                        2,
+                        3,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                    ],
+                    [
+                        3,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                    ]
+                ],
+                "max_radius": 0.5288790362336162,
+                "min_radius": 0.010172195843792304,
+                "n_cuts": 27,
+                "t_per_ps_point_in_s": 0.0001829533483
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_F_PS2",
+                "result": [
+                    4.72004266330888e-16,
+                    1.9382232988940075e-16
+                ],
+                "error": [
+                    5.672252402429817e-17,
+                    4.913813749759046e-17
+                ],
+                "analytical_result": [
+                    4.72004266330888e-16,
+                    1.9382232988940075e-16
+                ],
+                "n_unique_existing_E_surface": 13,
+                "n_sources": 36,
+                "maximal_overlap": [
+                    [
+                        4,
+                        5,
+                        6,
+                        8,
+                        9,
+                        10
+                    ],
+                    [
+                        0,
+                        1,
+                        4,
+                        5,
+                        8,
+                        9,
+                        10
+                    ],
+                    [
+                        5,
+                        6,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        8,
+                        9,
+                        10
+                    ],
+                    [
+                        2,
+                        3,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                    ]
+                ],
+                "max_radius": 1.8359602011505087,
+                "min_radius": 0.007944516520903281,
+                "n_cuts": 27,
+                "t_per_ps_point_in_s": 0.0001633514853
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS1",
+                "result": [
+                    -5.3675882160942215e-11,
+                    -1.0582632422333834e-11
+                ],
+                "error": [
+                    1.410997778697291e-12,
+                    1.3398520901632602e-12
+                ],
+                "analytical_result": [
+                    -5.303094768489694e-11,
+                    -1.078029964042433e-11
+                ],
+                "n_unique_existing_E_surface": 17,
+                "n_sources": 49,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16
+                    ]
+                ],
+                "max_radius": 0.2642700911758049,
+                "min_radius": 0.04196007792221812,
+                "n_cuts": 56,
+                "t_per_ps_point_in_s": 0.00036567080800000004
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS1_massive",
+                "result": [
+                    -3.155807574416003e-11,
+                    2.973675043217186e-11
+                ],
+                "error": [
+                    6.394996863044947e-14,
+                    6.330568178511108e-14
+                ],
+                "analytical_result": [
+                    -3.155807574416003e-11,
+                    2.973675043217186e-11
+                ],
+                "n_unique_existing_E_surface": 7,
+                "n_sources": 61,
+                "maximal_overlap": [
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        6
+                    ],
+                    [
+                        0,
+                        2,
+                        4,
+                        5,
+                        6
+                    ]
+                ],
+                "max_radius": 5.744562646360903,
+                "min_radius": 0.0327341388361846,
+                "n_cuts": 56,
+                "t_per_ps_point_in_s": 0.000454418048
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS2",
+                "result": [
+                    -4.462258052820368e-14,
+                    -7.294134047842756e-15
+                ],
+                "error": [
+                    1.002211744783152e-15,
+                    9.918203091504948e-16
+                ],
+                "analytical_result": [
+                    -4.470474109666373e-14,
+                    -6.638346528721428e-15
+                ],
+                "n_unique_existing_E_surface": 17,
+                "n_sources": 49,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16
+                    ]
+                ],
+                "max_radius": 0.3987732635149225,
+                "min_radius": 0.016741135703276275,
+                "n_cuts": 56,
+                "t_per_ps_point_in_s": 0.000378096276
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS1",
+                "result": [
+                    -3.287944403956112e-06,
+                    -2.902185433713156e-07
+                ],
+                "error": [
+                    7.308165156385945e-08,
+                    7.634534686679064e-08
+                ],
+                "analytical_result": [
+                    -3.287944403956112e-06,
+                    -2.902185433713156e-07
+                ],
+                "n_unique_existing_E_surface": 20,
+                "n_sources": 80,
+                "maximal_overlap": [
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        10,
+                        12,
+                        14,
+                        15,
+                        16,
+                        17
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19
+                    ]
+                ],
+                "max_radius": 0.07331530556205731,
+                "min_radius": 0.0014492112894892667,
+                "n_cuts": 71,
+                "t_per_ps_point_in_s": 0.000502656126
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS1_massive",
+                "result": [
+                    4.586402157435065e-07,
+                    1.805228129447466e-07
+                ],
+                "error": [
+                    6.09269648196224e-10,
+                    6.447258433307229e-10
+                ],
+                "analytical_result": [
+                    4.586402157435065e-07,
+                    1.805228129447466e-07
+                ],
+                "n_unique_existing_E_surface": 3,
+                "n_sources": 57,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2
+                    ]
+                ],
+                "max_radius": 1.4417612630511902,
+                "min_radius": 0.01639779383689358,
+                "n_cuts": 71,
+                "t_per_ps_point_in_s": 0.00042692733500000003
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS2",
+                "result": [
+                    -1.614751730144308e-17,
+                    2.56543509909929e-18
+                ],
+                "error": [
+                    1.4276672029058236e-18,
+                    1.3621411151470087e-18
+                ],
+                "analytical_result": [
+                    -1.614751730144308e-17,
+                    2.56543509909929e-18
+                ],
+                "n_unique_existing_E_surface": 20,
+                "n_sources": 103,
+                "maximal_overlap": [
+                    [
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        9,
+                        10,
+                        12,
+                        14,
+                        15,
+                        16,
+                        17
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        7,
+                        9,
+                        10,
+                        12,
+                        14,
+                        15,
+                        16,
+                        17
+                    ],
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19
+                    ]
+                ],
+                "max_radius": 2.514885355217841,
+                "min_radius": 0.0111331133001966,
+                "n_cuts": 71,
+                "t_per_ps_point_in_s": 0.0005891120760000001
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS1",
+                "result": [
+                    6.098247366997505e-15,
+                    5.630690356750322e-15
+                ],
+                "error": [
+                    1.0104867699509024e-14,
+                    1.0089107769829973e-14
+                ],
+                "analytical_result": [
+                    1.1020376698775988e-14,
+                    -1.4741193196133204e-14
+                ],
+                "n_unique_existing_E_surface": 28,
+                "n_sources": 270,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25,
+                        26,
+                        27
+                    ]
+                ],
+                "max_radius": 0.22346147317628398,
+                "min_radius": 0.04196002948006614,
+                "n_cuts": 209,
+                "t_per_ps_point_in_s": 0.0028177811720000003
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS1_massive",
+                "result": [
+                    -6.6831580354940224e-15,
+                    -6.7982587272047286e-15
+                ],
+                "error": [
+                    1.771965851544091e-16,
+                    1.7766505132787742e-16
+                ],
+                "analytical_result": [
+                    -6.6831580354940224e-15,
+                    -6.7982587272047286e-15
+                ],
+                "n_unique_existing_E_surface": 14,
+                "n_sources": 297,
+                "maximal_overlap": [
+                    [
+                        1,
+                        2,
+                        3,
+                        5,
+                        6,
+                        7,
+                        9,
+                        10,
+                        11,
+                        13
+                    ],
+                    [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        7,
+                        8,
+                        9,
+                        10,
+                        13
+                    ],
+                    [
+                        0,
+                        1,
+                        3,
+                        6,
+                        7,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13
+                    ]
+                ],
+                "max_radius": 11.23888339516857,
+                "min_radius": 0.22290542749998618,
+                "n_cuts": 209,
+                "t_per_ps_point_in_s": 0.003370922817
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS2",
+                "result": [
+                    2.731968361970202e-18,
+                    -2.1396544346030555e-18
+                ],
+                "error": [
+                    1.4483024606962559e-18,
+                    1.5636701035885256e-18
+                ],
+                "analytical_result": [
+                    1.4474899542195504e-18,
+                    -2.1889661046627023e-18
+                ],
+                "n_unique_existing_E_surface": 26,
+                "n_sources": 270,
+                "maximal_overlap": [
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25
+                    ]
+                ],
+                "max_radius": 0.3830251112530791,
+                "min_radius": 0.01674114637007546,
+                "n_cuts": 209,
+                "t_per_ps_point_in_s": 0.003520676695
+            }
+        ]
+    },
+    "1574804410.777751": {
+        "hyperparameters": {
+            "Deformation": {
+                "additive": {
+                    "a_ij": 0.01,
+                    "a_ijs": [],
+                    "mode": "exponential"
+                },
+                "fixed": {
+                    "M_ij": 1.0,
+                    "a_ijs": [],
+                    "delta": 0.3,
+                    "include_normal_source": false,
+                    "local": false,
+                    "m_ijs": [],
+                    "mode": "hyperbolic",
+                    "normalisation_of_subspace_components": true,
+                    "normalisation_per_number_of_sources": true,
+                    "normalize_per_source": false,
+                    "sigma": 0.0,
+                    "source_dampening_factor": -0.0005
+                },
+                "lambdas": [],
+                "max_iterations": 1,
+                "normalize_on_E_surfaces_m": -1.0,
+                "overall_scaling": "constant",
+                "overall_scaling_constant": 1.0,
+                "scaling": {
+                    "branch_cut_m": -1.0,
+                    "cut_propagator_check": false,
+                    "expansion_check": true,
+                    "expansion_check_strategy": "ratio",
+                    "expansion_threshold": -0.3,
+                    "lambda": 10.0,
+                    "non_cut_propagator_check": true,
+                    "pole_check_strategy": "real_solution",
+                    "positive_cut_check": true,
+                    "skip_hyperboloids": true,
+                    "softmin_sigma": 0.0,
+                    "source_branch_cut_m": -1.0,
+                    "source_branch_cut_multiplier": 0.8,
+                    "source_branch_cut_threshold": 0.8,
+                    "theta_c": 2.0,
+                    "theta_r_in": 2.0,
+                    "theta_r_out": 2.0
+                },
+                "stability_threshold": -1
+            },
+            "General": {
+                "absolute_precision": 1e+99,
+                "amplitude": "",
+                "cut_filter": [],
+                "debug": 0,
+                "deformation_strategy": "fixed",
+                "integration_statistics": false,
+                "log_file_prefix": "stats/statistics",
+                "log_points_to_screen": false,
+                "log_stats_to_screen": false,
+                "minimal_precision_for_returning_result": 2.0,
+                "mu_uv_sq_re_im": [
+                    10000.0,
+                    0
+                ],
+                "multi_channeling": false,
+                "multi_channeling_channel": null,
+                "num_digits_different_for_inconsistency": 10.0,
+                "numerical_instability_check": true,
+                "numerical_threshold": 0.0,
+                "python_numerator": null,
+                "relative_precision": 3.0,
+                "res_file_prefix": "",
+                "screen_log_core": 1,
+                "statistics_interval": 100000,
+                "topology": "Box",
+                "unstable_point_warning_percentage": 1.0,
+                "use_collinear_ct": false,
+                "use_ct": false
+            },
+            "Integrator": {
+                "border": 0.001,
+                "eps_abs": 0.0,
+                "eps_rel": 1e-08,
+                "flatness": 50.0,
+                "integrated_phase": "both",
+                "integrator": "vegas",
+                "keep_state_file": false,
+                "max_pass": 5,
+                "maxchisq": 0.0,
+                "mindeviation": 0.025,
+                "n_increase": 100000,
+                "n_max": 10000000000,
+                "n_min": 2,
+                "n_new": 100000,
+                "n_start": 100000,
+                "n_vec": 1,
+                "refine_n_points": 0,
+                "refine_n_runs": 0,
+                "reset_vegas_integrator": true,
+                "seed": 1,
+                "state_filename_prefix": null,
+                "survey_n_iterations": 0,
+                "survey_n_points": 0,
+                "use_only_last_sample": false
+            },
+            "Parameterization": {
+                "b": 1.0,
+                "input_rescaling": [
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ],
+                    [
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ],
+                        [
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                ],
+                "mapping": "linear",
+                "mode": "spherical",
+                "shifts": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                ]
+            }
+        },
+        "diff": "diff --git a/LTD/ltd_commons.py b/LTD/ltd_commons.py\nindex 328aa81..ae096ac 100755\n--- a/LTD/ltd_commons.py\n+++ b/LTD/ltd_commons.py\n@@ -135,9 +135,9 @@ hyperparameters = HyperParameters({\n             'source_branch_cut_multiplier' : 0.8,\n             # the strategy can be real_solution (the old method), exact (for 1 loop), and tangent_check\n             'pole_check_strategy'       : 'real_solution',\n-            'theta_r_out'               : 10.,\n-            'theta_r_in'                : 10.,\n-            'theta_c'                   : 10.,\n+            'theta_r_out'               : 2.,\n+            'theta_r_in'                : 2.,\n+            'theta_c'                   : 2.,\n         },\n \n         'additive'              :   {\ndiff --git a/submission_template.run b/submission_template.run\nindex c871b1c..0142515 100644\n--- a/submission_template.run\n+++ b/submission_template.run\n@@ -11,6 +11,7 @@\n #SBATCH --output=%(output)s\n #SBATCH --error=%(error)s\n #SBATCH --mail-type=start,end,fail\n+#SBATCH --account=%(account)s\n \n echo $SLURM_CPUS_PER_TASK",
+        "samples": [
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS1",
+                "result": [
+                    3.096462376065025e-08,
+                    9.539519190341305e-08
+                ],
+                "error": [
+                    6.959881148187004e-11,
+                    7.059843045426797e-11
+                ],
+                "analytical_result": [
+                    3.110526759643106e-08,
+                    9.538852706631552e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS1_massive",
+                "result": [
+                    8.155594786354984e-08,
+                    6.102773177540178e-08
+                ],
+                "error": [
+                    1.2308024455964698e-11,
+                    1.2385850671170905e-11
+                ],
+                "analytical_result": [
+                    8.155594786354984e-08,
+                    6.102773177540178e-08
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_4P_Ladder_PS2",
+                "result": [
+                    1.7025288982884703e-10,
+                    4.56488312942612e-10
+                ],
+                "error": [
+                    2.8498338693386363e-13,
+                    2.913236408165091e-13
+                ],
+                "analytical_result": [
+                    1.7037231328859816e-10,
+                    4.5649721854137276e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS1",
+                "result": [
+                    1.0856798894901441e-09,
+                    1.7872468708059762e-09
+                ],
+                "error": [
+                    3.416821624676311e-12,
+                    3.3939799738775208e-12
+                ],
+                "analytical_result": [
+                    1.0856798894901441e-09,
+                    1.7872468708059762e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS1_massive",
+                "result": [
+                    1.977983177724209e-09,
+                    1.1320930167596504e-09
+                ],
+                "error": [
+                    1.3936901047640799e-11,
+                    1.1729515237014419e-11
+                ],
+                "analytical_result": [
+                    1.977983177724209e-09,
+                    1.1320930167596504e-09
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_5P_Planar_PS2",
+                "result": [
+                    2.0984793198905064e-13,
+                    2.0402187779153092e-13
+                ],
+                "error": [
+                    6.478084648015487e-16,
+                    6.480375172938463e-16
+                ],
+                "analytical_result": [
+                    2.0984793198905064e-13,
+                    2.0402187779153092e-13
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_A_PS1",
+                "result": [
+                    5.116165131447944e-11,
+                    -5.556959240002467e-12
+                ],
+                "error": [
+                    2.343113654073892e-12,
+                    2.3883112774493996e-12
+                ],
+                "analytical_result": [
+                    5.116165131447944e-11,
+                    -5.556959240002467e-12
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_A_PS1_massive",
+                "result": [
+                    5.839327657372826e-12,
+                    -3.7152741134555785e-11
+                ],
+                "error": [
+                    1.1373629306538307e-11,
+                    6.689445850009276e-12
+                ],
+                "analytical_result": [
+                    5.839327657372826e-12,
+                    -3.7152741134555785e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS1",
+                "result": [
+                    2.956566121482507e-11,
+                    4.68119639272256e-11
+                ],
+                "error": [
+                    3.4165020399556855e-13,
+                    3.5082981883533075e-13
+                ],
+                "analytical_result": [
+                    2.956566121482507e-11,
+                    4.68119639272256e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS1_massive",
+                "result": [
+                    5.1500178915463075e-11,
+                    2.3205006761738405e-11
+                ],
+                "error": [
+                    9.716122218938914e-13,
+                    9.093617043744624e-13
+                ],
+                "analytical_result": [
+                    5.1500178915463075e-11,
+                    2.3205006761738405e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_B_PS2",
+                "result": [
+                    1.4090938630627075e-16,
+                    1.9220833299969164e-16
+                ],
+                "error": [
+                    9.403455143125121e-18,
+                    7.902968764949365e-18
+                ],
+                "analytical_result": [
+                    1.4090938630627075e-16,
+                    1.9220833299969164e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS1",
+                "result": [
+                    8.182824072432374e-11,
+                    -2.7105629297488067e-11
+                ],
+                "error": [
+                    2.245729540825606e-12,
+                    2.25385190073319e-12
+                ],
+                "analytical_result": [
+                    8.182824072432374e-11,
+                    -2.7105629297488067e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS1_massive",
+                "result": [
+                    1.009647003657765e-10,
+                    1.1284877224939933e-11
+                ],
+                "error": [
+                    1.316769694620832e-12,
+                    1.2843776386091794e-12
+                ],
+                "analytical_result": [
+                    1.009647003657765e-10,
+                    1.1284877224939933e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_C_PS2",
+                "result": [
+                    1.3334868120266596e-16,
+                    -1.3219353010413515e-16
+                ],
+                "error": [
+                    1.1528580725557766e-17,
+                    1.104004887566747e-17
+                ],
+                "analytical_result": [
+                    1.3334868120266596e-16,
+                    -1.3219353010413515e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS1",
+                "result": [
+                    -2.1374391603194317e-10,
+                    -2.2802544193371526e-10
+                ],
+                "error": [
+                    4.393772360139206e-11,
+                    4.441193362548826e-11
+                ],
+                "analytical_result": [
+                    -2.1374391603194317e-10,
+                    -2.2802544193371526e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS1_massive",
+                "result": [
+                    7.259545159811602e-12,
+                    3.325486351763833e-10
+                ],
+                "error": [
+                    2.0970565807064986e-10,
+                    1.8465981368028412e-10
+                ],
+                "analytical_result": [
+                    7.259545159811602e-12,
+                    3.325486351763833e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_D_PS2",
+                "result": [
+                    -1.122887180222142e-15,
+                    -7.517955108256789e-16
+                ],
+                "error": [
+                    2.883410310553921e-16,
+                    2.5681550343684556e-16
+                ],
+                "analytical_result": [
+                    -1.122887180222142e-15,
+                    -7.517955108256789e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS1",
+                "result": [
+                    -1.8607212414278776e-10,
+                    1.05299878179026e-10
+                ],
+                "error": [
+                    1.7348673011411574e-10,
+                    1.5253574088842638e-10
+                ],
+                "analytical_result": [
+                    -1.8607212414278776e-10,
+                    1.05299878179026e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS1_massive",
+                "result": [
+                    2.996070070987269e-10,
+                    -8.660060559902229e-10
+                ],
+                "error": [
+                    5.959039118889163e-10,
+                    6.934309694380763e-10
+                ],
+                "analytical_result": [
+                    2.996070070987269e-10,
+                    -8.660060559902229e-10
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_E_PS2",
+                "result": [
+                    -6.100933120775711e-16,
+                    -8.017450547953937e-16
+                ],
+                "error": [
+                    3.9645106712309796e-16,
+                    3.4339132523998653e-16
+                ],
+                "analytical_result": [
+                    -6.100933120775711e-16,
+                    -8.017450547953937e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_F_PS1",
+                "result": [
+                    1.3663200007070824e-10,
+                    -4.202614169157134e-11
+                ],
+                "error": [
+                    6.681053581175865e-11,
+                    5.6376226849911584e-11
+                ],
+                "analytical_result": [
+                    1.3663200007070824e-10,
+                    -4.202614169157134e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 3000000000,
+                "topology": "2L_6P_F_PS2",
+                "result": [
+                    4.72004266330888e-16,
+                    1.9382232988940075e-16
+                ],
+                "error": [
+                    5.672252402429817e-17,
+                    4.913813749759046e-17
+                ],
+                "analytical_result": [
+                    4.72004266330888e-16,
+                    1.9382232988940075e-16
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS1",
+                "result": [
+                    -5.3675882160942215e-11,
+                    -1.0582632422333834e-11
+                ],
+                "error": [
+                    1.410997778697291e-12,
+                    1.3398520901632602e-12
+                ],
+                "analytical_result": [
+                    -5.303094768489694e-11,
+                    -1.078029964042433e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS1_massive",
+                "result": [
+                    -3.155807574416003e-11,
+                    2.973675043217186e-11
+                ],
+                "error": [
+                    6.394996863044947e-14,
+                    6.330568178511108e-14
+                ],
+                "analytical_result": [
+                    -3.155807574416003e-11,
+                    2.973675043217186e-11
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_4P_Ladder_PS2",
+                "result": [
+                    -4.462258052820368e-14,
+                    -7.294134047842756e-15
+                ],
+                "error": [
+                    1.002211744783152e-15,
+                    9.918203091504948e-16
+                ],
+                "analytical_result": [
+                    -4.470474109666373e-14,
+                    -6.638346528721428e-15
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS1",
+                "result": [
+                    -3.287944403956112e-06,
+                    -2.902185433713156e-07
+                ],
+                "error": [
+                    7.308165156385945e-08,
+                    7.634534686679064e-08
+                ],
+                "analytical_result": [
+                    -3.287944403956112e-06,
+                    -2.902185433713156e-07
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS1_massive",
+                "result": [
+                    4.586402157435065e-07,
+                    1.805228129447466e-07
+                ],
+                "error": [
+                    6.09269648196224e-10,
+                    6.447258433307229e-10
+                ],
+                "analytical_result": [
+                    4.586402157435065e-07,
+                    1.805228129447466e-07
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 1000000000,
+                "topology": "3L_5P_Planar_PS2",
+                "result": [
+                    -1.614751730144308e-17,
+                    2.56543509909929e-18
+                ],
+                "error": [
+                    1.4276672029058236e-18,
+                    1.3621411151470087e-18
+                ],
+                "analytical_result": [
+                    -1.614751730144308e-17,
+                    2.56543509909929e-18
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS1",
+                "result": [
+                    6.098247366997505e-15,
+                    5.630690356750322e-15
+                ],
+                "error": [
+                    1.0104867699509024e-14,
+                    1.0089107769829973e-14
+                ],
+                "analytical_result": [
+                    1.1020376698775988e-14,
+                    -1.4741193196133204e-14
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS1_massive",
+                "result": [
+                    -6.6831580354940224e-15,
+                    -6.7982587272047286e-15
+                ],
+                "error": [
+                    1.771965851544091e-16,
+                    1.7766505132787742e-16
+                ],
+                "analytical_result": [
+                    -6.6831580354940224e-15,
+                    -6.7982587272047286e-15
+                ]
+            },
+            {
+                "revision": "e58c4b7",
+                "diff": false,
+                "num_samples": 500000000,
+                "topology": "4L_4P_Ladder_PS2",
+                "result": [
+                    2.731968361970202e-18,
+                    -2.1396544346030555e-18
+                ],
+                "error": [
+                    1.4483024606962559e-18,
+                    1.5636701035885256e-18
+                ],
+                "analytical_result": [
+                    1.4474899542195504e-18,
+                    -2.1889661046627023e-18
+                ]
+            }
+        ]
+    }
+}
