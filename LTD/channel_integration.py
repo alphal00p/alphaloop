@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
 import sys
 import copy
@@ -103,15 +103,15 @@ def load_results_from_yaml(log_file_path):
 def run_topology(topo,dir_name, index, n_hours, local=True):
     """ Run topology of specified index and directory locally or on a SLURM scheduled cluster."""
     if _RUN_LOCALLY:
-       print "Now running %s topology with channel #%d"%(dir_name, index)
+       print("Now running %s topology with channel #%d"%(dir_name, index))
     else:
-       print "Now launch job for %s topology with channel #%d"%(dir_name, index)
+       print("Now launch job for %s topology with channel #%d"%(dir_name, index))
         
     if os.path.exists(pjoin(root_path,dir_name,'amplitudes.yaml')):
         amplitude_path = pjoin(root_path,dir_name,'amplitudes.yaml')
     else:
         if not os.path.exists(pjoin(root_path,'amplitudes.yaml')):
-            print "ERROR: make sure the file 'amplitude.yaml' can be found at '%s'."%pjoin(root_path,'amplitudes.yaml')
+            print("ERROR: make sure the file 'amplitude.yaml' can be found at '%s'."%pjoin(root_path,'amplitudes.yaml'))
             sys.exit(1)
         amplitude_path = pjoin(root_path,'amplitudes.yaml')
 
@@ -165,7 +165,7 @@ def run_topology(topo,dir_name, index, n_hours, local=True):
 
     result_path = pjoin(root_path,dir_name,'channel_%d_%s_res.dat'%(index,_TOPOLOGY))
     if not os.path.isfile(result_path):
-        print("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path )
+        print(("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path ))
     else:
         str_data = open(result_path,'r').read()
         # Some weird I/O issue of rust
@@ -194,8 +194,8 @@ def combine_results(results, verbose=True, individual_channel_results=True):
     n_tot_points = 0
     for i_channel, channel_result in enumerate(results['channel_results']):
         if verbose and individual_channel_results:
-            print("Result for channel %d = %.8e +/- %.3e (n_points=%.1fM)"%(
-                i_channel, channel_result[0][0], channel_result[0][1],channel_result[1]/1.0e6))
+            print(("Result for channel %d = %.8e +/- %.3e (n_points=%.1fM)"%(
+                i_channel, channel_result[0][0], channel_result[0][1],channel_result[1]/1.0e6)))
         central += channel_result[0][0]
         error += channel_result[0][1]**2
         n_tot_points += channel_result[1]
@@ -214,7 +214,7 @@ def combine_results(results, verbose=True, individual_channel_results=True):
     }
     if verbose:
         n_sigmas = abs(res['central_value']-results['analytic_result'])/res['error'] if res['error'] != 0. else 0.
-        print '%sresult: %.8e +/- %.3e (%.2g%%) vs %.8e (n_points=%.1fM) n_sigmas=%.2g %s'%(
+        print('%sresult: %.8e +/- %.3e (%.2g%%) vs %.8e (n_points=%.1fM) n_sigmas=%.2g %s'%(
             Colour.RED if n_sigmas > 3.0 else Colour.GREEN,
             res['central_value'], res['error'], 
             (res['error']/abs(res['central_value']))*100.0 if res['central_value']!=0. else 0.,
@@ -222,11 +222,11 @@ def combine_results(results, verbose=True, individual_channel_results=True):
             res['n_tot_points']/1.0e6,
             n_sigmas,
             Colour.END
-        )
+        ))
         if res['max_central'] is not None:
-            print('Max contribution (%.4e) from channel #%d'%(res['max_central'][0], res['max_central'][1]))
+            print(('Max contribution (%.4e) from channel #%d'%(res['max_central'][0], res['max_central'][1])))
         if res['max_error'] is not None:
-            print('Max error (%.4e) from channel #%d'%(res['max_error'][0], res['max_error'][1]))
+            print(('Max error (%.4e) from channel #%d'%(res['max_error'][0], res['max_error'][1])))
 
     return res
 
@@ -274,7 +274,7 @@ if __name__ == '__main__':
             _N_CORES = int(value)
             n_cores_user_set = True
         else:
-            print('Error: options %s not reckognised.'%arg)
+            print(('Error: options %s not reckognised.'%arg))
             sys.exit(1)
 
     dir_name = processed_args[0]
@@ -298,7 +298,7 @@ if __name__ == '__main__':
             for channel_ID in range(n_channels):
                 result_path = pjoin(root_path,run_name,'channel_%d_%s_res.dat'%(channel_ID,_TOPOLOGY))
                 if not os.path.isfile(result_path):
-                    print("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path )
+                    print(("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path ))
                     sys.exit(1)
                 str_data = open(result_path,'r').read()
                 # Some weird I/O issue of rust
@@ -311,11 +311,11 @@ if __name__ == '__main__':
             _RESULTS = dir_name+'_results.dat'
 
         save_path = _RESULTS
-        print "Saving results to %s"%save_path
+        print("Saving results to %s"%save_path)
         open(save_path,'w').write(pformat(channel_results))
         
     elif _RESULTS and os.path.exists(_RESULTS):
-        print "Loading results from '%s'."%(_RESULTS)
+        print("Loading results from '%s'."%(_RESULTS))
         channel_results = eval(open(_RESULTS,'r').read())
     else:
         if not _RESULTS:
@@ -323,14 +323,14 @@ if __name__ == '__main__':
         channel_results = {}
 
     if not all(os.path.exists(dir_name+'_%s'%phase) for phase in _PHASES):
-        print "The first argument must be an existing directory path when suffixed with phases."
+        print("The first argument must be an existing directory path when suffixed with phases.")
         sys.exit(1)
 
     if any(arg=='quiet' for arg in processed_args):
         _SILENCE = True
         
     if any(arg=='cluster' for arg in processed_args):
-	_RUN_LOCALLY = False
+        _RUN_LOCALLY = False
         if not n_cores_user_set:
             _N_CORES = 36
 
@@ -339,11 +339,11 @@ if __name__ == '__main__':
 
     if any(arg=='gather' for arg in processed_args):
         
-        print ""
-        for topology, results in channel_results.items():
-            for phase, phase_results in results.items():
-                print ""
-                print ">>> Final results for topology %s and phase %s:"%(topology, phase)
+        print("")
+        for topology, results in list(channel_results.items()):
+            for phase, phase_results in list(results.items()):
+                print("")
+                print(">>> Final results for topology %s and phase %s:"%(topology, phase))
                 combined_results = combine_results(phase_results, verbose=True)
 
     if any(arg=='run' for arg in processed_args):
@@ -384,7 +384,7 @@ if __name__ == '__main__':
             if len(channel_results[_TOPOLOGY][phase]['channel_results'])==0 or \
                 any(res is None for res in channel_results[_TOPOLOGY][phase]['channel_results']):
                 if not _CLEAN and os.path.isfile(_RESULTS):
-                    print "Loading results from '%s'."%(_RESULTS)
+                    print("Loading results from '%s'."%(_RESULTS))
                     channel_results = eval(open(_RESULTS,'r').read())
                 if len(channel_results[_TOPOLOGY][phase]['channel_results'])==0 or \
                    any(res is None for res in channel_results[_TOPOLOGY][phase]['channel_results']):
@@ -393,7 +393,7 @@ if __name__ == '__main__':
             try:
 
                 if mode == 'INITIALISE' or not _RUN_LOCALLY:
-                    print("Now initialising first results for the channels of topology %s and phase '%s'."%(_TOPOLOGY, phase))
+                    print(("Now initialising first results for the channels of topology %s and phase '%s'."%(_TOPOLOGY, phase)))
                     if len(channel_results[_TOPOLOGY][phase]['channel_results'])==0:
                         channel_results[_TOPOLOGY][phase]['channel_results'] = [None,]*n_channels
                     hyperparams['Integrator']['integrator'] = 'vegas'
@@ -404,21 +404,21 @@ if __name__ == '__main__':
                     hyperparams['Integrator']['reset_vegas_integrator'] = False
                     if not os.path.isdir(pjoin(run_name,'integration_statistics')):
                         os.makedirs(pjoin(run_name,'integration_statistics'))
-                    hyperparams['General']['log_file_prefix'] = 'integration_statistics/'
+                    hyperparams['General']['log_file_prefix'] = pjoin(root_path,run_name,'integration_statistics')+'/'
                     
                     for channel_ID in range(n_channels):
                         if channel_results[_TOPOLOGY][phase]['channel_results'][channel_ID] is not None:
-                            print "Channel %d of topology %s already in the database."%(channel_ID, _TOPOLOGY)                
+                            print("Channel %d of topology %s already in the database."%(channel_ID, _TOPOLOGY))                
                             continue 
                         hyperparams['General']['res_file_prefix'] = pjoin(root_path,run_name,'channel_%d_'%channel_ID)
                         hyperparams['Integrator']['state_filename_prefix'] = pjoin(root_path,run_name,'channel_%d_'%channel_ID)
                         hyperparams['General']['multi_channeling_channel'] = channel_ID
                         hyperparams.export_to(os.path.join(root_path, run_name,'hyperparameters_channel_%d.yaml'%channel_ID))
-                        print "Now running channel %d/%d for the first time (%.5gM points required)."%(channel_ID,n_channels,_INCREMENT/1.0e6)
+                        print("Now running channel %d/%d for the first time (%.5gM points required)."%(channel_ID,n_channels,_INCREMENT/1.0e6))
                         result = run_topology(topology,run_name, channel_ID, _WALL_TIME, _RUN_LOCALLY)
                         if result:
                             channel_results[_TOPOLOGY][phase]['channel_results'][channel_ID] = [result,_INCREMENT]
-                            print "Result for channel #%d = %.7e +/- %.3e (n_points=%.1fM)"%(channel_ID, result[0], result[1], _INCREMENT//1.0e6)
+                            print("Result for channel #%d = %.7e +/- %.3e (n_points=%.1fM)"%(channel_ID, result[0], result[1], _INCREMENT//1.0e6))
                     if _RUN_LOCALLY:
                         combined_results = combine_results(channel_results[_TOPOLOGY][phase], verbose=True)
                         mode = 'REFINE'
@@ -434,9 +434,9 @@ if __name__ == '__main__':
                     hyperparams['Integrator']['n_increase'] = _N_INCREASE
                     if not os.path.isdir(pjoin(run_name,'integration_statistics')):
                         os.makedirs(pjoin(run_name,'integration_statistics'))
-                    hyperparams['General']['log_file_prefix'] = 'integration_statistics/'
+                    hyperparams['General']['log_file_prefix'] = pjoin(root_path,run_name,'integration_statistics')+'/'
 
-                    print("Now refining channels of topology %s and phase '%s'."%(_TOPOLOGY, phase))
+                    print(("Now refining channels of topology %s and phase '%s'."%(_TOPOLOGY, phase)))
                     hyperparams['Integrator']['reset_vegas_integrator'] = False 
                     combined_results = combine_results(channel_results[_TOPOLOGY][phase], verbose=False)
                     if phase == 'real':
@@ -445,7 +445,7 @@ if __name__ == '__main__':
                         analytic_result = topology.analytic_result.imag
                     while (combined_results['error'] / abs(combined_results['central_value'])) > _TARGET_ACCURACY:
                         n_sigmas = abs(combined_results['central_value']-analytic_result)/combined_results['error']
-                        print "%s Current result: %.8e +/- %.8e (%.3g%%) vs %.8e with n_tot_points=%d (n_sigmas=%.2g) %s"%(
+                        print("%s Current result: %.8e +/- %.8e (%.3g%%) vs %.8e with n_tot_points=%d (n_sigmas=%.2g) %s"%(
                             Colour.GREEN if n_sigmas < 3.0 else Colour.RED,
                             combined_results['central_value'], combined_results['error'], 
                             (combined_results['error'] / abs(combined_results['central_value']))*100.0,
@@ -453,10 +453,10 @@ if __name__ == '__main__':
                             combined_results['n_tot_points'],
                             n_sigmas,
                             Colour.END
-                        )
+                        ))
                         channel_to_refine = combined_results['max_error'][1]  
                         n_points_required_for_this_run = channel_results[_TOPOLOGY][phase]['channel_results'][channel_to_refine][1]+_INCREMENT
-                        print ">>> Now refining channel #%d (with current error %.3g%% out of %.3g%% (%.2g%%)), n_points_required=%.5gM"%(
+                        print(">>> Now refining channel #%d (with current error %.3g%% out of %.3g%% (%.2g%%)), n_points_required=%.5gM"%(
                             channel_to_refine,
                             (combined_results['max_error'][0] / abs(combined_results['central_value']))*100.0,
                             (combined_results['error'] / abs(combined_results['central_value']))*100.0,
@@ -464,7 +464,7 @@ if __name__ == '__main__':
                                 (combined_results['error'] / abs(combined_results['central_value'])) )*100.0
                             ),
                             n_points_required_for_this_run/1.0e6
-                        )
+                        ))
                         old_result = [
                             channel_results[_TOPOLOGY][phase]['channel_results'][channel_to_refine][0][0],
                             channel_results[_TOPOLOGY][phase]['channel_results'][channel_to_refine][0][1]
@@ -479,37 +479,37 @@ if __name__ == '__main__':
                         channel_results[_TOPOLOGY][phase]['channel_results'][channel_to_refine][0] = result
                         channel_results[_TOPOLOGY][phase]['channel_results'][channel_to_refine][1] += _INCREMENT
                         n_points = channel_results[_TOPOLOGY][phase]['channel_results'][channel_to_refine][1]
-                        print "OLD result for channel #%d = %.7e +/- %.3e (n_points=%.1fM)"%(
-                                        channel_to_refine, old_result[0], old_result[1], (n_points-_INCREMENT)//1.0e6)
-                        print "NEW result for channel #%d = %.7e +/- %.3e (n_points=%.1fM)"%(
-                                        channel_to_refine, result[0], result[1], n_points//1.0e6)
+                        print("OLD result for channel #%d = %.7e +/- %.3e (n_points=%.1fM)"%(
+                                        channel_to_refine, old_result[0], old_result[1], (n_points-_INCREMENT)//1.0e6))
+                        print("NEW result for channel #%d = %.7e +/- %.3e (n_points=%.1fM)"%(
+                                        channel_to_refine, result[0], result[1], n_points//1.0e6))
                         combined_results = combine_results(channel_results[_TOPOLOGY][phase], verbose=False)
 
                     combined_results = combine_results(channel_results[_TOPOLOGY][phase], verbose=True)
-                    print "Final result: %.8e +/- %.8e (%.3f%% required: %.3f%%) vs %.8e"%(
+                    print("Final result: %.8e +/- %.8e (%.3f%% required: %.3f%%) vs %.8e"%(
                             combined_results['central_value'], combined_results['error'], 
                             (combined_results['error'] / abs(combined_results['central_value']))*100.0,
                             _TARGET_ACCURACY*100.0,
                             analytic_result
-                        )
+                        ))
 
             except KeyboardInterrupt:
                 save_path = _RESULTS
-                print "Saving results to %s"%save_path
+                print("Saving results to %s"%save_path)
                 open(save_path,'w').write(pformat(channel_results))
                 sys.exit()
             
             save_path = _RESULTS
-            print "Saving results to %s"%save_path
+            print("Saving results to %s"%save_path)
             open(save_path,'w').write(pformat(channel_results))
         
-            print ""
-            print "+"*80
-            print "="*80
-            print "+"*80
-            for topology_name, results in channel_results.items():
-                for phase, phase_results in results.items():
-                    print ""                
-                    print ">>> Final results for topology %s and phase %s:"%(topology_name, phase)
+            print("")
+            print("+"*80)
+            print("="*80)
+            print("+"*80)
+            for topology_name, results in list(channel_results.items()):
+                for phase, phase_results in list(results.items()):
+                    print("")                
+                    print(">>> Final results for topology %s and phase %s:"%(topology_name, phase))
                     combined_results = combine_results(phase_results, verbose=True)
 
