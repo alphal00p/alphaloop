@@ -26,6 +26,7 @@ from pprint import pprint, pformat
 _PYVEGAS = False
 _RUN_LOCALLY = True
 _CLEAN = False
+_COLLECT = False
 _SILENCE = False
 _N_CORES = 8
 _CLEAN = False 
@@ -35,7 +36,10 @@ _TOPOLOGY = 'Box'
 _RESULTS = None
 _TARGET_ACCURACY = 1.0e-2
 _INCREMENT = int(1e6)
-_WALL_TIME = 1 # in hours 
+_N_START = int(1e5)
+_N_INCREASE = int(1e4)
+_WALL_TIME = 24 # in hours 
+_ACCOUNT = 'eth5e'
 
 _PHASES = ['real','imag']
 
@@ -145,16 +149,18 @@ def run_topology(topo,dir_name, index, n_hours, local=True):
             # Sleep for a very short while to allow output file flushing
             time.sleep(1.0)
     else:
-        submission_script = open(pjoin(root_path,'submission_template.run'),'r').read()
-        open(pjoin(root_path,'submitter.run'),'w').write(submission_script%{
-		'job_name' : '%s_scan_%d'%(dir_name, index),
+        submission_script = open(pjoin(root_path,os.pardir,'submission_template.run'),'r').read()
+        open(pjoin(root_path,dir_name,'submitter_%d.run'%index),'w').write(submission_script%{
+		'job_name' : 'channel_%d_%s'%(index, _TOPOLOGY),
                 'n_hours' : n_hours,
                 'n_cpus_per_task' :_N_CORES,
-                'output' : '%s/LTD_runs/logs/%s_scan_%d.out'%(os.environ['SCRATCH'], dir_name, index),
-                'error' : '%s/LTD_runs/logs/%s_scan_%d.err'%(os.environ['SCRATCH'], dir_name, index),
+                'output' : '%s/LTD_runs/logs/channel_%d_%s.out'%(os.environ['SCRATCH'], index, _TOPOLOGY),
+                'error' : '%s/LTD_runs/logs/channel_%d_%s.err'%(os.environ['SCRATCH'], index, _TOPOLOGY),
+                'account' : _ACCOUNT,
                 'executable_line' : ' '.join(cmd)
 	})
-        subprocess.call(['sbatch','submitter.run'], cwd=root_path)
+        time.sleep(3.0)
+        subprocess.call(['sbatch',pjoin(root_path,dir_name,'submitter_%d.run'%index)], cwd=root_path)
         return    
 
     result_path = pjoin(root_path,dir_name,'channel_%d_%s_res.dat'%(index,_TOPOLOGY))
@@ -166,13 +172,6 @@ def run_topology(topo,dir_name, index, n_hours, local=True):
         str_data = '...'.join(str_data.split('...')[:1])
         open(result_path,'w').write(str_data)
         result = yaml.load(open(result_path,'r'), Loader=Loader)
-        if dir_name.endswith('_real'):
-            analytic_result = topo.analytic_result.real
-        elif dir_name.endswith('_imag'):
-            analytic_result = topo.analytic_result.imag
-        else:
-            analytic_result = topo.analytic_result.real if \
-                    abs(topo.analytic_result.real)>abs(topo.analytic_result.imag) else topo.analytic_result.imag
         return (result['result'][0],result['error'][0])
 
 def get_n_channels(topology):
@@ -241,7 +240,7 @@ if __name__ == '__main__':
             try:
                 key, value = arg.split('=')
             except ValueError:
-                key = args
+                key = arg
                 value = None
             key = key[2:]        
         else:
@@ -250,6 +249,8 @@ if __name__ == '__main__':
 
         if key=='prefix':
             _PREFIX = value
+        elif key=='collect':
+            _COLLECT = True
         elif key=='wall_time':
             _WALL_TIME = int(value)
         elif key=='target_accuracy':
@@ -258,6 +259,10 @@ if __name__ == '__main__':
             _TOPOLOGY = value
         elif key=='increment':
             _INCREMENT = int(eval(value.replace('M','*1000000')))
+        elif key=='n_start':
+            _N_START = int(eval(value.replace('M','*1000000')))
+        elif key=='n_increase':
+            _N_INCREASE = int(eval(value.replace('M','*1000000')))
         elif key=='phases':
             _PHASES = eval(value)
         elif key=='results':
@@ -274,11 +279,47 @@ if __name__ == '__main__':
 
     dir_name = processed_args[0]
 
-    if _RESULTS and os.path.exists(_RESULTS):
+    if _COLLECT:
+        topology = ltd_utils.TopologyCollection.import_from(os.path.join('%s_%s'%(dir_name, _PHASES[0]),'topologies.yaml'))[_TOPOLOGY]
+        channel_results = {}
+        channel_results[_TOPOLOGY] = {
+                'real' : {
+                    'analytic_result' : topology.analytic_result.real,
+                    'channel_results' : [],
+                },
+                'imag' : {
+                    'analytic_result' : topology.analytic_result.imag,                    
+                    'channel_results' : [],        
+                },
+            }
+        n_channels = get_n_channels(topology)
+        for phase in _PHASES:
+            run_name = '%s_%s'%(dir_name, phase)
+            for channel_ID in range(n_channels):
+                result_path = pjoin(root_path,run_name,'channel_%d_%s_res.dat'%(channel_ID,_TOPOLOGY))
+                if not os.path.isfile(result_path):
+                    print("Error: Run did not successfully complete as the results yaml dump '%s' could not be found."%result_path )
+                    sys.exit(1)
+                str_data = open(result_path,'r').read()
+                # Some weird I/O issue of rust
+                str_data = '...'.join(str_data.split('...')[:1])
+                open(result_path,'w').write(str_data)
+                result = yaml.load(open(result_path,'r'), Loader=Loader)
+                channel_results[_TOPOLOGY][phase]['channel_results'].append( [ (result['result'][0],result['error'][0]), result['neval']] )
+        
+        if not _RESULTS:
+            _RESULTS = dir_name+'_results.dat'
+
+        save_path = _RESULTS
+        print "Saving results to %s"%save_path
+        open(save_path,'w').write(pformat(channel_results))
+        
+    elif _RESULTS and os.path.exists(_RESULTS):
         print "Loading results from '%s'."%(_RESULTS)
         channel_results = eval(open(_RESULTS,'r').read())
     else:
-        _RESULTS = dir_name+'_results.dat'
+        if not _RESULTS:
+            _RESULTS = dir_name+'_results.dat'
         channel_results = {}
 
     if not all(os.path.exists(dir_name+'_%s'%phase) for phase in _PHASES):
@@ -311,7 +352,7 @@ if __name__ == '__main__':
         hyperparams = copy.deepcopy(general_hyperparams)
        
         topology = ltd_utils.TopologyCollection.import_from(os.path.join('%s_%s'%(dir_name, _PHASES[0]),'topologies.yaml'))[_TOPOLOGY]
-
+        
         if _TOPOLOGY not in channel_results:
             channel_results[_TOPOLOGY] = {
                 'real' : {
@@ -334,7 +375,7 @@ if __name__ == '__main__':
                     os.remove(f)
                 for f in glob.glob(pjoin(run_name,'integration_statistics','*')):
                     os.remove(f)
-                
+            
             n_channels = get_n_channels(topology)
             
             hyperparams['Integrator']['integrated_phase'] = phase
@@ -351,15 +392,15 @@ if __name__ == '__main__':
             
             try:
 
-                if mode == 'INITIALISE':
+                if mode == 'INITIALISE' or not _RUN_LOCALLY:
                     print("Now initialising first results for the channels of topology %s and phase '%s'."%(_TOPOLOGY, phase))
                     if len(channel_results[_TOPOLOGY][phase]['channel_results'])==0:
                         channel_results[_TOPOLOGY][phase]['channel_results'] = [None,]*n_channels
                     hyperparams['Integrator']['integrator'] = 'vegas'
                     hyperparams['Integrator']['eps_rel'] = 1.0e-99
-                    hyperparams['Integrator']['n_start'] = int(1e5)
+                    hyperparams['Integrator']['n_start'] = _N_START
                     hyperparams['Integrator']['n_max'] = _INCREMENT 
-                    hyperparams['Integrator']['n_increase'] = int(1e4)
+                    hyperparams['Integrator']['n_increase'] = _N_INCREASE
                     hyperparams['Integrator']['reset_vegas_integrator'] = False
                     if not os.path.isdir(pjoin(run_name,'integration_statistics')):
                         os.makedirs(pjoin(run_name,'integration_statistics'))
@@ -375,17 +416,22 @@ if __name__ == '__main__':
                         hyperparams.export_to(os.path.join(root_path, run_name,'hyperparameters_channel_%d.yaml'%channel_ID))
                         print "Now running channel %d/%d for the first time (%.5gM points required)."%(channel_ID,n_channels,_INCREMENT/1.0e6)
                         result = run_topology(topology,run_name, channel_ID, _WALL_TIME, _RUN_LOCALLY)
-                        channel_results[_TOPOLOGY][phase]['channel_results'][channel_ID] = [result,_INCREMENT]
-                        print "Result for channel #%d = %.7e +/- %.3e (n_points=%.1fM)"%(channel_ID, result[0], result[1], _INCREMENT//1.0e6)
-                    combined_results = combine_results(channel_results[_TOPOLOGY][phase], verbose=True)
-                    mode = 'REFINE'
+                        if result:
+                            channel_results[_TOPOLOGY][phase]['channel_results'][channel_ID] = [result,_INCREMENT]
+                            print "Result for channel #%d = %.7e +/- %.3e (n_points=%.1fM)"%(channel_ID, result[0], result[1], _INCREMENT//1.0e6)
+                    if _RUN_LOCALLY:
+                        combined_results = combine_results(channel_results[_TOPOLOGY][phase], verbose=True)
+                        mode = 'REFINE'
+                    else:
+                        print("Now wait for cluster results.")
+                        sys.exit()
 
-                if mode == 'REFINE':
+                if mode == 'REFINE' and not _RUN_LOCALLY:
                     hyperparams['Integrator']['integrator'] = 'vegas'
                     hyperparams['Integrator']['eps_rel'] = 1.0e-99
-                    hyperparams['Integrator']['n_start'] = int(1e5)
+                    hyperparams['Integrator']['n_start'] = _N_START
                     hyperparams['Integrator']['n_max'] = _INCREMENT 
-                    hyperparams['Integrator']['n_increase'] = int(1e4)
+                    hyperparams['Integrator']['n_increase'] = _N_INCREASE
                     if not os.path.isdir(pjoin(run_name,'integration_statistics')):
                         os.makedirs(pjoin(run_name,'integration_statistics'))
                     hyperparams['General']['log_file_prefix'] = 'integration_statistics/'
@@ -452,7 +498,7 @@ if __name__ == '__main__':
                 print "Saving results to %s"%save_path
                 open(save_path,'w').write(pformat(channel_results))
                 sys.exit()
-
+            
             save_path = _RESULTS
             print "Saving results to %s"%save_path
             open(save_path,'w').write(pformat(channel_results))
@@ -461,9 +507,9 @@ if __name__ == '__main__':
             print "+"*80
             print "="*80
             print "+"*80
-            for topology, results in channel_results.items():
+            for topology_name, results in channel_results.items():
                 for phase, phase_results in results.items():
                     print ""                
-                    print ">>> Final results for topology %s and phase %s:"%(topology, phase)
+                    print ">>> Final results for topology %s and phase %s:"%(topology_name, phase)
                     combined_results = combine_results(phase_results, verbose=True)
 
