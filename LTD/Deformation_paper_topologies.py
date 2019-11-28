@@ -1006,6 +1006,40 @@ def load(selected_topologies=None):
 
     rescaling = 1.0
     q1 = vectors.LorentzVector(
+        [20.7591, -6.67252, 2.66901, 19.4498]
+    )*rescaling 
+    q2 = vectors.LorentzVector(
+        [51.9871, -10.6677, 4.26706, -50.6621]
+    )*rescaling
+    q3 = -vectors.LorentzVector(
+        [9.90616, -3.36563, 3.21554, -8.21369]
+    )*rescaling
+    q4 = -vectors.LorentzVector(
+        [20.6043, -11.407, -15.9894, -4.77032] 
+    )*rescaling
+    q5 = -vectors.LorentzVector(
+        [11.6374, -9.15029, -4.72068, -2.10177]            
+    )*rescaling
+    q6 = -q5-q4-q3-q2-q1
+
+    mass=0.
+    topology_name = "2L_6P_A_PS2_boosted"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass, 'p9': mass}, 
+                loop_momenta_names=('p1','p4'), 
+                analytic_result=None,
+            ),
+            entry_name = topology_name
+        )
+
+
+
+
+    rescaling = 1.0
+    q1 = vectors.LorentzVector(
         [0.314761904761905E+02, 0.000000000000000E+00, 0.000000000000000E+00, 0.314603014431430E+02]
     )*rescaling 
     q2 = vectors.LorentzVector(
