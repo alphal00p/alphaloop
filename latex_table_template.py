@@ -34,7 +34,7 @@ columns += [{'header': r'$\mathtt{N_{\text{s}}}$',
 			'align': 'l'}]
 columns += [{'header': r'$\mathtt{L_{\text{max}}}$',
 			'shared': True,
-			'json_link': lambda sample: format_overlap(sample.get('maximal_overlap')) if sample is not None else '?',
+			'json_link': lambda sample: format_overlap(sample.get('overlap_multiplicity')) if sample is not None else '?',
 			'align': 'l'}]
 columns += [{'header': r'$\mathtt{N_{\text{p}} \ [10^6]}$',
 			'shared': True,
@@ -61,41 +61,41 @@ columns += [{'header': r'Numerical LTD',
 			'align': 'l'}]
 columns += [{'header': r'$\mathtt{\Delta \ [\sigma]}$',
 			'shared': False,
-			'json_link': [lambda sample: '{:.2f}'.format(sample.get('accuracy')[0]) if sample is not None else '?',
-							lambda sample: '{:.2f}'.format(sample.get('accuracy')[1]) if sample is not None else '?'],
+			'json_link': [lambda sample: '{:.3f}'.format(sample.get('accuracy')[0]) if sample is not None else '?',
+							lambda sample: '{:.3f}'.format(sample.get('accuracy')[1]) if sample is not None else '?'],
 			'align': 'l'}]
 columns += [{'header': r'$\mathtt{\Delta \ [\%]}$',
 			'shared': False,
-			'json_link': [lambda sample: '{:.2f}'.format(sample.get('percentage')[0]) if sample is not None else '?',
-							lambda sample: '{:.2f}'.format(sample.get('percentage')[1]) if sample is not None else '?'],
+			'json_link': [lambda sample: '{:.3f}'.format(sample.get('percentage')[0]) if sample is not None else '?',
+							lambda sample: '{:.3f}'.format(sample.get('percentage')[1]) if sample is not None else '?'],
 			'align': 'l'}]
 columns += [{'header': r'$\mathtt{\Delta \ [\%] |\cdot|}$',
 			'shared': True,
-			'json_link': lambda sample: '{:.2f}'.format(sample.get('abs_error')) if sample is not None else '?',
+			'json_link': lambda sample: '{:.3f}'.format(sample.get('abs_error')) if sample is not None else '?',
 			'align': 'l'}]
 
 NHEADER = len(columns)
 
 def format_overlap(overlap):
 	overlap_str = str(overlap)
-	overlap_str = overlap_str.replace(' ','')
-	half = 40.
-	center_index = 0
-	distance = 1000
-	for i,s in enumerate(overlap_str[:-1]):
-		if s == ']' and overlap_str[i+1]==',':
-			if abs(half-(i+1)) < distance:
-				distance = abs(half-(i+1))
-				center_index = i+1
-	if center_index == 0 or len(overlap_str) < half: 
-		overlap_str = overlap_str
-	else:
-		overlap_str = r'&\mathtt{'+overlap_str[:center_index+1]+r'}\\&\mathtt{'+overlap_str[center_index+1:]+r'}'
-	overlap_str = overlap_str.replace('[[','(')
-	overlap_str = overlap_str.replace('[','(')
-	overlap_str = overlap_str.replace(']]',')')
-	overlap_str = overlap_str.replace(']',')')
-	return r'$\subalign{'+overlap_str+'}$'
+	#overlap_str = overlap_str.replace(' ','')
+	#half = 40.
+	#center_index = 0
+	#distance = 1000
+	#for i,s in enumerate(overlap_str[:-1]):
+	#	if s == ']' and overlap_str[i+1]==',':
+	#		if abs(half-(i+1)) < distance:
+	#			distance = abs(half-(i+1))
+	#			center_index = i+1
+	#if center_index == 0 or len(overlap_str) < half: 
+	#	overlap_str = r'\mathtt{'+overlap_str+'}'
+	#else:
+	#	overlap_str = r'&\mathtt{'+overlap_str[:center_index+1]+r'}\\&\mathtt{'+overlap_str[center_index+1:]+r'}'
+	#overlap_str = overlap_str.replace('[[','(')
+	#overlap_str = overlap_str.replace('[','(')
+	#overlap_str = overlap_str.replace(']]',')')
+	#overlap_str = overlap_str.replace(']',')')
+	return r'$\mathtt{'+overlap_str+'}$'
 
 def format_n_points(n_points):
 	return '{:d}'.format(int(n_points/10**6))
@@ -227,8 +227,16 @@ if __name__ == "__main__":
 				if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
 		#sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
 		#		if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
-		sample['percentage'] = [100.*(abs(sample['error'][i_phase]/sample['result'][i_phase])) for i_phase in [0,1]]
-		sample['abs_error'] = 100.*numpy.sqrt(sample['error'][0]**2 + sample['error'][1]**2)/numpy.sqrt(sample['result'][0]**2+sample['result'][1]**2)
+		sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
+				if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
+		if numpy.sqrt(sample['analytical_result'][0]**2+sample['analytical_result'][1]**2) != 0.:
+			sample['abs_error'] = 100.*numpy.sqrt(sample['error'][0]**2 + sample['error'][1]**2)/numpy.sqrt(sample['analytical_result'][0]**2+sample['analytical_result'][1]**2)
+		else:
+			sample['abs_error'] = 0.
+		if sample.get('maximal_overlap') is not None:
+			sample['overlap_multiplicity'] = [len(overlap) for overlap in sample['maximal_overlap']]
+		else:
+			sample['overlap_multiplicity'] = None
 	#print(sample_daty.
 	sample_data=sorted(sample_data,key=lambda x: x['topology'])
 	for sample in sample_data:
