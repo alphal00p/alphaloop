@@ -14,51 +14,127 @@ ps_pts_per_topology = [2,3,2,2,1] #number of ps points per topology
 columns = []
 columns += [{'header': r'Topology',
 			'shared': True,
-			'json_link': lambda sample: sample['topology'] if sample is not None else '?'}]
-columns += [{'header': r'PS point',
+			'json_link': lambda sample: sample.get('topology') if sample is not None else '?',
+			'align': 'l'}]
+columns += [{'header': r'PS',
 			'shared': True,
-			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['ps_name']}]
-columns += [{'header': r'$N_{\text{e}}$',
+			'json_link': lambda sample: '?' if sample is not None else '?',
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{N_{\text{c}}}$',
 			'shared': True,
-			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['n_ellipsoids']}]
-columns += [{'header': r'$N_{\text{s}}$',
+			'json_link': lambda sample: sample.get('n_cuts') if sample is not None else '?',
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{N_{\text{e}}}$',
 			'shared': True,
-			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['n_sources']}]
-columns += [{'header': r'$L_{\text{max}}$',
+			'json_link': lambda sample: sample.get('n_unique_existing_E_surface') if sample is not None else '?',
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{N_{\text{s}}}$',
 			'shared': True,
-			'json_link': lambda sample: '?' if sample is not None else '?'}] #sample['n_sources']}]
-columns += [{'header': r'$N_{\text{points}}$',
+			'json_link': lambda sample: sample.get('n_sources') if sample is not None else '?',
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{L_{\text{max}}}$',
 			'shared': True,
-			'json_link': lambda sample: sample['num_samples'] if sample is not None else '?'}]
-columns += [{'header': r'$\frac{t}{p} [\mu \text{s}]$',
+			'json_link': lambda sample: format_overlap(sample.get('maximal_overlap')) if sample is not None else '?',
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{N_{\text{p}} \ [10^6]}$',
 			'shared': True,
-			'json_link': lambda sample: '?'}]
+			'json_link': lambda sample: format_n_points(sample.get('num_samples')) if sample is not None else '?',
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{\sfrac{t}{p} \ [\mu \text{s}]}$',
+			'shared': True,
+			'json_link': lambda sample: format_timing(sample.get('t_per_ps_point_in_s')) if sample is not None else '?',
+			'align': 'l'}]
 columns += [{'header': r'Phase',
 			'shared': False,
 			'json_link': [lambda sample: r'$\Re$',
-						lambda sample: r'$\Im$']}]
-columns += [{'header': r'Reference result',
+						lambda sample: r'$\Im$'],
+			'align': 'l'}]
+columns += [{'header': r'Reference',
 			'shared': False,
-			'json_link': [lambda sample: '{:.5e}'.format(sample['analytical_result'][0]) if sample is not None else '?',
-							lambda sample: '{:.5e}'.format(sample['analytical_result'][1]) if sample is not None else '?']}]
-columns += [{'header': r'numerical LTD',
+			'json_link': [lambda sample: format_reference(sample.get('analytical_result')[0]) if sample is not None else '?',
+							lambda sample: format_reference(sample['analytical_result'][1]) if sample is not None else '?'],
+			'align': 'l'}]
+columns += [{'header': r'Numerical LTD',
 			'shared': False,
-			'json_link': [lambda sample: ufloat(sample['result'][0], sample['error'][0]) if sample is not None else '?',
-						lambda sample: ufloat(sample['result'][1], sample['error'][1]) if sample is not None else '?']
-			}]
-columns += [{'header': r'$\Delta[\sigma]$',
+			'json_link': [lambda sample: format_ltd(ufloat(sample.get('result')[0], sample.get('error')[0])) if sample is not None else '?',
+						lambda sample: format_ltd(ufloat(sample.get('result')[1], sample.get('error')[1])) if sample is not None else '?'],
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{\Delta \ [\sigma]}$',
 			'shared': False,
-			'json_link': [lambda sample: '{:.2f}'.format(sample['accuracy'][0]) if sample is not None else '?',
-							lambda sample: '{:.2f}'.format(sample['accuracy'][1]) if sample is not None else '?']}]
-columns += [{'header': r'$\Delta[\%]$',
+			'json_link': [lambda sample: '{:.2f}'.format(sample.get('accuracy')[0]) if sample is not None else '?',
+							lambda sample: '{:.2f}'.format(sample.get('accuracy')[1]) if sample is not None else '?'],
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{\Delta \ [\%]}$',
 			'shared': False,
-			'json_link': [lambda sample: '{:.2f}'.format(sample['percentage'][0]) if sample is not None else '?',
-							lambda sample: '{:.2f}'.format(sample['percentage'][1]) if sample is not None else '?']}]
-columns += [{'header': r'$\Delta[\%] |\cdot|$',
+			'json_link': [lambda sample: '{:.2f}'.format(sample.get('percentage')[0]) if sample is not None else '?',
+							lambda sample: '{:.2f}'.format(sample.get('percentage')[1]) if sample is not None else '?'],
+			'align': 'l'}]
+columns += [{'header': r'$\mathtt{\Delta \ [\%] |\cdot|}$',
 			'shared': True,
-			'json_link': lambda sample: '{:.2e}'.format(sample['abs_error']) if sample is not None else '?'}]
+			'json_link': lambda sample: '{:.2f}'.format(sample.get('abs_error')) if sample is not None else '?',
+			'align': 'l'}]
 
 NHEADER = len(columns)
+
+def format_overlap(overlap):
+	overlap_str = str(overlap)
+	overlap_str = overlap_str.replace(' ','')
+	half = 40.
+	center_index = 0
+	distance = 1000
+	for i,s in enumerate(overlap_str[:-1]):
+		if s == ']' and overlap_str[i+1]==',':
+			if abs(half-(i+1)) < distance:
+				distance = abs(half-(i+1))
+				center_index = i+1
+	if center_index == 0 or len(overlap_str) < half: 
+		overlap_str = overlap_str
+	else:
+		overlap_str = r'&\mathtt{'+overlap_str[:center_index+1]+r'}\\&\mathtt{'+overlap_str[center_index+1:]+r'}'
+	overlap_str = overlap_str.replace('[[','(')
+	overlap_str = overlap_str.replace('[','(')
+	overlap_str = overlap_str.replace(']]',')')
+	overlap_str = overlap_str.replace(']',')')
+	return r'$\subalign{'+overlap_str+'}$'
+
+def format_n_points(n_points):
+	return '{:d}'.format(int(n_points/10**6))
+
+def format_timing(time):
+	return '{:.0f}'.format(time*10**6)
+
+def format_reference(reference):
+	reference_str = r'{: .5e}'.format(reference)
+	reference_str = reference_str.replace(r'e',r'$\mathtt{\cdot 10^{')
+	reference_str += '}}$'
+	return r'\texttt{'+reference_str+r'}'
+
+def format_ltd(res):
+	res_str = '{:ue}'.format(res)
+	if res_str[0] == r'(':
+		if res_str[1] != r'-':
+			res_str = r'(~' + res_str[1:]
+	elif res_str[0] == r'-':
+		res_str = r'~'+ res_str
+	else:
+		res_str = r'~' + r'~'+ res_str
+	counter = 0
+	dot = False
+	for s in res_str:
+		if s == '.':
+			dot = True
+		elif s == '+' and dot:
+			break
+		elif dot:
+			counter += 1
+	res_str = res_str.replace(r'+/-',r'~'*(6-counter)+r'+/-~')
+	if ')e' in res_str:
+		res_str = res_str.replace(r')e',r'~'*(5-counter)+r')'+r'$\mathtt{\cdot 10^{')
+		res_str += '}}$'
+	else:
+		res_str += r'~'*(5-counter)+r')'+r'$\mathtt{\phantom{{}\cdot{}10^{-10}}}$'
+	return r'\texttt{'+res_str+r'}'
+
 
 def set_header(columns):
 	header_string = r'\hline' + '\n'
@@ -93,29 +169,14 @@ def set_topology(n_ps_points,data=None):
 				topology_string +=  r'& ' + column_str	
 		topology_string += r'\\'+'\n'
 	return topology_string
-	"""
-		for column in columns[1:5]:
-			name = str(column['json_link'](data))
-			topology_string += r'& \multirow{2}{*}{'+name+'}'
-		topology_string += '\n'
-		topology_string += r'& $\Re$'
-		for column in columns[6:]:
-			name = str(column['json_link'][0](data))
-			topology_string +=  r' & ' + name 
-		topology_string += r'\\'+'\n'
-		topology_string += r'& & & &' + '\n'
-		topology_string += r'& $\Im$'
-		for column in columns[6:]:
-			name = str(column['json_link'][1](data))
-			topology_string += r' & ' + name
-		topology_string += r'\\'+'\n'
-	return topology_string
-	"""
 
 def set_table(columns,ps_pts_per_topology,data=None):
 	table_string = r'\begin{table}[tbp]'+'\n'
 	table_string += r'\centering'+'\n'
-	table_string += r'\begin{tabular}{'+'c'*NHEADER+'}'+'\n'
+	table_string += r'\resizebox{\columnwidth}{!}{%'+'\n'
+	alignment = ''.join([column['align'] for column in columns])
+	table_string += r'\texttt{%'+'\n'
+	table_string += r'\begin{tabular}{'+alignment+'}'+'\n'
 	table_string += set_header(columns)
 	if data is not None:
 		for n_ps_points,topo_data in zip(ps_pts_per_topology,data):
@@ -124,6 +185,8 @@ def set_table(columns,ps_pts_per_topology,data=None):
 		for n_ps_points in ps_pts_per_topology:
 			table_string += set_topology(n_ps_points,data=None)
 	table_string += r'\end{tabular}'+'\n'
+	table_string += r'}'+'\n'
+	table_string += r'}'+'\n'
 	table_string += r'\caption{\label{tab:i} Results}'+'\n'
 	table_string += r'\end{table}'+'\n'
 	return table_string
@@ -164,11 +227,15 @@ if __name__ == "__main__":
 				if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
 		#sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
 		#		if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
-		sample['percentage'] = [100.0*(abs(sample['error'][i_phase]/sample['result'][i_phase])) for i_phase in [0,1]]
-		sample['abs_error'] = numpy.sqrt(sample['error'][0]**2 + sample['error'][1]**2)/numpy.sqrt(sample['result'][0]**2+sample['result'][1]**2)
+		sample['percentage'] = [100.*(abs(sample['error'][i_phase]/sample['result'][i_phase])) for i_phase in [0,1]]
+		sample['abs_error'] = 100.*numpy.sqrt(sample['error'][0]**2 + sample['error'][1]**2)/numpy.sqrt(sample['result'][0]**2+sample['result'][1]**2)
 	#print(sample_daty.
 	sample_data=sorted(sample_data,key=lambda x: x['topology'])
-	#print(sorted_data)
+	for sample in sample_data:
+		if sample.get('n_cuts') is None:
+			sample_data.remove(sample)
+	#print(sample_data[0])
+
 	print(set_table(columns,[1 for i in range(len(sample_data))],data=sample_data))
 
 
