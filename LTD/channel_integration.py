@@ -356,11 +356,11 @@ if __name__ == '__main__':
         if _TOPOLOGY not in channel_results:
             channel_results[_TOPOLOGY] = {
                 'real' : {
-                    'analytic_result' : topology.analytic_result.real,
+                    'analytic_result' : topology.analytic_result.real if topology.analytic_result else 0.,
                     'channel_results' : [],
                 },
                 'imag' : {
-                    'analytic_result' : topology.analytic_result.imag,                    
+                    'analytic_result' : topology.analytic_result.imag if topology.analytic_result else 0., 
                     'channel_results' : [],        
                 },
             }
