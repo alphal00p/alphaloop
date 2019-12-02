@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import os
 import sys
 import copy
@@ -24,6 +24,7 @@ from ltd_utils import Colour
 from pprint import pprint, pformat
 
 _PYVEGAS = False
+_INTEGRATOR = 'vegas'
 _RUN_LOCALLY = True
 _CLEAN = False
 _COLLECT = False
@@ -195,7 +196,7 @@ def combine_results(results, verbose=True, individual_channel_results=True):
     for i_channel, channel_result in enumerate(results['channel_results']):
         if verbose and individual_channel_results:
             print(("Result for channel %d = %.8e +/- %.3e (n_points=%.1fM)"%(
-                i_channel, channel_result[0][0], channel_result[0][1],channel_result[1]/1.0e6)))
+                i_channel, channel_result[0][0], channel_result[0][1], channel_result[1]/1.0e6)))
         central += channel_result[0][0]
         error += channel_result[0][1]**2
         n_tot_points += channel_result[1]
@@ -261,6 +262,8 @@ if __name__ == '__main__':
             _INCREMENT = int(eval(value.replace('M','*1000000')))
         elif key=='n_start':
             _N_START = int(eval(value.replace('M','*1000000')))
+        elif key=='integrator':
+            _INTEGRATOR = value
         elif key=='n_increase':
             _N_INCREASE = int(eval(value.replace('M','*1000000')))
         elif key=='phases':
@@ -396,7 +399,7 @@ if __name__ == '__main__':
                     print(("Now initialising first results for the channels of topology %s and phase '%s'."%(_TOPOLOGY, phase)))
                     if len(channel_results[_TOPOLOGY][phase]['channel_results'])==0:
                         channel_results[_TOPOLOGY][phase]['channel_results'] = [None,]*n_channels
-                    hyperparams['Integrator']['integrator'] = 'vegas'
+                    hyperparams['Integrator']['integrator'] = _INTEGRATOR
                     hyperparams['Integrator']['eps_rel'] = 1.0e-99
                     hyperparams['Integrator']['n_start'] = _N_START
                     hyperparams['Integrator']['n_max'] = _INCREMENT 
@@ -426,8 +429,8 @@ if __name__ == '__main__':
                         print("Now wait for cluster results.")
                         sys.exit()
 
-                if mode == 'REFINE' and not _RUN_LOCALLY:
-                    hyperparams['Integrator']['integrator'] = 'vegas'
+                if mode == 'REFINE' and _RUN_LOCALLY:
+                    hyperparams['Integrator']['integrator'] = _INTEGRATOR
                     hyperparams['Integrator']['eps_rel'] = 1.0e-99
                     hyperparams['Integrator']['n_start'] = _N_START
                     hyperparams['Integrator']['n_max'] = _INCREMENT 
