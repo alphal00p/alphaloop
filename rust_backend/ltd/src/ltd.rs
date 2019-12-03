@@ -681,11 +681,13 @@ impl Topology {
     pub fn compute_min_mij(&self) -> f64 {
         // TODO make this quantity static as it does not need to be recomputed statically every
         // time.
-        let _m = self.settings.deformation.fixed.m_ij;
-        let d = self.settings.deformation.fixed.delta;
-        let e = self.get_expansion_threshold();
-
-        e * e / ((2.0 - e * e) * (d / (1. - d)).sqrt())
+        if self.settings.deformation.fixed.m_ij < 0. {
+            1.0
+        } else {
+            let d = self.settings.deformation.fixed.delta;
+            let e = self.get_expansion_threshold();
+            e * e / ((2.0 - e * e) * (d / (1. - d)).sqrt())
+        }
     }
 
     /// Map a vector in the unit hypercube to the infinite hypercube.
@@ -1487,7 +1489,7 @@ impl Topology {
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
         let mij_min_sq = Into::<T>::into(self.compute_min_mij().powi(2));
-        let mut mij_sq = Into::<T>::into(self.settings.deformation.fixed.m_ij.powi(2)) * mij_min_sq;
+        let mut mij_sq = Into::<T>::into(self.settings.deformation.fixed.m_ij.abs().powi(2)) * mij_min_sq;
 
         if self.settings.deformation.fixed.include_normal_source {
             self.compute_ellipsoid_deformation_vector(
@@ -1653,7 +1655,7 @@ impl Topology {
                 for &surf_index in &d.excluded_surface_indices {
                     if surf_index < self.settings.deformation.fixed.m_ijs.len() {
                         mij_sq = Into::<T>::into(
-                            self.settings.deformation.fixed.m_ijs[surf_index].powi(2),
+                            self.settings.deformation.fixed.m_ijs[surf_index].abs().powi(2),
                         ) * mij_min_sq;
                     }
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j
@@ -1701,7 +1703,7 @@ impl Topology {
                             s = softmin_num / softmin_den;
                         }
 
-                        if !self.settings.deformation.fixed.m_ij.is_zero() {
+                        if !self.settings.deformation.fixed.m_ij.abs().is_zero() {
                             s = s / (s + mij_sq);
                         }
                     }

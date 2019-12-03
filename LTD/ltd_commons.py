@@ -154,7 +154,9 @@ hyperparameters = HyperParameters({
             #        M^\star is the maximum value that M can take for the anti-selector to be < \delta on E-surfaces.
             #        M_ij is the multiplier of M^\star (should typically be >=1.0 for the detla constraint to be satisfied)
             #        p_i^0 is the "surface shift" of E_surface #i.
-            'M_ij'  :   1.0,
+            # If M_ij or m_ijs are set negative then the corresponding absolute value is directly used as an input,
+            # and not as a rescaling of the m parameter deduced from the value of delta.
+            'M_ij'  :   -0.069,
             # The parameter below is used only for the `softmin` anti-selection.
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity

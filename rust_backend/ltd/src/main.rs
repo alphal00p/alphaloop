@@ -1457,7 +1457,7 @@ fn main() {
     );
     println!(
         "M_ij considered: {}",
-        topo.settings.deformation.fixed.m_ij * topo.compute_min_mij()
+        topo.settings.deformation.fixed.m_ij.abs() * topo.compute_min_mij()
     );
 
     match topo.analytical_result_real {
