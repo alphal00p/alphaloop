@@ -34,7 +34,7 @@ class HyperParamProber(object):
     _DUMMY_VEGAS_STATE_FILE_PATH = 'dummy_vegas_'
     _TOPOLOGIES_FILE = 'LTD/topologies.yaml'
     def __init__(self, 
-                 rust_config_file_path = pjoin(_WORK_DIR,'default_hyperparameters.yaml'),
+                 rust_config_file_path = None,
                  topology = 'Hexagon_3s',
                  log_stream = None,
                  additional_run_options = None
@@ -370,6 +370,7 @@ if __name__ == '__main__':
 
         log_stream = open(save_results_to,'w')
         prober = HyperParamProber(
+            rust_config_file_path = pjoin(_WORK_DIR,'default_hyperparameters.yaml'),
             topology=topology,
             log_stream=log_stream
         )
