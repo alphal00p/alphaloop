@@ -316,7 +316,7 @@ if __name__ == '__main__':
         elif key in ['quiet']:
             _SILENCE = True
         elif key in ['work_dir','wd']:
-            _WORK_DIR = value
+            _WORK_DIR = os.path.abspath(value)
         elif key in ['cores','c']:
             _N_CORES = int(value)
         elif key in ['load_results_from','load']:
