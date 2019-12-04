@@ -1749,6 +1749,21 @@ def load(selected_topologies=None):
             entry_name = topology_name
         )
 
+    rescaling = 0.1
+    mass=1.0*rescaling
+    topology_name = "1L_8P_PS2_massive_rescaled"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+                topology_name, 
+                ext_mom={'q1':q1*rescaling, 'q2': q2*rescaling , 'q3': q3*rescaling, 'q4': q4*rescaling, 
+                         'q5': q5*rescaling, 'q6':q6*rescaling, 'q7': q7*rescaling, 'q8':q8*rescaling}, 
+                mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
+                loop_momenta_names=('p1',), 
+                analytic_result=complex(-5.68050041076084999E-021/(rescaling**12), -4.11546542907940264E-020/(rescaling**12)),
+            ),
+            entry_name = topology_name
+        )
+
     # 2L
     factory = TopologyGenerator([
         ('p1', 10, 1), ('p2', 1, 2), ('p3', 2, 11), ('p4', 11, 3),  
