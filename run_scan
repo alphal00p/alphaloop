@@ -1,0 +1,11 @@
+./probe_hyperparameters_LTD.py \
+--n_start=1M \
+--n_increase=1M \
+--n_max=20M \
+--integrator=cuhre \
+--topology="$1" \
+--work_dir=/home/hirschva/MG5/pynloop_MadNkLO/PLUGIN/pyNLoop/scan_"$1" \
+--save_results_to=./scan_"$1"/"$1".yaml \
+--Deformation\>scaling\>expansion_threshold_values=[-0.1,-0.2,-0.3,-0.4,-0.5,-0.6,-0.7,-0.8,-0.9] \
+--Deformation\>fixed\>M_ij_values=[-0.0001,-0.001,-0.005,-0.01,-0.05,-0.1,-0.5,-1.0,-5.0] \
+"${@:2}"

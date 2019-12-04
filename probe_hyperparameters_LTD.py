@@ -213,6 +213,7 @@ class ResultsAnalyser(object):
             print('  %-40s = %.3e'%(self.get_name(param), self.get_param(param)))
         print('-'*100)
         print("Parameters studied: %s"%(', '.join(all_params)))
+        print("Number of scan points: %d"%len(self.results))
         print('-'*100)
         default_result = None
         for r in self.results:
@@ -222,17 +223,16 @@ class ResultsAnalyser(object):
         if default_result is None:
             print('WARNING: Could not find default result.')
         else:
-            print('%-40s%.3e +- %.3e'%('Default -> ',default_result[1]['result'][0],default_result[1]['error'][0]))
+            print('%-40s%.5e +- %.5e'%('Default -> ',default_result[1]['result'][0],default_result[1]['error'][0]))
         print('-'*100)            
         for param in all_params:
-            print param
             sorted_param_values = sorted(
                 ( [r for r in self.results if param in r[0]]+
                   [({param : self.get_param(param) },default_result[1])]),
                 key=lambda el: el[1]['error'][0])
             print("First %d optimal values for parameter '%s':"%(min(n_optimal_to_show,len(sorted_param_values)), param))
             for i_optimal, result in enumerate(sorted_param_values[:n_optimal_to_show]):
-                print("%-30s%-40s -> %.3e +- %.3e"%(
+                print("%-30s%-40s -> %.5e +- %.5e"%(
                     '  | ranked #%d%s: '%(
                         i_optimal+1, ' @DEFAULT' if result[0][param]==self.get_param(param) else ''),
                     ', '.join('%s=%g'%(self.get_name(p),result[0][p]) for p in sorted(result[0].keys()) ),
@@ -243,7 +243,7 @@ class ResultsAnalyser(object):
         sorted_all_param_values = sorted(self.results, key=lambda el: el[1]['error'][0])
         print("Overall %d best results:"%min(n_optimal_to_show,len(sorted_all_param_values)))
         for i_optimal, result in enumerate(sorted_all_param_values[:n_optimal_to_show]):
-            print("%-30s%-40s -> %.3e +- %.3e"%(
+            print("%-30s%-40s -> %.5e +- %.5e"%(
                 '  | ranked #%d%s: '%(
                     i_optimal+1, ' @DEFAULT' if len(result[0]) == 0 else ''),
                 ', '.join('%s=%g'%(self.get_name(p),result[0][p]) for p in sorted(result[0].keys()) ),
