@@ -662,7 +662,7 @@ def solve_center_problem(id_and_problem):
 
         for direction in range(len(extra_constraints), len(source_coordinates)):
             # go through all cartesian directions in 3*L space
-            for dir_sign in [-3,-2,-1,1,2,3]:
+            for dir_sign in [-3,3,-2,2,-1,1]:
                 new_rhs = [x for x in rhs]
                 dir_vector = [0, 0, 0]
                 dir_vector[abs(dir_sign) - 1] = -1 if dir_sign < 0 else 1
