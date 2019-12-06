@@ -290,6 +290,7 @@ impl Topology {
                                 }
 
                                 self.surfaces.push(Surface {
+                                    unique_ellipsoid_id: None,
                                     exists,
                                     group,
                                     surface_type: if is_pinch {
@@ -370,6 +371,7 @@ impl Topology {
                                     _ => true,
                                 } {
                                     self.surfaces.push(Surface {
+                                        unique_ellipsoid_id: None,
                                         exists: true, // we only store existing hyperboloids
                                         group,
                                         surface_type: SurfaceType::Hyperboloid,
@@ -438,6 +440,7 @@ impl Topology {
                 Some(i) => s.group = i.1,
                 None => {
                     if s.surface_type == SurfaceType::Ellipsoid && s.exists {
+                        s.unique_ellipsoid_id = Some(unique_ellipsoids);
                         unique_ellipsoids += 1;
                     }
                     s.group = surf_index;
@@ -1489,7 +1492,8 @@ impl Topology {
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
         let mij_min_sq = Into::<T>::into(self.compute_min_mij().powi(2));
-        let mut mij_sq = Into::<T>::into(self.settings.deformation.fixed.m_ij.abs().powi(2)) * mij_min_sq;
+        let mut mij_sq =
+            Into::<T>::into(self.settings.deformation.fixed.m_ij.abs().powi(2)) * mij_min_sq;
 
         if self.settings.deformation.fixed.include_normal_source {
             self.compute_ellipsoid_deformation_vector(
@@ -1592,12 +1596,19 @@ impl Topology {
                     }
                     let inv = inv.unwrap();
 
-                    if i < self.settings.deformation.additive.a_ijs.len() {
-                        aij = NumCast::from(self.settings.deformation.additive.a_ijs[i]).unwrap();
+                    let unique_ellipsoid_index = self.surfaces[i].unique_ellipsoid_id.unwrap();
+                    if unique_ellipsoid_index < self.settings.deformation.additive.a_ijs.len() {
+                        aij = NumCast::from(
+                            self.settings.deformation.additive.a_ijs[unique_ellipsoid_index],
+                        )
+                        .unwrap();
                     }
 
-                    if i < self.settings.deformation.lambdas.len() {
-                        lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
+                    if unique_ellipsoid_index < self.settings.deformation.lambdas.len() {
+                        lambda = NumCast::from(
+                            self.settings.deformation.lambdas[unique_ellipsoid_index],
+                        )
+                        .unwrap();
                     }
 
                     let mut dampening = match self.settings.deformation.additive.mode {
@@ -1624,7 +1635,17 @@ impl Topology {
 
                         let t = inv_surf_prop[surf_index].unwrap().powi(2)
                             / Into::<T>::into(self.e_cm_squared);
-                        dampening *= t / (t + mij_sq);
+
+                        let unique_ellipsoid_index = surf.unique_ellipsoid_id.unwrap();
+                        if unique_ellipsoid_index < self.settings.deformation.fixed.m_ijs.len() {
+                            dampening *= t
+                                / (t + Into::<T>::into(
+                                    self.settings.deformation.fixed.m_ijs[unique_ellipsoid_index]
+                                        .powi(2),
+                                ));
+                        } else {
+                            dampening *= t / (t + mij_sq);
+                        }
                     }
 
                     for (loop_index, kappa) in kappa_source[..self.n_loops].iter_mut().enumerate() {
@@ -1653,9 +1674,13 @@ impl Topology {
                 let mut softmin_den = DualN::zero();
 
                 for &surf_index in &d.excluded_surface_indices {
-                    if surf_index < self.settings.deformation.fixed.m_ijs.len() {
+                    let unique_ellipsoid_index =
+                        self.surfaces[surf_index].unique_ellipsoid_id.unwrap();
+                    if unique_ellipsoid_index < self.settings.deformation.fixed.m_ijs.len() {
                         mij_sq = Into::<T>::into(
-                            self.settings.deformation.fixed.m_ijs[surf_index].abs().powi(2),
+                            self.settings.deformation.fixed.m_ijs[unique_ellipsoid_index]
+                                .abs()
+                                .powi(2),
                         ) * mij_min_sq;
                     }
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j

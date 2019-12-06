@@ -812,15 +812,16 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
         if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid || !surf.exists {
             continue;
         }
-        n_unique_e_surface += 1;
         println!(
-            "|-> group={}, prop={:?} cut={}, full_id={:?}, shift={}",
+            "|-> {}: group={}, prop={:?} cut={}, full_id={:?}, shift={}",
+            n_unique_e_surface,
             surf.group,
             (surf.onshell_ll_index, surf.onshell_prop_index),
             CutList(&surf.cut),
             surf.id,
             surf.shift
         );
+        n_unique_e_surface += 1;
     }
     println!(
         ">>> End of the listing of {} unique non-pinched E-surfaces",

@@ -20,6 +20,7 @@ pub enum SurfaceType {
 /// Ellipsoid and hyperboloid surfaces
 #[derive(Debug, Clone)]
 pub struct Surface {
+    pub unique_ellipsoid_id: Option<usize>,
     pub group: usize,
     pub exists: bool,
     pub surface_type: SurfaceType,
