@@ -1634,7 +1634,7 @@ impl Topology {
                         }
 
                         let t = inv_surf_prop[surf_index].unwrap().powi(2)
-                            / Into::<T>::into(self.e_cm_squared);
+                            / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
                         let unique_ellipsoid_index = surf.unique_ellipsoid_id.unwrap();
                         if unique_ellipsoid_index < self.settings.deformation.fixed.m_ijs.len() {
@@ -1690,9 +1690,6 @@ impl Topology {
                             && self.surfaces[surf_index].exists
                     );
 
-                    // We do not want to normalize by e_cm_squared anymore here
-                    // let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
-                    //    / Into::<T>::into(self.e_cm_squared);
                     // The surface shift should never be zero at this stage.
                     let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
                         / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
