@@ -1,5 +1,5 @@
-- analytical_result_imag: -1.5381697365085504e-09
-  analytical_result_real: -1.214966736752062e-09
+- analytical_result_imag: -1.5312935664660172e-09
+  analytical_result_real: -1.214972172620638e-09
   constant_deformation:
     alpha:
     - - 0.0
@@ -36,9 +36,9 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 6.039455811023773
-        - 12.705214980858456
-        - 15.711509105625808
+        - 6.0394558183171
+        - 12.705214980633539
+        - 15.711509105120752
       excluded_surface_ids:
       - - - - 0
             - 3
@@ -54,12 +54,12 @@
       - 2
       - 3
       - 4
-      radius: 0.35429148449566444
+      radius: 0.35429148447606706
     - deformation_sources:
       - - 0.0
-        - 1.1660818489964
-        - 2.1879722517142057
-        - 21.26418224879274
+        - 1.1660818487347673
+        - 2.1879722517429614
+        - 21.26418224937492
       excluded_surface_ids:
       - - - - 0
             - 2
@@ -75,7 +75,7 @@
       - 2
       - 4
       - 5
-      radius: 0.15778353840674142
+      radius: 0.15778353840218695
     excluded_propagators: []
   loop_lines:
   - end_node: 5

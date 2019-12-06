@@ -1096,7 +1096,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(-1.27623847914047270E-012, -2.26088552166129903E-012)
+                analytic_result=complex(-1.22678104861494882E-012,-2.26209302871968524E-012)
             ),
             entry_name = topology_name
         )
@@ -1108,7 +1108,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6':q6}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass}, 
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(-1.27623847914047270E-012, -2.26088552166129903E-012)
+                analytic_result=complex(-1.27979167040951404E-012,-2.22848568589246320E-012)
             ),
             entry_name = topology_name
         )
@@ -1953,8 +1953,8 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1*rescaling, 'q2': q2*rescaling , 'q3': q3*rescaling, 'q4': q4*rescaling, 
                          'q5': q5*rescaling, 'q6':q6*rescaling, 'q7': q7*rescaling, 'q8':q8*rescaling}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
-                loop_momenta_names=('p1',), 
-                analytic_result=complex(-5.68050041076084999E-021/(rescaling**12), -4.11546542907940264E-020/(rescaling**12)),
+                loop_momenta_names=('p1',),
+                analytic_result=complex(-4.88509078866387831E-021/(rescaling**12), -4.11702218615542531E-020/(rescaling**12)),
             ),
             entry_name = topology_name
         )
@@ -1967,8 +1967,8 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1*rescaling, 'q2': q2*rescaling , 'q3': q3*rescaling, 'q4': q4*rescaling, 
                          'q5': q5*rescaling, 'q6':q6*rescaling, 'q7': q7*rescaling, 'q8':q8*rescaling}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass}, 
-                loop_momenta_names=('p1',), 
-                analytic_result=complex(-5.68050041076084999E-021/(rescaling**12), -4.11546542907940264E-020/(rescaling**12)),
+                loop_momenta_names=('p1',),
+                analytic_result=complex(-5.75146412843034991E-021/(rescaling**12), -4.04220718581417857E-020/(rescaling**12)),
             ),
             entry_name = topology_name
         )
@@ -2167,7 +2167,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5 }, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass },  
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(-1.21496673675206204E-009, -1.53816973650855041E-009),
+                analytic_result=complex(-1.20806860173969805E-009,-1.53817532373277183E-009),
             ),
             entry_name = topology_name
         )
@@ -2179,7 +2179,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5 }, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass },  
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(-1.21496673675206204E-009, -1.53816973650855041E-009),
+                analytic_result=complex(-1.21497217262063799E-009,-1.53129356646601722E-009),
             ),
             entry_name = topology_name
         )
@@ -2491,7 +2491,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass }, 
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(-1.79348897991097843E-007, -2.29184464605969399E-006),
+                analytic_result=complex(-1.63360985718055295E-007,-2.29244514073611410E-006),
             ),
             entry_name = topology_name
         )
@@ -2503,7 +2503,7 @@ def load(selected_topologies=None):
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4 }, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass }, 
                 loop_momenta_names=('p1',), 
-                analytic_result=complex(-1.79348897991097843E-007, -2.29184464605969399E-006),
+                analytic_result=complex(-1.79856696379639270E-007,-2.27577953613344811E-006),
             ),
             entry_name = topology_name
         )

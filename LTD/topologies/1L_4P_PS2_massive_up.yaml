@@ -1,5 +1,5 @@
-- analytical_result_imag: -2.291844646059694e-06
-  analytical_result_real: -1.7934889799109784e-07
+- analytical_result_imag: -2.275779536133448e-06
+  analytical_result_real: -1.7985669637963927e-07
   constant_deformation:
     alpha:
     - - 0.0
@@ -32,15 +32,15 @@
   - deformation_per_overlap:
     - deformation_sources:
       - - 0.0
-        - 1.617039115995349
-        - 6.484683187678526
-        - 12.007462435652055
+        - 1.617039108268034
+        - 6.484683146044231
+        - 12.007462452109337
       excluded_surface_ids: []
       overlap:
       - 0
       - 1
       - 2
-      radius: 1.1444851153614821
+      radius: 1.144485115333051
     excluded_propagators: []
   loop_lines:
   - end_node: 4
