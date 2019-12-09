@@ -6,6 +6,7 @@ from uncertainties import ufloat
 import numpy
 import argparse
 import romanclass as roman
+from copy import copy
 
 file_path = os.path.dirname(os.path.realpath( __file__ ))
 #file_path = '/Users/Dario/Desktop/PhD/Code/pynloop/'
@@ -19,20 +20,20 @@ columns += [{'header': r'Topology',
 			'align': 'l'}]
 columns += [{'header': r'Kin.',
 			'shared': True,
-			'json_link': lambda sample: sample.get('PS_point') if sample is not None else '?',
+			'json_link': lambda sample: sample.get('ps_point') if sample is not None else '?',
 			'align': 'l'}]
 columns += [{'header': r'$\mathtt{N_{\text{C}}}$',
 			'shared': True,
 			'json_link': lambda sample: sample.get('n_cuts') if sample is not None else '?',
-			'align': 'l'}]
+			'align': 'r'}]
 columns += [{'header': r'$\mathtt{N_{\text{E}}}$',
 			'shared': True,
 			'json_link': lambda sample: sample.get('n_unique_existing_E_surface') if sample is not None else '?',
-			'align': 'l'}]
+			'align': 'r'}]
 columns += [{'header': r'$\mathtt{N_{\text{S}}}$',
 			'shared': True,
 			'json_link': lambda sample: sample.get('n_sources') if sample is not None else '?',
-			'align': 'l'}]
+			'align': 'r'}]
 columns += [{'header': r'$\mathtt{L_{\text{max}}}$',
 			'shared': True,
 			'json_link': lambda sample: format_overlap(sample.get('overlap_multiplicity')) if sample is not None else '?',
@@ -40,45 +41,47 @@ columns += [{'header': r'$\mathtt{L_{\text{max}}}$',
 columns += [{'header': r'$\mathtt{N_{\text{p}} \ [10^9]}$',
 			'shared': True,
 			'json_link': lambda sample: format_n_points(sample.get('num_samples')) if sample is not None else '?',
-			'align': 'l'}]
+			'align': 'r'}]
 columns += [{'header': r'$\mathtt{\sfrac{t}{p} \ [\mu \text{s}]}$',
 			'shared': True,
 			'json_link': lambda sample: format_timing(sample.get('t_per_ps_point_in_s')) if sample is not None else '?',
-			'align': 'l'}]
+			'align': 'r'}]
 columns += [{'header': r'Phase',
 			'shared': False,
 			'json_link': lambda sample: [r'$\Re$',r'$\Im$'],
-			'align': 'l'}]
+			'align': 'c'}]
 columns += [{'header': r'Exp.',
 			'shared': True,
 			'json_link': lambda sample: format_exponent(sample.get('result'), sample.get('error'), sample.get('analytical_result')) if sample is not None else '?',
 			'align': 'l'}]
 columns += [{'header': r'Reference',
 			'shared': False,
-			'json_link': lambda sample: format_reference(sample.get('analytical_result')) if sample is not None else ['?','?'],
+			'json_link': lambda sample: format_reference(sample.get('result'), sample.get('error'), sample.get('analytical_result')) if sample is not None else ['?','?'],
 			'align': 'l'}]
 columns += [{'header': r'Numerical LTD',
 			'shared': False,
-			'json_link': lambda sample: format_ltd(sample.get('result'), sample.get('error')) if sample is not None else ['?','?'],
-			'align': 'l'}]
+			'json_link': lambda sample: format_ltd(sample.get('result'), sample.get('error'), sample.get('analytical_result')) if sample is not None else ['?','?'],
+			'align': 'c'}]
 columns += [{'header': r'$\mathtt{\Delta \ [\sigma]}$',
 			'shared': False,
 			'json_link': lambda sample: format_delta(sample.get('accuracy')) if sample is not None else ['?','?'],
-			'align': 'l'}]
+			'align': 'r'}]
 columns += [{'header': r'$\mathtt{\Delta \ [\%]}$',
 			'shared': False,
 			'json_link': lambda sample: format_delta(sample.get('percentage')) if sample is not None else ['?','?'],
-			'align': 'l'}]
+			'align': 'r'}]
 columns += [{'header': r'$\mathtt{\Delta \ [\%] |\cdot|}$',
 			'shared': True,
 			'json_link': lambda sample: format_delta(sample.get('abs_error')) if sample is not None else '?',
-			'align': 'l'}]
+			'align': 'r'}]
 
 NHEADER = len(columns)
 
 def format_overlap(overlap):
 	if overlap is None:
 		return '?'
+	if overlap == []:
+		return ''
 	overlap_str = str(overlap)
 	#overlap_str = overlap_str.replace(' ','')
 	#half = 40.
@@ -102,23 +105,37 @@ def format_overlap(overlap):
 def format_n_points(n_points):
 	if n_points is None:
 		return '?'
-	n_points_B = float(n_points)/10**9
-	if n_points_B>=1.:
-		return '{:d}'.format(int(n_points_B))
+	n_points_B = float(n_points)/10**9 
+	if n_points % 10**9 == 0:
+		return '{:d}'.format(int(n_points_B))+r'\phantom{.0}'
 	else:
 		return '{:.1f}'.format(n_points_B)
+	#n_points_B = float(n_points)/10**9
+	#if n_points_B>=1.:
+	#	return '{:d}'.format(int(n_points_B))
+	#else:
+	#	return '{:.1f}'.format(n_points_B)
 
 def format_timing(time):
 	if time is None:
 		return '?'
 	return '{:.0f}'.format(time*10**6)
 
-def format_exponent(results,errors,references):
+def determine_max_exp(results,errors,references):
 	if not isinstance(references[0], str) and not isinstance(references[1], str):
 		exponents_res = [int('{:e}'.format(results[0]).split('e')[1]),int('{:e}'.format(results[1]).split('e')[1])]
-		max_exp_res = max(exponents_res)
 		exponents_err = [int('{:e}'.format(errors[0]).split('e')[1]),int('{:e}'.format(errors[1]).split('e')[1])]
-		max_exp_err = max(exponents_err)
+		if results[0] == 0.:
+			assert(errors[0]==0.)
+			max_exp_res = exponents_res[1]
+			max_exp_err = exponents_err[1]
+		elif results[1] == 0.:
+			assert(errors[1]==0.)
+			max_exp_res = exponents_res[0]
+			max_exp_err = exponents_err[0]
+		else:
+			max_exp_res = max(exponents_res)
+			max_exp_err = max(exponents_err)
 		max_exp_ltd = max(max_exp_res,max_exp_err)
 		exponents_ref = [int('{:e}'.format(references[0]).split('e')[1]),int('{:e}'.format(references[1]).split('e')[1])]
 		if references[0] == 0.:
@@ -127,75 +144,76 @@ def format_exponent(results,errors,references):
 			max_exp_ref = exponents_ref[0]
 		else:
 			max_exp_ref = max(exponents_ref)
-		assert(max_exp_ref==max_exp_ltd)
+		max_exp = max(max_exp_ref,max_exp_ltd)
 	else:
 		exponents_res = [int('{:e}'.format(results[0]).split('e')[1]),int('{:e}'.format(results[1]).split('e')[1])]
 		max_exp_res = max(exponents_res)
 		exponents_err = [int('{:e}'.format(errors[0]).split('e')[1]),int('{:e}'.format(errors[1]).split('e')[1])]
 		max_exp_err = max(exponents_err)
-		max_exp_ltd = max([max_exp_res,max_exp_err])
-	return '{:e}'.format(10**max_exp_ltd).split('e')[1]
+		max_exp = max([max_exp_res,max_exp_err])
+	return max_exp
 
-def format_reference(references):
+def format_exponent(results,errors,references):
+	max_exp = determine_max_exp(results,errors,references)
+	return '{:e}'.format(10**max_exp).split('e')[1]
+
+def format_reference(results,errors,references):
 	references_str = []
 	if not isinstance(references[0], str) and not isinstance(references[1], str):
-		exponents = [int('{:e}'.format(references[0]).split('e')[1]),int('{:e}'.format(references[1]).split('e')[1])]
-		if references[0] == 0.:
-			max_exp = exponents[1]
-		elif references[1] == 0.:
-			max_exp = exponents[0]
-		else:
-			max_exp = max(exponents)
+		max_exp = determine_max_exp(results,errors,references)
 	for phase in [0,1]: 
 		reference = references[phase]
 		if isinstance(reference, str):
-			references_str += [reference]
+			references_str += ['~'+reference]
 		else:
-			reference_str = r'{: .5f}'.format(reference/10**max_exp) #+ 'e'+'{:e}'.format(10**max_exp).split('e')[1]
-			#reference_str = reference_str.replace(r'e',r'$\mathtt{\cdot 10^{')
-			#reference_str += '}}$'
-			references_str += [r'\texttt{'+reference_str+r'}']
+			if reference == 0.:
+				references_str += [r'\phantom{+}\texttt{0}\phantom{.00000}']
+			else:
+				reference_str = r'{: .5f}'.format(reference/10**max_exp) #+ 'e'+'{:e}'.format(10**max_exp).split('e')[1]
+				#reference_str = reference_str.replace(r'e',r'$\mathtt{\cdot 10^{')
+				#reference_str += '}}$'
+				if '+/-' in str(reference):
+					reference_str = reference_str.replace('+/-','~+/-~')
+				references_str += [r'\texttt{'+reference_str+r'}']
 	return references_str
 
-def format_ltd(results,errors):
+def format_ltd(results,errors,references):
 	results_str = []
-	exponents_res = [int('{:e}'.format(results[0]).split('e')[1]),int('{:e}'.format(results[1]).split('e')[1])]
-	max_exp_res = max(exponents_res)
-	exponents_err = [int('{:e}'.format(errors[0]).split('e')[1]),int('{:e}'.format(errors[1]).split('e')[1])]
-	max_exp_err = max(exponents_err)
-	max_exp = max([max_exp_err,max_exp_res])
+	max_exp = determine_max_exp(results,errors,references)
 	digits = 5
 	for phase in [0,1]:
-		res = ufloat(results[phase], errors[phase])
-		if res is None:
-			return '?'
-		#res_str = '{:ue}'.format(res)
-		res_str = ('{:.'+str(digits)+'f}').format(res/10**max_exp) #+ 'e'+'{:e}'.format(10**max_exp).split('e')[1]
-		if res_str[0] == r'(':
-			if res_str[1] != r'-':
-				res_str = r'(~' + res_str[1:]
-		elif res_str[0] == r'-':
-			res_str = r'~'+ res_str
+		if results[phase] == 0:
+			assert(errors[phase]==0)
+			results_str += ['']
 		else:
-			res_str = r'~' + r'~'+ res_str
-		counter = 0
-		dot = False
-		for s in res_str:
-			if s == '.':
-				dot = True
-			elif s == '+' and dot:
-				break
-			elif dot:
-				counter += 1
-		if '.' not in res_str:
-			counter -= 1
-		res_str = res_str.replace(r'+/-',r'~'*(digits+1-counter)+r'+/-~')
-		#if ')e' in res_str:
-		#	res_str = res_str.replace(r')e',r'~'*(digits-counter)+r')'+r'$\mathtt{\cdot 10^{')
-		#	res_str += '}}$'
-		#else:
-		#	res_str += r'~'*(digits-counter)+r')'+r'$\mathtt{\phantom{{}\cdot{}10^{-10}}}$'
-		results_str += [r'\texttt{'+res_str+r'}']
+			res = ufloat(results[phase], errors[phase])
+			if res is None:
+				return '?'
+			#res_str = '{:ue}'.format(res)
+			res_str = ('{:.'+str(digits)+'f}').format(res/10**max_exp) #+ 'e'+'{:e}'.format(10**max_exp).split('e')[1]
+			#if res_str[0] == r'(':
+			#	if res_str[1] != r'-':
+			#		res_str = r'(~' + res_str[1:]
+			if not res_str[0] == r'-':
+				res_str = r'~'+ res_str
+			counter = 0
+			dot = False
+			for s in res_str:
+				if s == '.':
+					dot = True
+				elif s == '+' and dot:
+					break
+				elif dot:
+					counter += 1
+			if '.' not in res_str:
+				counter -= 1
+			res_str = res_str.replace(r'+/-',r'~'*(digits+1-counter)+r'+/-~')
+			#if ')e' in res_str:
+			#	res_str = res_str.replace(r')e',r'~'*(digits-counter)+r')'+r'$\mathtt{\cdot 10^{')
+			#	res_str += '}}$'
+			#else:
+			#	res_str += r'~'*(digits-counter)+r')'+r'$\mathtt{\phantom{{}\cdot{}10^{-10}}}$'
+			results_str += [r'\texttt{'+res_str+r'}']
 	return results_str
 
 def format_delta(deltas):
@@ -209,12 +227,12 @@ def format_delta(deltas):
 		if isinstance(delta, str):
 			deltas_str += [delta]
 		else:
-			if delta < 1e-3:
+			if delta < 5e-4:
 				deltas_str += [r'{\color{ForestGreen}'+'{:.0e}'.format(delta)+r'}']
-			if delta >= 10.:
+			elif delta >= 10.:
 				deltas_str += [r'{\color{red}'+'{:.0e}'.format(delta)+r'}']
 			else:
-				deltas_str += ['{:.3f}'.format(delta)]
+				deltas_str += [r'{:.3f}'.format(delta)]
 	if len(phases)==1:
 		return deltas_str[0]
 	return deltas_str
@@ -253,7 +271,7 @@ def set_topology(n_ps_points,data=None):
 		topology_string += r'\\'+'\n'
 	return topology_string
 
-def set_table(columns,ps_pts_per_topology,data=None):
+def set_table(columns,ps_pts_per_topology,data=None,exclude=None):
 	table_string = r'\begin{table}[tbp]'+'\n'
 	table_string += r'\centering'+'\n'
 	table_string += r'\resizebox{\columnwidth}{!}{%'+'\n'
@@ -263,7 +281,9 @@ def set_table(columns,ps_pts_per_topology,data=None):
 	table_string += set_header(columns)
 	if data is not None:
 		for n_ps_points,topo_data in zip(ps_pts_per_topology,data):
-			table_string += set_topology(n_ps_points,data=topo_data)
+			if exclude is None or topo_data['topology'] not in exclude:
+				#print(topo_data['topology'])
+				table_string += set_topology(n_ps_points,data=topo_data)
 	else:
 		for n_ps_points in ps_pts_per_topology:
 			table_string += set_topology(n_ps_points,data=None)
@@ -285,14 +305,14 @@ def get_history(history_path):
 
     return historical_data
 
-def update_and_extract_data(data,name_maps):
+def update_and_extract_data(data,ordered_topology_names):
 	sorted_data = []
 	found = False
-	for name_map in name_maps:
+	for topology_name in ordered_topology_names:
 		for sample in data:
-			if sample['topology'] == name_map['topology_name']:
-				sample['PS_point'] = name_map['PS_point']
-				sample['graph'] = name_map['graph']
+			if sample['topology'] == topology_name:
+				#sample['ps_point'] = name_map['ps_point']
+				#sample['graph'] = name_map['graph']
 				sorted_data += [sample]
 				data.remove(sample)
 				found = True
@@ -303,7 +323,10 @@ def update_and_extract_data(data,name_maps):
 
 
 def sort_and_split_data(data):
-	topologies_in_order = [	'Pentagon_1s',
+	current_data_length = len(data)
+
+	topologies_in_order = [	'Box_4E_no_z_component_sources',
+							'Pentagon_1s',
 							'Pentagon_10E_1s',
 							'Pentagon_2s',
 							'Pentagon_3s',
@@ -319,23 +342,10 @@ def sort_and_split_data(data):
 							'Hexagon_10E_7s',
 							'Hexagon_4s',
 							'Hexagon_10E_5s']
-	counter_5p = 1
-	counter_6p = 1
-	name_maps = []
-	ps_point = None
-	graph = None
-	for topology_name in topologies_in_order:
-		if 'Pentagon' in topology_name:
-			ps_point = str(roman.Roman(counter_5p)).lower()
-			graph = '1L5P'
-			counter_5p += 1
-		elif 'Hexagon' in topology_name:
-			ps_point = str(roman.Roman(counter_6p)).lower()
-			graph = '1L6P'
-			counter_6p += 1
-		name_maps += [{'topology_name': topology_name, 'PS_point': ps_point, 'graph': graph}]
-
-	explore_1loop_3B, data = update_and_extract_data(data,name_maps)
+	
+	explore_1loop_3B, data = update_and_extract_data(data,topologies_in_order)
+	assert(current_data_length-len(topologies_in_order)==len(data))
+	current_data_length = len(data)
 
 	topologies_in_order = [	'1L_4P_PS3',
 							'1L_4P_PS1',
@@ -343,49 +353,39 @@ def sort_and_split_data(data):
 							'1L_4P_PS3_massive',
 							'1L_4P_PS1_massive',
 							'1L_4P_PS2_massive',
+							'1L_4P_PS2_massive_down',
+							'1L_4P_PS2_massive_up',
 							'1L_5P_PS3',
 							'1L_5P_PS1',
 							'1L_5P_PS2',
 							'1L_5P_PS3_massive',
 							'1L_5P_PS1_massive',
 							'1L_5P_PS2_massive',
+							'1L_5P_PS2_massive_down',
+							'1L_5P_PS2_massive_up',
 							'1L_6P_PS3',
 							'1L_6P_PS1',
 							'1L_6P_PS2',
 							'1L_6P_PS3_massive',
 							'1L_6P_PS1_massive',
 							'1L_6P_PS2_massive',
+							'1L_6P_PS2_massive_up',
+							'1L_6P_PS2_massive_down',
 							'1L_8P_PS3',
 							'1L_8P_PS1',
 							'1L_8P_PS2',
 							'1L_8P_PS3_massive',
 							'1L_8P_PS1_massive',
-							'1L_8P_PS2_massive']
+							'1L_8P_PS2_massive',
+							'1L_8P_PS2_massive_rescaled_down',
+							'1L_8P_PS2_massive_rescaled_up']
 
-	name_maps = []
-	ps_point = None
-	graph = None
-	for topology_name in topologies_in_order:
-		if '1L_4P' in topology_name:
-			graph = '1L4P'
-		elif '1L_5P' in topology_name:
-			graph = '1L5P'
-		elif '1L_6P' in topology_name:
-			graph = '1L6P'
-		elif '1L_8P' in topology_name:
-			graph = '1L8P'
-		if 'PS3' in topology_name:
-			ps_point = str(roman.Roman(1))
-		elif 'PS1' in topology_name:
-			ps_point = str(roman.Roman(2))
-		elif 'PS2' in topology_name:
-			ps_point = str(roman.Roman(3))
-		if 'massive' in topology_name:
-			ps_point += r'$^*$'
-		name_maps += [{'topology_name': topology_name, 'PS_point': ps_point, 'graph': graph}]
-		
-	systematic_1loop_3B, data = update_and_extract_data(data,name_maps)
+	systematic_1loop_3B, data = update_and_extract_data(data,topologies_in_order)
+	assert(current_data_length-len(topologies_in_order)==len(data))
+	current_data_length = len(data)
 
+	systematic_1loop_3B_1 = systematic_1loop_3B[:16]
+	systematic_1loop_3B_2 = systematic_1loop_3B[16:]
 
 	topologies_in_order = [	'TM1_top',
 							'TM1_bot',
@@ -397,96 +397,77 @@ def sort_and_split_data(data):
 							'T2_6P_2L_Weinzierl_E',
 							'T2_6P_2L_Weinzierl_F',
 							'T4_TripleBox_Weinzierl',
-							'T4_Quadruple_Box_Weinzierl']
+							'FISHNET_2x2',
+							'T4_Quadruple_Box_Weinzierl',
+							'FISHNET_1x5',
+							'FISHNET_1x6',
+							'FISHNET_2x3']
 
-	name_maps = []
-	ps_point = None
-	graph = None
-	for topology_name in topologies_in_order:
-		if 'DoubleBox' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L4P.c'
-		elif '6P_2L_Weinzierl_A' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L6P.a'
-		elif '6P_2L_Weinzierl_B' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L6P.b'
-		elif '6P_2L_Weinzierl_C' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L6P.c'
-		elif '6P_2L_Weinzierl_D' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L6P.d'
-		elif '6P_2L_Weinzierl_E' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L6P.e'
-		elif '6P_2L_Weinzierl_F' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L6P.f'
-		elif 'TripleBox' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '3L4P'
-		elif 'Quadruple_Box' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '4L4P'
-		elif 'TM1_top' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L4P.a'
-		elif 'TM1_bot' in topology_name:
-			ps_point = str(roman.Roman(1)).lower()
-			graph = '2L4P.b'
-		name_maps += [{'topology_name': topology_name, 'PS_point': ps_point, 'graph': graph}]
-
-	explore_HigherLoop, data = update_and_extract_data(data,name_maps)
-
+	explore_HigherLoop, data = update_and_extract_data(data,topologies_in_order)
+	assert(current_data_length-len(topologies_in_order)==len(data))
+	current_data_length = len(data)
 
 	topologies_in_order = [	'2L_4P_Ladder_PS3',
 							'2L_4P_Ladder_PS1',
 							'2L_4P_Ladder_PS2',
 							'2L_4P_Ladder_PS3_massive',
 							'2L_4P_Ladder_PS1_massive',
+							'2L_4P_Ladder_PS2_massive_down',
+							'2L_4P_Ladder_PS2_massive_up',
 							#'2L_4P_Ladder_PS2_massive',
 							'2L_5P_Planar_PS3',
 							'2L_5P_Planar_PS1',
 							'2L_5P_Planar_PS2',
 							'2L_5P_Planar_PS3_massive',
 							'2L_5P_Planar_PS1_massive',
+							'2L_5P_Planar_PS2_massive_down',
+							'2L_5P_Planar_PS2_massive_up',
 							#'2L_5P_Planar_PS2_massive',
 							'2L_6P_A_PS3',
 							'2L_6P_A_PS1',
 							#'2L_6P_A_PS2',
 							'2L_6P_A_PS3_massive',
 							'2L_6P_A_PS1_massive',
+							'2L_6P_A_PS2_massive_down',
 							#'2L_6P_A_PS2_massive',
 							'2L_6P_B_PS3',
 							'2L_6P_B_PS1',
 							'2L_6P_B_PS2',
 							'2L_6P_B_PS3_massive',
 							'2L_6P_B_PS1_massive',
+							'2L_6P_B_PS2_massive_up',
+							'2L_6P_B_PS2_massive_down',
 							#'2L_6P_B_PS2_massive',
 							'2L_6P_C_PS3',
 							'2L_6P_C_PS1',
 							'2L_6P_C_PS2',
 							'2L_6P_C_PS3_massive',
 							'2L_6P_C_PS1_massive',
+							'2L_6P_C_PS2_massive_up',
+							'2L_6P_C_PS2_massive_down',
 							#'2L_6P_C_PS2_massive',
 							'2L_6P_D_PS3',
 							'2L_6P_D_PS1',
 							'2L_6P_D_PS2',
 							'2L_6P_D_PS3_massive',
 							'2L_6P_D_PS1_massive',
+							'2L_6P_D_PS2_massive_up',
+							'2L_6P_D_PS2_massive_down',
 							#'2L_6P_D_PS2_massive',
 							'2L_6P_E_PS3',
 							'2L_6P_E_PS1',
 							'2L_6P_E_PS2',
 							'2L_6P_E_PS3_massive',
 							'2L_6P_E_PS1_massive',
+							'2L_6P_E_PS2_massive_up',
+							'2L_6P_E_PS2_massive_down',
 							#'2L_6P_E_PS2_massive',
 							'2L_6P_F_PS3',
 							'2L_6P_F_PS1',
 							'2L_6P_F_PS2',
 							'2L_6P_F_PS3_massive',
+							'2L_6P_F_PS2_massive_up',
+							'2L_6P_F_PS2_massive_down',
 							#'2L_6P_F_PS1_massive',
 							#'2L_6P_F_PS2_massive',
 							'2L_8P_PS3',
@@ -497,13 +478,18 @@ def sort_and_split_data(data):
 							'3L_4P_Ladder_PS2',
 							'3L_4P_Ladder_PS3_massive',
 							'3L_4P_Ladder_PS1_massive',
+							'3L_4P_Ladder_PS2_massive_down',
+							'3L_4P_Ladder_PS2_massive_up',
 							#'3L_4P_Ladder_PS2_massive',
 							'3L_5P_Planar_PS3',
 							'3L_5P_Planar_PS1',
 							'3L_5P_Planar_PS2',
 							'3L_5P_Planar_PS3_massive',
 							'3L_5P_Planar_PS1_massive',
+							'3L_5P_Planar_PS2_massive_down',
+							'3L_5P_Planar_PS2_massive_up',
 							#'3L_5P_Planar_PS2_massive',
+							'FISHNET_2x2_PS3',
 							'FISHNET_2x2_PS3_massive',
 							#'FISHNET_2x2_PS1_massive',
 							#'FISHNET_2x2_PS2_massive',
@@ -512,58 +498,166 @@ def sort_and_split_data(data):
 							'4L_4P_Ladder_PS2',
 							'4L_4P_Ladder_PS3_massive',
 							'4L_4P_Ladder_PS1_massive',
-							#'4L_4P_Ladder_PS2_massive'
+							#'4L_4P_Ladder_PS2_massive',
 							]
-	name_maps = []
-	ps_point = None
-	graph = None
-	for topology_name in topologies_in_order:
-		if '2L_4P' in topology_name:
-			graph = '2L4P.c'
-		elif '2L_5P' in topology_name:
-			graph = '2L5P'
-		elif '2L_6P_A' in topology_name:
-			graph = '2L6P.a'
-		elif '2L_6P_B' in topology_name:
-			graph = '2L6P.b'
-		elif '2L_6P_C' in topology_name:
-			graph = '2L6P.c'
-		elif '2L_6P_D' in topology_name:
-			graph = '2L6P.d'
-		elif '2L_6P_E' in topology_name:
-			graph = '2L6P.e'
-		elif '2L_6P_F' in topology_name:
-			graph = '2L6P.f'
-		elif '2L_8P' in topology_name:
-			graph = '2L8P'
-		elif '3L_4P' in topology_name:
-			graph = '3L4P'	
-		elif 'FISHNET_2x2' in topology_name:
-			graph = '4L4P.a'	
-		elif '4L_4P' in topology_name:
-			graph = '4L4P.b'	
-		if 'PS3' in topology_name:
-			ps_point = str(roman.Roman(1))
-		elif 'PS1' in topology_name:
-			ps_point = str(roman.Roman(2))
-		elif 'PS2' in topology_name:
-			ps_point = str(roman.Roman(3))
-		if 'massive' in topology_name:
-			ps_point += r'$^*$'
-		name_maps += [{'topology_name': topology_name, 'PS_point': ps_point, 'graph': graph}]
 
-	systematic_HigherLoop, data = update_and_extract_data(data,name_maps)
+	systematic_HigherLoop, data = update_and_extract_data(data,topologies_in_order)
 
-	systematic_HigherLoop_1 = systematic_HigherLoop[:19]
-	systematic_HigherLoop_2 = systematic_HigherLoop[19:34]
-	systematic_HigherLoop_3 = systematic_HigherLoop[34:]
-
+	systematic_HigherLoop_1 = systematic_HigherLoop[:14]
+	systematic_HigherLoop_2 = systematic_HigherLoop[14:54]
+	systematic_HigherLoop_3 = systematic_HigherLoop[54:]
+	
+	for sample in data:
+		print(sample['topology'])
 	assert(data==[])
 
-	return [explore_1loop_3B, systematic_1loop_3B, explore_HigherLoop, systematic_HigherLoop_1,systematic_HigherLoop_2,systematic_HigherLoop_3]
+	return [explore_1loop_3B, systematic_1loop_3B_1, systematic_1loop_3B_2, explore_HigherLoop, systematic_HigherLoop_1,systematic_HigherLoop_2,systematic_HigherLoop_3]
 
+def get_all_data(paths):
+	all_sample_data = []
+	for path in all_paths:
+		historical_data = get_history(path)
+		for t, v in historical_data.items():
+			samples = v['samples']
+			for sample in samples:
+				if sample.get('n_cuts') is not None:
+					all_sample_data += [sample]
+	return all_sample_data
 
+def complete_data(data):
+	for sample in data:
+		assert(sample.get('maximal_overlap') is not None)
+		sample['overlap_multiplicity'] = [len(overlap) for overlap in sample['maximal_overlap']]
+		if [sample['analytical_result'][0]-sample['result'][0],sample['analytical_result'][1]-sample['result'][1]] == [0.,0.]:
+			sample['analytical_result'] = ['n/a','n/a']
+			sample['accuracy'] = [' ',' ']
+			sample['percentage'] = [100.0*(abs(sample['error'][i_phase]) / abs(sample['result'][i_phase])) for i_phase in [0,1]]
+			sample['abs_error'] = 100.* (numpy.sqrt(
+					(sample['error'][0])**2 + (sample['error'][1])**2
+					)/numpy.sqrt(sample['result'][0]**2 + sample['result'][1]**2))
+		else:
+			sample['accuracy'] = [abs(sample['analytical_result'][i_phase] - sample['result'][i_phase]) / sample['error'][i_phase]
+									if sample['error'][i_phase] != 0. else ' ' for i_phase in [0,1]]
+			assert(sample['accuracy'] != [0.,0.])
+			sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
+					if abs(sample['analytical_result'][i_phase]) != 0. else ' ' for i_phase in [0,1]]
+			assert(sample['percentage'] != [0.,0.])
+			assert(numpy.sqrt(sample['analytical_result'][0]**2 + sample['analytical_result'][1]**2) != 0.)
+			sample['abs_error'] = 100.* (numpy.sqrt(
+					(sample['analytical_result'][0]-sample['result'][0])**2 + (sample['analytical_result'][1]-sample['result'][1])**2
+					)/numpy.sqrt(sample['analytical_result'][0]**2 + sample['analytical_result'][1]**2))
+			assert(sample['abs_error'] != 0.)
 
+	for sample in data:
+		topology_name = sample['topology']
+		if 'Box_4E' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '1L4P'
+		elif 'Pentagon' in topology_name:
+			if '1s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(1))
+			elif '2s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(2))
+			elif '3s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(3))
+			elif '4s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(4))
+			elif '5s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(5))
+			sample['graph'] = '1L5P'
+		elif 'Hexagon' in topology_name:
+			if '1s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(1))
+			elif '6E_2s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(2))
+			elif '2s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(3))
+			elif '3s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(4))
+			elif '6E_4s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(5))
+			elif '9E_4s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(6))
+			elif '10E_4s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(7))
+			elif '10E_7s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(8))
+			elif '4s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(9))
+			elif '5s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(10))
+			sample['graph'] = '1L6P'
+		elif '1L_4P' in topology_name:
+			sample['graph'] = '1L4P'
+		elif '1L_5P' in topology_name:
+			sample['graph'] = '1L5P'
+		elif '1L_6P' in topology_name:
+			sample['graph'] = '1L6P'
+		elif '1L_8P' in topology_name:
+			sample['graph'] = '1L8P'
+		elif 'DoubleBox' in topology_name or '2L_4P_Ladder' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L4P.c'
+		elif '6P_2L_Weinzierl_A' in topology_name or '2L_6P_A' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L6P.a'
+		elif '6P_2L_Weinzierl_B' in topology_name or '2L_6P_B' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L6P.b'
+		elif '6P_2L_Weinzierl_C' in topology_name or '2L_6P_C' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L6P.c'
+		elif '6P_2L_Weinzierl_D' in topology_name or '2L_6P_D' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L6P.d'
+		elif '6P_2L_Weinzierl_E' in topology_name or '2L_6P_E' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L6P.e'
+		elif '6P_2L_Weinzierl_F' in topology_name or '2L_6P_F' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L6P.f'
+		elif 'TripleBox' in topology_name or '3L_4P' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '3L4P'
+		elif 'Quadruple_Box' in topology_name or '4L_4P_Ladder' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '4L4P.b'
+		elif 'TM1_top' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L4P.a'
+		elif 'TM1_bot' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '2L4P.b'
+		elif '2L_5P' in topology_name:
+			sample['graph'] = '2L5P'
+		elif '2L_8P' in topology_name:
+			sample['graph'] = '2L8P'
+		elif '3L_5P' in topology_name:
+			sample['graph'] = '3L5P'
+		elif 'FISHNET_2x2' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '4L4P.a'
+		elif 'FISHNET_1x5' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '5L4P'
+		elif 'FISHNET_1x6' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '6L4P.a'
+		elif 'FISHNET_2x3' in topology_name:
+			sample['ps_point'] = str(roman.Roman(1))
+			sample['graph'] = '6L4P.b'
+		else:
+			print('topology not found!')
+			assert(1==2)
+		if 'PS3' in topology_name:
+			sample['ps_point'] = 'K1'
+		elif 'PS1' in topology_name:
+			sample['ps_point'] = 'K2'
+		elif 'PS2' in topology_name:
+			sample['ps_point'] = 'K3'
+		if 'massive' in topology_name:
+			sample['ps_point'] += r'$^*$'
+	return data
 
 if __name__ == "__main__":
 
@@ -574,64 +668,185 @@ if __name__ == "__main__":
 	all_paths += [pjoin(file_path,"deformation_paper_results/explore_HigherLoop.json")]
 	all_paths += [pjoin(file_path,"deformation_paper_results/PS1PS2_HigherLoop.json")]
 	all_paths += [pjoin(file_path,"deformation_paper_results/PS3_HigherLoop.json")]
+	all_paths += [pjoin(file_path,"deformation_paper_results/missing_loops.json")]
 
-	#DEFAULT_PATH = pjoin(file_path,"deformation_paper_results/PS3_HigherLoop.json")
+	all_sample_data = get_all_data(all_paths)
 
-	#parser = argparse.ArgumentParser(description='Tootl to tabulate json data')
-	#parser.add_argument('--path', default=DEFAULT_PATH ,help='Specify the path to the json file.')
-	#args = parser.parse_args()
+	manual_FISHNET_1x5_sample = {'num_samples': int(1.8e9), 
+								'topology': 'FISHNET_1x5',
+								'result': [0., 3.289e-16],
+								'error': [0., 1.96409e-18],
+								'analytical_result': [0., 3.31696678e-16],
+								'n_unique_existing_E_surface': 0,
+								'n_sources': 0,
+								'maximal_overlap': [],
+								'max_radius': 0.,
+								'min_radius': 0.,
+								'n_cuts': 780,
+								't_per_ps_point_in_s': 127.542888*10**(-3)/500}
 
-	#PATH = args.path
+	manual_FISHNET_1x6_sample = {'num_samples': int(1e9), 
+								'topology': 'FISHNET_1x6',
+								'result': [1.09968e-18,0.],
+								'error': [4.17287e-19,0.],
+								'analytical_result': [9.060040029310959e-19,0.],
+								'n_unique_existing_E_surface': 0,
+								'n_sources': 0,
+								'maximal_overlap': [],
+								'max_radius': 0.,
+								'min_radius': 0.,
+								'n_cuts': 2911,
+								't_per_ps_point_in_s': 600.14064*10**(-3)/500}
 
-    #print(set_table(columns,ps_pts_per_topology))
-	all_sample_data = []
-	for path in all_paths:
-		historical_data = get_history(path)
-		sample_data = []
-		for t, v in historical_data.items():
-			samples = v['samples']
-			sample_data += samples
+	manual_FISHNET_2x3_sample = {'num_samples': int(14.5e9), 
+								'topology': 'FISHNET_2x3',
+								'result': [8.36493e-19,0.],
+								'error': [2.16724e-21,0.],
+								'analytical_result': [8.4044862640909e-19,0.],
+								'n_unique_existing_E_surface': 0,
+								'n_sources': 0,
+								'maximal_overlap': [],
+								'max_radius': 0.,
+								'min_radius': 0.,
+								'n_cuts': 2415,
+								't_per_ps_point_in_s': 598.039545*10**(-3)/500}
 
-		for sample in sample_data:
-			sample['accuracy'] = [abs(sample['analytical_result'][i_phase] - sample['result'][i_phase]) / sample['error'][i_phase] for i_phase in [0,1]]
-			if sample['accuracy'] == [0.,0.]:
-				sample['accuracy'] = ['n/a','n/a']
-			#sample['precision'] = [sample['error'][i_phase] * numpy.sqrt(sample['num_samples']) / abs(sample['analytical_result'][i_phase])
-			#		if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
-			#sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
-			#		if abs(sample['analytical_result'][i_phase]) != 0. else 0 for i_phase in [0,1]]
-			sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
-					if abs(sample['analytical_result'][i_phase]) != 0. else 'n/a' for i_phase in [0,1]]
-			if sample['percentage'] == [0.,0.]:
-				sample['percentage'] = ['n/a','n/a']
-			if numpy.sqrt(sample['analytical_result'][0]**2+sample['analytical_result'][1]**2) != 0.:
-				sample['abs_error'] = 100.*numpy.sqrt(
-					(sample['analytical_result'][0]-sample['result'][0])**2
-					+ (sample['analytical_result'][1]-sample['result'][1])**2
-					)/numpy.sqrt(sample['analytical_result'][0]**2+sample['analytical_result'][1]**2)
-			else:
-				sample['abs_error'] = 'n/a'
-			if sample['abs_error'] == 0.:
-				sample['abs_error'] = 'n/a'
-			if sample.get('maximal_overlap') is not None:
-				sample['overlap_multiplicity'] = [len(overlap) for overlap in sample['maximal_overlap']]
-			else:
-				sample['overlap_multiplicity'] = None
-			if [sample['analytical_result'][0]-sample['result'][0],sample['analytical_result'][1]-sample['result'][1]] == [0.,0.]:
-				sample['analytical_result'] = ['n/a','n/a']
-		#print(sample_daty.
-		#sample_data=sorted(sample_data,key=lambda x: x['topology'])
-		new_sample_data = []
-		for sample in sample_data:
-			if sample.get('n_cuts') is not None:
-				new_sample_data += [sample]
-		all_sample_data += new_sample_data
+	placeholder_FISHNET_2x2_sample = {'num_samples': int(0), 
+								'topology': 'FISHNET_2x2',
+								'result': [99.,99.],
+								'error': [99.,99.],
+								'analytical_result': [99.,99.],
+								'n_unique_existing_E_surface': 0,
+								'n_sources': 0,
+								'maximal_overlap': [],
+								'max_radius': 0.,
+								'min_radius': 0.,
+								'n_cuts': 0,
+								't_per_ps_point_in_s': 0.}
 
-	#print(all_sample_data)
+	placeholder_FISHNET_2x2_PS3_sample = {'num_samples': int(0), 
+								'topology': 'FISHNET_2x2_PS3',
+								'result': [99.,99.],
+								'error': [99.,99.],
+								'analytical_result': [99.,99.],
+								'n_unique_existing_E_surface': 0,
+								'n_sources': 0,
+								'maximal_overlap': [],
+								'max_radius': 0.,
+								'min_radius': 0.,
+								'n_cuts': 0,
+								't_per_ps_point_in_s': 0.}
 
+	placeholder_4L_4P_Ladder_PS3_sample = {'num_samples': int(0), 
+								'topology': '4L_4P_Ladder_PS3',
+								'result': [99.,99.],
+								'error': [99.,99.],
+								'analytical_result': [99.,99.],
+								'n_unique_existing_E_surface': 0,
+								'n_sources': 0,
+								'maximal_overlap': [],
+								'max_radius': 0.,
+								'min_radius': 0.,
+								'n_cuts': 0,
+								't_per_ps_point_in_s': 0.}
+
+	all_sample_data += [	manual_FISHNET_1x5_sample,
+							manual_FISHNET_1x6_sample,
+							manual_FISHNET_2x3_sample,
+							placeholder_FISHNET_2x2_sample,
+							placeholder_FISHNET_2x2_PS3_sample,
+							placeholder_4L_4P_Ladder_PS3_sample]
+
+
+	all_sample_data = complete_data(all_sample_data)
+
+	all_sample_data.remove({'revision': 'e58c4b7', 'diff': False, 'num_samples': 500000000, 'topology': '4L_4P_Ladder_PS3', 'result': [3.619624658469241e-12, -2.0527445803375738e-12], 'error': [9.950475725998295e-13, 9.897342748196721e-13], 'analytical_result': [4.03555168296597e-12, -1.0244887725916831e-12], 'n_unique_existing_E_surface': 28, 'n_sources': 270, 'maximal_overlap': [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]], 'max_radius': 0.6782331861809063, 'min_radius': 0.10393659196076636, 'n_cuts': 209, 't_per_ps_point_in_s': 0.002752984665, 'overlap_multiplicity': [28], 'accuracy': [0.41799712491133195, 1.0389210860998392], 'percentage': [10.306571620736593, 100.36769901779185], 'abs_error': 26.64043635840804, 'ps_point': 'K1', 'graph': '4L4P.b'}
+)
+	all_sample_data.remove({'revision': 'e58c4b7', 'diff': False, 'num_samples': 400000000, 'topology': '4L_4P_Ladder_PS3', 'result': [4.308707534909754e-12, -2.5066951276497768e-12], 'error': [1.0527262612060722e-12, 1.0918350285928435e-12], 'analytical_result': [4.03555168296597e-12, -1.0244887725916831e-12], 'n_unique_existing_E_surface': 28, 'n_sources': 270, 'maximal_overlap': [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]], 'max_radius': 0.6782331861809063, 'min_radius': 0.10393659196076636, 'n_cuts': 209, 't_per_ps_point_in_s': 0.003459343254, 'overlap_multiplicity': [28], 'accuracy': [0.25947472007665046, 1.357536913766506], 'percentage': [6.768736306779889, 144.67765725811782], 'abs_error': 36.198953754857264, 'ps_point': 'K1', 'graph': '4L4P.b'}
+)
+
+	for sample in all_sample_data:
+		if sample['topology'] == 'T2_6P_2L_Weinzierl_A':
+			sample['analytical_result'] = [ufloat(-86.0768134710165628, 0.0858487113390352118),
+											ufloat( 0.0552231059543505382,0.0297582753855115178)]
+		elif sample['topology'] == 'T2_6P_2L_Weinzierl_B':
+			sample['analytical_result'] = [ufloat(-118.862749862757883,0.0528974822691667579),
+											ufloat(0.00546254353736746056,0.0081974011755989916)]
+		elif sample['topology'] == 'T2_6P_2L_Weinzierl_C':
+			sample['analytical_result'] = [ufloat(-76.0653436805269237,0.0565739838497340792),
+											ufloat(0.00563911180783386448,0.0042510954861177851)]
+		elif sample['topology'] == 'T2_6P_2L_Weinzierl_D':
+			sample['analytical_result'] = [ufloat(-18.3271249575150019, 0.0171281153680031097),
+											ufloat( 0.0102603219383815086,0.00439019843081463525)]
+		elif sample['topology'] == 'T2_6P_2L_Weinzierl_E':
+			sample['analytical_result'] = [ufloat(-45.9727585576039985, 0.0443921298216177022),
+											ufloat( 0.00210426401936783294,0.0027359584173322363)]
+		elif sample['topology'] == 'T2_6P_2L_Weinzierl_F':
+			sample['analytical_result'] = [ufloat(-102.713355708622871, 0.0288577968836020429),
+											ufloat( 0.00969731708704666883,0.00604760342011912482)]
+
+
+	exclude_topologies = [	'2L_6P_A_PS1',			
+							'2L_6P_A_PS1_massive',
+							'2L_6P_B_PS1',		
+							'2L_6P_B_PS2',			
+							'2L_6P_B_PS1_massive',
+							'2L_6P_C_PS1',			
+							'2L_6P_C_PS2',			
+							'2L_6P_C_PS1_massive',
+							'2L_6P_D_PS1',			
+							'2L_6P_D_PS2',			
+							'2L_6P_D_PS1_massive',
+							'2L_6P_E_PS1',			
+							'2L_6P_E_PS2',			
+							'2L_6P_E_PS1_massive',
+							'2L_6P_F_PS1',			
+							'2L_6P_F_PS2',
+							'1L_4P_PS2_massive',
+							'1L_5P_PS2_massive',
+							'1L_6P_PS2_massive',
+							'1L_8P_PS2_massive',
+							'1L_4P_PS2_massive_down',
+							'1L_5P_PS2_massive_down',
+							'1L_6P_PS2_massive_down',
+							'1L_8P_PS2_massive_rescaled_down',
+							'2L_4P_Ladder_PS2_massive_down',
+							'2L_5P_Planar_PS2_massive_down',
+							'2L_6P_A_PS2_massive_down',
+							'2L_6P_B_PS2_massive_down',
+							'2L_6P_C_PS2_massive_down',
+							'2L_6P_D_PS2_massive_down',
+							'2L_6P_E_PS2_massive_down',
+							'2L_6P_F_PS2_massive_down',
+							'2L_6P_B_PS2_massive_up',
+							'2L_6P_C_PS2_massive_up',
+							'2L_6P_D_PS2_massive_up',
+							'2L_6P_E_PS2_massive_up',
+							'2L_6P_F_PS2_massive_up',
+							'3L_4P_Ladder_PS2_massive_down',
+							'3L_5P_Planar_PS2_massive_down',
+							'4L_4P_Ladder_PS1',
+							'4L_4P_Ladder_PS2',
+							'4L_4P_Ladder_PS1_massive']
+	
+	all_topology_names = [sample['topology'] for sample in all_sample_data]
+	for topology_name in exclude_topologies:
+		assert(topology_name in all_topology_names)
+
+	duplicates = [topology_name for i, topology_name in enumerate(all_topology_names) if topology_name in all_topology_names[:i]]
+	#print(duplicates)
+	assert(duplicates==[])
+
+	data_length = len(all_sample_data)
 	data_sets = sort_and_split_data(all_sample_data)
+	assert(data_length-sum([len(data_set) for data_set in data_sets]) == 0)
+
+	table_string = ''
 	for data_set in data_sets:
-		print(set_table(columns,[1 for i in range(len(data_set))],data=data_set))
+		table_string += set_table(columns,[1 for i in range(len(data_set))],data=data_set,exclude=exclude_topologies)
+		table_string += '\n'+'\n'
+
+	print(table_string)
 
 
 

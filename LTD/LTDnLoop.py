@@ -27,8 +27,11 @@ class LTDnLoop:
 		self.n_loops            = topology.n_loops 
 		self.name               = topology.name
 		self.external_kinematics= topology.external_kinematics
-		self.scale				= self.get_rust_scale()
-		self.analytical_result 	= topology.analytic_result
+		self.scale				= self.get_alt_scale()
+		if topology.analytic_result is None:
+			self.analytical_result 	= 0.
+		else:
+			self.analytical_result 	= topology.analytic_result
 		self.cut_structures 	= [CutStructure(cut_structure=ltd_cut_structure, ltd_loop_lines = self.ltd_loop_lines) for ltd_cut_structure in self.ltd_cut_structure]
 		self.lambda_ij			= hyperparameters['Deformation']['scaling']['lambda']
 		self.a_ij				= hyperparameters['Deformation']['additive']['a_ij']
@@ -539,6 +542,44 @@ class LTDnLoop:
 		elif integrator_name=='cuhre':
 			return pycuba.Cuhre(cuba_integrand, **opts)
 
+	def cuba_mc_random_integrate(self,integrator_name='vegas',neval=10000,**opts):
+		def cuba_integrand(ndim,xx,ncomp,ff,userdata):
+			random_variables = [xx[i] for i in range(ndim.contents.value)]
+			channel_index = [(cut_structure_index,cut_index)
+											for cut_structure_index, cut_structure in enumerate(self.cut_structures)
+											for cut_index,  cut in enumerate(cut_structure.cuts)]
+			single_channel_res = self.ltd_integrand(random_variables)
+			i = random.randint(0,self.n_channels-1)
+			multi_channel_res = self.n_channels*self.ltd_integrand(random_variables,channel_index[i])
+			ff[0] = single_channel_res.real
+			ff[1] = single_channel_res.imag
+			ff[2] = multi_channel_res.real
+			ff[3] = multi_channel_res.imag
+			return 0
+		
+		opts = {'ndim': int(self.n_loops*3),
+				'ncomp': 4,
+				'maxeval': neval,
+				'mineval': neval,
+				'seed': 1,
+				'verbose': 1,
+				#'nincrease': 100, #vegas only
+				#'nstart': neval, #vegas only
+				}
+		
+
+  		#NNEW = hyperparameters['Integrator']['n_new']
+  		#NMIN = hyperparameters['Integrator']['n_start']
+  		#FLATNESS = hyperparameters['Integrator']['flatness']
+		#MINEVAL = hyperparameters['Integrator']['n_min']
+		#MAXEVAL = hyperparameters['Integrator']['n_max']
+
+		if integrator_name=='vegas':
+			return pycuba.Vegas(cuba_integrand, **opts)
+		elif integrator_name=='cuhre':
+			return pycuba.Cuhre(cuba_integrand, **opts)
+
+
 	def print_mc_results(self,result):
 		for channel_nr in range(self.n_channels):
 			channel_re = result['results'][2*channel_nr+2]
@@ -867,7 +908,7 @@ class CutPropagator(CutObject):
 
 if __name__ == "__main__":	
 	
-	my_topology = topologies.hard_coded_topology_collection['Box_4E']
+	my_topology = topologies.hard_coded_topology_collection['Triangle_no_ellipse']
 	hyperparameters = ltd_commons.hyperparameters
 	my_LTD = LTDnLoop(my_topology,hyperparameters)
 	my_LTD.display_surfaces(show_ellipsoids=True,show_hyperboloids=False)
@@ -879,12 +920,14 @@ if __name__ == "__main__":
 	#print my_LTD.analytic_three_point_ladder(s[0],s[1],s[2],3)
 
 	#result = my_LTD.cuba_integrate(my_LTD.ltd_integrand,integrator_name='cuhre',neval=800000)
-	#result = my_LTD.cuba_integrate(lambda x: my_LTD.ltd_integrand(x,(0,2)),integrator_name='vegas',neval=80000)
+	#result = my_LTD.cuba_integrate(lambda x: my_LTD.ltd_integrand(x,(0,0)),integrator_name='vegas',neval=80000)
 
-	#print(my_LTD.ltd_integrand([0.,0.,0.,0.,0.,0.],multi_channel_index=(2,1)))
+	print(my_LTD.ltd_integrand([0.5,0.4,0.3],multi_channel_index=(0,0)))
 
-	result = my_LTD.cuba_mc_integrate(integrator_name='vegas',neval=100000)
-	my_LTD.print_mc_results(result)
+	#result = my_LTD.cuba_mc_integrate(integrator_name='vegas',neval=100000)
+	#my_LTD.print_mc_results(result)
+
+	result = my_LTD.cuba_mc_random_integrate(integrator_name='vegas',neval=10000)
 
 	#result = my_LTD.vegas_integrate(my_LTD.ltd_integrand, N_refine=1000)#, N_train = 500)
 
