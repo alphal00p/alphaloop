@@ -110,7 +110,6 @@ hyperparameters = HyperParameters({
             'lambda'                    : 10.0,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
-            'expansion_check'           : True,
             # The expansion check strategy can either be
             # first_lambda_order : c * (q_i^2^cut+m_i^2)/|kappa_i^cut * q_i^cut| 
             # full_lambda_dependence : lambda^2 < (-2*kappa_i.q_i^2 + 
@@ -161,6 +160,8 @@ hyperparameters = HyperParameters({
             'sigma' :   0.0,
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
+            # dampen the deformation on pinches
+            'dampen_on_pinch': True,
             # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
             'm_ijs' : [],
             # localizes the deformation around the ellipsoids using an exponential function with variance a_ij

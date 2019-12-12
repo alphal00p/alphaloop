@@ -1504,15 +1504,19 @@ impl Topology {
 
         let cache = cache.get_cache_mut();
 
-        // evaluate all excluded ellipsoids
+        // evaluate all excluded ellipsoids and pinches
         for (i, surf) in self.surfaces.iter().enumerate() {
-            if surf.surface_type != SurfaceType::Ellipsoid
-                || surf.group != i
-                || !surf.exists
-                || (!self.all_excluded_surfaces[i] && !self.settings.deformation.fixed.local)
-                || cache.ellipsoid_eval[i].is_some()
+            if surf.surface_type != SurfaceType::Pinch
+                || !self.settings.deformation.fixed.dampen_on_pinch
             {
-                continue;
+                if surf.surface_type != SurfaceType::Ellipsoid
+                    || surf.group != i
+                    || !surf.exists
+                    || (!self.all_excluded_surfaces[i] && !self.settings.deformation.fixed.local)
+                    || cache.ellipsoid_eval[i].is_some()
+                {
+                    continue;
+                }
             }
 
             let mut cut_counter = 0;
@@ -1626,7 +1630,9 @@ impl Topology {
                     // now exclude all other surfaces
                     for (surf_index, surf) in self.surfaces.iter().enumerate() {
                         if i == surf_index
-                            || surf.surface_type != SurfaceType::Ellipsoid
+                            || (surf.surface_type != SurfaceType::Ellipsoid
+                                && (surf.surface_type != SurfaceType::Pinch
+                                    || !self.settings.deformation.fixed.dampen_on_pinch))
                             || surf_index != surf.group
                             || !surf.exists
                         {
@@ -1636,7 +1642,9 @@ impl Topology {
                         let t = inv_surf_prop[surf_index].unwrap().powi(2)
                             / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
-                        let unique_ellipsoid_index = surf.unique_ellipsoid_id.unwrap();
+                        let unique_ellipsoid_index = surf
+                            .unique_ellipsoid_id
+                            .unwrap_or(self.settings.deformation.fixed.m_ijs.len());
                         if unique_ellipsoid_index < self.settings.deformation.fixed.m_ijs.len() {
                             dampening *= t
                                 / (t + Into::<T>::into(
@@ -1673,9 +1681,21 @@ impl Topology {
                 let mut softmin_num = DualN::zero();
                 let mut softmin_den = DualN::zero();
 
-                for &surf_index in &d.excluded_surface_indices {
-                    let unique_ellipsoid_index =
-                        self.surfaces[surf_index].unique_ellipsoid_id.unwrap();
+                // dampen every excluded surface and pinch
+                for surf_index in d.excluded_surface_indices.iter().cloned().chain(
+                    self.surfaces.iter().enumerate().filter_map(|(i, su)| {
+                        if self.settings.deformation.fixed.dampen_on_pinch
+                            && su.surface_type == SurfaceType::Pinch
+                        {
+                            Some(i)
+                        } else {
+                            None
+                        }
+                    }),
+                ) {
+                    let unique_ellipsoid_index = self.surfaces[surf_index]
+                        .unique_ellipsoid_id
+                        .unwrap_or(self.settings.deformation.fixed.m_ijs.len());
                     if unique_ellipsoid_index < self.settings.deformation.fixed.m_ijs.len() {
                         mij_sq = Into::<T>::into(
                             self.settings.deformation.fixed.m_ijs[unique_ellipsoid_index]
@@ -1685,10 +1705,6 @@ impl Topology {
                     }
                     // t is the weighing factor that is 0 if we are on both cut_i and cut_j
                     // at the same time and goes to 1 otherwise
-                    debug_assert!(
-                        self.surfaces[surf_index].surface_type == SurfaceType::Ellipsoid
-                            && self.surfaces[surf_index].exists
-                    );
 
                     // The surface shift should never be zero at this stage.
                     let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)

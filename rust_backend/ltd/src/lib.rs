@@ -75,7 +75,6 @@ use cpython::{PyFloat, PyList, PyString, PyTuple, Python};
 pub struct Scaling {
     pub lambda: f64,
     pub softmin_sigma: f64,
-    pub expansion_check: bool,
     pub expansion_threshold: f64,
     pub branch_cut_m: f64,
     pub source_branch_cut_m: f64,
@@ -285,6 +284,7 @@ pub struct DeformationFixedSettings {
     pub m_ijs: Vec<f64>,
     pub local: bool,
     pub a_ijs: Vec<f64>,
+    pub dampen_on_pinch: bool,
     pub normalize_per_source: bool,
     pub normalisation_of_subspace_components: bool,
     pub normalisation_per_number_of_sources: bool,
