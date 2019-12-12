@@ -2,11 +2,19 @@
 
 import json
 import os
-from uncertainties import ufloat
+from uncertainties import *
 import numpy
 import argparse
 import romanclass as roman
 from copy import copy
+
+
+FISHNET_CITATION = 'fishnet_ref'
+FRANCESCO_CITATION = 'francesco_ref'
+SECDEC_CITATION = 'secdec_ref'
+WEINZIERL_CITATION = 'weinzielr_ref'
+LADDER_CITATION = 'ladder_ref'
+
 
 file_path = os.path.dirname(os.path.realpath( __file__ ))
 #file_path = '/Users/Dario/Desktop/PhD/Code/pynloop/'
@@ -48,7 +56,7 @@ columns += [{'header': r'$\mathtt{\sfrac{t}{p} \ [\mu \text{s}]}$',
 			'align': 'r'}]
 columns += [{'header': r'Phase',
 			'shared': False,
-			'json_link': lambda sample: [r'$\Re$',r'$\Im$'],
+			'json_link': lambda sample: [r'Re',r'Im'],
 			'align': 'c'}]
 columns += [{'header': r'Exp.',
 			'shared': True,
@@ -164,16 +172,23 @@ def format_reference(results,errors,references):
 	for phase in [0,1]: 
 		reference = references[phase]
 		if isinstance(reference, str):
-			references_str += ['~'+reference]
+			references_str += [r'\multicolumn{1}{c}{'+reference+'}']
+			#references_str += ['~'+reference]
 		else:
 			if reference == 0.:
 				references_str += [r'\phantom{+}\texttt{0}\phantom{.00000}']
 			else:
-				reference_str = r'{: .5f}'.format(reference/10**max_exp) #+ 'e'+'{:e}'.format(10**max_exp).split('e')[1]
-				#reference_str = reference_str.replace(r'e',r'$\mathtt{\cdot 10^{')
-				#reference_str += '}}$'
-				if '+/-' in str(reference):
+				if isinstance(reference,UFloat):
+					reference_str = r'{: .1u}'.format(reference/10**max_exp)
+					if len(reference_str) < 17:
+						diff = int((17 - len(reference_str))/2)
+						reference_str = reference_str.replace('+/-',r'\phantom{'+'0'*diff+'}'+'+/-')
 					reference_str = reference_str.replace('+/-','~+/-~')
+					reference_str += r'\phantom{'+'0'*diff+'}'
+				else:
+					reference_str = r'{: .5f}'.format(reference/10**max_exp) #+ 'e'+'{:e}'.format(10**max_exp).split('e')[1]
+					#reference_str = reference_str.replace(r'e',r'$\mathtt{\cdot 10^{')
+					#reference_str += '}}$'
 				references_str += [r'\texttt{'+reference_str+r'}']
 	return references_str
 
@@ -191,6 +206,13 @@ def format_ltd(results,errors,references):
 				return '?'
 			#res_str = '{:ue}'.format(res)
 			res_str = ('{:.'+str(digits)+'f}').format(res/10**max_exp) #+ 'e'+'{:e}'.format(10**max_exp).split('e')[1]
+			
+			#res_str = ('{:.1u}').format(res/10**max_exp) #+ 'e'+'{:e}'.format(10**max_exp).split('e')[1]
+			#len_res_str = len(res_str)
+			#if len_res_str < 2*digits + 9:
+			#	assert(((2*digits + 9) - len_res_str) % 2 == 0)
+			#	diff = ((2*digits + 9) - len_res_str)/2
+			#	res_str = res_str.replace('+/-',r'\phantom{'+'0'*diff+'}')
 			#if res_str[0] == r'(':
 			#	if res_str[1] != r'-':
 			#		res_str = r'(~' + res_str[1:]
@@ -228,8 +250,10 @@ def format_delta(deltas):
 			deltas_str += [delta]
 		else:
 			if delta < 5e-4:
-				deltas_str += [r'{\color{ForestGreen}'+'{:.0e}'.format(delta)+r'}']
-			elif delta >= 10.:
+				deltas_str += ['{:.0e}'.format(delta)]
+			elif delta >= 10. and delta < 100.:
+				deltas_str += ['{:.2f}'.format(delta)]
+			elif delta >= 100.:
 				deltas_str += [r'{\color{red}'+'{:.0e}'.format(delta)+r'}']
 			else:
 				deltas_str += [r'{:.3f}'.format(delta)]
@@ -246,22 +270,77 @@ def set_header(columns):
 			header_string += column['header'] + r' \\' + '\n'
 	return header_string
 
-def set_topology(n_ps_points,data=None):
-	topology_string = r'\hline' + '\n'
+def set_topology(n_ps_points,data=None,add_real_ref=False):
 	for i in range(n_ps_points):
 		if i == 0:
-			topology_name = str(columns[0]['json_link'](data)).replace('_',r'\_')
-			topology_string += r'\multirow{%i}{*}{'%(2*n_ps_points) +topology_name+'}' +'\n'
+			if add_real_ref:
+				topology_string = r'\hline' + '\n'
+				topology_string += r'\multirow{%i}{*}{'%(2*n_ps_points+1) + r'%' + '\n'
+				topology_string += r'\begin{tabular}{@{}c@{}}'+ '\n'
+				topology_string += r'\input{diagrams/'+data['diagram']+r'.tex} \\' + '\n'
+				topology_name = str(columns[0]['json_link'](data)).replace('_',r'\_')
+				topology_string += topology_name
+				topology_string += r'\end{tabular}}' + '\n'
+				if data['diagram_multi'] == 1:
+					topology_string = topology_string.replace(r'}{*}',r'}{*}[-2pt]')
+					topology_string = topology_string.replace(r'\end{tabular}}'+'\n',r'\end{tabular}}'+'\n'+r'\rule[-5pt]{0pt}{20pt}')
+			else:
+				if data['diagram'] is not None:
+					assert(data['diagram_multi'] is not None)
+					topology_string = r'\hline' + '\n'
+					topology_string += r'\multirow{%i}{*}{'%(2*n_ps_points*data['diagram_multi']) + r'%' +'\n'
+					topology_string += r'\begin{tabular}{@{}c@{}}'+ '\n'
+					topology_string += r'\input{diagrams/'+data['diagram']+r'.tex} \\' + '\n'
+					topology_name = str(columns[0]['json_link'](data)).replace('_',r'\_')
+					topology_string += topology_name
+					topology_string += r'\end{tabular}}'+'\n'
+					#topology_string += r'\multirow{%i}{*}{'%(2*n_ps_points) +topology_name+'}' +'\n'
+					if data['diagram_multi'] == 1:
+						topology_string = topology_string.replace(r'}{*}',r'}{*}[7pt]')
+						topology_string = topology_string.replace(r'\end{tabular}}'+'\n',r'\end{tabular}}'+'\n'+r'\rule[-5pt]{0pt}{27pt}')
+				else:
+					topology_string = r'\cline{2-%i}'%NHEADER +'\n'
 		else:
 			topology_string += r'\cline{2-%i}'%NHEADER +'\n'
 		for column in columns[1:]:
-			if column['shared']:
-				column_str = str(column['json_link'](data))
-				topology_string += r'& \multirow{2}{*}{'+column_str+'}'
+			if add_real_ref:
+				if column['shared']:
+					column_str = str(column['json_link'](data))
+					topology_string += r'& \multirow{3}{*}{'+column_str+'}'
+				else:
+					if column['header'] == 'Reference':
+						column_str = str(column['json_link'](data)[0])
+						topology_string +=  r'& ' + column_str
+					else:
+						column_str = str(column['json_link'](data)[0])
+						topology_string +=  r'& \multirow{2}{*}{' + column_str	+'}'
 			else:
-				column_str = str(column['json_link'](data)[0])
-				topology_string +=  r'& ' + column_str	
+				if column['shared']:
+					column_str = str(column['json_link'](data))
+					topology_string += r'& \multirow{2}{*}{'+column_str+'}'
+				else:
+					column_str = str(column['json_link'](data)[0])
+					topology_string +=  r'& ' + column_str
+			if column['header'] == 'Reference':
+				if not add_real_ref:
+					if data.get('citation') is not None:
+						topology_string += r' \multirow{2}{*}{'+data.get('citation')+'}'
+				else:
+					if data.get('citation') is not None:
+						topology_string += r' '+data.get('citation')
 		topology_string += r'\\'+'\n'
+		if add_real_ref:
+			for column in columns[1:]:
+				if column['header'] == 'Reference':
+					column_str = format_reference(data['result'],data['error'],data['additional_reference'])[0]
+					topology_string +=  r'& ' + column_str	+ ' ' + data.get('additional_citation')
+				else:
+					topology_string += r'& '
+			topology_string += r'\\'+'\n'
+		if data['diagram_multi'] == 1 and not add_real_ref:
+			topology_string += r'\rule[-5pt]{0pt}{27pt}'
+		if add_real_ref:
+			topology_string += r'\rule[-5pt]{0pt}{20pt}'
 		for column in columns[1:]:
 			if column['shared']:
 				topology_string += r'& '
@@ -271,26 +350,35 @@ def set_topology(n_ps_points,data=None):
 		topology_string += r'\\'+'\n'
 	return topology_string
 
-def set_table(columns,ps_pts_per_topology,data=None,exclude=None):
+def set_table(columns,ps_pts_per_topology,data=None,exclude=None,nr=None):
 	table_string = r'\begin{table}[tbp]'+'\n'
 	table_string += r'\centering'+'\n'
 	table_string += r'\resizebox{\columnwidth}{!}{%'+'\n'
 	alignment = ''.join([column['align'] for column in columns])
 	table_string += r'\texttt{%'+'\n'
-	table_string += r'\begin{tabular}{'+alignment+'}'+'\n'
+	table_string += r'\begin{tabular}{@{}'+alignment+r'@{}}'+'\n'
 	table_string += set_header(columns)
 	if data is not None:
-		for n_ps_points,topo_data in zip(ps_pts_per_topology,data):
-			if exclude is None or topo_data['topology'] not in exclude:
+		for n_ps_points,sample in zip(ps_pts_per_topology,data):
+			if exclude is None or sample['topology'] not in exclude:
 				#print(topo_data['topology'])
-				table_string += set_topology(n_ps_points,data=topo_data)
+				if sample.get('additional_reference') is not None:
+					sample_string = set_topology(n_ps_points,data=sample,add_real_ref=True)
+				else:
+					sample_string = set_topology(n_ps_points,data=sample)
+				if sample['topology'] in ['2L_4P_Ladder_PS3_massive','2L_4P_Ladder_PS1_massive','2L_4P_Ladder_PS2_massive_up']:
+					sample_string = sample_string.replace(r'0}} \multi',r'}} \multi')
+				table_string += sample_string
 	else:
 		for n_ps_points in ps_pts_per_topology:
 			table_string += set_topology(n_ps_points,data=None)
 	table_string += r'\end{tabular}'+'\n'
 	table_string += r'}'+'\n'
 	table_string += r'}'+'\n'
-	table_string += r'\caption{\label{tab:i} Results}'+'\n'
+	if nr is None:
+		table_string += r'\caption{\label{tab:i} Results}'+'\n'
+	else:
+		table_string += r'\caption{\label{tab:%i}}'%nr+'\n'
 	table_string += r'\end{table}'+'\n'
 	return table_string
 
@@ -400,12 +488,14 @@ def sort_and_split_data(data):
 							'FISHNET_2x2',
 							'T4_Quadruple_Box_Weinzierl',
 							'FISHNET_1x5',
-							'FISHNET_1x6',
-							'FISHNET_2x3']
+							'FISHNET_2x3',
+							'FISHNET_1x6']
 
 	explore_HigherLoop, data = update_and_extract_data(data,topologies_in_order)
 	assert(current_data_length-len(topologies_in_order)==len(data))
 	current_data_length = len(data)
+	explore_HigherLoop_1 = explore_HigherLoop[:9]
+	explore_HigherLoop_2 = explore_HigherLoop[9:]
 
 	topologies_in_order = [	'2L_4P_Ladder_PS3',
 							'2L_4P_Ladder_PS1',
@@ -511,7 +601,7 @@ def sort_and_split_data(data):
 		print(sample['topology'])
 	assert(data==[])
 
-	return [explore_1loop_3B, systematic_1loop_3B_1, systematic_1loop_3B_2, explore_HigherLoop, systematic_HigherLoop_1,systematic_HigherLoop_2,systematic_HigherLoop_3]
+	return [explore_1loop_3B, explore_HigherLoop_1,explore_HigherLoop_2, systematic_1loop_3B_1, systematic_1loop_3B_2, systematic_HigherLoop_1,systematic_HigherLoop_2,systematic_HigherLoop_3]
 
 def get_all_data(paths):
 	all_sample_data = []
@@ -527,43 +617,57 @@ def get_all_data(paths):
 def complete_data(data):
 	for sample in data:
 		assert(sample.get('maximal_overlap') is not None)
-		sample['overlap_multiplicity'] = [len(overlap) for overlap in sample['maximal_overlap']]
-		if [sample['analytical_result'][0]-sample['result'][0],sample['analytical_result'][1]-sample['result'][1]] == [0.,0.]:
-			sample['analytical_result'] = ['n/a','n/a']
+		if sample.get('overlap_multiplicity') is None:
+			sample['overlap_multiplicity'] = [len(overlap) for overlap in sample['maximal_overlap']]
+		if isinstance(sample['analytical_result'][0], UFloat):
+			analytic_res_re = sample['analytical_result'][0].nominal_value
+		else:
+			analytic_res_re = sample['analytical_result'][0]
+		if isinstance(sample['analytical_result'][1], UFloat):
+			analytic_res_im = sample['analytical_result'][1].nominal_value
+		else:
+			analytic_res_im = sample['analytical_result'][1]
+		analytic_res = [analytic_res_re,analytic_res_im]
+		if ([analytic_res[0]-sample['result'][0],analytic_res[1]-sample['result'][1]] == [0.,0.]
+			or isinstance(sample['analytical_result'][0], UFloat) or isinstance(sample['analytical_result'][1], UFloat)):
+			if [analytic_res[0]-sample['result'][0],analytic_res[1]-sample['result'][1]] == [0.,0.]:
+				sample['analytical_result'] = ['n/a','n/a']
 			sample['accuracy'] = [' ',' ']
 			sample['percentage'] = [100.0*(abs(sample['error'][i_phase]) / abs(sample['result'][i_phase])) for i_phase in [0,1]]
 			sample['abs_error'] = 100.* (numpy.sqrt(
 					(sample['error'][0])**2 + (sample['error'][1])**2
 					)/numpy.sqrt(sample['result'][0]**2 + sample['result'][1]**2))
 		else:
-			sample['accuracy'] = [abs(sample['analytical_result'][i_phase] - sample['result'][i_phase]) / sample['error'][i_phase]
+			sample['accuracy'] = [abs(analytic_res[i_phase] - sample['result'][i_phase]) / sample['error'][i_phase]
 									if sample['error'][i_phase] != 0. else ' ' for i_phase in [0,1]]
 			assert(sample['accuracy'] != [0.,0.])
-			sample['percentage'] = [100.0*(abs(sample['analytical_result'][i_phase]-sample['result'][i_phase]) / abs(sample['analytical_result'][i_phase]))
-					if abs(sample['analytical_result'][i_phase]) != 0. else ' ' for i_phase in [0,1]]
+			sample['percentage'] = [100.0*(abs(analytic_res[i_phase]-sample['result'][i_phase]) / abs(analytic_res[i_phase]))
+					if abs(analytic_res[i_phase]) != 0. else ' ' for i_phase in [0,1]]
 			assert(sample['percentage'] != [0.,0.])
-			assert(numpy.sqrt(sample['analytical_result'][0]**2 + sample['analytical_result'][1]**2) != 0.)
+			assert(numpy.sqrt(analytic_res[0]**2 + analytic_res[1]**2) != 0.)
 			sample['abs_error'] = 100.* (numpy.sqrt(
-					(sample['analytical_result'][0]-sample['result'][0])**2 + (sample['analytical_result'][1]-sample['result'][1])**2
-					)/numpy.sqrt(sample['analytical_result'][0]**2 + sample['analytical_result'][1]**2))
+					(analytic_res[0]-sample['result'][0])**2 + (analytic_res[1]-sample['result'][1])**2
+					)/numpy.sqrt(analytic_res[0]**2 + analytic_res[1]**2))
 			assert(sample['abs_error'] != 0.)
 
 	for sample in data:
 		topology_name = sample['topology']
 		if 'Box_4E' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
-			sample['graph'] = '1L4P'
+			sample['graph'] = 'Box4E'
 		elif 'Pentagon' in topology_name:
-			if '1s' in topology_name:
+			if 'Pentagon_1s' in topology_name:
 				sample['ps_point'] = str(roman.Roman(1))
-			elif '2s' in topology_name:
+			elif '10E_1s' in topology_name:
 				sample['ps_point'] = str(roman.Roman(2))
-			elif '3s' in topology_name:
+			elif '2s' in topology_name:
 				sample['ps_point'] = str(roman.Roman(3))
-			elif '4s' in topology_name:
+			elif '3s' in topology_name:
 				sample['ps_point'] = str(roman.Roman(4))
-			elif '5s' in topology_name:
+			elif '4s' in topology_name:
 				sample['ps_point'] = str(roman.Roman(5))
+			elif '5s' in topology_name:
+				sample['ps_point'] = str(roman.Roman(6))
 			sample['graph'] = '1L5P'
 		elif 'Hexagon' in topology_name:
 			if '1s' in topology_name:
@@ -597,37 +701,64 @@ def complete_data(data):
 			sample['graph'] = '1L8P'
 		elif 'DoubleBox' in topology_name or '2L_4P_Ladder' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
-			sample['graph'] = '2L4P.c'
+			sample['graph'] = '2L4P.b'
+			if not 'massive' in topology_name:
+				sample['citation'] = r'\cite{'+LADDER_CITATION+'}'
+			else:
+				sample['citation'] = r'\cite{'+SECDEC_CITATION+'}'
 		elif '6P_2L_Weinzierl_A' in topology_name or '2L_6P_A' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '2L6P.a'
+			if 'Weinzierl' in topology_name:
+				sample['citation'] = r'\cite{'+SECDEC_CITATION+'}'
+				sample['additional_citation'] = r'\cite{'+WEINZIERL_CITATION+'}'
 		elif '6P_2L_Weinzierl_B' in topology_name or '2L_6P_B' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '2L6P.b'
+			if 'Weinzierl' in topology_name:
+				sample['citation'] = r'\cite{'+SECDEC_CITATION+'}'
+				sample['additional_citation'] = r'\cite{'+WEINZIERL_CITATION+'}'
 		elif '6P_2L_Weinzierl_C' in topology_name or '2L_6P_C' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '2L6P.c'
+			if 'Weinzierl' in topology_name:
+				sample['citation'] = r'\cite{'+SECDEC_CITATION+'}'
+				sample['additional_citation'] = r'\cite{'+WEINZIERL_CITATION+'}'
 		elif '6P_2L_Weinzierl_D' in topology_name or '2L_6P_D' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '2L6P.d'
+			if 'Weinzierl' in topology_name:
+				sample['citation'] = r'\cite{'+SECDEC_CITATION+'}'
+				sample['additional_citation'] = r'\cite{'+WEINZIERL_CITATION+'}'
 		elif '6P_2L_Weinzierl_E' in topology_name or '2L_6P_E' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '2L6P.e'
+			if 'Weinzierl' in topology_name:
+				sample['citation'] = r'\cite{'+SECDEC_CITATION+'}'
+				sample['additional_citation'] = r'\cite{'+WEINZIERL_CITATION+'}'
 		elif '6P_2L_Weinzierl_F' in topology_name or '2L_6P_F' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '2L6P.f'
+			if 'Weinzierl' in topology_name:
+				sample['citation'] = r'\cite{'+SECDEC_CITATION+'}'
+				sample['additional_citation'] = r'\cite{'+WEINZIERL_CITATION+'}'
 		elif 'TripleBox' in topology_name or '3L_4P' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '3L4P'
+			if not 'massive' in topology_name:
+				sample['citation'] = r'\cite{'+LADDER_CITATION+'}'
 		elif 'Quadruple_Box' in topology_name or '4L_4P_Ladder' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '4L4P.b'
-		elif 'TM1_top' in topology_name:
-			sample['ps_point'] = str(roman.Roman(1))
+			if not 'massive' in topology_name:
+				sample['citation'] = r'\cite{'+LADDER_CITATION+'}'
+		elif 'TM1' in topology_name:
+			if 'TM1_top' in topology_name:
+				sample['ps_point'] = str(roman.Roman(1))
+			elif 'TM1_bot' in topology_name:
+				sample['ps_point'] = str(roman.Roman(2))
 			sample['graph'] = '2L4P.a'
-		elif 'TM1_bot' in topology_name:
-			sample['ps_point'] = str(roman.Roman(1))
-			sample['graph'] = '2L4P.b'
+			sample['citation'] = r'\cite{'+FRANCESCO_CITATION+'}'
 		elif '2L_5P' in topology_name:
 			sample['graph'] = '2L5P'
 		elif '2L_8P' in topology_name:
@@ -637,15 +768,20 @@ def complete_data(data):
 		elif 'FISHNET_2x2' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '4L4P.a'
+			if not 'massive' in topology_name:
+				sample['citation'] = r'\cite{'+FISHNET_CITATION+'}'
 		elif 'FISHNET_1x5' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
 			sample['graph'] = '5L4P'
+			sample['citation'] = r'\cite{'+FISHNET_CITATION+'}'
 		elif 'FISHNET_1x6' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
-			sample['graph'] = '6L4P.a'
+			sample['graph'] = '6L4P.b'
+			sample['citation'] = r'\cite{'+FISHNET_CITATION+'}'
 		elif 'FISHNET_2x3' in topology_name:
 			sample['ps_point'] = str(roman.Roman(1))
-			sample['graph'] = '6L4P.b'
+			sample['graph'] = '6L4P.a'
+			sample['citation'] = r'\cite{'+FISHNET_CITATION+'}'
 		else:
 			print('topology not found!')
 			assert(1==2)
@@ -657,6 +793,115 @@ def complete_data(data):
 			sample['ps_point'] = 'K3'
 		if 'massive' in topology_name:
 			sample['ps_point'] += r'$^*$'
+
+	for sample in data:
+		topology_name = sample['topology']
+		if ('Box_4E' in topology_name or '1L_4P_PS3' in topology_name) and not 'massive' in topology_name:
+			sample['diagram'] = 'Box'
+			if 'Box_4E' in topology_name:
+				sample['diagram_multi'] = 1
+			elif '1L_4P_PS3' in topology_name:
+				sample['diagram_multi'] = 6
+		elif ('Pentagon_1s' in topology_name or '1L_5P_PS3' in topology_name) and not 'massive' in topology_name:
+			sample['diagram'] = 'Pentagon'
+			if 'Pentagon_1s' in topology_name:
+				sample['diagram_multi'] = 6
+			elif '1L_5P_PS3' in topology_name:
+				sample['diagram_multi'] = 6
+		elif ('Hexagon_1s' in topology_name or '1L_6P_PS3' in topology_name) and not 'massive' in topology_name:
+			sample['diagram'] = 'Hexagon'
+			if 'Hexagon_1s' in topology_name:
+				sample['diagram_multi'] = 10
+			elif '1L_6P_PS3' in topology_name:
+				sample['diagram_multi'] = 6
+		elif '1L_8P_PS3' in topology_name and not 'massive' in topology_name:
+				sample['diagram'] = 'Octagon'
+				sample['diagram_multi'] = 6
+		elif 'TM1_top' in topology_name:
+			sample['diagram'] = '2L_4P_AB'
+			sample['diagram_multi'] = 2
+		elif ('T3_DoubleBox_Weinzierl' in topology_name or '2L_4P_Ladder_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '2L_4P'
+				if 'T3_DoubleBox_Weinzierl' in topology_name:
+					sample['diagram_multi'] = 1
+				elif '2L_4P_Ladder_PS3' in topology_name:
+					sample['diagram_multi'] = 6
+		elif ('T2_6P_2L_Weinzierl_A' in topology_name or '2L_6P_A_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '2L_6P_A'
+				if 'T2_6P_2L_Weinzierl_A' in topology_name:
+					sample['diagram_multi'] = 1
+				elif '2L_6P_A_PS3' in topology_name:
+					sample['diagram_multi'] = 2
+		elif ('T2_6P_2L_Weinzierl_B' in topology_name or '2L_6P_B_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '2L_6P_B'
+				if 'T2_6P_2L_Weinzierl_B' in topology_name:
+					sample['diagram_multi'] = 1
+				elif '2L_6P_B_PS3' in topology_name:
+					sample['diagram_multi'] = 2
+		elif ('T2_6P_2L_Weinzierl_C' in topology_name or '2L_6P_C_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '2L_6P_C'
+				if 'T2_6P_2L_Weinzierl_C' in topology_name:
+					sample['diagram_multi'] = 1
+				elif '2L_6P_C_PS3' in topology_name:
+					sample['diagram_multi'] = 2
+		elif ('T2_6P_2L_Weinzierl_D' in topology_name or '2L_6P_D_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '2L_6P_D'
+				if 'T2_6P_2L_Weinzierl_D' in topology_name:
+					sample['diagram_multi'] = 1
+				elif '2L_6P_D_PS3' in topology_name:
+					sample['diagram_multi'] = 2
+		elif ('T2_6P_2L_Weinzierl_E' in topology_name or '2L_6P_E_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '2L_6P_E'
+				if 'T2_6P_2L_Weinzierl_E' in topology_name:
+					sample['diagram_multi'] = 1
+				elif '2L_6P_E_PS3' in topology_name:
+					sample['diagram_multi'] = 2
+		elif ('T2_6P_2L_Weinzierl_F' in topology_name or '2L_6P_F_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '2L_6P_F'
+				if 'T2_6P_2L_Weinzierl_F' in topology_name:
+					sample['diagram_multi'] = 1
+				elif '2L_6P_F_PS3' in topology_name:
+					sample['diagram_multi'] = 2
+		elif ('T4_TripleBox_Weinzierl' in topology_name or '3L_4P_Ladder_PS3' in topology_name) and not 'massive' in topology_name:
+			sample['diagram'] = '3L_4P'
+			if 'T4_TripleBox_Weinzierl' in topology_name:
+				sample['diagram_multi'] = 1
+			elif '3L_4P_Ladder_PS3' in topology_name:
+				sample['diagram_multi'] = 6
+		elif ('FISHNET_2x2' in topology_name or 'FISHNET_2x2_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '4L_4P_A'
+				if 'FISHNET_2x2_PS3' in topology_name:
+					sample['diagram_multi'] = 2
+				else:
+					sample['diagram_multi'] = 1
+		elif ('T4_Quadruple_Box_Weinzierl' in topology_name or '4L_4P_Ladder_PS3' in topology_name) and not 'massive' in topology_name:
+				sample['diagram'] = '4L_4P_B'
+				if 'T4_Quadruple_Box_Weinzierl' in topology_name:
+					 sample['diagram_multi'] = 1
+				elif '4L_4P_Ladder_PS3' in topology_name:
+					sample['diagram_multi'] = 2
+		elif 'FISHNET_1x5' in topology_name:
+			sample['diagram'] = '5L_4P'
+			sample['diagram_multi'] = 1
+		elif 'FISHNET_1x6' in topology_name:
+			sample['diagram'] = '6L_4P_B'
+			sample['diagram_multi'] = 1
+		elif 'FISHNET_2x3' in topology_name:
+			sample['diagram'] = '6L_4P_A'
+			sample['diagram_multi'] = 1
+		elif '2L_5P_Planar_PS3' in topology_name and not 'massive' in topology_name:
+				sample['diagram'] = '2L_5P'
+				sample['diagram_multi'] = 6
+		elif '2L_8P_PS3' in topology_name:
+			sample['diagram'] = '2L_8P'
+			sample['diagram_multi'] = 1
+		elif '3L_5P_Planar_PS3' in topology_name and not 'massive' in topology_name:
+				sample['diagram'] = '3L_5P'
+				sample['diagram_multi'] = 6
+		else:
+			sample['diagram'] = None
+			sample['diagram_multi'] = None
+
 	return data
 
 if __name__ == "__main__":
@@ -711,17 +956,18 @@ if __name__ == "__main__":
 								'n_cuts': 2415,
 								't_per_ps_point_in_s': 598.039545*10**(-3)/500}
 
-	placeholder_FISHNET_2x2_sample = {'num_samples': int(0), 
+	manual_FISHNET_2x2_sample = {'num_samples': int(667000000), 
 								'topology': 'FISHNET_2x2',
-								'result': [99.,99.],
-								'error': [99.,99.],
-								'analytical_result': [99.,99.],
-								'n_unique_existing_E_surface': 0,
-								'n_sources': 0,
+								'result': [8.38828e-05,-1.0278e-07],
+								'error': [7.77242e-07,7.75435e-07],
+								'analytical_result': [8.416099347763927e-5,0],
+								'n_unique_existing_E_surface': 44,
+								'n_sources': 280,
 								'maximal_overlap': [],
-								'max_radius': 0.,
-								'min_radius': 0.,
-								'n_cuts': 0,
+								'overlap_multiplicity': [44],
+								'max_radius': 0.31933513395572766,
+								'min_radius': 0.00018338481862451912,
+								'n_cuts': 192,
 								't_per_ps_point_in_s': 0.}
 
 	placeholder_FISHNET_2x2_PS3_sample = {'num_samples': int(0), 
@@ -753,38 +999,61 @@ if __name__ == "__main__":
 	all_sample_data += [	manual_FISHNET_1x5_sample,
 							manual_FISHNET_1x6_sample,
 							manual_FISHNET_2x3_sample,
-							placeholder_FISHNET_2x2_sample,
+							manual_FISHNET_2x2_sample,
 							placeholder_FISHNET_2x2_PS3_sample,
 							placeholder_4L_4P_Ladder_PS3_sample]
 
-
-	all_sample_data = complete_data(all_sample_data)
-
-	all_sample_data.remove({'revision': 'e58c4b7', 'diff': False, 'num_samples': 500000000, 'topology': '4L_4P_Ladder_PS3', 'result': [3.619624658469241e-12, -2.0527445803375738e-12], 'error': [9.950475725998295e-13, 9.897342748196721e-13], 'analytical_result': [4.03555168296597e-12, -1.0244887725916831e-12], 'n_unique_existing_E_surface': 28, 'n_sources': 270, 'maximal_overlap': [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]], 'max_radius': 0.6782331861809063, 'min_radius': 0.10393659196076636, 'n_cuts': 209, 't_per_ps_point_in_s': 0.002752984665, 'overlap_multiplicity': [28], 'accuracy': [0.41799712491133195, 1.0389210860998392], 'percentage': [10.306571620736593, 100.36769901779185], 'abs_error': 26.64043635840804, 'ps_point': 'K1', 'graph': '4L4P.b'}
-)
-	all_sample_data.remove({'revision': 'e58c4b7', 'diff': False, 'num_samples': 400000000, 'topology': '4L_4P_Ladder_PS3', 'result': [4.308707534909754e-12, -2.5066951276497768e-12], 'error': [1.0527262612060722e-12, 1.0918350285928435e-12], 'analytical_result': [4.03555168296597e-12, -1.0244887725916831e-12], 'n_unique_existing_E_surface': 28, 'n_sources': 270, 'maximal_overlap': [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]], 'max_radius': 0.6782331861809063, 'min_radius': 0.10393659196076636, 'n_cuts': 209, 't_per_ps_point_in_s': 0.003459343254, 'overlap_multiplicity': [28], 'accuracy': [0.25947472007665046, 1.357536913766506], 'percentage': [6.768736306779889, 144.67765725811782], 'abs_error': 36.198953754857264, 'ps_point': 'K1', 'graph': '4L4P.b'}
-)
-
+	
 	for sample in all_sample_data:
 		if sample['topology'] == 'T2_6P_2L_Weinzierl_A':
 			sample['analytical_result'] = [ufloat(-86.0768134710165628, 0.0858487113390352118),
-											ufloat( 0.0552231059543505382,0.0297582753855115178)]
+												0.]
+			sample['additional_reference'] = [ufloat( -8.66, 0.08)*10,0.]
 		elif sample['topology'] == 'T2_6P_2L_Weinzierl_B':
 			sample['analytical_result'] = [ufloat(-118.862749862757883,0.0528974822691667579),
-											ufloat(0.00546254353736746056,0.0081974011755989916)]
+												0.]
+			sample['additional_reference'] = [ufloat(-1.17,0.02)*10**2,0.]
 		elif sample['topology'] == 'T2_6P_2L_Weinzierl_C':
 			sample['analytical_result'] = [ufloat(-76.0653436805269237,0.0565739838497340792),
-											ufloat(0.00563911180783386448,0.0042510954861177851)]
+											0.]
+			sample['additional_reference'] = [ufloat(-7.75, 0.13)*10,0.]
 		elif sample['topology'] == 'T2_6P_2L_Weinzierl_D':
 			sample['analytical_result'] = [ufloat(-18.3271249575150019, 0.0171281153680031097),
-											ufloat( 0.0102603219383815086,0.00439019843081463525)]
+											0.]
+			sample['additional_reference'] = [ufloat(-1.91, 0.02)*10,0.]
 		elif sample['topology'] == 'T2_6P_2L_Weinzierl_E':
 			sample['analytical_result'] = [ufloat(-45.9727585576039985, 0.0443921298216177022),
-											ufloat( 0.00210426401936783294,0.0027359584173322363)]
+											0.]
+			sample['additional_reference'] = [ufloat(-4.64, 0.08)*10,0.]
 		elif sample['topology'] == 'T2_6P_2L_Weinzierl_F':
 			sample['analytical_result'] = [ufloat(-102.713355708622871, 0.0288577968836020429),
-											ufloat( 0.00969731708704666883,0.00604760342011912482)]
+											0.]
+			sample['additional_reference'] = [ufloat(-1.03, 0.02)*10**2,0.]
+		elif sample['topology'] == '2L_4P_Ladder_PS3_massive':
+			sample['analytical_result'] = [ufloat(2.80171724275311214e-6, 7.79255366562339195e-9),
+											ufloat(3.34481785517457328e-6, 7.72520711768175799e-9)]
+		elif sample['topology'] == '2L_4P_Ladder_PS1_massive':
+			sample['analytical_result'] = [ufloat(7.89148979543551809e-8, 7.08734798497054057e-9),
+											ufloat(6.87085771146301916e-8, 7.07933376620586562e-9)]
+		elif sample['topology'] == '2L_4P_Ladder_PS2_massive_up':
+			sample['analytical_result'] = [ufloat(3.05451908291667266e-10, 1.15482681073316096e-11),
+											ufloat(7.4245774920915505e-12, 1.15823697424355456e-11)]
 
+	all_sample_data = complete_data(all_sample_data)
+
+	for sample in all_sample_data:
+		if sample['topology'] == '4L_4P_Ladder_PS3':
+			if sample['result'] == [3.619624658469241e-12, -2.0527445803375738e-12]:
+				all_sample_data.remove(sample)
+			elif sample['result'] == [4.308707534909754e-12, -2.5066951276497768e-12]:
+				all_sample_data.remove(sample)
+
+			#print(sample)
+	#stop
+	#all_sample_data.remove({'revision': 'e58c4b7', 'diff': False, 'num_samples': 500000000, 'topology': '4L_4P_Ladder_PS3', 'result': [3.619624658469241e-12, -2.0527445803375738e-12], 'error': [9.950475725998295e-13, 9.897342748196721e-13], 'analytical_result': [4.03555168296597e-12, -1.0244887725916831e-12], 'n_unique_existing_E_surface': 28, 'n_sources': 270, 'maximal_overlap': [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]], 'max_radius': 0.6782331861809063, 'min_radius': 0.10393659196076636, 'n_cuts': 209, 't_per_ps_point_in_s': 0.002752984665, 'overlap_multiplicity': [28], 'accuracy': [0.41799712491133195, 1.0389210860998392], 'percentage': [10.306571620736593, 100.36769901779185], 'abs_error': 26.64043635840804, 'ps_point': 'K1', 'graph': '4L4P.b', 'citation': 'Ladder', 'diagram': '4L_4P_B', 'diagram_multi': 2}
+	#)
+	#all_sample_data.remove({'revision': 'e58c4b7', 'diff': False, 'num_samples': 400000000, 'topology': '4L_4P_Ladder_PS3', 'result': [4.308707534909754e-12, -2.5066951276497768e-12], 'error': [1.0527262612060722e-12, 1.0918350285928435e-12], 'analytical_result': [4.03555168296597e-12, -1.0244887725916831e-12], 'n_unique_existing_E_surface': 28, 'n_sources': 270, 'maximal_overlap': [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]], 'max_radius': 0.6782331861809063, 'min_radius': 0.10393659196076636, 'n_cuts': 209, 't_per_ps_point_in_s': 0.003459343254, 'overlap_multiplicity': [28], 'accuracy': [0.25947472007665046, 1.357536913766506], 'percentage': [6.768736306779889, 144.67765725811782], 'abs_error': 36.198953754857264, 'ps_point': 'K1', 'graph': '4L4P.b', 'citation': 'Ladder', 'diagram': '4L_4P_B', 'diagram_multi': 2}
+	#	)
 
 	exclude_topologies = [	'2L_6P_A_PS1',			
 							'2L_6P_A_PS1_massive',
@@ -842,13 +1111,25 @@ if __name__ == "__main__":
 	assert(data_length-sum([len(data_set) for data_set in data_sets]) == 0)
 
 	table_string = ''
-	for data_set in data_sets:
-		table_string += set_table(columns,[1 for i in range(len(data_set))],data=data_set,exclude=exclude_topologies)
+	for table_nr,data_set in enumerate(data_sets):
+		table_string += set_table(columns,[1 for i in range(len(data_set))],data=data_set,exclude=exclude_topologies,nr=table_nr)
 		table_string += '\n'+'\n'
 
+	table_captions = [r'\caption{\label{tab:explore_1loop} Explore 1loop}',
+					r'\caption{\label{tab:explore_higherloopA} Explore higherloop A}',
+					r'\caption{\label{tab:explore_higherloopB} Explore higherloop B}',
+					r'\caption{\label{tab:Kseries_1loopA} Kseries 1loop A}',
+					r'\caption{\label{tab:Kseries_1loopB} Kseries 1loop B}',
+					r'\caption{\label{tab:Kseries_2loopA} Results Kseries 2loop A}',
+					r'\caption{\label{tab:Kseries_2loopB} Results Kseries 2loop B}',
+					r'\caption{\label{tab:Kseries_HigherLoop} Results Kseries higher loop}']
+
+	for table_nr, table_caption in enumerate(table_captions):
+		table_string = table_string.replace(r'\caption{\label{tab:%i}}'%table_nr,table_caption)
+
+	table_string = table_string.replace(r'Reference',r'\multicolumn{1}{c}{Reference}')
+
 	print(table_string)
-
-
 
 
 

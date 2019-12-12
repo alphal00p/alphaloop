@@ -2439,8 +2439,9 @@ def load(selected_topologies=None):
                 topology_name, 
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
-                loop_momenta_names=('p1','p5'), 
-                analytic_result=None
+                loop_momenta_names=('p1','p5'),
+                #3B pysecdec  -7.89148979543551809e-8 - 6.87085771146301916e-8*I +/- ( 7.08734798497054057e-9 + 7.07933376620586562e-9*I )
+                analytic_result=7.9+6.9j
             ),
             entry_name = topology_name
         )
@@ -2564,8 +2565,9 @@ def load(selected_topologies=None):
                 topology_name, 
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
-                loop_momenta_names=('p1','p5'), 
-                analytic_result=None,
+                loop_momenta_names=('p1','p5'),
+                # 3B pysecdec -3.05451908291667266e-10 - 7.4245774920915505e-12*I +/- ( 1.15482681073316096e-11 + 1.15823697424355456e-11*I )
+                analytic_result=3.1e-10+1e-11j,
             ),
             entry_name = topology_name
         )
@@ -2999,8 +3001,9 @@ def load(selected_topologies=None):
                 topology_name, 
                 ext_mom={'q1':q1, 'q2': q2 , 'q3': q3, 'q4': q4,}, 
                 mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass, 'p5': mass, 'p6': mass, 'p7': mass}, 
-                loop_momenta_names=('p1','p5'), 
-                analytic_result=None
+                loop_momenta_names=('p1','p5'),
+                #3B pysecdec: -2.80171724275311214e-6 - 3.34481785517457328e-6*I +/- ( 7.79255366562339195e-9 + 7.72520711768175799e-9*I )
+                analytic_result= 2.801e-6 + 3.344e-6j
             ),
             entry_name = topology_name
         )
