@@ -2926,6 +2926,26 @@ def load(selected_topologies=None):
             entry_name = topology_name
         )
 
+    rescaling = 0.01
+    q1 = vectors.LorentzVector([19.6586,-7.15252,-0.206016,8.96383])*rescaling
+    q2 = vectors.LorentzVector([26.874,7.04203,-0.0501295,-12.9055])*rescaling
+    q3 = vectors.LorentzVector([43.4674,0.110491,0.256146,3.9417])*rescaling
+    q4 = vectors.LorentzVector([-90.,0.,0.,0.])*rescaling
+
+    mass=0.
+    topology_name = "FISHNET_2x2_Weinzierl"
+    if selected_topologies is None or topology_name in selected_topologies:
+        all_topologies.add_topology(factory.create_loop_topology(
+            topology_name,
+            ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
+            mass_map={'p1': mass, 'p2': mass, 'p3': mass, 'p4': mass,
+                'p5': mass, 'p6': mass, 'p7': mass, 'p8': mass,
+                'p9': mass, 'p10': mass, 'p11': mass, 'p12': mass},
+            loop_momenta_names=('p1', 'p2', 'p11', 'p12'),
+            analytic_result = complex(0.00008416099347763927)
+            ),
+            entry_name = topology_name
+        )
     ######################################################################################################
     # The PS3 series with sqrt(s) = 1.1*sum(masses), masses=1.0+(i-1)*0.1
     ######################################################################################################
