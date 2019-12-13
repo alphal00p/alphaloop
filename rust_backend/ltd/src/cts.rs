@@ -192,12 +192,18 @@ impl Topology {
                             if j == i || j == im1 {
                                 continue;
                             } else {
+                                if self.settings.general.debug > 1 {
+                                    print!("  |Compute CTs:[");
+                                }
                                 //Define triangle propagators
                                 let mut tri_prod = Complex::new(T::one(), T::zero());
                                 for k in 0..props.len() {
                                     if k == i || k == im1 || k == j {
                                         continue;
                                     } else {
+                                        if self.settings.general.debug > 1 {
+                                            print!("{:}, ", k);
+                                        }
                                         tri_prod *= props[k];
                                     }
                                 }
@@ -211,6 +217,17 @@ impl Topology {
                                     } else {
                                         self.aij(i, j)
                                     };
+                                if self.settings.general.debug > 1 {
+                                    let ct_coeff = if j == ip1 {
+                                        self.bi(i)
+                                    } else if j == im2 {
+                                        //Avoid double counting
+                                        T::zero()
+                                    } else {
+                                        self.aij(i, j)
+                                    };
+                                    println!("{:e}]", ct_coeff);
+                                }
                             }
                         }
                     }
