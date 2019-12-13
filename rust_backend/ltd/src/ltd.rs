@@ -964,12 +964,14 @@ impl Topology {
 
 
                     if sigma.is_zero() {
-                        if lambda_exp_sq < lambda_sq {
-                            lambda_sq = lambda_exp_sq;
+                        // add an abs, since due to numerical instability we may overshoot when doing x-y
+                        // in the numerator or denominator.
+                        if lambda_exp_sq.abs() < lambda_sq {
+                            lambda_sq = lambda_exp_sq.abs();
                         }
                     } else {
-                        let e = (-lambda_exp_sq / sigma).exp();
-                        smooth_min_num += lambda_exp_sq * e;
+                        let e = (-lambda_exp_sq.abs() / sigma).exp();
+                        smooth_min_num += lambda_exp_sq.abs() * e;
                         smooth_min_den += e;
                     }
                 }
@@ -992,12 +994,12 @@ impl Topology {
                     }
 
                     if sigma.is_zero() {
-                        if lambda_disc_sq < lambda_sq {
-                            lambda_sq = lambda_disc_sq;
+                        if lambda_disc_sq.abs() < lambda_sq {
+                            lambda_sq = lambda_disc_sq.abs();
                         }
                     } else {
-                        let e = (-lambda_disc_sq / sigma).exp();
-                        smooth_min_num += lambda_disc_sq * e;
+                        let e = (-lambda_disc_sq.abs() / sigma).exp();
+                        smooth_min_num += lambda_disc_sq.abs() * e;
                         smooth_min_den += e;
                     }
                 }
@@ -1126,12 +1128,12 @@ impl Topology {
                     };
 
                     if sigma.is_zero() {
-                        if prop_lambda_sq < lambda_sq {
-                            lambda_sq = prop_lambda_sq;
+                        if prop_lambda_sq.abs() < lambda_sq {
+                            lambda_sq = prop_lambda_sq.abs();
                         }
                     } else {
-                        let e = (-prop_lambda_sq / sigma).exp();
-                        smooth_min_num += prop_lambda_sq * e;
+                        let e = (-prop_lambda_sq.abs() / sigma).exp();
+                        smooth_min_num += prop_lambda_sq.abs() * e;
                         smooth_min_den += e;
                     }
                 }
