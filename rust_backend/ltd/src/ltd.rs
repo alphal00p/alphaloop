@@ -1008,9 +1008,9 @@ impl Topology {
 
         if self.settings.deformation.scaling.pole_check_strategy != PoleCheckStrategy::None {
             // TODO: rename
-            // process all existing and non-existing ellipsoids
+            // process all existing and non-existing ellipsoids and pinches
             for (surf_index, s) in self.surfaces.iter().enumerate() {
-                if surf_index == s.group && s.surface_type == SurfaceType::Ellipsoid {
+                if surf_index == s.group && s.surface_type != SurfaceType::Hyperboloid {
                     let mut a = DualN::from_real(T::zero());
                     let mut b = DualN::from_real(T::zero());
                     let mut c = DualN::from_real(T::zero());
