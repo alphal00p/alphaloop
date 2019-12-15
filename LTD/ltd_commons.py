@@ -161,7 +161,7 @@ hyperparameters = HyperParameters({
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
             # dampen the deformation on pinches
-            'dampen_on_pinch': True,
+            'dampen_on_pinch': False,
             # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
             'm_ijs' : [],
             # localizes the deformation around the ellipsoids using an exponential function with variance a_ij
