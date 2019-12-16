@@ -7,6 +7,9 @@ import numpy
 import argparse
 import romanclass as roman
 from copy import copy
+import yaml
+from os import listdir
+from os.path import isfile, join
 
 
 FISHNET_CITATION = r'Basso:2017jwq'
@@ -904,6 +907,68 @@ def complete_data(data):
 
 	return data
 
+def read_and_generate_yaml(sorted_samples,exclude_topologies):
+	yaml_path = pjoin(file_path,"LTD/topologies/")
+	all_topo_paths = [f for f in listdir(yaml_path) if isfile(join(yaml_path, f))]
+	all_topo_paths = [name for name in all_topo_paths if '.yaml' in name]
+	all_topo_paths += [pjoin(file_path,"LTD/topologies.yaml")]
+
+	#all_topo_paths = all_topo_paths[0:10]
+
+	#print(all_topo_paths)
+
+	all_yaml_topos = []
+	for topo_path in all_topo_paths:
+		topo_file_path = pjoin(file_path,"LTD/topologies/",topo_path)
+		with open(topo_file_path) as file:
+			yaml_topo_file = yaml.load(file, Loader=yaml.FullLoader)
+			#print(yaml_topo_file)
+			all_yaml_topos += yaml_topo_file
+
+	#print(all_yaml_topos)
+
+	#for yaml_topo in all_yaml_topos:
+	#	print(str(yaml_topo)[-50:])
+
+	#print('='*10)
+
+	sorted_included_samples = []
+	for sample in sorted_samples:
+		exclude = False
+		for excluded_name in exclude_topologies:
+			if sample['topology'] == excluded_name:
+				exclude = True
+				break
+		if not exclude:
+			sorted_included_samples += [sample]
+
+
+	new_yaml_data = []
+	for sample in sorted_samples:
+		found = False
+		for yaml_topo in all_yaml_topos:
+			if yaml_topo['name'] == sample['topology']:
+				graph_name = sample['graph']
+				ps_point_name = sample['ps_point']
+				ps_point_name = ps_point_name.replace(r'$^*$',r'*')
+				yaml_topo['name'] = graph_name + '.' + ps_point_name
+				new_yaml_data += [yaml_topo]
+				found = True
+				break
+			else:
+				found = False
+		if not found:
+			print(sample['topology'])
+
+	#for yaml_data in new_yaml_data:
+	#	print(str(yaml_data)[-60:])
+	#print(new_yaml_data)
+	assert(len(new_yaml_data)==len(sorted_samples))
+	with open(pjoin(file_path,"LTD/paper_topologies.yaml"), 'w') as file:
+		documents = yaml.dump(new_yaml_data, file)
+	return
+
+
 if __name__ == "__main__":
 
 	all_paths = []
@@ -1107,8 +1172,11 @@ if __name__ == "__main__":
 	assert(duplicates==[])
 
 	data_length = len(all_sample_data)
+
 	data_sets = sort_and_split_data(all_sample_data)
 	assert(data_length-sum([len(data_set) for data_set in data_sets]) == 0)
+
+	read_and_generate_yaml(sum(data_sets,[]),exclude_topologies)
 
 	table_string = ''
 	for table_nr,data_set in enumerate(data_sets):
@@ -1130,8 +1198,6 @@ if __name__ == "__main__":
 	table_string = table_string.replace(r'Reference',r'\multicolumn{1}{c}{Reference}')
 
 	print(table_string)
-
-
 
 
 
