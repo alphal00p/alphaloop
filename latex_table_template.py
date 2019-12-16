@@ -9,11 +9,11 @@ import romanclass as roman
 from copy import copy
 
 
-FISHNET_CITATION = 'fishnet_ref'
-FRANCESCO_CITATION = 'francesco_ref'
-SECDEC_CITATION = 'secdec_ref'
-WEINZIERL_CITATION = 'weinzielr_ref'
-LADDER_CITATION = 'ladder_ref'
+FISHNET_CITATION = r'Basso:2017jwq'
+FRANCESCO_CITATION = r'Frellesvig:2019byn'
+SECDEC_CITATION = r'Borowka:2017idc'
+WEINZIERL_CITATION = r'BeckerMultiLoop2012'
+LADDER_CITATION = r'Usyukina:1992jd'
 
 
 file_path = os.path.dirname(os.path.realpath( __file__ ))
