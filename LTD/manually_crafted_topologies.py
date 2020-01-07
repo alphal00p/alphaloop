@@ -2175,6 +2175,11 @@ hard_coded_topology_collection.add_topology(
     entry_name = 'Box_massless_1000_ND3'
 )
 
+hard_coded_topology_collection['Box_massless_1000_ND1'].build_fixed_deformation(force=True)
+hard_coded_topology_collection['Box_massless_1000_ND2'].build_fixed_deformation(force=True)
+hard_coded_topology_collection['Box_massless_1000_ND3'].build_fixed_deformation(force=True)
+hard_coded_topology_collection['Box_massless_1000'].build_fixed_deformation(force=True)
+
 hard_coded_topology_collection.add_topology(
     create_hard_coded_topology(
         'Box',
