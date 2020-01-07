@@ -21,16 +21,16 @@ impl<'de, T: Field + Deserialize<'de>> Visitor<'de> for LorentzVectorVisitor<T> 
     {
         let t = access
             .next_element::<T>()?
-            .ok_or(M::Error::custom("Cannot read t-component"))?;
+            .ok_or_else(|| M::Error::custom("Cannot read t-component"))?;
         let x = access
             .next_element::<T>()?
-            .ok_or(M::Error::custom("Cannot read x-component"))?;
+            .ok_or_else(|| M::Error::custom("Cannot read x-component"))?;
         let y = access
             .next_element::<T>()?
-            .ok_or(M::Error::custom("Cannot read y-component"))?;
+            .ok_or_else(|| M::Error::custom("Cannot read y-component"))?;
         let z = access
             .next_element::<T>()?
-            .ok_or(M::Error::custom("Cannot read z-component"))?;
+            .ok_or_else(|| M::Error::custom("Cannot read z-component"))?;
 
         Ok(LorentzVector::from_args(t, x, y, z))
     }

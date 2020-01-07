@@ -27,6 +27,7 @@ pub struct Integrand {
     pub unstable_f128_point_count: usize,
     pub regular_point_count: usize,
     pub log: BufWriter<File>,
+    pub quadruple_upgrade_log: BufWriter<File>,
     pub id: usize,
     pub python_numerator: Option<PythonNumerator>,
 }
@@ -174,6 +175,13 @@ impl Integrand {
                 File::create(format!("{}{}.log", settings.general.log_file_prefix, id))
                     .expect("Could not create log file"),
             ),
+            quadruple_upgrade_log: BufWriter::new(
+                File::create(format!(
+                    "{}_f128_{}.log",
+                    settings.general.log_file_prefix, id
+                ))
+                .expect("Could not create log file"),
+            ),
             settings,
             id,
             python_numerator,
@@ -320,9 +328,8 @@ impl Integrand {
             self.print_statistics();
         }
 
-            
         // First set a global seed equal in all topologies
-        let global_seed : [u8; 32] = rand::thread_rng().gen();
+        let global_seed: [u8; 32] = rand::thread_rng().gen();
         for topo in self.topologies.iter_mut() {
             topo.global_seed = Some(global_seed);
         }
@@ -363,6 +370,61 @@ impl Integrand {
                 self.print_info(
                     loops, false, true, x, &k_def, jac_para, jac_def, result, result_rot, d,
                 );
+            }
+
+            if self.settings.general.log_quad_upgrade {
+                match self.topologies[0].n_loops {
+                    1 => writeln!(
+                        self.quadruple_upgrade_log,
+                        "{} {} {}",
+                        k_def[0].x.re, k_def[0].y.re, k_def[0].z.re
+                    )
+                    .unwrap(),
+                    2 => writeln!(
+                        self.quadruple_upgrade_log,
+                        "{} {} {} {} {} {}",
+                        k_def[0].x.re,
+                        k_def[0].y.re,
+                        k_def[0].z.re,
+                        k_def[1].x.re,
+                        k_def[1].y.re,
+                        k_def[1].z.re
+                    )
+                    .unwrap(),
+                    3 => writeln!(
+                        self.quadruple_upgrade_log,
+                        "{} {} {} {} {} {} {} {} {}",
+                        k_def[0].x.re,
+                        k_def[0].y.re,
+                        k_def[0].z.re,
+                        k_def[1].x.re,
+                        k_def[1].y.re,
+                        k_def[1].z.re,
+                        k_def[2].x.re,
+                        k_def[2].y.re,
+                        k_def[2].z.re
+                    )
+                    .unwrap(),
+                    4 => writeln!(
+                        self.quadruple_upgrade_log,
+                        "{} {} {} {} {} {} {} {} {} {} {} {}",
+                        k_def[0].x.re,
+                        k_def[0].y.re,
+                        k_def[0].z.re,
+                        k_def[1].x.re,
+                        k_def[1].y.re,
+                        k_def[1].z.re,
+                        k_def[2].x.re,
+                        k_def[2].y.re,
+                        k_def[2].z.re,
+                        k_def[3].x.re,
+                        k_def[3].y.re,
+                        k_def[3].z.re
+                    )
+                    .unwrap(),
+                    _ => {}
+                }
+                self.quadruple_upgrade_log.flush().unwrap();
             }
 
             // compute the point again with f128 to see if it is stable then

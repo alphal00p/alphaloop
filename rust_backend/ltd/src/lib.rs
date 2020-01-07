@@ -350,6 +350,7 @@ pub struct GeneralSettings {
     pub screen_log_core: Option<usize>,
     pub log_points_to_screen: bool,
     pub log_stats_to_screen: bool,
+    pub log_quad_upgrade: bool,
     pub deformation_strategy: DeformationStrategy,
     pub python_numerator: Option<String>,
     pub mu_uv_sq_re_im: Vec<f64>,

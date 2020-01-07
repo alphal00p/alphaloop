@@ -48,7 +48,8 @@ hyperparameters = HyperParameters({
         # log statistics to screen
         'log_stats_to_screen'   :   False,
         'log_file_prefix'       :   'stats/statistics',
-        'res_file_prefix'       :   '',        
+        'res_file_prefix'       :   '',
+        'log_quad_upgrade'      :   False,
         'integration_statistics':   False,
         'statistics_interval'   :   100000,
         'debug'                 :   0
@@ -94,12 +95,6 @@ hyperparameters = HyperParameters({
         # A negative number indicates this normalisation is disabled
         # A positive number indicate the value to use in the T function for this normalisation strategy
         'normalize_on_E_surfaces_m' : -1.0,
-
-        # Maximum number of iterations for refinement of the deformation direction by taking shifts
-        # of previous deformations into account
-        'max_iterations': 1,
-        # The stability threshold for when the difference between deformations is considered negligible.
-        'stability_threshold': -1,
 
         # optionally set a different lambda per surface
         'lambdas'   : [],
