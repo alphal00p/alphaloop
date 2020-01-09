@@ -7,6 +7,10 @@ PWD=$(pwd)
 MODE=$1
 [ -z "$MODE" ] && MODE=debug
 
+BUILD=$2
+[ -z "$BUILD" ] && BUILD=ltd
+
+
 case ${UNAME_S} in
     Linux*)
 	SO_DEFORMATION=target/$MODE/libdeformation.so
@@ -27,9 +31,9 @@ esac
 cd rust_backend/
 
 if [ "$MODE" == debug ]; then
-	cargo build
+	cargo build -p $BUILD
 else
-	cargo build --release
+	cargo build --release -p $BUILD
 fi
 
 #Rename them to be called from MadGraph

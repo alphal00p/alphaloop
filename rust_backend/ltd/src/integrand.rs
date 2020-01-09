@@ -11,10 +11,10 @@ use std::io::{BufWriter, Write};
 use topologies::{LTDCache, Topology};
 use vector::LorentzVector;
 
-use {FloatLike, IntegratedPhase, PythonNumerator, Settings, MAX_LOOP};
+use {FloatLike, IntegratedPhase, Numerator, Settings, MAX_LOOP};
 
 /// A structure that integrates and keeps statistics
-pub struct Integrand {
+pub struct Integrand<N: Numerator> {
     pub settings: Settings,
     pub topologies: Vec<Topology>,
     pub cache_float: LTDCache<float>,
@@ -29,7 +29,7 @@ pub struct Integrand {
     pub log: BufWriter<File>,
     pub quadruple_upgrade_log: BufWriter<File>,
     pub id: usize,
-    pub python_numerator: Option<PythonNumerator>,
+    pub numerator: Option<N>,
 }
 
 impl Topology {
@@ -135,8 +135,13 @@ impl Topology {
     }
 }
 
-impl Integrand {
-    pub fn new(topology: &Topology, settings: Settings, id: usize) -> Integrand {
+impl<N: Numerator> Integrand<N> {
+    pub fn new(
+        topology: &Topology,
+        settings: Settings,
+        numerator: Option<N>,
+        id: usize,
+    ) -> Integrand<N> {
         // create extra topologies with rotated kinematics to check the uncertainty
         let mut rng = rand::thread_rng();
         let mut topologies = vec![topology.clone()];
@@ -153,12 +158,6 @@ impl Integrand {
 
             topologies.push(topology.rotate(angle, rv));
         }
-
-        let python_numerator = settings
-            .general
-            .python_numerator
-            .as_ref()
-            .map(|module| PythonNumerator::new(module, topology.n_loops));
 
         Integrand {
             topologies,
@@ -184,7 +183,7 @@ impl Integrand {
             ),
             settings,
             id,
-            python_numerator,
+            numerator,
         }
     }
 
@@ -291,7 +290,7 @@ impl Integrand {
             }
 
             let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                self.topologies[1].evaluate(x, cache, &self.python_numerator);
+                self.topologies[1].evaluate(x, cache, &self.numerator);
 
             // compute the number of similar digits
             let (num, num_rot) =
@@ -350,7 +349,7 @@ impl Integrand {
 
         let mut cache_float = std::mem::replace(&mut self.cache_float, LTDCache::default());
         let (x, k_def, jac_para, jac_def, mut result) =
-            self.topologies[0].evaluate(x, &mut cache_float, &self.python_numerator);
+            self.topologies[0].evaluate(x, &mut cache_float, &self.numerator);
         let (d, diff, result_rot) = self.check_stability(x, result, &mut cache_float);
         std::mem::swap(&mut self.cache_float, &mut cache_float);
 
@@ -430,7 +429,7 @@ impl Integrand {
             // compute the point again with f128 to see if it is stable then
             let mut cache_f128 = std::mem::replace(&mut self.cache_f128, LTDCache::default());
             let (_, k_def_f128, jac_para_f128, jac_def_f128, result_f128) =
-                self.topologies[0].evaluate(x, &mut cache_f128, &self.python_numerator);
+                self.topologies[0].evaluate(x, &mut cache_f128, &self.numerator);
             // NOTE: for this check we use a f64 rotation matrix at the moment!
             let (d_f128, diff_f128, result_rot_f128) =
                 self.check_stability(x, result_f128, &mut cache_f128);
@@ -477,7 +476,7 @@ impl Integrand {
                 // now try more points for f64
                 for (i, topo) in self.topologies[2..].iter().enumerate() {
                     let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                        topo.evaluate(x, &mut self.cache_float, &self.python_numerator);
+                        topo.evaluate(x, &mut self.cache_float, &self.numerator);
                     eprintln!("  | rot{} ={:e}", i + 2, result_rot);
                 }
             }

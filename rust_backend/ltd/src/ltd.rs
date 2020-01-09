@@ -12,7 +12,7 @@ use rand::{Rng, SeedableRng};
 use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, SurfaceType, Topology};
 use utils::Signum;
 use vector::LorentzVector;
-use {float, PythonNumerator};
+use {float, Numerator};
 use {
     AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike,
     OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
@@ -2378,11 +2378,11 @@ impl Topology {
         Ok(())
     }
 
-    pub fn evaluate_multi_channel<T: FloatLike>(
+    pub fn evaluate_multi_channel<T: FloatLike, N: Numerator>(
         &self,
         k: &[LorentzVector<T>],
         cache: &mut LTDCache<T>,
-        python_numerator: &Option<PythonNumerator>,
+        python_numerator: &Option<N>,
         channel: Option<isize>,
     ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
@@ -2536,12 +2536,12 @@ impl Topology {
         Ok((res, k_def))
     }
 
-    fn evaluate_all_dual_integrands<T: FloatLike>(
+    fn evaluate_all_dual_integrands<T: FloatLike, N: Numerator>(
         &self,
         k: &[LorentzVector<T>],
         mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
         cache: &mut LTDCache<T>,
-        python_numerator: &Option<PythonNumerator>,
+        python_numerator: &Option<N>,
     ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
         // evaluate all dual integrands
         let mut result = Complex::default();
@@ -2591,11 +2591,11 @@ impl Topology {
     }
 
     #[inline]
-    pub fn evaluate<'a, T: FloatLike>(
+    pub fn evaluate<'a, T: FloatLike, N: Numerator>(
         &self,
         x: &'a [f64],
         cache: &mut LTDCache<T>,
-        python_numerator: &Option<PythonNumerator>,
+        python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,

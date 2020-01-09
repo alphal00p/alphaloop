@@ -464,6 +464,17 @@ impl Settings {
     }
 }
 
+pub trait Numerator {
+    fn evaluate_numerator<T: FloatLike>(&self, k_def: &[LorentzVector<Complex<T>>]) -> Complex<T>;
+}
+
+impl Numerator for usize {
+    // used as a dummy numerator for the Python bindings
+    fn evaluate_numerator<T: FloatLike>(&self, _k_def: &[LorentzVector<Complex<T>>]) -> Complex<T> {
+        unreachable!()
+    }
+}
+
 pub struct PythonNumerator {
     gil: cpython::GILGuard,
     module: cpython::PyModule,
@@ -517,11 +528,10 @@ impl PythonNumerator {
             num_loops,
         }
     }
+}
 
-    pub fn evaluate_numerator<T: FloatLike>(
-        &self,
-        k_def: &[LorentzVector<Complex<T>>],
-    ) -> Complex<T> {
+impl Numerator for PythonNumerator {
+    fn evaluate_numerator<T: FloatLike>(&self, k_def: &[LorentzVector<Complex<T>>]) -> Complex<T> {
         let py = self.gil.python();
 
         // convert the vector to tuples
@@ -579,6 +589,7 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
+    data integrand: RefCell<integrand::Integrand<usize>>;
     data cache: RefCell<topologies::LTDCache<float>>;
     data cache_f128: RefCell<topologies::LTDCache<f128::f128>>;
 
@@ -604,25 +615,33 @@ py_class!(class LTD |py| {
 
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
+        let integrand = integrand::Integrand::new(&topo, settings.clone(), None, 0);
 
-        LTD::create_instance(py, RefCell::new(topo), RefCell::new(cache), RefCell::new(cache_f128))
+        LTD::create_instance(py, RefCell::new(topo), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
     }
 
     def __copy__(&self) -> PyResult<LTD> {
         let topo = self.topo(py).borrow();
+        let settings = self.integrand(py).borrow().settings.clone();
+        let integrand = integrand::Integrand::new(&topo, settings, None, 0);
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(cache), RefCell::new(cache_f128))
+        LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
     }
 
+   def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
+        let res = self.integrand(py).borrow_mut().evaluate(&x);
+        Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
+   }
+
    def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow().evaluate::<float>(&x,
+        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow().evaluate::<float, usize>(&x,
             &mut self.cache(py).borrow_mut(), &None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     } 
 
    def evaluate_f128(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow().evaluate::<f128::f128>(&x,
+        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow().evaluate::<f128::f128, usize>(&x,
             &mut self.cache_f128(py).borrow_mut(), &None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
