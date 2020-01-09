@@ -41,6 +41,9 @@ hyperparameters = HyperParameters({
         'num_digits_different_for_inconsistency': 10.,
         # return the unstable point only if it has more stable digits than specified below
         'minimal_precision_for_returning_result': 2.,
+        # number of samples to take for the numerical stability check
+        'num_f64_samples'       :   2,
+        'num_f128_samples'      :   2,
         # which core to log to screen, None logs all cores
         'screen_log_core'       :   1,
         # log max and unstable points to screen

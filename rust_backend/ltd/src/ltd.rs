@@ -2414,14 +2414,6 @@ impl Topology {
             }
         }
 
-        /*
-        if let Some(cs) = &sampled_cuts {
-            for c in cs.iter() {
-                println!("selected cut: {}", c)
-            }
-        }
-        */
-
         let mut res: Complex<T> = Complex::default();
 
         let mut cut_counter = 0;

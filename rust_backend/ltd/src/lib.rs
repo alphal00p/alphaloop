@@ -368,6 +368,8 @@ pub struct GeneralSettings {
     pub numerical_instability_check: bool,
     pub minimal_precision_for_returning_result: f64,
     pub num_digits_different_for_inconsistency: f64,
+    pub num_f64_samples: usize,
+    pub num_f128_samples: usize,
     pub integration_statistics: bool,
     pub statistics_interval: usize,
     pub debug: usize,
