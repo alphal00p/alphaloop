@@ -9,7 +9,10 @@ extern crate num;
 extern crate serde;
 extern crate serde_yaml;
 extern crate vector;
+
+#[cfg(feature = "python_api")]
 use cpython::PyResult;
+#[cfg(feature = "python_api")]
 use std::cell::RefCell;
 extern crate colored;
 extern crate cuba;
@@ -60,6 +63,7 @@ pub mod ltd;
 pub mod topologies;
 pub mod utils;
 
+#[cfg(feature = "python_api")]
 use arrayvec::ArrayVec;
 use num::Complex;
 use serde::Deserialize;
@@ -583,12 +587,14 @@ impl Numerator for PythonNumerator {
 }
 
 // add bindings to the generated python module
+#[cfg(feature = "python_api")]
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
     m.add(py, "__doc__", "LTD")?;
     m.add_class::<LTD>(py)?;
     Ok(())
 });
 
+#[cfg(feature = "python_api")]
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
     data integrand: RefCell<integrand::Integrand<usize>>;

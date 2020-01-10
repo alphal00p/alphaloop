@@ -7,6 +7,9 @@ authors = ["Ben Ruijl <benruyl@gmail.com>"]
 # uncomment this line to use f128
 #default = ["use_f128"]
 #default = ["use_mpi"]
+#default = ["python_api", "higher_loops"]
+python_api = []
+higher_loops = []
 use_f128 = []
 use_mpi = ["mpi"]
 
