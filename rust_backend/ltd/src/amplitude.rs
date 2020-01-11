@@ -151,7 +151,9 @@ pub struct Amplitude {
     #[serde(skip_deserializing)]
     pub polarizations: Vec<ArrayVec<[Complex<f64>; 4]>>,
     pub diagrams: Vec<DiagramFullRust>,
-    pub coefficients: Vec<f64>,
+    #[serde(skip_deserializing)]
+    pub coefficients: Vec<f64>, // TODO: remove skip of deserializing
+    #[serde(skip_deserializing)]
     pub coefficient_index_map: Vec<(usize, usize)>,
 }
 
