@@ -1,5 +1,6 @@
 use arrayvec::ArrayVec;
 use gamma_chain::GammaChain;
+use itertools::Itertools;
 use num::Complex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -101,7 +102,7 @@ pub struct SlashedMomentum<T: Field> {
 impl SlashedMomentum<Complex<f64>> {
     fn evaluate<T: FloatLike>(
         &self,
-        loop_momenta: &Vec<LorentzVector<Complex<T>>>,
+        loop_momenta: &[LorentzVector<Complex<T>>],
     ) -> LorentzVector<Complex<T>> {
         let mut res = LorentzVector::default();
         if self.loop_mom.len() > 0 {
@@ -150,6 +151,8 @@ pub struct Amplitude {
     #[serde(skip_deserializing)]
     pub polarizations: Vec<ArrayVec<[Complex<f64>; 4]>>,
     pub diagrams: Vec<DiagramFullRust>,
+    pub coefficients: Vec<f64>,
+    pub coefficient_index_map: Vec<(usize, usize)>,
 }
 
 // Implement Setup functions
@@ -230,6 +233,33 @@ impl Amplitude {
             }
             _ => panic!("Unknown amplitude type: {}", self.amp_type),
         };
+
+        self.construct_numerator();
+    }
+
+    pub fn construct_numerator(&mut self) {
+        let max_rank = 4; // TODO: get from the input
+        let n_loops = 1;
+        let sorted_linear: Vec<Vec<usize>> = (0..max_rank + 1)
+            .map(|rank| (0..4 * n_loops).combinations_with_replacement(rank))
+            .flatten()
+            .collect();
+        self.coefficient_index_map = sorted_linear
+            .iter()
+            .map(|l| {
+                if l.is_empty() {
+                    (10000, 10000) // note: these indices will never be used
+                } else {
+                    (
+                        sorted_linear
+                            .iter()
+                            .position(|x| x[..] == l[..l.len() - 1])
+                            .unwrap(),
+                        l[l.len() - 1],
+                    )
+                }
+            })
+            .collect();
     }
 }
 
@@ -240,7 +270,7 @@ impl Amplitude {
         indices: &[i8],
         vbar: &[Complex<T>],
         u: &[Complex<T>],
-        vectors: &Vec<LorentzVector<Complex<T>>>,
+        vectors: &[LorentzVector<Complex<T>>],
     ) -> Result<Complex<T>, &'static str> {
         GammaChain::new(vbar, u, indices, vectors)
             .unwrap()
@@ -249,8 +279,8 @@ impl Amplitude {
 
     pub fn compute_amplitude<T: FloatLike>(
         &self,
-        propagators: &Vec<Complex<T>>,
-        vectors: &Vec<LorentzVector<Complex<T>>>,
+        propagators: &[Complex<T>],
+        vectors: &[LorentzVector<Complex<T>>],
         cut_2energy: Complex<T>,
         cut_id: usize,
         settings: &GeneralSettings,
@@ -333,7 +363,7 @@ impl Amplitude {
         &self,
         chain: &[i8],
         loop_momentum_positions: &[i8],
-        vectors: &Vec<LorentzVector<Complex<T>>>,
+        vectors: &[LorentzVector<Complex<T>>],
         vbar: &[Complex<T>],
         u: &[Complex<T>],
         order: usize,
@@ -425,8 +455,8 @@ impl Amplitude {
     }
     pub fn evaluate<T: FloatLike>(
         &self,
-        propagators: &Vec<Complex<T>>,
-        loop_momenta: &Vec<LorentzVector<Complex<T>>>,
+        propagators: &[Complex<T>],
+        loop_momenta: &[LorentzVector<Complex<T>>],
         cut_2energy: Complex<T>,
         cut_id: usize,
         e_cm_sq: T,
@@ -538,6 +568,26 @@ impl Amplitude {
             }
             _ => panic!("Unknown integrated counterterm for {}.", self.amp_type),
         }
+    }
+
+    pub fn evaluate_numerator<T: FloatLike>(
+        &mut self,
+        loop_momenta: &[LorentzVector<Complex<T>>],
+        cache: &mut LTDCache<T>,
+    ) -> Complex<T> {
+        let mut result = Complex::from(Into::<T>::into(self.coefficients[0]));
+        for (i, (&c, &(cache_index, vec_index))) in self
+            .coefficients
+            .iter()
+            .zip(&self.coefficient_index_map)
+            .skip(1)
+            .enumerate()
+        {
+            cache.numerator_momentum_cache[i + 1] = cache.numerator_momentum_cache[cache_index]
+                * loop_momenta[vec_index / 4][vec_index % 4];
+            result += cache.numerator_momentum_cache[i + 1] * Into::<T>::into(c);
+        }
+        result
     }
 }
 
