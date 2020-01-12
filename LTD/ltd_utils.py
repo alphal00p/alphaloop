@@ -173,6 +173,7 @@ class TopologyGenerator(object):
 
         self.ext = [i for i, x in enumerate(self.edges) if vertices.count(
             x[0]) == 1 or vertices.count(x[1]) == 1]
+        self.vertices = vertices
         self.loop_momenta = None
         self.propagators = None
         self.n_loops = None
@@ -229,6 +230,30 @@ class TopologyGenerator(object):
             if len(paths) == 0:
                 break
         return res
+
+    def find_cutkosky_cuts(self, n_jets, incoming_particles):
+        spanning_trees = []
+        self.spanning_trees(spanning_trees)
+        cutkosky_cuts = set()
+        for spanning_tree in spanning_trees:
+            # now select the extra cut
+            for edge_index in spanning_tree:
+                if edge_index in self.ext:
+                    continue
+
+                # verify that the graph is correctly split in two, with one of the subgraphs having all incoming particles
+                # and the other having all outgoing particles
+                cut_tree = TopologyGenerator([e for i, e in enumerate(self.edge_map_lin) if i in set(spanning_tree) - {edge_index,}])
+                sub_tree_indices = []
+                cut_tree.spanning_trees(sub_tree_indices)
+                sub_tree = TopologyGenerator([cut_tree.edge_map_lin[i] for i in sub_tree_indices[0]])
+                if set(set([sub_tree.edge_map_lin[i][0] for i in sub_tree.ext]) & set([self.edge_map_lin[i][0] for i in self.ext])) == set(incoming_particles):
+                    # identify which of the n+1 cuts are the cuts that separate the original diagram in two
+                    cutkosky_cut = tuple(sorted(cutkosky_edge[0] for cutkosky_edge in set(self.edge_map_lin).difference(set(cut_tree.edge_map_lin))
+                            if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
+                    if len(cutkosky_cut) >= n_jets:
+                        cutkosky_cuts.add(cutkosky_cut)
+        return list(sorted(cutkosky_cuts))
 
     def generate_momentum_flow(self, loop_momenta):
         """Generate momentum flow where `loop_momenta` are a
