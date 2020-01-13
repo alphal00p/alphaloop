@@ -732,6 +732,10 @@ def solve_center_problem(id_and_problem):
     #for c in source_coordinates:
     #    constraints.append(c[2]==0.)
 
+    # The radius is not used in any of the constraints, so this problem has no solution
+    if constraints == []:
+        return (ret_id, overlap, None, None)
+
     objective = cvxpy.Maximize(radius)
     p = cvxpy.Problem(objective, constraints)
     try:
@@ -1090,6 +1094,10 @@ class LoopTopology(object):
 
         deformation_per_sub_source = defaultdict(list)
         for (prop_combs, excluded_ellipsoids), overlap, radius_value, sources in pool.imap_unordered(solve_center_problem, center_problems):
+            if radius_value is None:
+                print("No center for {}".format(tuple(prop_combs)))
+                continue
+
             print("Found center for {} with radius {}".format(tuple(prop_combs), radius_value))
 
             # produce yaml-friendly deformation structure
