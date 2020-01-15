@@ -255,19 +255,109 @@ class TopologyGenerator(object):
                         cutkosky_cuts.add(cutkosky_cut)
         return list(sorted(cutkosky_cuts))
 
-    def generate_momentum_flow(self, loop_momenta):
-        """Generate momentum flow where `loop_momenta` are a
-        list of all edge indices that go like 1/k^2
-        """
+    def split_graph(self, cutkosky_cut):
+        """Split the graph in two using a cutkosky cut."""
+        cut_tree = TopologyGenerator([e for e in self.edge_map_lin if e[0] not in cutkosky_cut])
+        sub_tree_indices = []
+        cut_tree.spanning_trees(sub_tree_indices)
+
+        # get the vertices from the spanning tree and use it to create the two subgraphs
+        sub_tree_vertices = set(v for e in sub_tree_indices[0] for v in cut_tree.edge_map_lin[e][1:])
+        left_tree = [e for e in cut_tree.edge_map_lin if e[1] in sub_tree_vertices or e[2] in sub_tree_vertices]
+        right_tree = [e for e in cut_tree.edge_map_lin if e not in left_tree]
+
+        # add the cutkosky cut edges with renamed external vertices to prevent accidental loops
+        highest_vertex = max(v for e in self.edge_map_lin for v in e[1:]) + 1
+        for t in (left_tree, right_tree):
+            for c in cutkosky_cut:
+                (_, cut_v1, cut_v2) = next(e for e in self.edge_map_lin if e[0] == c)
+                if any(e[1] == cut_v1 or e[2] == cut_v1 for e in t):
+                    assert(not any (e[1] == cut_v2 or e[2] == cut_v2 for e in t))
+                    t.append((c, cut_v1, highest_vertex))
+                    highest_vertex += 1
+                else:
+                    assert(not any (e[1] == cut_v1 or e[2] == cut_v1 for e in t))
+                    t.append((c, highest_vertex, cut_v2))
+                    highest_vertex += 1
+
+        left_tree = TopologyGenerator(left_tree)
+        right_tree = TopologyGenerator(right_tree)
+
+        return (left_tree, right_tree)
+
+    def get_signature_map(self):
+        # TODO: the order of self.ext should be consistent with Rust
+        edge_map = {}
+        for i, (prop, (edge_name, _, _)) in enumerate(zip(self.propagators, self.edge_map_lin)):
+            signature = [[0]*len(self.loop_momenta), [0]*len(self.ext)]
+
+            if prop == ():
+                signature[1][self.ext.index(i)] = 1 # FIXME: is it always +?
+
+            for (mom, sign) in prop:
+                s = 1 if sign else -1
+                if mom not in self.ext:
+                    signature[0][self.loop_momenta.index(mom)] = s
+                else:
+                    signature[1][self.ext.index(mom)] = s
+            edge_map[edge_name] = signature
+        return edge_map
+
+    def build_proto_topology(self, sub_graph, loop_momenta_names=None):
+        self.generate_momentum_flow(loop_momenta_names)
+        sub_graph.generate_momentum_flow()
+
+        # for each edge, determine the momentum map from full graph to subgraph and the shift
+        # the shift will in general also have loop momentum dependence
+        # TODO: the order of self.ext should be consistent with Rust
+        edge_map = self.get_signature_map()
+
+        # FIXME: reversed signs in the subgraph are not supported yet
+
+        loop_momentum_map = [[]]*sub_graph.n_loops
+        param_shift = {}
+        for (prop, (edge_name, _, _)) in zip(sub_graph.propagators, sub_graph.edge_map_lin):
+            if prop == ():
+                continue
+
+            # determine the momentum map
+            if len(prop) == 1 and prop[0] not in sub_graph.ext:
+                (mom, sign) = prop[0]
+                s = 1 if sign else -1
+                loop_momentum_map[sub_graph.loop_momenta.index(mom)] = [[s * a for a in i] for i in edge_map[edge_name]]
+
+            signature = [[0]*len(self.loop_momenta), [0]*len(self.ext)]
+
+            for (mom, sign) in prop:
+                s = 1 if sign else -1
+                if mom in sub_graph.ext:
+                    ext_edge = sub_graph.edge_map_lin[mom][0]
+                    for i, j, v in [(i, j, v) for i, k in enumerate(edge_map[ext_edge]) for j, v in enumerate(k)]:
+                        signature[i][j] += v * s
+
+            param_shift[edge_name] = signature
+
+        return loop_momentum_map, param_shift
+
+    def generate_momentum_flow(self, loop_momenta=None):
+        if loop_momenta is None:
+            loop_momenta = self.loop_momentum_bases()[0]
+        else:
+            self.n_loops = len(loop_momenta)
+            if isinstance(loop_momenta[0], str):
+                loop_momenta = [self.edge_name_map[edge_name]
+                                for edge_name in loop_momenta]
+            else:
+                loop_momenta = loop_momenta
+
         self.loop_momenta = loop_momenta
 
-        # first we fix the loop momentum flows
         flows = []
         for l in loop_momenta:
             paths = self.find_path(l, l)
             # make sure other loop momenta propagators are not in the path
             paths = [x for x in paths if all(
-                y[0] not in self.loop_momenta for y in x[1:-1])]
+                y[0] not in loop_momenta for y in x[1:-1])]
             # TODO: take shortest?
             flows.append(paths[0][:-1])
 
@@ -276,7 +366,7 @@ class TopologyGenerator(object):
         for e in self.ext[:-1]:
             paths = self.find_path(e, self.ext[-1])
             paths = [x for x in paths if all(
-                y[0] not in self.loop_momenta for y in x[1:-1])]
+                y[0] not in loop_momenta for y in x[1:-1])]
             ext_flows.append(paths[0])
 
         # propagator momenta
@@ -310,7 +400,7 @@ class TopologyGenerator(object):
                 s.append(s1 + ")^2")
 
         self.propagators = mom
-        ##print("Constructed topology: {}".format('*'.join(s)))
+        #print("Constructed topology: {}".format('*'.join(s)))
 
     def evaluate_residues(self, allowed_systems, close_contour):
         residues = []
@@ -406,11 +496,14 @@ class TopologyGenerator(object):
         return allowed_systems
 
     def get_cut_structures(self, loop_lines, contour_closure=None):
+        if self.n_loops == 0:
+            return []
+
         # create the LTD graph with the external momenta removed
         graph = TopologyGenerator(
             [(None, loop_line.start_node, loop_line.end_node) for loop_line in loop_lines])
-        momentum_bases = graph.loop_momentum_bases()
 
+        momentum_bases = graph.loop_momentum_bases()
         signature_matrix = [loop_line.signature for loop_line in loop_lines]
 
         if contour_closure is None:
@@ -431,21 +524,12 @@ class TopologyGenerator(object):
                               if i in momentum_basis else 0 for i in range(len(loop_lines))]]
         return cut_stucture
 
-    def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None, 
-                                contour_closure=None, analytic_result=None, fixed_deformation=None, constant_deformation=None):
-        if loop_momenta_names is None:
-            loop_momenta = self.loop_momentum_bases()[0]
-        else:
-            self.n_loops = len(loop_momenta_names)
-            if isinstance(loop_momenta_names[0], str):
-                loop_momenta = [self.edge_name_map[edge_name]
-                                for edge_name in loop_momenta_names]
-            else:
-                loop_momenta = loop_momenta_names
+    def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None,
+            contour_closure=None, analytic_result=None, fixed_deformation=None, constant_deformation=None,
+            loop_momentum_map=None, shift_map=None):
+        if loop_momentum_map is None:
+            self.generate_momentum_flow(loop_momenta_names)
 
-        ##print("Creating topology with momentum basis %s" % ', '.join([self.edge_map_lin[i][0] for i in loop_momenta]))
-
-        self.generate_momentum_flow(loop_momenta)
 
         # collect all loop lines and construct the signature
         loop_line_map = defaultdict(list)
@@ -459,23 +543,25 @@ class TopologyGenerator(object):
             mass = 0. if edge_name not in mass_map else mass_map[edge_name]
 
             # construct the signature
-            signature = [0]*len(loop_momenta)
+            signature = [0]*len(self.loop_momenta)
             q = vectors.LorentzVector([0., 0., 0., 0.])
             for (mom, sign) in prop:
                 s = 1 if sign else -1
                 if mom not in self.ext:
-                    signature[loop_momenta.index(mom)] = s
+                    signature[self.loop_momenta.index(mom)] = s
                 else:
                     q += ext_mom[self.edge_map_lin[mom][0]] * s
 
             # flip the sign if the inverse exists
+            # FIXME: should this generate a minus sign when there is an odd-power numerator?
             alt_sig = tuple(s * -1 for s in signature)
-            if alt_sig in loop_line_map:
+            if len(signature) > 0 and alt_sig in loop_line_map:
                 print('warning: changing sign of propagator %s: %s -> %s' % (edge_name, tuple(signature), alt_sig) )
-                loop_line_map[alt_sig].append((-q, mass))
+                loop_line_map[alt_sig].append((edge_name, -q, mass))
                 loop_line_vertex_map[alt_sig] += [(v2, v1)]
             else:
-                loop_line_map[tuple(signature)].append((q, mass))
+                loop_line_map[tuple(signature)].append((edge_name, q, mass))
+
                 loop_line_vertex_map[tuple(signature)] += [(v1, v2)]
 
         # fuse vertices
@@ -491,9 +577,16 @@ class TopologyGenerator(object):
                 if len(edges) == 1:
                     break
                 other = [(1, e[1]) if e[0] == v else (0, e[0]) for e in edges if v in e]
-                newvert = tuple( next(v[1] for v in other if v[0] == i) for i in range(0, 2))
+
+                if len(sig) == 0:
+                    # if there is no loop momentum dependence, the edge may appear in both
+                    # directions. Make sure we can fuse by adding the other option too
+                    other += [(0, e[1]) if e[0] == v else (1, e[0]) for e in edges if v in e]
+
+                # create a new edge with the correct orientation
+                newedge = tuple( next(v[1] for v in other if v[0] == i) for i in range(0, 2))
                 d = [e for e in edges if v in e]
-                edges[edges.index(d[0])] = newvert
+                edges[edges.index(d[0])] = newedge
                 del edges[edges.index(d[1])]
 
             # if we have multiple sets left, they are disconnected parts in the graph
@@ -515,26 +608,42 @@ class TopologyGenerator(object):
         for sig, edges in loop_line_vertex_map.items():
             loop_line_vertex_map[sig] = tuple(multifuse(v) for v in edges)
 
+        loop_line_list = list(loop_line_map.items())
         ll = [LoopLine(
             start_node=loop_line_vertex_map[signature][0],
             end_node=loop_line_vertex_map[signature][1],
             signature=signature,
             propagators=tuple(
-                Propagator(q=q, m_squared=mass**2)
-                for (q, mass) in propagators)) for signature, propagators in loop_line_map.items()]
+                Propagator(q=q, m_squared=mass**2,
+                            parametric_shift=shift_map[edge_name] if shift_map is not None else None,
+                            name=edge_name if shift_map is not None else None)
+                for (edge_name, q, mass) in propagators)) for signature, propagators in loop_line_list]
 
-        cs = self.get_cut_structures(ll, contour_closure)
+        cs = self.get_cut_structures([l for l in ll if any(s != 0 for s in l.signature)], contour_closure)
+
+        # pad the cut structure with the removed edges
+        map_to_full_graph = [i for i,  (signature, _) in enumerate(loop_line_list) if not all(sig == 0 for sig in signature)]
+        full_cs = []
+        for c in cs:
+            full_c = [0]*len(loop_line_list)
+            for i, cc in enumerate(c):
+                full_c[map_to_full_graph[i]] = cc
+            full_cs.append(full_c)
+        cs = full_cs
 
         # the external kinematics are stored in the right order
-        # TODO: check that the externals are submitted in the form "qn" with n a number
-        external_kinematics = [ext_mom["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in ext_mom.keys()])]
+        try:
+            external_kinematics = [ext_mom["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in ext_mom.keys()])]
+        except ValueError:
+            print("External kinematics are not labels as q1,...,qn. The order may be random.")
+            external_kinematics = list(ext_mom.values())
         
-        loop_topology = LoopTopology(name=name, n_loops=len(loop_momenta), external_kinematics=external_kinematics,
+        loop_topology = LoopTopology(name=name, n_loops=len(self.loop_momenta), external_kinematics=external_kinematics,
             ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result, fixed_deformation = fixed_deformation,
-            constant_deformation = constant_deformation)
+            constant_deformation = constant_deformation, loop_momentum_map=loop_momentum_map)
 
         if analytic_result is None:
-            loop_topology.analytic_result = self.guess_analytical_result(loop_momenta, ext_mom, mass_map)
+            loop_topology.analytic_result = self.guess_analytical_result(self.loop_momenta, ext_mom, mass_map)
        
         if (fixed_deformation is None) or (fixed_deformation is True):
             # TODO generate the source coordinates automatically with cvxpy if 
@@ -769,7 +878,7 @@ class LoopTopology(object):
     # and squaring + squareroots decreases the accuracy down to less than 16/2 digits.
     _existence_threshold = 1.0e-7
     def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
-        fixed_deformation=None, constant_deformation=None, maximum_ratio_expansion_threshold=None, **opts):
+        fixed_deformation=None, constant_deformation=None, maximum_ratio_expansion_threshold=None, loop_momentum_map=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -793,6 +902,7 @@ class LoopTopology(object):
         self.fixed_deformation = fixed_deformation
         self.constant_deformation = constant_deformation
         self.maximum_ratio_expansion_threshold = maximum_ratio_expansion_threshold
+        self.loop_momentum_map = loop_momentum_map
 
     def evaluate(self, loop_momenta):
         """ Evaluates Loop topology with the provided list loop momenta, given as a list of LorentzVector."""
@@ -976,6 +1086,8 @@ class LoopTopology(object):
         if self.fixed_deformation is not None:
             res['fixed_deformation'] = self.fixed_deformation
         res['constant_deformation'] = self.constant_deformation
+        if self.loop_momentum_map is not None:
+            res['loop_momentum_map'] = self.loop_momentum_map
         res['maximum_ratio_expansion_threshold'] = -1.0 if self.maximum_ratio_expansion_threshold is None else self.maximum_ratio_expansion_threshold 
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
@@ -1470,20 +1582,28 @@ class LoopLine(object):
 class Propagator(object):
     """ A simple container for describing a loop propagator."""
 
-    def __init__(self, q, m_squared, signature = None, **opts):
+    def __init__(self, q, m_squared, signature = None, name = None, parametric_shift = None, **opts):
+        self.name       = name
         self.q          = q
         self.m_squared  = m_squared
         # Note that this signature member is not strictly speaking necessary as it should always be the
         # same as the signature attribute of the LoopLine containing it. We forward it here for convenience however.
         self.signature  = signature
+        self.parametric_shift = parametric_shift
+        self.name = name
 
     def to_flat_format(self):
         """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
-        
         res={}
-        
+
         res['q'] = [float(v) for v in self.q]
         res['m_squared'] = self.m_squared
+
+        if self.parametric_shift is not None:
+            res['parametric_shift'] = self.parametric_shift
+
+        if self.name is not None:
+            res['name'] = self.name
 
         return res
 
@@ -1549,7 +1669,7 @@ class TopologyCollection(dict):
             raise BaseException("Topology can only be imported from the following formats: %s"%(', '.join(allowed_import_format)))
 
         if import_format=='yaml':
-            try: 
+            try:
                 import yaml
                 from yaml import Loader, Dumper
             except ImportError:
@@ -1566,13 +1686,69 @@ class TopologyCollection(dict):
         
         return result
 
+class SquaredTopologyGenerator:
+    def __init__(self, topo, name, incoming_momenta, n_cuts):
+        self.topo = topo
+        self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momenta)
+
+        self.topologies = [topo.split_graph(c) for c in self.cuts]
+
+        self.topo.generate_momentum_flow()
+        edge_map = self.topo.get_signature_map()
+
+        self.loop_topologies = []
+        self.cut_signatures = []
+        for sub_graphs, c in zip(self.topologies, self.cuts):
+            # determine the signature of the cuts
+            self.cut_signatures.append(
+                [copy.deepcopy(edge_map[cut_edge]) for cut_edge in c]
+            )
+
+            loop_topos = []
+            for i, s in enumerate(sub_graphs):
+                (loop_mom_map, shift_map) = topo.build_proto_topology(s)
+                loop_topos.append(
+                    s.create_loop_topology(name + '_' + ''.join(c) + '_' + str(i),
+                    # provide dummy external momenta
+                    ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                    fixed_deformation=False,
+                loop_momentum_map=loop_mom_map,
+                shift_map=shift_map))
+
+            self.loop_topologies.append(loop_topos)
+
+    def export(self, output_path):
+        out = {
+            'n_loops': self.topo.n_loops,
+            'topo': [list(x) for x in self.topo.edge_map_lin],
+            'cutkosky_cuts': [
+                {'cut_names': list(c),
+                'cut_signature': cut_sig,
+                'subgraph_0': ts[0].to_flat_format(),
+                'subgraph_1': ts[1].to_flat_format()}
+
+                for c, cut_sig, ts in zip(self.cuts, self.cut_signatures, self.loop_topologies)
+            ]
+        }
+
+        try:
+            import yaml
+            from yaml import Loader, Dumper
+        except ImportError:
+            raise BaseException("Install yaml python module in order to import topologies from yaml.")
+
+        open(output_path,'w').write(yaml.dump(out, Dumper=Dumper))
+
 if __name__ == "__main__":
     triangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3),
                                 ('p3', 2, 3), ('q2', 3, 4), ('q3', 2, 5)])  # triangle
-    doubletriangle = TopologyGenerator([('q', 0, 1), ('p1', 1, 2), ('p2', 1, 3), ('p3', 2, 3),
-                                        ('p4', 3, 4), ('p5', 2, 4), ('-q', 4, 5)])  # double-triangle
-
-    loop_topology = doubletriangle.create_loop_topology("DoubleTriangle", ext_mom={'q': vectors.LorentzVector(
+    doubletriangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3), ('p3', 2, 3),
+                                        ('p4', 3, 4), ('p5', 2, 4), ('q2', 4, 5)])  # double-triangle
+    loop_topology = doubletriangle.create_loop_topology("DoubleTriangle", ext_mom={'q1': vectors.LorentzVector(
         [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)
 
-    print(loop_topology)
+    # Construct a cross section
+    mercedes = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
+                                        ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)])
+    squared_topo = SquaredTopologyGenerator(mercedes, "M", ['q1'], 3)
+    squared_topo.export('mercedes_squared.yaml')
