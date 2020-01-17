@@ -24,34 +24,39 @@ zero_lv = vectors.LorentzVector([0., 0., 0., 0.])
 
 # A network is generated from the graph corresponding to a amplitude topology
 # In blue it shows the notes and in red the loopline id corresponding to that edge
-def topology_to_graph(amplitude_topology, file_name=None, show_graph=True):
+def topology_to_graph(edge_info, file_name=None, show_graph=True):
     # Great graph with oriented edges
     # - Internal nodes are labelled from 0 to 99
     # - External nodes are labelled from 100 to 199
     # - LoopLines nodes are labelled from 200 up
 
+    plt.figure(figsize=(12, 12))
     G = nx.DiGraph()   # or DiGraph, MultiGraph, MultiDiGraph, etc
-    edges = [e[1:] for e in amplitude_topology.graph]
 
-    edges = [e[1:] for e in amplitude_topology.graph if e[1] >= 100]
-    for n, ll in enumerate(amplitude_topology.ll_chains):
-        for m, e in enumerate(ll):
-            edges += [(e[0], (n+2)*100+m), ((n+2)*100+m, e[1])]
+    edges = []
+    edge_labels = {}
+    node_labels = {}
+
+    extra_node=200
+    for k, v in edge_info.items():
+        e = v['edge']
+        if e[0] >= 100: # External
+            edges += [e]
+            node_labels.update({e[0]: k, e[1]: str(e[1])})
+        else:
+            edges += [(e[0], extra_node), (extra_node, e[1])]
+            node_labels.update({e[0]: str(e[0]), e[1]: str(e[1]), extra_node: str(v['loopline'])})
+            edge_labels.update({(e[0], extra_node): k })
+            edge_labels.update({(extra_node, e[1]): k })
+            extra_node += 2
 
     G.add_edges_from(edges)
-    plt.figure(figsize=(12, 12))
     pos = nx.kamada_kawai_layout(G)  # positions for all nodes
-    labels = {key: str(key) for key in pos.keys()}
 
     # LoopLines nodes
     ll_nodes = [key for key in list(pos.keys()) if key >= 200]
-    for ll_node in ll_nodes:
-        labels[ll_node] = "[{},{}]".format(int(ll_node/100)-2, ll_node % 100)
     # External momenta nodes
     ext_nodes = [key for key in list(pos.keys()) if 100 <= key < 200]
-    for ext_node in ext_nodes:
-        labels[ext_node] = "q{}".format(ext_node % 100)
-
     # Internal nodes
     nodes = [key for key in list(pos.keys()) if key < 100]
 
@@ -63,7 +68,9 @@ def topology_to_graph(amplitude_topology, file_name=None, show_graph=True):
                            node_shape="d", alpha=.95, node_size=800)
     nx.draw_networkx_nodes(
         G, pos, ll_nodes, node_color='#7070dd', alpha=.95, node_size=800)
-    nx.draw_networkx_labels(G, pos, labels)
+    
+    nx.draw_networkx_edge_labels(G,pos, edge_labels=edge_labels)
+    nx.draw_networkx_labels(G, pos,node_labels)
 
     # Show
     if file_name is not None:
@@ -89,13 +96,19 @@ def get_looplines_edges(topology_generator, topology):
             else:
                 res[l[0]][0][n] = -1
     res = list(res.values())
-    ll_chains = []
-    for ll in topology.loop_lines:
+    
+    # Create edge infos. loopline to be filled
+    edge_info = { k: {"id": v, "edge": edges[v], "loopline": None} for k, v in topology_generator.edge_name_map.items()}
+    edge_id_to_name = {v: k for k, v in topology_generator.edge_name_map.items()}
+
+    edge_pos = {e: None for e in edges}
+    for n, ll in enumerate(topology.loop_lines):
         s = list(ll.signature)
         start = ll.start_node
         end = ll.end_node
+        
 
-        es = [e[1] for e in res if e[0] == s]
+        es = [e[1] for e in res if e[0] == s] 
         chain = []
         node = start
         while True:
@@ -105,11 +118,21 @@ def get_looplines_edges(topology_generator, topology):
             pos = np.where([e[0] == node for e in es])
             if len(pos[0]) != 1:
                 raise Exception("No unique edge found for the LoopLine")
-
-            chain += [es.pop(pos[0][0])]
-            node = chain[-1][1]
-        ll_chains += [chain]
-    return ll_chains
+            
+            edge = es.pop(pos[0][0])
+            # Check position (Being carefull for edge multiplicity)
+            if edge_pos[edge] is None:
+                edge_pos[edge] = edges.index(edge)
+            else:
+                edge_pos[edge] = edges.index(edge, edge_pos[edge]+1)
+            chain += [(edge, edge_pos[edge])]
+            node = edge[1] 
+        #print(chain)
+        # Sort the edges based on their position in the graph list
+        for m, (edge, edge_id) in  enumerate(sorted(chain, key=lambda x: x[1])):
+            edge_info[edge_id_to_name[edge_id]]['loopline'] = (n, m)
+    
+    return edge_info
 
 
 # Ideally this should become an automatically generated from some QGRAF output
@@ -132,7 +155,7 @@ class AmplitudeTopologies(object):
             for key in self.build_topology.keys():
                 print("\t- %s" % key)
             raise
-
+        print("HERE")
         return self.build_topology[amplitude_type](*args, fixed_deformation=fixed_deformation)
 
 
@@ -190,7 +213,7 @@ class DiHiggsTopology(object):
         self.top_generator = TopologyGenerator(self.graph)
 
         return self.top_generator.create_loop_topology(
-            topology_name,
+            self.topology_name,
             ext_mom={'q%d' % (i+1): self.qs[i] for i in range(points)},
             mass_map={'p%d' % (i+1): self.top_mass for i in range(points)},
             # Force the loop momentum routing on the first edge
@@ -199,8 +222,8 @@ class DiHiggsTopology(object):
             fixed_deformation=fixed_deformation,
         )
 
-    def get_ll_chains(self):
-        self.ll_chains = get_looplines_edges(self.top_generator, self.topology)
+    def get_edge_info(self):
+        self.edge_info = get_looplines_edges(self.top_generator, self.topology)
 
 
 ##############################################################
@@ -230,29 +253,32 @@ class qqbarphotonsNLO(object):
         # pi: propagators, qi: externals
         self.graph = [('p%d' % (i+1), i+1, ((i+1) % points)+1)
                       for i in range(points)]
+        #self.graph = [('p%d' % (i+1), i+1, ((i+1) % points)+1)
+        #              for i in [1,5,2,3,0,6,4]]
         self.graph.extend([('q%d' % (i+1), i+101, i+1) for i in range(points)])
-
-        self.topology = self.build_loop_topology(
-            fixed_deformation=fixed_deformation)
+        
+        self.topology = self.build_loop_topology(fixed_deformation=fixed_deformation)
 
     def build_loop_topology(self, fixed_deformation=None):
         points = len(self.qs)
 
         self.top_generator = TopologyGenerator(self.graph)
 
+        print(self.graph)
         return self.top_generator.create_loop_topology(
-            topology_name,
+            self.topology_name,
             ext_mom={'q%d' % (i+1): self.qs[i] for i in range(points)},
             mass_map={'p%d' % (i+1): self.ms[i] for i in range(points)},
             # If not specified an arbitrary spanning tree will be used for momentum routing
-            loop_momenta_names=('p%d' % points,),
+            #loop_momenta_names=('p%d' % points,),
             # For triangle and box one-loop topology, the analytic result is automatically computed
+            loop_momenta_names=('p1',),
             analytic_result=None,
             fixed_deformation=fixed_deformation,
         )
 
-    def get_ll_chains(self):
-        self.ll_chains = get_looplines_edges(self.top_generator, self.topology)
+    def get_edge_info(self):
+        self.edge_info = get_looplines_edges(self.top_generator, self.topology)
 
 
 @amplitude_topologies
@@ -276,9 +302,6 @@ class Nf_qqbarphotonsNNLO(object):
 
         # Create Map
         points = len(self.qs)
-        self.propagator_to_loopline = {"".join(
-            ["k"]+["+p%d" % i for i in range(2, n+3)]): (0, n+2) for n in range(points-1)}
-        self.propagator_to_loopline.update({"k": (0, 0)})
 
         # Create the Graph for the topology
         # pi: propagators, qi: externals
@@ -300,7 +323,7 @@ class Nf_qqbarphotonsNNLO(object):
         self.top_generator = TopologyGenerator(self.graph)
 
         return self.top_generator.create_loop_topology(
-            topology_name,
+            self.topology_name,
             ext_mom={'q%d' % (i+1): self.qs[i] for i in range(points)},
             mass_map={'p%d' % (i+1): self.ms[i] for i in range(len(self.ms))},
             # If not specified an arbitrary spanning tree will be used for momentum routing
@@ -309,57 +332,54 @@ class Nf_qqbarphotonsNNLO(object):
             fixed_deformation=fixed_deformation,
         )
 
-    def get_ll_chains(self):
-        self.ll_chains = get_looplines_edges(self.top_generator, self.topology)
+    def get_edge_info(self):
+        self.edge_info = get_looplines_edges(self.top_generator, self.topology)
 
 
 #############################################################################################################
 # Create the collection of hard-coded topologies.
 #############################################################################################################
 
-topology_collection = TopologyCollection()
-print(amplitude_topologies.build_topology)
-
-# sys.exit(0)
-
-# TEST
-moms = [vectors.LorentzVector([1, 0, 0, 1]),
-        vectors.LorentzVector([1, 0, 0, -1]),
-        vectors.LorentzVector([-1, 0, 1.0/np.sqrt(2), 1.0/np.sqrt(2)]),
-        vectors.LorentzVector([-1, 0, -1.0/np.sqrt(2), -1.0/np.sqrt(2)])
-        ]
-
-topology_name = "dd2A_NLO"
-print(topology_name)
-ms = [0.]*4
-amp_top = amplitude_topologies.create(
-    "qqbarphotonsNLO", moms, ms, topology_name, fixed_deformation=False)
-amp_top.get_ll_chains()
-topology_collection.add_topology(amp_top.topology, topology_name)
-topology_to_graph(amp_top, file_name="diag_" +
-                  topology_name+".pdf", show_graph=False)
-
-topology_name = "dd2A_NNLO"
-print(topology_name)
-ms = [0.]*6
-amp_top = amplitude_topologies.create(
-    "Nf_qqbarphotonsNNLO", moms, ms, topology_name, fixed_deformation=False)
-topology_collection.add_topology(amp_top.topology, topology_name)
-amp_top.get_ll_chains()
-topology_to_graph(amp_top, file_name="diag_" +
-                  topology_name+".pdf", show_graph=False)
-
-topology_name = "dihiggs"
-print(topology_name)
-ms = [0.]*4
-amp_top = amplitude_topologies.create(
-    "DiHiggsTopology", moms, ms, topology_name, fixed_deformation=False)
-topology_collection.add_topology(amp_top.topology, topology_name)
-amp_top.get_ll_chains()
-topology_to_graph(amp_top, file_name="diag_" +
-                  topology_name+".pdf", show_graph=False)
-# print(amp_top.propagator_to_loopline)
-#topology_collection.add_topology(amp_top.build_loop_topology(), topology_name)
-
-
-print(topology_collection)
+if __name__ == "__main__":
+    
+    topology_collection = TopologyCollection()
+    print(amplitude_topologies.build_topology)
+    
+    # TEST
+    moms = [vectors.LorentzVector([1, 0, 0, 1]),
+            vectors.LorentzVector([1, 0, 0, -1]),
+            vectors.LorentzVector([-1, 0, 1.0/np.sqrt(2), 1.0/np.sqrt(2)]),
+            vectors.LorentzVector([-1, 0, -1.0/np.sqrt(2), -1.0/np.sqrt(2)])
+            ]
+    
+    topology_name = "dd2A_NLO"
+    print(topology_name)
+    ms = [0.]*4
+    amp_top = amplitude_topologies.create(
+        "qqbarphotonsNLO", moms, ms, topology_name, fixed_deformation=False)
+    amp_top.get_edge_info()
+    topology_collection.add_topology(amp_top.topology, topology_name)
+    topology_to_graph(amp_top.edge_info, file_name="diag_"+topology_name+".pdf", show_graph=False)
+    
+    topology_name = "dd2A_NNLO"
+    print(topology_name)
+    ms = [0.]*6
+    amp_top = amplitude_topologies.create(
+        "Nf_qqbarphotonsNNLO", moms, ms, topology_name, fixed_deformation=False)
+    topology_collection.add_topology(amp_top.topology, topology_name)
+    amp_top.get_edge_info()
+    topology_to_graph(amp_top.edge_info, file_name="diag_"+topology_name+".pdf", show_graph=False)
+    
+    topology_name = "dihiggs"
+    print(topology_name)
+    ms = [0.]*4
+    amp_top = amplitude_topologies.create(
+        "DiHiggsTopology", moms, ms, topology_name, fixed_deformation=False)
+    topology_collection.add_topology(amp_top.topology, topology_name)
+    amp_top.get_edge_info()
+    topology_to_graph(amp_top.edge_info, file_name="diag_"+topology_name+".pdf", show_graph=False)
+    # print(amp_top.propagator_to_loopline)
+    #topology_collection.add_topology(amp_top.build_loop_topology(), topology_name)
+    
+    
+    print(topology_collection)
