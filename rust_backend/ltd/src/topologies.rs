@@ -1,14 +1,19 @@
 use amplitude::Amplitude;
+use arrayvec::ArrayVec;
 use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use float;
+use itertools::Itertools;
 use num::Complex;
-use num_traits::Signed;
+use num_traits::{Float, FloatConst};
+use num_traits::{One, Signed, Zero};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
+use utils;
+use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
-use Settings;
+use {FloatLike, PythonNumerator, Settings, MAX_LOOP};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SurfaceType {
@@ -42,6 +47,8 @@ pub struct Propagators {
     pub id: usize, // global id
     pub m_squared: f64,
     pub q: LorentzVector<f64>,
+    #[serde(default)]
+    pub parametric_shift: (Vec<i8>, Vec<i8>),
     #[serde(default)]
     pub signature: Vec<i8>,
 }
@@ -372,6 +379,8 @@ pub struct Topology {
     pub all_excluded_surfaces: Vec<bool>,
     #[serde(default)]
     pub amplitude: Amplitude,
+    #[serde(default)]
+    pub loop_momentum_map: Vec<(Vec<i8>, Vec<i8>)>,
 }
 
 impl Topology {
@@ -388,5 +397,197 @@ impl Topology {
             .into_iter()
             .map(|t| (t.name.clone(), t))
             .collect()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CutkoskyCuts {
+    pub cut_names: Vec<String>,
+    pub cut_signs: Vec<i8>,
+    pub cut_signature: Vec<(Vec<i8>, Vec<i8>)>,
+    pub subgraph_0: Topology,
+    pub subgraph_1: Topology,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SquaredTopology {
+    pub n_loops: usize,
+    pub cutkosky_cuts: Vec<CutkoskyCuts>,
+    #[serde(skip_deserializing)]
+    pub settings: Settings,
+}
+
+impl SquaredTopology {
+    pub fn from_file(filename: &str, settings: &Settings) -> SquaredTopology {
+        let f = File::open(filename).expect("Could not open squared topology file");
+
+        let mut squared_topo: SquaredTopology = serde_yaml::from_reader(f).unwrap();
+        squared_topo.settings = settings.clone();
+        for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
+            cutkosky_cuts.subgraph_0.process();
+            cutkosky_cuts.subgraph_1.process();
+        }
+
+        squared_topo
+    }
+
+    fn evaluate_signature<T: RealNumberLike>(
+        signature: &(Vec<i8>, Vec<i8>),
+        external_momenta: &[LorentzVector<T>],
+        loop_momenta: &[LorentzVector<T>],
+    ) -> LorentzVector<T> {
+        let mut cut_momentum = LorentzVector::default();
+        for (&sign, mom) in signature.0.iter().zip_eq(loop_momenta) {
+            if sign != 0 {
+                cut_momentum += mom.multiply_sign(sign);
+            }
+        }
+
+        for (&sign, mom) in signature.1.iter().zip_eq(external_momenta) {
+            if sign != 0 {
+                cut_momentum += mom.multiply_sign(sign);
+            }
+        }
+        cut_momentum
+    }
+
+    pub fn create_caches<T: FloatLike + Into<f64>>(&self) -> Vec<Vec<LTDCache<T>>> {
+        let mut caches = vec![];
+        for cutkosky_cuts in &self.cutkosky_cuts {
+            caches.push(vec![
+                LTDCache::<T>::new(&cutkosky_cuts.subgraph_0),
+                LTDCache::<T>::new(&cutkosky_cuts.subgraph_1),
+            ]);
+        }
+        caches
+    }
+
+    pub fn evaluate<T: FloatLike + Into<f64>>(
+        &mut self,
+        external_momenta: &mut [LorentzVector<T>],
+        loop_momenta: &[LorentzVector<T>],
+        caches: &mut [Vec<LTDCache<T>>],
+    ) -> Complex<T> {
+        let mut cuts = [LorentzVector::default(); MAX_LOOP + 4]; // FIXME: bound may be too small
+        let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
+        let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> =
+            (0..MAX_LOOP).map(|_| LorentzVector::default()).collect();
+        let mut result = Complex::zero();
+        for (cutkosky_cuts, cache) in self.cutkosky_cuts.iter_mut().zip_eq(caches) {
+            let mut cut_result = Complex::one();
+            let mut q0 = T::zero();
+
+            // evaluate the cuts
+            for ((cut, cut_sig), cut_sign) in cuts[..cutkosky_cuts.cut_signature.len()]
+                .iter_mut()
+                .zip(cutkosky_cuts.cut_signature.iter())
+                .zip(cutkosky_cuts.cut_signs.iter())
+            {
+                *cut = SquaredTopology::evaluate_signature(cut_sig, external_momenta, loop_momenta);
+                let energy = cut.spatial_distance();
+                cut.t = energy.multiply_sign(*cut_sign);
+                cut_result /= energy; // add the 1/E for every cut
+                q0 += energy;
+            }
+
+            if self.settings.general.debug >= 1 {
+                println!("Cut {:?}:", cutkosky_cuts.cut_names);
+                println!("  | 1/Es = {}", cut_result);
+                println!("  | q0 = {}", q0);
+            }
+
+            // set 0th component of external momenta to the sum of the cuts
+            external_momenta[0].t = q0;
+            external_momenta[1].t = -q0; // FIXME: we assume 1->1 here
+
+            // set the shifts, which are expressed in the cut basis
+            let mut subgraphs = [&mut cutkosky_cuts.subgraph_0, &mut cutkosky_cuts.subgraph_1];
+            for subgraph in &mut subgraphs {
+                for ll in &mut subgraph.loop_lines {
+                    for p in &mut ll.propagators {
+                        p.q = SquaredTopology::evaluate_signature(
+                            &p.parametric_shift,
+                            external_momenta,
+                            &cuts[..cutkosky_cuts.cut_signature.len()],
+                        )
+                        .map(|x| x.into());
+                    }
+                }
+            }
+
+            //subgraphs[0].process();
+            //subgraphs[1].process();
+            subgraphs[0].e_cm_squared = Into::<f64>::into(q0 * q0);
+            subgraphs[1].e_cm_squared = Into::<f64>::into(q0 * q0);
+
+            // evaluate
+            for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {
+                // do the loop momentum map, which is expressed in the loop momentum basis
+                // the time component should not matter here
+                for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
+                    .iter_mut()
+                    .zip_eq(&subgraph.loop_momentum_map)
+                {
+                    *slm =
+                        SquaredTopology::evaluate_signature(lmm, external_momenta, &loop_momenta);
+                }
+
+                // for now, we do not deform
+                for (kd, k) in k_def[..subgraph.n_loops]
+                    .iter_mut()
+                    .zip_eq(&subgraph_loop_momenta[..subgraph.n_loops])
+                {
+                    *kd = k.map(|x| Complex::new(x, T::zero()));
+                }
+
+                if subgraph
+                    .compute_complex_cut_energies(&k_def[..subgraph.n_loops], subgraph_cache)
+                    .is_err()
+                {
+                    panic!("NaN on cut energy");
+                }
+
+                let (mut res, kd) = subgraph
+                    .evaluate_all_dual_integrands::<T, PythonNumerator>(
+                        &subgraph_loop_momenta[..subgraph.n_loops],
+                        k_def,
+                        subgraph_cache,
+                        &None,
+                    )
+                    .unwrap();
+
+                res *= utils::powi(
+                    num::Complex::new(T::zero(), Into::<T>::into(-2.) * <T as FloatConst>::PI()),
+                    subgraph.n_loops,
+                ); // factor of delta cut
+                res *= utils::powi(
+                    num::Complex::new(
+                        Into::<T>::into(1.)
+                            / <T as Float>::powi(Into::<T>::into(2.) * <T as FloatConst>::PI(), 4),
+                        T::zero(),
+                    ),
+                    subgraph.n_loops,
+                );
+
+                k_def = kd;
+
+                if self.settings.general.debug >= 1 {
+                    println!(
+                        "  | res {} ({}l) = {}",
+                        subgraph.name, subgraph.n_loops, res
+                    );
+                }
+
+                cut_result *= res;
+            }
+
+            result += cut_result;
+        }
+
+        if self.settings.general.debug >= 1 {
+            println!("Final result = {}", result);
+        }
+
+        result
     }
 }

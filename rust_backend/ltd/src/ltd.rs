@@ -179,6 +179,7 @@ impl Topology {
             })
             .collect();
 
+        self.surfaces.clear();
         for (cut_index, (residue_sign, cut_options)) in self
             .ltd_cut_structure
             .iter()
@@ -2236,7 +2237,7 @@ impl Topology {
     #[inline]
     pub fn set_loop_momentum_energies<T: FloatLike>(
         &self,
-        k_def: &mut ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        k_def: &mut [LorentzVector<Complex<T>>],
         cut: &Vec<Cut>,
         mat: &Vec<i8>,
         cache: &LTDCache<T>,
@@ -2271,7 +2272,7 @@ impl Topology {
     #[inline]
     pub fn evaluate_cut<T: FloatLike>(
         &self,
-        k_def: &mut ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        k_def: &mut [LorentzVector<Complex<T>>],
         cut: &Vec<Cut>,
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
@@ -2339,7 +2340,7 @@ impl Topology {
     /// Compute the complex cut energies and evaluate the cut loop lines
     pub fn compute_complex_cut_energies<T: FloatLike>(
         &self,
-        k_def: &ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        k_def: &[LorentzVector<Complex<T>>],
         cache: &mut LTDCache<T>,
     ) -> Result<(), &'static str> {
         // compute all complex cut energies
@@ -2485,7 +2486,7 @@ impl Topology {
                     })
                     .collect();
 
-                self.compute_complex_cut_energies(&k_def, cache)?;
+                self.compute_complex_cut_energies(&k_def[..self.n_loops], cache)?;
 
                 // compute all multi-channeling factors
                 let mut other_cut_counter = 0;
@@ -2542,7 +2543,7 @@ impl Topology {
         Ok((res, k_def))
     }
 
-    fn evaluate_all_dual_integrands<T: FloatLike, N: Numerator>(
+    pub fn evaluate_all_dual_integrands<T: FloatLike, N: Numerator>(
         &self,
         k: &[LorentzVector<T>],
         mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
@@ -2578,10 +2579,10 @@ impl Topology {
                             })
                             .collect();
                         dual_jac_def = jac;
-                        self.compute_complex_cut_energies(&k_def, cache)?;
+                        self.compute_complex_cut_energies(&k_def[..self.n_loops], cache)?;
                     }
 
-                    let v = self.evaluate_amplitude_cut(&mut k_def, cut, mat, cache)?;
+                    let v = self.evaluate_amplitude_cut(&mut k_def[..self.n_loops], cut, mat, cache)?;
 
                     // k_def has the correct energy component at this stage
                     if let Some(pn) = python_numerator {
@@ -2655,7 +2656,10 @@ impl Topology {
                     .collect();
                 jac_def = jac;
 
-                if self.compute_complex_cut_energies(&k_def, cache).is_err() {
+                if self
+                    .compute_complex_cut_energies(&k_def[..self.n_loops], cache)
+                    .is_err()
+                {
                     return (x, k_def, jac_para, jac_def, Complex::default());
                 }
             }

@@ -35,7 +35,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::amplitude::Amplitude;
 use ltd::integrand::Integrand;
-use ltd::topologies::{LTDCache, Surface, SurfaceType, Topology};
+use ltd::topologies::{LTDCache, SquaredTopology, Surface, SurfaceType, Topology};
 use ltd::utils::Signum;
 use ltd::{float, FloatLike, IntegratedPhase, Integrator, PythonNumerator, Settings};
 
@@ -1103,6 +1103,25 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
     }
 }
 
+fn cross_section(squared_topology_file: &str, settings: &mut Settings) {
+    let mut squared_topology = SquaredTopology::from_file(squared_topology_file, settings);
+
+    // generate a random phase space point
+    let mut external_momenta = [
+        LorentzVector::from_args(0., 1.0, 2.0, 3.0),
+        LorentzVector::from_args(0., -1.0, -2.0, -3.0),
+    ];
+    let loop_momenta = [
+        LorentzVector::from_args(0., 4.0, 5.0, 6.0),
+        LorentzVector::from_args(0., 7.0, 8.0, 9.0),
+        LorentzVector::from_args(0., 10.0, 11.0, 12.0),
+    ];
+
+    let mut caches = squared_topology.create_caches();
+    let res = squared_topology.evaluate(&mut external_momenta, &loop_momenta, &mut caches);
+    println!("Result: {}", res);
+}
+
 fn main() {
     let matches = App::new("Feynman diagram integrator")
         .version("0.1")
@@ -1113,6 +1132,12 @@ fn main() {
                 .long("cores")
                 .value_name("NUMCORES")
                 .help("Set the number of cores"),
+        )
+        .arg(
+            Arg::with_name("debug")
+                .long("debug")
+                .value_name("LEVEL")
+                .help("Set the debug level. Higher means more verbose."),
         )
         .arg(
             Arg::with_name("samples")
@@ -1257,6 +1282,16 @@ fn main() {
                         .help("Evaluate the integrand and possibly its rotated vesion"),
                 ),
         )
+        .subcommand(
+            SubCommand::with_name("cross_section")
+                .about("Compute a cross section")
+                .arg(
+                    Arg::with_name("squared_topology_file")
+                        .required(true)
+                        .value_name("SQUARED_TOPOLOGY_FILE")
+                        .help("Set the squared topology file"),
+                ),
+        )
         .get_matches();
 
     let mut settings = Settings::from_file(matches.value_of("config").unwrap());
@@ -1264,6 +1299,10 @@ fn main() {
     let mut cores = 1;
     if let Some(x) = matches.value_of("cores") {
         cores = usize::from_str(x).unwrap();
+    }
+
+    if let Some(x) = matches.value_of("debug") {
+        settings.general.debug = usize::from_str(x).unwrap();
     }
 
     if let Some(x) = matches.value_of("seed") {
@@ -1306,14 +1345,20 @@ fn main() {
         settings.general.res_file_prefix = x.to_owned();
     }
 
-    let topology_file = matches.value_of("topologies").unwrap();
-
     if let Some(x) = matches.value_of("deformation_strategy") {
         settings.general.deformation_strategy = x.into();
     }
 
-    // load the example file
-    // Start with the amplitudes
+    if let Some(cs_opt) = matches.subcommand_matches("cross_section") {
+        cross_section(
+            cs_opt.value_of("squared_topology_file").unwrap(),
+            &mut settings,
+        );
+        return;
+    }
+
+    let topology_file = matches.value_of("topologies").unwrap();
+
     let amplitude_file = matches.value_of("amplitudes").unwrap();
     let mut amplitudes = Amplitude::from_file(amplitude_file);
     let mut amp0 = Amplitude::default();

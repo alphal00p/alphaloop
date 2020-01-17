@@ -7,11 +7,9 @@ use std::collections::HashMap;
 use std::fs::File;
 use topologies::{Cut, LTDCache, Topology};
 use utils;
-use vector::{Field, LorentzVector}; //, RealNumberLike};
+use vector::{Field, LorentzVector};
 use FloatLike;
 use GeneralSettings;
-//use Settings;
-use MAX_LOOP;
 
 #[allow(
     non_snake_case,
@@ -596,7 +594,7 @@ impl Amplitude {
 impl Topology {
     pub fn evaluate_amplitude_cut<T: FloatLike>(
         &self,
-        mut k_def: &mut ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        k_def: &mut [LorentzVector<Complex<T>>],
         cut: &Vec<Cut>,
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
@@ -664,7 +662,7 @@ impl Topology {
                         if self.settings.general.use_amplitude {
                             panic!("Unknown amplitude type: {}", self.amplitude.amp_type);
                         }
-                        let v = self.evaluate_cut(&mut k_def, cut, mat, cache)?;
+                        let v = self.evaluate_cut(&mut k_def[..self.n_loops], cut, mat, cache)?;
                         // Assuming that there is no need for the residue energy or the cut_id
                         let ct = if self.settings.general.use_ct {
                             self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
@@ -676,7 +674,7 @@ impl Topology {
                 }
             }
             _ => {
-                let v = self.evaluate_cut(&mut k_def, cut, mat, cache)?;
+                let v = self.evaluate_cut(&mut k_def[..self.n_loops], cut, mat, cache)?;
                 // Assuming that there is no need for the residue energy or the cut_id
                 let ct = if self.settings.general.use_ct {
                     self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
