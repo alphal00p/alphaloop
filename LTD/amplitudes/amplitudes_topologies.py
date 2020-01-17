@@ -24,11 +24,11 @@ zero_lv = vectors.LorentzVector([0., 0., 0., 0.])
 
 # A network is generated from the graph corresponding to a amplitude topology
 # In blue it shows the notes and in red the loopline id corresponding to that edge
-def topology_to_graph(edge_info, file_name=None, show_graph=True):
+def plot_edge_info(edge_info, file_name=None, show_graph=True):
     # Great graph with oriented edges
     # - Internal nodes are labelled from 0 to 99
     # - External nodes are labelled from 100 to 199
-    # - LoopLines nodes are labelled from 200 up
+    # - LoopLines nodes are labelled with negative numbers
 
     plt.figure(figsize=(12, 12))
     G = nx.DiGraph()   # or DiGraph, MultiGraph, MultiDiGraph, etc
@@ -37,28 +37,31 @@ def topology_to_graph(edge_info, file_name=None, show_graph=True):
     edge_labels = {}
     node_labels = {}
 
-    extra_node=200
+    extra_node=-1
     for k, v in edge_info.items():
         e = v['edge']
         if e[0] >= 100: # External
             edges += [e]
             node_labels.update({e[0]: k, e[1]: str(e[1])})
+        elif e[1] >= 100: # External
+            edges += [e]
+            node_labels.update({e[0]: str(e[0]), e[1]: k})
         else:
             edges += [(e[0], extra_node), (extra_node, e[1])]
             node_labels.update({e[0]: str(e[0]), e[1]: str(e[1]), extra_node: str(v['loopline'])})
             edge_labels.update({(e[0], extra_node): k })
             edge_labels.update({(extra_node, e[1]): k })
-            extra_node += 2
+            extra_node -= 1
 
     G.add_edges_from(edges)
     pos = nx.kamada_kawai_layout(G)  # positions for all nodes
 
     # LoopLines nodes
-    ll_nodes = [key for key in list(pos.keys()) if key >= 200]
+    ll_nodes = [key for key in list(pos.keys()) if key < 0]
     # External momenta nodes
-    ext_nodes = [key for key in list(pos.keys()) if 100 <= key < 200]
+    ext_nodes = [key for key in list(pos.keys()) if key >= 100 ]
     # Internal nodes
-    nodes = [key for key in list(pos.keys()) if key < 100]
+    nodes = [key for key in list(pos.keys()) if 0 <= key < 100]
 
     # Draw
     nx.draw_networkx_edges(G, pos, node_size=1000)
@@ -81,63 +84,22 @@ def topology_to_graph(edge_info, file_name=None, show_graph=True):
 
 # From the topology generator after calling generate_loop_topology
 # will identify from the flow the edges that correspond to each LoopLine
-def get_looplines_edges(topology_generator, topology):
-    flows = topology_generator.flows
-    # [: -len(self.topology.external_kinematics)]
-    edges = topology_generator.edges
-
-    lines = {y[0] for x in flows for y in x}
-    res = {l: [[0 for i in range(len(flows))], edges[l]] for l in lines}
-
-    for n, flow in enumerate(flows):
-        for l in flow:
-            if l[1]:
-                res[l[0]][0][n] = 1
-            else:
-                res[l[0]][0][n] = -1
-    res = list(res.values())
-    
+def get_edge_info(topology_generator, topology: LoopTopology):
     # Create edge infos. loopline to be filled
-    edge_info = { k: {"id": v, "edge": edges[v], "loopline": None} for k, v in topology_generator.edge_name_map.items()}
-    edge_id_to_name = {v: k for k, v in topology_generator.edge_name_map.items()}
-
-    edge_pos = {e: None for e in edges}
+    edges = topology_generator.edges
+    edge_info = { k: {"edge": edges[v], "loopline": None, "signature": None} for k, v in topology_generator.edge_name_map.items()}
+    
+    # Get LoopLine Information
     for n, ll in enumerate(topology.loop_lines):
-        s = list(ll.signature)
-        start = ll.start_node
-        end = ll.end_node
-        
-
-        es = [e[1] for e in res if e[0] == s] 
-        chain = []
-        node = start
-        while True:
-            if len(es) == 0:
-                assert(node == end)
-                break
-            pos = np.where([e[0] == node for e in es])
-            if len(pos[0]) != 1:
-                raise Exception("No unique edge found for the LoopLine")
-            
-            edge = es.pop(pos[0][0])
-            # Check position (Being carefull for edge multiplicity)
-            if edge_pos[edge] is None:
-                edge_pos[edge] = edges.index(edge)
-            else:
-                edge_pos[edge] = edges.index(edge, edge_pos[edge]+1)
-            chain += [(edge, edge_pos[edge])]
-            node = edge[1] 
-        #print(chain)
-        # Sort the edges based on their position in the graph list
-        for m, (edge, edge_id) in  enumerate(sorted(chain, key=lambda x: x[1])):
-            edge_info[edge_id_to_name[edge_id]]['loopline'] = (n, m)
+        for m, prop in enumerate(ll.propagators):
+            if prop.name is None:
+                raise Exception("EdgeInfo_Error::Propagator is missing it's name! Poor guy :( ")
+            edge_info[prop.name]['loopline'] = (n,m)
+            edge_info[prop.name]['signature'] = list(ll.signature)
     
     return edge_info
 
-
-# Ideally this should become an automatically generated from some QGRAF output
-
-
+#TODO: Ideally this should become an automatically generated from some QGRAF output
 class AmplitudeTopologies(object):
 
     def __init__(self):
@@ -223,7 +185,7 @@ class DiHiggsTopology(object):
         )
 
     def get_edge_info(self):
-        self.edge_info = get_looplines_edges(self.top_generator, self.topology)
+        self.edge_info = get_edge_info(self.top_generator, self.topology)
 
 
 ##############################################################
@@ -278,7 +240,7 @@ class qqbarphotonsNLO(object):
         )
 
     def get_edge_info(self):
-        self.edge_info = get_looplines_edges(self.top_generator, self.topology)
+        self.edge_info = get_edge_info(self.top_generator, self.topology)
 
 
 @amplitude_topologies
@@ -333,7 +295,7 @@ class Nf_qqbarphotonsNNLO(object):
         )
 
     def get_edge_info(self):
-        self.edge_info = get_looplines_edges(self.top_generator, self.topology)
+        self.edge_info = get_edge_info(self.top_generator, self.topology)
 
 
 #############################################################################################################
