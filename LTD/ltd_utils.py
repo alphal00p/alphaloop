@@ -258,16 +258,16 @@ class TopologyGenerator(object):
                             if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
 
                     # check if the cut is incoming our outgoing
-                    cutkosky_cut = tuple((name, 1 if is_incoming_sub_tree and sub_tree.vertices.count(v2) == 2 or
-                                        not is_incoming_sub_tree and sub_tree.vertices.count(v1) == 2 else -1)
+                    cutkosky_cut = tuple((name, 1 if is_incoming_sub_tree and sub_tree.vertices.count(v2) == 0 or
+                                        not is_incoming_sub_tree and sub_tree.vertices.count(v1) == 0 else -1)
                                     for (name, v1, v2) in cutkosky_cut)
 
                     if len(cutkosky_cut) >= n_jets:
                         cutkosky_cuts.add(cutkosky_cut)
         return list(sorted(cutkosky_cuts))
 
-    def split_graph(self, cutkosky_cut):
-        """Split the graph in two using a cutkosky cut."""
+    def split_graph(self, cutkosky_cut, incoming_momenta):
+        """Split the graph in two using a cutkosky cut. The first has the incoming momenta, and the second the outgoing."""
         cut_tree = TopologyGenerator([e for e in self.edge_map_lin if e[0] not in cutkosky_cut])
         sub_tree_indices = []
         cut_tree.spanning_trees(sub_tree_indices)
@@ -291,10 +291,10 @@ class TopologyGenerator(object):
                     t.append((c, highest_vertex, cut_v2))
                     highest_vertex += 1
 
-        left_tree = TopologyGenerator(left_tree)
-        right_tree = TopologyGenerator(right_tree)
-
-        return (left_tree, right_tree)
+        if any(e[0] in incoming_momenta for e in left_tree):
+            return (TopologyGenerator(left_tree), TopologyGenerator(right_tree))
+        else:
+            return (TopologyGenerator(right_tree), TopologyGenerator(left_tree))
 
     def get_signature_map(self):
         # TODO: the order of self.ext should be consistent with Rust
@@ -1710,7 +1710,7 @@ class SquaredTopologyGenerator:
         self.topo = topo
         self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momenta)
 
-        self.topologies = [topo.split_graph([a[0] for a in c]) for c in self.cuts]
+        self.topologies = [topo.split_graph([a[0] for a in c], incoming_momenta) for c in self.cuts]
 
         self.topo.generate_momentum_flow()
         edge_map = self.topo.get_signature_map()
@@ -1727,7 +1727,7 @@ class SquaredTopologyGenerator:
             for i, s in enumerate(sub_graphs):
                 (loop_mom_map, shift_map) = topo.build_proto_topology(s, [a[0] for a in c])
                 loop_topos.append(
-                    s.create_loop_topology(name + '_' + ''.join(a[0] for a in c) + '_' + str(i),
+                    s.create_loop_topology(name + '_' + ''.join(a[0] for a in c) + '_' + ['l', 'r'][i],
                     # provide dummy external momenta
                     ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
                     fixed_deformation=False,
@@ -1740,12 +1740,13 @@ class SquaredTopologyGenerator:
         out = {
             'n_loops': self.topo.n_loops,
             'topo': [list(x) for x in self.topo.edge_map_lin],
+            'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
             'cutkosky_cuts': [
                 {'cut_names': list(a[0] for a in c),
                 'cut_signs': list(a[1] for a in c),
                 'cut_signature': cut_sig,
-                'subgraph_0': ts[0].to_flat_format(),
-                'subgraph_1': ts[1].to_flat_format()}
+                'subgraph_left': ts[0].to_flat_format(),
+                'subgraph_right': ts[1].to_flat_format()}
 
                 for c, cut_sig, ts in zip(self.cuts, self.cut_signatures, self.loop_topologies)
             ]

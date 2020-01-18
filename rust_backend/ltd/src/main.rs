@@ -1119,7 +1119,7 @@ fn cross_section(squared_topology_file: &str, settings: &mut Settings) {
 
     let mut caches = squared_topology.create_caches();
     let res = squared_topology.evaluate(&mut external_momenta, &loop_momenta, &mut caches);
-    println!("Result: {}", res);
+    println!("Result: {:e}", res);
 }
 
 fn main() {

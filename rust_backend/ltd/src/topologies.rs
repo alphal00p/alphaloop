@@ -405,8 +405,8 @@ pub struct CutkoskyCuts {
     pub cut_names: Vec<String>,
     pub cut_signs: Vec<i8>,
     pub cut_signature: Vec<(Vec<i8>, Vec<i8>)>,
-    pub subgraph_0: Topology,
-    pub subgraph_1: Topology,
+    pub subgraph_left: Topology,
+    pub subgraph_right: Topology,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -424,8 +424,8 @@ impl SquaredTopology {
         let mut squared_topo: SquaredTopology = serde_yaml::from_reader(f).unwrap();
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
-            cutkosky_cuts.subgraph_0.process();
-            cutkosky_cuts.subgraph_1.process();
+            cutkosky_cuts.subgraph_left.process();
+            cutkosky_cuts.subgraph_right.process();
         }
 
         squared_topo
@@ -455,8 +455,8 @@ impl SquaredTopology {
         let mut caches = vec![];
         for cutkosky_cuts in &self.cutkosky_cuts {
             caches.push(vec![
-                LTDCache::<T>::new(&cutkosky_cuts.subgraph_0),
-                LTDCache::<T>::new(&cutkosky_cuts.subgraph_1),
+                LTDCache::<T>::new(&cutkosky_cuts.subgraph_left),
+                LTDCache::<T>::new(&cutkosky_cuts.subgraph_right),
             ]);
         }
         caches
@@ -486,7 +486,7 @@ impl SquaredTopology {
                 *cut = SquaredTopology::evaluate_signature(cut_sig, external_momenta, loop_momenta);
                 let energy = cut.spatial_distance();
                 cut.t = energy.multiply_sign(*cut_sign);
-                cut_result /= energy; // add the 1/E for every cut
+                cut_result /= energy * Into::<T>::into(2.); // add the 1/2E for every cut
                 q0 += energy;
             }
 
@@ -501,7 +501,10 @@ impl SquaredTopology {
             external_momenta[1].t = -q0; // FIXME: we assume 1->1 here
 
             // set the shifts, which are expressed in the cut basis
-            let mut subgraphs = [&mut cutkosky_cuts.subgraph_0, &mut cutkosky_cuts.subgraph_1];
+            let mut subgraphs = [
+                &mut cutkosky_cuts.subgraph_left,
+                &mut cutkosky_cuts.subgraph_right,
+            ];
             for subgraph in &mut subgraphs {
                 for ll in &mut subgraph.loop_lines {
                     for p in &mut ll.propagators {
@@ -521,7 +524,9 @@ impl SquaredTopology {
             subgraphs[1].e_cm_squared = Into::<f64>::into(q0 * q0);
 
             // evaluate
-            for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {
+            for (i, (subgraph, subgraph_cache)) in
+                subgraphs.iter_mut().zip_eq(cache.iter_mut()).enumerate()
+            {
                 // do the loop momentum map, which is expressed in the loop momentum basis
                 // the time component should not matter here
                 for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
@@ -573,19 +578,24 @@ impl SquaredTopology {
 
                 if self.settings.general.debug >= 1 {
                     println!(
-                        "  | res {} ({}l) = {}",
+                        "  | res {} ({}l) = {:e}",
                         subgraph.name, subgraph.n_loops, res
                     );
                 }
 
-                cut_result *= res;
+                if i == 0 {
+                    cut_result *= res;
+                } else {
+                    // complex conjugate the right subgraph
+                    cut_result *= res.conj();
+                }
             }
 
             result += cut_result;
         }
 
         if self.settings.general.debug >= 1 {
-            println!("Final result = {}", result);
+            println!("Final result = {:e}", result);
         }
 
         result
