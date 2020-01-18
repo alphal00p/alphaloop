@@ -405,11 +405,13 @@ class TopologyGenerator(object):
                             newmom.append((loop_momenta[j], yy[1]))
                             break
                 for j, y in enumerate(ext_flows):
+                    overall_sign = 1 if y[0][1] else -1
                     for yy in y:
                         if yy[0] == i:
-                            s1 += ("+" if yy[1] else "-") + \
+                            prop_sign = 1 if yy[1] else -1
+                            s1 += ("+" if overall_sign * prop_sign == 1 else "-") + \
                                 "p{}".format(self.ext[j])
-                            newmom.append((self.ext[j], yy[1]))
+                            newmom.append((self.ext[j], True if prop_sign * overall_sign == 1 else False))
                             break
                 mom.append(tuple(newmom))
                 s.append(s1 + ")^2")
