@@ -424,6 +424,8 @@ impl SquaredTopology {
         let mut squared_topo: SquaredTopology = serde_yaml::from_reader(f).unwrap();
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
+            cutkosky_cuts.subgraph_left.settings = settings.clone();
+            cutkosky_cuts.subgraph_right.settings = settings.clone();
             cutkosky_cuts.subgraph_left.process();
             cutkosky_cuts.subgraph_right.process();
         }

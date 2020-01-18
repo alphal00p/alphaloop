@@ -1113,7 +1113,7 @@ fn cross_section(squared_topology_file: &str, settings: &mut Settings) {
     ];
     let loop_momenta = [
         LorentzVector::from_args(0., 4.0, 5.0, 6.0),
-        LorentzVector::from_args(0., 7.0, 8.0, 9.0),
+        LorentzVector::from_args(0., 7.0, 8.0, 14.0),
         LorentzVector::from_args(0., 10.0, 11.0, 12.0),
     ];
 
