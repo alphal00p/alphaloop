@@ -633,7 +633,7 @@ class TopologyGenerator(object):
             propagators=tuple(
                 Propagator(q=q, m_squared=mass**2,
                             parametric_shift=shift_map[edge_name] if shift_map is not None else None,
-                            name=edge_name if shift_map is not None else None)
+                            name=edge_name)
                 for (edge_name, q, mass) in propagators)) for signature, propagators in loop_line_list]
 
         cs = self.get_cut_structures([l for l in ll if any(s != 0 for s in l.signature)], contour_closure)
