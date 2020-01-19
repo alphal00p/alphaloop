@@ -80,7 +80,7 @@ pub struct ComplexDef<T> {
 #[derive(Default, Debug, Clone, Deserialize)]
 pub struct DiagramFullRust {
     name: String,
-    denominators: Vec<usize>,
+    denominators: Vec<(usize, usize)>,
     pows: Vec<usize>,
     chain: Vec<i8>,
     positions: Vec<i8>,
@@ -205,7 +205,7 @@ impl Amplitude {
         }
         //Attach the polarizations to vectors (based on the amplitude)
         match self.amp_type.as_ref() {
-            "qqbar_photons" => {
+            "qqbarphotonsNLO" => {
                 // Convert the input coming from vectorsf64 to allow complex vectors
                 self.vectors = Vec::new();
                 for slashed in self.vectors_f64.iter() {
@@ -234,7 +234,8 @@ impl Amplitude {
             _ => panic!("Unknown amplitude type: {}", self.amp_type),
         };
 
-        self.construct_numerator();
+        // TODO: Evaluate with new numerator
+        //self.construct_numerator();
     }
 
     pub fn construct_numerator(&mut self) {
@@ -279,10 +280,10 @@ impl Amplitude {
 
     pub fn compute_amplitude<T: FloatLike>(
         &self,
-        propagators: &[Complex<T>],
+        propagators: &HashMap<(usize, usize), Complex<T>>,
         vectors: &[LorentzVector<Complex<T>>],
         cut_2energy: Complex<T>,
-        cut_id: usize,
+        cut_ll_id: Vec<(usize, usize)>,
         settings: &GeneralSettings,
         e_cm_sq: T,
     ) -> Result<Complex<T>, &'static str> {
@@ -312,7 +313,9 @@ impl Amplitude {
             .collect();
 
         for diag_and_cut in self.diagrams.iter() {
-            if diag_and_cut.denominators.iter().any(|v| *v == cut_id)
+            if cut_ll_id
+                .iter()
+                .all(|cut_id| diag_and_cut.denominators.iter().any(|v| *v == *cut_id))
                 & diaglist.iter().any(|v| v == &diag_and_cut.name)
             {
                 let res0 = res;
@@ -320,13 +323,16 @@ impl Amplitude {
                 //Compute denominator
                 let mut diag_den = Complex::new(T::one(), T::zero());
                 for cut in diag_and_cut.denominators.iter() {
-                    diag_den *= propagators[*cut];
+                    diag_den *= propagators[cut];
                 }
                 //Compute numerator
                 let factor = Complex::new(
                     T::from_f64(diag_and_cut.factor_f64.re).unwrap(),
                     T::from_f64(diag_and_cut.factor_f64.im).unwrap(),
                 );
+
+                // TODO: extend the derivatie to mulit-loop
+                let cut_id = cut_ll_id[0];
                 let pow_position = diag_and_cut
                     .denominators
                     .iter()
@@ -348,7 +354,7 @@ impl Amplitude {
                 };
                 if settings.debug > 2 {
                     println!(
-                        "  |cut[{}]: {} \t=> {:e}",
+                        "  |cut[{:?}]: {} \t=> {:e}",
                         cut_id,
                         diag_and_cut.name,
                         res - res0
@@ -455,10 +461,10 @@ impl Amplitude {
     }
     pub fn evaluate<T: FloatLike>(
         &self,
-        propagators: &[Complex<T>],
+        propagators: &HashMap<(usize, usize), Complex<T>>,
         loop_momenta: &[LorentzVector<Complex<T>>],
         cut_2energy: Complex<T>,
-        cut_id: usize,
+        cut_ll_id: Vec<(usize, usize)>,
         e_cm_sq: T,
         settings: &GeneralSettings,
     ) -> Result<Complex<T>, &'static str> {
@@ -481,7 +487,7 @@ impl Amplitude {
             propagators,
             &vectors.to_vec(),
             cut_2energy,
-            cut_id,
+            cut_ll_id,
             settings,
             e_cm_sq,
         )
@@ -489,7 +495,7 @@ impl Amplitude {
     //In debug mode the integrated counterterms can be seen
     pub fn integrated_ct(&mut self) {
         match self.amp_type.as_ref() {
-            "qqbar_photons" => {
+            "qqbarphotonsNLO" => {
                 //Get the incormation about the slashed vectors
                 let loop_mom = vec![LorentzVector::default()];
                 let vectors: ArrayVec<[LorentzVector<Complex<f64>>; 32]> =
@@ -541,7 +547,7 @@ impl Amplitude {
     //Print out the result for the integrated counterterms
     pub fn print_integrated_ct(&self) {
         match self.amp_type.as_ref() {
-            "qqbar_photons" => {
+            "qqbarphotonsNLO" => {
                 // Print polarizations
                 for (i, (pol, p)) in self
                     .pols_type
@@ -599,38 +605,57 @@ impl Topology {
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
     ) -> Result<Complex<T>, &'static str> {
+        self.set_loop_momentum_energies(k_def, cut, mat, cache);
+        // TODO: avoid creating it every time
+        let mut props: HashMap<(usize, usize), Complex<T>> = HashMap::new(); // HashMap::with_capacity(100);
+
+        // compute propagators
+        for (n, ll) in self.loop_lines.iter().enumerate() {
+            // Build loopline loop momentum part from signature
+            let mut ll_ks: LorentzVector<Complex<T>> = LorentzVector::new();
+            for (loop_mom_n, sign) in ll.signature.iter().enumerate() {
+                ll_ks += match sign {
+                    1 => k_def[loop_mom_n],
+                    -1 => -k_def[loop_mom_n],
+                    _ => panic!("Unknown loopline signature option {:?}", ll.signature),
+                };
+            }
+
+            for (m, p) in ll.propagators.iter().enumerate() {
+                // TODO: make it general for multiloop (i.e fix k_def[0])
+                props.insert(
+                    (n, m),
+                    utils::powi(ll_ks.t + T::from_f64(p.q.t).unwrap(), 2)
+                        - cache.complex_prop_spatial[p.id],
+                );
+                //println!("Prop[{:?}] = {:?}", (n, m), props[&(n, m)])
+            }
+        }
+        // compute residue energy
+        let mut cut_2energy = Complex::new(T::one(), T::zero());
+        let mut cut_id;
+        let mut cut_ll_id = Vec::new();
+        for (n, (ll_cut, ll)) in cut.iter().zip(self.loop_lines.iter()).enumerate() {
+            // get the loop line result from the cache
+            match ll_cut {
+                Cut::PositiveCut(j) | Cut::NegativeCut(j) => {
+                    cut_id = ll.propagators[*j].id;
+                    cut_ll_id.push((n, *j));
+                    cut_2energy = cache.complex_cut_energies[cut_id] * Into::<T>::into(2.);
+                    //Replace the cut propagator by its 2E
+                    //println!("old {:?} = {:?}", (n, j), props.get(&(n, *j)));
+                    props.insert((n, *j), cut_2energy);
+                    //println!("new {:?} = {:?}", (n, j), props.get(&(n, *j)));
+                }
+                //_ => Complex::new(T::one(), T::zero()),
+                _ => continue,
+            };
+        }
+
         match self.n_loops {
             1 => {
                 match self.amplitude.amp_type.as_ref() {
-                    "qqbar_photons" => {
-                        self.set_loop_momentum_energies(k_def, cut, mat, cache);
-                        let ll = &self.loop_lines[0];
-                        // compute propagators
-                        let mut props: ArrayVec<[num::Complex<T>; 14]> = ll
-                            .propagators
-                            .iter()
-                            .map(|p| {
-                                utils::powi(k_def[0].t + T::from_f64(p.q.t).unwrap(), 2)
-                                    - cache.complex_prop_spatial[p.id]
-                            })
-                            .collect();
-                        // compute residue energy
-                        let mut cut_2energy = Complex::new(T::one(), T::zero());
-                        let mut cut_id = 0;
-                        for (ll_cut, ll) in cut.iter().zip(self.loop_lines.iter()) {
-                            // get the loop line result from the cache
-                            cut_2energy *= match ll_cut {
-                                Cut::PositiveCut(j) | Cut::NegativeCut(j) => {
-                                    cut_id = ll.propagators[*j].id;
-                                    cache.complex_cut_energies[cut_id] * Into::<T>::into(2.)
-                                }
-                                _ => Complex::new(T::one(), T::zero()),
-                            };
-                        }
-
-                        //Replace the cut propagator by its 2E
-                        props[cut_id] = cut_2energy;
-
+                    "qqbarphotonsNLO" => {
                         //Rotate back PS for numerator
                         let rot_matrix = self.rotation_matrix;
 
@@ -650,10 +675,10 @@ impl Topology {
                         let l_def = vec![l];
                         //Evaluate Amplitude
                         self.amplitude.evaluate(
-                            &props.to_vec(),
+                            &props,
                             &l_def,
                             cut_2energy,
-                            cut_id,
+                            cut_ll_id,
                             Into::<T>::into(self.e_cm_squared),
                             &self.settings.general,
                         )
