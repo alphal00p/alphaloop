@@ -27,7 +27,6 @@ use utils::Signum;
 use vector::{Field, RealNumberLike};
 
 pub const MAX_LOOP: usize = 4;
-pub const MAX_PROP: usize = 20;
 
 #[allow(non_camel_case_types)]
 #[cfg(feature = "use_f128")]
@@ -691,7 +690,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache(py).borrow_mut();
 
-        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_PROP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(float::zero(), float::zero()),
@@ -718,7 +717,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache_f128(py).borrow_mut();
 
-        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_PROP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(f128::f128::zero(), f128::f128::zero()),
@@ -745,7 +744,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache(py).borrow_mut();
 
-        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_PROP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(float::zero(), float::zero()),
@@ -774,7 +773,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache_f128(py).borrow_mut();
 
-        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_PROP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(f128::f128::zero(), f128::f128::zero()),
@@ -804,7 +803,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache(py).borrow_mut();
 
-        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_PROP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(0.0, 0.0),
@@ -829,7 +828,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache_f128(py).borrow_mut();
 
-        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_PROP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(f128::f128::zero(), f128::f128::zero()),
@@ -854,7 +853,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache(py).borrow_mut();
 
-        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_PROP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(float::zero(), float::zero()),
@@ -883,7 +882,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache_f128(py).borrow_mut();
 
-        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_PROP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(f128::f128::zero(), f128::f128::zero()),
