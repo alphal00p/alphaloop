@@ -610,10 +610,11 @@ impl Topology {
         // Ensure that an amplitude is defined
         assert!(self.settings.general.use_amplitude);
 
-        self.set_loop_momentum_energies(k_def, cut, mat, cache);
-        // TODO: avoid creating it every time
-        let mut props: HashMap<(usize, usize), Complex<T>> = HashMap::new(); // HashMap::with_capacity(100);
+        // Update cache information about the propagators
+        // The cut propagator will be replaced with the corresponding energy residue
 
+        // Update loop momenta
+        self.set_loop_momentum_energies(k_def, cut, mat, cache);
         // compute propagators
         for (n, ll) in self.loop_lines.iter().enumerate() {
             // Build loopline loop momentum part from signature
@@ -627,7 +628,7 @@ impl Topology {
             }
 
             for (m, p) in ll.propagators.iter().enumerate() {
-                props.insert(
+                cache.propagators.insert(
                     (n, m),
                     utils::powi(ll_ks.t + T::from_f64(p.q.t).unwrap(), 2)
                         - cache.complex_prop_spatial[p.id],
@@ -635,7 +636,6 @@ impl Topology {
                 //println!("Prop[{:?}] = {:?}", (n, m), props[&(n, m)])
             }
         }
-
         // compute residue energy
         let mut cut_2energy = Complex::new(T::one(), T::zero());
         let mut cut_id;
@@ -649,7 +649,7 @@ impl Topology {
                     cut_2energy = cache.complex_cut_energies[cut_id] * Into::<T>::into(2.);
                     //Replace the cut propagator by its 2E
                     //println!("old {:?} = {:?}", (n, j), props.get(&(n, *j)));
-                    props.insert((n, *j), cut_2energy);
+                    cache.propagators.insert((n, *j), cut_2energy);
                     //println!("new {:?} = {:?}", (n, j), props.get(&(n, *j)));
                 }
                 _ => continue,
@@ -678,7 +678,7 @@ impl Topology {
                 let l_def = vec![l];
                 //Evaluate Amplitude
                 self.amplitude.evaluate(
-                    &props,
+                    &cache.propagators,
                     &l_def,
                     cut_2energy,
                     cut_ll_id,

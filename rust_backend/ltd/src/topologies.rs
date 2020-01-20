@@ -201,6 +201,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
     pub overall_lambda: T, // used to log the minimum
     pub numerator_momentum_cache: Vec<Complex<T>>,
+    pub propagators: HashMap<(usize, usize), Complex<T>>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
@@ -227,6 +228,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
                 .collect(),
             overall_lambda: T::zero(),
             numerator_momentum_cache: vec![],
+            propagators: HashMap::new(),
         }
     }
 }
