@@ -488,7 +488,7 @@ impl SquaredTopology {
                 *cut = SquaredTopology::evaluate_signature(cut_sig, external_momenta, loop_momenta);
                 let energy = cut.spatial_distance();
                 cut.t = energy.multiply_sign(*cut_sign);
-                cut_result /= energy * Into::<T>::into(2.); // add the 1/2E for every cut
+                cut_result *= num::Complex::new(T::zero(), <T as FloatConst>::PI() / energy); // add (2 pi i)/(2E) for every cut
                 q0 += energy;
             }
 
@@ -554,14 +554,19 @@ impl SquaredTopology {
                     panic!("NaN on cut energy");
                 }
 
-                let (mut res, kd) = subgraph
-                    .evaluate_all_dual_integrands::<T, PythonNumerator>(
-                        &subgraph_loop_momenta[..subgraph.n_loops],
-                        k_def,
-                        subgraph_cache,
-                        &None,
-                    )
-                    .unwrap();
+                let (mut res, kd) = if subgraph.loop_lines.len() > 0 {
+                    subgraph
+                        .evaluate_all_dual_integrands::<T, PythonNumerator>(
+                            &subgraph_loop_momenta[..subgraph.n_loops],
+                            k_def,
+                            subgraph_cache,
+                            &None,
+                        )
+                        .unwrap()
+                } else {
+                    // if the graph has no propagators, it is one and not zero
+                    (Complex::one(), k_def)
+                };
 
                 res *= utils::powi(
                     num::Complex::new(T::zero(), Into::<T>::into(-2.) * <T as FloatConst>::PI()),
