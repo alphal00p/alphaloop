@@ -591,7 +591,72 @@ impl Numerator for PythonNumerator {
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
     m.add(py, "__doc__", "LTD")?;
     m.add_class::<LTD>(py)?;
+    m.add_class::<CrossSection>(py)?;
     Ok(())
+});
+
+#[cfg(feature = "python_api")]
+py_class!(class CrossSection |py| {
+    data squared_topology: RefCell<topologies::SquaredTopology>;
+    data caches: RefCell<Vec<Vec<topologies::LTDCache<float>>>>;
+    data caches_f128: RefCell<Vec<Vec<topologies::LTDCache<f128::f128>>>>;
+
+    def __new__(_cls, squared_topology_file: &str, settings_file: &str)
+    -> PyResult<CrossSection> {
+        let settings = Settings::from_file(settings_file);
+        let squared_topology = topologies::SquaredTopology::from_file(squared_topology_file, &settings);
+
+        let caches = squared_topology.create_caches::<float>();
+        let caches_f128 = squared_topology.create_caches::<f128::f128>();
+
+        CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(caches), RefCell::new(caches_f128))
+    }
+
+    def evaluate(&self, loop_momenta: Vec<Vec<f64>>, external_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
+        let mut moms : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
+        for l in loop_momenta {
+            moms.push(LorentzVector::from_args(
+                float::zero(),
+                float::from_f64(l[0]).unwrap(),
+                float::from_f64(l[1]).unwrap(),
+                float::from_f64(l[2]).unwrap()));
+        }
+
+        let mut ext : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
+        for l in external_momenta {
+            ext.push(LorentzVector::from_args(
+                float::zero(),
+                float::from_f64(l[0]).unwrap(),
+                float::from_f64(l[1]).unwrap(),
+                float::from_f64(l[2]).unwrap()));
+        }
+
+        let res = self.squared_topology(py).borrow_mut().evaluate(&mut ext, &moms, &mut *self.caches(py).borrow_mut());
+        Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
+    }
+
+   def evaluate_f128(&self, loop_momenta: Vec<Vec<f64>>, external_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
+        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
+        for l in loop_momenta {
+            moms.push(LorentzVector::from_args(
+                f128::f128::zero(),
+                f128::f128::from_f64(l[0]).unwrap(),
+                f128::f128::from_f64(l[1]).unwrap(),
+                f128::f128::from_f64(l[2]).unwrap()));
+        }
+
+        let mut ext : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
+        for l in external_momenta {
+            ext.push(LorentzVector::from_args(
+                f128::f128::zero(),
+                f128::f128::from_f64(l[0]).unwrap(),
+                f128::f128::from_f64(l[1]).unwrap(),
+                f128::f128::from_f64(l[2]).unwrap()));
+        }
+
+        let res = self.squared_topology(py).borrow_mut().evaluate(&mut ext, &moms, &mut *self.caches_f128(py).borrow_mut());
+        Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
+    }
 });
 
 #[cfg(feature = "python_api")]
