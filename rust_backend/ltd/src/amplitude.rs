@@ -348,6 +348,7 @@ impl Amplitude {
                     cut_2energy,
                     factor,
                 );
+                //println!("{} Numerator = {}", diag_and_cut.name, diag_num);
                 res += match diag_and_cut.ct {
                     true => -diag_num * utils::finv(diag_den),
                     false => diag_num * utils::finv(diag_den),
@@ -475,6 +476,9 @@ impl Amplitude {
             Complex::new(T::zero(), T::zero()),
         );
 
+        //Collinear to a1
+        //let loop_momenta = [(-self.ps[0]-self.ps[1]+self.ps[2].map(|x| 0.5* x)).map(|x| Complex::new(Into::<T>::into(x),T::zero()))];
+        //println!("loop_mom = {}",loop_momenta[0]);
         //Get the incormation about the slashed vectors
         let mut vectors: ArrayVec<[LorentzVector<Complex<T>>; 32]> = self
             .vectors
@@ -482,7 +486,6 @@ impl Amplitude {
             .map(|v| v.evaluate(&loop_momenta.to_vec()))
             .collect();
         vectors.push(gamma_0);
-
         self.compute_amplitude(
             propagators,
             &vectors.to_vec(),
@@ -522,7 +525,6 @@ impl Amplitude {
                         res = diag_and_cut.factor_f64 * chain;
                     }
                 }
-
                 self.born = res;
 
                 // Get right expression from the logarithm
@@ -605,6 +607,9 @@ impl Topology {
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
     ) -> Result<Complex<T>, &'static str> {
+        // Ensure that an amplitude is defined
+        assert!(self.settings.general.use_amplitude);
+
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
         // TODO: avoid creating it every time
         let mut props: HashMap<(usize, usize), Complex<T>> = HashMap::new(); // HashMap::with_capacity(100);
@@ -622,7 +627,6 @@ impl Topology {
             }
 
             for (m, p) in ll.propagators.iter().enumerate() {
-                // TODO: make it general for multiloop (i.e fix k_def[0])
                 props.insert(
                     (n, m),
                     utils::powi(ll_ks.t + T::from_f64(p.q.t).unwrap(), 2)
@@ -631,6 +635,7 @@ impl Topology {
                 //println!("Prop[{:?}] = {:?}", (n, m), props[&(n, m)])
             }
         }
+
         // compute residue energy
         let mut cut_2energy = Complex::new(T::one(), T::zero());
         let mut cut_id;
@@ -647,67 +652,42 @@ impl Topology {
                     props.insert((n, *j), cut_2energy);
                     //println!("new {:?} = {:?}", (n, j), props.get(&(n, *j)));
                 }
-                //_ => Complex::new(T::one(), T::zero()),
                 _ => continue,
             };
         }
 
-        match self.n_loops {
-            1 => {
-                match self.amplitude.amp_type.as_ref() {
-                    "qqbarphotonsNLO" => {
-                        //Rotate back PS for numerator
-                        let rot_matrix = self.rotation_matrix;
+        // Evaluate Amplitude
+        match self.amplitude.amp_type.as_ref() {
+            "qqbarphotonsNLO" => {
+                //Rotate back PS for numerator
+                let rot_matrix = self.rotation_matrix;
 
-                        let mut l = k_def[0];
-                        let old_x = l.x;
-                        let old_y = l.y;
-                        let old_z = l.z;
-                        l.x = old_x * T::from_f64(rot_matrix[0][0]).unwrap()
-                            + old_y * T::from_f64(rot_matrix[1][0]).unwrap()
-                            + old_z * T::from_f64(rot_matrix[2][0]).unwrap();
-                        l.y = old_x * T::from_f64(rot_matrix[0][1]).unwrap()
-                            + old_y * T::from_f64(rot_matrix[1][1]).unwrap()
-                            + old_z * T::from_f64(rot_matrix[2][1]).unwrap();
-                        l.z = old_x * T::from_f64(rot_matrix[0][2]).unwrap()
-                            + old_y * T::from_f64(rot_matrix[1][2]).unwrap()
-                            + old_z * T::from_f64(rot_matrix[2][2]).unwrap();
-                        let l_def = vec![l];
-                        //Evaluate Amplitude
-                        self.amplitude.evaluate(
-                            &props,
-                            &l_def,
-                            cut_2energy,
-                            cut_ll_id,
-                            Into::<T>::into(self.e_cm_squared),
-                            &self.settings.general,
-                        )
-                    }
-                    _ => {
-                        if self.settings.general.use_amplitude {
-                            panic!("Unknown amplitude type: {}", self.amplitude.amp_type);
-                        }
-                        let v = self.evaluate_cut(&mut k_def[..self.n_loops], cut, mat, cache)?;
-                        // Assuming that there is no need for the residue energy or the cut_id
-                        let ct = if self.settings.general.use_ct {
-                            self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
-                        } else {
-                            Complex::default()
-                        };
-                        Ok(v * (ct + T::one()))
-                    }
-                }
+                let mut l = k_def[0];
+                let old_x = l.x;
+                let old_y = l.y;
+                let old_z = l.z;
+                l.x = old_x * T::from_f64(rot_matrix[0][0]).unwrap()
+                    + old_y * T::from_f64(rot_matrix[1][0]).unwrap()
+                    + old_z * T::from_f64(rot_matrix[2][0]).unwrap();
+                l.y = old_x * T::from_f64(rot_matrix[0][1]).unwrap()
+                    + old_y * T::from_f64(rot_matrix[1][1]).unwrap()
+                    + old_z * T::from_f64(rot_matrix[2][1]).unwrap();
+                l.z = old_x * T::from_f64(rot_matrix[0][2]).unwrap()
+                    + old_y * T::from_f64(rot_matrix[1][2]).unwrap()
+                    + old_z * T::from_f64(rot_matrix[2][2]).unwrap();
+                let l_def = vec![l];
+                //Evaluate Amplitude
+                self.amplitude.evaluate(
+                    &props,
+                    &l_def,
+                    cut_2energy,
+                    cut_ll_id,
+                    Into::<T>::into(self.e_cm_squared),
+                    &self.settings.general,
+                )
             }
             _ => {
-                let v = self.evaluate_cut(&mut k_def[..self.n_loops], cut, mat, cache)?;
-                // Assuming that there is no need for the residue energy or the cut_id
-                let ct = if self.settings.general.use_ct {
-                    self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
-                } else {
-                    Complex::default()
-                };
-
-                Ok(v * (ct + T::one()))
+                panic!("Unknown amplitude type: {}", self.amplitude.amp_type);
             }
         }
     }

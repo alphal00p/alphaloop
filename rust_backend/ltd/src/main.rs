@@ -964,12 +964,34 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                         topo.ltd_cut_options.iter().zip(topo.cb_to_lmb_mat.iter())
                                     {
                                         for cut in cuts.iter() {
-                                            let v = topo
-                                                .evaluate_amplitude_cut(
+                                            let v = if topo.settings.general.use_amplitude {
+                                                topo.evaluate_amplitude_cut(
                                                     &mut k_def, cut, mat, &mut cache,
                                                 )
-                                                .unwrap();
+                                                .unwrap()
+                                            } else {
+                                                let v = topo
+                                                    .evaluate_cut(
+                                                        &mut k_def[..topo.n_loops],
+                                                        cut,
+                                                        mat,
+                                                        &mut cache,
+                                                    )
+                                                    .unwrap();
+                                                // Assuming that there is no need for the residue energy or the cut_id
+                                                let ct = if topo.settings.general.use_ct {
+                                                    topo.counterterm(
+                                                        &k_def[..topo.n_loops],
+                                                        num::Complex::default(),
+                                                        0,
+                                                        &mut cache,
+                                                    )
+                                                } else {
+                                                    num::Complex::default()
+                                                };
 
+                                                v * (ct + f128::f128::one())
+                                            };
                                             *probe += v;
                                         }
                                     }

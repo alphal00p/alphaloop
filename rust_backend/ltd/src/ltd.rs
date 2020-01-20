@@ -967,7 +967,6 @@ impl Topology {
                             ExpansionCheckStrategy::None => unreachable!(),
                         };
 
-
                     if sigma.is_zero() {
                         // add an abs, since due to numerical instability we may overshoot when doing x-y
                         // in the numerator or denominator.
@@ -2582,8 +2581,19 @@ impl Topology {
                         self.compute_complex_cut_energies(&k_def[..self.n_loops], cache)?;
                     }
 
-                    let v = self.evaluate_amplitude_cut(&mut k_def[..self.n_loops], cut, mat, cache)?;
+                    let v = if self.settings.general.use_amplitude {
+                        self.evaluate_amplitude_cut(&mut k_def[..self.n_loops], cut, mat, cache)?
+                    } else {
+                        let v = self.evaluate_cut(&mut k_def[..self.n_loops], cut, mat, cache)?;
+                        // Assuming that there is no need for the residue energy or the cut_id
+                        let ct = if self.settings.general.use_ct {
+                            self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
+                        } else {
+                            Complex::default()
+                        };
 
+                        v * (ct + T::one())
+                    };
                     // k_def has the correct energy component at this stage
                     if let Some(pn) = python_numerator {
                         result += v * pn.evaluate_numerator(&k_def[..self.n_loops]) * dual_jac_def
