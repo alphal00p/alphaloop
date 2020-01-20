@@ -30,7 +30,7 @@ def plot_edge_info(edge_info, file_name=None, show_graph=True):
     # - External nodes are labelled from 100 to 199
     # - LoopLines nodes are labelled with negative numbers
 
-    plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(20, 20))
     G = nx.DiGraph()   # or DiGraph, MultiGraph, MultiDiGraph, etc
 
     edges = []
@@ -41,19 +41,28 @@ def plot_edge_info(edge_info, file_name=None, show_graph=True):
     for k, v in edge_info.items():
         e = v['edge']
         if e[0] >= 100: # External
-            edges += [e]
+            G.add_edge(*e, msq = v['m_squared'])
             node_labels.update({e[0]: k, e[1]: str(e[1])})
         elif e[1] >= 100: # External
-            edges += [e]
+            G.add_edge(*e, msq = v['m_squared'])
             node_labels.update({e[0]: str(e[0]), e[1]: k})
         else:
-            edges += [(e[0], extra_node), (extra_node, e[1])]
+            G.add_edge(e[0], extra_node, msq = v['m_squared'])
+            G.add_edge(extra_node, e[1], msq = v['m_squared'])
             node_labels.update({e[0]: str(e[0]), e[1]: str(e[1]), extra_node: str(v['loopline'])})
             edge_labels.update({(e[0], extra_node): k })
             edge_labels.update({(extra_node, e[1]): k })
             extra_node -= 1
 
-    G.add_edges_from(edges)
+    massive_edges = []
+    massless_edges = []
+    for e, msq in nx.get_edge_attributes(G, 'msq').items():
+        if msq is not None and msq > 1e-16:
+            massive_edges += [e]
+        else:
+            massless_edges += [e]
+    
+
     pos = nx.kamada_kawai_layout(G)  # positions for all nodes
 
     # LoopLines nodes
@@ -64,7 +73,8 @@ def plot_edge_info(edge_info, file_name=None, show_graph=True):
     nodes = [key for key in list(pos.keys()) if 0 <= key < 100]
 
     # Draw
-    nx.draw_networkx_edges(G, pos, node_size=1000)
+    nx.draw_networkx_edges(G, pos, edgelist=massive_edges, width=4)
+    nx.draw_networkx_edges(G, pos, edgelist=massless_edges, width=1)
     nx.draw_networkx_nodes(
         G, pos, nodes, node_color='#dd7070', alpha=.95, node_size=800)
     nx.draw_networkx_nodes(G, pos, ext_nodes, node_color='#dd7070',
@@ -87,13 +97,14 @@ def plot_edge_info(edge_info, file_name=None, show_graph=True):
 def get_edge_info(topology_generator, topology: LoopTopology):
     # Create edge infos. loopline to be filled
     edges = topology_generator.edges
-    edge_info = { k: {"edge": edges[v], "loopline": None, "signature": None} for k, v in topology_generator.edge_name_map.items()}
+    edge_info = { k: {"edge": edges[v], 'm_squared': None, "loopline": None, "signature": None} for k, v in topology_generator.edge_name_map.items()}
     
     # Get LoopLine Information
     for n, ll in enumerate(topology.loop_lines):
         for m, prop in enumerate(ll.propagators):
             if prop.name is None:
                 raise Exception("EdgeInfo_Error::Propagator is missing it's name! Poor guy :( ")
+            edge_info[prop.name]['m_squared'] = prop.m_squared
             edge_info[prop.name]['loopline'] = (n,m)
             edge_info[prop.name]['signature'] = list(ll.signature)
     
@@ -246,35 +257,49 @@ class qqbarphotonsNLO(object):
 @amplitude_topologies
 class Nf_qqbarphotonsNNLO(object):
     # # Sugar-Topology
-    #
+    #                   2
     #  p2 -->--[3]------->------[4]--<-- p3
-    #          / \               |
-    #         ^   ^              |
-    #          \ /               V        :
-    #          [1]               |        :
     #           |                |        :
-    #           ^                |
+    #           ^  1             | 3
     #           |                |
+    #          [2]               V        :
+    #          / \               |
+    #   n+1   ^   ^  n+2         | n-1
+    #          \ /               |        :
     #  p1 -->--[1]-------<------[n+1]--<-- pn
+    #                    n
 
-    def __init__(self, qs, ms, topology_name, fixed_deformation=None):
+    def __init__(self, qs, m_uv, topology_name, fixed_deformation=None):
         self.qs = qs
-        self.ms = ms
         self.topology_name = topology_name
 
-        # Create Map
+        # Number of TRUE externals
         points = len(self.qs)
+        # Set masses for each propagator
+        self.ms = [0 for i in range(points+2)]
+
+        # Add zero momentum insertion for UV massive propagators
+        self.qs.insert(1, vectors.LorentzVector([0, 0, 0, 0]))
+        self.qs += [vectors.LorentzVector([0, 0, 0, 0])] * 2 
+        # Always define the first of the two identical propagtors to be the massive one 
+        self.ms.insert(0, 1e2)
+        self.ms.insert(points+2, 1e2) 
+        self.ms.insert(points+1, 1e2)
+         
 
         # Create the Graph for the topology
         # pi: propagators, qi: externals
-        self.graph = [('p%d' % (i+1), i+1, ((i+1) % (points+1))+1)
+        # Start with the graph for the NLO graph starting from vertex 2
+        self.graph = [('p%d' % (i+1), i+2, ((i+2) % (points+2))+1)
                       for i in range(points+1)]
-        self.graph.extend([('p%d' % (points+2), 2, 3)])
-        #self.graph.extend([('p%d' % (points+2), 3, 2)])
+        # Add the bubble with two additional propagators for the UV CTs
+        self.graph.extend([('p%d' % (points+2), 1, points + 3), ('p%d' % (points+3), points + 3, 2)])
+        self.graph.extend([('p%d' % (points+4), 1, points + 4), ('p%d' % (points+5), points + 4, 2)])
+        
         # Externals
         self.graph.extend([('q1', 101, 1)])
         self.graph.extend([('q%d' % (i+2), i+102, i+3)
-                           for i in range(points-1)])
+                           for i in range(points+2)])
 
         self.topology = self.build_loop_topology(
             fixed_deformation=fixed_deformation)
@@ -289,7 +314,8 @@ class Nf_qqbarphotonsNNLO(object):
             ext_mom={'q%d' % (i+1): self.qs[i] for i in range(points)},
             mass_map={'p%d' % (i+1): self.ms[i] for i in range(len(self.ms))},
             # If not specified an arbitrary spanning tree will be used for momentum routing
-            loop_momenta_names=('p%d' % (points+1), 'p%d' % (points+2)),
+            #loop_momenta_names=('p%d' % (points+1), 'p%d' % (points+2)),
+            loop_momenta_names=('p1', 'p%d' % (points+2)),
             analytic_result=None,
             fixed_deformation=fixed_deformation,
         )

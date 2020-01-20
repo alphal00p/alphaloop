@@ -953,6 +953,21 @@ if __name__ == "__main__":
     hard_coded_topology_collection.add_topology(amp_top.topology)
     amplitudes_collection.add(NEW_generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name))
     
+    qs=[
+        vectors.LorentzVector([0.5, -0.21677420292274124, 0.41425105700535525, -0.17721457817334357]),
+        vectors.LorentzVector([0.5, 0.21677420292274124, -0.41425105700535525, 0.17721457817334357]),
+        vectors.LorentzVector([-0.14240531681379026, -0.11789358532625369, 0.029636836115461997, -0.07417570182224474]),
+        vectors.LorentzVector([-0.07211206369149568, 0.00215409767279241, -0.048933159215160185, 0.05292499902962857]),
+        vectors.LorentzVector([-0.42614282294148587, 0.34834743945157864, -0.18960367542549586, -0.15589167148122599]),
+        vectors.LorentzVector([-0.3593397965532281, -0.23260795179811736, 0.20889999852519406, 0.17714237427384216]),
+    ]
+    m_uv = 1e2
+   
+    amp_type = 'Nf_qqbarphotonsNNLO'
+    amp_top = amplitude_topologies.create(amp_type, qs, m_uv, topo_name, fixed_deformation=False)
+    amp_top.get_edge_info()
+    plot_edge_info(amp_top.edge_info, file_name='graph.pdf')
+    hard_coded_topology_collection.add_topology(amp_top.topology)
 
     qs=[
     vectors.LorentzVector([0.5, 0.1725782925959797, -0.07382815036215355, 0.46342867535227]),
