@@ -472,7 +472,7 @@ impl SquaredTopology {
         loop_momenta: &[LorentzVector<T>],
         caches: &mut [Vec<LTDCache<T>>],
     ) -> Complex<T> {
-        let mut cuts = [LorentzVector::default(); MAX_LOOP + 4]; // FIXME: bound may be too small
+        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4]; // FIXME: bound may be too small
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> =
             (0..MAX_LOOP).map(|_| LorentzVector::default()).collect();
@@ -482,7 +482,7 @@ impl SquaredTopology {
             let mut q0 = T::zero();
 
             // evaluate the cuts
-            for ((cut, cut_sig), cut_sign) in cuts[..cutkosky_cuts.cut_signature.len()]
+            for ((cut, cut_sig), cut_sign) in cut_momenta[..cutkosky_cuts.cut_signature.len()]
                 .iter_mut()
                 .zip(cutkosky_cuts.cut_signature.iter())
                 .zip(cutkosky_cuts.cut_signs.iter())
@@ -490,7 +490,7 @@ impl SquaredTopology {
                 *cut = SquaredTopology::evaluate_signature(cut_sig, external_momenta, loop_momenta);
                 let energy = cut.spatial_distance();
                 cut.t = energy.multiply_sign(*cut_sign);
-                cut_result *= num::Complex::new(T::zero(), <T as FloatConst>::PI() / energy); // add (2 pi i)/(2E) for every cut
+                cut_result *= num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (2 pi i)/(2E) for every cut
                 q0 += energy;
             }
 
@@ -502,7 +502,7 @@ impl SquaredTopology {
 
             // set 0th component of external momenta to the sum of the cuts
             external_momenta[0].t = q0;
-            external_momenta[1].t = -q0; // FIXME: we assume 1->1 here
+            external_momenta[1].t = q0; // FIXME: we assume 1->1 here and that it is outgoing
 
             // set the shifts, which are expressed in the cut basis
             let mut subgraphs = [
@@ -515,7 +515,7 @@ impl SquaredTopology {
                         p.q = SquaredTopology::evaluate_signature(
                             &p.parametric_shift,
                             external_momenta,
-                            &cuts[..cutkosky_cuts.cut_signature.len()],
+                            &cut_momenta[..cutkosky_cuts.cut_signature.len()],
                         )
                         .map(|x| x.into());
                     }
@@ -528,9 +528,7 @@ impl SquaredTopology {
             subgraphs[1].e_cm_squared = Into::<f64>::into(q0 * q0);
 
             // evaluate
-            for (i, (subgraph, subgraph_cache)) in
-                subgraphs.iter_mut().zip_eq(cache.iter_mut()).enumerate()
-            {
+            for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {
                 // do the loop momentum map, which is expressed in the loop momentum basis
                 // the time component should not matter here
                 for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
@@ -574,16 +572,9 @@ impl SquaredTopology {
                     num::Complex::new(T::zero(), Into::<T>::into(-2.) * <T as FloatConst>::PI()),
                     subgraph.n_loops,
                 ); // factor of delta cut
-                res *= utils::powi(
-                    num::Complex::new(
-                        Into::<T>::into(1.)
-                            / <T as Float>::powi(Into::<T>::into(2.) * <T as FloatConst>::PI(), 4),
-                        T::zero(),
-                    ),
-                    subgraph.n_loops,
-                );
 
                 k_def = kd;
+                cut_result *= res;
 
                 if self.settings.general.debug >= 1 {
                     println!(
@@ -591,13 +582,19 @@ impl SquaredTopology {
                         subgraph.name, subgraph.n_loops, res
                     );
                 }
+            }
 
-                if i == 0 {
-                    cut_result *= res;
-                } else {
-                    // complex conjugate the right subgraph
-                    cut_result *= res.conj();
-                }
+            cut_result *= utils::powi(
+                num::Complex::new(
+                    Into::<T>::into(1.)
+                        / <T as Float>::powi(Into::<T>::into(2.) * <T as FloatConst>::PI(), 4),
+                    T::zero(),
+                ),
+                self.n_loops,
+            );
+
+            if self.settings.general.debug >= 1 {
+                println!("  | res = {:e}", cut_result);
             }
 
             result += cut_result;
