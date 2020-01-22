@@ -1,5 +1,6 @@
 import os
 import sys
+import copy
 import math
 import mpmath
 import numpy as np
@@ -128,7 +129,6 @@ class AmplitudeTopologies(object):
             for key in self.build_topology.keys():
                 print("\t- %s" % key)
             raise
-        print("HERE")
         return self.build_topology[amplitude_type](*args, fixed_deformation=fixed_deformation)
 
 
@@ -212,8 +212,8 @@ class qqbarphotonsNLO(object):
     #           |         |
     #   p1 ----[1]---<---[n]---- pn
     def __init__(self, qs, ms, topology_name, fixed_deformation=None):
-        self.qs = qs
-        self.ms = ms
+        self.qs = copy.deepcopy(qs)
+        self.ms = copy.deepcopy(ms)
         self.topology_name = topology_name
 
         # Create map
@@ -226,8 +226,7 @@ class qqbarphotonsNLO(object):
         # pi: propagators, qi: externals
         self.graph = [('p%d' % (i+1), i+1, ((i+1) % points)+1)
                       for i in range(points)]
-        #self.graph = [('p%d' % (i+1), i+1, ((i+1) % points)+1)
-        #              for i in [1,5,2,3,0,6,4]]
+
         self.graph.extend([('q%d' % (i+1), i+101, i+1) for i in range(points)])
         
         self.topology = self.build_loop_topology(fixed_deformation=fixed_deformation)
@@ -245,7 +244,8 @@ class qqbarphotonsNLO(object):
             # If not specified an arbitrary spanning tree will be used for momentum routing
             #loop_momenta_names=('p%d' % points,),
             # For triangle and box one-loop topology, the analytic result is automatically computed
-            loop_momenta_names=('p1',),
+            loop_momenta_names=('p%d' % points,),
+            #loop_momenta_names=('p1',),
             analytic_result=None,
             fixed_deformation=fixed_deformation,
         )
@@ -270,7 +270,7 @@ class Nf_qqbarphotonsNNLO(object):
     #                    n
 
     def __init__(self, qs, m_uv, topology_name, fixed_deformation=None):
-        self.qs = qs
+        self.qs = copy.deepcopy(qs)
         self.topology_name = topology_name
 
         # Number of TRUE externals
@@ -315,7 +315,7 @@ class Nf_qqbarphotonsNNLO(object):
             mass_map={'p%d' % (i+1): self.ms[i] for i in range(len(self.ms))},
             # If not specified an arbitrary spanning tree will be used for momentum routing
             #loop_momenta_names=('p%d' % (points+1), 'p%d' % (points+2)),
-            loop_momenta_names=('p1', 'p%d' % (points+2)),
+            loop_momenta_names=( 'p%d' % (points-2), 'p%d' % (points+2)),
             analytic_result=None,
             fixed_deformation=fixed_deformation,
         )

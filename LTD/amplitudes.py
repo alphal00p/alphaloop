@@ -36,12 +36,13 @@ params = {
 
 
 class qqbar_diagram(object):
-    def __init__(self, name, propagators, pows, chain, factor, ct, uv, positions=[]):
+    def __init__(self, name, propagators, pows, chain, factor, ct, uv, positions=[], coeffs=[]):
         """
             name:     given name of the diagram, usefull for debugging
             dens:     list with all the denominator for this diagram
             pows:     power of each propagator
             chain:    gamma chain contraction
+            coeffs:   coefficient list for the tensor structure of the numerator
             position: position of the vectors that depend on the loop momentum
             sing:     sign rising from taking the derivative wrt k0
             uv:       True/False if needs uv counterterms
@@ -51,6 +52,7 @@ class qqbar_diagram(object):
         self.dens = propagators
         self.pows = pows
         self.chain = chain
+        self.coeffs = coeffs
         self.positions = positions
         self.signs = 0
         self.factor = factor
@@ -66,6 +68,7 @@ class qqbar_diagram(object):
         #res["denominators"] = self.dens
         res["pows"] = self.pows
         res["chain"] = self.chain
+        res["coefficients"] = self.coeffs
         res["positions"] = self.positions
         res["loop_signature"] = self.signs
         res["factor"] = [float(self.factor.real), float(self.factor.imag)]
@@ -73,214 +76,10 @@ class qqbar_diagram(object):
         return res
 
 
-class Amplitude(object):
-    def __init__(self, topology, amp_type, polarizations=None, uv_pos=-1, mu_r_sq=1e2):
-        """
-            uv_pos:       position of the uv propagator
-            mu_r_sq:  mu renormalization for the CT
-        """
-
-        #with open("topologies.yaml", 'r') as stream:
-        #    try:
-        #        topologies = yaml.safe_load(stream)
-        #    except yaml.YAMLError as exc:
-        #        print(exc)
-        #for top in topologies:
-        #    if top['name'] == topology:
-        #        mytop = top
-        #        break
-        #else:
-        #    raise AssertionError("Could not find topology %s" % topology)
-        try:
-            mytop = topologies[topology]
-        except:
-            raise AssertionError("Could not find topology %s" %topology)
-
-        self.topology_name = topology
-        self.type = amp_type
-        self.ps = [vectors.LorentzVector(p)
-                   for p in mytop['external_kinematics']]
-        self.uv_pos = uv_pos
-        if uv_pos >= 0:
-            del self.ps[uv_pos]
-        self.compute_invariants(polarizations)
-        self.mu_r_sq = mu_r_sq
-        self.diags = []
-
-    def compute_invariants(self, polarizations):
-        self.sij = {}
-        for i, pi in enumerate(self.ps):
-            for j, pj in enumerate(self.ps):
-                self.sij['s%d%d' % (i+1, j+1)] = (pi+pj).square()
-
-        # Polaizatoin vector contains a vector with all the polarization kinds
-        # None, [vbar,+/-], [v,+/-], [ubar,+/-], [u,+/-], [a,+/-],
-        if polarizations == None:
-            self.polarizations = []
-        else:
-            self.polarizations = []
-            for pol in polarizations:
-                if any(pol[0] == p for p in ["u", "ubar", "v", "vbar", "a"]):
-                    if any(pol[1] == s for s in ["+", "-"]):
-                        self.polarizations += [pol[0]+pol[1]]
-                    else:
-                        raise BaseException(
-                            "No polarization known with this sign %s" % str(pol[1]))
-                else:
-                    raise BaseException(
-                        "No polarization known with this name %s" % pol[0])
-
-    def qSQ(self, n):
-        if self.type == 'qqbar_photons':
-            return sum(p for p in self.ps[1:n+1]).square()
-        else:
-            raise BaseException(
-                "Not knonw diagram structure for %s" % self.type)
-
-    def add_born(self, chain, factor):
-        if self.type == 'qqbar_photons':
-            diag = qqbar_diagram("born", [], [], chain, factor, False, False)
-            diag.positions = []
-            diag.signs = 0
-            self.diags += [diag]
-        else:
-            raise BaseException(
-                "Not knonw diagram structure for %s" % self.type)
-
-    def create_amplitude(self, name, loops, diags, vectors):
-        self.name = name
-        self.vectors = vectors
-        # Find position in chain of loop dependent pieces
-        loop_dependent = [
-            i+1 for (i, v) in enumerate(vectors) if len(v[0]) > 0]
-        for diag in diags:
-            (positions, v_ids) = np.array(
-                [(pos,v_id) for (pos, v_id) in enumerate(diag.chain) if any(v_id == i for i in loop_dependent)]
-                ).transpose()
-            diag.positions = positions.tolist()
-            diag.signs = vectors[v_ids[0]-1][0][0]
-
-        # Add new diagram to the amplitude
-        self.diags.extend(diags)
-
-        if self.type == 'qqbar_photons':
-            # Create UV CT
-            for diag in diags:
-                if diag.uv and self.uv_pos >= 0:
-                    # Remove Leading UV pole
-                    uv_diag = copy.deepcopy(diag)
-                    uv_diag.name = "UV" + uv_diag.name
-                    uv_diag.dens = [self.uv_pos]
-                    uv_diag.ct = not uv_diag.ct
-                    # Rise power of the unique propagator
-                    uv_diag.pows = [len(diag.pows)]
-                    for i in uv_diag.positions:
-                        uv_diag.chain[i] = self.uv_pos
-                    self.diags += [uv_diag]
-
-                    # Check if a bubble
-                    if len(diag.dens) == 2:
-                        pair = [uv_diag.chain[uv_diag.positions[0]],
-                                uv_diag.chain[uv_diag.positions[0]+2]]
-                        rpair = [i for i in reversed(pair)]
-                        for (pp, s) in zip([pair, rpair], ["a", "b"]):
-                            uv_log_diag = copy.deepcopy(uv_diag)
-                            uv_log_diag.name += "_LOG"+s
-                            uv_log_diag.ct = not uv_log_diag.ct
-                            # Insert momenta in the gamma chain
-                            for v in pp:
-                                uv_log_diag.chain.insert(
-                                    uv_log_diag.positions[0], v)
-                            # Update positions
-                            if s == "b":
-                                uv_log_diag.positions = [
-                                    uv_log_diag.positions[0], uv_log_diag.positions[0]+2]
-                            else:
-                                # uv_log_diag.positions = [
-                                #    uv_log_diag.positions[0]+1, uv_log_diag.positions[0]+2]
-                                continue
-                            # Rise power of the unique propagator
-                            uv_log_diag.pows = [len(diag.pows)+1]
-
-                            self.diags += [uv_log_diag]
-
-            # Create UV Approximations
-
-            # Number of diagrams for the approximation
-            n_UV_LO_diags = 0
-            for diag in diags:
-                if self.uv_pos >= 0:
-                    # Approximate Leading UV pole
-                    uv_diag = copy.deepcopy(diag)
-                    uv_diag.name += "UV_LO"
-                    uv_diag.dens = [self.uv_pos-1]
-                    uv_diag.pows = [len(diag.pows)]
-                    self.diags += [uv_diag]
-                    n_UV_LO_diags += 1
-
-                    # Check if a bubble
-                    if len(diag.dens) == 2:
-                        pair = [self.uv_pos,
-                                uv_diag.chain[uv_diag.positions[0]+2]]
-                        rpair = [i for i in reversed(pair)]
-                        for (pp, s) in zip([pair, rpair], ["a", "b"]):
-                            uv_log_diag = copy.deepcopy(uv_diag)
-                            uv_log_diag.name += "_LOG"+s
-                            uv_log_diag.ct = not uv_log_diag.ct
-                            # Insert momenta in the gamma chain
-                            for v in pp:
-                                uv_log_diag.chain.insert(
-                                    uv_log_diag.positions[0], v)
-                            # Update positions
-                            if s == "b":
-                                uv_log_diag.positions = [
-                                    uv_log_diag.positions[0], uv_log_diag.positions[0]+2]
-                            else:
-                                uv_log_diag.positions = [
-                                    uv_log_diag.positions[0]+1, uv_log_diag.positions[0]+2]
-                            # Rise power of the unique propagator
-                            uv_log_diag.pows = [len(diag.pows)+1]
-
-                            self.diags += [uv_log_diag]
-                            n_UV_LO_diags += 1
-
-            # Set of diagrams to compute the amplitude and to do the same using the UV approximation
-            set_amp = [
-                d.name for d in self.diags if not "UV_LO" in d.name and not "born" in d.name]
-            set_uv = [d.name for d in self.diags if "UV" in d.name]
-            self.sets = [set_amp, set_uv]
-
-            # Print all diagrams
-            # for diag in self.diags:
-            #    print diag.to_flat_format()
-        else:
-            print("NO SUCH AMPLITUDE! %s" % name)
-
-    def to_flat_format(self):
-        """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
-
-        res = {}
-
-        res['name'] = self.name
-        res['amp_type'] = self.type
-        res['topology'] = self.topology_name
-        res['diagrams'] = [diag.to_flat_format() for diag in self.diags]
-        res['vectors'] = [
-            [l, [float(v) for v in vec]] for (l, vec) in self.vectors]
-        res['ps'] = [[float(v) for v in vec] for vec in self.ps]
-        res['pols_type'] = self.polarizations
-        res['sets'] = self.sets
-        res['mu_r_sq'] = self.mu_r_sq
-
-        return res
-
 
 class AmplitudesCollection(dict):
     def add(self, amplitude, entry_name=None):
-        try:
-            assert(isinstance(amplitude, Amplitude))
-        except:
-            assert(isinstance(amplitude, NEW_Amplitude))
+        assert(isinstance(amplitude, Amplitude))
         if entry_name == None:
             if amplitude.name == None:
                 raise BaseException(
@@ -415,44 +214,8 @@ def hard_coded_dd4A(amp_name, topo_name):
        # Vectors [loopmomenta, externals]
        vector_list)
     return(amp)
-def generate_qqbar_photons(amp_name, topo_name,n):
-    # Initialize
-    pols_name = ["u","vbar"]
-    pols_name.extend(["a"]*n)
-    pols_type = ["+","-"]
-    pols_type.extend(["+"]*n)
-    
-    amp = Amplitude(topo_name,                 # name of topology
-                    'qqbar_photons',           # process type
-                    zip(pols_name,pols_type),  # polarizations
-                    1,                         # uv_pos
-                    91.188)                    # mu_r_sq
-    #Factors
-    tree_factor = params['alpha_ew']**(n/2.) * params['q_d']**n * (4.0 * np.pi)**(n/2.)
-    
-    born_factor = tree_factor
-    for i in range(2,n+1):
-        born_factor /= amp.qSQ(i)
-    
-    NLO_factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
-
-    # Born Level Diagram
-    amp.add_born(generate_qqbar_born_chain(n), born_factor)
-    
-    # NLO Diagrams and vectors
-    vector_list=[ [[-1], sum(-amp.ps[i] for i in range(i+1))] for i in range(n+1) ] # add k+p slashed from prop
-    vector_list.extend([[[-1], vectors.LorentzVector([0, 0, 0, 0])]])
-    vector_list.extend([ [[], sum(-amp.ps[i] for i in range(1,i+1))] for i in range(2,n+1) ]) # add k+p when k is soft
-    
-    amp.create_amplitude(
-       amp_name,
-       1,
-       generate_qqbar_diags(amp,n,NLO_factor),
-       # Vectors [loopmomenta, externals]
-       vector_list)
-    return(amp)
-    
-def NEW_generate_qqbar_photons(external_momenta, ms, amp_name, topo_name):
+   
+def generate_qqbar_photons(external_momenta, ms, amp_name, topo_name, amp_type, amp_top=None):
     # Initialize
     n = len(external_momenta)-3
     pols_name = ["u","vbar"]
@@ -460,54 +223,101 @@ def NEW_generate_qqbar_photons(external_momenta, ms, amp_name, topo_name):
     pols_type = ["+","-"]
     pols_type.extend(["+"]*n)
     
-    amp = NEW_Amplitude(topo_name,                 # name of topology
+    if amp_type == 'Nf_qqbarphotonsNNLO':
+        amp_top = amplitude_topologies.create(amp_type, external_momenta, 1e2, topo_name, fixed_deformation=False)
+        amp = generate_qqbar_photons(amp_top.qs[:-2], amp_top.ms[:-2], amp_name, topo_name, 'qqbarphotonsNLO', amp_top=amp_top)
+        
+        
+        # Overwrite topology infos
+        amp_init = Amplitude(topo_name, amp_type, external_momenta, 1e2)
+        amp.amp_top = amp_init.amp_top
+        amp.amp_top.get_edge_info()
+        
+        #Add Bubble ant its UV counterterms
+        diags = copy.deepcopy(amp.diags)
+        diagsCT = copy.deepcopy(amp.diags)
+        
+        new_den_n = len(external_momenta) - 1
+        
+        for diag in diags:
+            if diag.name == 'born':
+                continue
+            factor = 1
+            diag.dens +=[amp.amp_top.edge_info['p%d' % (new_den_n+1)]['loopline'],
+                         amp.amp_top.edge_info['p%d' % (new_den_n+3)]['loopline']]
+            diag.pows += [1, 1]
+            diag.factor *= factor
+        for diag in diagsCT:
+            if diag.name == 'born':
+                continue
+            factor = 1
+            diag.dens +=[amp.amp_top.edge_info['p%d' % new_den_n]['loopline']]
+            diag.pows += [2]
+            diag.ct = not diag.ct
+            diag.name = "UV2" + diag.name
+            diag.factor *= factor
+        
+        for subset in amp.sets:
+            subset += ['UV2'+s for s in subset]
+
+        amp.diags = diags + diagsCT
+#        for diag in amp.diags:
+#            print(diag.to_flat_format())
+
+        return(amp)
+
+    elif amp_type == 'qqbarphotonsNLO':
+        amp = Amplitude(topo_name,                 # name of topology
                     'qqbarphotonsNLO',           # process type
                     external_momenta,
                     ms,
                     zip(pols_name,pols_type),  # polarizations
                     0,                         # uv_pos
-                    91.188)                    # mu_r_sq
+                    91.188,
+                    amp_top=amp_top)                    # mu_r_sq
 
-
-
-    # Vectors
-    vector_list_loop_dep = []  # momenta flowing in each propagator 
-    vector_list_loop_ind = []  # same but at Tree-Level
-    # With this shift it's possible to recover the momentum flowing in the Tree-Level diagram
-    mom_shift = [prop.q for prop in amp.mytop.loop_lines[0].propagators if prop.name == 'p1'][0]
-    for ll in amp.mytop.loop_lines:
-        for i, p in enumerate(ll.propagators):
-            if i == 0: # UV prop
-                continue
-            vector_list_loop_dep += [[[-1], -p.q]]
-            if n+2 > i > 2 :
-                vector_list_loop_ind += [[[], -p.q + mom_shift]]
+        print(external_momenta)
+        print(ms)
+        # Vectors
+        vector_list_loop_dep = []  # momenta flowing in each propagator 
+        vector_list_loop_ind = []  # same but at Tree-Level
+        # With this shift it's possible to recover the momentum flowing in the Tree-Level diagram
+        mom_shift = [prop.q for prop in amp.mytop.loop_lines[0].propagators if prop.name == 'p1'][0]
+        for ll in amp.mytop.loop_lines:
+            for i, p in enumerate(ll.propagators):
+                if i == 0 or p.name not in ['p%d' %i for i in range(len(external_momenta)+1)]: # UV prop
+                    continue
+                vector_list_loop_dep += [[[-1 * s for s in ll.signature], -p.q]]
+                if n+2 > i > 2 :
+                    vector_list_loop_ind += [[[], -p.q + mom_shift]]
+        
+        vector_list = vector_list_loop_dep + vector_list_loop_ind
     
-    vector_list = vector_list_loop_dep + vector_list_loop_ind
+        #Factors
+        tree_factor = params['alpha_ew']**(n/2.) * params['q_d']**n * (4.0 * np.pi)**(n/2.)
+        NLO_factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
+        
+        # Born Level Diagram
+        born_factor = tree_factor
+        for _, v in vector_list_loop_ind:
+            born_factor /= v.square()
+    
+        amp.add_born(generate_qqbar_born_chain(n), born_factor)
+        
+        # NLO Level Diagrams
+        amp.create_amplitude(
+           amp_name,
+           0,
+           generate_qqbar_diags(amp,n,NLO_factor),
+           vector_list)
+        
+        return(amp)
+    else:
+        raise Exception("NO SUCH AMPLITUDE TYPE! %s" % amp_type)
+    
 
-    #Factors
-    tree_factor = params['alpha_ew']**(n/2.) * params['q_d']**n * (4.0 * np.pi)**(n/2.)
-    NLO_factor = -1j*params['C_F']*tree_factor * params['alpha_s'] * (4.0 * np.pi)
-    
-    # Born Level Diagram
-    born_factor = tree_factor
-    for _, v in vector_list_loop_ind:
-        born_factor /= v.square()
-
-    amp.add_born(generate_qqbar_born_chain(n), born_factor)
-    
-    # NLO Level Diagrams
-    amp.create_amplitude(
-       amp_name,
-       0,
-       NEW_generate_qqbar_diags(amp,n,NLO_factor),
-       vector_list)
-    
-    return(amp)
-    
-
-class NEW_Amplitude(object):
-    def __init__(self, topology, amp_type, moms, ms, polarizations=None, uv_pos=-1, mu_r_sq=1e2):
+class Amplitude(object):
+    def __init__(self, topology, amp_type, moms, ms, polarizations=None, uv_pos=-1, mu_r_sq=1e2, amp_top=None):
         """
             uv_pos:       position of the uv propagator
             mu_r_sq:  mu renormalization for the CT
@@ -524,18 +334,23 @@ class NEW_Amplitude(object):
         #        break
         #else:
         #    raise AssertionError("Could not find topology %s" % topology)
-        try:
-            #amplitude_topologies.build_topology
-            self.amp_top = amplitude_topologies.create(amp_type, moms, ms, topology, fixed_deformation=False)
+        if amp_top is None:
+            try:
+                #amplitude_topologies.build_topology
+                self.amp_top = amplitude_topologies.create(amp_type, moms, ms, topology, fixed_deformation=False)
+                self.amp_top.get_edge_info()
+                #plot_edge_info(self.amp_top.edge_info)
+                self.mytop = self.amp_top.topology
+            except:
+                raise AssertionError("Could not create AmplitudeTopology for %s" %amp_type)
+        else:
+            self.amp_top = amp_top
             self.amp_top.get_edge_info()
-            #plot_edge_info(self.amp_top.edge_info)
             self.mytop = self.amp_top.topology
-        except:
-            raise AssertionError("Could not find topology %s" %topology)
 
         self.topology_name = topology
         self.type = amp_type
-        self.ps = moms
+        self.ps = moms.copy()
         self.uv_pos = uv_pos
         if uv_pos >= 0:
             del self.ps[uv_pos+1]
@@ -781,7 +596,7 @@ def generate_qqbar_born_chain(n):
     del chain[-1]
     return(chain)
 
-def NEW_generate_qqbar_diags(amp,n,factor):
+def generate_qqbar_diags(amp,n,factor):
     #Polarization position
     pol=(n+2)+n
     
@@ -820,49 +635,6 @@ def NEW_generate_qqbar_diags(amp,n,factor):
     for i in range(2,n+1):
         ir_factor/=amp.qSQ(i)
     complete_diags+=[qqbar_diagram("IR",[1,2,n+2],[1,1,1],ir_chain, ir_factor,True,True)]
-
-    
-    return(complete_diags)
-
-def generate_qqbar_diags(amp,n,factor):
-    #Polarization position
-    pol=(n+2)+n
-    
-    #Define the propagators
-    max_props=[0]
-    max_props.extend(range(2,n+3))
-    max_den_pows=[1]*(n+2)
-    max_factor = factor
-    
-    #Create the numerator for the largest loop
-    max_chain=[-1]
-    for i in range(n+1):
-        max_chain+=[i+2]
-        max_chain+=[pol+i]
-    max_chain[-1]=-1
-    
-    #Define max diagram
-    max_diag=(max_props,max_den_pows,max_chain,max_factor)
-    diags=[max_diag]
-
-    diags=right_left_reduce(amp,diags[-1],n)
-        
-    complete_diags=[]
-    diag_n = 1
-    for diag in diags:
-        #print("D%i"%diag_n,diag[0],diag[1],diag[2],diag[3],False,len(diag[0])<4)
-        complete_diags+=[qqbar_diagram("D%i"%diag_n,diag[0],diag[1],diag[2],diag[3],False,len(diag[0])<4)]
-        diag_n += 1
-    
-    #ADD IR
-    ir_chain=[-1,2]
-    ir_chain.extend(generate_qqbar_born_chain(n))
-    ir_chain.extend([n+2,-1])
-
-    ir_factor=factor
-    for i in range(2,n+1):
-        ir_factor/=amp.qSQ(i)
-    complete_diags+=[qqbar_diagram("IR",[0,2,n+2],[1,1,1],ir_chain, ir_factor,True,True)]
 
     
     return(complete_diags)
@@ -932,6 +704,10 @@ if __name__ == "__main__":
     # add amplitude ddNA
     #amplitudes_collection.add(generate_qqbar_photons("dd4A","dd4A_topo",4))
     
+    amp_type = 'qqbarphotonsNLO'
+    amp_name = 'dd4A'
+    topo_name = 'dd4A_topo'
+
     qs=[
         vectors.LorentzVector([0.5, -0.21677420292274124, 0.41425105700535525, -0.17721457817334357]),
         vectors.LorentzVector([0.0, 0.0, 0.0, 0.0]),
@@ -943,16 +719,16 @@ if __name__ == "__main__":
     ]
     ms = [1e2,0.0,0.0,0.0,0.0,0.0,0.0]
     
-    amp_type = 'qqbarphotonsNLO'
-    amp_name = 'dd4A'
-    topo_name = 'dd4A_topo'
-
     amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
     amp_top.get_edge_info()
 #    plot_edge_info(amp_top.edge_info)
     hard_coded_topology_collection.add_topology(amp_top.topology)
-    amplitudes_collection.add(NEW_generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name))
+    amplitudes_collection.add(generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name, amp_type=amp_type))
     
+    
+    amp_type = 'Nf_qqbarphotonsNNLO'
+    amp_name = 'dd4A_NF'
+    topo_name = 'dd4A_NF_topo'
     qs=[
         vectors.LorentzVector([0.5, -0.21677420292274124, 0.41425105700535525, -0.17721457817334357]),
         vectors.LorentzVector([0.5, 0.21677420292274124, -0.41425105700535525, 0.17721457817334357]),
@@ -963,56 +739,56 @@ if __name__ == "__main__":
     ]
     m_uv = 1e2
    
-    amp_type = 'Nf_qqbarphotonsNNLO'
     amp_top = amplitude_topologies.create(amp_type, qs, m_uv, topo_name, fixed_deformation=False)
     amp_top.get_edge_info()
-    plot_edge_info(amp_top.edge_info, file_name='graph.pdf')
+    #plot_edge_info(amp_top.edge_info, file_name='graph.pdf')
     hard_coded_topology_collection.add_topology(amp_top.topology)
+    #amplitudes_collection.add(generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name, amp_type=amp_type))
 
-    qs=[
-    vectors.LorentzVector([0.5, 0.1725782925959797, -0.07382815036215355, 0.46342867535227]),
-    vectors.LorentzVector([0.0, 0.0, 0.0, 0.0]),
-    vectors.LorentzVector([0.5, -0.1725782925959797, 0.07382815036215355, -0.46342867535227]),
-    vectors.LorentzVector([-0.14240531681379026, 0.05261451019605886, -0.1316847117088254, -0.013043169700204691]),
-    vectors.LorentzVector([-0.07645578602199649, -0.043069675054158645, 0.050010445882643195, 0.0385933363365972]),
-    vectors.LorentzVector([-0.034165480044262904, -0.020696767511008327, -0.013341175959563878, -0.023684105751878234]),
-    vectors.LorentzVector([-0.3745152436018937, -0.2634293072621643, 0.08221240043720716, -0.25319515986668134]),
-    vectors.LorentzVector([-0.3724581735180563, 0.2745812396312724, 0.012803041348538933, 0.25132909898216704]),
-    ]
-    ms = [1e2,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+   # qs=[
+   # vectors.LorentzVector([0.5, 0.1725782925959797, -0.07382815036215355, 0.46342867535227]),
+   # vectors.LorentzVector([0.0, 0.0, 0.0, 0.0]),
+   # vectors.LorentzVector([0.5, -0.1725782925959797, 0.07382815036215355, -0.46342867535227]),
+   # vectors.LorentzVector([-0.14240531681379026, 0.05261451019605886, -0.1316847117088254, -0.013043169700204691]),
+   # vectors.LorentzVector([-0.07645578602199649, -0.043069675054158645, 0.050010445882643195, 0.0385933363365972]),
+   # vectors.LorentzVector([-0.034165480044262904, -0.020696767511008327, -0.013341175959563878, -0.023684105751878234]),
+   # vectors.LorentzVector([-0.3745152436018937, -0.2634293072621643, 0.08221240043720716, -0.25319515986668134]),
+   # vectors.LorentzVector([-0.3724581735180563, 0.2745812396312724, 0.012803041348538933, 0.25132909898216704]),
+   # ]
+   # ms = [1e2,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
 
-    amp_type = 'qqbarphotonsNLO'
-    amp_name = 'dd5A'
-    topo_name = 'dd5A_topo'
+   # amp_type = 'qqbarphotonsNLO'
+   # amp_name = 'dd5A'
+   # topo_name = 'dd5A_topo'
 
-    amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
-    amp_top.get_edge_info()
-#    plot_edge_info(amp_top.edge_info)
-    hard_coded_topology_collection.add_topology(amp_top.topology)
-    amplitudes_collection.add(NEW_generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name))
+   # amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
+   # amp_top.get_edge_info()
+#  #  plot_edge_info(amp_top.edge_info)
+   # hard_coded_topology_collection.add_topology(amp_top.topology)
+   # amplitudes_collection.add(generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name))
 
-    qs=[
-        vectors.LorentzVector([0.5, -0.05113984432357776, 0.32101129713180626, 0.37991639006012284]),
-        vectors.LorentzVector([0.0, 0.0, 0.0, 0.0]),
-        vectors.LorentzVector([0.5, 0.05113984432357776, -0.32101129713180626, -0.37991639006012284]),
-        vectors.LorentzVector([-0.14240531681379026, -0.13804204305188122, -0.013672853666337794, -0.03219816267300758]),
-        vectors.LorentzVector([-0.07566099323396622, 0.04880913154311299, 0.03703210345748521, 0.044394570486394884]),
-        vectors.LorentzVector([-0.03429822242922356, -0.010560879730620403, -0.02034249356928476, -0.025515070772064767]),
-        vectors.LorentzVector([-0.0027507309565222744, 0.0005772669796523299, -0.0015766584134506466, 0.002178860224215476]),
-        vectors.LorentzVector([-0.4038059382134179, 0.28245986275916485, -0.28845495918070846, -0.008330557637290945]),
-        vectors.LorentzVector([-0.3410787983530794, -0.1832433384994286, 0.2870148613722964, 0.019470360371752933]),
-    ]
-    ms = [1e2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+   # qs=[
+   #     vectors.LorentzVector([0.5, -0.05113984432357776, 0.32101129713180626, 0.37991639006012284]),
+   #     vectors.LorentzVector([0.0, 0.0, 0.0, 0.0]),
+   #     vectors.LorentzVector([0.5, 0.05113984432357776, -0.32101129713180626, -0.37991639006012284]),
+   #     vectors.LorentzVector([-0.14240531681379026, -0.13804204305188122, -0.013672853666337794, -0.03219816267300758]),
+   #     vectors.LorentzVector([-0.07566099323396622, 0.04880913154311299, 0.03703210345748521, 0.044394570486394884]),
+   #     vectors.LorentzVector([-0.03429822242922356, -0.010560879730620403, -0.02034249356928476, -0.025515070772064767]),
+   #     vectors.LorentzVector([-0.0027507309565222744, 0.0005772669796523299, -0.0015766584134506466, 0.002178860224215476]),
+   #     vectors.LorentzVector([-0.4038059382134179, 0.28245986275916485, -0.28845495918070846, -0.008330557637290945]),
+   #     vectors.LorentzVector([-0.3410787983530794, -0.1832433384994286, 0.2870148613722964, 0.019470360371752933]),
+   # ]
+   # ms = [1e2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
 
-    amp_type = 'qqbarphotonsNLO'
-    amp_name = 'dd6A'
-    topo_name = 'dd6A_topo'
+   # amp_type = 'qqbarphotonsNLO'
+   # amp_name = 'dd6A'
+   # topo_name = 'dd6A_topo'
 
-    amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
-    amp_top.get_edge_info()
-    plot_edge_info(amp_top.edge_info)
-    hard_coded_topology_collection.add_topology(amp_top.topology)
-    amplitudes_collection.add(NEW_generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name))
+   # amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
+   # amp_top.get_edge_info()
+   # plot_edge_info(amp_top.edge_info)
+   # hard_coded_topology_collection.add_topology(amp_top.topology)
+   # amplitudes_collection.add(generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name))
 
  
     #amplitudes_collection.add(generate_qqbar_photons("dd5A","dd5A_topo",5))
