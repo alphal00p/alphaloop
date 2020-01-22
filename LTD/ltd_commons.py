@@ -206,6 +206,11 @@ hyperparameters = HyperParameters({
         ]
     },
 
+    'CrossSection'   :   {
+        'do_rescaling'              :   True,
+        'rescaling_function_spread' :   10.,
+    },
+
 })
 
 

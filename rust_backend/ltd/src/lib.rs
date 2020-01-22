@@ -35,20 +35,19 @@ pub type float = f128::f128;
 #[cfg(not(feature = "use_f128"))]
 pub type float = f64;
 
-pub trait FloatLike
-where
-    Self: From<f64>,
-    Self: Num,
-    Self: FromPrimitive,
-    Self: Float,
-    Self: Field,
-    Self: RealNumberLike,
-    Self: num_traits::Signed,
-    Self: FloatConst,
-    Self: std::fmt::LowerExp,
-    Self: num_traits::float::FloatCore,
-    Self: 'static,
-    Self: Signum,
+pub trait FloatLike:
+    From<f64>
+    + Num
+    + FromPrimitive
+    + Float
+    + Field
+    + RealNumberLike
+    + num_traits::Signed
+    + FloatConst
+    + std::fmt::LowerExp
+    + num_traits::float::FloatCore
+    + 'static
+    + Signum
 {
 }
 
@@ -452,6 +451,12 @@ impl Default for IntegratorSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+pub struct CrossSectionSettings {
+    pub do_rescaling: bool,
+    pub rescaling_function_spread: f64,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Settings {
     #[serde(rename = "General")]
     pub general: GeneralSettings,
@@ -459,6 +464,8 @@ pub struct Settings {
     pub integrator: IntegratorSettings,
     #[serde(rename = "Deformation")]
     pub deformation: DeformationSettings,
+    #[serde(rename = "CrossSection")]
+    pub cross_section: CrossSectionSettings,
     #[serde(rename = "Parameterization")]
     pub parameterization: ParameterizationSettings,
 }
@@ -625,10 +632,10 @@ py_class!(class CrossSection |py| {
         let mut ext : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
         for l in external_momenta {
             ext.push(LorentzVector::from_args(
-                float::zero(),
                 float::from_f64(l[0]).unwrap(),
                 float::from_f64(l[1]).unwrap(),
-                float::from_f64(l[2]).unwrap()));
+                float::from_f64(l[2]).unwrap(),
+                float::from_f64(l[3]).unwrap()));
         }
 
         let res = self.squared_topology(py).borrow_mut().evaluate(&mut ext, &moms, &mut *self.caches(py).borrow_mut());
@@ -648,14 +655,24 @@ py_class!(class CrossSection |py| {
         let mut ext : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
         for l in external_momenta {
             ext.push(LorentzVector::from_args(
-                f128::f128::zero(),
                 f128::f128::from_f64(l[0]).unwrap(),
                 f128::f128::from_f64(l[1]).unwrap(),
-                f128::f128::from_f64(l[2]).unwrap()));
+                f128::f128::from_f64(l[2]).unwrap(),
+                f128::f128::from_f64(l[3]).unwrap()));
         }
 
         let res = self.squared_topology(py).borrow_mut().evaluate(&mut ext, &moms, &mut *self.caches_f128(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
+    }
+
+    def parameterize(&self, x: Vec<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::parameterize::<float>(&x, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
+        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    }
+
+    def parameterize_f128(&self, x: Vec<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::parameterize::<f128::f128>(&x, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
+        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 });
 
@@ -720,12 +737,14 @@ py_class!(class LTD |py| {
     }
     
     def parameterize(&self, x: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = self.topo(py).borrow().parameterize::<float>(&x, loop_index);
+        let t = self.topo(py).borrow();
+        let (x, jac) = topologies::Topology::parameterize::<float>(&x, t.e_cm_squared, loop_index, &t.settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 
     def parameterize_f128(&self, x: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = self.topo(py).borrow().parameterize::<f128::f128>(&x, loop_index);
+        let t = self.topo(py).borrow();
+        let (x, jac) = topologies::Topology::parameterize::<f128::f128>(&x, t.e_cm_squared, loop_index, &t.settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 

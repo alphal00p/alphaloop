@@ -1130,13 +1130,38 @@ fn cross_section(squared_topology_file: &str, settings: &mut Settings) {
 
     // generate a random phase space point
     let mut external_momenta = [
-        LorentzVector::from_args(f128::f128::zero(), Into::<f128::f128>::into(1.), Into::<f128::f128>::into(5.0), Into::<f128::f128>::into(2.0)),
-        LorentzVector::from_args(f128::f128::zero(), Into::<f128::f128>::into(1.), Into::<f128::f128>::into(5.0), Into::<f128::f128>::into(2.0)),
+        LorentzVector::from_args(
+            Into::<f128::f128>::into(1.),
+            f128::f128::zero(),
+            Into::<f128::f128>::into(0.0),
+            Into::<f128::f128>::into(0.0),
+        ),
+        LorentzVector::from_args(
+            Into::<f128::f128>::into(1.),
+            f128::f128::zero(),
+            Into::<f128::f128>::into(0.0),
+            Into::<f128::f128>::into(0.0),
+        ),
     ];
     let loop_momenta = [
-        LorentzVector::from_args(f128::f128::zero(), Into::<f128::f128>::into(1.), Into::<f128::f128>::into(1.0), Into::<f128::f128>::into(1.)),
-        LorentzVector::from_args(f128::f128::zero(), Into::<f128::f128>::into(-1.6), Into::<f128::f128>::into(-5.6), Into::<f128::f128>::into(-2.6+ 0.001)),
-        LorentzVector::from_args(f128::f128::zero(), Into::<f128::f128>::into(2.), Into::<f128::f128>::into(3.0), Into::<f128::f128>::into(4.0)),
+        LorentzVector::from_args(
+            f128::f128::zero(),
+            Into::<f128::f128>::into(1.),
+            Into::<f128::f128>::into(1.0),
+            Into::<f128::f128>::into(1.),
+        ),
+        LorentzVector::from_args(
+            f128::f128::zero(),
+            Into::<f128::f128>::into(-1.6),
+            Into::<f128::f128>::into(-5.6),
+            Into::<f128::f128>::into(-2.6 + 0.001),
+        ),
+        LorentzVector::from_args(
+            f128::f128::zero(),
+            Into::<f128::f128>::into(2.),
+            Into::<f128::f128>::into(3.0),
+            Into::<f128::f128>::into(4.0),
+        ),
     ];
 
     let mut caches = squared_topology.create_caches();

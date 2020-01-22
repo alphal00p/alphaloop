@@ -16,7 +16,7 @@ use {float, Numerator};
 use {
     AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike,
     OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
-    MAX_LOOP,
+    Settings, MAX_LOOP,
 };
 
 use utils;
@@ -700,9 +700,14 @@ impl Topology {
 
     /// Map a vector in the unit hypercube to the infinite hypercube.
     /// Also compute the Jacobian.
-    pub fn parameterize<T: FloatLike>(&self, x: &[f64], loop_index: usize) -> ([T; 3], T) {
-        let e_cm = Into::<T>::into(self.e_cm_squared).sqrt()
-            * Into::<T>::into(self.settings.parameterization.shifts[loop_index].0);
+    pub fn parameterize<T: FloatLike>(
+        x: &[f64],
+        e_cm_squared: f64,
+        loop_index: usize,
+        settings: &Settings,
+    ) -> ([T; 3], T) {
+        let e_cm = Into::<T>::into(e_cm_squared).sqrt()
+            * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
         let mut l_space = [T::zero(); 3];
         let mut jac = T::one();
 
@@ -711,14 +716,14 @@ impl Topology {
         for (xd, xi, &(lo, hi)) in izip!(
             &mut x_r,
             x,
-            &self.settings.parameterization.input_rescaling[loop_index]
+            &settings.parameterization.input_rescaling[loop_index]
         ) {
             *xd = lo + xi * (hi - lo);
             jac *= Into::<T>::into(hi - lo);
         }
 
-        match self.settings.parameterization.mode {
-            ParameterizationMode::Cartesian => match self.settings.parameterization.mapping {
+        match settings.parameterization.mode {
+            ParameterizationMode::Cartesian => match settings.parameterization.mapping {
                 ParameterizationMapping::Log => {
                     for i in 0..3 {
                         let x = Into::<T>::into(x_r[i]);
@@ -736,11 +741,11 @@ impl Topology {
                 }
             },
             ParameterizationMode::Spherical => {
-                let radius = match self.settings.parameterization.mapping {
+                let radius = match settings.parameterization.mapping {
                     ParameterizationMapping::Log => {
                         // r = e_cm * ln(1 + b*x/(1-x))
                         let x = Into::<T>::into(x_r[0]);
-                        let b = Into::<T>::into(self.settings.parameterization.b);
+                        let b = Into::<T>::into(settings.parameterization.b);
                         let radius = e_cm * (T::one() + b * x / (T::one() - x)).ln();
                         jac *= e_cm * b / (T::one() - x) / (T::one() + x * (b - T::one()));
 
@@ -748,7 +753,7 @@ impl Topology {
                     }
                     ParameterizationMapping::Linear => {
                         // r = e_cm * b * x/(1-x)
-                        let b = Into::<T>::into(self.settings.parameterization.b);
+                        let b = Into::<T>::into(settings.parameterization.b);
                         let radius = e_cm * b * Into::<T>::into(x_r[0])
                             / (T::one() - Into::<T>::into(x_r[0]));
                         jac *= <T as num_traits::Float>::powi(e_cm * b + radius, 2) / e_cm / b;
@@ -771,9 +776,9 @@ impl Topology {
         }
 
         // add a shift such that k=l is harder to be picked up by integrators such as cuhre
-        l_space[0] += e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].1);
-        l_space[1] += e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].2);
-        l_space[2] += e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].3);
+        l_space[0] += e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].1);
+        l_space[1] += e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].2);
+        l_space[2] += e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].3);
 
         (l_space, jac)
     }
@@ -2625,7 +2630,12 @@ impl Topology {
         let mut jac_para = T::one();
         for i in 0..self.n_loops {
             // set the loop index to i + 1 so that we can also shift k
-            let (l_space, jac) = self.parameterize(&x[i * 3..(i + 1) * 3], i);
+            let (l_space, jac) = Topology::parameterize(
+                &x[i * 3..(i + 1) * 3],
+                self.e_cm_squared,
+                i,
+                &self.settings,
+            );
 
             // there could be some rounding here
             let rot = self.rotation_matrix;

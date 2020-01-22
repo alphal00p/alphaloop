@@ -473,13 +473,23 @@ impl SquaredTopology {
         caches: &mut [Vec<LTDCache<T>>],
     ) -> Complex<T> {
         let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4]; // FIXME: bound may be too small
+        let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
+
+        if self.settings.cross_section.do_rescaling
+            && (!external_momenta[0].x.is_zero()
+                || !external_momenta[0].y.is_zero()
+                || !external_momenta[0].z.is_zero())
+        {
+            panic!("The spatial part of the external momentum needs to be zero for the rescaling method.");
+        }
+
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> =
             (0..MAX_LOOP).map(|_| LorentzVector::default()).collect();
         let mut result = Complex::zero();
         for (cutkosky_cuts, cache) in self.cutkosky_cuts.iter_mut().zip_eq(caches) {
             let mut cut_result = Complex::one();
-            let mut q0 = T::zero();
+            let mut cut_energies_summed = T::zero();
 
             // evaluate the cuts
             for ((cut, cut_sig), cut_sign) in cut_momenta[..cutkosky_cuts.cut_signature.len()]
@@ -491,18 +501,60 @@ impl SquaredTopology {
                 let energy = cut.spatial_distance();
                 cut.t = energy.multiply_sign(*cut_sign);
                 cut_result *= num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (2 pi i)/(2E) for every cut
-                q0 += energy;
+                cut_energies_summed += energy;
             }
 
             if self.settings.general.debug >= 1 {
                 println!("Cut {:?}:", cutkosky_cuts.cut_names);
                 println!("  | 1/Es = {}", cut_result);
-                println!("  | q0 = {}", q0);
+                println!("  | q0 = {}", cut_energies_summed);
             }
 
-            // set 0th component of external momenta to the sum of the cuts
-            external_momenta[0].t = q0;
-            external_momenta[1].t = q0; // FIXME: we assume 1->1 here and that it is outgoing
+            if self.settings.cross_section.do_rescaling {
+                // resolve the energy conservation delta by rescaling the loop momenta
+                // TODO: massless propagators are not supported. In that case we need to find
+                // a polynomial root
+                let scaling = external_momenta[0].t / cut_energies_summed;
+
+                if self.settings.general.debug >= 1 {
+                    println!("  | scaling = {}", scaling);
+                }
+
+                // h is any function that integrates to 1
+                let h = Float::powi(
+                    -cut_energies_summed
+                        / Into::<T>::into(self.settings.cross_section.rescaling_function_spread),
+                    2,
+                )
+                .exp();
+                let h_norm = <T as FloatConst>::PI().sqrt() / Into::<T>::into(2.0)
+                    * Into::<T>::into(self.settings.cross_section.rescaling_function_spread);
+
+                cut_result *= cut_energies_summed
+                    * Float::powi(
+                        scaling,
+                        cutkosky_cuts.cut_signature.len() as i32 - self.n_loops as i32,
+                    )
+                    * h;
+                cut_result /= h_norm * external_momenta[0].t; // normalize
+
+                // rescale the loop momenta
+                for (rlm, lm) in rescaled_loop_momenta[..self.n_loops]
+                    .iter_mut()
+                    .zip_eq(loop_momenta)
+                {
+                    *rlm = lm / scaling;
+                }
+
+                // rescale the cut momenta
+                for cm in cut_momenta[..cutkosky_cuts.cut_signature.len()].iter_mut() {
+                    *cm *= scaling.inv();
+                }
+            } else {
+                // set 0th component of external momenta to the sum of the cuts
+                external_momenta[0].t = cut_energies_summed;
+                external_momenta[1].t = cut_energies_summed; // FIXME: we assume 1->1 here and that it is outgoing
+            }
 
             // set the shifts, which are expressed in the cut basis
             let mut subgraphs = [
@@ -524,8 +576,10 @@ impl SquaredTopology {
 
             //subgraphs[0].process();
             //subgraphs[1].process();
-            subgraphs[0].e_cm_squared = Into::<f64>::into(q0 * q0);
-            subgraphs[1].e_cm_squared = Into::<f64>::into(q0 * q0);
+            subgraphs[0].e_cm_squared =
+                Into::<f64>::into(external_momenta[0].t * external_momenta[0].t);
+            subgraphs[1].e_cm_squared =
+                Into::<f64>::into(external_momenta[0].t * external_momenta[0].t);
 
             // evaluate
             for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {
@@ -535,8 +589,15 @@ impl SquaredTopology {
                     .iter_mut()
                     .zip_eq(&subgraph.loop_momentum_map)
                 {
-                    *slm =
-                        SquaredTopology::evaluate_signature(lmm, external_momenta, &loop_momenta);
+                    *slm = SquaredTopology::evaluate_signature(
+                        lmm,
+                        external_momenta,
+                        if self.settings.cross_section.do_rescaling {
+                            &rescaled_loop_momenta[..self.n_loops]
+                        } else {
+                            loop_momenta
+                        },
+                    );
                 }
 
                 // for now, we do not deform
