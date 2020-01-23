@@ -88,6 +88,9 @@ pub struct DiagramFullRust {
     #[serde(with = "ComplexDef", rename = "factor")]
     factor_f64: Complex<f64>,
     ct: bool,
+    tensor_coefficients_split: Vec<[f64; 2]>,
+    #[serde(skip_deserializing)]
+    tensor_coefficients: Vec<Complex<f64>>,
 }
 
 #[derive(Default, Debug, Clone, Deserialize)]
@@ -134,6 +137,7 @@ pub struct Amplitude {
     pub name: String,
     pub amp_type: String,
     pub topology: String,
+    pub n_loops: usize,
     pub sets: Vec<Vec<String>>,
     #[serde(rename = "vectors")]
     pub vectors_f64: Vec<SlashedMomentum<f64>>,
@@ -150,9 +154,7 @@ pub struct Amplitude {
     pub polarizations: Vec<ArrayVec<[Complex<f64>; 4]>>,
     pub diagrams: Vec<DiagramFullRust>,
     #[serde(skip_deserializing)]
-    pub coefficients: Vec<f64>, // TODO: remove skip of deserializing
-    #[serde(skip_deserializing)]
-    pub coefficient_index_map: Vec<(usize, usize)>,
+    pub tensor_coefficient_index_map: Vec<(usize, usize)>,
 }
 
 // Implement Setup functions
@@ -203,6 +205,20 @@ impl Amplitude {
                 println!("]");
             }
         }
+
+        // Convert coefficient to Complex<f64>
+        self.diagrams[0].tensor_coefficients = Vec::new();
+        for dn in 0..self.diagrams.len() {
+            let mut diag = &mut self.diagrams[dn];
+            diag.tensor_coefficients = Vec::new();
+            for cn in 0..diag.tensor_coefficients_split.len() {
+                diag.tensor_coefficients.push(Complex::new(
+                    diag.tensor_coefficients_split[cn][0],
+                    diag.tensor_coefficients_split[dn][1],
+                ));
+            }
+        }
+
         //Attach the polarizations to vectors (based on the amplitude)
         match self.amp_type.as_ref() {
             "qqbarphotonsNLO" => {
@@ -231,25 +247,43 @@ impl Amplitude {
                 //Compute the integrated counterterms
                 self.integrated_ct();
             }
+            "DiHiggsTopologyLO" => {
+                self.int_ct = vec![Complex::new(0.0, 0.0)];
+            }
             _ => panic!("Unknown amplitude type: {}", self.amp_type),
         };
 
         // TODO: Evaluate with new numerator
-        //self.construct_numerator();
+        self.construct_numerator();
+        println!("DONE");
     }
 
     pub fn construct_numerator(&mut self) {
-        let max_rank = 4; // TODO: get from the input
-        let n_loops = 1;
+        let n_loops = self.n_loops;
+        // Determine max_rank
+        let mut max_rank = 0;
+        let mut check_size = 1;
+        let mut level_size = 1;
+        for diag in self.diagrams.iter() {
+            while check_size < diag.tensor_coefficients_split.len() {
+                level_size = (level_size * (n_loops * 4 + max_rank)) / (max_rank + 1);
+                max_rank += 1;
+                check_size += level_size;
+            }
+            // Check if the sizes match
+            if max_rank != 0 {
+                assert_eq!(diag.tensor_coefficients_split.len(), check_size);
+            }
+        }
         let sorted_linear: Vec<Vec<usize>> = (0..max_rank + 1)
             .map(|rank| (0..4 * n_loops).combinations_with_replacement(rank))
             .flatten()
             .collect();
-        self.coefficient_index_map = sorted_linear
+        self.tensor_coefficient_index_map = sorted_linear
             .iter()
             .map(|l| {
-                if l.is_empty() {
-                    (10000, 10000) // note: these indices will never be used
+                if l.len() == 1 {
+                    (0, l[l.len() - 1]) // note: these indices will never be used
                 } else {
                     (
                         sorted_linear
@@ -277,8 +311,7 @@ impl Amplitude {
             .unwrap()
             .compute_chain()
     }
-
-    pub fn compute_amplitude<T: FloatLike>(
+    pub fn compute_chain_amplitude<T: FloatLike>(
         &self,
         propagators: &HashMap<(usize, usize), Complex<T>>,
         vectors: &[LorentzVector<Complex<T>>],
@@ -298,7 +331,7 @@ impl Amplitude {
         } else {
             self.sets[0].clone()
         };
-        if settings.debug > 2 {
+        if settings.debug >= 2 {
             println!("Set of diagrams: {:?}", diaglist);
         }
 
@@ -354,6 +387,71 @@ impl Amplitude {
                     false => diag_num * utils::finv(diag_den),
                 };
                 if settings.debug > 2 {
+                    println!(
+                        "  |cut[{:?}]: {} \t=> {:e}",
+                        cut_id,
+                        diag_and_cut.name,
+                        res - res0
+                    );
+                }
+            }
+        }
+        return Ok(res);
+    }
+
+    pub fn compute_coefficient_amplitude<T: FloatLike>(
+        &self,
+        cut_2energy: Complex<T>,
+        cut_ll_id: Vec<(usize, usize)>,
+        settings: &GeneralSettings,
+        e_cm_sq: T,
+        cache: &mut LTDCache<T>,
+    ) -> Result<Complex<T>, &'static str> {
+        let mut res: Complex<T> = Complex::default();
+
+        // Select which set of diagrams to consider
+        // sets1: with UV approximation for all the diagrams
+        // sets0: regular amplitude
+        let diaglist = if false
+            && cut_2energy.norm() > e_cm_sq * Into::<T>::into(settings.mu_uv_sq_re_im[0])
+        {
+            self.sets[1].clone()
+        } else {
+            self.sets[0].clone()
+        };
+        if settings.debug >= 2 {
+            println!("Set of diagrams: {:?}", diaglist);
+        }
+
+        for diag_and_cut in self.diagrams.iter() {
+            if cut_ll_id
+                .iter()
+                .all(|cut_id| diag_and_cut.denominators.iter().any(|v| *v == *cut_id))
+                & diaglist.iter().any(|v| v == &diag_and_cut.name)
+            {
+                let res0 = res;
+                //Compute denominator
+                let mut diag_den = Complex::new(T::one(), T::zero());
+                for cut in diag_and_cut.denominators.iter() {
+                    diag_den *= cache.propagators[cut];
+                }
+                //Compute numerator
+                let factor = Complex::new(
+                    T::from_f64(diag_and_cut.factor_f64.re).unwrap(),
+                    T::from_f64(diag_and_cut.factor_f64.im).unwrap(),
+                );
+                let diag_num =
+                    factor * self.evaluate_numerator(&diag_and_cut.tensor_coefficients, cache);
+                // TODO: allow taking derivatives with this new numerator structure
+                let cut_id = cut_ll_id[0];
+                assert!(diag_and_cut.pows.iter().all(|n| *n == 1));
+
+                //println!("{} Numerator = {}", diag_and_cut.name, diag_num);
+                res += match diag_and_cut.ct {
+                    true => -diag_num * utils::finv(diag_den),
+                    false => diag_num * utils::finv(diag_den),
+                };
+                if settings.debug >= 2 {
                     println!(
                         "  |cut[{:?}]: {} \t=> {:e}",
                         cut_id,
@@ -460,6 +558,7 @@ impl Amplitude {
         }
         Ok(res)
     }
+
     pub fn evaluate<T: FloatLike>(
         &self,
         propagators: &HashMap<(usize, usize), Complex<T>>,
@@ -486,7 +585,7 @@ impl Amplitude {
             .map(|v| v.evaluate(&loop_momenta.to_vec()))
             .collect();
         vectors.push(gamma_0);
-        self.compute_amplitude(
+        self.compute_chain_amplitude(
             propagators,
             &vectors.to_vec(),
             cut_2energy,
@@ -494,6 +593,20 @@ impl Amplitude {
             settings,
             e_cm_sq,
         )
+    }
+    pub fn evaluate_with_coefficients<T: FloatLike>(
+        &self,
+        loop_momenta: &[LorentzVector<Complex<T>>],
+        cut_2energy: Complex<T>,
+        cut_ll_id: Vec<(usize, usize)>,
+        e_cm_sq: T,
+        settings: &GeneralSettings,
+        cache: &mut LTDCache<T>,
+    ) -> Result<Complex<T>, &'static str> {
+        // Update tensor loop dependent part
+        self.update_numerator_momentum(loop_momenta, cache);
+
+        self.compute_coefficient_amplitude(cut_2energy, cut_ll_id, settings, e_cm_sq, cache)
     }
     //In debug mode the integrated counterterms can be seen
     pub fn integrated_ct(&mut self) {
@@ -578,22 +691,46 @@ impl Amplitude {
         }
     }
 
-    pub fn evaluate_numerator<T: FloatLike>(
-        &mut self,
+    /* cache numerator coefficients */
+
+    pub fn update_numerator_momentum<T: FloatLike>(
+        &self,
         loop_momenta: &[LorentzVector<Complex<T>>],
         cache: &mut LTDCache<T>,
+    ) -> () {
+        if cache.numerator_momentum_cache.len() < self.tensor_coefficient_index_map.len() + 1 {
+            println!(
+                "Resizing numerator_momentum_cache {} -> {}",
+                cache.numerator_momentum_cache.len(),
+                self.tensor_coefficient_index_map.len() + 1
+            );
+            cache.numerator_momentum_cache.resize(
+                self.tensor_coefficient_index_map.len() + 1,
+                Complex::new(T::zero(), T::zero()),
+            );
+        }
+        for (i, &(cache_index, vec_index)) in self.tensor_coefficient_index_map.iter().enumerate() {
+            cache.numerator_momentum_cache[i + 1] = if cache_index == 0 {
+                loop_momenta[vec_index / 4][vec_index % 4]
+            } else {
+                cache.numerator_momentum_cache[cache_index]
+                    * loop_momenta[vec_index / 4][vec_index % 4]
+            };
+        }
+    }
+    pub fn evaluate_numerator<T: FloatLike>(
+        &self,
+        coefficients: &[Complex<f64>],
+        cache: &mut LTDCache<T>,
     ) -> Complex<T> {
-        let mut result = Complex::from(Into::<T>::into(self.coefficients[0]));
-        for (i, (&c, &(cache_index, vec_index))) in self
-            .coefficients
-            .iter()
-            .zip(&self.coefficient_index_map)
-            .skip(1)
-            .enumerate()
-        {
-            cache.numerator_momentum_cache[i + 1] = cache.numerator_momentum_cache[cache_index]
-                * loop_momenta[vec_index / 4][vec_index % 4];
-            result += cache.numerator_momentum_cache[i + 1] * Into::<T>::into(c);
+        let mut coefficient = Complex::new(
+            Into::<T>::into(coefficients[0].re),
+            Into::<T>::into(coefficients[0].im),
+        );
+        let mut result = coefficient;
+        for (i, &c) in coefficients.iter().skip(1).enumerate() {
+            coefficient = Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+            result += cache.numerator_momentum_cache[i + 1] * coefficient;
         }
         result
     }
@@ -684,6 +821,34 @@ impl Topology {
                     cut_ll_id,
                     Into::<T>::into(self.e_cm_squared),
                     &self.settings.general,
+                )
+            }
+            "DiHiggsTopologyLO" => {
+                //Rotate back PS for numerator
+                let rot_matrix = self.rotation_matrix;
+
+                let mut l = k_def[0];
+                let old_x = l.x;
+                let old_y = l.y;
+                let old_z = l.z;
+                l.x = old_x * T::from_f64(rot_matrix[0][0]).unwrap()
+                    + old_y * T::from_f64(rot_matrix[1][0]).unwrap()
+                    + old_z * T::from_f64(rot_matrix[2][0]).unwrap();
+                l.y = old_x * T::from_f64(rot_matrix[0][1]).unwrap()
+                    + old_y * T::from_f64(rot_matrix[1][1]).unwrap()
+                    + old_z * T::from_f64(rot_matrix[2][1]).unwrap();
+                l.z = old_x * T::from_f64(rot_matrix[0][2]).unwrap()
+                    + old_y * T::from_f64(rot_matrix[1][2]).unwrap()
+                    + old_z * T::from_f64(rot_matrix[2][2]).unwrap();
+                let l_def = vec![l];
+                //Evaluate Amplitude
+                self.amplitude.evaluate_with_coefficients(
+                    &l_def,
+                    cut_2energy,
+                    cut_ll_id,
+                    Into::<T>::into(self.e_cm_squared),
+                    &self.settings.general,
+                    cache,
                 )
             }
             _ => {

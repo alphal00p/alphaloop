@@ -35,6 +35,48 @@ params = {
 }
 
 
+class dihiggs_diagram(object):
+    def __init__(self, name, propagators, pows, factor, ct, uv, coeffs=[]):
+        """
+            name:     given name of the diagram, usefull for debugging
+            dens:     list with all the denominator for this diagram
+            pows:     power of each propagator
+            chain:    gamma chain contraction
+            coeffs:   coefficient list for the tensor structure of the numerator
+            position: position of the vectors that depend on the loop momentum
+            sing:     sign rising from taking the derivative wrt k0
+            uv:       True/False if needs uv counterterms
+            ct:       True/False if it is a counterterm and therefore comes with a minus sing
+        """
+        self.name = name
+        self.dens = propagators
+        self.pows = pows
+        self.chain = []
+        self.coeffs = coeffs
+        self.positions = []
+        self.signs = 0
+        print(factor)
+        self.factor = complex(factor)
+        print(self.factor)
+        self.uv = uv
+        self.ct = ct
+
+    def to_flat_format(self):
+        """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
+        res = {}
+
+        res["name"] = str(self.name)
+        res["denominators"] = [list(ll) for ll in self.dens]
+        #res["denominators"] = self.dens
+        res["pows"] = self.pows
+        res["chain"] = self.chain
+        res["tensor_coefficients_split"] = [[float(c.real), float(c.imag)] for c in self.coeffs]
+        res["positions"] = self.positions
+        res["loop_signature"] = self.signs
+        res["factor"] = [float(self.factor.real), float(self.factor.imag)]
+        res["ct"] = self.ct
+        return res
+
 class qqbar_diagram(object):
     def __init__(self, name, propagators, pows, chain, factor, ct, uv, positions=[], coeffs=[]):
         """
@@ -55,7 +97,7 @@ class qqbar_diagram(object):
         self.coeffs = coeffs
         self.positions = positions
         self.signs = 0
-        self.factor = factor
+        self.factor = complex(factor)
         self.uv = uv
         self.ct = ct
 
@@ -68,7 +110,7 @@ class qqbar_diagram(object):
         #res["denominators"] = self.dens
         res["pows"] = self.pows
         res["chain"] = self.chain
-        res["coefficients"] = self.coeffs
+        res["tensor_coefficients_split"] = self.coeffs
         res["positions"] = self.positions
         res["loop_signature"] = self.signs
         res["factor"] = [float(self.factor.real), float(self.factor.imag)]
@@ -349,6 +391,7 @@ class Amplitude(object):
             self.mytop = self.amp_top.topology
 
         self.topology_name = topology
+        self.n_loops = self.mytop.n_loops
         self.type = amp_type
         self.ps = moms.copy()
         self.uv_pos = uv_pos
@@ -415,7 +458,27 @@ class Amplitude(object):
         # Add new diagram to the amplitude
         self.diags.extend(diags)
 
-        if self.type == 'qqbarphotonsNLO':
+        if self.type == 'DiHiggsTopologyLO':
+            # Define diagrams
+            dens = [ [0, 1, 4, 5], [0, 1, 2, 5], [0, 2, 3, 5]]
+            coeffs = np.load('amplitudes/dihiggs_coeffs.npy')
+            diags = []
+            for i in range(3):
+                diags += [dihiggs_diagram("D%d" % i ,dens[i],[1,1,1,1], 1, False,False, coeffs=coeffs[i])]
+            self.diags = diags
+            # Map denominator to LoopLines tuples
+            for diag in self.diags:
+                diag.dens = [self.amp_top.edge_info['p%d' % (d+1)]['loopline'] for d in diag.dens]
+
+            # Global to the amplitude
+            self.sets = [['D0', 'D1', 'D2'], ['D0', 'D1', 'D2']]
+
+            vector_default = [[], [0,0,0,0]]
+            self.vectors = [vector_default]
+
+
+
+        elif self.type == 'qqbarphotonsNLO':
             # Create UV CT
             for diag in diags:
                 if diag.uv and self.uv_pos >= 0:
@@ -520,6 +583,7 @@ class Amplitude(object):
         res['name'] = self.name
         res['amp_type'] = self.type
         res['topology'] = self.topology_name
+        res['n_loops'] = self.n_loops
         res['diagrams'] = [diag.to_flat_format() for diag in self.diags]
         res['vectors'] = [
             [l, [float(v) for v in vec]] for (l, vec) in self.vectors]
@@ -700,7 +764,28 @@ def right_left_reduce(amp,diag,n):
 if __name__ == "__main__":
     hard_coded_topology_collection = TopologyCollection()
     amplitudes_collection = AmplitudesCollection()
-    
+
+    amp_type = 'DiHiggsTopologyLO'
+    amp_name = 'gghh'
+    topo_name = 'gghh_topo'
+    qs =[
+        vectors.LorentzVector([5.0000000000000000e+02,  0.0000000000000000e+00,  0.0000000000000000e+00,  5.0000000000000000e+02]),
+        vectors.LorentzVector([5.0000000000000000e+02,  0.0000000000000000e+00,  0.0000000000000000e+00, -5.0000000000000000e+02]),
+        vectors.LorentzVector([4.9999999999999977e+02,  1.0740197658523471e+02,  4.3070555989194781e+02, -1.9321629357729731e+02]),
+        vectors.LorentzVector([5.0000000000000011e+02, -1.0740197658523471e+02, -4.3070555989194793e+02,  1.9321629357729719e+02]),
+    ]
+    ms = []
+
+    amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
+    amp_top.get_edge_info()
+    #plot_edge_info(amp_top.edge_info)
+    hard_coded_topology_collection.add_topology(amp_top.topology)
+    # Create Amplitude ggHH
+    amp = Amplitude(topo_name, amp_type, qs, ms)
+    amp.create_amplitude(amp_name, 0, [], [])
+    amplitudes_collection.add(amp)
+
+   
     # add amplitude ddNA
     #amplitudes_collection.add(generate_qqbar_photons("dd4A","dd4A_topo",4))
     
@@ -725,7 +810,14 @@ if __name__ == "__main__":
     hard_coded_topology_collection.add_topology(amp_top.topology)
     amplitudes_collection.add(generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name, amp_type=amp_type))
     
-    
+    # Export amplitudes
+    root_dir = ''
+    hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
+    print("Synchronised topologies.yaml")
+    amplitudes_collection.export_to(os.path.join(root_dir, 'amplitudes.yaml'))
+    print("Synchronised amplitudes.yaml")
+    sys.exit()
+     
     amp_type = 'Nf_qqbarphotonsNNLO'
     amp_name = 'dd4A_NF'
     topo_name = 'dd4A_NF_topo'

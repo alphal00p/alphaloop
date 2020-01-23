@@ -140,7 +140,7 @@ amplitude_topologies = AmplitudeTopologies()
 
 
 @amplitude_topologies
-class DiHiggsTopology(object):
+class DiHiggsTopologyLO(object):
     #  Diag |      Propagators      |  Externals    | routing |
     # --------------------------------------------------------
     #   1   | [k,k-p1,k+p2,k-p1-p3] | (p1,p2,p4,p3) |  (1,2)  |
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     print(topology_name)
     ms = [0.]*4
     amp_top = amplitude_topologies.create(
-        "DiHiggsTopology", moms, ms, topology_name, fixed_deformation=False)
+        "DiHiggsTopologyLO", moms, ms, topology_name, fixed_deformation=False)
     topology_collection.add_topology(amp_top.topology, topology_name)
     amp_top.get_edge_info()
     topology_to_graph(amp_top.edge_info, file_name="diag_"+topology_name+".pdf", show_graph=False)
