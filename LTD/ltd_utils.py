@@ -162,10 +162,9 @@ class HyperParameters(dict):
 
 class TopologyGenerator(object):
 
-    def __init__(self, edge_map_lin):
+    def __init__(self, edge_map_lin, powers=None):
         #if len(set(e[0] for e  in edge_map_lin)) != len(edge_map_lin):
         #    raise AssertionError("Every edge must have a unique name. Input: ", edge_map_lin)
-
         self.edge_map_lin = edge_map_lin
         self.edge_name_map = {name: i for (
             i, (name, _, _)) in enumerate(edge_map_lin)}
@@ -177,6 +176,9 @@ class TopologyGenerator(object):
         self.ext = [i for i, x in enumerate(self.edges) if vertices.count(
             x[0]) == 1 or vertices.count(x[1]) == 1]
         self.vertices = vertices # with repetition
+        # set the power for every propagator
+        self.powers = {e[0]: powers[e[0]] if powers is not None and e[0] in powers
+                else 1 for i, e in enumerate(edge_map_lin) if i not in self.ext}
         self.loop_momenta = None
         self.propagators = None
         self.n_loops = None
@@ -186,6 +188,43 @@ class TopologyGenerator(object):
         self.spanning_trees(trees, tree={self.edges[0][0]})
         self.n_loops = len(self.edge_map_lin) - len(trees[0])
         return [[i for i in range(len(self.edge_map_lin)) if i not in tree] for tree in trees]
+
+    def merge_duplicate_edges(self, loop_momenta_names=None):
+        """Create a new topology, merging edges with the same or opposite signature.
+        If it is opposite, one of the lines will be flipped and the power will be increased.
+        """
+        if self.propagators is None:
+            self.generate_momentum_flow(loop_momenta_names)
+
+        duplicates = {}
+        new_powers = {}
+        if loop_momenta_names:
+            duplicates = {tuple(self.propagators[self.edge_name_map[l]]): l for l in loop_momenta_names}
+            new_powers = {e: p for e, p in self.powers.items() if e in loop_momenta_names}
+
+        fuse_verts = set()
+        new_edge_map_lin = []
+        for p, e in zip(self.propagators, self.edge_map_lin):
+            min_p = tuple([(x[0], not x[1]) for x in p])
+
+            if p != () and min_p in duplicates:
+                print('Flipping edge {} in deduplication process {} -> {}'.format(e[0], e[0], duplicates[min_p]))
+                new_powers[duplicates[min_p]] += 1
+                fuse_verts.add((e[1], e[2]))
+            elif p != () and tuple(p) in duplicates and duplicates[tuple(p)] != e[0]:
+                # an edge is a duplicate if it is internal with repeated signatures and it is not one of the loop momenta
+                new_powers[duplicates[tuple(p)]] += 1
+                fuse_verts.add((e[1], e[2]))
+            else:
+                new_edge_map_lin.append(e)
+                if p != () and tuple(p) not in duplicates:
+                    duplicates[tuple(p)] = e[0]
+                    new_powers[e[0]] = self.powers[e[0]]
+
+        for v1, v2 in fuse_verts:
+            new_edge_map_lin = [(name, o1 if o1 != v2 else v1, o2 if o2 != v2 else v1) for name, o1, o2 in new_edge_map_lin]
+
+        return TopologyGenerator(new_edge_map_lin, powers=new_powers)
 
     def spanning_trees(self, result, tree={1}, accum=[]):
         # find all edges that connect the tree to a new node
@@ -277,6 +316,9 @@ class TopologyGenerator(object):
         left_tree = [e for e in cut_tree.edge_map_lin if e[1] in sub_tree_vertices or e[2] in sub_tree_vertices]
         right_tree = [e for e in cut_tree.edge_map_lin if e not in left_tree]
 
+        left_propagators = set(e[0] for e in left_tree)
+        right_propagators = set(e[0] for e in right_tree)
+
         # add the cutkosky cut edges with renamed external vertices to prevent accidental loops
         highest_vertex = max(v for e in self.edge_map_lin for v in e[1:]) + 1
         for t in (left_tree, right_tree):
@@ -291,10 +333,13 @@ class TopologyGenerator(object):
                     t.append((c, highest_vertex, cut_v2))
                     highest_vertex += 1
 
+        l = TopologyGenerator(left_tree, powers={e: p for e, p in self.powers.items() if e in left_propagators})
+        r = TopologyGenerator(right_tree, powers={e: p for e, p in self.powers.items() if e in right_propagators})
+
         if any(e[0] in incoming_momenta for e in left_tree):
-            return (TopologyGenerator(left_tree), TopologyGenerator(right_tree))
+            return (l, r)
         else:
-            return (TopologyGenerator(right_tree), TopologyGenerator(left_tree))
+            return (r, l)
 
     def get_signature_map(self):
         # TODO: the order of self.ext should be consistent with Rust
@@ -329,7 +374,7 @@ class TopologyGenerator(object):
                 continue
 
             # determine the loop momentum map from the full loop momentum basis to the one of the subgraph
-            if len(prop) == 1 and prop[0] not in sub_graph.ext:
+            if len(prop) == 1 and prop[0][0] not in sub_graph.ext:
                 (mom, sign) = prop[0]
                 s = 1 if sign else -1
                 loop_momentum_map[sub_graph.loop_momenta.index(mom)] = [[s * a for a in i] for i in edge_map[edge_name]]
@@ -638,6 +683,7 @@ class TopologyGenerator(object):
             signature=signature,
             propagators=tuple(
                 Propagator(q=q, m_squared=mass**2,
+                            power=self.powers[edge_name],
                             parametric_shift=new_shift_map[edge_name] if shift_map is not None else None,
                             name=edge_name)
                 for (edge_name, q, mass) in propagators)) for signature, propagators in loop_line_list]
@@ -1609,10 +1655,11 @@ class LoopLine(object):
 class Propagator(object):
     """ A simple container for describing a loop propagator."""
 
-    def __init__(self, q, m_squared, signature = None, name = None, parametric_shift = None, **opts):
+    def __init__(self, q, m_squared, power=1, signature = None, name = None, parametric_shift = None, **opts):
         self.name       = name
         self.q          = q
         self.m_squared  = m_squared
+        self.power      = power
         # Note that this signature member is not strictly speaking necessary as it should always be the
         # same as the signature attribute of the LoopLine containing it. We forward it here for convenience however.
         self.signature  = signature
@@ -1625,6 +1672,7 @@ class Propagator(object):
 
         res['q'] = [float(v) for v in self.q]
         res['m_squared'] = self.m_squared
+        res['power'] = self.power
 
         if self.parametric_shift is not None:
             res['parametric_shift'] = self.parametric_shift
@@ -1640,7 +1688,10 @@ class Propagator(object):
         
         return Propagator(
             q           =   vectors.LorentzVector(flat_dict['q']),
-            m_squared   =   flat_dict['m_squared'] 
+            m_squared   =   flat_dict['m_squared'],
+            power       =   flat_dict['power'],
+            name        =   flat_dict['name'],
+            parametric_shift = flat_dict['parametric_shift']
         ) 
 
     def evaluate_inverse(self, loop_momenta):
@@ -1714,11 +1765,16 @@ class TopologyCollection(dict):
         return result
 
 class SquaredTopologyGenerator:
-    def __init__(self, topo, name, incoming_momenta, n_cuts, loop_momenta_names=None):
-        self.topo = topo
+    def __init__(self, edges, name, incoming_momenta, n_cuts, loop_momenta_names=None, masses=None, powers=None):
+        self.topo = TopologyGenerator(edges, powers)
+        self.topo.generate_momentum_flow(loop_momenta_names)
+        # merge duplicate edges so the cut finder and LTD will work out-of-the-box
+        self.topo = self.topo.merge_duplicate_edges(loop_momenta_names)
+        self.topo.generate_momentum_flow(loop_momenta_names) # loop momenta will remain after the merge
+
         self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momenta)
 
-        self.topologies = [topo.split_graph([a[0] for a in c], incoming_momenta) for c in self.cuts]
+        self.topologies = [self.topo.split_graph([a[0] for a in c], incoming_momenta) for c in self.cuts]
 
         self.topo.generate_momentum_flow(loop_momenta_names)
         edge_map = self.topo.get_signature_map()
@@ -1733,7 +1789,7 @@ class SquaredTopologyGenerator:
 
             loop_topos = []
             for i, s in enumerate(sub_graphs):
-                (loop_mom_map, shift_map) = topo.build_proto_topology(s, [a[0] for a in c])
+                (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, [a[0] for a in c])
                 loop_topos.append(
                     s.create_loop_topology(name + '_' + ''.join(a[0] for a in c) + '_' + ['l', 'r'][i],
                     # provide dummy external momenta
@@ -1753,6 +1809,7 @@ class SquaredTopologyGenerator:
                 {'cut_names': list(a[0] for a in c),
                 'cut_signs': list(a[1] for a in c),
                 'cut_signature': cut_sig,
+                'cut_powers': [self.topo.powers[a[0]] for a in c],
                 'subgraph_left': ts[0].to_flat_format(),
                 'subgraph_right': ts[1].to_flat_format()}
 
@@ -1777,22 +1834,19 @@ if __name__ == "__main__":
     #    [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)
 
     # Construct a cross section
-    mercedes = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
-                                        ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)])
-    squared_topo = SquaredTopologyGenerator(mercedes, "M", ['q1'], 3)
-    squared_topo.export('mercedes_squared.yaml')
+    mercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
+                                        ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 3)
+    mercedes.export('mercedes_squared.yaml')
 
-    bubble = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)])
-    squared_topo = SquaredTopologyGenerator(bubble, "B", ['q1'], 0)
-    squared_topo.export('bubble_squared.yaml')
+    bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0)
+    bubble.export('bubble_squared.yaml')
 
-    t1 = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)])
-    squared_topo = SquaredTopologyGenerator(t1, "T", ['q1'], 0, loop_momenta_names=('p2', 'p4'))
-    squared_topo.export('t1_squared.yaml')
+    t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 0, loop_momenta_names=('p2', 'p4'))
+    t1.export('t1_squared.yaml')
 
-    #bu = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3),
-    #                                    ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 5, 3), ('q2', 3, 6)])
-    bu = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 3, 2), ('p3', 4, 3),
-                                        ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 3, 5), ('q2', 3, 6)])
-    squared_topo = SquaredTopologyGenerator(bu, "BU", ['q1'], 2, loop_momenta_names=('p2', 'p4', 'p7'))
-    squared_topo.export('bu_squared.yaml')
+    bu = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 3, 2), ('p3', 4, 3),
+                                        ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 3, 5), ('q2', 3, 6)], "BU", ['q1'], 2, loop_momenta_names=('p2', 'p4', 'p7'))
+    bu.export('bu_squared.yaml')
+
+    insertion = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4), ('p5', 1, 4), ('q2', 4, 5)], "I", ['q1'], 0, loop_momenta_names=('p4', 'p3'), powers={'p3': 2})
+    insertion.export('insertion_squared.yaml')
