@@ -403,10 +403,17 @@ impl Topology {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct CutkoskyCut {
+    name: String,
+    sign: i8,
+    signature: (Vec<i8>, Vec<i8>),
+    power: usize,
+    mass_squared: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCuts {
-    pub cut_names: Vec<String>,
-    pub cut_signs: Vec<i8>,
-    pub cut_signature: Vec<(Vec<i8>, Vec<i8>)>,
+    pub cuts: Vec<CutkoskyCut>,
     pub subgraph_left: Topology,
     pub subgraph_right: Topology,
 }
@@ -455,6 +462,20 @@ impl SquaredTopology {
         cut_momentum
     }
 
+    fn evaluate_single_signature<T: RealNumberLike>(
+        signature: &[i8],
+        momenta: &[LorentzVector<T>],
+    ) -> LorentzVector<T> {
+        let mut momentum = LorentzVector::default();
+        for (&sign, mom) in signature.iter().zip_eq(momenta) {
+            if sign != 0 {
+                momentum += mom.multiply_sign(sign);
+            }
+        }
+
+        momentum
+    }
+
     pub fn create_caches<T: FloatLike + Into<f64>>(&self) -> Vec<Vec<LTDCache<T>>> {
         let mut caches = vec![];
         for cutkosky_cuts in &self.cutkosky_cuts {
@@ -466,22 +487,69 @@ impl SquaredTopology {
         caches
     }
 
+    /// Solve the momentum conservation delta using Newton's method. In the case of massless propagators and an external momentum with 0 spatial part,
+    /// it will take one step to find the solution.
+    pub fn find_scaling<T: FloatLike + Into<f64>>(
+        cutkosky_cuts: &CutkoskyCuts,
+        external_momenta: &[LorentzVector<T>],
+        loop_momenta: &[LorentzVector<T>],
+    ) -> T {
+        // the initial value of the scaling. It should be larger than the actual positive scaling, since this way
+        // the negative solution will never be found.
+        let mut t = external_momenta[0].t;
+        for _ in 0..20 {
+            let mut f = external_momenta[0].t;
+            let mut df = T::zero();
+
+            for cut in &cutkosky_cuts.cuts {
+                let k = SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
+                let shift =
+                    SquaredTopology::evaluate_single_signature(&cut.signature.1, external_momenta);
+                let energy =
+                    ((k * t + shift).spatial_squared() + Into::<T>::into(cut.mass_squared)).sqrt();
+                f -= energy;
+                df -= (t * k.spatial_squared() + k.spatial_dot(&shift)) / energy;
+            }
+
+            if Float::abs(f) < Into::<T>::into(1e-14) {
+                if t < T::zero() {
+                    panic!(
+                        "Found negative solution {}: {:?},{:?}",
+                        t, loop_momenta, external_momenta
+                    );
+                }
+                return t;
+            }
+
+            t = t - f / df;
+        }
+
+        // no convergence
+        panic!(
+            "Could not find scaling for {:?},{:?}",
+            loop_momenta, external_momenta
+        );
+    }
+
     pub fn evaluate<T: FloatLike + Into<f64>>(
         &mut self,
         external_momenta: &mut [LorentzVector<T>],
         loop_momenta: &[LorentzVector<T>],
         caches: &mut [Vec<LTDCache<T>>],
     ) -> Complex<T> {
+        debug_assert_eq!(
+            loop_momenta.len(),
+            self.n_loops,
+            "The number of loop momenta is wrong."
+        );
+        debug_assert_eq!(
+            external_momenta.len(),
+            2,
+            "The number of external momenta is wrong."
+        );
+
         let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4]; // FIXME: bound may be too small
         let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
-
-        if self.settings.cross_section.do_rescaling
-            && (!external_momenta[0].x.is_zero()
-                || !external_momenta[0].y.is_zero()
-                || !external_momenta[0].z.is_zero())
-        {
-            panic!("The spatial part of the external momentum needs to be zero for the rescaling method.");
-        }
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> =
@@ -491,51 +559,49 @@ impl SquaredTopology {
             let mut cut_result = Complex::one();
             let mut cut_energies_summed = T::zero();
 
-            // evaluate the cuts
-            for ((cut, cut_sig), cut_sign) in cut_momenta[..cutkosky_cuts.cut_signature.len()]
+            let scaling = if self.settings.cross_section.do_rescaling {
+                SquaredTopology::find_scaling(cutkosky_cuts, external_momenta, loop_momenta)
+            } else {
+                T::one()
+            };
+
+            // evaluate the cuts with the proper scaling
+            for (cut_mom, cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
                 .iter_mut()
-                .zip(cutkosky_cuts.cut_signature.iter())
-                .zip(cutkosky_cuts.cut_signs.iter())
+                .zip(cutkosky_cuts.cuts.iter())
             {
-                *cut = SquaredTopology::evaluate_signature(cut_sig, external_momenta, loop_momenta);
-                let energy = cut.spatial_distance();
-                cut.t = energy.multiply_sign(*cut_sign);
+                let k = SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
+                let shift =
+                    SquaredTopology::evaluate_single_signature(&cut.signature.1, external_momenta);
+                *cut_mom = k * scaling + shift;
+                let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.mass_squared)).sqrt();
+                cut_mom.t = energy.multiply_sign(cut.sign);
                 cut_result *= num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (2 pi i)/(2E) for every cut
                 cut_energies_summed += energy;
             }
 
             if self.settings.general.debug >= 1 {
-                println!("Cut {:?}:", cutkosky_cuts.cut_names);
+                println!(
+                    "Cut {:?}:",
+                    cutkosky_cuts.cuts.iter().map(|c| &c.name).format(", ")
+                );
                 println!("  | 1/Es = {}", cut_result);
                 println!("  | q0 = {}", cut_energies_summed);
+                println!("  | scaling = {}", scaling);
             }
 
             if self.settings.cross_section.do_rescaling {
-                // resolve the energy conservation delta by rescaling the loop momenta
-                // TODO: massless propagators are not supported. In that case we need to find
-                // a polynomial root
-                let scaling = external_momenta[0].t / cut_energies_summed;
-
-                if self.settings.general.debug >= 1 {
-                    println!("  | scaling = {}", scaling);
-                }
-
                 // h is any function that integrates to 1
-                let h = Float::powi(
-                    -cut_energies_summed
+                let h = (-Float::powi(
+                    cut_energies_summed
                         / Into::<T>::into(self.settings.cross_section.rescaling_function_spread),
                     2,
-                )
+                ))
                 .exp();
                 let h_norm = <T as FloatConst>::PI().sqrt() / Into::<T>::into(2.0)
                     * Into::<T>::into(self.settings.cross_section.rescaling_function_spread);
 
-                cut_result *= cut_energies_summed
-                    * Float::powi(
-                        scaling,
-                        cutkosky_cuts.cut_signature.len() as i32 - self.n_loops as i32,
-                    )
-                    * h;
+                cut_result *= cut_energies_summed / Float::powi(scaling, self.n_loops as i32) * h;
                 cut_result /= h_norm * external_momenta[0].t; // normalize
 
                 // rescale the loop momenta
@@ -543,17 +609,13 @@ impl SquaredTopology {
                     .iter_mut()
                     .zip_eq(loop_momenta)
                 {
-                    *rlm = lm / scaling;
-                }
-
-                // rescale the cut momenta
-                for cm in cut_momenta[..cutkosky_cuts.cut_signature.len()].iter_mut() {
-                    *cm *= scaling.inv();
+                    *rlm = lm * scaling;
                 }
             } else {
                 // set 0th component of external momenta to the sum of the cuts
+                // NOTE: we assume 1->1 here and that it is outgoing
                 external_momenta[0].t = cut_energies_summed;
-                external_momenta[1].t = cut_energies_summed; // FIXME: we assume 1->1 here and that it is outgoing
+                external_momenta[1].t = cut_energies_summed;
             }
 
             // set the shifts, which are expressed in the cut basis
@@ -567,7 +629,7 @@ impl SquaredTopology {
                         p.q = SquaredTopology::evaluate_signature(
                             &p.parametric_shift,
                             external_momenta,
-                            &cut_momenta[..cutkosky_cuts.cut_signature.len()],
+                            &cut_momenta[..cutkosky_cuts.cuts.len()],
                         )
                         .map(|x| x.into());
                     }

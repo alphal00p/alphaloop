@@ -1806,10 +1806,15 @@ class SquaredTopologyGenerator:
             'topo': [list(x) for x in self.topo.edge_map_lin],
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
             'cutkosky_cuts': [
-                {'cut_names': list(a[0] for a in c),
-                'cut_signs': list(a[1] for a in c),
-                'cut_signature': cut_sig,
-                'cut_powers': [self.topo.powers[a[0]] for a in c],
+                {'cuts':
+                    [{
+                       'name': a[0],
+                       'sign': a[1],
+                       'signature': sig,
+                       'power': self.topo.powers[a[0]],
+                       'mass_squared': 0., # TODO
+                    }
+                    for a, sig in zip(c, cut_sig)],
                 'subgraph_left': ts[0].to_flat_format(),
                 'subgraph_right': ts[1].to_flat_format()}
 
