@@ -511,7 +511,7 @@ impl SquaredTopology {
                 df -= (t * k.spatial_squared() + k.spatial_dot(&shift)) / energy;
             }
 
-            if Float::abs(f) < Into::<T>::into(1e-14) {
+            if Float::abs(f) < Into::<T>::into(1e-14) * external_momenta[0].t {
                 if t < T::zero() {
                     panic!(
                         "Found negative solution {}: {:?},{:?}",
@@ -576,7 +576,7 @@ impl SquaredTopology {
                 *cut_mom = k * scaling + shift;
                 let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
                 cut_mom.t = energy.multiply_sign(cut.sign);
-                cut_result *= num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (2 pi i)/(2E) for every cut
+                cut_result *= num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (-2 pi i)/(2E) for every cut
                 cut_energies_summed += energy;
             }
 
@@ -588,12 +588,13 @@ impl SquaredTopology {
                 println!("  | 1/Es = {}", cut_result);
                 println!("  | q0 = {}", cut_energies_summed);
                 println!("  | scaling = {}", scaling);
+                println!("  | scaling_jac = {}", scaling_jac);
             }
 
             if self.settings.cross_section.do_rescaling {
                 // h is any function that integrates to 1
                 let h = (-Float::powi(
-                    cut_energies_summed
+                    scaling
                         / Into::<T>::into(self.settings.cross_section.rescaling_function_spread),
                     2,
                 ))
@@ -601,8 +602,8 @@ impl SquaredTopology {
                 let h_norm = <T as FloatConst>::PI().sqrt() / Into::<T>::into(2.0)
                     * Into::<T>::into(self.settings.cross_section.rescaling_function_spread);
 
-                cut_result *= scaling_jac / Float::powi(scaling, self.n_loops as i32) * h;
-                cut_result /= h_norm * external_momenta[0].t;
+                cut_result *=
+                    scaling_jac * Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm;
 
                 // rescale the loop momenta
                 for (rlm, lm) in rescaled_loop_momenta[..self.n_loops]
@@ -715,6 +716,13 @@ impl SquaredTopology {
                 ),
                 self.n_loops,
             );
+
+            // multiply the flux factor
+            cut_result *= Into::<T>::into(0.5) / external_momenta[0].square().sqrt();
+
+            // multiply by a fudge factor
+            // TODO: understand where this factor 1/2 comes from
+            cut_result *= Into::<T>::into(0.5);
 
             if self.settings.general.debug >= 1 {
                 println!("  | res = {:e}", cut_result);
