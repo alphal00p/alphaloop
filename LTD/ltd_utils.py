@@ -1765,7 +1765,7 @@ class TopologyCollection(dict):
         return result
 
 class SquaredTopologyGenerator:
-    def __init__(self, edges, name, incoming_momenta, n_cuts, loop_momenta_names=None, masses=None, powers=None):
+    def __init__(self, edges, name, incoming_momenta, n_cuts, loop_momenta_names=None, masses={}, powers=None):
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         # merge duplicate edges so the cut finder and LTD will work out-of-the-box
@@ -1773,7 +1773,7 @@ class SquaredTopologyGenerator:
         self.topo.generate_momentum_flow(loop_momenta_names) # loop momenta will remain after the merge
 
         self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momenta)
-
+        self.masses = masses
         self.topologies = [self.topo.split_graph([a[0] for a in c], incoming_momenta) for c in self.cuts]
 
         self.topo.generate_momentum_flow(loop_momenta_names)
@@ -1795,8 +1795,9 @@ class SquaredTopologyGenerator:
                     # provide dummy external momenta
                     ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
                     fixed_deformation=False,
-                loop_momentum_map=loop_mom_map,
-                shift_map=shift_map))
+                    mass_map=masses,
+                    loop_momentum_map=loop_mom_map,
+                    shift_map=shift_map))
 
             self.loop_topologies.append(loop_topos)
 
@@ -1812,7 +1813,7 @@ class SquaredTopologyGenerator:
                        'sign': a[1],
                        'signature': sig,
                        'power': self.topo.powers[a[0]],
-                       'mass_squared': 0., # TODO
+                       'm_squared': self.masses[a[0]]**2 if a[0] in self.masses else 0.
                     }
                     for a, sig in zip(c, cut_sig)],
                 'subgraph_left': ts[0].to_flat_format(),
