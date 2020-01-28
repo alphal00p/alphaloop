@@ -51,6 +51,12 @@ pub struct Propagators {
     pub parametric_shift: (Vec<i8>, Vec<i8>),
     #[serde(default)]
     pub signature: Vec<i8>,
+    #[serde(default = "set_one")]
+    pub power: usize,
+}
+
+fn set_one() -> usize {
+    1
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -416,6 +422,7 @@ pub struct CutkoskyCuts {
     pub cuts: Vec<CutkoskyCut>,
     pub subgraph_left: Topology,
     pub subgraph_right: Topology,
+    pub symmetry_factor: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -717,12 +724,11 @@ impl SquaredTopology {
                 self.n_loops,
             );
 
-            // multiply the flux factor
+            // multiply the 1->1 flux factor
             cut_result *= Into::<T>::into(0.5) / external_momenta[0].square().sqrt();
 
-            // multiply by a fudge factor
-            // TODO: understand where this factor 1/2 comes from
-            cut_result *= Into::<T>::into(0.5);
+            // divide by the symmetry factor of the final state
+            cut_result /= Into::<T>::into(cutkosky_cuts.symmetry_factor);
 
             if self.settings.general.debug >= 1 {
                 println!("  | res = {:e}", cut_result);

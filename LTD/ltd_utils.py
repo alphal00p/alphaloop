@@ -273,7 +273,7 @@ class TopologyGenerator(object):
                 break
         return res
 
-    def find_cutkosky_cuts(self, n_jets, incoming_particles):
+    def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids):
         spanning_trees = []
         self.spanning_trees(spanning_trees)
         cutkosky_cuts = set()
@@ -296,13 +296,17 @@ class TopologyGenerator(object):
                     cutkosky_cut = tuple(sorted(cutkosky_edge for cutkosky_edge in set(self.edge_map_lin).difference(set(cut_tree.edge_map_lin))
                             if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
 
+                    # filter cuts with not enough jets and cuts that do not contain all desired final state particles
+                    cutkosky_particles = tuple(sorted(particle_ids[e] for (e, _, _) in cutkosky_cut if e in particle_ids))
+                    if len(cutkosky_cut) - len(final_state_particle_ids) < n_jets or \
+                            not all(final_state_particle_ids.count(p) <= cutkosky_particles.count(p) for p in final_state_particle_ids):
+                        continue
+
                     # check if the cut is incoming our outgoing
                     cutkosky_cut = tuple((name, 1 if is_incoming_sub_tree and sub_tree.vertices.count(v2) == 0 or
                                         not is_incoming_sub_tree and sub_tree.vertices.count(v1) == 0 else -1)
                                     for (name, v1, v2) in cutkosky_cut)
-
-                    if len(cutkosky_cut) >= n_jets:
-                        cutkosky_cuts.add(cutkosky_cut)
+                    cutkosky_cuts.add(cutkosky_cut)
         return list(sorted(cutkosky_cuts))
 
     def split_graph(self, cutkosky_cut, incoming_momenta):
@@ -1765,14 +1769,10 @@ class TopologyCollection(dict):
         return result
 
 class SquaredTopologyGenerator:
-    def __init__(self, edges, name, incoming_momenta, n_cuts, loop_momenta_names=None, masses={}, powers=None):
+    def __init__(self, edges, name, incoming_momenta, n_cuts,  final_state_particle_ids=(), loop_momenta_names=None, masses={}, powers=None, particle_ids={}):
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
-        # merge duplicate edges so the cut finder and LTD will work out-of-the-box
-        self.topo = self.topo.merge_duplicate_edges(loop_momenta_names)
-        self.topo.generate_momentum_flow(loop_momenta_names) # loop momenta will remain after the merge
-
-        self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momenta)
+        self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momenta, final_state_particle_ids, particle_ids)
         self.masses = masses
         self.topologies = [self.topo.split_graph([a[0] for a in c], incoming_momenta) for c in self.cuts]
 
@@ -1781,6 +1781,7 @@ class SquaredTopologyGenerator:
 
         self.loop_topologies = []
         self.cut_signatures = []
+        self.cut_symmetry_factors = []
         for sub_graphs, c in zip(self.topologies, self.cuts):
             # determine the signature of the cuts
             self.cut_signatures.append(
@@ -1798,6 +1799,14 @@ class SquaredTopologyGenerator:
                     mass_map=masses,
                     loop_momentum_map=loop_mom_map,
                     shift_map=shift_map))
+
+            # compute external state symmetry factor
+            cutkosky_particles = tuple(sorted(particle_ids[e] if e in particle_ids else 'NONE' for (e, _) in c))
+            sym_factor = 1.
+            for x in set(cutkosky_particles):
+                sym_factor *= math.factorial(cutkosky_particles.count(x))
+
+            self.cut_symmetry_factors.append(sym_factor)
 
             self.loop_topologies.append(loop_topos)
 
@@ -1817,9 +1826,11 @@ class SquaredTopologyGenerator:
                     }
                     for a, sig in zip(c, cut_sig)],
                 'subgraph_left': ts[0].to_flat_format(),
-                'subgraph_right': ts[1].to_flat_format()}
+                'subgraph_right': ts[1].to_flat_format(),
+                'symmetry_factor': sym
+                }
 
-                for c, cut_sig, ts in zip(self.cuts, self.cut_signatures, self.loop_topologies)
+                for c, cut_sig, ts, sym in zip(self.cuts, self.cut_signatures, self.loop_topologies, self.cut_symmetry_factors)
             ]
         }
 
@@ -1841,18 +1852,28 @@ if __name__ == "__main__":
 
     # Construct a cross section
     mercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
-                                        ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 3)
+                                        ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 3,
+                                        masses={'p1': 1, 'p2': 2, 'p3': 3, 'p4': 4, 'p5': 5})
     mercedes.export('mercedes_squared.yaml')
 
-    bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0)
+    bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0 , masses={'p1': 0.24, 'p2': 0.24})
     bubble.export('bubble_squared.yaml')
 
-    t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 0, loop_momenta_names=('p2', 'p4'))
+    t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 3,
+            masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})
     t1.export('t1_squared.yaml')
 
     bu = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 3, 2), ('p3', 4, 3),
                                         ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 3, 5), ('q2', 3, 6)], "BU", ['q1'], 2, loop_momenta_names=('p2', 'p4', 'p7'))
     bu.export('bu_squared.yaml')
 
-    insertion = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4), ('p5', 1, 4), ('q2', 4, 5)], "I", ['q1'], 0, loop_momenta_names=('p4', 'p3'), powers={'p3': 2})
+    insertion = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4), ('p5', 1, 4), ('q2', 4, 5)], "I", ['q1'], 3, 
+        masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})#, loop_momenta_names=('p4', 'p3'), powers={'p3': 2})
     insertion.export('insertion_squared.yaml')
+
+    # TODO: whether it's t and tbar should be determined from the cutkosky cut direction and not hardcoded in the topology
+    tth = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 10), ('p5', 10, 9), ('p6', 9, 8), ('p7', 8, 7),
+    ('p8', 1, 7), ('p9', 2, 8), ('p10', 3, 9), ('q2', 6, 7), ('q3', 4, 5), ('q4', 10, 11)], "TTH", ['q1', 'q2'], 0,
+    final_state_particle_ids=('t', 'tbar', 'H'), particle_ids={'p1': 't', 'p2': 't', 'p3': 't', 'p4': 'tbar', 'p5': 'tbar', 'p6': 'tbar', 'p7': 'tbar', 'p8': 't', 'p9': 'g', 
+        'p10': 'H'})
+    tth.export('tth_squared.yaml')
