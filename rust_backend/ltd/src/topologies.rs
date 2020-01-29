@@ -207,7 +207,9 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
     pub overall_lambda: T, // used to log the minimum
     pub numerator_momentum_cache: Vec<Complex<T>>,
-    pub propagators: HashMap<(usize, usize), Complex<T>>,
+    pub propagators: HashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
+    pub propagators_eval: Vec<Complex<T>>,
+    pub propagator_powers: Vec<usize>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
@@ -235,6 +237,8 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
             overall_lambda: T::zero(),
             numerator_momentum_cache: vec![],
             propagators: HashMap::new(),
+            propagators_eval: vec![Complex::zero(); num_propagators],
+            propagator_powers: vec![1; num_propagators],
         }
     }
 }
@@ -365,6 +369,8 @@ pub struct Topology {
     pub on_shell_flag: usize,
     pub external_kinematics: Vec<LorentzVector<f64>>,
     pub loop_lines: Vec<LoopLine>,
+    #[serde(default)]
+    pub propagator_id_to_ll_id: Vec<(usize, usize)>,
     pub ltd_cut_structure: Vec<Vec<i8>>,
     #[serde(default)]
     pub ltd_cut_options: Vec<Vec<Vec<Cut>>>, // cartesian product of cut structures

@@ -39,7 +39,7 @@ impl LoopLine {
         loop_momenta: &[LorentzVector<num::Complex<T>>],
         cut: &Cut,
         topo: &Topology,
-        cache: &LTDCache<T>,
+        cache: &mut LTDCache<T>,
     ) -> Result<num::Complex<T>, &'static str> {
         // only set the values when we use them
         let (kinematics_scale, threshold) = if topo.settings.general.numerical_threshold > 0. {
@@ -82,6 +82,7 @@ impl LoopLine {
             match cut {
                 Cut::PositiveCut(j) | Cut::NegativeCut(j) if i == *j => {
                     let r = cache.complex_cut_energies[p.id] * Into::<T>::into(2.);
+                    cache.propagators_eval[p.id] = r;
                     res *= r;
 
                     if topo.settings.general.debug > 3 {
@@ -104,6 +105,7 @@ impl LoopLine {
                         return Err("numerical instability");
                     }
 
+                    cache.propagators_eval[p.id] = r;
                     res *= r;
                 }
             }
@@ -128,10 +130,12 @@ impl Topology {
 
         // copy the signature to the propagators
         let mut prop_id = 0;
-        for l in &mut self.loop_lines {
-            for p in &mut l.propagators {
+        self.propagator_id_to_ll_id = vec![];
+        for (ll_index, l) in self.loop_lines.iter_mut().enumerate() {
+            for (p_index, p) in l.propagators.iter_mut().enumerate() {
                 p.signature = l.signature.clone();
                 p.id = prop_id;
+                self.propagator_id_to_ll_id.push((ll_index, p_index));
                 prop_id += 1;
             }
         }
@@ -2273,6 +2277,194 @@ impl Topology {
         }
     }
 
+    /// Evaluate a higher order cut by differentiating all non-cut propagators and the numerator.
+    /// The power of the cut propagators should be 0.
+    pub fn evaluate_higher_order_cut_2<T: FloatLike>(
+        &self,
+        cut_propagators: &[usize],
+        derivative_map: &mut [usize],   // in the cut basis
+        numerator_powers: &mut [usize], // in the cut basis
+        mat: &Vec<i8>,
+        index: usize,
+        cache: &mut LTDCache<T>,
+    ) -> Complex<T> {
+        if derivative_map[index] == 0 {
+            if index == derivative_map.len() {
+                let mut result = Complex::one();
+
+                // we are done, so evaluate the numerator and denominators
+                for (p_e, p_pow) in cache
+                    .propagators_eval
+                    .iter()
+                    .zip_eq(cache.propagator_powers.iter())
+                {
+                    result *= utils::powi(*p_e, *p_pow);
+                }
+                result = result.inv();
+
+                // evaluate the numerator
+                for (cut_prop, num) in cut_propagators.iter().zip_eq(numerator_powers.iter()) {
+                    result *= cache.complex_cut_energies[*cut_prop].powi(*num as i32);
+                }
+
+                return result;
+            } else {
+                // go to the next cut
+                return self.evaluate_higher_order_cut_2(
+                    cut_propagators,
+                    derivative_map,
+                    numerator_powers,
+                    mat,
+                    index + 1,
+                    cache,
+                );
+            }
+        }
+
+        let mut result = Complex::zero();
+
+        derivative_map[index] -= 1;
+        // Check if numerator is differentiable
+        if numerator_powers[index] > 0 {
+            numerator_powers[index] -= 1;
+            result += self.evaluate_higher_order_cut_2(
+                cut_propagators,
+                derivative_map,
+                numerator_powers,
+                mat,
+                index,
+                cache,
+            ) * Into::<T>::into(numerator_powers[index] as f64 + 1.);
+            numerator_powers[index] += 1;
+        }
+
+        // Take derivative of denominator
+        for prop_id in 0..cache.propagator_powers.len() {
+            let (ll_index, p_index) = self.propagator_id_to_ll_id[prop_id];
+
+            let signature_in_ll = &self.loop_lines[ll_index].signature;
+
+            // convert the signature to the cut basis
+            // TODO: cache
+            let mut shift = Complex::new(
+                Into::<T>::into(self.loop_lines[ll_index].propagators[p_index].q.t),
+                T::zero(),
+            );
+            let mut signature_in_cb = [0; MAX_LOOP];
+            for (sig, row) in signature_in_cb[..self.n_loops]
+                .iter_mut()
+                .zip_eq(mat.chunks_exact(self.n_loops))
+            {
+                for (col, sig_ll) in row.iter().zip_eq(signature_in_ll) {
+                    *sig += col * sig_ll;
+                }
+            }
+
+            // compute the shifts of the propagator in the cut basis
+            for (cp, scp) in cut_propagators.iter().zip(&signature_in_cb[..self.n_loops]) {
+                let (cp_ll_index, cp_prop_index) = self.propagator_id_to_ll_id[*cp];
+                shift -=
+                    Into::<T>::into(self.loop_lines[cp_ll_index].propagators[cp_prop_index].q.t)
+                        .multiply_sign(*scp);
+            }
+
+            let d_coeff = Into::<T>::into(cache.propagator_powers[prop_id] as f64)
+                * Into::<T>::into(-2. * signature_in_cb[index] as f64);
+            cache.propagator_powers[prop_id] += 1;
+
+            for (i, &sig) in signature_in_cb.iter().enumerate() {
+                if sig != 0 {
+                    if derivative_map[i] > 0 {
+                        // we need to keep track of the power of this variable for further differentiation
+                        numerator_powers[i] += 1;
+                        result += self.evaluate_higher_order_cut_2(
+                            cut_propagators,
+                            derivative_map,
+                            numerator_powers,
+                            mat,
+                            index,
+                            cache,
+                        ) * d_coeff;
+                        numerator_powers[i] -= 1;
+                    } else {
+                        // the variable does not need to be differentiated, so accumulate it in the shift
+                        shift += cache.complex_cut_energies[cut_propagators[i]].multiply_sign(sig);
+                    }
+                }
+            }
+
+            // evaluate the shift part
+            result += self.evaluate_higher_order_cut_2(
+                cut_propagators,
+                derivative_map,
+                numerator_powers,
+                mat,
+                index,
+                cache,
+            ) * shift
+                * d_coeff;
+
+            cache.propagator_powers[prop_id] -= 1;
+        }
+
+        derivative_map[index] += 1;
+        result
+    }
+
+    /// Evaluate a higher order cut. The first stage is this recursive function that
+    /// goes through the combinatorics of deriving the cut propagators.
+    /// The second recursive function is `evaluate_higher_order_cut_2`.
+    pub fn evaluate_higher_order_cut<T: FloatLike>(
+        &self,
+        cut_propagators: &[usize],
+        derivative_map: &mut [usize],
+        numerator_powers: &mut [usize],
+        mat: &Vec<i8>,
+        index: usize,
+        cache: &mut LTDCache<T>,
+    ) -> Complex<T> {
+        if index == derivative_map.len() {
+            return self.evaluate_higher_order_cut_2(
+                cut_propagators,
+                derivative_map,
+                numerator_powers,
+                mat,
+                index + 1,
+                cache,
+            );
+        }
+
+        // for every cut, we first take out the derivatives wrt the cut propagators
+        // as they transform slightly differently
+        let mut result = Complex::default();
+        let mut coeff = 1;
+        let mut norm = 1;
+        let n = derivative_map[index];
+        for i in (0..=n).rev() {
+            derivative_map[index] = i;
+
+            let energy = cache.propagators_eval[cut_propagators[index]];
+
+            result += self.evaluate_higher_order_cut(
+                cut_propagators,
+                derivative_map,
+                numerator_powers,
+                mat,
+                index + 1,
+                cache,
+            ) * Float::powi(-T::one(), (n - i) as i32)
+                * T::from_usize(coeff).unwrap()
+                / utils::powi(energy, 1 + 2 * n - i);
+
+            if i != 0 {
+                coeff *= i * (2 * n - i + 1) / (n - i + 1);
+                norm *= i;
+            }
+        }
+
+        result / T::from_usize(norm).unwrap()
+    }
+
     #[inline]
     pub fn evaluate_cut<T: FloatLike>(
         &self,
@@ -2283,16 +2475,53 @@ impl Topology {
     ) -> Result<Complex<T>, &'static str> {
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
 
-        let mut r = Complex::new(T::one(), T::zero());
-        for (i, (ll_cut, ll)) in cut.iter().zip_eq(self.loop_lines.iter()).enumerate() {
-            // get the loop line result from the cache if possible
-            r *= match ll_cut {
-                Cut::PositiveCut(j) => cache.complex_loop_line_eval[i][*j][0],
-                Cut::NegativeCut(j) => cache.complex_loop_line_eval[i][*j][1],
-                _ => ll.evaluate(&k_def, ll_cut, &self, cache)?,
-            };
+        // check if we need to take derivatives
+        let mut cut_propagators = [0; MAX_LOOP];
+        let mut derivative_map = [0; MAX_LOOP];
+        let mut numerator_powers = [0; MAX_LOOP]; // TODO: fill the numerator if it is not 0
+
+        let mut index = 0;
+        for (c, ll) in cut.iter().zip(&self.loop_lines) {
+            for p in &ll.propagators {
+                cache.propagator_powers[p.id] = p.power;
+            }
+
+            if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
+                derivative_map[index] = ll.propagators[*i].power - 1;
+                cache.propagator_powers[ll.propagators[*i].id] = 0; // do not consider these linear propagators in the recursion
+                cut_propagators[index] = ll.propagators[*i].id;
+                index += 1;
+            }
         }
-        r = r.inv(); // normal inverse may overflow but has better precision than finv, which overflows later
+
+        // TODO: group the numerator according to the above map
+
+        let r = if derivative_map.iter().all(|x| *x == 0) {
+            let mut r = Complex::new(T::one(), T::zero());
+            for (i, (ll_cut, ll)) in cut.iter().zip_eq(self.loop_lines.iter()).enumerate() {
+                // get the loop line result from the cache if possible
+                r *= match ll_cut {
+                    Cut::PositiveCut(j) => cache.complex_loop_line_eval[i][*j][0],
+                    Cut::NegativeCut(j) => cache.complex_loop_line_eval[i][*j][1],
+                    _ => ll.evaluate(&k_def, ll_cut, &self, cache)?,
+                };
+            }
+            r.inv() // normal inverse may overflow but has better precision than finv, which overflows later
+        } else {
+            // cache all propagator evaluations by evaluating the loop line
+            for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
+                ll.evaluate(&k_def, ll_cut, &self, cache)?;
+            }
+
+            self.evaluate_higher_order_cut(
+                &cut_propagators,
+                &mut derivative_map[..self.n_loops],
+                &mut numerator_powers[..self.n_loops],
+                mat,
+                0,
+                cache,
+            )
+        };
 
         if self.settings.general.debug > 1 {
             match self.n_loops {
