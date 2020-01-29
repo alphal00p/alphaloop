@@ -2340,6 +2340,11 @@ impl Topology {
 
         // Take derivative of denominator
         for prop_id in 0..cache.propagator_powers.len() {
+            // skip denominators that are effectively absent (such as cut propagators)
+            if cache.propagator_powers[prop_id] == 0 {
+                continue;
+            }
+
             let (ll_index, p_index) = self.propagator_id_to_ll_id[prop_id];
 
             let signature_in_ll = &self.loop_lines[ll_index].signature;
@@ -2437,8 +2442,8 @@ impl Topology {
         // for every cut, we first take out the derivatives wrt the cut propagators
         // as they transform slightly differently
         let mut result = Complex::default();
-        let mut coeff = 1;
-        let mut norm = 1;
+        let mut coeff = T::one();
+        let mut norm = T::one();
         let n = derivative_map[index];
         for i in (0..=n).rev() {
             derivative_map[index] = i;
@@ -2453,16 +2458,16 @@ impl Topology {
                 index + 1,
                 cache,
             ) * Float::powi(-T::one(), (n - i) as i32)
-                * T::from_usize(coeff).unwrap()
+                * coeff
                 / utils::powi(energy, 1 + 2 * n - i);
 
             if i != 0 {
-                coeff *= i * (2 * n - i + 1) / (n - i + 1);
-                norm *= i;
+                coeff *= T::from_usize(i * (2 * n - i + 1)).unwrap() /  T::from_usize(n - i + 1).unwrap();
+                norm *= T::from_usize(i).unwrap();
             }
         }
 
-        result / T::from_usize(norm).unwrap()
+        result / norm
     }
 
     #[inline]
