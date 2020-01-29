@@ -2288,37 +2288,37 @@ impl Topology {
         index: usize,
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
-        if derivative_map[index] == 0 {
-            if index == derivative_map.len() {
-                let mut result = Complex::one();
+        if index == derivative_map.len() {
+            let mut result = Complex::one();
 
-                // we are done, so evaluate the numerator and denominators
-                for (p_e, p_pow) in cache
-                    .propagators_eval
-                    .iter()
-                    .zip_eq(cache.propagator_powers.iter())
-                {
-                    result *= utils::powi(*p_e, *p_pow);
-                }
-                result = result.inv();
-
-                // evaluate the numerator
-                for (cut_prop, num) in cut_propagators.iter().zip_eq(numerator_powers.iter()) {
-                    result *= cache.complex_cut_energies[*cut_prop].powi(*num as i32);
-                }
-
-                return result;
-            } else {
-                // go to the next cut
-                return self.evaluate_higher_order_cut_2(
-                    cut_propagators,
-                    derivative_map,
-                    numerator_powers,
-                    mat,
-                    index + 1,
-                    cache,
-                );
+            // we are done, so evaluate the numerator and denominators
+            for (p_e, p_pow) in cache
+                .propagators_eval
+                .iter()
+                .zip_eq(cache.propagator_powers.iter())
+            {
+                result *= utils::powi(*p_e, *p_pow);
             }
+            result = result.inv();
+
+            // evaluate the numerator
+            for (cut_prop, num) in cut_propagators.iter().zip_eq(numerator_powers.iter()) {
+                result *= cache.complex_cut_energies[*cut_prop].powi(*num as i32);
+            }
+
+            return result;
+        }
+
+        if derivative_map[index] == 0 {
+            // go to the next cut
+            return self.evaluate_higher_order_cut_2(
+                cut_propagators,
+                derivative_map,
+                numerator_powers,
+                mat,
+                index + 1,
+                cache,
+            );
         }
 
         let mut result = Complex::zero();
@@ -2429,7 +2429,7 @@ impl Topology {
                 derivative_map,
                 numerator_powers,
                 mat,
-                index + 1,
+                0,
                 cache,
             );
         }
@@ -2514,7 +2514,7 @@ impl Topology {
             }
 
             self.evaluate_higher_order_cut(
-                &cut_propagators,
+                &cut_propagators[..self.n_loops],
                 &mut derivative_map[..self.n_loops],
                 &mut numerator_powers[..self.n_loops],
                 mat,
