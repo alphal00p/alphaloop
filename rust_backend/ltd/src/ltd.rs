@@ -83,7 +83,7 @@ impl LoopLine {
                 Cut::PositiveCut(j) | Cut::NegativeCut(j) if i == *j => {
                     let r = cache.complex_cut_energies[p.id] * Into::<T>::into(2.);
                     cache.propagators_eval[p.id] = r;
-                    res *= r;
+                    res *= utils::powi(r, p.power);
 
                     if topo.settings.general.debug > 3 {
                         println!("  | prop x {}={}", i, r);
@@ -106,7 +106,7 @@ impl LoopLine {
                     }
 
                     cache.propagators_eval[p.id] = r;
-                    res *= r;
+                    res *= utils::powi(r, p.power);
                 }
             }
         }
