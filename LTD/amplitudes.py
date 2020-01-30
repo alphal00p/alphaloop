@@ -812,8 +812,9 @@ if __name__ == "__main__":
     
     # Export amplitudes
     root_dir = ''
-    hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
-    print("Synchronised topologies.yaml")
+    if "full" in sys.argv[1]:
+        hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
+        print("Synchronised topologies.yaml")
     amplitudes_collection.export_to(os.path.join(root_dir, 'amplitudes.yaml'))
     print("Synchronised amplitudes.yaml")
     sys.exit()
@@ -894,7 +895,8 @@ if __name__ == "__main__":
 
     # Export amplitudes
     root_dir = ''
-    hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
-    print("Synchronised topologies.yaml")
+    if "full" in sys.argv[1]:
+        hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
+        print("Synchronised topologies.yaml")
     amplitudes_collection.export_to(os.path.join(root_dir, 'amplitudes.yaml'))
     print("Synchronised amplitudes.yaml")
