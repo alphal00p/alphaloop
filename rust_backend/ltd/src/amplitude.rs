@@ -237,6 +237,11 @@ impl Amplitude {
                         const_mom: LorentzVector::from_slice(&p),
                     });
                 }
+                // Create Coefficients
+                self.chain_to_coefficients().unwrap();
+                for diag in self.diagrams.iter() {
+                    println!("{}: {:?}", diag.name, diag.tensor_coefficients);
+                }
 
                 // Print vector elements
                 if settings.debug > 2 {
@@ -311,6 +316,121 @@ impl Amplitude {
             .unwrap()
             .compute_chain()
     }
+
+    pub fn chain_to_coefficients(&mut self) -> Result<(), &'static str> {
+        // Create the polarization vecotors
+        let vbar: ArrayVec<[Complex<f64>; 4]> = self.polarizations[1]
+            .iter()
+            .map(|x| Complex::new(x.re, x.im))
+            .collect();
+        let u: ArrayVec<[Complex<f64>; 4]> = self.polarizations[0]
+            .iter()
+            .map(|x| Complex::new(x.re, x.im))
+            .collect();
+
+        let e_mu = vec![
+            LorentzVector::from_args(
+                Complex::new(1.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+            ),
+            LorentzVector::from_args(
+                Complex::new(1.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+            ),
+            LorentzVector::from_args(
+                Complex::new(1.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+            ),
+            LorentzVector::from_args(
+                Complex::new(1.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+            ),
+        ];
+
+        // Evaluate the vectors with loop momentum 0
+        let mut vectors: ArrayVec<[LorentzVector<Complex<f64>>; 32]> = self
+            .vectors
+            .iter()
+            .map(|v| v.evaluate(&[LorentzVector::default()]))
+            .collect();
+        // Check that there are enough slots available in self.vector
+        // to allow an easy evaluation of the coefficients
+        let mut count = 0;
+        for v in self.vectors.iter() {
+            if v.loop_mom.len() > 0 {
+                count += 1;
+            }
+        }
+        assert!(
+            count
+                >= self
+                    .diagrams
+                    .iter()
+                    .map(|d| d.positions.len())
+                    .max()
+                    .unwrap()
+        );
+
+        // Go through all the diagrams to translate the the gamma_chain into a list of coefficients
+        for diag_and_cut in self.diagrams.iter_mut() {
+            // Global factor
+            let factor = Complex::new(diag_and_cut.factor_f64.re, diag_and_cut.factor_f64.im);
+            // Get chain info
+            let mut chain = diag_and_cut.chain.to_vec();
+            let position = diag_and_cut.positions.to_vec();
+            //Find all unique permutations coming form each elements
+            //of combinations_with_repetitions
+            diag_and_cut.tensor_coefficients = Vec::new();
+
+            // If 4 set the loop momentum to zero
+            for (coeff_n, coeff_mus) in (0..=4)
+                .combinations_with_replacement(position.len())
+                .enumerate()
+            {
+                diag_and_cut.tensor_coefficients.push(Complex::default());
+                // Sum all over all the contributions for this coefficient
+                for permuted_mus in coeff_mus.iter().permutations(coeff_mus.len()).unique() {
+                    // Change the values store in vectors to evaluate the right coefficient
+                    dbg!(&permuted_mus);
+                    let mut index = 1;
+                    for (&mu, &pos) in permuted_mus.iter().zip(position.iter()) {
+                        //Update chain
+                        chain[pos as usize] = index;
+                        index += 1;
+                        //Update Vector
+                        if *mu != 4 {
+                            vectors[chain[pos as usize] as usize] = self.vectors
+                                [chain[pos as usize] as usize]
+                                .evaluate(&[e_mu[*mu as usize]]);
+                        } else {
+                            vectors[chain[pos as usize] as usize] = self.vectors
+                                [chain[pos as usize] as usize]
+                                .evaluate(&[LorentzVector::default()]);
+                        }
+                    }
+                    diag_and_cut.tensor_coefficients[coeff_n] += factor
+                        * GammaChain::new(
+                            vbar.as_slice(),
+                            u.as_slice(),
+                            &chain,
+                            vectors.as_slice(),
+                        )
+                        .unwrap()
+                        .compute_chain()?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn compute_chain_amplitude<T: FloatLike>(
         &self,
         propagators: &HashMap<(usize, usize), Complex<T>>,
@@ -612,7 +732,7 @@ impl Amplitude {
     pub fn integrated_ct(&mut self) {
         match self.amp_type.as_ref() {
             "qqbarphotonsNLO" => {
-                //Get the incormation about the slashed vectors
+                //Get the information about the slashed vectors
                 let loop_mom = vec![LorentzVector::default()];
                 let vectors: ArrayVec<[LorentzVector<Complex<f64>>; 32]> =
                     self.vectors.iter().map(|v| v.evaluate(&loop_mom)).collect();
