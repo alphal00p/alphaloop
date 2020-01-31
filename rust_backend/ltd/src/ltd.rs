@@ -81,9 +81,10 @@ impl LoopLine {
         for (i, p) in self.propagators.iter().enumerate() {
             match cut {
                 Cut::PositiveCut(j) | Cut::NegativeCut(j) if i == *j => {
-                    let r = cache.complex_cut_energies[p.id] * Into::<T>::into(2.);
+                    let mut r = cache.complex_cut_energies[p.id] * Into::<T>::into(2.);
                     cache.propagators_eval[p.id] = r;
-                    res *= utils::powi(r, p.power);
+                    r = utils::powi(r, p.power);
+                    res *= r;
 
                     if topo.settings.general.debug > 3 {
                         println!("  | prop x {}={}", i, r);
@@ -91,8 +92,10 @@ impl LoopLine {
                 }
                 _ => {
                     // multiply dual propagator
-                    let r = utils::powi(e + Into::<T>::into(p.q.t), 2)
+                    let mut r = utils::powi(e + Into::<T>::into(p.q.t), 2)
                         - cache.complex_prop_spatial[p.id];
+                    cache.propagators_eval[p.id] = r;
+                    r = utils::powi(r, p.power);
 
                     if topo.settings.general.debug > 3 {
                         println!("  | prop   {}={}", i, r);
@@ -105,8 +108,7 @@ impl LoopLine {
                         return Err("numerical instability");
                     }
 
-                    cache.propagators_eval[p.id] = r;
-                    res *= utils::powi(r, p.power);
+                    res *= r;
                 }
             }
         }
