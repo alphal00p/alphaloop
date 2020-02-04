@@ -207,6 +207,7 @@ hyperparameters = HyperParameters({
     },
 
     'CrossSection'   :   {
+        'picobarns'                 :   True,
         'do_rescaling'              :   True,
         'rescaling_function_spread' :   10.,
     },

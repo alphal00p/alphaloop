@@ -452,6 +452,7 @@ impl Default for IntegratorSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct CrossSectionSettings {
+    pub picobarns: bool,
     pub do_rescaling: bool,
     pub rescaling_function_spread: f64,
 }

@@ -8,11 +8,11 @@ import argparse
 import yaml
 
 class Integrand(vegas.BatchIntegrand):
-    def __init__(self, integrand, n_loops, external_momentum, phase, nproc):
+    def __init__(self, integrand, n_loops, incoming_momenta, phase, nproc):
         self.integrand = integrand
         self.n_loops = n_loops
-        self.external_momentum = external_momentum
-        self.e_cm_squared = external_momentum[0]**2 - sum(x*x for x in external_momentum[1:])
+        self.external_momenta = incoming_momenta
+        self.e_cm_squared = sum(e[0] for e in incoming_momenta)**2 - sum(x*x for x in (sum(e[i] for e in incoming_momenta) for i in range(1, 4)))
         self.q = []
         self.phase = 0 if phase == "real" else 1
         self.nproc = multiprocessing.cpu_count() if nproc is None else nproc
@@ -30,7 +30,7 @@ class Integrand(vegas.BatchIntegrand):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         loop_momenta = [np.zeros(3, np.double) for _ in range(self.n_loops)]
-        ext = [np.array(self.external_momentum), np.array(self.external_momentum)]
+        ext = [np.array(e) for e in self.external_momenta]*2
         while True:
             i, x = q_in.get()
             if i is None:
@@ -85,8 +85,8 @@ def main():
                         help='Hyperparameters file')
     parser.add_argument('--cross_section', default="LTD/bu_squared.yaml", type=str,
                         help='Cross section file')
-    parser.add_argument('-q', default=[1, 0, 0, 0], type=list,
-                        help='External momentum')
+    parser.add_argument('-q', default=[[1, 0, 0, 0]], type=str,
+                        help='Incoming momenta')
     parser.add_argument('--survey_iter', '--si', default=5, type=int,
                         help='number of survey iterations')
     parser.add_argument('--survey_neval', '--sn', default=int(1e6), type=int,
@@ -107,7 +107,7 @@ def main():
 
     integ = vegas.Integrator(3 * args.loops * [[0, 1]])
     # adapt
-    fparallel = Integrand(l1, args.loops, args.q, args.phase, args.c)
+    fparallel = Integrand(l1, args.loops, eval(args.q), args.phase, args.c)
     result = integ(fparallel, nitn=args.survey_iter, neval=args.survey_neval)
     print('Done adapting: %s    Q = %.2f' % (result, result.Q))
     # final results
