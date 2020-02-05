@@ -1887,11 +1887,12 @@ if __name__ == "__main__":
         masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100, 'p6': 100, 'p7': 100}, loop_momenta_names=('p1', 'p7'),)
     two_to_two.export('two_to_two_squared.yaml')
 
-
-
-    twoI_twoF = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 2), ('q3', 3, 103), ('q4', 4, 104), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),], "twoI_twoF", ['q1', 'q2'], 2,
+    twoI_twoF = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 2), ('q3', 4, 104), ('q4', 3, 103), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),], "twoI_twoF", ['q1', 'q2'], 2,
         masses={'p1': 0., 'p2': 1., 'p3': 0., 'p4': 1.}, loop_momenta_names=('p1',))
     twoI_twoF.export('twoI_twoF_squared.yaml')
 
-
-
+    two_to_three = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 2), ('q3', 6, 103), ('q4', 5, 104), ('p1', 2, 3), ('p2', 3, 4),
+        ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1), ('p7', 1, 2)], "two_to_three", ['q1', 'q2'], 3, 
+        masses={'p1': 1.0, 'p2': 1.0, 'p3': 1.0, 'p4': 1.0, 'p6': 1.0},
+        particle_ids={'p2': 1, 'p3': 2, 'p6': 3})
+    two_to_three.export('two_to_three_squared.yaml')
