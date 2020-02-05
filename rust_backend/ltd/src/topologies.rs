@@ -519,142 +519,24 @@ impl SquaredTopology {
         incoming_energy: T,
         debug_level: usize,
     ) -> Option<[(T, T); 2]> {
-        // the shape of the scaling resembles a parabola. first, we determine the maximum,
-        // so that we can do Newton's method on both sides and find two solutions.
-        // if the function at the maximum is smaller than 0, there are no solutions.
-        // if the function at the maximum is 0, there is one solution.
-
-        // since the derivative could be discontinuous, and Newton's method does not converge
-        // if we do not pick a good initial value (only for the maximum finding), we find the
-        // maximum with a bisection
-        // note that at t=0 we may have discontinuities in cases without mass and shift
-
-        // get two scales for the width of the parabola
-        let mut max_shift = T::zero();
-        let mut max_mom = T::zero();
+        // determine an overestimate of the t that solves the energy constraint
+        // then -t and t should give two different solutions or do not converge
+        let mut t_start = T::zero();
+        let mut sum_k = T::zero();
         for cut in &cutkosky_cuts.cuts {
-            let k =
-                        SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta).spatial_distance();
+            let k = SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
             let shift =
-                SquaredTopology::evaluate_single_signature(&cut.signature.1, external_momenta)
-                    .spatial_distance();
-
-            if shift > max_shift {
-                max_shift = shift;
-            }
-
-            if k > max_mom {
-                max_mom = k;
-            }
+                SquaredTopology::evaluate_single_signature(&cut.signature.1, external_momenta);
+            let k_norm_sq = k.spatial_squared();
+            t_start += Float::abs(k.spatial_dot(&shift)) / k_norm_sq;
+            sum_k += k_norm_sq.sqrt();
         }
 
-        // select the bounds such that we never sample 0
-        let mut t_bounds = [
-            -max_shift - Into::<T>::into(1.),
-            max_shift + Into::<T>::into(1.00001),
-        ];
-        for (t_b, &sign) in &mut t_bounds.iter_mut().zip(&[1, -1]) {
-            for it in 0..20 {
-                let mut df = T::zero();
-                for cut in &cutkosky_cuts.cuts {
-                    let k =
-                        SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
-                    let shift = SquaredTopology::evaluate_single_signature(
-                        &cut.signature.1,
-                        external_momenta,
-                    );
-                    let energy = ((k * *t_b + shift).spatial_squared()
-                        + Into::<T>::into(cut.m_squared))
-                    .sqrt();
-                    df -= (*t_b * k.spatial_squared() + k.spatial_dot(&shift)) / energy;
-                }
-
-                if debug_level > 4 {
-                    println!("  | bound {}: t={}, df={}", sign, *t_b, df);
-                }
-
-                if df < T::zero() && sign < 0 || df > T::zero() && sign > 0 {
-                    break;
-                }
-                if it == 19 {
-                    panic!(
-                        "Could not find good bisection bound at side {}: df={}, t={} for k={:?}",
-                        sign, df, *t_b, loop_momenta
-                    );
-                }
-
-                *t_b *= Into::<T>::into(2.0); // increase the search width
-            }
-        }
-
-        if debug_level > 4 {
-            println!("  | bounds = {:?}", t_bounds);
-        }
-
-        // perform the bisection
-        let mut t_max = Into::<T>::into(1e-14);
-        for it in 0..40 {
-            t_max = (t_bounds[0] + t_bounds[1]) / Into::<T>::into(2.);
-
-            let mut f = incoming_energy;
-            let mut df = T::zero();
-            for cut in &cutkosky_cuts.cuts {
-                let k = SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
-                let shift =
-                    SquaredTopology::evaluate_single_signature(&cut.signature.1, external_momenta);
-                let energy =
-                    ((k * t_max + shift).spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
-                f -= energy;
-                df -= (t_max * k.spatial_squared() + k.spatial_dot(&shift)) / energy;
-            }
-
-            if debug_level > 4 {
-                println!("  | t_max finder: f={}, df={}, t_max={}", f, df, t_max);
-            }
-
-            if Float::abs(df) < Into::<T>::into(1e-3) * max_mom || t_bounds[1] - t_bounds[0] < Into::<T>::into(1e-6) * max_mom {
-                if f < T::zero() {
-                    if debug_level > 2 {
-                        println!("   | t_max={}", t_max);
-                        println!("   | f={} => no solution", f);
-                    }
-
-                    // there are not solutions
-                    return None;
-                }
-
-                if f.is_zero() {
-                    // there is one solution (should not happen in practice)
-                    panic!("Exactly one solution encountered");
-                }
-
-                if debug_level > 2 {
-                    println!("  | t_max={}", t_max);
-                    println!("  | f_max={}", f);
-                }
-
-                break;
-            }
-
-            if df < T::zero() {
-                t_bounds[1] = t_max;
-            } else {
-                t_bounds[0] = t_max;
-            }
-
-            if it == 39 {
-                panic!(
-                    "Could not find maximum after {} iterations. f={}, df={}, t_max={} for k={:?}",
-                    it, f, df, t_max, loop_momenta
-                );
-            }
-        }
+        t_start += incoming_energy / sum_k;
 
         // find the two solutions
         let mut solutions = [(T::zero(), T::zero()); 2];
-        for &(i, dir) in &[(0, -1), (1, 1)] {
-            // moving in the direction
-            let mut t = t_max + incoming_energy.multiply_sign(dir) * Into::<T>::into(3.0);
+        for (i, &mut mut t) in [-t_start, t_start].iter_mut().enumerate() {
             for it in 0..20 {
                 let mut f = incoming_energy;
                 let mut df = T::zero();
@@ -677,13 +559,6 @@ impl SquaredTopology {
                 }
 
                 if Float::abs(f) < Into::<T>::into(1e-14) * incoming_energy {
-                    if dir < 0 && t > t_max || dir > 0 && t < t_max {
-                        panic!(
-                            "Found solution {} on wrong side of {} {:?},{:?}",
-                            t, t_max, loop_momenta, external_momenta
-                        );
-                    }
-
                     if debug_level > 2 {
                         println!("  | t{} = {}", i, t);
                     }
@@ -693,14 +568,24 @@ impl SquaredTopology {
                 }
 
                 if it == 19 {
-                    panic!(
-                        "Could not find scaling for {:?},{:?}: f={}, df={}, t={}",
-                        loop_momenta, external_momenta, f, df, t
-                    );
+                    if debug_level > 2 {
+                        println!(
+                            "  | no convergence after {} iterations: f={}, df={}, t={}",
+                            i, f, df, t
+                        );
+                    }
+                    return None;
                 }
 
                 t = t - f / df;
             }
+        }
+
+        if Float::abs(solutions[0].0 - solutions[1].0) < Into::<T>::into(1e-12) * incoming_energy {
+            panic!(
+                "Found the same scaling solution twice: {} for t=-1 and t_start={}",
+                solutions[0].0, t_start
+            );
         }
 
         Some(solutions)
