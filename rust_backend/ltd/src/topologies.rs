@@ -583,8 +583,8 @@ impl SquaredTopology {
 
         if Float::abs(solutions[0].0 - solutions[1].0) < Into::<T>::into(1e-12) * incoming_energy {
             panic!(
-                "Found the same scaling solution twice: {} for t=-1 and t_start={}",
-                solutions[0].0, t_start
+                "Found the same scaling solution twice: {} for t={} and t={} for k={:?}, ext={:?}",
+                solutions[0].0, -t_start, t_start, loop_momenta, external_momenta
             );
         }
 
