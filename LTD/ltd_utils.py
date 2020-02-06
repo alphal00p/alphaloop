@@ -1853,10 +1853,19 @@ if __name__ == "__main__":
     #    [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)
 
     # Construct a cross section
+    # result is -2 Zeta[3] 3 Pi/(16 Pi^2)^3
     mercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
                                         ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 2,
+                                        loop_momenta_names=('p1', 'p2', 'p3'),
                                         particle_ids={'p%s' % i: i for i in range(9)})
     mercedes.export('mercedes_squared.yaml')
+
+    # result is -5 Zeta[5] 4 Pi/(16 Pi^2)^4
+    doublemercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 7), ('p3', 7, 3), ('p4', 3, 6),
+                                        ('p5', 6, 5), ('p6', 5, 1), ('p7', 2, 4), ('p8', 3, 4), ('p9', 4, 5), ('p10', 7, 4), ('q2', 6, 8)], "DM", ['q1'], 2,
+                                        loop_momenta_names=('p1', 'p2', 'p3', 'p4'),
+                                        particle_ids={'p%s' % i: i for i in range(11)})
+    doublemercedes.export('doublemercedes_squared.yaml')
 
     bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0 , masses={'p1': 0.24, 'p2': 0.24})
     bubble.export('bubble_squared.yaml')
