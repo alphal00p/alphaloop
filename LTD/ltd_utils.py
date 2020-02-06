@@ -1854,19 +1854,20 @@ if __name__ == "__main__":
 
     # Construct a cross section
     mercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
-                                        ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 3,
-                                        masses={'p1': 1, 'p2': 2, 'p3': 3, 'p4': 4, 'p5': 5})
+                                        ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 2,
+                                        particle_ids={'p%s' % i: i for i in range(9)})
     mercedes.export('mercedes_squared.yaml')
 
     bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0 , masses={'p1': 0.24, 'p2': 0.24})
     bubble.export('bubble_squared.yaml')
 
-    t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 3,
-            masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})
+    t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2, particle_ids={'p%s' % i: i for i in range(9)})
+            #masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})
     t1.export('t1_squared.yaml')
 
     bu = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 3, 2), ('p3', 4, 3),
-                                        ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 3, 5), ('q2', 3, 6)], "BU", ['q1'], 2, loop_momenta_names=('p2', 'p4', 'p7'))
+                                        ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 3, 5), ('q2', 3, 6)], "BU", ['q1'], 2, loop_momenta_names=('p2', 'p4', 'p7'),
+                                        particle_ids={'p%s' % i: i for i in range(9)})
     bu.export('bu_squared.yaml')
 
     insertion = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4), ('p5', 1, 4), ('q2', 4, 5)], "I", ['q1'], 3,
