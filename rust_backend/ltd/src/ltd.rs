@@ -3348,8 +3348,8 @@ impl LTDNumerator {
                     .zip_eq(shifts[..self.n_loops].iter_mut())
                 {
                     *shift -= Into::<T>::into(ll.propagators[*j].q.t * mij as f64);
-                    index += 1;
                 }
+                index += 1;
             }
         }
         // Initialize the reduced_coeffficeints_cb with the factors coming from evaluating
