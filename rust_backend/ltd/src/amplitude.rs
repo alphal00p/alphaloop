@@ -5,7 +5,7 @@ use num::Complex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use topologies::{Cut, LTDCache, Topology};
+use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
 use vector::{Field, LorentzVector};
 use FloatLike;
@@ -79,7 +79,7 @@ pub struct ComplexDef<T> {
 
 #[derive(Default, Debug, Clone, Deserialize)]
 pub struct DiagramFullRust {
-    name: String,
+    pub name: String,
     denominators: Vec<(usize, usize)>,
     pows: Vec<usize>,
     chain: Vec<i8>,
@@ -91,6 +91,8 @@ pub struct DiagramFullRust {
     tensor_coefficients_split: Vec<[f64; 2]>,
     #[serde(skip_deserializing)]
     tensor_coefficients: Vec<Complex<f64>>,
+    #[serde(skip_deserializing)]
+    pub numerator: LTDNumerator,
 }
 
 #[derive(Default, Debug, Clone, Deserialize)]
@@ -239,8 +241,8 @@ impl Amplitude {
                 }
                 // Create Coefficients
                 self.chain_to_coefficients().unwrap();
-                for diag in self.diagrams.iter() {
-                    println!("{}: {:?}", diag.name, diag.tensor_coefficients);
+                for diag in self.diagrams.iter_mut() {
+                    diag.numerator = LTDNumerator::new(self.n_loops, &diag.tensor_coefficients);
                 }
 
                 // Print vector elements
@@ -254,6 +256,9 @@ impl Amplitude {
             }
             "DiHiggsTopologyLO" => {
                 self.int_ct = vec![Complex::new(0.0, 0.0)];
+                for diag in self.diagrams.iter_mut() {
+                    diag.numerator = LTDNumerator::new(self.n_loops, &diag.tensor_coefficients);
+                }
             }
             _ => panic!("Unknown amplitude type: {}", self.amp_type),
         };
@@ -336,22 +341,22 @@ impl Amplitude {
                 Complex::new(0.0, 0.0),
             ),
             LorentzVector::from_args(
-                Complex::new(1.0, 0.0),
                 Complex::new(0.0, 0.0),
+                Complex::new(1.0, 0.0),
                 Complex::new(0.0, 0.0),
                 Complex::new(0.0, 0.0),
             ),
             LorentzVector::from_args(
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
                 Complex::new(1.0, 0.0),
-                Complex::new(0.0, 0.0),
-                Complex::new(0.0, 0.0),
                 Complex::new(0.0, 0.0),
             ),
             LorentzVector::from_args(
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
+                Complex::new(0.0, 0.0),
                 Complex::new(1.0, 0.0),
-                Complex::new(0.0, 0.0),
-                Complex::new(0.0, 0.0),
-                Complex::new(0.0, 0.0),
             ),
         ];
 
@@ -384,7 +389,6 @@ impl Amplitude {
             // Global factor
             let factor = Complex::new(diag_and_cut.factor_f64.re, diag_and_cut.factor_f64.im);
             // Get chain info
-            let mut chain = diag_and_cut.chain.to_vec();
             let position = diag_and_cut.positions.to_vec();
             //Find all unique permutations coming form each elements
             //of combinations_with_repetitions
@@ -399,22 +403,26 @@ impl Amplitude {
                 // Sum all over all the contributions for this coefficient
                 for permuted_mus in coeff_mus.iter().permutations(coeff_mus.len()).unique() {
                     // Change the values store in vectors to evaluate the right coefficient
-                    dbg!(&permuted_mus);
-                    let mut index = 1;
-                    for (&mu, &pos) in permuted_mus.iter().zip(position.iter()) {
-                        //Update chain
-                        chain[pos as usize] = index;
-                        index += 1;
+                    let mut index = 0;
+                    let mut chain = diag_and_cut.chain.to_vec();
+                    for (&mu, &pos) in permuted_mus.iter().zip_eq(position.iter()) {
                         //Update Vector
-                        if *mu != 4 {
-                            vectors[chain[pos as usize] as usize] = self.vectors
-                                [chain[pos as usize] as usize]
-                                .evaluate(&[e_mu[*mu as usize]]);
+                        let old_pos = chain[pos as usize] as usize - 1;
+                        vectors[index] = if *mu != 0 {
+                            match self.vectors[old_pos].loop_mom[0] {
+                                -1 => -e_mu[*mu - 1],
+                                1 => e_mu[*mu - 1],
+                                _ => panic!(
+                                    "Unknown option while changing from chain to coefficients"
+                                ),
+                            }
+                        //self.vectors[old_pos].evaluate(&[e_mu[*mu - 1]])
                         } else {
-                            vectors[chain[pos as usize] as usize] = self.vectors
-                                [chain[pos as usize] as usize]
-                                .evaluate(&[LorentzVector::default()]);
-                        }
+                            self.vectors[old_pos].evaluate(&[LorentzVector::default()])
+                        };
+                        //Update chain
+                        index += 1;
+                        chain[pos as usize] = index as i8;
                     }
                     diag_and_cut.tensor_coefficients[coeff_n] += factor
                         * GammaChain::new(
@@ -506,6 +514,7 @@ impl Amplitude {
                     true => -diag_num * utils::finv(diag_den),
                     false => diag_num * utils::finv(diag_den),
                 };
+                //println!("{} = {}", diag_and_cut.name, res - res0);
                 if settings.debug > 2 {
                     println!(
                         "  |cut[{:?}]: {} \t=> {:e}",
@@ -521,10 +530,12 @@ impl Amplitude {
 
     pub fn compute_coefficient_amplitude<T: FloatLike>(
         &self,
+        topo: &Topology,
+        loop_momenta: &mut [LorentzVector<Complex<T>>],
         cut_2energy: Complex<T>,
         cut_ll_id: Vec<(usize, usize)>,
-        settings: &GeneralSettings,
-        e_cm_sq: T,
+        cut: &Vec<Cut>,
+        mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
     ) -> Result<Complex<T>, &'static str> {
         let mut res: Complex<T> = Complex::default();
@@ -532,49 +543,55 @@ impl Amplitude {
         // Select which set of diagrams to consider
         // sets1: with UV approximation for all the diagrams
         // sets0: regular amplitude
-        let diaglist = if false
-            && cut_2energy.norm() > e_cm_sq * Into::<T>::into(settings.mu_uv_sq_re_im[0])
+        let diaglist = if cut_2energy.norm()
+            > Into::<T>::into(topo.e_cm_squared * topo.settings.general.mu_uv_sq_re_im[0])
         {
             self.sets[1].clone()
         } else {
             self.sets[0].clone()
         };
-        if settings.debug >= 2 {
+        if topo.settings.general.debug >= 2 {
             println!("Set of diagrams: {:?}", diaglist);
         }
-
         for diag_and_cut in self.diagrams.iter() {
-            if cut_ll_id
-                .iter()
-                .all(|cut_id| diag_and_cut.denominators.iter().any(|v| *v == *cut_id))
-                & diaglist.iter().any(|v| v == &diag_and_cut.name)
-            {
+            //Filter to get only diagrams that are cut
+            if diaglist.iter().any(|v| v == &diag_and_cut.name) {
                 let res0 = res;
-                //Compute denominator
-                let mut diag_den = Complex::new(T::one(), T::zero());
-                for cut in diag_and_cut.denominators.iter() {
-                    diag_den *= cache.propagators[cut];
+                //Whole evaluation is taken care by Topology::evaluate_cut once the correct
+                //powers for the propagators are set and the corresponding numerator is selected
+                for prop_pow in cache.propagator_powers.iter_mut() {
+                    *prop_pow = 0;
                 }
-                //Compute numerator
-                let factor = Complex::new(
-                    T::from_f64(diag_and_cut.factor_f64.re).unwrap(),
-                    T::from_f64(diag_and_cut.factor_f64.im).unwrap(),
-                );
-                let diag_num =
-                    factor * self.evaluate_numerator(&diag_and_cut.tensor_coefficients, cache);
-                // TODO: allow taking derivatives with this new numerator structure
-                let cut_id = cut_ll_id[0];
-                assert!(diag_and_cut.pows.iter().all(|n| *n == 1));
-
-                //println!("{} Numerator = {}", diag_and_cut.name, diag_num);
+                for (ll_id, &pow) in diag_and_cut
+                    .denominators
+                    .iter()
+                    .zip_eq(diag_and_cut.pows.iter())
+                {
+                    cache.propagator_powers[topo.loop_lines[ll_id.0].propagators[ll_id.1].id] = pow;
+                }
+                //Compute diagram on cut
                 res += match diag_and_cut.ct {
-                    true => -diag_num * utils::finv(diag_den),
-                    false => diag_num * utils::finv(diag_den),
+                    true => -topo.evaluate_cut(
+                        loop_momenta,
+                        &diag_and_cut.numerator,
+                        cut,
+                        mat,
+                        cache,
+                        false,
+                    )?,
+                    false => topo.evaluate_cut(
+                        loop_momenta,
+                        &diag_and_cut.numerator,
+                        cut,
+                        mat,
+                        cache,
+                        false,
+                    )?,
                 };
-                if settings.debug >= 2 {
+                if topo.settings.general.debug >= 2 {
                     println!(
                         "  |cut[{:?}]: {} \t=> {:e}",
-                        cut_id,
+                        cut_ll_id[0],
                         diag_and_cut.name,
                         res - res0
                     );
@@ -716,17 +733,26 @@ impl Amplitude {
     }
     pub fn evaluate_with_coefficients<T: FloatLike>(
         &self,
-        loop_momenta: &[LorentzVector<Complex<T>>],
+        topo: &Topology,
+        loop_momenta: &mut [LorentzVector<Complex<T>>],
         cut_2energy: Complex<T>,
         cut_ll_id: Vec<(usize, usize)>,
-        e_cm_sq: T,
-        settings: &GeneralSettings,
+        cut: &Vec<Cut>,
+        mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
     ) -> Result<Complex<T>, &'static str> {
         // Update tensor loop dependent part
         self.update_numerator_momentum(loop_momenta, cache);
 
-        self.compute_coefficient_amplitude(cut_2energy, cut_ll_id, settings, e_cm_sq, cache)
+        self.compute_coefficient_amplitude(
+            topo,
+            loop_momenta,
+            cut_2energy,
+            cut_ll_id,
+            cut,
+            mat,
+            cache,
+        )
     }
     //In debug mode the integrated counterterms can be seen
     pub fn integrated_ct(&mut self) {
@@ -912,62 +938,56 @@ impl Topology {
                 _ => continue,
             };
         }
-
         // Evaluate Amplitude
         match self.amplitude.amp_type.as_ref() {
             "qqbarphotonsNLO" => {
-                //Rotate back PS for numerator
-                let rot_matrix = self.rotation_matrix;
-
-                let mut l = k_def[0];
-                let old_x = l.x;
-                let old_y = l.y;
-                let old_z = l.z;
-                l.x = old_x * T::from_f64(rot_matrix[0][0]).unwrap()
-                    + old_y * T::from_f64(rot_matrix[1][0]).unwrap()
-                    + old_z * T::from_f64(rot_matrix[2][0]).unwrap();
-                l.y = old_x * T::from_f64(rot_matrix[0][1]).unwrap()
-                    + old_y * T::from_f64(rot_matrix[1][1]).unwrap()
-                    + old_z * T::from_f64(rot_matrix[2][1]).unwrap();
-                l.z = old_x * T::from_f64(rot_matrix[0][2]).unwrap()
-                    + old_y * T::from_f64(rot_matrix[1][2]).unwrap()
-                    + old_z * T::from_f64(rot_matrix[2][2]).unwrap();
-                let l_def = vec![l];
-                //Evaluate Amplitude
-                self.amplitude.evaluate(
-                    &cache.propagators,
-                    &l_def,
-                    cut_2energy,
-                    cut_ll_id,
-                    Into::<T>::into(self.e_cm_squared),
-                    &self.settings.general,
-                )
+                if true {
+                    self.amplitude.evaluate_with_coefficients(
+                        &self,
+                        k_def,
+                        cut_2energy,
+                        cut_ll_id,
+                        cut,
+                        mat,
+                        cache,
+                    )
+                } else {
+                    //Rotate back PS for numerator
+                    let rot_matrix = self.rotation_matrix;
+                    let mut l = k_def[0];
+                    let old_x = l.x;
+                    let old_y = l.y;
+                    let old_z = l.z;
+                    l.x = old_x * T::from_f64(rot_matrix[0][0]).unwrap()
+                        + old_y * T::from_f64(rot_matrix[1][0]).unwrap()
+                        + old_z * T::from_f64(rot_matrix[2][0]).unwrap();
+                    l.y = old_x * T::from_f64(rot_matrix[0][1]).unwrap()
+                        + old_y * T::from_f64(rot_matrix[1][1]).unwrap()
+                        + old_z * T::from_f64(rot_matrix[2][1]).unwrap();
+                    l.z = old_x * T::from_f64(rot_matrix[0][2]).unwrap()
+                        + old_y * T::from_f64(rot_matrix[1][2]).unwrap()
+                        + old_z * T::from_f64(rot_matrix[2][2]).unwrap();
+                    let l_def = vec![l];
+                    //Evaluate Amplitude
+                    self.amplitude.evaluate(
+                        &cache.propagators,
+                        &l_def,
+                        cut_2energy,
+                        cut_ll_id,
+                        Into::<T>::into(self.e_cm_squared),
+                        &self.settings.general,
+                    )
+                }
             }
             "DiHiggsTopologyLO" => {
-                //Rotate back PS for numerator
-                let rot_matrix = self.rotation_matrix;
-
-                let mut l = k_def[0];
-                let old_x = l.x;
-                let old_y = l.y;
-                let old_z = l.z;
-                l.x = old_x * T::from_f64(rot_matrix[0][0]).unwrap()
-                    + old_y * T::from_f64(rot_matrix[1][0]).unwrap()
-                    + old_z * T::from_f64(rot_matrix[2][0]).unwrap();
-                l.y = old_x * T::from_f64(rot_matrix[0][1]).unwrap()
-                    + old_y * T::from_f64(rot_matrix[1][1]).unwrap()
-                    + old_z * T::from_f64(rot_matrix[2][1]).unwrap();
-                l.z = old_x * T::from_f64(rot_matrix[0][2]).unwrap()
-                    + old_y * T::from_f64(rot_matrix[1][2]).unwrap()
-                    + old_z * T::from_f64(rot_matrix[2][2]).unwrap();
-                let l_def = vec![l];
                 //Evaluate Amplitude
                 self.amplitude.evaluate_with_coefficients(
-                    &l_def,
+                    &self,
+                    k_def,
                     cut_2energy,
                     cut_ll_id,
-                    Into::<T>::into(self.e_cm_squared),
-                    &self.settings.general,
+                    cut,
+                    mat,
                     cache,
                 )
             }
