@@ -9,7 +9,10 @@ use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
 use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
-use topologies::{CacheSelector, Cut, CutList, LTDCache, LoopLine, Surface, SurfaceType, Topology};
+use std::collections::HashMap;
+use topologies::{
+    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, Surface, SurfaceType, Topology,
+};
 use utils::Signum;
 use vector::LorentzVector;
 use {float, Numerator};
@@ -122,6 +125,9 @@ impl Topology {
         if self.n_loops > MAX_LOOP {
             panic!("Please increase MAX_LOOP to {}", self.n_loops);
         }
+        // TODO: read from some the yaml file the complex coefficient and call directly
+        //       LTDNumerator::new(self.n_loops, coefficients);
+        self.numerator = LTDNumerator::default(self.n_loops);
 
         // set the identity rotation matrix
         self.rotation_matrix = [
@@ -2464,11 +2470,12 @@ impl Topology {
                 / utils::powi(energy, 1 + 2 * n - i);
 
             if i != 0 {
-                coeff *= T::from_usize(i * (2 * n - i + 1)).unwrap() /  T::from_usize(n - i + 1).unwrap();
+                coeff *=
+                    T::from_usize(i * (2 * n - i + 1)).unwrap() / T::from_usize(n - i + 1).unwrap();
                 norm *= T::from_usize(i).unwrap();
             }
         }
-
+        derivative_map[index] = n;
         result / norm
     }
 
@@ -2476,58 +2483,108 @@ impl Topology {
     pub fn evaluate_cut<T: FloatLike>(
         &self,
         k_def: &mut [LorentzVector<Complex<T>>],
+        numerator: &LTDNumerator,
         cut: &Vec<Cut>,
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
+        overwrite_propagator_powers: bool,
     ) -> Result<Complex<T>, &'static str> {
-        self.set_loop_momentum_energies(k_def, cut, mat, cache);
-
-        // check if we need to take derivatives
         let mut cut_propagators = [0; MAX_LOOP];
         let mut derivative_map = [0; MAX_LOOP];
-        let mut numerator_powers = [0; MAX_LOOP]; // TODO: fill the numerator if it is not 0
+        let mut numerator_powers = [0; MAX_LOOP];
 
+        // check if we need to take derivatives
         let mut index = 0;
         for (c, ll) in cut.iter().zip(&self.loop_lines) {
-            for p in &ll.propagators {
-                cache.propagator_powers[p.id] = p.power;
+            if overwrite_propagator_powers {
+                for p in &ll.propagators {
+                    cache.propagator_powers[p.id] = p.power;
+                }
             }
-
             if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
-                derivative_map[index] = ll.propagators[*i].power - 1;
+                // Using the value form the cache to allow setting externally
+                // the powers of the propagators
+                if cache.propagator_powers[*i] == 0 {
+                    return Ok(Complex::default());
+                }
+                derivative_map[index] = cache.propagator_powers[*i] - 1;
+                // No pole here
+                if ll.propagators[*i].power == 0 {
+                    return Ok(Complex::zero());
+                }
                 cache.propagator_powers[ll.propagators[*i].id] = 0; // do not consider these linear propagators in the recursion
                 cut_propagators[index] = ll.propagators[*i].id;
                 index += 1;
             }
         }
-
-        // TODO: group the numerator according to the above map
+        // Set energy on the cut
+        self.set_loop_momentum_energies(k_def, cut, mat, cache);
+        // Cache all propagator evaluations by evaluating the loop line
+        for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
+            ll.evaluate(&k_def, ll_cut, &self, cache)?;
+        }
+        // Prepare numerator
+        numerator.evaluate_reduced_in_lb(k_def, cache); //NOTE: Only necessary when k_vec is changed
+        numerator.evaluate_reduced_in_cb(cut, &self.loop_lines, mat, cache);
 
         let r = if derivative_map.iter().all(|x| *x == 0) {
             let mut r = Complex::new(T::one(), T::zero());
-            for (i, (ll_cut, ll)) in cut.iter().zip_eq(self.loop_lines.iter()).enumerate() {
-                // get the loop line result from the cache if possible
-                r *= match ll_cut {
-                    Cut::PositiveCut(j) => cache.complex_loop_line_eval[i][*j][0],
-                    Cut::NegativeCut(j) => cache.complex_loop_line_eval[i][*j][1],
-                    _ => ll.evaluate(&k_def, ll_cut, &self, cache)?,
-                };
-            }
-            r.inv() // normal inverse may overflow but has better precision than finv, which overflows later
-        } else {
-            // cache all propagator evaluations by evaluating the loop line
-            for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
-                ll.evaluate(&k_def, ll_cut, &self, cache)?;
-            }
 
-            self.evaluate_higher_order_cut(
-                &cut_propagators[..self.n_loops],
-                &mut derivative_map[..self.n_loops],
-                &mut numerator_powers[..self.n_loops],
-                mat,
-                0,
-                cache,
-            )
+            if overwrite_propagator_powers {
+                for (i, (ll_cut, ll)) in cut.iter().zip_eq(self.loop_lines.iter()).enumerate() {
+                    // get the loop line result from the cache if possible
+                    r *= match ll_cut {
+                        Cut::PositiveCut(j) => cache.complex_loop_line_eval[i][*j][0],
+                        Cut::NegativeCut(j) => cache.complex_loop_line_eval[i][*j][1],
+                        _ => ll.evaluate(&k_def, ll_cut, &self, cache)?,
+                    };
+                }
+            } else {
+                // if overwrite_propagator_power is false it means that the powers used are not the
+                // one coming from the topology so it's not possible to use the cached loop line result
+                for (p_e, p_pow) in cache
+                    .propagators_eval
+                    .iter()
+                    .zip_eq(cache.propagator_powers.iter())
+                {
+                    r *= utils::powi(*p_e, *p_pow);
+                }
+                for (ll_cut, cut_prop) in cut.iter().zip_eq(cut_propagators[..self.n_loops].iter())
+                {
+                    r *= match ll_cut {
+                        Cut::PositiveCut(_) => {
+                            cache.complex_cut_energies[*cut_prop] * Into::<T>::into(2.0)
+                        }
+                        Cut::NegativeCut(_) => {
+                            -cache.complex_cut_energies[*cut_prop] * Into::<T>::into(2.0)
+                        }
+                        Cut::NoCut => panic!("Trying to multiply the energy for uncut propagator!"),
+                    };
+                }
+            }
+            numerator.evaluate(&cut_propagators[..self.n_loops], cache) * r.inv() // normal inverse may overflow but has better precision than finv, which overflows later
+        } else {
+            let mut res = Complex::default();
+            for (i, monomial_powers) in numerator
+                .reduced_coefficient_index_to_powers
+                .iter()
+                .enumerate()
+            {
+                // Take derivative looping over the numerator monomials
+                for (num_pow, &mon_pow) in numerator_powers.iter_mut().zip(monomial_powers.iter()) {
+                    *num_pow = mon_pow;
+                }
+                res += cache.reduced_coefficient_cb[i]
+                    * self.evaluate_higher_order_cut(
+                        &cut_propagators[..self.n_loops],
+                        &mut derivative_map[..self.n_loops],
+                        &mut numerator_powers[..self.n_loops],
+                        mat,
+                        0,
+                        cache,
+                    );
+            }
+            res
         };
 
         if self.settings.general.debug > 1 {
@@ -2825,7 +2882,14 @@ impl Topology {
                     let v = if self.settings.general.use_amplitude {
                         self.evaluate_amplitude_cut(&mut k_def[..self.n_loops], cut, mat, cache)?
                     } else {
-                        let v = self.evaluate_cut(&mut k_def[..self.n_loops], cut, mat, cache)?;
+                        let v = self.evaluate_cut(
+                            &mut k_def[..self.n_loops],
+                            &self.numerator,
+                            cut,
+                            mat,
+                            cache,
+                            true,
+                        )?;
                         // Assuming that there is no need for the residue energy or the cut_id
                         let ct = if self.settings.general.use_ct {
                             self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
@@ -2967,5 +3031,394 @@ impl Topology {
             // println!("RES {:e} {:e} {:e} {:e}",x[0],x[1],x[2],result);
             (x, k_def, jac_para, jac_def, result)
         }
+    }
+}
+
+impl LTDNumerator {
+    pub fn new(n_loops: usize, coefficients: &Vec<Complex<f64>>) -> LTDNumerator {
+        // Determine max_rank
+        let mut max_rank = 0;
+        let mut check_size = 1;
+        let mut level_size = 1;
+        while check_size < coefficients.len() {
+            level_size = (level_size * (n_loops * 4 + max_rank)) / (max_rank + 1);
+            max_rank += 1;
+            check_size += level_size;
+        }
+        // Check if the sizes match
+        if max_rank != 0 {
+            assert_eq!(
+                coefficients.len(),
+                check_size,
+                "Coefficient list must be complete in each rank! For rank {} expected {} elements but found {}", max_rank, check_size, coefficients.len());
+        }
+        let sorted_linear: Vec<Vec<usize>> = (0..=max_rank)
+            .map(|rank| (0..4 * n_loops).combinations_with_replacement(rank))
+            .flatten()
+            .collect();
+
+        // Create the map that goes from the tensor index to the reduced repesentation
+        // that uses only the energy components
+        let mut coefficient_index_to_powers = vec![[0; MAX_LOOP]];
+        for indices in sorted_linear.iter() {
+            let mut key = [0; MAX_LOOP];
+            for &n in indices.iter() {
+                if n % 4 == 0 {
+                    key[n / 4] += 1;
+                }
+            }
+            coefficient_index_to_powers.push(key);
+        }
+        //
+        let coefficient_index_map = sorted_linear
+            .iter()
+            .map(|l| {
+                if l.len() == 1 {
+                    (0, l[l.len() - 1])
+                } else {
+                    (
+                        sorted_linear
+                            .iter()
+                            .position(|x| x[..] == l[..l.len() - 1])
+                            .unwrap()
+                            + 1,
+                        l[l.len() - 1],
+                    )
+                }
+            })
+            .collect();
+        // Create power to position maps for the reduced coefficient list
+        let mut reduced_size = 0;
+        let mut reduced_coefficient_index_to_powers = Vec::new();
+        let mut powers_to_position: HashMap<[usize; MAX_LOOP], usize> = HashMap::new();
+        if max_rank == 0 {
+            powers_to_position.insert([0; MAX_LOOP], reduced_size);
+            reduced_coefficient_index_to_powers.push([0; MAX_LOOP]);
+            reduced_size += 1;
+        } else {
+            for pow_distribution in (0..=n_loops).combinations_with_replacement(max_rank) {
+                let mut key = [0; MAX_LOOP];
+                for &n in pow_distribution.iter() {
+                    if n != n_loops {
+                        key[n] += 1;
+                    }
+                }
+                powers_to_position.insert(key, reduced_size);
+                reduced_coefficient_index_to_powers.push(key);
+                reduced_size += 1;
+            }
+        }
+        // Copy numerator coefficients into vector
+        let mut numerator_coefficients = Vec::new();
+        for &coeff in coefficients.iter() {
+            numerator_coefficients.push(coeff);
+        }
+        LTDNumerator {
+            coefficients: numerator_coefficients,
+            n_loops: n_loops,
+            max_rank: max_rank,
+            reduced_size: reduced_size,
+            sorted_linear: sorted_linear,
+            coefficient_index_map: coefficient_index_map,
+            coefficient_index_to_powers: coefficient_index_to_powers,
+            reduced_coefficient_index_to_powers: reduced_coefficient_index_to_powers,
+            powers_to_position: powers_to_position,
+        }
+    }
+
+    pub fn default(n_loops: usize) -> LTDNumerator {
+        LTDNumerator::new(n_loops, &vec![Complex::new(1.0, 0.0)])
+    }
+
+    /// Perform the rotation to the vector component of the coefficients
+    /// C_i1_i2_..._in -> R_i1_j1... R_in_jn C_j1_j2_..._jn
+    /// NOTE: untested for multiloops
+    pub fn rotate(&self, rotation_matrix: [[float; 3]; 3]) -> LTDNumerator {
+        if self.coefficients.len() == 0 {
+            return LTDNumerator::default(self.n_loops);
+        }
+        let mut coefficients = vec![Complex::default(); self.coefficients.len()];
+        coefficients[0] = self.coefficients[0];
+        for (indices, coeff) in self
+            .sorted_linear
+            .iter()
+            .zip(self.coefficients.iter().skip(1))
+        {
+            let rank = indices.len();
+            let vec_indices: Vec<&usize> = indices.iter().filter(|&x| x % 4 != 0).collect();
+            // When there are only enegies there is no need to rotate
+            if vec_indices.len() == 0 {
+                coefficients[self
+                    .sorted_linear
+                    .iter()
+                    .position(|x| x[..] == indices[..])
+                    .unwrap()
+                    + 1] += *coeff;
+            }
+
+            // Rotate the spatial components
+            for map_to in (0..vec_indices.len())
+                .map(|_| 0..3)
+                .multi_cartesian_product()
+            {
+                let mut res = *coeff;
+                for (&i, j) in vec_indices.iter().zip(map_to.iter()) {
+                    res *= rotation_matrix[*j][*i - 1]
+                }
+                let mut new_indices = vec![0; rank];
+                let mut index = 0;
+                for (new_i, &old_i) in new_indices.iter_mut().zip(indices) {
+                    *new_i = match old_i % 4 {
+                        0 => old_i,
+                        _ => {
+                            index += 1;
+                            4 * (old_i / 4) + map_to[index - 1] + 1
+                        }
+                    };
+                }
+                new_indices.sort(); // painful but necessary step
+
+                // Find position in coefficient list
+                // TODO: probably an hash_map is better (?)
+                coefficients[self
+                    .sorted_linear
+                    .iter()
+                    .position(|x| x[..] == new_indices[..])
+                    .unwrap()
+                    + 1] += res;
+            }
+        }
+        LTDNumerator::new(self.n_loops, &coefficients)
+    }
+
+    /// Update the cache values to be contracted with the tensor in the loop momentum basis
+    pub fn update_numerator_momentum_no_energy<T: FloatLike>(
+        &self,
+        loop_momenta: &[LorentzVector<Complex<T>>],
+        cache: &mut LTDCache<T>,
+    ) -> () {
+        if cache.numerator_momentum_cache.len() < self.coefficient_index_map.len() + 1 {
+            println!(
+                "Resizing numerator_momentum_cache {} -> {}",
+                cache.numerator_momentum_cache.len(),
+                self.coefficient_index_map.len() + 1
+            );
+            cache.numerator_momentum_cache.resize(
+                self.coefficient_index_map.len() + 1,
+                Complex::new(T::zero(), T::zero()),
+            );
+        }
+        cache.numerator_momentum_cache[0] = Complex::one();
+        for (i, &(cache_index, vec_index)) in self.coefficient_index_map.iter().enumerate() {
+            cache.numerator_momentum_cache[i + 1] = if vec_index % 4 == 0 {
+                cache.numerator_momentum_cache[cache_index]
+            } else {
+                cache.numerator_momentum_cache[cache_index]
+                    * loop_momenta[vec_index / 4][vec_index % 4]
+            };
+        }
+    }
+    /// Update the cache values to be contracted with the tensor in the loop momentum basis
+    pub fn update_numerator_momentum<T: FloatLike>(
+        &self,
+        loop_momenta: &[LorentzVector<Complex<T>>],
+        cache: &mut LTDCache<T>,
+    ) -> () {
+        if cache.numerator_momentum_cache.len() < self.coefficient_index_map.len() + 1 {
+            println!(
+                "Resizing numerator_momentum_cache {} -> {}",
+                cache.numerator_momentum_cache.len(),
+                self.coefficient_index_map.len() + 1
+            );
+            cache.numerator_momentum_cache.resize(
+                self.coefficient_index_map.len() + 1,
+                Complex::new(T::zero(), T::zero()),
+            );
+        }
+        for (i, &(cache_index, vec_index)) in self.coefficient_index_map.iter().enumerate() {
+            cache.numerator_momentum_cache[i + 1] = if cache_index == 0 {
+                loop_momenta[vec_index / 4][vec_index % 4]
+            } else {
+                cache.numerator_momentum_cache[cache_index]
+                    * loop_momenta[vec_index / 4][vec_index % 4]
+            };
+        }
+    }
+    /// Change from the loop momentum basis to the cut basis for a polynomial involving only
+    /// the energy components of the loop momenta.
+    pub fn change_monomial_basis<T: FloatLike>(
+        &self,
+        powers: &[usize; MAX_LOOP],
+        mat: &Vec<i8>,
+        shifts: &[Complex<T>; MAX_LOOP],
+        basis: &mut [usize; MAX_LOOP],
+        coeff: Complex<T>,
+        index: usize,
+        cache: &mut LTDCache<T>,
+    ) {
+        // If the index is zero reset the power vector in the new basis
+        if index == 0 {
+            for i in 0..self.n_loops {
+                basis[i] = 0;
+            }
+        }
+        // Change of basis complete
+        if index == self.n_loops {
+            //println!("\t basis: {:?} [{}]", basis, coeff);
+            cache.reduced_coefficient_cb[self.powers_to_position[basis]] += coeff;
+            return ();
+        }
+        // Skip if no power
+        if powers[index] == 0 {
+            self.change_monomial_basis(powers, mat, shifts, basis, coeff, index + 1, cache);
+            return ();
+        }
+
+        for pow_distribution in (0..=self.n_loops).combinations_with_replacement(powers[index]) {
+            let mut monomial = vec![0; MAX_LOOP];
+            //dbg!(&pow_distribution);
+            for &n in pow_distribution.iter() {
+                monomial[n] += 1;
+            }
+            //Update coefficient
+            //println!("\tmonomial: {:?}, shift: {}", monomial, shifts[index]);
+            let mut new_coeff = coeff
+                * utils::powi(shifts[index], monomial[self.n_loops])
+                * T::from_usize(LTDNumerator::multinomial(&monomial[..=self.n_loops])).unwrap();
+            for (&mij, &pow_j) in mat
+                .chunks_exact(self.n_loops)
+                .nth(index)
+                .unwrap()
+                .iter()
+                .zip_eq(monomial[..self.n_loops].iter())
+            {
+                new_coeff *= utils::powi(Complex::new(T::from_i8(mij).unwrap(), T::zero()), pow_j);
+            }
+            //Update basis
+            for (b, m) in basis.iter_mut().zip(monomial[0..self.n_loops].iter()) {
+                *b += m;
+            }
+            // Move to next step
+            self.change_monomial_basis(powers, mat, shifts, basis, new_coeff, index + 1, cache);
+            //Reset basis
+            for (b, m) in basis.iter_mut().zip(monomial[0..self.n_loops].iter()) {
+                *b -= m;
+            }
+        }
+    }
+
+    pub fn evaluate_reduced_in_lb<T: FloatLike>(
+        &self,
+        loop_momenta: &[LorentzVector<Complex<T>>],
+        cache: &mut LTDCache<T>,
+    ) {
+        // Update tensor loop dependent part
+        self.update_numerator_momentum_no_energy(loop_momenta, cache);
+        // Initialize the reduced_coefficeints_lb with the factors coming from evaluating
+        // the vectorial part of the loop momenta
+        cache.reduced_coefficient_lb = vec![Complex::default(); self.reduced_size];
+        for (i, (&c, powers)) in self
+            .coefficients
+            .iter()
+            .zip(self.coefficient_index_to_powers.iter())
+            .enumerate()
+        {
+            cache.reduced_coefficient_lb[self.powers_to_position[powers]] += cache
+                .numerator_momentum_cache[i]
+                * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+        }
+    }
+    pub fn evaluate_reduced_in_cb<T: FloatLike>(
+        &self,
+        cut: &Vec<Cut>,
+        loop_lines: &Vec<LoopLine>,
+        mat: &Vec<i8>,
+        cache: &mut LTDCache<T>,
+    ) {
+        let mut shifts = [Complex::default(); MAX_LOOP];
+        // compute the shifts of the propagator in the cut basis
+        let mut index = 0;
+        for (ll_cut, ll) in cut.iter().zip_eq(loop_lines.iter()) {
+            if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = ll_cut {
+                for (&mij, shift) in mat
+                    .chunks_exact(self.n_loops)
+                    .nth(index)
+                    .unwrap()
+                    .iter()
+                    .zip_eq(shifts[..self.n_loops].iter_mut())
+                {
+                    *shift -= Into::<T>::into(ll.propagators[*j].q.t * mij as f64);
+                    index += 1;
+                }
+            }
+        }
+        // Initialize the reduced_coeffficeints_cb with the factors coming from evaluating
+        // the vectorial part of the loop momenta
+        cache.reduced_coefficient_cb = vec![Complex::default(); self.reduced_size];
+        for (index, powers_lb) in self.reduced_coefficient_index_to_powers.iter().enumerate() {
+            let mut powers_cb = [0; MAX_LOOP];
+            //println!(
+            //    "MONOMIAL: {:?} * {}",
+            //    powers_lb, cache.reduced_coefficient_lb[index]
+            //);
+            self.change_monomial_basis(
+                powers_lb,
+                mat,
+                &shifts,
+                &mut powers_cb,
+                cache.reduced_coefficient_lb[index],
+                0,
+                cache,
+            );
+        }
+    }
+    pub fn evaluate<T: FloatLike>(
+        &self,
+        cut_propagators: &[usize],
+        cache: &mut LTDCache<T>,
+    ) -> Complex<T> {
+        let mut res = Complex::default();
+        for (numerator_powers, coeff) in self
+            .reduced_coefficient_index_to_powers
+            .iter()
+            .zip_eq(cache.reduced_coefficient_cb[..self.reduced_size].iter())
+        {
+            let mut prod = Complex::one();
+            for (cut_prop, num) in cut_propagators
+                .iter()
+                .zip_eq(numerator_powers[..self.n_loops].iter())
+            {
+                prod *= cache.complex_cut_energies[*cut_prop].powi(*num as i32);
+            }
+            res += coeff * prod;
+        }
+        res
+    }
+
+    // maximal value of n: 62
+    pub fn binomial(n: usize, k: usize) -> usize {
+        if k > n {
+            return 0;
+        }
+        if k > n - k {
+            return LTDNumerator::binomial(n, n - k);
+        }
+        let mut res = 1;
+        for i in 1..=k {
+            res *= n - i + 1;
+            res /= i;
+        }
+        res
+    }
+
+    pub fn multinomial(n: &[usize]) -> usize {
+        let mut res = 1;
+        let mut sum = 0;
+        for &n_i in n.iter() {
+            sum += n_i;
+            res *= LTDNumerator::binomial(sum, n_i);
+            //dbg!(sum, n_i, res);
+        }
+        res
     }
 }

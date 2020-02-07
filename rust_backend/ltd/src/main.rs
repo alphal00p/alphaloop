@@ -35,7 +35,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::amplitude::Amplitude;
 use ltd::integrand::Integrand;
-use ltd::topologies::{LTDCache, SquaredTopology, Surface, SurfaceType, Topology};
+use ltd::topologies::{LTDCache, LTDNumerator, SquaredTopology, Surface, SurfaceType, Topology};
 use ltd::utils::Signum;
 use ltd::{float, FloatLike, IntegratedPhase, Integrator, PythonNumerator, Settings};
 
@@ -973,9 +973,11 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                                 let v = topo
                                                     .evaluate_cut(
                                                         &mut k_def[..topo.n_loops],
+                                                        &mut LTDNumerator::default(topo.n_loops),
                                                         cut,
                                                         mat,
                                                         &mut cache,
+                                                        true,
                                                     )
                                                     .unwrap();
                                                 // Assuming that there is no need for the residue energy or the cut_id
@@ -1047,7 +1049,8 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
     if matches.is_present("momentum_space") {
         // map the point back from momentum-space to the unit hypercube
         for (i, x) in pt.chunks_exact_mut(3).enumerate() {
-            let r = topo.inv_parametrize::<f128::f128>(&LorentzVector::from_args(0., x[0], x[1], x[2]), i);
+            let r = topo
+                .inv_parametrize::<f128::f128>(&LorentzVector::from_args(0., x[0], x[1], x[2]), i);
             x[0] = f128::f128::to_f64(&r.0[0]).unwrap();
             x[1] = f128::f128::to_f64(&r.0[1]).unwrap();
             x[2] = f128::f128::to_f64(&r.0[2]).unwrap();

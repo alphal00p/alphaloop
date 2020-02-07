@@ -130,6 +130,13 @@ impl Topology {
                 }
             }
         }
+        // now rotate the numerators
+        rotated_topology.numerator = rotated_topology.numerator.rotate(rot_matrix);
+        if rotated_topology.settings.general.use_amplitude {
+            for diag in rotated_topology.amplitude.diagrams.iter_mut() {
+                diag.numerator = diag.numerator.rotate(rot_matrix);
+            }
+        }
 
         rotated_topology
     }

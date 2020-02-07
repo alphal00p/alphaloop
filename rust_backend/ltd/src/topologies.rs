@@ -207,6 +207,8 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
     pub overall_lambda: T, // used to log the minimum
     pub numerator_momentum_cache: Vec<Complex<T>>,
+    pub reduced_coefficient_lb: Vec<Complex<T>>,
+    pub reduced_coefficient_cb: Vec<Complex<T>>,
     pub propagators: HashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
     pub propagators_eval: Vec<Complex<T>>,
     pub propagator_powers: Vec<usize>,
@@ -236,6 +238,8 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
                 .collect(),
             overall_lambda: T::zero(),
             numerator_momentum_cache: vec![],
+            reduced_coefficient_lb: vec![Complex::default(); topo.n_loops],
+            reduced_coefficient_cb: vec![Complex::default(); topo.n_loops],
             propagators: HashMap::new(),
             propagators_eval: vec![Complex::zero(); num_propagators],
             propagator_powers: vec![1; num_propagators],
@@ -391,6 +395,8 @@ pub struct Topology {
     pub constant_deformation: Option<ConstantDeformation>,
     #[serde(skip_deserializing)]
     pub all_excluded_surfaces: Vec<bool>,
+    #[serde(skip_deserializing)]
+    pub numerator: LTDNumerator,
     #[serde(default)]
     pub amplitude: Amplitude,
     #[serde(default)]
@@ -412,6 +418,19 @@ impl Topology {
             .map(|t| (t.name.clone(), t))
             .collect()
     }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LTDNumerator {
+    pub coefficients: Vec<Complex<f64>>,
+    pub n_loops: usize,
+    pub max_rank: usize,
+    pub reduced_size: usize,
+    pub sorted_linear: Vec<Vec<usize>>,
+    pub coefficient_index_map: Vec<(usize, usize)>,
+    pub coefficient_index_to_powers: Vec<[usize; MAX_LOOP]>,
+    pub reduced_coefficient_index_to_powers: Vec<[usize; MAX_LOOP]>,
+    pub powers_to_position: HashMap<[usize; MAX_LOOP], usize>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
