@@ -155,8 +155,6 @@ pub struct Amplitude {
     #[serde(skip_deserializing)]
     pub polarizations: Vec<ArrayVec<[Complex<f64>; 4]>>,
     pub diagrams: Vec<DiagramFullRust>,
-    #[serde(skip_deserializing)]
-    pub tensor_coefficient_index_map: Vec<(usize, usize)>,
 }
 
 // Implement Setup functions
@@ -209,15 +207,11 @@ impl Amplitude {
         }
 
         // Convert coefficient to Complex<f64>
-        self.diagrams[0].tensor_coefficients = Vec::new();
-        for dn in 0..self.diagrams.len() {
-            let mut diag = &mut self.diagrams[dn];
+        for diag in self.diagrams.iter_mut() {
             diag.tensor_coefficients = Vec::new();
-            for cn in 0..diag.tensor_coefficients_split.len() {
-                diag.tensor_coefficients.push(Complex::new(
-                    diag.tensor_coefficients_split[cn][0],
-                    diag.tensor_coefficients_split[dn][1],
-                ));
+            for coeff in diag.tensor_coefficients_split.iter() {
+                diag.tensor_coefficients
+                    .push(Complex::new(coeff[0], coeff[1]));
             }
         }
 
@@ -264,50 +258,9 @@ impl Amplitude {
         };
 
         // TODO: Evaluate with new numerator
-        self.construct_numerator();
         println!("DONE");
     }
-
-    pub fn construct_numerator(&mut self) {
-        let n_loops = self.n_loops;
-        // Determine max_rank
-        let mut max_rank = 0;
-        let mut check_size = 1;
-        let mut level_size = 1;
-        for diag in self.diagrams.iter() {
-            while check_size < diag.tensor_coefficients_split.len() {
-                level_size = (level_size * (n_loops * 4 + max_rank)) / (max_rank + 1);
-                max_rank += 1;
-                check_size += level_size;
-            }
-            // Check if the sizes match
-            if max_rank != 0 {
-                assert_eq!(diag.tensor_coefficients_split.len(), check_size);
-            }
-        }
-        let sorted_linear: Vec<Vec<usize>> = (0..max_rank + 1)
-            .map(|rank| (0..4 * n_loops).combinations_with_replacement(rank))
-            .flatten()
-            .collect();
-        self.tensor_coefficient_index_map = sorted_linear
-            .iter()
-            .map(|l| {
-                if l.len() == 1 {
-                    (0, l[l.len() - 1]) // note: these indices will never be used
-                } else {
-                    (
-                        sorted_linear
-                            .iter()
-                            .position(|x| x[..] == l[..l.len() - 1])
-                            .unwrap(),
-                        l[l.len() - 1],
-                    )
-                }
-            })
-            .collect();
-    }
 }
-
 // Implement Evaluation Functions
 impl Amplitude {
     pub fn compute_chain<T: FloatLike>(
@@ -742,7 +695,6 @@ impl Amplitude {
         cache: &mut LTDCache<T>,
     ) -> Result<Complex<T>, &'static str> {
         // Update tensor loop dependent part
-        self.update_numerator_momentum(loop_momenta, cache);
 
         self.compute_coefficient_amplitude(
             topo,
@@ -836,52 +788,7 @@ impl Amplitude {
             _ => panic!("Unknown integrated counterterm for {}.", self.amp_type),
         }
     }
-
-    /* cache numerator coefficients */
-
-    pub fn update_numerator_momentum<T: FloatLike>(
-        &self,
-        loop_momenta: &[LorentzVector<Complex<T>>],
-        cache: &mut LTDCache<T>,
-    ) -> () {
-        if cache.numerator_momentum_cache.len() < self.tensor_coefficient_index_map.len() + 1 {
-            println!(
-                "Resizing numerator_momentum_cache {} -> {}",
-                cache.numerator_momentum_cache.len(),
-                self.tensor_coefficient_index_map.len() + 1
-            );
-            cache.numerator_momentum_cache.resize(
-                self.tensor_coefficient_index_map.len() + 1,
-                Complex::new(T::zero(), T::zero()),
-            );
-        }
-        for (i, &(cache_index, vec_index)) in self.tensor_coefficient_index_map.iter().enumerate() {
-            cache.numerator_momentum_cache[i + 1] = if cache_index == 0 {
-                loop_momenta[vec_index / 4][vec_index % 4]
-            } else {
-                cache.numerator_momentum_cache[cache_index]
-                    * loop_momenta[vec_index / 4][vec_index % 4]
-            };
-        }
-    }
-    pub fn evaluate_numerator<T: FloatLike>(
-        &self,
-        coefficients: &[Complex<f64>],
-        cache: &mut LTDCache<T>,
-    ) -> Complex<T> {
-        let mut coefficient = Complex::new(
-            Into::<T>::into(coefficients[0].re),
-            Into::<T>::into(coefficients[0].im),
-        );
-        let mut result = coefficient;
-        for (i, &c) in coefficients.iter().skip(1).enumerate() {
-            coefficient = Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
-            result += cache.numerator_momentum_cache[i + 1] * coefficient;
-        }
-        result
-    }
 }
-
 impl Topology {
     pub fn evaluate_amplitude_cut<T: FloatLike>(
         &self,
