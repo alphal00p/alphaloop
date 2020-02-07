@@ -8,7 +8,9 @@ import sys
 import numpy as np
 import copy
 import yaml
+import pandas as pd
 from ltd_utils import TopologyCollection
+
 
 pjoin = os.path.join
 file_path = os.path.dirname(os.path.realpath(__file__))
@@ -70,7 +72,11 @@ class dihiggs_diagram(object):
         #res["denominators"] = self.dens
         res["pows"] = self.pows
         res["chain"] = self.chain
+        print(self.coeffs)
         res["tensor_coefficients_split"] = [[float(c.real), float(c.imag)] for c in self.coeffs]
+        #res["tensor_coefficients_split"] = [float(c.real) for c in self.coeffs]
+        #res["tensor_coefficients_split"] = []
+        print(res["tensor_coefficients_split"] )
         res["positions"] = self.positions
         res["loop_signature"] = self.signs
         res["factor"] = [float(self.factor.real), float(self.factor.imag)]
@@ -110,7 +116,8 @@ class qqbar_diagram(object):
         #res["denominators"] = self.dens
         res["pows"] = self.pows
         res["chain"] = self.chain
-        res["tensor_coefficients_split"] = self.coeffs
+        res["tensor_coefficients_split"] = [{'re':float(c.real), 'im': float(c.imag)} for c in self.coeffs]
+        #res["tensor_coefficients_split"] = []
         res["positions"] = self.positions
         res["loop_signature"] = self.signs
         res["factor"] = [float(self.factor.real), float(self.factor.imag)]
@@ -461,10 +468,13 @@ class Amplitude(object):
         if self.type == 'DiHiggsTopologyLO':
             # Define diagrams
             dens = [ [0, 1, 4, 5], [0, 1, 2, 5], [0, 2, 3, 5]]
-            coeffs = np.load('amplitudes/dihiggs_coeffs.npy')
             diags = []
             for i in range(3):
-                diags += [dihiggs_diagram("D%d" % i ,dens[i],[1,1,1,1], 1, False,False, coeffs=coeffs[i])]
+                df_coeffs = pd.read_csv('amplitudes/gghh_coeffs%d.csv'%(i+1))
+                coeffs = []
+                for key, (re, im) in df_coeffs.iterrows():
+                    coeffs += [ complex(re,im) ]
+                diags += [dihiggs_diagram("D%d" % i ,dens[i],[1,1,1,1], 1, False,False, coeffs=coeffs)]
             self.diags = diags
             # Map denominator to LoopLines tuples
             for diag in self.diags:
@@ -788,7 +798,27 @@ if __name__ == "__main__":
    
     # add amplitude ddNA
     #amplitudes_collection.add(generate_qqbar_photons("dd4A","dd4A_topo",4))
+    amp_type = 'qqbarphotonsNLO'
+    amp_name = 'dd2A'
+    topo_name = 'dd2A_topo'
+
+    qs=[
+        vectors.LorentzVector([0.5, 0.0, 0.0, 0.5]),
+        vectors.LorentzVector([0.0, 0.0, 0.0, 0.0]),
+        vectors.LorentzVector([0.5, 0.0, 0.0, -0.5]),
+        vectors.LorentzVector([-0.5, 0.0, 0.49993953163007476, -0.007775905960175335]),
+        vectors.LorentzVector([-0.5, 0.0, -0.49993953163007476, 0.007775905960175335]),
+    ] 
     
+    ms = [1e2,0.0,0.0,0.0,0.0]
+    
+    amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
+    amp_top.get_edge_info()
+#    plot_edge_info(amp_top.edge_info)
+    hard_coded_topology_collection.add_topology(amp_top.topology)
+    amplitudes_collection.add(generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name, amp_type=amp_type))
+
+
     amp_type = 'qqbarphotonsNLO'
     amp_name = 'dd4A'
     topo_name = 'dd4A_topo'
@@ -812,9 +842,10 @@ if __name__ == "__main__":
     
     # Export amplitudes
     root_dir = ''
-    if "full" in sys.argv[1]:
+    if len(sys.argv) > 1 and "full" in sys.argv[1]:
         hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
         print("Synchronised topologies.yaml")
+
     amplitudes_collection.export_to(os.path.join(root_dir, 'amplitudes.yaml'))
     print("Synchronised amplitudes.yaml")
     sys.exit()
