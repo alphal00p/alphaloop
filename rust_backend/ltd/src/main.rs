@@ -35,7 +35,8 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::amplitude::Amplitude;
 use ltd::integrand::Integrand;
-use ltd::topologies::{LTDCache, LTDNumerator, SquaredTopology, Surface, SurfaceType, Topology};
+use ltd::squared_topologies::SquaredTopology;
+use ltd::topologies::{LTDCache, LTDNumerator, Surface, SurfaceType, Topology};
 use ltd::utils::Signum;
 use ltd::{float, FloatLike, IntegratedPhase, Integrator, PythonNumerator, Settings};
 
@@ -62,8 +63,19 @@ impl CubaResultDef {
     }
 }
 
+enum Integrands {
+    Topology(Integrand<PythonNumerator, Topology>),
+    CrossSection(Integrand<PythonNumerator, SquaredTopology>),
+}
+
+enum Diagram {
+    Topology(Topology),
+    CrossSection(SquaredTopology),
+}
+
 struct UserData<'a> {
-    integrand: Vec<Integrand<PythonNumerator>>,
+    n_loops: usize,
+    integrand: Vec<Integrands>,
     integrated_phase: IntegratedPhase,
     #[cfg(feature = "use_mpi")]
     world: &'a mpi::topology::SystemCommunicator,
@@ -89,8 +101,11 @@ pub fn evaluate_points(
         let (msg, _status) = world.any_process().receive_vec::<f64>();
 
         // compute all the points
-        for (i, x) in msg.chunks(3 * integrand.topologies[0].n_loops).enumerate() {
-            let res = integrand.evaluate(x);
+        for (i, x) in msg.chunks(3 * integrand.n_loops).enumerate() {
+            let res = match &mut user_data.integrand[(core + 1) as usize] {
+                Integrands::CrossSection(c) => c.evaluate(y),
+                Integrands::Topology(t) => t.evaluate(y),
+            };
             if res.is_finite() {
                 match integrand.settings.integrator.integrated_phase {
                     IntegratedPhase::Real => {
@@ -116,9 +131,9 @@ pub fn evaluate_points(
 
         let num_output = if integrand.settings.integrator.integrated_phase != IntegratedPhase::Both
         {
-            msg.len() / (3 * integrand.topologies[0].n_loops)
+            msg.len() / (3 * integrand.n_loops)
         } else {
-            msg.len() / (3 * integrand.topologies[0].n_loops) * 2
+            msg.len() / (3 * integrand.n_loops) * 2
         };
 
         mpi::request::scope(|scope| {
@@ -133,7 +148,8 @@ pub fn evaluate_points(
 
 /// Integrate with Vegas, optionally using survey and refining rounds
 fn vegas_integrate<'a, F>(
-    topo: &Topology,
+    name: &str,
+    n_loops: usize,
     settings: &Settings,
     mut ci: CubaIntegrator<UserData<'a>>,
     user_data_generator: F,
@@ -141,15 +157,15 @@ fn vegas_integrate<'a, F>(
 where
     F: Fn() -> UserData<'a>,
 {
-    let state_filename = if let Some(ref name) = settings.integrator.state_filename_prefix {
-        name.clone() + &topo.name.clone() + "_state.dat"
+    let state_filename = if let Some(ref prefix) = settings.integrator.state_filename_prefix {
+        prefix.clone() + &name.clone() + "_state.dat"
     } else {
-        topo.name.clone() + "_state.dat"
+        name.to_owned() + "_state.dat"
     };
-    let survey_filename = if let Some(ref name) = settings.integrator.state_filename_prefix {
-        name.clone() + &topo.name.clone() + "_survey.dat"
+    let survey_filename = if let Some(ref prefix) = settings.integrator.state_filename_prefix {
+        prefix.clone() + &name.clone() + "_survey.dat"
     } else {
-        topo.name.clone() + "_survey.dat"
+        name.to_owned() + "_survey.dat"
     };
 
     ci.set_use_only_last_sample(false)
@@ -186,7 +202,7 @@ where
             .set_use_only_last_sample(settings.integrator.use_only_last_sample)
             .set_keep_state_file(settings.integrator.keep_state_file);
         let survey_result = ci.vegas(
-            3 * topo.n_loops,
+            3 * n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
                 2
             } else {
@@ -227,7 +243,7 @@ where
                 i_run, settings.integrator.refine_n_points
             );
             let refine_result = ci.vegas(
-                3 * topo.n_loops,
+                3 * n_loops,
                 if settings.integrator.integrated_phase == IntegratedPhase::Both {
                     2
                 } else {
@@ -274,7 +290,7 @@ where
         }
     } else {
         ci.vegas(
-            3 * topo.n_loops,
+            3 * n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
                 2
             } else {
@@ -298,11 +314,11 @@ fn integrand(
     core: i32,
 ) -> Result<(), &'static str> {
     #[cfg(not(feature = "use_mpi"))]
-    for (i, y) in x
-        .chunks(3 * user_data.integrand[(core + 1) as usize].topologies[0].n_loops)
-        .enumerate()
-    {
-        let res = user_data.integrand[(core + 1) as usize].evaluate(y);
+    for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
+        let res = match &mut user_data.integrand[(core + 1) as usize] {
+            Integrands::CrossSection(c) => c.evaluate(y),
+            Integrands::Topology(t) => t.evaluate(y),
+        };
 
         if res.is_finite() {
             match user_data.integrated_phase {
@@ -335,7 +351,7 @@ fn integrand(
 
         let workers = (user_data.world.size() - 1) as usize;
         let segment_length = nvec / workers;
-        let point_length = 3 * user_data.integrand[0].topologies[0].n_loops;
+        let point_length = 3 * user_data.n_loops;
 
         mpi::request::scope(|scope| {
             for i in 0..workers {
@@ -396,7 +412,7 @@ fn integrand(
     Ok(())
 }
 
-fn bench(topo: &Topology, settings: &Settings) {
+fn bench(topo: &mut Topology, settings: &Settings) {
     let mut x = vec![0.; 3 * topo.n_loops];
     let mut rng = rand::thread_rng();
 
@@ -1066,7 +1082,13 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
 
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
-        let mut i = Integrand::new(&topo, settings.clone(), python_numerator, 1);
+        let mut i = Integrand::new(
+            topo.n_loops,
+            topo.clone(),
+            settings.clone(),
+            python_numerator,
+            1,
+        );
         i.evaluate(&pt);
         return;
     }
@@ -1137,62 +1159,6 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
             _ => {}
         }
     }
-}
-
-fn cross_section(squared_topology_file: &str, settings: &mut Settings) {
-    let mut squared_topology = SquaredTopology::from_file(squared_topology_file, settings);
-
-    // generate a random phase space point
-    let mut external_momenta = [
-        LorentzVector::from_args(
-            Into::<f128::f128>::into(1000.),
-            Into::<f128::f128>::into(0.0),
-            Into::<f128::f128>::into(0.0),
-            Into::<f128::f128>::into(20.0),
-        ),
-        LorentzVector::from_args(
-            Into::<f128::f128>::into(1000.),
-            Into::<f128::f128>::into(0.0),
-            Into::<f128::f128>::into(0.0),
-            Into::<f128::f128>::into(-20.0),
-        ),
-        LorentzVector::from_args(
-            Into::<f128::f128>::into(1000.),
-            Into::<f128::f128>::into(0.0),
-            Into::<f128::f128>::into(0.0),
-            Into::<f128::f128>::into(20.0),
-        ),
-        LorentzVector::from_args(
-            Into::<f128::f128>::into(1000.),
-            Into::<f128::f128>::into(0.0),
-            Into::<f128::f128>::into(0.0),
-            Into::<f128::f128>::into(-20.0),
-        ),
-    ];
-    let loop_momenta = [
-        LorentzVector::from_args(
-            f128::f128::zero(),
-            Into::<f128::f128>::into(10.),
-            Into::<f128::f128>::into(20.),
-            Into::<f128::f128>::into(30.),
-        ),
-        LorentzVector::from_args(
-            f128::f128::zero(),
-            Into::<f128::f128>::into(40.),
-            Into::<f128::f128>::into(50.),
-            Into::<f128::f128>::into(60.),
-        ),
-        /*LorentzVector::from_args(
-            f128::f128::zero(),
-            Into::<f128::f128>::into(2.),
-            Into::<f128::f128>::into(3.0),
-            Into::<f128::f128>::into(4.0),
-        ),*/
-    ];
-
-    let mut caches = squared_topology.create_caches();
-    let res = squared_topology.evaluate(&mut external_momenta, &loop_momenta, &mut caches);
-    println!("Result: {:e}", res);
 }
 
 fn main() {
@@ -1307,6 +1273,12 @@ fn main() {
                 .value_name("RES_FILE_PREFIX")
                 .help("Set the prefix to apply to the result file"),
         )
+        .arg(
+            Arg::with_name("cross_section")
+                .long("cross_section")
+                .value_name("SQUARED_TOPOLOGY_FILE")
+                .help("Set the squared topology file"),
+        )
         .subcommand(
             SubCommand::with_name("integrated_ct")
                 .about("Gives the integrated CT for the selected amplitude"),
@@ -1359,16 +1331,6 @@ fn main() {
                     Arg::with_name("full_integrand")
                         .long("full_integrand")
                         .help("Evaluate the integrand and possibly its rotated vesion"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("cross_section")
-                .about("Compute a cross section")
-                .arg(
-                    Arg::with_name("squared_topology_file")
-                        .required(true)
-                        .value_name("SQUARED_TOPOLOGY_FILE")
-                        .help("Set the squared topology file"),
                 ),
         )
         .get_matches();
@@ -1428,63 +1390,73 @@ fn main() {
         settings.general.deformation_strategy = x.into();
     }
 
-    if let Some(cs_opt) = matches.subcommand_matches("cross_section") {
-        cross_section(
-            cs_opt.value_of("squared_topology_file").unwrap(),
-            &mut settings,
-        );
-        return;
-    }
-
-    let topology_file = matches.value_of("topologies").unwrap();
-
-    let amplitude_file = matches.value_of("amplitudes").unwrap();
-    let mut amplitudes = Amplitude::from_file(amplitude_file);
-    let mut amp0 = Amplitude::default();
-    let amp: &mut ltd::amplitude::Amplitude = if settings.general.amplitude != "" {
-        settings.general.use_amplitude = true;
-        amplitudes
-            .get_mut(&settings.general.amplitude)
-            .expect("Unknown amplitude")
+    let mut diagram = if let Some(cs_opt) = matches.value_of("cross_section") {
+        Diagram::CrossSection(SquaredTopology::from_file(cs_opt, &settings))
     } else {
-        settings.general.use_amplitude = false;
-        &mut amp0
-    };
-    // Ensure that it's using the right topology and process the amplitude
-    if amp.topology != "" {
-        if amp.topology != settings.general.topology {
-            println!("Changing Topology to fit the amplitude setup");
+        let topology_file = matches.value_of("topologies").unwrap();
+
+        let amplitude_file = matches.value_of("amplitudes").unwrap();
+        let mut amplitudes = Amplitude::from_file(amplitude_file);
+        let mut amp0 = Amplitude::default();
+        let amp: &mut ltd::amplitude::Amplitude = if settings.general.amplitude != "" {
+            settings.general.use_amplitude = true;
+            amplitudes
+                .get_mut(&settings.general.amplitude)
+                .expect("Unknown amplitude")
+        } else {
+            settings.general.use_amplitude = false;
+            &mut amp0
+        };
+        // Ensure that it's using the right topology and process the amplitude
+        if amp.topology != "" {
+            if amp.topology != settings.general.topology {
+                println!("Changing Topology to fit the amplitude setup");
+            }
+            settings.general.topology = amp.topology.clone();
+            amp.process(&settings.general);
         }
-        settings.general.topology = amp.topology.clone();
-        amp.process(&settings.general);
-    }
+        // Call topology
+        let mut topologies = Topology::from_file(topology_file, &settings);
+        let mut topo = topologies
+            .remove(&settings.general.topology)
+            .expect("Unknown topology");
+        topo.amplitude = amp.clone();
+        topo.process();
+        Diagram::Topology(topo)
+    };
 
-    // Call topology
-    let mut topologies = Topology::from_file(topology_file, &settings);
-    let topo = topologies
-        .get_mut(&settings.general.topology)
-        .expect("Unknown topology");
-    topo.amplitude = amp.clone();
-    topo.process();
-
-    if let Some(_) = matches.subcommand_matches("bench") {
-        bench(&topo, &settings);
-        return;
-    }
-
-    if let Some(matches) = matches.subcommand_matches("probe") {
-        surface_prober(&topo, &settings, matches);
-        return;
-    }
-
-    if let Some(matches) = matches.subcommand_matches("inspect") {
-        inspect(&topo, &mut settings, matches);
-        return;
-    }
-
-    if let Some(_) = matches.subcommand_matches("integrated_ct") {
-        amp.print_integrated_ct();
-        return;
+    match &mut diagram {
+        Diagram::CrossSection(sqt) => {
+            println!(
+                "Integrating {} with {} samples and deformation '{}'",
+                sqt.name, settings.integrator.n_max, settings.general.deformation_strategy
+            );
+        }
+        Diagram::Topology(topo) => {
+            if let Some(_) = matches.subcommand_matches("bench") {
+                bench(topo, &settings);
+                return;
+            }
+            if let Some(matches) = matches.subcommand_matches("probe") {
+                surface_prober(topo, &settings, matches);
+                return;
+            }
+            if let Some(matches) = matches.subcommand_matches("inspect") {
+                inspect(topo, &mut settings, matches);
+                return;
+            }
+            if let Some(_) = matches.subcommand_matches("integrated_ct") {
+                topo.amplitude.print_integrated_ct();
+                return;
+            }
+            println!(
+                "Integrating {} with {} samples and deformation '{}'",
+                settings.general.topology,
+                settings.integrator.n_max,
+                settings.general.deformation_strategy
+            );
+            topo.print_info();
+        }
     }
 
     #[cfg(feature = "use_mpi")]
@@ -1526,95 +1498,42 @@ fn main() {
         .set_seed(settings.integrator.seed)
         .set_cores(cores, 1000);
 
-    println!(
-        "Integrating {} with {} samples and deformation '{}'",
-        settings.general.topology, settings.integrator.n_max, settings.general.deformation_strategy
-    );
-
-    let num_cuts: usize = topo.ltd_cut_options.iter().map(|c| c.len()).sum();
-    println!("Number of cuts: {}", num_cuts);
-    let mut n_unique_e_surface = 0;
-    let ids: Vec<_> = match matches.values_of("ids") {
-        Some(x) => x.map(|x| usize::from_str(x).unwrap()).collect(),
-        None => vec![],
+    let n_loops = match &diagram {
+        Diagram::CrossSection(sqt) => sqt.n_loops,
+        Diagram::Topology(t) => t.n_loops,
     };
-    for (surf_index, surf) in topo.surfaces.iter().enumerate() {
-        if !ids.is_empty() && !ids.contains(&surf_index) {
-            continue;
-        }
-        if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid || !surf.exists {
-            continue;
-        }
-        n_unique_e_surface += 1;
-    }
-    println!(
-        "Number of unique existing non-pinched E-surfaces: {}",
-        n_unique_e_surface
-    );
-    if topo.fixed_deformation.len() > 0 {
-        let maximal_overlap_structure: Vec<i32> = topo.fixed_deformation[0]
-            .deformation_per_overlap
-            .iter()
-            .map(|c| (n_unique_e_surface - (c.excluded_surface_ids.len() as i32)))
-            .collect();
-        let radii: Vec<f64> = topo
-            .fixed_deformation
-            .iter()
-            .flat_map(|fd| fd.deformation_per_overlap.iter().map(|fdo| fdo.radius))
-            .collect();
-        let n_sources: usize = topo
-            .fixed_deformation
-            .iter()
-            .flat_map(|fd| fd.deformation_per_overlap.iter().map(|_| 1))
-            .sum();
-        println!(
-            "Number of E-surfaces part of each maximal overlap: {:?}",
-            maximal_overlap_structure
-        );
-        println!("Total number of sources: {}", n_sources);
-        println!(
-            "Min radius: {}",
-            radii
-                .iter()
-                .fold(std::f64::INFINITY, |acc, x| f64::min(acc, *x))
-        );
-        println!(
-            "Max radius: {}",
-            radii
-                .iter()
-                .fold(std::f64::NEG_INFINITY, |acc, x| f64::max(acc, *x))
-        );
-    }
 
-    println!(
-        "Expansion threshold considered: {}",
-        topo.get_expansion_threshold()
-    );
-    println!(
-        "M_ij considered: {}",
-        topo.settings.deformation.fixed.m_ij.abs() * topo.compute_min_mij()
-    );
-
-    match topo.analytical_result_real {
-        Some(_) => println!(
-            "Analytic result: {:e}",
-            num::Complex::<f64>::new(
-                topo.analytical_result_real.unwrap(),
-                topo.analytical_result_imag.unwrap()
-            )
-        ),
-        _ => println!("Analytic result not available."),
-    }
+    let name = match &diagram {
+        Diagram::CrossSection(sqt) => &sqt.name,
+        Diagram::Topology(t) => &t.name,
+    };
 
     let user_data_generator = || UserData {
+        n_loops,
         integrand: (0..=cores)
             .map(|i| {
                 let python_numerator = settings
                     .general
                     .python_numerator
                     .as_ref()
-                    .map(|module| PythonNumerator::new(module, topo.n_loops));
-                Integrand::new(topo, settings.clone(), python_numerator, i)
+                    .map(|module| PythonNumerator::new(module, n_loops));
+
+                match &diagram {
+                    Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
+                        sqt.n_loops,
+                        sqt.clone(),
+                        settings.clone(),
+                        python_numerator,
+                        i,
+                    )),
+                    Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
+                        topo.n_loops,
+                        topo.clone(),
+                        settings.clone(),
+                        python_numerator,
+                        i,
+                    )),
+                }
             })
             .collect(),
         integrated_phase: settings.integrator.integrated_phase,
@@ -1625,9 +1544,9 @@ fn main() {
     };
 
     let cuba_result = match settings.integrator.integrator {
-        Integrator::Vegas => vegas_integrate(topo, &settings, ci, user_data_generator),
+        Integrator::Vegas => vegas_integrate(name, n_loops, &settings, ci, user_data_generator),
         Integrator::Suave => ci.suave(
-            3 * topo.n_loops,
+            3 * n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
                 2
             } else {
@@ -1641,7 +1560,7 @@ fn main() {
             user_data_generator(),
         ),
         Integrator::Divonne => ci.divonne(
-            3 * topo.n_loops,
+            3 * n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
                 2
             } else {
@@ -1653,7 +1572,7 @@ fn main() {
             user_data_generator(),
         ),
         Integrator::Cuhre => ci.cuhre(
-            3 * topo.n_loops,
+            3 * n_loops,
             if settings.integrator.integrated_phase == IntegratedPhase::Both {
                 2
             } else {
@@ -1665,15 +1584,18 @@ fn main() {
         ),
     };
     println!("{:#?}", cuba_result);
-    match topo.analytical_result_real {
-        Some(_) => println!(
-            "Analytic result: {:e}",
-            num::Complex::<f64>::new(
-                topo.analytical_result_real.unwrap(),
-                topo.analytical_result_imag.unwrap()
-            )
-        ),
-        _ => println!("Analytic result not available."),
+
+    if let Diagram::Topology(topo) = diagram {
+        match topo.analytical_result_real {
+            Some(_) => println!(
+                "Analytic result: {:e}",
+                num::Complex::<f64>::new(
+                    topo.analytical_result_real.unwrap(),
+                    topo.analytical_result_imag.unwrap()
+                )
+            ),
+            _ => println!("Analytic result not available."),
+        }
     }
     let f = OpenOptions::new()
         .create(true)

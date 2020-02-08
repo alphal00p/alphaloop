@@ -1774,13 +1774,15 @@ class TopologyCollection(dict):
         return result
 
 class SquaredTopologyGenerator:
-    def __init__(self, edges, name, incoming_momenta, n_cuts,  final_state_particle_ids=(), loop_momenta_names=None, masses={}, powers=None, particle_ids={}):
+    def __init__(self, edges, name, incoming_momentum_names, n_cuts, external_momenta, final_state_particle_ids=(), loop_momenta_names=None, masses={}, powers=None, particle_ids={}):
+        self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
-        self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momenta, final_state_particle_ids, particle_ids)
+        self.external_momenta = external_momenta
+        self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momentum_names, final_state_particle_ids, particle_ids)
         self.masses = masses
-        self.incoming_momenta = incoming_momenta
-        self.topologies = [self.topo.split_graph([a[0] for a in c], incoming_momenta) for c in self.cuts]
+        self.incoming_momenta = incoming_momentum_names
+        self.topologies = [self.topo.split_graph([a[0] for a in c], incoming_momentum_names) for c in self.cuts]
 
         self.topo.generate_momentum_flow(loop_momenta_names)
         edge_map = self.topo.get_signature_map()
@@ -1818,10 +1820,13 @@ class SquaredTopologyGenerator:
 
     def export(self, output_path):
         out = {
+            'name': self.name,
             'n_loops': self.topo.n_loops,
             'n_incoming_momenta': len(self.incoming_momenta),
+            'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
             'topo': [list(x) for x in self.topo.edge_map_lin],
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
+            'e_cm_squared': sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))),
             'cutkosky_cuts': [
                 {'cuts':
                     [{
@@ -1858,33 +1863,42 @@ if __name__ == "__main__":
     #    [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)
 
     # Construct a cross section
-    # result is -2 Zeta[3] 3 Pi/(16 Pi^2)^3
+    # result is -2 Zeta[3] 3 Pi/(16 Pi^2)^3 = -5.75396*10^-6
     mercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
                                         ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 2,
+                                        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
                                         loop_momenta_names=('p1', 'p2', 'p3'),
                                         particle_ids={'p%s' % i: i for i in range(9)})
     mercedes.export('mercedes_squared.yaml')
 
-    # result is -5 Zeta[5] 4 Pi/(16 Pi^2)^4
+    # result is -5 Zeta[5] 4 Pi/(16 Pi^2)^4 = -1.04773*10^-7
     doublemercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 7), ('p3', 7, 3), ('p4', 3, 6),
                                         ('p5', 6, 5), ('p6', 5, 1), ('p7', 2, 4), ('p8', 3, 4), ('p9', 4, 5), ('p10', 7, 4), ('q2', 6, 8)], "DM", ['q1'], 2,
+                                        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
                                         loop_momenta_names=('p1', 'p2', 'p3', 'p4'),
                                         particle_ids={'p%s' % i: i for i in range(11)})
     doublemercedes.export('doublemercedes_squared.yaml')
 
-    bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0 , masses={'p1': 0.24, 'p2': 0.24})
+    bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0,
+    {'q1': [2., 0., 0., 0.], 'q2': [2., 0., 0., 0.]},
+    masses={'p1': 0.24, 'p2': 0.24})
     bubble.export('bubble_squared.yaml')
 
-    t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2, particle_ids={'p%s' % i: i for i in range(9)})
+    t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
+        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
+        particle_ids={'p%s' % i: i for i in range(9)})
             #masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})
     t1.export('t1_squared.yaml')
 
     bu = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 3, 2), ('p3', 4, 3),
-                                        ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 3, 5), ('q2', 3, 6)], "BU", ['q1'], 2, loop_momenta_names=('p2', 'p4', 'p7'),
+                                        ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 3, 5), ('q2', 3, 6)], "BU", ['q1'], 2,
+                                        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
+                                        loop_momenta_names=('p2', 'p4', 'p7'),
                                         particle_ids={'p%s' % i: i for i in range(9)})
     bu.export('bu_squared.yaml')
 
     insertion = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4), ('p5', 1, 4), ('q2', 4, 5)], "I", ['q1'], 3,
+        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
         masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})#, loop_momenta_names=('p4', 'p3'), powers={'p3': 2})
     insertion.export('insertion_squared.yaml')
 
@@ -1893,21 +1907,25 @@ if __name__ == "__main__":
     # the outgoing momenta will be set to the input momenta in the same order, i.e., q3=q1, q4=q2.
     tth = SquaredTopologyGenerator([('q1', 0, 1), ('q2', 6, 7), ('q3', 4, 5), ('q4', 10, 11), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 10),
         ('p5', 10, 9), ('p6', 9, 8), ('p7', 8, 7), ('p8', 1, 7), ('p9', 2, 8), ('p10', 3, 9), ], "TTH", ['q1', 'q2'], 0,
+        {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
         final_state_particle_ids=('t', 'tbar', 'H'), particle_ids={'p1': 't', 'p2': 't', 'p3': 't', 'p4': 'tbar', 'p5': 'tbar', 'p6': 'tbar', 'p7': 'tbar',
             'p8': 't', 'p9': 'g', 'p10': 'H'})
     tth.export('tth_squared.yaml')
 
     two_to_two = SquaredTopologyGenerator([('q1', 0, 1), ('q2', 7, 5), ('q3', 2, 8), ('q4', 4, 9), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5),
         ('p5', 5, 6), ('p6', 6, 1), ('p7', 6, 3), ], "two_to_two", ['q1', 'q2'], 3,
+        {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
         masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100, 'p6': 100, 'p7': 100}, loop_momenta_names=('p1', 'p7'),)
     two_to_two.export('two_to_two_squared.yaml')
 
     twoI_twoF = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 2), ('q3', 4, 104), ('q4', 3, 103), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),], "twoI_twoF", ['q1', 'q2'], 2,
+        {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
         masses={'p1': 0., 'p2': 1., 'p3': 0., 'p4': 1.}, loop_momenta_names=('p1',))
     twoI_twoF.export('twoI_twoF_squared.yaml')
 
     two_to_three = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 2), ('q3', 6, 103), ('q4', 5, 104), ('p1', 2, 3), ('p2', 3, 4),
-        ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1), ('p7', 1, 2)], "two_to_three", ['q1', 'q2'], 3, 
+        ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1), ('p7', 1, 2)], "two_to_three", ['q1', 'q2'], 3,
+        {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
         masses={'p1': 1.0, 'p2': 1.0, 'p3': 1.0, 'p4': 1.0, 'p6': 1.0},
         particle_ids={'p2': 1, 'p3': 2, 'p6': 3})
     two_to_three.export('two_to_three_squared.yaml')

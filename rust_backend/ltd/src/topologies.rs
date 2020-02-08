@@ -335,6 +335,39 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> 
     }
 }
 
+#[derive(Default)]
+pub struct LTDCacheAllPrecisions {
+    float_cache: LTDCache<float>,
+    quad_cache: LTDCache<f128::f128>,
+}
+
+impl LTDCacheAllPrecisions {
+    pub fn new(topo: &Topology) -> LTDCacheAllPrecisions {
+        LTDCacheAllPrecisions {
+            float_cache: LTDCache::new(topo),
+            quad_cache: LTDCache::new(topo),
+        }
+    }
+}
+
+pub trait CachePrecisionSelector<T: FloatLike> {
+    fn get(&mut self) -> &mut LTDCache<T>;
+}
+
+impl CachePrecisionSelector<float> for LTDCacheAllPrecisions {
+    #[inline]
+    fn get(&mut self) -> &mut LTDCache<float> {
+        &mut self.float_cache
+    }
+}
+
+impl CachePrecisionSelector<f128::f128> for LTDCacheAllPrecisions {
+    #[inline]
+    fn get(&mut self) -> &mut LTDCache<f128::f128> {
+        &mut self.quad_cache
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct FixedDeformationOverlap {
     pub deformation_sources: Vec<LorentzVector<f64>>,
@@ -420,6 +453,77 @@ impl Topology {
             .map(|t| (t.name.clone(), t))
             .collect()
     }
+
+    pub fn print_info(&self) {
+        let num_cuts: usize = self.ltd_cut_options.iter().map(|c| c.len()).sum();
+        println!("Number of cuts: {}", num_cuts);
+        let mut n_unique_e_surface = 0;
+        for (surf_index, surf) in self.surfaces.iter().enumerate() {
+            if surf_index != surf.group
+                || surf.surface_type != SurfaceType::Ellipsoid
+                || !surf.exists
+            {
+                continue;
+            }
+            n_unique_e_surface += 1;
+        }
+        println!(
+            "Number of unique existing non-pinched E-surfaces: {}",
+            n_unique_e_surface
+        );
+        if self.fixed_deformation.len() > 0 {
+            let maximal_overlap_structure: Vec<i32> = self.fixed_deformation[0]
+                .deformation_per_overlap
+                .iter()
+                .map(|c| (n_unique_e_surface - (c.excluded_surface_ids.len() as i32)))
+                .collect();
+            let radii: Vec<f64> = self
+                .fixed_deformation
+                .iter()
+                .flat_map(|fd| fd.deformation_per_overlap.iter().map(|fdo| fdo.radius))
+                .collect();
+            let n_sources: usize = self
+                .fixed_deformation
+                .iter()
+                .flat_map(|fd| fd.deformation_per_overlap.iter().map(|_| 1))
+                .sum();
+            println!(
+                "Number of E-surfaces part of each maximal overlap: {:?}",
+                maximal_overlap_structure
+            );
+            println!("Total number of sources: {}", n_sources);
+            println!(
+                "Min radius: {}",
+                radii
+                    .iter()
+                    .fold(std::f64::INFINITY, |acc, x| f64::min(acc, *x))
+            );
+            println!(
+                "Max radius: {}",
+                radii
+                    .iter()
+                    .fold(std::f64::NEG_INFINITY, |acc, x| f64::max(acc, *x))
+            );
+        }
+        println!(
+            "Expansion threshold considered: {}",
+            self.get_expansion_threshold()
+        );
+        println!(
+            "M_ij considered: {}",
+            self.settings.deformation.fixed.m_ij.abs() * self.compute_min_mij()
+        );
+        match self.analytical_result_real {
+            Some(_) => println!(
+                "Analytic result: {:e}",
+                num::Complex::<f64>::new(
+                    self.analytical_result_real.unwrap(),
+                    self.analytical_result_imag.unwrap()
+                )
+            ),
+            _ => println!("Analytic result not available."),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -433,448 +537,4 @@ pub struct LTDNumerator {
     pub coefficient_index_to_powers: Vec<[usize; MAX_LOOP]>,
     pub reduced_coefficient_index_to_powers: Vec<[usize; MAX_LOOP]>,
     pub powers_to_position: HashMap<[usize; MAX_LOOP], usize>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCut {
-    name: String,
-    sign: i8,
-    signature: (Vec<i8>, Vec<i8>),
-    power: usize,
-    m_squared: f64,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCuts {
-    pub cuts: Vec<CutkoskyCut>,
-    pub subgraph_left: Topology,
-    pub subgraph_right: Topology,
-    pub symmetry_factor: f64,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct SquaredTopology {
-    pub n_loops: usize,
-    pub n_incoming_momenta: usize,
-    pub cutkosky_cuts: Vec<CutkoskyCuts>,
-    #[serde(skip_deserializing)]
-    pub settings: Settings,
-}
-
-impl SquaredTopology {
-    pub fn from_file(filename: &str, settings: &Settings) -> SquaredTopology {
-        let f = File::open(filename).expect("Could not open squared topology file");
-
-        let mut squared_topo: SquaredTopology = serde_yaml::from_reader(f).unwrap();
-        squared_topo.settings = settings.clone();
-        for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
-            cutkosky_cuts.subgraph_left.settings = settings.clone();
-            cutkosky_cuts.subgraph_right.settings = settings.clone();
-            cutkosky_cuts.subgraph_left.process();
-            cutkosky_cuts.subgraph_right.process();
-        }
-
-        squared_topo
-    }
-
-    fn evaluate_signature<T: RealNumberLike>(
-        signature: &(Vec<i8>, Vec<i8>),
-        external_momenta: &[LorentzVector<T>],
-        loop_momenta: &[LorentzVector<T>],
-    ) -> LorentzVector<T> {
-        let mut cut_momentum = LorentzVector::default();
-        for (&sign, mom) in signature.0.iter().zip_eq(loop_momenta) {
-            if sign != 0 {
-                cut_momentum += mom.multiply_sign(sign);
-            }
-        }
-
-        for (&sign, mom) in signature.1.iter().zip_eq(external_momenta) {
-            if sign != 0 {
-                cut_momentum += mom.multiply_sign(sign);
-            }
-        }
-        cut_momentum
-    }
-
-    fn evaluate_single_signature<T: RealNumberLike>(
-        signature: &[i8],
-        momenta: &[LorentzVector<T>],
-    ) -> LorentzVector<T> {
-        let mut momentum = LorentzVector::default();
-        for (&sign, mom) in signature.iter().zip_eq(momenta) {
-            if sign != 0 {
-                momentum += mom.multiply_sign(sign);
-            }
-        }
-
-        momentum
-    }
-
-    pub fn create_caches<T: FloatLike + Into<f64>>(&self) -> Vec<Vec<LTDCache<T>>> {
-        let mut caches = vec![];
-        for cutkosky_cuts in &self.cutkosky_cuts {
-            caches.push(vec![
-                LTDCache::<T>::new(&cutkosky_cuts.subgraph_left),
-                LTDCache::<T>::new(&cutkosky_cuts.subgraph_right),
-            ]);
-        }
-        caches
-    }
-
-    #[inline]
-    /// Kahlen function.
-    fn lambda<T: FloatLike>(s: T, sqr_mass_a: T, sqr_mass_b: T) -> T {
-        s * s + sqr_mass_a * sqr_mass_a + sqr_mass_b * sqr_mass_b
-            - Into::<T>::into(2.) * s * sqr_mass_a
-            - Into::<T>::into(2.) * sqr_mass_b * sqr_mass_a
-            - Into::<T>::into(2.) * s * sqr_mass_b
-    }
-
-    /// Solve the momentum conservation delta using Newton's method. In the case of massless propagators and an external momentum with 0 spatial part,
-    /// it will take one step to find the solution. This function returns the scaling parameter and its Jacobian.
-    pub fn find_scaling<T: FloatLike + Into<f64>>(
-        cutkosky_cuts: &CutkoskyCuts,
-        external_momenta: &[LorentzVector<T>],
-        loop_momenta: &[LorentzVector<T>],
-        incoming_energy: T,
-        debug_level: usize,
-    ) -> Option<[(T, T); 2]> {
-        // determine an overestimate of the t that solves the energy constraint
-        // then -t and t should give two different solutions or do not converge
-        let mut t_start = T::zero();
-        let mut sum_k = T::zero();
-        for cut in &cutkosky_cuts.cuts {
-            let k = SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
-            let shift =
-                SquaredTopology::evaluate_single_signature(&cut.signature.1, external_momenta);
-            let k_norm_sq = k.spatial_squared();
-            t_start += Float::abs(k.spatial_dot(&shift)) / k_norm_sq;
-            sum_k += k_norm_sq.sqrt();
-        }
-
-        t_start += incoming_energy / sum_k;
-
-        // find the two solutions
-        let mut solutions = [(T::zero(), T::zero()); 2];
-        for (i, &mut mut t) in [-t_start, t_start].iter_mut().enumerate() {
-            for it in 0..20 {
-                let mut f = incoming_energy;
-                let mut df = T::zero();
-
-                for cut in &cutkosky_cuts.cuts {
-                    let k =
-                        SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
-                    let shift = SquaredTopology::evaluate_single_signature(
-                        &cut.signature.1,
-                        external_momenta,
-                    );
-                    let energy =
-                        ((k * t + shift).spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
-                    f -= energy;
-                    df -= (t * k.spatial_squared() + k.spatial_dot(&shift)) / energy;
-                }
-
-                if debug_level > 4 {
-                    println!("  | t{} finder: f={}, df={}, t={}", i, f, df, t);
-                }
-
-                if Float::abs(f) < Into::<T>::into(1e-14) * incoming_energy {
-                    if debug_level > 2 {
-                        println!("  | t{} = {}", i, t);
-                    }
-
-                    solutions[i] = (t, Float::abs(df).inv());
-                    break;
-                }
-
-                if it == 19 {
-                    if debug_level > 2 {
-                        println!(
-                            "  | no convergence after {} iterations: f={}, df={}, t={}",
-                            i, f, df, t
-                        );
-                    }
-                    return None;
-                }
-
-                t = t - f / df;
-            }
-        }
-
-        if Float::abs(solutions[0].0 - solutions[1].0) < Into::<T>::into(1e-12) * incoming_energy {
-            panic!(
-                "Found the same scaling solution twice: {} for t={} and t={} for k={:?}, ext={:?}",
-                solutions[0].0, -t_start, t_start, loop_momenta, external_momenta
-            );
-        }
-
-        Some(solutions)
-    }
-
-    pub fn evaluate<T: FloatLike + Into<f64>>(
-        &mut self,
-        external_momenta: &mut [LorentzVector<T>],
-        loop_momenta: &[LorentzVector<T>],
-        caches: &mut [Vec<LTDCache<T>>],
-    ) -> Complex<T> {
-        debug_assert_eq!(
-            loop_momenta.len(),
-            self.n_loops,
-            "The number of loop momenta is wrong."
-        );
-        debug_assert_eq!(
-            external_momenta.len(),
-            self.n_incoming_momenta * 2,
-            "The number of external momenta is wrong."
-        );
-
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4]; // FIXME: bound may be too small
-        let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
-
-        let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> =
-            (0..MAX_LOOP).map(|_| LorentzVector::default()).collect();
-        let mut result = Complex::zero();
-        for (cutkosky_cuts, cache) in self.cutkosky_cuts.iter_mut().zip_eq(caches) {
-            let mut cut_energies_summed = T::zero();
-
-            if self.settings.general.debug >= 1 {
-                println!(
-                    "Cut {}:",
-                    cutkosky_cuts.cuts.iter().map(|c| &c.name).format(", ")
-                );
-            }
-
-            let scaling_solutions = if self.settings.cross_section.do_rescaling {
-                let incoming_energy = external_momenta[..self.n_incoming_momenta]
-                    .iter()
-                    .map(|m| m.t)
-                    .sum();
-                SquaredTopology::find_scaling(
-                    cutkosky_cuts,
-                    external_momenta,
-                    loop_momenta,
-                    incoming_energy,
-                    self.settings.general.debug,
-                )
-            } else {
-                // we do not scale, so give one positive solution that is just 1
-                Some([(-T::one(), T::one()), (T::one(), T::one())])
-            };
-
-            if scaling_solutions.is_none() {
-                if self.settings.general.debug >= 1 {
-                    println!(
-                        "Phase space point has no solutions for cut {:?}:",
-                        cutkosky_cuts.cuts.iter().map(|c| &c.name).format(", ")
-                    );
-                }
-                continue;
-            }
-
-            for &(scaling, scaling_jac) in &scaling_solutions.unwrap() {
-                let mut scaling_result = Complex::one();
-                if scaling < T::zero() {
-                    // we ignore all negative soltions
-                    continue;
-                }
-
-                // evaluate the cuts with the proper scaling
-                for (cut_mom, cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
-                    .iter_mut()
-                    .zip(cutkosky_cuts.cuts.iter())
-                {
-                    let k =
-                        SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
-                    let shift = SquaredTopology::evaluate_single_signature(
-                        &cut.signature.1,
-                        external_momenta,
-                    );
-                    *cut_mom = k * scaling + shift;
-                    let energy =
-                        (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
-                    cut_mom.t = energy.multiply_sign(cut.sign);
-                    scaling_result *=
-                        num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (-2 pi i)/(2E) for every cut
-                    cut_energies_summed += energy;
-                }
-
-                if self.settings.general.debug >= 1 {
-                    println!("  | 1/Es = {}", scaling_result);
-                    println!("  | q0 = {}", cut_energies_summed);
-                    println!("  | scaling = {}", scaling);
-                    println!("  | scaling_jac = {}", scaling_jac);
-                }
-
-                if self.settings.cross_section.do_rescaling {
-                    // h is any function that integrates to 1
-                    let h = (-Float::powi(
-                        scaling
-                            / Into::<T>::into(
-                                self.settings.cross_section.rescaling_function_spread,
-                            ),
-                        2,
-                    ))
-                    .exp();
-                    let h_norm = <T as FloatConst>::PI().sqrt() / Into::<T>::into(2.0)
-                        * Into::<T>::into(self.settings.cross_section.rescaling_function_spread);
-
-                    scaling_result *=
-                        scaling_jac * Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm;
-
-                    // rescale the loop momenta
-                    for (rlm, lm) in rescaled_loop_momenta[..self.n_loops]
-                        .iter_mut()
-                        .zip_eq(loop_momenta)
-                    {
-                        *rlm = lm * scaling;
-                    }
-                } else {
-                    // set 0th component of external momenta to the sum of the cuts
-                    // NOTE: we assume 1->1 here and that it is outgoing
-                    external_momenta[0].t = cut_energies_summed;
-                    external_momenta[1].t = cut_energies_summed;
-                }
-
-                let e_cm_sq = if self.n_incoming_momenta == 2 {
-                    (external_momenta[0] + external_momenta[1]).square()
-                } else {
-                    external_momenta[0].square()
-                };
-
-                // set the shifts, which are expressed in the cut basis
-                let mut subgraphs = [
-                    &mut cutkosky_cuts.subgraph_left,
-                    &mut cutkosky_cuts.subgraph_right,
-                ];
-                for subgraph in &mut subgraphs {
-                    for ll in &mut subgraph.loop_lines {
-                        for p in &mut ll.propagators {
-                            p.q = SquaredTopology::evaluate_signature(
-                                &p.parametric_shift,
-                                external_momenta,
-                                &cut_momenta[..cutkosky_cuts.cuts.len()],
-                            )
-                            .map(|x| x.into());
-                        }
-                    }
-                    subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
-                }
-
-                //subgraphs[0].process();
-                //subgraphs[1].process();
-
-                // evaluate
-                for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {
-                    // do the loop momentum map, which is expressed in the loop momentum basis
-                    // the time component should not matter here
-                    for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
-                        .iter_mut()
-                        .zip_eq(&subgraph.loop_momentum_map)
-                    {
-                        *slm = SquaredTopology::evaluate_signature(
-                            lmm,
-                            external_momenta,
-                            if self.settings.cross_section.do_rescaling {
-                                &rescaled_loop_momenta[..self.n_loops]
-                            } else {
-                                loop_momenta
-                            },
-                        );
-                    }
-
-                    // for now, we do not deform
-                    for (kd, k) in k_def[..subgraph.n_loops]
-                        .iter_mut()
-                        .zip_eq(&subgraph_loop_momenta[..subgraph.n_loops])
-                    {
-                        *kd = k.map(|x| Complex::new(x, T::zero()));
-                    }
-
-                    if subgraph
-                        .compute_complex_cut_energies(&k_def[..subgraph.n_loops], subgraph_cache)
-                        .is_err()
-                    {
-                        panic!("NaN on cut energy");
-                    }
-
-                    let (mut res, kd) = if subgraph.loop_lines.len() > 0 {
-                        subgraph
-                            .evaluate_all_dual_integrands::<T, PythonNumerator>(
-                                &subgraph_loop_momenta[..subgraph.n_loops],
-                                k_def,
-                                subgraph_cache,
-                                &None,
-                            )
-                            .unwrap()
-                    } else {
-                        // if the graph has no propagators, it is one and not zero
-                        (Complex::one(), k_def)
-                    };
-
-                    res *= utils::powi(
-                        num::Complex::new(
-                            T::zero(),
-                            Into::<T>::into(-2.) * <T as FloatConst>::PI(),
-                        ),
-                        subgraph.n_loops,
-                    ); // factor of delta cut
-
-                    k_def = kd;
-                    scaling_result *= res;
-
-                    if self.settings.general.debug >= 1 {
-                        println!(
-                            "  | res {} ({}l) = {:e}",
-                            subgraph.name, subgraph.n_loops, res
-                        );
-                    }
-                }
-
-                scaling_result *= utils::powi(
-                    num::Complex::new(
-                        Into::<T>::into(1.)
-                            / <T as Float>::powi(Into::<T>::into(2.) * <T as FloatConst>::PI(), 4),
-                        T::zero(),
-                    ),
-                    self.n_loops,
-                );
-
-                // multiply the flux factor
-                scaling_result /= if self.n_incoming_momenta == 2 {
-                    (Into::<T>::into(2.)
-                        * (SquaredTopology::lambda(
-                            (external_momenta[0] + external_momenta[1]).square(),
-                            external_momenta[0].square(),
-                            external_momenta[1].square(),
-                        ))
-                        .sqrt())
-                } else {
-                    let e_cm = external_momenta[0].square().sqrt();
-                    e_cm * Into::<T>::into(2.0)
-                };
-
-                if self.settings.cross_section.picobarns {
-                    // return a weight in picobarns (from GeV^-2)
-                    scaling_result *= Into::<T>::into(0.389379304e9);
-                }
-
-                // divide by the symmetry factor of the final state
-                scaling_result /= Into::<T>::into(cutkosky_cuts.symmetry_factor);
-
-                if self.settings.general.debug >= 1 {
-                    println!("  | scaling res = {:e}", scaling_result);
-                }
-
-                result += scaling_result;
-            }
-        }
-
-        if self.settings.general.debug >= 1 {
-            println!("Final result = {:e}", result);
-        }
-
-        result
-    }
 }
