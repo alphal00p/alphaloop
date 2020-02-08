@@ -59,6 +59,7 @@ pub mod cts;
 pub mod gamma_chain;
 pub mod integrand;
 pub mod ltd;
+pub mod squared_topologies;
 pub mod topologies;
 pub mod utils;
 
@@ -346,6 +347,7 @@ pub struct ParameterizationSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
+    pub common_denominator: bool,
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
     pub log_file_prefix: String,
@@ -605,14 +607,14 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 
 #[cfg(feature = "python_api")]
 py_class!(class CrossSection |py| {
-    data squared_topology: RefCell<topologies::SquaredTopology>;
+    data squared_topology: RefCell<squared_topologies::SquaredTopology>;
     data caches: RefCell<Vec<Vec<topologies::LTDCache<float>>>>;
     data caches_f128: RefCell<Vec<Vec<topologies::LTDCache<f128::f128>>>>;
 
     def __new__(_cls, squared_topology_file: &str, settings_file: &str)
     -> PyResult<CrossSection> {
         let settings = Settings::from_file(settings_file);
-        let squared_topology = topologies::SquaredTopology::from_file(squared_topology_file, &settings);
+        let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings);
 
         let caches = squared_topology.create_caches::<float>();
         let caches_f128 = squared_topology.create_caches::<f128::f128>();
@@ -620,7 +622,7 @@ py_class!(class CrossSection |py| {
         CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(caches), RefCell::new(caches_f128))
     }
 
-    def evaluate(&self, loop_momenta: Vec<Vec<f64>>, external_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
+    def evaluate(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
         let mut moms : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
@@ -630,20 +632,11 @@ py_class!(class CrossSection |py| {
                 float::from_f64(l[2]).unwrap()));
         }
 
-        let mut ext : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
-        for l in external_momenta {
-            ext.push(LorentzVector::from_args(
-                float::from_f64(l[0]).unwrap(),
-                float::from_f64(l[1]).unwrap(),
-                float::from_f64(l[2]).unwrap(),
-                float::from_f64(l[3]).unwrap()));
-        }
-
-        let res = self.squared_topology(py).borrow_mut().evaluate(&mut ext, &moms, &mut *self.caches(py).borrow_mut());
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-   def evaluate_f128(&self, loop_momenta: Vec<Vec<f64>>, external_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
+   def evaluate_f128(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
         let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
@@ -653,16 +646,7 @@ py_class!(class CrossSection |py| {
                 f128::f128::from_f64(l[2]).unwrap()));
         }
 
-        let mut ext : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
-        for l in external_momenta {
-            ext.push(LorentzVector::from_args(
-                f128::f128::from_f64(l[0]).unwrap(),
-                f128::f128::from_f64(l[1]).unwrap(),
-                f128::f128::from_f64(l[2]).unwrap(),
-                f128::f128::from_f64(l[3]).unwrap()));
-        }
-
-        let res = self.squared_topology(py).borrow_mut().evaluate(&mut ext, &moms, &mut *self.caches_f128(py).borrow_mut());
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches_f128(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -680,7 +664,7 @@ py_class!(class CrossSection |py| {
 #[cfg(feature = "python_api")]
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
-    data integrand: RefCell<integrand::Integrand<usize>>;
+    data integrand: RefCell<integrand::Integrand<usize, topologies::Topology>>;
     data cache: RefCell<topologies::LTDCache<float>>;
     data cache_f128: RefCell<topologies::LTDCache<f128::f128>>;
 
@@ -706,7 +690,7 @@ py_class!(class LTD |py| {
 
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        let integrand = integrand::Integrand::new(&topo, settings.clone(), None, 0);
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), None, 0);
 
         LTD::create_instance(py, RefCell::new(topo), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
     }
@@ -714,7 +698,7 @@ py_class!(class LTD |py| {
     def __copy__(&self) -> PyResult<LTD> {
         let topo = self.topo(py).borrow();
         let settings = self.integrand(py).borrow().settings.clone();
-        let integrand = integrand::Integrand::new(&topo, settings, None, 0);
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, None, 0);
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
         LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
@@ -726,13 +710,13 @@ py_class!(class LTD |py| {
    }
 
    def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow().evaluate::<float, usize>(&x,
+        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<float, usize>(&x,
             &mut self.cache(py).borrow_mut(), &None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     } 
 
    def evaluate_f128(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow().evaluate::<f128::f128, usize>(&x,
+        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<f128::f128, usize>(&x,
             &mut self.cache_f128(py).borrow_mut(), &None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }

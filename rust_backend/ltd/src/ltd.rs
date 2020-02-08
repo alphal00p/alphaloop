@@ -2850,7 +2850,7 @@ impl Topology {
 
     #[inline]
     pub fn evaluate<'a, T: FloatLike, N: Numerator>(
-        &self,
+        &mut self,
         x: &'a [f64],
         cache: &mut LTDCache<T>,
         python_numerator: &Option<N>,

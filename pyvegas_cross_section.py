@@ -6,13 +6,12 @@ import ltd
 import signal
 import argparse
 import yaml
+import math
 
 class Integrand(vegas.BatchIntegrand):
-    def __init__(self, integrand, n_loops, incoming_momenta, phase, nproc):
+    def __init__(self, integrand, n_loops, phase, nproc):
         self.integrand = integrand
         self.n_loops = n_loops
-        self.external_momenta = incoming_momenta
-        self.e_cm_squared = sum(e[0] for e in incoming_momenta)**2 - sum(x*x for x in (sum(e[i] for e in incoming_momenta) for i in range(1, 4)))
         self.q = []
         self.phase = 0 if phase == "real" else 1
         self.nproc = multiprocessing.cpu_count() if nproc is None else nproc
@@ -30,7 +29,6 @@ class Integrand(vegas.BatchIntegrand):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         loop_momenta = [np.zeros(3, np.double) for _ in range(self.n_loops)]
-        ext = [np.array(e) for e in self.external_momenta]*2
         while True:
             i, x = q_in.get()
             if i is None:
@@ -42,11 +40,14 @@ class Integrand(vegas.BatchIntegrand):
                 # do the parameterization
                 jac = 1.
                 for l in range(self.n_loops):
-                    r = integrand.parameterize(x[y][l*3:(l+1)*3], l, self.e_cm_squared)
+                    r = integrand.parameterize(x[y][l*3:(l+1)*3], l, 1.0) # FIXME: e_cm_squared set to 1.0
                     loop_momenta[l] = r[:3]
                     jac *= r[3]
 
-                ans[y] = integrand.evaluate(loop_momenta, ext)[self.phase] * jac
+                ans[y] = integrand.evaluate_f128(loop_momenta)[self.phase] * jac
+
+                if math.isnan(ans[y]):
+                    print(loop_momenta, ans[y])
             q_out.put((i, ans))
 
     def __call__(self, x):
@@ -85,8 +86,6 @@ def main():
                         help='Hyperparameters file')
     parser.add_argument('--cross_section', default="LTD/bu_squared.yaml", type=str,
                         help='Cross section file')
-    parser.add_argument('-q', default=[[1, 0, 0, 0]], type=str,
-                        help='Incoming momenta')
     parser.add_argument('--survey_iter', '--si', default=5, type=int,
                         help='number of survey iterations')
     parser.add_argument('--survey_neval', '--sn', default=int(1e6), type=int,
@@ -107,7 +106,7 @@ def main():
 
     integ = vegas.Integrator(3 * args.loops * [[0, 1]])
     # adapt
-    fparallel = Integrand(l1, args.loops, eval(args.q), args.phase, args.c)
+    fparallel = Integrand(l1, args.loops, args.phase, args.c)
     result = integ(fparallel, nitn=args.survey_iter, neval=args.survey_neval)
     print('Done adapting: %s    Q = %.2f' % (result, result.Q))
     # final results

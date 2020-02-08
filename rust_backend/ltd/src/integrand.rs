@@ -8,17 +8,50 @@ use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Ze
 use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use topologies::{LTDCache, Topology};
+use topologies::{CachePrecisionSelector, LTDCacheAllPrecisions, Topology};
 use vector::LorentzVector;
 
 use {FloatLike, IntegratedPhase, Numerator, Settings, MAX_LOOP};
 
+pub trait IntegrandImplementation: Clone {
+    type Cache: Default;
+
+    fn rotate(&self, angle: float, axis: (float, float, float)) -> Self;
+    fn evaluate_float<'a, N: Numerator>(
+        &mut self,
+        x: &'a [f64],
+        cache: &mut Self::Cache,
+        python_numerator: &Option<N>,
+    ) -> (
+        &'a [f64],
+        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
+        float,
+        Complex<float>,
+        Complex<float>,
+    );
+
+    fn evaluate_f128<'a, N: Numerator>(
+        &mut self,
+        x: &'a [f64],
+        cache: &mut Self::Cache,
+        python_numerator: &Option<N>,
+    ) -> (
+        &'a [f64],
+        ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
+        f128,
+        Complex<f128>,
+        Complex<f128>,
+    );
+
+    fn create_cache(&self) -> Self::Cache;
+}
+
 /// A structure that integrates and keeps statistics
-pub struct Integrand<N: Numerator> {
+pub struct Integrand<N: Numerator, I: IntegrandImplementation> {
+    pub n_loops: usize,
     pub settings: Settings,
-    pub topologies: Vec<Topology>,
-    pub cache_float: LTDCache<float>,
-    pub cache_f128: LTDCache<f128>,
+    pub topologies: Vec<I>,
+    pub cache: I::Cache,
     pub running_max: Complex<float>,
     pub running_min_lambda: float,
     pub total_samples: usize,
@@ -32,9 +65,11 @@ pub struct Integrand<N: Numerator> {
     pub numerator: Option<N>,
 }
 
-impl Topology {
+impl IntegrandImplementation for Topology {
+    type Cache = LTDCacheAllPrecisions;
+
     /// Create a rotated version of this topology. The axis needs to be normalized.
-    pub fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
+    fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
         let cos_t = angle.cos();
         let sin_t = angle.sin();
         let cos_t_bar = float::one() - angle.cos();
@@ -133,15 +168,147 @@ impl Topology {
 
         rotated_topology
     }
+
+    #[inline]
+    fn evaluate_float<'a, N: Numerator>(
+        &mut self,
+        x: &'a [f64],
+        cache: &mut LTDCacheAllPrecisions,
+        python_numerator: &Option<N>,
+    ) -> (
+        &'a [f64],
+        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
+        float,
+        Complex<float>,
+        Complex<float>,
+    ) {
+        self.evaluate(x, cache.get(), python_numerator)
+    }
+
+    #[inline]
+    fn evaluate_f128<'a, N: Numerator>(
+        &mut self,
+        x: &'a [f64],
+        cache: &mut LTDCacheAllPrecisions,
+        python_numerator: &Option<N>,
+    ) -> (
+        &'a [f64],
+        ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
+        f128,
+        Complex<f128>,
+        Complex<f128>,
+    ) {
+        self.evaluate(x, cache.get(), python_numerator)
+    }
+
+    #[inline]
+    fn create_cache(&self) -> LTDCacheAllPrecisions {
+        LTDCacheAllPrecisions::new(self)
+    }
 }
 
-impl<N: Numerator> Integrand<N> {
+macro_rules! check_stability_precision {
+    ($($name:ident, $eval_fn:ident, $ty:ty),*) => {
+        $(
+    fn $name(
+        &mut self,
+        x: &[f64],
+        result: Complex<$ty>,
+        num_samples: usize,
+        cache: &mut I::Cache,
+    ) -> ($ty, $ty, Complex<$ty>, Complex<$ty>) {
+        if !self.settings.general.numerical_instability_check
+            || self.topologies.len() == 1
+            || num_samples == 1
+        {
+            return (
+                <$ty>::from_f64(self.settings.general.relative_precision).unwrap(),
+                <$ty>::from_f64(self.settings.general.absolute_precision).unwrap(),
+                Complex::default(),
+                Complex::default(),
+            );
+        }
+
+        // collect smallest result and biggest result
+        let mut min = result;
+        let mut max = result;
+
+        for rot_topo in &mut self.topologies[1..num_samples] {
+            if self.settings.general.debug > 2 {
+                println!("Evaluating integrand with rotated topologies");
+            }
+
+            let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
+                rot_topo.$eval_fn(x, cache, &self.numerator);
+
+            // compute the number of similar digits
+            match self.settings.integrator.integrated_phase {
+                IntegratedPhase::Real => {
+                    if result_rot.re < min.re {
+                        min.re = result_rot.re
+                    }
+                    if result_rot.re > max.re {
+                        max.re = result_rot.re
+                    }
+                }
+                IntegratedPhase::Imag => {
+                    if result_rot.im < min.im {
+                        min.im = result_rot.im
+                    }
+                    if result_rot.im > max.im {
+                        max.im = result_rot.im
+                    }
+                }
+                IntegratedPhase::Both => {
+                    if result_rot.re < min.re {
+                        min.re = result_rot.re
+                    }
+                    if result_rot.re > max.re {
+                        max.re = result_rot.re
+                    }
+                    if result_rot.im < min.im {
+                        min.im = result_rot.im
+                    }
+                    if result_rot.im > max.im {
+                        max.im = result_rot.im
+                    }
+                }
+            };
+        }
+
+        // determine if the difference is largest in the re or im
+        let (num, num_rot) = if max.re - min.re > max.im - min.im {
+            (max.re, min.re)
+        } else {
+            (max.im, min.im)
+        };
+
+        let d = if num.is_zero() && num_rot.is_zero() {
+            <$ty>::from_usize(100).unwrap()
+        } else {
+            if num == -num_rot {
+                -<$ty>::from_usize(100).unwrap()
+            } else {
+                -Float::abs((num - num_rot) / (num + num_rot)).log10()
+            }
+        };
+
+        (d, Float::abs(num - num_rot), min, max)
+    }
+
+    )*
+
+    }
+}
+
+impl<N: Numerator, I: IntegrandImplementation> Integrand<N, I> {
     pub fn new(
-        topology: &Topology,
+        n_loops: usize,
+        topology: I,
         settings: Settings,
         numerator: Option<N>,
         id: usize,
-    ) -> Integrand<N> {
+    ) -> Integrand<N, I> {
         // create extra topologies with rotated kinematics to check the uncertainty
         let mut rng = rand::thread_rng();
         let mut topologies = vec![topology.clone()];
@@ -164,9 +331,9 @@ impl<N: Numerator> Integrand<N> {
         }
 
         Integrand {
+            n_loops,
             topologies,
-            cache_float: LTDCache::<float>::new(&topology),
-            cache_f128: LTDCache::<f128>::new(&topology),
+            cache: topology.create_cache(),
             running_max: Complex::default(),
             total_samples: 0,
             regular_point_count: 0,
@@ -282,91 +449,8 @@ impl<N: Numerator> Integrand<N> {
             self.running_min_lambda).unwrap();
     }
 
-    fn check_stability<T: FloatLike>(
-        &self,
-        x: &[f64],
-        result: Complex<T>,
-        num_samples: usize,
-        cache: &mut LTDCache<T>,
-    ) -> (T, T, Complex<T>, Complex<T>) {
-        if !self.settings.general.numerical_instability_check
-            || self.topologies.len() == 1
-            || num_samples == 1
-        {
-            return (
-                T::from_f64(self.settings.general.relative_precision).unwrap(),
-                T::from_f64(self.settings.general.absolute_precision).unwrap(),
-                Complex::default(),
-                Complex::default(),
-            );
-        }
-
-        // collect smallest result and biggest result
-        let mut min = result;
-        let mut max = result;
-
-        for rot_topo in &self.topologies[1..num_samples] {
-            if self.settings.general.debug > 2 {
-                println!("Evaluating integrand with rotated topologies");
-            }
-
-            let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                rot_topo.evaluate(x, cache, &self.numerator);
-
-            // compute the number of similar digits
-            match self.settings.integrator.integrated_phase {
-                IntegratedPhase::Real => {
-                    if result_rot.re < min.re {
-                        min.re = result_rot.re
-                    }
-                    if result_rot.re > max.re {
-                        max.re = result_rot.re
-                    }
-                }
-                IntegratedPhase::Imag => {
-                    if result_rot.im < min.im {
-                        min.im = result_rot.im
-                    }
-                    if result_rot.im > max.im {
-                        max.im = result_rot.im
-                    }
-                }
-                IntegratedPhase::Both => {
-                    if result_rot.re < min.re {
-                        min.re = result_rot.re
-                    }
-                    if result_rot.re > max.re {
-                        max.re = result_rot.re
-                    }
-                    if result_rot.im < min.im {
-                        min.im = result_rot.im
-                    }
-                    if result_rot.im > max.im {
-                        max.im = result_rot.im
-                    }
-                }
-            };
-        }
-
-        // determine if the difference is largest in the re or im
-        let (num, num_rot) = if max.re - min.re > max.im - min.im {
-            (max.re, min.re)
-        } else {
-            (max.im, min.im)
-        };
-
-        let d = if num.is_zero() && num_rot.is_zero() {
-            T::from_usize(100).unwrap()
-        } else {
-            if num == -num_rot {
-                -T::from_usize(100).unwrap()
-            } else {
-                -Float::abs((num - num_rot) / (num + num_rot)).log10()
-            }
-        };
-
-        (d, Float::abs(num - num_rot), min, max)
-    }
+    check_stability_precision!(check_stability_float, evaluate_float, float);
+    check_stability_precision!(check_stability_quad, evaluate_f128, f128);
 
     pub fn evaluate(&mut self, x: &[f64]) -> Complex<float> {
         if self.settings.general.integration_statistics
@@ -380,10 +464,11 @@ impl<N: Numerator> Integrand<N> {
         if self.settings.general.multi_channeling {
             if let Some(i) = self.settings.general.multi_channeling_channel {
                 if i < 0 {
-                    let global_seed: [u8; 32] = rand::thread_rng().gen();
+                    unimplemented!("Not implemented for now");
+                    /*let global_seed: [u8; 32] = rand::thread_rng().gen();
                     for topo in self.topologies.iter_mut() {
                         topo.global_seed = Some(global_seed);
-                    }
+                    }*/
                 }
             }
         }
@@ -402,20 +487,21 @@ impl<N: Numerator> Integrand<N> {
             );
         }
 
-        let mut cache_float = std::mem::replace(&mut self.cache_float, LTDCache::default());
+        let mut cache = std::mem::replace(&mut self.cache, I::Cache::default());
         let (x, k_def, jac_para, jac_def, mut result) =
-            self.topologies[0].evaluate(x, &mut cache_float, &self.numerator);
-        let (d, diff, min_rot, max_rot) = self.check_stability(
+            self.topologies[0].evaluate_float(x, &mut cache, &self.numerator);
+        let (d, diff, min_rot, max_rot) = self.check_stability_float(
             x,
             result,
             self.settings.general.num_f64_samples,
-            &mut cache_float,
+            &mut cache,
         );
-        std::mem::swap(&mut self.cache_float, &mut cache_float);
+        std::mem::swap(&mut self.cache, &mut cache);
 
-        if self.cache_float.overall_lambda < self.running_min_lambda {
-            self.running_min_lambda = self.cache_float.overall_lambda;
-        }
+        // FIXME
+        /*if self.cache.overall_lambda < self.running_min_lambda {
+            self.running_min_lambda = self.cache.overall_lambda;
+        }*/
 
         self.total_samples += 1;
 
@@ -426,18 +512,18 @@ impl<N: Numerator> Integrand<N> {
             || diff > NumCast::from(self.settings.general.absolute_precision).unwrap()
         {
             if self.settings.general.integration_statistics {
-                let loops = self.topologies[0].n_loops;
+                let loops = self.n_loops;
                 self.print_info(
                     loops, false, true, x, &k_def, jac_para, jac_def, min_rot, max_rot, d,
                 );
             }
 
             if self.settings.general.log_quad_upgrade {
-                match self.topologies[0].n_loops {
+                match self.n_loops {
                     1 => writeln!(
                         self.quadruple_upgrade_log,
-                        "{} {} {}",
-                        k_def[0].x.re, k_def[0].y.re, k_def[0].z.re
+                        "{:?} {} {} {}",
+                        x, k_def[0].x.re, k_def[0].y.re, k_def[0].z.re
                     )
                     .unwrap(),
                     2 => writeln!(
@@ -488,17 +574,17 @@ impl<N: Numerator> Integrand<N> {
             }
 
             // compute the point again with f128 to see if it is stable then
-            let mut cache_f128 = std::mem::replace(&mut self.cache_f128, LTDCache::default());
+            std::mem::swap(&mut self.cache, &mut cache);
             let (_, k_def_f128, jac_para_f128, jac_def_f128, result_f128) =
-                self.topologies[0].evaluate(x, &mut cache_f128, &self.numerator);
+                self.topologies[0].evaluate_f128(x, &mut cache, &self.numerator);
             // NOTE: for this check we use a f64 rotation matrix at the moment!
-            let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability(
+            let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability_quad(
                 x,
                 result_f128,
                 self.settings.general.num_f128_samples,
-                &mut cache_f128,
+                &mut cache,
             );
-            std::mem::swap(&mut self.cache_f128, &mut cache_f128);
+            std::mem::swap(&mut self.cache, &mut cache);
             /*
             // check if the f128 computation is consistent with the f64 one
             // by checking if the f128 result is more than 2 stable digits removed from the f64 one
@@ -555,7 +641,7 @@ impl<N: Numerator> Integrand<N> {
                 || diff_f128 > NumCast::from(self.settings.general.absolute_precision).unwrap()
             {
                 if self.settings.general.integration_statistics {
-                    let loops = self.topologies[0].n_loops;
+                    let loops = self.n_loops;
                     self.print_info(
                         loops,
                         false,
@@ -575,6 +661,7 @@ impl<N: Numerator> Integrand<N> {
                     return Complex::default();
                 } else {
                     self.unstable_f128_point_count += 1;
+                    //println!("f128 fail : x={:?}, min result={}, max result={}", x, min_rot_f128, max_rot_f128);
 
                     if d_f128
                         > NumCast::from(
@@ -625,7 +712,7 @@ impl<N: Numerator> Integrand<N> {
         }
 
         if self.settings.general.integration_statistics {
-            let loops = self.topologies[0].n_loops;
+            let loops = self.n_loops;
             self.print_info(
                 loops, new_max, false, x, &k_def, jac_para, jac_def, min_rot, max_rot, d,
             );
