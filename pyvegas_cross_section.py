@@ -25,7 +25,7 @@ class Integrand(vegas.BatchIntegrand):
             p.daemon = True
             p.start()
 
-    def integrand_bridge(self, integrand, q_in, q_out):
+    def integrand_bridge(self, integrand, q_in, q_out, f128=False):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         loop_momenta = [np.zeros(3, np.double) for _ in range(self.n_loops)]
@@ -37,14 +37,17 @@ class Integrand(vegas.BatchIntegrand):
             # FIXME: phase both is not supported yet
             ans = np.zeros(x.shape[0], np.double)
             for y in range(x.shape[0]):
-                # do the parameterization
-                jac = 1.
-                for l in range(self.n_loops):
-                    r = integrand.parameterize(x[y][l*3:(l+1)*3], l, 1.0) # FIXME: e_cm_squared set to 1.0
-                    loop_momenta[l] = r[:3]
-                    jac *= r[3]
+                if f128:
+                    # do the parameterization
+                    jac = 1.
+                    for l in range(self.n_loops):
+                        r = integrand.parameterize(x[y][l*3:(l+1)*3], l, 1.0) # FIXME: e_cm_squared set to 1.0
+                        loop_momenta[l] = r[:3]
+                        jac *= r[3]
 
-                ans[y] = integrand.evaluate_f128(loop_momenta)[self.phase] * jac
+                    ans[y] = integrand.evaluate_f128(loop_momenta)[self.phase] * jac
+                else:
+                    ans[y] = integrand.evaluate_integrand(x[y])[self.phase]
 
                 if math.isnan(ans[y]):
                     print(loop_momenta, ans[y])

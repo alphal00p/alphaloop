@@ -608,6 +608,7 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 #[cfg(feature = "python_api")]
 py_class!(class CrossSection |py| {
     data squared_topology: RefCell<squared_topologies::SquaredTopology>;
+    data integrand: RefCell<integrand::Integrand<usize, squared_topologies::SquaredTopology>>;
     data caches: RefCell<Vec<Vec<topologies::LTDCache<float>>>>;
     data caches_f128: RefCell<Vec<Vec<topologies::LTDCache<f128::f128>>>>;
 
@@ -615,12 +616,18 @@ py_class!(class CrossSection |py| {
     -> PyResult<CrossSection> {
         let settings = Settings::from_file(settings_file);
         let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings);
+        let integrand = integrand::Integrand::new(squared_topology.n_loops, squared_topology.clone(), settings.clone(), None, 0);
 
         let caches = squared_topology.create_caches::<float>();
         let caches_f128 = squared_topology.create_caches::<f128::f128>();
 
-        CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(caches), RefCell::new(caches_f128))
+        CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(integrand), RefCell::new(caches), RefCell::new(caches_f128))
     }
+
+    def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
+        let res = self.integrand(py).borrow_mut().evaluate(&x);
+        Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
+   }
 
     def evaluate(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
         let mut moms : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
