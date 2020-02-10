@@ -125,9 +125,20 @@ impl Topology {
         if self.n_loops > MAX_LOOP {
             panic!("Please increase MAX_LOOP to {}", self.n_loops);
         }
-        // TODO: read from some the yaml file the complex coefficient and call directly
-        //       LTDNumerator::new(self.n_loops, coefficients);
-        self.numerator = LTDNumerator::default(self.n_loops);
+
+        // construct the numerator
+        self.numerator = if self.numerator_tensor_coefficients.len() == 0 {
+            LTDNumerator::one(self.n_loops)
+        } else {
+            LTDNumerator::new(
+                self.n_loops,
+                &self
+                    .numerator_tensor_coefficients
+                    .iter()
+                    .map(|x| Complex::new(x.0, x.1))
+                    .collect::<Vec<_>>(),
+            )
+        };
 
         // set the identity rotation matrix
         self.rotation_matrix = [
@@ -2528,6 +2539,7 @@ impl Topology {
         numerator.evaluate_reduced_in_cb(cut, &self.loop_lines, mat, cache);
 
         let r = if derivative_map.iter().all(|x| *x == 0) {
+            // we are in the case where we do not need derivatives
             let mut r = Complex::new(T::one(), T::zero());
 
             if overwrite_propagator_powers {
@@ -2562,7 +2574,7 @@ impl Topology {
                     };
                 }
             }
-            numerator.evaluate(&cut_propagators[..self.n_loops], cache) * r.inv() // normal inverse may overflow but has better precision than finv, which overflows later
+            numerator.evaluate(&cut_propagators[..self.n_loops], cache) * r.inv()
         } else {
             let mut res = Complex::default();
             for (i, monomial_powers) in numerator
@@ -3035,7 +3047,7 @@ impl Topology {
 }
 
 impl LTDNumerator {
-    pub fn new(n_loops: usize, coefficients: &Vec<Complex<f64>>) -> LTDNumerator {
+    pub fn new(n_loops: usize, coefficients: &[Complex<f64>]) -> LTDNumerator {
         // Determine max_rank
         let mut max_rank = 0;
         let mut check_size = 1;
@@ -3126,8 +3138,9 @@ impl LTDNumerator {
         }
     }
 
-    pub fn default(n_loops: usize) -> LTDNumerator {
-        LTDNumerator::new(n_loops, &vec![Complex::new(1.0, 0.0)])
+    /// Generate a numerator that is 1.
+    pub fn one(n_loops: usize) -> LTDNumerator {
+        LTDNumerator::new(n_loops, &[Complex::one()])
     }
 
     /// Perform the rotation to the vector component of the coefficients
@@ -3135,7 +3148,7 @@ impl LTDNumerator {
     /// NOTE: untested for multiloops
     pub fn rotate(&self, rotation_matrix: [[float; 3]; 3]) -> LTDNumerator {
         if self.coefficients.len() == 0 {
-            return LTDNumerator::default(self.n_loops);
+            return LTDNumerator::one(self.n_loops);
         }
         let mut coefficients = vec![Complex::default(); self.coefficients.len()];
         coefficients[0] = self.coefficients[0];

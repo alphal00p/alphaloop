@@ -398,6 +398,8 @@ pub struct Topology {
     #[serde(skip_deserializing)]
     pub numerator: LTDNumerator,
     #[serde(default)]
+    pub numerator_tensor_coefficients: Vec<(f64, f64)>,
+    #[serde(default)]
     pub amplitude: Amplitude,
     #[serde(default)]
     pub loop_momentum_map: Vec<(Vec<i8>, Vec<i8>)>,

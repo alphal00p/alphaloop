@@ -1107,6 +1107,31 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
      entry_name = 'Box_RodrigoFail2'
 )
 
+
+box = TopologyGenerator([
+    ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4),  ('p4', 4, 1),
+    ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
+])
+q1 = vectors.LorentzVector([14.,-6.6,-40.,0.])
+q2 = vectors.LorentzVector([-43., 12., 33., 0.])
+q3 = vectors.LorentzVector([-28., -50., 10., 0.])
+hard_coded_topology_collection.add_topology(box.create_loop_topology(
+        "Box_linear_numerator",
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 },
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0},
+        loop_momenta_names=('p4',),
+        analytic_result=0,
+        numerator_tensor_coefficients=[
+            (0., 0.), # C^0
+            (14., 0.), # q1_t * k^t
+            (-6.6, 0.), # q1_x * k^x
+            (-40., 0.), # q1_y * k^y
+            (0., 0.), # q1_z^0 * k^z
+        ]
+     ),
+     entry_name = 'Box_linear_numerator'
+)
+
 # Example printout
 # ----------------
 #hard_coded_topology_collection['non_planar_four_loop_no_ellipse'].print_topology()

@@ -588,7 +588,7 @@ class TopologyGenerator(object):
 
     def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None,
             contour_closure=None, analytic_result=None, fixed_deformation=None, constant_deformation=None,
-            loop_momentum_map=None, shift_map=None):
+            loop_momentum_map=None, shift_map=None, numerator_tensor_coefficients=None):
         if loop_momentum_map is None:
             self.generate_momentum_flow(loop_momenta_names)
 
@@ -721,6 +721,9 @@ class TopologyGenerator(object):
 
         if analytic_result is None:
             loop_topology.analytic_result = self.guess_analytical_result(self.loop_momenta, ext_mom, mass_map)
+
+        if numerator_tensor_coefficients is not None:
+            loop_topology.numerator_tensor_coefficients = numerator_tensor_coefficients
        
         if (fixed_deformation is None) or (fixed_deformation is True):
             # TODO generate the source coordinates automatically with cvxpy if 
@@ -1169,7 +1172,9 @@ class LoopTopology(object):
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
         res['analytical_result_real'] = float(self.analytic_result.real) if self.analytic_result else 0.
-        res['analytical_result_imag'] = float(self.analytic_result.imag) if self.analytic_result else 0. 
+        res['analytical_result_imag'] = float(self.analytic_result.imag) if self.analytic_result else 0.
+        if self.numerator_tensor_coefficients:
+            res['numerator_tensor_coefficients'] = [list(c) for c in self.numerator_tensor_coefficients]
 
         return res
 

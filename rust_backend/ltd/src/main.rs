@@ -973,7 +973,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                                 let v = topo
                                                     .evaluate_cut(
                                                         &mut k_def[..topo.n_loops],
-                                                        &mut LTDNumerator::default(topo.n_loops),
+                                                        &mut LTDNumerator::one(topo.n_loops),
                                                         cut,
                                                         mat,
                                                         &mut cache,
