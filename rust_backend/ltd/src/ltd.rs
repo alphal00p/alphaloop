@@ -2515,32 +2515,28 @@ impl Topology {
             if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
                 // Using the value form the cache to allow setting externally
                 // the powers of the propagators
-                if cache.propagator_powers[*i] == 0 {
-                    return Ok(Complex::default());
-                }
-                derivative_map[index] = cache.propagator_powers[*i] - 1;
-                // No pole here
-                if ll.propagators[*i].power == 0 {
+                let p_id = ll.propagators[*i].id;
+                if cache.propagator_powers[p_id] == 0 || ll.propagators[*i].power == 0 {
                     return Ok(Complex::zero());
                 }
-                cache.propagator_powers[ll.propagators[*i].id] = 0; // do not consider these linear propagators in the recursion
-                cut_propagators[index] = ll.propagators[*i].id;
+                derivative_map[index] = cache.propagator_powers[p_id] - 1;
+                cache.propagator_powers[p_id] = 0; // do not consider these linear propagators in the recursion
+                cut_propagators[index] = p_id;
+
                 index += 1;
             }
         }
+
         // Set energy on the cut
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
-        // Cache all propagator evaluations by evaluating the loop line
-        for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
-            ll.evaluate(&k_def, ll_cut, &self, cache)?;
-        }
+
         // Prepare numerator
         numerator.evaluate_reduced_in_lb(k_def, cache); //NOTE: Only necessary when k_vec is changed
         numerator.evaluate_reduced_in_cb(cut, &self.loop_lines, mat, cache);
 
         let r = if derivative_map.iter().all(|x| *x == 0) {
             // we are in the case where we do not need derivatives
-            let mut r = Complex::new(T::one(), T::zero());
+            let mut r = Complex::one();
 
             if overwrite_propagator_powers {
                 for (i, (ll_cut, ll)) in cut.iter().zip_eq(self.loop_lines.iter()).enumerate() {
@@ -2576,6 +2572,11 @@ impl Topology {
             }
             numerator.evaluate(&cut_propagators[..self.n_loops], cache) * r.inv()
         } else {
+            // Cache all propagator evaluations by evaluating the loop line
+            for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
+                ll.evaluate(&k_def, ll_cut, &self, cache)?;
+            }
+
             let mut res = Complex::default();
             for (i, monomial_powers) in numerator
                 .reduced_coefficient_index_to_powers

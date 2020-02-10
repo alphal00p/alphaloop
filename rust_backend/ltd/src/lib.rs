@@ -347,7 +347,6 @@ pub struct ParameterizationSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
-    pub common_denominator: bool,
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
     pub log_file_prefix: String,
@@ -514,7 +513,7 @@ impl PythonNumerator {
             let sys = py.import("sys").unwrap();
             PyList::downcast_from(py, sys.get(py, "path").unwrap())
                 .unwrap()
-                .insert_item(py, 0, PyString::new(py, ".").into_object());
+                .insert(py, 0, PyString::new(py, ".").into_object());
 
             let module = py.import(module).unwrap();
             let buffer = PyList::new(
@@ -783,7 +782,7 @@ py_class!(class LTD |py| {
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        match topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache,true) {
+        match topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache, true) {
             Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
             Err(_) => Ok((0., 0.))
         }
@@ -836,7 +835,7 @@ py_class!(class LTD |py| {
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
-        let v = topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache,true).unwrap();
+        let v = topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache, true).unwrap();
         // get the loop line result from the cache if possible
         let r = 2.0 * cache.complex_cut_energies[cut_index];
         let ct = topo.counterterm::<float>(&moms[..topo.n_loops], r, cut_index, &mut cache);
