@@ -2,6 +2,7 @@ use arrayvec::ArrayVec;
 use colored::Colorize;
 use disjoint_sets::UnionFind;
 use dual_num::{DimName, DualN};
+use float;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
@@ -15,7 +16,6 @@ use topologies::{
 };
 use utils::Signum;
 use vector::LorentzVector;
-use {float, Numerator};
 use {
     AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike,
     OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
@@ -2703,11 +2703,10 @@ impl Topology {
         Ok(())
     }
 
-    pub fn evaluate_multi_channel<T: FloatLike, N: Numerator>(
+    pub fn evaluate_multi_channel<T: FloatLike>(
         &self,
         k: &[LorentzVector<T>],
         cache: &mut LTDCache<T>,
-        python_numerator: &Option<N>,
         channel: Option<isize>,
     ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
@@ -2838,8 +2837,7 @@ impl Topology {
                     continue;
                 }
 
-                let (r, kd) =
-                    self.evaluate_all_dual_integrands(&shifted_k, k_def, cache, python_numerator)?;
+                let (r, kd) = self.evaluate_all_dual_integrands(&shifted_k, k_def, cache)?;
                 k_def = kd;
 
                 res += r * jac * channel_factor;
@@ -2853,12 +2851,11 @@ impl Topology {
         Ok((res, k_def))
     }
 
-    pub fn evaluate_all_dual_integrands<T: FloatLike, N: Numerator>(
+    pub fn evaluate_all_dual_integrands<T: FloatLike>(
         &self,
         k: &[LorentzVector<T>],
         mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
         cache: &mut LTDCache<T>,
-        python_numerator: &Option<N>,
     ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
         // evaluate all dual integrands
         let mut result = Complex::default();
@@ -2912,12 +2909,9 @@ impl Topology {
 
                         v * (ct + T::one())
                     };
+
                     // k_def has the correct energy component at this stage
-                    if let Some(pn) = python_numerator {
-                        result += v * pn.evaluate_numerator(&k_def[..self.n_loops]) * dual_jac_def
-                    } else {
-                        result += v * dual_jac_def
-                    }
+                    result += v * dual_jac_def
                 }
                 cut_counter += 1;
             }
@@ -2926,11 +2920,10 @@ impl Topology {
     }
 
     #[inline]
-    pub fn evaluate<'a, T: FloatLike, N: Numerator>(
+    pub fn evaluate<'a, T: FloatLike>(
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCache<T>,
-        python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
@@ -2972,12 +2965,7 @@ impl Topology {
         let mut jac_def = Complex::one();
 
         let r = if self.settings.general.multi_channeling {
-            self.evaluate_multi_channel(
-                &k,
-                cache,
-                python_numerator,
-                self.settings.general.multi_channeling_channel,
-            )
+            self.evaluate_multi_channel(&k, cache, self.settings.general.multi_channeling_channel)
         } else {
             if self.settings.general.deformation_strategy != DeformationStrategy::Duals {
                 let (kappas, jac) = self.deform(&k, None, None, cache);
@@ -2997,7 +2985,7 @@ impl Topology {
                 }
             }
 
-            self.evaluate_all_dual_integrands(&k, k_def, cache, python_numerator)
+            self.evaluate_all_dual_integrands(&k, k_def, cache)
         };
 
         let (mut result, k_def) = match r {
@@ -3212,11 +3200,6 @@ impl LTDNumerator {
         cache: &mut LTDCache<T>,
     ) -> () {
         if cache.numerator_momentum_cache.len() < self.coefficient_index_map.len() + 1 {
-            println!(
-                "Resizing numerator_momentum_cache {} -> {}",
-                cache.numerator_momentum_cache.len(),
-                self.coefficient_index_map.len() + 1
-            );
             cache.numerator_momentum_cache.resize(
                 self.coefficient_index_map.len() + 1,
                 Complex::new(T::zero(), T::zero()),
@@ -3239,11 +3222,6 @@ impl LTDNumerator {
         cache: &mut LTDCache<T>,
     ) -> () {
         if cache.numerator_momentum_cache.len() < self.coefficient_index_map.len() + 1 {
-            println!(
-                "Resizing numerator_momentum_cache {} -> {}",
-                cache.numerator_momentum_cache.len(),
-                self.coefficient_index_map.len() + 1
-            );
             cache.numerator_momentum_cache.resize(
                 self.coefficient_index_map.len() + 1,
                 Complex::new(T::zero(), T::zero()),

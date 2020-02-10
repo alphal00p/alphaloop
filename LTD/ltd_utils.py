@@ -722,8 +722,7 @@ class TopologyGenerator(object):
         if analytic_result is None:
             loop_topology.analytic_result = self.guess_analytical_result(self.loop_momenta, ext_mom, mass_map)
 
-        if numerator_tensor_coefficients is not None:
-            loop_topology.numerator_tensor_coefficients = numerator_tensor_coefficients
+        loop_topology.numerator_tensor_coefficients = numerator_tensor_coefficients
        
         if (fixed_deformation is None) or (fixed_deformation is True):
             # TODO generate the source coordinates automatically with cvxpy if 

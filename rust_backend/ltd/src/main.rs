@@ -38,7 +38,7 @@ use ltd::integrand::Integrand;
 use ltd::squared_topologies::SquaredTopology;
 use ltd::topologies::{LTDCache, LTDNumerator, Surface, SurfaceType, Topology};
 use ltd::utils::Signum;
-use ltd::{float, FloatLike, IntegratedPhase, Integrator, PythonNumerator, Settings};
+use ltd::{float, FloatLike, IntegratedPhase, Integrator, Settings};
 
 use colored::*;
 
@@ -64,8 +64,8 @@ impl CubaResultDef {
 }
 
 enum Integrands {
-    Topology(Integrand<PythonNumerator, Topology>),
-    CrossSection(Integrand<PythonNumerator, SquaredTopology>),
+    Topology(Integrand<Topology>),
+    CrossSection(Integrand<SquaredTopology>),
 }
 
 enum Diagram {
@@ -424,7 +424,7 @@ fn bench(topo: &mut Topology, settings: &Settings) {
             *xi = rng.gen();
         }
 
-        let _r = topo.evaluate::<float, PythonNumerator>(&x, &mut cache, &None);
+        let _r = topo.evaluate::<float>(&x, &mut cache);
     }
 
     println!("{:#?}", now.elapsed());
@@ -1074,21 +1074,9 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
     }
 
     if matches.is_present("full_integrand") {
-        let python_numerator = settings
-            .general
-            .python_numerator
-            .as_ref()
-            .map(|module| PythonNumerator::new(module, topo.n_loops));
-
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
-        let mut i = Integrand::new(
-            topo.n_loops,
-            topo.clone(),
-            settings.clone(),
-            python_numerator,
-            1,
-        );
+        let mut i = Integrand::new(topo.n_loops, topo.clone(), settings.clone(), 1);
         i.evaluate(&pt);
         return;
     }
@@ -1096,9 +1084,8 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
     // TODO: prevent code repetition
     if matches.is_present("use_f128") {
         let mut cache = LTDCache::<f128::f128>::new(&topo);
-        let (x, k_def, jac_para, jac_def, result) = topo
-            .clone()
-            .evaluate::<f128::f128, PythonNumerator>(&pt, &mut cache, &None);
+        let (x, k_def, jac_para, jac_def, result) =
+            topo.clone().evaluate::<f128::f128>(&pt, &mut cache);
         match topo.n_loops {
             1 => {
                 println!(
@@ -1128,9 +1115,7 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
         }
     } else {
         let mut cache = LTDCache::<float>::new(&topo);
-        let (x, k_def, jac_para, jac_def, result) = topo
-            .clone()
-            .evaluate::<float, PythonNumerator>(&pt, &mut cache, &None);
+        let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate::<float>(&pt, &mut cache);
         match topo.n_loops {
             1 => {
                 println!(
@@ -1511,29 +1496,19 @@ fn main() {
     let user_data_generator = || UserData {
         n_loops,
         integrand: (0..=cores)
-            .map(|i| {
-                let python_numerator = settings
-                    .general
-                    .python_numerator
-                    .as_ref()
-                    .map(|module| PythonNumerator::new(module, n_loops));
-
-                match &diagram {
-                    Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
-                        sqt.n_loops,
-                        sqt.clone(),
-                        settings.clone(),
-                        python_numerator,
-                        i,
-                    )),
-                    Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
-                        topo.n_loops,
-                        topo.clone(),
-                        settings.clone(),
-                        python_numerator,
-                        i,
-                    )),
-                }
+            .map(|i| match &diagram {
+                Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
+                    sqt.n_loops,
+                    sqt.clone(),
+                    settings.clone(),
+                    i,
+                )),
+                Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
+                    topo.n_loops,
+                    topo.clone(),
+                    settings.clone(),
+                    i,
+                )),
             })
             .collect(),
         integrated_phase: settings.integrator.integrated_phase,

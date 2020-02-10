@@ -1,19 +1,14 @@
 use amplitude::Amplitude;
-use arrayvec::ArrayVec;
 use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use float;
-use itertools::Itertools;
 use num::Complex;
-use num_traits::{Float, FloatConst};
-use num_traits::{One, Signed, Zero};
+use num_traits::{Signed, Zero};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
-use utils;
-use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
-use {FloatLike, PythonNumerator, Settings, MAX_LOOP};
+use {FloatLike, Settings, MAX_LOOP};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SurfaceType {

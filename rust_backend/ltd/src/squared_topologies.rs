@@ -16,7 +16,7 @@ use topologies::Topology;
 use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
-use {FloatLike, Numerator, PythonNumerator, Settings, MAX_LOOP};
+use {FloatLike, Settings, MAX_LOOP};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
@@ -237,11 +237,10 @@ impl SquaredTopology {
     }
 
     #[inline]
-    pub fn evaluate<'a, T: FloatLike, N: Numerator>(
+    pub fn evaluate<'a, T: FloatLike>(
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<LTDCache<T>>],
-        _python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
@@ -479,11 +478,10 @@ impl SquaredTopology {
 
                     let (mut res, kd) = if subgraph.loop_lines.len() > 0 {
                         subgraph
-                            .evaluate_all_dual_integrands::<T, PythonNumerator>(
+                            .evaluate_all_dual_integrands::<T>(
                                 &subgraph_loop_momenta[..subgraph.n_loops],
                                 k_def,
                                 subgraph_cache,
-                                &None,
                             )
                             .unwrap()
                     } else {
@@ -606,11 +604,10 @@ impl IntegrandImplementation for SquaredTopology {
     }
 
     #[inline]
-    fn evaluate_float<'a, N: Numerator>(
+    fn evaluate_float<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
-        python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -618,15 +615,14 @@ impl IntegrandImplementation for SquaredTopology {
         Complex<float>,
         Complex<float>,
     ) {
-        self.evaluate(x, cache.get(), python_numerator)
+        self.evaluate(x, cache.get())
     }
 
     #[inline]
-    fn evaluate_f128<'a, N: Numerator>(
+    fn evaluate_f128<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
-        python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -634,7 +630,7 @@ impl IntegrandImplementation for SquaredTopology {
         Complex<f128>,
         Complex<f128>,
     ) {
-        self.evaluate(x, cache.get(), python_numerator)
+        self.evaluate(x, cache.get())
     }
 
     #[inline]

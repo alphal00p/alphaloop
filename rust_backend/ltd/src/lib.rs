@@ -71,10 +71,6 @@ use std::fmt;
 use std::fs::File;
 pub use vector::LorentzVector;
 
-use cpython::PythonObject;
-use cpython::PythonObjectWithCheckedDowncast;
-use cpython::{PyFloat, PyList, PyString, PyTuple, Python};
-
 #[derive(Debug, Copy, Default, Clone, PartialEq, Deserialize)]
 pub struct Scaling {
     pub lambda: f64,
@@ -356,7 +352,6 @@ pub struct GeneralSettings {
     pub log_stats_to_screen: bool,
     pub log_quad_upgrade: bool,
     pub deformation_strategy: DeformationStrategy,
-    pub python_numerator: Option<String>,
     pub mu_uv_sq_re_im: Vec<f64>,
     pub use_ct: bool,
     pub use_collinear_ct: bool,
@@ -479,122 +474,6 @@ impl Settings {
     }
 }
 
-pub trait Numerator {
-    fn evaluate_numerator<T: FloatLike>(&self, k_def: &[LorentzVector<Complex<T>>]) -> Complex<T>;
-}
-
-impl Numerator for usize {
-    // used as a dummy numerator for the Python bindings
-    fn evaluate_numerator<T: FloatLike>(&self, _k_def: &[LorentzVector<Complex<T>>]) -> Complex<T> {
-        unreachable!()
-    }
-}
-
-pub struct PythonNumerator {
-    gil: cpython::GILGuard,
-    module: cpython::PyModule,
-    buffer: PyList,
-    num_loops: usize,
-}
-
-impl fmt::Debug for PythonNumerator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "python numerator")
-    }
-}
-
-impl PythonNumerator {
-    pub fn new(module: &str, num_loops: usize) -> PythonNumerator {
-        let gil = Python::acquire_gil();
-
-        let (module, buffer) = {
-            let py = gil.python();
-
-            let sys = py.import("sys").unwrap();
-            PyList::downcast_from(py, sys.get(py, "path").unwrap())
-                .unwrap()
-                .insert(py, 0, PyString::new(py, ".").into_object());
-
-            let module = py.import(module).unwrap();
-            let buffer = PyList::new(
-                py,
-                &(0..num_loops)
-                    .map(|_| {
-                        PyList::new(
-                            py,
-                            &[
-                                PyList::new(py, &[py.None(), py.None()]).into_object(),
-                                PyList::new(py, &[py.None(), py.None()]).into_object(),
-                                PyList::new(py, &[py.None(), py.None()]).into_object(),
-                                PyList::new(py, &[py.None(), py.None()]).into_object(),
-                            ],
-                        )
-                        .into_object()
-                    })
-                    .collect::<Vec<_>>(),
-            );
-            (module, buffer)
-        };
-
-        PythonNumerator {
-            gil,
-            module,
-            buffer,
-            num_loops,
-        }
-    }
-}
-
-impl Numerator for PythonNumerator {
-    fn evaluate_numerator<T: FloatLike>(&self, k_def: &[LorentzVector<Complex<T>>]) -> Complex<T> {
-        let py = self.gil.python();
-
-        // convert the vector to tuples
-        for (i, k) in k_def[..self.num_loops].iter().enumerate() {
-            let tup = PyList::downcast_from(py, self.buffer.get_item(py, i)).unwrap();
-
-            for j in 0..4 {
-                let tup1 = PyList::downcast_from(py, tup.get_item(py, j)).unwrap();
-                tup1.set_item(
-                    py,
-                    0,
-                    PyFloat::new(py, k[j].re.to_f64().unwrap()).into_object(),
-                );
-                tup1.set_item(
-                    py,
-                    1,
-                    PyFloat::new(py, k[j].im.to_f64().unwrap()).into_object(),
-                );
-            }
-        }
-
-        let res = self
-            .module
-            .call(py, "numerator", (&self.buffer,), None)
-            .unwrap();
-        let res_tup = PyTuple::downcast_from(py, res).unwrap();
-
-        Complex::new(
-            T::from_f64(
-                res_tup
-                    .get_item(py, 0)
-                    .extract::<PyFloat>(py)
-                    .unwrap()
-                    .value(py),
-            )
-            .unwrap(),
-            T::from_f64(
-                res_tup
-                    .get_item(py, 1)
-                    .extract::<PyFloat>(py)
-                    .unwrap()
-                    .value(py),
-            )
-            .unwrap(),
-        )
-    }
-}
-
 // add bindings to the generated python module
 #[cfg(feature = "python_api")]
 py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
@@ -607,7 +486,7 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 #[cfg(feature = "python_api")]
 py_class!(class CrossSection |py| {
     data squared_topology: RefCell<squared_topologies::SquaredTopology>;
-    data integrand: RefCell<integrand::Integrand<usize, squared_topologies::SquaredTopology>>;
+    data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopology>>;
     data caches: RefCell<Vec<Vec<topologies::LTDCache<float>>>>;
     data caches_f128: RefCell<Vec<Vec<topologies::LTDCache<f128::f128>>>>;
 
@@ -615,7 +494,7 @@ py_class!(class CrossSection |py| {
     -> PyResult<CrossSection> {
         let settings = Settings::from_file(settings_file);
         let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings);
-        let integrand = integrand::Integrand::new(squared_topology.n_loops, squared_topology.clone(), settings.clone(), None, 0);
+        let integrand = integrand::Integrand::new(squared_topology.n_loops, squared_topology.clone(), settings.clone(), 0);
 
         let caches = squared_topology.create_caches::<float>();
         let caches_f128 = squared_topology.create_caches::<f128::f128>();
@@ -670,7 +549,7 @@ py_class!(class CrossSection |py| {
 #[cfg(feature = "python_api")]
 py_class!(class LTD |py| {
     data topo: RefCell<topologies::Topology>;
-    data integrand: RefCell<integrand::Integrand<usize, topologies::Topology>>;
+    data integrand: RefCell<integrand::Integrand<topologies::Topology>>;
     data cache: RefCell<topologies::LTDCache<float>>;
     data cache_f128: RefCell<topologies::LTDCache<f128::f128>>;
 
@@ -696,7 +575,7 @@ py_class!(class LTD |py| {
 
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), None, 0);
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), 0);
 
         LTD::create_instance(py, RefCell::new(topo), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
     }
@@ -704,7 +583,7 @@ py_class!(class LTD |py| {
     def __copy__(&self) -> PyResult<LTD> {
         let topo = self.topo(py).borrow();
         let settings = self.integrand(py).borrow().settings.clone();
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, None, 0);
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, 0);
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
         LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
@@ -716,14 +595,14 @@ py_class!(class LTD |py| {
    }
 
    def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<float, usize>(&x,
-            &mut self.cache(py).borrow_mut(), &None);
+        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<float>(&x,
+            &mut self.cache(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     } 
 
    def evaluate_f128(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<f128::f128, usize>(&x,
-            &mut self.cache_f128(py).borrow_mut(), &None);
+        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<f128::f128>(&x,
+            &mut self.cache_f128(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
     

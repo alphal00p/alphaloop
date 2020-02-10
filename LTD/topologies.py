@@ -1113,11 +1113,12 @@ box = TopologyGenerator([
     ('q1', 101,1), ('q2', 102,2), ('q3', 103,3), ('q4', 104,4)
 ])
 q1 = vectors.LorentzVector([14.,-6.6,-40.,0.])
-q2 = vectors.LorentzVector([-43., 12., 33., 0.])
-q3 = vectors.LorentzVector([-28., -50., 10., 0.])
+q3 = vectors.LorentzVector([-43., 12., 33., 0.])
+q4 = vectors.LorentzVector([-28., -50., 10., 0.])
+q2=-q1-q3-q4
 hard_coded_topology_collection.add_topology(box.create_loop_topology(
         "Box_linear_numerator",
-        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': -q1-q2-q3 },
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4 },
         mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0},
         loop_momenta_names=('p4',),
         analytic_result=0,

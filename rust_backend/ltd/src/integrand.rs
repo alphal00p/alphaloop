@@ -1,5 +1,4 @@
 use arrayvec::ArrayVec;
-use colored::Colorize;
 use f128::f128;
 use float;
 use num::Complex;
@@ -11,17 +10,16 @@ use std::io::{BufWriter, Write};
 use topologies::{CachePrecisionSelector, LTDCacheAllPrecisions, Topology};
 use vector::LorentzVector;
 
-use {FloatLike, IntegratedPhase, Numerator, Settings, MAX_LOOP};
+use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 
 pub trait IntegrandImplementation: Clone {
     type Cache: Default;
 
     fn rotate(&self, angle: float, axis: (float, float, float)) -> Self;
-    fn evaluate_float<'a, N: Numerator>(
+    fn evaluate_float<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut Self::Cache,
-        python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -30,11 +28,10 @@ pub trait IntegrandImplementation: Clone {
         Complex<float>,
     );
 
-    fn evaluate_f128<'a, N: Numerator>(
+    fn evaluate_f128<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut Self::Cache,
-        python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -47,7 +44,7 @@ pub trait IntegrandImplementation: Clone {
 }
 
 /// A structure that integrates and keeps statistics
-pub struct Integrand<N: Numerator, I: IntegrandImplementation> {
+pub struct Integrand<I: IntegrandImplementation> {
     pub n_loops: usize,
     pub settings: Settings,
     pub topologies: Vec<I>,
@@ -62,7 +59,6 @@ pub struct Integrand<N: Numerator, I: IntegrandImplementation> {
     pub log: BufWriter<File>,
     pub quadruple_upgrade_log: BufWriter<File>,
     pub id: usize,
-    pub numerator: Option<N>,
 }
 
 impl IntegrandImplementation for Topology {
@@ -177,11 +173,10 @@ impl IntegrandImplementation for Topology {
     }
 
     #[inline]
-    fn evaluate_float<'a, N: Numerator>(
+    fn evaluate_float<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
-        python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -189,15 +184,14 @@ impl IntegrandImplementation for Topology {
         Complex<float>,
         Complex<float>,
     ) {
-        self.evaluate(x, cache.get(), python_numerator)
+        self.evaluate(x, cache.get())
     }
 
     #[inline]
-    fn evaluate_f128<'a, N: Numerator>(
+    fn evaluate_f128<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
-        python_numerator: &Option<N>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -205,7 +199,7 @@ impl IntegrandImplementation for Topology {
         Complex<f128>,
         Complex<f128>,
     ) {
-        self.evaluate(x, cache.get(), python_numerator)
+        self.evaluate(x, cache.get())
     }
 
     #[inline]
@@ -246,7 +240,7 @@ macro_rules! check_stability_precision {
             }
 
             let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                rot_topo.$eval_fn(x, cache, &self.numerator);
+                rot_topo.$eval_fn(x, cache);
 
             // compute the number of similar digits
             match self.settings.integrator.integrated_phase {
@@ -308,14 +302,8 @@ macro_rules! check_stability_precision {
     }
 }
 
-impl<N: Numerator, I: IntegrandImplementation> Integrand<N, I> {
-    pub fn new(
-        n_loops: usize,
-        topology: I,
-        settings: Settings,
-        numerator: Option<N>,
-        id: usize,
-    ) -> Integrand<N, I> {
+impl<I: IntegrandImplementation> Integrand<I> {
+    pub fn new(n_loops: usize, topology: I, settings: Settings, id: usize) -> Integrand<I> {
         // create extra topologies with rotated kinematics to check the uncertainty
         let mut rng = rand::thread_rng();
         let mut topologies = vec![topology.clone()];
@@ -361,7 +349,6 @@ impl<N: Numerator, I: IntegrandImplementation> Integrand<N, I> {
             ),
             settings,
             id,
-            numerator,
         }
     }
 
@@ -496,7 +483,7 @@ impl<N: Numerator, I: IntegrandImplementation> Integrand<N, I> {
 
         let mut cache = std::mem::replace(&mut self.cache, I::Cache::default());
         let (x, k_def, jac_para, jac_def, mut result) =
-            self.topologies[0].evaluate_float(x, &mut cache, &self.numerator);
+            self.topologies[0].evaluate_float(x, &mut cache);
         let (d, diff, min_rot, max_rot) = self.check_stability_float(
             x,
             result,
@@ -583,7 +570,7 @@ impl<N: Numerator, I: IntegrandImplementation> Integrand<N, I> {
             // compute the point again with f128 to see if it is stable then
             std::mem::swap(&mut self.cache, &mut cache);
             let (_, k_def_f128, jac_para_f128, jac_def_f128, result_f128) =
-                self.topologies[0].evaluate_f128(x, &mut cache, &self.numerator);
+                self.topologies[0].evaluate_f128(x, &mut cache);
             // NOTE: for this check we use a f64 rotation matrix at the moment!
             let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability_quad(
                 x,
