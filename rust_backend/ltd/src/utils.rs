@@ -193,3 +193,16 @@ pub fn determinant<T: Float + RealNumberLike>(
     }
     determinant
 }
+
+pub fn next_combination_with_replacement(state: &mut [usize], max_entry: usize) -> bool {
+    for i in (0..state.len()).rev() {
+        if state[i] < max_entry {
+            state[i] += 1;
+            for j in i + 1..state.len() {
+                state[j] = state[i]
+            }
+            return true;
+        }
+    }
+    false
+}

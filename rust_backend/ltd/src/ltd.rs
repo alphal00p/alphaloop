@@ -3,6 +3,7 @@ use colored::Colorize;
 use disjoint_sets::UnionFind;
 use dual_num::{DimName, DualN};
 use float;
+use fnv::FnvHashMap;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
@@ -10,7 +11,6 @@ use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
 use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
-use fnv::FnvHashMap;
 use topologies::{
     CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, Surface, SurfaceType, Topology,
 };
@@ -3267,11 +3267,15 @@ impl LTDNumerator {
             return;
         }
 
-        // FIXME: this allocates!
-        for pow_distribution in (0..=self.n_loops).combinations_with_replacement(powers[index] as usize) {
+        // FIXME: maximum power hardcoded to 10
+        // this entry is hard to cache, since we are in a recursive function and we should keep
+        // the state
+        let mut pow_distribution = [0; 10];
+        let power = powers[index] as usize;
+
+        loop {
             let mut monomial = [0; MAX_LOOP];
-            //dbg!(&pow_distribution);
-            for &n in pow_distribution.iter() {
+            for &n in pow_distribution[..power].iter() {
                 monomial[n] += 1;
             }
             //Update coefficient
@@ -3298,6 +3302,13 @@ impl LTDNumerator {
             for (b, m) in basis.iter_mut().zip(monomial[0..self.n_loops].iter()) {
                 *b -= *m as u8;
             }
+
+            if !utils::next_combination_with_replacement(
+                &mut pow_distribution[..power],
+                self.n_loops,
+            ) {
+                break;
+            }
         }
     }
 
@@ -3311,7 +3322,9 @@ impl LTDNumerator {
         // Initialize the reduced_coefficeints_lb with the factors coming from evaluating
         // the vectorial part of the loop momenta
         if cache.reduced_coefficient_lb.len() < self.reduced_size {
-            cache.reduced_coefficient_lb.resize(self.reduced_size, Complex::default());
+            cache
+                .reduced_coefficient_lb
+                .resize(self.reduced_size, Complex::default());
         }
         for c in &mut cache.reduced_coefficient_lb[..self.reduced_size] {
             *c = Complex::default();
@@ -3355,7 +3368,9 @@ impl LTDNumerator {
         // Initialize the reduced_coeffficeints_cb with the factors coming from evaluating
         // the vectorial part of the loop momenta
         if cache.reduced_coefficient_cb.len() < self.reduced_size {
-            cache.reduced_coefficient_cb.resize(self.reduced_size, Complex::default());
+            cache
+                .reduced_coefficient_cb
+                .resize(self.reduced_size, Complex::default());
         }
         for c in &mut cache.reduced_coefficient_cb[..self.reduced_size] {
             *c = Complex::default();

@@ -1125,9 +1125,9 @@ hard_coded_topology_collection.add_topology(box.create_loop_topology(
         numerator_tensor_coefficients=[
             (0., 0.), # C^0
             (14., 0.), # q1_t * k^t
-            (-6.6, 0.), # q1_x * k^x
-            (-40., 0.), # q1_y * k^y
-            (0., 0.), # q1_z^0 * k^z
+            (6.6, 0.), # -q1_x * k^x
+            (40., 0.), # -q1_y * k^y
+            (0., 0.), # -q1_z^0 * k^z
         ]
      ),
      entry_name = 'Box_linear_numerator'
