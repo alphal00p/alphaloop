@@ -375,13 +375,13 @@ def set_table(columns,ps_pts_per_topology,data=None,exclude=None,nr=None):
 	else:
 		for n_ps_points in ps_pts_per_topology:
 			table_string += set_topology(n_ps_points,data=None)
-	table_string += r'\end{tabular}'+'\n'
-	table_string += r'}'+'\n'
-	table_string += r'}'+'\n'
+	table_string += r'\end{tabular}%'+'\n'
+	table_string += r'}%'+'\n'
+	table_string += r'}%'+'\n'
 	if nr is None:
-		table_string += r'\caption{\label{tab:i} Results}'+'\n'
+		table_string += r'\caption{\label{tab:i} Results}%'+'\n'
 	else:
-		table_string += r'\caption{\label{tab:%i}}'%nr+'\n'
+		table_string += r'\caption{\label{tab:%i}}'%nr+r'%'+'\n'
 	table_string += r'\end{table}'+'\n'
 	return table_string
 
@@ -636,7 +636,8 @@ def complete_data(data):
 			if [analytic_res[0]-sample['result'][0],analytic_res[1]-sample['result'][1]] == [0.,0.]:
 				sample['analytical_result'] = ['n/a','n/a']
 			sample['accuracy'] = [' ',' ']
-			sample['percentage'] = [100.0*(abs(sample['error'][i_phase]) / abs(sample['result'][i_phase])) for i_phase in [0,1]]
+			sample['percentage'] = [100.0*(abs(sample['error'][i_phase]) / abs(sample['result'][i_phase])) 
+				if abs(analytic_res[i_phase]) != 0. else ' ' for i_phase in [0,1]]
 			sample['abs_error'] = 100.* (numpy.sqrt(
 					(sample['error'][0])**2 + (sample['error'][1])**2
 					)/numpy.sqrt(sample['result'][0]**2 + sample['result'][1]**2))
@@ -871,18 +872,18 @@ def complete_data(data):
 				sample['diagram_multi'] = 1
 			elif '3L_4P_Ladder_PS3' in topology_name:
 				sample['diagram_multi'] = 6
-		elif ('FISHNET_2x2' in topology_name or 'FISHNET_2x2_PS3' in topology_name) and not 'massive' in topology_name:
+		elif ('FISHNET_2x2' in topology_name or 'FISHNET_2x2_PS3' in topology_name):# and not 'massive' in topology_name:
 				sample['diagram'] = '4L_4P_A'
 				if 'FISHNET_2x2_PS3' in topology_name:
-					sample['diagram_multi'] = 2
+					sample['diagram_multi'] = 1
 				else:
 					sample['diagram_multi'] = 1
-		elif ('T4_Quadruple_Box_Weinzierl' in topology_name or '4L_4P_Ladder_PS3' in topology_name) and not 'massive' in topology_name:
+		elif ('T4_Quadruple_Box_Weinzierl' in topology_name or '4L_4P_Ladder_PS3' in topology_name):# and not 'massive' in topology_name:
 				sample['diagram'] = '4L_4P_B'
 				if 'T4_Quadruple_Box_Weinzierl' in topology_name:
 					 sample['diagram_multi'] = 1
 				elif '4L_4P_Ladder_PS3' in topology_name:
-					sample['diagram_multi'] = 2
+					sample['diagram_multi'] = 1
 		elif 'FISHNET_1x5' in topology_name:
 			sample['diagram'] = '5L_4P'
 			sample['diagram_multi'] = 1
@@ -960,12 +961,28 @@ def read_and_generate_yaml(sorted_samples,exclude_topologies):
 		if not found:
 			print(sample['topology'])
 
+	manual_topos = []
+	manual_topo_file_path = pjoin(file_path,"LTD/topologies/6L2P_topos.yaml")
+	with open(manual_topo_file_path) as file:
+		yaml_topo_file = yaml.load(file, Loader=yaml.FullLoader)
+		#print(yaml_topo_file)
+		manual_topos += yaml_topo_file
+	#print(manual_topos)
+	for yaml_topo in manual_topos:
+		if yaml_topo['name'] == '6L2P_massive':
+			yaml_topo['name'] = '6L2P.K*'
+		if yaml_topo['name'] == '6L2P':
+			yaml_topo['name'] = '6L2P.K'
 	#for yaml_data in new_yaml_data:
 	#	print(str(yaml_data)[-60:])
 	#print(new_yaml_data)
 	assert(len(new_yaml_data)==len(sorted_samples))
+
+	new_yaml_data += manual_topos
+
 	with open(pjoin(file_path,"LTD/paper_topologies.yaml"), 'w') as file:
 		documents = yaml.dump(new_yaml_data, file)
+
 	return
 
 
@@ -1161,7 +1178,9 @@ if __name__ == "__main__":
 							'3L_5P_Planar_PS2_massive_down',
 							'4L_4P_Ladder_PS1',
 							'4L_4P_Ladder_PS2',
-							'4L_4P_Ladder_PS1_massive']
+							'4L_4P_Ladder_PS1_massive',
+							'FISHNET_2x2_PS3',
+							'4L_4P_Ladder_PS3']
 	
 	all_topology_names = [sample['topology'] for sample in all_sample_data]
 	for topology_name in exclude_topologies:
@@ -1183,6 +1202,7 @@ if __name__ == "__main__":
 		table_string += set_table(columns,[1 for i in range(len(data_set))],data=data_set,exclude=exclude_topologies,nr=table_nr)
 		table_string += '\n'+'\n'
 
+	"""
 	table_captions = [r'\caption{\label{tab:explore_1loop} Explore 1loop}',
 					r'\caption{\label{tab:explore_higherloopA} Explore higherloop A}',
 					r'\caption{\label{tab:explore_higherloopB} Explore higherloop B}',
@@ -1191,6 +1211,15 @@ if __name__ == "__main__":
 					r'\caption{\label{tab:Kseries_2loopA} Results Kseries 2loop A}',
 					r'\caption{\label{tab:Kseries_2loopB} Results Kseries 2loop B}',
 					r'\caption{\label{tab:Kseries_HigherLoop} Results Kseries higher loop}']
+	"""
+	table_captions = [	r'\caption{\label{tab:explore_1loop} Results for one-loop four-point to six-point functions. \texttt{Box4E} has been used as an example topology throughout this work. See the main text for details.}',
+						r'\caption{\label{tab:explore_higherloopA} Results for two-loop topologies with benchmark kinematics from the literature. See the main text for details.}',
+						r'\caption{\label{tab:explore_higherloopB} Results for three- to six-loop ladder and fishnet integrals. The five- and six-loop configurations do not have any singular E-surfaces. See the main text for details.}',
+						r'\caption{\label{tab:Kseries_1loopA} Results for one-loop four-point and five-point topologies for scattering kinematics ($2 \rightarrow N$) for massless and massive propagators (indicated by a \texttt{*}). See the main text for details.}',
+						r'\caption{\label{tab:Kseries_1loopB} Results for one-loop six-point and eight-point topologies for scattering kinematics ($2 \rightarrow N$) for massless and massive propagators (indicated by a \texttt{*}). See the main text for details.}',
+						r'\caption{\label{tab:Kseries_2loopA} Results for two-loop topologies for scattering kinematics ($2 \rightarrow N$) for massless and massive propagators (indicated by a \texttt{*}). When there is no reference result, $\Delta [\%]$ and $\Delta [\%] |\cdot|$ refer to the Monte-Carlo accuracy relative to the central value. See the main text for details.}',
+						r'\caption{\label{tab:Kseries_2loopB} Results for two-loop topologies for scattering kinematics ($2 \rightarrow N$) for massless and massive propagators (indicated by a \texttt{*}). When there is no reference result, $\Delta [\%]$ and $\Delta [\%] |\cdot|$ refer to the Monte-Carlo accuracy relative to the central value. See the main text for details.}',
+						r'\caption{\label{tab:Kseries_HigherLoop} Results for three- and four-loop topologies for scattering kinematics ($2 \rightarrow N$) for massless and massive propagators (indicated by a \texttt{*}). When there is no reference result, $\Delta [\%]$ and $\Delta [\%] |\cdot|$ refer to the Monte-Carlo accuracy relative to the central value. See the main text for details.}']
 
 	for table_nr, table_caption in enumerate(table_captions):
 		table_string = table_string.replace(r'\caption{\label{tab:%i}}'%table_nr,table_caption)
