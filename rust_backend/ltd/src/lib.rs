@@ -9,6 +9,7 @@ extern crate num;
 extern crate serde;
 extern crate serde_yaml;
 extern crate vector;
+extern crate fnv;
 
 #[cfg(feature = "python_api")]
 use cpython::PyResult;

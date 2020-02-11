@@ -3,7 +3,7 @@ use gamma_chain::GammaChain;
 use itertools::Itertools;
 use num::Complex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use std::fs::File;
 use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
@@ -159,7 +159,7 @@ pub struct Amplitude {
 
 // Implement Setup functions
 impl Amplitude {
-    pub fn from_file(filename: &str) -> HashMap<String, Amplitude> {
+    pub fn from_file(filename: &str) -> FnvHashMap<String, Amplitude> {
         let f = File::open(filename).expect("Could not open amplitude file");
         let amplitudes: Vec<Amplitude> = serde_yaml::from_reader(f).unwrap();
         amplitudes
@@ -394,7 +394,7 @@ impl Amplitude {
 
     pub fn compute_chain_amplitude<T: FloatLike>(
         &self,
-        propagators: &HashMap<(usize, usize), Complex<T>>,
+        propagators: &FnvHashMap<(usize, usize), Complex<T>>,
         vectors: &[LorentzVector<Complex<T>>],
         cut_2energy: Complex<T>,
         cut_ll_id: Vec<(usize, usize)>,
@@ -651,7 +651,7 @@ impl Amplitude {
 
     pub fn evaluate<T: FloatLike>(
         &self,
-        propagators: &HashMap<(usize, usize), Complex<T>>,
+        propagators: &FnvHashMap<(usize, usize), Complex<T>>,
         loop_momenta: &[LorentzVector<Complex<T>>],
         cut_2energy: Complex<T>,
         cut_ll_id: Vec<(usize, usize)>,

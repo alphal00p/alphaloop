@@ -10,7 +10,7 @@ use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
 use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use topologies::{
     CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, Surface, SurfaceType, Topology,
 };
@@ -3091,7 +3091,7 @@ impl LTDNumerator {
         // Create power to position maps for the reduced coefficient list
         let mut reduced_size = 0;
         let mut reduced_coefficient_index_to_powers = Vec::new();
-        let mut powers_to_position: HashMap<[usize; MAX_LOOP], usize> = HashMap::new();
+        let mut powers_to_position: FnvHashMap<[u8; MAX_LOOP], usize> = FnvHashMap::default();
         if max_rank == 0 {
             powers_to_position.insert([0; MAX_LOOP], reduced_size);
             reduced_coefficient_index_to_powers.push([0; MAX_LOOP]);
@@ -3109,6 +3109,7 @@ impl LTDNumerator {
                 reduced_size += 1;
             }
         }
+
         // Copy numerator coefficients into vector
         let mut numerator_coefficients = Vec::new();
         for &coeff in coefficients.iter() {
@@ -3240,10 +3241,10 @@ impl LTDNumerator {
     /// the energy components of the loop momenta.
     pub fn change_monomial_basis<T: FloatLike>(
         &self,
-        powers: &[usize; MAX_LOOP],
+        powers: &[u8; MAX_LOOP],
         mat: &Vec<i8>,
         shifts: &[Complex<T>; MAX_LOOP],
-        basis: &mut [usize; MAX_LOOP],
+        basis: &mut [u8; MAX_LOOP],
         coeff: Complex<T>,
         index: usize,
         cache: &mut LTDCache<T>,
@@ -3258,16 +3259,17 @@ impl LTDNumerator {
         if index == self.n_loops {
             //println!("\t basis: {:?} [{}]", basis, coeff);
             cache.reduced_coefficient_cb[self.powers_to_position[basis]] += coeff;
-            return ();
+            return;
         }
         // Skip if no power
         if powers[index] == 0 {
             self.change_monomial_basis(powers, mat, shifts, basis, coeff, index + 1, cache);
-            return ();
+            return;
         }
 
-        for pow_distribution in (0..=self.n_loops).combinations_with_replacement(powers[index]) {
-            let mut monomial = vec![0; MAX_LOOP];
+        // FIXME: this allocates!
+        for pow_distribution in (0..=self.n_loops).combinations_with_replacement(powers[index] as usize) {
+            let mut monomial = [0; MAX_LOOP];
             //dbg!(&pow_distribution);
             for &n in pow_distribution.iter() {
                 monomial[n] += 1;
@@ -3288,13 +3290,13 @@ impl LTDNumerator {
             }
             //Update basis
             for (b, m) in basis.iter_mut().zip(monomial[0..self.n_loops].iter()) {
-                *b += m;
+                *b += *m as u8;
             }
             // Move to next step
             self.change_monomial_basis(powers, mat, shifts, basis, new_coeff, index + 1, cache);
             //Reset basis
             for (b, m) in basis.iter_mut().zip(monomial[0..self.n_loops].iter()) {
-                *b -= m;
+                *b -= *m as u8;
             }
         }
     }
@@ -3308,7 +3310,13 @@ impl LTDNumerator {
         self.update_numerator_momentum_no_energy(loop_momenta, cache);
         // Initialize the reduced_coefficeints_lb with the factors coming from evaluating
         // the vectorial part of the loop momenta
-        cache.reduced_coefficient_lb = vec![Complex::default(); self.reduced_size];
+        if cache.reduced_coefficient_lb.len() < self.reduced_size {
+            cache.reduced_coefficient_lb.resize(self.reduced_size, Complex::default());
+        }
+        for c in &mut cache.reduced_coefficient_lb[..self.reduced_size] {
+            *c = Complex::default();
+        }
+
         for (i, (&c, powers)) in self
             .coefficients
             .iter()
@@ -3346,7 +3354,13 @@ impl LTDNumerator {
         }
         // Initialize the reduced_coeffficeints_cb with the factors coming from evaluating
         // the vectorial part of the loop momenta
-        cache.reduced_coefficient_cb = vec![Complex::default(); self.reduced_size];
+        if cache.reduced_coefficient_cb.len() < self.reduced_size {
+            cache.reduced_coefficient_cb.resize(self.reduced_size, Complex::default());
+        }
+        for c in &mut cache.reduced_coefficient_cb[..self.reduced_size] {
+            *c = Complex::default();
+        }
+
         for (index, powers_lb) in self.reduced_coefficient_index_to_powers.iter().enumerate() {
             let mut powers_cb = [0; MAX_LOOP];
             //println!(

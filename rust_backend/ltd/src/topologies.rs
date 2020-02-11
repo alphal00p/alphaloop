@@ -5,6 +5,7 @@ use num::Complex;
 use num_traits::{Signed, Zero};
 use serde::Deserialize;
 use std::collections::HashMap;
+use fnv::FnvHashMap;
 use std::fmt;
 use std::fs::File;
 use vector::{LorentzVector, RealNumberLike};
@@ -204,7 +205,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub numerator_momentum_cache: Vec<Complex<T>>,
     pub reduced_coefficient_lb: Vec<Complex<T>>,
     pub reduced_coefficient_cb: Vec<Complex<T>>,
-    pub propagators: HashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
+    pub propagators: FnvHashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
     pub propagators_eval: Vec<Complex<T>>,
     pub propagator_powers: Vec<usize>,
 }
@@ -235,7 +236,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
             numerator_momentum_cache: vec![],
             reduced_coefficient_lb: vec![Complex::default(); topo.n_loops],
             reduced_coefficient_cb: vec![Complex::default(); topo.n_loops],
-            propagators: HashMap::new(),
+            propagators: HashMap::default(),
             propagators_eval: vec![Complex::zero(); num_propagators],
             propagator_powers: vec![1; num_propagators],
         }
@@ -529,7 +530,7 @@ pub struct LTDNumerator {
     pub reduced_size: usize,
     pub sorted_linear: Vec<Vec<usize>>,
     pub coefficient_index_map: Vec<(usize, usize)>,
-    pub coefficient_index_to_powers: Vec<[usize; MAX_LOOP]>,
-    pub reduced_coefficient_index_to_powers: Vec<[usize; MAX_LOOP]>,
-    pub powers_to_position: HashMap<[usize; MAX_LOOP], usize>,
+    pub coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
+    pub reduced_coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
+    pub powers_to_position: FnvHashMap<[u8; MAX_LOOP], usize>,
 }
