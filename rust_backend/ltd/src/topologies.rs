@@ -417,8 +417,6 @@ pub struct Topology {
     pub all_ellipsoid_surfaces: Vec<Surface>,
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
-    #[serde(skip_deserializing)]
-    pub ellipsoids_not_in_cuts: Vec<Vec<Vec<usize>>>,
     #[serde(default)]
     pub fixed_deformation: Vec<FixedDeformationLimit>,
     pub constant_deformation: Option<ConstantDeformation>,

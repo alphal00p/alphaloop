@@ -1,9 +1,9 @@
 use arrayvec::ArrayVec;
+use fnv::FnvHashMap;
 use gamma_chain::GammaChain;
 use itertools::Itertools;
 use num::Complex;
 use serde::{Deserialize, Serialize};
-use fnv::FnvHashMap;
 use std::fs::File;
 use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
@@ -499,9 +499,9 @@ impl Amplitude {
         let diaglist = if cut_2energy.norm()
             > Into::<T>::into(topo.e_cm_squared * topo.settings.general.mu_uv_sq_re_im[0])
         {
-            self.sets[1].clone()
+            &self.sets[1]
         } else {
-            self.sets[0].clone()
+            &self.sets[0]
         };
         if topo.settings.general.debug >= 2 {
             println!("Set of diagrams: {:?}", diaglist);

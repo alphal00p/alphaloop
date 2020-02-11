@@ -17,7 +17,6 @@ use cpython::PyResult;
 use std::cell::RefCell;
 extern crate colored;
 extern crate cuba;
-extern crate disjoint_sets;
 extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;

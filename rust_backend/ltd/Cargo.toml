@@ -37,7 +37,6 @@ itertools = "0.8"
 clap = "*"
 rand = "*"
 f128 = { git = "https://github.com/benruijl/f128" }
-disjoint-sets = "*"
 colored = "1.8"
 mpi = { git = "https://github.com/bsteinb/rsmpi", optional = true }
 fnv = "1.0.6"

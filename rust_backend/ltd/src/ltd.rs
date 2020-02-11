@@ -1,6 +1,5 @@
 use arrayvec::ArrayVec;
 use colored::Colorize;
-use disjoint_sets::UnionFind;
 use dual_num::{DimName, DualN};
 use float;
 use fnv::FnvHashMap;
@@ -493,109 +492,6 @@ impl Topology {
         if self.settings.general.debug > 1 {
             println!("Number of unique ellipsoids: {}", unique_ellipsoids);
             println!("Surfaces not appearing in cut:");
-        }
-
-        // make a list of all the ellipsoids that do not appear in a specific cut
-        let mut ellipsoids_not_in_cuts = vec![];
-        for cut_options in self.ltd_cut_options.iter() {
-            let mut accum = vec![];
-            for cut in cut_options {
-                let mut ellipsoids_not_in_cut = vec![];
-
-                for (surf_index, s) in self.surfaces.iter().enumerate() {
-                    // only go through ellipsoid representatives
-                    if s.surface_type != SurfaceType::Ellipsoid
-                        || s.group != surf_index
-                        || !s.exists
-                    {
-                        continue;
-                    }
-
-                    let mut in_cut = false;
-                    for s1 in &self.surfaces[surf_index..] {
-                        if s1.group == surf_index {
-                            if s1.cut == *cut {
-                                in_cut = true;
-                                break;
-                            }
-                        }
-                    }
-                    if !in_cut {
-                        ellipsoids_not_in_cut.push(surf_index);
-                    }
-                }
-
-                if self.settings.general.debug > 1 {
-                    println!("  | {}: {:?}", CutList(cut), ellipsoids_not_in_cut);
-                }
-                accum.push(ellipsoids_not_in_cut);
-            }
-            ellipsoids_not_in_cuts.push(accum);
-        }
-        self.ellipsoids_not_in_cuts = ellipsoids_not_in_cuts;
-
-        // now find all dual canceling groups
-        let mut dual_groups_rep: Vec<(Vec<usize>, usize)> = vec![];
-        let mut dual_groups = UnionFind::new(self.ltd_cut_options.iter().map(|x| x.len()).sum());
-        for s in &self.surfaces {
-            if s.surface_type != SurfaceType::Hyperboloid {
-                continue;
-            }
-
-            let mut cs = s
-                .cut
-                .iter()
-                .zip_eq(&self.loop_lines)
-                .filter_map(|(c, ll)| {
-                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
-                        Some(ll.propagators[*i].id)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            cs.push(self.loop_lines[s.onshell_ll_index].propagators[s.onshell_prop_index].id);
-            cs.sort();
-
-            // get the cut option index of the cut
-            let cut_index = self.ltd_cut_options[..s.cut_structure_index]
-                .iter()
-                .map(|x| x.len())
-                .sum::<usize>()
-                + s.cut_option_index;
-
-            let mut new = true;
-            for x in &mut dual_groups_rep {
-                if x.0 == cs {
-                    new = false;
-                    dual_groups.union(x.1, cut_index);
-                    break;
-                }
-            }
-
-            if new {
-                dual_groups_rep.push((cs, cut_index));
-            }
-        }
-
-        if self.settings.general.debug > 1 {
-            let mut cut_index = 0;
-            let mut cut_opt_index = 0;
-            println!("Dual grouping:");
-            for x in &dual_groups.to_vec() {
-                println!(
-                    "  | {}: {}",
-                    CutList(&self.ltd_cut_options[cut_index][cut_opt_index]),
-                    x
-                );
-
-                cut_opt_index += 1;
-                if self.ltd_cut_options[cut_index].len() == cut_opt_index {
-                    cut_index += 1;
-                    cut_opt_index = 0;
-                }
-            }
         }
 
         self.all_excluded_surfaces = vec![false; self.surfaces.len()];
