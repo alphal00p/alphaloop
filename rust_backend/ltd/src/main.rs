@@ -1406,7 +1406,7 @@ fn main() {
             .remove(&settings.general.topology)
             .expect("Unknown topology");
         topo.amplitude = amp.clone();
-        topo.process();
+        topo.process(true);
         Diagram::Topology(topo)
     };
 

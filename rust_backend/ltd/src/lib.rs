@@ -638,7 +638,7 @@ py_class!(class LTD |py| {
         let mut settings = Settings::from_file(settings_file);
         let mut topologies = topologies::Topology::from_file(topology_file, &settings);
         let mut topo = topologies.remove(top_name).expect("Unknown topology");
-        topo.process();
+        topo.process(true);
         //Skip amplitude with no name is set
         let mut amp= amplitude::Amplitude::default();
         if amp_name == "" {

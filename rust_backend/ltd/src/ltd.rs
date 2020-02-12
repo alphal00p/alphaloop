@@ -120,7 +120,9 @@ impl LoopLine {
 
 impl Topology {
     /// Compute LTD related quantities for this topology.
-    pub fn process(&mut self) {
+    /// If `external_momenta_set` is true, the existence conditions
+    /// for ellipsoids and e_cm are determined as well.
+    pub fn process(&mut self, external_momenta_set: bool) {
         if self.n_loops > MAX_LOOP {
             panic!("Please increase MAX_LOOP to {}", self.n_loops);
         }
@@ -158,24 +160,26 @@ impl Topology {
             }
         }
 
-        // determine the e_cm_squared and on-shell flag
-        let mut v: LorentzVector<f64> = LorentzVector::default();
-        for e in &self.external_kinematics {
-            if e.t > 0. {
-                v += *e;
+        if external_momenta_set {
+            // determine the e_cm_squared and on-shell flag
+            let mut v: LorentzVector<f64> = LorentzVector::default();
+            for e in &self.external_kinematics {
+                if e.t > 0. {
+                    v += *e;
+                }
             }
-        }
 
-        self.e_cm_squared = v.square_impr().abs();
-        if self.e_cm_squared == 0. {
-            eprintln!("e_cm is zero: taking the abs of the spatial part instead");
-            self.e_cm_squared = self.external_kinematics[0].spatial_squared_impr();
-        }
+            self.e_cm_squared = v.square_impr().abs();
+            if self.e_cm_squared == 0. {
+                eprintln!("e_cm is zero: taking the abs of the spatial part instead");
+                self.e_cm_squared = self.external_kinematics[0].spatial_squared_impr();
+            }
 
-        // determine the on-shell flag
-        for (i, e) in self.external_kinematics.iter().enumerate() {
-            if e.square_impr().abs() < 1e-10 * self.e_cm_squared {
-                self.on_shell_flag |= 2_usize.pow(i as u32);
+            // determine the on-shell flag
+            for (i, e) in self.external_kinematics.iter().enumerate() {
+                if e.square_impr().abs() < 1e-10 * self.e_cm_squared {
+                    self.on_shell_flag |= 2_usize.pow(i as u32);
+                }
             }
         }
 
@@ -289,31 +293,34 @@ impl Topology {
                             if (surface_sign_sum + delta_sign).abs()
                                 == surface_signs_abs_sum + delta_sign.abs()
                             {
-                                // now see if the ellipsoid exists
+                                // now see if the ellipsoid exists if the external momenta are set
                                 // 1. surface_shift != 0
                                 // 2. surface_shift^2 - (sum_i m_i)^2 >= 0
                                 // 3. all signs need to be the same (except 0)
                                 // 4. surface_shift.t needs to have the opposite sign as in step 3.
-                                let mut exists = true;
+                                let mut exists = external_momenta_set;
                                 let mut is_pinch = false;
-                                if surface_shift.square()
-                                    - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                    >= Into::<float>::into(-1e-13 * self.e_cm_squared)
-                                    && surface_shift.t.multiply_sign(delta_sign) < float::zero()
-                                {
+
+                                if external_momenta_set {
                                     if surface_shift.square()
                                         - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                        < Into::<float>::into(1e-10 * self.e_cm_squared)
+                                        >= Into::<float>::into(-1e-13 * self.e_cm_squared)
+                                        && surface_shift.t.multiply_sign(delta_sign) < float::zero()
                                     {
-                                        if surface_mass.is_zero() {
-                                            is_pinch = true;
-                                        } else {
-                                            // we do not consider pointlike ellipsoids to exist
-                                            exists = false;
+                                        if surface_shift.square()
+                                            - (cut_mass_sum.abs() + surface_mass).powi(2)
+                                            < Into::<float>::into(1e-10 * self.e_cm_squared)
+                                        {
+                                            if surface_mass.is_zero() {
+                                                is_pinch = true;
+                                            } else {
+                                                // we do not consider pointlike ellipsoids to exist
+                                                exists = false;
+                                            }
                                         }
+                                    } else {
+                                        exists = false;
                                     }
-                                } else {
-                                    exists = false;
                                 }
 
                                 self.surfaces.push(Surface {
@@ -337,6 +344,12 @@ impl Topology {
                                     id: vec![],
                                 });
                             } else {
+                                if !external_momenta_set {
+                                    // if the external momenta are unknown, we do not
+                                    // store information about hyperboloids
+                                    continue;
+                                }
+
                                 let mut neg_surface_signs_count =
                                     surface_signs.iter().filter(|x| **x == -1).count();
                                 let mut pos_surface_signs_count =
@@ -500,7 +513,7 @@ impl Topology {
                 let mut found = false;
                 for surf_id in &d.excluded_surface_ids {
                     for (i, s) in self.surfaces.iter().enumerate() {
-                        if s.id == *surf_id && i == s.group && s.exists {
+                        if s.id == *surf_id && i == s.group {
                             d.excluded_surface_indices.push(i);
                             self.all_excluded_surfaces[i] = true;
                             found = true;
@@ -514,19 +527,102 @@ impl Topology {
             }
         }
 
-        if self.settings.general.deformation_strategy == DeformationStrategy::Fixed
-            && self.fixed_deformation.is_empty()
-        {
-            panic!("Fixed deformation strategy selected but none was provided.");
-        }
-
         if self.settings.general.deformation_strategy == DeformationStrategy::Constant
             && self.constant_deformation.is_none()
         {
             panic!("Constant deformation strategy selected but none was provided.");
         }
 
-        // check if the deformation sources satisfy their constraints
+        if external_momenta_set {
+            self.check_fixed_deformation();
+        }
+    }
+
+    /// Update the ellipsoids when the external momenta have changed.
+    pub fn update_ellipsoids(&mut self) {
+        assert!(self.e_cm_squared > 0.);
+
+        // now check which ellipsoids exist and update the shifts
+        for s in self.surfaces.iter_mut() {
+            if s.surface_type == SurfaceType::Hyperboloid {
+                continue;
+            }
+
+            // determine the shift
+            let mut surface_shift: LorentzVector<float> = self.loop_lines[s.onshell_ll_index]
+                .propagators[s.onshell_prop_index]
+                .q
+                .cast();
+
+            let mut mass_sum: float = self.loop_lines[s.onshell_ll_index].propagators
+                [s.onshell_prop_index]
+                .m_squared
+                .sqrt()
+                .into();
+
+            let mut cut_index = 0;
+            for (cut, ll) in s.cut.iter().zip_eq(self.loop_lines.iter()) {
+                if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
+                    mass_sum +=
+                        Into::<float>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
+                    surface_shift -= ll.propagators[*cut_prop_index]
+                        .q
+                        .cast()
+                        .multiply_sign(s.sig_ll_in_cb[cut_index]);
+                    cut_index += 1;
+                }
+            }
+
+            // now see if the ellipsoid exists
+            // 1. surface_shift != 0
+            // 2. surface_shift^2 - (sum_i m_i)^2 >= 0
+            // 3. all signs need to be the same (except 0)
+            // 4. surface_shift.t needs to have the opposite sign as in step 3.
+            let mut exists = true;
+            let mut is_pinch = false;
+
+            if surface_shift.square() - mass_sum.powi(2)
+                >= Into::<float>::into(-1e-13 * self.e_cm_squared)
+                && surface_shift.t.multiply_sign(s.delta_sign) < float::zero()
+            {
+                if surface_shift.square() - mass_sum.powi(2)
+                    < Into::<float>::into(1e-10 * self.e_cm_squared)
+                {
+                    if mass_sum.is_zero() {
+                        is_pinch = true;
+                    } else {
+                        // we do not consider pointlike ellipsoids to exist
+                        exists = false;
+                    }
+                }
+            } else {
+                exists = false;
+            }
+
+            if is_pinch {
+                s.surface_type = SurfaceType::Pinch;
+            } else {
+                s.surface_type = SurfaceType::Ellipsoid;
+            }
+            s.exists = exists;
+        }
+    }
+
+    /// Check if the deformation sources satisfy their constraints.
+    pub fn check_fixed_deformation(&self) {
+        if self.settings.general.deformation_strategy == DeformationStrategy::Fixed
+            && self.fixed_deformation.is_empty()
+        {
+            panic!("Fixed deformation strategy selected but none was provided.");
+        }
+
+        let unique_ellipsoids = self
+            .surfaces
+            .iter()
+            .enumerate()
+            .filter(|(i, s)| *i == s.group && s.surface_type == SurfaceType::Ellipsoid && s.exists)
+            .count();
+
         for d_lim in &self.fixed_deformation {
             for d in &d_lim.deformation_per_overlap {
                 if let Some(overlap) = &d.overlap {

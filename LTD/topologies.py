@@ -1140,10 +1140,10 @@ hexagon = TopologyGenerator([
 ])
 q1 = vectors.LorentzVector([6.000000000000000E+000,  0.000000000000000E+000,  0.000000000000000E+000,  5.916079783099616E+000])
 q2 = vectors.LorentzVector([6.000000000000000E+000,  0.000000000000000E+000,  0.000000000000000E+000, -5.916079783099616E+000])
-q3 = vectors.LorentzVector([1.400126320735410E+000, -2.445830436898313E-001,  4.435596647968081E-001, -8.389205400518212E-001])
-q4 = vectors.LorentzVector([3.768638321434147E+000, -1.149278770474018E+000, -3.341428522122123E+000,  8.465509654288246E-001])
-q5 = vectors.LorentzVector([1.960349269391675E+000, -1.171759209642413E+000, -1.081329154372861E+000,  5.483401066180875E-001])
-q6 = vectors.LorentzVector([4.870886088438767E+000,  2.565621023806262E+000,  3.979198011698176E+000, -5.559705319950914E-001])
+q3 = -vectors.LorentzVector([1.400126320735410E+000, -2.445830436898313E-001,  4.435596647968081E-001, -8.389205400518212E-001])
+q4 = -vectors.LorentzVector([3.768638321434147E+000, -1.149278770474018E+000, -3.341428522122123E+000,  8.465509654288246E-001])
+q5 = -vectors.LorentzVector([1.960349269391675E+000, -1.171759209642413E+000, -1.081329154372861E+000,  5.483401066180875E-001])
+q6 = -vectors.LorentzVector([4.870886088438767E+000,  2.565621023806262E+000,  3.979198011698176E+000, -5.559705319950914E-001])
 
 hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
         "Hexagon_linear_numerator",
@@ -1170,8 +1170,8 @@ hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
         analytic_result=0,
         numerator_tensor_coefficients=[
             (2., 0.), # C^0
-            (3., 0.), # k^t
-            (0., 0.), # k^x
+            (0., 0.), # k^t
+            (3., 0.), # k^x
             (0., 0.), # k^y
             (-2., 0.), # k^z
             (0., 0.), # k^t k^t
@@ -1187,6 +1187,75 @@ hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
         ]
      ),
      entry_name = 'Hexagon_quadratic_numerator'
+)
+
+hard_coded_topology_collection.add_topology(hexagon.create_loop_topology(
+        "Hexagon_cubic_numerator",
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': q3, 'q4': q4, 'q5': q5, 'q6': q6 },
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0, 'p4': 0.0},
+        loop_momenta_names=('p6',),
+        analytic_result=0,
+        numerator_tensor_coefficients=[
+            (0., 0.), # C^0
+            (0., 0.), # k^t
+            (0., 0.), # k^x
+            (0., 0.), # k^y
+            (0., 0.), # k^z
+            (0., 0.), # k^t k^t
+            (0., 0.), # k^t k^x
+            (0., 0.), # k^t k^y
+            (0., 0.), # k^t k^z
+            (0., 0.), # k^x k^x
+            (0., 0.), # k^x k^y
+            (0., 0.), # k^x k^z
+            (0., 0.), # k^y k^y
+            (0., 0.), # k^y k^z
+            (0., 0.), # k^z k^z
+            (1., 0.), # k^t k^t k^t
+            (0., 0.), # k^t k^t k^x
+            (0., 0.), # k^t k^t k^y
+            (0., 0.), # k^t k^t k^z
+            (0., 0.), # k^t k^x k_x
+            (0., 0.), # k^t k^x k_y
+            (0., 0.), # k^t k^x k_z
+            (0., 0.), # k^t k^y k_y
+            (0., 0.), # k^t k^y k_z
+            (0., 0.), # k^t k^z k_z
+            (1., 0.), # k^x k^x k_x
+            (0., 0.), # k^x k^x k_y
+            (0., 0.), # k^x k^x k_z
+            (0., 0.), # k^x k^y k_y
+            (0., 0.), # k^x k^y k_z
+            (0., 0.), # k^x k^z k_z
+            (1., 0.), # k^y k^y k_y
+            (0., 0.), # k^y k^y k_z
+            (0., 0.), # k^y k^z k_z
+            (1., 0.), # k^z k^z k_z
+        ]
+     ),
+     entry_name = 'Hexagon_cubic_numerator'
+)
+
+# triangle
+triangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3),
+                              ('p3', 3, 1), ('q3', 4, 3), ('q2', 5, 2)])
+q1 = vectors.LorentzVector([ 0.1, 0.2, 0.5, 0.1 ])
+q2 = vectors.LorentzVector([-0.3, 0.4, 0.1, 0.2 ])
+hard_coded_topology_collection.add_topology(triangle.create_loop_topology(
+        "Triangle_linear_numerator", 
+        ext_mom={ 'q1': q1, 'q2': q2 , 'q3': -q1-q2 }, 
+        mass_map={'p1': 0.0, 'p2': 0.0, 'p3': 0.0}, 
+        loop_momenta_names=('p3',),
+        analytic_result=0,
+        numerator_tensor_coefficients=[
+            (0., 0.), # C
+            (0.1, 0.), # q1^0 k^0
+            (-0.2, 0.), # -q1^1 k^1
+            (-0.5, 0.), # -q1^2 k^2
+            (-0.1, 0.), # -q1^3 k^3
+        ]
+     ),
+     entry_name = 'Triangle_linear_numerator'
 )
 
 # Example printout

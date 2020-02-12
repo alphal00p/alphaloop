@@ -82,8 +82,8 @@ impl SquaredTopology {
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
             cutkosky_cuts.subgraph_left.settings = settings.clone();
             cutkosky_cuts.subgraph_right.settings = settings.clone();
-            cutkosky_cuts.subgraph_left.process();
-            cutkosky_cuts.subgraph_right.process();
+            cutkosky_cuts.subgraph_left.process(false);
+            cutkosky_cuts.subgraph_right.process(false);
         }
 
         debug_assert_eq!(
@@ -468,8 +468,9 @@ impl SquaredTopology {
                 subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
             }
 
-            //subgraphs[0].process();
-            //subgraphs[1].process();
+            subgraphs[0].update_ellipsoids();
+            subgraphs[1].update_ellipsoids();
+            // TODO: construct a deformation now that all the ellipsoids are set
 
             // evaluate
             for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {
