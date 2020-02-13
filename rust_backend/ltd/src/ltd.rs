@@ -2577,7 +2577,7 @@ impl Topology {
             {
                 // Take derivative looping over the numerator monomials
                 for (num_pow, &mon_pow) in numerator_powers.iter_mut().zip(monomial_powers.iter()) {
-                    *num_pow = mon_pow;
+                    *num_pow = mon_pow as usize;
                 }
                 res += cache.reduced_coefficient_cb[i]
                     * self.evaluate_higher_order_cut(
