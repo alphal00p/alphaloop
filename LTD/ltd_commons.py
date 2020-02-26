@@ -22,7 +22,7 @@ hyperparameters = HyperParameters({
         'deformation_strategy'  :   'fixed',
         'topology'              :   'Box',
         # scale at which to use partial fractioning for the integrand
-        'partial_fractioning_threshold' :  1e4,
+        'partial_fractioning_threshold' :  -1,
         'amplitude'             :  '',
         # specify the name of a python module that contains a function numerator(complex_loop_momenta)
         # that will be called for every cut

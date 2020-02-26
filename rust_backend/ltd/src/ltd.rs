@@ -141,14 +141,10 @@ impl Topology {
                     .collect::<Vec<_>>(),
             )
         };
-        // Prepare the partial fractioning map
-        // TODO: make it optional for large topologies
-        if self.n_loops == 1 {
+        // Prepare the partial fractioning map at one loop if the threshold is set to a positive number
+        if self.n_loops == 1 && self.settings.general.partial_fractioning_threshold > 0.0 {
             self.partial_fractioning =
                 PartialFractioning::new(self.loop_lines[0].propagators.len(), 10000);
-            //for s in self.partial_fractioning.partial_fractioning_element.iter() {
-            //    println!("{:?} :: num{:?}", s.ellipsoids_product, s.numerator);
-            //}
         }
 
         // set the identity rotation matrix
