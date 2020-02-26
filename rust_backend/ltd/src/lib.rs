@@ -54,6 +54,7 @@ pub trait FloatLike:
 impl FloatLike for f64 {}
 impl FloatLike for f128::f128 {}
 
+pub mod partial_fractioning;
 pub mod amplitude;
 pub mod cts;
 pub mod gamma_chain;
@@ -357,6 +358,7 @@ pub struct GeneralSettings {
     pub use_collinear_ct: bool,
     pub cut_filter: Vec<usize>,
     pub topology: String,
+    pub partial_fractioning_threshold: f64,
     #[serde(default)]
     pub use_amplitude: bool,
     pub amplitude: String,

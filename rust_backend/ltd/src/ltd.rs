@@ -7,6 +7,7 @@ use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
+use partial_fractioning::PartialFractioning;
 use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
@@ -140,6 +141,15 @@ impl Topology {
                     .collect::<Vec<_>>(),
             )
         };
+        // Prepare the partial fractioning map
+        // TODO: make it optional for large topologies
+        if self.n_loops == 1 {
+            self.partial_fractioning =
+                PartialFractioning::new(self.loop_lines[0].propagators.len(), 10000);
+            //for s in self.partial_fractioning.partial_fractioning_element.iter() {
+            //    println!("{:?} :: num{:?}", s.ellipsoids_product, s.numerator);
+            //}
+        }
 
         // set the identity rotation matrix
         self.rotation_matrix = [
@@ -2853,65 +2863,124 @@ impl Topology {
         mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
         cache: &mut LTDCache<T>,
     ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
-        // evaluate all dual integrands
         let mut result = Complex::default();
-        let mut cut_counter = 0;
-        for (cut_structure_index, (cuts, mat)) in self
-            .ltd_cut_options
-            .iter()
-            .zip_eq(self.cb_to_lmb_mat.iter())
-            .enumerate()
-        {
-            // for each cut coming from the same cut structure
-            for (cut_option_index, cut) in cuts.iter().enumerate() {
-                if self.settings.general.cut_filter.is_empty()
-                    || self.settings.general.cut_filter.contains(&cut_counter)
-                {
-                    let mut dual_jac_def = Complex::one();
-                    if self.settings.general.deformation_strategy == DeformationStrategy::Duals {
-                        let (kappas, jac) = self.deform(
-                            &k,
-                            Some((cut_structure_index, cut_option_index)),
-                            None,
-                            cache,
-                        );
-                        k_def = (0..self.n_loops)
-                            .map(|i| {
-                                k[i].map(|x| Complex::new(x, T::zero()))
-                                    + kappas[i].map(|x| Complex::new(T::zero(), x))
-                            })
-                            .collect();
-                        dual_jac_def = jac;
-                        self.compute_complex_cut_energies(&k_def[..self.n_loops], cache)?;
+        //let start = std::time::Instant::now();
+        let use_partial_fractioning = self.n_loops == 1
+            && k[0].spatial_distance()
+                > Into::<T>::into(self.settings.general.partial_fractioning_threshold)
+            && self.settings.general.deformation_strategy != DeformationStrategy::Duals;
+        if use_partial_fractioning {
+            // Partial fractioning
+            self.evaluate_elliposoids_matrix_1L(cache);
+            if self.settings.general.use_amplitude {
+                // Evaluate in the case of an amplitude
+                for diag in self.amplitude.diagrams.iter() {
+                    //if !diag.use_partial_fractioning || diag.name == "born" {
+                    if diag.name == "born" || diag.name.contains("UV_") {
+                        //|| diag.name != "D3" {
+                        continue;
                     }
 
-                    let v = if self.settings.general.use_amplitude {
-                        self.evaluate_amplitude_cut(&mut k_def[..self.n_loops], cut, mat, cache)?
+                    //Whole evaluation is taken care by Topology::evaluate_cut once the correct
+                    //powers for the propagators are set and the corresponding numerator is selected
+                    for prop_pow in cache.propagator_powers.iter_mut() {
+                        *prop_pow = 0;
+                    }
+                    for (ll_id, &pow) in diag.denominators.iter().zip_eq(diag.pows.iter()) {
+                        cache.propagator_powers[self.loop_lines[ll_id.0].propagators[ll_id.1].id] =
+                            pow;
+                    }
+                    diag.numerator.evaluate_reduced_in_lb(&k_def, cache);
+                    // Add contribution evaluating the partial fractioned expression
+                    result += if diag.ct {
+                        -self
+                            .partial_fractioning
+                            .evaluate(&diag.numerator, &self.loop_lines, cache)
                     } else {
-                        let v = self.evaluate_cut(
-                            &mut k_def[..self.n_loops],
-                            &self.numerator,
-                            cut,
-                            mat,
-                            cache,
-                            true,
-                        )?;
-                        // Assuming that there is no need for the residue energy or the cut_id
-                        let ct = if self.settings.general.use_ct {
-                            self.counterterm(&k_def[..self.n_loops], Complex::default(), 0, cache)
+                        self.partial_fractioning
+                            .evaluate(&diag.numerator, &self.loop_lines, cache)
+                    };
+                }
+            } else {
+                // Evaluate in the case of a topology
+                self.numerator.evaluate_reduced_in_lb(&k_def, cache);
+                result =
+                    self.partial_fractioning
+                        .evaluate(&self.numerator, &self.loop_lines, cache);
+            }
+        } else {
+            // evaluate all dual integrands
+            let mut cut_counter = 0;
+            for (cut_structure_index, (cuts, mat)) in self
+                .ltd_cut_options
+                .iter()
+                .zip_eq(self.cb_to_lmb_mat.iter())
+                .enumerate()
+            {
+                // for each cut coming from the same cut structure
+                for (cut_option_index, cut) in cuts.iter().enumerate() {
+                    if self.settings.general.cut_filter.is_empty()
+                        || self.settings.general.cut_filter.contains(&cut_counter)
+                    {
+                        let mut dual_jac_def = Complex::one();
+                        if self.settings.general.deformation_strategy == DeformationStrategy::Duals
+                        {
+                            let (kappas, jac) = self.deform(
+                                &k,
+                                Some((cut_structure_index, cut_option_index)),
+                                None,
+                                cache,
+                            );
+                            k_def = (0..self.n_loops)
+                                .map(|i| {
+                                    k[i].map(|x| Complex::new(x, T::zero()))
+                                        + kappas[i].map(|x| Complex::new(T::zero(), x))
+                                })
+                                .collect();
+                            dual_jac_def = jac;
+                            self.compute_complex_cut_energies(&k_def[..self.n_loops], cache)?;
+                        }
+
+                        let v = if self.settings.general.use_amplitude {
+                            self.evaluate_amplitude_cut(
+                                &mut k_def[..self.n_loops],
+                                cut,
+                                mat,
+                                cache,
+                            )?
                         } else {
-                            Complex::default()
+                            let v = self.evaluate_cut(
+                                &mut k_def[..self.n_loops],
+                                &self.numerator,
+                                cut,
+                                mat,
+                                cache,
+                                true,
+                            )?;
+                            // Assuming that there is no need for the residue energy or the cut_id
+                            let ct = if self.settings.general.use_ct {
+                                self.counterterm(
+                                    &k_def[..self.n_loops],
+                                    Complex::default(),
+                                    0,
+                                    cache,
+                                )
+                            } else {
+                                Complex::default()
+                            };
+
+                            v * (ct + T::one())
                         };
 
-                        v * (ct + T::one())
-                    };
-
-                    // k_def has the correct energy component at this stage
-                    result += v * dual_jac_def
+                        // k_def has the correct energy component at this stage
+                        result += v * dual_jac_def
+                    }
                 }
                 cut_counter += 1;
             }
         }
+        //println!("->{:?} [{:?}]", result, start.elapsed());
+
         Ok((result, k_def))
     }
 
@@ -3027,6 +3096,16 @@ impl Topology {
         } else {
             // println!("RES {:e} {:e} {:e} {:e}",x[0],x[1],x[2],result);
             (x, k_def, jac_para, jac_def, result)
+        }
+    }
+
+    pub fn evaluate_elliposoids_matrix_1L<T: FloatLike>(&self, cache: &mut LTDCache<T>) {
+        for p1 in self.loop_lines[0].propagators.iter() {
+            for p2 in self.loop_lines[0].propagators.iter() {
+                cache.complex_ellipsoids[p1.id][p2.id] = cache.complex_cut_energies[p1.id]
+                    + cache.complex_cut_energies[p2.id]
+                    + Into::<T>::into(-p1.q.t + p2.q.t);
+            }
         }
     }
 }

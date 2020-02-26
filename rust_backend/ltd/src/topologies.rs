@@ -6,6 +6,7 @@ use num_traits::{Signed, Zero};
 use serde::Deserialize;
 use std::collections::HashMap;
 use fnv::FnvHashMap;
+use partial_fractioning::PartialFractioning;
 use std::fmt;
 use std::fs::File;
 use vector::{LorentzVector, RealNumberLike};
@@ -201,6 +202,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub complex_cut_energies: Vec<Complex<T>>,
     pub complex_prop_spatial: Vec<Complex<T>>,
     pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
+    pub complex_ellipsoids: Vec<Vec<Complex<T>>>,
     pub overall_lambda: T, // used to log the minimum
     pub numerator_momentum_cache: Vec<Complex<T>>,
     pub reduced_coefficient_lb: Vec<Complex<T>>,
@@ -232,6 +234,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
                 .iter()
                 .map(|ll| vec![[Complex::default(); 2]; ll.propagators.len()])
                 .collect(),
+            complex_ellipsoids: vec![vec![Complex::default();num_propagators]; num_propagators],
             overall_lambda: T::zero(),
             numerator_momentum_cache: vec![],
             reduced_coefficient_lb: vec![Complex::default(); topo.n_loops],
@@ -424,6 +427,8 @@ pub struct Topology {
     pub all_excluded_surfaces: Vec<bool>,
     #[serde(skip_deserializing)]
     pub numerator: LTDNumerator,
+    #[serde(skip_deserializing)]
+    pub partial_fractioning: PartialFractioning,
     #[serde(default)]
     pub numerator_tensor_coefficients: Vec<(f64, f64)>,
     #[serde(default)]
