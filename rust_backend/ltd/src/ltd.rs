@@ -2540,6 +2540,10 @@ impl Topology {
                     };
                 }
             } else {
+                // Cache all propagator evaluations by evaluating the loop line
+                for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
+                    ll.evaluate(&k_def, ll_cut, &self, cache)?;
+                }
                 // if overwrite_propagator_power is false it means that the powers used are not the
                 // one coming from the topology so it's not possible to use the cached loop line result
                 for (p_e, p_pow) in cache
