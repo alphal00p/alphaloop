@@ -3,7 +3,6 @@ use fnv::FnvHashMap;
 use gamma_chain::GammaChain;
 use itertools::Itertools;
 use num::Complex;
-use partial_fractioning::PartialFractioning;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use topologies::{Cut, LTDCache, LTDNumerator, Topology};
@@ -94,7 +93,6 @@ pub struct DiagramFullRust {
     tensor_coefficients: Vec<Complex<f64>>,
     #[serde(skip_deserializing)]
     pub numerator: LTDNumerator,
-    pub use_partial_fractioning: bool,
 }
 
 #[derive(Default, Debug, Clone, Deserialize)]

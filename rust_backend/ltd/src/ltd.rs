@@ -2862,6 +2862,7 @@ impl Topology {
         let mut result = Complex::default();
         //let start = std::time::Instant::now();
         let use_partial_fractioning = self.n_loops == 1
+            && self.settings.general.partial_fractioning_threshold >= 0.0
             && k[0].spatial_distance()
                 > Into::<T>::into(self.settings.general.partial_fractioning_threshold)
             && self.settings.general.deformation_strategy != DeformationStrategy::Duals;
