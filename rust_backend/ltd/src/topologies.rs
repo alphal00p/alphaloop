@@ -1068,6 +1068,9 @@ pub struct SCSProblem {
     workspace: *mut scs::ScsWork,
 }
 
+// This is needed to work with the Python bindings. Generally, this is is not safe.
+unsafe impl std::marker::Send for SCSProblem {}
+
 impl Default for SCSProblem {
     fn default() -> SCSProblem {
         SCSProblem::new(50, 20)

@@ -2261,7 +2261,6 @@ impl Topology {
 
     /// Set the energy component of the loop momenta according to
     /// `cut`. It takes the cut energies from the cache.
-    #[inline]
     pub fn set_loop_momentum_energies<T: FloatLike>(
         &self,
         k_def: &mut [LorentzVector<Complex<T>>],
@@ -2490,7 +2489,6 @@ impl Topology {
         result / norm
     }
 
-    #[inline]
     pub fn evaluate_cut<T: FloatLike>(
         &self,
         k_def: &mut [LorentzVector<Complex<T>>],
@@ -2870,7 +2868,7 @@ impl Topology {
             && self.settings.general.deformation_strategy != DeformationStrategy::Duals;
         if use_partial_fractioning {
             // Partial fractioning
-            self.evaluate_elliposoids_matrix_1L(cache);
+            self.evaluate_elliposoids_matrix_1l(cache);
             if self.settings.general.use_amplitude {
                 // Evaluate in the case of an amplitude
                 for diag in self.amplitude.diagrams.iter() {
@@ -2983,7 +2981,6 @@ impl Topology {
         Ok((result, k_def))
     }
 
-    #[inline]
     pub fn evaluate<'a, T: FloatLike>(
         &mut self,
         x: &'a [f64],
@@ -3098,7 +3095,7 @@ impl Topology {
         }
     }
 
-    pub fn evaluate_elliposoids_matrix_1L<T: FloatLike>(&self, cache: &mut LTDCache<T>) {
+    pub fn evaluate_elliposoids_matrix_1l<T: FloatLike>(&self, cache: &mut LTDCache<T>) {
         for p1 in self.loop_lines[0].propagators.iter() {
             for p2 in self.loop_lines[0].propagators.iter() {
                 cache.complex_ellipsoids[p1.id][p2.id] = cache.complex_cut_energies[p1.id]

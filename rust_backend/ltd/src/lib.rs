@@ -55,12 +55,12 @@ pub trait FloatLike:
 impl FloatLike for f64 {}
 impl FloatLike for f128::f128 {}
 
-pub mod partial_fractioning;
 pub mod amplitude;
 pub mod cts;
 pub mod gamma_chain;
 pub mod integrand;
 pub mod ltd;
+pub mod partial_fractioning;
 pub mod squared_topologies;
 pub mod topologies;
 pub mod utils;
@@ -509,7 +509,7 @@ py_class!(class CrossSection |py| {
     def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
         let res = self.integrand(py).borrow_mut().evaluate(&x);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
-   }
+    }
 
     def evaluate(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
         let mut moms : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
@@ -525,7 +525,37 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-   def evaluate_f128(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
+    def get_scaling(&self, loop_momenta: Vec<Vec<f64>>, cut_index: usize) -> PyResult<Option<((f64, f64), (f64, f64))>> {
+        let squared_topo = &mut self.squared_topology(py).borrow_mut();
+
+        let incoming_energy = squared_topo.external_momenta[..squared_topo.n_incoming_momenta]
+        .iter()
+        .map(|m| m.t)
+        .sum();
+
+        let mut moms : ArrayVec<[LorentzVector<f64>; MAX_LOOP]> = ArrayVec::new();
+        for l in loop_momenta {
+            moms.push(LorentzVector::from_args(
+                f64::zero(),
+                f64::from_f64(l[0]).unwrap(),
+                f64::from_f64(l[1]).unwrap(),
+                f64::from_f64(l[2]).unwrap()));
+        }
+
+        let cutkosky_cuts = &squared_topo.cutkosky_cuts[cut_index];
+
+        let scaling = squared_topologies::SquaredTopology::find_scaling(
+            cutkosky_cuts,
+            &squared_topo.external_momenta[..squared_topo.external_momenta.len()],
+            &moms[..squared_topo.n_loops],
+            incoming_energy,
+            squared_topo.settings.general.debug,
+        );
+
+        Ok(scaling.map(|x| ((x[0].0.to_f64().unwrap(), x[0].1.to_f64().unwrap()), (x[1].0.to_f64().unwrap(), x[1].1.to_f64().unwrap()))))
+    }
+
+    def evaluate_f128(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
         let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
@@ -539,7 +569,7 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def evaluate_cut(&self, loop_momenta: Vec<Vec<f64>>, cut_index: usize) -> PyResult<(f64, f64)> {
+    def evaluate_cut(&self, loop_momenta: Vec<Vec<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
         let mut moms : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
@@ -574,12 +604,14 @@ py_class!(class CrossSection |py| {
             k_def,
             cache,
             cut_index,
+            scaling,
+            scaling_jac,
         ).0;
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-   def evaluate_cut_f128(&self, loop_momenta: Vec<Vec<f64>>, cut_index: usize) -> PyResult<(f64, f64)> {
+   def evaluate_cut_f128(&self, loop_momenta: Vec<Vec<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
         let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
@@ -614,6 +646,8 @@ py_class!(class CrossSection |py| {
             k_def,
             cache,
             cut_index,
+            f128::f128::from_f64(scaling).unwrap(),
+            f128::f128::from_f64(scaling_jac).unwrap(),
         ).0;
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
