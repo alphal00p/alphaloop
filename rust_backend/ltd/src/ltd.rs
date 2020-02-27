@@ -510,7 +510,6 @@ impl Topology {
 
         if self.settings.general.debug > 1 {
             println!("Number of unique ellipsoids: {}", unique_ellipsoids);
-            println!("Surfaces not appearing in cut:");
         }
 
         self.all_excluded_surfaces = vec![false; self.surfaces.len()];
@@ -540,6 +539,9 @@ impl Topology {
         }
 
         if external_momenta_set {
+            if self.settings.general.derive_overlap_structure {
+                self.fixed_deformation = self.determine_ellipsoid_overlap_structure();
+            }
             self.check_fixed_deformation();
         }
     }
@@ -632,9 +634,9 @@ impl Topology {
         for d_lim in &self.fixed_deformation {
             for d in &d_lim.deformation_per_overlap {
                 if let Some(overlap) = &d.overlap {
-                    if overlap.len() + d.excluded_surface_ids.len() != unique_ellipsoids {
+                    if overlap.len() + d.excluded_surface_indices.len() != unique_ellipsoids {
                         println!("Number of ellipsoids between fixed deformation and Rust is different: {} vs {}",
-                    overlap.len() + d.excluded_surface_ids.len(), unique_ellipsoids);
+                    overlap.len() + d.excluded_surface_indices.len(), unique_ellipsoids);
                     }
                 }
 

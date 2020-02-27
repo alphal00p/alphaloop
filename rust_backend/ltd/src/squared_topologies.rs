@@ -470,7 +470,14 @@ impl SquaredTopology {
 
             subgraphs[0].update_ellipsoids();
             subgraphs[1].update_ellipsoids();
-            // TODO: construct a deformation now that all the ellipsoids are set
+            subgraphs[0].determine_ellipsoid_overlap_structure();
+            subgraphs[1].determine_ellipsoid_overlap_structure();
+
+            if self.settings.general.debug > 1 {
+                // check if the overlap structure makes sense
+                subgraphs[0].check_fixed_deformation();
+                subgraphs[1].check_fixed_deformation();
+            }
 
             // evaluate
             for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {

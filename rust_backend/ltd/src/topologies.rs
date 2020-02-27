@@ -1,14 +1,19 @@
 use amplitude::Amplitude;
 use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use float;
+use fnv::FnvHashMap;
 use num::Complex;
 use num_traits::{Signed, Zero};
+use partial_fractioning::PartialFractioning;
+use scs;
 use serde::Deserialize;
 use std::collections::HashMap;
-use fnv::FnvHashMap;
-use partial_fractioning::PartialFractioning;
 use std::fmt;
 use std::fs::File;
+use std::mem;
+use std::ptr;
+use std::time::Instant;
+use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
 use {FloatLike, Settings, MAX_LOOP};
 
@@ -234,7 +239,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
                 .iter()
                 .map(|ll| vec![[Complex::default(); 2]; ll.propagators.len()])
                 .collect(),
-            complex_ellipsoids: vec![vec![Complex::default();num_propagators]; num_propagators],
+            complex_ellipsoids: vec![vec![Complex::default(); num_propagators]; num_propagators],
             overall_lambda: T::zero(),
             numerator_momentum_cache: vec![],
             reduced_coefficient_lb: vec![Complex::default(); topo.n_loops],
@@ -390,6 +395,19 @@ pub struct ConstantDeformation {
     pub beta: Vec<LorentzVector<f64>>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct LTDNumerator {
+    pub coefficients: Vec<Complex<f64>>,
+    pub n_loops: usize,
+    pub max_rank: usize,
+    pub reduced_size: usize,
+    pub sorted_linear: Vec<Vec<usize>>,
+    pub coefficient_index_map: Vec<(usize, usize)>,
+    pub coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
+    pub reduced_coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
+    pub powers_to_position: FnvHashMap<[u8; MAX_LOOP], usize>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Topology {
     pub name: String,
@@ -435,6 +453,8 @@ pub struct Topology {
     pub amplitude: Amplitude,
     #[serde(default)]
     pub loop_momentum_map: Vec<(Vec<i8>, Vec<i8>)>,
+    #[serde(skip_deserializing)]
+    pub scs_problem: SCSProblem,
 }
 
 impl Topology {
@@ -471,10 +491,14 @@ impl Topology {
             n_unique_e_surface
         );
         if self.fixed_deformation.len() > 0 {
-            let maximal_overlap_structure: Vec<i32> = self.fixed_deformation[0]
+            let maximal_overlap_structure: Vec<i32> = self
+                .fixed_deformation
+                .iter()
+                .find(|x| x.excluded_propagators.len() == 0)
+                .unwrap()
                 .deformation_per_overlap
                 .iter()
-                .map(|c| (n_unique_e_surface - (c.excluded_surface_ids.len() as i32)))
+                .map(|c| (n_unique_e_surface - (c.excluded_surface_indices.len() as i32)))
                 .collect();
             let radii: Vec<f64> = self
                 .fixed_deformation
@@ -523,17 +547,681 @@ impl Topology {
             _ => println!("Analytic result not available."),
         }
     }
+
+    pub fn determine_ellipsoid_overlap_structure(&mut self) -> Vec<FixedDeformationLimit> {
+        let ellipsoid_ids: Vec<usize> = self
+            .surfaces
+            .iter()
+            .enumerate()
+            .filter_map(|(i, s)| {
+                if s.exists && s.surface_type == SurfaceType::Ellipsoid && s.group == i {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let overlap = self.find_overlap_structure(&ellipsoid_ids, &[]);
+        if self.settings.general.debug > 1 {
+            println!("overlap={:#?}", overlap);
+        }
+
+        // TODO: also determine subspace deformation vectors
+        vec![FixedDeformationLimit {
+            deformation_per_overlap: overlap,
+            excluded_propagators: vec![],
+        }]
+    }
+
+    /// Construct the SCS problem with all the ellipsoids in the problem.
+    fn construct_scs_problem(&mut self, ellipsoid_ids: &[usize], minimize: bool) {
+        let mut p = &mut self.scs_problem;
+        p.cone.l = ellipsoid_ids.len() as scs::scs_int;
+
+        for (shift, &e_id) in p.b.iter_mut().zip(ellipsoid_ids.iter()) {
+            *shift = -self.surfaces[e_id]
+                .shift
+                .t
+                .multiply_sign(self.surfaces[e_id].delta_sign);
+        }
+
+        let mut lm_tag = [false; MAX_LOOP];
+
+        // construct the focus part of the shift
+        let mut b_index = ellipsoid_ids.len();
+        let mut focus_count = 0;
+        for (ll_index, ll) in self.loop_lines.iter().enumerate() {
+            for (prop_index, prop) in ll.propagators.iter().enumerate() {
+                let mut included = false;
+                'el_loop: for &e_id in ellipsoid_ids {
+                    for ((surf_ll_index, surf_prop_index), _, _) in &self.surfaces[e_id].id {
+                        if ll_index == *surf_ll_index && prop_index == *surf_prop_index {
+                            for (tag, &sig) in lm_tag.iter_mut().zip(&ll.signature) {
+                                *tag |= sig != 0;
+                            }
+                            included = true;
+                            break 'el_loop;
+                        }
+                    }
+                }
+
+                if included {
+                    p.focus_list[focus_count] = (ll_index, prop_index);
+                    p.b[b_index] = 0.;
+                    b_index += 1;
+                    if prop.m_squared != 0. {
+                        p.b[b_index] = prop.m_squared.sqrt();
+                        b_index += 1;
+                        p.q[focus_count] = 5;
+                    } else {
+                        p.q[focus_count] = 4;
+                    };
+                    p.b[b_index] = prop.q.x;
+                    b_index += 1;
+                    p.b[b_index] = prop.q.y;
+                    b_index += 1;
+                    p.b[b_index] = prop.q.z;
+                    b_index += 1;
+
+                    focus_count += 1;
+                }
+            }
+        }
+
+        let mut var_count = 0;
+        for (vm, &x) in p.var_map.iter_mut().zip(lm_tag.iter()) {
+            if x {
+                *vm = var_count;
+                var_count += 1;
+            }
+        }
+
+        let width = 3 * var_count + focus_count;
+
+        p.cone.qsize = focus_count as scs::scs_int;
+        p.a.m = b_index as scs::scs_int;
+        p.a.n = width as scs::scs_int;
+        p.data.m = p.a.m;
+        p.data.n = p.a.n;
+
+        for aa in &mut p.a_dense[..width * b_index] {
+            *aa = 0.;
+        }
+
+        for cc in &mut p.c[..3 * var_count + focus_count] {
+            *cc = 0.;
+        }
+
+        for (ellipsoid_index, &e_id) in ellipsoid_ids.iter().enumerate() {
+            for ((ll_index, prop_index), _, _) in self.surfaces[e_id].id.iter() {
+                let foc_index = p
+                    .focus_list
+                    .iter()
+                    .position(|x| *x == (*ll_index, *prop_index))
+                    .unwrap();
+
+                if minimize {
+                    p.c[3 * var_count + foc_index] += 1.;
+                }
+
+                p.a_dense[ellipsoid_index * width + 3 * var_count + foc_index] = 1.;
+            }
+        }
+
+        // now for every focus, add the constraint
+        let mut focus_row_counter = ellipsoid_ids.len(); // the start of the focus information
+        for (foc_index, (ll_index, prop_index)) in p.focus_list[..focus_count].iter().enumerate() {
+            let prop = &self.loop_lines[*ll_index].propagators[*prop_index];
+
+            // set the linear equation
+            p.a_dense[focus_row_counter * width + 3 * var_count + foc_index] = -1.0;
+            focus_row_counter += 1;
+            if prop.m_squared != 0. {
+                // the mass is an empty line
+                focus_row_counter += 1;
+            }
+
+            for dir_index in 0..3 {
+                for (var_index, &v) in prop.signature.iter().enumerate() {
+                    if v != 0 {
+                        p.a_dense
+                            [focus_row_counter * width + 3 * p.var_map[var_index] + dir_index] =
+                            Into::<float>::into(-v);
+                    }
+                }
+                focus_row_counter += 1;
+            }
+        }
+
+        // now write a in compressed column format
+        let mut non_zero_index = 0;
+        p.p[0] = 0;
+        for col in 0..width {
+            for row in 0..b_index {
+                if p.a_dense[row * width + col] != 0. {
+                    p.x[non_zero_index] = p.a_dense[row * width + col];
+                    p.i[non_zero_index] = row as scs::scs_int;
+                    non_zero_index += 1;
+                }
+            }
+            p.p[col + 1] = non_zero_index as scs::scs_int;
+        }
+
+        p.initialize_workspace();
+    }
+
+    fn evaluate_surface<T: FloatLike>(&self, loop_momenta: &[LorentzVector<T>], s: &Surface) -> T {
+        let mut eval = Into::<T>::into(s.shift.t).multiply_sign(s.delta_sign);
+        for ((ll, pp), _, _) in &s.id {
+            let prop = &self.loop_lines[*ll].propagators[*pp];
+            // get the loop momentum
+            let mut mom = prop.q.cast();
+            for (m, sig) in loop_momenta[..self.n_loops].iter().zip(&prop.signature) {
+                mom += m.multiply_sign(*sig);
+            }
+            eval += (mom.spatial_squared() + Into::<T>::into(prop.m_squared)).sqrt();
+        }
+        eval
+    }
+
+    /// Generate a next plausible solution to check for overlaps.
+    fn next_set(
+        &self,
+        num_ellipsoids: usize,
+        acc: &mut [isize],
+        different: &mut [bool],
+        initialize: bool,
+    ) -> bool {
+        let mut i = if initialize {
+            acc[0] = -1;
+            0
+        } else {
+            acc.len() - 1
+        };
+
+        if acc.len() == 1 {
+            // special case for n = 1: check if the ellipsoid does not appear in any overlap structure
+            'next_num_loop1: for new_num in ((acc[0] + 1) as usize)..num_ellipsoids {
+                for appears in &self.scs_problem.pair_appears_in_overlap_structurex
+                    [new_num as usize * num_ellipsoids..(new_num as usize + 1) * num_ellipsoids]
+                {
+                    if *appears {
+                        continue 'next_num_loop1;
+                    }
+                }
+                acc[0] = new_num as isize;
+                return true;
+            }
+            return false;
+        }
+
+        loop {
+            if acc[i] != num_ellipsoids as isize {
+                'next_num_loop: for new_num in
+                    ((acc[i] + 1) as usize)..=(num_ellipsoids - acc.len() + i)
+                {
+                    different[i] = false;
+                    for x in acc[..i].iter() {
+                        if !self.scs_problem.pair_overlap_matrix
+                            [*x as usize * num_ellipsoids + new_num]
+                        {
+                            continue 'next_num_loop;
+                        }
+
+                        if !self.scs_problem.pair_appears_in_overlap_structurex
+                            [*x as usize * num_ellipsoids + new_num]
+                        {
+                            different[i] = true;
+                        }
+                    }
+
+                    if i > 0 {
+                        different[i] |= different[i - 1];
+                    }
+
+                    acc[i] = new_num as isize;
+
+                    // check if there is still a possible completion
+                    let spots_left = acc.len() - i - 1;
+                    if !different[i] {
+                        let mut possible = false;
+                        'outer_loop: for j in (acc[i] as usize + 1)..num_ellipsoids {
+                            for k in 0..j {
+                                if self.scs_problem.pair_overlap_matrix[k * num_ellipsoids + j]
+                                    && !self.scs_problem.pair_appears_in_overlap_structurex
+                                        [k * num_ellipsoids + j]
+                                    && ((k as isize > acc[i] && spots_left >= 2)
+                                        || (spots_left >= 1
+                                            && acc[..i + 1].contains(&(k as isize))))
+                                {
+                                    possible = true;
+                                    break 'outer_loop;
+                                }
+                            }
+                        }
+
+                        if !possible {
+                            continue 'next_num_loop;
+                        }
+                    }
+
+                    if i + 1 == acc.len() {
+                        if different[i] {
+                            return true;
+                        }
+                        // ideally this is never reached
+                        continue;
+                    }
+
+                    // continue the same logic for the next index i + 1
+                    acc[i + 1] = new_num as isize;
+                    i += 2; // add 2 because we subtract by one later
+                    break;
+                }
+            }
+
+            if i == 0 {
+                break;
+            }
+            i -= 1;
+        }
+        false
+    }
+
+    /// Assuming the test for overlap of `ellipsoid_list` succeeded, build a `FixedDeformationOverlap`.
+    fn build_deformation_overlap_info(
+        &self,
+        ellipsoid_list: &[usize],
+        all_ellipsoids: &[usize],
+    ) -> FixedDeformationOverlap {
+        // TODO: recycle from pre-allocated overlap structures
+        let mut var_count = 0;
+        let mut sources = vec![LorentzVector::default(); self.n_loops];
+        for &i in &self.scs_problem.var_map[..self.n_loops] {
+            if i < self.n_loops {
+                sources[i] = LorentzVector::from_args(
+                    0.,
+                    self.scs_problem.sol_x[i * 3],
+                    self.scs_problem.sol_x[i * 3 + 1],
+                    self.scs_problem.sol_x[i * 3 + 2],
+                );
+                var_count += 1;
+            }
+        }
+
+        let mut excluded_surface_indices = Vec::with_capacity(all_ellipsoids.len());
+        for e in all_ellipsoids {
+            if !ellipsoid_list.contains(e) {
+                excluded_surface_indices.push(*e);
+            }
+        }
+
+        let mut radius = 0.;
+        for (foc_count, foc_val) in self.scs_problem.c[3 * var_count..self.scs_problem.a.n as usize]
+            .iter()
+            .zip(&self.scs_problem.sol_x)
+        {
+            radius += foc_count * foc_val;
+        }
+
+        FixedDeformationOverlap {
+            deformation_sources: sources,
+            excluded_surface_ids: vec![],
+            excluded_surface_indices: excluded_surface_indices,
+            overlap: Some(ellipsoid_list.to_vec()),
+            radius,
+        }
+    }
+
+    fn find_overlap_structure(
+        &mut self,
+        ellipsoid_list: &[usize],
+        _extra_constraints: &[usize],
+    ) -> Vec<FixedDeformationOverlap> {
+        let mut overlap_structure = vec![];
+
+        let t = Instant::now();
+        let mut t_prob_accum = 0;
+
+        let mut problem_count = 0;
+        let mut pair_overlap_count = 0;
+
+        // first check for full overlap before constructing pair information
+        self.construct_scs_problem(&ellipsoid_list, true);
+        if self.scs_problem.solve() > 0 {
+            overlap_structure
+                .push(self.build_deformation_overlap_info(ellipsoid_list, ellipsoid_list));
+            self.scs_problem.finish();
+            return overlap_structure;
+        }
+
+        // collect basic overlap info for all pairs
+        for i in 0..ellipsoid_list.len() * ellipsoid_list.len() {
+            self.scs_problem.pair_appears_in_overlap_structurex[i] = false;
+            self.scs_problem.pair_overlap_matrix[i] = false;
+        }
+
+        for i in 0..ellipsoid_list.len() {
+            for j in i + 1..ellipsoid_list.len() {
+                // skip the SCS check if foci overlap or if the surfaces are on different loop lines
+                let mut num_overlap = 0;
+                let mut loop_line_overlap = false;
+                for (foc1, _, _) in self.surfaces[ellipsoid_list[i]].id.iter() {
+                    for (foc2, _, _) in self.surfaces[ellipsoid_list[j]].id.iter() {
+                        if foc1.0 == foc2.0 {
+                            loop_line_overlap = true;
+                        }
+                        if foc1 == foc2 {
+                            num_overlap += 1;
+                        }
+                    }
+                }
+
+                let mut focus_overlap = false;
+                if !loop_line_overlap
+                    || (num_overlap + 1 >= self.surfaces[ellipsoid_list[i]].id.len()
+                        && num_overlap + 1 >= self.surfaces[ellipsoid_list[j]].id.len())
+                {
+                    self.scs_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
+                    self.scs_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
+                    pair_overlap_count += 1;
+
+                    focus_overlap = true;
+                    if self.settings.general.debug == 0 {
+                        continue;
+                    }
+                }
+
+                let t1 = Instant::now();
+
+                self.construct_scs_problem(&[ellipsoid_list[i], ellipsoid_list[j]], true);
+                let has_overlap = self.scs_problem.solve() > 0;
+                self.scs_problem.finish();
+
+                t_prob_accum += Instant::now().duration_since(t1).as_nanos();
+
+                if has_overlap {
+                    self.scs_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
+                    self.scs_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
+                    pair_overlap_count += 1;
+                }
+
+                if focus_overlap && !has_overlap {
+                    panic!(
+                        "Foci overlap but SCS says that there is no overlap for {} and {}",
+                        ellipsoid_list[i], ellipsoid_list[j]
+                    );
+                }
+
+                problem_count += 1;
+            }
+        }
+
+        if self.settings.general.debug > 1 {
+            println!("Time taken = {:#?}", Instant::now().duration_since(t));
+            println!("Computed {} pair overlaps", problem_count);
+            println!("Pair overlap count: {}", pair_overlap_count);
+        }
+
+        let mut option = mem::replace(&mut self.scs_problem.option, vec![]);
+        let mut option_translated = mem::replace(&mut self.scs_problem.option_translated, vec![]);
+        let mut different = mem::replace(&mut self.scs_problem.different, vec![]);
+
+        for n in (1..ellipsoid_list.len()).rev() {
+            if self.settings.general.debug > 0 {
+                println!(
+                    "Progress: n={}, current structure={:?}",
+                    n, overlap_structure
+                );
+            }
+
+            let mut initialize = true;
+            while self.next_set(
+                ellipsoid_list.len(),
+                &mut option[..n],
+                &mut different[..n],
+                initialize,
+            ) {
+                initialize = false;
+
+                for (ot, o) in option_translated[..n].iter_mut().zip(&option[..n]) {
+                    *ot = ellipsoid_list[*o as usize];
+                }
+
+                let t1 = Instant::now();
+
+                self.construct_scs_problem(&option_translated[..n], false);
+                let has_overlap = self.scs_problem.solve() > 0;
+                self.scs_problem.finish();
+
+                t_prob_accum += Instant::now().duration_since(t1).as_nanos();
+
+                if has_overlap {
+                    for (i, &ei) in option[..n].iter().enumerate() {
+                        for &ej in option[i + 1..n].iter() {
+                            self.scs_problem.pair_appears_in_overlap_structurex
+                                [ei as usize * ellipsoid_list.len() + ej as usize] = true;
+                            self.scs_problem.pair_appears_in_overlap_structurex
+                                [ej as usize * ellipsoid_list.len() + ei as usize] = true;
+                        }
+                    }
+
+                    overlap_structure.push(
+                        self.build_deformation_overlap_info(
+                            &option_translated[..n],
+                            ellipsoid_list,
+                        ),
+                    );
+                }
+
+                problem_count += 1;
+            }
+        }
+
+        mem::swap(&mut self.scs_problem.option, &mut option);
+        mem::swap(
+            &mut self.scs_problem.option_translated,
+            &mut option_translated,
+        );
+        mem::swap(&mut self.scs_problem.different, &mut different);
+
+        if self.settings.general.debug > 1 {
+            println!("Problem count={}", problem_count);
+            println!("Solved in {:#?}", Instant::now().duration_since(t));
+            println!("SCS time {:#?}", t_prob_accum);
+        }
+
+        overlap_structure
+    }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct LTDNumerator {
-    pub coefficients: Vec<Complex<f64>>,
-    pub n_loops: usize,
-    pub max_rank: usize,
-    pub reduced_size: usize,
-    pub sorted_linear: Vec<Vec<usize>>,
-    pub coefficient_index_map: Vec<(usize, usize)>,
-    pub coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
-    pub reduced_coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
-    pub powers_to_position: FnvHashMap<[u8; MAX_LOOP], usize>,
+/// An SCS problem instance with cached data. The user should never
+/// overwrite the vectors with other vectors, but should update them instead.
+/// Resizing vectors is also not allowed.
+#[derive(Debug, Clone)]
+pub struct SCSProblem {
+    pub pair_overlap_matrix: Vec<bool>,
+    pub pair_appears_in_overlap_structurex: Vec<bool>,
+    pub focus_list: Vec<(usize, usize)>,
+    pub option: Vec<isize>,
+    pub option_translated: Vec<usize>,
+    pub different: Vec<bool>,
+    pub a_dense: Vec<f64>,
+    pub var_map: Vec<usize>,
+    pub l: scs::scs_int,
+    pub q: Vec<i32>,
+    pub x: Vec<f64>,
+    pub i: Vec<scs::scs_int>,
+    pub p: Vec<scs::scs_int>,
+    pub b: Vec<f64>,
+    pub c: Vec<f64>,
+    pub sol_x: Vec<f64>,
+    pub sol_y: Vec<f64>,
+    pub sol_s: Vec<f64>,
+    a: Box<scs::ScsMatrix>, // we need to box so that the memory location does not change
+    data: Box<scs::ScsData>,
+    cone: Box<scs::ScsCone>,
+    info: Box<scs::ScsInfo>,
+    settings: Box<scs::ScsSettings>,
+    sol: Box<scs::ScsSolution>,
+    workspace: *mut scs::ScsWork,
+}
+
+impl Default for SCSProblem {
+    fn default() -> SCSProblem {
+        SCSProblem::new(50, 20)
+    }
+}
+
+impl SCSProblem {
+    pub fn new(max_ellipsoids: usize, max_foci: usize) -> SCSProblem {
+        let mut settings = Box::new(scs::ScsSettings {
+            normalize: 1,
+            scale: 1.0,
+            rho_x: 1e-3,
+            max_iters: 5000,
+            eps: 1e-5,
+            alpha: 1.5,
+            cg_rate: 2.0,
+            verbose: 0,
+            warm_start: 0, // FIXME: this could cause really bad issues: some tests may fail
+            acceleration_lookback: 10,
+            write_data_filename: ptr::null(),
+        });
+
+        let pair_overlap_matrix = vec![false; max_ellipsoids * max_ellipsoids];
+        let pair_appears_in_overlap_structurex = vec![false; max_ellipsoids * max_ellipsoids];
+
+        let option = vec![0isize; max_ellipsoids];
+        let option_translated = vec![0; max_ellipsoids];
+        let different = vec![false; max_ellipsoids];
+
+        let num_constraints = max_ellipsoids + max_foci * 5;
+        let var_length = 3 * MAX_LOOP + max_foci;
+        let num_non_empty = max_ellipsoids * MAX_LOOP + max_foci + 5 * MAX_LOOP * max_foci;
+
+        let focus_list = vec![(0, 0); max_foci];
+        let a_dense = vec![0.; num_constraints * var_length];
+        let mut q = vec![0; max_foci];
+        let mut x = vec![0.; num_non_empty];
+        let mut i = vec![0; num_non_empty];
+        let mut p = vec![0; var_length + 1];
+        let mut b = vec![0.; num_constraints];
+        let mut c = vec![0.; var_length];
+        let mut sol_x = vec![0.; var_length];
+        let mut sol_y = vec![0.; num_constraints];
+        let mut sol_s = vec![0.; num_constraints];
+
+        let mut a = Box::new(scs::ScsMatrix {
+            x: &mut x[0] as *mut f64,
+            i: &mut i[0] as *mut scs::scs_int,
+            p: &mut p[0] as *mut scs::scs_int,
+            m: 0,
+            n: 0,
+        });
+
+        let data = Box::new(scs::ScsData {
+            m: 0, // rows
+            n: 0, // cols
+            A: a.as_mut() as *mut scs::ScsMatrix,
+            b: &mut b[0] as *mut f64,
+            c: &mut c[0] as *mut f64,
+            stgs: settings.as_mut() as *mut scs::ScsSettings,
+        });
+
+        let info = Box::new(scs::ScsInfo::default());
+
+        let cone = Box::new(scs::ScsCone {
+            f: 0,
+            l: 1,
+            q: &mut q[0] as *mut scs::scs_int,
+            qsize: q.len() as i32,
+            s: ptr::null_mut(),
+            ssize: 0,
+            ep: 0,
+            ed: 0,
+            p: ptr::null_mut(),
+            psize: 0,
+        });
+
+        let sol = Box::new(scs::ScsSolution {
+            x: &mut sol_x[0] as *mut f64,
+            y: &mut sol_y[0] as *mut f64,
+            s: &mut sol_s[0] as *mut f64,
+        });
+
+        SCSProblem {
+            pair_overlap_matrix,
+            pair_appears_in_overlap_structurex,
+            focus_list,
+            option,
+            option_translated,
+            different,
+            a_dense,
+            var_map: vec![1000; MAX_LOOP],
+            l: 0,
+            q,
+            x,
+            i,
+            p,
+            b,
+            c,
+            sol_x,
+            sol_y,
+            sol_s,
+            a,
+            data,
+            cone,
+            info,
+            settings,
+            sol,
+            workspace: ptr::null_mut(),
+        }
+    }
+
+    /// With all the variables set
+    #[inline]
+    pub fn initialize_workspace(&mut self) {
+        unsafe {
+            self.workspace = scs::scs_init(
+                self.data.as_ref() as *const scs::ScsData,
+                self.cone.as_ref() as *const scs::ScsCone,
+                self.info.as_mut() as *mut scs::ScsInfo,
+            );
+        }
+    }
+
+    #[inline]
+    pub fn solve(&mut self) -> scs::scs_int {
+        unsafe {
+            scs::scs_solve(
+                self.workspace,
+                self.data.as_ref() as *const scs::ScsData,
+                self.cone.as_ref() as *const scs::ScsCone,
+                self.sol.as_mut() as *mut scs::ScsSolution,
+                self.info.as_mut() as *mut scs::ScsInfo,
+            )
+        }
+    }
+
+    #[inline]
+    pub fn solve_full(&mut self) -> scs::scs_int {
+        unsafe {
+            scs::scs(
+                self.data.as_ref() as *const scs::ScsData,
+                self.cone.as_ref() as *const scs::ScsCone,
+                self.sol.as_mut() as *mut scs::ScsSolution,
+                self.info.as_mut() as *mut scs::ScsInfo,
+            )
+        }
+    }
+
+    #[inline]
+    pub fn finish(&mut self) {
+        unsafe {
+            scs::scs_finish(self.workspace);
+        }
+        self.workspace = ptr::null_mut();
+    }
 }

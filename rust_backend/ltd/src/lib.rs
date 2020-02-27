@@ -5,11 +5,11 @@ extern crate arrayvec;
 extern crate dual_num;
 #[macro_use]
 extern crate itertools;
+extern crate fnv;
 extern crate num;
 extern crate serde;
 extern crate serde_yaml;
 extern crate vector;
-extern crate fnv;
 
 #[cfg(feature = "python_api")]
 use cpython::PyResult;
@@ -21,6 +21,7 @@ extern crate f128;
 extern crate nalgebra as na;
 extern crate num_traits;
 extern crate rand;
+extern crate scs;
 
 use num_traits::{Float, FloatConst, FromPrimitive, Num, One, ToPrimitive, Zero};
 use utils::Signum;
@@ -352,6 +353,7 @@ pub struct GeneralSettings {
     pub log_points_to_screen: bool,
     pub log_stats_to_screen: bool,
     pub log_quad_upgrade: bool,
+    pub derive_overlap_structure: bool,
     pub deformation_strategy: DeformationStrategy,
     pub mu_uv_sq_re_im: Vec<f64>,
     pub use_ct: bool,

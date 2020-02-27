@@ -8,7 +8,7 @@ authors = ["Ben Ruijl <benruyl@gmail.com>"]
 #default = ["use_f128"]
 #default = ["use_mpi"]
 #default = ["python_api", "higher_loops"]
-default = ["python_api"]
+#default = ["python_api"]
 python_api = []
 higher_loops = []
 use_f128 = []
@@ -40,3 +40,4 @@ f128 = { git = "https://github.com/benruijl/f128" }
 colored = "1.8"
 mpi = { git = "https://github.com/bsteinb/rsmpi", optional = true }
 fnv = "1.0.6"
+scs-rs = "*"
