@@ -16,7 +16,7 @@ use topologies::Topology;
 use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
-use {FloatLike, Settings, MAX_LOOP};
+use {DeformationStrategy, FloatLike, Settings, MAX_LOOP};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
@@ -474,13 +474,16 @@ impl SquaredTopology {
 
         subgraphs[0].update_ellipsoids();
         subgraphs[1].update_ellipsoids();
-        subgraphs[0].determine_ellipsoid_overlap_structure();
-        subgraphs[1].determine_ellipsoid_overlap_structure();
 
-        if self.settings.general.debug > 1 {
-            // check if the overlap structure makes sense
-            subgraphs[0].check_fixed_deformation();
-            subgraphs[1].check_fixed_deformation();
+        if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+            subgraphs[0].fixed_deformation = subgraphs[0].determine_ellipsoid_overlap_structure();
+            subgraphs[1].fixed_deformation = subgraphs[1].determine_ellipsoid_overlap_structure();
+
+            if self.settings.general.debug > 0 {
+                // check if the overlap structure makes sense
+                subgraphs[0].check_fixed_deformation();
+                subgraphs[1].check_fixed_deformation();
+            }
         }
 
         // evaluate
