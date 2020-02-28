@@ -256,6 +256,11 @@ impl Topology {
                 }
 
                 for (ll_index, ll) in self.loop_lines.iter().enumerate() {
+                    // if this loop line has no loop momentum, skip it
+                    if ll.signature.iter().all(|s| *s == 0) {
+                        continue;
+                    }
+
                     // map the signature from the loop line to the cut momentum basis
                     let sig_ll_in_cb = c_i8.transpose()
                         * na::DMatrix::from_row_slice(self.n_loops, 1, &ll.signature);
@@ -613,6 +618,7 @@ impl Topology {
                 s.surface_type = SurfaceType::Ellipsoid;
             }
             s.exists = exists;
+            s.shift = surface_shift;
         }
     }
 

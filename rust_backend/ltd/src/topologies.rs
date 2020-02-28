@@ -562,6 +562,10 @@ impl Topology {
             })
             .collect();
 
+        if ellipsoid_ids.is_empty() {
+            return vec![];
+        }
+
         let overlap = self.find_overlap_structure(&ellipsoid_ids, &[]);
         if self.settings.general.debug > 1 {
             println!("overlap={:#?}", overlap);
@@ -1039,7 +1043,7 @@ impl Topology {
 /// An SCS problem instance with cached data. The user should never
 /// overwrite the vectors with other vectors, but should update them instead.
 /// Resizing vectors is also not allowed.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SCSProblem {
     pub pair_overlap_matrix: Vec<bool>,
     pub pair_appears_in_overlap_structurex: Vec<bool>,
@@ -1049,7 +1053,6 @@ pub struct SCSProblem {
     pub different: Vec<bool>,
     pub a_dense: Vec<f64>,
     pub var_map: Vec<usize>,
-    pub l: scs::scs_int,
     pub q: Vec<i32>,
     pub x: Vec<f64>,
     pub i: Vec<scs::scs_int>,
@@ -1074,6 +1077,18 @@ unsafe impl std::marker::Send for SCSProblem {}
 impl Default for SCSProblem {
     fn default() -> SCSProblem {
         SCSProblem::new(50, 20)
+    }
+}
+
+impl Clone for SCSProblem {
+    fn clone(&self) -> SCSProblem {
+        let mut p = SCSProblem::default();
+
+        // now copy the settings from the old problem
+        // all other data is not copied
+        *p.settings = *self.settings;
+
+        p
     }
 }
 
@@ -1137,9 +1152,9 @@ impl SCSProblem {
 
         let cone = Box::new(scs::ScsCone {
             f: 0,
-            l: 1,
+            l: 0,
             q: &mut q[0] as *mut scs::scs_int,
-            qsize: q.len() as i32,
+            qsize: 0,
             s: ptr::null_mut(),
             ssize: 0,
             ep: 0,
@@ -1163,7 +1178,6 @@ impl SCSProblem {
             different,
             a_dense,
             var_map: vec![1000; MAX_LOOP],
-            l: 0,
             q,
             x,
             i,
