@@ -533,22 +533,27 @@ py_class!(class CrossSection |py| {
         .map(|m| m.t)
         .sum();
 
-        let mut moms : ArrayVec<[LorentzVector<f64>; MAX_LOOP]> = ArrayVec::new();
+        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
-                f64::zero(),
-                f64::from_f64(l[0]).unwrap(),
-                f64::from_f64(l[1]).unwrap(),
-                f64::from_f64(l[2]).unwrap()));
+                f128::f128::zero(),
+                f128::f128::from_f64(l[0]).unwrap(),
+                f128::f128::from_f64(l[1]).unwrap(),
+                f128::f128::from_f64(l[2]).unwrap()));
+        }
+
+        let mut ext = Vec::with_capacity(squared_topo.external_momenta.len());
+        for e in &squared_topo.external_momenta[..squared_topo.external_momenta.len()] {
+            ext.push(e.cast());
         }
 
         let cutkosky_cuts = &squared_topo.cutkosky_cuts[cut_index];
 
         let scaling = squared_topologies::SquaredTopology::find_scaling(
             cutkosky_cuts,
-            &squared_topo.external_momenta[..squared_topo.external_momenta.len()],
+            &ext,
             &moms[..squared_topo.n_loops],
-            incoming_energy,
+            f128::f128::from_f64(incoming_energy).unwrap(),
             squared_topo.settings.general.debug,
         );
 
