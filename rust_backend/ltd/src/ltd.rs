@@ -2178,7 +2178,9 @@ impl Topology {
         ellipsoid_id: Option<usize>,
         cache: &mut LTDCache<T>,
     ) -> ([LorentzVector<T>; MAX_LOOP], Complex<T>) {
-        if DeformationStrategy::None == self.settings.general.deformation_strategy {
+        if DeformationStrategy::None == self.settings.general.deformation_strategy
+            || self.n_loops == 0
+        {
             let r = [LorentzVector::default(); MAX_LOOP];
             return (r, Complex::new(T::one(), T::zero()));
         }

@@ -487,7 +487,9 @@ impl SquaredTopology {
         }
 
         // evaluate
-        for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {
+        for (graph_num, (subgraph, subgraph_cache)) in
+            subgraphs.iter_mut().zip_eq(cache.iter_mut()).enumerate()
+        {
             // do the loop momentum map, which is expressed in the loop momentum basis
             // the time component should not matter here
             for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
@@ -505,13 +507,24 @@ impl SquaredTopology {
                 );
             }
 
-            // for now, we do not deform
-            for (kd, k) in k_def[..subgraph.n_loops]
-                .iter_mut()
-                .zip_eq(&subgraph_loop_momenta[..subgraph.n_loops])
-            {
-                *kd = k.map(|x| Complex::new(x, T::zero()));
-            }
+            let (kappas, jac_def) = subgraph.deform(
+                &subgraph_loop_momenta[..subgraph.n_loops],
+                None,
+                None,
+                subgraph_cache,
+            );
+            k_def = (0..self.n_loops)
+                .map(|i| {
+                    if graph_num == 1 {
+                        // take the complex conjugate of the deformation
+                        subgraph_loop_momenta[i].map(|x| Complex::new(x, T::zero()))
+                            - kappas[i].map(|x| Complex::new(T::zero(), x))
+                    } else {
+                        subgraph_loop_momenta[i].map(|x| Complex::new(x, T::zero()))
+                            + kappas[i].map(|x| Complex::new(T::zero(), x))
+                    }
+                })
+                .collect();
 
             if subgraph
                 .compute_complex_cut_energies(&k_def[..subgraph.n_loops], subgraph_cache)
@@ -532,6 +545,12 @@ impl SquaredTopology {
                 // if the graph has no propagators, it is one and not zero
                 (Complex::one(), k_def)
             };
+
+            if graph_num == 1 {
+                res *= jac_def.conj();
+            } else {
+                res *= jac_def;
+            }
 
             res *= utils::powi(
                 num::Complex::new(T::zero(), Into::<T>::into(-2.) * <T as FloatConst>::PI()),

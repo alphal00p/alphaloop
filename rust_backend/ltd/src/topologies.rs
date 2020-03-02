@@ -891,6 +891,41 @@ impl Topology {
         let mut problem_count = 0;
         let mut pair_overlap_count = 0;
 
+        if ellipsoid_list.len() == 1 {
+            // put ourselves on a the foci
+            let s = &self.surfaces[ellipsoid_list[0]];
+
+            let mut ll_on_foci = vec![LorentzVector::default(); MAX_LOOP];
+            let mut cut_shift = [LorentzVector::default(); MAX_LOOP]; // qs of cut
+            let mut cut_counter = 0;
+            for (cut, ll) in s.cut.iter().zip(self.loop_lines.iter()) {
+                if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
+                    cut_shift[cut_counter] = ll.propagators[*cut_prop_index].q;
+                    cut_counter += 1;
+                }
+            }
+
+            for (ll, shift_signs) in ll_on_foci[..self.n_loops]
+                .iter_mut()
+                .zip(s.sig_ll_in_cb.chunks_exact(self.n_loops))
+            {
+                for (sig, shift) in shift_signs.iter().zip(&cut_shift) {
+                    *ll += -shift.multiply_sign(*sig);
+                }
+            }
+
+            let r = self.evaluate_surface(&ll_on_foci, s);
+            assert!(r > 0.);
+
+            return vec![FixedDeformationOverlap {
+                deformation_sources: ll_on_foci,
+                excluded_surface_ids: vec![],
+                excluded_surface_indices: vec![],
+                overlap: Some(ellipsoid_list.to_vec()),
+                radius: r,
+            }];
+        }
+
         // first check for full overlap before constructing pair information
         self.construct_scs_problem(&ellipsoid_list, true);
         if self.scs_problem.solve() > 0 {
