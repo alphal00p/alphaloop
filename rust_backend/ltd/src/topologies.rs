@@ -914,7 +914,7 @@ impl Topology {
                 }
             }
 
-            let r = self.evaluate_surface(&ll_on_foci, s);
+            let r: f64 = -self.evaluate_surface(&ll_on_foci, s);
             assert!(r > 0.);
 
             return vec![FixedDeformationOverlap {
