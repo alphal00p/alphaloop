@@ -957,7 +957,8 @@ class LoopTopology(object):
     # and squaring + squareroots decreases the accuracy down to less than 16/2 digits.
     _existence_threshold = 1.0e-7
     def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
-        fixed_deformation=None, constant_deformation=None, maximum_ratio_expansion_threshold=None, loop_momentum_map=None, **opts):
+        fixed_deformation=None, constant_deformation=None, maximum_ratio_expansion_threshold=None, loop_momentum_map=None,
+        numerator_tensor_coefficients=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -982,6 +983,7 @@ class LoopTopology(object):
         self.constant_deformation = constant_deformation
         self.maximum_ratio_expansion_threshold = maximum_ratio_expansion_threshold
         self.loop_momentum_map = loop_momentum_map
+        self.numerator_tensor_coefficients = numerator_tensor_coefficients
 
     def evaluate(self, loop_momenta):
         """ Evaluates Loop topology with the provided list loop momenta, given as a list of LorentzVector."""

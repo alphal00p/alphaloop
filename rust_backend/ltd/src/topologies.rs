@@ -864,7 +864,7 @@ impl Topology {
         let mut radius = 0.;
         for (foc_count, foc_val) in self.scs_problem.c[3 * var_count..self.scs_problem.a.n as usize]
             .iter()
-            .zip(&self.scs_problem.sol_x)
+            .zip(&self.scs_problem.sol_x[3 * var_count..self.scs_problem.a.n as usize])
         {
             radius += foc_count * foc_val;
         }
