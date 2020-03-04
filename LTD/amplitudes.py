@@ -9,6 +9,7 @@ import numpy as np
 import copy
 import yaml
 import pandas as pd
+import itertools
 from ltd_utils import TopologyCollection
 
 
@@ -51,15 +52,13 @@ class dihiggs_diagram(object):
             ct:       True/False if it is a counterterm and therefore comes with a minus sing
         """
         self.name = name
-        self.dens = propagators
+        self.dens = propagators.copy()
         self.pows = pows
         self.chain = []
-        self.coeffs = coeffs
+        self.coeffs = coeffs.copy()
         self.positions = []
         self.signs = 0
-        print(factor)
         self.factor = complex(factor)
-        print(self.factor)
         self.uv = uv
         self.ct = ct
 
@@ -72,11 +71,7 @@ class dihiggs_diagram(object):
         #res["denominators"] = self.dens
         res["pows"] = self.pows
         res["chain"] = self.chain
-        print(self.coeffs)
         res["tensor_coefficients_split"] = [[float(c.real), float(c.imag)] for c in self.coeffs]
-        #res["tensor_coefficients_split"] = [float(c.real) for c in self.coeffs]
-        #res["tensor_coefficients_split"] = []
-        print(res["tensor_coefficients_split"] )
         res["positions"] = self.positions
         res["loop_signature"] = self.signs
         res["factor"] = [float(self.factor.real), float(self.factor.imag)]
@@ -448,7 +443,7 @@ class Amplitude(object):
             raise BaseException(
                 "Not knonw diagram structure for %s" % self.type)
 
-    def create_amplitude(self, name, loops, diags, vectors):
+    def create_amplitude(self, name, loops, diags, vectors,coeff_header=None):
         self.name = name
         self.vectors = vectors
         # Find position in chain of loop dependent pieces
@@ -467,22 +462,27 @@ class Amplitude(object):
 
         if self.type == 'DiHiggsTopologyLO':
             # Define diagrams
-            dens = [ [0, 1, 4, 5], [0, 1, 2, 5], [0, 2, 3, 5]]
+            dens = [ [1, 2, 5, 6], [1, 2, 3, 6], [1, 3, 4, 6]]
             diags = []
+            if coeff_header is None:
+                print("Need to define the coefficient file header for gghh (e.g. amplitudes/gghh_coeffs)")
+                sys.exit(0)
             for i in range(3):
-                df_coeffs = pd.read_csv('amplitudes/gghh_coeffs%d.csv'%(i+1))
+                df_coeffs = pd.read_csv(coeff_header + '%d.csv'%(i+1))
                 coeffs = []
                 for key, (re, im) in df_coeffs.iterrows():
-                    coeffs += [ complex(re,im) ]
-                diags += [dihiggs_diagram("D%d" % i ,dens[i],[1,1,1,1], 1, False,False, coeffs=coeffs)]
+                    coeffs += [complex(re,im)]
+
+                diags += [dihiggs_diagram("D%d" % i ,dens[i],[1 for n in range(len(dens[i]))], 1, False,False, coeffs=coeffs)]
+                diags += [dihiggs_diagram("UVD%d" % i ,[0],[4], 1, True,False, coeffs=[c if n>34 else 0 for n,c in enumerate(coeffs)])] # UV CT
             self.diags = diags
             # Map denominator to LoopLines tuples
             for diag in self.diags:
                 diag.dens = [self.amp_top.edge_info['p%d' % (d+1)]['loopline'] for d in diag.dens]
 
             # Global to the amplitude
-            self.sets = [['D0', 'D1', 'D2'], ['D0', 'D1', 'D2']]
-
+            self.sets = [['D%d' %i for i in range(3)]+['UVD%d' %i for i in range(3)], 
+                         ['D%d' %i for i in range(3)]+['UVD%d' %i for i in range(3)]]
             vector_default = [[], [0,0,0,0]]
             self.vectors = [vector_default]
 
@@ -772,30 +772,59 @@ def right_left_reduce(amp,diag,n):
 
 
 if __name__ == "__main__":
+    build_topologies = len(sys.argv) > 1 and any("full" for arg in sys.argv[1:])
+
     hard_coded_topology_collection = TopologyCollection()
     amplitudes_collection = AmplitudesCollection()
+    
+    from amplitudes.gghh.gghh_benchmark_momenta import gghh_benchmark_momenta
+    
+    ########################################
+    #            gg -> HH : 1-Loop         #
+    ########################################
+    top_mass = 174
+    pol = "++"
+    gghh_results = pd.read_csv("amplitudes/gghh/gghh_%d_benchmark_res.csv" % top_mass)
+    for benchmark_id in range(5):
+        amp_type = 'DiHiggsTopologyLO'
+        amp_name = 'gghh_{}_{}'.format(top_mass, benchmark_id+1)
+        topo_name = amp_name + "_topo"
+        
+        # Get external momenta and analytic results
+        qs =[vectors.LorentzVector(mom) for mom in gghh_benchmark_momenta[benchmark_id]]
+        analytic_result = complex(*gghh_results[['re++','im++']].values[benchmark_id])
+        
 
-    amp_type = 'DiHiggsTopologyLO'
-    amp_name = 'gghh'
-    topo_name = 'gghh_topo'
-    qs =[
-        vectors.LorentzVector([5.0000000000000000e+02,  0.0000000000000000e+00,  0.0000000000000000e+00,  5.0000000000000000e+02]),
-        vectors.LorentzVector([5.0000000000000000e+02,  0.0000000000000000e+00,  0.0000000000000000e+00, -5.0000000000000000e+02]),
-        vectors.LorentzVector([4.9999999999999977e+02,  1.0740197658523471e+02,  4.3070555989194781e+02, -1.9321629357729731e+02]),
-        vectors.LorentzVector([5.0000000000000011e+02, -1.0740197658523471e+02, -4.3070555989194793e+02,  1.9321629357729719e+02]),
-    ]
-    ms = []
+        # For DiHiggsTopoogyLO ms contains [m_uv, top_mass]
+        m_uv = 1.0
+        ms = [m_uv, top_mass]
 
-    amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
-    amp_top.get_edge_info()
-    #plot_edge_info(amp_top.edge_info)
-    hard_coded_topology_collection.add_topology(amp_top.topology)
-    # Create Amplitude ggHH
-    amp = Amplitude(topo_name, amp_type, qs, ms)
-    amp.create_amplitude(amp_name, 0, [], [])
-    amplitudes_collection.add(amp)
+        if build_topologies:
+            amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True, analytic_result=analytic_result)
+            # Uncomment to show edges
+            #amp_top.get_edge_info()
+            #plot_edge_info(amp_top.edge_info)
+            hard_coded_topology_collection.add_topology(amp_top.topology)
 
+        # Create Amplitude ggHH
+        amp = Amplitude(topo_name, amp_type, qs, ms)
+        amp.create_amplitude(amp_name, 0, [], [], coeff_header="amplitudes/gghh/gghh_{}{}_coeffs{}_".format(top_mass,pol.replace("+","p").replace("-","m"), benchmark_id+1))
+        #amp.create_amplitude(amp_name, 0, [], [], coeff_header="amplitudes/gghh/gghh_test_coeffs{}_".format(benchmark_id+1))
+        amplitudes_collection.add(amp)
    
+    # Export amplitudes
+    root_dir = ''
+    if build_topologies:
+        hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
+        print("Synchronised topologies.yaml")
+
+    amplitudes_collection.export_to(os.path.join(root_dir, 'amplitudes.yaml'))
+    print("Synchronised amplitudes.yaml")
+    sys.exit()
+
+    ########################################
+    #       ddbar -> phootns : 1-Loop      #
+    ########################################
     # add amplitude ddNA
     #amplitudes_collection.add(generate_qqbar_photons("dd4A","dd4A_topo",4))
     amp_type = 'qqbarphotonsNLO'
@@ -812,10 +841,11 @@ if __name__ == "__main__":
     
     ms = [1e2,0.0,0.0,0.0,0.0]
     
-    amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
-    amp_top.get_edge_info()
-#    plot_edge_info(amp_top.edge_info)
-    hard_coded_topology_collection.add_topology(amp_top.topology)
+    if build_topologies:
+        amp_top = amplitude_topologies.create(amp_type, qs, ms, topo_name, fixed_deformation=True)
+        amp_top.get_edge_info()
+        #    plot_edge_info(amp_top.edge_info)
+        hard_coded_topology_collection.add_topology(amp_top.topology)
     amplitudes_collection.add(generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name, amp_type=amp_type))
 
 
@@ -840,16 +870,10 @@ if __name__ == "__main__":
     hard_coded_topology_collection.add_topology(amp_top.topology)
     amplitudes_collection.add(generate_qqbar_photons(qs, ms, amp_name=amp_name,topo_name=topo_name, amp_type=amp_type))
     
-    # Export amplitudes
-    root_dir = ''
-    if len(sys.argv) > 1 and "full" in sys.argv[1]:
-        hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
-        print("Synchronised topologies.yaml")
-
-    amplitudes_collection.export_to(os.path.join(root_dir, 'amplitudes.yaml'))
-    print("Synchronised amplitudes.yaml")
-    sys.exit()
-     
+    ########################################
+    #       ddbar -> phootns : 2-Loop      #
+    ########################################
+    
     amp_type = 'Nf_qqbarphotonsNNLO'
     amp_name = 'dd4A_NF'
     topo_name = 'dd4A_NF_topo'

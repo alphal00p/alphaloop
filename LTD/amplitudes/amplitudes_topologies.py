@@ -1,3 +1,6 @@
+from analytical_expressions import ladder_phi, analytic_four_point_ladder, analytic_three_point_ladder, analytic_two_point_ladder
+from ltd_utils import LoopTopology, LoopLine, Propagator, TopologyCollection, TopologyGenerator
+import vectors
 import os
 import sys
 import copy
@@ -12,9 +15,6 @@ pjoin = os.path.join
 file_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, pjoin(file_path, os.pardir))
 
-import vectors
-from ltd_utils import LoopTopology, LoopLine, Propagator, TopologyCollection, TopologyGenerator
-from analytical_expressions import ladder_phi, analytic_four_point_ladder, analytic_three_point_ladder, analytic_two_point_ladder
 
 zero_lv = vectors.LorentzVector([0., 0., 0., 0.])
 
@@ -38,21 +38,22 @@ def plot_edge_info(edge_info, file_name=None, show_graph=True):
     edge_labels = {}
     node_labels = {}
 
-    extra_node=-1
+    extra_node = -1
     for k, v in edge_info.items():
         e = v['edge']
-        if e[0] >= 100: # External
-            G.add_edge(*e, msq = v['m_squared'])
+        if e[0] >= 100:  # External
+            G.add_edge(*e, msq=v['m_squared'])
             node_labels.update({e[0]: k, e[1]: str(e[1])})
-        elif e[1] >= 100: # External
-            G.add_edge(*e, msq = v['m_squared'])
+        elif e[1] >= 100:  # External
+            G.add_edge(*e, msq=v['m_squared'])
             node_labels.update({e[0]: str(e[0]), e[1]: k})
         else:
-            G.add_edge(e[0], extra_node, msq = v['m_squared'])
-            G.add_edge(extra_node, e[1], msq = v['m_squared'])
-            node_labels.update({e[0]: str(e[0]), e[1]: str(e[1]), extra_node: str(v['loopline'])})
-            edge_labels.update({(e[0], extra_node): k })
-            edge_labels.update({(extra_node, e[1]): k })
+            G.add_edge(e[0], extra_node, msq=v['m_squared'])
+            G.add_edge(extra_node, e[1], msq=v['m_squared'])
+            node_labels.update({e[0]: str(e[0]), e[1]: str(
+                e[1]), extra_node: str(v['loopline'])})
+            edge_labels.update({(e[0], extra_node): k})
+            edge_labels.update({(extra_node, e[1]): k})
             extra_node -= 1
 
     massive_edges = []
@@ -62,14 +63,13 @@ def plot_edge_info(edge_info, file_name=None, show_graph=True):
             massive_edges += [e]
         else:
             massless_edges += [e]
-    
 
     pos = nx.kamada_kawai_layout(G)  # positions for all nodes
 
     # LoopLines nodes
     ll_nodes = [key for key in list(pos.keys()) if key < 0]
     # External momenta nodes
-    ext_nodes = [key for key in list(pos.keys()) if key >= 100 ]
+    ext_nodes = [key for key in list(pos.keys()) if key >= 100]
     # Internal nodes
     nodes = [key for key in list(pos.keys()) if 0 <= key < 100]
 
@@ -82,9 +82,9 @@ def plot_edge_info(edge_info, file_name=None, show_graph=True):
                            node_shape="d", alpha=.95, node_size=800)
     nx.draw_networkx_nodes(
         G, pos, ll_nodes, node_color='#7070dd', alpha=.95, node_size=800)
-    
-    nx.draw_networkx_edge_labels(G,pos, edge_labels=edge_labels)
-    nx.draw_networkx_labels(G, pos,node_labels)
+
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+    nx.draw_networkx_labels(G, pos, node_labels)
 
     # Show
     if file_name is not None:
@@ -98,20 +98,24 @@ def plot_edge_info(edge_info, file_name=None, show_graph=True):
 def get_edge_info(topology_generator, topology: LoopTopology):
     # Create edge infos. loopline to be filled
     edges = topology_generator.edges
-    edge_info = { k: {"edge": edges[v], 'm_squared': None, "loopline": None, "signature": None} for k, v in topology_generator.edge_name_map.items()}
-    
+    edge_info = {k: {"edge": edges[v], 'm_squared': None, "loopline": None,
+                     "signature": None} for k, v in topology_generator.edge_name_map.items()}
+
     # Get LoopLine Information
     for n, ll in enumerate(topology.loop_lines):
         for m, prop in enumerate(ll.propagators):
             if prop.name is None:
-                raise Exception("EdgeInfo_Error::Propagator is missing it's name! Poor guy :( ")
+                raise Exception(
+                    "EdgeInfo_Error::Propagator is missing it's name! Poor guy :( ")
             edge_info[prop.name]['m_squared'] = prop.m_squared
-            edge_info[prop.name]['loopline'] = (n,m)
+            edge_info[prop.name]['loopline'] = (n, m)
             edge_info[prop.name]['signature'] = list(ll.signature)
-    
+
     return edge_info
 
-#TODO: Ideally this should become an automatically generated from some QGRAF output
+# TODO: Ideally this should become an automatically generated from some QGRAF output
+
+
 class AmplitudeTopologies(object):
 
     def __init__(self):
@@ -121,7 +125,7 @@ class AmplitudeTopologies(object):
         self.build_topology.update(
             {build_loop_topology.__name__: build_loop_topology})
 
-    def create(self, amplitude_type: str, *args, fixed_deformation=None):
+    def create(self, amplitude_type: str, *args, fixed_deformation=None, analytic_result=None):
         try:
             self.build_topology[amplitude_type]
         except KeyError:
@@ -129,7 +133,7 @@ class AmplitudeTopologies(object):
             for key in self.build_topology.keys():
                 print("\t- %s" % key)
             raise
-        return self.build_topology[amplitude_type](*args, fixed_deformation=fixed_deformation)
+        return self.build_topology[amplitude_type](*args, fixed_deformation=fixed_deformation, analytic_result=analytic_result)
 
 
 amplitude_topologies = AmplitudeTopologies()
@@ -158,18 +162,22 @@ class DiHiggsTopologyLO(object):
     #
     # [k, k+p2, k-p1-p4, k+p3, k-p1-p3, k-p1]
 
-    def __init__(self, qs, ms, topology_name, fixed_deformation=None):
+    def __init__(self, qs, ms, topology_name, fixed_deformation=None, analytic_result=None):
         # self.propagator_to_loopline = {"k": (0, 0),
         #                                "k+p2": (0, 1),
         #                                "k-p1-p4": (0, 2),
         #                                "k+p3": (0, 3),
         #                                "k-p1-p3": (0, 4),
         #                                "k-p1": (0, 5)}
-        self.qs = (qs[0], qs[1], qs[2], -qs[1], qs[1]+qs[3]-qs[2], qs[2])
-        self.ms = ms
+        self.qs = [qs[0], qs[1], qs[2], -qs[1], qs[1]+qs[3]-qs[2], qs[2]]
         self.topology_name = topology_name
-        self.top_mass = 174.0
+        self.top_mass = ms[1]
+        # self.top_mass = 1000.0
+        self.ms = [self.top_mass for i in range(6)]
 
+        # Add UV propagator
+        self.qs.insert(1, vectors.LorentzVector([0, 0, 0, 0]))
+        self.ms.insert(0, ms[0])
         points = len(self.qs)
         # Create the Graph for the topology
         # pi: propagators, qi: externals
@@ -178,9 +186,10 @@ class DiHiggsTopologyLO(object):
         self.graph.extend([('q%d' % (i+1), i+101, i+1) for i in range(points)])
 
         self.topology = self.build_loop_topology(
-            fixed_deformation=fixed_deformation)
+            fixed_deformation=fixed_deformation,
+            analytic_result=analytic_result)
 
-    def build_loop_topology(self, fixed_deformation=None):
+    def build_loop_topology(self, fixed_deformation=None, analytic_result=None):
         points = len(self.qs)
 
         self.top_generator = TopologyGenerator(self.graph)
@@ -188,10 +197,10 @@ class DiHiggsTopologyLO(object):
         return self.top_generator.create_loop_topology(
             self.topology_name,
             ext_mom={'q%d' % (i+1): self.qs[i] for i in range(points)},
-            mass_map={'p%d' % (i+1): self.top_mass for i in range(points)},
+            mass_map={'p%d' % (i+1): self.ms[i] for i in range(points)},
             # Force the loop momentum routing on the first edge
             loop_momenta_names=('p1',),
-            analytic_result=None,
+            analytic_result=analytic_result,
             fixed_deformation=fixed_deformation,
         )
 
@@ -211,7 +220,7 @@ class qqbarphotonsNLO(object):
     #           ^         v       :
     #           |         |
     #   p1 ----[1]---<---[n]---- pn
-    def __init__(self, qs, ms, topology_name, fixed_deformation=None):
+    def __init__(self, qs, ms, topology_name, fixed_deformation=None, analytic_result=None):
         self.qs = copy.deepcopy(qs)
         self.ms = copy.deepcopy(ms)
         self.topology_name = topology_name
@@ -228,10 +237,12 @@ class qqbarphotonsNLO(object):
                       for i in range(points)]
 
         self.graph.extend([('q%d' % (i+1), i+101, i+1) for i in range(points)])
-        
-        self.topology = self.build_loop_topology(fixed_deformation=fixed_deformation)
 
-    def build_loop_topology(self, fixed_deformation=None):
+        self.topology = self.build_loop_topology(
+            fixed_deformation=fixed_deformation,
+            analytic_result=analytic_result)
+
+    def build_loop_topology(self, fixed_deformation=None, analytic_result=None):
         points = len(self.qs)
 
         self.top_generator = TopologyGenerator(self.graph)
@@ -242,12 +253,12 @@ class qqbarphotonsNLO(object):
             ext_mom={'q%d' % (i+1): self.qs[i] for i in range(points)},
             mass_map={'p%d' % (i+1): self.ms[i] for i in range(points)},
             # If not specified an arbitrary spanning tree will be used for momentum routing
-            #loop_momenta_names=('p%d' % points,),
+            # loop_momenta_names=('p%d' % points,),
             # For triangle and box one-loop topology, the analytic result is automatically computed
-            loop_momenta_names=('p%d' % points,),
-            #loop_momenta_names=('p1',),
-            analytic_result=None,
-            fixed_deformation=fixed_deformation,
+            # loop_momenta_names=('p%d' % points,),
+            loop_momenta_names=('p1',),
+            analytic_result=analytic_result,
+            fixed_deformation=fixed_deformation
         )
 
     def get_edge_info(self):
@@ -269,7 +280,7 @@ class Nf_qqbarphotonsNNLO(object):
     #  p1 -->--[1]-------<------[n+1]--<-- pn
     #                    n
 
-    def __init__(self, qs, m_uv, topology_name, fixed_deformation=None):
+    def __init__(self, qs, m_uv, topology_name, fixed_deformation=None, analytic_result=None):
         self.qs = copy.deepcopy(qs)
         self.topology_name = topology_name
 
@@ -280,12 +291,11 @@ class Nf_qqbarphotonsNNLO(object):
 
         # Add zero momentum insertion for UV massive propagators
         self.qs.insert(1, vectors.LorentzVector([0, 0, 0, 0]))
-        self.qs += [vectors.LorentzVector([0, 0, 0, 0])] * 2 
-        # Always define the first of the two identical propagtors to be the massive one 
+        self.qs += [vectors.LorentzVector([0, 0, 0, 0])] * 2
+        # Always define the first of the two identical propagtors to be the massive one
         self.ms.insert(0, 1e2)
-        self.ms.insert(points+2, 1e2) 
+        self.ms.insert(points+2, 1e2)
         self.ms.insert(points+1, 1e2)
-         
 
         # Create the Graph for the topology
         # pi: propagators, qi: externals
@@ -293,18 +303,21 @@ class Nf_qqbarphotonsNNLO(object):
         self.graph = [('p%d' % (i+1), i+2, ((i+2) % (points+2))+1)
                       for i in range(points+1)]
         # Add the bubble with two additional propagators for the UV CTs
-        self.graph.extend([('p%d' % (points+2), 1, points + 3), ('p%d' % (points+3), points + 3, 2)])
-        self.graph.extend([('p%d' % (points+4), 1, points + 4), ('p%d' % (points+5), points + 4, 2)])
-        
+        self.graph.extend([('p%d' % (points+2), 1, points + 3),
+                           ('p%d' % (points+3), points + 3, 2)])
+        self.graph.extend([('p%d' % (points+4), 1, points + 4),
+                           ('p%d' % (points+5), points + 4, 2)])
+
         # Externals
         self.graph.extend([('q1', 101, 1)])
         self.graph.extend([('q%d' % (i+2), i+102, i+3)
                            for i in range(points+2)])
 
         self.topology = self.build_loop_topology(
-            fixed_deformation=fixed_deformation)
+            fixed_deformation=fixed_deformation,
+            analytic_result=analytic_result)
 
-    def build_loop_topology(self, fixed_deformation=None):
+    def build_loop_topology(self, fixed_deformation=None, analytic_result=None):
         points = len(self.qs)
 
         self.top_generator = TopologyGenerator(self.graph)
@@ -314,10 +327,10 @@ class Nf_qqbarphotonsNNLO(object):
             ext_mom={'q%d' % (i+1): self.qs[i] for i in range(points)},
             mass_map={'p%d' % (i+1): self.ms[i] for i in range(len(self.ms))},
             # If not specified an arbitrary spanning tree will be used for momentum routing
-            #loop_momenta_names=('p%d' % (points+1), 'p%d' % (points+2)),
-            loop_momenta_names=( 'p%d' % (points-2), 'p%d' % (points+2)),
-            analytic_result=None,
-            fixed_deformation=fixed_deformation,
+            # loop_momenta_names=('p%d' % (points+1), 'p%d' % (points+2)),
+            loop_momenta_names=('p%d' % (points-2), 'p%d' % (points+2)),
+            analytic_result=analytic_result,
+            fixed_deformation=fixed_deformation
         )
 
     def get_edge_info(self):
@@ -329,17 +342,17 @@ class Nf_qqbarphotonsNNLO(object):
 #############################################################################################################
 
 if __name__ == "__main__":
-    
+
     topology_collection = TopologyCollection()
     print(amplitude_topologies.build_topology)
-    
+
     # TEST
     moms = [vectors.LorentzVector([1, 0, 0, 1]),
             vectors.LorentzVector([1, 0, 0, -1]),
             vectors.LorentzVector([-1, 0, 1.0/np.sqrt(2), 1.0/np.sqrt(2)]),
             vectors.LorentzVector([-1, 0, -1.0/np.sqrt(2), -1.0/np.sqrt(2)])
             ]
-    
+
     topology_name = "dd2A_NLO"
     print(topology_name)
     ms = [0.]*4
@@ -347,8 +360,9 @@ if __name__ == "__main__":
         "qqbarphotonsNLO", moms, ms, topology_name, fixed_deformation=False)
     amp_top.get_edge_info()
     topology_collection.add_topology(amp_top.topology, topology_name)
-    topology_to_graph(amp_top.edge_info, file_name="diag_"+topology_name+".pdf", show_graph=False)
-    
+    topology_to_graph(amp_top.edge_info, file_name="diag_" +
+                      topology_name+".pdf", show_graph=False)
+
     topology_name = "dd2A_NNLO"
     print(topology_name)
     ms = [0.]*6
@@ -356,8 +370,9 @@ if __name__ == "__main__":
         "Nf_qqbarphotonsNNLO", moms, ms, topology_name, fixed_deformation=False)
     topology_collection.add_topology(amp_top.topology, topology_name)
     amp_top.get_edge_info()
-    topology_to_graph(amp_top.edge_info, file_name="diag_"+topology_name+".pdf", show_graph=False)
-    
+    topology_to_graph(amp_top.edge_info, file_name="diag_" +
+                      topology_name+".pdf", show_graph=False)
+
     topology_name = "dihiggs"
     print(topology_name)
     ms = [0.]*4
@@ -365,9 +380,9 @@ if __name__ == "__main__":
         "DiHiggsTopologyLO", moms, ms, topology_name, fixed_deformation=False)
     topology_collection.add_topology(amp_top.topology, topology_name)
     amp_top.get_edge_info()
-    topology_to_graph(amp_top.edge_info, file_name="diag_"+topology_name+".pdf", show_graph=False)
+    topology_to_graph(amp_top.edge_info, file_name="diag_" +
+                      topology_name+".pdf", show_graph=False)
     # print(amp_top.propagator_to_loopline)
-    #topology_collection.add_topology(amp_top.build_loop_topology(), topology_name)
-    
-    
+    # topology_collection.add_topology(amp_top.build_loop_topology(), topology_name)
+
     print(topology_collection)
