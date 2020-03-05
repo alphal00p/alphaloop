@@ -830,7 +830,10 @@ class TopologyGenerator(object):
                 ) 
         
         #print(complex(result[0])*(complex(0.,1.)/(16.0*math.pi**2)))
-        return complex(result[0])*(complex(0.,1.)/(16.0*math.pi**2))
+        if result is None:
+           return complex(0.0)
+        else:
+           return complex(result[0])*(complex(0.,1.)/(16.0*math.pi**2))
 
 #############################################################################################################
 # Define topology structures
