@@ -159,9 +159,9 @@ impl PartialFractioningMonomial {
             for n in offset..=rank {
                 x = ltd_cache.complex_cut_energies[ll[0].propagators[pf_numerator[0]].id]
                     - Into::<T>::into(ll[0].propagators[pf_numerator[0]].q.t);
-                res += ltd_cache.reduced_coefficient_lb
-                    //[numerator.powers_to_position[&[n as u8, 0, 0, 0]]]
-                    [ltd_numerator.max_rank - n]// Only at 1-Loop
+                res += ltd_cache.reduced_coefficient_lb[0]
+                    //[ltd_numerator.max_rank - n]// Only at 1-Loop
+                    [ltd_numerator.reduced_powers_to_position(&[n as u8,0,0,0])]
                     * x.powi((n - offset) as i32);
             }
             return res;
@@ -197,7 +197,7 @@ impl PartialFractioning {
             };
 
             // Use this to avoid redundant allocation
-            let mut cache = PFCache::new(n_prop);
+            let mut pf_cache = PFCache::new(n_prop);
 
             let mut lh = vec![0; n_prop];
             let mut le = vec![0; n_prop];
@@ -212,12 +212,12 @@ impl PartialFractioning {
                     le[j] = j + nh + 1;
                 }
                 //println!("{:?}[:{}] {:?}[:{}]", lh, nh + 1, le, ne);
-                cache.numerator_size = 0;
-                pf_expr.element_partial_fractioning(&lh[0..=nh], &le[0..ne], &mut cache);
+                pf_cache.numerator_size = 0;
+                pf_expr.element_partial_fractioning(&lh[0..=nh], &le[0..ne], &mut pf_cache);
                 while get_next_set_pair(&mut lh[0..=nh], &mut le[0..ne], n_prop) {
                     //println!(" -> {:?}[:{}] {:?}[:{}]", lh, nh + 1, le, ne);
-                    cache.numerator_size = 0;
-                    pf_expr.element_partial_fractioning(&lh[0..=nh], &le[0..ne], &mut cache);
+                    pf_cache.numerator_size = 0;
+                    pf_expr.element_partial_fractioning(&lh[0..=nh], &le[0..ne], &mut pf_cache);
                 }
             }
             return pf_expr;
@@ -239,7 +239,7 @@ impl PartialFractioning {
         &mut self,
         h_index: &[usize],
         e_index: &[usize],
-        cache: &mut PFCache,
+        pf_cache: &mut PFCache,
     ) -> bool {
         // Get nh and ne from the input so that we can import all the indices in
         // a single slice
@@ -251,13 +251,13 @@ impl PartialFractioning {
             }
             for (&j, num) in h_index
                 .iter()
-                .zip_eq(cache.numerator[0..self.n_props].iter_mut())
+                .zip_eq(pf_cache.numerator[0..self.n_props].iter_mut())
             {
                 *num = j;
             }
             self.add(
-                &cache.ellipsoids_product[0..0],
-                &cache.numerator[0..self.n_props],
+                &pf_cache.ellipsoids_product[0..0],
+                &pf_cache.numerator[0..self.n_props],
             );
             return true;
         }
@@ -265,20 +265,19 @@ impl PartialFractioning {
         let k = h_index[0];
 
         // Update the numerator structure
-        cache.numerator[cache.numerator_size] = k;
-        cache.numerator_size += 1;
+        pf_cache.numerator[pf_cache.numerator_size] = k;
+        pf_cache.numerator_size += 1;
 
         //If all the surfaces are ellipsoids we already are in the final form
         if n_h == 0 {
-            for (&j, prod) in e_index
-                .iter()
-                .zip_eq(cache.ellipsoids_product[0..self.n_props - cache.numerator_size].iter_mut())
-            {
+            for (&j, prod) in e_index.iter().zip_eq(
+                pf_cache.ellipsoids_product[0..self.n_props - pf_cache.numerator_size].iter_mut(),
+            ) {
                 *prod = (k, j);
             }
             self.add(
-                &cache.ellipsoids_product[0..self.n_props - cache.numerator_size],
-                &cache.numerator[0..cache.numerator_size],
+                &pf_cache.ellipsoids_product[0..self.n_props - pf_cache.numerator_size],
+                &pf_cache.numerator[0..pf_cache.numerator_size],
             );
             return true;
         }
@@ -286,40 +285,40 @@ impl PartialFractioning {
         // generate all the pure ellipsoids expression coming from this combination of
         // hyperboloids and ellipsoids surfaces
         let mut first_split = true;
-        for (n, v) in cache.splits.iter_mut().enumerate() {
+        for (n, v) in pf_cache.splits.iter_mut().enumerate() {
             *v = n;
         }
-        while first_split || get_next_subset(&mut cache.splits[0..n_h], n_e + n_h - 1, true) {
+        while first_split || get_next_subset(&mut pf_cache.splits[0..n_h], n_e + n_h - 1, true) {
             if first_split {
                 first_split = false
             };
-            for i in 0..=cache.splits[0] {
-                cache.ellipsoids_product[i] = (k, e_index[i]);
+            for i in 0..=pf_cache.splits[0] {
+                pf_cache.ellipsoids_product[i] = (k, e_index[i]);
             }
             for n in 0..n_h {
                 if n + 1 != n_h {
-                    for i in cache.splits[n]..cache.splits[n + 1] {
-                        cache.ellipsoids_product[i + 1] = (h_index[n + 1], e_index[i - n]);
+                    for i in pf_cache.splits[n]..pf_cache.splits[n + 1] {
+                        pf_cache.ellipsoids_product[i + 1] = (h_index[n + 1], e_index[i - n]);
                     }
                 } else {
-                    for i in cache.splits[n]..n_e + n_h - 1 {
-                        cache.ellipsoids_product[i + 1] = (h_index[n + 1], e_index[i - n]);
+                    for i in pf_cache.splits[n]..n_e + n_h - 1 {
+                        pf_cache.ellipsoids_product[i + 1] = (h_index[n + 1], e_index[i - n]);
                     }
                 }
             }
             self.add(
-                &cache.ellipsoids_product[0..self.n_props - cache.numerator_size],
-                &cache.numerator[0..cache.numerator_size],
+                &pf_cache.ellipsoids_product[0..self.n_props - pf_cache.numerator_size],
+                &pf_cache.numerator[0..pf_cache.numerator_size],
             );
         }
 
         // Recoursively reduce a lower rank topology due to the numberator
         // Because at each iteration the rank of the numerator is lowerd by one
         // we can truncate the recursion earlier in many cases
-        if self.numerator_rank + 1 == cache.numerator_size {
+        if self.numerator_rank + 1 == pf_cache.numerator_size {
             return false;
         } else {
-            return self.element_partial_fractioning(&h_index[1..=n_h], e_index, cache);
+            return self.element_partial_fractioning(&h_index[1..=n_h], e_index, pf_cache);
         }
     }
 
@@ -331,11 +330,10 @@ impl PartialFractioning {
         &self,
         ltd_numerator: &LTDNumerator,
         ll: &[LoopLine],
-        ltd_cache: &LTDCache<T>,
+        cache: &mut LTDCache<T>,
     ) -> Complex<T> {
         // make sure that numerator.evaluate_reduced_in_lb has been called before this function
         // is not done here to avoid multiple calls in the case of amplitudes
-        let mut pf_cache = PFCache::new(self.n_props);
         let mut result: na::Complex<T> = Complex::default();
         // Compute the overall factor coming from partial fractioning
         let mut norm: na::Complex<T> = Complex::new(-T::one(), T::zero());
@@ -343,12 +341,12 @@ impl PartialFractioning {
         for p in ll[0].propagators.iter() {
             // Build the map to read the indices in PartialFractioningMonomial
             // in terms of propagator's id
-            for _ in 0..ltd_cache.propagator_powers[p.id] {
+            for _ in 0..cache.propagator_powers[p.id] {
                 min_index -= 1;
-                pf_cache.numerator_index_map[min_index] = p.id;
+                cache.pf_cache.numerator_index_map[min_index] = p.id;
             }
-            norm *= (ltd_cache.complex_cut_energies[p.id] * Into::<T>::into(-2.0))
-                .powi(ltd_cache.propagator_powers[p.id] as i32);
+            norm *= (cache.complex_cut_energies[p.id] * Into::<T>::into(-2.0))
+                .powi(cache.propagator_powers[p.id] as i32);
         }
         let mut skip: bool;
         let mut ellipsoid_count;
@@ -357,13 +355,13 @@ impl PartialFractioning {
             skip = false;
             ellipsoid_count = 0;
             for (i1, i2) in mono.ellipsoids_product.iter() {
-                if *i1 < min_index|| *i2 < min_index {
+                if *i1 < min_index || *i2 < min_index {
                     skip = true;
                     break;
                 }
-                pf_cache.ellipsoids_product[ellipsoid_count] = (
-                    pf_cache.numerator_index_map[*i1],
-                    pf_cache.numerator_index_map[*i2],
+                cache.pf_cache.ellipsoids_product[ellipsoid_count] = (
+                    cache.pf_cache.numerator_index_map[*i1],
+                    cache.pf_cache.numerator_index_map[*i2],
                 );
                 ellipsoid_count += 1;
             }
@@ -371,30 +369,32 @@ impl PartialFractioning {
                 continue;
             }
 
-            pf_cache.numerator_size = 0;
+            cache.pf_cache.numerator_size = 0;
             for i in mono.numerator.iter() {
-                if *i >= min_index && ltd_cache.propagator_powers[pf_cache.numerator_index_map[*i]] != 0
+                if *i >= min_index
+                    && cache.propagator_powers[cache.pf_cache.numerator_index_map[*i]] != 0
                 {
-                    pf_cache.numerator[pf_cache.numerator_size] = pf_cache.numerator_index_map[*i];
-                    pf_cache.numerator_size += 1;
+                    cache.pf_cache.numerator[cache.pf_cache.numerator_size] =
+                        cache.pf_cache.numerator_index_map[*i];
+                    cache.pf_cache.numerator_size += 1;
                 }
             }
-//            println!(
-//                "USE:: {:?} \n\t-> {:?} num{:?}",
-//                mono,
-//                &pf_cache.ellipsoids_product[0..ellipsoid_count],
-//                &pf_cache.numerator[0..pf_cache.numerator_size]
-//            );
+            //            println!(
+            //                "USE:: {:?} \n\t-> {:?} num{:?}",
+            //                mono,
+            //                &pf_cache.ellipsoids_product[0..ellipsoid_count],
+            //                &pf_cache.numerator[0..pf_cache.numerator_size]
+            //            );
             result += PartialFractioningMonomial::evaluate_ellipsoids_product(
-                &pf_cache.ellipsoids_product[0..ellipsoid_count],
-                ltd_cache,
+                &cache.pf_cache.ellipsoids_product[0..ellipsoid_count],
+                cache,
             )
             .inv()
                 * PartialFractioningMonomial::evaluate_numerator(
-                    &pf_cache.numerator[0..pf_cache.numerator_size],
+                    &cache.pf_cache.numerator[0..cache.pf_cache.numerator_size],
                     ltd_numerator,
                     ll,
-                    ltd_cache,
+                    cache,
                 );
         }
         return result / norm;
@@ -423,5 +423,4 @@ mod tests {
         //    println!("{:?} :: num({:?})", expr.ellipsoids_product, expr.numerator);
         //}
     }
-
 }

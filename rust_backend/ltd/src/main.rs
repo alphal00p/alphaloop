@@ -994,6 +994,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                                         mat,
                                                         &mut cache,
                                                         true,
+                                                        0,
                                                     )
                                                     .unwrap();
                                                 // Assuming that there is no need for the residue energy or the cut_id

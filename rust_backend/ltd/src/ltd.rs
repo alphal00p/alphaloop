@@ -2505,6 +2505,7 @@ impl Topology {
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
         overwrite_propagator_powers: bool,
+        num_id: usize,
     ) -> Result<Complex<T>, &'static str> {
         let mut cut_propagators = [0; MAX_LOOP];
         let mut derivative_map = [0; MAX_LOOP];
@@ -2537,8 +2538,7 @@ impl Topology {
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
 
         // Prepare numerator
-        numerator.evaluate_reduced_in_lb(k_def, cache); //NOTE: Only necessary when k_vec is changed
-        numerator.evaluate_reduced_in_cb(cut, &self.loop_lines, mat, cache);
+        //numerator.evaluate_reduced_in_lb(k_def, cache); //NOTE: Only necessary when k_vec is changed
 
         let r = if derivative_map.iter().all(|x| *x == 0) {
             // we are in the case where we do not need derivatives
@@ -2558,6 +2558,7 @@ impl Topology {
                 for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
                     ll.evaluate(&k_def, ll_cut, &self, cache)?;
                 }
+
                 // if overwrite_propagator_power is false it means that the powers used are not the
                 // one coming from the topology so it's not possible to use the cached loop line result
                 for (p_e, p_pow) in cache
@@ -2580,8 +2581,10 @@ impl Topology {
                     };
                 }
             }
-            numerator.evaluate(&cut_propagators[..self.n_loops], cache) * r.inv()
+            //numerator.evaluate(&cut_propagators[..self.n_loops], cache) * r.inv()
+            numerator.evaluate_lb(k_def, cache, num_id) * r.inv()
         } else {
+            numerator.evaluate_reduced_in_cb(cut, &self.loop_lines, mat, cache, num_id);
             // Cache all propagator evaluations by evaluating the loop line
             for (ll_cut, ll) in cut.iter().zip_eq(self.loop_lines.iter()) {
                 ll.evaluate(&k_def, ll_cut, &self, cache)?;
@@ -2868,25 +2871,26 @@ impl Topology {
         cache: &mut LTDCache<T>,
     ) -> Result<(Complex<T>, ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>), &'static str> {
         let mut result = Complex::default();
-        //let start = std::time::Instant::now();
+        // Check if partial fraction needs to be used
         let use_partial_fractioning = self.n_loops == 1
             && self.settings.general.partial_fractioning_threshold >= 0.0
             && k[0].spatial_distance()
                 > Into::<T>::into(self.settings.general.partial_fractioning_threshold)
             && self.settings.general.deformation_strategy != DeformationStrategy::Duals;
+        // Partial fractioning
         if use_partial_fractioning {
-            // Partial fractioning
+            // Precompute all the ellipsoids that will appear in the partial fractioned expression
+            // TODO: limit it to only those that are called
             self.evaluate_elliposoids_matrix_1l(cache);
+
             if self.settings.general.use_amplitude {
                 // Evaluate in the case of an amplitude
                 for diag in self.amplitude.diagrams.iter() {
-                    //if !diag.use_partial_fractioning || diag.name == "born" {
                     if diag.name == "born" || diag.name.contains("UV_") {
-                        //|| diag.name != "D3" {
                         continue;
                     }
 
-                    //Whole evaluation is taken care by Topology::evaluate_cut once the correct
+                    //Whole evaluation is taken care by LTDNumerator::evaluate once the correct
                     //powers for the propagators are set and the corresponding numerator is selected
                     for prop_pow in cache.propagator_powers.iter_mut() {
                         *prop_pow = 0;
@@ -2895,8 +2899,9 @@ impl Topology {
                         cache.propagator_powers[self.loop_lines[ll_id.0].propagators[ll_id.1].id] =
                             pow;
                     }
-                    diag.numerator.evaluate_reduced_in_lb(&k_def, cache);
-                    // Add contribution evaluating the partial fractioned expression
+
+                    // Cache the reduced polynomial for the current diagram and evaluate
+                    diag.numerator.evaluate_reduced_in_lb(&k_def, cache, 0);
                     result += if diag.ct {
                         -self
                             .partial_fractioning
@@ -2908,13 +2913,22 @@ impl Topology {
                 }
             } else {
                 // Evaluate in the case of a topology
-                self.numerator.evaluate_reduced_in_lb(&k_def, cache);
+                self.numerator.evaluate_reduced_in_lb(&k_def, cache, 0);
                 result =
                     self.partial_fractioning
                         .evaluate(&self.numerator, &self.loop_lines, cache);
             }
         } else {
-            // evaluate all dual integrands
+            // Compute all the necessary reduced polynomial using the value of k_vec
+            if self.settings.general.use_amplitude {
+                for (num_id, diag) in self.amplitude.diagrams.iter().enumerate() {
+                    diag.numerator.evaluate_reduced_in_lb(&k_def, cache, num_id);
+                }
+            } else {
+                self.numerator.evaluate_reduced_in_lb(&k_def, cache, 0);
+            }
+
+            // Sum over all the cuts
             let mut cut_counter = 0;
             for (cut_structure_index, (cuts, mat)) in self
                 .ltd_cut_options
@@ -2961,6 +2975,7 @@ impl Topology {
                                 mat,
                                 cache,
                                 true,
+                                0,
                             )?;
                             // Assuming that there is no need for the residue energy or the cut_id
                             let ct = if self.settings.general.use_ct {
@@ -3167,26 +3182,40 @@ impl LTDNumerator {
                 }
             })
             .collect();
-        // Create power to position maps for the reduced coefficient list
-        let mut reduced_size = 0;
-        let mut reduced_coefficient_index_to_powers = Vec::new();
-        let mut powers_to_position: FnvHashMap<[u8; MAX_LOOP], usize> = FnvHashMap::default();
-        if max_rank == 0 {
-            powers_to_position.insert([0; MAX_LOOP], reduced_size);
-            reduced_coefficient_index_to_powers.push([0; MAX_LOOP]);
-            reduced_size += 1;
-        } else {
-            for pow_distribution in (0..=n_loops).combinations_with_replacement(max_rank) {
-                let mut key = [0; MAX_LOOP];
-                for &n in pow_distribution.iter() {
-                    if n != n_loops {
-                        key[n] += 1;
+
+        // Compute reduced block size
+        let mut reduced_blocks = Vec::new();
+        for r in 0..=max_rank {
+            for l in 1..=n_loops {
+                let mut last_pos = 0;
+                if r != 0 {
+                    last_pos = 1;
+                    // compute (l+r)!/r!/l!
+                    for r_i in 1..=r {
+                        // Note the parentesis to ensure integer division!
+                        last_pos = (last_pos * (l + r_i)) / r_i;
                     }
+                    last_pos -= 1;
                 }
-                powers_to_position.insert(key, reduced_size);
-                reduced_coefficient_index_to_powers.push(key);
-                reduced_size += 1;
+                reduced_blocks.push(last_pos);
             }
+        }
+
+        // Create power to position maps for the reduced coefficient list
+        let mut reduced_size = 1;
+        for i in 1..=max_rank {
+            reduced_size = (reduced_size * (n_loops + i)) / i
+        }
+        let mut reduced_coefficient_index_to_powers = vec![[0; MAX_LOOP]; reduced_size];
+        for pow_distribution in (0..=n_loops).combinations_with_replacement(max_rank) {
+            let mut key = [0; MAX_LOOP];
+            for &n in pow_distribution.iter() {
+                if n != n_loops {
+                    key[n] += 1;
+                }
+            }
+            reduced_coefficient_index_to_powers
+                [LTDNumerator::powers_to_position(&key, &n_loops, &reduced_blocks)] = key;
         }
 
         // Copy numerator coefficients into vector
@@ -3194,6 +3223,7 @@ impl LTDNumerator {
         for &coeff in coefficients.iter() {
             numerator_coefficients.push(coeff);
         }
+
         LTDNumerator {
             coefficients: numerator_coefficients,
             n_loops: n_loops,
@@ -3203,13 +3233,45 @@ impl LTDNumerator {
             coefficient_index_map: coefficient_index_map,
             coefficient_index_to_powers: coefficient_index_to_powers,
             reduced_coefficient_index_to_powers: reduced_coefficient_index_to_powers,
-            powers_to_position: powers_to_position,
+            reduced_blocks: reduced_blocks,
         }
     }
 
     /// Generate a numerator that is 1.
     pub fn one(n_loops: usize) -> LTDNumerator {
         LTDNumerator::new(n_loops, &[Complex::one()])
+    }
+
+    /// Find the position of a set of powers for a set with maximal rank equal to the sum
+    /// of all the powers of the input
+    /// reduced blocks contains the precomputed sizes for all such group with smaller or equal
+    /// number of variables and/or total rank
+    pub fn powers_to_position(basis: &[u8], n_variable: &usize, reduced_blocks: &[usize]) -> usize {
+        let mut rank: u8 = basis.iter().sum();
+
+        if rank == 0 {
+            return 0;
+        }
+        let mut pos = reduced_blocks[(rank as usize - 1) * n_variable + n_variable - 1];
+        for (n, pow) in basis.iter().enumerate() {
+            rank -= pow;
+            pos += 1;
+
+            match rank {
+                0 => return pos,
+                1 => continue,
+                _ => pos += reduced_blocks[(rank as usize - 1) * n_variable + n_variable - (n + 2)],
+            };
+        }
+        return pos;
+    }
+
+    pub fn reduced_powers_to_position(&self, basis: &[u8]) -> usize {
+        LTDNumerator::powers_to_position(
+            &basis[..self.n_loops],
+            &self.n_loops,
+            &self.reduced_blocks,
+        )
     }
 
     /// Perform the rotation to the vector component of the coefficients
@@ -3337,7 +3399,7 @@ impl LTDNumerator {
         // Change of basis complete
         if index == self.n_loops {
             //println!("\t basis: {:?} [{}]", basis, coeff);
-            cache.reduced_coefficient_cb[self.powers_to_position[basis]] += coeff;
+            cache.reduced_coefficient_cb[self.reduced_powers_to_position(basis)] += coeff;
             return;
         }
         // Skip if no power
@@ -3395,17 +3457,16 @@ impl LTDNumerator {
         &self,
         loop_momenta: &[LorentzVector<Complex<T>>],
         cache: &mut LTDCache<T>,
+        num_id: usize,
     ) {
         // Update tensor loop dependent part
         self.update_numerator_momentum_no_energy(loop_momenta, cache);
         // Initialize the reduced_coefficeints_lb with the factors coming from evaluating
         // the vectorial part of the loop momenta
-        if cache.reduced_coefficient_lb.len() < self.reduced_size {
-            cache
-                .reduced_coefficient_lb
-                .resize(self.reduced_size, Complex::default());
+        if cache.reduced_coefficient_lb[num_id].len() < self.reduced_size {
+            cache.reduced_coefficient_lb[num_id].resize(self.reduced_size, Complex::default());
         }
-        for c in &mut cache.reduced_coefficient_lb[..self.reduced_size] {
+        for c in &mut cache.reduced_coefficient_lb[num_id][..self.reduced_size] {
             *c = Complex::default();
         }
 
@@ -3415,7 +3476,7 @@ impl LTDNumerator {
             .zip(self.coefficient_index_to_powers.iter())
             .enumerate()
         {
-            cache.reduced_coefficient_lb[self.powers_to_position[powers]] += cache
+            cache.reduced_coefficient_lb[num_id][self.reduced_powers_to_position(powers)] += cache
                 .numerator_momentum_cache[i]
                 * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
         }
@@ -3426,6 +3487,7 @@ impl LTDNumerator {
         loop_lines: &Vec<LoopLine>,
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
+        num_id: usize,
     ) {
         let mut shifts = [Complex::default(); MAX_LOOP];
         // compute the shifts of the propagator in the cut basis
@@ -3466,11 +3528,32 @@ impl LTDNumerator {
                 mat,
                 &shifts,
                 &mut powers_cb,
-                cache.reduced_coefficient_lb[index],
+                cache.reduced_coefficient_lb[num_id][index],
                 0,
                 cache,
             );
         }
+    }
+
+    pub fn evaluate_lb<T: FloatLike>(
+        &self,
+        loop_momenta: &[LorentzVector<Complex<T>>],
+        cache: &mut LTDCache<T>,
+        num_id: usize,
+    ) -> Complex<T> {
+        let mut res = Complex::default();
+        for (numerator_powers, coeff) in self
+            .reduced_coefficient_index_to_powers
+            .iter()
+            .zip_eq(cache.reduced_coefficient_lb[num_id][..self.reduced_size].iter())
+        {
+            let mut prod = Complex::one();
+            for (l_i, pow) in numerator_powers[..self.n_loops].iter().enumerate() {
+                prod *= loop_momenta[l_i].t.powi(*pow as i32);
+            }
+            res += coeff * prod;
+        }
+        res
     }
     pub fn evaluate<T: FloatLike>(
         &self,
