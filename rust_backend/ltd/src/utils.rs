@@ -1,5 +1,6 @@
 use dual_num::DualN;
 use f128::f128;
+use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, Num, NumAssign, NumCast};
 use num_traits::{Inv, One, Zero};
@@ -93,6 +94,20 @@ pub fn powi<T: Float + NumAssign>(c: Complex<T>, n: usize) -> Complex<T> {
         c1 *= c;
     }
     c1
+}
+
+pub fn evaluate_signature<T: RealNumberLike>(
+    signature: &[i8],
+    momenta: &[LorentzVector<T>],
+) -> LorentzVector<T> {
+    let mut momentum = LorentzVector::default();
+    for (&sign, mom) in signature.iter().zip_eq(momenta) {
+        if sign != 0 {
+            momentum += mom.multiply_sign(sign);
+        }
+    }
+
+    momentum
 }
 
 /// Calculate the determinant of any complex-valued input matrix using LU-decomposition.

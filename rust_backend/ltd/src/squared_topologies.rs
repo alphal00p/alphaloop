@@ -121,20 +121,6 @@ impl SquaredTopology {
         cut_momentum
     }
 
-    fn evaluate_single_signature<T: RealNumberLike>(
-        signature: &[i8],
-        momenta: &[LorentzVector<T>],
-    ) -> LorentzVector<T> {
-        let mut momentum = LorentzVector::default();
-        for (&sign, mom) in signature.iter().zip_eq(momenta) {
-            if sign != 0 {
-                momentum += mom.multiply_sign(sign);
-            }
-        }
-
-        momentum
-    }
-
     pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<LTDCache<T>>> {
         let mut caches = vec![];
         for cutkosky_cuts in &self.cutkosky_cuts {
@@ -169,9 +155,8 @@ impl SquaredTopology {
         let mut t_start = T::zero();
         let mut sum_k = T::zero();
         for cut in &cutkosky_cuts.cuts {
-            let k = SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
-            let shift =
-                SquaredTopology::evaluate_single_signature(&cut.signature.1, external_momenta);
+            let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
+            let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
             let k_norm_sq = k.spatial_squared();
             t_start += Float::abs(k.spatial_dot(&shift)) / k_norm_sq;
             sum_k += k_norm_sq.sqrt();
@@ -187,12 +172,8 @@ impl SquaredTopology {
                 let mut df = T::zero();
 
                 for cut in &cutkosky_cuts.cuts {
-                    let k =
-                        SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
-                    let shift = SquaredTopology::evaluate_single_signature(
-                        &cut.signature.1,
-                        external_momenta,
-                    );
+                    let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
+                    let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
                     let energy =
                         ((k * t + shift).spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
                     f -= energy;
@@ -401,8 +382,8 @@ impl SquaredTopology {
             .iter_mut()
             .zip(cutkosky_cuts.cuts.iter())
         {
-            let k = SquaredTopology::evaluate_single_signature(&cut.signature.0, loop_momenta);
-            let shift = SquaredTopology::evaluate_single_signature(
+            let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
+            let shift = utils::evaluate_signature(
                 &cut.signature.1,
                 &external_momenta[..self.external_momenta.len()],
             );

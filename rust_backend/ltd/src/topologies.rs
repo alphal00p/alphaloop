@@ -3,7 +3,7 @@ use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use float;
 use fnv::FnvHashMap;
 use num::Complex;
-use num_traits::{Signed, Zero};
+use num_traits::{Float, Signed, Zero};
 use partial_fractioning::PFCache;
 use partial_fractioning::PartialFractioning;
 use scs;
@@ -13,7 +13,9 @@ use std::fmt;
 use std::fs::File;
 use std::mem;
 use std::ptr;
+use std::slice;
 use std::time::Instant;
+use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
 use {FloatLike, Settings, MAX_LOOP};
@@ -464,7 +466,7 @@ pub struct Topology {
     #[serde(default)]
     pub loop_momentum_map: Vec<(Vec<i8>, Vec<i8>)>,
     #[serde(skip_deserializing)]
-    pub scs_problem: SCSProblem,
+    pub scs_problem: SOCSProblem,
 }
 
 impl Topology {
@@ -589,7 +591,7 @@ impl Topology {
     }
 
     /// Construct the SCS problem with all the ellipsoids in the problem.
-    fn construct_scs_problem(&mut self, ellipsoid_ids: &[usize], minimize: bool) {
+    fn construct_socp_problem(&mut self, ellipsoid_ids: &[usize], minimize: bool) {
         let mut p = &mut self.scs_problem;
         p.cone.l = ellipsoid_ids.len() as scs::scs_int;
 
@@ -721,10 +723,9 @@ impl Topology {
             }
             p.p[col + 1] = non_zero_index as scs::scs_int;
         }
-
-        p.initialize_workspace();
     }
 
+    /// Evaluate an E-surface, where eval < 0 is the inside.
     fn evaluate_surface<T: FloatLike>(&self, loop_momenta: &[LorentzVector<T>], s: &Surface) -> T {
         let mut eval = Into::<T>::into(s.shift.t).multiply_sign(s.delta_sign);
         for ((ll, pp), _, _) in &s.id {
@@ -888,6 +889,260 @@ impl Topology {
         }
     }
 
+    /// Find a point on a surface along a line and return the scale:
+    /// `E(dir * t + k) = 0`, returning `t` closest to `t_start`.
+    fn get_scale_to_reach_surface<T: FloatLike>(
+        &self,
+        s: &Surface,
+        k: &[LorentzVector<T>],
+        dir: &[LorentzVector<T>],
+        t_start: T,
+    ) -> Option<T> {
+        let mut t = t_start;
+        let tolerance = Into::<T>::into(1e-15 * self.e_cm_squared.sqrt());
+        for it in 0..30 {
+            let mut f = Into::<T>::into(s.shift.t.multiply_sign(s.delta_sign));
+            let mut df = T::zero();
+
+            for ((ll_index, prop_index), _, _) in &s.id {
+                let shift = self.loop_lines[*ll_index].propagators[*prop_index].q.cast();
+                let k = utils::evaluate_signature(&self.loop_lines[*ll_index].signature, k);
+                let dir = utils::evaluate_signature(&self.loop_lines[*ll_index].signature, dir);
+                let energy = ((k + dir * t + shift).spatial_squared()
+                    + Into::<T>::into(
+                        self.loop_lines[*ll_index].propagators[*prop_index].m_squared,
+                    ))
+                .sqrt();
+
+                if !energy.is_zero() {
+                    f += energy;
+                    df += (t * dir.spatial_squared() + (k + shift).spatial_dot(&dir)) / energy;
+                }
+            }
+
+            if self.settings.general.debug > 4 {
+                println!("  | surf scaling: f={}, df={}, t={}", f, df, t);
+            }
+
+            if Float::abs(f) < tolerance {
+                if self.settings.general.debug > 2 {
+                    println!("  | t = {}", t);
+                }
+
+                return Some(t);
+            }
+
+            if it == 29 {
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "  | no convergence after {} iterations: f={}, df={}, t={}",
+                        it, f, df, t
+                    );
+                }
+                return None;
+            }
+
+            t = t - f / df;
+        }
+        None
+    }
+
+    // FIXME: not working for masses
+    fn get_point_inside_surface<T: FloatLike>(&self, s: &Surface) -> [LorentzVector<T>; MAX_LOOP] {
+        let mut ll_on_foci = [LorentzVector::default(); MAX_LOOP];
+        let mut cut_shift = [LorentzVector::default(); MAX_LOOP]; // qs of cut
+        let mut cut_counter = 0;
+        for (cut, ll) in s.cut.iter().zip(self.loop_lines.iter()) {
+            if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
+                // only add the shift if this cut momentum occurs in the surface
+                if s.sig_ll_in_cb[cut_counter] != 0 {
+                    cut_shift[cut_counter] = ll.propagators[*cut_prop_index].q.cast();
+                }
+                cut_counter += 1;
+            }
+        }
+        for (i, lm) in ll_on_foci[..self.n_loops].iter_mut().enumerate() {
+            for (&sign, shift) in self.cb_to_lmb_mat[s.cut_structure_index]
+                [i * self.n_loops..(i + 1) * self.n_loops]
+                .iter()
+                .zip(cut_shift[..self.n_loops].iter())
+            {
+                *lm += shift.multiply_sign(-sign); // note the minus sign
+            }
+        }
+
+        debug_assert!(self.evaluate_surface(&ll_on_foci, s) < T::zero());
+        ll_on_foci
+    }
+
+    /// Get the normal at the point on an E-surface. We always assume that the surface is positive.
+    fn get_normal<T: FloatLike>(
+        &self,
+        surface: &Surface,
+        k: &[LorentzVector<T>],
+        normalize: bool,
+    ) -> [LorentzVector<T>; MAX_LOOP] {
+        let mut df = [LorentzVector::default(); MAX_LOOP];
+
+        for ((ll_index, prop_index), _, _) in &surface.id {
+            let shift = self.loop_lines[*ll_index].propagators[*prop_index].q.cast();
+            let mut mom_part =
+                utils::evaluate_signature(&self.loop_lines[*ll_index].signature, k) + shift;
+            mom_part.t = T::zero();
+            let energy = (mom_part.spatial_squared()
+                + Into::<T>::into(self.loop_lines[*ll_index].propagators[*prop_index].m_squared))
+            .sqrt();
+
+            if energy == T::zero() || Float::is_nan(energy) {
+                continue;
+            }
+
+            for (d, s) in df.iter_mut().zip(&self.loop_lines[*ll_index].signature) {
+                if *s != 0 {
+                    *d += mom_part.multiply_sign(*s) / energy;
+                }
+            }
+        }
+
+        // normalize
+        if normalize {
+            let mut norm = T::zero();
+            for d in &df[..self.n_loops] {
+                norm += d.spatial_squared();
+            }
+            norm = norm.sqrt().inv();
+
+            for d in &mut df[..self.n_loops] {
+                *d *= norm;
+            }
+        }
+
+        df
+    }
+
+    /// Based on "On the distance between two ellipsoids" by Anhua Lin and Shih-Ping Han.
+    /// It may not always converge, and thus can only be used as a heuristic.
+    fn overlap_heuristic(&self, surf1: &Surface, surf2: &Surface) -> bool {
+        let mut x1 = self.get_point_inside_surface::<f64>(surf1);
+        let mut x2 = self.get_point_inside_surface::<f64>(surf2);
+
+        if self.evaluate_surface(&x1, surf2) < 0. || self.evaluate_surface(&x2, surf1) < 0. {
+            return true;
+        }
+
+        let mut dir = [LorentzVector::default(); MAX_LOOP];
+
+        let mut previous_distance = -100.;
+        let mut step_size;
+        for it in 0..50 {
+            if it < 10 {
+                step_size = 0.1 + 0.39 / 10. * (10 - it) as f64;
+            } else {
+                step_size = 0.05;
+            }
+
+            for i in 0..self.n_loops {
+                dir[i] = x2[i] - x1[i];
+            }
+
+            // find points on the surfaces
+            let t1 = self
+                .get_scale_to_reach_surface(surf1, &x1[..self.n_loops], &dir[..self.n_loops], 1.0)
+                .unwrap();
+            let t2 = self
+                .get_scale_to_reach_surface(surf2, &x1[..self.n_loops], &dir[..self.n_loops], 0.0)
+                .unwrap();
+
+            if t1 < 0. || t2 < t1 {
+                // there is overlap!
+                return true;
+            }
+
+            // construct the points on the surfaces
+            for i in 0..self.n_loops {
+                x2[i] = x1[i] + dir[i] * t2;
+                x1[i] = x1[i] + dir[i] * t1;
+            }
+            debug_assert!(self.evaluate_surface(&x1, surf1).abs() < 1e-14 * self.e_cm_squared);
+            debug_assert!(self.evaluate_surface(&x2, surf2).abs() < 1e-14 * self.e_cm_squared);
+
+            // get the distance
+            let mut dist = 0.;
+            for i in 0..self.n_loops {
+                dist += (x1[i] - x2[i]).spatial_squared();
+            }
+            dist = dist.sqrt();
+
+            if self.settings.general.debug > 3 {
+                println!(
+                    "Current distance: {}, step size: {}",
+                    dist.sqrt(),
+                    step_size
+                );
+            }
+
+            if (dist - previous_distance).abs() / previous_distance.abs() < 1e-4 {
+                if self.settings.general.debug > 2 {
+                    println!("No overlap: distance={}", dist);
+                }
+                return false;
+            }
+            previous_distance = dist;
+
+            // get the normal
+            let x1_norm = self.get_normal(surf1, &x1[..self.n_loops], true);
+            let x2_norm = self.get_normal(surf2, &x2[..self.n_loops], true);
+
+            // now solve for the other point
+            let t1_distance = self
+                .get_scale_to_reach_surface(
+                    surf1,
+                    &x1[..self.n_loops],
+                    &x1_norm[..self.n_loops],
+                    -self.e_cm_squared, // start with an underestimate
+                )
+                .unwrap();
+
+            let t2_distance = self
+                .get_scale_to_reach_surface(
+                    surf2,
+                    &x2[..self.n_loops],
+                    &x2_norm[..self.n_loops],
+                    -self.e_cm_squared,
+                )
+                .unwrap();
+
+            if t1_distance >= -1e-13 || t2_distance >= -1e-13 {
+                // TODO: understand why this can happen. Is the ellipsoid very pinched?
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "Negative distance encountered: {} and {}",
+                        t1_distance, t2_distance
+                    );
+                }
+                return false;
+            }
+
+            for i in 0..self.n_loops {
+                x1[i] = x1[i] + x1_norm[i] * t1_distance * step_size;
+                x2[i] = x2[i] + x2_norm[i] * t2_distance * step_size;
+            }
+
+            debug_assert!(self.evaluate_surface(&x1, surf1) < 0.);
+            debug_assert!(self.evaluate_surface(&x2, surf2) < 0.);
+
+            if it == 49 {
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "  | no convergence after {} iterations for surface {} and {}",
+                        it, surf1.group, surf2.group
+                    );
+                }
+            }
+        }
+        false
+    }
+
     fn find_overlap_structure(
         &mut self,
         ellipsoid_list: &[usize],
@@ -896,39 +1151,18 @@ impl Topology {
         let mut overlap_structure = vec![];
 
         let t = Instant::now();
-        let mut t_prob_accum = 0;
 
         let mut problem_count = 0;
         let mut pair_overlap_count = 0;
 
         if ellipsoid_list.len() == 1 {
-            // put ourselves on a the foci
-            let s = &self.surfaces[ellipsoid_list[0]];
-
-            let mut ll_on_foci = vec![LorentzVector::default(); MAX_LOOP];
-            let mut cut_shift = [LorentzVector::default(); MAX_LOOP]; // qs of cut
-            let mut cut_counter = 0;
-            for (cut, ll) in s.cut.iter().zip(self.loop_lines.iter()) {
-                if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
-                    cut_shift[cut_counter] = ll.propagators[*cut_prop_index].q;
-                    cut_counter += 1;
-                }
-            }
-
-            for (ll, shift_signs) in ll_on_foci[..self.n_loops]
-                .iter_mut()
-                .zip(s.sig_ll_in_cb.chunks_exact(self.n_loops))
-            {
-                for (sig, shift) in shift_signs.iter().zip(&cut_shift) {
-                    *ll += -shift.multiply_sign(*sig);
-                }
-            }
-
-            let r: f64 = -self.evaluate_surface(&ll_on_foci, s);
+            // put ourselves on a focus
+            let ll_on_foci = self.get_point_inside_surface(&self.surfaces[ellipsoid_list[0]]);
+            let r: f64 = -self.evaluate_surface(&ll_on_foci, &self.surfaces[ellipsoid_list[0]]);
             assert!(r > 0.);
 
             return vec![FixedDeformationOverlap {
-                deformation_sources: ll_on_foci,
+                deformation_sources: ll_on_foci.to_vec(),
                 excluded_surface_ids: vec![],
                 excluded_surface_indices: vec![],
                 overlap: Some(ellipsoid_list.to_vec()),
@@ -937,19 +1171,22 @@ impl Topology {
         }
 
         // first check for full overlap before constructing pair information
-        self.construct_scs_problem(&ellipsoid_list, true);
+        /*self.construct_scs_problem(&ellipsoid_list, true, false);
         if self.scs_problem.solve() > 0 {
             overlap_structure
                 .push(self.build_deformation_overlap_info(ellipsoid_list, ellipsoid_list));
             self.scs_problem.finish();
             return overlap_structure;
-        }
+        }*/
 
         // collect basic overlap info for all pairs
         for i in 0..ellipsoid_list.len() * ellipsoid_list.len() {
             self.scs_problem.pair_appears_in_overlap_structurex[i] = false;
             self.scs_problem.pair_overlap_matrix[i] = false;
         }
+
+        let mut ecos_time = 0;
+        let mut ball_time = 0;
 
         for i in 0..ellipsoid_list.len() {
             for j in i + 1..ellipsoid_list.len() {
@@ -974,27 +1211,37 @@ impl Topology {
                 {
                     self.scs_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
                     self.scs_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
-                    pair_overlap_count += 1;
 
                     focus_overlap = true;
-                    if self.settings.general.debug == 0 {
+                    if self.settings.general.debug < 2 {
                         continue;
                     }
+                    pair_overlap_count += 1;
                 }
 
-                let t1 = Instant::now();
+                let ti = Instant::now();
+                let has_overlap_heuristic = self.overlap_heuristic(
+                    &self.surfaces[ellipsoid_list[i]],
+                    &self.surfaces[ellipsoid_list[j]],
+                );
+                ball_time += Instant::now().duration_since(ti).as_nanos();
 
-                self.construct_scs_problem(&[ellipsoid_list[i], ellipsoid_list[j]], true);
-                let has_overlap = self.scs_problem.solve() > 0;
-                self.scs_problem.finish();
-
-                t_prob_accum += Instant::now().duration_since(t1).as_nanos();
-
-                if has_overlap {
+                if self.settings.general.debug < 2 && has_overlap_heuristic {
                     self.scs_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
                     self.scs_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
                     pair_overlap_count += 1;
+                    continue;
                 }
+
+                self.construct_socp_problem(&[ellipsoid_list[i], ellipsoid_list[j]], false);
+
+                // perform the ECOS test
+                let ti = Instant::now();
+                self.scs_problem.initialize_workspace_ecos();
+                let r = self.scs_problem.solve_ecos();
+                let has_overlap = r == 0 || r == -2 || r == 10;
+                self.scs_problem.finish_ecos();
+                ecos_time += Instant::now().duration_since(ti).as_nanos();
 
                 if focus_overlap && !has_overlap {
                     panic!(
@@ -1003,12 +1250,45 @@ impl Topology {
                     );
                 }
 
+                if has_overlap != has_overlap_heuristic {
+                    if self.settings.general.debug > 2 {
+                        println!(
+                            "Heuristic failed: {} vs {}",
+                            has_overlap, has_overlap_heuristic
+                        );
+                    }
+                }
+
+                // verify with SCS
+                if self.settings.general.debug > 1 {
+                    self.scs_problem.initialize_workspace_scs();
+                    let has_overlap_scs = self.scs_problem.solve_scs() > 0;
+                    self.scs_problem.finish_scs();
+
+                    if has_overlap != has_overlap_scs {
+                        panic!(
+                            "Inconcistency between SCS and ECOS: {} vs {} for {:?}",
+                            has_overlap_scs,
+                            has_overlap,
+                            &[ellipsoid_list[i], ellipsoid_list[j]]
+                        );
+                    }
+                }
+
+                if has_overlap {
+                    self.scs_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
+                    self.scs_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
+                    pair_overlap_count += 1;
+                }
+
                 problem_count += 1;
             }
         }
 
-        if self.settings.general.debug > 1 {
+        if self.settings.general.debug > 0 {
             println!("Time taken = {:#?}", Instant::now().duration_since(t));
+            println!("Heuristic time: {}ms", ball_time as f64 / 1000000.);
+            println!("ECOS time:      {}ms", ecos_time as f64 / 1000000.);
             println!("Computed {} pair overlaps", problem_count);
             println!("Pair overlap count: {}", pair_overlap_count);
         }
@@ -1038,15 +1318,35 @@ impl Topology {
                     *ot = ellipsoid_list[*o as usize];
                 }
 
-                let t1 = Instant::now();
+                self.construct_socp_problem(&option_translated[..n], false);
 
-                self.construct_scs_problem(&option_translated[..n], false);
-                let has_overlap = self.scs_problem.solve() > 0;
-                self.scs_problem.finish();
+                // perform the ECOS test
+                let ti = Instant::now();
+                self.scs_problem.initialize_workspace_ecos();
+                let r = self.scs_problem.solve_ecos();
+                let has_overlap = r == 0 || r == -2 || r == 10;
+                self.scs_problem.finish_ecos();
+                ecos_time += Instant::now().duration_since(ti).as_nanos();
 
-                t_prob_accum += Instant::now().duration_since(t1).as_nanos();
+                // verify with SCS
+                if self.settings.general.debug > 1 {
+                    self.scs_problem.initialize_workspace_scs();
+                    let has_overlap_scs = self.scs_problem.solve_scs() > 0;
+                    self.scs_problem.finish_scs();
+
+                    if has_overlap != has_overlap_scs {
+                        panic!(
+                            "Inconcistency between SCS and ECOS: {} vs {} for {:?}",
+                            has_overlap_scs,
+                            has_overlap,
+                            &option_translated[..n]
+                        );
+                    }
+                }
 
                 if has_overlap {
+                    // TODO: find centers with radius
+
                     for (i, &ei) in option[..n].iter().enumerate() {
                         for &ej in option[i + 1..n].iter() {
                             self.scs_problem.pair_appears_in_overlap_structurex
@@ -1075,21 +1375,21 @@ impl Topology {
         );
         mem::swap(&mut self.scs_problem.different, &mut different);
 
-        if self.settings.general.debug > 1 {
-            println!("Problem count={}", problem_count);
-            println!("Solved in {:#?}", Instant::now().duration_since(t));
-            println!("SCS time {:#?}", t_prob_accum);
+        if self.settings.general.debug > 0 {
+            println!("Problem count  {}", problem_count);
+            println!("Solved in      {:#?}", Instant::now().duration_since(t));
+            println!("ECOS time      {:#?}ns", ecos_time);
         }
 
         overlap_structure
     }
 }
 
-/// An SCS problem instance with cached data. The user should never
+/// An SOCS problem instance with cached data for SCS and ECOS. The user should never
 /// overwrite the vectors with other vectors, but should update them instead.
 /// Resizing vectors is also not allowed.
 #[derive(Debug)]
-pub struct SCSProblem {
+pub struct SOCSProblem {
     pub pair_overlap_matrix: Vec<bool>,
     pub pair_appears_in_overlap_structurex: Vec<bool>,
     pub focus_list: Vec<(usize, usize)>,
@@ -1102,6 +1402,9 @@ pub struct SCSProblem {
     pub x: Vec<f64>,
     pub i: Vec<scs::scs_int>,
     pub p: Vec<scs::scs_int>,
+    pub i_ecos: Vec<i64>,
+    pub p_ecos: Vec<i64>,
+    pub q_ecos: Vec<i64>,
     pub b: Vec<f64>,
     pub c: Vec<f64>,
     pub sol_x: Vec<f64>,
@@ -1114,37 +1417,37 @@ pub struct SCSProblem {
     settings: Box<scs::ScsSettings>,
     sol: Box<scs::ScsSolution>,
     workspace: *mut scs::ScsWork,
+    workspace_ecos: *mut ecos::pwork,
 }
 
 // This is needed to work with the Python bindings. Generally, this is is not safe.
-unsafe impl std::marker::Send for SCSProblem {}
+unsafe impl std::marker::Send for SOCSProblem {}
 
-impl Default for SCSProblem {
-    fn default() -> SCSProblem {
-        SCSProblem::new(50, 20)
+impl Default for SOCSProblem {
+    fn default() -> SOCSProblem {
+        SOCSProblem::new(50, 20)
     }
 }
 
-impl Clone for SCSProblem {
-    fn clone(&self) -> SCSProblem {
-        let mut p = SCSProblem::default();
+impl Clone for SOCSProblem {
+    fn clone(&self) -> SOCSProblem {
+        let mut p = SOCSProblem::default();
 
         // now copy the settings from the old problem
         // all other data is not copied
         *p.settings = *self.settings;
-
         p
     }
 }
 
-impl SCSProblem {
-    pub fn new(max_ellipsoids: usize, max_foci: usize) -> SCSProblem {
+impl SOCSProblem {
+    pub fn new(max_ellipsoids: usize, max_foci: usize) -> SOCSProblem {
         let mut settings = Box::new(scs::ScsSettings {
             normalize: 1,
             scale: 1.0,
             rho_x: 1e-3,
-            max_iters: 5000,
-            eps: 1e-5,
+            max_iters: 50000,
+            eps: 1e-8,
             alpha: 1.5,
             cg_rate: 2.0,
             verbose: 0,
@@ -1167,9 +1470,12 @@ impl SCSProblem {
         let focus_list = vec![(0, 0); max_foci];
         let a_dense = vec![0.; num_constraints * var_length];
         let mut q = vec![0; max_foci];
+        let q_ecos = vec![0; max_foci];
         let mut x = vec![0.; num_non_empty];
         let mut i = vec![0; num_non_empty];
+        let i_ecos = vec![0; num_non_empty];
         let mut p = vec![0; var_length + 1];
+        let p_ecos = vec![0; var_length + 1];
         let mut b = vec![0.; num_constraints];
         let mut c = vec![0.; var_length];
         let mut sol_x = vec![0.; var_length];
@@ -1214,7 +1520,7 @@ impl SCSProblem {
             s: &mut sol_s[0] as *mut f64,
         });
 
-        SCSProblem {
+        SOCSProblem {
             pair_overlap_matrix,
             pair_appears_in_overlap_structurex,
             focus_list,
@@ -1224,9 +1530,12 @@ impl SCSProblem {
             a_dense,
             var_map: vec![1000; MAX_LOOP],
             q,
+            q_ecos,
             x,
             i,
+            i_ecos,
             p,
+            p_ecos,
             b,
             c,
             sol_x,
@@ -1239,12 +1548,81 @@ impl SCSProblem {
             settings,
             sol,
             workspace: ptr::null_mut(),
+            workspace_ecos: ptr::null_mut(),
         }
     }
 
     /// With all the variables set
     #[inline]
-    pub fn initialize_workspace(&mut self) {
+    pub fn initialize_workspace_ecos(&mut self) {
+        for (ie, i) in self.i_ecos.iter_mut().zip(&self.i) {
+            *ie = *i as i64;
+        }
+
+        for (pe, p) in self.p_ecos.iter_mut().zip(&self.p) {
+            *pe = *p as i64;
+        }
+
+        for (qe, q) in self.q_ecos.iter_mut().zip(&self.q) {
+            *qe = *q as i64;
+        }
+
+        unsafe {
+            self.workspace_ecos = ecos::ECOS_setup(
+                self.data.n as i64,
+                self.data.m as i64,
+                0,
+                self.cone.l as i64,
+                self.cone.qsize as i64,
+                &mut self.q_ecos[0] as *mut i64,
+                0,
+                self.a.x,
+                &mut self.p_ecos[0] as *mut i64,
+                &mut self.i_ecos[0] as *mut i64,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+                self.data.c,
+                self.data.b,
+                ptr::null_mut(),
+            );
+
+            (*(*self.workspace_ecos).stgs).verbose = 0;
+            //(*(*self.workspace_ecos).stgs).maxit = 100;
+            //(*(*self.workspace_ecos).stgs).feastol=1e-13;
+        }
+    }
+
+    #[inline]
+    pub fn solve_ecos(&mut self) -> scs::scs_int {
+        unsafe {
+            let res = ecos::ECOS_solve(self.workspace_ecos) as i32;
+
+            // now copy the values
+            for (x, r) in self.sol_x[..self.data.n as usize]
+                .iter_mut()
+                .zip(slice::from_raw_parts(
+                    (*self.workspace_ecos).x,
+                    self.data.n as usize,
+                ))
+            {
+                *x = *r;
+            }
+            res
+        }
+    }
+
+    #[inline]
+    pub fn finish_ecos(&mut self) {
+        unsafe {
+            ecos::ECOS_cleanup(self.workspace_ecos, 0);
+        }
+        self.workspace = ptr::null_mut();
+    }
+
+    /// With all the variables set
+    #[inline]
+    pub fn initialize_workspace_scs(&mut self) {
         unsafe {
             self.workspace = scs::scs_init(
                 self.data.as_ref() as *const scs::ScsData,
@@ -1255,7 +1633,7 @@ impl SCSProblem {
     }
 
     #[inline]
-    pub fn solve(&mut self) -> scs::scs_int {
+    pub fn solve_scs(&mut self) -> scs::scs_int {
         unsafe {
             scs::scs_solve(
                 self.workspace,
@@ -1268,7 +1646,7 @@ impl SCSProblem {
     }
 
     #[inline]
-    pub fn solve_full(&mut self) -> scs::scs_int {
+    pub fn solve_full_scs(&mut self) -> scs::scs_int {
         unsafe {
             scs::scs(
                 self.data.as_ref() as *const scs::ScsData,
@@ -1280,7 +1658,7 @@ impl SCSProblem {
     }
 
     #[inline]
-    pub fn finish(&mut self) {
+    pub fn finish_scs(&mut self) {
         unsafe {
             scs::scs_finish(self.workspace);
         }
