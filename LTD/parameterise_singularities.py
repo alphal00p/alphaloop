@@ -4,91 +4,189 @@ import os, sys
 sys.path.insert(0,'../')
 import ltd
 import matplotlib.pyplot as plt
+import itertools
 
 class CrossSectionSingularityProber(object):
 	def __init__(self, squared_topology, hyperparameters_yaml):
 		squared_topology.export('squared_topology.yaml')
 		self.cross_section = ltd.CrossSection('squared_topology.yaml', hyperparameters_yaml)
 		self.squared_topology = squared_topology
-		self.external_momenta = squared_topology.external_momenta
-		self.external_momenta = [self.external_momenta['q1'],self.external_momenta['q2']]
-		self.loop_momentum_basis = []
+		self.incoming_momenta_names = squared_topology.incoming_momenta
+		self.external_momenta = [squared_topology.external_momenta['q%i'%(i+1)] for i in range(len(squared_topology.external_momenta))]
 		self.n_cuts = len(self.squared_topology.cuts)
+		self.n_loops = t1.topo.n_loops
+		self.name = squared_topology.name
+		self.e_cm_squared = sum(squared_topology.external_momenta[e][0]
+								for e in squared_topology.incoming_momenta)**2 - sum(x*x
+								for x in (sum(squared_topology.external_momenta[e][i]
+								for e in squared_topology.incoming_momenta)
+								for i in range(1, 4)))
+		#print(self.cross_section.evaluate_f128([[0.5, 1.5, 1.5],[5.5, 1.5, 0.5]]))
+		#print(self.cross_section.get_scaling([[0.5, 0.5, 0.5],[0.5, 0.5, 0.5]],2))
+		"""
+		test_loop_momenta = [[1.,2.1,3.],[1.,2.,3.]]
+		print('tot = ', self.cross_section.evaluate(test_loop_momenta))
+		tot = numpy.array([0.,0.])
+		for c in range(self.n_cuts):
+			scaling_and_jac = self.cross_section.get_scaling(test_loop_momenta,c)
+			scaling_and_jac = scaling_and_jac[0]
+			cut = self.cross_section.evaluate_cut(test_loop_momenta,c,scaling_and_jac[0],scaling_and_jac[1])
+			tot += numpy.array(cut)
+			print('cut %i =' %c, cut)
+		print('sum = ', tuple(tot))
+		"""
 
-	def probe_singularities_in_cut_topology(self,index,cut_momenta,plot=True,precision='f128'):
+	def rescale_cut_momenta(self,index,spatial_cut_momenta_dict):
+		assert(len(spatial_cut_momenta_dict) == len(self.squared_topology.cuts[index])-1)
 		cut_topology = self.squared_topology.loop_topologies[index]
 		cut_legs = self.squared_topology.cuts[index]
 		cut_leg_signatures = self.squared_topology.cut_signatures[index]
-		assert(set(cut_momenta.keys()) == {p_name for (p_name,p_energy_sign) in cut_legs})
-		cut_momenta = [cut_momenta[p_name] for (p_name,p_energy_sign) in cut_legs]
+		cut_basis = []
+		cut_signatures = []
+		cut_shifts = []
+		for (name, cut_momentum) in spatial_cut_momenta_dict.items():
+			cut_basis += [cut_momentum]
+			for cut_leg_index, cut_leg in enumerate(cut_legs):
+				if name == cut_leg[0]:
+					cut_signatures += [cut_leg_signatures[cut_leg_index][0]]
+					cut_shifts += [cut_leg_signatures[cut_leg_index][1]]
+		for l_or_r in [0,1]:
+			if cut_topology[l_or_r].n_loops > 0:
+				for loop_index, signature in enumerate(cut_topology[l_or_r].loop_momentum_map):
+					cut_basis += [vectors.Vector([0.,0.,0.])] #random cut basis vector, result is independent of it
+					cut_signatures += [signature[0]]
+					cut_shifts += [signature[1]]
+		cut_basis = numpy.array(cut_basis)
+		trsf_loop_to_cut_basis = numpy.array(cut_signatures)
+		inv_trsf_loop_to_cut_basis = numpy.linalg.inv(trsf_loop_to_cut_basis)
+		trsf_loop_to_cut_shift = numpy.array(cut_shifts)
+		spatial_external = numpy.array([external_momentum[1:] for external_momentum in self.external_momenta])
+		supergraph_basis = inv_trsf_loop_to_cut_basis.dot(cut_basis-trsf_loop_to_cut_shift.dot(spatial_external))
+		scalings_and_jac = self.cross_section.get_scaling(supergraph_basis,index)
+		positive_scalings_and_jac = [scaling_and_jac for scaling_and_jac in scalings_and_jac if scaling_and_jac[0]>0]
+		if len(positive_scalings_and_jac) == 1:
+			scaled_supergraph_basis = positive_scalings_and_jac[0][0]*supergraph_basis
+		else:
+			print('Select manually which scaling to use.')
+		all_spatial_cut_momenta_scaled = [numpy.array(cut_leg_signatures[cut_leg_index][0]).dot(scaled_supergraph_basis)
+											+ numpy.array(cut_leg_signatures[cut_leg_index][1]).dot(spatial_external)
+											for cut_leg_index, cut_leg in enumerate(cut_legs)]
+		all_cut_momenta_scaled = []
+		for cut_p, p_space in zip(cut_legs,all_spatial_cut_momenta_scaled):
+			cut_p_name = cut_p[0]
+			cut_p_sign = cut_p[1]
+			m_squared = self.squared_topology.masses[cut_p_name]**2 if cut_p_name in self.squared_topology.masses else 0.
+			p_energy  = cut_p_sign * numpy.sqrt(p_space.dot(p_space)+m_squared)
+			p = vectors.LorentzVector(numpy.append([p_energy],p_space))
+			all_cut_momenta_scaled += [p]
+		# check momentum conservation
+		incoming_momenta = [momentum for name,momentum in self.squared_topology.external_momenta.items() if name in self.incoming_momenta_names]
+		assert(all(numpy.zeros(4) == numpy.sum(incoming_momenta,axis=0)-numpy.sum([name_and_sign[1]*p for name_and_sign,p in zip(cut_legs,all_cut_momenta_scaled)],axis=0)))
+		all_cut_momenta_scaled_dict = {name_and_sign[0]: p for name_and_sign,p in zip(cut_legs,all_cut_momenta_scaled)}
+		return all_cut_momenta_scaled_dict
+
+	def probe_singularities_in_cut_topology(self,index,cut_momenta,directions,plot=True,precision='f128'):
+		cut_topology = self.squared_topology.loop_topologies[index]
+		cut_legs = self.squared_topology.cuts[index]
+		cut_leg_signatures = self.squared_topology.cut_signatures[index]
+		print('Cut considered: '+str(cut_legs))
+		os_cut_momenta = self.rescale_cut_momenta(index,cut_momenta)
+		assert(set(os_cut_momenta.keys()) == {p_name for (p_name,p_energy_sign) in cut_legs})
+		os_cut_momenta = [os_cut_momenta[p_name] for (p_name,p_energy_sign) in cut_legs]
 		for l_or_r in [0,1]:
 			if cut_topology[l_or_r].n_loops == 0:
 				continue
 			elif cut_topology[l_or_r].n_loops == 1:
-				parameteriser = OneLoopSingularityParameteriser(self.squared_topology,index,l_or_r,cut_momenta,self.external_momenta)
+				parameteriser = OneLoopSingularityParameteriser(self.squared_topology,index,l_or_r,os_cut_momenta,self.external_momenta)
 				parameteriser.check_parameterisations()
+				title_suffix = ' in Cutkosky cut %i: (%s)'%(index,','.join([name_and_sign[0]+('%+d'%name_and_sign[1])[0] for name_and_sign in self.squared_topology.cuts[index]]))
 				for (dual_index,e_surf_index) in parameteriser.existing_e_surfaces:
-					print(10*'='+' probing E-surface (%i,%i) '%(dual_index,e_surf_index)+10*'=')
+					title = 'E-surface (%i,%i), i.e. (%s+,%s-) os'%(dual_index,e_surf_index,
+								cut_topology[l_or_r].loop_lines[0].propagators[dual_index].name,
+								cut_topology[l_or_r].loop_lines[0].propagators[e_surf_index].name)+title_suffix
+					print(10*'='+' probing ' + title + ' ' +10*'=')
 					k = parameteriser.get_k_2c_os(dual_index,e_surf_index,parameteriser.get_unit_vector(0.7,0.5))
 					spatial_loop_momenta = parameteriser.get_spatial_loop_momenta(k)
-					self.probe_singular_surface(spatial_loop_momenta,2*[numpy.ones(3)],plot=plot,precision=precision)
+					self.probe_singular_surface(spatial_loop_momenta,directions,plot=plot,plot_title=title,precision=precision)
 					self.evaluate_cuts(spatial_loop_momenta)
 				for (dual_index,e_surf_index,intersection_index) in parameteriser.cut_group_intersections:
-					print(10*'='+' probing E-surface (%i,%i) '%(dual_index,e_surf_index)+10*'=')
+					title = 'E-surface intersection (%i+,%i-,%i-), i.e. (%s+,%s,%s) os'%(dual_index,e_surf_index,intersection_index,
+								cut_topology[l_or_r].loop_lines[0].propagators[dual_index].name,
+								cut_topology[l_or_r].loop_lines[0].propagators[e_surf_index].name,
+								cut_topology[l_or_r].loop_lines[0].propagators[intersection_index].name)+title_suffix
+					print(10*'='+' probing ' + title + ' ' +10*'=')
 					k = parameteriser.get_k_3c_os(dual_index,e_surf_index,intersection_index,0.5)
 					spatial_loop_momenta = parameteriser.get_spatial_loop_momenta(k)
-					self.probe_singular_surface(spatial_loop_momenta,2*[numpy.ones(3)],plot=plot,precision=precision)
+					self.probe_singular_surface(spatial_loop_momenta,directions,plot=plot,plot_title=title,precision=precision)
 					self.evaluate_cuts(spatial_loop_momenta)
 				for (dual_index,pinched_surf_index) in parameteriser.pinched_surfaces:
-					print(10*'='+' probing pinch surface (%i,%i) '%(dual_index,e_surf_index)+10*'=')
+					title = 'pinch surface (%i,%i), i.e. (%s+,%s-) os'%(dual_index,e_surf_index,
+								cut_topology[l_or_r].loop_lines[0].propagators[dual_index].name,
+								cut_topology[l_or_r].loop_lines[0].propagators[pinched_surf_index].name)+title_suffix
+					print(10*'='+' probing ' + title + ' ' +10*'=')
 					k = parameteriser.get_k_pinched(dual_index,pinched_surf_index,0.5)
 					spatial_loop_momenta = parameteriser.get_spatial_loop_momenta(k)
-					self.probe_singular_surface(spatial_loop_momenta,2*[numpy.ones(3)],plot=plot,precision=precision)
+					self.probe_singular_surface(spatial_loop_momenta,directions,plot=plot,plot_title=title,precision=precision)
 					self.evaluate_cuts(spatial_loop_momenta)
 			else:
 				print('Not implemented yet.')
+		if plot:
+			plt.show()
+		return
 
-	def probe_singular_surface(self,os_spatial_loop_momenta, spatial_directions,plot=True,precision='f128'):
+	def probe_singular_surface(self,os_spatial_loop_momenta, spatial_directions,plot=True,plot_title='',precision='f128'):
 		if precision == 'f128':
 			evaluate = self.cross_section.evaluate_f128
 			evaluate_cut = self.cross_section.evaluate_cut_f128
 		elif precision == 'f64':
 			evaluate = self.cross_section.evaluate
 			evaluate_cut = self.cross_section.evaluate_cut
-		mu_list = numpy.logspace(0,-4,5)
+		mu_list = numpy.logspace(-1,-5,5)
 		results = []
 		for mu in mu_list:
-			spatial_loop_momenta = [p_space+mu*dir_space for p_space,dir_space in zip(os_spatial_loop_momenta,spatial_directions)]
+			spatial_loop_momenta = [p_space+mu*dir_space*numpy.sqrt(self.e_cm_squared) for p_space,dir_space in zip(os_spatial_loop_momenta,spatial_directions)]
 			results += [evaluate(spatial_loop_momenta)]
+		print('Approaching the singularity:')
 		for result in results:
 			print(result)
 		if plot == True:
 			plt.figure()
-			xx = numpy.linspace(-0.000002,0.000002,int(1e4))
-			spatial_loop_momenta_list = [[p+x*spatial_direction for p,spatial_direction in zip(os_spatial_loop_momenta,spatial_directions)] for x in xx]
-			yy = [[evaluate_cut(spatial_loop_momenta,c)[1] for spatial_loop_momenta in spatial_loop_momenta_list] for c in range(self.n_cuts)]
+			xx = numpy.linspace(-1e-1,1e-1,int(1e3))
+			spatial_loop_momenta_list = [[p+x*spatial_direction*numpy.sqrt(self.e_cm_squared) for p,spatial_direction in zip(os_spatial_loop_momenta,spatial_directions)] for x in xx]
+			yy = [[evaluate_cut(spatial_loop_momenta,c,
+					self.cross_section.get_scaling(spatial_loop_momenta,c)[1][0],self.cross_section.get_scaling(spatial_loop_momenta,c)[1][1])[1]
+					for spatial_loop_momenta in spatial_loop_momenta_list] for c in range(self.n_cuts)]
 			tot = numpy.sum(yy,axis=0)
+			markers = itertools.cycle(('v','<', '^', '>')) 
 			for c in range(self.n_cuts):
-				plt.plot(xx,yy[c],'o',label='cut%i'%c,markersize=0.5)
-			plt.plot(xx,tot,'ko',label='sum',markersize=0.5)
+				plt.plot(xx,yy[c],marker=markers.next(),label='cut %i: (%s)'%(c,','.join([name_and_sign[0]+('%+d'%name_and_sign[1])[0] for name_and_sign in self.squared_topology.cuts[c]])),
+							ms=1,alpha=1,ls='None')
+			plt.plot(xx,tot,'k',marker='o',label='sum',ms=0.5,alpha=1,ls='None')
 			plt.xlabel(r'$\mu$')
 			plt.yscale('symlog')
 			plt.legend(loc='lower right')
-			plt.title('t1_squared'
-				+ ''.join(['\n'+r'$k_{'+'%i'%c+'}=$'+str(spatial_loop_momentum)+r'$+\mu$'+str(spatial_direction)
+			plt.title(self.name + '\n' + plot_title
+				+ ''.join(['\n'+r'$k_{'+'%i'%c+'}=$'
+							+'(%s)'%','.join(['%f'%k_i for k_i in spatial_loop_momentum])
+							+r'$+\mu E_{\mathrm{cm}}$'
+							+'(%s)'%','.join(['%f'%k_i for k_i in spatial_direction])
 						for c,spatial_loop_momentum,spatial_direction in zip(range(self.n_cuts),os_spatial_loop_momenta,spatial_directions)]))
-			plt.show()
+			plt.tight_layout()
+			#plt.show()
 
 	def evaluate_cuts(self,spatial_loop_momenta,mu=1e-6,spatial_dir=vectors.Vector([1.,1.,1.])):
-		#mu = 0.54*1e-8
-		#spatial_loop_momenta = [p_space+mu*spatial_dir for p_space in spatial_loop_momenta]
-		print('Total', self.cross_section.evaluate_f128(spatial_loop_momenta))
+		mu = 1e-3
+		spatial_loop_momenta = [p_space+mu*spatial_dir*numpy.sqrt(self.e_cm_squared) for p_space in spatial_loop_momenta]
+		print('On the singularity:')
+		print('Total: (%e, %e)'%self.cross_section.evaluate_f128(spatial_loop_momenta))
 
 		tot = 0
-		for x in range(self.n_cuts):
-		    cut = self.cross_section.evaluate_cut_f128(spatial_loop_momenta, x)
-		    print('cut%d: (%e, %e)' % (x, cut[0], cut[1]))
-		    tot += numpy.array(cut)
+		for c in range(self.n_cuts):
+			#print(self.cross_section.get_scaling(spatial_loop_momenta,c))
+			cut = self.cross_section.evaluate_cut_f128(spatial_loop_momenta, c,
+				self.cross_section.get_scaling(spatial_loop_momenta,c)[1][0],self.cross_section.get_scaling(spatial_loop_momenta,c)[1][1])
+			print('cut%d: (%e, %e)' % (c, cut[0], cut[1]))
+			tot += numpy.array(cut)
 
 		print('Sum cuts: (%e, %e)' % (tot[0],tot[1]))
 		return
@@ -398,48 +496,53 @@ class OneLoopSingularityParameteriser(object):
 		self.check_pinched_surface_parameterisations(arbitrary_x)
 		return
 
-# the double triangle master graph
-t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
-	{'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-	particle_ids={'p%s' % i: i for i in range(9)})
+if __name__ == "__main__":
+
+	#print(dir(ltd.CrossSection))
+
+	# the double triangle master graph
+	t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
+		{'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
+		particle_ids={'p%s' % i: i for i in range(9)})
 		#masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})
+	
+	var_two_to_two = SquaredTopologyGenerator([('q1', 0, 1), ('q2', 8, 2), ('q3', 5, 7), ('q4', 4, 9), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5),
+		('p5', 5, 6), ('p6', 6, 1), ('p7', 6, 3), ], "var_two_to_two", ['q1', 'q2'], 2,
+		{'q1': [1., 0., 0., .1], 'q2': [1., 0., 0., -.1], 'q3': [1., 0., 0., .1], 'q4': [1., 0., 0., -.1]})
+		#masses={'p1': .1, 'p2':.1, 'p3': .1, 'p4': .1, 'p5': .1, 'p6': .1, 'p7': .1}, loop_momenta_names=('p1', 'p7'),)
 
-prober = CrossSectionSingularityProber(t1,"hyperparameters.yaml")
+	"""
+	mercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
+		('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 2,
+		{'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
+		loop_momenta_names=('p1', 'p2', 'p3'),
+		particle_ids={'p%s' % i: i for i in range(9)})
+	"""
 
-q1 = t1.external_momenta['q1']
-q2 = t1.external_momenta['q2']
-ext = [q1,q2]
+	squared_topology = var_two_to_two
+	print(squared_topology.cuts)
+	#print(squared_topology.topo.loop_momenta)
+	CUT_INDEX = 2
+	#print(squared_topology.cuts[CUT_INDEX])
+	#print(squared_topology.loop_topologies[CUT_INDEX][1])
+	#print(squared_topology.cut_signatures[CUT_INDEX])
+	
+	# set len(cuts[CUT_INDEX])-1 spatial cut momenta (randomly!)
+	arbitrary_p = vectors.Vector([-1.,3.,6.])
+	cut_momenta = {}
+	for name, sign in squared_topology.cuts[CUT_INDEX][:-1]:
+		cut_momenta[name] = arbitrary_p
+	print(cut_momenta)
+	
+	prober = CrossSectionSingularityProber(squared_topology,"hyperparameters.yaml")
+	directions = [numpy.array([5.,-2.,4.]),numpy.array([1.,2.,3.])]
+	normalised_directions = [direction/numpy.linalg.norm(direction) for direction in directions]
+	prober.probe_singularities_in_cut_topology(CUT_INDEX,cut_momenta,normalised_directions,plot=True,precision='f128')
 
-p1_space = vectors.Vector([1.,2.,3.])
-p4_space = p1_space
-cuts_space = [p1_space,p4_space]
 
-cut_index = 1
-# set arbitrary outgoing
-cuts_lorentz_vector = []
-for cut_p, p_space in zip(t1.cuts[cut_index],cuts_space):
-	cut_p_name = cut_p[0]
-	cut_p_sign = cut_p[1]
-	m_squared = t1.masses[cut_p_name]**2 if cut_p_name in t1.masses else 0.
-	p_energy  = cut_p_sign * numpy.sqrt(p_space.dot(p_space)+m_squared)
-	p = vectors.LorentzVector(numpy.append([p_energy],p_space))
-	cuts_lorentz_vector += [p]
-#print(cuts_lorentz_vector)
-# set momentum conservation with incomming and rescale
-energy_sum = 0.
-for cut_p, p in zip(t1.cuts[cut_index],cuts_lorentz_vector):
-	cut_p_sign = cut_p[1]
-	energy_sum += cut_p_sign*p[0]
-t = ext[0][0]/energy_sum
 
-#print(t)
-cuts = [t*p for p in cuts_lorentz_vector]
-#print(cuts)
-cut_momenta = {'p1': cuts[0],'p4':cuts[1]}
 
-# check momentum conservation
-print(ext[0]-cuts[0]+cuts[1])
 
-prober.probe_singularities_in_cut_topology(1,cut_momenta,plot=True,precision='f128')
 
-#myParam = OneLoopSingularityParameteriser(t1,1,1,cuts,ext)
+
+
