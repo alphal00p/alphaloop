@@ -466,7 +466,7 @@ pub struct Topology {
     #[serde(default)]
     pub loop_momentum_map: Vec<(Vec<i8>, Vec<i8>)>,
     #[serde(skip_deserializing)]
-    pub scs_problem: SOCSProblem,
+    pub socp_problem: SOCPProblem,
 }
 
 impl Topology {
@@ -592,55 +592,65 @@ impl Topology {
 
     /// Construct the SCS problem with all the ellipsoids in the problem.
     fn construct_socp_problem(&mut self, ellipsoid_ids: &[usize], minimize: bool) {
-        let mut p = &mut self.scs_problem;
-        p.cone.l = ellipsoid_ids.len() as scs::scs_int;
+        let mut p = &mut self.socp_problem;
 
-        for (shift, &e_id) in p.b.iter_mut().zip(ellipsoid_ids.iter()) {
-            *shift = -self.surfaces[e_id]
-                .shift
-                .t
-                .multiply_sign(self.surfaces[e_id].delta_sign);
+        let multiplier = if minimize { 6 * self.n_loops } else { 1 };
+        p.radius_computation = minimize;
+
+        p.cone.l = (ellipsoid_ids.len() * multiplier) as scs::scs_int;
+
+        let mut b_index = 0;
+
+        for m in 0..multiplier {
+            for &e_id in ellipsoid_ids {
+                p.b[b_index] = -self.surfaces[e_id]
+                    .shift
+                    .t
+                    .multiply_sign(self.surfaces[e_id].delta_sign);
+                b_index += 1;
+            }
         }
 
         let mut lm_tag = [false; MAX_LOOP];
 
         // construct the focus part of the shift
-        let mut b_index = ellipsoid_ids.len();
+        // TODO: do not generate the focus more than once if k[m/3] does not appear in the focus
         let mut focus_count = 0;
-        for (ll_index, ll) in self.loop_lines.iter().enumerate() {
-            for (prop_index, prop) in ll.propagators.iter().enumerate() {
-                let mut included = false;
-                'el_loop: for &e_id in ellipsoid_ids {
-                    for ((surf_ll_index, surf_prop_index), _, _) in &self.surfaces[e_id].id {
-                        if ll_index == *surf_ll_index && prop_index == *surf_prop_index {
-                            for (tag, &sig) in lm_tag.iter_mut().zip(&ll.signature) {
-                                *tag |= sig != 0;
+        for m in 0..multiplier {
+            for (ll_index, ll) in self.loop_lines.iter().enumerate() {
+                for (prop_index, prop) in ll.propagators.iter().enumerate() {
+                    let mut included = false;
+                    'el_loop: for &e_id in ellipsoid_ids {
+                        for ((surf_ll_index, surf_prop_index), _, _) in &self.surfaces[e_id].id {
+                            if ll_index == *surf_ll_index && prop_index == *surf_prop_index {
+                                for (tag, &sig) in lm_tag.iter_mut().zip(&ll.signature) {
+                                    *tag |= sig != 0;
+                                }
+                                included = true;
+                                break 'el_loop;
                             }
-                            included = true;
-                            break 'el_loop;
                         }
                     }
-                }
 
-                if included {
-                    p.focus_list[focus_count] = (ll_index, prop_index);
-                    p.b[b_index] = 0.;
-                    b_index += 1;
-                    if prop.m_squared != 0. {
-                        p.b[b_index] = prop.m_squared.sqrt();
+                    if included {
+                        p.focus_list[focus_count] = (ll_index, prop_index, m);
+                        p.b[b_index] = 0.;
                         b_index += 1;
-                        p.q[focus_count] = 5;
-                    } else {
-                        p.q[focus_count] = 4;
-                    };
-                    p.b[b_index] = prop.q.x;
-                    b_index += 1;
-                    p.b[b_index] = prop.q.y;
-                    b_index += 1;
-                    p.b[b_index] = prop.q.z;
-                    b_index += 1;
-
-                    focus_count += 1;
+                        if prop.m_squared != 0. {
+                            p.b[b_index] = prop.m_squared.sqrt();
+                            b_index += 1;
+                            p.q[focus_count] = 5;
+                        } else {
+                            p.q[focus_count] = 4;
+                        };
+                        p.b[b_index] = prop.q.x;
+                        b_index += 1;
+                        p.b[b_index] = prop.q.y;
+                        b_index += 1;
+                        p.b[b_index] = prop.q.z;
+                        b_index += 1;
+                        focus_count += 1;
+                    }
                 }
             }
         }
@@ -653,7 +663,11 @@ impl Topology {
             }
         }
 
-        let width = 3 * var_count + focus_count;
+        let width = if minimize {
+            3 * var_count + focus_count + 1
+        } else {
+            3 * var_count + focus_count
+        };
 
         p.cone.qsize = focus_count as scs::scs_int;
         p.a.m = b_index as scs::scs_int;
@@ -665,48 +679,63 @@ impl Topology {
             *aa = 0.;
         }
 
-        for cc in &mut p.c[..3 * var_count + focus_count] {
+        for cc in &mut p.c[..width] {
             *cc = 0.;
         }
 
-        for (ellipsoid_index, &e_id) in ellipsoid_ids.iter().enumerate() {
-            for ((ll_index, prop_index), _, _) in self.surfaces[e_id].id.iter() {
-                let foc_index = p
-                    .focus_list
-                    .iter()
-                    .position(|x| *x == (*ll_index, *prop_index))
-                    .unwrap();
+        let focus_start = if minimize {
+            p.c[3 * var_count] += -1.; // maximize the radius, TODO: sign?
+            3 * var_count + 1
+        } else {
+            3 * var_count
+        };
 
-                if minimize {
-                    p.c[3 * var_count + foc_index] += 1.;
+        // write the ellipsoid constraints: f1 + f2 < c, etc
+        let mut row_counter = 0; // the start of the focus information
+        for m in 0..multiplier {
+            for &e_id in ellipsoid_ids {
+                for ((ll_index, prop_index), _, _) in self.surfaces[e_id].id.iter() {
+                    let foc_index = p
+                        .focus_list
+                        .iter()
+                        .position(|x| *x == (*ll_index, *prop_index, m))
+                        .unwrap();
+                    p.a_dense[row_counter * width + focus_start + foc_index] = 1.;
                 }
-
-                p.a_dense[ellipsoid_index * width + 3 * var_count + foc_index] = 1.;
+                row_counter += 1;
             }
         }
 
-        // now for every focus, add the constraint
-        let mut focus_row_counter = ellipsoid_ids.len(); // the start of the focus information
-        for (foc_index, (ll_index, prop_index)) in p.focus_list[..focus_count].iter().enumerate() {
+        // now for every focus f, add the norm constraints |k_x+p_x,m| < f
+        for (foc_index, (ll_index, prop_index, radius_index)) in
+            p.focus_list[..focus_count].iter().enumerate()
+        {
             let prop = &self.loop_lines[*ll_index].propagators[*prop_index];
 
             // set the linear equation
-            p.a_dense[focus_row_counter * width + 3 * var_count + foc_index] = -1.0;
-            focus_row_counter += 1;
+            p.a_dense[row_counter * width + focus_start + foc_index] = -1.0;
+            row_counter += 1;
             if prop.m_squared != 0. {
                 // the mass is an empty line
-                focus_row_counter += 1;
+                row_counter += 1;
             }
+
+            let (rad_lm, rad_dir, rad_sign) =
+                (radius_index / 6, radius_index % 3, radius_index % 2);
 
             for dir_index in 0..3 {
                 for (var_index, &v) in prop.signature.iter().enumerate() {
                     if v != 0 {
-                        p.a_dense
-                            [focus_row_counter * width + 3 * p.var_map[var_index] + dir_index] =
+                        p.a_dense[row_counter * width + 3 * p.var_map[var_index] + dir_index] =
                             Into::<float>::into(-v);
+
+                        if minimize && rad_lm == var_index && rad_dir == dir_index {
+                            p.a_dense[row_counter * width + 3 * var_count] =
+                                if rad_sign == 0 { -1. } else { 1.0 };
+                        }
                     }
                 }
-                focus_row_counter += 1;
+                row_counter += 1;
             }
         }
 
@@ -758,7 +787,7 @@ impl Topology {
         if acc.len() == 1 {
             // special case for n = 1: check if the ellipsoid does not appear in any overlap structure
             'next_num_loop1: for new_num in ((acc[0] + 1) as usize)..num_ellipsoids {
-                for appears in &self.scs_problem.pair_appears_in_overlap_structurex
+                for appears in &self.socp_problem.pair_appears_in_overlap_structurex
                     [new_num as usize * num_ellipsoids..(new_num as usize + 1) * num_ellipsoids]
                 {
                     if *appears {
@@ -778,13 +807,13 @@ impl Topology {
                 {
                     different[i] = false;
                     for x in acc[..i].iter() {
-                        if !self.scs_problem.pair_overlap_matrix
+                        if !self.socp_problem.pair_overlap_matrix
                             [*x as usize * num_ellipsoids + new_num]
                         {
                             continue 'next_num_loop;
                         }
 
-                        if !self.scs_problem.pair_appears_in_overlap_structurex
+                        if !self.socp_problem.pair_appears_in_overlap_structurex
                             [*x as usize * num_ellipsoids + new_num]
                         {
                             different[i] = true;
@@ -803,8 +832,8 @@ impl Topology {
                         let mut possible = false;
                         'outer_loop: for j in (acc[i] as usize + 1)..num_ellipsoids {
                             for k in 0..j {
-                                if self.scs_problem.pair_overlap_matrix[k * num_ellipsoids + j]
-                                    && !self.scs_problem.pair_appears_in_overlap_structurex
+                                if self.socp_problem.pair_overlap_matrix[k * num_ellipsoids + j]
+                                    && !self.socp_problem.pair_appears_in_overlap_structurex
                                         [k * num_ellipsoids + j]
                                     && ((k as isize > acc[i] && spots_left >= 2)
                                         || (spots_left >= 1
@@ -853,13 +882,13 @@ impl Topology {
         // TODO: recycle from pre-allocated overlap structures
         let mut var_count = 0;
         let mut sources = vec![LorentzVector::default(); self.n_loops];
-        for &i in &self.scs_problem.var_map[..self.n_loops] {
+        for &i in &self.socp_problem.var_map[..self.n_loops] {
             if i < self.n_loops {
                 sources[i] = LorentzVector::from_args(
                     0.,
-                    self.scs_problem.sol_x[i * 3],
-                    self.scs_problem.sol_x[i * 3 + 1],
-                    self.scs_problem.sol_x[i * 3 + 2],
+                    self.socp_problem.sol_x[i * 3],
+                    self.socp_problem.sol_x[i * 3 + 1],
+                    self.socp_problem.sol_x[i * 3 + 2],
                 );
                 var_count += 1;
             }
@@ -873,11 +902,18 @@ impl Topology {
         }
 
         let mut radius = 0.;
-        for (foc_count, foc_val) in self.scs_problem.c[3 * var_count..self.scs_problem.a.n as usize]
-            .iter()
-            .zip(&self.scs_problem.sol_x[3 * var_count..self.scs_problem.a.n as usize])
-        {
-            radius += foc_count * foc_val;
+
+        if self.socp_problem.radius_computation {
+            radius = self.socp_problem.sol_x[var_count * 3];
+        } else {
+            // give a meausure for distance
+            for (foc_count, foc_val) in self.socp_problem.c
+                [3 * var_count..self.socp_problem.a.n as usize]
+                .iter()
+                .zip(&self.socp_problem.sol_x[3 * var_count..self.socp_problem.a.n as usize])
+            {
+                radius += foc_count * foc_val;
+            }
         }
 
         FixedDeformationOverlap {
@@ -947,27 +983,54 @@ impl Topology {
         None
     }
 
-    // FIXME: not working for masses
+    /// Generate a point inside an E-surface. A point that is guaranteed to be on the inside is
+    /// `c_i = -p s_i m_i/(sum_j m_j)`, in the cut basis where `s` is the surface signature in the cut basis.
     fn get_point_inside_surface<T: FloatLike>(&self, s: &Surface) -> [LorentzVector<T>; MAX_LOOP] {
         let mut ll_on_foci = [LorentzVector::default(); MAX_LOOP];
-        let mut cut_shift = [LorentzVector::default(); MAX_LOOP]; // qs of cut
+        let mut cut_shift = [LorentzVector::<T>::default(); MAX_LOOP]; // qs of cut
+        let mut cut_masses = [T::zero(); MAX_LOOP];
         let mut cut_counter = 0;
+        let mut mass_sum = T::zero();
         for (cut, ll) in s.cut.iter().zip(self.loop_lines.iter()) {
             if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
                 // only add the shift if this cut momentum occurs in the surface
                 if s.sig_ll_in_cb[cut_counter] != 0 {
                     cut_shift[cut_counter] = ll.propagators[*cut_prop_index].q.cast();
+                    cut_masses[cut_counter] =
+                        Into::<T>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
+                    mass_sum += cut_masses[cut_counter];
                 }
                 cut_counter += 1;
             }
         }
+
+        mass_sum += Into::<T>::into(
+            self.loop_lines[s.onshell_ll_index].propagators[s.onshell_prop_index]
+                .m_squared
+                .sqrt(),
+        );
+
+        // do the basis transformation
         for (i, lm) in ll_on_foci[..self.n_loops].iter_mut().enumerate() {
-            for (&sign, shift) in self.cb_to_lmb_mat[s.cut_structure_index]
+            for (((&sign, shift), &mass), &cut_mom_sig) in self.cb_to_lmb_mat[s.cut_structure_index]
                 [i * self.n_loops..(i + 1) * self.n_loops]
                 .iter()
                 .zip(cut_shift[..self.n_loops].iter())
+                .zip(cut_masses[..self.n_loops].iter())
+                .zip(s.sig_ll_in_cb.iter())
             {
-                *lm += shift.multiply_sign(-sign); // note the minus sign
+                if sign != 0 {
+                    *lm += -shift.multiply_sign(sign);
+
+                    if mass_sum > T::zero() {
+                        *lm += -s
+                            .shift
+                            .cast()
+                            .multiply_sign(cut_mom_sig)
+                            .multiply_sign(sign)
+                            * (mass / mass_sum);
+                    }
+                }
             }
         }
 
@@ -1171,18 +1234,18 @@ impl Topology {
         }
 
         // first check for full overlap before constructing pair information
-        /*self.construct_scs_problem(&ellipsoid_list, true, false);
-        if self.scs_problem.solve() > 0 {
+        /*self.construct_socp_problem(&ellipsoid_list, true, false);
+        if self.socp_problem.solve() > 0 {
             overlap_structure
                 .push(self.build_deformation_overlap_info(ellipsoid_list, ellipsoid_list));
-            self.scs_problem.finish();
+            self.socp_problem.finish();
             return overlap_structure;
         }*/
 
         // collect basic overlap info for all pairs
         for i in 0..ellipsoid_list.len() * ellipsoid_list.len() {
-            self.scs_problem.pair_appears_in_overlap_structurex[i] = false;
-            self.scs_problem.pair_overlap_matrix[i] = false;
+            self.socp_problem.pair_appears_in_overlap_structurex[i] = false;
+            self.socp_problem.pair_overlap_matrix[i] = false;
         }
 
         let mut ecos_time = 0;
@@ -1209,8 +1272,8 @@ impl Topology {
                     || (num_overlap + 1 >= self.surfaces[ellipsoid_list[i]].id.len()
                         && num_overlap + 1 >= self.surfaces[ellipsoid_list[j]].id.len())
                 {
-                    self.scs_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
-                    self.scs_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
+                    self.socp_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
+                    self.socp_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
 
                     focus_overlap = true;
                     if self.settings.general.debug < 2 {
@@ -1227,8 +1290,8 @@ impl Topology {
                 ball_time += Instant::now().duration_since(ti).as_nanos();
 
                 if self.settings.general.debug < 2 && has_overlap_heuristic {
-                    self.scs_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
-                    self.scs_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
+                    self.socp_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
+                    self.socp_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
                     pair_overlap_count += 1;
                     continue;
                 }
@@ -1237,10 +1300,10 @@ impl Topology {
 
                 // perform the ECOS test
                 let ti = Instant::now();
-                self.scs_problem.initialize_workspace_ecos();
-                let r = self.scs_problem.solve_ecos();
+                self.socp_problem.initialize_workspace_ecos();
+                let r = self.socp_problem.solve_ecos();
                 let has_overlap = r == 0 || r == -2 || r == 10;
-                self.scs_problem.finish_ecos();
+                self.socp_problem.finish_ecos();
                 ecos_time += Instant::now().duration_since(ti).as_nanos();
 
                 if focus_overlap && !has_overlap {
@@ -1261,9 +1324,9 @@ impl Topology {
 
                 // verify with SCS
                 if self.settings.general.debug > 1 {
-                    self.scs_problem.initialize_workspace_scs();
-                    let has_overlap_scs = self.scs_problem.solve_scs() > 0;
-                    self.scs_problem.finish_scs();
+                    self.socp_problem.initialize_workspace_scs();
+                    let has_overlap_scs = self.socp_problem.solve_scs() > 0;
+                    self.socp_problem.finish_scs();
 
                     if has_overlap != has_overlap_scs {
                         panic!(
@@ -1276,8 +1339,8 @@ impl Topology {
                 }
 
                 if has_overlap {
-                    self.scs_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
-                    self.scs_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
+                    self.socp_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
+                    self.socp_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
                     pair_overlap_count += 1;
                 }
 
@@ -1293,9 +1356,9 @@ impl Topology {
             println!("Pair overlap count: {}", pair_overlap_count);
         }
 
-        let mut option = mem::replace(&mut self.scs_problem.option, vec![]);
-        let mut option_translated = mem::replace(&mut self.scs_problem.option_translated, vec![]);
-        let mut different = mem::replace(&mut self.scs_problem.different, vec![]);
+        let mut option = mem::replace(&mut self.socp_problem.option, vec![]);
+        let mut option_translated = mem::replace(&mut self.socp_problem.option_translated, vec![]);
+        let mut different = mem::replace(&mut self.socp_problem.different, vec![]);
 
         for n in (1..ellipsoid_list.len()).rev() {
             if self.settings.general.debug > 0 {
@@ -1322,17 +1385,17 @@ impl Topology {
 
                 // perform the ECOS test
                 let ti = Instant::now();
-                self.scs_problem.initialize_workspace_ecos();
-                let r = self.scs_problem.solve_ecos();
+                self.socp_problem.initialize_workspace_ecos();
+                let r = self.socp_problem.solve_ecos();
                 let has_overlap = r == 0 || r == -2 || r == 10;
-                self.scs_problem.finish_ecos();
+                self.socp_problem.finish_ecos();
                 ecos_time += Instant::now().duration_since(ti).as_nanos();
 
                 // verify with SCS
                 if self.settings.general.debug > 1 {
-                    self.scs_problem.initialize_workspace_scs();
-                    let has_overlap_scs = self.scs_problem.solve_scs() > 0;
-                    self.scs_problem.finish_scs();
+                    self.socp_problem.initialize_workspace_scs();
+                    let has_overlap_scs = self.socp_problem.solve_scs() > 0;
+                    self.socp_problem.finish_scs();
 
                     if has_overlap != has_overlap_scs {
                         panic!(
@@ -1345,13 +1408,18 @@ impl Topology {
                 }
 
                 if has_overlap {
-                    // TODO: find centers with radius
+                    // find centers with maximal radius
+                    self.construct_socp_problem(&option_translated[..n], true);
+                    self.socp_problem.initialize_workspace_ecos();
+                    let r = self.socp_problem.solve_ecos();
+                    assert!(r == 0 || r == -2 || r == 10);
+                    self.socp_problem.finish_ecos();
 
                     for (i, &ei) in option[..n].iter().enumerate() {
                         for &ej in option[i + 1..n].iter() {
-                            self.scs_problem.pair_appears_in_overlap_structurex
+                            self.socp_problem.pair_appears_in_overlap_structurex
                                 [ei as usize * ellipsoid_list.len() + ej as usize] = true;
-                            self.scs_problem.pair_appears_in_overlap_structurex
+                            self.socp_problem.pair_appears_in_overlap_structurex
                                 [ej as usize * ellipsoid_list.len() + ei as usize] = true;
                         }
                     }
@@ -1368,12 +1436,12 @@ impl Topology {
             }
         }
 
-        mem::swap(&mut self.scs_problem.option, &mut option);
+        mem::swap(&mut self.socp_problem.option, &mut option);
         mem::swap(
-            &mut self.scs_problem.option_translated,
+            &mut self.socp_problem.option_translated,
             &mut option_translated,
         );
-        mem::swap(&mut self.scs_problem.different, &mut different);
+        mem::swap(&mut self.socp_problem.different, &mut different);
 
         if self.settings.general.debug > 0 {
             println!("Problem count  {}", problem_count);
@@ -1385,14 +1453,15 @@ impl Topology {
     }
 }
 
-/// An SOCS problem instance with cached data for SCS and ECOS. The user should never
+/// An SOCP problem instance with cached data for SCS and ECOS. The user should never
 /// overwrite the vectors with other vectors, but should update them instead.
 /// Resizing vectors is also not allowed.
 #[derive(Debug)]
-pub struct SOCSProblem {
+pub struct SOCPProblem {
+    pub radius_computation: bool,
     pub pair_overlap_matrix: Vec<bool>,
     pub pair_appears_in_overlap_structurex: Vec<bool>,
-    pub focus_list: Vec<(usize, usize)>,
+    pub focus_list: Vec<(usize, usize, usize)>,
     pub option: Vec<isize>,
     pub option_translated: Vec<usize>,
     pub different: Vec<bool>,
@@ -1421,17 +1490,17 @@ pub struct SOCSProblem {
 }
 
 // This is needed to work with the Python bindings. Generally, this is is not safe.
-unsafe impl std::marker::Send for SOCSProblem {}
+unsafe impl std::marker::Send for SOCPProblem {}
 
-impl Default for SOCSProblem {
-    fn default() -> SOCSProblem {
-        SOCSProblem::new(50, 20)
+impl Default for SOCPProblem {
+    fn default() -> SOCPProblem {
+        SOCPProblem::new(50 * 6, 20 * 6)
     }
 }
 
-impl Clone for SOCSProblem {
-    fn clone(&self) -> SOCSProblem {
-        let mut p = SOCSProblem::default();
+impl Clone for SOCPProblem {
+    fn clone(&self) -> SOCPProblem {
+        let mut p = SOCPProblem::default();
 
         // now copy the settings from the old problem
         // all other data is not copied
@@ -1440,8 +1509,8 @@ impl Clone for SOCSProblem {
     }
 }
 
-impl SOCSProblem {
-    pub fn new(max_ellipsoids: usize, max_foci: usize) -> SOCSProblem {
+impl SOCPProblem {
+    pub fn new(max_ellipsoids: usize, max_foci: usize) -> SOCPProblem {
         let mut settings = Box::new(scs::ScsSettings {
             normalize: 1,
             scale: 1.0,
@@ -1467,7 +1536,7 @@ impl SOCSProblem {
         let var_length = 3 * MAX_LOOP + max_foci;
         let num_non_empty = max_ellipsoids * MAX_LOOP + max_foci + 5 * MAX_LOOP * max_foci;
 
-        let focus_list = vec![(0, 0); max_foci];
+        let focus_list = vec![(0, 0, 0); max_foci];
         let a_dense = vec![0.; num_constraints * var_length];
         let mut q = vec![0; max_foci];
         let q_ecos = vec![0; max_foci];
@@ -1520,7 +1589,8 @@ impl SOCSProblem {
             s: &mut sol_s[0] as *mut f64,
         });
 
-        SOCSProblem {
+        SOCPProblem {
+            radius_computation: false,
             pair_overlap_matrix,
             pair_appears_in_overlap_structurex,
             focus_list,
@@ -1586,6 +1656,8 @@ impl SOCSProblem {
                 self.data.b,
                 ptr::null_mut(),
             );
+
+            assert_ne!(self.workspace_ecos, ptr::null_mut());
 
             (*(*self.workspace_ecos).stgs).verbose = 0;
             //(*(*self.workspace_ecos).stgs).maxit = 100;
