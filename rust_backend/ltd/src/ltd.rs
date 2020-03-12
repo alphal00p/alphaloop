@@ -2,7 +2,6 @@ use arrayvec::ArrayVec;
 use colored::Colorize;
 use dual_num::{DimName, DualN};
 use float;
-use fnv::FnvHashMap;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
@@ -2901,7 +2900,7 @@ impl Topology {
                     }
 
                     // Cache the reduced polynomial for the current diagram and evaluate
-                    diag.numerator.evaluate_reduced_in_lb(&k_def, cache, 0);
+                    diag.numerator.evaluate_reduced_in_lb(&k_def, 0, cache, 0);
                     result += if diag.ct {
                         -self
                             .partial_fractioning
@@ -2913,7 +2912,7 @@ impl Topology {
                 }
             } else {
                 // Evaluate in the case of a topology
-                self.numerator.evaluate_reduced_in_lb(&k_def, cache, 0);
+                self.numerator.evaluate_reduced_in_lb(&k_def, 0, cache, 0);
                 result =
                     self.partial_fractioning
                         .evaluate(&self.numerator, &self.loop_lines, cache);
@@ -2922,10 +2921,11 @@ impl Topology {
             // Compute all the necessary reduced polynomial using the value of k_vec
             if self.settings.general.use_amplitude {
                 for (num_id, diag) in self.amplitude.diagrams.iter().enumerate() {
-                    diag.numerator.evaluate_reduced_in_lb(&k_def, cache, num_id);
+                    diag.numerator
+                        .evaluate_reduced_in_lb(&k_def, 0, cache, num_id);
                 }
             } else {
-                self.numerator.evaluate_reduced_in_lb(&k_def, cache, 0);
+                self.numerator.evaluate_reduced_in_lb(&k_def, 0, cache, 0);
             }
 
             // Sum over all the cuts
@@ -3215,7 +3215,7 @@ impl LTDNumerator {
                 }
             }
             reduced_coefficient_index_to_powers
-                [LTDNumerator::powers_to_position(&key, &n_loops, &reduced_blocks)] = key;
+                [LTDNumerator::powers_to_position(&key, n_loops, &reduced_blocks)] = key;
         }
 
         // Copy numerator coefficients into vector
@@ -3246,14 +3246,14 @@ impl LTDNumerator {
     /// of all the powers of the input
     /// reduced blocks contains the precomputed sizes for all such group with smaller or equal
     /// number of variables and/or total rank
-    pub fn powers_to_position(basis: &[u8], n_variable: &usize, reduced_blocks: &[usize]) -> usize {
+    pub fn powers_to_position(basis: &[u8], n_variable: usize, reduced_blocks: &[usize]) -> usize {
         let mut rank: u8 = basis.iter().sum();
 
         if rank == 0 {
             return 0;
         }
         let mut pos = reduced_blocks[(rank as usize - 1) * n_variable + n_variable - 1];
-        for (n, pow) in basis.iter().enumerate() {
+        for (n, pow) in basis[..n_variable].iter().rev().enumerate() {
             rank -= pow;
             pos += 1;
 
@@ -3267,11 +3267,7 @@ impl LTDNumerator {
     }
 
     pub fn reduced_powers_to_position(&self, basis: &[u8]) -> usize {
-        LTDNumerator::powers_to_position(
-            &basis[..self.n_loops],
-            &self.n_loops,
-            &self.reduced_blocks,
-        )
+        LTDNumerator::powers_to_position(&basis[..self.n_loops], self.n_loops, &self.reduced_blocks)
     }
 
     /// Perform the rotation to the vector component of the coefficients
@@ -3336,25 +3332,33 @@ impl LTDNumerator {
     }
 
     /// Update the cache values to be contracted with the tensor in the loop momentum basis
-    pub fn update_numerator_momentum_no_energy<T: FloatLike>(
+    pub fn update_numerator_momentum_some_energies<T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<Complex<T>>],
+        absorb_first_energies: usize,
         cache: &mut LTDCache<T>,
     ) -> () {
+        // Resize cache vector in case its size is not sufficient
         if cache.numerator_momentum_cache.len() < self.coefficient_index_map.len() + 1 {
             cache.numerator_momentum_cache.resize(
                 self.coefficient_index_map.len() + 1,
                 Complex::new(T::zero(), T::zero()),
             );
         }
+        // Store monomials without coefficients
+        // Do not evaluate the energy compoent of the monomial if belongs to a loop momentum k_i
+        // if i >= abosrb_first_energies
         cache.numerator_momentum_cache[0] = Complex::one();
         for (i, &(cache_index, vec_index)) in self.coefficient_index_map.iter().enumerate() {
-            cache.numerator_momentum_cache[i + 1] = if vec_index % 4 == 0 {
-                cache.numerator_momentum_cache[cache_index]
-            } else {
-                cache.numerator_momentum_cache[cache_index]
-                    * loop_momenta[vec_index / 4][vec_index % 4]
-            };
+            cache.numerator_momentum_cache[i + 1] =
+                if vec_index % 4 == 0 && vec_index / 4 >= absorb_first_energies {
+                    // energy component
+                    cache.numerator_momentum_cache[cache_index]
+                } else {
+                    // vector component
+                    cache.numerator_momentum_cache[cache_index]
+                        * loop_momenta[vec_index / 4][vec_index % 4]
+                };
         }
     }
     /// Update the cache values to be contracted with the tensor in the loop momentum basis
@@ -3456,11 +3460,12 @@ impl LTDNumerator {
     pub fn evaluate_reduced_in_lb<T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<Complex<T>>],
+        absorob_n_energies: usize,
         cache: &mut LTDCache<T>,
         num_id: usize,
     ) {
         // Update tensor loop dependent part
-        self.update_numerator_momentum_no_energy(loop_momenta, cache);
+        self.update_numerator_momentum_some_energies(loop_momenta, absorob_n_energies, cache);
         // Initialize the reduced_coefficeints_lb with the factors coming from evaluating
         // the vectorial part of the loop momenta
         if cache.reduced_coefficient_lb[num_id].len() < self.reduced_size {
@@ -3470,15 +3475,23 @@ impl LTDNumerator {
             *c = Complex::default();
         }
 
+        let mut red_pows = [0; MAX_LOOP];
         for (i, (&c, powers)) in self
             .coefficients
             .iter()
             .zip(self.coefficient_index_to_powers.iter())
             .enumerate()
         {
-            cache.reduced_coefficient_lb[num_id][self.reduced_powers_to_position(powers)] += cache
-                .numerator_momentum_cache[i]
-                * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+            for i in absorob_n_energies..self.n_loops {
+                red_pows[i] = powers[i];
+            }
+
+            //let old_reduced_pos = self.reduced_powers_to_position(powers);
+            //let new_reduced_pos = self.reduced_powers_to_position(&red_pows);
+            //println!("{:?} -> {} -> {}", powers, old_reduced_pos, new_reduced_pos);
+            cache.reduced_coefficient_lb[num_id][self.reduced_powers_to_position(&red_pows)] +=
+                cache.numerator_momentum_cache[i]
+                    * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
         }
     }
     pub fn evaluate_reduced_in_cb<T: FloatLike>(
