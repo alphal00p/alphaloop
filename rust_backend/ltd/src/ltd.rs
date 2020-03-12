@@ -3460,12 +3460,12 @@ impl LTDNumerator {
     pub fn evaluate_reduced_in_lb<T: FloatLike>(
         &self,
         loop_momenta: &[LorentzVector<Complex<T>>],
-        absorob_n_energies: usize,
+        absorb_n_energies: usize,
         cache: &mut LTDCache<T>,
         num_id: usize,
     ) {
         // Update tensor loop dependent part
-        self.update_numerator_momentum_some_energies(loop_momenta, absorob_n_energies, cache);
+        self.update_numerator_momentum_some_energies(loop_momenta, absorb_n_energies, cache);
         // Initialize the reduced_coefficeints_lb with the factors coming from evaluating
         // the vectorial part of the loop momenta
         if cache.reduced_coefficient_lb[num_id].len() < self.reduced_size {
@@ -3482,7 +3482,7 @@ impl LTDNumerator {
             .zip(self.coefficient_index_to_powers.iter())
             .enumerate()
         {
-            for i in absorob_n_energies..self.n_loops {
+            for i in absorb_n_energies..self.n_loops {
                 red_pows[i] = powers[i];
             }
 
