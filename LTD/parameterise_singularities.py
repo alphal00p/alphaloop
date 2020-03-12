@@ -1,5 +1,6 @@
 from ltd_utils import *
 import warnings
+import random
 import os, sys
 sys.path.insert(0,'../')
 import ltd
@@ -267,7 +268,7 @@ class OneLoopSingularityParameteriser(object):
 		inv_trsf_loop_to_cut_basis = numpy.linalg.inv(trsf_loop_to_cut_basis)
 		signature_cut_basis = signature_loop_basis.dot(inv_trsf_loop_to_cut_basis)
 		shift_cut_basis = shift_loop_basis-signature_cut_basis.dot(trsf_loop_to_cut_shift)
-		#print(propagator)
+		#print(prop_name,prop_sign)
 		#print('sig_l',signature_loop_basis)
 		#print('sh_l',shift_loop_basis)
 		#print('inv_trsf_l',inv_trsf_loop_to_cut_basis)
@@ -284,7 +285,7 @@ class OneLoopSingularityParameteriser(object):
 		indep_counter = 0
 		for index,((name,energy_sign),signature) in enumerate(zip(cut_basis,signature_cut_basis)):
 			if signature != 0:
-				print(name)
+				#print(name,energy_sign)
 				indep_counter += 1
 				mass_squared_basis = self.squared_topology.masses[name] if name in self.squared_topology.masses else 0.
 				mass_prop = self.squared_topology.masses[prop_name] if prop_name in self.squared_topology.masses else 0.
@@ -295,13 +296,21 @@ class OneLoopSingularityParameteriser(object):
 				shift = vectors.LorentzVector(shift_cut_basis.dot(self.external_momenta))+numpy.sum([sign*q 
 									for sign, q in zip(signature_cut_basis[:index],os_cut_basis[:index]) if sign != 0],axis=0)
 				#print(mass_squared_basis,mass_squared_prop,shift)
+				#print('signature',signature_cut_basis[:index])
+				#print(shift,vectors.LorentzVector(shift_cut_basis.dot(self.external_momenta)))
+				#print('shift.sq',shift.square())
+				#print('sum mass sq',(numpy.sqrt(mass_squared_prop)+numpy.sqrt(mass_squared_basis))**2)
 				assert(shift.square() > (numpy.sqrt(mass_squared_prop)+numpy.sqrt(mass_squared_basis))**2)
+				#print('0 comp sign', shift[0],energy_sign,signature)
 				assert(shift[0]*energy_sign*signature < 0)
-				radius_min = self.kaellen_lambda(shift.square(),mass_squared_prop,mass_squared_basis)/(4.*shift.square())
+				radius_max = numpy.sqrt(self.kaellen_lambda(shift.square(),mass_squared_prop,mass_squared_basis)/(4.*shift.square()))
+				#print(indep_counter,n_independent_cuts)
 				if indep_counter == n_independent_cuts:
-					radius = radius_min
+					radius = radius_max
 				else:
-					radius = numpy.sqrt(self.e_cm_squared)*random_variables[counter]/(1.-random_variables[counter])+radius_min
+					#radius = numpy.sqrt(self.e_cm_squared)*random_variables[counter]/(1.-random_variables[counter])+radius_min
+					radius = random_variables[counter]*radius_max
+					#print(radius,radius_max)
 					counter += 1
 				cos_theta = 2*random_variables[counter]-1.
 				counter += 1
@@ -312,6 +321,7 @@ class OneLoopSingularityParameteriser(object):
 												self.get_unit_vector(cos_theta,phi)))
 				q = vectors.LorentzVector(self.get_boost(-self.get_beta(shift)).dot(q_rest))
 				os_cut_basis[index] = q
+				#print(os_cut_basis)
 		os_cut_basis = numpy.array(os_cut_basis)
 		os_prop_momentum = vectors.LorentzVector(signature_cut_basis.dot(os_cut_basis)+shift_cut_basis.dot(self.external_momenta))
 		#print(os_prop_momentum)
@@ -321,7 +331,9 @@ class OneLoopSingularityParameteriser(object):
 		all_cut_momenta.update({prop_name: os_prop_momentum})
 		outgoing_momenta = [energy_sign*all_cut_momenta[name] for (name,energy_sign) in self.cut_legs]
 		assert(all(numpy.zeros(4) == numpy.sum(incoming_momenta,axis=0)-numpy.sum(outgoing_momenta,axis=0)))
-		print(all_cut_momenta)
+		for name,p in all_cut_momenta.items():
+			print(name,p)
+		print(incoming_momenta)
 		return all_cut_momenta
 
 	def get_lorentz_vector(self,time,space):
@@ -610,9 +622,168 @@ class OneLoopSingularityParameteriser(object):
 		self.check_pinched_surface_parameterisations(arbitrary_x)
 		return
 
-class MultiLoopSingularityParameterriser(object):
-	def __init__(self,squared_topology):
-		bla
+class CutkoskyCutParametiser(object):
+	def __init__(self,squared_topology,cut_index):
+		self.external_momenta = [squared_topology.external_momenta['q%i'%(i+1)] for i in range(len(squared_topology.external_momenta))]
+		self.squared_topology = squared_topology
+		self.incoming_momenta_names = squared_topology.incoming_momenta
+		self.cut_topology = self.squared_topology.loop_topologies[cut_index]
+		self.cut_legs = self.squared_topology.cuts[cut_index]
+		self.cut_leg_signatures = self.squared_topology.cut_signatures[cut_index]
+		self.tolerance = 1e-10
+
+	def get_lorentz_vector(self,time,space):
+		return vectors.LorentzVector(numpy.append([time],space))
+
+	def get_space_vector(self,r,unit_vector):
+		return r*unit_vector
+
+	def get_unit_vector(self,cos_theta,phi):
+		sin_theta = numpy.sqrt(1-cos_theta**2)
+		return numpy.array([sin_theta*numpy.cos(phi),sin_theta*numpy.sin(phi),cos_theta])
+
+	def get_beta(self,p):
+		assert(p.square()!=0)
+		beta = p.space()/p[0]
+		assert(beta.dot(beta)<1.)
+		return beta
+
+	def get_gamma(self,beta):
+		assert(beta.dot(beta)<1.)
+		return 1./numpy.sqrt(1.-beta.dot(beta))
+
+	def kaellen_lambda(self,x,y,z):
+		return x**2 + y**2 + z**2 - 2.*(x*y + x*z + y*z)
+
+	def get_boost(self,beta):
+		assert(beta.dot(beta)<1.)
+		assert(beta.dot(beta)>=0.)
+		if abs(beta.dot(beta)) < self.tolerance:
+			boost = numpy.identity(4)
+		else:
+			gamma = self.get_gamma(beta)
+			row0 = numpy.append([gamma],-gamma*beta)
+			space_matrix = numpy.identity(3)+(gamma-1)/beta.dot(beta)*numpy.outer(beta,beta)
+			rows1to3 = numpy.append([-gamma*beta],space_matrix,axis=0).T
+			boost = numpy.append([row0],rows1to3,axis=0)
+		return boost
+
+	def get_cut_basis(self,include_loop_momenta=False):
+		cut_basis = []
+		cut_signatures = []
+		cut_shifts = []
+		for cut_leg_index, name_and_sign in enumerate(self.cut_legs[:-1]):
+			cut_basis += [name_and_sign]
+			cut_signatures += [self.cut_leg_signatures[cut_leg_index][0]]
+			cut_shifts += [self.cut_leg_signatures[cut_leg_index][1]]
+		if include_loop_momenta:
+			loop_momentum_index = 1
+			for l_or_r in [0,1]:
+				if self.cut_topology[l_or_r].n_loops > 0:
+					for loop_index, signature in enumerate(self.cut_topology[l_or_r].loop_momentum_map):
+						cut_basis += [('k%i'%loop_momentum_index,1)] #random cut sign, result is independent of it
+						cut_signatures += [signature[0]]
+						cut_shifts += [signature[1]]
+						loop_momentum_index += 1
+		print(cut_basis)
+		trsf_loop_to_cut_basis = numpy.array(cut_signatures)
+		if not include_loop_momenta:
+			reduced_trsf_loop_to_cut_basis = []
+			for column in trsf_loop_to_cut_basis.T:
+				#print(column)
+				if not all([c==0 for c in column]):
+					reduced_trsf_loop_to_cut_basis += [column]
+			#print(reduced_trsf_loop_to_cut_basis)
+			trsf_loop_to_cut_basis = numpy.array(reduced_trsf_loop_to_cut_basis).T
+		inv_trsf_loop_to_cut_basis = numpy.linalg.inv(trsf_loop_to_cut_basis)
+		trsf_loop_to_cut_shift = numpy.array(cut_shifts)
+		#spatial_external = numpy.array([external_momentum[1:] for external_momentum in self.external_momenta])
+		#print(cut_basis)
+		#print(trsf_loop_to_cut_shift)
+		#print(trsf_loop_to_cut_basis)
+		#supergraph_basis = inv_trsf_loop_to_cut_basis.dot(cut_basis-trsf_loop_to_cut_shift.dot(spatial_external))
+		return cut_basis, trsf_loop_to_cut_basis, trsf_loop_to_cut_shift
+	
+	def get_PS_point(self,random_variables):
+		counter = 0
+		assert(len(random_variables)==3*(len(self.cut_legs)-1)-1)
+		# see last cut momentum as a dual propagator that is put on-shell by solving for a radius
+		# express dual propagator in cut basis
+		# check that the number of cut energies (# square roots -1 in e-surface) indeed is len(self.cut_legs)-1
+		cut_basis, trsf_loop_to_cut_basis, trsf_loop_to_cut_shift = self.get_cut_basis(include_loop_momenta=True)
+		prop_name, prop_sign = self.cut_legs[-1]
+		signature_loop_basis = numpy.array(self.cut_leg_signatures[-1][0])
+		shift_loop_basis = numpy.array(self.cut_leg_signatures[-1][1])
+		inv_trsf_loop_to_cut_basis = numpy.linalg.inv(trsf_loop_to_cut_basis)
+		signature_cut_basis = signature_loop_basis.dot(inv_trsf_loop_to_cut_basis)
+		shift_cut_basis = shift_loop_basis-signature_cut_basis.dot(trsf_loop_to_cut_shift)
+		#print(prop_name,prop_sign)
+		#print('sig_l',signature_loop_basis)
+		#print('sh_l',shift_loop_basis)
+		#print('inv_trsf_l',inv_trsf_loop_to_cut_basis)
+		#print('trsf_s',trsf_loop_to_cut_shift)
+		#print('sig_c',signature_cut_basis)
+		#print('sh_c',shift_cut_basis)
+		# count number of cut energies the propagator depends on
+		n_independent_cuts = len([1 for sign in signature_cut_basis if sign != 0])
+		assert(n_independent_cuts==len(self.cut_legs)-1)
+		#os_momenta_flow = [(name,energy_sign,signature) for (name,energy_sign),signature in zip(cut_basis,signature_cut_basis) if signature != 0]
+		#print(os_momenta_flow)
+		os_cut_basis = [vectors.LorentzVector([0,0,0,0]) for i in range(len(cut_basis))]
+		#print(os_cut_basis)
+		indep_counter = 0
+		for index,((name,energy_sign),signature) in enumerate(zip(cut_basis,signature_cut_basis)):
+			if signature != 0:
+				#print(name,energy_sign)
+				indep_counter += 1
+				mass_squared_basis = self.squared_topology.masses[name] if name in self.squared_topology.masses else 0.
+				mass_prop = self.squared_topology.masses[prop_name] if prop_name in self.squared_topology.masses else 0.
+				mass_prop += numpy.sum([self.squared_topology.masses[name]
+												if (name in self.squared_topology.masses and sign != 0) else 0.
+												for sign,((name,_)) in zip(signature_cut_basis[:index],cut_basis[:index])])
+				mass_squared_prop = mass_prop**2
+				shift = vectors.LorentzVector(shift_cut_basis.dot(self.external_momenta))+numpy.sum([sign*q 
+									for sign, q in zip(signature_cut_basis[:index],os_cut_basis[:index]) if sign != 0],axis=0)
+				#print(mass_squared_basis,mass_squared_prop,shift)
+				#print('signature',signature_cut_basis[:index])
+				#print(shift,vectors.LorentzVector(shift_cut_basis.dot(self.external_momenta)))
+				#print('shift.sq',shift.square())
+				#print('sum mass sq',(numpy.sqrt(mass_squared_prop)+numpy.sqrt(mass_squared_basis))**2)
+				assert(shift.square() > (numpy.sqrt(mass_squared_prop)+numpy.sqrt(mass_squared_basis))**2)
+				#print('0 comp sign', shift[0],energy_sign,signature)
+				assert(shift[0]*energy_sign*signature < 0)
+				radius_max = numpy.sqrt(self.kaellen_lambda(shift.square(),mass_squared_prop,mass_squared_basis)/(4.*shift.square()))
+				#print(indep_counter,n_independent_cuts)
+				if indep_counter == n_independent_cuts:
+					radius = radius_max
+				else:
+					#radius = numpy.sqrt(self.e_cm_squared)*random_variables[counter]/(1.-random_variables[counter])+radius_min
+					radius = random_variables[counter]*radius_max
+					#print(radius,radius_max)
+					counter += 1
+				cos_theta = 2*random_variables[counter]-1.
+				counter += 1
+				phi = 2*numpy.pi*random_variables[counter]
+				counter += 1
+				q_rest = self.get_lorentz_vector(energy_sign*numpy.sqrt(radius**2 + mass_squared_basis),
+											self.get_space_vector(radius,
+												self.get_unit_vector(cos_theta,phi)))
+				q = vectors.LorentzVector(self.get_boost(-self.get_beta(shift)).dot(q_rest))
+				os_cut_basis[index] = q
+				#print(os_cut_basis)
+		os_cut_basis = numpy.array(os_cut_basis)
+		os_prop_momentum = vectors.LorentzVector(signature_cut_basis.dot(os_cut_basis)+shift_cut_basis.dot(self.external_momenta))
+		#print(os_prop_momentum)
+		# assert momentum conservation
+		incoming_momenta = [vectors.LorentzVector(momentum) for name,momentum in self.squared_topology.external_momenta.items() if name in self.incoming_momenta_names]
+		all_cut_momenta = {name: vectors.LorentzVector(momentum) for (name,energy_sign),momentum in zip(cut_basis,os_cut_basis) if (name,energy_sign) in self.cut_legs}
+		all_cut_momenta.update({prop_name: os_prop_momentum})
+		outgoing_momenta = [energy_sign*all_cut_momenta[name] for (name,energy_sign) in self.cut_legs]
+		assert(all(numpy.zeros(4) == numpy.sum(incoming_momenta,axis=0)-numpy.sum(outgoing_momenta,axis=0)))
+		for name,p in all_cut_momenta.items():
+			print(name,p)
+		print(incoming_momenta)
+		return all_cut_momenta
 
 if __name__ == "__main__":
 
@@ -635,22 +806,24 @@ if __name__ == "__main__":
 		loop_momenta_names=('p1', 'p2', 'p3'),
 		particle_ids={'p%s' % i: i for i in range(9)})
 
-	squared_topology = t1
+	squared_topology = mercedes
+
+	for cut_index, cut in enumerate(squared_topology.cuts):
+		print(cut_index)
+		parameteriser = CutkoskyCutParametiser(squared_topology,cut_index)
+		#parameteriser.get_cut_basis()
+		parameteriser.get_PS_point([random.random() for i in range(3*len(squared_topology.cuts[cut_index])-4)])
+
+	stop
 	print(squared_topology.cuts)
 	#print(squared_topology.external_momenta)
 	#print(squared_topology.topo.loop_momenta)
-	CUT_INDEX = 1
+	CUT_INDEX = 3
 	#print(squared_topology.cuts[CUT_INDEX])
 	#print(squared_topology.loop_topologies[CUT_INDEX][1])
 	#print(squared_topology.cut_signatures[CUT_INDEX])
 	
-	print(squared_topology.masses)
-
-	os_cut_momenta = [vectors.LorentzVector([0.5       , 0.07372098, 0.22116293, 0.44232587]), vectors.LorentzVector([-0.5       ,  0.07372098,  0.22116293,  0.44232587])]
-	parameteriser = OneLoopSingularityParameteriser(squared_topology,CUT_INDEX,1,os_cut_momenta)
-	#parameteriser.get_cut_basis()
-	parameteriser.get_PS_point([0.9,0.2])
-	stop
+	#print(squared_topology.masses)
 
 	# set len(cuts[CUT_INDEX])-1 spatial cut momenta (randomly!)
 	arbitrary_p = vectors.Vector([1.,3.,6.])
