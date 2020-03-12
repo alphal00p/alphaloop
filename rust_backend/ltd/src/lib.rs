@@ -780,11 +780,13 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+        // Prepare numerator
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        match topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache, true) {
+        match topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache, true, 0) {
             Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
             Err(_) => Ok((0., 0.))
         }
@@ -807,11 +809,13 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+        // Prepare numerator
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        match topo.evaluate_cut::<f128::f128>(&mut moms, &topo.numerator, cut, mat, &mut cache, true) {
+        match topo.evaluate_cut::<f128::f128>(&mut moms, &topo.numerator, cut, mat, &mut cache, true, 0) {
             Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
             Err(_) => Ok((0., 0.))
         }
@@ -834,10 +838,12 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+        // Prepare numerator
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
-        let v = topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache, true).unwrap();
+        let v = topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache, true, 0).unwrap();
         // get the loop line result from the cache if possible
         let r = 2.0 * cache.complex_cut_energies[cut_index];
         let ct = topo.counterterm::<float>(&moms[..topo.n_loops], r, cut_index, &mut cache);
@@ -863,10 +869,12 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+        // Prepare numerator
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
-        let v = topo.evaluate_cut::<f128::f128>(&mut moms, &topo.numerator, cut, mat, &mut cache, true).unwrap();
+        let v = topo.evaluate_cut::<f128::f128>(&mut moms, &topo.numerator, cut, mat, &mut cache, true, 0).unwrap();
         // get the loop line result from the cache if possible
         let r = cache.complex_cut_energies[cut_index] * f128::f128::from_f64(2.0).unwrap();
         let ct = topo.counterterm::<f128::f128>(&moms[..topo.n_loops], r, cut_index, &mut cache);
