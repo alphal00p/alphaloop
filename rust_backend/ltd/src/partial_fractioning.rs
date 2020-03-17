@@ -22,13 +22,23 @@ pub struct PFCache {
 
 impl PFCache {
     pub fn new(n_prop: usize) -> PFCache {
-        // Use this to avoid redundant allocation
-        PFCache {
-            splits: vec![0; n_prop - 1],
-            ellipsoids_product: vec![(0, 0); n_prop - 1],
-            numerator: vec![0; n_prop],
-            numerator_size: 0,
-            numerator_index_map: vec![0; n_prop],
+        if n_prop == 0 {
+            PFCache {
+                splits: vec![],
+                ellipsoids_product: vec![],
+                numerator: vec![],
+                numerator_size: 0,
+                numerator_index_map: vec![],
+            }
+        } else {
+            // Use this to avoid redundant allocation
+            PFCache {
+                splits: vec![0; n_prop - 1],
+                ellipsoids_product: vec![(0, 0); n_prop - 1],
+                numerator: vec![0; n_prop],
+                numerator_size: 0,
+                numerator_index_map: vec![0; n_prop],
+            }
         }
     }
 }

@@ -214,6 +214,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub overall_lambda: T, // used to log the minimum
     pub numerator_momentum_cache: Vec<Complex<T>>,
     pub reduced_coefficient_lb: Vec<Vec<Complex<T>>>,
+    pub reduced_coefficient_lb_supergraph: Vec<Vec<Complex<T>>>,
     pub reduced_coefficient_cb: Vec<Complex<T>>,
     pub pf_cache: PFCache,
     pub propagators: FnvHashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
@@ -224,7 +225,6 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
     pub fn new(topo: &Topology) -> LTDCache<T> {
         let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
-
         LTDCache {
             one_loop: LTDCacheI::<T, U4>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
             two_loop: LTDCacheI::<T, U7>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
@@ -254,8 +254,9 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
                     1
                 }
             ],
+            reduced_coefficient_lb_supergraph: vec![vec![Complex::default(); topo.n_loops]],
             reduced_coefficient_cb: vec![Complex::default(); topo.n_loops],
-            pf_cache: PFCache::new(topo.loop_lines[0].propagators.len()), // NOTE: 1-Loop
+            pf_cache: PFCache::new(num_propagators), // NOTE: 1-Loop
             propagators: HashMap::default(),
             propagators_eval: vec![Complex::zero(); num_propagators],
             propagator_powers: vec![1; num_propagators],
@@ -560,7 +561,10 @@ impl Topology {
         }
     }
 
-    pub fn determine_ellipsoid_overlap_structure(&mut self) -> Vec<FixedDeformationLimit> {
+    pub fn determine_ellipsoid_overlap_structure(
+        &mut self,
+        update_excluded_surfaces: bool,
+    ) -> Vec<FixedDeformationLimit> {
         let ellipsoid_ids: Vec<usize> = self
             .surfaces
             .iter()
@@ -584,10 +588,27 @@ impl Topology {
         }
 
         // TODO: also determine subspace deformation vectors
-        vec![FixedDeformationLimit {
+        let fixed_deformation = vec![FixedDeformationLimit {
             deformation_per_overlap: overlap,
             excluded_propagators: vec![],
-        }]
+        }];
+
+        if update_excluded_surfaces {
+            // update the excluded surfaces
+            for ex in &mut self.all_excluded_surfaces {
+                *ex = false;
+            }
+
+            for d_lim in &fixed_deformation {
+                for d in &d_lim.deformation_per_overlap {
+                    for surf_id in &d.excluded_surface_indices {
+                        self.all_excluded_surfaces[*surf_id] = true;
+                    }
+                }
+            }
+        }
+
+        fixed_deformation
     }
 
     /// Construct the SCS problem with all the ellipsoids in the problem.

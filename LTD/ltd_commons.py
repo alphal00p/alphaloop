@@ -20,7 +20,7 @@ hyperparameters = HyperParameters({
         'multi_channeling_channel': None,
         # Derive the overlap structure required for the fixed deformation in Rust.
         'derive_overlap_structure':  False,
-        # can be additive, fixed, constant, duals, intersections or none
+        # can be additive, fixed, constant or none
         'deformation_strategy'  :   'fixed',
         'topology'              :   'Box',
         # scale at which to use partial fractioning for the integrand

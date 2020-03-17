@@ -94,8 +94,6 @@ pub struct Scaling {
 pub enum DeformationStrategy {
     #[serde(rename = "additive")]
     Additive,
-    #[serde(rename = "duals")]
-    Duals,
     #[serde(rename = "constant")]
     Constant,
     #[serde(rename = "fixed")]
@@ -158,7 +156,6 @@ impl From<&str> for DeformationStrategy {
     fn from(s: &str) -> Self {
         match s {
             "additive" => DeformationStrategy::Additive,
-            "duals" => DeformationStrategy::Duals,
             "constant" => DeformationStrategy::Constant,
             "fixed" => DeformationStrategy::Fixed,
             "none" => DeformationStrategy::None,
@@ -227,7 +224,6 @@ impl fmt::Display for DeformationStrategy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             DeformationStrategy::Additive => write!(f, "additive"),
-            DeformationStrategy::Duals => write!(f, "duals"),
             DeformationStrategy::Constant => write!(f, "constant"),
             DeformationStrategy::Fixed => write!(f, "fixed"),
             DeformationStrategy::None => write!(f, "none"),
@@ -596,22 +592,22 @@ py_class!(class CrossSection |py| {
         let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
-        let k_def: ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> =
-            (0..MAX_LOOP).map(|_| LorentzVector::default()).collect();
+        let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
         let cache = &mut *self.caches(py).borrow_mut()[cut_index];
 
+        let max_cuts = squared_topology.n_loops + 1;
         let res = squared_topology.evaluate_cut(
             &moms,
             &mut cut_momenta,
             &mut external_momenta,
             &mut rescaled_loop_momenta,
             &mut subgraph_loop_momenta,
-            k_def,
+            &mut k_def[..max_cuts],
             cache,
             cut_index,
             scaling,
             scaling_jac,
-        ).0;
+        );
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
@@ -638,22 +634,22 @@ py_class!(class CrossSection |py| {
         let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
-        let k_def: ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> =
-            (0..MAX_LOOP).map(|_| LorentzVector::default()).collect();
+        let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
         let cache = &mut *self.caches_f128(py).borrow_mut()[cut_index];
 
+        let max_cuts = squared_topology.n_loops + 1;
         let res = squared_topology.evaluate_cut(
             &moms,
             &mut cut_momenta,
             &mut external_momenta,
             &mut rescaled_loop_momenta,
             &mut subgraph_loop_momenta,
-            k_def,
+            &mut k_def[..max_cuts],
             cache,
             cut_index,
             f128::f128::from_f64(scaling).unwrap(),
             f128::f128::from_f64(scaling_jac).unwrap(),
-        ).0;
+        );
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
@@ -1006,7 +1002,7 @@ py_class!(class LTD |py| {
                 float::from_f64(l[2]).unwrap()));
         }
 
-        let (res, jac) = topo.deform::<float>(&moms, None, None, &mut cache);
+        let (res, jac) = topo.deform::<float>(&moms, &mut cache);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {
@@ -1028,7 +1024,7 @@ py_class!(class LTD |py| {
                 f128::f128::from_f64(l[2]).unwrap()));
         }
 
-        let (res, jac) = topo.deform::<f128::f128>(&moms, None, None, &mut cache);
+        let (res, jac) = topo.deform::<f128::f128>(&moms, &mut cache);
 
         let mut r = Vec::with_capacity(moms.len());
         for x in res[..topo.n_loops].iter() {

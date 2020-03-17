@@ -234,6 +234,8 @@ macro_rules! check_stability_precision {
         let mut min = result;
         let mut max = result;
 
+        // TODO: we are also findings the centers for the rotated topologies
+        // inherit them from the first topology
         for rot_topo in &mut self.topologies[1..num_samples] {
             if self.settings.general.debug > 2 {
                 println!("Evaluating integrand with rotated topologies");

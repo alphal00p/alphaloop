@@ -884,7 +884,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
 
                     // optionally evaluate the real part of the surface with complex momentum
                     let res = if evaluate_after_deformation {
-                        let (kappas, _) = topo.deform(&loop_momenta, None, None, &mut cache);
+                        let (kappas, _) = topo.deform(&loop_momenta, &mut cache);
                         k_def = (0..topo.n_loops)
                             .map(|i| {
                                 loop_momenta[i].map(|x| num::Complex::new(x, f128::f128::zero()))
@@ -918,7 +918,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                         // check the pole for non-pinched ellipsoids
                         if surf.surface_type == SurfaceType::Ellipsoid {
                             // set the loop momenta
-                            let (kappas, _) = topo.deform(&loop_momenta, None, None, &mut cache);
+                            let (kappas, _) = topo.deform(&loop_momenta, &mut cache);
                             k_def = (0..topo.n_loops)
                                 .map(|i| {
                                     loop_momenta[i]
@@ -960,8 +960,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                 }
 
                                 // set the loop momenta
-                                let (kappas, _) =
-                                    topo.deform(&loop_momenta, None, None, &mut cache);
+                                let (kappas, _) = topo.deform(&loop_momenta, &mut cache);
                                 k_def = (0..topo.n_loops)
                                     .map(|i| {
                                         loop_momenta[i]

@@ -15,7 +15,7 @@ from collections import defaultdict
 from pprint import pformat
 import numpy as numpy
 import numpy.linalg
-from itertools import product, combinations, permutations
+from itertools import product, combinations, combinations_with_replacement, permutations
 import multiprocessing
 import signal
 import time
@@ -363,8 +363,15 @@ class TopologyGenerator(object):
             edge_map[edge_name] = signature
         return edge_map
 
-    def build_proto_topology(self, sub_graph, cuts, loop_momenta_names=None):
-        sub_graph.generate_momentum_flow()
+    def build_proto_topology(self, sub_graph, cuts, inherit_loop_momenta=True):
+        if inherit_loop_momenta and sub_graph.n_loops > 0:
+            # select a basis with the most loop momenta shared with the supergraph
+            lm_names = [ self.edge_map_lin[e][0] for e in self.loop_momenta]
+            bases = [ tuple(sub_graph.edge_map_lin[e][0] for e in b) for b in sub_graph.loop_momentum_bases()]
+            bases = sorted(bases, key=lambda b: len([lm for lm in b if lm in lm_names]), reverse=True)
+            sub_graph.generate_momentum_flow(bases[0])
+        else:
+            sub_graph.generate_momentum_flow()
 
         # for each edge, determine the momentum map from full graph to subgraph and the shift
         # the shift will in general also have loop momentum dependence
@@ -1778,30 +1785,64 @@ class TopologyCollection(dict):
         return result
 
 class SquaredTopologyGenerator:
-    def __init__(self, edges, name, incoming_momentum_names, n_cuts, external_momenta, final_state_particle_ids=(), loop_momenta_names=None, masses={}, powers=None, particle_ids={}):
+    def __init__(self, edges, name, incoming_momentum_names, n_cuts, external_momenta, final_state_particle_ids=(),
+        loop_momenta_names=None, masses={}, powers=None, particle_ids={}, overall_numerator=1., numerator_structure={},
+        cut_filter=set()):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         self.external_momenta = external_momenta
         self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momentum_names, final_state_particle_ids, particle_ids)
+
+        if len(cut_filter) > 0:
+            self.cuts = [c for c in self.cuts if tuple(n[0] for n in c) in cut_filter]
+
         self.masses = masses
+        self.overall_numerator = overall_numerator
         self.incoming_momenta = incoming_momentum_names
         self.topologies = [self.topo.split_graph([a[0] for a in c], incoming_momentum_names) for c in self.cuts]
 
-        self.topo.generate_momentum_flow(loop_momenta_names)
+        self.topo.generate_momentum_flow(loop_momenta_names) # TODO: why twice?
         edge_map = self.topo.get_signature_map()
 
         self.loop_topologies = []
         self.cut_signatures = []
         self.cut_symmetry_factors = []
+        self.numerator_structure = []
         for sub_graphs, c in zip(self.topologies, self.cuts):
             # determine the signature of the cuts
             self.cut_signatures.append(
                 [copy.deepcopy(edge_map[cut_edge]) for cut_edge, _ in c]
             )
 
+            cut_name = tuple(a[0] for a in c)
+
+            if cut_name in numerator_structure:
+                numerator_sparse = [[tuple(x[0]), x[1]] for x in numerator_structure[cut_name]]
+            else:
+                numerator_sparse = [[tuple(), [1.0, 0.]]]
+            
+            max_rank = max((len(e) for e, v in numerator_sparse), default=0)
+            
+            # pad the numerator with zeros
+            numerator_pows=[j for i in range(max_rank + 1) for j in combinations_with_replacement(range(4 * self.topo.n_loops), i)]
+            numerator = [[0., 0.,] for _ in numerator_pows]
+
+            for k, v in numerator_sparse:
+                numerator[numerator_pows.index(k)] = list(v)
+
+            self.numerator_structure.append(numerator)
+
             loop_topos = []
             for i, s in enumerate(sub_graphs):
+                # fill the numerator for the same rank
+                s.loop_momentum_bases() # sets the number of loops
+                numerator_entries = 1
+                level_size = 1
+                for cur_rank in range(0, max_rank):
+                    level_size = (level_size * (s.n_loops * 4 + cur_rank)) // (cur_rank + 1)
+                    numerator_entries += level_size
+
                 (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, [a[0] for a in c])
                 loop_topos.append(
                     s.create_loop_topology(name + '_' + ''.join(a[0] for a in c) + '_' + ['l', 'r'][i],
@@ -1810,6 +1851,7 @@ class SquaredTopologyGenerator:
                     fixed_deformation=False,
                     mass_map=masses,
                     loop_momentum_map=loop_mom_map,
+                    numerator_tensor_coefficients=[[0., 0.] for _ in range(numerator_entries)],
                     shift_map=shift_map))
 
             # compute external state symmetry factor
@@ -1826,6 +1868,7 @@ class SquaredTopologyGenerator:
         out = {
             'name': self.name,
             'n_loops': self.topo.n_loops,
+            'overall_numerator': self.overall_numerator,
             'n_incoming_momenta': len(self.incoming_momenta),
             'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
             'topo': [list(x) for x in self.topo.edge_map_lin],
@@ -1843,10 +1886,11 @@ class SquaredTopologyGenerator:
                     for a, sig in zip(c, cut_sig)],
                 'subgraph_left': ts[0].to_flat_format(),
                 'subgraph_right': ts[1].to_flat_format(),
+                'numerator_tensor_coefficients': num,
                 'symmetry_factor': sym
                 }
 
-                for c, cut_sig, ts, sym in zip(self.cuts, self.cut_signatures, self.loop_topologies, self.cut_symmetry_factors)
+                for c, cut_sig, ts, sym, num in zip(self.cuts, self.cut_signatures, self.loop_topologies, self.cut_symmetry_factors, self.numerator_structure)
             ]
         }
 
@@ -1888,6 +1932,97 @@ if __name__ == "__main__":
     masses={'p1': 0.24, 'p2': 0.24})
     bubble.export('bubble_squared.yaml')
 
+    gamma_to_dd_1l = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "gamma_to_dd_1l", ['q1'], 0,
+        {'q1': [2., 0., 0., 0.], 'q2': [2., 0., 0., 0.]},
+        particle_ids={'p%s' % i: i for i in range(3)},
+        overall_numerator=0.25,
+        numerator_structure={('p1', 'p2'):
+        [
+            [[0], (-1.49418e8, 0.)],
+            [[0, 0], (7.47091e7, 0.)],
+            [[3, 3], (-7.47091e7, 0.)]
+        ]}
+        )
+    gamma_to_dd_1l.export('gamma_to_dd_1l.yaml')
+
+    ee_to_dd_1l = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 1), ('q3', 4, 103), ('q4', 4, 104), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4)], 
+        "ee_to_dd_1l", ['q1', 'q2'], 2, {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
+        particle_ids={'p%s' % i: i for i in range(6)},
+        overall_numerator=0.25,
+        numerator_structure={('p2', 'p3'):
+        [
+            [[0], (-1.49418e8, 0.)],
+            [[0, 0], (7.47091e7, 0.)],
+            [[3, 3], (-7.47091e7, 0.)]
+        ]}
+        )
+    ee_to_dd_1l.export('ee_to_dd_1l.yaml')
+
+    ee_to_dd_2l = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 1), ('q3', 6, 103), ('q4', 6, 104), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 5), ('p4', 5, 6),
+    ('p5',5, 4), ('p6', 4, 2), ('p7', 4, 3)],
+        "ee_to_dd_2l", ['q1', 'q2'], 2, {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
+        loop_momenta_names=('p2', 'p3'),
+        particle_ids={'p%s' % i: i for i in range(8)},
+        overall_numerator=1.0,
+        cut_filter={('p3', 'p5')},
+        numerator_structure={('p2', 'p5', 'p7'):
+            [[[0,4],[0.,+2.954161761482786e8]],
+            [[0,4,4],[0.,+1.477080880741393e8]],
+            [[0,7,7],[0.,-1.477080880741393e8]],
+            [[1,5],[0.,-2.954161761482786e8]],
+            [[1,4,5],[0.,-1.477080880741393e8]],
+            [[2,6],[0.,-2.954161761482786e8]],
+            [[2,4,6],[0.,-1.477080880741393e8]],
+            [[3,7],[0.,-2.954161761482786e8]],
+            [[0,0,4],[0.,-1.477080880741393e8]],
+            [[0,0,4,4],[0.,-7.385404403706966e7]],
+            [[0,0,5,5],[0.,+7.385404403706966e7]],
+            [[0,0,6,6],[0.,+7.385404403706966e7]],
+            [[0,0,7,7],[0.,+7.385404403706966e7]],
+            [[0,1,5],[0.,+1.477080880741393e8]],
+            [[0,1,4,5],[0.,+1.477080880741393e8]],
+            [[0,2,6],[0.,+1.477080880741393e8]],
+            [[0,2,4,6],[0.,+1.477080880741393e8]],
+            [[1,1,5,5],[0.,-1.477080880741393e8]],
+            [[1,2,5,6],[0.,-2.954161761482786e8]],
+            [[1,3,5,7],[0.,-1.477080880741393e8]],
+            [[2,2,6,6],[0.,-1.477080880741393e8]],
+            [[2,3,6,7],[0.,-1.477080880741393e8]],
+            [[3,3,4],[0.,+1.477080880741393e8]],
+            [[3,3,4,4],[0.,+7.385404403706966e7]],
+            [[3,3,5,5],[0.,-7.385404403706966e7]],
+            [[3,3,6,6],[0.,-7.385404403706966e7]],
+            [[3,3,7,7],[0.,-7.385404403706966e7]]],
+            ('p3', 'p5'):
+            [[[0,4],[0.,-2.954161761482786e8]],
+            [[0,4,4],[0.,+1.477080880741393e8]],
+            [[0,7,7],[0.,-1.477080880741393e8]],
+            [[1,4,5],[0.,-1.477080880741393e8]],
+            [[2,4,6],[0.,-1.477080880741393e8]],
+            [[3,7],[0.,-2.954161761482786e8]],
+            [[0,0,4],[0.,+1.477080880741393e8]],
+            [[0,0,4,4],[0.,-7.385404403706966e7]],
+            [[0,0,5,5],[0.,+7.385404403706966e7]],
+            [[0,0,6,6],[0.,+7.385404403706966e7]],
+            [[0,0,7,7],[0.,+7.385404403706966e7]],
+            [[0,1,5],[0.,-1.477080880741393e8]],
+            [[0,1,4,5],[0.,+1.477080880741393e8]],
+            [[0,2,6],[0.,-1.477080880741393e8]],
+            [[0,2,4,6],[0.,+1.477080880741393e8]],
+            [[1,1,5,5],[0.,-1.477080880741393e8]],
+            [[1,2,5,6],[0.,-2.954161761482786e8]],
+            [[1,3,5,7],[0.,-1.477080880741393e8]],
+            [[2,2,6,6],[0.,-1.477080880741393e8]],
+            [[2,3,6,7],[0.,-1.477080880741393e8]],
+            [[3,3,4],[0.,-1.477080880741393e8]],
+            [[3,3,4,4],[0.,+7.385404403706966e7]],
+            [[3,3,5,5],[0.,-7.385404403706966e7]],
+            [[3,3,6,6],[0.,-7.385404403706966e7]],
+            [[3,3,7,7],[0.,-7.385404403706966e7]]]
+            }
+        )
+    ee_to_dd_2l.export('ee_to_dd_2l.yaml')
+
     t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
         {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
         particle_ids={'p%s' % i: i for i in range(9)})
@@ -1900,7 +2035,7 @@ if __name__ == "__main__":
                                         loop_momenta_names=('p2', 'p4', 'p7'),
                                         particle_ids={'p%s' % i: i for i in range(9)})
     bu.export('bu_squared.yaml')
-
+    
     insertion = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4), ('p5', 1, 4), ('q2', 4, 5)], "I", ['q1'], 3,
         {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
         masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})#, loop_momenta_names=('p4', 'p3'), powers={'p3': 2})
