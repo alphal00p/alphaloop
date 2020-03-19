@@ -36,6 +36,8 @@ hyperparameters = HyperParameters({
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
+        # always evaluate in f128
+        'force_f128'            :   False,
         # number of digits that should be the same between integrand and rotated version
         'relative_precision'    :   3.,
         # absolute precision, heavily dependent on integral value

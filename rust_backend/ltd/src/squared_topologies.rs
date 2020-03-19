@@ -28,8 +28,7 @@ pub struct CutkoskyCut {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCuts {
-    pub cuts: Vec<CutkoskyCut>,
+pub struct CutkoskyCutDiagrams {
     pub subgraph_left: Topology,
     pub subgraph_right: Topology,
     pub symmetry_factor: f64,
@@ -37,6 +36,12 @@ pub struct CutkoskyCuts {
     pub numerator_tensor_coefficients: Vec<(f64, f64)>,
     #[serde(skip_deserializing)]
     pub numerator: LTDNumerator,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CutkoskyCuts {
+    pub cuts: Vec<CutkoskyCut>,
+    pub diagrams: Vec<CutkoskyCutDiagrams>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -56,24 +61,24 @@ pub struct SquaredTopology {
 
 #[derive(Default)]
 pub struct SquaredTopologyCache {
-    float_cache: Vec<Vec<LTDCache<float>>>,
-    quad_cache: Vec<Vec<LTDCache<f128>>>,
+    float_cache: Vec<Vec<Vec<LTDCache<float>>>>,
+    quad_cache: Vec<Vec<Vec<LTDCache<f128>>>>,
 }
 
 pub trait CachePrecisionSelector<T: FloatLike> {
-    fn get(&mut self) -> &mut Vec<Vec<LTDCache<T>>>;
+    fn get(&mut self) -> &mut Vec<Vec<Vec<LTDCache<T>>>>;
 }
 
 impl CachePrecisionSelector<float> for SquaredTopologyCache {
     #[inline]
-    fn get(&mut self) -> &mut Vec<Vec<LTDCache<float>>> {
+    fn get(&mut self) -> &mut Vec<Vec<Vec<LTDCache<float>>>> {
         &mut self.float_cache
     }
 }
 
 impl CachePrecisionSelector<f128> for SquaredTopologyCache {
     #[inline]
-    fn get(&mut self) -> &mut Vec<Vec<LTDCache<f128>>> {
+    fn get(&mut self) -> &mut Vec<Vec<Vec<LTDCache<f128>>>> {
         &mut self.quad_cache
     }
 }
@@ -85,23 +90,25 @@ impl SquaredTopology {
         let mut squared_topo: SquaredTopology = serde_yaml::from_reader(f).unwrap();
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
-            cutkosky_cuts.numerator = if cutkosky_cuts.numerator_tensor_coefficients.len() == 0 {
-                LTDNumerator::one(squared_topo.n_loops)
-            } else {
-                LTDNumerator::new(
-                    squared_topo.n_loops,
-                    &cutkosky_cuts
-                        .numerator_tensor_coefficients
-                        .iter()
-                        .map(|x| Complex::new(x.0, x.1))
-                        .collect::<Vec<_>>(),
-                )
-            };
+            for cut_diags in &mut cutkosky_cuts.diagrams {
+                cut_diags.numerator = if cut_diags.numerator_tensor_coefficients.len() == 0 {
+                    LTDNumerator::one(squared_topo.n_loops)
+                } else {
+                    LTDNumerator::new(
+                        squared_topo.n_loops,
+                        &cut_diags
+                            .numerator_tensor_coefficients
+                            .iter()
+                            .map(|x| Complex::new(x.0, x.1))
+                            .collect::<Vec<_>>(),
+                    )
+                };
 
-            cutkosky_cuts.subgraph_left.settings = settings.clone();
-            cutkosky_cuts.subgraph_right.settings = settings.clone();
-            cutkosky_cuts.subgraph_left.process(false);
-            cutkosky_cuts.subgraph_right.process(false);
+                cut_diags.subgraph_left.settings = settings.clone();
+                cut_diags.subgraph_right.settings = settings.clone();
+                cut_diags.subgraph_left.process(false);
+                cut_diags.subgraph_right.process(false);
+            }
         }
 
         debug_assert_eq!(
@@ -139,13 +146,17 @@ impl SquaredTopology {
         cut_momentum
     }
 
-    pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<LTDCache<T>>> {
+    pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<LTDCache<T>>>> {
         let mut caches = vec![];
         for cutkosky_cuts in &self.cutkosky_cuts {
-            caches.push(vec![
-                LTDCache::<T>::new(&cutkosky_cuts.subgraph_left),
-                LTDCache::<T>::new(&cutkosky_cuts.subgraph_right),
-            ]);
+            let mut cut_cache = vec![];
+            for cut_diags in &cutkosky_cuts.diagrams {
+                cut_cache.push(vec![
+                    LTDCache::<T>::new(&cut_diags.subgraph_left),
+                    LTDCache::<T>::new(&cut_diags.subgraph_right),
+                ]);
+            }
+            caches.push(cut_cache);
         }
         caches
     }
@@ -238,7 +249,7 @@ impl SquaredTopology {
     pub fn evaluate<'a, T: FloatLike>(
         &mut self,
         x: &'a [f64],
-        cache: &mut [Vec<LTDCache<T>>],
+        cache: &mut [Vec<Vec<LTDCache<T>>>],
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
@@ -289,7 +300,7 @@ impl SquaredTopology {
     pub fn evaluate_mom<T: FloatLike>(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
-        caches: &mut [Vec<LTDCache<T>>],
+        caches: &mut [Vec<Vec<LTDCache<T>>>],
     ) -> Complex<T> {
         debug_assert_eq!(
             loop_momenta.len(),
@@ -384,7 +395,7 @@ impl SquaredTopology {
         rescaled_loop_momenta: &mut [LorentzVector<T>],
         subgraph_loop_momenta: &mut [LorentzVector<T>],
         k_def: &mut [LorentzVector<Complex<T>>],
-        cache: &mut [LTDCache<T>],
+        cache: &mut [Vec<LTDCache<T>>],
         cut_index: usize,
         scaling: T,
         scaling_jac: T,
@@ -451,228 +462,240 @@ impl SquaredTopology {
             external_momenta[0].square()
         };
 
-        // set the shifts, which are expressed in the cut basis
-        let mut subgraphs = [
-            &mut cutkosky_cuts.subgraph_left,
-            &mut cutkosky_cuts.subgraph_right,
-        ];
-        for subgraph in &mut subgraphs {
-            for ll in &mut subgraph.loop_lines {
-                for p in &mut ll.propagators {
-                    p.q = SquaredTopology::evaluate_signature(
-                        &p.parametric_shift,
-                        &external_momenta[..self.external_momenta.len()],
-                        &cut_momenta[..cutkosky_cuts.cuts.len()],
-                    )
-                    .map(|x| x.to_f64().unwrap());
-                }
-            }
-            subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
-        }
-
-        subgraphs[0].update_ellipsoids();
-        subgraphs[1].update_ellipsoids();
-
-        if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-            subgraphs[0].fixed_deformation =
-                subgraphs[0].determine_ellipsoid_overlap_structure(true);
-            subgraphs[1].fixed_deformation =
-                subgraphs[1].determine_ellipsoid_overlap_structure(true);
-
-            if self.settings.general.debug > 0 {
-                // check if the overlap structure makes sense
-                subgraphs[0].check_fixed_deformation();
-                subgraphs[1].check_fixed_deformation();
-            }
-        }
-
-        // for the evaluation of the numerator we need complex loop momenta of the supergraph.
-        // the order is: cut momenta, momenta left graph, momenta right graph
-        for (kd, cut_mom) in k_def
-            .iter_mut()
-            .zip(&cut_momenta[..cutkosky_cuts.cuts.len() - 1])
-        {
-            *kd = cut_mom.to_complex(true);
-        }
-
-        // compute the deformation vectors
-        let mut k_def_index = cutkosky_cuts.cuts.len() - 1;
-        for (graph_num, (subgraph, subgraph_cache)) in
-            subgraphs.iter_mut().zip_eq(cache.iter_mut()).enumerate()
-        {
-            // do the loop momentum map, which is expressed in the loop momentum basis
-            // the time component should not matter here
-            for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
-                .iter_mut()
-                .zip_eq(&subgraph.loop_momentum_map)
-            {
-                *slm = SquaredTopology::evaluate_signature(
-                    lmm,
-                    &external_momenta[..self.external_momenta.len()],
-                    if self.settings.cross_section.do_rescaling {
-                        &rescaled_loop_momenta[..self.n_loops]
-                    } else {
-                        loop_momenta
-                    },
-                );
-            }
-
-            let (kappas, jac_def) =
-                subgraph.deform(&subgraph_loop_momenta[..subgraph.n_loops], subgraph_cache);
-
-            for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
-                .iter()
-                .zip(&kappas)
-            {
-                k_def[k_def_index] = if graph_num == 1 {
-                    // take the complex conjugate of the deformation
-                    lm.map(|x| Complex::new(x, T::zero()))
-                        - kappa.map(|x| Complex::new(T::zero(), x))
-                } else {
-                    lm.map(|x| Complex::new(x, T::zero()))
-                        + kappa.map(|x| Complex::new(T::zero(), x))
-                };
-                k_def_index += 1;
-            }
-
-            if graph_num == 1 {
-                scaling_result *= jac_def.conj();
-            } else {
-                scaling_result *= jac_def;
-            }
-
-            if subgraph
-                .compute_complex_cut_energies(
-                    &k_def[k_def_index - subgraph.n_loops..k_def_index],
-                    subgraph_cache,
-                )
-                .is_err()
-            {
-                panic!("NaN on cut energy");
-            }
-        }
-
-        // evaluate the cut numerator with the spatial parts of all loop momenta and
-        // the energy parts of the Cutkosky cuts.
-        // Store the reduced numerator in the left graph cache for now
-        // TODO: this is impractical
-        cutkosky_cuts.numerator.evaluate_reduced_in_lb(
-            &k_def,
-            cutkosky_cuts.cuts.len() - 1,
-            &mut cache[0],
-            0,
-        );
-
-        mem::swap(
-            &mut cache[0].reduced_coefficient_lb_supergraph[0],
-            &mut cache[0].reduced_coefficient_lb[0],
-        );
-
-        let mut supergraph_coeff =
-            mem::replace(&mut cache[0].reduced_coefficient_lb_supergraph[0], vec![]);
-
-        // evaluate the left and right graphs for every monomial in the numerator
-        let mut numerator_contribution = Complex::zero();
-        for (coeff, powers) in supergraph_coeff
-            .iter()
-            .zip(&cutkosky_cuts.numerator.reduced_coefficient_index_to_powers)
-        {
-            if coeff.is_zero() {
-                continue;
-            }
-
-            // only consider the coefficients that have no powers in the cutkosky cuts
-            // TODO: make a more efficient way of skipping the other contributions
-            if powers[..cutkosky_cuts.cuts.len() - 1]
-                .iter()
-                .any(|p| *p != 0)
-            {
-                continue;
-            }
-
-            let mut num_result = *coeff;
-
-            let mut def_mom_index = cutkosky_cuts.cuts.len() - 1;
-            for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(cache.iter_mut()) {
-                // build the subgraph numerator
-                // TODO: build the reduced numerator directly
-                // TODO: cache, such that we never compute a subgraph with the same numerator twice
-                for n in &mut subgraph.numerator.coefficients {
-                    *n = Complex::zero();
-                }
-
-                if subgraph.n_loops == 0 {
-                    subgraph.numerator.coefficients[0] = Complex::one();
-                } else {
-                    // now set the coefficient to 1 for the current monomial in the subgraph
-                    // by mapping the powers in the reduced numerator back to the power pattern
-                    // of the complete numerator
-                    // TODO: use binary search
-                    let mut subgraph_powers = [0; 10]; // TODO: make max rank a constant
-                    let mut power_index = 0;
-                    for (lmi, p) in powers[def_mom_index..def_mom_index + subgraph.n_loops]
-                        .iter()
-                        .enumerate()
-                    {
-                        for _ in 0..*p {
-                            subgraph_powers[power_index] = lmi * 4;
-                            power_index += 1;
-                        }
-                    }
-                    if power_index == 0 {
-                        subgraph.numerator.coefficients[0] = Complex::one();
-                    } else {
-                        subgraph.numerator.coefficients[subgraph
-                            .numerator
-                            .sorted_linear
-                            .iter()
-                            .position(|x| x[..] == subgraph_powers[..power_index])
-                            .unwrap()
-                            + 1] += Complex::one();
-                    }
-                }
-
-                let mut res = if subgraph.loop_lines.len() > 0 {
-                    subgraph
-                        .evaluate_all_dual_integrands::<T>(
-                            if subgraph.n_loops != 0 {
-                                &mut k_def[def_mom_index..def_mom_index + subgraph.n_loops]
-                            } else {
-                                &mut []
-                            },
-                            subgraph_cache,
+        // now apply the same procedure for all uv limits
+        let mut diag_and_num_contributions = Complex::zero();
+        for (cut_diagam, diag_cache) in cutkosky_cuts.diagrams.iter_mut().zip(cache) {
+            // set the shifts, which are expressed in the cut basis
+            let mut subgraphs = [
+                &mut cut_diagam.subgraph_left,
+                &mut cut_diagam.subgraph_right,
+            ];
+            for subgraph in &mut subgraphs {
+                for ll in &mut subgraph.loop_lines {
+                    for p in &mut ll.propagators {
+                        p.q = SquaredTopology::evaluate_signature(
+                            &p.parametric_shift,
+                            &external_momenta[..self.external_momenta.len()],
+                            &cut_momenta[..cutkosky_cuts.cuts.len()],
                         )
-                        .unwrap()
-                } else {
-                    // if the graph has no propagators, it is one and not zero
-                    Complex::one()
-                };
+                        .map(|x| x.to_f64().unwrap());
+                    }
+                }
+                subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
+            }
 
-                res *= utils::powi(
-                    num::Complex::new(T::zero(), Into::<T>::into(-2.) * <T as FloatConst>::PI()),
-                    subgraph.n_loops,
-                ); // factor of delta cut
+            subgraphs[0].update_ellipsoids();
+            subgraphs[1].update_ellipsoids();
 
-                num_result *= res;
+            if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+                subgraphs[0].fixed_deformation =
+                    subgraphs[0].determine_ellipsoid_overlap_structure(true);
+                subgraphs[1].fixed_deformation =
+                    subgraphs[1].determine_ellipsoid_overlap_structure(true);
 
-                if self.settings.general.debug >= 1 {
-                    println!(
-                        "  | res {} ({}l) = {:e}",
-                        subgraph.name, subgraph.n_loops, res
+                if self.settings.general.debug > 0 {
+                    // check if the overlap structure makes sense
+                    subgraphs[0].check_fixed_deformation();
+                    subgraphs[1].check_fixed_deformation();
+                }
+            }
+
+            // for the evaluation of the numerator we need complex loop momenta of the supergraph.
+            // the order is: cut momenta, momenta left graph, momenta right graph
+            for (kd, cut_mom) in k_def
+                .iter_mut()
+                .zip(&cut_momenta[..cutkosky_cuts.cuts.len() - 1])
+            {
+                *kd = cut_mom.to_complex(true);
+            }
+
+            // compute the deformation vectors
+            let mut k_def_index = cutkosky_cuts.cuts.len() - 1;
+            for (graph_num, (subgraph, subgraph_cache)) in subgraphs
+                .iter_mut()
+                .zip_eq(diag_cache.iter_mut())
+                .enumerate()
+            {
+                // do the loop momentum map, which is expressed in the loop momentum basis
+                // the time component should not matter here
+                for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
+                    .iter_mut()
+                    .zip_eq(&subgraph.loop_momentum_map)
+                {
+                    *slm = SquaredTopology::evaluate_signature(
+                        lmm,
+                        &external_momenta[..self.external_momenta.len()],
+                        if self.settings.cross_section.do_rescaling {
+                            &rescaled_loop_momenta[..self.n_loops]
+                        } else {
+                            loop_momenta
+                        },
                     );
                 }
 
-                def_mom_index += subgraph.n_loops;
+                let (kappas, jac_def) =
+                    subgraph.deform(&subgraph_loop_momenta[..subgraph.n_loops], subgraph_cache);
+
+                for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
+                    .iter()
+                    .zip(&kappas)
+                {
+                    k_def[k_def_index] = if graph_num == 1 {
+                        // take the complex conjugate of the deformation
+                        lm.map(|x| Complex::new(x, T::zero()))
+                            - kappa.map(|x| Complex::new(T::zero(), x))
+                    } else {
+                        lm.map(|x| Complex::new(x, T::zero()))
+                            + kappa.map(|x| Complex::new(T::zero(), x))
+                    };
+                    k_def_index += 1;
+                }
+
+                if graph_num == 1 {
+                    scaling_result *= jac_def.conj();
+                } else {
+                    scaling_result *= jac_def;
+                }
+
+                if subgraph
+                    .compute_complex_cut_energies(
+                        &k_def[k_def_index - subgraph.n_loops..k_def_index],
+                        subgraph_cache,
+                    )
+                    .is_err()
+                {
+                    panic!("NaN on cut energy");
+                }
             }
-            numerator_contribution += num_result;
+
+            // evaluate the cut numerator with the spatial parts of all loop momenta and
+            // the energy parts of the Cutkosky cuts.
+            // Store the reduced numerator in the left graph cache for now
+            // TODO: this is impractical
+            cut_diagam.numerator.evaluate_reduced_in_lb(
+                &k_def,
+                cutkosky_cuts.cuts.len() - 1,
+                &mut diag_cache[0],
+                0,
+            );
+
+            let left_cache = &mut diag_cache[0];
+            mem::swap(
+                &mut left_cache.reduced_coefficient_lb_supergraph[0],
+                &mut left_cache.reduced_coefficient_lb[0],
+            );
+
+            let mut supergraph_coeff = mem::replace(
+                &mut diag_cache[0].reduced_coefficient_lb_supergraph[0],
+                vec![],
+            );
+
+            // evaluate the left and right graphs for every monomial in the numerator
+            for (coeff, powers) in supergraph_coeff
+                .iter()
+                .zip(&cut_diagam.numerator.reduced_coefficient_index_to_powers)
+            {
+                if coeff.is_zero() {
+                    continue;
+                }
+
+                // only consider the coefficients that have no powers in the cutkosky cuts
+                // TODO: make a more efficient way of skipping the other contributions
+                if powers[..cutkosky_cuts.cuts.len() - 1]
+                    .iter()
+                    .any(|p| *p != 0)
+                {
+                    continue;
+                }
+
+                let mut num_result = *coeff;
+
+                let mut def_mom_index = cutkosky_cuts.cuts.len() - 1;
+                for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(diag_cache.iter_mut())
+                {
+                    // build the subgraph numerator
+                    // TODO: build the reduced numerator directly
+                    // TODO: cache, such that we never compute a subgraph with the same numerator twice
+                    for n in &mut subgraph.numerator.coefficients {
+                        *n = Complex::zero();
+                    }
+
+                    if subgraph.n_loops == 0 {
+                        subgraph.numerator.coefficients[0] = Complex::one();
+                    } else {
+                        // now set the coefficient to 1 for the current monomial in the subgraph
+                        // by mapping the powers in the reduced numerator back to the power pattern
+                        // of the complete numerator
+                        // TODO: use binary search
+                        let mut subgraph_powers = [0; 10]; // TODO: make max rank a constant
+                        let mut power_index = 0;
+                        for (lmi, p) in powers[def_mom_index..def_mom_index + subgraph.n_loops]
+                            .iter()
+                            .enumerate()
+                        {
+                            for _ in 0..*p {
+                                subgraph_powers[power_index] = lmi * 4;
+                                power_index += 1;
+                            }
+                        }
+                        if power_index == 0 {
+                            subgraph.numerator.coefficients[0] = Complex::one();
+                        } else {
+                            subgraph.numerator.coefficients[subgraph
+                                .numerator
+                                .sorted_linear
+                                .iter()
+                                .position(|x| x[..] == subgraph_powers[..power_index])
+                                .unwrap()
+                                + 1] += Complex::one();
+                        }
+                    }
+
+                    let mut res = if subgraph.loop_lines.len() > 0 {
+                        subgraph
+                            .evaluate_all_dual_integrands::<T>(
+                                if subgraph.n_loops != 0 {
+                                    &mut k_def[def_mom_index..def_mom_index + subgraph.n_loops]
+                                } else {
+                                    &mut []
+                                },
+                                subgraph_cache,
+                            )
+                            .unwrap()
+                    } else {
+                        // if the graph has no propagators, it is one and not zero
+                        Complex::one()
+                    };
+
+                    res *= utils::powi(
+                        num::Complex::new(
+                            T::zero(),
+                            Into::<T>::into(-2.) * <T as FloatConst>::PI(),
+                        ),
+                        subgraph.n_loops,
+                    ); // factor of delta cut
+
+                    num_result *= res;
+
+                    if self.settings.general.debug >= 1 {
+                        println!(
+                            "  | res {} ({}l) = {:e}",
+                            subgraph.name, subgraph.n_loops, res
+                        );
+                    }
+
+                    def_mom_index += subgraph.n_loops;
+                }
+                diag_and_num_contributions += num_result;
+            }
+
+            mem::swap(
+                &mut supergraph_coeff,
+                &mut diag_cache[0].reduced_coefficient_lb_supergraph[0],
+            );
         }
 
-        mem::swap(
-            &mut supergraph_coeff,
-            &mut cache[0].reduced_coefficient_lb_supergraph[0],
-        );
-
-        scaling_result *= numerator_contribution;
+        scaling_result *= diag_and_num_contributions;
 
         scaling_result *= utils::powi(
             num::Complex::new(
@@ -703,7 +726,7 @@ impl SquaredTopology {
         }
 
         // divide by the symmetry factor of the final state
-        scaling_result /= Into::<T>::into(cutkosky_cuts.symmetry_factor);
+        //scaling_result /= Into::<T>::into(cutkosky_cuts.symmetry_factor); // TODO: no more sym factor!
 
         if self.settings.general.debug >= 1 {
             println!("  | scaling res = {:e}", scaling_result);
@@ -759,7 +782,9 @@ impl IntegrandImplementation for SquaredTopology {
         }
 
         for cut in rotated_topology.cutkosky_cuts.iter_mut() {
-            cut.numerator = cut.numerator.rotate(rot_matrix);
+            for d in cut.diagrams.iter_mut() {
+                d.numerator = d.numerator.rotate(rot_matrix);
+            }
         }
 
         rotated_topology

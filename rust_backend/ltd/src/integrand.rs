@@ -501,7 +501,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         self.total_samples += 1;
 
-        if !result.is_finite()
+        if self.settings.general.force_f128
+            || !result.is_finite()
             || !min_rot.is_finite()
             || !max_rot.is_finite()
             || d < NumCast::from(self.settings.general.relative_precision).unwrap()

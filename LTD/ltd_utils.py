@@ -1797,7 +1797,7 @@ class SquaredTopologyGenerator:
         if len(cut_filter) > 0:
             self.cuts = [c for c in self.cuts if tuple(n[0] for n in c) in cut_filter]
 
-        self.masses = masses
+        self.masses = copy.deepcopy(masses)
         self.overall_numerator = overall_numerator
         self.incoming_momenta = incoming_momentum_names
         self.topologies = [self.topo.split_graph([a[0] for a in c], incoming_momentum_names) for c in self.cuts]
@@ -1805,10 +1805,11 @@ class SquaredTopologyGenerator:
         self.topo.generate_momentum_flow(loop_momenta_names) # TODO: why twice?
         edge_map = self.topo.get_signature_map()
 
-        self.loop_topologies = []
+        mu_uv = 2. * math.sqrt(sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - 
+                        sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))))
+
         self.cut_signatures = []
-        self.cut_symmetry_factors = []
-        self.numerator_structure = []
+        self.cut_diagrams = []
         for sub_graphs, c in zip(self.topologies, self.cuts):
             # determine the signature of the cuts
             self.cut_signatures.append(
@@ -1817,52 +1818,72 @@ class SquaredTopologyGenerator:
 
             cut_name = tuple(a[0] for a in c)
 
+            uv_limits = []
             if cut_name in numerator_structure:
-                numerator_sparse = [[tuple(x[0]), x[1]] for x in numerator_structure[cut_name]]
+                for uv_structure, numerator_struct in numerator_structure[cut_name].items():
+                    sparse_numerator = [[tuple(x[0]), x[1]] for x in numerator_struct]
+                    uv_limits.append((uv_structure, sparse_numerator))
             else:
-                numerator_sparse = [[tuple(), [1.0, 0.]]]
-            
-            max_rank = max((len(e) for e, v in numerator_sparse), default=0)
-            
-            # pad the numerator with zeros
-            numerator_pows=[j for i in range(max_rank + 1) for j in combinations_with_replacement(range(4 * self.topo.n_loops), i)]
-            numerator = [[0., 0.,] for _ in numerator_pows]
+                uv_limits.append((tuple(), [[tuple(), [1.0, 0.]]]))
 
-            for k, v in numerator_sparse:
-                numerator[numerator_pows.index(k)] = list(v)
+            diagrams = []
+            for uv_structure, numerator_sparse in uv_limits:
+                uv_name = ('_uv_' if len(uv_structure) > 0 else '') + ''.join(uv_structure)
 
-            self.numerator_structure.append(numerator)
+                max_rank = max((len(e) for e, v in numerator_sparse), default=0)
 
-            loop_topos = []
-            for i, s in enumerate(sub_graphs):
-                # fill the numerator for the same rank
-                s.loop_momentum_bases() # sets the number of loops
-                numerator_entries = 1
-                level_size = 1
-                for cur_rank in range(0, max_rank):
-                    level_size = (level_size * (s.n_loops * 4 + cur_rank)) // (cur_rank + 1)
-                    numerator_entries += level_size
+                # pad the numerator with zeros
+                numerator_pows=[j for i in range(max_rank + 1) for j in combinations_with_replacement(range(4 * self.topo.n_loops), i)]
+                numerator = [[0., 0.,] for _ in numerator_pows]
 
-                (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, [a[0] for a in c])
-                loop_topos.append(
-                    s.create_loop_topology(name + '_' + ''.join(a[0] for a in c) + '_' + ['l', 'r'][i],
-                    # provide dummy external momenta
-                    ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                    fixed_deformation=False,
-                    mass_map=masses,
-                    loop_momentum_map=loop_mom_map,
-                    numerator_tensor_coefficients=[[0., 0.] for _ in range(numerator_entries)],
-                    shift_map=shift_map))
+                for k, v in numerator_sparse:
+                    numerator[numerator_pows.index(k)] = list(v)
 
-            # compute external state symmetry factor
-            cutkosky_particles = tuple(sorted(particle_ids[e] if e in particle_ids else 'NONE' for (e, _) in c))
-            sym_factor = 1.
-            for x in set(cutkosky_particles):
-                sym_factor *= math.factorial(cutkosky_particles.count(x))
+                loop_topos = []
+                for i, s in enumerate(sub_graphs):
+                    # create a dummy numerator for the same rank
+                    s.loop_momentum_bases() # sets the number of loops
+                    numerator_entries = 1
+                    level_size = 1
+                    for cur_rank in range(0, max_rank):
+                        level_size = (level_size * (s.n_loops * 4 + cur_rank)) // (cur_rank + 1)
+                        numerator_entries += level_size
 
-            self.cut_symmetry_factors.append(sym_factor)
+                    (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, [a[0] for a in c])
 
-            self.loop_topologies.append(loop_topos)
+                    loop_topo = s.create_loop_topology(name + '_' + ''.join(a[0] for a in c) + uv_name + '_' + ['l', 'r'][i],
+                        # provide dummy external momenta
+                        ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                        fixed_deformation=False,
+                        mass_map=masses,
+                        loop_momentum_map=loop_mom_map,
+                        numerator_tensor_coefficients=[[0., 0.] for _ in range(numerator_entries)],
+                        shift_map=shift_map)
+
+                    # take the UV limit of the diagram
+                    uv_moms = [mom for mom in uv_structure if mom in set(s.edge_name_map.keys())]
+                    for ll in loop_topo.loop_lines:
+                        if any(p for p in ll.propagators if p.name in uv_moms):
+                            prop = next(p for p in ll.propagators if p.name in uv_moms)
+                            prop.m_squared = mu_uv**2
+                            ll.propagators[0].power = len(ll.propagators)
+                            ll.propagators = [ll.propagators[0]]
+
+                    loop_topos.append(loop_topo)
+
+                # compute external state symmetry factor
+                cutkosky_particles = tuple(sorted(particle_ids[e] if e in particle_ids else 'NONE' for (e, _) in c))
+                sym_factor = 1.
+                for x in set(cutkosky_particles):
+                    sym_factor *= math.factorial(cutkosky_particles.count(x))
+
+                diagrams.append({
+                    'cut_symmetry_factors': sym_factor,
+                    'numerator_structure': numerator,
+                    'loop_topos': loop_topos
+                })
+
+            self.cut_diagrams.append(diagrams)
 
     def export(self, output_path):
         out = {
@@ -1875,22 +1896,28 @@ class SquaredTopologyGenerator:
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
             'e_cm_squared': sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))),
             'cutkosky_cuts': [
-                {'cuts':
-                    [{
-                       'name': a[0],
-                       'sign': a[1],
-                       'signature': sig,
-                       'power': self.topo.powers[a[0]],
-                       'm_squared': self.masses[a[0]]**2 if a[0] in self.masses else 0.
-                    }
-                    for a, sig in zip(c, cut_sig)],
-                'subgraph_left': ts[0].to_flat_format(),
-                'subgraph_right': ts[1].to_flat_format(),
-                'numerator_tensor_coefficients': num,
-                'symmetry_factor': sym
+                {
+                    'cuts': [
+                        {
+                        'name': a[0],
+                        'sign': a[1],
+                        'signature': sig,
+                        'power': self.topo.powers[a[0]],
+                        'm_squared': self.masses[a[0]]**2 if a[0] in self.masses else 0.
+                        }
+                        for a, sig in zip(c, cut_sig)
+                    ],
+                    'diagrams': [
+                        {
+                            'subgraph_left': d['loop_topos'][0].to_flat_format(),
+                            'subgraph_right': d['loop_topos'][1].to_flat_format(),
+                            'numerator_tensor_coefficients': d['numerator_structure'],
+                            'symmetry_factor': d['cut_symmetry_factors']
+                        }
+                    for d in diags]
                 }
 
-                for c, cut_sig, ts, sym, num in zip(self.cuts, self.cut_signatures, self.loop_topologies, self.cut_symmetry_factors, self.numerator_structure)
+                for c, cut_sig, diags in zip(self.cuts, self.cut_signatures, self.cut_diagrams)
             ]
         }
 
@@ -1937,11 +1964,12 @@ if __name__ == "__main__":
         particle_ids={'p%s' % i: i for i in range(3)},
         overall_numerator=0.25,
         numerator_structure={('p1', 'p2'):
-        [
-            [[0], (-1.49418e8, 0.)],
-            [[0, 0], (7.47091e7, 0.)],
-            [[3, 3], (-7.47091e7, 0.)]
-        ]}
+            { ():
+                [[[0], (-1.49418e8, 0.)],
+                [[0, 0], (7.47091e7, 0.)],
+                [[3, 3], (-7.47091e7, 0.)]]
+            }
+        }
         )
     gamma_to_dd_1l.export('gamma_to_dd_1l.yaml')
 
@@ -1950,11 +1978,12 @@ if __name__ == "__main__":
         particle_ids={'p%s' % i: i for i in range(6)},
         overall_numerator=0.25,
         numerator_structure={('p2', 'p3'):
-        [
-            [[0], (-1.49418e8, 0.)],
-            [[0, 0], (7.47091e7, 0.)],
-            [[3, 3], (-7.47091e7, 0.)]
-        ]}
+            { ():
+                [[[0], (-1.49418e8, 0.)],
+                [[0, 0], (7.47091e7, 0.)],
+                [[3, 3], (-7.47091e7, 0.)]]
+            }
+        }
         )
     ee_to_dd_1l.export('ee_to_dd_1l.yaml')
 
@@ -1964,8 +1993,9 @@ if __name__ == "__main__":
         loop_momenta_names=('p2', 'p3'),
         particle_ids={'p%s' % i: i for i in range(8)},
         overall_numerator=1.0,
-        cut_filter={('p3', 'p5')},
+#        cut_filter={('p3', 'p5')},
         numerator_structure={('p2', 'p5', 'p7'):
+            { (): # uv structure
             [[[0,4],[0.,+2.954161761482786e8]],
             [[0,4,4],[0.,+1.477080880741393e8]],
             [[0,7,7],[0.,-1.477080880741393e8]],
@@ -1992,8 +2022,40 @@ if __name__ == "__main__":
             [[3,3,4,4],[0.,+7.385404403706966e7]],
             [[3,3,5,5],[0.,-7.385404403706966e7]],
             [[3,3,6,6],[0.,-7.385404403706966e7]],
-            [[3,3,7,7],[0.,-7.385404403706966e7]]],
-            ('p3', 'p5'):
+            [[3,3,7,7],[0.,-7.385404403706966e7]]]
+            },
+            ('p3', 'p6', 'p7'):
+            { (): # uv structure
+            [[[0,4],[0.,+2.954161761482786e8]],
+            [[0,4,4],[0.,+1.477080880741393e8]],
+            [[0,7,7],[0.,-1.477080880741393e8]],
+            [[1,5],[0.,-2.954161761482786e8]],
+            [[1,4,5],[0.,-1.477080880741393e8]],
+            [[2,6],[0.,-2.954161761482786e8]],
+            [[2,4,6],[0.,-1.477080880741393e8]],
+            [[3,7],[0.,-2.954161761482786e8]],
+            [[0,0,4],[0.,-1.477080880741393e8]],
+            [[0,0,4,4],[0.,-7.385404403706966e7]],
+            [[0,0,5,5],[0.,+7.385404403706966e7]],
+            [[0,0,6,6],[0.,+7.385404403706966e7]],
+            [[0,0,7,7],[0.,+7.385404403706966e7]],
+            [[0,1,5],[0.,+1.477080880741393e8]],
+            [[0,1,4,5],[0.,+1.477080880741393e8]],
+            [[0,2,6],[0.,+1.477080880741393e8]],
+            [[0,2,4,6],[0.,+1.477080880741393e8]],
+            [[1,1,5,5],[0.,-1.477080880741393e8]],
+            [[1,2,5,6],[0.,-2.954161761482786e8]],
+            [[1,3,5,7],[0.,-1.477080880741393e8]],
+            [[2,2,6,6],[0.,-1.477080880741393e8]],
+            [[2,3,6,7],[0.,-1.477080880741393e8]],
+            [[3,3,4],[0.,+1.477080880741393e8]],
+            [[3,3,4,4],[0.,+7.385404403706966e7]],
+            [[3,3,5,5],[0.,-7.385404403706966e7]],
+            [[3,3,6,6],[0.,-7.385404403706966e7]],
+            [[3,3,7,7],[0.,-7.385404403706966e7]]]
+            },
+            ('p2', 'p6'):
+            {():
             [[[0,4],[0.,-2.954161761482786e8]],
             [[0,4,4],[0.,+1.477080880741393e8]],
             [[0,7,7],[0.,-1.477080880741393e8]],
@@ -2018,7 +2080,82 @@ if __name__ == "__main__":
             [[3,3,4,4],[0.,+7.385404403706966e7]],
             [[3,3,5,5],[0.,-7.385404403706966e7]],
             [[3,3,6,6],[0.,-7.385404403706966e7]],
-            [[3,3,7,7],[0.,-7.385404403706966e7]]]
+            [[3,3,7,7],[0.,-7.385404403706966e7]]],
+            ('p3',):
+            [[[0],[0.,+4.726658818372458e9]],
+            [[0,4,4],[0.,-1.477080880741393e8]],
+            [[0,7,7],[0.,+1.477080880741393e8]],
+            [[1,4,5],[0.,+1.477080880741393e8]],
+            [[2,4,6],[0.,+1.477080880741393e8]],
+            [[0,0],[0.,-2.363329409186229e9]],
+            [[0,0,4,4],[0.,+7.385404403706966e7]],
+            [[0,0,5,5],[0.,-7.385404403706966e7]],
+            [[0,0,6,6],[0.,-7.385404403706966e7]],
+            [[0,0,7,7],[0.,-7.385404403706966e7]],
+            [[0,1,4,5],[0.,-1.477080880741393e8]],
+            [[0,2,4,6],[0.,-1.477080880741393e8]],
+            [[1,1,5,5],[0.,+1.477080880741393e8]],
+            [[1,2,5,6],[0.,+2.954161761482786e8]],
+            [[1,3,5,7],[0.,+1.477080880741393e8]],
+            [[2,2,6,6],[0.,+1.477080880741393e8]],
+            [[2,3,6,7],[0.,+1.477080880741393e8]],
+            [[3,3],[0.,+2.363329409186229e9]],
+            [[3,3,4,4],[0.,-7.385404403706966e7]],
+            [[3,3,5,5],[0.,+7.385404403706966e7]],
+            [[3,3,6,6],[0.,+7.385404403706966e7]],
+            [[3,3,7,7],[0.,+7.385404403706966e7]]]
+            },
+            ('p3', 'p5'):
+            {():
+                [[[0,4],[0.,-2.954161761482786e8]],
+                [[0,4,4],[0.,+1.477080880741393e8]],
+                [[0,7,7],[0.,-1.477080880741393e8]],
+                [[1,4,5],[0.,-1.477080880741393e8]],
+                [[2,4,6],[0.,-1.477080880741393e8]],
+                [[3,7],[0.,-2.954161761482786e8]],
+                [[0,0,4],[0.,+1.477080880741393e8]],
+                [[0,0,4,4],[0.,-7.385404403706966e7]],
+                [[0,0,5,5],[0.,+7.385404403706966e7]],
+                [[0,0,6,6],[0.,+7.385404403706966e7]],
+                [[0,0,7,7],[0.,+7.385404403706966e7]],
+                [[0,1,5],[0.,-1.477080880741393e8]],
+                [[0,1,4,5],[0.,+1.477080880741393e8]],
+                [[0,2,6],[0.,-1.477080880741393e8]],
+                [[0,2,4,6],[0.,+1.477080880741393e8]],
+                [[1,1,5,5],[0.,-1.477080880741393e8]],
+                [[1,2,5,6],[0.,-2.954161761482786e8]],
+                [[1,3,5,7],[0.,-1.477080880741393e8]],
+                [[2,2,6,6],[0.,-1.477080880741393e8]],
+                [[2,3,6,7],[0.,-1.477080880741393e8]],
+                [[3,3,4],[0.,-1.477080880741393e8]],
+                [[3,3,4,4],[0.,+7.385404403706966e7]],
+                [[3,3,5,5],[0.,-7.385404403706966e7]],
+                [[3,3,6,6],[0.,-7.385404403706966e7]],
+                [[3,3,7,7],[0.,-7.385404403706966e7]]],
+            ('p2',):
+                [[[0],[0.,4.726658818372458e9]],
+                [[0,4,4],[0.,-1.477080880741393e8]],
+                [[0,7,7],[0.,1.477080880741393e8]],
+                [[1,4,5],[0.,1.477080880741393e8]],
+                [[2,4,6],[0.,1.477080880741393e8]],
+                [[0,0],[0.,-2.363329409186229e9]],
+                [[0,0,4,4],[0.,7.385404403706966e7]],
+                [[0,0,5,5],[0.,-7.385404403706966e7]],
+                [[0,0,6,6],[0.,-7.385404403706966e7]],
+                [[0,0,7,7],[0.,-7.385404403706966e7]],
+                [[0,1,4,5],[0.,-1.477080880741393e8]],
+                [[0,2,4,6],[0.,-1.477080880741393e8]],
+                [[1,1,5,5],[0.,1.477080880741393e8]],
+                [[1,2,5,6],[0.,2.954161761482786e8]],
+                [[1,3,5,7],[0.,1.477080880741393e8]],
+                [[2,2,6,6],[0.,1.477080880741393e8]],
+                [[2,3,6,7],[0.,1.477080880741393e8]],
+                [[3,3],[0.,2.363329409186229e9]],
+                [[3,3,4,4],[0.,-7.385404403706966e7]],
+                [[3,3,5,5],[0.,7.385404403706966e7]],
+                [[3,3,6,6],[0.,7.385404403706966e7]],
+                [[3,3,7,7],[0.,7.385404403706966e7]]]
+            },
             }
         )
     ee_to_dd_2l.export('ee_to_dd_2l.yaml')

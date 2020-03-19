@@ -362,6 +362,7 @@ pub struct GeneralSettings {
     pub amplitude: String,
     pub unstable_point_warning_percentage: f64,
     pub numerical_threshold: f64,
+    pub force_f128: bool,
     pub relative_precision: f64,
     pub absolute_precision: f64,
     pub numerical_instability_check: bool,
@@ -487,8 +488,8 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 py_class!(class CrossSection |py| {
     data squared_topology: RefCell<squared_topologies::SquaredTopology>;
     data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopology>>;
-    data caches: RefCell<Vec<Vec<topologies::LTDCache<float>>>>;
-    data caches_f128: RefCell<Vec<Vec<topologies::LTDCache<f128::f128>>>>;
+    data caches: RefCell<Vec<Vec<Vec<topologies::LTDCache<float>>>>>;
+    data caches_f128: RefCell<Vec<Vec<Vec<topologies::LTDCache<f128::f128>>>>>;
 
     def __new__(_cls, squared_topology_file: &str, settings_file: &str)
     -> PyResult<CrossSection> {
