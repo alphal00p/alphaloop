@@ -15,7 +15,7 @@ class CrossSectionSingularityProber(object):
 		self.incoming_momenta_names = squared_topology.incoming_momenta
 		self.external_momenta = [squared_topology.external_momenta['q%i'%(i+1)] for i in range(len(squared_topology.external_momenta))]
 		self.n_cuts = len(self.squared_topology.cuts)
-		self.n_loops = t1.topo.n_loops
+		self.n_loops = squared_topology.topo.n_loops
 		self.name = squared_topology.name
 		self.e_cm_squared = sum(squared_topology.external_momenta[e][0]
 								for e in squared_topology.incoming_momenta)**2 - sum(x*x
@@ -123,11 +123,11 @@ class CrossSectionSingularityProber(object):
 					self.probe_singular_surface(spatial_loop_momenta,directions,plot=plot,plot_title=title,precision=precision)
 					self.evaluate_cuts(spatial_loop_momenta)
 				for (dual_index,pinched_surf_index) in parameteriser.pinched_surfaces:
-					title = 'pinch surface (%i,%i), i.e. (%s+,%s-) os'%(dual_index,e_surf_index,
+					title = 'pinch surface (%i,%i), i.e. (%s+,%s-) os'%(dual_index,pinched_surf_index,
 								cut_topology[l_or_r].loop_lines[0].propagators[dual_index].name,
 								cut_topology[l_or_r].loop_lines[0].propagators[pinched_surf_index].name)+title_suffix
 					print(10*'='+' probing ' + title + ' ' +10*'=')
-					k = parameteriser.get_k_pinched(dual_index,pinched_surf_index,0.5)
+					k = parameteriser.get_k_pinched(dual_index,pinched_surf_index,1.-1e-10)
 					spatial_loop_momenta = parameteriser.get_spatial_loop_momenta(k)
 					self.probe_singular_surface(spatial_loop_momenta,directions,plot=plot,plot_title=title,precision=precision)
 					self.evaluate_cuts(spatial_loop_momenta)
@@ -195,7 +195,7 @@ class CrossSectionSingularityProber(object):
 		return
 
 class OneLoopSingularityParameteriser(object):
-	def __init__(self,squared_topology, cut_index, l_or_r, cut_momenta):
+	def __init__(self, squared_topology, cut_index, l_or_r, cut_momenta):
 		self.external_momenta = [squared_topology.external_momenta['q%i'%(i+1)] for i in range(len(squared_topology.external_momenta))]
 		self.squared_topology = squared_topology
 		self.incoming_momenta_names = squared_topology.incoming_momenta
@@ -713,6 +713,319 @@ class CutkoskyCutParametiser(object):
 		print(incoming_momenta)
 		return all_cut_momenta
 
+class SquaredTopology(object):
+	def __init__(self, **opts):
+		self.opts = opts
+		self.squared_topology_dump = self.opts['squared_topology_dump']
+		self.n_cutkosky_cuts = len(self.squared_topology_dump.cuts)
+		self.n_loops = self.squared_topology_dump.topo.n_loops
+		self.name = self.squared_topology_dump.name
+		self.e_cm_squared = sum(self.squared_topology_dump.external_momenta[e][0]
+								for e in self.squared_topology_dump.incoming_momenta)**2 - sum(x*x
+								for x in (sum(self.squared_topology_dump.external_momenta[e][i]
+								for e in self.squared_topology_dump.incoming_momenta)
+								for i in range(1, 4)))
+		self.external_momenta = ['q%i'%(i+1) for i in range(len(self.squared_topology_dump.external_momenta))]
+		self.external_momenta_num = [squared_topology.external_momenta[name] for name in self.external_momenta]
+		self.incoming_momenta = self.squared_topology_dump.incoming_momenta
+		self.supergraph_loop_basis = ['p%i'%i for i in self.squared_topology_dump.topo.loop_momenta]
+
+	def generate(self):
+		self.cutkosky_cuts = [CutkoskyCut(cutkosky_cut_index=cutkosky_cut_index, **self.opts) for cutkosky_cut_index in range(self.n_cutkosky_cuts)]
+		for cutkosky_cut in self.cutkosky_cuts:
+			cutkosky_cut.generate()
+
+class CutkoskyCut(SquaredTopology):
+	def __init__(self, **opts):
+		super(CutkoskyCut, self).__init__(**opts)
+		self.opts = opts
+		self.cutkosky_cut_index = self.opts['cutkosky_cut_index']
+		self.cutkosky_cut_momenta = [momentum for (momentum, energy_sign) in self.squared_topology_dump.cuts[self.cutkosky_cut_index]]
+		self.cutkosky_cut_energy_signs = [energy_sign for (momentum, energy_sign) in self.squared_topology_dump.cuts[self.cutkosky_cut_index]]
+		self.cutkosky_cut_signatures = [signature for (signature, shift) in self.squared_topology_dump.cut_signatures[self.cutkosky_cut_index]]
+		self.cutkosky_cut_shifts = [shift for (signature, shift) in self.squared_topology_dump.cut_signatures[self.cutkosky_cut_index]]
+
+	def generate(self):
+		self.subgraphs = [SubGraph(left_or_right=0,**self.opts), SubGraph(left_or_right=1,**self.opts)]
+		for subgraph in self.subgraphs:
+			subgraph.generate()
+
+	def get_e_surfaces(self, cutkosky_cut_momenta_num):
+		e_surfaces = []
+		#for subgraph in [self.subgraph_left,self.subgraph_right]:
+		#	if subgraph.n_loops_subgraph > 0:
+		#		for e_surface in subgraph.get_e_surfaces(cutkosky_cut_momenta_num):
+		#			if e_surface != []:
+		#				e_surface['subgraph'] = subgraph.left_or_right
+		#				e_surfaces += [e_surface]
+		for subgraph in self.subgraphs:
+			if subgraph.n_loops_subgraph > 0:
+				e_surfaces += subgraph.get_e_surfaces(cutkosky_cut_momenta_num)
+		return e_surfaces
+
+	def get_PS_point(self, random_variables):
+		""" put a function here"""
+
+class SubGraph(CutkoskyCut):
+	def __init__(self, **opts):
+		super(SubGraph, self).__init__(**opts)
+		self.opts = opts
+		self.left_or_right = self.opts['left_or_right']
+		self.subgraph_dump = self.squared_topology_dump.loop_topologies[self.cutkosky_cut_index][self.left_or_right]
+		self.n_loops_subgraph = self.subgraph_dump.n_loops
+
+	def generate(self):
+		if self.n_loops_subgraph > 0:
+			self.ltd_cut_structures = [LTDCutStructure(ltd_cut_structure=ltd_cut_structure,**self.opts) for ltd_cut_structure in self.subgraph_dump.ltd_cut_structure]
+			for ltd_cut_structure in self.ltd_cut_structures:
+				ltd_cut_structure.generate()
+		else:
+			print('TODO: Complete the tree graph case!')
+
+	def get_e_surfaces(self,cutkosky_cut_momenta_num):
+		e_surfaces = []
+		#for ltd_cut_structure in self.ltd_cut_structures:
+		#	for e_surface in ltd_cut_structure.get_e_surfaces(cutkosky_cut_momenta_num):
+		#		if e_surface != []:
+		#			e_surface['ltd_cut_structure'] = ltd_cut_structure.ltd_cut_structure_index
+		#			e_surfaces += [e_surface]
+		for ltd_cut_structure in self.ltd_cut_structures:
+			e_surfaces += ltd_cut_structure.get_e_surfaces(cutkosky_cut_momenta_num)
+		return e_surfaces
+
+class LTDCutStructure(SubGraph):
+	def __init__(self, **opts):
+		super(LTDCutStructure, self).__init__(**opts)
+		self.opts = opts
+		self.ltd_cut_structure = self.opts['ltd_cut_structure']
+		self.ltd_cut_signature = [line for line in self.ltd_cut_structure if abs(line) == 1]
+		self.basis_trsf = numpy.array([loop_line.signature
+									for loop_line,line in zip(self.subgraph_dump.loop_lines,self.ltd_cut_structure)
+									if abs(line)==1]) #cut line momenta from loop momenta
+		self.inv_basis_trsf = numpy.linalg.inv(self.basis_trsf) #loop momenta from cut line momenta
+
+	def generate(self):
+		ltd_cut_propagator_indices = self.get_prop_cuts()
+		self.ltd_cuts = [LTDCut(ltd_cut_indices=ltd_cut_indices, **self.opts) for ltd_cut_indices in ltd_cut_propagator_indices]
+		for ltd_cut in self.ltd_cuts:
+			ltd_cut.generate()
+
+	def get_prop_cuts(self):
+		prop_cuts = []
+		cut_indices = [i for i,line in enumerate(self.ltd_cut_structure) if abs(line)==1]
+		possible_cuts = [range(len(loop_line.propagators)) for loop_line,line in zip(self.subgraph_dump.loop_lines,self.ltd_cut_structure) if abs(line)==1]
+		for prop_cut in itertools.product(*possible_cuts):
+			prop_cuts += [prop_cut]
+		return prop_cuts
+
+	def get_e_surfaces(self,cutkosky_cut_momenta_num):
+		e_surfaces = []
+		#for ltd_cut in self.ltd_cuts:
+		#	for e_surface in ltd_cut.get_e_surfaces(cutkosky_cut_momenta_num):
+		#		if e_surface != []:
+		#			e_surface['ltd_cut'] = ltd_cut.ltd_cut_indices
+		#			e_surfaces += [e_surface]
+		for ltd_cut in self.ltd_cuts:
+			e_surfaces += ltd_cut.get_e_surfaces(cutkosky_cut_momenta_num)
+		return e_surfaces
+
+class LTDCut(LTDCutStructure):
+	def __init__(self, **opts):
+		super(LTDCut, self).__init__(**opts)
+		self.opts = opts
+		self.ltd_cut_indices = self.opts['ltd_cut_indices']
+		cut_indices_iter = iter(self.ltd_cut_indices)
+		self.ltd_cut_momenta = [loop_line.propagators[next(cut_indices_iter)].name for line, loop_line in zip(self.ltd_cut_structure,self.subgraph_dump.loop_lines) if abs(line) != 0]
+		# shifts of the LTD cut basis wrt to the cutkosky cuts and external momenta
+		cut_indices_iter = iter(self.ltd_cut_indices)
+		self.cutkosky_shift_trsf = numpy.array([numpy.array(loop_line.propagators[next(cut_indices_iter)].parametric_shift[0]) for line, loop_line in zip(self.ltd_cut_structure,self.subgraph_dump.loop_lines) if abs(line) != 0])
+		cut_indices_iter = iter(self.ltd_cut_indices)
+		self.external_shift_trsf = numpy.array([numpy.array(loop_line.propagators[next(cut_indices_iter)].parametric_shift[1]) for line, loop_line in zip(self.ltd_cut_structure,self.subgraph_dump.loop_lines) if abs(line) != 0])
+		self.supergraph_cut_basis = [name for name in self.cutkosky_cut_momenta[:-1]]+[name for name in self.ltd_cut_momenta]
+		# supergraph loop basis to supergraph cut basis
+		self.supergraph_basis_trsf = numpy.array([cutkosky_cut_signature for cutkosky_cut_signature in self.cutkosky_cut_signatures[:-1]]
+												+ [signature for (signature,shift) in self.subgraph_dump.loop_momentum_map])
+		self.supergraph_shift_trsf = numpy.array([cutkosky_cut_shift for cutkosky_cut_shift in self.cutkosky_cut_shifts[:-1]]
+												+ [shift for (signature,shift) in self.subgraph_dump.loop_momentum_map])
+
+		self.supergraph_inv_basis_trsf = numpy.linalg.inv(self.supergraph_basis_trsf)
+
+	def get_subgraph_basis_shift(self, cutkosky_cut_momenta_num):
+		return self.cutkosky_shift_trsf.dot(cutkosky_cut_momenta_num)+self.external_shift_trsf.dot(self.external_momenta_num)
+
+	def generate(self):
+		self.ltd_loop_lines = [LTDLoopLine(loop_line_index=i,**self.opts) for i,loop_line in enumerate(self.subgraph_dump.loop_lines)]
+		for ltd_loop_line in self.ltd_loop_lines:
+			ltd_loop_line.generate()
+
+	def get_e_surfaces(self,cutkosky_cut_momenta_num):
+		e_surfaces = []
+		#for ltd_loop_line in self.ltd_loop_lines:
+		#	for e_surface in ltd_loop_line.get_e_surfaces(cutkosky_cut_momenta_num):
+		#		if e_surface != []:
+		#			e_surface['loop_line'] = ltd_loop_line.loop_line_index
+		#			e_surfaces += [e_surface]
+		for ltd_loop_line in self.ltd_loop_lines:
+			e_surfaces += ltd_loop_line.get_e_surfaces(cutkosky_cut_momenta_num)
+		return e_surfaces
+
+class LTDLoopLine(LTDCut):
+	def __init__(self,**opts):
+		super(LTDLoopLine, self).__init__(**opts)
+		self.opts = opts
+		self.loop_line_index = self.opts['loop_line_index']
+		this_loop_line = self.subgraph_dump.loop_lines[self.loop_line_index]
+		# signature in cut basis
+		self.basis_signature = numpy.array(this_loop_line.signature).dot(self.inv_basis_trsf)
+		# signature when multiplied with cut structure signs
+		self.energy_signature = self.basis_signature.dot(numpy.diag(self.ltd_cut_signature))
+		self.has_positive_signature = all(sign >= 0 for sign in self.energy_signature)
+		self.has_negative_signature = all(sign <= 0 for sign in self.energy_signature)
+
+	def generate(self):
+		this_loop_line = self.subgraph_dump.loop_lines[self.loop_line_index]
+		self.ltd_propagators = [LTDPropagator(propagator_index = a, **self.opts) for a,propagator in enumerate(this_loop_line.propagators)]
+
+	def get_e_surfaces(self,cutkosky_cut_momenta_num):
+		e_surfaces = []
+		for ltd_propagator in self.ltd_propagators:
+		#	if ltd_propagator.is_ellipsoid(cutkosky_cut_momenta_num):
+		#		e_surfaces += [{'propagator': ltd_propagator.propagator_index}]
+			if ltd_propagator.is_ellipsoid(cutkosky_cut_momenta_num):
+				e_surfaces += [ltd_propagator]
+		return e_surfaces
+
+class LTDPropagator(LTDLoopLine):
+	def __init__(self,**opts):
+		super(LTDPropagator, self).__init__(**opts)
+		self.opts = opts
+		self.propagator_index = self.opts['propagator_index']
+		self.propagator_name = self.subgraph_dump.loop_lines[self.loop_line_index].propagators[self.propagator_index].name
+		cut_indices_iter = iter(self.ltd_cut_indices)
+		full_cut_indices = [next(cut_indices_iter) if abs(line) != 0 else None for line in self.ltd_cut_structure]
+		self.is_cut = (full_cut_indices[self.loop_line_index] == self.propagator_index)
+		self.dimension = numpy.sum([1 for sign in self.energy_signature if sign != 0])*3 - 1
+		#shift of propagator momentum with respect to the loop line momentum
+		self.own_cutkosky_shift_trsf = self.subgraph_dump.loop_lines[self.loop_line_index].propagators[self.propagator_index].parametric_shift[0]
+		self.own_external_shift_trsf = self.subgraph_dump.loop_lines[self.loop_line_index].propagators[self.propagator_index].parametric_shift[1]
+		#total shift i.e. affine surface term
+		self.total_cutkosky_shift_trsf = self.own_cutkosky_shift_trsf - self.basis_signature.dot(self.cutkosky_shift_trsf)
+		self.total_external_shift_trsf = self.own_external_shift_trsf - self.basis_signature.dot(self.external_shift_trsf)
+		self.tolerance = 1e-10
+
+	def get_total_shift(self, cutkosky_cut_momenta_num):
+		total_cutkoksy_shift = vectors.LorentzVector(self.total_cutkosky_shift_trsf.dot(cutkosky_cut_momenta_num))
+		total_external_shift = vectors.LorentzVector(self.total_external_shift_trsf.dot(self.external_momenta_num))
+		return total_cutkoksy_shift+total_external_shift
+	
+	def is_ellipsoid(self, cutkosky_cut_momenta_num):
+		total_shift = self.get_total_shift(cutkosky_cut_momenta_num)
+		s = total_shift.square()
+		is_plus_ellipsoid = (self.has_positive_signature and total_shift[0] < 0.) and (s > 0.)
+		is_minus_ellipsoid = (self.has_negative_signature and total_shift[0] > 0.) and (s > 0.)
+		is_ellipsoid = (is_plus_ellipsoid or is_minus_ellipsoid)
+		return is_ellipsoid
+
+	def get_lorentz_vector(self,time,space):
+		return vectors.LorentzVector(numpy.append([time],space))
+
+	def get_space_vector(self,r,unit_vector):
+		return r*unit_vector
+
+	def get_unit_vector(self,cos_theta,phi):
+		sin_theta = numpy.sqrt(1-cos_theta**2)
+		return numpy.array([sin_theta*numpy.cos(phi),sin_theta*numpy.sin(phi),cos_theta])
+
+	def get_beta(self,p):
+		assert(p.square()!=0)
+		beta = p.space()/p[0]
+		assert(beta.dot(beta)<1.)
+		return beta
+
+	def get_gamma(self,beta):
+		assert(beta.dot(beta)<1.)
+		return 1./numpy.sqrt(1.-beta.dot(beta))
+
+	def kaellen_lambda(self,x,y,z):
+		return x**2 + y**2 + z**2 - 2.*(x*y + x*z + y*z)
+
+	def get_boost(self,beta):
+		assert(beta.dot(beta)<1.)
+		assert(beta.dot(beta)>=0.)
+		if abs(beta.dot(beta)) < self.tolerance:
+			boost = numpy.identity(4)
+		else:
+			gamma = self.get_gamma(beta)
+			row0 = numpy.append([gamma],-gamma*beta)
+			space_matrix = numpy.identity(3)+(gamma-1)/beta.dot(beta)*numpy.outer(beta,beta)
+			rows1to3 = numpy.append([-gamma*beta],space_matrix,axis=0).T
+			boost = numpy.append([row0],rows1to3,axis=0)
+		return boost
+
+	def probe_e_surface(self, cutkosky_cut_momenta_num, random_variables):
+		assert(self.is_ellipsoid(cutkosky_cut_momenta_num))
+		assert(len(random_variables)==self.dimension)
+		title = ('E_surface %s'%self.propagator_name + ' (%i dim.)'%(self.dimension)
+				+ ' in LTD cut (%s)'%','.join([name+('%+d'%sign)[0] 
+					for name, sign in zip(self.ltd_cut_momenta,self.ltd_cut_signature)])
+				+ ' in Cutkosky cut (%s)'%','.join([name+('%+d'%sign)[0] 
+					for name, sign in zip(self.cutkosky_cut_momenta, self.cutkosky_cut_energy_signs)]))
+		print(10*'='+' probing ' + title + ' ' +10*'=')
+		os_subgraph_cut_basis = self.get_k_non_pinched(cutkosky_cut_momenta_num, random_variables)
+		print(os_subgraph_cut_basis)
+		os_subgraph_loop_basis = self.inv_basis_trsf.dot(os_subgraph_cut_basis - self.get_subgraph_basis_shift(cutkosky_cut_momenta_num))
+		print(os_subgraph_loop_basis)
+		os_supergraph_cut_basis = numpy.array([momentum for momentum in cutkosky_cut_momenta_num[:-1]]+[momentum for momentum in os_subgraph_loop_basis])
+		print(os_supergraph_cut_basis)
+		os_supergraph_loop_basis = self.supergraph_inv_basis_trsf.dot(os_supergraph_cut_basis - self.supergraph_shift_trsf.dot(self.external_momenta_num))
+		os_supergraph_loop_basis = [vectors.LorentzVector(p) for p in os_supergraph_loop_basis]
+		print(os_supergraph_loop_basis)
+		spatial_os_supergraph_loop_basis = [p.space() for p in os_supergraph_loop_basis]
+		prober = CrossSectionSingularityProber(squared_topology,"hyperparameters.yaml")
+		#directions = [numpy.array([5.,-2.,4.])]*squared_topology.topo.n_loops
+		directions = [numpy.array([3.,-2.,1.]),numpy.array([-2.,-5.,6.]),numpy.array([1.,2.,3.])]
+		directions = [direction/numpy.linalg.norm(direction) for direction in directions]
+		prober.probe_singular_surface(spatial_os_supergraph_loop_basis,directions,plot=True,plot_title=title,precision='f128')
+		#prober.evaluate_cuts(spatial_os_supergraph_loop_basis)
+
+
+	def get_k_non_pinched(self, cutkosky_cut_momenta_num, random_variables):
+		assert(len(random_variables)==self.dimension)
+		os_subgraph_cut_basis = [vectors.LorentzVector([0,0,0,0]) for i in range(len(self.ltd_cut_momenta))]
+		prop_name = self.propagator_name
+		n_independent_cuts = len([1 for sign in self.basis_signature if sign != 0])
+		counter = 0
+		indep_counter = 0
+		for index,(name,energy_sign,signature) in enumerate(zip(self.ltd_cut_momenta, self.ltd_cut_signature, self.basis_signature)):
+			if signature != 0:
+				indep_counter += 1
+				mass_squared_basis = self.squared_topology_dump.masses[name] if name in self.squared_topology_dump.masses else 0.
+				mass_prop = self.squared_topology_dump.masses[prop_name] if prop_name in self.squared_topology_dump.masses else 0.
+				mass_prop += numpy.sum([self.squared_topology_dump.masses[name]
+											if (name in self.squared_topology_dump.masses and sign != 0) else 0.
+											for sign,((name,_)) in zip(self.basis_signature[:index],self.ltd_cut_momenta[:index])])
+				mass_squared_prop = mass_prop**2
+				shift = self.get_total_shift(cutkosky_cut_momenta_num)
+				shift += self.basis_signature[:index].dot(os_subgraph_cut_basis[:index])
+				assert(shift.square() > (numpy.sqrt(mass_squared_prop)+numpy.sqrt(mass_squared_basis))**2)
+				assert(shift[0]*energy_sign*signature < 0)
+				radius_max = numpy.sqrt(self.kaellen_lambda(shift.square(),mass_squared_prop,mass_squared_basis)/(4.*shift.square()))
+				if indep_counter == n_independent_cuts:
+					radius = radius_max
+				else:
+					radius = random_variables[counter]*radius_max
+					counter += 1
+				cos_theta = 2*random_variables[counter]-1.
+				counter += 1
+				phi = 2*numpy.pi*random_variables[counter]
+				counter += 1
+				basis_momentum_boosted = self.get_lorentz_vector(energy_sign*numpy.sqrt(radius**2 + mass_squared_basis),
+											self.get_space_vector(radius,
+												self.get_unit_vector(cos_theta,phi)))
+				basis_momentum = vectors.LorentzVector(self.get_boost(-self.get_beta(shift)).dot(basis_momentum_boosted))
+				os_subgraph_cut_basis[index] = basis_momentum
+		return os_subgraph_cut_basis
+
 if __name__ == "__main__":
 
 	#print(dir(ltd.CrossSection))
@@ -736,13 +1049,38 @@ if __name__ == "__main__":
 
 	squared_topology = mercedes
 
+	CUT_INDEX = 2
+	print(squared_topology.cuts)
+	sqtopo = SquaredTopology(squared_topology_dump=squared_topology)
+	sqtopo.generate()
+
+	parameteriser = CutkoskyCutParametiser(squared_topology,CUT_INDEX)
+	parameteriser.get_cut_basis()
+	cut_momenta = parameteriser.get_PS_point([random.random() for i in range(3*len(squared_topology.cuts[CUT_INDEX])-4)])
+	#print(cut_momenta)
+	cutkosky_cut_momenta_num = [cut_momenta[name] for (name,_) in squared_topology.cuts[CUT_INDEX]]
+	#print(cutkosky_cut_momenta_num)
+	# BUILD: sqtopo.cutkosky_cuts[CUT_INDEX].get_PS_point([random.random() for i in range(3*len(squared_topology.cuts[CUT_INDEX])-4)])
+	e_surfaces = sqtopo.cutkosky_cuts[CUT_INDEX].get_e_surfaces(cutkosky_cut_momenta_num)
+	#print(e_surfaces[0].dimension)
+	for e_surface in e_surfaces:
+		print(e_surface)
+		print('dimension: ', e_surface.dimension)
+		random_variables = [random.random() for i in range(e_surface.dimension)]
+		e_surface.probe_e_surface(cutkosky_cut_momenta_num, random_variables)
+	#print(sqtopo.get_e_surfaces())
+	plt.show()
+	stop
+
 	#for cut_index, cut in enumerate(squared_topology.cuts):
 	#	print(cut_index)
 	#	parameteriser = CutkoskyCutParametiser(squared_topology,cut_index)
 	#	#parameteriser.get_cut_basis()
 	#	parameteriser.get_PS_point([random.random() for i in range(3*len(squared_topology.cuts[cut_index])-4)])
 
-	print(squared_topology.cuts)
+	print(squared_topology.cuts[1])
+	print(squared_topology.cut_signatures[1])
+	stop
 	#print(squared_topology.external_momenta)
 	#print(squared_topology.topo.loop_momenta)
 	CUT_INDEX = 4
