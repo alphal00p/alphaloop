@@ -162,6 +162,22 @@ class HyperParameters(dict):
 
 class TopologyGenerator(object):
 
+#   Below is tricky to make work
+#    def __new__(cls, *args, **opts):
+#        """ Factory creating an instance of the appropriate class for the inputs supplied for building the
+#        loop topology. """
+#        
+#        if cls is TopologyGenerator:
+#            if len(args)<1:
+#                raise BaseException("The constructor of a TopologyGenerator instance requires at least one argumemt.")
+#            if isinstance(args[0], dict) and all(isinstance(t,Propagator) for ts in args[0].values() for t in ts):
+#                return super(TopologyGenerator, cls).__new__(TopologyGeneratorFromPropagators, *args, **opts)
+#            else:
+#                return super(TopologyGenerator, cls).__new__(cls, *args, **opts)
+#        else:
+#            return super(TopologyGenerator, cls).__new__(cls, *args, **opts)
+
+
     def __init__(self, edge_map_lin, powers=None):
         #if len(set(e[0] for e  in edge_map_lin)) != len(edge_map_lin):
         #    raise AssertionError("Every edge must have a unique name. Input: ", edge_map_lin)
@@ -564,16 +580,22 @@ class TopologyGenerator(object):
                     continue
         return allowed_systems
 
+    def get_loop_momentum_bases(self, loop_lines):
+        # create the LTD graph with the external momenta removed
+        graph = TopologyGenerator(
+            [(None, loop_line.start_node, loop_line.end_node) for loop_line in loop_lines])
+        return graph.loop_momentum_bases()
+
     def get_cut_structures(self, loop_lines, contour_closure=None):
         if self.n_loops == 0:
             return []
 
-        # create the LTD graph with the external momenta removed
-        graph = TopologyGenerator(
-            [(None, loop_line.start_node, loop_line.end_node) for loop_line in loop_lines])
-
-        momentum_bases = graph.loop_momentum_bases()
+        # Depending on whether the integral has an underlying graph representation or not, we
+        # use either a pathfinder approach to find all loop momenta basis or we instead deduce 
+        # the valid momenta basis by computing determinant of matrices. The behaviour is differentiated
+        # by an overloading of the function 'get_loop_momentum_bases'
         signature_matrix = [loop_line.signature for loop_line in loop_lines]
+        momentum_bases = self.get_loop_momentum_bases(loop_lines)
 
         if contour_closure is None:
             # close from below by default
@@ -719,7 +741,7 @@ class TopologyGenerator(object):
         try:
             external_kinematics = [ext_mom["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in ext_mom.keys()])]
         except ValueError:
-            print("External kinematics are not labels as q1,...,qn. The order may be random.")
+            print("External kinematics are not labels as q1,...,qn. Their order will be random.")
             external_kinematics = list(ext_mom.values())
         
         loop_topology = LoopTopology(name=name, n_loops=len(self.loop_momenta), external_kinematics=external_kinematics,
@@ -1614,6 +1636,84 @@ class LoopTopology(object):
             'alpha' : [[0., 0., 0., 1.],]*self.n_loops,
             'beta'  : [[0., 0., 0., 0.],]*self.n_loops
         }
+
+
+class TopologyGeneratorFromPropagators(TopologyGenerator):
+
+    def __init__(self, propagators_dict, overall_scale=None):
+        
+        if len(set(len(sig) for sig in propagators_dict.keys()))!=1:
+            raise BaseException("All signatures appearing as keys of the dictionary of propagators supplied "+
+                                " the class TopologyGeneratorFromPropagators must be of equal length.")
+        self.n_loops = len(list(propagators_dict.keys())[0])
+
+        if overall_scale is None:
+            # Guess a typical scale of the problem from the list of shifts.
+            all_props = [t for ts in propagators_dict.values() for t in ts]
+            self.overall_scale = math.sqrt(sum(max(abs(p.q.square()), p.m_squared) for p in all_props))
+        else:
+            self.overall_scale = overall_scale
+        
+        # Now assign dummy external momenta that will allow to reproduce the characteristic scale identified above.
+        self.dummy_external_momenta = vectors.LorentzVectorList([
+            vectors.LorentzVector([self.overall_scale,0.0,0.0,0.0]),
+            vectors.LorentzVector([-self.overall_scale,0.0,0.0,0.0])
+        ])
+
+        # Make sure the signature specified for each propagator matches that of the loop line it belongs to
+        # Make sure work off a copy
+        propagators_dict = dict((sig, tuple(copy.copy(p) for p in plist)) for sig,plist in propagators_dict.items())
+        for sig, plist in propagators_dict.items():
+            for p in plist:
+                p.signature = sig
+                # The parametric shift cannot be correct in this case
+                p.parametric_shift = None
+
+        self.loop_lines = [
+            LoopLine(
+                start_node=0,
+                end_node=0,
+                signature=signature,
+                propagators=props
+            ) 
+            for signature, props in propagators_dict.items()
+        ]
+
+    def get_loop_momentum_bases(self, loop_lines):
+        """ Alternative way of obtaining all loop momenta basis without using path finding in a graph.
+        Instead we solve for whether the rank of the signature matrix is zero or no."""
+        loop_line_signatures = tuple([ll.signature for ll in loop_lines])
+        reference_signature_matrices = list(itertools.combinations(loop_line_signatures , self.n_loops))
+        bases = list(itertools.combinations(range(len(loop_line_signatures)), self.n_loops))
+        all_momentum_bases = []
+        for basis, reference_signature_matrix in zip(bases, reference_signature_matrices):
+            if numpy.linalg.det(reference_signature_matrix) == 0:
+                continue
+            all_momentum_bases.append(basis)
+        return all_momentum_bases
+
+    def create_loop_topology(self, name, contour_closure=None, analytic_result=None, 
+                             fixed_deformation=None, constant_deformation=None,
+                             numerator_tensor_coefficients=None):
+
+        cs = self.get_cut_structures([l for l in self.loop_lines if any(s != 0 for s in l.signature)], contour_closure)
+        
+        loop_topology = LoopTopology(name=name, n_loops=self.n_loops, external_kinematics=self.dummy_external_momenta,
+            ltd_cut_structure=cs, loop_lines=self.loop_lines, analytic_result = analytic_result, 
+            fixed_deformation = fixed_deformation,
+            constant_deformation = constant_deformation, 
+            loop_momentum_map= None
+        )
+
+        loop_topology.numerator_tensor_coefficients = numerator_tensor_coefficients
+       
+        if (fixed_deformation is None) or (fixed_deformation is True):
+            loop_topology.build_fixed_deformation(force=(fixed_deformation is True))
+        
+        if constant_deformation is None:
+            loop_topology.build_constant_deformation()
+
+        return loop_topology
 
 class LoopLine(object):
     """ A simple container for describing a loop line."""
