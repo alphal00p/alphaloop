@@ -813,24 +813,25 @@ impl Topology {
     }
 
     pub fn inv_parametrize<T: FloatLike>(
-        &self,
         mom: &LorentzVector<f64>,
+        e_cm_squared: f64,
         loop_index: usize,
+        settings: &Settings,
     ) -> ([T; 3], T) {
-        if self.settings.parameterization.mode != ParameterizationMode::Spherical {
+        if settings.parameterization.mode != ParameterizationMode::Spherical {
             panic!("Inverse mapping is only implemented for spherical coordinates");
         }
 
         let mut jac = T::one();
-        let e_cm = Into::<T>::into(self.e_cm_squared).sqrt()
-            * Into::<T>::into(self.settings.parameterization.shifts[loop_index].0);
+        let e_cm = Into::<T>::into(e_cm_squared).sqrt()
+            * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
 
         let x: T = Into::<T>::into(mom.x)
-            - e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].1);
+            - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].1);
         let y: T = Into::<T>::into(mom.y)
-            - e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].2);
+            - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].2);
         let z: T = Into::<T>::into(mom.z)
-            - e_cm * Into::<T>::into(self.settings.parameterization.shifts[loop_index].3);
+            - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].3);
 
         let k_r_sq = x * x + y * y + z * z;
         let k_r = k_r_sq.sqrt();
@@ -846,15 +847,15 @@ impl Topology {
             return ([T::zero(), x2, T::zero()], T::zero());
         }
 
-        let x1 = match self.settings.parameterization.mapping {
+        let x1 = match settings.parameterization.mapping {
             ParameterizationMapping::Log => {
-                let b = Into::<T>::into(self.settings.parameterization.b);
+                let b = Into::<T>::into(settings.parameterization.b);
                 let x1 = T::one() - b / (-T::one() + b + (k_r / e_cm).exp());
                 jac /= e_cm * b / (T::one() - x1) / (T::one() + x1 * (b - T::one()));
                 x1
             }
             ParameterizationMapping::Linear => {
-                let b = Into::<T>::into(self.settings.parameterization.b);
+                let b = Into::<T>::into(settings.parameterization.b);
                 jac /= <T as num_traits::Float>::powi(e_cm * b + k_r, 2) / e_cm / b;
                 k_r / (e_cm * b + k_r)
             }
@@ -869,7 +870,7 @@ impl Topology {
         let mut x = [x1, x2, x3];
         for (xi, &(lo, hi)) in x
             .iter_mut()
-            .zip_eq(&self.settings.parameterization.input_rescaling[loop_index])
+            .zip_eq(&settings.parameterization.input_rescaling[loop_index])
         {
             *xi = (*xi - Into::<T>::into(lo)) / Into::<T>::into(hi - lo);
             jac /= Into::<T>::into(hi - lo);

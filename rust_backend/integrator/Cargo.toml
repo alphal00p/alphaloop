@@ -10,7 +10,7 @@ crate-type = ["cdylib", "lib"]
 [dependencies.cpython]
 version = "0.4.1"
 default-features = false
-features = ["python27-sys"]
+features = ["python3-sys"]
 
 [dependencies]
 vector = { path = "../vector" }
