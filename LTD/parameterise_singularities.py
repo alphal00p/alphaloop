@@ -6,6 +6,7 @@ sys.path.insert(0,'../')
 import ltd
 import matplotlib.pyplot as plt
 import itertools
+import matplotlib.cm as cm
 
 class CrossSectionSingularityProber(object):
 	def __init__(self, squared_topology_info, hyperparameters_yaml):
@@ -27,9 +28,11 @@ class CrossSectionSingularityProber(object):
 		if precision == 'f128':
 			evaluate = self.cross_section.evaluate_f128
 			evaluate_cut = self.cross_section.evaluate_cut_f128
+			inv_parameterize = self.cross_section.inv_parameterize_f128
 		elif precision == 'f64':
 			evaluate = self.cross_section.evaluate
 			evaluate_cut = self.cross_section.evaluate_cut
+			inv_parameterize = self.cross_section.inv_parameterize
 		mu_list = numpy.logspace(-1,-5,5)
 		results = []
 		for mu in mu_list:
@@ -39,21 +42,36 @@ class CrossSectionSingularityProber(object):
 		for result in results:
 			print(result)
 		if plot:
-			plt.figure()
+			plt.figure(figsize=(11,6))
 			xx = numpy.linspace(-1e-1,1e-1,int(1e3))
 			spatial_loop_momenta_list = [[p+x*spatial_direction*numpy.sqrt(self.e_cm_squared) for p,spatial_direction in zip(os_spatial_loop_momenta,spatial_directions)] for x in xx]
 			yy = [[evaluate_cut(spatial_loop_momenta,c,
 					self.cross_section.get_scaling(spatial_loop_momenta,c)[1][0],self.cross_section.get_scaling(spatial_loop_momenta,c)[1][1])[phase]
 					for spatial_loop_momenta in spatial_loop_momenta_list] for c in range(self.n_cutkosky_cuts)]
-			tot = numpy.sum(yy,axis=0)
+			tot_manual = numpy.sum(yy,axis=0)
+			tot_rust_f128 = [self.cross_section.evaluate_f128(spatial_loop_momenta)[phase] for spatial_loop_momenta in spatial_loop_momenta_list]
+			tot_rust_f64 = [self.cross_section.evaluate(spatial_loop_momenta)[phase] for spatial_loop_momenta in spatial_loop_momenta_list]
+			vegas_variables = [numpy.array([inv_parameterize(spatial_loop_momentum,loop_index,self.e_cm_squared)[:3]
+								for loop_index, spatial_loop_momentum in enumerate(spatial_loop_momenta)]).flatten()
+								for spatial_loop_momenta in spatial_loop_momenta_list]
+			jacobians = [numpy.prod([inv_parameterize(spatial_loop_momentum,loop_index,self.e_cm_squared)[-1]
+								for loop_index, spatial_loop_momentum in enumerate(spatial_loop_momenta)])
+								for spatial_loop_momenta in spatial_loop_momenta_list]	
+			tot_stabilised = [self.cross_section.evaluate_integrand(vegas_variable)[phase]*jacobian for vegas_variable, jacobian in zip(vegas_variables,jacobians)]
+			#tot_with_jac = [tot*numpy.abs(x**(4)) for tot,x in zip(tot_stabilised,xx)]
 			markers = itertools.cycle(('v','<', '^', '>')) 
-			for c in range(self.n_cutkosky_cuts):
-				plt.plot(xx,yy[c],marker=markers.next(),label='cut %i: (%s)'%(c,','.join([name_and_sign[0]+('%+d'%name_and_sign[1])[0] for name_and_sign in self.squared_topology_info.cuts[c]])),
+			colors = cm.rainbow(numpy.linspace(0, 1, self.n_cutkosky_cuts))
+			for cut_index, color in zip(range(self.n_cutkosky_cuts),colors):
+				plt.plot(xx,yy[cut_index],marker=next(markers), color=color, label='cut %i: (%s)'%(cut_index,','.join([name_and_sign[0]+('%+d'%name_and_sign[1])[0] for name_and_sign in self.squared_topology_info.cuts[cut_index]])),
 							ms=1,alpha=1,ls='None')
-			plt.plot(xx,tot,'k',marker='o',label='sum',ms=0.5,alpha=1,ls='None')
+			#plt.plot(xx,tot_manual,'silver',marker='o',label='sum (python)',ms=0.5,alpha=1,ls='None')
+			plt.plot(xx,tot_rust_f128,'gray',marker='o',label='sum (rust f128)',ms=0.5,alpha=1,ls='None')
+			plt.plot(xx,tot_rust_f64,'r',marker='o',label='sum (rust f64)',ms=0.5,alpha=1,ls='None')
+			plt.plot(xx,tot_stabilised,'k',marker='o',label='sum (stablised)',ms=0.5,alpha=1,ls='None')
+			#plt.plot(xx,tot_with_jac,'b',marker='o',label='sum (stablised) with jac',ms=0.5,alpha=1,ls='None')
 			plt.xlabel(r'$\mu$')
 			plt.yscale('symlog')
-			plt.legend(loc='lower right')
+			plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 			plt.title(self.name + '\n' + plot_title
 				+ ''.join(['\n'+r'$k_{'+'%i'%c+'}=$'
 							+'(%s)'%','.join(['%f'%k_i for k_i in spatial_loop_momentum])
@@ -889,8 +907,7 @@ class LTDPropagator(LTDLoopLine):
 
 	def get_os_subgraph_cut_basis(self, cutkosky_cut_momenta_num, random_variables):
 		if self.is_e_surface(cutkosky_cut_momenta_num):
-			assert(len(random_variables)==self.e_surface_dimension)
-			os_subgraph_cut_basis = [vectors.LorentzVector([0,0,0,0]) for i in range(len(self.ltd_cut_momenta))]
+			os_subgraph_cut_basis = [vectors.LorentzVector([None,None,None,None]) for i in range(len(self.ltd_cut_momenta))]
 			n_independent_cuts = len([1 for sign in self.basis_signature if sign != 0])
 			counter = 0
 			indep_counter = 0
@@ -920,9 +937,19 @@ class LTDPropagator(LTDLoopLine):
 					basis_momentum_boosted = self.get_lorentz_vector(energy_sign*numpy.sqrt(radius**2 + mass_squared_basis),
 												self.get_space_vector(radius, self.get_unit_vector(cos_theta,phi)))
 					basis_momentum = vectors.LorentzVector(self.get_boost(-self.get_beta(shift)).dot(basis_momentum_boosted))
-					os_subgraph_cut_basis[index] = basis_momentum
+				else:
+					mass_squared_basis = self.squared_topology_info.masses[name] if name in self.squared_topology_info.masses else 0.
+					radius = numpy.sqrt(self.e_cm_squared)*random_variables[counter]/(1.-random_variables[counter])
+					counter += 1
+					cos_theta = 2*random_variables[counter]-1.
+					counter += 1
+					phi = 2*numpy.pi*random_variables[counter]
+					counter += 1
+					basis_momentum = self.get_lorentz_vector(energy_sign*numpy.sqrt(radius**2 + mass_squared_basis),
+												self.get_space_vector(radius, self.get_unit_vector(cos_theta,phi)))
+				os_subgraph_cut_basis[index] = basis_momentum
 		elif self.is_pinched_surface(cutkosky_cut_momenta_num):
-			os_subgraph_cut_basis = [vectors.LorentzVector([0,0,0,0]) for i in range(len(self.ltd_cut_momenta))]
+			os_subgraph_cut_basis = [vectors.LorentzVector([None,None,None,None]) for i in range(len(self.ltd_cut_momenta))]
 			n_independent_cuts = len([1 for sign in self.basis_signature if sign != 0])
 			counter = 0
 			indep_counter = 0
@@ -943,7 +970,21 @@ class LTDPropagator(LTDLoopLine):
 					spatial_basis_momentum = shift_energy_sign*energy_sign*random_variables[counter]*shift.space()
 					counter += 1
 					basis_momentum = self.get_lorentz_vector(energy_sign*numpy.sqrt(spatial_basis_momentum.square()),spatial_basis_momentum)
-					os_subgraph_cut_basis[index] = basis_momentum
+				else:
+					mass_squared_basis = self.squared_topology_info.masses[name] if name in self.squared_topology_info.masses else 0.
+					if random_variables[counter] == 1:
+						random = 0.5
+						radius = numpy.sqrt(self.e_cm_squared)*random/(1.-random)
+					else:
+						radius = numpy.sqrt(self.e_cm_squared)*random_variables[counter]/(1.-random_variables[counter])
+					counter += 1
+					cos_theta = 2*random_variables[counter]-1.
+					counter += 1
+					phi = 2*numpy.pi*random_variables[counter]
+					counter += 1
+					basis_momentum = self.get_lorentz_vector(energy_sign*numpy.sqrt(radius**2 + mass_squared_basis),
+												self.get_space_vector(radius, self.get_unit_vector(cos_theta,phi)))
+				os_subgraph_cut_basis[index] = basis_momentum
 		else:
 			raise ValueError("This propagator cannot go on-shell.")
 		return os_subgraph_cut_basis
@@ -962,7 +1003,7 @@ class LTDPropagator(LTDLoopLine):
 
 if __name__ == "__main__":
 
-	#random.seed(1)
+	random.seed(1)
 
 	# the double triangle master graph
 	t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
@@ -1000,7 +1041,7 @@ if __name__ == "__main__":
 	for e_surface in singular_surfaces['e_surfaces']:
 		title = 'E-surface (%i dim) '%e_surface.e_surface_dimension + str(e_surface)
 		print(10*'=' + ' ' + title + ' ' +10*'=')
-		random_variables = [random.random() for i in range(e_surface.e_surface_dimension)]
+		random_variables = [random.random() for i in range(3*e_surface.n_loops_subgraph-1)]
 		os_supergraph_integration_basis = e_surface.get_os_supergraph_integration_basis(cutkosky_cut_momenta_num, random_variables)
 		spatial_os_supergraph_integration_basis = [p.space() for p in os_supergraph_integration_basis]
 		random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(squared_topology_info.topo.n_loops)]
@@ -1012,7 +1053,8 @@ if __name__ == "__main__":
 	for pinched_surface in singular_surfaces['pinched_surfaces']:
 		title = 'Pinched surface (%i dim) '%pinched_surface.pinched_surface_dimension + str(pinched_surface)
 		print(10*'=' + ' ' + title + ' ' +10*'=')
-		random_variables = [random.random()]*pinched_surface.pinched_surface_dimension
+		random_variables = [random.random() for i in range(3*e_surface.n_loops_subgraph-1)]
+		#random_variables = [1 for i in range(3*e_surface.n_loops_subgraph-1)]
 		os_supergraph_integration_basis = pinched_surface.get_os_supergraph_integration_basis(cutkosky_cut_momenta_num, random_variables)
 		spatial_os_supergraph_integration_basis = [p.space() for p in os_supergraph_integration_basis]
 		random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(squared_topology_info.topo.n_loops)]
