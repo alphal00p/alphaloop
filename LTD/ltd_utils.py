@@ -198,7 +198,7 @@ class TopologyGenerator(object):
         self.loop_momenta = None
         self.propagators = None
         self.n_loops = None
-    
+
     def loop_momentum_bases(self):
         trees = []
         self.spanning_trees(trees, tree={self.edges[0][0]})
@@ -242,7 +242,7 @@ class TopologyGenerator(object):
 
         return TopologyGenerator(new_edge_map_lin, powers=new_powers)
 
-    def spanning_trees(self, result, tree={1}, accum=[]):
+    def spanning_trees(self, result, tree, accum=[]):
         # find all edges that connect the tree to a new node
         edges = [(i, e) for i, e in enumerate(
             self.edges) if e[0] != e[1] and len(tree & set(e)) == 1]
@@ -270,8 +270,7 @@ class TopologyGenerator(object):
                 if len(p) > 1 and p[-1][0] == dest:
                     res.append(p)
                     continue
-                last_vertex = self.edges[p[-1][0]
-                                         ][1] if p[-1][1] else self.edges[p[-1][0]][0]
+                last_vertex = self.edges[p[-1][0]][1] if p[-1][1] else self.edges[p[-1][0]][0]
                 for i, x in enumerate(self.edges):
                     if all(i != pp[0] for pp in p[start_check:]):
                         if loop and i == start:
@@ -291,7 +290,7 @@ class TopologyGenerator(object):
 
     def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids):
         spanning_trees = []
-        self.spanning_trees(spanning_trees)
+        self.spanning_trees(spanning_trees, tree={self.edges[0][0]})
         cutkosky_cuts = set()
         for spanning_tree in spanning_trees:
             # now select the extra cut
@@ -303,11 +302,15 @@ class TopologyGenerator(object):
                 # and the other having all outgoing particles
                 cut_tree = TopologyGenerator([e for i, e in enumerate(self.edge_map_lin) if i in set(spanning_tree) - {edge_index,}])
                 sub_tree_indices = []
-                cut_tree.spanning_trees(sub_tree_indices)
+                cut_tree.spanning_trees(sub_tree_indices, tree={cut_tree.edges[0][0]})
                 sub_tree = TopologyGenerator([cut_tree.edge_map_lin[i] for i in sub_tree_indices[0]])
                 is_incoming_sub_tree = any(e[0] in incoming_particles for e in sub_tree.edge_map_lin)
 
-                if set(set([sub_tree.edge_map_lin[i][0] for i in sub_tree.ext]) & set([self.edge_map_lin[i][0] for i in self.ext])) == set(incoming_particles):
+                sub_tree_external = set([sub_tree.edge_map_lin[i][0] for i in sub_tree.ext])
+                super_external = set([self.edge_map_lin[i][0] for i in self.ext])
+                ext_overlap = sub_tree_external & super_external
+
+                if ext_overlap == set(incoming_particles) or ext_overlap == super_external - set(incoming_particles):
                     # identify which of the n+1 cuts are the cuts that separate the original diagram in two
                     cutkosky_cut = tuple(sorted(cutkosky_edge for cutkosky_edge in set(self.edge_map_lin).difference(set(cut_tree.edge_map_lin))
                             if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
@@ -325,11 +328,108 @@ class TopologyGenerator(object):
                     cutkosky_cuts.add(cutkosky_cut)
         return list(sorted(cutkosky_cuts))
 
+    def bubble_cuts(self, cutkosky_cut, incoming_momenta, level=0):
+        # check if some of the cutkosky cuts cut a bubble external
+        duplicate_edges_set = set()
+        for c, _ in cutkosky_cut:
+            sig = tuple(self.propagators[self.edge_name_map[c]])
+            inv_sig = tuple([(x[0], not x[1]) for x in sig])
+            bubble_props = [eml[0] for prop, eml in zip(self.propagators, self.edge_map_lin) if eml[0] != c and tuple(prop) == sig or tuple(prop) == inv_sig]
+            duplicate_edges_set |= set(bubble_props)
+
+        # TODO: keep track of left and right
+        cut_names = [a[0] for a in cutkosky_cut]
+        graphs = self.split_graph(cut_names, incoming_momenta)
+
+        # now apply fake cuts one by one
+        for d in duplicate_edges_set:
+            # keep cutting graphs
+            split_graphs = []
+            for g in graphs:
+                if d in g.edge_name_map:
+                    split_graphs.extend(g.split_graph([d], incoming_momenta))
+                else:
+                    split_graphs.append(g)
+
+            graphs = split_graphs
+
+        # identify the bubble part and cut that further
+        # create the bubble graphs by removing all duplicate edges and finding new cuts per subtopology
+        split_graphs = []
+        for g in graphs:
+            # bubble: 2 external momenta only
+            if len(g.ext) == 2 and len(g.edge_map_lin) > 2:
+                # add a propagator to the bubble and remove the other leg
+                # TODO: also remove the other leg from the other graph
+                if g.edge_map_lin[g.ext[0]][0] in cut_names:
+                    ext = g.edge_map_lin[g.ext[0]]
+                    ext_other_name = g.edge_map_lin[g.ext[1]][0]
+                    g.edge_map_lin = [e for e in g.edge_map_lin if e[0] != g.edge_map_lin[g.ext[1]][0]]
+                else:
+                    assert(g.edge_map_lin[g.ext[1]][0] in cut_names)
+                    ext = g.edge_map_lin[g.ext[1]]
+                    ext_other_name = g.edge_map_lin[g.ext[0]][0]
+                    g.edge_map_lin = [e for e in g.edge_map_lin if e[0] != g.edge_map_lin[g.ext[0]][0]]
+
+                highest_vertex = max(v for e in g.edge_map_lin for v in e[1:]) + 1
+                cut_on_right_vertex = len([1 for e in g.edge_map_lin if ext[1] in e[1:]]) == 1
+                g.edge_map_lin.append((ext[0] + 'bub', ext[1], ext[2]))
+                if cut_on_right_vertex:
+                    g.edge_map_lin[g.ext[0]] = (ext[0], highest_vertex, ext[1])
+                else:
+                    g.edge_map_lin[g.ext[0]] = (ext[0], ext[2], highest_vertex)
+
+                g = TopologyGenerator(g.edge_map_lin) # TODO: inherit powers?
+                g.powers[ext[0] + 'bub'] = 2
+
+                # TODO: get the proper sign for the cutkosky cut, ie, set the correct incoming momentum
+                cuts = g.find_cutkosky_cuts(2, [ext_other_name], set(), set())
+
+                g.generate_momentum_flow() # get a random flow for the recursive bubble finding
+                sub_bubble_cuts = [{
+                    'cuts': [a for a in y['cuts']],
+                    'n_bubbles': 1 + y['n_bubbles'],
+                    'graphs':  [b for b in y['graphs']]
+                }  for c in cuts for y in g.bubble_cuts(c, set(), level + 1)]
+                split_graphs.append(sub_bubble_cuts)
+            else:
+                split_graphs.append([{
+                    'cuts': [],
+                    'n_bubbles': 0,
+                    'graphs':  [g]
+                }])
+
+        # take the cartesian product
+        # if the current level is 0, move the dependent cut momentum to the back of the list
+        graph_combinations = [{
+                'cuts': 
+                    [{
+                        'edge': c[0],
+                        'sign': c[1],
+                        'level': level} for c in cutkosky_cut] 
+                    + [c for a in x for c in a['cuts']]
+                if level != 0 else
+                    [{
+                        'edge': c[0],
+                        'sign': c[1],
+                        'level': level} for c in cutkosky_cut[:-1]
+                    ]
+                    + [c for a in x for c in a['cuts']]
+                    + [{
+                        'edge': cutkosky_cut[-1][0],
+                        'sign': cutkosky_cut[-1][1],
+                        'level': level}],
+                'n_bubbles': sum(a['n_bubbles'] for a in x),
+                'graphs':  [b for a in x for b in a['graphs']]
+            }  for x in product(*split_graphs)]
+
+        return graph_combinations
+
     def split_graph(self, cutkosky_cut, incoming_momenta):
         """Split the graph in two using a cutkosky cut. The first has the incoming momenta, and the second the outgoing."""
         cut_tree = TopologyGenerator([e for e in self.edge_map_lin if e[0] not in cutkosky_cut])
         sub_tree_indices = []
-        cut_tree.spanning_trees(sub_tree_indices)
+        cut_tree.spanning_trees(sub_tree_indices, tree={cut_tree.edges[0][0]})
 
         # get the vertices from the spanning tree and use it to create the two subgraphs
         sub_tree_vertices = set(v for e in sub_tree_indices[0] for v in cut_tree.edge_map_lin[e][1:])
@@ -380,14 +480,21 @@ class TopologyGenerator(object):
         return edge_map
 
     def build_proto_topology(self, sub_graph, cuts, inherit_loop_momenta=True):
+        # for the bubble problem with numerators, it is important that the shifts are done with the deepest
+        # level of the cuts. If we chose the sink of the momentum routing in the subgraph to be of the lowst
+        # level, we always satisfy that.
+        cut_momenta_names = [c['edge'] for c in cuts] # ordered by level
+        # FIXME: the last momentum has level 0!
+        sink = next(cn for cn in cut_momenta_names if cn in sub_graph.edge_name_map)
+
         if inherit_loop_momenta and sub_graph.n_loops > 0:
             # select a basis with the most loop momenta shared with the supergraph
             lm_names = [ self.edge_map_lin[e][0] for e in self.loop_momenta]
             bases = [ tuple(sub_graph.edge_map_lin[e][0] for e in b) for b in sub_graph.loop_momentum_bases()]
             bases = sorted(bases, key=lambda b: len([lm for lm in b if lm in lm_names]), reverse=True)
-            sub_graph.generate_momentum_flow(bases[0])
+            sub_graph.generate_momentum_flow(loop_momenta=bases[0], sink=sink)
         else:
-            sub_graph.generate_momentum_flow()
+            sub_graph.generate_momentum_flow(sink=sink)
 
         # for each edge, determine the momentum map from full graph to subgraph and the shift
         # the shift will in general also have loop momentum dependence
@@ -410,11 +517,13 @@ class TopologyGenerator(object):
             signature = [[0]*len(cuts), [0]*len(self.ext)]
 
             # map the external momenta back to cuts and the external momenta of the full graph
+            # since the sink of the subgraph routing was chosen to be the propagator of the lowest level,
+            # every propagator's shift will depend on the highest level cuts
             for ext_index, s in enumerate(sub_graph_edge_map[edge_name][1]):
                 mom = sub_graph.edge_map_lin[sub_graph.ext[ext_index]][0]
                 if s != 0:
-                    if mom in cuts:
-                        signature[0][cuts.index(mom)] = s
+                    if mom in cut_momenta_names:
+                        signature[0][cut_momenta_names.index(mom)] = s
                     else:
                         edge_index = next(i for i, e in enumerate(self.edge_map_lin) if e[0] == mom)
                         signature[1][self.ext.index(edge_index)] = s
@@ -422,7 +531,7 @@ class TopologyGenerator(object):
 
         return loop_momentum_map, param_shift
 
-    def generate_momentum_flow(self, loop_momenta=None):
+    def generate_momentum_flow(self, loop_momenta=None, sink=None):
         if loop_momenta is None:
             loop_momenta = self.loop_momentum_bases()[0]
         else:
@@ -445,12 +554,20 @@ class TopologyGenerator(object):
             flows.append(paths[0][:-1])
 
         # now route the external loop_momenta to the sink
+        if sink is None:
+            sink = self.ext[-1]
+        else:
+            sink = next(i for i, e in enumerate(self.edge_map_lin) if e[0] == sink)
+
         ext_flows = []
-        for e in self.ext[:-1]:
-            paths = self.find_path(e, self.ext[-1])
+        for i, e in enumerate(self.ext):
+            if e == sink:
+                continue
+            paths = self.find_path(e, sink)
             paths = [x for x in paths if all(
                 y[0] not in loop_momenta for y in x[1:-1])]
-            ext_flows.append(paths[0])
+            assert(len(paths) == 1)
+            ext_flows.append((i, paths[0]))
 
         # propagator momenta
         mom = []
@@ -472,13 +589,13 @@ class TopologyGenerator(object):
                                 "k{}".format(loop_momenta[j])
                             newmom.append((loop_momenta[j], yy[1]))
                             break
-                for j, y in enumerate(ext_flows):
+                for j, y in ext_flows:
                     overall_sign = 1 if y[0][1] else -1
                     for yy in y:
                         if yy[0] == i:
                             prop_sign = 1 if yy[1] else -1
                             s1 += ("+" if overall_sign * prop_sign == 1 else "-") + \
-                                "p{}".format(self.ext[j])
+                                "{}".format(self.edge_map_lin[self.ext[j]][0])
                             newmom.append((self.ext[j], True if prop_sign * overall_sign == 1 else False))
                             break
                 mom.append(tuple(newmom))
@@ -653,7 +770,7 @@ class TopologyGenerator(object):
             # flip the sign if the inverse exists
             # TODO: should this generate a minus sign when there is an odd-power numerator?
             alt_sig = tuple(s * -1 for s in signature)
-            if len(signature) > 0 and alt_sig in loop_line_map or should_flip:
+            if len(signature) > 0 and any(s != 0 for s in signature) and alt_sig in loop_line_map or should_flip:
                 print('warning: changing sign of propagator %s: %s -> %s' % (edge_name, tuple(signature), alt_sig) )
                 loop_line_map[alt_sig].append((edge_name, -q, mass))
                 loop_line_vertex_map[alt_sig] += [(v2, v1)]
@@ -1884,424 +2001,10 @@ class TopologyCollection(dict):
         
         return result
 
-class SquaredTopologyGenerator:
-    def __init__(self, edges, name, incoming_momentum_names, n_cuts, external_momenta, final_state_particle_ids=(),
-        loop_momenta_names=None, masses={}, powers=None, particle_ids={}, overall_numerator=1., numerator_structure={},
-        cut_filter=set()):
-        self.name = name
-        self.topo = TopologyGenerator(edges, powers)
-        self.topo.generate_momentum_flow(loop_momenta_names)
-        self.external_momenta = external_momenta
-        self.cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momentum_names, final_state_particle_ids, particle_ids)
-
-        if len(cut_filter) > 0:
-            self.cuts = [c for c in self.cuts if tuple(n[0] for n in c) in cut_filter]
-
-        self.masses = copy.deepcopy(masses)
-        self.overall_numerator = overall_numerator
-        self.incoming_momenta = incoming_momentum_names
-        self.topologies = [self.topo.split_graph([a[0] for a in c], incoming_momentum_names) for c in self.cuts]
-
-        self.topo.generate_momentum_flow(loop_momenta_names) # TODO: why twice?
-        edge_map = self.topo.get_signature_map()
-
-        mu_uv = 2. * math.sqrt(sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - 
-                        sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))))
-
-        self.cut_signatures = []
-        self.cut_diagrams = []
-        for sub_graphs, c in zip(self.topologies, self.cuts):
-            # determine the signature of the cuts
-            self.cut_signatures.append(
-                [copy.deepcopy(edge_map[cut_edge]) for cut_edge, _ in c]
-            )
-
-            cut_name = tuple(a[0] for a in c)
-
-            uv_limits = []
-            if cut_name in numerator_structure:
-                for uv_structure, numerator_struct in numerator_structure[cut_name].items():
-                    sparse_numerator = [[tuple(x[0]), x[1]] for x in numerator_struct]
-                    uv_limits.append((uv_structure, sparse_numerator))
-            else:
-                uv_limits.append((tuple(), [[tuple(), [1.0, 0.]]]))
-
-            diagrams = []
-            for uv_structure, numerator_sparse in uv_limits:
-                uv_name = ('_uv_' if len(uv_structure) > 0 else '') + ''.join(uv_structure)
-
-                max_rank = max((len(e) for e, v in numerator_sparse), default=0)
-
-                # pad the numerator with zeros
-                numerator_pows=[j for i in range(max_rank + 1) for j in combinations_with_replacement(range(4 * self.topo.n_loops), i)]
-                numerator = [[0., 0.,] for _ in numerator_pows]
-
-                for k, v in numerator_sparse:
-                    numerator[numerator_pows.index(k)] = list(v)
-
-                loop_topos = []
-                for i, s in enumerate(sub_graphs):
-                    # create a dummy numerator for the same rank
-                    s.loop_momentum_bases() # sets the number of loops
-                    numerator_entries = 1
-                    level_size = 1
-                    for cur_rank in range(0, max_rank):
-                        level_size = (level_size * (s.n_loops * 4 + cur_rank)) // (cur_rank + 1)
-                        numerator_entries += level_size
-
-                    (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, [a[0] for a in c])
-
-                    loop_topo = s.create_loop_topology(name + '_' + ''.join(a[0] for a in c) + uv_name + '_' + ['l', 'r'][i],
-                        # provide dummy external momenta
-                        ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                        fixed_deformation=False,
-                        mass_map=masses,
-                        loop_momentum_map=loop_mom_map,
-                        numerator_tensor_coefficients=[[0., 0.] for _ in range(numerator_entries)],
-                        shift_map=shift_map)
-
-                    # take the UV limit of the diagram
-                    uv_moms = [mom for mom in uv_structure if mom in set(s.edge_name_map.keys())]
-                    for ll in loop_topo.loop_lines:
-                        if any(p for p in ll.propagators if p.name in uv_moms):
-                            prop = next(p for p in ll.propagators if p.name in uv_moms)
-                            prop.m_squared = mu_uv**2
-                            ll.propagators[0].power = len(ll.propagators)
-                            ll.propagators = [ll.propagators[0]]
-
-                    loop_topos.append(loop_topo)
-
-                # compute external state symmetry factor
-                cutkosky_particles = tuple(sorted(particle_ids[e] if e in particle_ids else 'NONE' for (e, _) in c))
-                sym_factor = 1.
-                for x in set(cutkosky_particles):
-                    sym_factor *= math.factorial(cutkosky_particles.count(x))
-
-                diagrams.append({
-                    'cut_symmetry_factors': sym_factor,
-                    'numerator_structure': numerator,
-                    'loop_topos': loop_topos
-                })
-
-            self.cut_diagrams.append(diagrams)
-
-    def export(self, output_path):
-        out = {
-            'name': self.name,
-            'n_loops': self.topo.n_loops,
-            'overall_numerator': self.overall_numerator,
-            'n_incoming_momenta': len(self.incoming_momenta),
-            'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
-            'topo': [list(x) for x in self.topo.edge_map_lin],
-            'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
-            'e_cm_squared': sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))),
-            'cutkosky_cuts': [
-                {
-                    'cuts': [
-                        {
-                        'name': a[0],
-                        'sign': a[1],
-                        'signature': sig,
-                        'power': self.topo.powers[a[0]],
-                        'm_squared': self.masses[a[0]]**2 if a[0] in self.masses else 0.
-                        }
-                        for a, sig in zip(c, cut_sig)
-                    ],
-                    'diagrams': [
-                        {
-                            'subgraph_left': d['loop_topos'][0].to_flat_format(),
-                            'subgraph_right': d['loop_topos'][1].to_flat_format(),
-                            'numerator_tensor_coefficients': d['numerator_structure'],
-                            'symmetry_factor': d['cut_symmetry_factors']
-                        }
-                    for d in diags]
-                }
-
-                for c, cut_sig, diags in zip(self.cuts, self.cut_signatures, self.cut_diagrams)
-            ]
-        }
-
-        try:
-            import yaml
-            from yaml import Loader, Dumper
-        except ImportError:
-            raise BaseException("Install yaml python module in order to import topologies from yaml.")
-
-        open(output_path,'w').write(yaml.dump(out, Dumper=Dumper))
-
 if __name__ == "__main__":
-    #triangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3),
-    #                            ('p3', 2, 3), ('q2', 3, 4), ('q3', 2, 5)])  # triangle
-    #doubletriangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3), ('p3', 2, 3),
-    #                                    ('p4', 3, 4), ('p5', 2, 4), ('q2', 4, 5)])  # double-triangle
-    #loop_topology = doubletriangle.create_loop_topology("DoubleTriangle", ext_mom={'q1': vectors.LorentzVector(
-    #    [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)
-
-    # Construct a cross section
-    # result is -2 Zeta[3] 3 Pi/(16 Pi^2)^3 = -5.75396*10^-6
-    mercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
-                                        ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 2,
-                                        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-                                        loop_momenta_names=('p1', 'p2', 'p3'),
-                                        particle_ids={'p%s' % i: i for i in range(9)})
-    mercedes.export('mercedes_squared.yaml')
-
-    # result is -5 Zeta[5] 4 Pi/(16 Pi^2)^4 = -1.04773*10^-7
-    doublemercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 7), ('p3', 7, 3), ('p4', 3, 6),
-                                        ('p5', 6, 5), ('p6', 5, 1), ('p7', 2, 4), ('p8', 3, 4), ('p9', 4, 5), ('p10', 7, 4), ('q2', 6, 8)], "DM", ['q1'], 2,
-                                        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-                                        loop_momenta_names=('p1', 'p2', 'p3', 'p4'),
-                                        particle_ids={'p%s' % i: i for i in range(11)})
-    doublemercedes.export('doublemercedes_squared.yaml')
-
-    bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0,
-    {'q1': [2., 0., 0., 0.], 'q2': [2., 0., 0., 0.]},
-    masses={'p1': 0.24, 'p2': 0.24})
-    bubble.export('bubble_squared.yaml')
-
-    gamma_to_dd_1l = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "gamma_to_dd_1l", ['q1'], 0,
-        {'q1': [2., 0., 0., 0.], 'q2': [2., 0., 0., 0.]},
-        particle_ids={'p%s' % i: i for i in range(3)},
-        overall_numerator=0.25,
-        numerator_structure={('p1', 'p2'):
-            { ():
-                [[[0], (-1.49418e8, 0.)],
-                [[0, 0], (7.47091e7, 0.)],
-                [[3, 3], (-7.47091e7, 0.)]]
-            }
-        }
-        )
-    gamma_to_dd_1l.export('gamma_to_dd_1l.yaml')
-
-    ee_to_dd_1l = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 1), ('q3', 4, 103), ('q4', 4, 104), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4)], 
-        "ee_to_dd_1l", ['q1', 'q2'], 2, {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        particle_ids={'p%s' % i: i for i in range(6)},
-        overall_numerator=0.25,
-        numerator_structure={('p2', 'p3'):
-            { ():
-                [[[0], (-1.49418e8, 0.)],
-                [[0, 0], (7.47091e7, 0.)],
-                [[3, 3], (-7.47091e7, 0.)]]
-            }
-        }
-        )
-    ee_to_dd_1l.export('ee_to_dd_1l.yaml')
-
-    ee_to_dd_2l = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 1), ('q3', 6, 103), ('q4', 6, 104), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 5), ('p4', 5, 6),
-    ('p5',5, 4), ('p6', 4, 2), ('p7', 4, 3)],
-        "ee_to_dd_2l", ['q1', 'q2'], 2, {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        loop_momenta_names=('p2', 'p3'),
-        particle_ids={'p%s' % i: i for i in range(8)},
-        overall_numerator=1.0,
-#        cut_filter={('p3', 'p5')},
-        numerator_structure={('p2', 'p5', 'p7'):
-            { (): # uv structure
-            [[[0,4],[0.,+2.954161761482786e8]],
-            [[0,4,4],[0.,+1.477080880741393e8]],
-            [[0,7,7],[0.,-1.477080880741393e8]],
-            [[1,5],[0.,-2.954161761482786e8]],
-            [[1,4,5],[0.,-1.477080880741393e8]],
-            [[2,6],[0.,-2.954161761482786e8]],
-            [[2,4,6],[0.,-1.477080880741393e8]],
-            [[3,7],[0.,-2.954161761482786e8]],
-            [[0,0,4],[0.,-1.477080880741393e8]],
-            [[0,0,4,4],[0.,-7.385404403706966e7]],
-            [[0,0,5,5],[0.,+7.385404403706966e7]],
-            [[0,0,6,6],[0.,+7.385404403706966e7]],
-            [[0,0,7,7],[0.,+7.385404403706966e7]],
-            [[0,1,5],[0.,+1.477080880741393e8]],
-            [[0,1,4,5],[0.,+1.477080880741393e8]],
-            [[0,2,6],[0.,+1.477080880741393e8]],
-            [[0,2,4,6],[0.,+1.477080880741393e8]],
-            [[1,1,5,5],[0.,-1.477080880741393e8]],
-            [[1,2,5,6],[0.,-2.954161761482786e8]],
-            [[1,3,5,7],[0.,-1.477080880741393e8]],
-            [[2,2,6,6],[0.,-1.477080880741393e8]],
-            [[2,3,6,7],[0.,-1.477080880741393e8]],
-            [[3,3,4],[0.,+1.477080880741393e8]],
-            [[3,3,4,4],[0.,+7.385404403706966e7]],
-            [[3,3,5,5],[0.,-7.385404403706966e7]],
-            [[3,3,6,6],[0.,-7.385404403706966e7]],
-            [[3,3,7,7],[0.,-7.385404403706966e7]]]
-            },
-            ('p3', 'p6', 'p7'):
-            { (): # uv structure
-            [[[0,4],[0.,+2.954161761482786e8]],
-            [[0,4,4],[0.,+1.477080880741393e8]],
-            [[0,7,7],[0.,-1.477080880741393e8]],
-            [[1,5],[0.,-2.954161761482786e8]],
-            [[1,4,5],[0.,-1.477080880741393e8]],
-            [[2,6],[0.,-2.954161761482786e8]],
-            [[2,4,6],[0.,-1.477080880741393e8]],
-            [[3,7],[0.,-2.954161761482786e8]],
-            [[0,0,4],[0.,-1.477080880741393e8]],
-            [[0,0,4,4],[0.,-7.385404403706966e7]],
-            [[0,0,5,5],[0.,+7.385404403706966e7]],
-            [[0,0,6,6],[0.,+7.385404403706966e7]],
-            [[0,0,7,7],[0.,+7.385404403706966e7]],
-            [[0,1,5],[0.,+1.477080880741393e8]],
-            [[0,1,4,5],[0.,+1.477080880741393e8]],
-            [[0,2,6],[0.,+1.477080880741393e8]],
-            [[0,2,4,6],[0.,+1.477080880741393e8]],
-            [[1,1,5,5],[0.,-1.477080880741393e8]],
-            [[1,2,5,6],[0.,-2.954161761482786e8]],
-            [[1,3,5,7],[0.,-1.477080880741393e8]],
-            [[2,2,6,6],[0.,-1.477080880741393e8]],
-            [[2,3,6,7],[0.,-1.477080880741393e8]],
-            [[3,3,4],[0.,+1.477080880741393e8]],
-            [[3,3,4,4],[0.,+7.385404403706966e7]],
-            [[3,3,5,5],[0.,-7.385404403706966e7]],
-            [[3,3,6,6],[0.,-7.385404403706966e7]],
-            [[3,3,7,7],[0.,-7.385404403706966e7]]]
-            },
-            ('p2', 'p6'):
-            {():
-            [[[0,4],[0.,-2.954161761482786e8]],
-            [[0,4,4],[0.,+1.477080880741393e8]],
-            [[0,7,7],[0.,-1.477080880741393e8]],
-            [[1,4,5],[0.,-1.477080880741393e8]],
-            [[2,4,6],[0.,-1.477080880741393e8]],
-            [[3,7],[0.,-2.954161761482786e8]],
-            [[0,0,4],[0.,+1.477080880741393e8]],
-            [[0,0,4,4],[0.,-7.385404403706966e7]],
-            [[0,0,5,5],[0.,+7.385404403706966e7]],
-            [[0,0,6,6],[0.,+7.385404403706966e7]],
-            [[0,0,7,7],[0.,+7.385404403706966e7]],
-            [[0,1,5],[0.,-1.477080880741393e8]],
-            [[0,1,4,5],[0.,+1.477080880741393e8]],
-            [[0,2,6],[0.,-1.477080880741393e8]],
-            [[0,2,4,6],[0.,+1.477080880741393e8]],
-            [[1,1,5,5],[0.,-1.477080880741393e8]],
-            [[1,2,5,6],[0.,-2.954161761482786e8]],
-            [[1,3,5,7],[0.,-1.477080880741393e8]],
-            [[2,2,6,6],[0.,-1.477080880741393e8]],
-            [[2,3,6,7],[0.,-1.477080880741393e8]],
-            [[3,3,4],[0.,-1.477080880741393e8]],
-            [[3,3,4,4],[0.,+7.385404403706966e7]],
-            [[3,3,5,5],[0.,-7.385404403706966e7]],
-            [[3,3,6,6],[0.,-7.385404403706966e7]],
-            [[3,3,7,7],[0.,-7.385404403706966e7]]],
-            ('p3',):
-            [[[0],[0.,+4.726658818372458e9]],
-            [[0,4,4],[0.,-1.477080880741393e8]],
-            [[0,7,7],[0.,+1.477080880741393e8]],
-            [[1,4,5],[0.,+1.477080880741393e8]],
-            [[2,4,6],[0.,+1.477080880741393e8]],
-            [[0,0],[0.,-2.363329409186229e9]],
-            [[0,0,4,4],[0.,+7.385404403706966e7]],
-            [[0,0,5,5],[0.,-7.385404403706966e7]],
-            [[0,0,6,6],[0.,-7.385404403706966e7]],
-            [[0,0,7,7],[0.,-7.385404403706966e7]],
-            [[0,1,4,5],[0.,-1.477080880741393e8]],
-            [[0,2,4,6],[0.,-1.477080880741393e8]],
-            [[1,1,5,5],[0.,+1.477080880741393e8]],
-            [[1,2,5,6],[0.,+2.954161761482786e8]],
-            [[1,3,5,7],[0.,+1.477080880741393e8]],
-            [[2,2,6,6],[0.,+1.477080880741393e8]],
-            [[2,3,6,7],[0.,+1.477080880741393e8]],
-            [[3,3],[0.,+2.363329409186229e9]],
-            [[3,3,4,4],[0.,-7.385404403706966e7]],
-            [[3,3,5,5],[0.,+7.385404403706966e7]],
-            [[3,3,6,6],[0.,+7.385404403706966e7]],
-            [[3,3,7,7],[0.,+7.385404403706966e7]]]
-            },
-            ('p3', 'p5'):
-            {():
-                [[[0,4],[0.,-2.954161761482786e8]],
-                [[0,4,4],[0.,+1.477080880741393e8]],
-                [[0,7,7],[0.,-1.477080880741393e8]],
-                [[1,4,5],[0.,-1.477080880741393e8]],
-                [[2,4,6],[0.,-1.477080880741393e8]],
-                [[3,7],[0.,-2.954161761482786e8]],
-                [[0,0,4],[0.,+1.477080880741393e8]],
-                [[0,0,4,4],[0.,-7.385404403706966e7]],
-                [[0,0,5,5],[0.,+7.385404403706966e7]],
-                [[0,0,6,6],[0.,+7.385404403706966e7]],
-                [[0,0,7,7],[0.,+7.385404403706966e7]],
-                [[0,1,5],[0.,-1.477080880741393e8]],
-                [[0,1,4,5],[0.,+1.477080880741393e8]],
-                [[0,2,6],[0.,-1.477080880741393e8]],
-                [[0,2,4,6],[0.,+1.477080880741393e8]],
-                [[1,1,5,5],[0.,-1.477080880741393e8]],
-                [[1,2,5,6],[0.,-2.954161761482786e8]],
-                [[1,3,5,7],[0.,-1.477080880741393e8]],
-                [[2,2,6,6],[0.,-1.477080880741393e8]],
-                [[2,3,6,7],[0.,-1.477080880741393e8]],
-                [[3,3,4],[0.,-1.477080880741393e8]],
-                [[3,3,4,4],[0.,+7.385404403706966e7]],
-                [[3,3,5,5],[0.,-7.385404403706966e7]],
-                [[3,3,6,6],[0.,-7.385404403706966e7]],
-                [[3,3,7,7],[0.,-7.385404403706966e7]]],
-            ('p2',):
-                [[[0],[0.,4.726658818372458e9]],
-                [[0,4,4],[0.,-1.477080880741393e8]],
-                [[0,7,7],[0.,1.477080880741393e8]],
-                [[1,4,5],[0.,1.477080880741393e8]],
-                [[2,4,6],[0.,1.477080880741393e8]],
-                [[0,0],[0.,-2.363329409186229e9]],
-                [[0,0,4,4],[0.,7.385404403706966e7]],
-                [[0,0,5,5],[0.,-7.385404403706966e7]],
-                [[0,0,6,6],[0.,-7.385404403706966e7]],
-                [[0,0,7,7],[0.,-7.385404403706966e7]],
-                [[0,1,4,5],[0.,-1.477080880741393e8]],
-                [[0,2,4,6],[0.,-1.477080880741393e8]],
-                [[1,1,5,5],[0.,1.477080880741393e8]],
-                [[1,2,5,6],[0.,2.954161761482786e8]],
-                [[1,3,5,7],[0.,1.477080880741393e8]],
-                [[2,2,6,6],[0.,1.477080880741393e8]],
-                [[2,3,6,7],[0.,1.477080880741393e8]],
-                [[3,3],[0.,2.363329409186229e9]],
-                [[3,3,4,4],[0.,-7.385404403706966e7]],
-                [[3,3,5,5],[0.,7.385404403706966e7]],
-                [[3,3,6,6],[0.,7.385404403706966e7]],
-                [[3,3,7,7],[0.,7.385404403706966e7]]]
-            },
-            }
-        )
-    ee_to_dd_2l.export('ee_to_dd_2l.yaml')
-
-    t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
-        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-        particle_ids={'p%s' % i: i for i in range(9)})
-            #masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})
-    t1.export('t1_squared.yaml')
-
-    bu = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 3, 2), ('p3', 4, 3),
-                                        ('p4', 4, 1), ('p5', 2, 5), ('p6', 5, 4), ('p7', 3, 5), ('q2', 3, 6)], "BU", ['q1'], 2,
-                                        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-                                        loop_momenta_names=('p2', 'p4', 'p7'),
-                                        particle_ids={'p%s' % i: i for i in range(9)})
-    bu.export('bu_squared.yaml')
-    
-    insertion = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4), ('p5', 1, 4), ('q2', 4, 5)], "I", ['q1'], 3,
-        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-        masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})#, loop_momenta_names=('p4', 'p3'), powers={'p3': 2})
-    insertion.export('insertion_squared.yaml')
-
-    # TODO: whether it's t and tbar should be determined from the cutkosky cut direction and not hardcoded in the topology
-    # NOTE: for 2 -> N, the first two entries need to be the two incoming momenta
-    # the outgoing momenta will be set to the input momenta in the same order, i.e., q3=q1, q4=q2.
-    tth = SquaredTopologyGenerator([('q1', 0, 1), ('q2', 6, 7), ('q3', 4, 5), ('q4', 10, 11), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 10),
-        ('p5', 10, 9), ('p6', 9, 8), ('p7', 8, 7), ('p8', 1, 7), ('p9', 2, 8), ('p10', 3, 9), ], "TTH", ['q1', 'q2'], 0,
-        {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        final_state_particle_ids=('t', 'tbar', 'H'), particle_ids={'p1': 't', 'p2': 't', 'p3': 't', 'p4': 'tbar', 'p5': 'tbar', 'p6': 'tbar', 'p7': 'tbar',
-            'p8': 't', 'p9': 'g', 'p10': 'H'})
-    tth.export('tth_squared.yaml')
-
-    two_to_two = SquaredTopologyGenerator([('q1', 0, 1), ('q2', 7, 5), ('q3', 2, 8), ('q4', 4, 9), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5),
-        ('p5', 5, 6), ('p6', 6, 1), ('p7', 6, 3), ], "two_to_two", ['q1', 'q2'], 3,
-        {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100, 'p6': 100, 'p7': 100}, loop_momenta_names=('p1', 'p7'),)
-    two_to_two.export('two_to_two_squared.yaml')
-
-    twoI_twoF = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 2), ('q3', 4, 104), ('q4', 3, 103), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 1),], "twoI_twoF", ['q1', 'q2'], 2,
-        {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        masses={'p1': 0., 'p2': 1., 'p3': 0., 'p4': 1.}, loop_momenta_names=('p1',))
-    twoI_twoF.export('twoI_twoF_squared.yaml')
-
-    two_to_three = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 2), ('q3', 6, 103), ('q4', 5, 104), ('p1', 2, 3), ('p2', 3, 4),
-        ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1), ('p7', 1, 2)], "two_to_three", ['q1', 'q2'], 3,
-        {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        masses={'p1': 1.0, 'p2': 1.0, 'p3': 1.0, 'p4': 1.0, 'p6': 1.0},
-        particle_ids={'p2': 1, 'p3': 2, 'p6': 3})
-    two_to_three.export('two_to_three_squared.yaml')
+    triangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3),
+                                ('p3', 2, 3), ('q2', 3, 4), ('q3', 2, 5)])  # triangle
+    doubletriangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3), ('p3', 2, 3),
+                                        ('p4', 3, 4), ('p5', 2, 4), ('q2', 4, 5)])  # double-triangle
+    loop_topology = doubletriangle.create_loop_topology("DoubleTriangle", ext_mom={'q1': vectors.LorentzVector(
+        [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)

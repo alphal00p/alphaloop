@@ -3211,9 +3211,13 @@ impl LTDNumerator {
             .iter()
             .zip(self.coefficients.iter().skip(1))
         {
+            if coeff.is_zero() {
+                continue;
+            }
+
             let rank = indices.len();
             let vec_indices: Vec<&usize> = indices.iter().filter(|&x| x % 4 != 0).collect();
-            // When there are only enegies there is no need to rotate
+            // When there are only energies there is no need to rotate
             if vec_indices.len() == 0 {
                 coefficients[self
                     .sorted_linear
@@ -3224,6 +3228,7 @@ impl LTDNumerator {
             }
 
             // Rotate the spatial components
+            let mut new_indices = vec![0; rank];
             for map_to in (0..vec_indices.len())
                 .map(|_| 0..3)
                 .multi_cartesian_product()
@@ -3232,9 +3237,9 @@ impl LTDNumerator {
                 for (&i, j) in vec_indices.iter().zip(map_to.iter()) {
                     res *= rotation_matrix[*j][(*i - 1) % 4]
                 }
-                let mut new_indices = vec![0; rank];
+
                 let mut index = 0;
-                for (new_i, &old_i) in new_indices.iter_mut().zip(indices) {
+                for (new_i, &old_i) in new_indices.iter_mut().zip_eq(indices) {
                     *new_i = match old_i % 4 {
                         0 => old_i,
                         _ => {
@@ -3243,7 +3248,7 @@ impl LTDNumerator {
                         }
                     };
                 }
-                new_indices.sort(); // painful but necessary step
+                new_indices.sort_unstable(); // painful but necessary step
 
                 // Find position in coefficient list
                 // TODO: probably an hash_map is better (?)

@@ -22,15 +22,15 @@ use {DeformationStrategy, FloatLike, Settings, MAX_LOOP};
 pub struct CutkoskyCut {
     name: String,
     sign: i8,
+    level: usize,
     signature: (Vec<i8>, Vec<i8>),
-    power: usize,
     m_squared: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCutDiagrams {
-    pub subgraph_left: Topology,
-    pub subgraph_right: Topology,
+pub struct CutkoskyCutLimits {
+    pub diagrams: Vec<Topology>,
+    pub conjugate_deformation: Vec<bool>,
     pub symmetry_factor: f64,
     #[serde(default)]
     pub numerator_tensor_coefficients: Vec<(f64, f64)>,
@@ -41,7 +41,8 @@ pub struct CutkoskyCutDiagrams {
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCuts {
     pub cuts: Vec<CutkoskyCut>,
-    pub diagrams: Vec<CutkoskyCutDiagrams>,
+    pub n_bubbles: usize,
+    pub uv_limits: Vec<CutkoskyCutLimits>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -90,13 +91,13 @@ impl SquaredTopology {
         let mut squared_topo: SquaredTopology = serde_yaml::from_reader(f).unwrap();
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
-            for cut_diags in &mut cutkosky_cuts.diagrams {
-                cut_diags.numerator = if cut_diags.numerator_tensor_coefficients.len() == 0 {
-                    LTDNumerator::one(squared_topo.n_loops)
+            for uv_limit in &mut cutkosky_cuts.uv_limits {
+                uv_limit.numerator = if uv_limit.numerator_tensor_coefficients.len() == 0 {
+                    LTDNumerator::one(squared_topo.n_loops + cutkosky_cuts.n_bubbles)
                 } else {
                     LTDNumerator::new(
-                        squared_topo.n_loops,
-                        &cut_diags
+                        squared_topo.n_loops + cutkosky_cuts.n_bubbles,
+                        &uv_limit
                             .numerator_tensor_coefficients
                             .iter()
                             .map(|x| Complex::new(x.0, x.1))
@@ -104,10 +105,10 @@ impl SquaredTopology {
                     )
                 };
 
-                cut_diags.subgraph_left.settings = settings.clone();
-                cut_diags.subgraph_right.settings = settings.clone();
-                cut_diags.subgraph_left.process(false);
-                cut_diags.subgraph_right.process(false);
+                for d in &mut uv_limit.diagrams {
+                    d.settings = settings.clone();
+                    d.process(false);
+                }
             }
         }
 
@@ -149,14 +150,15 @@ impl SquaredTopology {
     pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<LTDCache<T>>>> {
         let mut caches = vec![];
         for cutkosky_cuts in &self.cutkosky_cuts {
-            let mut cut_cache = vec![];
-            for cut_diags in &cutkosky_cuts.diagrams {
-                cut_cache.push(vec![
-                    LTDCache::<T>::new(&cut_diags.subgraph_left),
-                    LTDCache::<T>::new(&cut_diags.subgraph_right),
-                ]);
+            let mut lim_cache = vec![];
+            for uv_limit in &cutkosky_cuts.uv_limits {
+                let mut diag_cache = vec![];
+                for d in &uv_limit.diagrams {
+                    diag_cache.push(LTDCache::<T>::new(d));
+                }
+                lim_cache.push(diag_cache);
             }
-            caches.push(cut_cache);
+            caches.push(lim_cache);
         }
         caches
     }
@@ -184,6 +186,10 @@ impl SquaredTopology {
         let mut t_start = T::zero();
         let mut sum_k = T::zero();
         for cut in &cutkosky_cuts.cuts {
+            if cut.level != 0 {
+                continue;
+            }
+
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
             let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
             let k_norm_sq = k.spatial_squared();
@@ -201,6 +207,9 @@ impl SquaredTopology {
                 let mut df = T::zero();
 
                 for cut in &cutkosky_cuts.cuts {
+                    if cut.level != 0 {
+                        continue;
+                    }
                     let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
                     let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
                     let energy =
@@ -419,7 +428,11 @@ impl SquaredTopology {
             let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
             cut_mom.t = energy.multiply_sign(cut.sign);
             scaling_result *= num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (-2 pi i)/(2E) for every cut
-            cut_energies_summed += energy;
+
+            if cut.level == 0 {
+                // only Cutkosky cuts constribute to the energy delta
+                cut_energies_summed += energy;
+            }
         }
 
         if self.settings.general.debug >= 1 {
@@ -464,13 +477,9 @@ impl SquaredTopology {
 
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();
-        for (cut_diagam, diag_cache) in cutkosky_cuts.diagrams.iter_mut().zip(cache) {
+        for (cut_uv_limit, diag_cache) in cutkosky_cuts.uv_limits.iter_mut().zip(cache) {
             // set the shifts, which are expressed in the cut basis
-            let mut subgraphs = [
-                &mut cut_diagam.subgraph_left,
-                &mut cut_diagam.subgraph_right,
-            ];
-            for subgraph in &mut subgraphs {
+            for subgraph in &mut cut_uv_limit.diagrams {
                 for ll in &mut subgraph.loop_lines {
                     for p in &mut ll.propagators {
                         p.q = SquaredTopology::evaluate_signature(
@@ -482,26 +491,23 @@ impl SquaredTopology {
                     }
                 }
                 subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
-            }
 
-            subgraphs[0].update_ellipsoids();
-            subgraphs[1].update_ellipsoids();
+                subgraph.update_ellipsoids();
 
-            if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-                subgraphs[0].fixed_deformation =
-                    subgraphs[0].determine_ellipsoid_overlap_structure(true);
-                subgraphs[1].fixed_deformation =
-                    subgraphs[1].determine_ellipsoid_overlap_structure(true);
+                if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+                    subgraph.fixed_deformation =
+                        subgraph.determine_ellipsoid_overlap_structure(true);
 
-                if self.settings.general.debug > 0 {
-                    // check if the overlap structure makes sense
-                    subgraphs[0].check_fixed_deformation();
-                    subgraphs[1].check_fixed_deformation();
+                    if self.settings.general.debug > 0 {
+                        // check if the overlap structure makes sense
+                        subgraph.check_fixed_deformation();
+                    }
                 }
             }
 
             // for the evaluation of the numerator we need complex loop momenta of the supergraph.
             // the order is: cut momenta, momenta left graph, momenta right graph
+            // FIXME: this requires that the last level 0 cutkosky cut is at the end of the list
             for (kd, cut_mom) in k_def
                 .iter_mut()
                 .zip(&cut_momenta[..cutkosky_cuts.cuts.len() - 1])
@@ -511,10 +517,11 @@ impl SquaredTopology {
 
             // compute the deformation vectors
             let mut k_def_index = cutkosky_cuts.cuts.len() - 1;
-            for (graph_num, (subgraph, subgraph_cache)) in subgraphs
+            for ((subgraph, subgraph_cache), &conjugate_deformation) in cut_uv_limit
+                .diagrams
                 .iter_mut()
                 .zip_eq(diag_cache.iter_mut())
-                .enumerate()
+                .zip_eq(cut_uv_limit.conjugate_deformation.iter())
             {
                 // do the loop momentum map, which is expressed in the loop momentum basis
                 // the time component should not matter here
@@ -540,7 +547,7 @@ impl SquaredTopology {
                     .iter()
                     .zip(&kappas)
                 {
-                    k_def[k_def_index] = if graph_num == 1 {
+                    k_def[k_def_index] = if conjugate_deformation {
                         // take the complex conjugate of the deformation
                         lm.map(|x| Complex::new(x, T::zero()))
                             - kappa.map(|x| Complex::new(T::zero(), x))
@@ -551,7 +558,7 @@ impl SquaredTopology {
                     k_def_index += 1;
                 }
 
-                if graph_num == 1 {
+                if conjugate_deformation {
                     scaling_result *= jac_def.conj();
                 } else {
                     scaling_result *= jac_def;
@@ -572,7 +579,7 @@ impl SquaredTopology {
             // the energy parts of the Cutkosky cuts.
             // Store the reduced numerator in the left graph cache for now
             // TODO: this is impractical
-            cut_diagam.numerator.evaluate_reduced_in_lb(
+            cut_uv_limit.numerator.evaluate_reduced_in_lb(
                 &k_def,
                 cutkosky_cuts.cuts.len() - 1,
                 &mut diag_cache[0],
@@ -593,7 +600,7 @@ impl SquaredTopology {
             // evaluate the left and right graphs for every monomial in the numerator
             for (coeff, powers) in supergraph_coeff
                 .iter()
-                .zip(&cut_diagam.numerator.reduced_coefficient_index_to_powers)
+                .zip(&cut_uv_limit.numerator.reduced_coefficient_index_to_powers)
             {
                 if coeff.is_zero() {
                     continue;
@@ -611,7 +618,10 @@ impl SquaredTopology {
                 let mut num_result = *coeff;
 
                 let mut def_mom_index = cutkosky_cuts.cuts.len() - 1;
-                for (subgraph, subgraph_cache) in subgraphs.iter_mut().zip_eq(diag_cache.iter_mut())
+                for (subgraph, subgraph_cache) in cut_uv_limit
+                    .diagrams
+                    .iter_mut()
+                    .zip_eq(diag_cache.iter_mut())
                 {
                     // build the subgraph numerator
                     // TODO: build the reduced numerator directly
@@ -782,8 +792,8 @@ impl IntegrandImplementation for SquaredTopology {
         }
 
         for cut in rotated_topology.cutkosky_cuts.iter_mut() {
-            for d in cut.diagrams.iter_mut() {
-                d.numerator = d.numerator.rotate(rot_matrix);
+            for uv_limit in cut.uv_limits.iter_mut() {
+                uv_limit.numerator = uv_limit.numerator.rotate(rot_matrix);
             }
         }
 
