@@ -151,7 +151,7 @@ fn vegas_integrate<'a, F>(
     name: &str,
     n_loops: usize,
     settings: &Settings,
-    mut ci: CubaIntegrator<UserData<'a>>,
+    mut ci: CubaIntegrator,
     user_data_generator: F,
 ) -> CubaResult
 where
@@ -211,6 +211,7 @@ where
             settings.integrator.n_vec,
             CubaVerbosity::Progress,
             1, // Save grid in slot 1
+            vegas_integrand,
             user_data_generator(),
         );
 
@@ -252,6 +253,7 @@ where
                 settings.integrator.n_vec,
                 CubaVerbosity::Progress,
                 0,
+                vegas_integrand,
                 user_data_generator(),
             );
 
@@ -299,6 +301,7 @@ where
             settings.integrator.n_vec,
             CubaVerbosity::Progress,
             0,
+            vegas_integrand,
             user_data_generator(),
         )
     }
@@ -410,6 +413,55 @@ fn integrand(
     }
 
     Ok(())
+}
+
+#[inline(always)]
+fn vegas_integrand(
+    x: &[f64],
+    f: &mut [f64],
+    user_data: &mut UserData,
+    nvec: usize,
+    core: i32,
+    _weight: &[f64],
+    _iter: usize,
+) -> Result<(), &'static str> {
+    integrand(x, f, user_data, nvec, core)
+}
+
+#[inline(always)]
+fn cuhre_integrand(
+    x: &[f64],
+    f: &mut [f64],
+    user_data: &mut UserData,
+    nvec: usize,
+    core: i32,
+) -> Result<(), &'static str> {
+    integrand(x, f, user_data, nvec, core)
+}
+
+#[inline(always)]
+fn suave_integrand(
+    x: &[f64],
+    f: &mut [f64],
+    user_data: &mut UserData,
+    nvec: usize,
+    core: i32,
+    _weight: &[f64],
+    _iter: usize,
+) -> Result<(), &'static str> {
+    integrand(x, f, user_data, nvec, core)
+}
+
+#[inline(always)]
+fn divonne_integrand(
+    x: &[f64],
+    f: &mut [f64],
+    user_data: &mut UserData,
+    nvec: usize,
+    core: i32,
+    _phase: usize,
+) -> Result<(), &'static str> {
+    integrand(x, f, user_data, nvec, core)
 }
 
 fn bench(topo: &mut Topology, settings: &Settings) {
@@ -1472,7 +1524,7 @@ fn main() {
         (universe, world)
     };
 
-    let mut ci = CubaIntegrator::new(integrand);
+    let mut ci = CubaIntegrator::new();
 
     ci.set_mineval(10)
         .set_nstart(settings.integrator.n_start as i64)
@@ -1536,6 +1588,7 @@ fn main() {
             settings.integrator.n_min,
             settings.integrator.flatness,
             CubaVerbosity::Progress,
+            suave_integrand,
             user_data_generator(),
         ),
         Integrator::Divonne => ci.divonne(
@@ -1548,6 +1601,7 @@ fn main() {
             settings.integrator.n_vec,
             &[],
             CubaVerbosity::Progress,
+            divonne_integrand,
             user_data_generator(),
         ),
         Integrator::Cuhre => ci.cuhre(
@@ -1559,6 +1613,7 @@ fn main() {
             },
             settings.integrator.n_vec,
             CubaVerbosity::Progress,
+            cuhre_integrand,
             user_data_generator(),
         ),
     };
