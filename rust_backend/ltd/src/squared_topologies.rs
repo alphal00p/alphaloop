@@ -127,7 +127,7 @@ impl SquaredTopology {
         squared_topo
     }
 
-    fn evaluate_signature<T: RealNumberLike>(
+    fn evaluate_signature<T: RealNumberLike + FromPrimitive>(
         signature: &(Vec<i8>, Vec<i8>),
         external_momenta: &[LorentzVector<T>],
         loop_momenta: &[LorentzVector<T>],
@@ -135,7 +135,8 @@ impl SquaredTopology {
         let mut cut_momentum = LorentzVector::default();
         for (&sign, mom) in signature.0.iter().zip_eq(loop_momenta) {
             if sign != 0 {
-                cut_momentum += mom.multiply_sign(sign);
+                // note: we allow for the sign to be any small integer
+                cut_momentum += mom * T::from_i8(sign).unwrap();
             }
         }
 

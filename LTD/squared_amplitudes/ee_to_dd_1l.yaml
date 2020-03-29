@@ -1,0 +1,243 @@
+cutkosky_cuts:
+- cuts:
+  - level: 0
+    m_squared: 0.0
+    name: p2
+    sign: 1
+    signature:
+    - - -1
+    - - 1
+      - 1
+      - 0
+      - 0
+  - level: 0
+    m_squared: 0.0
+    name: p3
+    sign: 1
+    signature:
+    - - 1
+    - - 0
+      - 0
+      - 0
+      - 0
+  n_bubbles: 0
+  uv_limits:
+  - conjugate_deformation:
+    - false
+    - false
+    diagrams:
+    - analytical_result_imag: 0.0
+      analytical_result_real: 0.0
+      constant_deformation:
+        alpha: []
+        beta: []
+      external_kinematics:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      loop_lines:
+      - end_node: 2
+        propagators:
+        - m_squared: 0.0
+          name: p1
+          parametric_shift:
+          - - 0
+            - 0
+          - - 1
+            - 1
+            - 0
+            - 0
+          power: 1
+          q:
+          - 0.0
+          - 0.0
+          - 0.0
+          - 0.0
+        signature: []
+        start_node: 1
+      loop_momentum_map: []
+      ltd_cut_structure:
+      - - 0
+      maximum_ratio_expansion_threshold: -1.0
+      n_loops: 0
+      name: ee_to_dd_1l_p2p3_0
+      numerator_tensor_coefficients:
+      - - 0.0
+        - 0.0
+    - analytical_result_imag: 0.0
+      analytical_result_real: 0.0
+      constant_deformation:
+        alpha: []
+        beta: []
+      external_kinematics:
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      loop_lines:
+      - end_node: 4
+        propagators:
+        - m_squared: 0.0
+          name: p4
+          parametric_shift:
+          - - 0
+            - 0
+          - - 0
+            - 0
+            - 1
+            - 1
+          power: 1
+          q:
+          - 0.0
+          - 0.0
+          - 0.0
+          - 0.0
+        signature: []
+        start_node: 3
+      loop_momentum_map: []
+      ltd_cut_structure:
+      - - 0
+      maximum_ratio_expansion_threshold: -1.0
+      n_loops: 0
+      name: ee_to_dd_1l_p2p3_1
+      numerator_tensor_coefficients:
+      - - 0.0
+        - 0.0
+    numerator_tensor_coefficients:
+    - - 0.0
+      - 0.0
+    - - -149418000.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 74709100.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - -74709100.0
+      - 0.0
+    symmetry_factor: 1.0
+e_cm_squared: 4.0
+external_momenta:
+- - 1.0
+  - 0.0
+  - 0.0
+  - 1.0
+- - 1.0
+  - 0.0
+  - 0.0
+  - -1.0
+- - 1.0
+  - 0.0
+  - 0.0
+  - 1.0
+- - 1.0
+  - 0.0
+  - 0.0
+  - -1.0
+loop_momentum_basis:
+- p3
+n_incoming_momenta: 2
+n_loops: 1
+name: ee_to_dd_1l
+overall_numerator: 0.25
+topo:
+- - q1
+  - 101
+  - 1
+- - q2
+  - 102
+  - 1
+- - q3
+  - 4
+  - 103
+- - q4
+  - 4
+  - 104
+- - p1
+  - 1
+  - 2
+- - p2
+  - 2
+  - 3
+- - p3
+  - 2
+  - 3
+- - p4
+  - 3
+  - 4
