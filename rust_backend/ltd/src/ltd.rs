@@ -1494,6 +1494,10 @@ impl Topology {
         let mut mij_sq =
             Into::<T>::into(self.settings.deformation.fixed.m_ij.abs().powi(2)) * mij_min_sq;
 
+        if self.fixed_deformation.is_empty() {
+            return kappas;
+        }
+
         if self.settings.deformation.fixed.include_normal_source {
             self.compute_ellipsoid_deformation_vector(
                 self.settings.deformation.fixed.normalize_per_source,

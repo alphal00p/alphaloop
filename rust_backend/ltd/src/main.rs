@@ -77,6 +77,15 @@ struct UserData<'a> {
     n_loops: usize,
     integrand: Vec<Integrands>,
     integrated_phase: IntegratedPhase,
+    sum: f64,
+    sum_sq: f64,
+    chi_sum: f64,
+    chi_sq_sum: f64,
+    weight_sum: f64,
+    guess: f64,
+    avg_sum: f64,
+    num_samples: usize,
+    cur_iter: usize,
     #[cfg(feature = "use_mpi")]
     world: &'a mpi::topology::SystemCommunicator,
     #[cfg(not(feature = "use_mpi"))]
@@ -422,10 +431,45 @@ fn vegas_integrand(
     user_data: &mut UserData,
     nvec: usize,
     core: i32,
-    _weight: &[f64],
-    _iter: usize,
+    weight: &[f64],
+    iter: usize,
 ) -> Result<(), &'static str> {
-    integrand(x, f, user_data, nvec, core)
+    if user_data.cur_iter != iter {
+        let n = user_data.num_samples as f64;
+        let mut w = (user_data.sum_sq * n).sqrt();
+        w = (n - 1.) / ((w + user_data.sum) * (w - user_data.sum)); // TODO: check for 0
+        user_data.weight_sum += w;
+        user_data.avg_sum += w * user_data.sum;
+        let sigsq = 1. / user_data.weight_sum;
+        let avg = sigsq * user_data.avg_sum;
+        let err = sigsq.sqrt();
+
+        if iter == 1 {
+            user_data.guess = user_data.sum;
+        }
+        w *= user_data.sum - user_data.guess;
+        user_data.chi_sum += w;
+        user_data.chi_sq_sum += w * user_data.sum;
+
+        let chi_sq = user_data.chi_sq_sum - avg * user_data.chi_sum;
+
+        if false {
+            println!("{} +- {} chisq {}", avg, err, chi_sq);
+        }
+
+        user_data.num_samples = 0;
+        user_data.sum = 0.;
+        user_data.sum_sq = 0.;
+        user_data.cur_iter += 1;
+    }
+
+    let r = integrand(x, f, user_data, nvec, core);
+    let s = f[0] * weight[0];
+    user_data.sum += s;
+    user_data.sum_sq += s * s;
+    user_data.num_samples += 1;
+
+    r
 }
 
 #[inline(always)]
@@ -1567,6 +1611,15 @@ fn main() {
                 )),
             })
             .collect(),
+        sum: 0.,
+        sum_sq: 0.,
+        weight_sum: 0.,
+        guess: 0.,
+        chi_sum: 0.,
+        chi_sq_sum: 0.,
+        avg_sum: 0.,
+        num_samples: 0,
+        cur_iter: 1, // always start at iter 1
         integrated_phase: settings.integrator.integrated_phase,
         #[cfg(feature = "use_mpi")]
         world: &world,
