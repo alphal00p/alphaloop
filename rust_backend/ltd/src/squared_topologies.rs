@@ -9,6 +9,7 @@ use num_traits::NumCast;
 use num_traits::ToPrimitive;
 use num_traits::{Float, FloatConst};
 use num_traits::{One, Zero};
+use observables::Event;
 use serde::Deserialize;
 use std::fs::File;
 use std::mem;
@@ -260,6 +261,7 @@ impl SquaredTopology {
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<Vec<LTDCache<T>>>],
+        events: Option<&mut Vec<Event>>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
@@ -296,7 +298,7 @@ impl SquaredTopology {
             jac_para *= jac;
         }
 
-        let result = self.evaluate_mom(&k[..self.n_loops], cache) * jac_para;
+        let result = self.evaluate_mom(&k[..self.n_loops], cache, events) * jac_para;
 
         // NOTE: there is no unique k_def anymore. it depends on the cut
         let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
@@ -311,6 +313,7 @@ impl SquaredTopology {
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         caches: &mut [Vec<Vec<LTDCache<T>>>],
+        mut events: Option<&mut Vec<Event>>,
     ) -> Complex<T> {
         debug_assert_eq!(
             loop_momenta.len(),
@@ -381,6 +384,7 @@ impl SquaredTopology {
                     &mut subgraph_loop_momenta,
                     &mut k_def[..self.n_loops + 1],
                     &mut caches[cut_index],
+                    &mut events,
                     cut_index,
                     scaling,
                     scaling_jac,
@@ -406,6 +410,7 @@ impl SquaredTopology {
         subgraph_loop_momenta: &mut [LorentzVector<T>],
         k_def: &mut [LorentzVector<Complex<T>>],
         cache: &mut [Vec<LTDCache<T>>],
+        events: &mut Option<&mut Vec<Event>>,
         cut_index: usize,
         scaling: T,
         scaling_jac: T,
@@ -806,6 +811,7 @@ impl IntegrandImplementation for SquaredTopology {
         &mut self,
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
+        events: Option<&mut Vec<Event>>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -813,7 +819,7 @@ impl IntegrandImplementation for SquaredTopology {
         Complex<float>,
         Complex<float>,
     ) {
-        self.evaluate(x, cache.get())
+        self.evaluate(x, cache.get(), events)
     }
 
     #[inline]
@@ -821,6 +827,7 @@ impl IntegrandImplementation for SquaredTopology {
         &mut self,
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
+        events: Option<&mut Vec<Event>>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -828,7 +835,7 @@ impl IntegrandImplementation for SquaredTopology {
         Complex<f128>,
         Complex<f128>,
     ) {
-        self.evaluate(x, cache.get())
+        self.evaluate(x, cache.get(), events)
     }
 
     #[inline]

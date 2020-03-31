@@ -4,12 +4,13 @@ use float;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
+use observables;
+use observables::{Event, Observable};
 use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::{CachePrecisionSelector, LTDCacheAllPrecisions, Topology};
 use vector::LorentzVector;
-
 use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 
 pub trait IntegrandImplementation: Clone {
@@ -20,6 +21,7 @@ pub trait IntegrandImplementation: Clone {
         &mut self,
         x: &'a [f64],
         cache: &mut Self::Cache,
+        events: Option<&mut Vec<Event>>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -32,6 +34,7 @@ pub trait IntegrandImplementation: Clone {
         &mut self,
         x: &'a [f64],
         cache: &mut Self::Cache,
+        events: Option<&mut Vec<Event>>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -58,7 +61,18 @@ pub struct Integrand<I: IntegrandImplementation> {
     pub regular_point_count: usize,
     pub log: BufWriter<File>,
     pub quadruple_upgrade_log: BufWriter<File>,
+    pub sum: Vec<f64>,
+    pub sum_sq: Vec<f64>,
+    pub chi_sum: Vec<f64>,
+    pub chi_sq_sum: Vec<f64>,
+    pub weight_sum: Vec<f64>,
+    pub guess: Vec<f64>,
+    pub avg_sum: Vec<f64>,
+    pub num_samples: usize,
+    pub cur_iter: usize,
     pub id: usize,
+    pub observable: Box<dyn Observable + Send>,
+    pub events: Vec<Event>, // event buffer
 }
 
 impl IntegrandImplementation for Topology {
@@ -177,6 +191,7 @@ impl IntegrandImplementation for Topology {
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
+        _events: Option<&mut Vec<Event>>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -192,6 +207,7 @@ impl IntegrandImplementation for Topology {
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
+        _events: Option<&mut Vec<Event>>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -242,7 +258,7 @@ macro_rules! check_stability_precision {
             }
 
             let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                rot_topo.$eval_fn(x, cache);
+                rot_topo.$eval_fn(x, cache, None);
 
             // compute the number of similar digits
             match self.settings.integrator.integrated_phase {
@@ -351,6 +367,17 @@ impl<I: IntegrandImplementation> Integrand<I> {
             ),
             settings,
             id,
+            sum: vec![0., 0.],
+            sum_sq: vec![0., 0.],
+            weight_sum: vec![0., 0.],
+            guess: vec![0., 0.],
+            chi_sum: vec![0., 0.],
+            chi_sq_sum: vec![0., 0.],
+            avg_sum: vec![0., 0.],
+            num_samples: 0,
+            cur_iter: 1, // always start at iter 1
+            observable: Box::new(observables::NoObservable::default()),
+            events: Vec::with_capacity(100),
         }
     }
 
@@ -448,7 +475,53 @@ impl<I: IntegrandImplementation> Integrand<I> {
     check_stability_precision!(check_stability_float, evaluate_float, float);
     check_stability_precision!(check_stability_quad, evaluate_f128, f128);
 
-    pub fn evaluate(&mut self, x: &[f64]) -> Complex<float> {
+    /// Update the global statistics such as the integral average and error
+    pub fn update_iter(&mut self) {
+        let n = self.num_samples as f64;
+
+        if self.settings.integrator.custom_output {
+            println!("Iteration {}:", self.cur_iter);
+        }
+
+        // update both phases
+        for i in 0..2 {
+            let mut w = (self.sum_sq[i] * n).sqrt();
+            w = (n - 1.) / ((w + self.sum[i]) * (w - self.sum[i])); // TODO: check for 0
+            self.weight_sum[i] += w;
+            self.avg_sum[i] += w * self.sum[i];
+            let sigsq = 1. / self.weight_sum[i];
+            let avg = sigsq * self.avg_sum[i];
+            let err = sigsq.sqrt();
+            if self.cur_iter == 1 {
+                self.guess[i] = self.sum[i];
+            }
+            w *= self.sum[i] - self.guess[i];
+            self.chi_sum[i] += w;
+            self.chi_sq_sum[i] += w * self.sum[i];
+            let chi_sq = self.chi_sq_sum[i] - avg * self.chi_sum[i];
+            if self.settings.integrator.custom_output {
+                println!(
+                    " {}: {} +- {} chisq {}",
+                    if i == 0 { "re" } else { "im" },
+                    avg,
+                    err,
+                    chi_sq
+                );
+            }
+
+            self.sum[i] = 0.;
+            self.sum_sq[i] = 0.;
+        }
+        self.num_samples = 0;
+        self.cur_iter += 1;
+    }
+
+    /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
+    pub fn evaluate(&mut self, x: &[f64], weight: f64, iter: usize) -> Complex<float> {
+        if self.cur_iter != iter {
+            self.update_iter();
+        }
+
         if self.settings.general.integration_statistics
             && self.total_samples > 0
             && self.total_samples % self.settings.general.statistics_interval == 0
@@ -483,9 +556,11 @@ impl<I: IntegrandImplementation> Integrand<I> {
             );
         }
 
+        let mut events = std::mem::replace(&mut self.events, vec![]);
+
         let mut cache = std::mem::replace(&mut self.cache, I::Cache::default());
         let (x, k_def, jac_para, jac_def, mut result) =
-            self.topologies[0].evaluate_float(x, &mut cache);
+            self.topologies[0].evaluate_float(x, &mut cache, Some(&mut events));
         let (d, diff, min_rot, max_rot) = self.check_stability_float(
             x,
             result,
@@ -508,6 +583,9 @@ impl<I: IntegrandImplementation> Integrand<I> {
             || d < NumCast::from(self.settings.general.relative_precision).unwrap()
             || diff > NumCast::from(self.settings.general.absolute_precision).unwrap()
         {
+            // clear events when there is instability
+            events.clear();
+
             if self.settings.general.integration_statistics {
                 let loops = self.n_loops;
                 self.print_info(
@@ -573,7 +651,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             // compute the point again with f128 to see if it is stable then
             std::mem::swap(&mut self.cache, &mut cache);
             let (_, k_def_f128, jac_para_f128, jac_def_f128, result_f128) =
-                self.topologies[0].evaluate_f128(x, &mut cache);
+                self.topologies[0].evaluate_f128(x, &mut cache, Some(&mut events));
             // NOTE: for this check we use a f64 rotation matrix at the moment!
             let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability_quad(
                 x,
@@ -714,6 +792,22 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 loops, new_max, false, x, &k_def, jac_para, jac_def, min_rot, max_rot, d,
             );
         }
+
+        // give the events to an observable function
+        result = self
+            .observable
+            .process_event_group(&mut events, weight, result);
+
+        events.clear();
+        std::mem::swap(&mut self.events, &mut events);
+
+        // update statistics
+        for (i, r) in [result.re, result.im].iter().enumerate() {
+            let s = r * weight;
+            self.sum[i] += s;
+            self.sum_sq[i] += s * s;
+        }
+        self.num_samples += 1;
 
         result
     }

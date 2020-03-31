@@ -65,6 +65,8 @@ hyperparameters = HyperParameters({
     },
 
     'Integrator'    :   {
+        # Suppress the Cuba output, but give our own statistics
+        'custom_output'     :   False,
         # The integrator can be vegas, divonne, cuhre or suave
         'integrator'        :   'vegas',
         'n_start'           :   int(1.0e5),

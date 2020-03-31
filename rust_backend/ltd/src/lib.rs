@@ -64,6 +64,7 @@ pub mod partial_fractioning;
 pub mod squared_topologies;
 pub mod topologies;
 pub mod utils;
+pub mod observables;
 
 #[cfg(feature = "python_api")]
 use arrayvec::ArrayVec;
@@ -379,6 +380,7 @@ pub struct GeneralSettings {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct IntegratorSettings {
+    pub custom_output: bool,
     pub integrator: Integrator,
     pub n_vec: usize,
     pub n_increase: usize,
@@ -420,6 +422,7 @@ pub enum Integrator {
 impl Default for IntegratorSettings {
     fn default() -> IntegratorSettings {
         IntegratorSettings {
+            custom_output: false,
             integrator: Integrator::Vegas,
             n_increase: 0,
             n_vec: 1,
@@ -505,7 +508,7 @@ py_class!(class CrossSection |py| {
     }
 
     def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.integrand(py).borrow_mut().evaluate(&x);
+        let res = self.integrand(py).borrow_mut().evaluate(&x, 1.0, 1);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -518,8 +521,8 @@ py_class!(class CrossSection |py| {
                 float::from_f64(l[1]).unwrap(),
                 float::from_f64(l[2]).unwrap()));
         }
-
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches(py).borrow_mut());
+        
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches(py).borrow_mut(), None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -568,7 +571,7 @@ py_class!(class CrossSection |py| {
                 f128::f128::from_f64(l[2]).unwrap()));
         }
 
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches_f128(py).borrow_mut());
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches_f128(py).borrow_mut(), None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -606,6 +609,7 @@ py_class!(class CrossSection |py| {
             &mut subgraph_loop_momenta,
             &mut k_def[..max_cuts],
             cache,
+            &mut None,
             cut_index,
             scaling,
             scaling_jac,
@@ -648,6 +652,7 @@ py_class!(class CrossSection |py| {
             &mut subgraph_loop_momenta,
             &mut k_def[..max_cuts],
             cache,
+            &mut None,
             cut_index,
             f128::f128::from_f64(scaling).unwrap(),
             f128::f128::from_f64(scaling_jac).unwrap(),
@@ -733,7 +738,7 @@ py_class!(class LTD |py| {
     }
 
    def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.integrand(py).borrow_mut().evaluate(&x);
+        let res = self.integrand(py).borrow_mut().evaluate(&x, 1.0, 1);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
    }
 

@@ -77,15 +77,6 @@ struct UserData<'a> {
     n_loops: usize,
     integrand: Vec<Integrands>,
     integrated_phase: IntegratedPhase,
-    sum: f64,
-    sum_sq: f64,
-    chi_sum: f64,
-    chi_sq_sum: f64,
-    weight_sum: f64,
-    guess: f64,
-    avg_sum: f64,
-    num_samples: usize,
-    cur_iter: usize,
     #[cfg(feature = "use_mpi")]
     world: &'a mpi::topology::SystemCommunicator,
     #[cfg(not(feature = "use_mpi"))]
@@ -218,7 +209,11 @@ where
                 1
             },
             settings.integrator.n_vec,
-            CubaVerbosity::Progress,
+            if settings.integrator.custom_output {
+                CubaVerbosity::Silent
+            } else {
+                CubaVerbosity::Progress
+            },
             1, // Save grid in slot 1
             vegas_integrand,
             user_data_generator(),
@@ -260,7 +255,11 @@ where
                     1
                 },
                 settings.integrator.n_vec,
-                CubaVerbosity::Progress,
+                if settings.integrator.custom_output {
+                    CubaVerbosity::Silent
+                } else {
+                    CubaVerbosity::Progress
+                },
                 0,
                 vegas_integrand,
                 user_data_generator(),
@@ -308,7 +307,11 @@ where
                 1
             },
             settings.integrator.n_vec,
-            CubaVerbosity::Progress,
+            if settings.integrator.custom_output {
+                CubaVerbosity::Silent
+            } else {
+                CubaVerbosity::Progress
+            },
             0,
             vegas_integrand,
             user_data_generator(),
@@ -324,12 +327,20 @@ fn integrand(
     user_data: &mut UserData,
     nvec: usize,
     core: i32,
+    weight: &[f64],
+    iter: usize,
 ) -> Result<(), &'static str> {
     #[cfg(not(feature = "use_mpi"))]
     for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
         let res = match &mut user_data.integrand[(core + 1) as usize] {
-            Integrands::CrossSection(c) => c.evaluate(y),
-            Integrands::Topology(t) => t.evaluate(y),
+            Integrands::CrossSection(c) => {
+                if weight.len() > 0 {
+                    c.evaluate(y, weight[i], iter)
+                } else {
+                    c.evaluate(y, 1., iter)
+                }
+            }
+            Integrands::Topology(t) => t.evaluate(y, 1., iter),
         };
 
         if res.is_finite() {
@@ -434,42 +445,7 @@ fn vegas_integrand(
     weight: &[f64],
     iter: usize,
 ) -> Result<(), &'static str> {
-    if user_data.cur_iter != iter {
-        let n = user_data.num_samples as f64;
-        let mut w = (user_data.sum_sq * n).sqrt();
-        w = (n - 1.) / ((w + user_data.sum) * (w - user_data.sum)); // TODO: check for 0
-        user_data.weight_sum += w;
-        user_data.avg_sum += w * user_data.sum;
-        let sigsq = 1. / user_data.weight_sum;
-        let avg = sigsq * user_data.avg_sum;
-        let err = sigsq.sqrt();
-
-        if iter == 1 {
-            user_data.guess = user_data.sum;
-        }
-        w *= user_data.sum - user_data.guess;
-        user_data.chi_sum += w;
-        user_data.chi_sq_sum += w * user_data.sum;
-
-        let chi_sq = user_data.chi_sq_sum - avg * user_data.chi_sum;
-
-        if false {
-            println!("{} +- {} chisq {}", avg, err, chi_sq);
-        }
-
-        user_data.num_samples = 0;
-        user_data.sum = 0.;
-        user_data.sum_sq = 0.;
-        user_data.cur_iter += 1;
-    }
-
-    let r = integrand(x, f, user_data, nvec, core);
-    let s = f[0] * weight[0];
-    user_data.sum += s;
-    user_data.sum_sq += s * s;
-    user_data.num_samples += 1;
-
-    r
+    integrand(x, f, user_data, nvec, core, weight, iter)
 }
 
 #[inline(always)]
@@ -480,7 +456,7 @@ fn cuhre_integrand(
     nvec: usize,
     core: i32,
 ) -> Result<(), &'static str> {
-    integrand(x, f, user_data, nvec, core)
+    integrand(x, f, user_data, nvec, core, &[], 1)
 }
 
 #[inline(always)]
@@ -490,10 +466,10 @@ fn suave_integrand(
     user_data: &mut UserData,
     nvec: usize,
     core: i32,
-    _weight: &[f64],
-    _iter: usize,
+    weight: &[f64],
+    iter: usize,
 ) -> Result<(), &'static str> {
-    integrand(x, f, user_data, nvec, core)
+    integrand(x, f, user_data, nvec, core, weight, iter)
 }
 
 #[inline(always)]
@@ -505,7 +481,7 @@ fn divonne_integrand(
     core: i32,
     _phase: usize,
 ) -> Result<(), &'static str> {
-    integrand(x, f, user_data, nvec, core)
+    integrand(x, f, user_data, nvec, core, &[], 1)
 }
 
 fn bench(topo: &mut Topology, settings: &Settings) {
@@ -1177,7 +1153,7 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
         let mut i = Integrand::new(topo.n_loops, topo.clone(), settings.clone(), 1);
-        i.evaluate(&pt);
+        i.evaluate(&pt, 1., 1);
         return;
     }
 
@@ -1611,15 +1587,6 @@ fn main() {
                 )),
             })
             .collect(),
-        sum: 0.,
-        sum_sq: 0.,
-        weight_sum: 0.,
-        guess: 0.,
-        chi_sum: 0.,
-        chi_sq_sum: 0.,
-        avg_sum: 0.,
-        num_samples: 0,
-        cur_iter: 1, // always start at iter 1
         integrated_phase: settings.integrator.integrated_phase,
         #[cfg(feature = "use_mpi")]
         world: &world,
@@ -1640,7 +1607,11 @@ fn main() {
             settings.integrator.n_new,
             settings.integrator.n_min,
             settings.integrator.flatness,
-            CubaVerbosity::Progress,
+            if settings.integrator.custom_output {
+                CubaVerbosity::Silent
+            } else {
+                CubaVerbosity::Progress
+            },
             suave_integrand,
             user_data_generator(),
         ),
