@@ -579,6 +579,9 @@ impl Topology {
             .collect();
 
         if ellipsoid_ids.is_empty() {
+            if self.settings.general.debug > 1 {
+                println!("No ellipsoids");
+            }
             return vec![];
         }
 
@@ -1053,6 +1056,7 @@ impl Topology {
                     }
                 }
             }
+            lm.t = T::zero();
         }
 
         debug_assert!(self.evaluate_surface(&ll_on_foci, s) < T::zero());
@@ -1239,19 +1243,59 @@ impl Topology {
         let mut problem_count = 0;
         let mut pair_overlap_count = 0;
 
-        if ellipsoid_list.len() == 1 {
-            // put ourselves on a focus
-            let ll_on_foci = self.get_point_inside_surface(&self.surfaces[ellipsoid_list[0]]);
-            let r: f64 = -self.evaluate_surface(&ll_on_foci, &self.surfaces[ellipsoid_list[0]]);
-            assert!(r > 0.);
+        if self.settings.deformation.fixed.use_heuristic_centers {
+            if ellipsoid_list.len() == 1 {
+                // put ourselves on a focus
+                let ll_on_foci = self.get_point_inside_surface(&self.surfaces[ellipsoid_list[0]]);
+                let r: f64 = -self.evaluate_surface(
+                    &ll_on_foci[..self.n_loops],
+                    &self.surfaces[ellipsoid_list[0]],
+                );
+                assert!(r > 0.);
 
-            return vec![FixedDeformationOverlap {
-                deformation_sources: ll_on_foci.to_vec(),
-                excluded_surface_ids: vec![],
-                excluded_surface_indices: vec![],
-                overlap: Some(ellipsoid_list.to_vec()),
-                radius: r,
-            }];
+                return vec![FixedDeformationOverlap {
+                    deformation_sources: ll_on_foci[..self.n_loops].to_vec(),
+                    excluded_surface_ids: vec![],
+                    excluded_surface_indices: vec![],
+                    overlap: Some(ellipsoid_list.to_vec()),
+                    radius: r,
+                }];
+            }
+
+            // the origin is often inside all surfaces, so do a quick test for that
+            let mut origin_inside_radius = self.e_cm_squared;
+            let origin = [LorentzVector::default(); MAX_LOOP];
+            for &e in ellipsoid_list {
+                let r: f64 = -self.evaluate_surface(&origin[..self.n_loops], &self.surfaces[e]);
+                if r < origin_inside_radius {
+                    origin_inside_radius = r;
+                }
+                if r < 0. {
+                    if self.settings.general.debug > 0 {
+                        println!("Origin not inside for {:?}: {}", &self.surfaces[e], r);
+                        let id = &self.surfaces[e].id;
+                        println!(
+                            "shift1={}",
+                            self.loop_lines[(id[0].0).0].propagators[(id[0].0).1].q
+                        );
+                        println!(
+                            "shift2={}",
+                            self.loop_lines[(id[1].0).0].propagators[(id[1].0).1].q
+                        );
+                    }
+                    break;
+                }
+            }
+
+            if origin_inside_radius > 0. {
+                return vec![FixedDeformationOverlap {
+                    deformation_sources: origin[..self.n_loops].to_vec(),
+                    excluded_surface_ids: vec![],
+                    excluded_surface_indices: vec![],
+                    overlap: Some(ellipsoid_list.to_vec()),
+                    radius: origin_inside_radius,
+                }];
+            }
         }
 
         // first check for full overlap before constructing pair information
@@ -1381,7 +1425,7 @@ impl Topology {
         let mut option_translated = mem::replace(&mut self.socp_problem.option_translated, vec![]);
         let mut different = mem::replace(&mut self.socp_problem.different, vec![]);
 
-        for n in (1..ellipsoid_list.len()).rev() {
+        for n in (1..=ellipsoid_list.len()).rev() {
             if self.settings.general.debug > 0 {
                 println!(
                     "Progress: n={}, current structure={:?}",

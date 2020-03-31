@@ -280,6 +280,7 @@ pub struct DeformationFixedSettings {
     pub delta: f64,
     pub sigma: f64,
     pub m_ijs: Vec<f64>,
+    pub use_heuristic_centers: bool,
     pub local: bool,
     pub a_ijs: Vec<f64>,
     pub dampen_on_pinch: bool,

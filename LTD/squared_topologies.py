@@ -104,7 +104,9 @@ class SquaredTopologyGenerator:
                 uv_limit_info.append({
                     'cut_symmetry_factors': sym_factor,
                     'numerator_structure': numerator,
-                    'loop_topos': loop_topos
+                    'loop_topos': loop_topos,
+                    'conjugate_deformation': [x for x in cut_info['conjugate_deformation']],
+
                 })
 
             self.cut_diagrams.append(uv_limit_info)
@@ -135,7 +137,7 @@ class SquaredTopologyGenerator:
                     'uv_limits': [
                         {
                             'diagrams': [ x.to_flat_format() for x in d['loop_topos']],
-                            'conjugate_deformation': [ False for _ in d['loop_topos']],
+                            'conjugate_deformation': d['conjugate_deformation'],
                             'numerator_tensor_coefficients': d['numerator_structure'],
                             'symmetry_factor': d['cut_symmetry_factors']
                         }

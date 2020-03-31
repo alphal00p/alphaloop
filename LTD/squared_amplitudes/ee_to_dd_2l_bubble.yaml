@@ -49,11 +49,11 @@ cutkosky_cuts:
   - conjugate_deformation:
     - false
     - false
+    - true
     - false
+    - true
     - false
-    - false
-    - false
-    - false
+    - true
     - false
     diagrams:
     - analytical_result_imag: 0.0
@@ -13015,7 +13015,7 @@ cutkosky_cuts:
   uv_limits:
   - conjugate_deformation:
     - false
-    - false
+    - true
     diagrams:
     - analytical_result_imag: 0.0
       analytical_result_real: 0.0
@@ -14251,12 +14251,12 @@ cutkosky_cuts:
   - conjugate_deformation:
     - false
     - false
+    - true
     - false
+    - true
     - false
-    - false
-    - false
-    - false
-    - false
+    - true
+    - true
     diagrams:
     - analytical_result_imag: 0.0
       analytical_result_real: 0.0
@@ -27207,7 +27207,7 @@ cutkosky_cuts:
   - conjugate_deformation:
     - false
     - false
-    - false
+    - true
     diagrams:
     - analytical_result_imag: 0.0
       analytical_result_real: 0.0

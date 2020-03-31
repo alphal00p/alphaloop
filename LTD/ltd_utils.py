@@ -340,6 +340,8 @@ class TopologyGenerator(object):
         # TODO: keep track of left and right
         cut_names = [a[0] for a in cutkosky_cut]
         graphs = self.split_graph(cut_names, incoming_momenta)
+        graphs[0].conjugate = False
+        graphs[1].conjugate = True
 
         # now apply fake cuts one by one
         for d in duplicate_edges_set:
@@ -347,7 +349,10 @@ class TopologyGenerator(object):
             split_graphs = []
             for g in graphs:
                 if d in g.edge_name_map:
-                    split_graphs.extend(g.split_graph([d], incoming_momenta))
+                    sg = g.split_graph([d], incoming_momenta)
+                    sg[0].conjugate = g.conjugate
+                    sg[1].conjugate = not g.conjugate
+                    split_graphs.extend(sg)
                 else:
                     split_graphs.append(g)
 
@@ -389,14 +394,16 @@ class TopologyGenerator(object):
                 sub_bubble_cuts = [{
                     'cuts': [a for a in y['cuts']],
                     'n_bubbles': 1 + y['n_bubbles'],
-                    'graphs':  [b for b in y['graphs']]
+                    'graphs':  [b for b in y['graphs']],
+                    'conjugate_deformation': [b for b in y['conjugate_deformation']],
                 }  for c in cuts for y in g.bubble_cuts(c, set(), level + 1)]
                 split_graphs.append(sub_bubble_cuts)
             else:
                 split_graphs.append([{
                     'cuts': [],
                     'n_bubbles': 0,
-                    'graphs':  [g]
+                    'graphs':  [g],
+                    'conjugate_deformation': [g.conjugate]
                 }])
 
         # take the cartesian product
@@ -420,7 +427,8 @@ class TopologyGenerator(object):
                         'sign': cutkosky_cut[-1][1],
                         'level': level}],
                 'n_bubbles': sum(a['n_bubbles'] for a in x),
-                'graphs':  [b for a in x for b in a['graphs']]
+                'graphs':  [b for a in x for b in a['graphs']],
+                'conjugate_deformation': [b for a in x for b in a['conjugate_deformation']],
             }  for x in product(*split_graphs)]
 
         return graph_combinations
