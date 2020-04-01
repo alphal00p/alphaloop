@@ -481,6 +481,29 @@ impl SquaredTopology {
             external_momenta[0].square()
         };
 
+        // set the events
+        if let Some(event_buffer) = events {
+            let incoming_momenta = self.external_momenta.clone();
+            let mut outgoing_momenta = Vec::with_capacity(cutkosky_cuts.cuts.len());
+
+            for (cut_mom, cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
+                .iter_mut()
+                .zip(cutkosky_cuts.cuts.iter())
+            {
+                if cut.level == 0 {
+                    // make sure all momenta are outgoing
+                    outgoing_momenta.push(cut_mom.cast::<f64>() * cut.sign as f64);
+                }
+            }
+
+            let e = Event {
+                kinematic_configuration: (incoming_momenta, outgoing_momenta),
+                weights: vec![0.],
+            };
+
+            event_buffer.push(e);
+        }
+
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();
         for (cut_uv_limit, diag_cache) in cutkosky_cuts.uv_limits.iter_mut().zip(cache) {

@@ -99,7 +99,7 @@ hyperparameters = HyperParameters({
     },
 
     'Deformation'   :   {
-        # can be constant, linear or sigmoid
+        # can be constant, linear, sigmoid, or exp_dampening
         'overall_scaling' : 'constant',
         # fraction of e_cm used for scaling
         'overall_scaling_constant'  : 1.0,
@@ -221,6 +221,18 @@ hyperparameters = HyperParameters({
         'picobarns'                 :   True,
         'do_rescaling'              :   True,
         'rescaling_function_spread' :   10.,
+    },
+
+    'Observables'   :   {
+        'active_observables'        :   ['Jet1PT'],
+        'Jet1PT': {
+            'x_min'                 :   50.,
+            'x_max'                 :   0.8,
+            'n_bins'                :   50,
+            'dR'                    :   0.4,
+            'write_to_file'         :   True,
+            'filename'              :   'Jet1PT.HwU'
+        }
     },
 
 })

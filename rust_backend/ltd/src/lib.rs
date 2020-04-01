@@ -60,11 +60,11 @@ pub mod cts;
 pub mod gamma_chain;
 pub mod integrand;
 pub mod ltd;
+pub mod observables;
 pub mod partial_fractioning;
 pub mod squared_topologies;
 pub mod topologies;
 pub mod utils;
-pub mod observables;
 
 #[cfg(feature = "python_api")]
 use arrayvec::ArrayVec;
@@ -145,6 +145,8 @@ pub enum OverallDeformationScaling {
     Linear,
     #[serde(rename = "sigmoid")]
     Sigmoid,
+    #[serde(rename = "exp_dampening")]
+    ExpDampening,
 }
 
 impl Default for OverallDeformationScaling {
@@ -341,6 +343,29 @@ pub struct ParameterizationSettings {
     pub shifts: Vec<(f64, f64, f64, f64)>,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub enum ObservableMode {
+    Jet1PT,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[allow(non_snake_case)]
+pub struct Jet1PTSettings {
+    pub x_min: f64,
+    pub x_max: f64,
+    pub dR: f64,
+    pub n_bins: usize,
+    pub write_to_file: bool,
+    pub filename: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[allow(non_snake_case)]
+pub struct ObservableSettings {
+    pub active_observables: Vec<ObservableMode>,
+    pub Jet1PT: Jet1PTSettings,
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
     pub multi_channeling: bool,
@@ -407,7 +432,7 @@ pub struct IntegratorSettings {
     pub use_only_last_sample: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum Integrator {
     #[serde(rename = "vegas")]
     Vegas,
@@ -470,6 +495,8 @@ pub struct Settings {
     pub cross_section: CrossSectionSettings,
     #[serde(rename = "Parameterization")]
     pub parameterization: ParameterizationSettings,
+    #[serde(rename = "Observables")]
+    pub observables: ObservableSettings,
 }
 
 impl Settings {

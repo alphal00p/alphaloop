@@ -1569,6 +1569,15 @@ fn main() {
         Diagram::Topology(t) => &t.name,
     };
 
+    if !settings.observables.active_observables.is_empty()
+        && (cores > 1
+            || (settings.integrator.integrator != Integrator::Vegas
+                && settings.integrator.integrator != Integrator::Suave))
+    {
+        println!("Removing observable functions because we are not running in single core or because a not supported integrator is selected.");
+        settings.observables.active_observables.clear();
+    }
+
     let user_data_generator = || UserData {
         n_loops,
         integrand: (0..=cores)

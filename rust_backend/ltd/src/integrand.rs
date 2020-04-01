@@ -5,13 +5,13 @@ use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
 use observables;
-use observables::{Event, Observable};
+use observables::{Event, EventFilter, Observable};
 use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::{CachePrecisionSelector, LTDCacheAllPrecisions, Topology};
 use vector::LorentzVector;
-use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
+use {FloatLike, IntegratedPhase, ObservableMode, Settings, MAX_LOOP};
 
 pub trait IntegrandImplementation: Clone {
     type Cache: Default;
@@ -71,7 +71,8 @@ pub struct Integrand<I: IntegrandImplementation> {
     pub num_samples: usize,
     pub cur_iter: usize,
     pub id: usize,
-    pub observable: Box<dyn Observable + Send>,
+    pub event_filter: Box<dyn EventFilter + Send>,
+    pub observables: Vec<Box<dyn Observable + Send>>,
     pub events: Vec<Event>, // event buffer
 }
 
@@ -343,6 +344,22 @@ impl<I: IntegrandImplementation> Integrand<I> {
             topologies.push(topology.rotate(angle, rv));
         }
 
+        let mut observables: Vec<Box<dyn Observable + Send>> = vec![];
+        for o in &settings.observables.active_observables {
+            match o {
+                ObservableMode::Jet1PT => {
+                    observables.push(Box::new(observables::Jet1PTObservable::new(
+                        settings.observables.Jet1PT.x_min,
+                        settings.observables.Jet1PT.x_max,
+                        settings.observables.Jet1PT.n_bins,
+                        settings.observables.Jet1PT.dR,
+                        settings.observables.Jet1PT.write_to_file,
+                        settings.observables.Jet1PT.filename.clone(),
+                    )));
+                }
+            }
+        }
+
         Integrand {
             n_loops,
             topologies,
@@ -376,7 +393,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
             avg_sum: vec![0., 0.],
             num_samples: 0,
             cur_iter: 1, // always start at iter 1
-            observable: Box::new(observables::NoObservable::default()),
+            event_filter: Box::new(observables::NoEventFilter::default()),
+            observables,
             events: Vec::with_capacity(100),
         }
     }
@@ -519,6 +537,9 @@ impl<I: IntegrandImplementation> Integrand<I> {
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
     pub fn evaluate(&mut self, x: &[f64], weight: f64, iter: usize) -> Complex<float> {
         if self.cur_iter != iter {
+            for o in &mut self.observables {
+                o.update_result();
+            }
             self.update_iter();
         }
 
@@ -793,10 +814,15 @@ impl<I: IntegrandImplementation> Integrand<I> {
             );
         }
 
-        // give the events to an observable function
+        // filter the events, potentially setting the integrand result to zero
         result = self
-            .observable
+            .event_filter
             .process_event_group(&mut events, weight, result);
+
+        // give the events to an observable function
+        for o in &mut self.observables {
+            o.process_event_group(&mut events, weight, result);
+        }
 
         events.clear();
         std::mem::swap(&mut self.events, &mut events);

@@ -785,6 +785,156 @@ impl<T: Float + Field> LorentzVector<T> {
     pub fn euclidean_distance(&self) -> T {
         (self.t * self.t + self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
+
+    pub fn boost(&self, boost_vector: &LorentzVector<T>) -> LorentzVector<T> {
+        let b2 = boost_vector.spatial_squared();
+        let gamma = (T::one() - b2).sqrt().inv();
+
+        let bp = self.spatial_dot(boost_vector);
+        let gamma2 = if b2 > T::zero() {
+            (gamma - T::one()) / b2
+        } else {
+            T::zero()
+        };
+        let factor = gamma2 * bp + gamma * self.t;
+        LorentzVector::from_args(
+            gamma * (self.t + bp),
+            boost_vector.x.mul_add(factor, self.x),
+            boost_vector.y.mul_add(factor, self.y),
+            boost_vector.z.mul_add(factor, self.z),
+        )
+    }
+
+    /// Compute transverse momentum.
+    #[inline]
+    pub fn pt(&self) -> T {
+        (self.x * self.x + self.y * self.y).sqrt()
+    }
+
+    /// Compute pseudorapidity.
+    #[inline]
+    pub fn pseudoRap(&self) -> T {
+        let pt = self.pt();
+        if pt < T::epsilon() && self.z.abs() < T::epsilon() {
+            if self.z > T::zero() {
+                return T::max_value();
+            } else {
+                return T::min_value();
+            }
+        }
+        let th = pt.atan2(self.z);
+        -(th / (T::one() + T::one())).tan().ln()
+    }
+
+    /// Compute the phi-angle separation with p2.
+    pub fn getdelphi(&self, p2: &LorentzVector<T>) -> T {
+        let pt1 = self.pt();
+        let pt2 = p2.pt();
+        if pt1 == T::zero() || pt2 == T::zero() {
+            return T::max_value();
+        }
+
+        let mut tmp = self.x * p2.x + self.y * p2.y;
+        tmp = tmp / (pt1 * pt2);
+        if tmp.abs() > T::one() + T::epsilon() {
+            panic!("Cosine larger than 1. in phase-space cuts.")
+        }
+        if tmp.abs() > T::one() {
+            (tmp / tmp.abs()).acos()
+        } else {
+            tmp.acos()
+        }
+    }
+
+    /// Compute the deltaR separation with momentum p2.
+    #[inline]
+    pub fn deltaR(&self, p2: &LorentzVector<T>) -> T {
+        let delta_eta = self.pseudoRap() - p2.pseudoRap();
+        let delta_phi = self.getdelphi(p2);
+        (delta_eta * delta_eta + delta_phi * delta_phi).sqrt()
+    }
+
+    /// Apply a pure boost that sends p into q to this `LorentzVector`.
+    /// For details, see appendix A.2.2 of Simone Lionetti's PhD thesis.
+    ///
+    /// * `p` - Starting Lorentz vector to define the boost.
+    /// * `q` - Target Lorentz vector to define the boost.
+    pub fn boost_from_to(&self, p: &LorentzVector<T>, q: &LorentzVector<T>) -> LorentzVector<T> {
+        let eps = T::epsilon() + T::epsilon();
+        let p_abs = p.euclidean_distance();
+        let q_abs = q.euclidean_distance();
+
+        if (p - q).spatial_distance() < eps * eps {
+            return LorentzVector::new();
+        }
+
+        let mut n_vec = q - p;
+        n_vec = n_vec / n_vec.spatial_distance();
+
+        let na = LorentzVector::from_args(T::one(), n_vec.x, n_vec.y, n_vec.z);
+        let nb = LorentzVector::from_args(T::one(), -n_vec.x, -n_vec.y, -n_vec.z);
+
+        let p_plus = p.dot(&nb);
+        let p_minus = p.dot(&na);
+        let q_plus = q.dot(&nb);
+        let q_minus = q.dot(&na);
+        let ratioa;
+        let ratiob;
+        if p_minus / p_abs < eps && q_minus / q_abs < eps {
+            if p_plus / p_abs < eps && q_plus / q_abs < eps {
+                ratioa = T::one();
+                ratiob = T::one();
+            } else {
+                ratiob = q_plus / p_plus;
+                ratioa = T::one() / ratiob;
+            }
+        } else {
+            if p_plus / p_abs < eps && q_plus / q_abs < eps {
+                ratioa = q_minus / p_minus;
+                ratiob = T::one() / ratioa;
+            } else {
+                ratioa = q_minus / p_minus;
+                ratiob = q_plus / p_plus;
+            }
+        }
+
+        let plus = self.dot(&nb);
+        let minus = self.dot(&na);
+
+        self + na * (ratiob - T::one()) / (T::one() + T::one()) * plus
+            + nb * (ratioa - T::one()) / (T::one() + T::one()) * minus
+    }
+}
+
+impl LorentzVector<f64> {
+    /// Boost this kinematic configuration from the center of mass frame to the lab frame
+    /// given specified Bjorken x's x1 and x2.
+    /// This function needs to be cleaned up and built in a smarter way as the boost vector can be written
+    /// down explicitly as a function of x1, x2 and the beam energies.
+    pub fn boost_from_com_to_lab_frame(
+        momenta: &mut [LorentzVector<f64>],
+        x1: f64,
+        x2: f64,
+        ebeam1: f64,
+        ebeam2: f64,
+    ) {
+        let target_summed =
+            LorentzVector::from_args(x1 * ebeam1, 0., 0., (x1 * ebeam1).copysign(momenta[0].z))
+                + LorentzVector::from_args(
+                    x2 * ebeam2,
+                    0.,
+                    0.,
+                    (x2 * ebeam2).copysign(momenta[1].z),
+                );
+
+        let source_summed =
+            LorentzVector::from_args(2. * (x1 * x2 * ebeam1 * ebeam2).sqrt(), 0., 0., 0.);
+
+        // We want to send the source to the target
+        for vec in momenta {
+            *vec = vec.boost_from_to(&source_summed, &target_summed);
+        }
+    }
 }
 
 impl<T: RealNumberLike> LorentzVector<T> {

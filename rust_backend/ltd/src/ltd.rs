@@ -2078,6 +2078,9 @@ impl Topology {
                     *kappa *=
                         k_scale * Into::<T>::into(2.) / (DualN::one() + (k_scale / scale).exp());
                 }
+                OverallDeformationScaling::ExpDampening => {
+                    *kappa *= (-k.spatial_squared_impr() / (scale * scale)).exp();
+                }
             }
         }
 
