@@ -346,6 +346,8 @@ pub struct ParameterizationSettings {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum ObservableMode {
     Jet1PT,
+    #[serde(rename = "cross_section")]
+    CrossSection,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

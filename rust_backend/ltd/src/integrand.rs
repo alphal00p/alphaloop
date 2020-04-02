@@ -61,14 +61,6 @@ pub struct Integrand<I: IntegrandImplementation> {
     pub regular_point_count: usize,
     pub log: BufWriter<File>,
     pub quadruple_upgrade_log: BufWriter<File>,
-    pub sum: Vec<f64>,
-    pub sum_sq: Vec<f64>,
-    pub chi_sum: Vec<f64>,
-    pub chi_sq_sum: Vec<f64>,
-    pub weight_sum: Vec<f64>,
-    pub guess: Vec<f64>,
-    pub avg_sum: Vec<f64>,
-    pub num_samples: usize,
     pub cur_iter: usize,
     pub id: usize,
     pub event_filter: Box<dyn EventFilter + Send>,
@@ -357,6 +349,9 @@ impl<I: IntegrandImplementation> Integrand<I> {
                         settings.observables.Jet1PT.filename.clone(),
                     )));
                 }
+                ObservableMode::CrossSection => {
+                    observables.push(Box::new(observables::CrossSectionObservable::default()));
+                }
             }
         }
 
@@ -384,14 +379,6 @@ impl<I: IntegrandImplementation> Integrand<I> {
             ),
             settings,
             id,
-            sum: vec![0., 0.],
-            sum_sq: vec![0., 0.],
-            weight_sum: vec![0., 0.],
-            guess: vec![0., 0.],
-            chi_sum: vec![0., 0.],
-            chi_sq_sum: vec![0., 0.],
-            avg_sum: vec![0., 0.],
-            num_samples: 0,
             cur_iter: 1, // always start at iter 1
             event_filter: Box::new(observables::NoEventFilter::default()),
             observables,
@@ -493,54 +480,14 @@ impl<I: IntegrandImplementation> Integrand<I> {
     check_stability_precision!(check_stability_float, evaluate_float, float);
     check_stability_precision!(check_stability_quad, evaluate_f128, f128);
 
-    /// Update the global statistics such as the integral average and error
-    pub fn update_iter(&mut self) {
-        let n = self.num_samples as f64;
-
-        if self.settings.integrator.custom_output {
-            println!("Iteration {}:", self.cur_iter);
-        }
-
-        // update both phases
-        for i in 0..2 {
-            let mut w = (self.sum_sq[i] * n).sqrt();
-            w = (n - 1.) / ((w + self.sum[i]) * (w - self.sum[i])); // TODO: check for 0
-            self.weight_sum[i] += w;
-            self.avg_sum[i] += w * self.sum[i];
-            let sigsq = 1. / self.weight_sum[i];
-            let avg = sigsq * self.avg_sum[i];
-            let err = sigsq.sqrt();
-            if self.cur_iter == 1 {
-                self.guess[i] = self.sum[i];
-            }
-            w *= self.sum[i] - self.guess[i];
-            self.chi_sum[i] += w;
-            self.chi_sq_sum[i] += w * self.sum[i];
-            let chi_sq = self.chi_sq_sum[i] - avg * self.chi_sum[i];
-            if self.settings.integrator.custom_output {
-                println!(
-                    " {}: {} +- {} chisq {}",
-                    if i == 0 { "re" } else { "im" },
-                    avg,
-                    err,
-                    chi_sq
-                );
-            }
-
-            self.sum[i] = 0.;
-            self.sum_sq[i] = 0.;
-        }
-        self.num_samples = 0;
-        self.cur_iter += 1;
-    }
-
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
     pub fn evaluate(&mut self, x: &[f64], weight: f64, iter: usize) -> Complex<float> {
         if self.cur_iter != iter {
             for o in &mut self.observables {
                 o.update_result();
             }
-            self.update_iter();
+
+            self.cur_iter += 1;
         }
 
         if self.settings.general.integration_statistics
@@ -814,27 +761,16 @@ impl<I: IntegrandImplementation> Integrand<I> {
             );
         }
 
-        // filter the events, potentially setting the integrand result to zero
-        result = self
-            .event_filter
-            .process_event_group(&mut events, weight, result);
+        // filter the events, potentially changing the integrand result
+        result = self.event_filter.process_event_group(&mut events, weight);
 
         // give the events to an observable function
         for o in &mut self.observables {
-            o.process_event_group(&mut events, weight, result);
+            o.process_event_group(&mut events, weight);
         }
 
         events.clear();
         std::mem::swap(&mut self.events, &mut events);
-
-        // update statistics
-        for (i, r) in [result.re, result.im].iter().enumerate() {
-            let s = r * weight;
-            self.sum[i] += s;
-            self.sum_sq[i] += s * s;
-        }
-        self.num_samples += 1;
-
         result
     }
 }

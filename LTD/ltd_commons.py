@@ -224,6 +224,7 @@ hyperparameters = HyperParameters({
     },
 
     'Observables'   :   {
+        # options: Jet1PT, cross_section
         'active_observables'        :   ['Jet1PT'],
         'Jet1PT': {
             'x_min'                 :   50.,
