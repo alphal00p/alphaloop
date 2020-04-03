@@ -5,7 +5,7 @@ use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
 use observables;
-use observables::{Event, EventFilter, Observable};
+use observables::{Event, EventFilter, Observables};
 use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -64,7 +64,7 @@ pub struct Integrand<I: IntegrandImplementation> {
     pub cur_iter: usize,
     pub id: usize,
     pub event_filter: Box<dyn EventFilter + Send>,
-    pub observables: Vec<Box<dyn Observable + Send>>,
+    pub observables: Vec<Observables>,
     pub events: Vec<Event>, // event buffer,
     pub track_events: bool,
 }
@@ -343,11 +343,11 @@ impl<I: IntegrandImplementation> Integrand<I> {
             topologies.push(topology.rotate(angle, rv));
         }
 
-        let mut observables: Vec<Box<dyn Observable + Send>> = vec![];
+        let mut observables = vec![];
         for o in &settings.observables.active_observables {
             match o {
                 ObservableMode::Jet1PT => {
-                    observables.push(Box::new(observables::Jet1PTObservable::new(
+                    observables.push(Observables::Jet1PT(observables::Jet1PTObservable::new(
                         settings.observables.Jet1PT.x_min,
                         settings.observables.Jet1PT.x_max,
                         settings.observables.Jet1PT.n_bins,
@@ -357,7 +357,9 @@ impl<I: IntegrandImplementation> Integrand<I> {
                     )));
                 }
                 ObservableMode::CrossSection => {
-                    observables.push(Box::new(observables::CrossSectionObservable::default()));
+                    observables.push(Observables::CrossSection(
+                        observables::CrossSectionObservable::default(),
+                    ));
                 }
             }
         }
@@ -488,10 +490,22 @@ impl<I: IntegrandImplementation> Integrand<I> {
     check_stability_precision!(check_stability_float, evaluate_float, float);
     check_stability_precision!(check_stability_quad, evaluate_f128, f128);
 
+    pub fn merge_statistics(&mut self, other: &mut Integrand<I>) {
+        // TODO: also merge integrator statistics
+        for (o1, o2) in self
+            .observables
+            .iter_mut()
+            .zip(other.observables.iter_mut())
+        {
+            o1.merge_samples(o2);
+        }
+    }
+
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
     pub fn evaluate(&mut self, x: &[f64], weight: f64, iter: usize) -> Complex<float> {
         if self.cur_iter != iter {
-            if self.track_events {
+            // the first integrand accumulates all the results from the others
+            if self.id == 0 && self.track_events {
                 for o in &mut self.observables {
                     o.update_result();
                 }

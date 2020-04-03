@@ -344,7 +344,6 @@ fn integrand(
             1
         };
 
-        #[cfg(not(feature = "use_mpi"))]
         user_data.integrand[..cores]
             .into_par_iter()
             .zip(f.par_chunks_mut(f_len * nvec_per_core))
@@ -355,7 +354,7 @@ fn integrand(
                     let res = match integrand_f {
                         Integrands::CrossSection(c) => {
                             if weight.len() > 0 {
-                                c.evaluate(y, weight[i], iter)
+                                c.evaluate(y, weight[i * nvec_per_core + ii], iter)
                             } else {
                                 c.evaluate(y, 1., iter)
                             }
@@ -386,6 +385,18 @@ fn integrand(
                     }
                 }
             });
+
+        // now merge all statistics and observables into the first
+        let (first, others) = user_data.integrand[..cores].split_at_mut(1);
+        for i in others {
+            match (&mut first[0], i) {
+                (Integrands::CrossSection(i1), Integrands::CrossSection(i2)) => {
+                    i1.merge_statistics(i2)
+                }
+                (Integrands::Topology(i1), Integrands::Topology(i2)) => i1.merge_statistics(i2),
+                _ => unreachable!(),
+            }
+        }
     } else {
         #[cfg(not(feature = "use_mpi"))]
         for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
@@ -1604,6 +1615,17 @@ fn main() {
 
     let mut ci = CubaIntegrator::new();
 
+    if settings.integrator.internal_parallelization {
+        cores = 1.max(cores);
+
+        if settings.integrator.n_vec < cores {
+            println!(
+                "n_vec is less than number of cores: setting it equal to the number of cores. For performance reasons, it should be set a 100 times higher."
+            );
+            settings.integrator.n_vec = cores;
+        }
+    }
+
     ci.set_mineval(10)
         .set_nstart(settings.integrator.n_start as i64)
         .set_nincrease(settings.integrator.n_increase as i64)
@@ -1635,19 +1657,8 @@ fn main() {
     }
     .clone();
 
-    if settings.integrator.internal_parallelization {
-        cores = 1.max(cores);
-
-        if settings.integrator.n_vec < cores {
-            println!(
-                "n_vec is less than number of cores: setting it equal to the number of cores. For performance reasons, it should be set a 100 times higher."
-            );
-            settings.integrator.n_vec = cores;
-        }
-    }
-
     if !settings.observables.active_observables.is_empty()
-        && (cores > 1
+        && ((cores > 1 && !settings.integrator.internal_parallelization)
             || (settings.integrator.integrator != Integrator::Vegas
                 && settings.integrator.integrator != Integrator::Suave))
     {

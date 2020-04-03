@@ -1,9 +1,10 @@
+use itertools::Itertools;
 use num::Complex;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use vector::LorentzVector;
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct AverageAndErrorAccumulator {
     sum: f64,
     sum_sq: f64,
@@ -24,6 +25,17 @@ impl AverageAndErrorAccumulator {
         self.sum += sample;
         self.sum_sq += sample * sample;
         self.num_samples += 1;
+    }
+
+    pub fn merge_samples(&mut self, other: &mut AverageAndErrorAccumulator) {
+        self.sum += other.sum;
+        self.sum_sq += other.sum_sq;
+        self.num_samples += other.num_samples;
+
+        // reset the other
+        other.sum = 0.;
+        other.sum_sq = 0.;
+        other.num_samples = 0;
     }
 
     pub fn update_iter(&mut self) {
@@ -96,15 +108,59 @@ impl EventFilter for NoEventFilter {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Observables {
+    CrossSection(CrossSectionObservable),
+    Jet1PT(Jet1PTObservable),
+}
+
+impl Observables {
+    #[inline]
+    pub fn process_event_group(&mut self, event: &[Event], integrator_weight: f64) {
+        use self::Observables::*;
+        match self {
+            CrossSection(o) => o.process_event_group(event, integrator_weight),
+            Jet1PT(o) => o.process_event_group(event, integrator_weight),
+        }
+    }
+
+    #[inline]
+    pub fn merge_samples(&mut self, other: &mut Observables) {
+        use self::Observables::*;
+        match (self, other) {
+            (CrossSection(o1), CrossSection(o2)) => o1.merge_samples(o2),
+            (Jet1PT(o1), Jet1PT(o2)) => o1.merge_samples(o2),
+            (o1, o2) => panic!(
+                "Cannot merge observables of different types: {:?} vs {:?}",
+                o1, o2
+            ),
+        }
+    }
+
+    /// Produce the result (histogram, etc.) of the observable from all processed event groups.
+    #[inline]
+    pub fn update_result(&mut self) {
+        use self::Observables::*;
+        match self {
+            CrossSection(o) => o.update_result(),
+            Jet1PT(o) => o.update_result(),
+        }
+    }
+}
+
 pub trait Observable {
     /// Process a group of events and return a new integrand value that will be returned to the integrator.
     fn process_event_group(&mut self, event: &[Event], integrator_weight: f64);
+
+    fn merge_samples(&mut self, other: &mut Self)
+    where
+        Self: Sized;
 
     /// Produce the result (histogram, etc.) of the observable from all processed event groups.
     fn update_result(&mut self);
 }
 
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CrossSectionObservable {
     re: AverageAndErrorAccumulator,
     im: AverageAndErrorAccumulator,
@@ -119,6 +175,11 @@ impl Observable for CrossSectionObservable {
 
         self.re.add_sample(integrand.re * integrator_weight);
         self.im.add_sample(integrand.im * integrator_weight);
+    }
+
+    fn merge_samples(&mut self, other: &mut CrossSectionObservable) {
+        self.re.merge_samples(&mut other.re);
+        self.im.merge_samples(&mut other.im);
     }
 
     fn update_result(&mut self) {
@@ -137,7 +198,7 @@ impl Observable for CrossSectionObservable {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Jet1PTObservable {
     x_min: f64,
     x_max: f64,
@@ -222,6 +283,13 @@ impl Observable for Jet1PTObservable {
             if index >= 0 && index < self.bins.len() as isize {
                 self.bins[index as usize].add_sample(e.integrand.re * integrator_weight);
             }
+        }
+    }
+
+    fn merge_samples(&mut self, other: &mut Jet1PTObservable) {
+        // TODO: check if bins are compatible?
+        for (b, bo) in self.bins.iter_mut().zip_eq(&mut other.bins) {
+            b.merge_samples(bo);
         }
     }
 
