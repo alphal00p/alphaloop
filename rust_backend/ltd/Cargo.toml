@@ -42,3 +42,4 @@ mpi = { git = "https://github.com/bsteinb/rsmpi", optional = true }
 fnv = "1.0.6"
 scs-rs = "*"
 ecos-rs = "*"
+rayon = "*"

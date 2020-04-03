@@ -65,7 +65,8 @@ pub struct Integrand<I: IntegrandImplementation> {
     pub id: usize,
     pub event_filter: Box<dyn EventFilter + Send>,
     pub observables: Vec<Box<dyn Observable + Send>>,
-    pub events: Vec<Event>, // event buffer
+    pub events: Vec<Event>, // event buffer,
+    pub track_events: bool,
 }
 
 impl IntegrandImplementation for Topology {
@@ -314,7 +315,13 @@ macro_rules! check_stability_precision {
 }
 
 impl<I: IntegrandImplementation> Integrand<I> {
-    pub fn new(n_loops: usize, topology: I, settings: Settings, id: usize) -> Integrand<I> {
+    pub fn new(
+        n_loops: usize,
+        topology: I,
+        settings: Settings,
+        track_events: bool,
+        id: usize,
+    ) -> Integrand<I> {
         // create extra topologies with rotated kinematics to check the uncertainty
         let mut rng = rand::thread_rng();
         let mut topologies = vec![topology.clone()];
@@ -383,6 +390,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             event_filter: Box::new(observables::NoEventFilter::default()),
             observables,
             events: Vec::with_capacity(100),
+            track_events,
         }
     }
 
@@ -483,8 +491,10 @@ impl<I: IntegrandImplementation> Integrand<I> {
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
     pub fn evaluate(&mut self, x: &[f64], weight: f64, iter: usize) -> Complex<float> {
         if self.cur_iter != iter {
-            for o in &mut self.observables {
-                o.update_result();
+            if self.track_events {
+                for o in &mut self.observables {
+                    o.update_result();
+                }
             }
 
             self.cur_iter += 1;
@@ -760,17 +770,19 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 loops, new_max, false, x, &k_def, jac_para, jac_def, min_rot, max_rot, d,
             );
         }
+        if self.track_events {
+            // filter the events, potentially changing the integrand result
+            result = self.event_filter.process_event_group(&mut events, weight);
 
-        // filter the events, potentially changing the integrand result
-        result = self.event_filter.process_event_group(&mut events, weight);
-
-        // give the events to an observable function
-        for o in &mut self.observables {
-            o.process_event_group(&mut events, weight);
+            // give the events to an observable function
+            for o in &mut self.observables {
+                o.process_event_group(&mut events, weight);
+            }
+            events.clear();
         }
 
-        events.clear();
         std::mem::swap(&mut self.events, &mut events);
+
         result
     }
 }

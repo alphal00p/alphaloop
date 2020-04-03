@@ -11,6 +11,7 @@ extern crate nalgebra as na;
 extern crate num;
 extern crate num_traits;
 extern crate rand;
+extern crate rayon;
 extern crate serde;
 extern crate serde_yaml;
 
@@ -24,6 +25,7 @@ use ltd::LorentzVector;
 use num_traits::real::Real;
 use num_traits::{NumCast, One, ToPrimitive, Zero};
 use rand::prelude::*;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Instant;
@@ -76,6 +78,7 @@ enum Diagram {
 struct UserData<'a> {
     n_loops: usize,
     integrand: Vec<Integrands>,
+    internal_parallelization: bool,
     integrated_phase: IntegratedPhase,
     #[cfg(feature = "use_mpi")]
     world: &'a mpi::topology::SystemCommunicator,
@@ -330,38 +333,93 @@ fn integrand(
     weight: &[f64],
     iter: usize,
 ) -> Result<(), &'static str> {
-    #[cfg(not(feature = "use_mpi"))]
-    for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
-        let res = match &mut user_data.integrand[(core + 1) as usize] {
-            Integrands::CrossSection(c) => {
-                if weight.len() > 0 {
-                    c.evaluate(y, weight[i], iter)
-                } else {
-                    c.evaluate(y, 1., iter)
-                }
-            }
-            Integrands::Topology(t) => t.evaluate(y, 1., iter),
+    if user_data.internal_parallelization {
+        let cores = user_data.integrand.len() - 1;
+        let nvec_per_core = nvec / cores;
+        let loops = user_data.n_loops;
+        let phase = user_data.integrated_phase;
+        let f_len = if IntegratedPhase::Both == user_data.integrated_phase {
+            2
+        } else {
+            1
         };
 
-        if res.is_finite() {
-            match user_data.integrated_phase {
-                IntegratedPhase::Real => {
-                    f[i] = res.re.to_f64().unwrap();
+        #[cfg(not(feature = "use_mpi"))]
+        user_data.integrand[..cores]
+            .into_par_iter()
+            .zip(f.par_chunks_mut(f_len * nvec_per_core))
+            .zip(x.par_chunks(3 * loops * nvec_per_core))
+            .enumerate()
+            .for_each(|(i, ((integrand_f, ff), xi))| {
+                for (ii, (y, fff)) in xi.chunks(3 * loops).zip(ff.chunks_mut(f_len)).enumerate() {
+                    let res = match integrand_f {
+                        Integrands::CrossSection(c) => {
+                            if weight.len() > 0 {
+                                c.evaluate(y, weight[i], iter)
+                            } else {
+                                c.evaluate(y, 1., iter)
+                            }
+                        }
+                        Integrands::Topology(t) => t.evaluate(y, 1., iter),
+                    };
+
+                    if res.is_finite() {
+                        match phase {
+                            IntegratedPhase::Real => {
+                                fff[0] = res.re.to_f64().unwrap();
+                            }
+                            IntegratedPhase::Imag => {
+                                fff[0] = res.im.to_f64().unwrap();
+                            }
+                            IntegratedPhase::Both => {
+                                fff[0] = res.re.to_f64().unwrap();
+                                fff[1] = res.im.to_f64().unwrap();
+                            }
+                        }
+                    } else {
+                        if f_len == 1 {
+                            fff[0] = 0.
+                        } else {
+                            fff[0] = 0.;
+                            fff[1] = 0.;
+                        }
+                    }
                 }
-                IntegratedPhase::Imag => {
-                    f[i] = res.im.to_f64().unwrap();
+            });
+    } else {
+        #[cfg(not(feature = "use_mpi"))]
+        for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
+            let res = match &mut user_data.integrand[(core + 1) as usize] {
+                Integrands::CrossSection(c) => {
+                    if weight.len() > 0 {
+                        c.evaluate(y, weight[i], iter)
+                    } else {
+                        c.evaluate(y, 1., iter)
+                    }
                 }
-                IntegratedPhase::Both => {
-                    f[i * 2] = res.re.to_f64().unwrap();
-                    f[i * 2 + 1] = res.im.to_f64().unwrap();
+                Integrands::Topology(t) => t.evaluate(y, 1., iter),
+            };
+
+            if res.is_finite() {
+                match user_data.integrated_phase {
+                    IntegratedPhase::Real => {
+                        f[i] = res.re.to_f64().unwrap();
+                    }
+                    IntegratedPhase::Imag => {
+                        f[i] = res.im.to_f64().unwrap();
+                    }
+                    IntegratedPhase::Both => {
+                        f[i * 2] = res.re.to_f64().unwrap();
+                        f[i * 2 + 1] = res.im.to_f64().unwrap();
+                    }
                 }
-            }
-        } else {
-            if user_data.integrated_phase != IntegratedPhase::Both {
-                f[i] = 0.
             } else {
-                f[i * 2] = 0.;
-                f[i * 2 + 1] = 0.;
+                if user_data.integrated_phase != IntegratedPhase::Both {
+                    f[i] = 0.
+                } else {
+                    f[i * 2] = 0.;
+                    f[i * 2 + 1] = 0.;
+                }
             }
         }
     }
@@ -1152,7 +1210,7 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
     if matches.is_present("full_integrand") {
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
-        let mut i = Integrand::new(topo.n_loops, topo.clone(), settings.clone(), 1);
+        let mut i = Integrand::new(topo.n_loops, topo.clone(), settings.clone(), false, 1);
         i.evaluate(&pt, 1., 1);
         return;
     }
@@ -1557,17 +1615,36 @@ fn main() {
         .set_maxchisq(settings.integrator.maxchisq)
         .set_mindeviation(settings.integrator.mindeviation)
         .set_seed(settings.integrator.seed)
-        .set_cores(cores, 1000);
+        .set_cores(
+            if settings.integrator.internal_parallelization {
+                0
+            } else {
+                cores
+            },
+            settings.integrator.n_vec,
+        );
 
     let n_loops = match &diagram {
         Diagram::CrossSection(sqt) => sqt.n_loops,
         Diagram::Topology(t) => t.n_loops,
     };
 
-    let name = match &diagram {
+    let name = &match &diagram {
         Diagram::CrossSection(sqt) => &sqt.name,
         Diagram::Topology(t) => &t.name,
-    };
+    }
+    .clone();
+
+    if settings.integrator.internal_parallelization {
+        cores = 1.max(cores);
+
+        if settings.integrator.n_vec < cores {
+            println!(
+                "n_vec is less than number of cores: setting it equal to the number of cores. For performance reasons, it should be set a 100 times higher."
+            );
+            settings.integrator.n_vec = cores;
+        }
+    }
 
     if !settings.observables.active_observables.is_empty()
         && (cores > 1
@@ -1578,6 +1655,13 @@ fn main() {
         settings.observables.active_observables.clear();
     }
 
+    if settings.integrator.internal_parallelization {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(cores)
+            .build_global()
+            .unwrap();
+    }
+
     let user_data_generator = || UserData {
         n_loops,
         integrand: (0..=cores)
@@ -1586,16 +1670,19 @@ fn main() {
                     sqt.n_loops,
                     sqt.clone(),
                     settings.clone(),
+                    true,
                     i,
                 )),
                 Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
                     topo.n_loops,
                     topo.clone(),
                     settings.clone(),
+                    false,
                     i,
                 )),
             })
             .collect(),
+        internal_parallelization: settings.integrator.internal_parallelization,
         integrated_phase: settings.integrator.integrated_phase,
         #[cfg(feature = "use_mpi")]
         world: &world,

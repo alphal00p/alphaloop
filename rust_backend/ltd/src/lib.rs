@@ -407,6 +407,7 @@ pub struct GeneralSettings {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct IntegratorSettings {
+    pub internal_parallelization: bool,
     pub custom_output: bool,
     pub integrator: Integrator,
     pub n_vec: usize,
@@ -449,6 +450,7 @@ pub enum Integrator {
 impl Default for IntegratorSettings {
     fn default() -> IntegratorSettings {
         IntegratorSettings {
+            internal_parallelization: false,
             custom_output: false,
             integrator: Integrator::Vegas,
             n_increase: 0,
@@ -528,7 +530,7 @@ py_class!(class CrossSection |py| {
     -> PyResult<CrossSection> {
         let settings = Settings::from_file(settings_file);
         let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings);
-        let integrand = integrand::Integrand::new(squared_topology.n_loops, squared_topology.clone(), settings.clone(), 0);
+        let integrand = integrand::Integrand::new(squared_topology.n_loops, squared_topology.clone(), settings.clone(), true, 0);
 
         let caches = squared_topology.create_caches::<float>();
         let caches_f128 = squared_topology.create_caches::<f128::f128>();
@@ -752,7 +754,7 @@ py_class!(class LTD |py| {
 
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), 0);
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), false, 0);
 
         LTD::create_instance(py, RefCell::new(topo), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
     }
@@ -760,7 +762,7 @@ py_class!(class LTD |py| {
     def __copy__(&self) -> PyResult<LTD> {
         let topo = self.topo(py).borrow();
         let settings = self.integrand(py).borrow().settings.clone();
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, 0);
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, false, 0);
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
         LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
