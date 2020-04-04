@@ -14,6 +14,8 @@ extern crate rand;
 extern crate rayon;
 extern crate serde;
 extern crate serde_yaml;
+extern crate termion;
+extern crate tui;
 
 #[cfg(feature = "use_mpi")]
 pub extern crate mpi;
@@ -43,6 +45,7 @@ use ltd::utils::Signum;
 use ltd::{float, FloatLike, IntegratedPhase, Integrator, Settings};
 
 use colored::*;
+use ltd::dashboard::{Dashboard, StatusUpdate, StatusUpdateSender};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -212,7 +215,7 @@ where
                 1
             },
             settings.integrator.n_vec,
-            if settings.integrator.custom_output {
+            if settings.integrator.dashboard {
                 CubaVerbosity::Silent
             } else {
                 CubaVerbosity::Progress
@@ -258,7 +261,7 @@ where
                     1
                 },
                 settings.integrator.n_vec,
-                if settings.integrator.custom_output {
+                if settings.integrator.dashboard {
                     CubaVerbosity::Silent
                 } else {
                     CubaVerbosity::Progress
@@ -310,7 +313,7 @@ where
                 1
             },
             settings.integrator.n_vec,
-            if settings.integrator.custom_output {
+            if settings.integrator.dashboard {
                 CubaVerbosity::Silent
             } else {
                 CubaVerbosity::Progress
@@ -351,15 +354,15 @@ fn integrand(
             .enumerate()
             .for_each(|(i, ((integrand_f, ff), xi))| {
                 for (ii, (y, fff)) in xi.chunks(3 * loops).zip(ff.chunks_mut(f_len)).enumerate() {
+                    let w = if weight.len() > 0 {
+                        weight[i * nvec_per_core + ii]
+                    } else {
+                        1.
+                    };
+
                     let res = match integrand_f {
-                        Integrands::CrossSection(c) => {
-                            if weight.len() > 0 {
-                                c.evaluate(y, weight[i * nvec_per_core + ii], iter)
-                            } else {
-                                c.evaluate(y, 1., iter)
-                            }
-                        }
-                        Integrands::Topology(t) => t.evaluate(y, 1., iter),
+                        Integrands::CrossSection(c) => c.evaluate(y, w, iter),
+                        Integrands::Topology(t) => t.evaluate(y, w, iter),
                     };
 
                     if res.is_finite() {
@@ -400,15 +403,11 @@ fn integrand(
     } else {
         #[cfg(not(feature = "use_mpi"))]
         for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
+            let w = if weight.len() > 0 { weight[i] } else { 1. };
+
             let res = match &mut user_data.integrand[(core + 1) as usize] {
-                Integrands::CrossSection(c) => {
-                    if weight.len() > 0 {
-                        c.evaluate(y, weight[i], iter)
-                    } else {
-                        c.evaluate(y, 1., iter)
-                    }
-                }
-                Integrands::Topology(t) => t.evaluate(y, 1., iter),
+                Integrands::CrossSection(c) => c.evaluate(y, w, iter),
+                Integrands::Topology(t) => t.evaluate(y, w, iter),
             };
 
             if res.is_finite() {
@@ -1189,7 +1188,12 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
     }
 }
 
-fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a>) {
+fn inspect<'a>(
+    topo: &Topology,
+    log_sender: StatusUpdateSender,
+    settings: &mut Settings,
+    matches: &ArgMatches<'a>,
+) {
     let mut pt: Vec<_> = matches
         .values_of("point")
         .unwrap()
@@ -1221,7 +1225,14 @@ fn inspect<'a>(topo: &Topology, settings: &mut Settings, matches: &ArgMatches<'a
     if matches.is_present("full_integrand") {
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
-        let mut i = Integrand::new(topo.n_loops, topo.clone(), settings.clone(), false, 1);
+        let mut i = Integrand::new(
+            topo.n_loops,
+            topo.clone(),
+            settings.clone(),
+            false,
+            log_sender,
+            1,
+        );
         i.evaluate(&pt, 1., 1);
         return;
     }
@@ -1520,6 +1531,25 @@ fn main() {
         settings.general.deformation_strategy = x.into();
     }
 
+    if !settings.observables.active_observables.is_empty()
+        && ((cores > 1 && !settings.integrator.internal_parallelization)
+            || (settings.integrator.integrator != Integrator::Vegas
+                && settings.integrator.integrator != Integrator::Suave))
+    {
+        println!("Removing observable functions because we are not running in single core or because a not supported integrator is selected.");
+        settings.observables.active_observables.clear();
+    }
+
+    if settings.integrator.dashboard && !settings.integrator.internal_parallelization && cores > 0
+        || (settings.integrator.integrator != Integrator::Vegas
+            && settings.integrator.integrator != Integrator::Suave)
+    {
+        println!("Cannot use dashboard with Cuba parallelization and cores != 0 or an integrator other than Vegas or Suave");
+        settings.integrator.dashboard = false;
+    }
+
+    let mut dashboard = Dashboard::new(settings.integrator.dashboard);
+
     let mut diagram = if let Some(cs_opt) = matches.value_of("cross_section") {
         Diagram::CrossSection(SquaredTopology::from_file(cs_opt, &settings))
     } else {
@@ -1557,10 +1587,13 @@ fn main() {
 
     match &mut diagram {
         Diagram::CrossSection(sqt) => {
-            println!(
-                "Integrating {} with {} samples and deformation '{}'",
-                sqt.name, settings.integrator.n_max, settings.general.deformation_strategy
-            );
+            dashboard
+                .status_update_sender
+                .send(StatusUpdate::Message(format!(
+                    "Integrating {} with {} samples and deformation '{}'",
+                    sqt.name, settings.integrator.n_max, settings.general.deformation_strategy
+                )))
+                .unwrap();
         }
         Diagram::Topology(topo) => {
             if let Some(_) = matches.subcommand_matches("bench") {
@@ -1572,20 +1605,23 @@ fn main() {
                 return;
             }
             if let Some(matches) = matches.subcommand_matches("inspect") {
-                inspect(topo, &mut settings, matches);
+                inspect(topo, dashboard.status_update_sender, &mut settings, matches);
                 return;
             }
             if let Some(_) = matches.subcommand_matches("integrated_ct") {
                 topo.amplitude.print_integrated_ct();
                 return;
             }
-            println!(
-                "Integrating {} with {} samples and deformation '{}'",
-                settings.general.topology,
-                settings.integrator.n_max,
-                settings.general.deformation_strategy
-            );
-            topo.print_info();
+            dashboard
+                .status_update_sender
+                .send(StatusUpdate::Message(format!(
+                    "Integrating {} with {} samples and deformation '{}'",
+                    settings.general.topology,
+                    settings.integrator.n_max,
+                    settings.general.deformation_strategy
+                )))
+                .unwrap();
+            topo.print_info(&mut dashboard.status_update_sender);
         }
     }
 
@@ -1619,9 +1655,11 @@ fn main() {
         cores = 1.max(cores);
 
         if settings.integrator.n_vec < cores {
-            println!(
+            dashboard
+                .status_update_sender
+                .send(StatusUpdate::Message(format!(
                 "n_vec is less than number of cores: setting it equal to the number of cores. For performance reasons, it should be set a 100 times higher."
-            );
+            ))).unwrap();
             settings.integrator.n_vec = cores;
         }
     }
@@ -1657,15 +1695,6 @@ fn main() {
     }
     .clone();
 
-    if !settings.observables.active_observables.is_empty()
-        && ((cores > 1 && !settings.integrator.internal_parallelization)
-            || (settings.integrator.integrator != Integrator::Vegas
-                && settings.integrator.integrator != Integrator::Suave))
-    {
-        println!("Removing observable functions because we are not running in single core or because a not supported integrator is selected.");
-        settings.observables.active_observables.clear();
-    }
-
     if settings.integrator.internal_parallelization {
         rayon::ThreadPoolBuilder::new()
             .num_threads(cores)
@@ -1682,6 +1711,7 @@ fn main() {
                     sqt.clone(),
                     settings.clone(),
                     true,
+                    dashboard.status_update_sender.clone(),
                     i,
                 )),
                 Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
@@ -1689,6 +1719,7 @@ fn main() {
                     topo.clone(),
                     settings.clone(),
                     false,
+                    dashboard.status_update_sender.clone(),
                     i,
                 )),
             })
@@ -1714,7 +1745,7 @@ fn main() {
             settings.integrator.n_new,
             settings.integrator.n_min,
             settings.integrator.flatness,
-            if settings.integrator.custom_output {
+            if settings.integrator.dashboard {
                 CubaVerbosity::Silent
             } else {
                 CubaVerbosity::Progress

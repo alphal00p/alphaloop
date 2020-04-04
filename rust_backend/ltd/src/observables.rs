@@ -1,3 +1,4 @@
+use dashboard::{StatusUpdate, StatusUpdateSender};
 use itertools::Itertools;
 use num::Complex;
 use std::fs::File;
@@ -160,10 +161,26 @@ pub trait Observable {
     fn update_result(&mut self);
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct CrossSectionObservable {
     re: AverageAndErrorAccumulator,
     im: AverageAndErrorAccumulator,
+    status_update_sender: StatusUpdateSender,
+}
+
+impl CrossSectionObservable {
+    pub fn new(status_update_sender: StatusUpdateSender) -> CrossSectionObservable {
+        CrossSectionObservable {
+            re: AverageAndErrorAccumulator::default(),
+            im: AverageAndErrorAccumulator::default(),
+            status_update_sender,
+        }
+    }
+
+    pub fn add_sample(&mut self, integrand: Complex<f64>, integrator_weight: f64) {
+        self.re.add_sample(integrand.re * integrator_weight);
+        self.im.add_sample(integrand.im * integrator_weight);
+    }
 }
 
 impl Observable for CrossSectionObservable {
@@ -186,15 +203,17 @@ impl Observable for CrossSectionObservable {
         self.re.update_iter();
         self.im.update_iter();
 
-        println!("Iteration {}", self.re.cur_iter);
-        println!(
-            " re: {} +- {} chisq {}",
-            self.re.avg, self.re.err, self.re.chi_sq
-        );
-        println!(
-            " im: {} +- {} chisq {}",
-            self.im.avg, self.im.err, self.im.chi_sq
-        );
+        self.status_update_sender
+            .send(StatusUpdate::NewPoint(
+                self.re.cur_iter,
+                self.re.avg,
+                self.re.err,
+                self.re.chi_sq / self.re.cur_iter as f64,
+                self.im.avg,
+                self.im.err,
+                self.im.chi_sq / self.im.cur_iter as f64,
+            ))
+            .unwrap();
     }
 }
 

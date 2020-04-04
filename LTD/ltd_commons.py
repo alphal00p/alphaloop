@@ -68,8 +68,8 @@ hyperparameters = HyperParameters({
         # Rust will do the parallelization instead of Cuba. Make sure to set n_vec to about 50 to 100 times
         # the numer of cores for best performance.
         'internal_parallelization'  : False,
-        # Suppress the Cuba output, but give our own statistics
-        'custom_output'     :   False,
+        # Use the dashboard. Make sure to run Cuba with 0 cores or enable internal_parallelization.
+        'dashboard'         :   False,
         # The integrator can be vegas, divonne, cuhre or suave
         'integrator'        :   'vegas',
         'n_start'           :   int(1.0e5),

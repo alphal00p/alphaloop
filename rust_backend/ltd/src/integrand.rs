@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+use dashboard::{StatusUpdate, StatusUpdateSender};
 use f128::f128;
 use float;
 use num::Complex;
@@ -46,27 +47,64 @@ pub trait IntegrandImplementation: Clone {
     fn create_cache(&self) -> Self::Cache;
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct IntegrandStatistics {
+    pub running_max: Complex<float>,
+    pub total_samples: usize,
+    pub nan_point_count: usize,
+    pub unstable_point_count: usize,
+    pub unstable_f128_point_count: usize,
+    pub regular_point_count: usize,
+}
+
+impl IntegrandStatistics {
+    pub fn new() -> IntegrandStatistics {
+        IntegrandStatistics {
+            running_max: Complex::default(),
+            total_samples: 0,
+            regular_point_count: 0,
+            unstable_point_count: 0,
+            unstable_f128_point_count: 0,
+            nan_point_count: 0,
+        }
+    }
+
+    pub fn merge(&mut self, other: &mut IntegrandStatistics) {
+        self.running_max = if self.running_max.norm_sqr() < other.running_max.norm_sqr() {
+            other.running_max
+        } else {
+            self.running_max
+        };
+        self.total_samples += other.total_samples;
+        self.regular_point_count += other.regular_point_count;
+        self.unstable_point_count += other.unstable_point_count;
+        self.unstable_f128_point_count += other.unstable_f128_point_count;
+        self.nan_point_count += other.nan_point_count;
+
+        other.total_samples = 0;
+        other.regular_point_count = 0;
+        other.unstable_point_count = 0;
+        other.unstable_f128_point_count = 0;
+        other.nan_point_count = 0;
+    }
+}
+
 /// A structure that integrates and keeps statistics
 pub struct Integrand<I: IntegrandImplementation> {
     pub n_loops: usize,
     pub settings: Settings,
     pub topologies: Vec<I>,
     pub cache: I::Cache,
-    pub running_max: Complex<float>,
-    pub running_min_lambda: float,
-    pub total_samples: usize,
-    pub nan_point_count: usize,
-    pub unstable_point_count: usize,
-    pub unstable_f128_point_count: usize,
-    pub regular_point_count: usize,
     pub log: BufWriter<File>,
     pub quadruple_upgrade_log: BufWriter<File>,
+    pub integrand_statistics: IntegrandStatistics,
     pub cur_iter: usize,
     pub id: usize,
     pub event_filter: Box<dyn EventFilter + Send>,
     pub observables: Vec<Observables>,
     pub events: Vec<Event>, // event buffer,
     pub track_events: bool,
+    pub status_update_sender: StatusUpdateSender,
 }
 
 impl IntegrandImplementation for Topology {
@@ -320,6 +358,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         topology: I,
         settings: Settings,
         track_events: bool,
+        status_update_sender: StatusUpdateSender,
         id: usize,
     ) -> Integrand<I> {
         // create extra topologies with rotated kinematics to check the uncertainty
@@ -347,18 +386,20 @@ impl<I: IntegrandImplementation> Integrand<I> {
         for o in &settings.observables.active_observables {
             match o {
                 ObservableMode::Jet1PT => {
-                    observables.push(Observables::Jet1PT(observables::Jet1PTObservable::new(
-                        settings.observables.Jet1PT.x_min,
-                        settings.observables.Jet1PT.x_max,
-                        settings.observables.Jet1PT.n_bins,
-                        settings.observables.Jet1PT.dR,
-                        settings.observables.Jet1PT.write_to_file,
-                        settings.observables.Jet1PT.filename.clone(),
-                    )));
+                    if track_events {
+                        observables.push(Observables::Jet1PT(observables::Jet1PTObservable::new(
+                            settings.observables.Jet1PT.x_min,
+                            settings.observables.Jet1PT.x_max,
+                            settings.observables.Jet1PT.n_bins,
+                            settings.observables.Jet1PT.dR,
+                            settings.observables.Jet1PT.write_to_file,
+                            settings.observables.Jet1PT.filename.clone(),
+                        )));
+                    }
                 }
                 ObservableMode::CrossSection => {
                     observables.push(Observables::CrossSection(
-                        observables::CrossSectionObservable::default(),
+                        observables::CrossSectionObservable::new(status_update_sender.clone()),
                     ));
                 }
             }
@@ -368,13 +409,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             n_loops,
             topologies,
             cache: topology.create_cache(),
-            running_max: Complex::default(),
-            total_samples: 0,
-            regular_point_count: 0,
-            unstable_point_count: 0,
-            unstable_f128_point_count: 0,
-            nan_point_count: 0,
-            running_min_lambda: float::infinity(),
+            integrand_statistics: IntegrandStatistics::new(),
             log: BufWriter::new(
                 File::create(format!("{}{}.log", settings.general.log_file_prefix, id))
                     .expect("Could not create log file"),
@@ -393,6 +428,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             observables,
             events: Vec::with_capacity(100),
             track_events,
+            status_update_sender,
         }
     }
 
@@ -466,32 +502,32 @@ impl<I: IntegrandImplementation> Integrand<I> {
     }
 
     fn print_statistics(&mut self) {
+        let s = &self.integrand_statistics;
+
         if self.settings.general.log_stats_to_screen
             && (self.settings.general.screen_log_core == None
                 || self.settings.general.screen_log_core == Some(self.id))
         {
             eprintln!(
-            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)\n  | running min lambda={}",
-            self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
-            self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
-            self.unstable_f128_point_count, self.unstable_f128_point_count as f64 / self.total_samples as f64 * 100.,
-            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100., self.running_min_lambda);
+            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)\n",
+            s.running_max, s.total_samples, s.regular_point_count, s.regular_point_count as f64 / s.total_samples as f64 * 100.,
+            s.unstable_point_count, s.unstable_point_count as f64 / s.total_samples as f64 * 100.,
+            s.unstable_f128_point_count, s.unstable_f128_point_count as f64 / s.total_samples as f64 * 100.,
+            s.nan_point_count, s.nan_point_count as f64 / s.total_samples as f64 * 100.);
         }
 
         writeln!(self.log,
-            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)\n  | running min lambda={}",
-            self.running_max, self.total_samples, self.regular_point_count, self.regular_point_count as f64 / self.total_samples as f64 * 100.,
-            self.unstable_point_count, self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
-            self.unstable_f128_point_count, self.unstable_f128_point_count as f64 / self.total_samples as f64 * 100.,
-            self.nan_point_count, self.nan_point_count as f64 / self.total_samples as f64 * 100.,
-            self.running_min_lambda).unwrap();
+            "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)\n",
+            s.running_max, s.total_samples, s.regular_point_count, s.regular_point_count as f64 / s.total_samples as f64 * 100.,
+            s.unstable_point_count, s.unstable_point_count as f64 / s.total_samples as f64 * 100.,
+            s.unstable_f128_point_count, s.unstable_f128_point_count as f64 / s.total_samples as f64 * 100.,
+            s.nan_point_count, s.nan_point_count as f64 / s.total_samples as f64 * 100.).unwrap();
     }
 
     check_stability_precision!(check_stability_float, evaluate_float, float);
     check_stability_precision!(check_stability_quad, evaluate_f128, f128);
 
     pub fn merge_statistics(&mut self, other: &mut Integrand<I>) {
-        // TODO: also merge integrator statistics
         for (o1, o2) in self
             .observables
             .iter_mut()
@@ -499,24 +535,32 @@ impl<I: IntegrandImplementation> Integrand<I> {
         {
             o1.merge_samples(o2);
         }
+
+        self.integrand_statistics
+            .merge(&mut other.integrand_statistics);
     }
 
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
     pub fn evaluate(&mut self, x: &[f64], weight: f64, iter: usize) -> Complex<float> {
         if self.cur_iter != iter {
             // the first integrand accumulates all the results from the others
-            if self.id == 0 && self.track_events {
+            if self.id == 0 {
                 for o in &mut self.observables {
                     o.update_result();
                 }
+
+                self.status_update_sender
+                    .send(StatusUpdate::Statistics(self.integrand_statistics))
+                    .unwrap();
             }
 
             self.cur_iter += 1;
         }
 
         if self.settings.general.integration_statistics
-            && self.total_samples > 0
-            && self.total_samples % self.settings.general.statistics_interval == 0
+            && self.integrand_statistics.total_samples > 0
+            && self.integrand_statistics.total_samples % self.settings.general.statistics_interval
+                == 0
         {
             self.print_statistics();
         }
@@ -536,16 +580,21 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         // print warnings for unstable points and try to make sure the screen output does not
         // get corrupted
-        if self.unstable_point_count as f64 / self.total_samples as f64 * 100.
+        if !self.settings.integrator.internal_parallelization && self.integrand_statistics.unstable_point_count as f64
+            / self.integrand_statistics.total_samples as f64
+            * 100.
             > self.settings.general.unstable_point_warning_percentage
-            && self.total_samples % self.settings.general.statistics_interval == (self.id + 1) * 20
+            && self.integrand_statistics.total_samples % self.settings.general.statistics_interval
+                == (self.id + 1) * 20
         {
-            eprintln!(
+            self.status_update_sender
+                .send(StatusUpdate::Message(format!(
                 "WARNING on core {}: {:.2}% of points are unstable, {:.2}% are not saved by f128",
                 self.id,
-                self.unstable_point_count as f64 / self.total_samples as f64 * 100.,
-                self.unstable_f128_point_count as f64 / self.total_samples as f64 * 100.
-            );
+                self.integrand_statistics.unstable_point_count as f64 / self.integrand_statistics.total_samples as f64 * 100.,
+                self.integrand_statistics.unstable_f128_point_count as f64 / self.integrand_statistics.total_samples as f64 * 100.
+            )))
+                .unwrap();
         }
 
         let mut events = std::mem::replace(&mut self.events, vec![]);
@@ -566,7 +615,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             self.running_min_lambda = self.cache.overall_lambda;
         }*/
 
-        self.total_samples += 1;
+        self.integrand_statistics.total_samples += 1;
 
         if self.settings.general.force_f128
             || !result.is_finite()
@@ -699,7 +748,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 }
             }*/
 
-            self.unstable_point_count += 1;
+            self.integrand_statistics.unstable_point_count += 1;
 
             if !result_f128.is_finite()
                 || !min_rot_f128.is_finite()
@@ -724,10 +773,10 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 }
 
                 if !result_f128.is_finite() {
-                    self.nan_point_count += 1;
+                    self.integrand_statistics.nan_point_count += 1;
                     return Complex::default();
                 } else {
-                    self.unstable_f128_point_count += 1;
+                    self.integrand_statistics.unstable_f128_point_count += 1;
                     //println!("f128 fail : x={:?}, min result={}, max result={}", x, min_rot_f128, max_rot_f128);
 
                     if d_f128
@@ -741,6 +790,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
                             <float as NumCast>::from(result_f128.im).unwrap(),
                         );
                     } else {
+                        // TODO: update the events
                         return Complex::default();
                     }
                 }
@@ -753,26 +803,26 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 );
             }
         } else {
-            self.regular_point_count += 1;
+            self.integrand_statistics.regular_point_count += 1;
         }
 
         let mut new_max = false;
         match self.settings.integrator.integrated_phase {
             IntegratedPhase::Real => {
-                if result.re.abs() > self.running_max.re.abs() {
-                    self.running_max = result;
+                if result.re.abs() > self.integrand_statistics.running_max.re.abs() {
+                    self.integrand_statistics.running_max = result;
                     new_max = true;
                 }
             }
             IntegratedPhase::Imag => {
-                if result.im.abs() > self.running_max.im.abs() {
-                    self.running_max = result;
+                if result.im.abs() > self.integrand_statistics.running_max.im.abs() {
+                    self.integrand_statistics.running_max = result;
                     new_max = true;
                 }
             }
             IntegratedPhase::Both => {
-                if result.norm_sqr() > self.running_max.norm_sqr() {
-                    self.running_max = result;
+                if result.norm_sqr() > self.integrand_statistics.running_max.norm_sqr() {
+                    self.integrand_statistics.running_max = result;
                     new_max = true;
                 }
             }
@@ -793,6 +843,13 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 o.process_event_group(&mut events, weight);
             }
             events.clear();
+        } else {
+            for o in &mut self.observables {
+                if let Observables::CrossSection(c) = o {
+                    c.add_sample(result, weight);
+                    break;
+                }
+            }
         }
 
         std::mem::swap(&mut self.events, &mut events);

@@ -1,4 +1,5 @@
 use amplitude::Amplitude;
+use dashboard::{StatusUpdate, StatusUpdateSender};
 use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use float;
 use fnv::FnvHashMap;
@@ -486,23 +487,34 @@ impl Topology {
             .collect()
     }
 
-    pub fn print_info(&self) {
+    pub fn print_info(&self, status_update_sender: &mut StatusUpdateSender) {
         let num_cuts: usize = self.ltd_cut_options.iter().map(|c| c.len()).sum();
-        println!("Number of cuts: {}", num_cuts);
-        let mut n_unique_e_surface = 0;
-        for (surf_index, surf) in self.surfaces.iter().enumerate() {
-            if surf_index != surf.group
-                || surf.surface_type != SurfaceType::Ellipsoid
-                || !surf.exists
-            {
-                continue;
-            }
-            n_unique_e_surface += 1;
+        if self.settings.general.debug > 0 {
+            println!("Number of cuts: {}", num_cuts);
         }
-        println!(
-            "Number of unique existing non-pinched E-surfaces: {}",
-            n_unique_e_surface
-        );
+        let mut n_unique_e_surface = 0;
+        let mut n_pinches = 0;
+        for (surf_index, surf) in self.surfaces.iter().enumerate() {
+            if surf_index == surf.group && surf.exists {
+                if surf.surface_type == SurfaceType::Ellipsoid {
+                    n_unique_e_surface += 1;
+                } else if surf.surface_type == SurfaceType::Pinch {
+                    n_pinches += 1;
+                }
+            }
+        }
+        status_update_sender
+            .send(StatusUpdate::Message(format!(
+                "Number of unique existing E-surfaces: {}",
+                n_unique_e_surface
+            )))
+            .unwrap();
+        status_update_sender
+            .send(StatusUpdate::Message(format!(
+                "Number of unique existing pinches: {}",
+                n_pinches
+            )))
+            .unwrap();
         if self.fixed_deformation.len() > 0 {
             let maximal_overlap_structure: Vec<i32> = self
                 .fixed_deformation
@@ -523,41 +535,45 @@ impl Topology {
                 .iter()
                 .flat_map(|fd| fd.deformation_per_overlap.iter().map(|_| 1))
                 .sum();
+
+            if self.settings.general.debug > 0 {
+                println!(
+                    "Number of E-surfaces part of each maximal overlap: {:?}",
+                    maximal_overlap_structure
+                );
+                println!("Total number of sources: {}", n_sources);
+                println!(
+                    "Min radius: {}",
+                    radii
+                        .iter()
+                        .fold(std::f64::INFINITY, |acc, x| f64::min(acc, *x))
+                );
+                println!(
+                    "Max radius: {}",
+                    radii
+                        .iter()
+                        .fold(std::f64::NEG_INFINITY, |acc, x| f64::max(acc, *x))
+                );
+            }
+        }
+
+        if self.settings.general.debug > 0 {
             println!(
-                "Number of E-surfaces part of each maximal overlap: {:?}",
-                maximal_overlap_structure
-            );
-            println!("Total number of sources: {}", n_sources);
-            println!(
-                "Min radius: {}",
-                radii
-                    .iter()
-                    .fold(std::f64::INFINITY, |acc, x| f64::min(acc, *x))
-            );
-            println!(
-                "Max radius: {}",
-                radii
-                    .iter()
-                    .fold(std::f64::NEG_INFINITY, |acc, x| f64::max(acc, *x))
+                "M_ij considered: {}",
+                self.settings.deformation.fixed.m_ij.abs() * self.compute_min_mij()
             );
         }
-        println!(
-            "Expansion threshold considered: {}",
-            self.get_expansion_threshold()
-        );
-        println!(
-            "M_ij considered: {}",
-            self.settings.deformation.fixed.m_ij.abs() * self.compute_min_mij()
-        );
         match self.analytical_result_real {
-            Some(_) => println!(
-                "Analytic result: {:e}",
-                num::Complex::<f64>::new(
-                    self.analytical_result_real.unwrap(),
-                    self.analytical_result_imag.unwrap()
-                )
-            ),
-            _ => println!("Analytic result not available."),
+            Some(_) => status_update_sender
+                .send(StatusUpdate::Message(format!(
+                    "Analytic result: {:e}",
+                    num::Complex::<f64>::new(
+                        self.analytical_result_real.unwrap(),
+                        self.analytical_result_imag.unwrap()
+                    )
+                )))
+                .unwrap(),
+            _ => {}
         }
     }
 

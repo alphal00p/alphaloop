@@ -22,6 +22,7 @@ extern crate nalgebra as na;
 extern crate num_traits;
 extern crate rand;
 extern crate scs;
+extern crate tui;
 
 use num_traits::{Float, FloatConst, FromPrimitive, Num, One, ToPrimitive, Zero};
 use utils::Signum;
@@ -65,6 +66,7 @@ pub mod partial_fractioning;
 pub mod squared_topologies;
 pub mod topologies;
 pub mod utils;
+pub mod dashboard;
 
 #[cfg(feature = "python_api")]
 use arrayvec::ArrayVec;
@@ -408,7 +410,7 @@ pub struct GeneralSettings {
 #[serde(default)]
 pub struct IntegratorSettings {
     pub internal_parallelization: bool,
-    pub custom_output: bool,
+    pub dashboard: bool,
     pub integrator: Integrator,
     pub n_vec: usize,
     pub n_increase: usize,
@@ -451,7 +453,7 @@ impl Default for IntegratorSettings {
     fn default() -> IntegratorSettings {
         IntegratorSettings {
             internal_parallelization: false,
-            custom_output: false,
+            dashboard: false,
             integrator: Integrator::Vegas,
             n_increase: 0,
             n_vec: 1,
