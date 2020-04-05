@@ -1,4 +1,5 @@
 use integrand::IntegrandStatistics;
+use observables::EventInfo;
 use std::io;
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
@@ -15,6 +16,7 @@ pub enum StatusUpdate {
     NewPoint(usize, f64, f64, f64, f64, f64, f64),
     IntegratorUpdate(String),
     Statistics(IntegrandStatistics),
+    EventInfo(EventInfo),
     Message(String),
 }
 
@@ -43,6 +45,11 @@ impl Dashboard {
                     StatusUpdate::Statistics(s) => {
                         println!("{:?}", s);
                     }
+                    StatusUpdate::EventInfo(s) => {
+                        if s.accepted_event_counter != 0 {
+                            println!("{:?}", s);
+                        }
+                    }
                 }
             }
         });
@@ -67,6 +74,7 @@ impl Dashboard {
         let mut integrator_update_messages = vec![];
 
         let mut integrand_statistics = IntegrandStatistics::new();
+        let mut event_info = EventInfo::default();
 
         terminal.clear().unwrap();
         thread::spawn(move || loop {
@@ -89,6 +97,9 @@ impl Dashboard {
                             " im: {:+.8e} +- {:+.8e} chisq {:.2}",
                             im, im_err, im_chi
                         )));
+                    }
+                    StatusUpdate::EventInfo(e) => {
+                        event_info = e;
                     }
                     StatusUpdate::Statistics(s) => {
                         integrand_statistics = s;
@@ -151,6 +162,17 @@ impl Dashboard {
                             Style::default().fg(Color::Red),
                         ),
                         Text::raw(format!("Running max: {}", integrand_statistics.running_max)),
+                        Text::raw(format!(
+                            "Accepted events: {}",
+                            event_info.accepted_event_counter
+                        )),
+                        Text::raw(format!(
+                            "Rejected events: {} ({}%)",
+                            event_info.rejected_event_counter,
+                            event_info.rejected_event_counter as f64
+                                / (event_info.rejected_event_counter as f64
+                                    + event_info.accepted_event_counter as f64 * 100.)
+                        )),
                     ];
 
                     let mut stats_list = List::new(stats.into_iter())

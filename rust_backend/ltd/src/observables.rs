@@ -1,9 +1,17 @@
 use dashboard::{StatusUpdate, StatusUpdateSender};
 use itertools::Itertools;
 use num::Complex;
+use squared_topologies::CutkoskyCut;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use vector::LorentzVector;
+use {FloatLike, ObservableMode, Settings};
+
+#[derive(Debug, Default, Clone)]
+pub struct EventInfo {
+    pub accepted_event_counter: usize,
+    pub rejected_event_counter: usize,
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct AverageAndErrorAccumulator {
@@ -75,6 +83,143 @@ impl AverageAndErrorAccumulator {
     }
 }
 
+#[derive(Default)]
+pub struct EventManager {
+    pub event_filter: Vec<EventFilters>,
+    pub observables: Vec<Observables>,
+    pub event_buffer: Vec<Event>,
+    pub track_events: bool,
+    pub accepted_event_counter: usize,
+    pub rejected_event_counter: usize,
+    pub status_update_sender: Option<StatusUpdateSender>,
+}
+
+impl EventManager {
+    pub fn new(
+        track_events: bool,
+        settings: Settings,
+        status_update_sender: StatusUpdateSender,
+    ) -> EventManager {
+        let mut observables = vec![];
+        for o in &settings.observables.active_observables {
+            match o {
+                ObservableMode::Jet1PT => {
+                    if track_events {
+                        observables.push(Observables::Jet1PT(Jet1PTObservable::new(
+                            settings.observables.Jet1PT.x_min,
+                            settings.observables.Jet1PT.x_max,
+                            settings.observables.Jet1PT.n_bins,
+                            settings.observables.Jet1PT.dR,
+                            settings.observables.Jet1PT.write_to_file,
+                            settings.observables.Jet1PT.filename.clone(),
+                        )));
+                    }
+                }
+                ObservableMode::CrossSection => {
+                    observables.push(Observables::CrossSection(CrossSectionObservable::new(
+                        status_update_sender.clone(),
+                    )));
+                }
+            }
+        }
+
+        EventManager {
+            event_filter: vec![],
+            observables,
+            event_buffer: Vec::with_capacity(100),
+            track_events,
+            accepted_event_counter: 0,
+            rejected_event_counter: 0,
+            status_update_sender: Some(status_update_sender),
+        }
+    }
+
+    pub fn add_event<T: FloatLike>(
+        &mut self,
+        incoming_momenta: &[LorentzVector<f64>],
+        cut_momenta: &[LorentzVector<T>],
+        cut_info: &[CutkoskyCut],
+    ) -> bool {
+        // TODO: recycle vectors from the buffer
+        let mut outgoing_momenta = Vec::with_capacity(cut_info.len());
+        for (cut_mom, cut) in cut_momenta[..cut_info.len()].iter().zip(cut_info.iter()) {
+            if cut.level == 0 {
+                // make sure all momenta are outgoing
+                outgoing_momenta.push(cut_mom.cast::<f64>() * cut.sign as f64);
+            }
+        }
+
+        let mut e = Event {
+            kinematic_configuration: (incoming_momenta.to_vec(), outgoing_momenta),
+            integrand: Complex::new(1., 0.),
+            weights: vec![0.],
+        };
+
+        // run the event through the filters
+        for f in &mut self.event_filter {
+            if !f.process_event(&mut e) {
+                self.rejected_event_counter += 1;
+                return false;
+            }
+        }
+
+        self.event_buffer.push(e);
+        self.accepted_event_counter += 1;
+        true
+    }
+
+    pub fn merge_samples(&mut self, other: &mut EventManager) {
+        for (o1, o2) in self
+            .observables
+            .iter_mut()
+            .zip(other.observables.iter_mut())
+        {
+            o1.merge_samples(o2);
+        }
+
+        self.accepted_event_counter += other.accepted_event_counter;
+        self.rejected_event_counter += other.rejected_event_counter;
+        other.accepted_event_counter = 0;
+        other.rejected_event_counter = 0;
+    }
+
+    pub fn update_result(&mut self) {
+        for o in &mut self.observables {
+            o.update_result();
+        }
+
+        self.status_update_sender
+            .as_mut()
+            .unwrap()
+            .send(StatusUpdate::EventInfo(EventInfo {
+                accepted_event_counter: self.accepted_event_counter,
+                rejected_event_counter: self.rejected_event_counter,
+            }))
+            .unwrap();
+    }
+
+    pub fn clear(&mut self) {
+        self.event_buffer.clear();
+    }
+
+    pub fn process_events(&mut self, integrand_result: Complex<f64>, integrand_weight: f64) {
+        if self.track_events {
+            // give the events to an observable function
+            for o in &mut self.observables {
+                o.process_event_group(&self.event_buffer, integrand_weight);
+            }
+            self.event_buffer.clear();
+        } else {
+            for o in &mut self.observables {
+                if let Observables::CrossSection(c) = o {
+                    c.add_sample(integrand_result, integrand_weight);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct Event {
     pub kinematic_configuration: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
@@ -82,13 +227,22 @@ pub struct Event {
     pub weights: Vec<f64>,
 }
 
+pub enum EventFilters {
+    All(NoEventFilter),
+}
+
+impl EventFilters {
+    #[inline]
+    fn process_event(&mut self, event: &mut Event) -> bool {
+        match self {
+            EventFilters::All(f) => f.process_event(event),
+        }
+    }
+}
+
 pub trait EventFilter {
     /// Process a group of events and return a new integrand value that will be returned to the integrator.
-    fn process_event_group(
-        &mut self,
-        event: &mut Vec<Event>,
-        integrator_weight: f64,
-    ) -> Complex<f64>;
+    fn process_event(&mut self, event: &mut Event) -> bool;
 }
 
 #[derive(Default)]
@@ -96,16 +250,8 @@ pub struct NoEventFilter {}
 
 impl EventFilter for NoEventFilter {
     #[inline]
-    fn process_event_group(
-        &mut self,
-        events: &mut Vec<Event>,
-        _integrator_weight: f64,
-    ) -> Complex<f64> {
-        let mut integrand = Complex::default();
-        for e in events {
-            integrand += e.integrand;
-        }
-        integrand
+    fn process_event(&mut self, events: &mut Event) -> bool {
+        true
     }
 }
 

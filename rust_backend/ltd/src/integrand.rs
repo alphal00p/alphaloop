@@ -5,14 +5,13 @@ use float;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
-use observables;
-use observables::{Event, EventFilter, Observables};
+use observables::EventManager;
 use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use topologies::{CachePrecisionSelector, LTDCacheAllPrecisions, Topology};
 use vector::LorentzVector;
-use {FloatLike, IntegratedPhase, ObservableMode, Settings, MAX_LOOP};
+use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 
 pub trait IntegrandImplementation: Clone {
     type Cache: Default;
@@ -22,7 +21,7 @@ pub trait IntegrandImplementation: Clone {
         &mut self,
         x: &'a [f64],
         cache: &mut Self::Cache,
-        events: Option<&mut Vec<Event>>,
+        events: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -35,7 +34,7 @@ pub trait IntegrandImplementation: Clone {
         &mut self,
         x: &'a [f64],
         cache: &mut Self::Cache,
-        events: Option<&mut Vec<Event>>,
+        events: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -100,10 +99,7 @@ pub struct Integrand<I: IntegrandImplementation> {
     pub integrand_statistics: IntegrandStatistics,
     pub cur_iter: usize,
     pub id: usize,
-    pub event_filter: Box<dyn EventFilter + Send>,
-    pub observables: Vec<Observables>,
-    pub events: Vec<Event>, // event buffer,
-    pub track_events: bool,
+    pub event_manager: EventManager,
     pub status_update_sender: StatusUpdateSender,
 }
 
@@ -223,7 +219,7 @@ impl IntegrandImplementation for Topology {
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
-        _events: Option<&mut Vec<Event>>,
+        _events: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -239,7 +235,7 @@ impl IntegrandImplementation for Topology {
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
-        _events: Option<&mut Vec<Event>>,
+        _events: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -382,29 +378,6 @@ impl<I: IntegrandImplementation> Integrand<I> {
             topologies.push(topology.rotate(angle, rv));
         }
 
-        let mut observables = vec![];
-        for o in &settings.observables.active_observables {
-            match o {
-                ObservableMode::Jet1PT => {
-                    if track_events {
-                        observables.push(Observables::Jet1PT(observables::Jet1PTObservable::new(
-                            settings.observables.Jet1PT.x_min,
-                            settings.observables.Jet1PT.x_max,
-                            settings.observables.Jet1PT.n_bins,
-                            settings.observables.Jet1PT.dR,
-                            settings.observables.Jet1PT.write_to_file,
-                            settings.observables.Jet1PT.filename.clone(),
-                        )));
-                    }
-                }
-                ObservableMode::CrossSection => {
-                    observables.push(Observables::CrossSection(
-                        observables::CrossSectionObservable::new(status_update_sender.clone()),
-                    ));
-                }
-            }
-        }
-
         Integrand {
             n_loops,
             topologies,
@@ -421,13 +394,14 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 ))
                 .expect("Could not create log file"),
             ),
-            settings,
+            settings: settings.clone(),
             id,
             cur_iter: 1, // always start at iter 1
-            event_filter: Box::new(observables::NoEventFilter::default()),
-            observables,
-            events: Vec::with_capacity(100),
-            track_events,
+            event_manager: EventManager::new(
+                track_events,
+                settings.clone(),
+                status_update_sender.clone(),
+            ),
             status_update_sender,
         }
     }
@@ -528,13 +502,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
     check_stability_precision!(check_stability_quad, evaluate_f128, f128);
 
     pub fn merge_statistics(&mut self, other: &mut Integrand<I>) {
-        for (o1, o2) in self
-            .observables
-            .iter_mut()
-            .zip(other.observables.iter_mut())
-        {
-            o1.merge_samples(o2);
-        }
+        self.event_manager.merge_samples(&mut other.event_manager);
 
         self.integrand_statistics
             .merge(&mut other.integrand_statistics);
@@ -545,9 +513,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         if self.cur_iter != iter {
             // the first integrand accumulates all the results from the others
             if self.id == 0 {
-                for o in &mut self.observables {
-                    o.update_result();
-                }
+                self.event_manager.update_result();
 
                 self.status_update_sender
                     .send(StatusUpdate::Statistics(self.integrand_statistics))
@@ -580,10 +546,11 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         // print warnings for unstable points and try to make sure the screen output does not
         // get corrupted
-        if !self.settings.integrator.internal_parallelization && self.integrand_statistics.unstable_point_count as f64
-            / self.integrand_statistics.total_samples as f64
-            * 100.
-            > self.settings.general.unstable_point_warning_percentage
+        if !self.settings.integrator.internal_parallelization
+            && self.integrand_statistics.unstable_point_count as f64
+                / self.integrand_statistics.total_samples as f64
+                * 100.
+                > self.settings.general.unstable_point_warning_percentage
             && self.integrand_statistics.total_samples % self.settings.general.statistics_interval
                 == (self.id + 1) * 20
         {
@@ -597,11 +564,11 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 .unwrap();
         }
 
-        let mut events = std::mem::replace(&mut self.events, vec![]);
+        let mut event_manager = std::mem::replace(&mut self.event_manager, EventManager::default());
 
         let mut cache = std::mem::replace(&mut self.cache, I::Cache::default());
         let (x, k_def, jac_para, jac_def, mut result) =
-            self.topologies[0].evaluate_float(x, &mut cache, Some(&mut events));
+            self.topologies[0].evaluate_float(x, &mut cache, Some(&mut event_manager));
         let (d, diff, min_rot, max_rot) = self.check_stability_float(
             x,
             result,
@@ -625,7 +592,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             || diff > NumCast::from(self.settings.general.absolute_precision).unwrap()
         {
             // clear events when there is instability
-            events.clear();
+            event_manager.clear();
 
             if self.settings.general.integration_statistics {
                 let loops = self.n_loops;
@@ -692,7 +659,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             // compute the point again with f128 to see if it is stable then
             std::mem::swap(&mut self.cache, &mut cache);
             let (_, k_def_f128, jac_para_f128, jac_def_f128, result_f128) =
-                self.topologies[0].evaluate_f128(x, &mut cache, Some(&mut events));
+                self.topologies[0].evaluate_f128(x, &mut cache, Some(&mut event_manager));
             // NOTE: for this check we use a f64 rotation matrix at the moment!
             let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability_quad(
                 x,
@@ -834,25 +801,9 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 loops, new_max, false, x, &k_def, jac_para, jac_def, min_rot, max_rot, d,
             );
         }
-        if self.track_events {
-            // filter the events, potentially changing the integrand result
-            result = self.event_filter.process_event_group(&mut events, weight);
 
-            // give the events to an observable function
-            for o in &mut self.observables {
-                o.process_event_group(&mut events, weight);
-            }
-            events.clear();
-        } else {
-            for o in &mut self.observables {
-                if let Observables::CrossSection(c) = o {
-                    c.add_sample(result, weight);
-                    break;
-                }
-            }
-        }
-
-        std::mem::swap(&mut self.events, &mut events);
+        event_manager.process_events(result, weight);
+        std::mem::swap(&mut self.event_manager, &mut event_manager);
 
         result
     }

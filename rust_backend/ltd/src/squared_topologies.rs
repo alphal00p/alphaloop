@@ -9,7 +9,7 @@ use num_traits::NumCast;
 use num_traits::ToPrimitive;
 use num_traits::{Float, FloatConst};
 use num_traits::{One, Zero};
-use observables::Event;
+use observables::EventManager;
 use serde::Deserialize;
 use std::fs::File;
 use std::mem;
@@ -21,11 +21,11 @@ use {DeformationStrategy, FloatLike, Settings, MAX_LOOP};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
-    name: String,
-    sign: i8,
-    level: usize,
-    signature: (Vec<i8>, Vec<i8>),
-    m_squared: f64,
+    pub name: String,
+    pub sign: i8,
+    pub level: usize,
+    pub signature: (Vec<i8>, Vec<i8>),
+    pub m_squared: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -261,7 +261,7 @@ impl SquaredTopology {
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<Vec<LTDCache<T>>>],
-        mut events: Option<&mut Vec<Event>>,
+        mut event_manager: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
@@ -298,10 +298,10 @@ impl SquaredTopology {
             jac_para *= jac;
         }
 
-        let result = self.evaluate_mom(&k[..self.n_loops], cache, &mut events) * jac_para;
+        let result = self.evaluate_mom(&k[..self.n_loops], cache, &mut event_manager) * jac_para;
 
-        if let Some(event_buffer) = &mut events {
-            for e in event_buffer.iter_mut() {
+        if let Some(em) = &mut event_manager {
+            for e in em.event_buffer.iter_mut() {
                 e.integrand *= jac_para.to_f64().unwrap();
             }
         }
@@ -319,7 +319,7 @@ impl SquaredTopology {
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         caches: &mut [Vec<Vec<LTDCache<T>>>],
-        events: &mut Option<&mut Vec<Event>>,
+        event_manager: &mut Option<&mut EventManager>,
     ) -> Complex<T> {
         debug_assert_eq!(
             loop_momenta.len(),
@@ -390,7 +390,7 @@ impl SquaredTopology {
                     &mut subgraph_loop_momenta,
                     &mut k_def[..self.n_loops + 1],
                     &mut caches[cut_index],
-                    events,
+                    event_manager,
                     cut_index,
                     scaling,
                     scaling_jac,
@@ -398,8 +398,8 @@ impl SquaredTopology {
             }
         }
 
-        if let Some(event_buffer) = events {
-            for e in event_buffer.iter_mut() {
+        if let Some(em) = event_manager {
+            for e in em.event_buffer.iter_mut() {
                 e.integrand *= self.overall_numerator;
             }
         }
@@ -422,7 +422,7 @@ impl SquaredTopology {
         subgraph_loop_momenta: &mut [LorentzVector<T>],
         k_def: &mut [LorentzVector<Complex<T>>],
         cache: &mut [Vec<LTDCache<T>>],
-        events: &mut Option<&mut Vec<Event>>,
+        event_manager: &mut Option<&mut EventManager>,
         cut_index: usize,
         scaling: T,
         scaling_jac: T,
@@ -492,6 +492,17 @@ impl SquaredTopology {
         } else {
             external_momenta[0].square()
         };
+
+        if let Some(em) = event_manager {
+            if !em.add_event(
+                &self.external_momenta,
+                &cut_momenta[..cutkosky_cuts.cuts.len()],
+                &cutkosky_cuts.cuts,
+            ) {
+                // the event was cut
+                return Complex::zero();
+            }
+        }
 
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();
@@ -756,31 +767,12 @@ impl SquaredTopology {
         // divide by the symmetry factor of the final state
         //scaling_result /= Into::<T>::into(cutkosky_cuts.symmetry_factor); // TODO: no more sym factor!
 
-        // set the events
-        if let Some(event_buffer) = events {
-            let incoming_momenta = self.external_momenta.clone();
-            let mut outgoing_momenta = Vec::with_capacity(cutkosky_cuts.cuts.len());
-
-            for (cut_mom, cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
-                .iter_mut()
-                .zip(cutkosky_cuts.cuts.iter())
-            {
-                if cut.level == 0 {
-                    // make sure all momenta are outgoing
-                    outgoing_momenta.push(cut_mom.cast::<f64>() * cut.sign as f64);
-                }
-            }
-
-            let e = Event {
-                kinematic_configuration: (incoming_momenta, outgoing_momenta),
-                integrand: Complex::new(
-                    scaling_result.re.to_f64().unwrap(),
-                    scaling_result.im.to_f64().unwrap(),
-                ),
-                weights: vec![0.],
-            };
-
-            event_buffer.push(e);
+        if let Some(em) = event_manager {
+            // set the event result
+            em.event_buffer.last_mut().unwrap().integrand = Complex::new(
+                scaling_result.re.to_f64().unwrap(),
+                scaling_result.im.to_f64().unwrap(),
+            );
         }
 
         if self.settings.general.debug >= 1 {
@@ -850,7 +842,7 @@ impl IntegrandImplementation for SquaredTopology {
         &mut self,
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
-        events: Option<&mut Vec<Event>>,
+        event_manager: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
@@ -858,7 +850,7 @@ impl IntegrandImplementation for SquaredTopology {
         Complex<float>,
         Complex<float>,
     ) {
-        self.evaluate(x, cache.get(), events)
+        self.evaluate(x, cache.get(), event_manager)
     }
 
     #[inline]
@@ -866,7 +858,7 @@ impl IntegrandImplementation for SquaredTopology {
         &mut self,
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
-        events: Option<&mut Vec<Event>>,
+        event_manager: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
         ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
@@ -874,7 +866,7 @@ impl IntegrandImplementation for SquaredTopology {
         Complex<f128>,
         Complex<f128>,
     ) {
-        self.evaluate(x, cache.get(), events)
+        self.evaluate(x, cache.get(), event_manager)
     }
 
     #[inline]
