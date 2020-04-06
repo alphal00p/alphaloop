@@ -552,17 +552,20 @@ py_class!(class CrossSection |py| {
     data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopology>>;
     data caches: RefCell<Vec<Vec<Vec<topologies::LTDCache<float>>>>>;
     data caches_f128: RefCell<Vec<Vec<Vec<topologies::LTDCache<f128::f128>>>>>;
+    data dashboard: RefCell<dashboard::Dashboard>;
 
     def __new__(_cls, squared_topology_file: &str, settings_file: &str)
     -> PyResult<CrossSection> {
         let settings = Settings::from_file(settings_file);
         let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings);
-        let integrand = integrand::Integrand::new(squared_topology.n_loops, squared_topology.clone(), settings.clone(), true, 0);
+        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let integrand = integrand::Integrand::new(squared_topology.n_loops, squared_topology.clone(), settings.clone(), true, dashboard.status_update_sender.clone(), 0);
 
         let caches = squared_topology.create_caches::<float>();
         let caches_f128 = squared_topology.create_caches::<f128::f128>();
 
-        CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(integrand), RefCell::new(caches), RefCell::new(caches_f128))
+        CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(integrand), RefCell::new(caches), RefCell::new(caches_f128),
+            RefCell::new(dashboard))
     }
 
     def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
@@ -580,7 +583,7 @@ py_class!(class CrossSection |py| {
                 float::from_f64(l[2]).unwrap()));
         }
         
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches(py).borrow_mut(), None);
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches(py).borrow_mut(), &mut None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -629,7 +632,7 @@ py_class!(class CrossSection |py| {
                 f128::f128::from_f64(l[2]).unwrap()));
         }
 
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches_f128(py).borrow_mut(), None);
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches_f128(py).borrow_mut(), &mut None);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -758,6 +761,7 @@ py_class!(class LTD |py| {
     data integrand: RefCell<integrand::Integrand<topologies::Topology>>;
     data cache: RefCell<topologies::LTDCache<float>>;
     data cache_f128: RefCell<topologies::LTDCache<f128::f128>>;
+    data dashboard: RefCell<dashboard::Dashboard>;
 
     def __new__(_cls, topology_file: &str, top_name: &str, amplitude_file: &str, amp_name: &str, settings_file: &str)
     -> PyResult<LTD> {
@@ -781,18 +785,21 @@ py_class!(class LTD |py| {
 
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), false, 0);
+        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), false, dashboard.status_update_sender.clone(), 0);
 
-        LTD::create_instance(py, RefCell::new(topo), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
+        LTD::create_instance(py, RefCell::new(topo), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128),
+            RefCell::new(dashboard))
     }
 
     def __copy__(&self) -> PyResult<LTD> {
         let topo = self.topo(py).borrow();
         let settings = self.integrand(py).borrow().settings.clone();
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, false, 0);
+        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, false, dashboard.status_update_sender.clone(), 0);
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128))
+        LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128), RefCell::new(dashboard))
     }
 
    def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {

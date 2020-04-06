@@ -82,12 +82,14 @@ impl IntegrandStatistics {
         self.unstable_point_count += other.unstable_point_count;
         self.unstable_f128_point_count += other.unstable_f128_point_count;
         self.nan_point_count += other.nan_point_count;
+        self.total_sample_time += other.total_sample_time;
 
         other.total_samples = 0;
         other.regular_point_count = 0;
         other.unstable_point_count = 0;
         other.unstable_f128_point_count = 0;
         other.nan_point_count = 0;
+        other.total_sample_time = 0.;
     }
 }
 

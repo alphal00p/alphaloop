@@ -166,7 +166,10 @@ impl Dashboard {
                             integrand_statistics.total_sample_time
                                 / integrand_statistics.total_samples as f64
                         )),
-                        Text::raw(format!("Running max: {:e}", integrand_statistics.running_max)),
+                        Text::raw(format!(
+                            "Running max: {:e}",
+                            integrand_statistics.running_max
+                        )),
                         Text::raw(format!(
                             "Accepted events: {}",
                             event_info.accepted_event_counter
