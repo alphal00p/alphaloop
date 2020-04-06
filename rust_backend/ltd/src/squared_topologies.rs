@@ -301,8 +301,10 @@ impl SquaredTopology {
         let result = self.evaluate_mom(&k[..self.n_loops], cache, &mut event_manager) * jac_para;
 
         if let Some(em) = &mut event_manager {
-            for e in em.event_buffer.iter_mut() {
-                e.integrand *= jac_para.to_f64().unwrap();
+            if em.track_events {
+                for e in em.event_buffer.iter_mut() {
+                    e.integrand *= jac_para.to_f64().unwrap();
+                }
             }
         }
 
@@ -399,8 +401,10 @@ impl SquaredTopology {
         }
 
         if let Some(em) = event_manager {
-            for e in em.event_buffer.iter_mut() {
-                e.integrand *= self.overall_numerator;
+            if em.track_events {
+                for e in em.event_buffer.iter_mut() {
+                    e.integrand *= self.overall_numerator;
+                }
             }
         }
 
@@ -498,6 +502,7 @@ impl SquaredTopology {
                 &self.external_momenta,
                 &cut_momenta[..cutkosky_cuts.cuts.len()],
                 &cutkosky_cuts.cuts,
+                &self.rotation_matrix,
             ) {
                 // the event was cut
                 return Complex::zero();
@@ -769,10 +774,12 @@ impl SquaredTopology {
 
         if let Some(em) = event_manager {
             // set the event result
-            em.event_buffer.last_mut().unwrap().integrand = Complex::new(
-                scaling_result.re.to_f64().unwrap(),
-                scaling_result.im.to_f64().unwrap(),
-            );
+            if em.track_events {
+                em.event_buffer.last_mut().unwrap().integrand = Complex::new(
+                    scaling_result.re.to_f64().unwrap(),
+                    scaling_result.im.to_f64().unwrap(),
+                );
+            }
         }
 
         if self.settings.general.debug >= 1 {

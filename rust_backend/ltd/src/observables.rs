@@ -145,35 +145,63 @@ impl EventManager {
 
     pub fn add_event<T: FloatLike>(
         &mut self,
-        incoming_momenta: &[LorentzVector<f64>],
+        orig_incoming_momenta: &[LorentzVector<f64>],
         cut_momenta: &[LorentzVector<T>],
         cut_info: &[CutkoskyCut],
+        rot_matrix: &[[f64; 3]; 3],
     ) -> bool {
+        if !self.track_events && self.event_selector.is_empty() {
+            return true;
+        }
+
         // TODO: recycle vectors from the buffer
+        let mut incoming_momenta = Vec::with_capacity(orig_incoming_momenta.len());
+
+        // rotate all momenta with the inverse of the rotation matrix
+        for e in orig_incoming_momenta {
+            incoming_momenta.push(LorentzVector::from_args(
+                e.t,
+                rot_matrix[0][0] * e.x + rot_matrix[1][0] * e.y + rot_matrix[2][0] * e.z,
+                rot_matrix[0][1] * e.x + rot_matrix[1][1] * e.y + rot_matrix[2][1] * e.z,
+                rot_matrix[0][2] * e.x + rot_matrix[1][2] * e.y + rot_matrix[2][2] * e.z,
+            ));
+        }
+
         let mut outgoing_momenta = Vec::with_capacity(cut_info.len());
         for (cut_mom, cut) in cut_momenta[..cut_info.len()].iter().zip(cut_info.iter()) {
             if cut.level == 0 {
                 // make sure all momenta are outgoing
-                outgoing_momenta.push(cut_mom.cast::<f64>() * cut.sign as f64);
+                let e = cut_mom.cast::<f64>() * cut.sign as f64;
+
+                outgoing_momenta.push(LorentzVector::from_args(
+                    e.t,
+                    rot_matrix[0][0] * e.x + rot_matrix[1][0] * e.y + rot_matrix[2][0] * e.z,
+                    rot_matrix[0][1] * e.x + rot_matrix[1][1] * e.y + rot_matrix[2][1] * e.z,
+                    rot_matrix[0][2] * e.x + rot_matrix[1][2] * e.y + rot_matrix[2][2] * e.z,
+                ));
             }
         }
 
         let mut e = Event {
-            kinematic_configuration: (incoming_momenta.to_vec(), outgoing_momenta),
+            kinematic_configuration: (incoming_momenta, outgoing_momenta),
             integrand: Complex::new(1., 0.),
             weights: vec![0.],
         };
 
-        // run the event through the Selectors
+        // run the event through the selectors
         for f in &mut self.event_selector {
             if !f.process_event(&mut e) {
-                self.rejected_event_counter += 1;
+                if self.track_events {
+                    self.rejected_event_counter += 1;
+                }
                 return false;
             }
         }
 
-        self.event_buffer.push(e);
-        self.accepted_event_counter += 1;
+        if self.track_events {
+            self.event_buffer.push(e);
+            self.accepted_event_counter += 1;
+        }
         true
     }
 

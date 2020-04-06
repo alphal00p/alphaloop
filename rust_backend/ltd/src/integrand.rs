@@ -266,6 +266,7 @@ macro_rules! check_stability_precision {
         result: Complex<$ty>,
         num_samples: usize,
         cache: &mut I::Cache,
+        event_manager: &mut EventManager,
     ) -> ($ty, $ty, Complex<$ty>, Complex<$ty>) {
         if !self.settings.general.numerical_instability_check
             || self.topologies.len() == 1
@@ -283,6 +284,10 @@ macro_rules! check_stability_precision {
         let mut min = result;
         let mut max = result;
 
+        // do not track events of rotated topologies
+        let track_events = event_manager.track_events;
+        event_manager.track_events = false;
+
         // TODO: we are also findings the centers for the rotated topologies
         // inherit them from the first topology
         for rot_topo in &mut self.topologies[1..num_samples] {
@@ -291,7 +296,7 @@ macro_rules! check_stability_precision {
             }
 
             let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                rot_topo.$eval_fn(x, cache, None);
+                rot_topo.$eval_fn(x, cache, Some(event_manager));
 
             // compute the number of similar digits
             match self.settings.integrator.integrated_phase {
@@ -327,6 +332,8 @@ macro_rules! check_stability_precision {
                 }
             };
         }
+
+        event_manager.track_events = track_events;
 
         // determine if the difference is largest in the re or im
         let (num, num_rot) = if max.re - min.re > max.im - min.im {
@@ -581,14 +588,10 @@ impl<I: IntegrandImplementation> Integrand<I> {
             result,
             self.settings.general.num_f64_samples,
             &mut cache,
+            &mut event_manager,
         );
+        
         std::mem::swap(&mut self.cache, &mut cache);
-
-        // FIXME
-        /*if self.cache.overall_lambda < self.running_min_lambda {
-            self.running_min_lambda = self.cache.overall_lambda;
-        }*/
-
         self.integrand_statistics.total_samples += 1;
 
         if self.settings.general.force_f128
@@ -673,55 +676,9 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 result_f128,
                 self.settings.general.num_f128_samples,
                 &mut cache,
+                &mut event_manager,
             );
             std::mem::swap(&mut self.cache, &mut cache);
-            /*
-            // check if the f128 computation is consistent with the f64 one
-            // by checking if the f128 result is more than 2 stable digits removed from the f64 one
-            let (num_f64, num_f128) =
-                if self.settings.integrator.integrated_phase == IntegratedPhase::Imag {
-                    (
-                        <float as NumCast>::from(result.im).unwrap(),
-                        <float as NumCast>::from(result_f128.im).unwrap(),
-                    )
-                } else {
-                    (
-                        <float as NumCast>::from(result.re).unwrap(),
-                        <float as NumCast>::from(result_f128.re).unwrap(),
-                    )
-                };
-
-            let d_comp = if num_f64.is_zero() && num_f128.is_zero() {
-                float::from_f64(100.).unwrap()
-            } else {
-                if num_f64 == -num_f128 {
-                    float::from_f64(-100.).unwrap()
-                } else {
-                    -((num_f64 - num_f128) / (num_f64 + num_f128)).abs().log10()
-                }
-            };
-
-            if d_comp
-                + float::from_f64(self.settings.general.num_digits_different_for_inconsistency)
-                    .unwrap()
-                < d
-                && d > float::from_f64(3.).unwrap()
-                && num_f64 > float::from_f64(1e-20).unwrap()
-            {
-                eprintln!(
-                    "{} between f64 and f128!\n  | f64  ={:e}, jac={:e}\n  | f64' ={:e}, jac={:e}\n  | f128 ={:e}, jac={:e}\n  | f128'={:e}, jac={:e}\n  | x={:?}",
-                    "Inconsistency".red(),
-                    result, jac_def * jac_para, result_rot, 0., result_f128, jac_def_f128 * jac_para_f128, result_rot_f128, 0., x,
-                );
-
-                // now try more points for f64
-                for (i, topo) in self.topologies[2..].iter().enumerate() {
-                    let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                        topo.evaluate(x, &mut self.cache_float, &self.numerator);
-                    eprintln!("  | rot{} ={:e}", i + 2, result_rot);
-                }
-            }*/
-
             self.integrand_statistics.unstable_point_count += 1;
 
             if !result_f128.is_finite()
