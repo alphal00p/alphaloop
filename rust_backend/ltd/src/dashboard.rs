@@ -65,7 +65,7 @@ impl Dashboard {
         let stdout = io::stdout(); //.into_raw_mode()?;
         let backend = TermionBackend::new(stdout);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.hide_cursor().unwrap(); // this does not get reset after the program closes
+        //terminal.hide_cursor().unwrap(); // this does not get reset after the program closes
 
         let mut re_data = vec![];
         let mut im_data = vec![];

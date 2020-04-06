@@ -1,11 +1,33 @@
 use dashboard::{StatusUpdate, StatusUpdateSender};
 use itertools::Itertools;
+use libc::{c_double, c_int, c_void};
 use num::Complex;
 use squared_topologies::CutkoskyCut;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use vector::LorentzVector;
 use {FloatLike, JetSliceSettings, ObservableMode, SelectorMode, Settings};
+
+mod fjcore {
+    use libc::{c_double, c_int, c_void};
+
+    #[link(name = "fjcore", kind = "static")]
+    extern "C" {
+        pub fn fastjet_workspace() -> *mut c_void;
+        //pub fn fastjet_free(workspace: *mut c_void);
+        pub fn fastjetppgenkt_(
+            workspace: *mut c_void,
+            p: *const c_double,
+            npart: *const c_int,
+            R: *const c_double,
+            ptjet_min: *const c_double,
+            palg: *const c_double,
+            jets: *mut c_double,
+            njets: *mut c_int,
+            whichjets: *mut c_int,
+        );
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct EventInfo {
@@ -112,6 +134,7 @@ impl EventManager {
                             settings.observables.Jet1PT.dR,
                             settings.observables.Jet1PT.write_to_file,
                             settings.observables.Jet1PT.filename.clone(),
+                            settings.observables.Jet1PT.use_fastjet,
                         )));
                     }
                 }
@@ -304,19 +327,79 @@ pub struct JetClustering {
     ordered_pt: Vec<f64>,
     //jet_structure: Vec<usize>, // map from original momenta to jets
     d_r: f64,
+    use_fastjet: bool,
+    fastjet_jets_in: Vec<f64>,
+    fastjet_jets_out: Vec<f64>,
+    fastjet_jets_map: Vec<c_int>,
+    fastjet_workspace: *mut c_void,
 }
 
+unsafe impl std::marker::Send for JetClustering {}
+
 impl JetClustering {
-    pub fn new(d_r: f64) -> JetClustering {
+    pub fn new(use_fastjet: bool, d_r: f64) -> JetClustering {
+        let fastjet_workspace = unsafe { fjcore::fastjet_workspace() }; // TODO: free
         JetClustering {
             //ordered_jets: vec![],
             //jet_structure: vec![],
             ordered_pt: vec![],
+            fastjet_jets_in: vec![],
+            fastjet_jets_out: vec![],
+            fastjet_jets_map: vec![],
             d_r,
+            fastjet_workspace,
+            use_fastjet,
+        }
+    }
+
+    pub fn cluster_fastjet(&mut self, event: &Event) {
+        self.fastjet_jets_in.clear();
+
+        for e in &event.kinematic_configuration.1 {
+            self.fastjet_jets_in.extend(&[e.t, e.x, e.y, e.z]);
+        }
+
+        self.fastjet_jets_out.clear();
+        self.fastjet_jets_out.resize(self.fastjet_jets_in.len(), 0.);
+
+        self.fastjet_jets_map.clear();
+        self.fastjet_jets_map.resize(self.fastjet_jets_in.len(), 0);
+
+        let mut actual_len: c_int = 0;
+        let len: c_int = event.kinematic_configuration.1.len() as c_int;
+        let palg = -1.0;
+        let clustering_ptjet_min = 0.;
+
+        unsafe {
+            fjcore::fastjetppgenkt_(
+                self.fastjet_workspace,
+                &self.fastjet_jets_in[0] as *const c_double,
+                &len as *const c_int,
+                &self.d_r as *const c_double,
+                &clustering_ptjet_min as *const c_double,
+                &palg as *const c_double,
+                &mut self.fastjet_jets_out[0] as *mut c_double,
+                &mut actual_len as *mut c_int,
+                &mut self.fastjet_jets_map[0] as *mut c_int,
+            );
+        }
+
+        self.ordered_pt.clear();
+        for i in 0..actual_len as usize {
+            let jet = LorentzVector::from_slice(&self.fastjet_jets_out[i * 4..(i + 1) * 4]);
+            self.ordered_pt.push(jet.pt()); // TODO: check order
         }
     }
 
     pub fn cluster(&mut self, event: &Event) {
+        if self.use_fastjet {
+            self.cluster_fastjet(event)
+        } else {
+            self.cluster_custom(event)
+        }
+    }
+
+    pub fn cluster_custom(&mut self, event: &Event) {
         //self.ordered_jets.clear();
         self.ordered_pt.clear();
         //self.jet_structure.clear();
@@ -325,9 +408,9 @@ impl JetClustering {
         let ext = &event.kinematic_configuration.1;
 
         if ext.len() == 3 {
-            let pt1 = (ext[0].x * ext[0].x + ext[0].y * ext[0].y).sqrt();
-            let pt2 = (ext[1].x * ext[1].x + ext[1].y * ext[1].y).sqrt();
-            let pt3 = (ext[2].x * ext[2].x + ext[2].y * ext[2].y).sqrt();
+            let pt1 = ext[0].pt();
+            let pt2 = ext[1].pt();
+            let pt3 = ext[2].pt();
             let dr12 = ext[0].deltaR(&ext[1]);
             let dr13 = ext[0].deltaR(&ext[2]);
             let dr23 = ext[1].deltaR(&ext[2]);
@@ -335,17 +418,17 @@ impl JetClustering {
             // we have at least 2 jets
             if dr12 < self.d_r {
                 let m12 = ext[0] + ext[1];
-                let pt12 = (m12.x * m12.x + m12.y * m12.y).sqrt();
+                let pt12 = m12.pt();
                 self.ordered_pt.push(pt12);
                 self.ordered_pt.push(pt3);
             } else if dr13 < self.d_r {
                 let m13 = ext[0] + ext[2];
-                let pt13 = (m13.x * m13.x + m13.y * m13.y).sqrt();
+                let pt13 = m13.pt();
                 self.ordered_pt.push(pt13);
                 self.ordered_pt.push(pt2);
             } else if dr23 < self.d_r {
                 let m23 = ext[1] + ext[2];
-                let pt23 = (m23.x * m23.x + m23.y * m23.y).sqrt();
+                let pt23 = m23.pt();
                 self.ordered_pt.push(pt23);
                 self.ordered_pt.push(pt1);
             } else {
@@ -360,8 +443,7 @@ impl JetClustering {
         } else {
             // treat every external momentum as its own jet for now
             for m in ext {
-                let pt = (m.x * m.x + m.y * m.y).sqrt();
-                self.ordered_pt.push(pt);
+                self.ordered_pt.push(m.pt());
             }
             self.ordered_pt
                 .sort_unstable_by(|a, b| b.partial_cmp(a).unwrap());
@@ -378,7 +460,7 @@ impl JetSelector {
     pub fn new(settings: &JetSliceSettings) -> JetSelector {
         JetSelector {
             jet_selector_settings: settings.clone(),
-            clustering: JetClustering::new(settings.dR),
+            clustering: JetClustering::new(settings.use_fastjet, settings.dR),
         }
     }
 }
@@ -386,7 +468,7 @@ impl JetSelector {
 impl EventSelector for JetSelector {
     #[inline]
     fn process_event(&mut self, event: &mut Event) -> bool {
-        self.clustering.cluster(event);
+        self.clustering.cluster_fastjet(event);
         self.clustering.ordered_pt.len() >= self.jet_selector_settings.min_jets
             && self.clustering.ordered_pt.len() <= self.jet_selector_settings.max_jets
             && self.clustering.ordered_pt[0] >= self.jet_selector_settings.min_j1pt
@@ -520,12 +602,13 @@ impl Jet1PTObservable {
         d_r: f64,
         write_to_file: bool,
         filename: String,
+        use_fastjet: bool,
     ) -> Jet1PTObservable {
         Jet1PTObservable {
             x_min,
             x_max,
             bins: vec![AverageAndErrorAccumulator::default(); num_bins],
-            jet_clustering: JetClustering::new(d_r),
+            jet_clustering: JetClustering::new(use_fastjet, d_r),
             write_to_file,
             filename,
         }
@@ -535,7 +618,7 @@ impl Jet1PTObservable {
 impl Observable for Jet1PTObservable {
     fn process_event_group(&mut self, events: &[Event], integrator_weight: f64) {
         for e in events {
-            self.jet_clustering.cluster(e);
+            self.jet_clustering.cluster_fastjet(e);
             let max_pt = self.jet_clustering.ordered_pt[0];
 
             // insert into histogram

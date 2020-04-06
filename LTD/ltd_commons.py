@@ -234,6 +234,7 @@ hyperparameters = HyperParameters({
             'x_max'                 :   0.8,
             'n_bins'                :   50,
             'dR'                    :   0.4,
+            'use_fastjet'           :   True, 
             'write_to_file'         :   True,
             'filename'              :   'Jet1PT.HwU'
         }
@@ -248,6 +249,7 @@ hyperparameters = HyperParameters({
             'min_j1pt'              :   0.,
             'max_j1pt'              :   1.,
             'dR'                    :   0.4,
+            'use_fastjet'           :   True, 
         }
     },
 

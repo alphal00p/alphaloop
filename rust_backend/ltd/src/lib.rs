@@ -18,6 +18,7 @@ use std::cell::RefCell;
 extern crate colored;
 extern crate cuba;
 extern crate f128;
+extern crate libc;
 extern crate nalgebra as na;
 extern crate num_traits;
 extern crate rand;
@@ -360,6 +361,7 @@ pub struct JetSliceSettings {
     pub min_j1pt: f64,
     pub max_j1pt: f64,
     pub dR: f64,
+    pub use_fastjet: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -371,6 +373,7 @@ pub struct Jet1PTSettings {
     pub n_bins: usize,
     pub write_to_file: bool,
     pub filename: String,
+    pub use_fastjet: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
