@@ -9,6 +9,7 @@ use observables::EventManager;
 use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::time::Instant;
 use topologies::{CachePrecisionSelector, LTDCacheAllPrecisions, Topology};
 use vector::LorentzVector;
 use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
@@ -54,6 +55,7 @@ pub struct IntegrandStatistics {
     pub unstable_point_count: usize,
     pub unstable_f128_point_count: usize,
     pub regular_point_count: usize,
+    pub total_sample_time: f64,
 }
 
 impl IntegrandStatistics {
@@ -65,6 +67,7 @@ impl IntegrandStatistics {
             unstable_point_count: 0,
             unstable_f128_point_count: 0,
             nan_point_count: 0,
+            total_sample_time: 0.,
         }
     }
 
@@ -510,6 +513,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
     pub fn evaluate(&mut self, x: &[f64], weight: f64, iter: usize) -> Complex<float> {
+        let start_time = Instant::now(); // time the evaluation
+
         if self.cur_iter != iter {
             // the first integrand accumulates all the results from the others
             if self.id == 0 {
@@ -592,7 +597,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             || diff > NumCast::from(self.settings.general.absolute_precision).unwrap()
         {
             // clear events when there is instability
-            event_manager.clear();
+            event_manager.clear(false);
 
             if self.settings.general.integration_statistics {
                 let loops = self.n_loops;
@@ -757,8 +762,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
                             <float as NumCast>::from(result_f128.im).unwrap(),
                         );
                     } else {
-                        // TODO: update the events
-                        return Complex::default();
+                        event_manager.clear(true); // throw away all events and treat them as rejected
+                        result = Complex::default();
                     }
                 }
             } else {
@@ -804,6 +809,9 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         event_manager.process_events(result, weight);
         std::mem::swap(&mut self.event_manager, &mut event_manager);
+
+        self.integrand_statistics.total_sample_time +=
+            Instant::now().duration_since(start_time).as_secs_f64() * 1e6;
 
         result
     }

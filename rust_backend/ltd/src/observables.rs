@@ -5,7 +5,7 @@ use squared_topologies::CutkoskyCut;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use vector::LorentzVector;
-use {FloatLike, ObservableMode, Settings};
+use {FloatLike, JetSliceSettings, ObservableMode, SelectorMode, Settings};
 
 #[derive(Debug, Default, Clone)]
 pub struct EventInfo {
@@ -85,7 +85,7 @@ impl AverageAndErrorAccumulator {
 
 #[derive(Default)]
 pub struct EventManager {
-    pub event_filter: Vec<EventFilters>,
+    pub event_selector: Vec<Selectors>,
     pub observables: Vec<Observables>,
     pub event_buffer: Vec<Event>,
     pub track_events: bool,
@@ -123,8 +123,17 @@ impl EventManager {
             }
         }
 
+        let mut selectors = vec![];
+        for s in &settings.selectors.active_selectors {
+            match s {
+                SelectorMode::Jet => {
+                    selectors.push(Selectors::Jet(JetSelector::new(&settings.selectors.jet)));
+                }
+            }
+        }
+
         EventManager {
-            event_filter: vec![],
+            event_selector: selectors,
             observables,
             event_buffer: Vec::with_capacity(100),
             track_events,
@@ -155,8 +164,8 @@ impl EventManager {
             weights: vec![0.],
         };
 
-        // run the event through the filters
-        for f in &mut self.event_filter {
+        // run the event through the Selectors
+        for f in &mut self.event_selector {
             if !f.process_event(&mut e) {
                 self.rejected_event_counter += 1;
                 return false;
@@ -198,7 +207,11 @@ impl EventManager {
             .unwrap();
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, count_as_rejected: bool) {
+        self.accepted_event_counter -= self.event_buffer.len();
+        if count_as_rejected {
+            self.rejected_event_counter += self.event_buffer.len();
+        }
         self.event_buffer.clear();
     }
 
@@ -227,31 +240,129 @@ pub struct Event {
     pub weights: Vec<f64>,
 }
 
-pub enum EventFilters {
-    All(NoEventFilter),
+pub enum Selectors {
+    All(NoEventSelector),
+    Jet(JetSelector),
 }
 
-impl EventFilters {
+impl Selectors {
     #[inline]
     fn process_event(&mut self, event: &mut Event) -> bool {
         match self {
-            EventFilters::All(f) => f.process_event(event),
+            Selectors::All(f) => f.process_event(event),
+            Selectors::Jet(f) => f.process_event(event),
         }
     }
 }
 
-pub trait EventFilter {
+pub trait EventSelector {
     /// Process a group of events and return a new integrand value that will be returned to the integrator.
     fn process_event(&mut self, event: &mut Event) -> bool;
 }
 
 #[derive(Default)]
-pub struct NoEventFilter {}
+pub struct NoEventSelector {}
 
-impl EventFilter for NoEventFilter {
+impl EventSelector for NoEventSelector {
     #[inline]
-    fn process_event(&mut self, events: &mut Event) -> bool {
+    fn process_event(&mut self, _event: &mut Event) -> bool {
         true
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct JetClustering {
+    //ordered_jets: Vec<LorentzVector<f64>>,
+    ordered_pt: Vec<f64>,
+    //jet_structure: Vec<usize>, // map from original momenta to jets
+    d_r: f64,
+}
+
+impl JetClustering {
+    pub fn new(d_r: f64) -> JetClustering {
+        JetClustering {
+            //ordered_jets: vec![],
+            //jet_structure: vec![],
+            ordered_pt: vec![],
+            d_r,
+        }
+    }
+
+    pub fn cluster(&mut self, event: &Event) {
+        //self.ordered_jets.clear();
+        self.ordered_pt.clear();
+        //self.jet_structure.clear();
+
+        // group jets based on their dR
+        let ext = &event.kinematic_configuration.1;
+
+        if ext.len() == 3 {
+            let pt1 = (ext[0].x * ext[0].x + ext[0].y * ext[0].y).sqrt();
+            let pt2 = (ext[1].x * ext[1].x + ext[1].y * ext[1].y).sqrt();
+            let pt3 = (ext[2].x * ext[2].x + ext[2].y * ext[2].y).sqrt();
+            let dr12 = ext[0].deltaR(&ext[1]);
+            let dr13 = ext[0].deltaR(&ext[2]);
+            let dr23 = ext[1].deltaR(&ext[2]);
+
+            // we have at least 2 jets
+            if dr12 < self.d_r {
+                let m12 = ext[0] + ext[1];
+                let pt12 = (m12.x * m12.x + m12.y * m12.y).sqrt();
+                self.ordered_pt.push(pt12);
+                self.ordered_pt.push(pt3);
+            } else if dr13 < self.d_r {
+                let m13 = ext[0] + ext[2];
+                let pt13 = (m13.x * m13.x + m13.y * m13.y).sqrt();
+                self.ordered_pt.push(pt13);
+                self.ordered_pt.push(pt2);
+            } else if dr23 < self.d_r {
+                let m23 = ext[1] + ext[2];
+                let pt23 = (m23.x * m23.x + m23.y * m23.y).sqrt();
+                self.ordered_pt.push(pt23);
+                self.ordered_pt.push(pt1);
+            } else {
+                self.ordered_pt.push(pt1);
+                self.ordered_pt.push(pt2);
+                self.ordered_pt.push(pt3);
+            }
+
+            // sort from large pt to small
+            self.ordered_pt
+                .sort_unstable_by(|a, b| b.partial_cmp(a).unwrap());
+        } else {
+            // treat every external momentum as its own jet for now
+            for m in ext {
+                let pt = (m.x * m.x + m.y * m.y).sqrt();
+                self.ordered_pt.push(pt);
+            }
+            self.ordered_pt
+                .sort_unstable_by(|a, b| b.partial_cmp(a).unwrap());
+        }
+    }
+}
+
+pub struct JetSelector {
+    jet_selector_settings: JetSliceSettings,
+    clustering: JetClustering,
+}
+
+impl JetSelector {
+    pub fn new(settings: &JetSliceSettings) -> JetSelector {
+        JetSelector {
+            jet_selector_settings: settings.clone(),
+            clustering: JetClustering::new(settings.dR),
+        }
+    }
+}
+
+impl EventSelector for JetSelector {
+    #[inline]
+    fn process_event(&mut self, event: &mut Event) -> bool {
+        self.clustering.cluster(event);
+        self.clustering.ordered_pt.len() >= self.jet_selector_settings.min_jets
+            && self.clustering.ordered_pt.len() <= self.jet_selector_settings.max_jets
+            && self.clustering.ordered_pt[0] >= self.jet_selector_settings.min_j1pt
+            && self.clustering.ordered_pt[0] <= self.jet_selector_settings.max_j1pt
     }
 }
 
@@ -363,12 +474,12 @@ impl Observable for CrossSectionObservable {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Jet1PTObservable {
     x_min: f64,
     x_max: f64,
+    jet_clustering: JetClustering,
     bins: Vec<AverageAndErrorAccumulator>,
-    d_r: f64,
     write_to_file: bool,
     filename: String,
 }
@@ -386,7 +497,7 @@ impl Jet1PTObservable {
             x_min,
             x_max,
             bins: vec![AverageAndErrorAccumulator::default(); num_bins],
-            d_r,
+            jet_clustering: JetClustering::new(d_r),
             write_to_file,
             filename,
         }
@@ -396,51 +507,8 @@ impl Jet1PTObservable {
 impl Observable for Jet1PTObservable {
     fn process_event_group(&mut self, events: &[Event], integrator_weight: f64) {
         for e in events {
-            let mut max_pt = 0.;
-            let mut three_jets = false;
-
-            // group jets based on their dR
-            let ext = &e.kinematic_configuration.1;
-            if ext.len() == 3 {
-                let pt1 = (ext[0].x * ext[0].x + ext[0].y * ext[0].y).sqrt();
-                let pt2 = (ext[1].x * ext[1].x + ext[1].y * ext[1].y).sqrt();
-                let pt3 = (ext[2].x * ext[2].x + ext[2].y * ext[2].y).sqrt();
-                let dr12 = ext[0].deltaR(&ext[1]);
-                let dr13 = ext[0].deltaR(&ext[2]);
-                let dr23 = ext[1].deltaR(&ext[2]);
-
-                // we have at least 2 jets
-                if dr12 < self.d_r {
-                    let m12 = ext[0] + ext[1];
-                    let pt12 = (m12.x * m12.x + m12.y * m12.y).sqrt();
-                    max_pt = pt12.max(pt3);
-                } else if dr13 < self.d_r {
-                    let m13 = ext[0] + ext[2];
-                    let pt13 = (m13.x * m13.x + m13.y * m13.y).sqrt();
-                    max_pt = pt13.max(pt2);
-                } else if dr23 < self.d_r {
-                    let m23 = ext[1] + ext[2];
-                    let pt23 = (m23.x * m23.x + m23.y * m23.y).sqrt();
-                    max_pt = pt23.max(pt1);
-                } else {
-                    max_pt = pt1.max(pt2).max(pt3);
-
-                    //max_pt = pt1.min(pt2).min(pt3);
-                    //three_jets = true;
-                }
-            } else {
-                // treat every external momentum as its own jet
-                for m in ext {
-                    let pt = (m.x * m.x + m.y * m.y).sqrt();
-                    if pt > max_pt {
-                        max_pt = pt;
-                    }
-                }
-            }
-
-            if !three_jets {
-                //continue;
-            }
+            self.jet_clustering.cluster(e);
+            let max_pt = self.jet_clustering.ordered_pt[0];
 
             // insert into histogram
             let index = ((max_pt - self.x_min) / (self.x_max - self.x_min) * self.bins.len() as f64)

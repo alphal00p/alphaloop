@@ -161,17 +161,23 @@ impl Dashboard {
                             ),
                             Style::default().fg(Color::Red),
                         ),
-                        Text::raw(format!("Running max: {}", integrand_statistics.running_max)),
+                        Text::raw(format!(
+                            "Evaluation time per sample: {:.2}µs",
+                            integrand_statistics.total_sample_time
+                                / integrand_statistics.total_samples as f64
+                        )),
+                        Text::raw(format!("Running max: {:e}", integrand_statistics.running_max)),
                         Text::raw(format!(
                             "Accepted events: {}",
                             event_info.accepted_event_counter
                         )),
                         Text::raw(format!(
-                            "Rejected events: {} ({}%)",
+                            "Rejected events: {} ({:.2}%)",
                             event_info.rejected_event_counter,
                             event_info.rejected_event_counter as f64
                                 / (event_info.rejected_event_counter as f64
-                                    + event_info.accepted_event_counter as f64 * 100.)
+                                    + event_info.accepted_event_counter as f64)
+                                * 100.
                         )),
                     ];
 

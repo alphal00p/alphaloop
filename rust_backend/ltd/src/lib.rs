@@ -58,6 +58,7 @@ impl FloatLike for f128::f128 {}
 
 pub mod amplitude;
 pub mod cts;
+pub mod dashboard;
 pub mod gamma_chain;
 pub mod integrand;
 pub mod ltd;
@@ -66,7 +67,6 @@ pub mod partial_fractioning;
 pub mod squared_topologies;
 pub mod topologies;
 pub mod utils;
-pub mod dashboard;
 
 #[cfg(feature = "python_api")]
 use arrayvec::ArrayVec;
@@ -354,6 +354,16 @@ pub enum ObservableMode {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[allow(non_snake_case)]
+pub struct JetSliceSettings {
+    pub min_jets: usize,
+    pub max_jets: usize,
+    pub min_j1pt: f64,
+    pub max_j1pt: f64,
+    pub dR: f64,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[allow(non_snake_case)]
 pub struct Jet1PTSettings {
     pub x_min: f64,
     pub x_max: f64,
@@ -361,6 +371,19 @@ pub struct Jet1PTSettings {
     pub n_bins: usize,
     pub write_to_file: bool,
     pub filename: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub enum SelectorMode {
+    #[serde(rename = "jet")]
+    Jet,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[allow(non_snake_case)]
+pub struct PhaseSpaceSelectorSettings {
+    pub active_selectors: Vec<SelectorMode>,
+    pub jet: JetSliceSettings,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -503,6 +526,8 @@ pub struct Settings {
     pub parameterization: ParameterizationSettings,
     #[serde(rename = "Observables")]
     pub observables: ObservableSettings,
+    #[serde(rename = "Selectors")]
+    pub selectors: PhaseSpaceSelectorSettings,
 }
 
 impl Settings {

@@ -228,7 +228,7 @@ hyperparameters = HyperParameters({
 
     'Observables'   :   {
         # options: Jet1PT, cross_section
-        'active_observables'        :   ['cross_section', 'Jet1PT'],
+        'active_observables'        :   ['cross_section'],
         'Jet1PT': {
             'x_min'                 :   50.,
             'x_max'                 :   0.8,
@@ -236,6 +236,18 @@ hyperparameters = HyperParameters({
             'dR'                    :   0.4,
             'write_to_file'         :   True,
             'filename'              :   'Jet1PT.HwU'
+        }
+    },
+
+    'Selectors'   :   {
+        # options: jet
+        'active_selectors'          :   [],
+        'jet': {
+            'min_jets'              :   0,
+            'max_jets'              :   100,
+            'min_j1pt'              :   0.,
+            'max_j1pt'              :   1.,
+            'dR'                    :   0.4,
         }
     },
 
