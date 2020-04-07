@@ -551,6 +551,7 @@ impl SquaredTopology {
 
             // compute the deformation vectors
             let mut k_def_index = cutkosky_cuts.cuts.len() - 1;
+            let mut def_jacobian = Complex::one();
             for ((subgraph, subgraph_cache), &conjugate_deformation) in cut_uv_limit
                 .diagrams
                 .iter_mut()
@@ -593,9 +594,9 @@ impl SquaredTopology {
                 }
 
                 if conjugate_deformation {
-                    scaling_result *= jac_def.conj();
+                    def_jacobian *= jac_def.conj();
                 } else {
-                    scaling_result *= jac_def;
+                    def_jacobian *= jac_def;
                 }
 
                 if subgraph
@@ -730,7 +731,7 @@ impl SquaredTopology {
 
                     def_mom_index += subgraph.n_loops;
                 }
-                diag_and_num_contributions += num_result;
+                diag_and_num_contributions += num_result * def_jacobian;
             }
 
             mem::swap(
