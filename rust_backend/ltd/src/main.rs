@@ -338,7 +338,8 @@ fn integrand(
 ) -> Result<(), &'static str> {
     if user_data.internal_parallelization {
         let cores = user_data.integrand.len() - 1;
-        let nvec_per_core = nvec / cores;
+        // the number of points per core for all cores but the last, which may have fewer
+        let nvec_per_core = (nvec - 1) / cores + 1;
         let loops = user_data.n_loops;
         let phase = user_data.integrated_phase;
         let f_len = if IntegratedPhase::Both == user_data.integrated_phase {
