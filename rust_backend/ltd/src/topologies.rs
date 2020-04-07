@@ -1493,7 +1493,11 @@ impl Topology {
                     self.construct_socp_problem(&option_translated[..n], true);
                     self.socp_problem.initialize_workspace_ecos();
                     let r = self.socp_problem.solve_ecos();
-                    assert!(r == 0 || r == -2 || r == 10);
+                    assert!(
+                        r == 0 || r == -2 || r == 10,
+                        "ECOS returns failure when it should find a center: {}",
+                        r
+                    );
                     self.socp_problem.finish_ecos();
 
                     for (i, &ei) in option[..n].iter().enumerate() {

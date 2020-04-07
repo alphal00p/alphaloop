@@ -24,6 +24,7 @@ extern crate num_traits;
 extern crate rand;
 extern crate scs;
 extern crate tui;
+extern crate thousands;
 
 use num_traits::{Float, FloatConst, FromPrimitive, Num, One, ToPrimitive, Zero};
 use utils::Signum;

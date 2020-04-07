@@ -401,6 +401,11 @@ fn integrand(
                 _ => unreachable!(),
             }
         }
+
+        match &mut user_data.integrand[0] {
+            Integrands::CrossSection(i) => i.broadcast_statistics(),
+            Integrands::Topology(i) => i.broadcast_statistics(),
+        }
     } else {
         #[cfg(not(feature = "use_mpi"))]
         for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
@@ -432,6 +437,11 @@ fn integrand(
                     f[i * 2 + 1] = 0.;
                 }
             }
+        }
+
+        match &mut user_data.integrand[0] {
+            Integrands::CrossSection(i) => i.broadcast_statistics(),
+            Integrands::Topology(i) => i.broadcast_statistics(),
         }
     }
 

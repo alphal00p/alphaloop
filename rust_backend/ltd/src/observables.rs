@@ -76,6 +76,8 @@ impl AverageAndErrorAccumulator {
         }
 
         let n = self.num_samples as f64;
+        self.sum /= n;
+        self.sum_sq /= n * n;
         let mut w = (self.sum_sq * n).sqrt();
 
         w = ((w + self.sum) * (w - self.sum)) / (n - 1.);
@@ -246,6 +248,25 @@ impl EventManager {
     pub fn update_result(&mut self) {
         for o in &mut self.observables {
             o.update_result();
+        }
+
+        self.status_update_sender
+            .as_mut()
+            .unwrap()
+            .send(StatusUpdate::EventInfo(EventInfo {
+                accepted_event_counter: self.accepted_event_counter,
+                rejected_event_counter: self.rejected_event_counter,
+            }))
+            .unwrap();
+    }
+
+    pub fn update_live_result(&mut self) {
+        for o in &mut self.observables {
+            // for now, only live update the cross section
+            match o {
+                Observables::CrossSection(c) => c.update_live_result(),
+                _ => {}
+            }
         }
 
         self.status_update_sender
@@ -548,6 +569,27 @@ impl CrossSectionObservable {
         self.re.add_sample(integrand.re * integrator_weight);
         self.im.add_sample(integrand.im * integrator_weight);
     }
+
+    /// Give a live update on a copy of the statistics
+    pub fn update_live_result(&self) {
+        let mut re = self.re.clone();
+        re.update_iter();
+        let mut im = self.im.clone();
+        im.update_iter();
+
+        self.status_update_sender
+            .send(StatusUpdate::NewPoint(
+                re.cur_iter,
+                re.avg,
+                re.err,
+                re.chi_sq / re.cur_iter as f64,
+                im.avg,
+                im.err,
+                im.chi_sq / im.cur_iter as f64,
+                true,
+            ))
+            .unwrap();
+    }
 }
 
 impl Observable for CrossSectionObservable {
@@ -579,6 +621,7 @@ impl Observable for CrossSectionObservable {
                 self.im.avg,
                 self.im.err,
                 self.im.chi_sq / self.im.cur_iter as f64,
+                false,
             ))
             .unwrap();
     }

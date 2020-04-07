@@ -4,6 +4,7 @@ use std::io;
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
 use std::time::Duration;
+use thousands::Separable;
 use tui::layout::{Constraint, Corner, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{Axis, Block, Borders, Chart, Dataset, List, Marker, Text};
@@ -13,7 +14,7 @@ pub type StatusUpdateSender = Sender<StatusUpdate>;
 
 #[derive(Clone, Debug)]
 pub enum StatusUpdate {
-    NewPoint(usize, f64, f64, f64, f64, f64, f64),
+    NewPoint(usize, f64, f64, f64, f64, f64, f64, bool),
     IntegratorUpdate(String),
     Statistics(IntegrandStatistics),
     EventInfo(EventInfo),
@@ -72,6 +73,9 @@ impl Dashboard {
 
         let mut log_messages = vec![];
         let mut integrator_update_messages = vec![];
+        let mut last_live = false;
+        let mut mc_err_re = std::f64::EPSILON;
+        let mut mc_err_im = std::f64::EPSILON;
 
         let mut integrand_statistics = IntegrandStatistics::new();
         let mut event_info = EventInfo::default();
@@ -84,11 +88,32 @@ impl Dashboard {
                     StatusUpdate::IntegratorUpdate(m) => {
                         integrator_update_messages.push(Text::raw(m))
                     }
-                    StatusUpdate::NewPoint(iter, re, re_err, re_chi, im, im_err, im_chi) => {
-                        re_data.push((iter as f64, re));
-                        im_data.push((iter as f64, im));
+                    StatusUpdate::NewPoint(iter, re, re_err, re_chi, im, im_err, im_chi, live) => {
+                        if !live {
+                            re_data.push((iter as f64, re));
+                            im_data.push((iter as f64, im));
+                        }
 
-                        integrator_update_messages.push(Text::raw(format!("Iteration {}", iter)));
+                        if last_live {
+                            integrator_update_messages.pop();
+                            integrator_update_messages.pop();
+                            integrator_update_messages.pop();
+                        }
+
+                        last_live = live;
+
+                        if live {
+                            integrator_update_messages.push(Text::raw(format!(
+                                "Live: {} evaluations",
+                                integrand_statistics.total_samples.separate_with_spaces()
+                            )));
+                        } else {
+                            integrator_update_messages.push(Text::raw(format!(
+                                "Iteration {}: {} evaluations",
+                                iter,
+                                integrand_statistics.total_samples.separate_with_spaces()
+                            )));
+                        }
                         integrator_update_messages.push(Text::raw(format!(
                             " re: {:+.8e} +- {:+.8e} chisq {:.2}",
                             re, re_err, re_chi
@@ -97,6 +122,9 @@ impl Dashboard {
                             " im: {:+.8e} +- {:+.8e} chisq {:.2}",
                             im, im_err, im_chi
                         )));
+
+                        mc_err_re = re_err;
+                        mc_err_im = im_err;
                     }
                     StatusUpdate::EventInfo(e) => {
                         event_info = e;
@@ -106,6 +134,7 @@ impl Dashboard {
                     }
                 }
             }
+
             terminal
                 .draw(|mut f| {
                     let vert_chunks = Layout::default()
@@ -139,12 +168,14 @@ impl Dashboard {
                     let stats = vec![
                         Text::raw(format!(
                             "Total points: {}",
-                            integrand_statistics.total_samples
+                            integrand_statistics.total_samples.separate_with_spaces()
                         )),
                         Text::styled(
                             format!(
                                 "Unstable points: {} ({:.2}%)",
-                                integrand_statistics.unstable_point_count,
+                                integrand_statistics
+                                    .unstable_point_count
+                                    .separate_with_spaces(),
                                 integrand_statistics.unstable_point_count as f64
                                     / integrand_statistics.total_samples as f64
                                     * 100.
@@ -154,7 +185,9 @@ impl Dashboard {
                         Text::styled(
                             format!(
                                 "Unstable quad points: {} ({:.2}%)",
-                                integrand_statistics.unstable_f128_point_count,
+                                integrand_statistics
+                                    .unstable_f128_point_count
+                                    .separate_with_spaces(),
                                 integrand_statistics.unstable_f128_point_count as f64
                                     / integrand_statistics.total_samples as f64
                                     * 100.
@@ -167,16 +200,19 @@ impl Dashboard {
                                 / integrand_statistics.total_samples as f64
                         )),
                         Text::raw(format!(
-                            "Running max: {:e}",
-                            integrand_statistics.running_max
+                            "Maximum weight influence: re={:.4e}, im={:.4e}",
+                            integrand_statistics.running_max.re
+                                / (mc_err_re * integrand_statistics.total_samples as f64),
+                            integrand_statistics.running_max.im
+                                / (mc_err_im * integrand_statistics.total_samples as f64)
                         )),
                         Text::raw(format!(
                             "Accepted events: {}",
-                            event_info.accepted_event_counter
+                            event_info.accepted_event_counter.separate_with_spaces()
                         )),
                         Text::raw(format!(
                             "Rejected events: {} ({:.2}%)",
-                            event_info.rejected_event_counter,
+                            event_info.rejected_event_counter.separate_with_spaces(),
                             event_info.rejected_event_counter as f64
                                 / (event_info.rejected_event_counter as f64
                                     + event_info.accepted_event_counter as f64)

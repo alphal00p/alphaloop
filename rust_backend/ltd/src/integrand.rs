@@ -520,9 +520,23 @@ impl<I: IntegrandImplementation> Integrand<I> {
             .merge(&mut other.integrand_statistics);
     }
 
+    pub fn broadcast_statistics(&mut self) {
+        if self.id == 0 {
+            self.status_update_sender
+                .send(StatusUpdate::Statistics(self.integrand_statistics))
+                .unwrap();
+
+            self.event_manager.update_live_result();
+        }
+    }
+
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
-    pub fn evaluate(&mut self, x: &[f64], weight: f64, iter: usize) -> Complex<float> {
+    pub fn evaluate(&mut self, x: &[f64], mut weight: f64, iter: usize) -> Complex<float> {
         let start_time = Instant::now(); // time the evaluation
+
+        // NOTE: only correct for Vegas
+        weight *= (self.settings.integrator.n_start
+            + (self.cur_iter - 1) * self.settings.integrator.n_increase) as f64;
 
         if self.cur_iter != iter {
             // the first integrand accumulates all the results from the others
@@ -590,7 +604,6 @@ impl<I: IntegrandImplementation> Integrand<I> {
             &mut cache,
             &mut event_manager,
         );
-        
         std::mem::swap(&mut self.cache, &mut cache);
         self.integrand_statistics.total_samples += 1;
 
@@ -740,20 +753,22 @@ impl<I: IntegrandImplementation> Integrand<I> {
         let mut new_max = false;
         match self.settings.integrator.integrated_phase {
             IntegratedPhase::Real => {
-                if result.re.abs() > self.integrand_statistics.running_max.re.abs() {
-                    self.integrand_statistics.running_max = result;
+                if result.re.abs() * weight > self.integrand_statistics.running_max.re.abs() {
+                    self.integrand_statistics.running_max = result * weight;
                     new_max = true;
                 }
             }
             IntegratedPhase::Imag => {
-                if result.im.abs() > self.integrand_statistics.running_max.im.abs() {
-                    self.integrand_statistics.running_max = result;
+                if result.im.abs() * weight > self.integrand_statistics.running_max.im.abs() {
+                    self.integrand_statistics.running_max = result * weight;
                     new_max = true;
                 }
             }
             IntegratedPhase::Both => {
-                if result.norm_sqr() > self.integrand_statistics.running_max.norm_sqr() {
-                    self.integrand_statistics.running_max = result;
+                if result.norm_sqr() * weight * weight
+                    > self.integrand_statistics.running_max.norm_sqr()
+                {
+                    self.integrand_statistics.running_max = result * weight;
                     new_max = true;
                 }
             }
