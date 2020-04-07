@@ -1676,6 +1676,7 @@ fn main() {
         .set_maxchisq(settings.integrator.maxchisq)
         .set_mindeviation(settings.integrator.mindeviation)
         .set_seed(settings.integrator.seed)
+        .set_batch((settings.integrator.n_vec as i64).max(1000))
         .set_cores(
             if settings.integrator.internal_parallelization {
                 0
