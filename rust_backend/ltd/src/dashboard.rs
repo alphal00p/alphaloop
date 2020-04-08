@@ -115,11 +115,11 @@ impl Dashboard {
                             )));
                         }
                         integrator_update_messages.push(Text::raw(format!(
-                            " re: {:+.8e} +- {:+.8e} chisq {:.2}",
+                            " re: {:+.8e} ± {:+.8e} {:.2} χ²",
                             re, re_err, re_chi
                         )));
                         integrator_update_messages.push(Text::raw(format!(
-                            " im: {:+.8e} +- {:+.8e} chisq {:.2}",
+                            " im: {:+.8e} ± {:+.8e} {:.2} χ²",
                             im, im_err, im_chi
                         )));
 
@@ -180,7 +180,14 @@ impl Dashboard {
                                     / integrand_statistics.total_samples as f64
                                     * 100.
                             ),
-                            Style::default().fg(Color::Yellow),
+                            if integrand_statistics.unstable_point_count as f64
+                                / integrand_statistics.total_samples as f64
+                                > 0.01
+                            {
+                                Style::default().fg(Color::Yellow)
+                            } else {
+                                Style::default()
+                            },
                         ),
                         Text::styled(
                             format!(
@@ -192,20 +199,51 @@ impl Dashboard {
                                     / integrand_statistics.total_samples as f64
                                     * 100.
                             ),
-                            Style::default().fg(Color::Red),
+                            if integrand_statistics.unstable_f128_point_count > 0 {
+                                Style::default().fg(Color::Red)
+                            } else {
+                                Style::default()
+                            },
+                        ),
+                        Text::styled(
+                            format!(
+                                "NaN points: {} ({:.2}%)",
+                                integrand_statistics.nan_point_count.separate_with_spaces(),
+                                integrand_statistics.nan_point_count as f64
+                                    / integrand_statistics.total_samples as f64
+                                    * 100.
+                            ),
+                            if integrand_statistics.nan_point_count > 0 {
+                                Style::default().fg(Color::Red)
+                            } else {
+                                Style::default()
+                            },
                         ),
                         Text::raw(format!(
                             "Evaluation time per sample: {:.2}µs",
                             integrand_statistics.total_sample_time
                                 / integrand_statistics.total_samples as f64
                         )),
-                        Text::raw(format!(
-                            "Maximum weight influence: re={:.4e}, im={:.4e}",
-                            integrand_statistics.running_max.re
-                                / (mc_err_re * integrand_statistics.total_samples as f64),
-                            integrand_statistics.running_max.im
-                                / (mc_err_im * integrand_statistics.total_samples as f64)
-                        )),
+                        Text::styled(
+                            format!(
+                                "Maximum weight influence: re={:.4e}, im={:.4e}",
+                                integrand_statistics.running_max.re.abs()
+                                    / (mc_err_re * integrand_statistics.total_samples as f64),
+                                integrand_statistics.running_max.im.abs()
+                                    / (mc_err_im * integrand_statistics.total_samples as f64)
+                            ),
+                            if integrand_statistics.running_max.re.abs()
+                                / (mc_err_re * integrand_statistics.total_samples as f64)
+                                > 10.
+                                || integrand_statistics.running_max.im.abs()
+                                    / (mc_err_im * integrand_statistics.total_samples as f64)
+                                    > 10.
+                            {
+                                Style::default().fg(Color::Red)
+                            } else {
+                                Style::default()
+                            },
+                        ),
                         Text::raw(format!(
                             "Accepted events: {}",
                             event_info.accepted_event_counter.separate_with_spaces()
@@ -247,7 +285,7 @@ impl Dashboard {
                         re_data.len().to_string(),
                     ];
 
-                    let bounds = [
+                    let mut bounds = [
                         re_data
                             .iter()
                             .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
@@ -259,6 +297,8 @@ impl Dashboard {
                             .map(|x| x.1)
                             .unwrap_or(0.),
                     ];
+                    bounds[0] *= 0.9;
+                    bounds[1] *= 1.1;
                     let y_labels = [
                         format!("{:.2e}", bounds[0]),
                         format!("{:.2e}", (bounds[0] + bounds[1]) / 2.),
@@ -268,7 +308,7 @@ impl Dashboard {
                     let mut chart = Chart::default()
                         .block(
                             Block::default()
-                                .title("Integrand")
+                                .title("Integral")
                                 .title_style(
                                     Style::default().fg(Color::Cyan).modifier(Modifier::BOLD),
                                 )

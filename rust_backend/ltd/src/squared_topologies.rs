@@ -509,9 +509,22 @@ impl SquaredTopology {
             }
         }
 
+        // for the evaluation of the numerator we need complex loop momenta of the supergraph.
+        // the order is: cut momenta, momenta left graph, momenta right graph
+        // NOTE: this requires that the last level 0 cutkosky cut is at the end of the list
+        for (kd, cut_mom) in k_def
+            .iter_mut()
+            .zip(&cut_momenta[..cutkosky_cuts.cuts.len() - 1])
+        {
+            *kd = cut_mom.to_complex(true);
+        }
+
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();
-        for (cut_uv_limit, diag_cache) in cutkosky_cuts.uv_limits.iter_mut().zip(cache) {
+        let mut def_jacobian = Complex::one();
+        for (uv_index, (cut_uv_limit, diag_cache)) in
+            cutkosky_cuts.uv_limits.iter_mut().zip(cache).enumerate()
+        {
             // set the shifts, which are expressed in the cut basis
             for subgraph in &mut cut_uv_limit.diagrams {
                 for ll in &mut subgraph.loop_lines {
@@ -539,64 +552,72 @@ impl SquaredTopology {
                 }
             }
 
-            // for the evaluation of the numerator we need complex loop momenta of the supergraph.
-            // the order is: cut momenta, momenta left graph, momenta right graph
-            // FIXME: this requires that the last level 0 cutkosky cut is at the end of the list
-            for (kd, cut_mom) in k_def
-                .iter_mut()
-                .zip(&cut_momenta[..cutkosky_cuts.cuts.len() - 1])
+            if !self
+                .settings
+                .cross_section
+                .inherit_deformation_for_uv_counterterm
+                || uv_index == 0
             {
-                *kd = cut_mom.to_complex(true);
+                def_jacobian = Complex::one();
             }
 
             // compute the deformation vectors
             let mut k_def_index = cutkosky_cuts.cuts.len() - 1;
-            let mut def_jacobian = Complex::one();
+
             for ((subgraph, subgraph_cache), &conjugate_deformation) in cut_uv_limit
                 .diagrams
                 .iter_mut()
                 .zip_eq(diag_cache.iter_mut())
                 .zip_eq(cut_uv_limit.conjugate_deformation.iter())
             {
-                // do the loop momentum map, which is expressed in the loop momentum basis
-                // the time component should not matter here
-                for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
-                    .iter_mut()
-                    .zip_eq(&subgraph.loop_momentum_map)
+                if !self
+                    .settings
+                    .cross_section
+                    .inherit_deformation_for_uv_counterterm
+                    || uv_index == 0
                 {
-                    *slm = SquaredTopology::evaluate_signature(
-                        lmm,
-                        &external_momenta[..self.external_momenta.len()],
-                        if self.settings.cross_section.do_rescaling {
-                            &rescaled_loop_momenta[..self.n_loops]
+                    // do the loop momentum map, which is expressed in the loop momentum basis
+                    // the time component should not matter here
+                    for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
+                        .iter_mut()
+                        .zip_eq(&subgraph.loop_momentum_map)
+                    {
+                        *slm = SquaredTopology::evaluate_signature(
+                            lmm,
+                            &external_momenta[..self.external_momenta.len()],
+                            if self.settings.cross_section.do_rescaling {
+                                &rescaled_loop_momenta[..self.n_loops]
+                            } else {
+                                loop_momenta
+                            },
+                        );
+                    }
+
+                    let (kappas, jac_def) =
+                        subgraph.deform(&subgraph_loop_momenta[..subgraph.n_loops], subgraph_cache);
+
+                    for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
+                        .iter()
+                        .zip(&kappas)
+                    {
+                        k_def[k_def_index] = if conjugate_deformation {
+                            // take the complex conjugate of the deformation
+                            lm.map(|x| Complex::new(x, T::zero()))
+                                - kappa.map(|x| Complex::new(T::zero(), x))
                         } else {
-                            loop_momenta
-                        },
-                    );
-                }
+                            lm.map(|x| Complex::new(x, T::zero()))
+                                + kappa.map(|x| Complex::new(T::zero(), x))
+                        };
+                        k_def_index += 1;
+                    }
 
-                let (kappas, jac_def) =
-                    subgraph.deform(&subgraph_loop_momenta[..subgraph.n_loops], subgraph_cache);
-
-                for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
-                    .iter()
-                    .zip(&kappas)
-                {
-                    k_def[k_def_index] = if conjugate_deformation {
-                        // take the complex conjugate of the deformation
-                        lm.map(|x| Complex::new(x, T::zero()))
-                            - kappa.map(|x| Complex::new(T::zero(), x))
+                    if conjugate_deformation {
+                        def_jacobian *= jac_def.conj();
                     } else {
-                        lm.map(|x| Complex::new(x, T::zero()))
-                            + kappa.map(|x| Complex::new(T::zero(), x))
-                    };
-                    k_def_index += 1;
-                }
-
-                if conjugate_deformation {
-                    def_jacobian *= jac_def.conj();
+                        def_jacobian *= jac_def;
+                    }
                 } else {
-                    def_jacobian *= jac_def;
+                    k_def_index += subgraph.n_loops;
                 }
 
                 if subgraph

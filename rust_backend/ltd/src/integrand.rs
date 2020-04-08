@@ -718,7 +718,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
                 if !result_f128.is_finite() {
                     self.integrand_statistics.nan_point_count += 1;
-                    return Complex::default();
+                    event_manager.clear(true); // throw away all events and treat them as rejected
+                    result = Complex::default();
                 } else {
                     self.integrand_statistics.unstable_f128_point_count += 1;
                     //println!("f128 fail : x={:?}, min result={}, max result={}", x, min_rot_f128, max_rot_f128);

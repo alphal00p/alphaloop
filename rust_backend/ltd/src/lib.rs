@@ -23,8 +23,8 @@ extern crate nalgebra as na;
 extern crate num_traits;
 extern crate rand;
 extern crate scs;
-extern crate tui;
 extern crate thousands;
+extern crate tui;
 
 use num_traits::{Float, FloatConst, FromPrimitive, Num, One, ToPrimitive, Zero};
 use utils::Signum;
@@ -514,6 +514,7 @@ pub struct CrossSectionSettings {
     pub picobarns: bool,
     pub do_rescaling: bool,
     pub rescaling_function_spread: f64,
+    pub inherit_deformation_for_uv_counterterm: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -587,7 +588,8 @@ py_class!(class CrossSection |py| {
                 float::from_f64(l[2]).unwrap()));
         }
         
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches(py).borrow_mut(), &mut None);
+        let mut integrand = self.integrand(py).borrow_mut();
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches(py).borrow_mut(), &mut Some(&mut integrand.event_manager));
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -636,7 +638,8 @@ py_class!(class CrossSection |py| {
                 f128::f128::from_f64(l[2]).unwrap()));
         }
 
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches_f128(py).borrow_mut(), &mut None);
+        let mut integrand = self.integrand(py).borrow_mut();
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches_f128(py).borrow_mut(), &mut Some(&mut integrand.event_manager));
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -665,6 +668,8 @@ py_class!(class CrossSection |py| {
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
         let cache = &mut *self.caches(py).borrow_mut()[cut_index];
 
+        let mut integrand = self.integrand(py).borrow_mut();
+
         let max_cuts = squared_topology.n_loops + 1;
         let res = squared_topology.evaluate_cut(
             &moms,
@@ -674,7 +679,7 @@ py_class!(class CrossSection |py| {
             &mut subgraph_loop_momenta,
             &mut k_def[..max_cuts],
             cache,
-            &mut None,
+            &mut Some(&mut integrand.event_manager),
             cut_index,
             scaling,
             scaling_jac,
@@ -708,6 +713,8 @@ py_class!(class CrossSection |py| {
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
         let cache = &mut *self.caches_f128(py).borrow_mut()[cut_index];
 
+        let mut integrand = self.integrand(py).borrow_mut();
+
         let max_cuts = squared_topology.n_loops + 1;
         let res = squared_topology.evaluate_cut(
             &moms,
@@ -717,7 +724,7 @@ py_class!(class CrossSection |py| {
             &mut subgraph_loop_momenta,
             &mut k_def[..max_cuts],
             cache,
-            &mut None,
+            &mut Some(&mut integrand.event_manager),
             cut_index,
             f128::f128::from_f64(scaling).unwrap(),
             f128::f128::from_f64(scaling_jac).unwrap(),
