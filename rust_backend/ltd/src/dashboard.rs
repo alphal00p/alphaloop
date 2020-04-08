@@ -9,6 +9,7 @@ use tui::layout::{Constraint, Corner, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{Axis, Block, Borders, Chart, Dataset, List, Marker, Text};
 use tui::{backend::TermionBackend, Terminal};
+use utils;
 
 pub type StatusUpdateSender = Sender<StatusUpdate>;
 
@@ -115,12 +116,14 @@ impl Dashboard {
                             )));
                         }
                         integrator_update_messages.push(Text::raw(format!(
-                            " re: {:+.8e} ± {:+.8e} {:.2} χ²",
-                            re, re_err, re_chi
+                            " re: {} {:.2} χ²",
+                            utils::format_uncertainty(re, re_err),
+                            re_chi
                         )));
                         integrator_update_messages.push(Text::raw(format!(
-                            " im: {:+.8e} ± {:+.8e} {:.2} χ²",
-                            im, im_err, im_chi
+                            " im: {} {:.2} χ²",
+                            utils::format_uncertainty(im, im_err),
+                            im_chi
                         )));
 
                         mc_err_re = re_err;
@@ -341,6 +344,8 @@ impl Dashboard {
                     f.render(&mut log, vert_chunks[1]);
                 })
                 .unwrap();
+            let r = terminal.get_frame().size();
+            terminal.set_cursor(r.width, r.height).unwrap();
             thread::sleep(Duration::from_millis(200));
         });
 

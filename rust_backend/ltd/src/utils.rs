@@ -12,6 +12,99 @@ use MAX_LOOP;
 
 const MAX_DIMENSION: usize = MAX_LOOP * 3;
 
+/// Format a mean ± sdev as mean(sdev) with the correct number of digits.
+/// Based on the Python package gvar.
+pub fn format_uncertainty(mean: f64, sdev: f64) -> String {
+    fn ndec(x: f64, offset: usize) -> i32 {
+        let mut ans = (offset as f64 - x.log10()) as i32;
+        if ans > 0 && x * 10.0.powi(ans) >= [0.5, 9.5, 99.5][offset] {
+            ans -= 1;
+        }
+        if ans < 0 {
+            0
+        } else {
+            ans
+        }
+    }
+    let v = mean;
+    let dv = sdev.abs();
+
+    // special cases
+    if v.is_nan() || dv.is_nan() {
+        format!("{:e} ± {:e}", v, dv)
+    } else if dv.is_infinite() {
+        format!("{:e} ± inf", v)
+    } else if v == 0. && (dv >= 1e5 || dv < 1e-4) {
+        if dv == 0. {
+            "0(0)".to_owned()
+        } else {
+            let e = format!("{:.1e}", dv);
+            let mut ans = e.split('e');
+            let e1 = ans.next().unwrap();
+            let e2 = ans.next().unwrap();
+            "0.0(".to_owned() + e1 + ")e" + e2
+        }
+    } else if v == 0. {
+        if dv >= 9.95 {
+            format!("0({:.0})", dv)
+        } else if dv >= 0.995 {
+            format!("0.0({:.1})", dv)
+        } else {
+            let ndecimal = ndec(dv, 2);
+            format!(
+                "{:.*}({:.0})",
+                ndecimal as usize,
+                v,
+                dv * 10.0.powi(ndecimal)
+            )
+        }
+    } else if dv == 0. {
+        let e = format!("{:e}", v);
+        let mut ans = e.split('e');
+        let e1 = ans.next().unwrap();
+        let e2 = ans.next().unwrap();
+        if e2 != "0" {
+            e1.to_owned() + "(0)e" + e2
+        } else {
+            e1.to_owned() + "(0)"
+        }
+    } else if dv > 1e4 * v.abs() {
+        format!("{:.1e} ± {:.2e}", v, dv)
+    } else if v.abs() >= 1e6 || v.abs() < 1e-5 {
+        // exponential notation for large |self.mean|
+        let exponent = v.abs().log10().floor();
+        let fac = 10.0.powf(exponent);
+        let mantissa = format_uncertainty(v / fac, dv / fac);
+        let e = format!("{:.0e}", fac);
+        let mut ee = e.split('e');
+        mantissa + "e" + ee.nth(1).unwrap()
+    }
+    // normal cases
+    else if dv >= 9.95 {
+        if v.abs() >= 9.5 {
+            format!("{:.0}({:.0})", v, dv)
+        } else {
+            let ndecimal = ndec(v.abs(), 1);
+            format!("{:.*}({:.*})", ndecimal as usize, v, ndecimal as usize, dv)
+        }
+    } else if dv >= 0.995 {
+        if v.abs() >= 0.95 {
+            format!("{:.1}({:.1})", v, dv)
+        } else {
+            let ndecimal = ndec(v.abs(), 1);
+            format!("{:.*}({:.*})", ndecimal as usize, v, ndecimal as usize, dv)
+        }
+    } else {
+        let ndecimal = ndec(v.abs(), 1).max(ndec(dv, 2));
+        format!(
+            "{:.*}({:.0})",
+            ndecimal as usize,
+            v,
+            dv * 10.0.powi(ndecimal)
+        )
+    }
+}
+
 pub trait Signum {
     fn multiply_sign(&self, sign: i8) -> Self;
 }
