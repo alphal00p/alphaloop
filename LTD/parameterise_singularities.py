@@ -18,62 +18,6 @@ ENDC = '\033[0m'
 BOLD = '\033[1m'
 UNDERLINE = '\033[4m'
 
-
-class CrossSectionSingularityProber(object):
-	def __init__(self, info, hyperparameters_yaml):
-		info.export('squared_topology.yaml')
-		self.cross_section = ltd.CrossSection('squared_topology.yaml', hyperparameters_yaml)
-		self.info = info
-		self.external_momenta = [self.info.external_momenta['q%i'%(i+1)] for i in range(len(self.info.external_momenta))]
-		self.n_cutkosky_cuts = len(self.info.cuts)
-		self.n_loops =self.info.topo.n_loops
-		self.name = self.info.name
-		self.e_cm_squared = sum(self.info.external_momenta[e][0]
-								for e in self.info.incoming_momenta)**2 - sum(x*x
-								for x in (sum(self.info.external_momenta[e][i]
-								for e in self.info.incoming_momenta)
-								for i in range(1, 4)))
-
-	def probe_singular_surface(self,os_spatial_loop_momenta, spatial_directions, plot=True, plot_title='', precision='f128', phase=0, simulate_jac_power=0):
-		assert(len(spatial_directions)==self.info.topo.n_loops)
-		if precision == 'f128':
-			evaluate = self.cross_section.evaluate_f128
-			evaluate_cut = self.cross_section.evaluate_cut_f128
-			inv_parameterize = self.cross_section.inv_parameterize_f128
-		elif precision == 'f64':
-			evaluate = self.cross_section.evaluate
-			evaluate_cut = self.cross_section.evaluate_cut
-			inv_parameterize = self.cross_section.inv_parameterize
-		mu_list = numpy.logspace(-1,-5,5)
-		results = []
-		for mu in mu_list:
-			spatial_loop_momenta = [p_space+mu*dir_space*numpy.sqrt(self.e_cm_squared) for p_space,dir_space in zip(os_spatial_loop_momenta,spatial_directions)]
-			results += [evaluate(spatial_loop_momenta)]
-		print('Approaching the singularity:')
-		for result in results:
-			print(result)
-
-	def evaluate_cuts(self,spatial_loop_momenta,mu=0.,spatial_directions='random'):
-		if mu != 0:
-			if spatial_directions == 'random':
-				spatial_loop_momenta = [p_space+mu*vectors.Vector([random.random(),random.random(),random.random()])*numpy.sqrt(self.e_cm_squared) for p_space in spatial_loop_momenta]
-			else:
-				assert(len(spatial_directions)==self.info.topo.n_loops)
-				spatial_loop_momenta = [p_space+mu*direction*numpy.sqrt(self.e_cm_squared) for p_space, direction in zip(spatial_loop_momenta,spatial_directions)]
-		print('On the singularity:')
-		print('Total: (%e, %e)'%self.cross_section.evaluate_f128(spatial_loop_momenta))
-
-		tot = 0
-		for c in range(self.n_cutkosky_cuts):
-			#print(self.cross_section.get_scaling(spatial_loop_momenta,c))
-			cut = self.cross_section.evaluate_cut_f128(spatial_loop_momenta, c,
-				self.cross_section.get_scaling(spatial_loop_momenta,c)[1][0],self.cross_section.get_scaling(spatial_loop_momenta,c)[1][1])
-			print('cut%d: (%e, %e)' % (c, cut[0], cut[1]))
-			tot += numpy.array(cut)
-
-		print('Sum cuts: (%e, %e)' % (tot[0],tot[1]))
-		return
-
 # old: only for reference to cut group intersections
 class OneLoopSingularityParameteriser(object):
 	def __init__(self, squared_topology, cut_index, l_or_r, cut_momenta):
@@ -445,9 +389,9 @@ class SquaredTopology(object):
 								for e in self.info.incoming_momenta)
 								for i in range(1, 4)))
 		self.external_momenta = ['q%i'%(i+1) for i in range(len(self.info.external_momenta))]
-		self.external_momenta_num = [self.info.external_momenta[name] for name in self.external_momenta]
+		self.external_momenta_num = [vectors.LorentzVector(self.info.external_momenta[name]) for name in self.external_momenta]
 		self.incoming_momenta = self.info.incoming_momenta
-		self.supergraph_integration_basis = ['p%i'%i for i in self.info.topo.loop_momenta]
+		self.supergraph_integration_basis = [info.topo.edge_map_lin[e][0] for e in info.topo.loop_momenta]
 		self.supergraph_integration_basis_signatures_and_shifts = self.info.topo.get_signature_map()
 		self.cutkosky_cuts = [CutkoskyCut(self, index) for index in range(self.n_cutkosky_cuts)]
 		self.pv_phase = 1 if self.n_loops % 2==0 else 0
@@ -489,7 +433,14 @@ class SquaredTopology(object):
 			boost = numpy.append([row0],rows1to3,axis=0)
 		return boost
 
-	def plot(self, spatial_loop_momenta, spatial_directions, title='', precision='f128', phase=None, simulate_jac_power=0):
+	def transform_to_integration_basis(self, spatial_loop_momenta, basis):
+		trsf = numpy.array([self.supergraph_integration_basis_signatures_and_shifts[name][0] for name in basis])
+		inv_trsf = numpy.linalg.inv(trsf)
+		shift = numpy.array([self.supergraph_integration_basis_signatures_and_shifts[name][1] for name in basis])
+		spatial_supergraph_integration_basis = inv_trsf.dot(spatial_loop_momenta - shift.dot([p.space() for p in self.external_momenta_num]))
+		return spatial_supergraph_integration_basis
+
+	def plot_singularity(self, spatial_loop_momenta, spatial_directions, title='', precision='f128', phase=None, simulate_jac_power=0):
 		if phase is None:
 			phase = self.pv_phase
 		assert(len(spatial_loop_momenta)==self.n_loops)
@@ -502,29 +453,26 @@ class SquaredTopology(object):
 			evaluate = self.cross_section.evaluate
 			evaluate_cut = self.cross_section.evaluate_cut
 			inv_parameterize = self.cross_section.inv_parameterize
-		plt.figure(figsize=(11,6))
-		xx = numpy.linspace(-1e-1,1e-1,int(1e3))
+		xx = numpy.linspace(-1e-0,1e-0,int(1e3))
 		spatial_loop_momenta_list = [[p+x*spatial_direction*numpy.sqrt(self.e_cm_squared) for p,spatial_direction in zip(spatial_loop_momenta,spatial_directions)] for x in xx]
-		yy = [[evaluate_cut(spatial_loop_momenta,c,
-						self.cross_section.get_scaling(spatial_loop_momenta,c)[1][0],
-						self.cross_section.get_scaling(spatial_loop_momenta,c)[1][1])[phase]
-						* x**simulate_jac_power
-							for spatial_loop_momenta,x in zip(spatial_loop_momenta_list,xx)] for c in range(self.n_cutkosky_cuts)]
+		yy = [[cutkosky_cut.evaluate_rust(spatial_loop_momenta)[phase] * x**simulate_jac_power 
+					for spatial_loop_momenta,x in zip(spatial_loop_momenta_list,xx)] for cutkosky_cut in self.cutkosky_cuts]
 		sum_manual = numpy.sum(yy,axis=0)
 		sum_rust_f128 = [self.cross_section.evaluate_f128(spatial_loop_momenta)[phase] * x**simulate_jac_power
 							for spatial_loop_momenta,x in zip(spatial_loop_momenta_list,xx)]
 		sum_rust_f64 = [self.cross_section.evaluate(spatial_loop_momenta)[phase] * x**simulate_jac_power
 							for spatial_loop_momenta,x in zip(spatial_loop_momenta_list,xx)]
-		vegas_variables = [numpy.array([inv_parameterize(spatial_loop_momentum,loop_index,self.e_cm_squared)[:3]
+		vegas_variables = [numpy.array([self.cross_section.inv_parameterize_f128(spatial_loop_momentum,loop_index,self.e_cm_squared)[:3]
 							for loop_index, spatial_loop_momentum in enumerate(spatial_loop_momenta)]).flatten()
 							for spatial_loop_momenta in spatial_loop_momenta_list]
-		jacobians = [numpy.prod([inv_parameterize(spatial_loop_momentum,loop_index,self.e_cm_squared)[-1]
+		jacobians = [numpy.prod([self.cross_section.inv_parameterize_f128(spatial_loop_momentum,loop_index,self.e_cm_squared)[-1]
 							for loop_index, spatial_loop_momentum in enumerate(spatial_loop_momenta)])
 							for spatial_loop_momenta in spatial_loop_momenta_list]	
 		sum_stabilised = [self.cross_section.evaluate_integrand(vegas_variable)[phase] * jacobian * x**simulate_jac_power
 							for vegas_variable, jacobian, x in zip(vegas_variables,jacobians,xx)]
 		markers = itertools.cycle(('v','<', '^', '>')) 
 		colors = cm.rainbow(numpy.linspace(0, 1, self.n_cutkosky_cuts))
+		plt.figure(figsize=(11,6))
 		for cut_index, color in zip(range(self.n_cutkosky_cuts),colors):
 			plt.plot(xx,yy[cut_index],marker=next(markers), color=color, ms=1,alpha=1,ls='None',
 						label='cut %i: (%s)'%(cut_index,','.join([cut['edge']+('%+d'%cut['sign'])[0] for cut in self.info.cuts[cut_index]['cuts']])))
@@ -535,21 +483,89 @@ class SquaredTopology(object):
 		plt.xlabel(r'$\mu$')
 		plt.yscale('symlog')
 		plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-		momenta_str = ''.join(['\n'+r'$k_{'+'%i'%c+'}=$'
+		momenta_str = ''.join(['\n'+r'$k_{'+'%i'%i+'}=$'
 					+ '(%s)'%','.join(['%f'%k_i for k_i in spatial_loop_momentum])
 					+ r'$+\mu E_{\mathrm{cm}}$'
 					+ '(%s)'%','.join(['%f'%k_i for k_i in spatial_direction])
-					for c,spatial_loop_momentum,spatial_direction in zip(range(self.n_cutkosky_cuts),spatial_loop_momenta,spatial_directions)])
+					for i,spatial_loop_momentum,spatial_direction in zip(range(self.n_loops),spatial_loop_momenta,spatial_directions)])
 		simulate_jac_str = '\n multiplied by simulated jacobian factor ' + r'$\mu^%i$'%simulate_jac_power if simulate_jac_power !=0 else ''
 		plt.title(self.name + '\n' + title + momenta_str + simulate_jac_str)
 		plt.tight_layout()
 		#plt.show()
 		return
 
+	def plot_uv(self, subgraph_basis, spatial_directions, title='', precision='f128', phase=None, simulate_jac_power=0):
+		if phase is None:
+			phase = self.pv_phase
+		assert(len(spatial_directions)==self.n_loops)
+		print(subgraph_basis,self.supergraph_integration_basis)
+		print(set(subgraph_basis) <= set(self.supergraph_integration_basis))
+		#xx = numpy.linspace(0.8,0.9999,int(1e3))
+		#scaling_fct = lambda x: x/(1.-x)
+		#scaling_fct_string = r'$\frac{\mu}{1-\mu}$'
+		xx = numpy.logspace(1,10,int(1e3))
+		scaling_fct = lambda x: x
+		scaling_fct_string = r'$\mu$'
+		if set(subgraph_basis) <= set(self.supergraph_integration_basis):
+			spatial_loop_momenta_list = [[p * numpy.sqrt(self.e_cm_squared) * scaling_fct(x) if name in subgraph_basis
+											else p*numpy.sqrt(self.e_cm_squared) 
+											for p, name in zip(spatial_directions,self.supergraph_integration_basis)]
+											for x in xx]
+		else:
+			print('Find possible bases and transform accordingly')
+			raise
+		yy = [[cutkosky_cut.evaluate_rust(spatial_loop_momenta)[phase] * x**simulate_jac_power 
+					for spatial_loop_momenta,x in zip(spatial_loop_momenta_list,xx)] for cutkosky_cut in self.cutkosky_cuts]
+		sum_manual = numpy.sum(yy,axis=0)
+		sum_rust_f128 = [self.cross_section.evaluate_f128(spatial_loop_momenta)[phase] * x**simulate_jac_power
+							for spatial_loop_momenta,x in zip(spatial_loop_momenta_list,xx)]
+		sum_rust_f64 = [self.cross_section.evaluate(spatial_loop_momenta)[phase] * x**simulate_jac_power
+							for spatial_loop_momenta,x in zip(spatial_loop_momenta_list,xx)]
+		vegas_variables = [numpy.array([self.cross_section.inv_parameterize_f128(spatial_loop_momentum,loop_index,self.e_cm_squared)[:3]
+							for loop_index, spatial_loop_momentum in enumerate(spatial_loop_momenta)]).flatten()
+							for spatial_loop_momenta in spatial_loop_momenta_list]
+		jacobians = [numpy.prod([self.cross_section.inv_parameterize_f128(spatial_loop_momentum,loop_index,self.e_cm_squared)[-1]
+							for loop_index, spatial_loop_momentum in enumerate(spatial_loop_momenta)])
+							for spatial_loop_momenta in spatial_loop_momenta_list]	
+		sum_stabilised = [self.cross_section.evaluate_integrand(vegas_variable)[phase] * jacobian * x**simulate_jac_power
+							for vegas_variable, jacobian, x in zip(vegas_variables,jacobians,xx)]
+		#print(abs(numpy.array(yy)))
+		#print(abs(numpy.array(sum_manual)))
+		#print(abs(numpy.array(sum_rust_f128)))
+		#print(abs(numpy.array(sum_rust_f64)))
+		#print(abs(numpy.array(sum_stabilised)))
+		markers = itertools.cycle(('v','<', '^', '>')) 
+		colors = cm.rainbow(numpy.linspace(0, 1, self.n_cutkosky_cuts))
+		plt.figure(figsize=(11,6))
+		for cut_index, color in zip(range(self.n_cutkosky_cuts),colors):
+			plt.plot(xx,abs(numpy.array(yy[cut_index])),marker=next(markers), color=color, ms=1,alpha=1,ls='None',
+						label='cut %i: (%s)'%(cut_index,','.join([cut['edge']+('%+d'%cut['sign'])[0] for cut in self.info.cuts[cut_index]['cuts']])))
+		plt.plot(xx,abs(numpy.array(sum_manual)),'b',marker='o',label='sum (python)',ms=0.5,alpha=1,ls='None')
+		plt.plot(xx,abs(numpy.array(sum_rust_f128)),'g',marker='o',label='sum (rust f128)',ms=0.5,alpha=1,ls='None')
+		plt.plot(xx,abs(numpy.array(sum_rust_f64)),'r',marker='o',label='sum (rust f64)',ms=0.5,alpha=1,ls='None')
+		plt.plot(xx,abs(numpy.array(sum_stabilised)),'k',marker='o',label='sum (stablised)',ms=0.5,alpha=1,ls='None')
+		plt.xlabel(r'$\mu$')
+		plt.xscale('log')
+		plt.yscale('log')
+		plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+		momenta_str = ''.join(['\n'+r'$p_{'+'%i'%int(name[1:])+'}=$'
+					+ scaling_fct_string
+					+ r'$E_{\mathrm{cm}}$'
+					+ '(%s)'%','.join(['%f'%k_i for k_i in spatial_direction])
+					if name in subgraph_basis 
+					else
+					'\n'+r'$p_{'+'%i'%int(name[1:])+'}=$'
+					+ r'$E_{\mathrm{cm}}$'
+					+ '(%s)'%','.join(['%f'%k_i for k_i in spatial_direction])
+					for name,spatial_direction in zip(self.supergraph_integration_basis,spatial_directions)])
+		simulate_jac_str = '\n multiplied by simulated jacobian factor ' + r'$\mu^%i$'%simulate_jac_power if simulate_jac_power !=0 else ''
+		plt.title(self.name + '\n' + title + momenta_str + simulate_jac_str)
+		plt.tight_layout()
+	
 	def probe_cancellation(self, spatial_loop_momenta, spatial_directions, phase=None, simulate_jac_power=0):
 		if phase is None:
 			phase = self.pv_phase
-		max_ranges = numpy.logspace(-1,-3,3)
+		max_ranges = numpy.logspace(-1,-5,5)
 		curr_max_var = 1e99
 		#max_factor = 1000
 		passed = True
@@ -568,8 +584,8 @@ class SquaredTopology(object):
 			#samples_without_zeros_and_outliers = [sample for sample in sum_stabilised_normalised if abs(sample) < max_factor]# and sample != 0.]
 			mean = numpy.mean(sum_stabilised_normalised)
 			var =  numpy.mean([(sample - mean)**2 for sample in sum_stabilised_normalised])
-			#print(var)
-			if curr_max_var > var:
+			print(var)
+			if curr_max_var >= var:
 				curr_max_var = var
 			else:
 				passed = False
@@ -591,6 +607,17 @@ class CutkoskyCut(SquaredTopology):
 		self.cutkosky_cut_shifts = [cut['signature'][1] for cut in self.squared_topology.info.cuts[self.index]['cuts']]
 		self.subgraphs = [SubGraph(self, 0), SubGraph(self, 1)]
 		self.tolerance = 1e-10
+
+	def __str__(self):
+		string = 'Cutkosky cut (%s)'%','.join([name+('%+d'%sign)[0] 
+					for name, sign in zip(self.cutkosky_cut_momenta, self.cutkosky_cut_energy_signs)])
+		return string
+
+	def evaluate_rust(self, spatial_loop_momenta):
+		res =  self.squared_topology.cross_section.evaluate_cut_f128(spatial_loop_momenta,self.index,
+						self.squared_topology.cross_section.get_scaling(spatial_loop_momenta,self.index)[1][0],
+						self.squared_topology.cross_section.get_scaling(spatial_loop_momenta,self.index)[1][1])
+		return res
 
 	def get_singular_surfaces(self, cutkosky_cut_momenta_num):
 		e_surfaces = []
@@ -629,11 +656,6 @@ class CutkoskyCut(SquaredTopology):
 			trsf_loop_to_cut_basis = numpy.array(reduced_trsf_loop_to_cut_basis).T
 		inv_trsf_loop_to_cut_basis = numpy.linalg.inv(trsf_loop_to_cut_basis)
 		trsf_loop_to_cut_shift = numpy.array(cut_shifts)
-		#spatial_external = numpy.array([external_momentum[1:] for external_momentum in self.external_momenta])
-		#print(cut_basis)
-		#print(trsf_loop_to_cut_shift)
-		#print(trsf_loop_to_cut_basis)
-		#supergraph_basis = inv_trsf_loop_to_cut_basis.dot(cut_basis-trsf_loop_to_cut_shift.dot(spatial_external))
 		return cut_basis, trsf_loop_to_cut_basis, trsf_loop_to_cut_shift
 
 	def get_PS_point(self,random_variables):
@@ -699,9 +721,37 @@ class SubGraph(CutkoskyCut):
 		self.n_loops = self.info.n_loops
 		if self.n_loops > 0:
 			self.ltd_cut_structures = [LTDCutStructure(self, ltd_cut_structure) for ltd_cut_structure in self.info.ltd_cut_structure]
+			# supergraph integration basis to supergraph cut basis
+			self.supergraph_basis_trsf = numpy.array([cutkosky_cut_signature for cutkosky_cut_signature in self.cutkosky_cut.cutkosky_cut_signatures[:-1]]
+													+ [signature for (signature,shift) in self.info.loop_momentum_map])
+			self.supergraph_shift_trsf = numpy.array([cutkosky_cut_shift for cutkosky_cut_shift in self.cutkosky_cut.cutkosky_cut_shifts[:-1]]
+													+ [shift for (signature,shift) in self.info.loop_momentum_map])
+			# if the matrix is not invertible it is because there's an intependent loop momentum in the other subgraph
+			# although the basis trsf won't be dependent on it, it is necessary to invert the matrix
+			# ideally the renduant loop momenta should be stripped away, leaving an invertible submatrix
+			self.supergraph_inv_basis_trsf = numpy.linalg.inv(self.supergraph_basis_trsf)
+			self.loop_basis = self.get_loop_basis()
 		else:
 			print('TODO: Complete the tree graph case!')
 		
+	def get_loop_basis(self):
+		loop_basis = []
+		index = 0
+		for loop_line in self.info.loop_lines:
+			for propagator in loop_line.propagators:
+				basis_signature = numpy.zeros(self.n_loops)
+				basis_signature[index] = 1
+				if (all(a==0 for a in propagator.parametric_shift[0]) 
+						and all(a==0 for a in propagator.parametric_shift[1])
+						and all(s1==s2 for s1,s2 in zip(propagator.signature,basis_signature))):
+					loop_basis += [propagator.name]
+					index += 1
+					if index == self.n_loops:
+						break
+			if index == self.n_loops:
+				break
+		return loop_basis
+
 	def get_singular_surfaces(self,cutkosky_cut_momenta_num):
 		e_surfaces = []
 		pinched_surfaces = []
@@ -751,17 +801,14 @@ class LTDCut(LTDCutStructure):
 		cut_indices_iter = iter(self.ltd_cut_indices)
 		self.external_shift_trsf = numpy.array([numpy.array(loop_line.propagators[next(cut_indices_iter)].parametric_shift[1]) for line, loop_line in zip(self.cut_structure.ltd_cut_structure,self.cut_structure.subgraph.info.loop_lines) if abs(line) != 0])
 		self.supergraph_cut_basis = [name for name in self.cut_structure.subgraph.cutkosky_cut.cutkosky_cut_momenta[:-1]]+[name for name in self.ltd_cut_momenta]
-		# supergraph loop basis to supergraph cut basis
-		self.supergraph_basis_trsf = numpy.array([cutkosky_cut_signature for cutkosky_cut_signature in self.cut_structure.subgraph.cutkosky_cut.cutkosky_cut_signatures[:-1]]
-												+ [signature for (signature,shift) in self.cut_structure.subgraph.info.loop_momentum_map])
-		self.supergraph_shift_trsf = numpy.array([cutkosky_cut_shift for cutkosky_cut_shift in self.cut_structure.subgraph.cutkosky_cut.cutkosky_cut_shifts[:-1]]
-												+ [shift for (signature,shift) in self.cut_structure.subgraph.info.loop_momentum_map])
-		# if the matrix is not invertible it is because there's an intependent loop momentum in the other subgraph
-		# although the basis trsf won't be dependent on it, it is necessary to invert the matrix
-		# ideally the renduant loop momenta should be stripped away, leaving an invertible submatrix
-		self.supergraph_inv_basis_trsf = numpy.linalg.inv(self.supergraph_basis_trsf)
 		self.ltd_loop_lines = [LTDLoopLine(self, i) for i,loop_line in enumerate(self.cut_structure.subgraph.info.loop_lines)]
 		
+	def __str__(self):
+		string = ('LTD cut (%s)'%','.join([name+('%+d'%sign)[0] 
+					for name, sign in zip(self.ltd_cut_momenta,self.cut_structure.ltd_cut_signature)])
+					+ ' in ' + str(self.cut_structure.subgraph.cutkosky_cut))
+		return string
+
 	def get_subgraph_basis_shift(self, cutkosky_cut_momenta_num):
 		return self.cutkosky_shift_trsf.dot(cutkosky_cut_momenta_num)+self.external_shift_trsf.dot(self.cut_structure.subgraph.cutkosky_cut.squared_topology.external_momenta_num)
 
@@ -769,7 +816,7 @@ class LTDCut(LTDCutStructure):
 		e_surfaces = []
 		pinched_surfaces = []
 		for ltd_loop_line in self.ltd_loop_lines:
-			if not ltd_loop_line.tree_line:
+			if not ltd_loop_line.is_tree_line:
 				e_surfaces += ltd_loop_line.get_singular_surfaces(cutkosky_cut_momenta_num)['e_surfaces']
 				pinched_surfaces += ltd_loop_line.get_singular_surfaces(cutkosky_cut_momenta_num)['pinched_surfaces']
 		return {'e_surfaces': e_surfaces, 'pinched_surfaces': pinched_surfaces}
@@ -779,7 +826,7 @@ class LTDLoopLine(LTDCut):
 		self.ltd_cut = ltd_cut
 		self.loop_line_index = loop_line_index
 		this_loop_line = self.ltd_cut.cut_structure.subgraph.info.loop_lines[self.loop_line_index]
-		self.tree_line = all([sign == 0 for sign in this_loop_line.signature])
+		self.is_tree_line = all([sign == 0 for sign in this_loop_line.signature])
 		# signature in cut basis
 		self.basis_signature = numpy.array(this_loop_line.signature).dot(self.ltd_cut.cut_structure.inv_basis_trsf)
 		# signature when multiplied with cut structure signs
@@ -821,10 +868,7 @@ class LTDPropagator(LTDLoopLine):
 
 	def __str__(self):
 		string = ('propagator %s'%self.propagator_name
-				+ ' in LTD cut (%s)'%','.join([name+('%+d'%sign)[0] 
-					for name, sign in zip(self.ltd_loop_line.ltd_cut.ltd_cut_momenta,self.ltd_loop_line.ltd_cut.cut_structure.ltd_cut_signature)])
-				+ ' in Cutkosky cut (%s)'%','.join([name+('%+d'%sign)[0] 
-					for name, sign in zip(self.ltd_loop_line.ltd_cut.cut_structure.subgraph.cutkosky_cut.cutkosky_cut_momenta, self.ltd_loop_line.ltd_cut.cut_structure.subgraph.cutkosky_cut.cutkosky_cut_energy_signs)]))
+				+ ' in ' + str(self.ltd_loop_line.ltd_cut))
 		return string
 
 	def get_total_shift(self, cutkosky_cut_momenta_num):
@@ -867,7 +911,7 @@ class LTDPropagator(LTDLoopLine):
 		os_subgraph_cut_basis = self.get_os_subgraph_cut_basis(cutkosky_cut_momenta_num, random_variables)
 		os_subgraph_integration_basis = self.ltd_loop_line.ltd_cut.cut_structure.inv_basis_trsf.dot(os_subgraph_cut_basis - self.ltd_loop_line.ltd_cut.get_subgraph_basis_shift(cutkosky_cut_momenta_num))
 		os_supergraph_cut_basis = numpy.array([momentum for momentum in cutkosky_cut_momenta_num[:-1]]+[momentum for momentum in os_subgraph_integration_basis])
-		os_supergraph_integration_basis = self.ltd_loop_line.ltd_cut.supergraph_inv_basis_trsf.dot(os_supergraph_cut_basis - self.ltd_loop_line.ltd_cut.supergraph_shift_trsf.dot(self.ltd_loop_line.ltd_cut.cut_structure.subgraph.cutkosky_cut.squared_topology.external_momenta_num))
+		os_supergraph_integration_basis = self.ltd_loop_line.ltd_cut.cut_structure.subgraph.supergraph_inv_basis_trsf.dot(os_supergraph_cut_basis - self.ltd_loop_line.ltd_cut.cut_structure.subgraph.supergraph_shift_trsf.dot(self.ltd_loop_line.ltd_cut.cut_structure.subgraph.cutkosky_cut.squared_topology.external_momenta_num))
 		os_supergraph_integration_basis = [vectors.LorentzVector(p) for p in os_supergraph_integration_basis]
 		assert(self.check_parameterisation(os_supergraph_integration_basis))
 		return os_supergraph_integration_basis
@@ -954,7 +998,7 @@ class LTDPropagator(LTDLoopLine):
 				os_subgraph_cut_basis[index] = basis_momentum
 		else:
 			raise ValueError("This propagator cannot go on-shell.")
-		return os_subgraph_cut_basis
+		return os_subgraph_cut_basis	
 
 	def check_parameterisation(self, os_supergraph_integration_basis):
 		passed = True
@@ -971,6 +1015,8 @@ class LTDPropagator(LTDLoopLine):
 if __name__ == "__main__":
 
 	random.seed(1)
+	#print(dir(ltd.CrossSection))
+	#stop
 
 	# the double triangle master graph
 	t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
@@ -989,15 +1035,198 @@ if __name__ == "__main__":
 		loop_momenta_names=('p1', 'p2', 'p3'),
 		particle_ids={'p%s' % i: i for i in range(9)})
 
+	ee_to_dd_2l_doubletriangle = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 1), ('q3', 6, 103), ('q4', 6, 104), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 5), ('p4', 5, 6),
+    ('p5',5, 4), ('p6', 4, 2), ('p7', 4, 3)],
+        "ee_to_dd_2l_doubletriangle", ['q1', 'q2'], 2, {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
+        loop_momenta_names=('p2', 'p3'),
+        particle_ids={'p%s' % i: i for i in range(8)},
+        overall_numerator=1.0,
+#        cut_filter={('p3', 'p5')},
+        numerator_structure={('p2', 'p5', 'p7'):
+            { (): # uv structure
+            [[[0,4],[0.,+2.954161761482786e8]],
+            [[0,4,4],[0.,+1.477080880741393e8]],
+            [[0,7,7],[0.,-1.477080880741393e8]],
+            [[1,5],[0.,-2.954161761482786e8]],
+            [[1,4,5],[0.,-1.477080880741393e8]],
+            [[2,6],[0.,-2.954161761482786e8]],
+            [[2,4,6],[0.,-1.477080880741393e8]],
+            [[3,7],[0.,-2.954161761482786e8]],
+            [[0,0,4],[0.,-1.477080880741393e8]],
+            [[0,0,4,4],[0.,-7.385404403706966e7]],
+            [[0,0,5,5],[0.,+7.385404403706966e7]],
+            [[0,0,6,6],[0.,+7.385404403706966e7]],
+            [[0,0,7,7],[0.,+7.385404403706966e7]],
+            [[0,1,5],[0.,+1.477080880741393e8]],
+            [[0,1,4,5],[0.,+1.477080880741393e8]],
+            [[0,2,6],[0.,+1.477080880741393e8]],
+            [[0,2,4,6],[0.,+1.477080880741393e8]],
+            [[1,1,5,5],[0.,-1.477080880741393e8]],
+            [[1,2,5,6],[0.,-2.954161761482786e8]],
+            [[1,3,5,7],[0.,-1.477080880741393e8]],
+            [[2,2,6,6],[0.,-1.477080880741393e8]],
+            [[2,3,6,7],[0.,-1.477080880741393e8]],
+            [[3,3,4],[0.,+1.477080880741393e8]],
+            [[3,3,4,4],[0.,+7.385404403706966e7]],
+            [[3,3,5,5],[0.,-7.385404403706966e7]],
+            [[3,3,6,6],[0.,-7.385404403706966e7]],
+            [[3,3,7,7],[0.,-7.385404403706966e7]]]
+            },
+            ('p3', 'p6', 'p7'):
+            { (): # uv structure
+            [[[0,4],[0.,+2.954161761482786e8]],
+            [[0,4,4],[0.,+1.477080880741393e8]],
+            [[0,7,7],[0.,-1.477080880741393e8]],
+            [[1,5],[0.,-2.954161761482786e8]],
+            [[1,4,5],[0.,-1.477080880741393e8]],
+            [[2,6],[0.,-2.954161761482786e8]],
+            [[2,4,6],[0.,-1.477080880741393e8]],
+            [[3,7],[0.,-2.954161761482786e8]],
+            [[0,0,4],[0.,-1.477080880741393e8]],
+            [[0,0,4,4],[0.,-7.385404403706966e7]],
+            [[0,0,5,5],[0.,+7.385404403706966e7]],
+            [[0,0,6,6],[0.,+7.385404403706966e7]],
+            [[0,0,7,7],[0.,+7.385404403706966e7]],
+            [[0,1,5],[0.,+1.477080880741393e8]],
+            [[0,1,4,5],[0.,+1.477080880741393e8]],
+            [[0,2,6],[0.,+1.477080880741393e8]],
+            [[0,2,4,6],[0.,+1.477080880741393e8]],
+            [[1,1,5,5],[0.,-1.477080880741393e8]],
+            [[1,2,5,6],[0.,-2.954161761482786e8]],
+            [[1,3,5,7],[0.,-1.477080880741393e8]],
+            [[2,2,6,6],[0.,-1.477080880741393e8]],
+            [[2,3,6,7],[0.,-1.477080880741393e8]],
+            [[3,3,4],[0.,+1.477080880741393e8]],
+            [[3,3,4,4],[0.,+7.385404403706966e7]],
+            [[3,3,5,5],[0.,-7.385404403706966e7]],
+            [[3,3,6,6],[0.,-7.385404403706966e7]],
+            [[3,3,7,7],[0.,-7.385404403706966e7]]]
+            },
+            ('p2', 'p6'):
+            {():
+            [[[0,4],[0.,-2.954161761482786e8]],
+            [[0,4,4],[0.,+1.477080880741393e8]],
+            [[0,7,7],[0.,-1.477080880741393e8]],
+            [[1,4,5],[0.,-1.477080880741393e8]],
+            [[2,4,6],[0.,-1.477080880741393e8]],
+            [[3,7],[0.,-2.954161761482786e8]],
+            [[0,0,4],[0.,+1.477080880741393e8]],
+            [[0,0,4,4],[0.,-7.385404403706966e7]],
+            [[0,0,5,5],[0.,+7.385404403706966e7]],
+            [[0,0,6,6],[0.,+7.385404403706966e7]],
+            [[0,0,7,7],[0.,+7.385404403706966e7]],
+            [[0,1,5],[0.,-1.477080880741393e8]],
+            [[0,1,4,5],[0.,+1.477080880741393e8]],
+            [[0,2,6],[0.,-1.477080880741393e8]],
+            [[0,2,4,6],[0.,+1.477080880741393e8]],
+            [[1,1,5,5],[0.,-1.477080880741393e8]],
+            [[1,2,5,6],[0.,-2.954161761482786e8]],
+            [[1,3,5,7],[0.,-1.477080880741393e8]],
+            [[2,2,6,6],[0.,-1.477080880741393e8]],
+            [[2,3,6,7],[0.,-1.477080880741393e8]],
+            [[3,3,4],[0.,-1.477080880741393e8]],
+            [[3,3,4,4],[0.,+7.385404403706966e7]],
+            [[3,3,5,5],[0.,-7.385404403706966e7]],
+            [[3,3,6,6],[0.,-7.385404403706966e7]],
+            [[3,3,7,7],[0.,-7.385404403706966e7]]],
+            ('p3',):
+            [[[0],[0.,+4.726658818372458e9]],
+            [[0,4,4],[0.,-1.477080880741393e8]],
+            [[0,7,7],[0.,+1.477080880741393e8]],
+            [[1,4,5],[0.,+1.477080880741393e8]],
+            [[2,4,6],[0.,+1.477080880741393e8]],
+            [[0,0],[0.,-2.363329409186229e9]],
+            [[0,0,4,4],[0.,+7.385404403706966e7]],
+            [[0,0,5,5],[0.,-7.385404403706966e7]],
+            [[0,0,6,6],[0.,-7.385404403706966e7]],
+            [[0,0,7,7],[0.,-7.385404403706966e7]],
+            [[0,1,4,5],[0.,-1.477080880741393e8]],
+            [[0,2,4,6],[0.,-1.477080880741393e8]],
+            [[1,1,5,5],[0.,+1.477080880741393e8]],
+            [[1,2,5,6],[0.,+2.954161761482786e8]],
+            [[1,3,5,7],[0.,+1.477080880741393e8]],
+            [[2,2,6,6],[0.,+1.477080880741393e8]],
+            [[2,3,6,7],[0.,+1.477080880741393e8]],
+            [[3,3],[0.,+2.363329409186229e9]],
+            [[3,3,4,4],[0.,-7.385404403706966e7]],
+            [[3,3,5,5],[0.,+7.385404403706966e7]],
+            [[3,3,6,6],[0.,+7.385404403706966e7]],
+            [[3,3,7,7],[0.,+7.385404403706966e7]]]
+            },
+            ('p3', 'p5'):
+            {():
+                [[[0,4],[0.,-2.954161761482786e8]],
+                [[0,4,4],[0.,+1.477080880741393e8]],
+                [[0,7,7],[0.,-1.477080880741393e8]],
+                [[1,4,5],[0.,-1.477080880741393e8]],
+                [[2,4,6],[0.,-1.477080880741393e8]],
+                [[3,7],[0.,-2.954161761482786e8]],
+                [[0,0,4],[0.,+1.477080880741393e8]],
+                [[0,0,4,4],[0.,-7.385404403706966e7]],
+                [[0,0,5,5],[0.,+7.385404403706966e7]],
+                [[0,0,6,6],[0.,+7.385404403706966e7]],
+                [[0,0,7,7],[0.,+7.385404403706966e7]],
+                [[0,1,5],[0.,-1.477080880741393e8]],
+                [[0,1,4,5],[0.,+1.477080880741393e8]],
+                [[0,2,6],[0.,-1.477080880741393e8]],
+                [[0,2,4,6],[0.,+1.477080880741393e8]],
+                [[1,1,5,5],[0.,-1.477080880741393e8]],
+                [[1,2,5,6],[0.,-2.954161761482786e8]],
+                [[1,3,5,7],[0.,-1.477080880741393e8]],
+                [[2,2,6,6],[0.,-1.477080880741393e8]],
+                [[2,3,6,7],[0.,-1.477080880741393e8]],
+                [[3,3,4],[0.,-1.477080880741393e8]],
+                [[3,3,4,4],[0.,+7.385404403706966e7]],
+                [[3,3,5,5],[0.,-7.385404403706966e7]],
+                [[3,3,6,6],[0.,-7.385404403706966e7]],
+                [[3,3,7,7],[0.,-7.385404403706966e7]]],
+            ('p2',):
+                [[[0],[0.,4.726658818372458e9]],
+                [[0,4,4],[0.,-1.477080880741393e8]],
+                [[0,7,7],[0.,1.477080880741393e8]],
+                [[1,4,5],[0.,1.477080880741393e8]],
+                [[2,4,6],[0.,1.477080880741393e8]],
+                [[0,0],[0.,-2.363329409186229e9]],
+                [[0,0,4,4],[0.,7.385404403706966e7]],
+                [[0,0,5,5],[0.,-7.385404403706966e7]],
+                [[0,0,6,6],[0.,-7.385404403706966e7]],
+                [[0,0,7,7],[0.,-7.385404403706966e7]],
+                [[0,1,4,5],[0.,-1.477080880741393e8]],
+                [[0,2,4,6],[0.,-1.477080880741393e8]],
+                [[1,1,5,5],[0.,1.477080880741393e8]],
+                [[1,2,5,6],[0.,2.954161761482786e8]],
+                [[1,3,5,7],[0.,1.477080880741393e8]],
+                [[2,2,6,6],[0.,1.477080880741393e8]],
+                [[2,3,6,7],[0.,1.477080880741393e8]],
+                [[3,3],[0.,2.363329409186229e9]],
+                [[3,3,4,4],[0.,-7.385404403706966e7]],
+                [[3,3,5,5],[0.,7.385404403706966e7]],
+                [[3,3,6,6],[0.,7.385404403706966e7]],
+                [[3,3,7,7],[0.,7.385404403706966e7]]]
+            },
+            }
+        )
+
 	info = mercedes
 
 	squared_topology = SquaredTopology(info, "hyperparameters.yaml")
-	
-	CUT_INDEX = 2
+
+	CUT_INDEX = 1
 	random_variables = [random.random() for i in range(3*len(info.cuts[CUT_INDEX]['cuts'])-4)]
 	cut_momenta = squared_topology.cutkosky_cuts[CUT_INDEX].get_PS_point(random_variables)
 	cutkosky_cut_momenta_num = [cut_momenta[cut['edge']] for cut in info.cuts[CUT_INDEX]['cuts']]
 	singular_surfaces = squared_topology.cutkosky_cuts[CUT_INDEX].get_singular_surfaces(cutkosky_cut_momenta_num)
+	
+	for c,cutkosky_cut in enumerate(squared_topology.cutkosky_cuts):
+		for i,subgraph in enumerate(cutkosky_cut.subgraphs):
+			if subgraph.n_loops > 0:
+				side = 'left' if i == 0 else 'right'
+				title = 'UV region in ' + side + ' subgraph in ' + str(cutkosky_cut)
+				random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(squared_topology.n_loops)]
+				random_directions = [direction/numpy.linalg.norm(direction) for direction in random_directions]
+				squared_topology.plot_uv(subgraph.loop_basis, random_directions, title=title, precision='f128')
+	#plt.show()
+	#stop
 
 	for e_surface in singular_surfaces['e_surfaces']:
 		title = 'E-surface (%i dim) '%e_surface.e_surface_dimension + str(e_surface)
@@ -1005,10 +1234,10 @@ if __name__ == "__main__":
 		random_variables = [random.random() for i in range(3*e_surface.ltd_loop_line.ltd_cut.cut_structure.subgraph.n_loops-1)]
 		os_supergraph_integration_basis = e_surface.get_os_supergraph_integration_basis(cutkosky_cut_momenta_num, random_variables)
 		spatial_os_supergraph_integration_basis = [p.space() for p in os_supergraph_integration_basis]
-		random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(info.topo.n_loops)]
+		random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(squared_topology.n_loops)]
 		random_directions = [direction/numpy.linalg.norm(direction) for direction in random_directions]
-		squared_topology.plot(spatial_os_supergraph_integration_basis,random_directions, title=title,precision='f128')
-		squared_topology.probe_cancellation(spatial_os_supergraph_integration_basis,random_directions)
+		squared_topology.plot_singularity(spatial_os_supergraph_integration_basis,random_directions, title=title, precision='f128')#, phase=0)
+		#squared_topology.probe_cancellation(spatial_os_supergraph_integration_basis,random_directions)
 	for pinched_surface in singular_surfaces['pinched_surfaces']:
 		title = 'Pinched surface (%i dim) '%pinched_surface.pinched_surface_dimension + str(pinched_surface)
 		print(10*'='+'{:=<100}'.format(' '+title+' '))
@@ -1016,10 +1245,10 @@ if __name__ == "__main__":
 		#random_variables = [1 for i in range(3*pinched_surface.ltd_loop_line.ltd_cut.cut_structure.subgraph.n_loops-1)]
 		os_supergraph_integration_basis = pinched_surface.get_os_supergraph_integration_basis(cutkosky_cut_momenta_num, random_variables)
 		spatial_os_supergraph_integration_basis = [p.space() for p in os_supergraph_integration_basis]
-		random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(info.topo.n_loops)]
+		random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(squared_topology.n_loops)]
 		random_directions = [direction/numpy.linalg.norm(direction) for direction in random_directions]
-		squared_topology.plot(spatial_os_supergraph_integration_basis, random_directions, title=title, precision='f128')#,simulate_jac_power=2)
-		squared_topology.probe_cancellation(spatial_os_supergraph_integration_basis,random_directions)
+		squared_topology.plot_singularity(spatial_os_supergraph_integration_basis, random_directions, title=title, precision='f128')#, phase=0)#,simulate_jac_power=2)
+		#squared_topology.probe_cancellation(spatial_os_supergraph_integration_basis,random_directions)
 	plt.show()
 
 
