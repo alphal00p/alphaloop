@@ -1267,7 +1267,7 @@ fn inspect<'a>(
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
 
-        let integrand = match diagram {
+        match diagram {
             Diagram::CrossSection(sqt) => Integrand::new(
                 sqt.n_loops,
                 sqt.clone(),

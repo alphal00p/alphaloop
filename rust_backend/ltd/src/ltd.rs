@@ -3158,16 +3158,52 @@ impl LTDNumerator {
             numerator_coefficients.push(coeff);
         }
 
+        // Compute a mapping directly from the non-empty numerator entries to the reduced
+        // numerator for a varying number of fixed energies
+        let mut non_empty_coeff_map_to_reduced_numerator = vec![];
+        let mut coeff_map_to_reduced_numerator = vec![];
+        for absorb_n_energies in 0..=n_loops {
+            let mut numerator_map = vec![];
+            let mut full_numerator_map = vec![];
+            let mut red_pows = [0; MAX_LOOP];
+            for (i, (&c, powers)) in numerator_coefficients
+                .iter()
+                .zip(coefficient_index_to_powers.iter())
+                .enumerate()
+            {
+                for i in absorb_n_energies..n_loops {
+                    red_pows[i] = powers[i];
+                }
+
+                let reduced_pos = LTDNumerator::powers_to_position(
+                    &red_pows[..n_loops],
+                    n_loops,
+                    &reduced_blocks,
+                );
+
+                if !c.is_zero() {
+                    numerator_map.push((i, reduced_pos, c.clone()));
+                }
+                full_numerator_map.push(reduced_pos);
+            }
+
+            non_empty_coeff_map_to_reduced_numerator.push(numerator_map);
+            coeff_map_to_reduced_numerator.push(full_numerator_map);
+        }
+
         LTDNumerator {
             coefficients: numerator_coefficients,
-            n_loops: n_loops,
-            max_rank: max_rank,
-            reduced_size: reduced_size,
-            sorted_linear: sorted_linear,
-            coefficient_index_map: coefficient_index_map,
-            coefficient_index_to_powers: coefficient_index_to_powers,
-            reduced_coefficient_index_to_powers: reduced_coefficient_index_to_powers,
-            reduced_blocks: reduced_blocks,
+            n_loops,
+            max_rank,
+            reduced_size,
+            sorted_linear,
+            coefficient_index_map,
+            coefficient_index_to_powers,
+            reduced_coefficient_index_to_powers,
+            reduced_blocks,
+            non_empty_coeff_map_to_reduced_numerator,
+            coeff_map_to_reduced_numerator,
+            coefficients_modified: false,
         }
     }
 
@@ -3405,7 +3441,7 @@ impl LTDNumerator {
     ) {
         // Update tensor loop dependent part
         self.update_numerator_momentum_some_energies(loop_momenta, absorb_n_energies, cache);
-        // Initialize the reduced_coefficeints_lb with the factors coming from evaluating
+        // Initialize the reduced_coefficients_lb with the factors coming from evaluating
         // the vectorial part of the loop momenta
         if cache.reduced_coefficient_lb[num_id].len() < self.reduced_size {
             cache.reduced_coefficient_lb[num_id].resize(self.reduced_size, Complex::default());
@@ -3414,27 +3450,29 @@ impl LTDNumerator {
             *c = Complex::default();
         }
 
-        let mut red_pows = [0; MAX_LOOP];
-        for (i, (&c, powers)) in self
-            .coefficients
-            .iter()
-            .zip(self.coefficient_index_to_powers.iter())
-            .enumerate()
-        {
-            if c.is_zero() {
-                continue;
-            }
-
-            for i in absorb_n_energies..self.n_loops {
-                red_pows[i] = powers[i];
-            }
-
-            //let old_reduced_pos = self.reduced_powers_to_position(powers);
-            //let new_reduced_pos = self.reduced_powers_to_position(&red_pows);
-            //println!("{:?} -> {} -> {}", powers, old_reduced_pos, new_reduced_pos);
-            cache.reduced_coefficient_lb[num_id][self.reduced_powers_to_position(&red_pows)] +=
-                cache.numerator_momentum_cache[i]
+        if !self.coefficients_modified {
+            for (i, reduced_index, c) in
+                self.non_empty_coeff_map_to_reduced_numerator[absorb_n_energies].iter()
+            {
+                cache.reduced_coefficient_lb[num_id][*reduced_index] += cache
+                    .numerator_momentum_cache[*i]
                     * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+            }
+        } else {
+            for (i, (c, reduced_index)) in self
+                .coefficients
+                .iter()
+                .zip(self.coeff_map_to_reduced_numerator[absorb_n_energies].iter())
+                .enumerate()
+            {
+                if c.is_zero() {
+                    continue;
+                }
+
+                cache.reduced_coefficient_lb[num_id][*reduced_index] += cache
+                    .numerator_momentum_cache[i]
+                    * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+            }
         }
     }
 

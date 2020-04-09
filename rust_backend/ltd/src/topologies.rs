@@ -420,6 +420,9 @@ pub struct LTDNumerator {
     pub coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
     pub reduced_coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
     pub reduced_blocks: Vec<usize>,
+    pub coefficients_modified: bool,
+    pub non_empty_coeff_map_to_reduced_numerator: Vec<Vec<(usize, usize, Complex<f64>)>>,
+    pub coeff_map_to_reduced_numerator: Vec<Vec<usize>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

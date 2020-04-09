@@ -682,6 +682,7 @@ impl SquaredTopology {
                     // build the subgraph numerator
                     // TODO: build the reduced numerator directly
                     // TODO: cache, such that we never compute a subgraph with the same numerator twice
+                    subgraph.numerator.coefficients_modified = true;
                     for n in &mut subgraph.numerator.coefficients {
                         *n = Complex::zero();
                     }
