@@ -563,11 +563,33 @@ fn divonne_integrand(
     integrand(x, f, user_data, nvec, core, &[], 1)
 }
 
-fn bench(topo: &mut Topology, settings: &Settings) {
-    let mut x = vec![0.; 3 * topo.n_loops];
-    let mut rng = rand::thread_rng();
+fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: &Settings) {
+    let mut integrand = match diagram {
+        Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
+            sqt.n_loops,
+            sqt.clone(),
+            settings.clone(),
+            true,
+            status_update_sender,
+            1,
+        )),
+        Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
+            topo.n_loops,
+            topo.clone(),
+            settings.clone(),
+            false,
+            status_update_sender,
+            1,
+        )),
+    };
 
-    let mut cache = LTDCache::<float>::new(&topo);
+    let n_loops = match &diagram {
+        Diagram::CrossSection(sqt) => sqt.n_loops,
+        Diagram::Topology(t) => t.n_loops,
+    };
+
+    let mut x = vec![0.; 3 * n_loops];
+    let mut rng: StdRng = SeedableRng::seed_from_u64(100);
 
     let now = Instant::now();
     for _ in 0..settings.integrator.n_max {
@@ -575,7 +597,10 @@ fn bench(topo: &mut Topology, settings: &Settings) {
             *xi = rng.gen();
         }
 
-        let _r = topo.evaluate::<float>(&x, &mut cache);
+        match &mut integrand {
+            Integrands::CrossSection(sqt) => sqt.evaluate(&x, 1., 1),
+            Integrands::Topology(t) => t.evaluate(&x, 1., 1),
+        };
     }
 
     println!("{:#?}", now.elapsed());
@@ -1200,20 +1225,25 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
 }
 
 fn inspect<'a>(
-    topo: &Topology,
-    log_sender: StatusUpdateSender,
+    diagram: &Diagram,
+    status_update_sender: StatusUpdateSender,
     settings: &mut Settings,
     matches: &ArgMatches<'a>,
 ) {
+    let (n_loops, e_cm_squared) = match &diagram {
+        Diagram::CrossSection(sqt) => (sqt.n_loops, sqt.e_cm_squared),
+        Diagram::Topology(t) => (t.n_loops, t.e_cm_squared),
+    };
+
     let mut pt: Vec<_> = matches
         .values_of("point")
         .unwrap()
         .map(|x| f64::from_str(x).unwrap())
         .collect();
-    if pt.len() != 3 * topo.n_loops {
+    if pt.len() != 3 * n_loops {
         panic!(
             "Dimension of the input point is incorrect. It should be {} but is {}.",
-            topo.n_loops * 3,
+            n_loops * 3,
             pt.len()
         );
     }
@@ -1223,7 +1253,7 @@ fn inspect<'a>(
         for (i, x) in pt.chunks_exact_mut(3).enumerate() {
             let r = Topology::inv_parametrize::<f128::f128>(
                 &LorentzVector::from_args(0., x[0], x[1], x[2]),
-                topo.e_cm_squared,
+                e_cm_squared,
                 i,
                 &settings,
             );
@@ -1236,24 +1266,44 @@ fn inspect<'a>(
     if matches.is_present("full_integrand") {
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
-        let mut i = Integrand::new(
-            topo.n_loops,
-            topo.clone(),
-            settings.clone(),
-            false,
-            log_sender,
-            1,
-        );
-        i.evaluate(&pt, 1., 1);
+
+        let integrand = match diagram {
+            Diagram::CrossSection(sqt) => Integrand::new(
+                sqt.n_loops,
+                sqt.clone(),
+                settings.clone(),
+                true,
+                status_update_sender,
+                1,
+            )
+            .evaluate(&pt, 1., 1),
+            Diagram::Topology(topo) => Integrand::new(
+                topo.n_loops,
+                topo.clone(),
+                settings.clone(),
+                false,
+                status_update_sender,
+                1,
+            )
+            .evaluate(&pt, 1., 1),
+        };
         return;
     }
 
     // TODO: prevent code repetition
     if matches.is_present("use_f128") {
-        let mut cache = LTDCache::<f128::f128>::new(&topo);
-        let (x, k_def, jac_para, jac_def, result) =
-            topo.clone().evaluate::<f128::f128>(&pt, &mut cache);
-        match topo.n_loops {
+        let (x, k_def, jac_para, jac_def, result) = match diagram {
+            Diagram::CrossSection(sqt) => {
+                let mut cache = sqt.create_caches();
+                sqt.clone().evaluate::<f128::f128>(&pt, &mut cache, None)
+            }
+            Diagram::Topology(t) => {
+                let mut cache = LTDCache::<f128::f128>::new(&t);
+                t.clone().evaluate::<f128::f128>(&pt, &mut cache)
+            }
+        };
+
+        match n_loops {
             1 => {
                 println!(
                     "result={:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
@@ -1281,9 +1331,17 @@ fn inspect<'a>(
             _ => {}
         }
     } else {
-        let mut cache = LTDCache::<float>::new(&topo);
-        let (x, k_def, jac_para, jac_def, result) = topo.clone().evaluate::<float>(&pt, &mut cache);
-        match topo.n_loops {
+        let (x, k_def, jac_para, jac_def, result) = match diagram {
+            Diagram::CrossSection(sqt) => {
+                let mut cache = sqt.create_caches();
+                sqt.clone().evaluate::<float>(&pt, &mut cache, None)
+            }
+            Diagram::Topology(t) => {
+                let mut cache = LTDCache::<float>::new(&t);
+                t.clone().evaluate::<float>(&pt, &mut cache)
+            }
+        };
+        match n_loops {
             1 => {
                 println!(
                     "result={:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
@@ -1559,6 +1617,10 @@ fn main() {
         settings.integrator.dashboard = false;
     }
 
+    if matches.is_present("bench") || matches.is_present("inspect") {
+        settings.integrator.dashboard = false;
+    }
+
     let mut dashboard = Dashboard::new(settings.integrator.dashboard);
 
     let mut diagram = if let Some(cs_opt) = matches.value_of("cross_section") {
@@ -1596,6 +1658,21 @@ fn main() {
         Diagram::Topology(topo)
     };
 
+    if let Some(_) = matches.subcommand_matches("bench") {
+        bench(&diagram, dashboard.status_update_sender, &settings);
+        return;
+    }
+
+    if let Some(matches) = matches.subcommand_matches("inspect") {
+        inspect(
+            &diagram,
+            dashboard.status_update_sender,
+            &mut settings,
+            matches,
+        );
+        return;
+    }
+
     match &mut diagram {
         Diagram::CrossSection(sqt) => {
             dashboard
@@ -1607,16 +1684,8 @@ fn main() {
                 .unwrap();
         }
         Diagram::Topology(topo) => {
-            if let Some(_) = matches.subcommand_matches("bench") {
-                bench(topo, &settings);
-                return;
-            }
             if let Some(matches) = matches.subcommand_matches("probe") {
                 surface_prober(topo, &settings, matches);
-                return;
-            }
-            if let Some(matches) = matches.subcommand_matches("inspect") {
-                inspect(topo, dashboard.status_update_sender, &mut settings, matches);
                 return;
             }
             if let Some(_) = matches.subcommand_matches("integrated_ct") {

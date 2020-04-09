@@ -3421,6 +3421,10 @@ impl LTDNumerator {
             .zip(self.coefficient_index_to_powers.iter())
             .enumerate()
         {
+            if c.is_zero() {
+                continue;
+            }
+
             for i in absorb_n_energies..self.n_loops {
                 red_pows[i] = powers[i];
             }

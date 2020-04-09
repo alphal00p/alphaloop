@@ -72,17 +72,14 @@ impl IntegrandStatistics {
     }
 
     pub fn merge(&mut self, other: &mut IntegrandStatistics) {
-        self.running_max = if self.running_max.norm_sqr() < other.running_max.norm_sqr() {
-            other.running_max
-        } else {
-            self.running_max
-        };
         self.total_samples += other.total_samples;
         self.regular_point_count += other.regular_point_count;
         self.unstable_point_count += other.unstable_point_count;
         self.unstable_f128_point_count += other.unstable_f128_point_count;
         self.nan_point_count += other.nan_point_count;
         self.total_sample_time += other.total_sample_time;
+        self.running_max.re = self.running_max.re.max(other.running_max.re);
+        self.running_max.im = self.running_max.im.max(other.running_max.im);
 
         other.total_samples = 0;
         other.regular_point_count = 0;
@@ -752,27 +749,13 @@ impl<I: IntegrandImplementation> Integrand<I> {
         }
 
         let mut new_max = false;
-        match self.settings.integrator.integrated_phase {
-            IntegratedPhase::Real => {
-                if result.re.abs() * weight > self.integrand_statistics.running_max.re.abs() {
-                    self.integrand_statistics.running_max = result * weight;
-                    new_max = true;
-                }
-            }
-            IntegratedPhase::Imag => {
-                if result.im.abs() * weight > self.integrand_statistics.running_max.im.abs() {
-                    self.integrand_statistics.running_max = result * weight;
-                    new_max = true;
-                }
-            }
-            IntegratedPhase::Both => {
-                if result.norm_sqr() * weight * weight
-                    > self.integrand_statistics.running_max.norm_sqr()
-                {
-                    self.integrand_statistics.running_max = result * weight;
-                    new_max = true;
-                }
-            }
+        if self.integrand_statistics.running_max.re < result.re.abs() * weight {
+            new_max = true;
+            self.integrand_statistics.running_max.re = result.re.abs() * weight;
+        }
+        if self.integrand_statistics.running_max.im < result.im.abs() * weight {
+            new_max = true;
+            self.integrand_statistics.running_max.im = result.im.abs() * weight;
         }
 
         if self.settings.general.integration_statistics {
