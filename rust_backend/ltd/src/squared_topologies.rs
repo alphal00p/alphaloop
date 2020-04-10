@@ -522,6 +522,8 @@ impl SquaredTopology {
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();
         let mut def_jacobian = Complex::one();
+        // regenerate the evaluation of the exponent map of the numerator since the loop momenta have changed
+        let mut regenerate_momenta = true;
         for (uv_index, (cut_uv_limit, diag_cache)) in
             cutkosky_cuts.uv_limits.iter_mut().zip(cache).enumerate()
         {
@@ -542,8 +544,29 @@ impl SquaredTopology {
                 subgraph.update_ellipsoids();
 
                 if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+                    use topologies;
+
+                    if uv_index == 0 {
                     subgraph.fixed_deformation =
-                        subgraph.determine_ellipsoid_overlap_structure(true);
+                        //subgraph.determine_ellipsoid_overlap_structure(true);
+                        {
+                        let origin = [LorentzVector::default(); MAX_LOOP];
+                        
+                        vec![topologies::FixedDeformationLimit {
+                            deformation_per_overlap: vec![topologies::FixedDeformationOverlap {
+                                deformation_sources: origin[..self.n_loops].to_vec(),
+                                excluded_surface_ids: vec![],
+                                excluded_surface_indices: vec![],
+                                overlap: None,
+                                radius: self.e_cm_squared,
+                            }],
+                            excluded_propagators: vec![],
+                        }]
+                        };
+
+                    } else {
+                        subgraph.fixed_deformation = vec![];
+                    }
 
                     if self.settings.general.debug > 0 {
                         // check if the overlap structure makes sense
@@ -563,7 +586,6 @@ impl SquaredTopology {
 
             // compute the deformation vectors
             let mut k_def_index = cutkosky_cuts.cuts.len() - 1;
-
             for ((subgraph, subgraph_cache), &conjugate_deformation) in cut_uv_limit
                 .diagrams
                 .iter_mut()
@@ -629,6 +651,8 @@ impl SquaredTopology {
                 {
                     panic!("NaN on cut energy");
                 }
+
+                subgraph_cache.cached_topology_integrand.clear();
             }
 
             // evaluate the cut numerator with the spatial parts of all loop momenta and
@@ -640,7 +664,9 @@ impl SquaredTopology {
                 cutkosky_cuts.cuts.len() - 1,
                 &mut diag_cache[0],
                 0,
+                regenerate_momenta
             );
+            regenerate_momenta = false;
 
             let left_cache = &mut diag_cache[0];
             mem::swap(
@@ -653,7 +679,7 @@ impl SquaredTopology {
                 vec![],
             );
 
-            // evaluate the left and right graphs for every monomial in the numerator
+            // evaluate the subgraphs for every monomial in the numerator
             for (coeff, powers) in supergraph_coeff
                 .iter()
                 .zip(&cut_uv_limit.numerator.reduced_coefficient_index_to_powers)
@@ -681,11 +707,12 @@ impl SquaredTopology {
                 {
                     // build the subgraph numerator
                     // TODO: build the reduced numerator directly
-                    // TODO: cache, such that we never compute a subgraph with the same numerator twice
-                    subgraph.numerator.coefficients_modified = true;
+
                     for n in &mut subgraph.numerator.coefficients {
                         *n = Complex::zero();
                     }
+
+                    let mut monomial_index = 0;
 
                     if subgraph.n_loops == 0 {
                         subgraph.numerator.coefficients[0] = Complex::one();
@@ -693,7 +720,6 @@ impl SquaredTopology {
                         // now set the coefficient to 1 for the current monomial in the subgraph
                         // by mapping the powers in the reduced numerator back to the power pattern
                         // of the complete numerator
-                        // TODO: use binary search
                         let mut subgraph_powers = [0; 10]; // TODO: make max rank a constant
                         let mut power_index = 0;
                         for (lmi, p) in powers[def_mom_index..def_mom_index + subgraph.n_loops]
@@ -708,30 +734,56 @@ impl SquaredTopology {
                         if power_index == 0 {
                             subgraph.numerator.coefficients[0] = Complex::one();
                         } else {
-                            subgraph.numerator.coefficients[subgraph
-                                .numerator
-                                .sorted_linear
-                                .iter()
-                                .position(|x| x[..] == subgraph_powers[..power_index])
-                                .unwrap()
-                                + 1] += Complex::one();
+                            monomial_index = subgraph
+                            .numerator
+                            .sorted_linear[..]
+                            .binary_search_by(|x| utils::compare_slice(&x[..], &subgraph_powers[..power_index]))
+                            .unwrap()
+                            + 1;
+                            subgraph.numerator.coefficients[monomial_index] += Complex::one();
                         }
                     }
 
-                    let mut res = if subgraph.loop_lines.len() > 0 {
-                        subgraph
-                            .evaluate_all_dual_integrands::<T>(
-                                if subgraph.n_loops != 0 {
-                                    &mut k_def[def_mom_index..def_mom_index + subgraph.n_loops]
-                                } else {
-                                    &mut []
-                                },
-                                subgraph_cache,
-                            )
-                            .unwrap()
+                    let reduced_pos = LTDNumerator::powers_to_position(
+                        &subgraph.numerator.coefficient_index_to_powers[monomial_index][..subgraph.numerator.n_loops],
+                        subgraph.numerator.n_loops,
+                        &subgraph.numerator.reduced_blocks,
+                    );
+
+                    // update the non-empty coeff map to the single entry
+                    subgraph.numerator.non_empty_coeff_map_to_reduced_numerator[0].clear();
+                    subgraph.numerator.non_empty_coeff_map_to_reduced_numerator[0].push((monomial_index, reduced_pos, Complex::one()));
+
+                    // only compute the subdiagram with this numerator once
+                    let mut cached_res = None;
+                    for (i, r) in &subgraph_cache.cached_topology_integrand {
+                        if *i == monomial_index {
+                            cached_res = Some(*r);
+                            break;
+                        }
+                    }
+
+                    let mut res = if cached_res.is_none() {
+                        let res = if subgraph.loop_lines.len() > 0 {
+                            subgraph
+                                .evaluate_all_dual_integrands::<T>(
+                                    if subgraph.n_loops != 0 {
+                                        &mut k_def[def_mom_index..def_mom_index + subgraph.n_loops]
+                                    } else {
+                                        &mut []
+                                    },
+                                    subgraph_cache,
+                                )
+                                .unwrap()
+                        } else {
+                            // if the graph has no propagators, it is one and not zero
+                            Complex::one()
+                        };
+
+                        subgraph_cache.cached_topology_integrand.push((monomial_index, res));
+                        res
                     } else {
-                        // if the graph has no propagators, it is one and not zero
-                        Complex::one()
+                        cached_res.unwrap()
                     };
 
                     res *= utils::powi(

@@ -4,6 +4,7 @@ use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, Num, NumAssign, NumCast};
 use num_traits::{Inv, One, Zero};
+use std::cmp::{Ord, Ordering};
 use std::ops::Neg;
 use vector::RealNumberLike;
 use vector::{Field, LorentzVector};
@@ -103,6 +104,29 @@ pub fn format_uncertainty(mean: f64, sdev: f64) -> String {
             dv * 10.0.powi(ndecimal)
         )
     }
+}
+
+/// Compare two slices, selecting on length first
+pub fn compare_slice<T: Ord>(slice1: &[T], slice2: &[T]) -> Ordering {
+    match slice1.len().cmp(&slice2.len()) {
+        Ordering::Equal => (),
+        non_eq => return non_eq,
+    }
+
+    let l = slice1.len();
+    // Slice to the loop iteration range to enable bound check
+    // elimination in the compiler
+    let lhs = &slice1[..l];
+    let rhs = &slice2[..l];
+
+    for i in 0..l {
+        match lhs[i].cmp(&rhs[i]) {
+            Ordering::Equal => (),
+            non_eq => return non_eq,
+        }
+    }
+
+    Ordering::Equal
 }
 
 pub trait Signum {

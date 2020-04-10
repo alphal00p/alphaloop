@@ -2856,7 +2856,8 @@ impl Topology {
                     }
 
                     // Cache the reduced polynomial for the current diagram and evaluate
-                    diag.numerator.evaluate_reduced_in_lb(&k_def, 0, cache, 0);
+                    diag.numerator
+                        .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
                     result += if diag.ct {
                         -self
                             .partial_fractioning
@@ -2868,7 +2869,8 @@ impl Topology {
                 }
             } else {
                 // Evaluate in the case of a topology
-                self.numerator.evaluate_reduced_in_lb(&k_def, 0, cache, 0);
+                self.numerator
+                    .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
                 result =
                     self.partial_fractioning
                         .evaluate(&self.numerator, &self.loop_lines, cache);
@@ -2878,10 +2880,11 @@ impl Topology {
             if self.settings.general.use_amplitude {
                 for (num_id, diag) in self.amplitude.diagrams.iter().enumerate() {
                     diag.numerator
-                        .evaluate_reduced_in_lb(&k_def, 0, cache, num_id);
+                        .evaluate_reduced_in_lb(&k_def, 0, cache, num_id, true);
                 }
             } else {
-                self.numerator.evaluate_reduced_in_lb(&k_def, 0, cache, 0);
+                self.numerator
+                    .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
             }
 
             // Sum over all the cuts
@@ -3098,7 +3101,7 @@ impl LTDNumerator {
             }
             coefficient_index_to_powers.push(key);
         }
-        //
+
         let coefficient_index_map = sorted_linear
             .iter()
             .map(|l| {
@@ -3106,9 +3109,8 @@ impl LTDNumerator {
                     (0, l[l.len() - 1])
                 } else {
                     (
-                        sorted_linear
-                            .iter()
-                            .position(|x| x[..] == l[..l.len() - 1])
+                        sorted_linear[..]
+                            .binary_search_by(|x| utils::compare_slice(&x[..], &l[..l.len() - 1]))
                             .unwrap()
                             + 1,
                         l[l.len() - 1],
@@ -3262,10 +3264,8 @@ impl LTDNumerator {
             let vec_indices: Vec<&usize> = indices.iter().filter(|&x| x % 4 != 0).collect();
             // When there are only energies there is no need to rotate
             if vec_indices.len() == 0 {
-                coefficients[self
-                    .sorted_linear
-                    .iter()
-                    .position(|x| x[..] == indices[..])
+                coefficients[self.sorted_linear[..]
+                    .binary_search_by(|x| utils::compare_slice(&x[..], &indices[..]))
                     .unwrap()
                     + 1] += *coeff;
             }
@@ -3294,11 +3294,8 @@ impl LTDNumerator {
                 new_indices.sort_unstable(); // painful but necessary step
 
                 // Find position in coefficient list
-                // TODO: probably an hash_map is better (?)
-                coefficients[self
-                    .sorted_linear
-                    .iter()
-                    .position(|x| x[..] == new_indices[..])
+                coefficients[self.sorted_linear[..]
+                    .binary_search_by(|x| utils::compare_slice(&x[..], &new_indices[..]))
                     .unwrap()
                     + 1] += res;
             }
@@ -3306,57 +3303,59 @@ impl LTDNumerator {
         LTDNumerator::new(self.n_loops, &coefficients)
     }
 
-    /// Update the cache values to be contracted with the tensor in the loop momentum basis
-    pub fn update_numerator_momentum_some_energies<T: FloatLike>(
+    pub fn get_monomial_energy_rec<T: FloatLike>(
         &self,
+        i: usize,
         loop_momenta: &[LorentzVector<Complex<T>>],
         absorb_first_energies: usize,
         cache: &mut LTDCache<T>,
-    ) -> () {
-        // Resize cache vector in case its size is not sufficient
-        if cache.numerator_momentum_cache.len() < self.coefficient_index_map.len() + 1 {
-            cache.numerator_momentum_cache.resize(
-                self.coefficient_index_map.len() + 1,
-                Complex::new(T::zero(), T::zero()),
-            );
+    ) -> Complex<T> {
+        if i == 0 {
+            return Complex::one();
         }
-        // Store monomials without coefficients
-        // Do not evaluate the energy compoent of the monomial if belongs to a loop momentum k_i
-        // if i >= abosrb_first_energies
-        cache.numerator_momentum_cache[0] = Complex::one();
-        for (i, &(cache_index, vec_index)) in self.coefficient_index_map.iter().enumerate() {
-            cache.numerator_momentum_cache[i + 1] =
+        if cache.numerator_cache_outdated[i] {
+            let (cache_index, vec_index) = self.coefficient_index_map[i - 1];
+            cache.numerator_momentum_cache[i] =
                 if vec_index % 4 == 0 && vec_index / 4 >= absorb_first_energies {
                     // energy component
-                    cache.numerator_momentum_cache[cache_index]
+                    self.get_monomial_energy(
+                        cache_index,
+                        loop_momenta,
+                        absorb_first_energies,
+                        cache,
+                    )
                 } else {
-                    // vector component
-                    cache.numerator_momentum_cache[cache_index]
-                        * loop_momenta[vec_index / 4][vec_index % 4]
+                    // vector or fixed energy component
+                    self.get_monomial_energy(
+                        cache_index,
+                        loop_momenta,
+                        absorb_first_energies,
+                        cache,
+                    ) * loop_momenta[vec_index / 4][vec_index % 4]
                 };
         }
+
+        cache.numerator_cache_outdated[i] = false;
+        cache.numerator_momentum_cache[i]
     }
-    /// Update the cache values to be contracted with the tensor in the loop momentum basis
-    pub fn update_numerator_momentum<T: FloatLike>(
+
+    #[inline(always)]
+    pub fn get_monomial_energy<T: FloatLike>(
         &self,
+        i: usize,
         loop_momenta: &[LorentzVector<Complex<T>>],
+        absorb_first_energies: usize,
         cache: &mut LTDCache<T>,
-    ) -> () {
-        if cache.numerator_momentum_cache.len() < self.coefficient_index_map.len() + 1 {
-            cache.numerator_momentum_cache.resize(
-                self.coefficient_index_map.len() + 1,
-                Complex::new(T::zero(), T::zero()),
-            );
-        }
-        for (i, &(cache_index, vec_index)) in self.coefficient_index_map.iter().enumerate() {
-            cache.numerator_momentum_cache[i + 1] = if cache_index == 0 {
-                loop_momenta[vec_index / 4][vec_index % 4]
-            } else {
-                cache.numerator_momentum_cache[cache_index]
-                    * loop_momenta[vec_index / 4][vec_index % 4]
-            };
+    ) -> Complex<T> {
+        if i == 0 {
+            return Complex::one();
+        } else if !cache.numerator_cache_outdated[i] {
+            cache.numerator_momentum_cache[i]
+        } else {
+            self.get_monomial_energy_rec(i, loop_momenta, absorb_first_energies, cache)
         }
     }
+
     /// Change from the loop momentum basis to the cut basis for a polynomial involving only
     /// the energy components of the loop momenta.
     pub fn change_monomial_basis<T: FloatLike>(
@@ -3438,14 +3437,35 @@ impl LTDNumerator {
         absorb_n_energies: usize,
         cache: &mut LTDCache<T>,
         num_id: usize,
+        clear_momentum_cache: bool,
     ) {
         // Update tensor loop dependent part
-        self.update_numerator_momentum_some_energies(loop_momenta, absorb_n_energies, cache);
+        // Resize cache vector in case its size is not sufficient
+        if cache.numerator_momentum_cache.len() < self.coefficient_index_map.len() + 1 {
+            cache
+                .numerator_cache_outdated
+                .resize(self.coefficient_index_map.len() + 1, true);
+            cache.numerator_momentum_cache.resize(
+                self.coefficient_index_map.len() + 1,
+                Complex::new(T::zero(), T::zero()),
+            );
+        }
+
+        if clear_momentum_cache {
+            for i in &mut cache.numerator_cache_outdated {
+                *i = true;
+            }
+
+            cache.numerator_momentum_cache[0] = Complex::one();
+            cache.numerator_cache_outdated[0] = false;
+        }
+
         // Initialize the reduced_coefficients_lb with the factors coming from evaluating
         // the vectorial part of the loop momenta
         if cache.reduced_coefficient_lb[num_id].len() < self.reduced_size {
             cache.reduced_coefficient_lb[num_id].resize(self.reduced_size, Complex::default());
         }
+
         for c in &mut cache.reduced_coefficient_lb[num_id][..self.reduced_size] {
             *c = Complex::default();
         }
@@ -3454,9 +3474,9 @@ impl LTDNumerator {
             for (i, reduced_index, c) in
                 self.non_empty_coeff_map_to_reduced_numerator[absorb_n_energies].iter()
             {
-                cache.reduced_coefficient_lb[num_id][*reduced_index] += cache
-                    .numerator_momentum_cache[*i]
-                    * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+                let mm = self.get_monomial_energy(*i, loop_momenta, absorb_n_energies, cache);
+                cache.reduced_coefficient_lb[num_id][*reduced_index] +=
+                    mm * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
             }
         } else {
             for (i, (c, reduced_index)) in self
@@ -3469,9 +3489,9 @@ impl LTDNumerator {
                     continue;
                 }
 
-                cache.reduced_coefficient_lb[num_id][*reduced_index] += cache
-                    .numerator_momentum_cache[i]
-                    * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+                let mm = self.get_monomial_energy(i, loop_momenta, absorb_n_energies, cache);
+                cache.reduced_coefficient_lb[num_id][*reduced_index] +=
+                    mm * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
             }
         }
     }

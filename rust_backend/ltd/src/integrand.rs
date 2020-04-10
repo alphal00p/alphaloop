@@ -265,16 +265,18 @@ macro_rules! check_stability_precision {
         cache: &mut I::Cache,
         event_manager: &mut EventManager,
     ) -> ($ty, $ty, Complex<$ty>, Complex<$ty>) {
+        let mut ret = (
+            <$ty>::from_f64(self.settings.general.relative_precision).unwrap(),
+            <$ty>::from_f64(self.settings.general.absolute_precision).unwrap(),
+            Complex::default(),
+            Complex::default(),
+        );
+
         if !self.settings.general.numerical_instability_check
             || self.topologies.len() == 1
             || num_samples == 1
         {
-            return (
-                <$ty>::from_f64(self.settings.general.relative_precision).unwrap(),
-                <$ty>::from_f64(self.settings.general.absolute_precision).unwrap(),
-                Complex::default(),
-                Complex::default(),
-            );
+            return ret;
         }
 
         // collect smallest result and biggest result
@@ -328,28 +330,40 @@ macro_rules! check_stability_precision {
                     }
                 }
             };
+
+            // determine if the difference is largest in the re or im
+            let (num, num_rot) = if max.re - min.re > max.im - min.im {
+                (max.re, min.re)
+            } else {
+                (max.im, min.im)
+            };
+
+            let d = if num.is_zero() && num_rot.is_zero() {
+                <$ty>::from_usize(100).unwrap()
+            } else {
+                if num == -num_rot {
+                    -<$ty>::from_usize(100).unwrap()
+                } else {
+                    -Float::abs((num - num_rot) / (num + num_rot)).log10()
+                }
+            };
+
+            let diff = Float::abs(num - num_rot);
+
+            ret = (d, Float::abs(num - num_rot), min, max);
+
+            // if we see the point is unstable, stop further samples
+            if !result_rot.is_finite()
+                || !min.is_finite()
+                || !max.is_finite()
+                || d < NumCast::from(self.settings.general.relative_precision).unwrap()
+                || diff > NumCast::from(self.settings.general.absolute_precision).unwrap() {
+                break;
+            }
         }
 
         event_manager.track_events = track_events;
-
-        // determine if the difference is largest in the re or im
-        let (num, num_rot) = if max.re - min.re > max.im - min.im {
-            (max.re, min.re)
-        } else {
-            (max.im, min.im)
-        };
-
-        let d = if num.is_zero() && num_rot.is_zero() {
-            <$ty>::from_usize(100).unwrap()
-        } else {
-            if num == -num_rot {
-                -<$ty>::from_usize(100).unwrap()
-            } else {
-                -Float::abs((num - num_rot) / (num + num_rot)).log10()
-            }
-        };
-
-        (d, Float::abs(num - num_rot), min, max)
+        ret
     }
 
     )*
@@ -361,7 +375,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
     pub fn new(
         n_loops: usize,
         topology: I,
-        settings: Settings,
+        mut settings: Settings,
         track_events: bool,
         status_update_sender: StatusUpdateSender,
         id: usize,
@@ -369,6 +383,11 @@ impl<I: IntegrandImplementation> Integrand<I> {
         // create extra topologies with rotated kinematics to check the uncertainty
         let mut rng = rand::thread_rng();
         let mut topologies = vec![topology.clone()];
+
+        if settings.general.force_f128 {
+            settings.general.num_f64_samples = 1;
+        }
+
         for _ in 0..settings
             .general
             .num_f64_samples

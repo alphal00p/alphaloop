@@ -47,6 +47,23 @@ pub struct Surface {
     pub id: Vec<((usize, usize), i8, i8)>,
 }
 
+impl Topology {
+    pub fn print_surface(&self, s: &Surface) {
+        for ((ll, pp), e_sign, _) in &s.id {
+            print!("{}sqrt((", if *e_sign > 0 { "+" } else { "-" });
+            let prop = &self.loop_lines[*ll].propagators[*pp];
+            // get the loop momentum
+            for (i, sig) in prop.signature.iter().enumerate() {
+                print!("{}k{}", if *sig > 0 { "+" } else { "-" }, i);
+            }
+            print!("+({},{},{}))^2", prop.q.x, prop.q.y, prop.q.z);
+
+            print!("+{})", prop.m_squared);
+        }
+        println!("{:+}", s.shift.t);
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Propagators {
     #[serde(skip_deserializing)]
@@ -214,6 +231,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub complex_ellipsoids: Vec<Vec<Complex<T>>>,
     pub overall_lambda: T, // used to log the minimum
     pub numerator_momentum_cache: Vec<Complex<T>>,
+    pub numerator_cache_outdated: Vec<bool>,
     pub reduced_coefficient_lb: Vec<Vec<Complex<T>>>,
     pub reduced_coefficient_lb_supergraph: Vec<Vec<Complex<T>>>,
     pub reduced_coefficient_cb: Vec<Complex<T>>,
@@ -221,6 +239,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub propagators: FnvHashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
     pub propagators_eval: Vec<Complex<T>>,
     pub propagator_powers: Vec<usize>,
+    pub cached_topology_integrand: Vec<(usize, Complex<T>)>,
 }
 
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
@@ -247,6 +266,8 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
             complex_ellipsoids: vec![vec![Complex::default(); num_propagators]; num_propagators],
             overall_lambda: T::zero(),
             numerator_momentum_cache: vec![],
+            numerator_cache_outdated: vec![],
+            cached_topology_integrand: vec![],
             reduced_coefficient_lb: vec![
                 vec![Complex::default(); topo.n_loops];
                 if topo.settings.general.use_amplitude {
