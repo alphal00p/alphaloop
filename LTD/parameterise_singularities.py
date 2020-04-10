@@ -397,6 +397,24 @@ class SquaredTopology(object):
 		self.pv_phase = 1 if self.n_loops % 2==0 else 0
 		self.tolerance = 1e-10
 
+		"""
+		spatial_loop_momenta = numpy.array([[1.61569199, 0.53957407, 1.04804543], [ 8.04492459, 11.66211465, 14.11645388]])
+		tot = 0
+		for index in range(len(self.cutkosky_cuts)):
+			c = self.cross_section.evaluate_cut_f128(spatial_loop_momenta,index,
+						self.cross_section.get_scaling(spatial_loop_momenta,index)[1][0],
+						self.cross_section.get_scaling(spatial_loop_momenta,index)[1][1])[0]
+			#c2 = self.cross_section.evaluate_cut_f128(spatial_loop_momenta,index,
+			#			self.cross_section.get_scaling(spatial_loop_momenta,index)[0][0],
+			#			self.cross_section.get_scaling(spatial_loop_momenta,index)[0][1])
+			print('cut %i:'%index, c)
+			#print(c2)
+			tot += c
+		print('python sum:', tot)
+		print('rust sum:', self.cross_section.evaluate_f128(spatial_loop_momenta)[0])
+		stop
+		"""
+
 	def get_lorentz_vector(self,time,space):
 		return vectors.LorentzVector(numpy.append([time],space))
 
@@ -514,6 +532,8 @@ class SquaredTopology(object):
 		else:
 			print('Find possible bases and transform accordingly')
 			raise
+		#print(spatial_loop_momenta_list[0])
+		#stop
 		yy = [[cutkosky_cut.evaluate_rust(spatial_loop_momenta)[phase] * x**simulate_jac_power 
 					for spatial_loop_momenta,x in zip(spatial_loop_momenta_list,xx)] for cutkosky_cut in self.cutkosky_cuts]
 		sum_manual = numpy.sum(yy,axis=0)
@@ -529,24 +549,35 @@ class SquaredTopology(object):
 							for spatial_loop_momenta in spatial_loop_momenta_list]	
 		sum_stabilised = [self.cross_section.evaluate_integrand(vegas_variable)[phase] * jacobian * x**simulate_jac_power
 							for vegas_variable, jacobian, x in zip(vegas_variables,jacobians,xx)]
-		#print(abs(numpy.array(yy)))
-		#print(abs(numpy.array(sum_manual)))
-		#print(abs(numpy.array(sum_rust_f128)))
-		#print(abs(numpy.array(sum_rust_f64)))
-		#print(abs(numpy.array(sum_stabilised)))
+		"""
+		abs_yy = yy#abs(numpy.array(yy))
+		abs_sum_manual = sum_manual#abs(numpy.array(sum_manual))
+		abs_sum_rust_f128 = sum_rust_f128#abs_abs(numpy.array(sum_rust_f128))
+		abs_sum_rust_f64 = sum_rust_f64#abs(numpy.array(sum_rust_f64))
+		abs_sum_stabilised = sum_stabilised#abs(numpy.array(sum_stabilised))
+		print('abs cuts', abs_yy)
+		print('abs sum python', abs_sum_manual)
+		print('abs sum rust 128',abs_sum_rust_f128)
+		print('abs sum rust 64',abs_sum_rust_f64)
+		print('abs sum rust stabilised',abs_sum_stabilised)
+		"""
 		markers = itertools.cycle(('v','<', '^', '>')) 
 		colors = cm.rainbow(numpy.linspace(0, 1, self.n_cutkosky_cuts))
 		plt.figure(figsize=(11,6))
 		for cut_index, color in zip(range(self.n_cutkosky_cuts),colors):
-			plt.plot(xx,abs(numpy.array(yy[cut_index])),marker=next(markers), color=color, ms=1,alpha=1,ls='None',
+			plt.plot(xx,yy[cut_index],marker=next(markers), color=color, ms=1,alpha=1,ls='None',
 						label='cut %i: (%s)'%(cut_index,','.join([cut['edge']+('%+d'%cut['sign'])[0] for cut in self.info.cuts[cut_index]['cuts']])))
-		plt.plot(xx,abs(numpy.array(sum_manual)),'b',marker='o',label='sum (python)',ms=0.5,alpha=1,ls='None')
-		plt.plot(xx,abs(numpy.array(sum_rust_f128)),'g',marker='o',label='sum (rust f128)',ms=0.5,alpha=1,ls='None')
-		plt.plot(xx,abs(numpy.array(sum_rust_f64)),'r',marker='o',label='sum (rust f64)',ms=0.5,alpha=1,ls='None')
-		plt.plot(xx,abs(numpy.array(sum_stabilised)),'k',marker='o',label='sum (stablised)',ms=0.5,alpha=1,ls='None')
+		plt.plot(xx,sum_manual,'b',marker='o',label='sum (python)',ms=0.5,alpha=1,ls='None')
+		plt.plot(xx,sum_rust_f128,'g',marker='o',label='sum (rust f128)',ms=0.5,alpha=1,ls='None')
+		plt.plot(xx,sum_rust_f64,'r',marker='o',label='sum (rust f64)',ms=0.5,alpha=1,ls='None')
+		plt.plot(xx,sum_stabilised,'k',marker='o',label='sum (stablised)',ms=0.5,alpha=1,ls='None')
 		plt.xlabel(r'$\mu$')
 		plt.xscale('log')
-		plt.yscale('log')
+		remove_nans_and_zeros = lambda x: (numpy.array(x)[~numpy.isnan(x)])[numpy.nonzero((numpy.array(x)[~numpy.isnan(x)]))]
+		min_val = numpy.min([numpy.nanmin(numpy.abs(numpy.array(l)[numpy.nonzero(l)].flatten())) for l in [yy,sum_manual,sum_rust_f128,sum_rust_f64,sum_stabilised] if list(remove_nans_and_zeros(l).flatten()) != []])
+		plt.yscale('symlog',linthreshy=float('1e%s'%('%e'%min_val)[-3:]))
+		#plt.gca().set_yscale('symlog')
+		#plt.semilogy()
 		plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 		momenta_str = ''.join(['\n'+r'$p_{'+'%i'%int(name[1:])+'}=$'
 					+ scaling_fct_string
@@ -561,6 +592,11 @@ class SquaredTopology(object):
 		simulate_jac_str = '\n multiplied by simulated jacobian factor ' + r'$\mu^%i$'%simulate_jac_power if simulate_jac_power !=0 else ''
 		plt.title(self.name + '\n' + title + momenta_str + simulate_jac_str)
 		plt.tight_layout()
+		# remove the ticks around zero because they overlap
+		lables = [i.get_text() for i in plt.gca().get_yticklabels()]
+		zero_index = lables.index('$\\mathdefault{0}$')
+		plt.setp(plt.gca().get_yticklabels()[zero_index-1], visible=False)  
+		plt.setp(plt.gca().get_yticklabels()[zero_index], visible=False)
 	
 	def probe_cancellation(self, spatial_loop_momenta, spatial_directions, phase=None, simulate_jac_power=0):
 		if phase is None:
@@ -614,6 +650,7 @@ class CutkoskyCut(SquaredTopology):
 		return string
 
 	def evaluate_rust(self, spatial_loop_momenta):
+		#print(self.squared_topology.cross_section.get_scaling(spatial_loop_momenta,self.index))
 		res =  self.squared_topology.cross_section.evaluate_cut_f128(spatial_loop_momenta,self.index,
 						self.squared_topology.cross_section.get_scaling(spatial_loop_momenta,self.index)[1][0],
 						self.squared_topology.cross_section.get_scaling(spatial_loop_momenta,self.index)[1][1])
@@ -1207,7 +1244,7 @@ if __name__ == "__main__":
             }
         )
 
-	info = mercedes
+	info = ee_to_dd_2l_doubletriangle
 
 	squared_topology = SquaredTopology(info, "hyperparameters.yaml")
 
@@ -1224,9 +1261,9 @@ if __name__ == "__main__":
 				title = 'UV region in ' + side + ' subgraph in ' + str(cutkosky_cut)
 				random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(squared_topology.n_loops)]
 				random_directions = [direction/numpy.linalg.norm(direction) for direction in random_directions]
-				squared_topology.plot_uv(subgraph.loop_basis, random_directions, title=title, precision='f128')
-	#plt.show()
-	#stop
+				squared_topology.plot_uv(subgraph.loop_basis, random_directions, title=title, precision='f128', phase=0,simulate_jac_power=0)
+	plt.show()
+	stop
 
 	for e_surface in singular_surfaces['e_surfaces']:
 		title = 'E-surface (%i dim) '%e_surface.e_surface_dimension + str(e_surface)
@@ -1236,7 +1273,7 @@ if __name__ == "__main__":
 		spatial_os_supergraph_integration_basis = [p.space() for p in os_supergraph_integration_basis]
 		random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(squared_topology.n_loops)]
 		random_directions = [direction/numpy.linalg.norm(direction) for direction in random_directions]
-		squared_topology.plot_singularity(spatial_os_supergraph_integration_basis,random_directions, title=title, precision='f128')#, phase=0)
+		squared_topology.plot_singularity(spatial_os_supergraph_integration_basis,random_directions, title=title, precision='f128', phase=0)
 		#squared_topology.probe_cancellation(spatial_os_supergraph_integration_basis,random_directions)
 	for pinched_surface in singular_surfaces['pinched_surfaces']:
 		title = 'Pinched surface (%i dim) '%pinched_surface.pinched_surface_dimension + str(pinched_surface)
@@ -1247,7 +1284,7 @@ if __name__ == "__main__":
 		spatial_os_supergraph_integration_basis = [p.space() for p in os_supergraph_integration_basis]
 		random_directions = [numpy.array([random.random(),random.random(),random.random()]) for i in range(squared_topology.n_loops)]
 		random_directions = [direction/numpy.linalg.norm(direction) for direction in random_directions]
-		squared_topology.plot_singularity(spatial_os_supergraph_integration_basis, random_directions, title=title, precision='f128')#, phase=0)#,simulate_jac_power=2)
+		squared_topology.plot_singularity(spatial_os_supergraph_integration_basis, random_directions, title=title, precision='f128', phase=0)#,simulate_jac_power=2)
 		#squared_topology.probe_cancellation(spatial_os_supergraph_integration_basis,random_directions)
 	plt.show()
 
