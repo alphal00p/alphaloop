@@ -884,7 +884,7 @@ py_class!(class LTD |py| {
             return Ok((0., 0.));
         }
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0); //NOTE: Only necessary when k_vec is changed
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
@@ -913,7 +913,7 @@ py_class!(class LTD |py| {
             return Ok((0., 0.));
         }
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0); //NOTE: Only necessary when k_vec is changed
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
@@ -942,7 +942,7 @@ py_class!(class LTD |py| {
             return Ok((0., 0.));
         }
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0); //NOTE: Only necessary when k_vec is changed
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
@@ -973,7 +973,7 @@ py_class!(class LTD |py| {
             return Ok((0., 0.));
         }
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0); //NOTE: Only necessary when k_vec is changed
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
