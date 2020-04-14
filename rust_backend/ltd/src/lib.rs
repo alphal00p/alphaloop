@@ -124,6 +124,16 @@ pub enum ExpansionCheckStrategy {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+pub enum NormalisingFunction {
+    #[serde(rename = "right_exponential")]
+    RightExponential,
+    #[serde(rename = "left_right_exponential")]
+    LeftRightExponential,
+    #[serde(rename = "none")]
+    None,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub enum PoleCheckStrategy {
     #[serde(rename = "exact")]
     Exact,
@@ -170,6 +180,28 @@ impl From<&str> for DeformationStrategy {
         }
     }
 }
+
+impl From<&str> for NormalisingFunction {
+    fn from(s: &str) -> Self {
+        match s {
+            "right_exponential" => NormalisingFunction::RightExponential,
+            "left_right_exponential" => NormalisingFunction::LeftRightExponential,
+            "none" => NormalisingFunction::None,
+            _ => panic!("Unknown normalising function {}", s),
+        }
+    }
+}
+
+impl fmt::Display for NormalisingFunction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            NormalisingFunction::RightExponential => write!(f, "exponential dampening to the right"),
+            NormalisingFunction::LeftRightExponential => write!(f, "exponential dampening to the left and right"),
+            NormalisingFunction::None => write!(f, "No normalising function")
+        }
+    }
+}
+
 
 impl From<&str> for ExpansionCheckStrategy {
     fn from(s: &str) -> Self {
@@ -224,6 +256,12 @@ impl fmt::Display for PoleCheckStrategy {
 impl Default for ExpansionCheckStrategy {
     fn default() -> ExpansionCheckStrategy {
         ExpansionCheckStrategy::Ratio
+    }
+}
+
+impl Default for NormalisingFunction {
+    fn default() -> NormalisingFunction {
+        NormalisingFunction::LeftRightExponential
     }
 }
 
@@ -510,10 +548,18 @@ impl Default for IntegratorSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+pub struct NormalisingFunctionSettings {
+    pub name: NormalisingFunction,
+    pub spread: f64,
+    pub center: f64,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct CrossSectionSettings {
     pub picobarns: bool,
     pub do_rescaling: bool,
-    pub rescaling_function_spread: f64,
+    #[serde(rename = "NormalisingFunction")]
+    pub normalising_function: NormalisingFunctionSettings,
     pub inherit_deformation_for_uv_counterterm: bool,
 }
 

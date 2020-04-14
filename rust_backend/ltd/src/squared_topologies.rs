@@ -17,7 +17,7 @@ use topologies::{LTDCache, LTDNumerator, Topology};
 use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
-use {DeformationStrategy, FloatLike, Settings, MAX_LOOP};
+use {DeformationStrategy, FloatLike, Settings, NormalisingFunction, MAX_LOOP};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
@@ -466,14 +466,38 @@ impl SquaredTopology {
 
         if self.settings.cross_section.do_rescaling {
             // h is any function that integrates to 1
-            let h = (-Float::powi(
-                scaling / Into::<T>::into(self.settings.cross_section.rescaling_function_spread),
-                2,
-            ))
-            .exp();
-            let h_norm = <T as FloatConst>::PI().sqrt() / Into::<T>::into(2.0)
-                * Into::<T>::into(self.settings.cross_section.rescaling_function_spread);
-
+            let (h, h_norm) = match self.settings.cross_section.normalising_function.name
+            {
+                NormalisingFunction::RightExponential => {
+                    // Only support center at 1 for now
+                    assert_eq!(self.settings.cross_section.normalising_function.center, (1.0 as f64), 
+                        "For now the right exponential normalising function only support centers at 1.0.");
+                    (
+                        ( -Float::powi(
+                        scaling / Into::<T>::into(self.settings.cross_section.normalising_function.spread),2)).exp()
+                        ,
+                        ( <T as FloatConst>::PI().sqrt() / Into::<T>::into(2.0)
+                        * Into::<T>::into(self.settings.cross_section.normalising_function.spread))
+                    )
+                }
+                NormalisingFunction::LeftRightExponential => {
+                    // Only support center and spread at 1 for now
+                    assert_eq!(self.settings.cross_section.normalising_function.center, (1.0 as f64),
+                        "For now the left-right exponential normalising function only support a center at 1.0.");
+                    assert_eq!(self.settings.cross_section.normalising_function.spread, (1.0 as f64),
+                        "For now the left-right exponential normalising function only support a spread set to 1.0.");
+                    (
+                        ( -( ( Float::powi(scaling ,2) + Float::powi(Into::<T>::into(self.settings.cross_section.normalising_function.spread),2) )
+                            / scaling ) ).exp()
+                        ,
+                        // 2 Sqrt[\[Sigma]] BesselK[1, 2 Sqrt[\[Sigma]]], with \[Sigma]=1
+                        Into::<T>::into( (0.27973176363304485456919761407082204777 as f64) )
+                    )
+                }
+                NormalisingFunction::None => {
+                    ( Into::<T>::into(1.0), Into::<T>::into(1.0) )
+                }
+            };
             scaling_result *=
                 scaling_jac * Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm;
 

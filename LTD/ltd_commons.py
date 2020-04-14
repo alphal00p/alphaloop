@@ -222,9 +222,13 @@ hyperparameters = HyperParameters({
 
     'CrossSection'   :   {
         'picobarns'                             :   False,
-        'do_rescaling'                          :   True,
-        'rescaling_function_spread'             :   1.,
         'inherit_deformation_for_uv_counterterm':   False,
+        'do_rescaling'                          :   True,        
+        'NormalisingFunction' : {
+            'name'                              :   'left_right_exponential',
+            'center'                            :   1.0,
+            'spread'                            :   1.0,
+        },
     },
 
     'Observables'   :   {
