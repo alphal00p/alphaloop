@@ -7,7 +7,8 @@ use std::time::Duration;
 use thousands::Separable;
 use tui::layout::{Constraint, Corner, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{Axis, Block, Borders, Chart, Dataset, List, Marker, Text};
+use tui::symbols::Marker;
+use tui::widgets::{Axis, Block, Borders, Chart, Dataset, List, Text};
 use tui::{backend::TermionBackend, Terminal};
 use utils;
 
@@ -158,15 +159,14 @@ impl Dashboard {
                         )
                         .split(vert_chunks[0]);
 
-                    let mut events_list =
-                        List::new(integrator_update_messages.iter().rev().cloned())
-                            .block(
-                                Block::default()
-                                    .borders(Borders::ALL)
-                                    .title("Integrator updates"),
-                            )
-                            .start_corner(Corner::BottomLeft);
-                    f.render(&mut events_list, chunks_hor[0]);
+                    let events_list = List::new(integrator_update_messages.iter().rev().cloned())
+                        .block(
+                            Block::default()
+                                .borders(Borders::ALL)
+                                .title("Integrator updates"),
+                        )
+                        .start_corner(Corner::BottomLeft);
+                    f.render_widget(events_list, chunks_hor[0]);
 
                     let stats = vec![
                         Text::raw(format!(
@@ -261,14 +261,14 @@ impl Dashboard {
                         )),
                     ];
 
-                    let mut stats_list = List::new(stats.into_iter())
+                    let stats_list = List::new(stats.into_iter())
                         .block(
                             Block::default()
                                 .borders(Borders::ALL)
                                 .title("Integrator statistics"),
                         )
                         .start_corner(Corner::TopLeft);
-                    f.render(&mut stats_list, chunks_hor[1]);
+                    f.render_widget(stats_list, chunks_hor[1]);
 
                     let datasets = [
                         Dataset::default()
@@ -308,7 +308,7 @@ impl Dashboard {
                         format!("{:.2e}", bounds[1]),
                     ];
 
-                    let mut chart = Chart::default()
+                    let chart = Chart::default()
                         .block(
                             Block::default()
                                 .title("Integral")
@@ -332,16 +332,16 @@ impl Dashboard {
                                 .labels(&y_labels),
                         )
                         .datasets(&datasets);
-                    f.render(&mut chart, chunks_hor[2]);
+                    f.render_widget(chart, chunks_hor[2]);
 
                     let block = Block::default()
                         .borders(Borders::ALL)
                         .title("Log")
                         .title_style(Style::default().fg(Color::Magenta).modifier(Modifier::BOLD));
-                    let mut log = List::new(log_messages.iter().rev().cloned())
+                    let log = List::new(log_messages.iter().rev().cloned())
                         .block(block)
                         .start_corner(Corner::BottomLeft);
-                    f.render(&mut log, vert_chunks[1]);
+                    f.render_widget(log, vert_chunks[1]);
                 })
                 .unwrap();
             let r = terminal.get_frame().size();
