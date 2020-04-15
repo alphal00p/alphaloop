@@ -329,6 +329,7 @@ pub struct DeformationFixedSettings {
     pub local: bool,
     pub a_ijs: Vec<f64>,
     pub dampen_on_pinch: bool,
+    pub dampen_on_pinch_after_lambda: bool,
     pub normalize_per_source: bool,
     pub normalisation_of_subspace_components: bool,
     pub normalisation_per_number_of_sources: bool,

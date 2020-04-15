@@ -1179,6 +1179,29 @@ impl Topology {
             }
         }
 
+        // dampen every pinch
+        if self.settings.deformation.fixed.dampen_on_pinch
+            && self.settings.deformation.fixed.dampen_on_pinch_after_lambda
+        {
+            let mij_min_sq = Into::<T>::into(self.compute_min_mij().powi(2));
+            let mij_sq =
+                Into::<T>::into(self.settings.deformation.fixed.m_ij.abs().powi(2)) * mij_min_sq;
+            for (surf_index, s) in self.surfaces.iter().enumerate() {
+                if s.surface_type != SurfaceType::Pinch {
+                    continue;
+                }
+
+                let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
+                    / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
+
+                let sup = t / (t + mij_sq);
+
+                if sup * sup < lambda_sq {
+                    lambda_sq = sup * sup;
+                }
+            }
+        }
+
         if sigma.is_zero() {
             lambda_sq.sqrt()
         } else {
@@ -1688,6 +1711,7 @@ impl Topology {
                 for surf_index in d.excluded_surface_indices.iter().cloned().chain(
                     self.surfaces.iter().enumerate().filter_map(|(i, su)| {
                         if self.settings.deformation.fixed.dampen_on_pinch
+                            && !self.settings.deformation.fixed.dampen_on_pinch_after_lambda
                             && su.surface_type == SurfaceType::Pinch
                         {
                             Some(i)
