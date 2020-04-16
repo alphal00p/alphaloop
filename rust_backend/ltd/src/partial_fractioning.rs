@@ -143,7 +143,7 @@ impl PartialFractioningMonomial {
         ltd_cache: &LTDCache<T>,
     ) -> Complex<T> {
         //return Complex::new(T::one(), T::zero());
-        if ltd_numerator.max_rank < pf_numerator.len() - 1 {
+        if ltd_numerator.max_rank + 1 < pf_numerator.len() {
             return Complex::default();
         }
         return PartialFractioningMonomial::evaluate_numerator2(
@@ -335,7 +335,7 @@ impl PartialFractioning {
 
     /// Evaluate the partial fractioned expression using the information contained in LTDCache
     ///  - propagator_powers
-    ///  - reduced_coefficinet_lb
+    ///  - reduced_coefficient_lb
     ///  - complex_ellipsoids
     pub fn evaluate<T: FloatLike>(
         &self,

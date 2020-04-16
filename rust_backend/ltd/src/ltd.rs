@@ -141,7 +141,7 @@ impl Topology {
             )
         };
         // Prepare the partial fractioning map at one loop if the threshold is set to a positive number
-        if self.n_loops == 1 && self.settings.general.partial_fractioning_threshold > 0.0 {
+        if self.n_loops == 1 && self.settings.general.partial_fractioning_threshold >= 0.0 {
             self.partial_fractioning =
                 PartialFractioning::new(self.loop_lines[0].propagators.len(), 10000);
         }
@@ -2310,7 +2310,9 @@ impl Topology {
 
             // evaluate the numerator
             for (cut_prop, num) in cut_propagators.iter().zip_eq(numerator_powers.iter()) {
-                result *= cache.complex_cut_energies[*cut_prop].powi(*num as i32);
+                if *num > 0 {
+                    result *= cache.complex_cut_energies[*cut_prop].powi(*num as i32);
+                }
             }
 
             return result;
@@ -2860,7 +2862,7 @@ impl Topology {
         if use_partial_fractioning {
             // Precompute all the ellipsoids that will appear in the partial fractioned expression
             // TODO: limit it to only those that are called
-            self.evaluate_elliposoids_matrix_1l(cache);
+            self.evaluate_ellipsoids_matrix_1l(cache);
 
             if self.settings.general.use_amplitude {
                 // Evaluate in the case of an amplitude
@@ -2892,6 +2894,16 @@ impl Topology {
                     };
                 }
             } else {
+                // reset the powers, since `evaluate_cut` sets the on-shell propagator power to 0
+                for prop_pow in cache.propagator_powers.iter_mut() {
+                    *prop_pow = 0;
+                }
+                for ll in self.loop_lines.iter() {
+                    for p in ll.propagators.iter() {
+                        cache.propagator_powers[p.id] = p.power;
+                    }
+                }
+
                 // Evaluate in the case of a topology
                 self.numerator
                     .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
@@ -3077,7 +3089,7 @@ impl Topology {
         }
     }
 
-    pub fn evaluate_elliposoids_matrix_1l<T: FloatLike>(&self, cache: &mut LTDCache<T>) {
+    pub fn evaluate_ellipsoids_matrix_1l<T: FloatLike>(&self, cache: &mut LTDCache<T>) {
         for p1 in self.loop_lines[0].propagators.iter() {
             for p2 in self.loop_lines[0].propagators.iter() {
                 cache.complex_ellipsoids[p1.id][p2.id] = cache.complex_cut_energies[p1.id]
