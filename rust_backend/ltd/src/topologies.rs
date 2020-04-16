@@ -245,6 +245,12 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
 impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
     pub fn new(topo: &Topology) -> LTDCache<T> {
         let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
+        let num_propagators_deg_1l = topo
+            .loop_lines
+            .iter()
+            .filter(|x| x.signature == &[1])
+            .map(|x| x.propagators.iter().map(|p| p.power).sum::<usize>())
+            .sum();
         LTDCache {
             one_loop: LTDCacheI::<T, U4>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
             two_loop: LTDCacheI::<T, U7>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
@@ -278,7 +284,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
             ],
             reduced_coefficient_lb_supergraph: vec![vec![Complex::default(); topo.n_loops]],
             reduced_coefficient_cb: vec![Complex::default(); topo.n_loops],
-            pf_cache: PFCache::new(num_propagators), // NOTE: 1-Loop
+            pf_cache: PFCache::new(num_propagators_deg_1l),
             propagators: HashMap::default(),
             propagators_eval: vec![Complex::zero(); num_propagators],
             propagator_powers: vec![1; num_propagators],

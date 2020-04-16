@@ -1,13 +1,12 @@
 use itertools::Itertools;
 use num::Complex;
-use topologies::{LTDCache, LTDNumerator, LoopLine, Propagators, Topology};
-use vector::LorentzVector;
+use topologies::{LTDCache, LTDNumerator, LoopLine};
 use FloatLike;
 
 #[derive(Default, Debug, Clone)]
 pub struct PartialFractioning {
     pub partial_fractioning_element: Vec<PartialFractioningMonomial>,
-    pub n_props: usize,
+    pub n_props_deg: usize,
     pub numerator_rank: usize,
     //splits: Vec<usize>,
 }
@@ -100,7 +99,7 @@ impl PartialFractioningMonomial {
     pub fn evaluate<T: FloatLike>(
         &self,
         numerator: &LTDNumerator,
-        topo: &Topology,
+        loop_line: &[LoopLine], // make sure to only pass loop lines with a loop momentum in it
         ltd_cache: &LTDCache<T>,
     ) -> Complex<T> {
         let den = PartialFractioningMonomial::evaluate_ellipsoids_product(
@@ -110,7 +109,7 @@ impl PartialFractioningMonomial {
         let num = PartialFractioningMonomial::evaluate_numerator(
             self.numerator.as_slice(),
             numerator,
-            &topo.loop_lines,
+            loop_line,
             ltd_cache,
         );
 
@@ -144,16 +143,17 @@ impl PartialFractioningMonomial {
     ) -> Complex<T> {
         //return Complex::new(T::one(), T::zero());
         if ltd_numerator.max_rank + 1 < pf_numerator.len() {
-            return Complex::default();
+            Complex::default()
+        } else {
+            PartialFractioningMonomial::evaluate_numerator2(
+                pf_numerator,
+                ltd_numerator.max_rank + 1 - pf_numerator.len(),
+                0,
+                ltd_numerator,
+                ll,
+                ltd_cache,
+            )
         }
-        return PartialFractioningMonomial::evaluate_numerator2(
-            pf_numerator,
-            ltd_numerator.max_rank + 1 - pf_numerator.len(),
-            0,
-            ltd_numerator,
-            ll,
-            ltd_cache,
-        );
     }
 
     fn evaluate_numerator2<T: FloatLike>(
@@ -165,11 +165,17 @@ impl PartialFractioningMonomial {
         ltd_cache: &LTDCache<T>,
     ) -> Complex<T> {
         let mut res = Complex::default();
-        let mut x;
+
+        let prop = ll[0]
+            .propagators
+            .iter()
+            .filter(|p| p.id == pf_numerator[0])
+            .next()
+            .unwrap();
+        let x = ltd_cache.complex_cut_energies[prop.id] - Into::<T>::into(prop.q.t);
+
         if pf_numerator.len() == 1 {
             for n in offset..=rank {
-                x = ltd_cache.complex_cut_energies[ll[0].propagators[pf_numerator[0]].id]
-                    - Into::<T>::into(ll[0].propagators[pf_numerator[0]].q.t);
                 res += ltd_cache.reduced_coefficient_lb[0]
                     //[ltd_numerator.max_rank - n]// Only at 1-Loop
                     [ltd_numerator.reduced_powers_to_position(&[n as u8,0,0,0])]
@@ -180,8 +186,6 @@ impl PartialFractioningMonomial {
         // TODO: Multiplication by the ltd_cache.... is complete bollocks
         // Waiting to have the right thing
         for n in offset..=rank {
-            x = ltd_cache.complex_cut_energies[ll[0].propagators[pf_numerator[0]].id]
-                - Into::<T>::into(ll[0].propagators[pf_numerator[0]].q.t);
             res -= PartialFractioningMonomial::evaluate_numerator2(
                 &pf_numerator[1..pf_numerator.len()],
                 rank + 1,
@@ -203,7 +207,7 @@ impl PartialFractioning {
             // Create container
             let mut pf_expr = PartialFractioning {
                 partial_fractioning_element: Vec::new(),
-                n_props: n_prop,
+                n_props_deg: n_prop,
                 numerator_rank: numerator_rank,
             };
 
@@ -262,13 +266,13 @@ impl PartialFractioning {
             }
             for (&j, num) in h_index
                 .iter()
-                .zip_eq(pf_cache.numerator[0..self.n_props].iter_mut())
+                .zip_eq(pf_cache.numerator[0..self.n_props_deg].iter_mut())
             {
                 *num = j;
             }
             self.add(
                 &pf_cache.ellipsoids_product[0..0],
-                &pf_cache.numerator[0..self.n_props],
+                &pf_cache.numerator[0..self.n_props_deg],
             );
             return true;
         }
@@ -282,12 +286,13 @@ impl PartialFractioning {
         //If all the surfaces are ellipsoids we already are in the final form
         if n_h == 0 {
             for (&j, prod) in e_index.iter().zip_eq(
-                pf_cache.ellipsoids_product[0..self.n_props - pf_cache.numerator_size].iter_mut(),
+                pf_cache.ellipsoids_product[0..self.n_props_deg - pf_cache.numerator_size]
+                    .iter_mut(),
             ) {
                 *prod = (k, j);
             }
             self.add(
-                &pf_cache.ellipsoids_product[0..self.n_props - pf_cache.numerator_size],
+                &pf_cache.ellipsoids_product[0..self.n_props_deg - pf_cache.numerator_size],
                 &pf_cache.numerator[0..pf_cache.numerator_size],
             );
             return true;
@@ -318,7 +323,7 @@ impl PartialFractioning {
                 }
             }
             self.add(
-                &pf_cache.ellipsoids_product[0..self.n_props - pf_cache.numerator_size],
+                &pf_cache.ellipsoids_product[0..self.n_props_deg - pf_cache.numerator_size],
                 &pf_cache.numerator[0..pf_cache.numerator_size],
             );
         }
@@ -348,7 +353,7 @@ impl PartialFractioning {
         let mut result: na::Complex<T> = Complex::default();
         // Compute the overall factor coming from partial fractioning
         let mut norm: na::Complex<T> = Complex::new(-T::one(), T::zero());
-        let mut min_index = self.n_props;
+        let mut min_index = self.n_props_deg;
         for p in ll[0].propagators.iter() {
             // Build the map to read the indices in PartialFractioningMonomial
             // in terms of propagator's id
@@ -411,7 +416,6 @@ impl PartialFractioning {
         return result / norm;
     }
 }
- 
 /* MULTI LOOPS  */
 
 #[derive(Default, Debug, Clone)]
@@ -424,7 +428,7 @@ pub struct PartialFractioningDen {
 #[derive(Default, Debug, Clone)]
 pub struct PartialFractioningBlock {
     pub factor: f64,
-    pub dens: Vec<PartialFractioningDen>,
+    pub denominators: Vec<PartialFractioningDen>,
     // TODO: numerator
 }
 
@@ -432,7 +436,7 @@ pub struct PartialFractioningBlock {
 pub struct PartialFractioningMultiLoops {
     pub partial_fractioning_element: Vec<PartialFractioningBlock>,
     pub loop_lines: Vec<LoopLine>,
-    pub ll_n_props: Vec<usize>,
+    pub ll_n_props_deg: Vec<usize>,
     pub n_loops: usize,
     //splits: Vec<usize>,
 }
@@ -446,17 +450,17 @@ impl PartialFractioningBlock {
         ltd_cache: &LTDCache<T>,
     ) -> Complex<T> {
         println!("===============================================");
-        if self.dens.len() == 0 {
+        if self.denominators.len() == 0 {
             return Complex::default();
         }
-        let den = self.evaluate_dens(loop_lines, min_index, map_id, ltd_cache);
+        let den = self.evaluate_denominators(loop_lines, min_index, map_id, ltd_cache);
         println!("den: {}", den);
         //let num = PartialFractioningBlock::evaluate_numerator()
 
         return den.inv() * Into::<T>::into(self.factor); // * num;
     }
 
-    pub fn evaluate_dens<T: FloatLike>(
+    pub fn evaluate_denominators<T: FloatLike>(
         &self,
         loop_lines: &[LoopLine],
         min_index: usize,
@@ -465,7 +469,7 @@ impl PartialFractioningBlock {
     ) -> Complex<T> {
         let mut res = Complex::new(T::one(), T::zero());
         let mut den_res: Complex<T> = Complex::default();
-        for (n, den) in self.dens.iter().enumerate() {
+        for (n, den) in self.denominators.iter().enumerate() {
             println!("  :: sub [{}]", n);
             den_res = Complex::default();
             for (idx, (v_e, v_s)) in den
@@ -500,39 +504,39 @@ impl PartialFractioningMultiLoops {
         let mut pf_expr = PartialFractioningMultiLoops {
             partial_fractioning_element: Vec::new(),
             loop_lines: loop_lines.clone(),
-            ll_n_props: loop_lines
+            ll_n_props_deg: loop_lines
                 .iter()
                 .map(|x| x.propagators.iter().map(|x| x.power).sum())
                 .collect(),
             n_loops: n_loops,
         };
-        pf_expr.partial_fractioning_NL();
+        pf_expr.partial_fractioning_nl();
         return pf_expr;
     }
 
-    fn partial_fractioning_NL(&mut self) {
-        // ll_n_props: number of propagator per loop line
+    fn partial_fractioning_nl(&mut self) {
+        // ll_n_props_deg: number of propagator per loop line
         // signatures: signature of each loop line
         // sigmas: sign coming from closing the contour
 
         //id_to_ll = []
         let mut id_to_ll = Vec::new();
-        for (n, &n_props) in self.ll_n_props.iter().enumerate() {
-            for _ in 0..n_props {
+        for (n, &n_props_deg) in self.ll_n_props_deg.iter().enumerate() {
+            for _ in 0..n_props_deg {
                 id_to_ll.push(n)
             }
         }
         println!("id_to_ll: {:?}", id_to_ll);
-        let n_props = self.ll_n_props.iter().sum();
+        let n_props_deg = self.ll_n_props_deg.iter().sum();
 
         // Take all combination of plus and minus energies from the first E_fractioning
         //    0: positive energy
         //    1: negative energy
-        for choose in (0..n_props).map(|_| 0..=1).multi_cartesian_product() {
+        for choose in (0..n_props_deg).map(|_| 0..=1).multi_cartesian_product() {
             //println!("choose: {:?}", choose);
             let mut product = PartialFractioningBlock {
                 factor: 1.0,
-                dens: Vec::new(),
+                denominators: Vec::new(),
             };
             for (n, &which) in choose.iter().enumerate() {
                 // the positive enegy component comes with a - sign
@@ -544,12 +548,12 @@ impl PartialFractioningMultiLoops {
                         .iter()
                         .map(|x| *x as f64)
                         .collect(),
-                    energies: vec![0.0; n_props],
-                    shifts: vec![0.0; n_props],
+                    energies: vec![0.0; n_props_deg],
+                    shifts: vec![0.0; n_props_deg],
                 };
                 den.energies[n] = (1 - 2 * which) as f64;
                 den.shifts[n] = 1.0;
-                product.dens.push(den);
+                product.denominators.push(den);
             }
 
             self.pf_product(&mut product, 0);
@@ -567,7 +571,7 @@ impl PartialFractioningMultiLoops {
         self.partial_fractioning_element
             .push(PartialFractioningBlock {
                 factor: product.factor,
-                dens: product.dens.iter().map(|x| x.clone()).collect(),
+                denominators: product.denominators.iter().map(|x| x.clone()).collect(),
             })
     }
 
@@ -586,7 +590,7 @@ impl PartialFractioningMultiLoops {
         let mut e_index = Vec::new();
         let mut spectators = Vec::new();
 
-        for (n, den) in product.dens.iter_mut().enumerate() {
+        for (n, den) in product.denominators.iter_mut().enumerate() {
             let norm = den.lambdas[residue_n];
             if norm.abs() > 1e-10 {
                 // Element depneds on the loop momenta
@@ -615,7 +619,7 @@ impl PartialFractioningMultiLoops {
         }
         //println!("  idx: {:?}, hdx: {:?}, edx: {:?}", indices, h_index, e_index);
         // Correction coming from applying partial fractioning to remove hyperboloids
-        product.factor *= (-1.0 as f64).powi(1+h_index.len() as i32);
+        product.factor *= (-1.0 as f64).powi(1 + h_index.len() as i32);
         if h_index.len() == 0 {
             // no pole
             return true;
@@ -626,7 +630,7 @@ impl PartialFractioningMultiLoops {
             // Create container
             let mut pf_expr = PartialFractioning {
                 partial_fractioning_element: Vec::new(),
-                n_props: h_index.len() + e_index.len(),
+                n_props_deg: h_index.len() + e_index.len(),
                 numerator_rank: 0,
             };
             // Use this to avoid redundant allocation
@@ -641,18 +645,20 @@ impl PartialFractioningMultiLoops {
             for mapping in pf_expr.partial_fractioning_element.iter() {
                 let mut new_product = PartialFractioningBlock {
                     factor: product.factor,
-                    dens: Vec::new(),
+                    denominators: Vec::new(),
                 };
                 for i in spectators.iter() {
-                    new_product.dens.push(product.dens[*i].clone());
+                    new_product
+                        .denominators
+                        .push(product.denominators[*i].clone());
                 }
                 //print("\t   > ", mapping)
                 // Add partial fractioned elements
                 for pair in mapping.ellipsoids_product.iter() {
                     PartialFractioningMultiLoops::pf_mapper(
                         &mut new_product,
-                        &product.dens[pair.0],
-                        &product.dens[pair.1],
+                        &product.denominators[pair.0],
+                        &product.denominators[pair.1],
                         residue_n,
                     );
                 }
@@ -675,7 +681,7 @@ impl PartialFractioningMultiLoops {
         residue_n: usize,
     ) {
         let factor = den_receiver.lambdas[residue_n] / den_giver.lambdas[residue_n];
-        product.dens.push(PartialFractioningDen {
+        product.denominators.push(PartialFractioningDen {
             lambdas: den_receiver
                 .lambdas
                 .iter()
@@ -712,11 +718,11 @@ impl PartialFractioningMultiLoops {
         let mut result: na::Complex<T> = Complex::default();
         // Compute the overall factor coming from partial fractioning
         let mut norm: na::Complex<T> = Complex::new(T::one(), T::zero());
-        let n_props = self.ll_n_props.iter().sum();
-        dbg!(&n_props);
-        let mut min_index = n_props;
+        let n_props_deg = self.ll_n_props_deg.iter().sum();
+        dbg!(&n_props_deg);
+        let mut min_index = n_props_deg;
         for ll in loop_lines.iter().rev() {
-        //for ll in loop_lines.iter() {
+            //for ll in loop_lines.iter() {
             for p in ll.propagators.iter() {
                 // Build the map to read the indices in PartialFractioningMonomial
                 // in terms of propagator's id
@@ -737,8 +743,8 @@ impl PartialFractioningMultiLoops {
             skip = false;
 
             new_block.factor = block.factor;
-            new_block.dens.clear();
-            for den in block.dens.iter() {
+            new_block.denominators.clear();
+            for den in block.denominators.iter() {
                 store = true;
                 for (v_e, v_s) in den.energies[..min_index]
                     .iter()
@@ -762,18 +768,18 @@ impl PartialFractioningMultiLoops {
                 }
 
                 if store {
-                    new_block.dens.push(den.clone());
+                    new_block.denominators.push(den.clone());
                 }
             }
             // COMING-SOON: numerator
             println! {"---"};
-            println! {"ll_n_props: {:?}", self.ll_n_props};
+            println! {"ll_n_props_deg: {:?}", self.ll_n_props_deg};
             println! {"map: {:?}", cache.pf_cache.numerator_index_map};
-            for den in new_block.dens.iter() {
+            for den in new_block.denominators.iter() {
                 println! {"{:?}", den.energies};
                 println! {"{:?}", den.shifts};
             }
-            if skip || new_block.dens.len() + min_index != n_props - self.n_loops {
+            if skip || new_block.denominators.len() + min_index != n_props_deg - self.n_loops {
                 continue;
             } else {
                 result += new_block.evaluate(ltd_numerator, loop_lines, min_index, map_id, cache);
@@ -786,6 +792,8 @@ impl PartialFractioningMultiLoops {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+    use topologies::Propagators;
+    use vector::LorentzVector;
 
     #[allow(non_snake_case, dead_code)]
     #[test]
@@ -805,7 +813,7 @@ mod tests {
         //}
     }
     #[test]
-    fn test_partial_fractioning_NL() {
+    fn test_partial_fractioning_nl() {
         let propagator = Propagators {
             id: 0, // global id
             m_squared: 0.0,
@@ -816,8 +824,8 @@ mod tests {
         };
         // Define looplines
         // Replicate one loop
-        let mut looplines_1Loop = Vec::new();
-        looplines_1Loop.push(LoopLine {
+        let mut looplines_1loop = Vec::new();
+        looplines_1loop.push(LoopLine {
             start_node: 0,
             end_node: 0,
             signature: vec![1],
@@ -826,9 +834,9 @@ mod tests {
         // Replicate two loops
         let signatures = [vec![1, 0], vec![1, -1], vec![0, 1]];
         let multiplicity = [6, 1, 4];
-        let mut looplines_2Loop = Vec::new();
+        let mut looplines_2loop = Vec::new();
         for (s, m) in signatures.iter().zip(multiplicity.iter()) {
-            looplines_2Loop.push(LoopLine {
+            looplines_2loop.push(LoopLine {
                 start_node: 0,
                 end_node: 0,
                 signature: s.clone(),
@@ -847,9 +855,9 @@ mod tests {
             vec![0, 0, 0, -1],
         ];
         let multiplicity = [1, 1, 1, 1, 1, 1, 1, 1];
-        let mut looplines_2x2FISHNET = Vec::new();
+        let mut looplines_2x2_fishnet = Vec::new();
         for (s, m) in signatures.iter().zip(multiplicity.iter()) {
-            looplines_2x2FISHNET.push(LoopLine {
+            looplines_2x2_fishnet.push(LoopLine {
                 start_node: 0,
                 end_node: 0,
                 signature: s.clone(),
@@ -859,23 +867,23 @@ mod tests {
 
         // TEST 1 LOOP
         let start = std::time::Instant::now();
-        let mut pf_expr = PartialFractioningMultiLoops::new(&looplines_1Loop, 1);
-        pf_expr.partial_fractioning_NL();
+        let mut pf_expr = PartialFractioningMultiLoops::new(&looplines_1loop, 1);
+        pf_expr.partial_fractioning_nl();
         print!("1LOOP -> #{}", pf_expr.partial_fractioning_element.len());
         println!(" :: {:?}", start.elapsed());
         assert_eq!(pf_expr.partial_fractioning_element.len(), 48620);
 
         // TEST 2 LOOPS
         let start = std::time::Instant::now();
-        let mut pf_expr = PartialFractioningMultiLoops::new(&looplines_2Loop, 2);
-        pf_expr.partial_fractioning_NL();
+        let mut pf_expr = PartialFractioningMultiLoops::new(&looplines_2loop, 2);
+        pf_expr.partial_fractioning_nl();
         print!("2LOOPS -> #{}", pf_expr.partial_fractioning_element.len());
         println!(" :: {:?}", start.elapsed());
         assert_eq!(pf_expr.partial_fractioning_element.len(), 48620);
         // TEST 2x2 FISHNET
         let start = std::time::Instant::now();
-        let mut pf_expr = PartialFractioningMultiLoops::new(&looplines_2x2FISHNET, 4);
-        pf_expr.partial_fractioning_NL();
+        let mut pf_expr = PartialFractioningMultiLoops::new(&looplines_2x2_fishnet, 4);
+        pf_expr.partial_fractioning_nl();
         print!("FISHNET - >#{}", pf_expr.partial_fractioning_element.len());
         println!(" :: {:?}", start.elapsed());
         assert_eq!(pf_expr.partial_fractioning_element.len(), 98);

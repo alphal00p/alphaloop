@@ -175,9 +175,13 @@ where
     };
 
     ci.set_use_only_last_sample(false)
-        .set_save_state_file(state_filename.clone())
+        
         .set_keep_state_file(false)
         .set_reset_vegas_integrator(false);
+
+    if settings.integrator.load_from_state_file {
+        ci.set_save_state_file(state_filename.clone());
+    }
 
     if settings.integrator.refine_n_runs > 0 {
         // Assign cuba flags according to this chosen survey+refine strategy

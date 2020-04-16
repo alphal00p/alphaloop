@@ -195,13 +195,16 @@ impl From<&str> for NormalisingFunction {
 impl fmt::Display for NormalisingFunction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            NormalisingFunction::RightExponential => write!(f, "exponential dampening to the right"),
-            NormalisingFunction::LeftRightExponential => write!(f, "exponential dampening to the left and right"),
-            NormalisingFunction::None => write!(f, "No normalising function")
+            NormalisingFunction::RightExponential => {
+                write!(f, "exponential dampening to the right")
+            }
+            NormalisingFunction::LeftRightExponential => {
+                write!(f, "exponential dampening to the left and right")
+            }
+            NormalisingFunction::None => write!(f, "No normalising function"),
         }
     }
 }
-
 
 impl From<&str> for ExpansionCheckStrategy {
     fn from(s: &str) -> Self {
@@ -498,6 +501,7 @@ pub struct IntegratorSettings {
     pub survey_n_iterations: usize,
     pub refine_n_runs: usize,
     pub refine_n_points: usize,
+    pub load_from_state_file: bool,
     pub keep_state_file: bool,
     pub reset_vegas_integrator: bool,
     pub use_only_last_sample: bool,
@@ -541,6 +545,7 @@ impl Default for IntegratorSettings {
             survey_n_iterations: 0,
             refine_n_runs: 0,
             refine_n_points: 0,
+            load_from_state_file: false,
             keep_state_file: false,
             reset_vegas_integrator: true,
             use_only_last_sample: false,

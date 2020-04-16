@@ -85,6 +85,7 @@ hyperparameters = HyperParameters({
         'refine_n_runs'      :  0,
         'refine_n_points'    :  0,
         # Vegas related parameters
+        'load_from_state_file': False,
         'keep_state_file'   : False,
         'reset_vegas_integrator' : True,
         'use_only_last_sample' : False,

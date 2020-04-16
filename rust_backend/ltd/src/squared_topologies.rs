@@ -470,7 +470,7 @@ impl SquaredTopology {
             {
                 NormalisingFunction::RightExponential => {
                     // Only support center at 1 for now
-                    assert_eq!(self.settings.cross_section.normalising_function.center, (1.0 as f64), 
+                    assert_eq!(self.settings.cross_section.normalising_function.center, 1., 
                         "For now the right exponential normalising function only support centers at 1.0.");
                     (
                         ( -Float::powi(
@@ -482,16 +482,16 @@ impl SquaredTopology {
                 }
                 NormalisingFunction::LeftRightExponential => {
                     // Only support center and spread at 1 for now
-                    assert_eq!(self.settings.cross_section.normalising_function.center, (1.0 as f64),
+                    assert_eq!(self.settings.cross_section.normalising_function.center, 1.,
                         "For now the left-right exponential normalising function only support a center at 1.0.");
-                    assert_eq!(self.settings.cross_section.normalising_function.spread, (1.0 as f64),
+                    assert_eq!(self.settings.cross_section.normalising_function.spread, 1.,
                         "For now the left-right exponential normalising function only support a spread set to 1.0.");
                     (
                         ( -( ( Float::powi(scaling ,2) + Float::powi(Into::<T>::into(self.settings.cross_section.normalising_function.spread),2) )
                             / scaling ) ).exp()
                         ,
                         // 2 Sqrt[\[Sigma]] BesselK[1, 2 Sqrt[\[Sigma]]], with \[Sigma]=1
-                        Into::<T>::into( (0.27973176363304485456919761407082204777 as f64) )
+                        Into::<T>::into(0.27973176363304485456919761407082204777)
                     )
                 }
                 NormalisingFunction::None => {
@@ -704,6 +704,7 @@ impl SquaredTopology {
             );
 
             // evaluate the subgraphs for every monomial in the numerator
+            let mut result_complete_numerator = Complex::default();
             for (coeff, powers) in supergraph_coeff
                 .iter()
                 .zip(&cut_uv_limit.numerator.reduced_coefficient_index_to_powers)
@@ -740,6 +741,7 @@ impl SquaredTopology {
 
                     if subgraph.n_loops == 0 {
                         subgraph.numerator.coefficients[0] = Complex::one();
+                        subgraph.numerator.max_rank = 0;
                     } else {
                         // now set the coefficient to 1 for the current monomial in the subgraph
                         // by mapping the powers in the reduced numerator back to the power pattern
@@ -755,6 +757,9 @@ impl SquaredTopology {
                                 power_index += 1;
                             }
                         }
+
+                        subgraph.numerator.max_rank = power_index; // FIXME: is this right?
+
                         if power_index == 0 {
                             subgraph.numerator.coefficients[0] = Complex::one();
                         } else {
@@ -822,20 +827,29 @@ impl SquaredTopology {
 
                     if self.settings.general.debug >= 1 {
                         println!(
-                            "  | res {} ({}l) = {:e}",
+                            "  | monomial res {} ({}l) = {:e}",
                             subgraph.name, subgraph.n_loops, res
                         );
                     }
 
                     def_mom_index += subgraph.n_loops;
                 }
-                diag_and_num_contributions += num_result * def_jacobian;
+                result_complete_numerator += num_result * def_jacobian;
             }
 
             mem::swap(
                 &mut supergraph_coeff,
                 &mut diag_cache[0].reduced_coefficient_lb_supergraph[0],
             );
+
+            if self.settings.general.debug >= 1 {
+                println!(
+                    "  | res uv limit {}: = {:e}",
+                   uv_index, result_complete_numerator
+                );
+            }
+
+            diag_and_num_contributions += result_complete_numerator;
         }
 
         scaling_result *= diag_and_num_contributions;

@@ -140,10 +140,21 @@ impl Topology {
                     .collect::<Vec<_>>(),
             )
         };
+
         // Prepare the partial fractioning map at one loop if the threshold is set to a positive number
         if self.n_loops == 1 && self.settings.general.partial_fractioning_threshold >= 0.0 {
-            self.partial_fractioning =
-                PartialFractioning::new(self.loop_lines[0].propagators.len(), 10000);
+            // find the loop line that has a loop momentum
+            let ll_with_loop = self
+                .loop_lines
+                .iter()
+                .filter(|ll| ll.signature == &[1])
+                .next()
+                .unwrap();
+            // count the total number of propagators, including raised powers
+            let n_deg_props = ll_with_loop.propagators.iter().map(|p| p.power).sum();
+
+            // TODO: set a better rank?
+            self.partial_fractioning = PartialFractioning::new(n_deg_props, 1000);
         }
 
         // set the identity rotation matrix
@@ -2860,9 +2871,25 @@ impl Topology {
 
         // Partial fractioning
         if use_partial_fractioning {
+            // find the loop line that has a loop momentum
+            let ll_with_loop = self
+                .loop_lines
+                .iter()
+                .filter(|ll| ll.signature == &[1])
+                .next()
+                .unwrap();
+
+            // evaluate the loop lines without a signature, since they will not be part of the fractioning
+            let mut inv_result_static = Complex::one();
+            for ll in &self.loop_lines {
+                if ll.signature == &[0] {
+                    inv_result_static *= ll.evaluate(&k_def, &Cut::NoCut, &self, cache)?;
+                }
+            }
+
             // Precompute all the ellipsoids that will appear in the partial fractioned expression
             // TODO: limit it to only those that are called
-            self.evaluate_ellipsoids_matrix_1l(cache);
+            Topology::evaluate_ellipsoids_matrix_1l(ll_with_loop, cache);
 
             if self.settings.general.use_amplitude {
                 // Evaluate in the case of an amplitude
@@ -2885,12 +2912,17 @@ impl Topology {
                     diag.numerator
                         .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
                     result += if diag.ct {
-                        -self
-                            .partial_fractioning
-                            .evaluate(&diag.numerator, &self.loop_lines, cache)
+                        -self.partial_fractioning.evaluate(
+                            &diag.numerator,
+                            std::slice::from_ref(ll_with_loop),
+                            cache,
+                        )
                     } else {
-                        self.partial_fractioning
-                            .evaluate(&diag.numerator, &self.loop_lines, cache)
+                        self.partial_fractioning.evaluate(
+                            &diag.numerator,
+                            std::slice::from_ref(ll_with_loop),
+                            cache,
+                        )
                     };
                 }
             } else {
@@ -2907,10 +2939,14 @@ impl Topology {
                 // Evaluate in the case of a topology
                 self.numerator
                     .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
-                result =
-                    self.partial_fractioning
-                        .evaluate(&self.numerator, &self.loop_lines, cache);
+                result = self.partial_fractioning.evaluate(
+                    &self.numerator,
+                    std::slice::from_ref(ll_with_loop),
+                    cache,
+                );
             }
+
+            result /= inv_result_static;
         } else {
             // Compute all the necessary reduced polynomial using the value of k_vec
             if self.settings.general.use_amplitude {
@@ -3089,9 +3125,12 @@ impl Topology {
         }
     }
 
-    pub fn evaluate_ellipsoids_matrix_1l<T: FloatLike>(&self, cache: &mut LTDCache<T>) {
-        for p1 in self.loop_lines[0].propagators.iter() {
-            for p2 in self.loop_lines[0].propagators.iter() {
+    pub fn evaluate_ellipsoids_matrix_1l<T: FloatLike>(
+        ll_with_loop: &LoopLine,
+        cache: &mut LTDCache<T>,
+    ) {
+        for p1 in ll_with_loop.propagators.iter() {
+            for p2 in ll_with_loop.propagators.iter() {
                 cache.complex_ellipsoids[p1.id][p2.id] = cache.complex_cut_energies[p1.id]
                     + cache.complex_cut_energies[p2.id]
                     + Into::<T>::into(-p1.q.t + p2.q.t);
@@ -3351,24 +3390,16 @@ impl LTDNumerator {
         }
         if cache.numerator_cache_outdated[i] {
             let (cache_index, vec_index) = self.coefficient_index_map[i - 1];
-            cache.numerator_momentum_cache[i] =
-                if vec_index % 4 == 0 && vec_index / 4 >= absorb_first_energies {
-                    // energy component
-                    self.get_monomial_energy(
-                        cache_index,
-                        loop_momenta,
-                        absorb_first_energies,
-                        cache,
-                    )
-                } else {
-                    // vector or fixed energy component
-                    self.get_monomial_energy(
-                        cache_index,
-                        loop_momenta,
-                        absorb_first_energies,
-                        cache,
-                    ) * loop_momenta[vec_index / 4][vec_index % 4]
-                };
+            cache.numerator_momentum_cache[i] = if vec_index % 4 == 0
+                && vec_index / 4 >= absorb_first_energies
+            {
+                // energy component
+                self.get_monomial_energy(cache_index, loop_momenta, absorb_first_energies, cache)
+            } else {
+                // vector or fixed energy component
+                self.get_monomial_energy(cache_index, loop_momenta, absorb_first_energies, cache)
+                    * loop_momenta[vec_index / 4][vec_index % 4]
+            };
         }
 
         cache.numerator_cache_outdated[i] = false;
