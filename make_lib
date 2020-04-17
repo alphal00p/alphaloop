@@ -4,6 +4,14 @@
 UNAME_S=$(uname -s)
 PWD=$(pwd)
 
+if [ `grep -rin '#default = \[\"python_api\"\]' rust_backend/ltd/Cargo.toml | wc -l` -eq 1 ]
+then
+	echo 'Befoe running this script, you must uncomment the line:'
+	echo '   #default = ["python_api"]'
+	echo 'in rust_backend/ltd/Cargo.toml'
+	exit 0
+fi
+
 MODE=$1
 [ -z "$MODE" ] && MODE=debug
 
@@ -37,8 +45,8 @@ else
 fi
 
 #Rename them to be called from MadGraph
-cp ${SO_DEFORMATION} ../deformation.so
-cp ${SO_INTEGRAND} ../integrand.so
-cp ${SO_INTEGRATOR} ../integrator.so
+#cp ${SO_DEFORMATION} ../deformation.so
+#cp ${SO_INTEGRAND} ../integrand.so
+#cp ${SO_INTEGRATOR} ../integrator.so
 cp ${SO_LTD} ../ltd.so
 

@@ -39,17 +39,17 @@ hyperparameters = HyperParameters({
         # always evaluate in f128
         'force_f128'            :   False,
         # number of digits that should be the same between integrand and rotated version
-        'relative_precision'    :   3.,
+        'relative_precision'    :   4.,
         # absolute precision, heavily dependent on integral value
         'absolute_precision'    :   1e+99,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
         'num_digits_different_for_inconsistency': 10.,
         # return the unstable point only if it has more stable digits than specified below
-        'minimal_precision_for_returning_result': 2.,
+        'minimal_precision_for_returning_result': 10.,
         # number of samples to take for the numerical stability check
-        'num_f64_samples'       :   2,
-        'num_f128_samples'      :   2,
+        'num_f64_samples'       :   5,
+        'num_f128_samples'      :   5,
         # which core to log to screen, None logs all cores
         'screen_log_core'       :   1,
         # log max and unstable points to screen
@@ -228,6 +228,8 @@ hyperparameters = HyperParameters({
         'inherit_deformation_for_uv_counterterm':   False,
         'do_rescaling'                          :   True,        
         'NormalisingFunction' : {
+            # Two possible normalising functions for now: 'left_right_exponential' or 'right_exponential'
+            # The former dampens both t=0 and t=infty, while the second only dampens t=infty
             'name'                              :   'left_right_exponential',
             'center'                            :   1.0,
             'spread'                            :   1.0,
@@ -238,7 +240,7 @@ hyperparameters = HyperParameters({
         # options: Jet1PT, cross_section
         'active_observables'        :   ['cross_section'],
         'Jet1PT': {
-            'x_min'                 :   50.,
+            'x_min'                 :   0.,
             'x_max'                 :   0.8,
             'n_bins'                :   50,
             'dR'                    :   0.4,
