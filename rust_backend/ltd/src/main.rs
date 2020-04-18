@@ -175,7 +175,6 @@ where
     };
 
     ci.set_use_only_last_sample(false)
-        
         .set_keep_state_file(false)
         .set_reset_vegas_integrator(false);
 
@@ -1528,7 +1527,13 @@ fn main() {
         .subcommand(
             SubCommand::with_name("inspect")
                 .about("Inspect a single input point")
-                .arg(Arg::with_name("point").required(true).min_values(3))
+                .arg(
+                    Arg::with_name("point")
+                        .short("p")
+                        .required(true)
+                        .min_values(3)
+                        .allow_hyphen_values(true),
+                )
                 .arg(
                     Arg::with_name("use_f128")
                         .short("f128")

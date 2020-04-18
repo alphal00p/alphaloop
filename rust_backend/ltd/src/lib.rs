@@ -12,7 +12,7 @@ extern crate serde_yaml;
 extern crate vector;
 
 #[cfg(feature = "python_api")]
-use cpython::PyResult;
+use cpython::{exc, PyErr, PyResult};
 #[cfg(feature = "python_api")]
 use std::cell::RefCell;
 extern crate colored;
@@ -630,22 +630,13 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def evaluate(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
-        let mut moms : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
-        for l in loop_momenta {
-            moms.push(LorentzVector::from_args(
-                float::zero(),
-                float::from_f64(l[0]).unwrap(),
-                float::from_f64(l[1]).unwrap(),
-                float::from_f64(l[2]).unwrap()));
-        }
-        
+    def evaluate(&self, loop_momenta: Vec<LorentzVector<f64>>) -> PyResult<(f64, f64)> {        
         let mut integrand = self.integrand(py).borrow_mut();
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches(py).borrow_mut(), &mut Some(&mut integrand.event_manager));
+        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&loop_momenta, &mut *self.caches(py).borrow_mut(), &mut Some(&mut integrand.event_manager));
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def get_scaling(&self, loop_momenta: Vec<Vec<f64>>, cut_index: usize) -> PyResult<Option<((f64, f64), (f64, f64))>> {
+    def get_scaling(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize) -> PyResult<Option<((f64, f64), (f64, f64))>> {
         let squared_topo = &mut self.squared_topology(py).borrow_mut();
 
         let incoming_energy = squared_topo.external_momenta[..squared_topo.n_incoming_momenta]
@@ -655,11 +646,7 @@ py_class!(class CrossSection |py| {
 
         let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
-            moms.push(LorentzVector::from_args(
-                f128::f128::zero(),
-                f128::f128::from_f64(l[0]).unwrap(),
-                f128::f128::from_f64(l[1]).unwrap(),
-                f128::f128::from_f64(l[2]).unwrap()));
+            moms.push(l.cast());
         }
 
         let mut ext = Vec::with_capacity(squared_topo.external_momenta.len());
@@ -680,14 +667,10 @@ py_class!(class CrossSection |py| {
         Ok(scaling.map(|x| ((x[0].0.to_f64().unwrap(), x[0].1.to_f64().unwrap()), (x[1].0.to_f64().unwrap(), x[1].1.to_f64().unwrap()))))
     }
 
-    def evaluate_f128(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(f64, f64)> {
-        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
+    def evaluate_f128(&self, loop_momenta: Vec<LorentzVector<f64>>) -> PyResult<(f64, f64)> {
+        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
-            moms.push(LorentzVector::from_args(
-                f128::f128::zero(),
-                f128::f128::from_f64(l[0]).unwrap(),
-                f128::f128::from_f64(l[1]).unwrap(),
-                f128::f128::from_f64(l[2]).unwrap()));
+            moms.push(l.cast());
         }
 
         let mut integrand = self.integrand(py).borrow_mut();
@@ -695,16 +678,7 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def evaluate_cut(&self, loop_momenta: Vec<Vec<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
-        let mut moms : ArrayVec<[LorentzVector<float>; MAX_LOOP]> = ArrayVec::new();
-        for l in loop_momenta {
-            moms.push(LorentzVector::from_args(
-                float::zero(),
-                float::from_f64(l[0]).unwrap(),
-                float::from_f64(l[1]).unwrap(),
-                float::from_f64(l[2]).unwrap()));
-        }
-
+    def evaluate_cut(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
         let mut squared_topology = self.squared_topology(py).borrow_mut();
 
         let mut external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = squared_topology
@@ -724,7 +698,7 @@ py_class!(class CrossSection |py| {
 
         let max_cuts = squared_topology.n_loops + 1;
         let res = squared_topology.evaluate_cut(
-            &moms,
+            &loop_momenta,
             &mut cut_momenta,
             &mut external_momenta,
             &mut rescaled_loop_momenta,
@@ -740,14 +714,10 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-   def evaluate_cut_f128(&self, loop_momenta: Vec<Vec<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
-        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
+   def evaluate_cut_f128(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
+        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
-            moms.push(LorentzVector::from_args(
-                f128::f128::zero(),
-                f128::f128::from_f64(l[0]).unwrap(),
-                f128::f128::from_f64(l[1]).unwrap(),
-                f128::f128::from_f64(l[2]).unwrap()));
+            moms.push(l.cast());
         }
 
         let mut squared_topology = self.squared_topology(py).borrow_mut();
@@ -785,6 +755,69 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
+    def get_cut_deformation(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize) -> PyResult<Vec<LorentzVector<Complex<f64>>>> {
+        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
+        for l in loop_momenta {
+            moms.push(l.cast());
+        }
+
+        let mut squared_topology = self.squared_topology(py).borrow_mut();
+
+        let mut external_momenta: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = squared_topology
+            .external_momenta
+            .iter()
+            .map(|m| m.map(|c| c.into()))
+            .collect();
+
+        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4];
+        let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
+
+        let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
+        let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
+        let cache = &mut *self.caches_f128(py).borrow_mut()[cut_index];
+
+        let mut integrand = self.integrand(py).borrow_mut();
+
+        let incoming_energy = squared_topology.external_momenta[..squared_topology.n_incoming_momenta]
+        .iter()
+        .map(|m| m.t)
+        .sum();
+
+        let cutkosky_cuts = &squared_topology.cutkosky_cuts[cut_index];
+
+        let scaling = squared_topologies::SquaredTopology::find_scaling(
+            cutkosky_cuts,
+            &external_momenta,
+            &moms[..squared_topology.n_loops],
+            f128::f128::from_f64(incoming_energy).unwrap(),
+            squared_topology.settings.general.debug,
+        ).ok_or_else(
+            || PyErr::new::<exc::TypeError, _>(
+                py,
+                "No scaling could be obtained",
+            )
+        )?;
+
+        let max_cuts = squared_topology.n_loops + 1;
+        let num_cuts = cutkosky_cuts.cuts.len();
+        squared_topology.evaluate_cut(
+            &moms,
+            &mut cut_momenta,
+            &mut external_momenta,
+            &mut rescaled_loop_momenta,
+            &mut subgraph_loop_momenta,
+            &mut k_def[..max_cuts],
+            cache,
+            &mut Some(&mut integrand.event_manager),
+            cut_index,
+            scaling[1].0,
+            scaling[1].1,
+        );
+
+        let def = k_def[num_cuts - 1..max_cuts - 1].iter().map(|k| k.map(|d| Complex::new(d.re.into(), d.im.into()))).collect();
+        Ok(def)
+    }
+
     def parameterize(&self, x: Vec<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
         let (x, jac) = topologies::Topology::parameterize::<float>(&x, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
@@ -795,25 +828,13 @@ py_class!(class CrossSection |py| {
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 
-    def inv_parameterize(&self, loop_momentum: Vec<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
-        let mom = LorentzVector::from_args(
-                0.,
-                loop_momentum[0],
-                loop_momentum[1],
-                loop_momentum[2]);
-
-        let (x, jac) = topologies::Topology::inv_parametrize::<float>(&mom, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
+    def inv_parameterize(&self, loop_momentum: LorentzVector<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::inv_parametrize::<float>(&loop_momentum, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 
-    def inv_parameterize_f128(&self, loop_momentum: Vec<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
-        let mom = LorentzVector::from_args(
-                0.,
-                loop_momentum[0],
-                loop_momentum[1],
-                loop_momentum[2]);
-
-        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&mom, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
+    def inv_parameterize_f128(&self, loop_momentum: LorentzVector<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&loop_momentum, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 });
@@ -894,27 +915,15 @@ py_class!(class LTD |py| {
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 
-    def inv_parameterize(&self, loop_momentum: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
+    def inv_parameterize(&self, loop_momentum: LorentzVector<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
         let t = self.topo(py).borrow();
-        let mom = LorentzVector::from_args(
-                0.,
-                loop_momentum[0],
-                loop_momentum[1],
-                loop_momentum[2]);
-
-        let (x, jac) = topologies::Topology::inv_parametrize::<float>(&mom, t.e_cm_squared, loop_index, &t.settings);
+        let (x, jac) = topologies::Topology::inv_parametrize::<float>(&loop_momentum, t.e_cm_squared, loop_index, &t.settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 
-    def inv_parameterize_f128(&self, loop_momentum: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
+    def inv_parameterize_f128(&self, loop_momentum: LorentzVector<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
         let t = self.topo(py).borrow();
-        let mom = LorentzVector::from_args(
-                0.,
-                loop_momentum[0],
-                loop_momentum[1],
-                loop_momentum[2]);
-
-        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&mom, t.e_cm_squared, loop_index, &t.settings);
+        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&loop_momentum, t.e_cm_squared, loop_index, &t.settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 
@@ -936,7 +945,7 @@ py_class!(class LTD |py| {
             return Ok((0., 0.));
         }
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true); //NOTE: Only necessary when k_vec is changed
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true);
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
@@ -965,7 +974,7 @@ py_class!(class LTD |py| {
             return Ok((0., 0.));
         }
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true); //NOTE: Only necessary when k_vec is changed
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true);
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];

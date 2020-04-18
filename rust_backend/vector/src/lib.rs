@@ -1,6 +1,7 @@
 extern crate dual_num;
 extern crate num;
 extern crate serde;
+extern crate cpython;
 
 use dual_num::{Allocator, DefaultAllocator, Dim, DimName, DualN, Owned};
 use num::traits::ops::mul_add::MulAdd;
