@@ -1,0 +1,370 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 11.2' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[     14448,        362]
+NotebookOptionsPosition[     11940,        313]
+NotebookOutlinePosition[     12306,        329]
+CellTagsIndexPosition[     12263,        326]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["\[Alpha]Loop from Mathematica example", "Title",
+ CellChangeTimes->{{3.7807966586323357`*^9, 3.7807967073899517`*^9}, {
+  3.7962982928479967`*^9, 3.796298295554708*^9}, {3.796302489903371*^9, 
+  3.796302491325037*^9}},ExpressionUUID->"862fd90a-3f33-4861-845a-\
+877f7ac86f05"],
+
+Cell["First Load up the Rust from Mathematica module:", "Text",
+ CellChangeTimes->{{3.796277974983192*^9, 3.7962780038292923`*^9}, {
+  3.7963024986625566`*^9, 
+  3.796302506892592*^9}},ExpressionUUID->"9131fffc-91c9-48f2-8761-\
+6292b0a1a437"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Get", "[", 
+  RowBox[{
+   RowBox[{"NotebookDirectory", "[", "]"}], "<>", 
+   "\"\</RustFromMathematica.m\>\""}], "]"}]], "Input",
+ CellChangeTimes->{{3.79630250899262*^9, 3.79630251425735*^9}, 
+   3.796302698146188*^9, 3.796302760938518*^9, {3.796302904493197*^9, 
+   3.796302924683069*^9}},ExpressionUUID->"1cb01a94-6c0a-49a0-831a-\
+6f1cd87e1b31"],
+
+Cell[BoxData[
+ FormBox["\<\"\\nPackage for accessing alphaLoop implementation in \
+Rust.\\n\\nVariables you may want to overwrite are:\\n\\nRFM$LTDFolder = \
+<Path>;\\nRFM$PythonInterpreter = <Path>;\\nRFM$CUBAPath = \
+<Path>;\\nRFM$SCSPath=<Path>;\\nRFM$ECOSPath=<Path>;\\n\\nThe function: \
+\\nRFM$GetLTDHook[name_,OptionsPattern[\\n{\\nRunMode->'LTD',\\\
+nHyperparametersPath->'LTD/hyperparameters.yaml',\\nTopologiesPath->'LTD/\
+topologies.yaml',\\nAmplitudesPath->'LTD/anplitudes.yaml',\\nDEBUG->False\\n}\
+\\n\\nAllows you to generate a hook, which will automatically be placed in \
+the list:\\n\\nRFM$AllHooksStarted\\n\\nThen you can test that one hook is \
+active with:\\n\\nRFM$CheckHookStatus[hook_]\\n\\nAnd use them to access \
+information from Rust with the following three API entry points (for now):\\n\
+\\nRFM$GetLTDDeformation[hook_, \
+RealMomenta_,OptionsPattern[DEBUG->False]]\\nRFM$GetCrossSectionDeformation[\
+hook_, CutID_,RealMomenta_,OptionsPattern[DEBUG->False]]\\nRFM$GetRescaling[\
+hook_, CutID_,RealMomenta_,OptionsPattern[DEBUG->False]]\\n\"\>", 
+  TraditionalForm]], "Print",
+ CellChangeTimes->{3.796303620101728*^9, 
+  3.796303659182082*^9},ExpressionUUID->"67afc223-5c26-4cb6-9210-\
+7fd09afbda70"]
+}, Open  ]],
+
+Cell["First with LTD\[AliasDelimiter]", "Text",
+ CellChangeTimes->{{3.7963007654346743`*^9, 3.7963007678778048`*^9}, 
+   3.796302429093625*^9},ExpressionUUID->"bfb3d3a2-49d6-4880-badb-\
+d914f9ddb8d8"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"LTD2LoopExampleHook", " ", "=", 
+   RowBox[{"RFM$GetLTDHook", "[", 
+    RowBox[{"\"\<DoubleTriangle_massive_physical\>\"", ",", 
+     RowBox[{"RunMode", "\[Rule]", "\"\<LTD\>\""}]}], "]"}]}], ";"}]], "Input",\
+
+ CellChangeTimes->{{3.796300618791128*^9, 3.796300642787301*^9}, {
+  3.796300795046339*^9, 
+  3.796300800185191*^9}},ExpressionUUID->"d57810e3-65d1-4a43-b903-\
+5360ab605939"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"RFM$CheckHookStatus", "[", "LTD2LoopExampleHook", "]"}]], "Input",
+ CellChangeTimes->{{3.7963006951876717`*^9, 3.79630070377608*^9}, 
+   3.79630080328937*^9, 
+   3.796300836255213*^9},ExpressionUUID->"376d0dd0-5234-4ecd-ac8b-\
+2600caf6d232"],
+
+Cell[BoxData[
+ FormBox["True", TraditionalForm]], "Output",
+ CellChangeTimes->{{3.7963008364906483`*^9, 3.796300854268977*^9}, 
+   3.7963028093866997`*^9, {3.796302948953951*^9, 3.796302953362891*^9}, 
+   3.796303044374854*^9, 3.796303326875613*^9, 
+   3.7963036205190277`*^9},ExpressionUUID->"9c91b25b-0950-4de2-af48-\
+77bb145fa401"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"RFM$GetLTDDeformation", "[", 
+  RowBox[{"LTD2LoopExampleHook", ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"0.1", ",", "0.2", ",", "0.3", ",", "0.4"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"0.5", ",", "0.6", ",", "0.7", ",", "0.8"}], "}"}]}], "}"}], 
+   ",", 
+   RowBox[{"DEBUG", "\[Rule]", "False"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.796300651241103*^9, 3.796300678440295*^9}, {
+   3.796300719472787*^9, 3.796300742052031*^9}, 3.796300804736393*^9, 
+   3.796301731396665*^9},ExpressionUUID->"84d4eef3-f734-4618-8b28-\
+a8262c6ce906"],
+
+Cell[BoxData[
+ FormBox[
+  RowBox[{"\[LeftAssociation]", 
+   RowBox[{
+    RowBox[{"\<\"Jacobian\"\>", "\[Rule]", 
+     RowBox[{
+      RowBox[{"-", "0.5698750000000037`"}], "+", 
+      RowBox[{"7.392943510537595`", " ", "\[ImaginaryI]"}]}]}], ",", 
+    RowBox[{"\<\"DeformationVectors\"\>", "\[Rule]", 
+     RowBox[{"(", "\[NoBreak]", GridBox[{
+        {
+         RowBox[{"-", "0.09746794344808972`"}], 
+         RowBox[{"-", "0.19493588689617924`"}], 
+         RowBox[{"-", "0.292403830344269`"}]},
+        {
+         RowBox[{"-", "0.4873397172404479`"}], 
+         RowBox[{"-", "0.5848076606885376`"}], 
+         RowBox[{"-", "0.6822756041366269`"}]}
+       },
+       GridBoxAlignment->{
+        "Columns" -> {{Center}}, "ColumnsIndexed" -> {}, 
+         "Rows" -> {{Baseline}}, "RowsIndexed" -> {}},
+       GridBoxSpacings->{"Columns" -> {
+           Offset[0.27999999999999997`], {
+            Offset[0.7]}, 
+           Offset[0.27999999999999997`]}, "ColumnsIndexed" -> {}, "Rows" -> {
+           Offset[0.2], {
+            Offset[0.4]}, 
+           Offset[0.2]}, "RowsIndexed" -> {}}], "\[NoBreak]", ")"}]}]}], 
+   "\[RightAssociation]"}], TraditionalForm]], "Output",
+ CellChangeTimes->{
+  3.796300679368081*^9, {3.796300727616346*^9, 3.796300757390007*^9}, {
+   3.796300805816564*^9, 3.796300808825322*^9}, {3.7963008504728537`*^9, 
+   3.7963008531078672`*^9}, 3.7963017320672493`*^9, 3.796302810818355*^9, 
+   3.7963033284497013`*^9, 
+   3.7963036206802597`*^9},ExpressionUUID->"40ea4476-ac5b-449f-88a4-\
+e2848e339757"]
+}, Open  ]],
+
+Cell["Now with a cross-section squared topology example:", "Text",
+ CellChangeTimes->{{3.7963007654346743`*^9, 
+  3.79630078534015*^9}},ExpressionUUID->"636c0ba4-6b29-4ffc-b272-\
+f3d2a036d6b0"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"CrossSectionExampleHook", " ", "=", 
+   RowBox[{"RFM$GetLTDHook", "[", 
+    RowBox[{"\"\<LTD/ee_to_dd_2l_doubletriangle.yaml\>\"", ",", 
+     RowBox[{"RunMode", "\[Rule]", "\"\<cross_section\>\""}]}], "]"}]}], 
+  ";"}]], "Input",
+ CellChangeTimes->{{3.79630099567494*^9, 3.796301028496154*^9}, 
+   3.7963014049360847`*^9},ExpressionUUID->"51664ad1-75d9-434f-8b77-\
+eea620edc278"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"RFM$CheckHookStatus", "[", "CrossSectionExampleHook", 
+  "]"}]], "Input",
+ CellChangeTimes->{
+  3.796301014308651*^9, {3.796301193489458*^9, 
+   3.7963012706547956`*^9}},ExpressionUUID->"4bffde63-7a24-40e6-95b1-\
+f32f9aa2f6a7"],
+
+Cell[BoxData[
+ FormBox["True", TraditionalForm]], "Output",
+ CellChangeTimes->{{3.796301014621189*^9, 3.796301030781621*^9}, 
+   3.79630121727286*^9, {3.796301268160549*^9, 3.796301279573944*^9}, {
+   3.796301343984065*^9, 3.7963013582265368`*^9}, {3.796301517117077*^9, 
+   3.796301546815961*^9}, 3.7963016938899593`*^9, {3.796301755899605*^9, 
+   3.7963017790831547`*^9}, {3.7963021049365473`*^9, 3.796302119616316*^9}, {
+   3.7963023921211643`*^9, 3.796302394903284*^9}, 3.796303330640826*^9, 
+   3.796303620859831*^9},ExpressionUUID->"bc9ba904-d1b6-48b2-96c2-\
+356b6bec1691"]
+}, Open  ]],
+
+Cell["\<\
+Do *NOT* forget to set `inherit_deformation_for_uv_counterterm` to True for \
+the deformation below to show!\
+\>", "Text",
+ CellChangeTimes->{{3.796302133258759*^9, 
+  3.796302146864086*^9}},ExpressionUUID->"7e621dfc-34ba-495e-aff9-\
+79c58c951de3"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"RFM$GetCrossSectionDeformation", "[", 
+  RowBox[{"CrossSectionExampleHook", ",", "2", ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"0.1", ",", "0.2", ",", "0.3"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"0.4", ",", "0.5", ",", "0.6"}], "}"}]}], "}"}], ",", 
+   RowBox[{"DEBUG", "\[Rule]", "False"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.796301256595829*^9, 3.796301284560896*^9}, {
+  3.7963013373507137`*^9, 3.7963013542836*^9}, {3.796301725232868*^9, 
+  3.796301725845832*^9}, {3.796301761696916*^9, 3.796301802512486*^9}, {
+  3.796302115542865*^9, 
+  3.796302116200684*^9}},ExpressionUUID->"11fb7395-5c14-4cd0-8f3c-\
+11451ff9ddb1"],
+
+Cell[BoxData[
+ FormBox[
+  RowBox[{"\[LeftAssociation]", 
+   RowBox[{"\<\"DeformedMomenta\"\>", "\[Rule]", 
+    RowBox[{"(", "\[NoBreak]", GridBox[{
+       {
+        RowBox[{"4.0225979933227975`", "\[VeryThinSpace]", "-", 
+         RowBox[{"0.0024392227402199856`", " ", "\[ImaginaryI]"}]}], 
+        RowBox[{"0.11396057645963796`", "\[VeryThinSpace]", "-", 
+         RowBox[{"0.006150004304058246`", " ", "\[ImaginaryI]"}]}], 
+        RowBox[{"0.22792115291927592`", "\[VeryThinSpace]", "-", 
+         RowBox[{"0.012300008608116492`", " ", "\[ImaginaryI]"}]}], 
+        RowBox[{"0.3418817293789138`", "\[VeryThinSpace]", "-", 
+         RowBox[{"0.018450012912174737`", " ", "\[ImaginaryI]"}]}]}
+      },
+      GridBoxAlignment->{
+       "Columns" -> {{Center}}, "ColumnsIndexed" -> {}, 
+        "Rows" -> {{Baseline}}, "RowsIndexed" -> {}},
+      GridBoxSpacings->{"Columns" -> {
+          Offset[0.27999999999999997`], {
+           Offset[0.7]}, 
+          Offset[0.27999999999999997`]}, "ColumnsIndexed" -> {}, "Rows" -> {
+          Offset[0.2], {
+           Offset[0.4]}, 
+          Offset[0.2]}, "RowsIndexed" -> {}}], "\[NoBreak]", ")"}]}], 
+   "\[RightAssociation]"}], TraditionalForm]], "Output",
+ CellChangeTimes->{{3.796301259294567*^9, 3.796301285011799*^9}, {
+   3.796301345486124*^9, 3.796301359326021*^9}, 3.796301524174951*^9, {
+   3.796301694958289*^9, 3.796301802779373*^9}, {3.79630210204802*^9, 
+   3.7963021210411777`*^9}, 3.796303332833699*^9, 
+   3.796303620922489*^9},ExpressionUUID->"01a5bff2-c3e3-442d-8f71-\
+1976d908ddbd"]
+}, Open  ]],
+
+Cell["And access the rescaling here too", "Text",
+ CellChangeTimes->{{3.796302153409861*^9, 
+  3.796302157635849*^9}},ExpressionUUID->"c12d6c59-d565-42cb-9c4e-\
+a2b32f105d1d"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"RFM$GetRescaling", "[", 
+  RowBox[{"CrossSectionExampleHook", ",", "2", ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"0.1", ",", "0.2", ",", "0.3"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"0.4", ",", "0.5", ",", "0.6"}], "}"}]}], "}"}], ",", 
+   RowBox[{"DEBUG", "\[Rule]", "False"}]}], "]"}]], "Input",
+ CellChangeTimes->{
+  3.7963023838915653`*^9},ExpressionUUID->"82406c8c-1982-4227-bcb9-\
+70254c816e94"],
+
+Cell[BoxData[
+ FormBox[
+  RowBox[{"\[LeftAssociation]", 
+   RowBox[{
+    RowBox[{"\<\"tSolutions\"\>", "\[Rule]", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"-", "1.1396057645963795`"}], ",", "1.1396057645963795`"}], 
+      "}"}]}], ",", 
+    RowBox[{"\<\"tJacobians\"\>", "\[Rule]", 
+     RowBox[{"{", 
+      RowBox[{"0.5698028822981898`", ",", "0.5698028822981898`"}], "}"}]}]}], 
+   "\[RightAssociation]"}], TraditionalForm]], "Output",
+ CellChangeTimes->{{3.7963023896946487`*^9, 3.796302396577128*^9}, 
+   3.796303334309845*^9, 
+   3.79630362098339*^9},ExpressionUUID->"5e5ce691-fdf4-4bb2-8231-\
+16041082d810"]
+}, Open  ]],
+
+Cell["\<\
+And clean-up the mess now by killing all processes hook generated so far\
+\>", "Text",
+ CellChangeTimes->{{3.7963008109334583`*^9, 
+  3.796300821433591*^9}},ExpressionUUID->"bd4eff0f-c6eb-4cd5-8fd6-\
+cc32c6ebc754"],
+
+Cell[BoxData[
+ RowBox[{"RFM$KillAllHooks", "[", "]"}]], "Input",
+ CellChangeTimes->{{3.796300826745116*^9, 
+  3.796300827840343*^9}},ExpressionUUID->"7fc14d46-3b19-4b8b-8129-\
+27a2e3186216"]
+}, Open  ]]
+},
+WindowSize->{1187, 1308},
+WindowMargins->{{-1232, Automatic}, {1281, Automatic}},
+FrontEndVersion->"11.2 for Mac OS X x86 (32-bit, 64-bit Kernel) (September \
+10, 2017)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[580, 22, 281, 4, 98, "Title",ExpressionUUID->"862fd90a-3f33-4861-845a-877f7ac86f05"],
+Cell[864, 28, 242, 4, 35, "Text",ExpressionUUID->"9131fffc-91c9-48f2-8761-6292b0a1a437"],
+Cell[CellGroupData[{
+Cell[1131, 36, 372, 8, 30, "Input",ExpressionUUID->"1cb01a94-6c0a-49a0-831a-6f1cd87e1b31"],
+Cell[1506, 46, 1230, 19, 531, "Print",ExpressionUUID->"67afc223-5c26-4cb6-9210-7fd09afbda70"]
+}, Open  ]],
+Cell[2751, 68, 200, 3, 35, "Text",ExpressionUUID->"bfb3d3a2-49d6-4880-badb-d914f9ddb8d8"],
+Cell[2954, 73, 420, 10, 30, "Input",ExpressionUUID->"d57810e3-65d1-4a43-b903-5360ab605939"],
+Cell[CellGroupData[{
+Cell[3399, 87, 265, 5, 30, "Input",ExpressionUUID->"376d0dd0-5234-4ecd-ac8b-2600caf6d232"],
+Cell[3667, 94, 334, 6, 30, "Output",ExpressionUUID->"9c91b25b-0950-4de2-af48-77bb145fa401"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[4038, 105, 599, 14, 30, "Input",ExpressionUUID->"84d4eef3-f734-4618-8b28-a8262c6ce906"],
+Cell[4640, 121, 1526, 36, 48, "Output",ExpressionUUID->"40ea4476-ac5b-449f-88a4-e2848e339757"]
+}, Open  ]],
+Cell[6181, 160, 193, 3, 35, "Text",ExpressionUUID->"636c0ba4-6b29-4ffc-b272-f3d2a036d6b0"],
+Cell[6377, 165, 414, 9, 30, "Input",ExpressionUUID->"51664ad1-75d9-434f-8b77-eea620edc278"],
+Cell[CellGroupData[{
+Cell[6816, 178, 251, 6, 30, "Input",ExpressionUUID->"4bffde63-7a24-40e6-95b1-f32f9aa2f6a7"],
+Cell[7070, 186, 579, 9, 30, "Output",ExpressionUUID->"bc9ba904-d1b6-48b2-96c2-356b6bec1691"]
+}, Open  ]],
+Cell[7664, 198, 258, 6, 35, "Text",ExpressionUUID->"7e621dfc-34ba-495e-aff9-79c58c951de3"],
+Cell[CellGroupData[{
+Cell[7947, 208, 692, 15, 30, "Input",ExpressionUUID->"11fb7395-5c14-4cd0-8f3c-11451ff9ddb1"],
+Cell[8642, 225, 1547, 31, 30, "Output",ExpressionUUID->"01a5bff2-c3e3-442d-8f71-1976d908ddbd"]
+}, Open  ]],
+Cell[10204, 259, 175, 3, 35, "Text",ExpressionUUID->"c12d6c59-d565-42cb-9c4e-a2b32f105d1d"],
+Cell[CellGroupData[{
+Cell[10404, 266, 463, 12, 30, "Input",ExpressionUUID->"82406c8c-1982-4227-bcb9-70254c816e94"],
+Cell[10870, 280, 622, 16, 30, "Output",ExpressionUUID->"5e5ce691-fdf4-4bb2-8231-16041082d810"]
+}, Open  ]],
+Cell[11507, 299, 224, 5, 35, "Text",ExpressionUUID->"bd4eff0f-c6eb-4cd5-8fd6-cc32c6ebc754"],
+Cell[11734, 306, 190, 4, 30, "Input",ExpressionUUID->"7fc14d46-3b19-4b8b-8129-27a2e3186216"]
+}, Open  ]]
+}
+]
+*)
+
