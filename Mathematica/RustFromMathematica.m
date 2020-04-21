@@ -34,6 +34,11 @@ And use them to access information from Rust with the following three API entry 
 RFM$GetLTDDeformation[hook_, RealMomenta_,OptionsPattern[DEBUG->False]]
 RFM$GetCrossSectionDeformation[hook_, CutID_,RealMomenta_,OptionsPattern[DEBUG->False]]
 RFM$GetRescaling[hook_, CutID_,RealMomenta_,OptionsPattern[DEBUG->False]]
+RFM$Parameterize[hook_,LoopIndex_,ECM_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]
+RFM$InvParameterize[hook_,LoopIndex_,ECM_,Momentum_,OptionsPattern[{DEBUG->False,f128->False}]]
+RFM$Evaluate[hook_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]
+RFM$EvaluateCut[hook_,CutID_,scalingFactor_, scalingFactorJacobian_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]
+RFM$EvaluateIntegrand[hook_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]
 "];
 
 
@@ -146,9 +151,9 @@ RFM$KillAllHooks[]
 
 
 (* ::Input::Initialization:: *)
-RFM$SendNumbersToHook[hook_,Prefix_, Numbers_,OptionsPattern[DEBUG->False]]:=Block[{StrToSend},
+RFM$SendNumbersToHook[hook_,Prefix_, Numbers_,OptionsPattern[{DEBUG->False,f128->False}]]:=Block[{StrToSend},
 (* Write the real momenta to sys.stdin of the hook *)
-StrToSend=Prefix<>" "<>StringJoin[
+StrToSend=Prefix<>" "<>If[OptionValue[f128],"f128 ",""]<>StringJoin[
 Riffle[
 Table[ToString[NumberForm[N,Infinity,ExponentFunction->(Null&)]],{N, Numbers}],
 " "]
@@ -159,14 +164,19 @@ WriteLine[hook,StrToSend];
 
 
 (* ::Input::Initialization:: *)
-RFM$ParseNumbers[StrNumbers_]:=Block[{},
+RFM$ParseNumbers[StrNumbers_,OptionsPattern[DEBUG->False]]:=Block[{},
+If[StringContainsQ[StrNumbers,"ERROR"],
+Print["Error received from Rust LTD worker: "<> StrNumbers];
+None
+,
 Table[
 Read[
 If[ke=="nan",
-Print["NaN received!"];
+If[OptionValue[DEBUG],Print["NaN received!"]];
 StringToStream["0"],
 StringToStream[ke]],
 Number],{ke,StringSplit[StrNumbers]}
+]
 ]
 ]
 
@@ -189,7 +199,8 @@ RawOutput = ReadLine[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
-ParsedOutput =RFM$ParseNumbers[RawOutput];
+ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
+If[ParsedOutput==None,Return[<||>]];
 Jacobian=ParsedOutput[[1]]+I ParsedOutput[[2]];
 DeformedMomenta=ArrayReshape[ParsedOutput[[3;;]],{Length[ParsedOutput[[3;;]]]/3,3}];
 
@@ -212,7 +223,8 @@ RawOutput = ReadLine[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
-ParsedOutput =RFM$ParseNumbers[RawOutput];
+ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
+If[ParsedOutput==None,Return[<||>]];
 DeformedMomenta=ArrayReshape[ParsedOutput,{Length[ParsedOutput]/4,4}];
 
 For[i=1,i<=Length[DeformedMomenta]/2,i++,
@@ -240,11 +252,127 @@ RawOutput = ReadLine[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
-ParsedOutput =RFM$ParseNumbers[RawOutput];
+ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
+If[ParsedOutput==None,Return[<||>]];
 solutions=ArrayReshape[ParsedOutput,{Length[ParsedOutput]/2,2}];
 tValues=Table[sol[[1]],{sol,solutions}];
 Jacobians=Table[sol[[2]],{sol,solutions}];
 
 (* Return *)
 <|"tSolutions"->tValues,"tJacobians"->Jacobians|>
+]
+
+
+(* ::Input::Initialization:: *)
+RFM$Parameterize[hook_,LoopIndex_,ECM_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
+{RawOutput, ParsedOutput, Momentum, Jacobian},
+
+(* Write the real momenta to sys.stdin of the hook *)
+RFM$SendNumbersToHook[hook,"parameterize",
+Join[{LoopIndex, ECM},Xs],DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
+];
+
+(* Now recover the output *)
+RawOutput = ReadLine[hook];
+If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
+
+(* Parse it *)
+ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
+If[ParsedOutput==None,Return[<||>]];
+Momentum=ParsedOutput[[1;;3]];
+Jacobian=ParsedOutput[[4]];
+
+(* Return *)
+<|"Momentum"->Momentum,"Jacobian"->Jacobian|>
+]
+
+
+(* ::Input::Initialization:: *)
+RFM$InvParameterize[hook_,LoopIndex_,ECM_,Momentum_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
+{RawOutput, ParsedOutput, XS, Jacobian},
+
+(* Write the real momenta to sys.stdin of the hook *)
+RFM$SendNumbersToHook[hook,"inv_parameterize",
+Join[{LoopIndex, ECM},Momentum],DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
+];
+
+(* Now recover the output *)
+RawOutput = ReadLine[hook];
+If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
+
+(* Parse it *)
+ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
+If[ParsedOutput==None,Return[<||>]];
+XS=ParsedOutput[[1;;3]];
+Jacobian=ParsedOutput[[4]];
+
+(* Return *)
+<|"Xs"->XS,"Jacobian"->Jacobian|>
+]
+
+
+(* ::Input::Initialization:: *)
+RFM$Evaluate[hook_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
+{RawOutput, ParsedOutput},
+
+(* Write the real momenta to sys.stdin of the hook *)
+RFM$SendNumbersToHook[hook,"evaluate",
+Join@@Table[Table[ke,{ke,k}],{k,Momenta}],DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
+];
+
+(* Now recover the output *)
+RawOutput = ReadLine[hook];
+If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
+
+(* Parse it *)
+ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
+If[ParsedOutput==None,Return[0.0]];
+
+(* Return *)
+ParsedOutput[[1]]+I ParsedOutput[[2]]
+]
+
+
+(* ::Input::Initialization:: *)
+RFM$EvaluateCut[hook_,CutID_,scalingFactor_, scalingFactorJacobian_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
+{RawOutput, ParsedOutput},
+
+(* Write the real momenta to sys.stdin of the hook *)
+RFM$SendNumbersToHook[hook,"evaluate_cut",
+Join[{CutID,scalingFactor,scalingFactorJacobian},Join@@Table[Table[ke,{ke,k}],{k,Momenta}]],DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
+];
+
+(* Now recover the output *)
+RawOutput = ReadLine[hook];
+
+If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
+
+(* Parse it *)
+ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
+If[ParsedOutput==None,Return[0.0]];
+
+(* Return *)
+ParsedOutput[[1]]+I ParsedOutput[[2]]
+]
+
+
+(* ::Input::Initialization:: *)
+RFM$EvaluateIntegrand[hook_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
+{RawOutput, ParsedOutput},
+
+(* Write the real momenta to sys.stdin of the hook *)
+RFM$SendNumbersToHook[hook,"evaluate_integrand",
+Xs,DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
+];
+
+(* Now recover the output *)
+RawOutput = ReadLine[hook];
+If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
+
+(* Parse it *)
+ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
+If[ParsedOutput==None,Return[0.0]];
+
+(* Return *)
+ParsedOutput[[1]]+I ParsedOutput[[2]]
 ]
