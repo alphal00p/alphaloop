@@ -48,6 +48,7 @@ pub struct AverageAndErrorAccumulator {
     chi_sum: f64,
     chi_sq_sum: f64,
     num_samples: usize,
+    total_processed_samples: usize,
     cur_iter: usize,
 }
 
@@ -99,6 +100,7 @@ impl AverageAndErrorAccumulator {
         self.chi_sq_sum += w * self.sum;
         self.chi_sq = self.chi_sq_sum - self.avg * self.chi_sum;
 
+        self.total_processed_samples += self.num_samples;
         // reset
         self.sum = 0.;
         self.sum_sq = 0.;
@@ -408,7 +410,7 @@ impl JetClustering {
         self.ordered_pt.clear();
         for i in 0..actual_len as usize {
             let jet = LorentzVector::from_slice(&self.fastjet_jets_out[i * 4..(i + 1) * 4]);
-            self.ordered_pt.push(jet.pt()); // TODO: check order
+            self.ordered_pt.push(jet.pt());
         }
     }
 
@@ -635,6 +637,7 @@ pub struct Jet1PTObservable {
     bins: Vec<AverageAndErrorAccumulator>,
     write_to_file: bool,
     filename: String,
+    total_events: usize,
 }
 
 impl Jet1PTObservable {
@@ -654,6 +657,7 @@ impl Jet1PTObservable {
             jet_clustering: JetClustering::new(use_fastjet, d_r),
             write_to_file,
             filename,
+            total_events: 0,
         }
     }
 }
@@ -670,6 +674,9 @@ impl Observable for Jet1PTObservable {
             if index >= 0 && index < self.bins.len() as isize {
                 self.bins[index as usize].add_sample(e.integrand.re * integrator_weight);
             }
+
+            // total number of events, including ones that do not land in the histogram
+            self.total_events += 1;
         }
     }
 
@@ -692,7 +699,7 @@ impl Observable for Jet1PTObservable {
             writeln!(f, "##& xmin & xmax & central value & dy &\n").unwrap();
             writeln!(
                 f,
-                "<histogram> {} \"j1 pT |X_AXIS@LIN |Y_AXIS@LOG |TYPE@NLOALPHALOOP\"",
+                "<histogram> {} \"j1 pT |X_AXIS@LIN |Y_AXIS@LOG |TYPE@LOALPHALOOP\"",
                 self.bins.len()
             )
             .unwrap();
@@ -705,7 +712,10 @@ impl Observable for Jet1PTObservable {
                 writeln!(
                     f,
                     "  {:.8e}   {:.8e}   {:.8e}   {:.8e}",
-                    c1, c2, b.avg, b.err
+                    c1,
+                    c2,
+                    b.avg * b.total_processed_samples as f64 / self.total_events as f64,
+                    b.err,
                 )
                 .unwrap();
             }
@@ -715,7 +725,13 @@ impl Observable for Jet1PTObservable {
             for (i, b) in self.bins.iter().enumerate() {
                 let c1 = (self.x_max - self.x_min) * i as f64 / self.bins.len() as f64 + self.x_min;
                 let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / self.bins.len() as f64;
-                println!("{}={}: {} +/ {}", c1, c2, b.avg, b.err);
+                println!(
+                    "{}={}: {} +/ {}",
+                    c1,
+                    c2,
+                    b.avg * b.total_processed_samples as f64 / self.total_events as f64,
+                    b.err,
+                );
             }
         }
     }

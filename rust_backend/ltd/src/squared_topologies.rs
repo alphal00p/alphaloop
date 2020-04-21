@@ -568,26 +568,9 @@ impl SquaredTopology {
                 subgraph.update_ellipsoids();
 
                 if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-                    use topologies;
-
                     if uv_index == 0 {
-                    subgraph.fixed_deformation =
-                        //subgraph.determine_ellipsoid_overlap_structure(true);
-                        {
-                        let origin = [LorentzVector::default(); MAX_LOOP];
-                        
-                        vec![topologies::FixedDeformationLimit {
-                            deformation_per_overlap: vec![topologies::FixedDeformationOverlap {
-                                deformation_sources: origin[..self.n_loops].to_vec(),
-                                excluded_surface_ids: vec![],
-                                excluded_surface_indices: vec![],
-                                overlap: None,
-                                radius: self.e_cm_squared,
-                            }],
-                            excluded_propagators: vec![],
-                        }]
-                        };
-
+                        subgraph.fixed_deformation =
+                            subgraph.determine_ellipsoid_overlap_structure(true);
                     } else {
                         subgraph.fixed_deformation = vec![];
                     }
