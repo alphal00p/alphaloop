@@ -685,6 +685,9 @@ impl Observable for Jet1PTObservable {
         for (b, bo) in self.bins.iter_mut().zip_eq(&mut other.bins) {
             b.merge_samples(bo);
         }
+
+        self.total_events += other.total_events;
+        other.total_events = 0;
     }
 
     fn update_result(&mut self) {
