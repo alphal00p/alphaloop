@@ -279,8 +279,8 @@ If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 (* Parse it *)
 ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
 If[ParsedOutput==None,Return[<||>]];
-Momentum=ParsedOutput[[1;;3]];
-Jacobian=ParsedOutput[[4]];
+Momentum=ParsedOutput[[2;;4]];
+Jacobian=ParsedOutput[[1]];
 
 (* Return *)
 <|"Momentum"->Momentum,"Jacobian"->Jacobian|>
@@ -303,8 +303,8 @@ If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 (* Parse it *)
 ParsedOutput =RFM$ParseNumbers[RawOutput,DEBUG->OptionValue[DEBUG]];
 If[ParsedOutput==None,Return[<||>]];
-XS=ParsedOutput[[1;;3]];
-Jacobian=ParsedOutput[[4]];
+XS=ParsedOutput[[2;;4]];
+Jacobian=ParsedOutput[[1]];
 
 (* Return *)
 <|"Xs"->XS,"Jacobian"->Jacobian|>
