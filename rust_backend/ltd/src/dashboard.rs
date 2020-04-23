@@ -302,6 +302,7 @@ impl Dashboard {
                     ];
                     bounds[0] *= 0.9;
                     bounds[1] *= 1.1;
+                    bounds[1] += std::f64::EPSILON;
                     let y_labels = [
                         format!("{:.2e}", bounds[0]),
                         format!("{:.2e}", (bounds[0] + bounds[1]) / 2.),
