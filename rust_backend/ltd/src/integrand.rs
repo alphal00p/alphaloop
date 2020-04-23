@@ -733,6 +733,10 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 }
 
                 if !result_f128.is_finite() {
+                    self.status_update_sender
+                        .send(StatusUpdate::Message(format!("NaN point {:?}", x)))
+                        .unwrap();
+
                     self.integrand_statistics.nan_point_count += 1;
                     event_manager.clear(true); // throw away all events and treat them as rejected
                     result = Complex::default();
@@ -751,6 +755,14 @@ impl<I: IntegrandImplementation> Integrand<I> {
                             <float as NumCast>::from(result_f128.im).unwrap(),
                         );
                     } else {
+                        self.status_update_sender
+                            .send(StatusUpdate::Message(format!(
+                                "Unstable quad point {:?}: {:.5e}",
+                                x,
+                                result_f128 * f128::from_f64(weight).unwrap()
+                            )))
+                            .unwrap();
+
                         event_manager.clear(true); // throw away all events and treat them as rejected
                         result = Complex::default();
                     }
