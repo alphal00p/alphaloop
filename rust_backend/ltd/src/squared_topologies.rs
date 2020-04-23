@@ -344,6 +344,13 @@ impl SquaredTopology {
         for cut_index in 0..self.cutkosky_cuts.len() {
             let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
 
+            if self.settings.general.debug >= 1 {
+                println!(
+                    "Cut {}:",
+                    cutkosky_cuts.cuts.iter().map(|c| &c.name).format(", ")
+                );
+            }
+
             let scaling_solutions = if self.settings.cross_section.do_rescaling {
                 let incoming_energy = external_momenta[..self.n_incoming_momenta]
                     .iter()
@@ -369,13 +376,6 @@ impl SquaredTopology {
                     );
                 }
                 continue;
-            }
-
-            if self.settings.general.debug >= 1 {
-                println!(
-                    "Cut {}:",
-                    cutkosky_cuts.cuts.iter().map(|c| &c.name).format(", ")
-                );
             }
 
             for &(scaling, scaling_jac) in &scaling_solutions.unwrap() {
@@ -513,6 +513,10 @@ impl SquaredTopology {
             // NOTE: we assume 1->1 here and that it is outgoing
             external_momenta[0].t = cut_energies_summed;
             external_momenta[1].t = cut_energies_summed;
+        }
+
+        if self.settings.general.debug >= 2 {
+            println!("  | rescaled loop momenta = {:?}", &rescaled_loop_momenta[..self.n_loops]);
         }
 
         let e_cm_sq = if self.n_incoming_momenta == 2 {
