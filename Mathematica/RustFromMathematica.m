@@ -181,6 +181,16 @@ Number],{ke,StringSplit[StrNumbers]}
 ]
 
 
+RFM$ReadFromHook[hook_]:=Block[{msgFromHook},
+msgFromHook=ReadLine[hook];
+While[Not[StringStartsQ[msgFromHook,"TOMATHEMATICA "]],
+msgFromHook=ReadLine[hook];
+];
+(* Drop the "TOMATHEMATICA " tagging prefix *)
+StringDrop[msgFromHook,14]
+]
+
+
 (* ::Text:: *)
 (*We can now build  functions using the hook to access the API*)
 
@@ -195,7 +205,7 @@ Join@@Table[Table[ke,{ke,k}],{k,RealMomenta}],DEBUG->OptionValue[DEBUG]
 ];
 
 (* Now recover the deformed momenta *)
-RawOutput = ReadLine[hook];
+RawOutput = RFM$ReadFromHook[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
@@ -219,7 +229,7 @@ Prepend[Join@@Table[Table[ke,{ke,k}],{k,RealMomenta}],CutID],DEBUG->OptionValue[
 ];
 
 (* Now recover the deformed momenta *)
-RawOutput = ReadLine[hook];
+RawOutput = RFM$ReadFromHook[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
@@ -248,7 +258,7 @@ Prepend[Join@@Table[Table[ke,{ke,k}],{k,RealMomenta}],CutID],DEBUG->OptionValue[
 ];
 
 (* Now recover the output *)
-RawOutput = ReadLine[hook];
+RawOutput = RFM$ReadFromHook[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
@@ -273,7 +283,7 @@ Join[{LoopIndex, ECM},Xs],DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
 ];
 
 (* Now recover the output *)
-RawOutput = ReadLine[hook];
+RawOutput = RFM$ReadFromHook[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
@@ -297,7 +307,7 @@ Join[{LoopIndex, ECM},Momentum],DEBUG->OptionValue[DEBUG],f128->OptionValue[f128
 ];
 
 (* Now recover the output *)
-RawOutput = ReadLine[hook];
+RawOutput = RFM$ReadFromHook[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
@@ -321,7 +331,7 @@ Join@@Table[Table[ke,{ke,k}],{k,Momenta}],DEBUG->OptionValue[DEBUG],f128->Option
 ];
 
 (* Now recover the output *)
-RawOutput = ReadLine[hook];
+RawOutput = RFM$ReadFromHook[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)
@@ -343,7 +353,7 @@ Join[{CutID,scalingFactor,scalingFactorJacobian},Join@@Table[Table[ke,{ke,k}],{k
 ];
 
 (* Now recover the output *)
-RawOutput = ReadLine[hook];
+RawOutput = RFM$ReadFromHook[hook];
 
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
@@ -366,7 +376,7 @@ Xs,DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
 ];
 
 (* Now recover the output *)
-RawOutput = ReadLine[hook];
+RawOutput = RFM$ReadFromHook[hook];
 If[OptionValue[DEBUG],Print["Raw output received: "<>RawOutput];];
 
 (* Parse it *)

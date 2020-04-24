@@ -105,12 +105,12 @@ while True:
         if args.mode == 'LTD':
             momenta_input = [ [float(k) for k in raw_input_str[il*4:(il+1)*4]] for il in range(len(raw_input_str)//4) ]
             kappas, jac_re, jac_im = rust_instance.deform(momenta_input)
-            print('%.16e '%jac_re+'%.16e '%jac_im+' '.join('%.16e'%(ke) for k in kappas for ke in k))
+            print('TOMATHEMATICA '+'%.16e '%jac_re+'%.16e '%jac_im+' '.join('%.16e'%(ke) for k in kappas for ke in k))
         elif args.mode == 'cross_section':
             cut_ID = int(raw_input_str[0])
             momenta_input = [ [float(k) for k in raw_input_str[1:][il*3:(il+1)*3]] for il in range(len(raw_input_str[1:])//3) ]
             deformed_momenta = rust_instance.get_cut_deformation(momenta_input, cut_ID)
-            print(' '.join('%.16e'%(ke[0]) for k in deformed_momenta for ke in k)+' '+' '.join('%.16e'%(ke[1]) for k in deformed_momenta for ke in k))
+            print('TOMATHEMATICA '+' '.join('%.16e'%(ke[0]) for k in deformed_momenta for ke in k)+' '+' '.join('%.16e'%(ke[1]) for k in deformed_momenta for ke in k))
     elif API_name == 'parameterize': 
             loop_index = int(raw_input_str[0])
             e_cm = float(raw_input_str[1])
@@ -119,7 +119,7 @@ while True:
                 kx, ky, kz, jac = rust_instance.parameterize_f128(xs,loop_index,e_cm)
             else:
                 kx, ky, kz, jac = rust_instance.parameterize(xs,loop_index,e_cm)
-            print(' '.join('%.16e'%f for f in [jac, kx, ky, kz]))
+            print('TOMATHEMATICA '+' '.join('%.16e'%f for f in [jac, kx, ky, kz]))
     elif API_name == 'inv_parameterize':
             loop_index = int(raw_input_str[0])
             e_cm = float(raw_input_str[1])
@@ -128,7 +128,7 @@ while True:
                 kx, ky, kz, jac = rust_instance.inv_parameterize_f128(ks,loop_index,e_cm)
             else:
                 kx, ky, kz, jac = rust_instance.inv_parameterize(ks,loop_index,e_cm)
-            print(' '.join('%.16e'%f for f in [jac, kx, ky, kz]))
+            print('TOMATHEMATICA '+' '.join('%.16e'%f for f in [jac, kx, ky, kz]))
     elif API_name == 'evaluate':
         if args.mode == 'cross_section':
             momenta_input = [ [0.0]+[float(k) for k in raw_input_str[il*3:(il+1)*3]] for il in range(len(raw_input_str)//3) ]
@@ -136,7 +136,7 @@ while True:
                 res_re, res_im = rust_instance.evaluate_f128(momenta_input)
             else:
                 res_re, res_im = rust_instance.evaluate(momenta_input)
-            print('%.16e'%res_re+' '+'%.16e'%res_im)
+            print('TOMATHEMATICA '+'%.16e'%res_re+' '+'%.16e'%res_im)
         else:
             print("ERROR Function %s not support for LTD mode yet."%API_name)
     elif API_name == 'evaluate_cut':
@@ -149,7 +149,7 @@ while True:
                 res_re, res_im = rust_instance.evaluate_cut_f128(momenta_input,cut_ID,scaling,scaling_jac)
             else:
                 res_re, res_im = rust_instance.evaluate_cut(momenta_input,cut_ID,scaling,scaling_jac)
-            print('%.16e'%res_re+' '+'%.16e'%res_im)
+            print('TOMATHEMATICA '+'%.16e'%res_re+' '+'%.16e'%res_im)
         else:
             print("ERROR Function %s not support for LTD mode yet."%API_name)
     elif API_name == 'evaluate_integrand':
@@ -158,15 +158,15 @@ while True:
             if f128_mode:
                 print("ERROR Function %s does not support f128 mode."%API_name)     
             else:
-                res_re, res_im = rust_instance.evaluate_integrand(xs) 
-                print('%.16e'%res_re+' '+'%.16e'%res_im)   
+                res_re, res_im = rust_instance.evaluate_integrand(xs)
+                print('TOMATHEMATICA '+'%.16e'%res_re+' '+'%.16e'%res_im)   
         else:
             print("ERROR Function %s not support for LTD mode yet."%API_name)
     elif API_name == 'get_scaling':
         cut_ID = int(raw_input_str[0])
         momenta_input = [ [float(k) for k in raw_input_str[1:][il*3:(il+1)*3]] for il in range(len(raw_input_str[1:])//3) ]
         rescaling_solutions = rust_instance.get_scaling(momenta_input, cut_ID) 
-        print(' '.join('%.16e'%(s) for ss in rescaling_solutions for s in ss))
+        print('TOMATHEMATICA '+' '.join('%.16e'%(s) for ss in rescaling_solutions for s in ss))
 
     # Send out stdout
     sys.stdout.flush()
