@@ -56,11 +56,15 @@ pub struct IntegrandStatistics {
     pub unstable_f128_point_count: usize,
     pub regular_point_count: usize,
     pub total_sample_time: f64,
+    pub n_loops: usize,
+    pub running_max_coordinate_re: [f64; MAX_LOOP + 4],
+    pub running_max_coordinate_im: [f64; MAX_LOOP + 4],
 }
 
 impl IntegrandStatistics {
-    pub fn new() -> IntegrandStatistics {
+    pub fn new(n_loops: usize) -> IntegrandStatistics {
         IntegrandStatistics {
+            n_loops,
             running_max: Complex::default(),
             total_samples: 0,
             regular_point_count: 0,
@@ -68,6 +72,8 @@ impl IntegrandStatistics {
             unstable_f128_point_count: 0,
             nan_point_count: 0,
             total_sample_time: 0.,
+            running_max_coordinate_re: [0.; MAX_LOOP + 4],
+            running_max_coordinate_im: [0.; MAX_LOOP + 4],
         }
     }
 
@@ -410,7 +416,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             n_loops,
             topologies,
             cache: topology.create_cache(),
-            integrand_statistics: IntegrandStatistics::new(),
+            integrand_statistics: IntegrandStatistics::new(n_loops),
             log: BufWriter::new(
                 File::create(format!("{}{}.log", settings.general.log_file_prefix, id))
                     .expect("Could not create log file"),
@@ -783,10 +789,14 @@ impl<I: IntegrandImplementation> Integrand<I> {
         if self.integrand_statistics.running_max.re < result.re.abs() * weight {
             new_max = true;
             self.integrand_statistics.running_max.re = result.re.abs() * weight;
+            self.integrand_statistics.running_max_coordinate_re[..3 * self.n_loops]
+                .copy_from_slice(x);
         }
         if self.integrand_statistics.running_max.im < result.im.abs() * weight {
             new_max = true;
             self.integrand_statistics.running_max.im = result.im.abs() * weight;
+            self.integrand_statistics.running_max_coordinate_im[..3 * self.n_loops]
+                .copy_from_slice(x);
         }
 
         if self.settings.general.integration_statistics {

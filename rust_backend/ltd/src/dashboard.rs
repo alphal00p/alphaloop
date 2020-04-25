@@ -8,7 +8,7 @@ use thousands::Separable;
 use tui::layout::{Constraint, Corner, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
 use tui::symbols::Marker;
-use tui::widgets::{Axis, Block, Borders, Chart, Dataset, List, Text};
+use tui::widgets::{Axis, Block, Borders, Chart, Dataset, List, Paragraph, Text};
 use tui::{backend::TermionBackend, Terminal};
 use utils;
 
@@ -79,7 +79,7 @@ impl Dashboard {
         let mut mc_err_re = std::f64::EPSILON;
         let mut mc_err_im = std::f64::EPSILON;
 
-        let mut integrand_statistics = IntegrandStatistics::new();
+        let mut integrand_statistics = IntegrandStatistics::new(0);
         let mut event_info = EventInfo::default();
 
         terminal.clear().unwrap();
@@ -158,6 +158,13 @@ impl Dashboard {
                             .as_ref(),
                         )
                         .split(vert_chunks[0]);
+
+                    let vert_chunks_stats = Layout::default()
+                        .direction(Direction::Vertical)
+                        .constraints(
+                            [Constraint::Percentage(40), Constraint::Percentage(60)].as_ref(),
+                        )
+                        .split(chunks_hor[1]);
 
                     let events_list = List::new(integrator_update_messages.iter().rev().cloned())
                         .block(
@@ -268,7 +275,29 @@ impl Dashboard {
                                 .title("Integrator statistics"),
                         )
                         .start_corner(Corner::TopLeft);
-                    f.render_widget(stats_list, chunks_hor[1]);
+                    f.render_widget(stats_list, vert_chunks_stats[0]);
+
+                    let weight_stats = vec![
+                        Text::raw(format!(
+                            "Max re: {:?}\n",
+                            &integrand_statistics.running_max_coordinate_re
+                                [..3 * integrand_statistics.n_loops]
+                        )),
+                        Text::raw(format!(
+                            "Max im: {:?}",
+                            &integrand_statistics.running_max_coordinate_im
+                                [..3 * integrand_statistics.n_loops]
+                        )),
+                    ];
+                    let weight_para = Paragraph::new(weight_stats.iter())
+                        .block(
+                            Block::default()
+                                .borders(Borders::ALL)
+                                .title("Miscellaneous"),
+                        )
+                        .wrap(true);
+
+                    f.render_widget(weight_para, vert_chunks_stats[1]);
 
                     let datasets = [
                         Dataset::default()

@@ -72,6 +72,7 @@ impl AverageAndErrorAccumulator {
     pub fn update_iter(&mut self) {
         // TODO: we could be throwing away events that are very rare
         if self.num_samples < 2 {
+            self.cur_iter += 1;
             return;
         }
 
@@ -115,6 +116,7 @@ pub struct EventManager {
     pub track_events: bool,
     pub accepted_event_counter: usize,
     pub rejected_event_counter: usize,
+    pub event_group_counter: usize,
     pub status_update_sender: Option<StatusUpdateSender>,
 }
 
@@ -164,6 +166,7 @@ impl EventManager {
             track_events,
             accepted_event_counter: 0,
             rejected_event_counter: 0,
+            event_group_counter: 0,
             status_update_sender: Some(status_update_sender),
         }
     }
@@ -241,13 +244,15 @@ impl EventManager {
 
         self.accepted_event_counter += other.accepted_event_counter;
         self.rejected_event_counter += other.rejected_event_counter;
+        self.event_group_counter += other.event_group_counter;
         other.accepted_event_counter = 0;
         other.rejected_event_counter = 0;
+        other.event_group_counter = 0;
     }
 
     pub fn update_result(&mut self) {
         for o in &mut self.observables {
-            o.update_result(self.accepted_event_counter + self.rejected_event_counter);
+            o.update_result(self.event_group_counter);
         }
 
         self.status_update_sender
@@ -302,6 +307,8 @@ impl EventManager {
                 }
             }
         }
+
+        self.event_group_counter += 1;
     }
 }
 
@@ -632,6 +639,7 @@ pub struct Jet1PTObservable {
     x_min: f64,
     x_max: f64,
     jet_clustering: JetClustering,
+    index_event_accumulator: Vec<(isize, f64)>,
     bins: Vec<AverageAndErrorAccumulator>,
     write_to_file: bool,
     filename: String,
@@ -651,6 +659,7 @@ impl Jet1PTObservable {
         Jet1PTObservable {
             x_min,
             x_max,
+            index_event_accumulator: Vec::with_capacity(20),
             bins: vec![AverageAndErrorAccumulator::default(); num_bins],
             jet_clustering: JetClustering::new(use_fastjet, d_r),
             write_to_file,
@@ -662,16 +671,32 @@ impl Jet1PTObservable {
 
 impl Observable for Jet1PTObservable {
     fn process_event_group(&mut self, events: &[Event], integrator_weight: f64) {
+        // add events in a correlated manner such that cancellations are realized in the error
+        self.index_event_accumulator.clear();
         for e in events {
             self.jet_clustering.cluster_fastjet(e);
             let max_pt = self.jet_clustering.ordered_pt[0];
 
-            // insert into histogram
             let index = ((max_pt - self.x_min) / (self.x_max - self.x_min) * self.bins.len() as f64)
                 as isize;
             if index >= 0 && index < self.bins.len() as isize {
-                self.bins[index as usize].add_sample(e.integrand.re * integrator_weight);
+                let mut new = true;
+                for i in self.index_event_accumulator.iter_mut() {
+                    if i.0 == index {
+                        *i = (index, i.1 + e.integrand.re * integrator_weight);
+                        new = false;
+                        break;
+                    }
+                }
+                if new {
+                    self.index_event_accumulator
+                        .push((index, e.integrand.re * integrator_weight));
+                }
             }
+        }
+
+        for i in &self.index_event_accumulator {
+            self.bins[i.0 as usize].add_sample(i.1);
         }
     }
 
