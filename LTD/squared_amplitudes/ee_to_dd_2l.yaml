@@ -1,0 +1,6 @@
+name: ee_to_dd_2l
+topologies:
+- name: ee_to_dd_2l_doubletriangle
+  multiplicity: 1
+- name: ee_to_dd_2l_bubble
+  multiplicity: 2

@@ -17,7 +17,7 @@ use topologies::{LTDCache, LTDNumerator, Topology};
 use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
-use {DeformationStrategy, FloatLike, Settings, NormalisingFunction, MAX_LOOP};
+use {DeformationStrategy, FloatLike, NormalisingFunction, Settings, MAX_LOOP};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
@@ -61,26 +61,181 @@ pub struct SquaredTopology {
     pub rotation_matrix: [[float; 3]; 3],
 }
 
+#[derive(Debug, Clone)]
+pub struct SquaredTopologySet {
+    pub name: String,
+    pub n_loops: usize,
+    pub e_cm_squared: f64,
+    topologies: Vec<SquaredTopology>,
+    pub multiplicity: Vec<usize>,
+    pub settings: Settings,
+    pub rotation_matrix: [[float; 3]; 3],
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SquaredTopologySetTopology {
+    pub name: String,
+    pub multiplicity: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SquaredTopologySetInput {
+    pub name: String,
+    topologies: Vec<SquaredTopologySetTopology>,
+}
+
+impl SquaredTopologySet {
+    pub fn from_one(squared_topology: SquaredTopology) -> SquaredTopologySet {
+        SquaredTopologySet {
+            name: squared_topology.name.clone(),
+            n_loops: squared_topology.n_loops,
+            settings: squared_topology.settings.clone(),
+            e_cm_squared: squared_topology.e_cm_squared,
+            rotation_matrix: squared_topology.rotation_matrix.clone(),
+            topologies: vec![squared_topology],
+            multiplicity: vec![1],
+        }
+    }
+
+    pub fn from_file(filename: &str, settings: &Settings) -> SquaredTopologySet {
+        let f = File::open(filename).expect("Could not open squared topology file");
+
+        let squared_topology_set_input: SquaredTopologySetInput =
+            serde_yaml::from_reader(f).unwrap();
+
+        let mut topologies: Vec<SquaredTopology> = vec![];
+        let mut multiplicity: Vec<usize> = vec![];
+
+        for topo in squared_topology_set_input.topologies {
+            let filename = std::path::Path::new(&filename)
+                .with_file_name(topo.name)
+                .with_extension("yaml");
+            let squared_topology = SquaredTopology::from_file(filename.to_str().unwrap(), settings);
+
+            if !topologies.is_empty() && squared_topology.n_loops != topologies[0].n_loops {
+                panic!("Topology sets require all topologies to have the same number of loops");
+            }
+
+            topologies.push(squared_topology);
+            multiplicity.push(topo.multiplicity);
+        }
+
+        let rotation_matrix = [
+            [float::one(), float::zero(), float::zero()],
+            [float::zero(), float::one(), float::zero()],
+            [float::zero(), float::zero(), float::one()],
+        ];
+
+        SquaredTopologySet {
+            name: squared_topology_set_input.name,
+            n_loops: topologies[0].n_loops,
+            e_cm_squared: topologies[0].e_cm_squared,
+            topologies,
+            rotation_matrix,
+            settings: settings.clone(),
+            multiplicity,
+        }
+    }
+
+    pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<Vec<LTDCache<T>>>>> {
+        self.topologies.iter().map(|t| t.create_caches()).collect()
+    }
+
+    pub fn evaluate<'a, T: FloatLike>(
+        &mut self,
+        x: &'a [f64],
+        cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
+        mut event_manager: Option<&mut EventManager>,
+    ) -> (
+        &'a [f64],
+        ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        T,
+        Complex<T>,
+        Complex<T>,
+    ) {
+        // jointly parameterize all squared topologies
+        let n_loops = x.len() / 3;
+        let mut k = [LorentzVector::default(); MAX_LOOP];
+        let mut jac_para = T::one();
+        for i in 0..n_loops {
+            // set the loop index to i + 1 so that we can also shift k
+            let (l_space, jac) = Topology::parameterize(
+                &x[i * 3..(i + 1) * 3],
+                self.e_cm_squared, // NOTE: taking e_cm from the first graph
+                i,
+                &self.settings,
+            );
+
+            // there could be some rounding here
+            let rot = &self.rotation_matrix;
+            k[i] = LorentzVector::from_args(
+                T::zero(),
+                <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
+                    + <T as NumCast>::from(rot[0][1]).unwrap() * l_space[1]
+                    + <T as NumCast>::from(rot[0][2]).unwrap() * l_space[2],
+                <T as NumCast>::from(rot[1][0]).unwrap() * l_space[0]
+                    + <T as NumCast>::from(rot[1][1]).unwrap() * l_space[1]
+                    + <T as NumCast>::from(rot[1][2]).unwrap() * l_space[2],
+                <T as NumCast>::from(rot[2][0]).unwrap() * l_space[0]
+                    + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
+                    + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
+            );
+            jac_para *= jac;
+        }
+
+        let mut result = Complex::zero();
+        let mut event_counter = 0;
+        for ((t, cache), &m) in self
+            .topologies
+            .iter_mut()
+            .zip_eq(cache.iter_mut())
+            .zip(&self.multiplicity)
+        {
+            result += t.evaluate_mom(&k[..n_loops], cache, &mut event_manager)
+                * jac_para
+                * Into::<T>::into(m as f64);
+
+            if let Some(em) = &mut event_manager {
+                if em.track_events {
+                    for e in em.event_buffer[event_counter..].iter_mut() {
+                        e.integrand *= jac_para.to_f64().unwrap() * m as f64;
+                    }
+                    event_counter = em.event_buffer.len();
+                }
+            }
+        }
+
+        // NOTE: there is no unique k_def anymore. it depends on the cut
+        let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
+        for l in &k[..n_loops] {
+            k_def.push(l.map(|x| Complex::new(x, T::zero())));
+        }
+
+        (x, k_def, jac_para, Complex::one(), result)
+    }
+}
+
+/// Cache for squared topology sets.
 #[derive(Default)]
 pub struct SquaredTopologyCache {
-    float_cache: Vec<Vec<Vec<LTDCache<float>>>>,
-    quad_cache: Vec<Vec<Vec<LTDCache<f128>>>>,
+    float_cache: Vec<Vec<Vec<Vec<LTDCache<float>>>>>,
+    quad_cache: Vec<Vec<Vec<Vec<LTDCache<f128>>>>>,
 }
 
 pub trait CachePrecisionSelector<T: FloatLike> {
-    fn get(&mut self) -> &mut Vec<Vec<Vec<LTDCache<T>>>>;
+    fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<T>>>>>;
 }
 
 impl CachePrecisionSelector<float> for SquaredTopologyCache {
     #[inline]
-    fn get(&mut self) -> &mut Vec<Vec<Vec<LTDCache<float>>>> {
+    fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<float>>>>> {
         &mut self.float_cache
     }
 }
 
 impl CachePrecisionSelector<f128> for SquaredTopologyCache {
     #[inline]
-    fn get(&mut self) -> &mut Vec<Vec<Vec<LTDCache<f128>>>> {
+    fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<f128>>>>> {
         &mut self.quad_cache
     }
 }
@@ -257,66 +412,6 @@ impl SquaredTopology {
         Some(solutions)
     }
 
-    pub fn evaluate<'a, T: FloatLike>(
-        &mut self,
-        x: &'a [f64],
-        cache: &mut [Vec<Vec<LTDCache<T>>>],
-        mut event_manager: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
-        T,
-        Complex<T>,
-        Complex<T>,
-    ) {
-        // parameterize
-        let mut k = [LorentzVector::default(); MAX_LOOP];
-        let mut jac_para = T::one();
-        for i in 0..self.n_loops {
-            // set the loop index to i + 1 so that we can also shift k
-            let (l_space, jac) = Topology::parameterize(
-                &x[i * 3..(i + 1) * 3],
-                self.e_cm_squared,
-                i,
-                &self.settings,
-            );
-
-            // there could be some rounding here
-            let rot = &self.rotation_matrix;
-            k[i] = LorentzVector::from_args(
-                T::zero(),
-                <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[0][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[0][2]).unwrap() * l_space[2],
-                <T as NumCast>::from(rot[1][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[1][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[1][2]).unwrap() * l_space[2],
-                <T as NumCast>::from(rot[2][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
-            );
-            jac_para *= jac;
-        }
-
-        let result = self.evaluate_mom(&k[..self.n_loops], cache, &mut event_manager) * jac_para;
-
-        if let Some(em) = &mut event_manager {
-            if em.track_events {
-                for e in em.event_buffer.iter_mut() {
-                    e.integrand *= jac_para.to_f64().unwrap();
-                }
-            }
-        }
-
-        // NOTE: there is no unique k_def anymore. it depends on the cut
-        let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
-        for l in &k[..self.n_loops] {
-            k_def.push(l.map(|x| Complex::new(x, T::zero())));
-        }
-
-        (x, k_def, jac_para, Complex::one(), result)
-    }
-
     pub fn evaluate_mom<T: FloatLike>(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
@@ -466,18 +561,24 @@ impl SquaredTopology {
 
         if self.settings.cross_section.do_rescaling {
             // h is any function that integrates to 1
-            let (h, h_norm) = match self.settings.cross_section.normalising_function.name
-            {
+            let (h, h_norm) = match self.settings.cross_section.normalising_function.name {
                 NormalisingFunction::RightExponential => {
                     // Only support center at 1 for now
-                    assert_eq!(self.settings.cross_section.normalising_function.center, 1., 
+                    assert_eq!(self.settings.cross_section.normalising_function.center, 1.,
                         "For now the right exponential normalising function only support centers at 1.0.");
                     (
-                        ( -Float::powi(
-                        scaling / Into::<T>::into(self.settings.cross_section.normalising_function.spread),2)).exp()
-                        ,
-                        ( <T as FloatConst>::PI().sqrt() / Into::<T>::into(2.0)
-                        * Into::<T>::into(self.settings.cross_section.normalising_function.spread))
+                        (-Float::powi(
+                            scaling
+                                / Into::<T>::into(
+                                    self.settings.cross_section.normalising_function.spread,
+                                ),
+                            2,
+                        ))
+                        .exp(),
+                        (<T as FloatConst>::PI().sqrt() / Into::<T>::into(2.0)
+                            * Into::<T>::into(
+                                self.settings.cross_section.normalising_function.spread,
+                            )),
                     )
                 }
                 NormalisingFunction::LeftRightExponential => {
@@ -487,16 +588,20 @@ impl SquaredTopology {
                     assert_eq!(self.settings.cross_section.normalising_function.spread, 1.,
                         "For now the left-right exponential normalising function only support a spread set to 1.0.");
                     (
-                        ( -( ( Float::powi(scaling ,2) + Float::powi(Into::<T>::into(self.settings.cross_section.normalising_function.spread),2) )
-                            / scaling ) ).exp()
-                        ,
+                        (-((Float::powi(scaling, 2)
+                            + Float::powi(
+                                Into::<T>::into(
+                                    self.settings.cross_section.normalising_function.spread,
+                                ),
+                                2,
+                            ))
+                            / scaling))
+                            .exp(),
                         // 2 Sqrt[\[Sigma]] BesselK[1, 2 Sqrt[\[Sigma]]], with \[Sigma]=1
-                        Into::<T>::into(0.27973176363304485456919761407082204777)
+                        Into::<T>::into(0.27973176363304485456919761407082204777),
                     )
                 }
-                NormalisingFunction::None => {
-                    ( Into::<T>::into(1.0), Into::<T>::into(1.0) )
-                }
+                NormalisingFunction::None => (Into::<T>::into(1.0), Into::<T>::into(1.0)),
             };
             scaling_result *=
                 scaling_jac * Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm;
@@ -516,7 +621,10 @@ impl SquaredTopology {
         }
 
         if self.settings.general.debug >= 2 {
-            println!("  | rescaled loop momenta = {:?}", &rescaled_loop_momenta[..self.n_loops]);
+            println!(
+                "  | rescaled loop momenta = {:?}",
+                &rescaled_loop_momenta[..self.n_loops]
+            );
         }
 
         let e_cm_sq = if self.n_incoming_momenta == 2 {
@@ -675,7 +783,7 @@ impl SquaredTopology {
                 cutkosky_cuts.cuts.len() - 1,
                 &mut diag_cache[0],
                 0,
-                regenerate_momenta
+                regenerate_momenta,
             );
             regenerate_momenta = false;
 
@@ -750,25 +858,30 @@ impl SquaredTopology {
                         if power_index == 0 {
                             subgraph.numerator.coefficients[0] = Complex::one();
                         } else {
-                            monomial_index = subgraph
-                            .numerator
-                            .sorted_linear[..]
-                            .binary_search_by(|x| utils::compare_slice(&x[..], &subgraph_powers[..power_index]))
-                            .unwrap()
-                            + 1;
+                            monomial_index = subgraph.numerator.sorted_linear[..]
+                                .binary_search_by(|x| {
+                                    utils::compare_slice(&x[..], &subgraph_powers[..power_index])
+                                })
+                                .unwrap()
+                                + 1;
                             subgraph.numerator.coefficients[monomial_index] += Complex::one();
                         }
                     }
 
                     let reduced_pos = LTDNumerator::powers_to_position(
-                        &subgraph.numerator.coefficient_index_to_powers[monomial_index][..subgraph.numerator.n_loops],
+                        &subgraph.numerator.coefficient_index_to_powers[monomial_index]
+                            [..subgraph.numerator.n_loops],
                         subgraph.numerator.n_loops,
                         &subgraph.numerator.reduced_blocks,
                     );
 
                     // update the non-empty coeff map to the single entry
                     subgraph.numerator.non_empty_coeff_map_to_reduced_numerator[0].clear();
-                    subgraph.numerator.non_empty_coeff_map_to_reduced_numerator[0].push((monomial_index, reduced_pos, Complex::one()));
+                    subgraph.numerator.non_empty_coeff_map_to_reduced_numerator[0].push((
+                        monomial_index,
+                        reduced_pos,
+                        Complex::one(),
+                    ));
 
                     // only compute the subdiagram with this numerator once
                     let mut cached_res = None;
@@ -796,7 +909,9 @@ impl SquaredTopology {
                             Complex::one()
                         };
 
-                        subgraph_cache.cached_topology_integrand.push((monomial_index, res));
+                        subgraph_cache
+                            .cached_topology_integrand
+                            .push((monomial_index, res));
                         res
                     } else {
                         cached_res.unwrap()
@@ -832,7 +947,7 @@ impl SquaredTopology {
             if self.settings.general.debug >= 1 {
                 println!(
                     "  | res uv limit {}: = {:e}",
-                   uv_index, result_complete_numerator
+                    uv_index, result_complete_numerator
                 );
             }
 
@@ -888,10 +1003,6 @@ impl SquaredTopology {
 
         scaling_result
     }
-}
-
-impl IntegrandImplementation for SquaredTopology {
-    type Cache = SquaredTopologyCache;
 
     /// Create a rotated version of this squared topology. The axis needs to be normalized.
     fn rotate(&self, angle: float, axis: (float, float, float)) -> SquaredTopology {
@@ -943,6 +1054,28 @@ impl IntegrandImplementation for SquaredTopology {
 
         rotated_topology
     }
+}
+
+impl IntegrandImplementation for SquaredTopologySet {
+    type Cache = SquaredTopologyCache;
+
+    /// Create a rotated version of this squared topology. The axis needs to be normalized.
+    fn rotate(&self, angle: float, axis: (float, float, float)) -> SquaredTopologySet {
+        let rotated_topologies: Vec<_> = self
+            .topologies
+            .iter()
+            .map(|t| t.rotate(angle, axis))
+            .collect();
+        SquaredTopologySet {
+            name: self.name.clone(),
+            multiplicity: self.multiplicity.clone(),
+            e_cm_squared: self.e_cm_squared,
+            n_loops: self.n_loops.clone(),
+            settings: self.settings.clone(),
+            rotation_matrix: rotated_topologies[0].rotation_matrix.clone(),
+            topologies: rotated_topologies,
+        }
+    }
 
     #[inline]
     fn evaluate_float<'a>(
@@ -979,8 +1112,8 @@ impl IntegrandImplementation for SquaredTopology {
     #[inline]
     fn create_cache(&self) -> SquaredTopologyCache {
         SquaredTopologyCache {
-            float_cache: self.create_caches(),
-            quad_cache: self.create_caches(),
+            float_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
+            quad_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
         }
     }
 }

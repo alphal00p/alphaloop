@@ -606,7 +606,7 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 #[cfg(feature = "python_api")]
 py_class!(class CrossSection |py| {
     data squared_topology: RefCell<squared_topologies::SquaredTopology>;
-    data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopology>>;
+    data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopologySet>>;
     data caches: RefCell<Vec<Vec<Vec<topologies::LTDCache<float>>>>>;
     data caches_f128: RefCell<Vec<Vec<Vec<topologies::LTDCache<f128::f128>>>>>;
     data dashboard: RefCell<dashboard::Dashboard>;
@@ -616,7 +616,9 @@ py_class!(class CrossSection |py| {
         let settings = Settings::from_file(settings_file);
         let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings);
         let dashboard = dashboard::Dashboard::minimal_dashboard();
-        let integrand = integrand::Integrand::new(squared_topology.n_loops, squared_topology.clone(), settings.clone(), true, dashboard.status_update_sender.clone(), 0);
+        let integrand = integrand::Integrand::new(squared_topology.n_loops,
+            squared_topologies::SquaredTopologySet::from_one(squared_topology.clone()),
+            settings.clone(), true, dashboard.status_update_sender.clone(), 0);
 
         let caches = squared_topology.create_caches::<float>();
         let caches_f128 = squared_topology.create_caches::<f128::f128>();

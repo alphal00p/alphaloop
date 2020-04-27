@@ -39,7 +39,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::amplitude::Amplitude;
 use ltd::integrand::Integrand;
-use ltd::squared_topologies::SquaredTopology;
+use ltd::squared_topologies::{SquaredTopology, SquaredTopologySet};
 use ltd::topologies::{LTDCache, LTDNumerator, Surface, SurfaceType, Topology};
 use ltd::utils::Signum;
 use ltd::{float, FloatLike, IntegratedPhase, Integrator, Settings};
@@ -70,12 +70,12 @@ impl CubaResultDef {
 
 enum Integrands {
     Topology(Integrand<Topology>),
-    CrossSection(Integrand<SquaredTopology>),
+    CrossSection(Integrand<SquaredTopologySet>),
 }
 
 enum Diagram {
     Topology(Topology),
-    CrossSection(SquaredTopology),
+    CrossSection(SquaredTopologySet),
 }
 
 struct UserData<'a> {
@@ -1492,6 +1492,12 @@ fn main() {
                 .value_name("SQUARED_TOPOLOGY_FILE")
                 .help("Set the squared topology file"),
         )
+        .arg(
+            Arg::with_name("cross_section_set")
+                .long("cross_section_set")
+                .value_name("SQUARED_TOPOLOGY_SET_FILE")
+                .help("Set the squared topology set file"),
+        )
         .subcommand(
             SubCommand::with_name("integrated_ct")
                 .about("Gives the integrated CT for the selected amplitude"),
@@ -1633,7 +1639,11 @@ fn main() {
     let mut dashboard = Dashboard::new(settings.integrator.dashboard);
 
     let mut diagram = if let Some(cs_opt) = matches.value_of("cross_section") {
-        Diagram::CrossSection(SquaredTopology::from_file(cs_opt, &settings))
+        Diagram::CrossSection(SquaredTopologySet::from_one(SquaredTopology::from_file(
+            cs_opt, &settings,
+        )))
+    } else if let Some(css_opt) = matches.value_of("cross_section_set") {
+        Diagram::CrossSection(SquaredTopologySet::from_file(css_opt, &settings))
     } else {
         let topology_file = matches.value_of("topologies").unwrap();
 
