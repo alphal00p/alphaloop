@@ -128,17 +128,23 @@ impl Topology {
         }
 
         // construct the numerator
-        self.numerator = if self.numerator_tensor_coefficients.len() == 0 {
+        self.numerator = if self.numerator_tensor_coefficients.len() == 0
+            && self.numerator_tensor_coefficients_sparse.len() == 0
+        {
             LTDNumerator::one(self.n_loops)
         } else {
-            LTDNumerator::new(
-                self.n_loops,
-                &self
-                    .numerator_tensor_coefficients
-                    .iter()
-                    .map(|x| Complex::new(x.0, x.1))
-                    .collect::<Vec<_>>(),
-            )
+            if self.numerator_tensor_coefficients_sparse.len() > 0 {
+                LTDNumerator::from_sparse(self.n_loops, &self.numerator_tensor_coefficients_sparse)
+            } else {
+                LTDNumerator::new(
+                    self.n_loops,
+                    &self
+                        .numerator_tensor_coefficients
+                        .iter()
+                        .map(|x| Complex::new(x.0, x.1))
+                        .collect::<Vec<_>>(),
+                )
+            }
         };
 
         // Prepare the partial fractioning map at one loop if the threshold is set to a positive number
@@ -3140,6 +3146,38 @@ impl Topology {
 }
 
 impl LTDNumerator {
+    pub fn from_sparse(n_loops: usize, coefficients: &[(Vec<usize>, (f64, f64))]) -> LTDNumerator {
+        let rank = coefficients.iter().map(|c| c.0.len()).max().unwrap();
+
+        let dense_length = (0..=rank)
+            .map(|r| LTDNumerator::binomial(4 * n_loops + r - 1, r))
+            .sum();
+
+        let mut dense = vec![Complex::default(); dense_length];
+
+        let sorted_linear: Vec<Vec<usize>> = (0..=rank)
+            .map(|rank| (0..4 * n_loops).combinations_with_replacement(rank))
+            .flatten()
+            .collect();
+
+        for (exp_map, (re, im)) in coefficients {
+            let index = if exp_map.len() == 0 {
+                0
+            } else {
+                sorted_linear[..]
+                    .binary_search_by(|x| {
+                        utils::compare_slice(&x[..], &exp_map[..])
+                    })
+                    .unwrap()
+                    + 1
+            };
+
+            dense[index] = Complex::new(*re, *im);
+        }
+
+        LTDNumerator::new(n_loops, dense.as_slice())
+    }
+
     pub fn new(n_loops: usize, coefficients: &[Complex<f64>]) -> LTDNumerator {
         // Determine max_rank
         let mut max_rank = 0;

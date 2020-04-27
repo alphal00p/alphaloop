@@ -492,6 +492,8 @@ pub struct Topology {
     #[serde(skip_deserializing)]
     pub partial_fractioning: PartialFractioning,
     #[serde(default)]
+    pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
+    #[serde(default)]
     pub numerator_tensor_coefficients: Vec<(f64, f64)>,
     #[serde(default)]
     pub amplitude: Amplitude,

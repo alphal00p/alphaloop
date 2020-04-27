@@ -103,7 +103,7 @@ class SquaredTopologyGenerator:
 
                 uv_limit_info.append({
                     'cut_symmetry_factors': sym_factor,
-                    'numerator_structure': numerator,
+                    'numerator_structure': numerator_sparse,
                     'loop_topos': loop_topos,
                     'conjugate_deformation': [x for x in cut_info['conjugate_deformation']],
 
@@ -138,7 +138,7 @@ class SquaredTopologyGenerator:
                         {
                             'diagrams': [ x.to_flat_format() for x in d['loop_topos']],
                             'conjugate_deformation': d['conjugate_deformation'],
-                            'numerator_tensor_coefficients': d['numerator_structure'],
+                            'numerator_tensor_coefficients_sparse': [[list(m[0]), list(m[1])] for m in d['numerator_structure']],
                             'symmetry_factor': d['cut_symmetry_factors']
                         }
                     for d in diags]
@@ -732,8 +732,8 @@ if __name__ == "__main__":
 
     t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
         {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-        particle_ids={'p%s' % i: i for i in range(9)})
-            #masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})
+        particle_ids={'p%s' % i: i for i in range(9)},
+        #masses={'p1': 0.1, 'p2': 0.1, 'p3': 0.1, 'p4': 0.1,})
     t1.export('t1_squared.yaml')
 
     bu = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 3, 2), ('p3', 4, 3),

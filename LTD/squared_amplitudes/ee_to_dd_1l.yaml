@@ -24,7 +24,7 @@ cutkosky_cuts:
   uv_limits:
   - conjugate_deformation:
     - false
-    - false
+    - true
     diagrams:
     - analytical_result_imag: 0.0
       analytical_result_real: 0.0
@@ -160,37 +160,18 @@ cutkosky_cuts:
       numerator_tensor_coefficients:
       - - 0.0
         - 0.0
-    numerator_tensor_coefficients:
-    - - 0.0
-      - 0.0
-    - - -149418000.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 74709100.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - 0.0
-      - 0.0
-    - - -74709100.0
-      - 0.0
+    numerator_tensor_coefficients_sparse:
+    - - - 0
+      - - -149418000.0
+        - 0.0
+    - - - 0
+        - 0
+      - - 74709100.0
+        - 0.0
+    - - - 3
+        - 3
+      - - -74709100.0
+        - 0.0
     symmetry_factor: 1.0
 e_cm_squared: 4.0
 external_momenta:

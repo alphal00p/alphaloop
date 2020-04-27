@@ -34,6 +34,8 @@ pub struct CutkoskyCutLimits {
     pub conjugate_deformation: Vec<bool>,
     pub symmetry_factor: f64,
     #[serde(default)]
+    pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
+    #[serde(default)]
     pub numerator_tensor_coefficients: Vec<(f64, f64)>,
     #[serde(skip_deserializing)]
     pub numerator: LTDNumerator,
@@ -248,17 +250,26 @@ impl SquaredTopology {
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
             for uv_limit in &mut cutkosky_cuts.uv_limits {
-                uv_limit.numerator = if uv_limit.numerator_tensor_coefficients.len() == 0 {
+                uv_limit.numerator = if uv_limit.numerator_tensor_coefficients.len() == 0
+                    && uv_limit.numerator_tensor_coefficients_sparse.len() == 0
+                {
                     LTDNumerator::one(squared_topo.n_loops + cutkosky_cuts.n_bubbles)
                 } else {
-                    LTDNumerator::new(
-                        squared_topo.n_loops + cutkosky_cuts.n_bubbles,
-                        &uv_limit
-                            .numerator_tensor_coefficients
-                            .iter()
-                            .map(|x| Complex::new(x.0, x.1))
-                            .collect::<Vec<_>>(),
-                    )
+                    if !uv_limit.numerator_tensor_coefficients_sparse.is_empty() {
+                        LTDNumerator::from_sparse(
+                            squared_topo.n_loops + cutkosky_cuts.n_bubbles,
+                            &uv_limit.numerator_tensor_coefficients_sparse,
+                        )
+                    } else {
+                        LTDNumerator::new(
+                            squared_topo.n_loops + cutkosky_cuts.n_bubbles,
+                            &uv_limit
+                                .numerator_tensor_coefficients
+                                .iter()
+                                .map(|x| Complex::new(x.0, x.1))
+                                .collect::<Vec<_>>(),
+                        )
+                    }
                 };
 
                 for d in &mut uv_limit.diagrams {
