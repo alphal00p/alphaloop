@@ -467,7 +467,7 @@ pub struct GeneralSettings {
     pub absolute_precision: f64,
     pub numerical_instability_check: bool,
     pub minimal_precision_for_returning_result: f64,
-    pub num_digits_different_for_inconsistency: f64,
+    pub minimal_precision_to_skip_further_checks: f64,
     pub num_f64_samples: usize,
     pub num_f128_samples: usize,
     pub integration_statistics: bool,

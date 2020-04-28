@@ -295,7 +295,7 @@ macro_rules! check_stability_precision {
 
         // TODO: we are also findings the centers for the rotated topologies
         // inherit them from the first topology
-        for rot_topo in &mut self.topologies[1..num_samples] {
+        for (rot_index, rot_topo) in self.topologies[1..num_samples].iter_mut().enumerate() {
             if self.settings.general.debug > 2 {
                 println!("Evaluating integrand with rotated topologies");
             }
@@ -364,6 +364,11 @@ macro_rules! check_stability_precision {
                 || !max.is_finite()
                 || d < NumCast::from(self.settings.general.relative_precision).unwrap()
                 || diff > NumCast::from(self.settings.general.absolute_precision).unwrap() {
+                break;
+            }
+
+            // if the first point is very stable, we stop further samples
+            if rot_index == 0 && result_rot.is_finite() && d > NumCast::from(self.settings.general.minimal_precision_to_skip_further_checks).unwrap() {
                 break;
             }
         }

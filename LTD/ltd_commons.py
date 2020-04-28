@@ -44,7 +44,7 @@ hyperparameters = HyperParameters({
         'absolute_precision'    :   1e+99,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
-        'num_digits_different_for_inconsistency': 10.,
+        'minimal_precision_to_skip_further_checks': 12.,
         # return the unstable point only if it has more stable digits than specified below
         'minimal_precision_for_returning_result': 10.,
         # number of samples to take for the numerical stability check
