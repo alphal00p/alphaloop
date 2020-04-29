@@ -16,23 +16,23 @@ if __name__ == "__main__":
                 ('p15', 10, 7), ('p16', 8, 10), ('p17', 9, 10)
             ],
         "ttHNNLO_4Box", ['q1', 'q2'], 
-        3, 
+        0, 
         {'q1': [1000., 0., 0., 1000.], 'q2': [1000., 0., 0., -1000.], 'q3': [1000., 0., 0., 1000.], 'q4': [1000., 0., 0., -1000.]},
         # This is the basis generated from QGRAF
-        loop_momenta_names=(
-            'p7', # k1
-            'p9', # -k2
-            'p11', # -k3, Higgs
-            'p13' # -k4
-        ),
-        # This is the basis that puts the gluon on loop momenta:
 #        loop_momenta_names=(
 #            'p7', # k1
-#            'p14', # k1+k4-p1-p2
-#            'p11', # -k3
-#            'p16' # -k2+k4-p1-p2
+#            'p9', # -k2
+#            'p11', # -k3, Higgs
+#            'p13' # -k4
 #        ),
-        final_state_particle_ids=(),#(6,6,25),
+        # This is the basis that puts the gluon on loop momenta:
+        loop_momenta_names=(
+            'p7', # k1
+            'p14', # k1+k4-p1-p2
+            'p11', # -k3
+            'p16' # -k2+k4-p1-p2
+        ),
+        final_state_particle_ids=(6,6,25),
         particle_ids={
             'q1' : -11,
             'q2' : 11,
