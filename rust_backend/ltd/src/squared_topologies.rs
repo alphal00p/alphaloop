@@ -143,6 +143,193 @@ impl SquaredTopologySet {
         self.topologies.iter().map(|t| t.create_caches()).collect()
     }
 
+    pub fn multi_channeling<'a, T: FloatLike>(
+        &mut self,
+        x: &'a [f64],
+        cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
+        mut event_manager: Option<&mut EventManager>,
+    ) -> (
+        &'a [f64],
+        ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        T,
+        Complex<T>,
+        Complex<T>,
+    ) {
+        // FIXME: hardcoded for the double triangle
+        // map from channel basis to loop momentum basis
+        let channels = [
+            [1, 0, 0, 1],
+            [1, 0, 0, 1],
+            [1, 0, 0, 1],
+            [1, 0, 0, 1],
+            [1, 0, 1, 1],
+            [1, 0, 1, 1],
+            [1, -1, 1, 0],
+            [1, -1, 1, 0],
+        ];
+
+        // map from loop momentum basis to channel basis
+        let channels_inv = [
+            [1, 0, 0, 1],
+            [1, 0, 0, 1],
+            [1, 0, 0, 1],
+            [1, 0, 0, 1],
+            [1, 0, -1, 1],
+            [1, 0, -1, 1],
+            [0, 1, -1, 1],
+            [0, 1, -1, 1],
+        ];
+
+        // shift in loop momentum basis for each channel
+        let shift = [
+            [LorentzVector::default(), LorentzVector::default()],
+            [
+                -self.topologies[0].external_momenta[0].cast::<T>()
+                    - self.topologies[0].external_momenta[1].cast(),
+                LorentzVector::default(),
+            ],
+            [
+                LorentzVector::default(),
+                -self.topologies[0].external_momenta[0].cast::<T>()
+                    - self.topologies[0].external_momenta[1].cast(),
+            ],
+            [
+                -self.topologies[0].external_momenta[0].cast::<T>()
+                    - self.topologies[0].external_momenta[1].cast(),
+                -self.topologies[0].external_momenta[0].cast::<T>()
+                    - self.topologies[0].external_momenta[1].cast(),
+            ],
+            [LorentzVector::default(), LorentzVector::default()],
+            [
+                -self.topologies[0].external_momenta[0].cast::<T>()
+                    - self.topologies[0].external_momenta[1].cast(),
+                LorentzVector::default(),
+            ],
+            [LorentzVector::default(), LorentzVector::default()],
+            [
+                -self.topologies[0].external_momenta[0].cast::<T>()
+                    - self.topologies[0].external_momenta[1].cast(),
+                LorentzVector::default(),
+            ],
+        ];
+
+        // paramaterize and consider the result in a channel basis
+        let n_loops = x.len() / 3;
+        let mut k_channel = [LorentzVector::default(); MAX_LOOP];
+        for i in 0..n_loops {
+            let (l_space, _) = Topology::parameterize::<T>(
+                &x[i * 3..(i + 1) * 3],
+                self.e_cm_squared,
+                i,
+                &self.settings,
+            );
+
+            let rot = &self.rotation_matrix;
+            k_channel[i] = LorentzVector::from_args(
+                T::zero(),
+                <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
+                    + <T as NumCast>::from(rot[0][1]).unwrap() * l_space[1]
+                    + <T as NumCast>::from(rot[0][2]).unwrap() * l_space[2],
+                <T as NumCast>::from(rot[1][0]).unwrap() * l_space[0]
+                    + <T as NumCast>::from(rot[1][1]).unwrap() * l_space[1]
+                    + <T as NumCast>::from(rot[1][2]).unwrap() * l_space[2],
+                <T as NumCast>::from(rot[2][0]).unwrap() * l_space[0]
+                    + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
+                    + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
+            );
+        }
+
+        let mut k_lmb = [LorentzVector::default(); MAX_LOOP];
+        let mut k_other_channel = [LorentzVector::default(); MAX_LOOP];
+        let mut event_counter = 0;
+        let mut result = Complex::zero();
+        for (channel, channel_shift) in channels.iter().zip_eq(&shift) {
+            // transform to the loop momentum basis
+            for (kk, r) in k_lmb[..self.n_loops]
+                .iter_mut()
+                .zip_eq(channel.chunks(self.n_loops))
+            {
+                *kk = LorentzVector::default();
+
+                for ((ko, s), shift) in k_channel[..self.n_loops]
+                    .iter()
+                    .zip_eq(r.iter())
+                    .zip_eq(channel_shift)
+                {
+                    *kk += (ko - shift).multiply_sign(*s);
+                }
+            }
+
+            // determine the normalization constant
+            let mut normalization = T::zero();
+            for (other_channel_inv, other_channel_shift) in channels_inv.iter().zip_eq(&shift) {
+                // transform from the loop momentum basis to the other channel basis
+                for ((kk, r), shift) in k_other_channel[..self.n_loops]
+                    .iter_mut()
+                    .zip_eq(other_channel_inv.chunks(self.n_loops))
+                    .zip_eq(other_channel_shift)
+                {
+                    *kk = shift.clone();
+                    for (ko, s) in k_lmb[..self.n_loops].iter().zip_eq(r.iter()) {
+                        *kk += ko.multiply_sign(*s);
+                    }
+                }
+
+                let mut inv_jac_para = T::one();
+                for i in 0..n_loops {
+                    let rot = &self.rotation_matrix;
+
+                    // undo the rotation
+                    let rotated = LorentzVector::from_args(
+                        T::zero(),
+                        <T as NumCast>::from(rot[0][0]).unwrap() * k_other_channel[i].x
+                            + <T as NumCast>::from(rot[1][0]).unwrap() * k_other_channel[i].y
+                            + <T as NumCast>::from(rot[2][0]).unwrap() * k_other_channel[i].z,
+                        <T as NumCast>::from(rot[0][1]).unwrap() * k_other_channel[i].x
+                            + <T as NumCast>::from(rot[1][1]).unwrap() * k_other_channel[i].y
+                            + <T as NumCast>::from(rot[2][1]).unwrap() * k_other_channel[i].z,
+                        <T as NumCast>::from(rot[0][2]).unwrap() * k_other_channel[i].x
+                            + <T as NumCast>::from(rot[1][2]).unwrap() * k_other_channel[i].y
+                            + <T as NumCast>::from(rot[2][2]).unwrap() * k_other_channel[i].z,
+                    );
+                    let (_, jac) =
+                        Topology::inv_parametrize(&rotated, self.e_cm_squared, i, &self.settings);
+
+                    inv_jac_para *= jac;
+                }
+
+                normalization += inv_jac_para;
+            }
+
+            // evaluate the integrand in this channel
+            let mut channel_result = Complex::zero();
+            for ((t, cache), &m) in self
+                .topologies
+                .iter_mut()
+                .zip_eq(cache.iter_mut())
+                .zip_eq(&self.multiplicity)
+            {
+                channel_result += t.evaluate_mom(&k_lmb[..n_loops], cache, &mut event_manager)
+                    / normalization
+                    * Into::<T>::into(m as f64);
+                if let Some(em) = &mut event_manager {
+                    if em.track_events {
+                        for e in em.event_buffer[event_counter..].iter_mut() {
+                            e.integrand *= m as f64 / normalization.to_f64().unwrap();
+                        }
+                        event_counter = em.event_buffer.len();
+                    }
+                }
+            }
+
+            result += channel_result;
+        }
+
+        // we don't have a meaningful jacobian nor k_def
+        let k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
+        (x, k_def, T::one(), Complex::one(), result)
+    }
+
     pub fn evaluate<'a, T: FloatLike>(
         &mut self,
         x: &'a [f64],
@@ -155,6 +342,10 @@ impl SquaredTopologySet {
         Complex<T>,
         Complex<T>,
     ) {
+        if self.settings.general.multi_channeling {
+            return self.multi_channeling(x, cache, event_manager);
+        }
+
         // jointly parameterize all squared topologies
         let n_loops = x.len() / 3;
         let mut k = [LorentzVector::default(); MAX_LOOP];
@@ -191,7 +382,7 @@ impl SquaredTopologySet {
             .topologies
             .iter_mut()
             .zip_eq(cache.iter_mut())
-            .zip(&self.multiplicity)
+            .zip_eq(&self.multiplicity)
         {
             result += t.evaluate_mom(&k[..n_loops], cache, &mut event_manager)
                 * jac_para

@@ -830,7 +830,7 @@ impl Topology {
     }
 
     pub fn inv_parametrize<T: FloatLike>(
-        mom: &LorentzVector<f64>,
+        mom: &LorentzVector<T>,
         e_cm_squared: f64,
         loop_index: usize,
         settings: &Settings,
@@ -843,11 +843,11 @@ impl Topology {
         let e_cm = Into::<T>::into(e_cm_squared).sqrt()
             * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
 
-        let x: T = Into::<T>::into(mom.x)
+        let x: T = mom.x
             - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].1);
-        let y: T = Into::<T>::into(mom.y)
+        let y: T = mom.y
             - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].2);
-        let z: T = Into::<T>::into(mom.z)
+        let z: T = mom.z
             - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].3);
 
         let k_r_sq = x * x + y * y + z * z;

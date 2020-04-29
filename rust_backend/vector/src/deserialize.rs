@@ -120,7 +120,10 @@ impl<'s> FromPyObject<'s> for LorentzVector<Complex<f64>> {
         for item in seq.iter(py)? {
             let item = item?;
             let seq = item.cast_as::<PySequence>(py)?;
-            v.push((f64::extract(py, &seq.get_item(py, 0)?)?, f64::extract(py, &seq.get_item(py, 1)?)?));
+            v.push((
+                f64::extract(py, &seq.get_item(py, 0)?)?,
+                f64::extract(py, &seq.get_item(py, 1)?)?,
+            ));
             item.release_ref(py);
         }
 
