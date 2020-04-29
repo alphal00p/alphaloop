@@ -1211,7 +1211,7 @@ impl Topology {
                 let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
                     / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
-                let sup = t / (t + mij_sq);
+                let sup = (t / (t + mij_sq));
 
                 if sup * sup < lambda_sq {
                     lambda_sq = sup * sup;

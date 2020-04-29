@@ -39,8 +39,10 @@ esac
 cd rust_backend/
 
 if [ "$MODE" == debug ]; then
+	echo "Running in debug mode"
 	cargo build -p $BUILD
 else
+	echo "Running in release mode"
 	cargo build --release -p $BUILD
 fi
 
