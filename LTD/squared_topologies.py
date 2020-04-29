@@ -12,6 +12,14 @@ class SquaredTopologyGenerator:
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         self.external_momenta = external_momenta
+
+        self.loop_topo = self.topo.create_loop_topology(name,
+            external_momenta,
+            loop_momenta_names=loop_momenta_names,
+            fixed_deformation=False,
+            mass_map=masses,
+            numerator_tensor_coefficients=[[0., 0.]],
+            shift_map=None)
         
         cutkosky_cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momentum_names, final_state_particle_ids, particle_ids)
 
@@ -118,7 +126,7 @@ class SquaredTopologyGenerator:
             'overall_numerator': self.overall_numerator,
             'n_incoming_momenta': len(self.incoming_momenta),
             'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
-            'topo': [list(x) for x in self.topo.edge_map_lin],
+            'topo': self.loop_topo.to_flat_format(),
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
             'e_cm_squared': sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))),
             'cutkosky_cuts': [
@@ -734,6 +742,7 @@ if __name__ == "__main__":
         {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
         particle_ids={'p%s' % i: i for i in range(9)},
         #masses={'p1': 0.1, 'p2': 0.1, 'p3': 0.1, 'p4': 0.1,})
+        )
     t1.export('t1_squared.yaml')
 
     bu = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 3, 2), ('p3', 4, 3),

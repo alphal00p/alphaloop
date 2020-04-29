@@ -123,10 +123,6 @@ impl Topology {
     /// If `external_momenta_set` is true, the existence conditions
     /// for ellipsoids and e_cm are determined as well.
     pub fn process(&mut self, external_momenta_set: bool) {
-        if self.n_loops > MAX_LOOP {
-            panic!("Please increase MAX_LOOP to {}", self.n_loops);
-        }
-
         // construct the numerator
         self.numerator = if self.numerator_tensor_coefficients.len() == 0
             && self.numerator_tensor_coefficients_sparse.len() == 0
@@ -843,12 +839,9 @@ impl Topology {
         let e_cm = Into::<T>::into(e_cm_squared).sqrt()
             * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
 
-        let x: T = mom.x
-            - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].1);
-        let y: T = mom.y
-            - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].2);
-        let z: T = mom.z
-            - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].3);
+        let x: T = mom.x - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].1);
+        let y: T = mom.y - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].2);
+        let z: T = mom.z - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].3);
 
         let k_r_sq = x * x + y * y + z * z;
         let k_r = k_r_sq.sqrt();
@@ -3165,9 +3158,7 @@ impl LTDNumerator {
                 0
             } else {
                 sorted_linear[..]
-                    .binary_search_by(|x| {
-                        utils::compare_slice(&x[..], &exp_map[..])
-                    })
+                    .binary_search_by(|x| utils::compare_slice(&x[..], &exp_map[..]))
                     .unwrap()
                     + 1
             };

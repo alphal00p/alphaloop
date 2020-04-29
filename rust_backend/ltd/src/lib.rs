@@ -443,6 +443,7 @@ pub struct ObservableSettings {
 pub struct GeneralSettings {
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
+    pub multi_channeling_including_massive_propagators: bool,
     pub log_file_prefix: String,
     pub res_file_prefix: String,
     pub screen_log_core: Option<usize>,

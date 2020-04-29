@@ -198,27 +198,85 @@ n_loops: 1
 name: ee_to_dd_1l
 overall_numerator: 0.25
 topo:
-- - q1
-  - 101
-  - 1
-- - q2
-  - 102
-  - 1
-- - q3
-  - 4
-  - 103
-- - q4
-  - 4
-  - 104
-- - p1
-  - 1
-  - 2
-- - p2
-  - 2
-  - 3
-- - p3
-  - 2
-  - 3
-- - p4
-  - 3
-  - 4
+  analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    beta:
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+  external_kinematics:
+  - - 1.0
+    - 0.0
+    - 0.0
+    - 1.0
+  - - 1.0
+    - 0.0
+    - 0.0
+    - -1.0
+  - - 1.0
+    - 0.0
+    - 0.0
+    - 1.0
+  - - 1.0
+    - 0.0
+    - 0.0
+    - -1.0
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 0.0
+      name: p1
+      power: 1
+      q:
+      - 2.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - m_squared: 0.0
+      name: p4
+      power: 1
+      q:
+      - 2.0
+      - 0.0
+      - 0.0
+      - 0.0
+    signature:
+    - 0
+    start_node: 1
+  - end_node: 4
+    propagators:
+    - m_squared: 0.0
+      name: p2
+      power: 1
+      q:
+      - -2.0
+      - -0.0
+      - -0.0
+      - -0.0
+    - m_squared: 0.0
+      name: p3
+      power: 1
+      q:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    signature:
+    - 1
+    start_node: 4
+  ltd_cut_structure:
+  - - 0
+    - 1
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 1
+  name: ee_to_dd_1l
+  numerator_tensor_coefficients:
+  - - 0.0
+    - 0.0

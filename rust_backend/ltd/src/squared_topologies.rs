@@ -13,7 +13,7 @@ use observables::EventManager;
 use serde::Deserialize;
 use std::fs::File;
 use std::mem;
-use topologies::{LTDCache, LTDNumerator, Topology};
+use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
@@ -61,6 +61,7 @@ pub struct SquaredTopology {
     pub settings: Settings,
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
+    pub topo: Topology,
 }
 
 #[derive(Debug, Clone)]
@@ -72,6 +73,7 @@ pub struct SquaredTopologySet {
     pub multiplicity: Vec<usize>,
     pub settings: Settings,
     pub rotation_matrix: [[float; 3]; 3],
+    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -87,7 +89,8 @@ pub struct SquaredTopologySetInput {
 }
 
 impl SquaredTopologySet {
-    pub fn from_one(squared_topology: SquaredTopology) -> SquaredTopologySet {
+    pub fn from_one(mut squared_topology: SquaredTopology) -> SquaredTopologySet {
+        let channels = squared_topology.generate_multi_channeling_channels();
         SquaredTopologySet {
             name: squared_topology.name.clone(),
             n_loops: squared_topology.n_loops,
@@ -96,6 +99,7 @@ impl SquaredTopologySet {
             rotation_matrix: squared_topology.rotation_matrix.clone(),
             topologies: vec![squared_topology],
             multiplicity: vec![1],
+            multi_channeling_channels: channels,
         }
     }
 
@@ -107,19 +111,43 @@ impl SquaredTopologySet {
 
         let mut topologies: Vec<SquaredTopology> = vec![];
         let mut multiplicity: Vec<usize> = vec![];
+        let mut multi_channeling_channels = vec![];
 
         for topo in squared_topology_set_input.topologies {
             let filename = std::path::Path::new(&filename)
                 .with_file_name(topo.name)
                 .with_extension("yaml");
-            let squared_topology = SquaredTopology::from_file(filename.to_str().unwrap(), settings);
+            let mut squared_topology =
+                SquaredTopology::from_file(filename.to_str().unwrap(), settings);
 
             if !topologies.is_empty() && squared_topology.n_loops != topologies[0].n_loops {
                 panic!("Topology sets require all topologies to have the same number of loops");
             }
 
+            multi_channeling_channels.extend(squared_topology.generate_multi_channeling_channels());
             topologies.push(squared_topology);
             multiplicity.push(topo.multiplicity);
+        }
+
+        // filter duplicate channels between supergraphs
+        let mut unique_multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> =
+            vec![];
+
+        'mc_loop: for c in multi_channeling_channels {
+            for uc in &unique_multi_channeling_channels {
+                if uc.0 == c.0 && uc.1 == c.1 {
+                    // test for true equality
+                    if uc
+                        .2
+                        .iter()
+                        .zip(c.2.iter())
+                        .all(|(s1, s2)| (s1 - s2).spatial_squared() < 1.0e-15)
+                    {
+                        continue 'mc_loop;
+                    }
+                }
+            }
+            unique_multi_channeling_channels.push(c);
         }
 
         let rotation_matrix = [
@@ -136,6 +164,7 @@ impl SquaredTopologySet {
             rotation_matrix,
             settings: settings.clone(),
             multiplicity,
+            multi_channeling_channels: unique_multi_channeling_channels,
         }
     }
 
@@ -155,64 +184,6 @@ impl SquaredTopologySet {
         Complex<T>,
         Complex<T>,
     ) {
-        // FIXME: hardcoded for the double triangle
-        // map from channel basis to loop momentum basis
-        let channels = [
-            [1, 0, 0, 1],
-            [1, 0, 0, 1],
-            [1, 0, 0, 1],
-            [1, 0, 0, 1],
-            [1, 0, 1, 1],
-            [1, 0, 1, 1],
-            [1, -1, 1, 0],
-            [1, -1, 1, 0],
-        ];
-
-        // map from loop momentum basis to channel basis
-        let channels_inv = [
-            [1, 0, 0, 1],
-            [1, 0, 0, 1],
-            [1, 0, 0, 1],
-            [1, 0, 0, 1],
-            [1, 0, -1, 1],
-            [1, 0, -1, 1],
-            [0, 1, -1, 1],
-            [0, 1, -1, 1],
-        ];
-
-        // shift in loop momentum basis for each channel
-        let shift = [
-            [LorentzVector::default(), LorentzVector::default()],
-            [
-                -self.topologies[0].external_momenta[0].cast::<T>()
-                    - self.topologies[0].external_momenta[1].cast(),
-                LorentzVector::default(),
-            ],
-            [
-                LorentzVector::default(),
-                -self.topologies[0].external_momenta[0].cast::<T>()
-                    - self.topologies[0].external_momenta[1].cast(),
-            ],
-            [
-                -self.topologies[0].external_momenta[0].cast::<T>()
-                    - self.topologies[0].external_momenta[1].cast(),
-                -self.topologies[0].external_momenta[0].cast::<T>()
-                    - self.topologies[0].external_momenta[1].cast(),
-            ],
-            [LorentzVector::default(), LorentzVector::default()],
-            [
-                -self.topologies[0].external_momenta[0].cast::<T>()
-                    - self.topologies[0].external_momenta[1].cast(),
-                LorentzVector::default(),
-            ],
-            [LorentzVector::default(), LorentzVector::default()],
-            [
-                -self.topologies[0].external_momenta[0].cast::<T>()
-                    - self.topologies[0].external_momenta[1].cast(),
-                LorentzVector::default(),
-            ],
-        ];
-
         // paramaterize and consider the result in a channel basis
         let n_loops = x.len() / 3;
         let mut k_channel = [LorentzVector::default(); MAX_LOOP];
@@ -243,7 +214,7 @@ impl SquaredTopologySet {
         let mut k_other_channel = [LorentzVector::default(); MAX_LOOP];
         let mut event_counter = 0;
         let mut result = Complex::zero();
-        for (channel, channel_shift) in channels.iter().zip_eq(&shift) {
+        for (channel, _, channel_shift) in &self.multi_channeling_channels {
             // transform to the loop momentum basis
             for (kk, r) in k_lmb[..self.n_loops]
                 .iter_mut()
@@ -256,20 +227,20 @@ impl SquaredTopologySet {
                     .zip_eq(r.iter())
                     .zip_eq(channel_shift)
                 {
-                    *kk += (ko - shift).multiply_sign(*s);
+                    *kk += (ko - shift.cast()).multiply_sign(*s);
                 }
             }
 
             // determine the normalization constant
             let mut normalization = T::zero();
-            for (other_channel_inv, other_channel_shift) in channels_inv.iter().zip_eq(&shift) {
+            for (_, other_channel_inv, other_channel_shift) in &self.multi_channeling_channels {
                 // transform from the loop momentum basis to the other channel basis
                 for ((kk, r), shift) in k_other_channel[..self.n_loops]
                     .iter_mut()
                     .zip_eq(other_channel_inv.chunks(self.n_loops))
                     .zip_eq(other_channel_shift)
                 {
-                    *kk = shift.clone();
+                    *kk = shift.cast();
                     for (ko, s) in k_lmb[..self.n_loops].iter().zip_eq(r.iter()) {
                         *kk += ko.multiply_sign(*s);
                     }
@@ -326,7 +297,9 @@ impl SquaredTopologySet {
         }
 
         // we don't have a meaningful jacobian nor k_def
-        let k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
+        let k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = (0..self.n_loops)
+            .map(|_| LorentzVector::default())
+            .collect();
         (x, k_def, T::one(), Complex::one(), result)
     }
 
@@ -342,7 +315,7 @@ impl SquaredTopologySet {
         Complex<T>,
         Complex<T>,
     ) {
-        if self.settings.general.multi_channeling {
+        if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty() {
             return self.multi_channeling(x, cache, event_manager);
         }
 
@@ -506,6 +479,68 @@ impl SquaredTopology {
         cut_momentum
     }
 
+    pub fn generate_multi_channeling_channels(
+        &mut self,
+    ) -> Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> {
+        // construct the channels from all loop momentum basis (i.e. the LTD cuts)
+        self.topo.process(true);
+
+        let mut multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> =
+            vec![];
+        for (cuts, mat) in self
+            .topo
+            .ltd_cut_options
+            .iter()
+            .zip_eq(self.topo.cb_to_lmb_mat.iter())
+        {
+            for cut in cuts {
+                let mut lmb_to_cb_mat = vec![];
+                let mut cut_shifts = vec![];
+
+                let mut include = true;
+                for (ll_cut_sig, ll_cut) in cut.iter().zip_eq(&self.topo.loop_lines) {
+                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut_sig {
+                        // optionally leave out massive propagators for efficiency
+                        if !self
+                            .settings
+                            .general
+                            .multi_channeling_including_massive_propagators
+                            && ll_cut.propagators[*i].m_squared > 0.
+                        {
+                            include = false;
+                            break;
+                        }
+                        cut_shifts.push(ll_cut.propagators[*i].q);
+                        lmb_to_cb_mat.extend(&ll_cut.signature);
+                    }
+                }
+
+                if include {
+                    // check if we have seen the channel before
+                    // this is possible since we only look at the spatial parts of the shift
+                    for uc in &multi_channeling_channels {
+                        if &uc.0 == mat && uc.1 == lmb_to_cb_mat {
+                            // test for true equality
+                            if uc
+                                .2
+                                .iter()
+                                .zip(cut_shifts.iter())
+                                .all(|(s1, s2)| (s1 - s2).spatial_squared() < 1.0e-15)
+                            {
+                                include = false;
+                            }
+                        }
+                    }
+
+                    if include {
+                        multi_channeling_channels.push((mat.clone(), lmb_to_cb_mat, cut_shifts));
+                    }
+                }
+            }
+        }
+        multi_channeling_channels
+    }
+
     pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<LTDCache<T>>>> {
         let mut caches = vec![];
         for cutkosky_cuts in &self.cutkosky_cuts {
@@ -626,6 +661,13 @@ impl SquaredTopology {
             "The number of loop momenta is wrong."
         );
 
+        // find the index of the current event
+        let event_counter = if let Some(em) = event_manager {
+            em.event_buffer.len()
+        } else {
+            0
+        };
+
         let mut external_momenta: ArrayVec<[LorentzVector<T>; MAX_LOOP]> = self
             .external_momenta
             .iter()
@@ -699,7 +741,7 @@ impl SquaredTopology {
 
         if let Some(em) = event_manager {
             if em.track_events {
-                for e in em.event_buffer.iter_mut() {
+                for e in em.event_buffer[event_counter..].iter_mut() {
                     e.integrand *= self.overall_numerator;
                 }
             }
@@ -1268,6 +1310,30 @@ impl IntegrandImplementation for SquaredTopologySet {
             .iter()
             .map(|t| t.rotate(angle, axis))
             .collect();
+
+        let mut c = self.multi_channeling_channels.clone();
+
+        let rot_matrix = &self.rotation_matrix;
+        for (_, _, shifts) in &mut c {
+            for shift in shifts.iter_mut() {
+                shift.x = (rot_matrix[0][0] * shift.x
+                    + rot_matrix[0][1] * shift.y
+                    + rot_matrix[0][2] * shift.z)
+                    .to_f64()
+                    .unwrap();
+                shift.y = (rot_matrix[1][0] * shift.x
+                    + rot_matrix[1][1] * shift.y
+                    + rot_matrix[1][2] * shift.z)
+                    .to_f64()
+                    .unwrap();
+                shift.z = (rot_matrix[2][0] * shift.x
+                    + rot_matrix[2][1] * shift.y
+                    + rot_matrix[2][2] * shift.z)
+                    .to_f64()
+                    .unwrap();
+            }
+        }
+
         SquaredTopologySet {
             name: self.name.clone(),
             multiplicity: self.multiplicity.clone(),
@@ -1276,6 +1342,7 @@ impl IntegrandImplementation for SquaredTopologySet {
             settings: self.settings.clone(),
             rotation_matrix: rotated_topologies[0].rotation_matrix.clone(),
             topologies: rotated_topologies,
+            multi_channeling_channels: c,
         }
     }
 

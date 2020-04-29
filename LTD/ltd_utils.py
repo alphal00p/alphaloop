@@ -769,7 +769,7 @@ class TopologyGenerator(object):
                 if mom not in self.ext:
                     signature[self.loop_momenta.index(mom)] = s
                 else:
-                    q += ext_mom[self.edge_map_lin[mom][0]] * s
+                    q += numpy.array(ext_mom[self.edge_map_lin[mom][0]]) * s
 
             # we keep the direction of the loop momenta of the graph in the loop graph, so we need to flip
             # all edges that depend on one loop momentum and have negative sign
