@@ -1255,7 +1255,7 @@ fn inspect<'a>(
         // map the point back from momentum-space to the unit hypercube
         for (i, x) in pt.chunks_exact_mut(3).enumerate() {
             let r = Topology::inv_parametrize::<f128::f128>(
-                &LorentzVector::from_args(0., x[0], x[1], x[2]),
+                &LorentzVector::from_args(0., x[0], x[1], x[2]).cast(),
                 e_cm_squared,
                 i,
                 &settings,

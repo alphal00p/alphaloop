@@ -836,7 +836,7 @@ py_class!(class CrossSection |py| {
     }
 
     def inv_parameterize_f128(&self, loop_momentum: LorentzVector<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&loop_momentum, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
+        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&loop_momentum.cast(), e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 });
@@ -925,7 +925,7 @@ py_class!(class LTD |py| {
 
     def inv_parameterize_f128(&self, loop_momentum: LorentzVector<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
         let t = self.topo(py).borrow();
-        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&loop_momentum, t.e_cm_squared, loop_index, &t.settings);
+        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&loop_momentum.cast(), t.e_cm_squared, loop_index, &t.settings);
         Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
     }
 

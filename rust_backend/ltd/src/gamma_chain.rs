@@ -263,5 +263,4 @@ mod tests {
 
         assert!((chain_result - result).norm() < 1e-10);
     }
-
 }
