@@ -795,7 +795,9 @@ class TopologyGenerator(object):
         for sig, edges in loop_line_vertex_map.items():
             # fuse vertices with repeating edges
             vertlist = [v for vs in edges for v in vs]
-            assert(len([1 for v in vertlist if vertlist.count(v) > 2]) == 0)
+
+            # a triple-vertex is not possible in a single loop line unless it's a tree
+            assert(len(sig) == 0 or len([1 for v in vertlist if vertlist.count(v) > 2]) == 0)
             double_verts = set(v for v in vertlist if vertlist.count(v) == 2)
 
             for v in double_verts:
