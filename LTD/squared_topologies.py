@@ -61,15 +61,18 @@ class SquaredTopologyGenerator:
                 uv_name = ('_uv_' if len(uv_structure) > 0 else '') + ''.join(uv_structure)
 
                 max_rank = max((len(e) for e, v in numerator_sparse), default=0)
-
+                
                 # pad the numerator with zeros
                 effective_loops = self.topo.n_loops + cut_info['n_bubbles']
                 numerator_pows=[j for i in range(max_rank + 1) for j in combinations_with_replacement(range(4 * effective_loops), i)]
+                numerator_pows_dict = {k: i for i,k in enumerate(numerator_pows)}
+
                 numerator = [[0., 0.,] for _ in numerator_pows]
 
                 for k, v in numerator_sparse:
-                    numerator[numerator_pows.index(k)] = list(v)
-
+                    # numerator[numerator_pows.index(k)] = list(v)
+                    numerator[numerator_pows_dict[k]] = list(v)
+                
                 loop_topos = []
                 for i, s in enumerate(sub_graphs):
                     # create a dummy numerator for the same rank
