@@ -57,8 +57,8 @@ pub struct IntegrandStatistics {
     pub regular_point_count: usize,
     pub total_sample_time: f64,
     pub n_loops: usize,
-    pub running_max_coordinate_re: [f64; MAX_LOOP + 4],
-    pub running_max_coordinate_im: [f64; MAX_LOOP + 4],
+    pub running_max_coordinate_re: [f64; 3 * MAX_LOOP],
+    pub running_max_coordinate_im: [f64; 3 * MAX_LOOP],
 }
 
 impl IntegrandStatistics {
@@ -72,8 +72,8 @@ impl IntegrandStatistics {
             unstable_f128_point_count: 0,
             nan_point_count: 0,
             total_sample_time: 0.,
-            running_max_coordinate_re: [0.; MAX_LOOP + 4],
-            running_max_coordinate_im: [0.; MAX_LOOP + 4],
+            running_max_coordinate_re: [0.; 3 * MAX_LOOP],
+            running_max_coordinate_im: [0.; 3 * MAX_LOOP],
         }
     }
 
