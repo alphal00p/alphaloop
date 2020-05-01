@@ -9,6 +9,23 @@ print("Now loading coefficients")
 from ttHNNLO_4Box_coefficients_from_mathematica import ttHNNLO_4Box_coeffs
 print("Coefficient loading done.")
 
+# Swap real and imaginary part of all coefficients and multiply by minus, 
+# emulating a multiplication by i which is in the overall numerator in mathematica.
+for cut in ttHNNLO_4Box_coeffs:
+    for i_coef, coef in enumerate(ttHNNLO_4Box_coeffs[cut]):
+        ttHNNLO_4Box_coeffs[cut][i_coef][1] = [ -coef[1][1], coef[1][0] ]
+
+# N[(2/3)^2 (I 1/3 ge^4 gs^4 yt^2) /. {yt -> 0.99366614581500623, 
+#    gs -> Sqrt[0.118 4 \[Pi]], ge -> Sqrt[1/132.507 4 \[Pi]]}, 
+#  16] // FullForm
+
+# And divide by two in order to compensate for the incoorrect symmetry
+# factor of 4 (it should only be 2 due to the presence of two identical
+# gluons in the final state). This incorrect factor comes from the fact
+# that my implementation below does not differentiate top and antitop.
+
+overall_numerator = 0.0028926976458677253 / 2.
+
 if __name__ == "__main__":
 
         ttHNNLO_4Box = SquaredTopologyGenerator(
@@ -55,7 +72,7 @@ if __name__ == "__main__":
             'p16' : 21,
             'p17' : 6,
         },
-        overall_numerator=1.0
+        overall_numerator=overall_numerator
         ,numerator_structure={
             ('p10', 'p11', 'p12', 'p14', 'p16'):
             {
@@ -141,7 +158,7 @@ if __name__ == "__main__":
             'p16' : 21,
             'p17' : 6,
         },
-        overall_numerator=1.0
+        overall_numerator=overall_numerator
         ,numerator_structure={
             ('p10', 'p11', 'p12', 'p14', 'p16'):
             {
@@ -227,7 +244,7 @@ if __name__ == "__main__":
             'p16' : 21,
             'p17' : 6,
         },
-        overall_numerator=1.0
+        overall_numerator=overall_numerator
         ,numerator_structure={
             ('p10', 'p11', 'p12', 'p14', 'p16'):
             {
