@@ -30,8 +30,11 @@ from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
 import madgraph.interface.extended_cmd as cmd
 import madgraph.interface.madgraph_interface as madgraph_interface
 import madgraph.various.misc as misc
-import alpha_loop.utils as utils
 import madgraph.various.cluster as cluster
+
+import alpha_loop.utils as utils
+import alpha_loop.exporters as aL_exporters
+import alpha_loop.helas_call_writers as aL_helas_call_writers
 
 from madgraph.iolibs.files import cp, ln, mv
 
@@ -57,6 +60,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         
         self.alphaLoop_options = {
         }
+        self.plugin_output_format_selected = None
 
         super(alphaLoopInterface, self).__init__(*args, **opts)
 
@@ -92,19 +96,49 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         """ Display alphaLoop options"""
         logger.info('%sGeneral alphaLoop options%s'%(utils.bcolors.GREEN, utils.bcolors.ENDC))
         logger.info('%s-----------------------%s'%(utils.bcolors.GREEN, utils.bcolors.ENDC))
-        for opt in sorted(self.pyNLoop_options.keys()):
+        for opt in sorted(self.alphaLoop_options.keys()):
             logger.info('%-30s : %s'%(opt, str(self.pyNLoop_options[opt])))
 
     def do_set_alphaLoop_option(self, line):
         """ Logic for setting alphaLoop options."""
         args = self.split_arg(line)
-        args, options = self.parse_set_pyNLoop_option(args)
+        args, options = self.parse_set_alphaLoop_option(args)
         key, value = args[:2]
 
         if key == 'TO_IMPLEMENT':
-            self.pyNLoop_options[key] = eval(value)
+            self.alphaLoop_options[key] = eval(value)
         else:
             raise alphaLoopInvalidCmd("Unrecognized alphaLoop option: %s"%key)
+
+    def do_output(self, line):
+        """ Wrapper to support the syntax output alphaLoop <args>.
+        This just to add extra freedom in adding special action that may be needed at the output
+        stage for these output formats.
+        """
+        args = self.split_arg(line)
+        if len(args)>=1 and args[0]=='alphaLoop':
+            self.plugin_output_format_selected = 'alphaLoop'
+            self.do_output_alphaLoop(' '.join(args[1:]))    
+        else:
+            super(alphaLoopInterface,self).do_output(' '.join(args))
+
+    def do_output_alphaLoop(self, line):
+        args = self.split_arg(line)
+        super(alphaLoopInterface,self).do_output(' '.join(['alphaLoop']+args))
+
+    def export(self,*args,**opts):
+        """Overwrite this so as to force a pythia8 type of output if the output mode is PY8MEs."""
+        
+        if self._export_format == 'plugin':
+            # Also pass on the aloha model to the exporter (if it has been computed already)
+            # so that it will be used when generating the model
+            if self.plugin_output_format_selected == 'alphaLoop':
+                self._curr_helas_model = aL_helas_call_writers.alphaLoopHelasCallWriter(self._curr_model)
+                self._curr_exporter = aL_exporters.alphaLoopExporter(self._export_dir)
+            else:
+                raise alphaLoopInterfaceError("A plugin output format must have been specified at this stage.")
+
+        super(alphaLoopInterface,self).export(*args, **opts)
 
     ######################################################################
     #

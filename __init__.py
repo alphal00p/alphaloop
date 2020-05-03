@@ -5,6 +5,7 @@ root_path = os.path.dirname(os.path.realpath( __file__ ))
 sys.path.insert(0, root_path)
 
 import alpha_loop.interface as interface
+import alpha_loop.exporters as exporters
 
 # Three types of functionality are allowed in a plugin
 #   1. new output mode
@@ -15,7 +16,9 @@ import alpha_loop.interface as interface
 #    example: new_output = {'myformat': MYCLASS}
 #    madgraph will then allow the command "output myformat PATH"
 #    MYCLASS should inherated of the class madgraph.iolibs.export_v4.VirtualExporter 
-new_output = {}
+new_output = {
+    'alphaLoop' : exporters.alphaLoopExporter
+}
 
 # 2. Define new way to handle the cluster.
 #    example new_cluster = {'mycluster': MYCLUSTERCLASS}
