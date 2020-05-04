@@ -1,11 +1,17 @@
 ## import the required files
 import os
 import sys
+
 root_path = os.path.dirname(os.path.realpath( __file__ ))
 sys.path.insert(0, root_path)
 
 import alpha_loop.interface as interface
 import alpha_loop.exporters as exporters
+
+# Apply patches to some functions of madgraph to suit them to the LTD^2 programme.
+# Patch #1: Turn off the optimization of wavefunction recycling when writing matrix.f
+# Patch #2: Remove the denominator of all propagators in aloha. 
+import alpha_loop.madgraph_patches
 
 # Three types of functionality are allowed in a plugin
 #   1. new output mode

@@ -33,8 +33,16 @@ from madgraph.iolibs.files import cp, ln, mv
 logger = logging.getLogger('alphaLoop.Exporter')
 
 import alpha_loop.LTD_squared as LTD_squared
+import alpha_loop.helas_call_writers as aL_helas_call_writers
+import alpha_loop.utils as utils
+
+plugin_src_path = os.path.dirname(os.path.realpath( __file__ ))
 
 pjoin = os.path.join 
+
+class alphaLoopExporterError(MadGraph5Error):
+    """ Error for the alphaLoop exporter """
+    pass
 
 class alphaLoopModelConverter(export_v4.UFO_model_to_mg4):
 
@@ -46,6 +54,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
     check = False
     exporter = 'v4'
     output = 'Template'
+
+    matrix_template = pjoin(plugin_src_path,'Templates','matrix_standalone.inc')
 
     default_opt = {
         'clean': False, 'complex_mass':False,
@@ -96,11 +106,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Add file in SubProcesses
         shutil.copy(pjoin(self.mgme_dir, 'madgraph', 'iolibs', 'template_files', 'makefile_sa_f_sp'), 
                     pjoin(self.dir_path, 'SubProcesses', 'makefileP'))
-        
-        if self.format == 'standalone':
-            shutil.copy(pjoin(self.mgme_dir, 'madgraph', 'iolibs', 'template_files', 'check_sa.f'), 
-                    pjoin(self.dir_path, 'SubProcesses', 'check_sa.f'))
-                        
+           
         # Add file in Source
         shutil.copy(pjoin(temp_dir, 'Source', 'make_opts'), 
                     pjoin(self.dir_path, 'Source'))        
@@ -181,7 +187,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                                                  write_dir+'/aloha_functions.f')
             aloha_model.loop_mode = False
         else:
-            cp(MG5DIR + '/aloha/template_files/aloha_functions.f', 
+            cp(pjoin(plugin_src_path,'Templates','aloha_functions.f'), 
                                                  write_dir+'/aloha_functions.f')
         create_aloha.write_aloha_file_inc(write_dir, '.f', '.o')
 
@@ -191,13 +197,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Re-establish original aloha mode
         aloha.mp_precision=old_aloha_mp
 
-    def generate_subprocess_directory(self, matrix_element, fortran_model, number, *args, **opts):
-        """Generate the Pxxxxx directory for a subprocess in MG4 standalone,
-        including the necessary matrix.f and nexternal.inc files"""
-
-        super(alphaLoopExporter, self).generate_subprocess_directory(
-            matrix_element, fortran_model, number, *args, **opts)
-
     #===========================================================================
     # generate_subprocess_directory
     #===========================================================================
@@ -205,7 +204,11 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         """Generate the Pxxxxx directory for a subprocess in MG4 standalone,
         including the necessary matrix.f and nexternal.inc files"""
 
-        cwd = os.getcwd()
+        # Overwrite fortran model, slightly inefficient but tolerable
+        fortran_model = aL_helas_call_writers.alphaLoopHelasCallWriter(
+                                    matrix_element.get('processes')[0].get('model'))
+
+
         # Create the directory PN_xx_xxxxx in the specified path
         dirpath = pjoin(self.dir_path, 'SubProcesses', \
                        "P%s" % matrix_element.get('processes')[0].shell_string())
@@ -234,8 +237,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                             return 0
                 proc.get('legs')[:] = legs
 
-
-
         try:
             os.mkdir(dirpath)
         except os.error as error:
@@ -257,19 +258,15 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             filename = pjoin(dirpath, 'matrix_prod.f')
         else:
             filename = pjoin(dirpath, 'matrix.f')
-            
-        proc_prefix = ''
-        if 'prefix' in self.cmd_options:
-            if self.cmd_options['prefix'] == 'int':
-                proc_prefix = 'M%s_' % number
-            elif self.cmd_options['prefix'] == 'proc':
-                proc_prefix = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
-            else:
-                raise Exception('--prefix options supports only \'int\' and \'proc\'')
-            for proc in matrix_element.get('processes'):
-                ids = [l.get('id') for l in proc.get('legs_with_decays')]
-                self.prefix_info[tuple(ids)] = [proc_prefix, proc.get_tag()] 
         
+        proc_prefix = 'MG5_%i_' % matrix_element.get('processes')[0].get('id')
+
+        print(pjoin(dirpath, 'check_sa.f'))
+        print(pjoin(plugin_src_path,'Templates','check_sa.f'))
+        open(pjoin(dirpath, 'check_sa.f'),'w').write(
+            open(pjoin(plugin_src_path,'Templates','check_sa.f'),'r').read().replace('PROC_PREFIX_',proc_prefix)
+        )
+
         calls = self.write_matrix_element_v4(
             writers.FortranWriter(filename),
             matrix_element,
@@ -293,7 +290,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
         if self.opt['export_format']=='standalone_msF':
             filename = pjoin(dirpath, 'helamp.inc')
-            ncomb=matrix_element.get_helicity_combinations()
+            ncomb=self.get_helicity_combinations(matrix_element)
             self.write_helamp_madspin(writers.FortranWriter(filename),
                              ncomb)
             
@@ -322,15 +319,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                          matrix_element.get('processes')[0].nice_string())
             plot.draw()
 
-        linkfiles = ['check_sa.f', 'coupl.inc']
-
-        if proc_prefix and os.path.exists(pjoin(dirpath, '..', 'check_sa.f')):
-            text = open(pjoin(dirpath, '..', 'check_sa.f')).read()
-            pat = re.compile('smatrix', re.I)
-            new_text, n  = re.subn(pat, '%ssmatrix' % proc_prefix, text)
-            with open(pjoin(dirpath, 'check_sa.f'),'w') as f:
-                f.write(new_text)
-            linkfiles.pop(0)
+        linkfiles = ['coupl.inc']
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)
@@ -361,7 +350,56 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         base_diagrams = base_amplitude.get('diagrams')
 
         # First build an instance "LT2DiagramLst" from the Helas matrix element object
-        ltd2_diagram_list = LTD_squared.LTD2DiagramList(matrix_element)
+        LTD2_diagram_list = LTD_squared.LTD2DiagramList(matrix_element)
+        all_super_graphs = LTD_squared.SuperGraphList(LTD2_diagram_list)
+        logger.info("%s%s involves %d supergraphs.%s"%(
+            utils.bcolors.GREEN,
+            matrix_element.get('processes')[0].nice_string(),
+            len(all_super_graphs),
+            utils.bcolors.ENDC,
+        ))
+
+    def get_helicity_states(self, model, pdg, state, allow_reverse=True):
+        """ Modified list of helicities so as to have full control over the polarisation sum
+        of our numerator."""
+
+        particle = model.get('particle_dict')[pdg]
+        if particle.get('spin')>3:
+            raise alphaLoopExporterError("alphaLoop only support particles with spin 0, 1/2 or 1.")
+        # Only modify the helicity of *final state* particles that are vector or fermions.
+        if state==True and particle.get('spin') in [2,3]:
+            return [0, 1, 2, 3]
+        return particle.get_helicity_states(allow_reverse)
+
+    def get_helicity_matrix(self, matrix_element, allow_reverse=True):
+        """Gives the helicity matrix for external wavefunctions"""
+
+        if not matrix_element.get('processes'):
+            return None
+
+        process = matrix_element.get('processes')[0]
+        model = process.get('model')
+        hel_per_part = [ self.get_helicity_states(model, wf.get('pdg_code'), wf.get('leg_state'),
+            allow_reverse=allow_reverse) for wf in matrix_element.get_external_wavefunctions()]
+        return itertools.product(*hel_per_part)
+
+    def get_helicity_combinations(self, matrix_element):
+        return len(list(self.get_helicity_matrix(matrix_element)))
+
+    def get_helicity_lines(self, matrix_element,array_name='NHEL'):
+        """Return the Helicity matrix definition lines for this matrix element"""
+
+        helicity_line_list = []
+        i = 0
+        for helicities in self.get_helicity_matrix(matrix_element):
+            i = i + 1
+            int_list = [i, len(helicities)]
+            int_list.extend(helicities)
+            helicity_line_list.append(\
+                ("DATA ("+array_name+"(I,%4r),I=1,%d) /" + \
+                 ",".join(['%2r'] * len(helicities)) + "/") % tuple(int_list))
+
+        return "\n".join(helicity_line_list)
 
     #===========================================================================
     # write_matrix_element_v4
@@ -389,7 +427,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         replace_dict = {'global_variable':'', 'amp2_lines':'',
                                        'proc_prefix':proc_prefix, 'proc_id':''}
 
-
         # Extract helas calls
         helas_calls = fortran_model.get_matrix_element_calls(\
                     matrix_element)
@@ -404,13 +441,17 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         process_lines = self.get_process_info_lines(matrix_element)
         replace_dict['process_lines'] = process_lines
 
+        # List of diagram indices
+        replace_dict['diagram_indices'] = ','.join(
+            '%d'%diag.get('number') for diag in matrix_element.get('diagrams'))
+
         # Extract number of external particles
         (nexternal, ninitial) = matrix_element.get_nexternal_ninitial()
         replace_dict['nexternal'] = nexternal
         replace_dict['nincoming'] = ninitial
 
         # Extract ncomb
-        ncomb = matrix_element.get_helicity_combinations()
+        ncomb = self.get_helicity_combinations(matrix_element)
         replace_dict['ncomb'] = ncomb
 
         # Extract helicity lines
@@ -454,7 +495,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         if len(split_orders)==0:
             replace_dict['nSplitOrders']=''
             # Extract JAMP lines
-            jamp_lines = self.get_JAMP_lines(matrix_element)
+            jamp_lines = self.get_JAMP_lines(matrix_element,JAMP_format="JAMP(K,%s)")
             # Consider the output of a dummy order 'ALL_ORDERS' for which we
             # set all amplitude order to weight 1 and only one squared order
             # contribution which is of course ALL_ORDERS=2.
@@ -475,7 +516,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             replace_dict['ampsplitorders']='\n'.join(amp_so)
             replace_dict['sqsplitorders']='\n'.join(sqamp_so)           
             jamp_lines = self.get_JAMP_lines_split_order(\
-                       matrix_element,amp_orders,split_order_names=split_orders)
+                       matrix_element,amp_orders,
+                       JAMP_format="JAMP(K,%s)",
+                       split_order_names=split_orders)
             
             # Now setup the array specifying what squared split order is chosen
             replace_dict['chosen_so_configs']=self.set_chosen_SO_index(
@@ -497,15 +540,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         replace_dict['jamp_lines'] = '\n'.join(jamp_lines)    
 
         matrix_template = self.matrix_template
-        if self.opt['export_format']=='standalone_msP' :
-            matrix_template = 'matrix_standalone_msP_v4.inc'
-        elif self.opt['export_format']=='standalone_msF':
-            matrix_template = 'matrix_standalone_msF_v4.inc'
-        elif self.opt['export_format']=='matchbox':
-            replace_dict["proc_prefix"] = 'MG5_%i_' % matrix_element.get('processes')[0].get('id')
-            replace_dict["color_information"] = self.get_color_string_lines(matrix_element)
 
         if len(split_orders)>0:
+            raise alphaLoopExporterError("Split orders currently not supported by alphaLoop.")
             if self.opt['export_format'] in ['standalone_msP', 'standalone_msF']:
                 logger.debug("Warning: The export format %s is not "+\
                   " available for individual ME evaluation of given coupl. orders."+\
@@ -516,8 +553,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             else:
                 matrix_template = "matrix_standalone_splitOrders_v4.inc"
 
-        replace_dict['template_file'] = pjoin(_file_path, 'iolibs', 'template_files', matrix_template)
-        replace_dict['template_file2'] = pjoin(_file_path, \
+        replace_dict['template_file'] = pjoin(MG5DIR,'madgraph', 'iolibs', 'template_files', matrix_template)
+        replace_dict['template_file2'] = pjoin(MG5DIR,'madgraph', \
                                    'iolibs/template_files/split_orders_helping_functions.inc')
 
         if write and writer:
@@ -541,13 +578,5 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
     #===========================================================================
     def write_source_makefile(self, writer, *args, **opts):
         super(alphaLoopExporter, self).write_source_makefile(writer, *args, **opts)
-
-    #===========================================================================
-    # write_matrix_element_v4
-    #===========================================================================
-    def write_matrix_element_v4(self, writer, matrix_element, fortran_model,
-                                write=True, proc_prefix='',**opts):
-        super(alphaLoopExporter, self).write_matrix_element_v4(
-            writer, matrix_element, fortran_model, write=write, proc_prefix=proc_prefix,**opts)
 
          

@@ -44,7 +44,7 @@ pjoin = os.path.join
 template_dir = pjoin(plugin_path, 'Templates')
 
 class alphaLoopInterfaceError(MadGraph5Error):
-    """ Error for the pyNLoop plugin """
+    """ Error for the alphaLoop plugin """
     pass
 
 class alphaLoopInvalidCmd(InvalidCmd):
@@ -133,7 +133,6 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Also pass on the aloha model to the exporter (if it has been computed already)
             # so that it will be used when generating the model
             if self.plugin_output_format_selected == 'alphaLoop':
-                self._curr_helas_model = aL_helas_call_writers.alphaLoopHelasCallWriter(self._curr_model)
                 self._curr_exporter = aL_exporters.alphaLoopExporter(self._export_dir)
             else:
                 raise alphaLoopInterfaceError("A plugin output format must have been specified at this stage.")
