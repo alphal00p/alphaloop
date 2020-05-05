@@ -1,3 +1,8 @@
+import os
+import sys
+root_path = os.path.dirname(os.path.realpath( __file__ ))
+sys.path.insert(0, root_path)
+
 from ltd_utils import TopologyGenerator
 import copy
 import math
@@ -6,13 +11,14 @@ import vectors
 
 class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_cuts, external_momenta, final_state_particle_ids=(),
-        loop_momenta_names=None, masses={}, powers=None, particle_ids={}, overall_numerator=1., numerator_structure={},
+        loop_momenta_names=None, masses={}, powers=None, particle_ids={}, MG_numerator={}, overall_numerator=1., numerator_structure={},
         cut_filter=set()):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         self.external_momenta = external_momenta
-
+        self.MG_numerator = MG_numerator
+        
         self.loop_topo = self.topo.create_loop_topology(name,
             external_momenta,
             loop_momenta_names=loop_momenta_names,
@@ -130,6 +136,7 @@ class SquaredTopologyGenerator:
             'n_incoming_momenta': len(self.incoming_momenta),
             'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
             'topo': self.loop_topo.to_flat_format(),
+            'MG_numerator': self.MG_numerator,
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
             'e_cm_squared': sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))),
             'cutkosky_cuts': [

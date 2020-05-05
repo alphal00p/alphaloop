@@ -59,13 +59,14 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         """ Define attributes of this class."""
         
         self.alphaLoop_options = {
+            'perturbative_order' : 'LO'
         }
         self.plugin_output_format_selected = None
 
         super(alphaLoopInterface, self).__init__(*args, **opts)
 
     def parse_set_alphaLoop_option(self, args):
-        """ Parsing arguments/options passed to the command set_pyNLoop option."""
+        """ Parsing arguments/options passed to the command set_alphaLoop option."""
 
         options = { }
 
@@ -97,7 +98,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         logger.info('%sGeneral alphaLoop options%s'%(utils.bcolors.GREEN, utils.bcolors.ENDC))
         logger.info('%s-----------------------%s'%(utils.bcolors.GREEN, utils.bcolors.ENDC))
         for opt in sorted(self.alphaLoop_options.keys()):
-            logger.info('%-30s : %s'%(opt, str(self.pyNLoop_options[opt])))
+            logger.info('%-30s : %s'%(opt, str(self.alphaLoop_options[opt])))
 
     def do_set_alphaLoop_option(self, line):
         """ Logic for setting alphaLoop options."""
@@ -105,8 +106,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         args, options = self.parse_set_alphaLoop_option(args)
         key, value = args[:2]
 
-        if key == 'TO_IMPLEMENT':
-            self.alphaLoop_options[key] = eval(value)
+        if key == 'perturbative_order':
+            if not re.match(r'^(N*)LO$',value):
+                raise alphaLoopInvalidCmd("Specified perturbative order should be of the form N*LO, not '%s'."%value)
+            self.alphaLoop_options[key] = value
         else:
             raise alphaLoopInvalidCmd("Unrecognized alphaLoop option: %s"%key)
 
@@ -133,7 +136,13 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Also pass on the aloha model to the exporter (if it has been computed already)
             # so that it will be used when generating the model
             if self.plugin_output_format_selected == 'alphaLoop':
-                self._curr_exporter = aL_exporters.alphaLoopExporter(self._export_dir)
+                # Set what are the jet pdgs in alphaLoop options
+                if 'j' not in self._multiparticles:
+                    raise alphaLoopInvalidCmd("alphaLoop requires the 'j' multiparticle label to be defined.")
+                self.alphaLoop_options['_jet_PDGs'] = tuple([
+                    pdg for pdg in self._multiparticles['j']
+                ])
+                self._curr_exporter = aL_exporters.alphaLoopExporter(self._export_dir,alphaLoop_options=self.alphaLoop_options)
             else:
                 raise alphaLoopInterfaceError("A plugin output format must have been specified at this stage.")
 
@@ -178,7 +187,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.prompt = 'alphaLoop > '
 
         logger.info("\n\n%s\n"%self.get_alpha_loop_banner())
-        logger.info("Loading default model for pyNLoop: sm")
+        logger.info("Loading default model for alphaLoop: sm")
 
         # By default, load the UFO Standard Model
         logger.info("Loading default model for alphaLoop: sm")

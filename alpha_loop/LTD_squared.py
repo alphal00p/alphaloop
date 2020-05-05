@@ -5,7 +5,15 @@
 #####################################################
 
 import networkx as nx
+import progressbar
 import copy
+import logging
+import madgraph.various.misc as misc
+
+import LTD.squared_topologies as squared_topology_processor
+import alpha_loop.utils as utils
+
+logger = logging.getLogger('alphaLoop.LTD2Processing')
 
 class LTD2DiagramList(list):
     """ Class for storing a list of LTD2Diagrams."""
@@ -153,35 +161,168 @@ class LTD2Diagram(object):
 class SuperGraphList(list):
     """ Class for storing a list of SuperGraph instances."""
 
-    def __init__(self, LTD2_diagram_list):
+    def __init__(self, LTD2_diagram_list, proc_number):
         """ Instantiate a list of all super graphs from a list of LTD2 diagrams."""
+
+        self.proc_number = proc_number
 
         # First build all possible super graphs 
         # TODO there are certainly optimisations to consider here. This step will be
         # very slow for large number of diagrams (100+)
         all_super_graphs = []
-        for i_diag_left, LTD2_diag_left in enumerate(LTD2_diagram_list):
-            for LTD2_diag_right in LTD2_diagram_list[i_diag_left:]:
-                all_super_graphs.append(SuperGraph(LTD2_diag_left,LTD2_diag_right))
+        logger.info("Building supergraphs from %d x %d diagramatic combinations..."%(
+                                                len(LTD2_diagram_list),len(LTD2_diagram_list)))
+        n_super_graphs_ignored = 0
+        with progressbar.ProgressBar(
+            prefix = 'Generating non-unique supergraphs : ',
+            max_value=int((len(LTD2_diagram_list)*(len(LTD2_diagram_list)+1))/2)) as bar:
+            i_bar = 0
+            for i_diag_left, LTD2_diag_left in enumerate(LTD2_diagram_list):
+                for i_diag_right, LTD2_diag_right in enumerate(LTD2_diagram_list[i_diag_left:]):
+                    new_super_graph = SuperGraph(LTD2_diag_left,LTD2_diag_right, 
+                        {   'proc_id' : proc_number, 
+                            'left_diagram_id' : i_diag_left+1, 
+                            'right_diagram_id' : i_diag_left+i_diag_right+1,
+                        }
+                    )
+                    if not new_super_graph.should_be_considered():
+                        n_super_graphs_ignored += 1
+                        continue
+                    all_super_graphs.append(new_super_graph)
+                    i_bar += 1
+                    bar.update(i_bar)
+
+        if n_super_graphs_ignored>0:
+            logger.critical("%salphaLoop removed a total of %d supergraphs because their kind is not supported yet. Results will be wrong!%s"%
+                                (utils.bcolors.RED,n_super_graphs_ignored,utils.bcolors.ENDC))
 
         # Then filter isomorphic ones
-        for super_graph in all_super_graphs:
-            if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in self):
-                self.append(super_graph)
+        logger.info("Detecting isomorphisms between %d non-unique super-graphs..."%len(all_super_graphs))
+        with progressbar.ProgressBar(
+            prefix = 'Filtering supergraphs ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
+            max_value=len(all_super_graphs),
+            variables = {'n_unique_super_graphs_sofar' : '0'}
+            ) as bar:
+            for i_graph, super_graph in enumerate(all_super_graphs):
+                if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in self):
+                    self.append(super_graph)
+                bar.update(n_unique_super_graphs_sofar='%d'%len(self))
+                bar.update(i_graph+1)
         
         # print("This process contains %d individual different super-graphs."%len(self))
 
 class SuperGraph(object):
     """ Class representing a super graph in the LTD^2 formalism"""
 
-    def __init__(self, LTD2_diagram_left, LTD2_diagram_right):
+    def __init__(self, LTD2_diagram_left, LTD2_diagram_right, call_signature, name=None):
         """ Instantiate a super graph from two LTD2Diagram instances sitting respectively
         to the left and right of the Cutkosky cut."""
+
+        # Typically a dictionary witht he following entries:
+        # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }
+        self.call_signature = call_signature
 
         self.diag_left_of_cut = copy.deepcopy(LTD2_diagram_left)
         self.diag_right_of_cut = LTD2_diagram_right.get_complex_conjugate()
 
-        self.graph, self.cuts = self.sew_graphs(self.diag_left_of_cut, self.diag_right_of_cut)
+        # The attributes below will be set by the function sew_graphs.
+        self.graph = None
+        self.cuts = None
+        self.external_incoming_momenta = None
+        self.sew_graphs(self.diag_left_of_cut, self.diag_right_of_cut)
+
+        self.name = name
+
+    def set_name(self, name):
+        """ Define an accessor for the name attribute to make it clear that it will typically be set after 
+        the generation of the supergraph."""
+        self.name = name
+
+    def should_be_considered(self):
+        """ Place here all rules regarding whether this supergraph should be 
+        considered without our squared LTD framework."""
+
+        # TODO More general handling of the self-energies.
+        # For now simply omit the one-loop ones with a hacky rule
+        if len(set(e[1] for e in self.cuts))!=len(self.cuts):
+            return False
+        return True
+
+    def generate_yaml_input_file(self, file_path, model, alphaLoop_options):
+        """ Generate the yaml input file for the rust_backend, fully specifying this squared topology."""
+
+        local_DEBUG = False
+        if local_DEBUG: misc.sprint("Now processing topology '%s'."%self.name)
+        # Nodes are labelled like I<i>, O<i>, L<i> or R<i>.
+        # We will map those integers by offsets of the letter
+        letter_offsets = {'I':1000,'O':2000,'L':8000, 'R':9000}
+        def cast_node_to_int(node_name):
+            return letter_offsets[node_name[0]]+int(node_name[1:])
+
+        def get_edges_list():
+            edges_list = []
+            for edge, edge_info in self.graph.edges.items():
+                edges_list.append(
+                    ( edge_info['name'], cast_node_to_int(edge[0]),cast_node_to_int(edge[1]) )
+                )
+            if local_DEBUG: misc.sprint(edges_list)
+            return edges_list
+
+        def get_incoming_momenta_names():
+            incoming_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.external_incoming_momenta ]
+            if local_DEBUG: misc.sprint(incoming_momenta_names)
+            return incoming_momenta_names
+
+        def get_external_momenta_assignment():
+            # TODO This must go, it does not make much sense for it to be assigned in the context of using MG numerators.
+            return {'q1': [1000., 0., 0., 1000.], 'q2': [1000., 0., 0., -1000.], 'q3': [1000., 0., 0., 1000.], 'q4': [1000., 0., 0., -1000.]}
+
+        def get_loop_momenta_names():
+            loop_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.cuts[:-1] ]
+            if local_DEBUG: misc.sprint(loop_momenta_names)
+            return loop_momenta_names
+
+        def get_final_state_particle_ids():
+            final_state_particle_ids = []
+            all_external_pdgs = [ self.graph.edges[edge[1]]['pdg'] for edge in self.cuts ]
+            for pdg in all_external_pdgs:
+                if pdg not in alphaLoop_options['_jet_PDGs']:
+                    final_state_particle_ids.append(pdg)
+            if local_DEBUG: misc.sprint(final_state_particle_ids)
+            return tuple(final_state_particle_ids)
+
+        def get_njets_in_observable_process():
+            njets_in_observable_process = max( (len(self.cuts)-len(get_final_state_particle_ids()))-alphaLoop_options['perturbative_order'].count('N'), 0)
+            if local_DEBUG: misc.sprint(njets_in_observable_process)
+            return njets_in_observable_process
+
+        def get_particle_ids():
+            particle_ids = { edge_info['name'] : edge_info['pdg'] for 
+                edge, edge_info in self.graph.edges.items()
+            }
+            if local_DEBUG: misc.sprint(particle_ids)
+            return particle_ids
+
+        squared_topology = squared_topology_processor.SquaredTopologyGenerator(
+            get_edges_list(),
+            self.name, 
+            get_incoming_momenta_names(), 
+            get_njets_in_observable_process(),
+            # Below needs to be removed when interfacing to MG5aMC numerators
+            get_external_momenta_assignment(),
+            loop_momenta_names=get_loop_momenta_names(),
+            final_state_particle_ids=get_final_state_particle_ids(),
+            particle_ids=get_particle_ids(),
+            MG_numerator = {
+                # The call signature is typically a dictionary with the following format
+                # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }
+                'call_signature' : self.call_signature
+            },
+            # The numerator specifications below are of no use in the context of using MG numerators.
+            overall_numerator=1.0,
+            numerator_structure={}
+        )
+        squared_topology.export(file_path)
 
     def draw(self):
         """ For debugging: use matplotlib to draw this super graph. """
@@ -190,8 +331,7 @@ class SuperGraph(object):
         import matplotlib.pyplot as plt
         plt.show()
 
-    @classmethod
-    def sew_graphs(cls, diag_left_of_cut, diag_right_of_cut):
+    def sew_graphs(self, diag_left_of_cut, diag_right_of_cut):
         """ Combine two diagrams into one graph that corresponds to the super graph."""
 
         # for each final state leg, remove the corresponding edges and substitute them by one
@@ -218,9 +358,11 @@ class SuperGraph(object):
 
         # Now name edges
         initial_state_identifier=0
+        external_incoming_momenta = []
         for initial_state_leg_number in sorted(diag_left_of_cut.initial_state_edges.keys()):
             initial_state_identifier += 1
             left_graph.edges[diag_left_of_cut.initial_state_edges[initial_state_leg_number]]['name'] = 'q%d'%initial_state_identifier
+            external_incoming_momenta.append((initial_state_leg_number,diag_left_of_cut.initial_state_edges[initial_state_leg_number]))
         for initial_state_leg_number in sorted(diag_right_of_cut.initial_state_edges.keys()):
             initial_state_identifier += 1
             right_graph.edges[diag_right_of_cut.initial_state_edges[initial_state_leg_number]]['name'] = 'q%d'%initial_state_identifier
@@ -241,15 +383,19 @@ class SuperGraph(object):
         sewed_graph = nx.compose(left_graph,right_graph)
 
         # And finally add back the sewing edges
+        cuts = []
         for leg_number in sorted(sewing_edges.keys()):
             (sewing_edge_u, sewing_edge_v), edge_attributes = sewing_edges[leg_number]
             # name the cut edge as `cut<i>` where <i> is the leg number being cut.
             edge_attributes['name']='cut%d'%leg_number
+            cuts.append((leg_number, (sewing_edge_u, sewing_edge_v)))
             sewed_graph.add_edge(sewing_edge_u, sewing_edge_v, **edge_attributes)
         
-        return sewed_graph, tuple([
-            (leg_number, sewing_edges[leg_number][0]) 
-            for leg_number in sorted(sewing_edges.keys())])
+        self.graph = sewed_graph
+        self.cuts = tuple(cuts)
+        self.external_incoming_momenta = tuple(external_incoming_momenta)
+
+        return sewed_graph, 
     
     def is_isomorphic_to(self, other_super_graph):
         """ Uses networkx to decide if the two graphs are isomorphic."""

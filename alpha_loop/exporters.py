@@ -10,6 +10,7 @@ import logging
 import itertools
 from pprint import pformat
 from math import fmod
+import progressbar
 import aloha
 import shutil
 
@@ -36,6 +37,9 @@ logger = logging.getLogger('alphaLoop.Exporter')
 import alpha_loop.LTD_squared as LTD_squared
 import alpha_loop.helas_call_writers as aL_helas_call_writers
 import alpha_loop.utils as utils
+
+import yaml
+from yaml import Loader, Dumper
 
 plugin_src_path = os.path.dirname(os.path.realpath( __file__ ))
 
@@ -68,11 +72,86 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
     def __init__(self, *args, **opts):
         """ initialization of the objects """
+        
+        self.alphaLoop_options = opts.pop('alphaLoop_options',{})
+        
         super(alphaLoopExporter, self).__init__(*args, **opts)
+        
         # Force prefixing
         self.cmd_options['prefix']='int'
         # Keep track of all ME exported so as to build the C_bindings dispatcher in finalize
         self.all_processes_exported = []
+        # Keep track of all supergraphs generated so as to write the overall LTD squared info at the end of the
+        # generation in finalize()
+        self.all_super_graphs = []
+
+    #===========================================================================
+    # write LTD^2 information destined to the rust backend
+    #===========================================================================
+    def write_LTD_squared_info(self, matrix_element, proc_number, *args, **opts):
+        """ Process the matrix element object so as to extract all necessary information
+        for the fortran matrix element to be used by the rust_backend processor so as
+        to perform LTD^2 cross-section computations. """
+
+        LTD_square_info_writer = writers.FileWriter('LTD_squared_info.yaml')
+        
+        # Get a diagram_generation.Amplitude instance corresponding to this HelasMatrixElement
+        base_amplitude = matrix_element.get('base_amplitude')
+        base_diagrams = base_amplitude.get('diagrams')
+
+        # First build an instance "LT2DiagramLst" from the Helas matrix element object
+        LTD2_diagram_list = LTD_squared.LTD2DiagramList(matrix_element)
+        all_super_graphs = LTD_squared.SuperGraphList(LTD2_diagram_list, proc_number)
+        logger.info("%s%s involves %d supergraphs.%s"%(
+            utils.bcolors.GREEN,
+            matrix_element.get('processes')[0].nice_string(),
+            len(all_super_graphs),
+            utils.bcolors.ENDC,
+        ))
+
+        # Now write out a yaml file for each of these 
+        rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
+        Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
+
+        with progressbar.ProgressBar(
+            prefix = 'Generating rust inputs for {variables.super_graph_name} : ',
+            max_value=len(all_super_graphs),
+            variables = {'super_graph_name' : 'N/A'}) as bar:
+            for i_super_graph, super_graph in enumerate(all_super_graphs):
+                squared_topology_name = '%s_%d'%(matrix_element.get('processes')[0].shell_string().split('_',1)[1],(i_super_graph+1))
+                super_graph.set_name(squared_topology_name)
+                bar.update(super_graph_name=super_graph.name)
+                bar.update(i_super_graph+1)
+                # Keep track of all supergraphs generated so as to write the overall LTD squared info at the end of the
+                # generation in finalize()
+                self.all_super_graphs.append(super_graph)
+                file_path = pjoin(rust_inputs_path,'%s.yaml'%squared_topology_name)
+                super_graph.generate_yaml_input_file(
+                    file_path,
+                    matrix_element.get('processes')[0].get('model'),
+                    self.alphaLoop_options
+                )
+
+    def write_overall_LTD_squared_info(self, *args, **opts):
+        """ Write the overall cross-section yaml input file for the rust_backend to
+        be able to generate the whole cross-section at once."""
+
+        rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
+        # And now finally generate the overall cross section yaml input file.
+        base_name = os.path.basename(self.dir_path)
+        overall_xsec_yaml_file_path = pjoin(rust_inputs_path,'%s.yaml'%base_name)
+        overall_xsec_yaml = {
+            'name' : base_name,
+            'madgraph_numerators_lib_dir' : pjoin(self.dir_path,'lib'),
+            'topologies' : [
+                { 
+                    'name' : super_graph.name,
+                    'multiplicity' : 1
+                }
+                for super_graph in self.all_super_graphs
+            ]
+        }
+        open(overall_xsec_yaml_file_path,'w').write(yaml.dump(overall_xsec_yaml, Dumper=Dumper, default_flow_style=False))
 
     def copy_template(self, model):
         """Additional actions needed for setup of Template
@@ -163,6 +242,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Add the C_bindings
         filename = pjoin(self.dir_path, 'SubProcesses','C_bindings.f')
         self.write_c_bindings(writers.FortranWriter(filename))
+
+        # Write the overall cross-section yaml file
+        self.write_overall_LTD_squared_info()
 
     #===========================================================================
     # process exporter fortran switch between group and not grouped
@@ -438,36 +520,12 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         #os.chdir(cwd)
 
         # Generate LTD squared info
-        self.write_LTD_squared_info(matrix_element)
+        self.write_LTD_squared_info(matrix_element, number)
 
         if not calls:
             calls = 0
 
         return calls
-
-    #===========================================================================
-    # write_source_makefile
-    #===========================================================================
-    def write_LTD_squared_info(self, matrix_element, *args, **opts):
-        """ Process the matrix element object so as to extract all necessary information
-        for the fortran matrix element to be used by the rust_backend processor so as
-        to perform LTD^2 cross-section computations. """
-
-        LTD_square_info_writer = writers.FileWriter('LTD_squared_info.yaml')
-        
-        # Get a diagram_generation.Amplitude instance corresponding to this HelasMatrixElement
-        base_amplitude = matrix_element.get('base_amplitude')
-        base_diagrams = base_amplitude.get('diagrams')
-
-        # First build an instance "LT2DiagramLst" from the Helas matrix element object
-        LTD2_diagram_list = LTD_squared.LTD2DiagramList(matrix_element)
-        all_super_graphs = LTD_squared.SuperGraphList(LTD2_diagram_list)
-        logger.info("%s%s involves %d supergraphs.%s"%(
-            utils.bcolors.GREEN,
-            matrix_element.get('processes')[0].nice_string(),
-            len(all_super_graphs),
-            utils.bcolors.ENDC,
-        ))
 
     def get_helicity_states(self, model, pdg, state, allow_reverse=True):
         """ Modified list of helicities so as to have full control over the polarisation sum
