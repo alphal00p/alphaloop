@@ -28,6 +28,7 @@ import madgraph.iolibs.drawing_eps as draw
 import madgraph.iolibs.export_v4 as export_v4
 import madgraph.iolibs.file_writers as writers
 import madgraph.various.misc as misc
+import madgraph.iolibs.files as files
 from madgraph.iolibs.files import cp, ln, mv
 
 logger = logging.getLogger('alphaLoop.Exporter')
@@ -68,6 +69,10 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
     def __init__(self, *args, **opts):
         """ initialization of the objects """
         super(alphaLoopExporter, self).__init__(*args, **opts)
+        # Force prefixing
+        self.cmd_options['prefix']='int'
+        # Keep track of all ME exported so as to build the C_bindings dispatcher in finalize
+        self.all_processes_exported = []
 
     def copy_template(self, model):
         """Additional actions needed for setup of Template
@@ -112,15 +117,52 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     pjoin(self.dir_path, 'Source'))        
         # add the makefile 
         filename = pjoin(self.dir_path,'Source','makefile')
-        self.write_source_makefile(writers.FileWriter(filename))    
+        self.write_source_makefile(writers.FileWriter(filename))
+
+    def write_hook_makefile(self):
+        """ """
+        # Add file in SubProcesses
+        shutil.copy(pjoin(plugin_path, 'Templates', 'SubProcesses_makefile'), 
+                    pjoin(self.dir_path, 'SubProcesses', 'makefile'))
 
     def finalize(self, matrix_elements, history, mg5options, flaglist, *args, **opts):
         """Finalize Standalone MG4 directory by 
            generation proc_card_mg5.dat
            generate a global makefile
         """
-        super(alphaLoopExporter, self).finalize(
-            matrix_elements, history, mg5options, flaglist, *args, **opts)
+            
+        compiler =  {'fortran': mg5options['fortran_compiler'],
+                     'cpp': mg5options['cpp_compiler'],
+                     'f2py': mg5options['f2py_compiler']}
+
+        self.compiler_choice(compiler)
+        self.make()
+
+        # Write command history as proc_card_mg5
+        if history and os.path.isdir(pjoin(self.dir_path, 'Cards')):
+            output_file = pjoin(self.dir_path, 'Cards', 'proc_card_mg5.dat')
+            history.write(output_file)
+        
+        export_v4.ProcessExporterFortran.finalize(self, matrix_elements, 
+                                             history, mg5options, flaglist)
+
+        open(pjoin(self.dir_path,'__init__.py'),'w')
+        open(pjoin(self.dir_path,'SubProcesses','__init__.py'),'w')
+
+        if 'mode' in self.opt and self.opt['mode'] == "reweight":
+            #add the module to hande the NLO weight
+            files.copytree(pjoin(MG5DIR, 'Template', 'RWGTNLO'),
+                          pjoin(self.dir_path, 'Source'))
+            files.copytree(pjoin(MG5DIR, 'Template', 'NLO', 'Source', 'PDF'),
+                           pjoin(self.dir_path, 'Source', 'PDF'))
+            self.write_pdf_opendata()
+            
+        self.write_f2py_splitter()
+        self.write_hook_makefile()
+
+        # Add the C_bindings
+        filename = pjoin(self.dir_path, 'SubProcesses','C_bindings.f')
+        self.write_c_bindings(writers.FortranWriter(filename))
 
     #===========================================================================
     # process exporter fortran switch between group and not grouped
@@ -136,10 +178,68 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         else:
             for me_number, me in enumerate(matrix_elements.get_matrix_elements()):
                 calls = calls + self.generate_subprocess_directory(\
-                                                   me, fortran_model, me_number)    
-                        
+                                                   me, fortran_model, me_number)
+
         return calls
 
+    def write_c_bindings(self, writer):
+        """ Write the fortran dispatcher to all processes callable from C/Rust."""
+        
+        # Keep track of all ME exported so as to build the C_bindings dispatcher in finalize
+        processes = self.all_processes_exported
+
+        replace_dict = {}
+        replace_dict['binding_prefix'] = 'C_'
+        all_proc_numbers = [proc[1] for proc in processes]
+        max_proc_number = max(all_proc_numbers)
+        if max_proc_number > 1000:
+            raise alphaLoopExporterError("The way the process number map is implemented in"+
+                " the alphaLoopExporter is not ideal if your process numbers exceed 1000."+
+                " So genealise it by using an actual function instead of an array for the mapping.")
+        replace_dict['max_proc_number'] = max_proc_number
+        proc_number_to_position_map = []
+        for proc_number in range(max_proc_number+1):
+            try:
+                position = all_proc_numbers.index(proc_number)
+                proc_number_to_position_map.append('%d'%position)
+            except ValueError:
+                proc_number_to_position_map.append('-1')
+        replace_dict['proc_number_to_position_map'] = ','.join(proc_number_to_position_map)
+
+        # Now gather all possible combination of number of external legs
+        all_externals_combination = set([])
+        for me, number in processes:
+            all_externals_combination.add(len(me.get('processes')[0].get('legs')))
+        # And now generate an input momenta configuration for all of them
+        truncated_mom_list = []
+        for n_external in sorted(list(all_externals_combination)):
+            truncated_mom_list.append("double precision P%d(0:3,%d)"%(n_external,n_external))
+        replace_dict['truncated_mom_list'] = '\n'.join(truncated_mom_list)
+
+        replace_dict['max_n_external'] = max(all_externals_combination)
+
+        replace_dict['proc_positions_list'] = ','.join('%d'%pos for pos in range(1,len(processes)+1))
+
+        matrix_element_call_dispatch = []
+        for i_proc, (me, proc_number) in enumerate(processes):
+            matrix_element_call_dispatch.append('%d CONTINUE'%(i_proc+1))
+            # Setup the kinematics now
+            matrix_element_call_dispatch.append("DO I=0,3")
+            n_external = len(me.get('processes')[0].get('legs'))
+            matrix_element_call_dispatch.append("DO J=1,%d"%n_external)
+            matrix_element_call_dispatch.append("P%d(I,J)=P(I,J)"%n_external)
+            matrix_element_call_dispatch.append("ENDDO")
+            matrix_element_call_dispatch.append("ENDDO")
+            matrix_element_call_dispatch.append(
+                'CALL M%d_SMATRIXHEL(P%d, -1, SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT, ANS)'%(i_proc,n_external))
+            matrix_element_call_dispatch.append("GOTO 9999")
+        replace_dict['matrix_element_call_dispatch'] = '\n'.join(matrix_element_call_dispatch)
+
+        replace_dict['first_proc_prefix'] = 'M%d_'%(processes[0][1])
+
+        template_path = pjoin(plugin_path,'Templates','C_bindings.inc')
+        writer.writelines(open(template_path,'r').read()%replace_dict)
+        
     def convert_model(self, model, wanted_lorentz = [], wanted_couplings = []):
         """ Create a full valid MG4 model from a MG5 model (coming from UFO)"""
 
@@ -203,6 +303,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
     def generate_subprocess_directory(self, matrix_element, fortran_model, number):
         """Generate the Pxxxxx directory for a subprocess in MG4 standalone,
         including the necessary matrix.f and nexternal.inc files"""
+        
+        self.all_processes_exported.append((matrix_element,number))
 
         # Overwrite fortran model, slightly inefficient but tolerable
         fortran_model = aL_helas_call_writers.alphaLoopHelasCallWriter(
@@ -259,10 +361,18 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         else:
             filename = pjoin(dirpath, 'matrix.f')
         
-        proc_prefix = 'MG5_%i_' % matrix_element.get('processes')[0].get('id')
+        proc_prefix = ''
+        if 'prefix' in self.cmd_options:
+            if self.cmd_options['prefix'] == 'int':
+                proc_prefix = 'M%s_' % number
+            elif self.cmd_options['prefix'] == 'proc':
+                proc_prefix = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
+            else:
+                raise Exception('--prefix options supports only \'int\' and \'proc\'')
+            for proc in matrix_element.get('processes'):
+                ids = [l.get('id') for l in proc.get('legs_with_decays')]
+                self.prefix_info[tuple(ids)] = [proc_prefix, proc.get_tag()]
 
-        print(pjoin(dirpath, 'check_sa.f'))
-        print(pjoin(plugin_src_path,'Templates','check_sa.f'))
         open(pjoin(dirpath, 'check_sa.f'),'w').write(
             open(pjoin(plugin_src_path,'Templates','check_sa.f'),'r').read().replace('PROC_PREFIX_',proc_prefix)
         )

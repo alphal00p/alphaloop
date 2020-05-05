@@ -1,0 +1,28 @@
+include ../Source/make_opts
+SHELL = /bin/bash
+LIBDIR = ../lib
+PROG   = check
+LINKLIBS =  -L../lib/ -ldhelas -lmodel
+LIBS = $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext)
+PROCESS=  $(patsubst %.f,%.o,$(wildcard */matrix.f))
+LIBRARY = libMGnumerators.a
+
+# Import the DHELAS symbols too in the matrix_element.a library
+# so that one does not have to link against libdhelas.a explicitly when using it
+include ../Source/DHELAS/aloha_file.inc
+C_BINDINGS = C_bindings.o $(addprefix ../Source/DHELAS/, $(ALOHARoutine) aloha_functions.o)
+
+ALL: $(LIBDIR)/$(LIBRARY)
+
+# For python linking (require f2py part of numpy)
+ifeq ($(origin MENUM),undefined)
+  MENUM=2
+endif
+
+
+allmatrix$(MENUM)py.so: $(LIBDIR)/$(LIBRARY)  all_matrix.o
+	$(F2PY) --f77exec=$(FC) $(LINKLIBS) -lmatrix  -c all_matrix.f */matrix.f -m allmatrix$(MENUM)py
+
+$(LIBDIR)/$(LIBRARY): $(PROCESS) $(C_BINDINGS)
+	$(call CREATELIB, $@, $^)  
+
