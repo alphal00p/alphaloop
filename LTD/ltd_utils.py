@@ -198,10 +198,12 @@ class TopologyGenerator(object):
         self.loop_momenta = None
         self.propagators = None
         self.n_loops = None
+        self.spanning_trees = None
 
     def loop_momentum_bases(self):
         trees = []
-        self.spanning_trees(trees, tree={self.edges[0][0]})
+        self.generate_spanning_trees(trees, tree={self.edges[0][0]})
+        self.spanning_trees = trees
         self.n_loops = len(self.edge_map_lin) - len(trees[0])
         return [[i for i in range(len(self.edge_map_lin)) if i not in tree] for tree in trees]
 
@@ -242,19 +244,32 @@ class TopologyGenerator(object):
 
         return TopologyGenerator(new_edge_map_lin, powers=new_powers)
 
-    def spanning_trees(self, result, tree, accum=[]):
+    def generate_spanning_trees(self, result, tree, accum=[], excluded_edges=[]):
+        """Compute all spanning trees of a graph component. Disconnected graphs
+        are supported: only the component connected to the vertex in `tree` is considered.
+        """
         # find all edges that connect the tree to a new node
         edges = [(i, e) for i, e in enumerate(
-            self.edges) if e[0] != e[1] and len(tree & set(e)) == 1]
+            self.edges) if e[0] != e[1] and len(set(e) & tree) == 1]
+        edges_filtered = [(i, e) for i, e in edges if i not in excluded_edges]
 
-        if len(edges) == 0:
-            # no more new edges, so we are done
-            s = list(sorted(accum))
-            if s not in result:
-                result.append(s)
+        if len(edges_filtered) == 0:
+            if len(edges) == 0:
+                # no more new edges, so we are done
+                s = list(sorted(accum))
+                if s not in result:
+                    result.append(s)
         else:
-            for i, e in edges:
-                self.spanning_trees(result, tree | set(e), accum + [i])
+            # these edges can be added in any order, so only allow an order from lowest to highest
+            for ei, (i, e) in enumerate(edges):
+                excluded_edges.extend(j for j, _ in edges[:ei])
+                new_v = e[0] if e[1] in tree else e[1]
+                accum.append(i)
+                tree.add(new_v)
+                self.generate_spanning_trees(result, tree, accum, excluded_edges)
+                tree.remove(new_v)
+                accum.pop()
+                excluded_edges = excluded_edges[:-ei]
 
     def find_path(self, start, dest):
         # find all paths from source to dest
@@ -289,43 +304,54 @@ class TopologyGenerator(object):
         return res
 
     def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids):
-        spanning_trees = []
-        self.spanning_trees(spanning_trees, tree={self.edges[0][0]})
+
+        if not self.spanning_trees:
+            trees = []
+            self.generate_spanning_trees(trees, tree={self.edges[0][0]})
+            self.spanning_trees = trees
+
         cutkosky_cuts = set()
-        for spanning_tree in spanning_trees:
+        cut_momenta_options = set()
+
+        for spanning_tree in self.spanning_trees:
             # now select the extra cut
             for edge_index in spanning_tree:
                 if edge_index in self.ext:
                     continue
 
-                # verify that the graph is correctly split in two, with one of the subgraphs having all incoming particles
-                # and the other having all outgoing particles
-                cut_tree = TopologyGenerator([e for i, e in enumerate(self.edge_map_lin) if i in set(spanning_tree) - {edge_index,}])
-                sub_tree_indices = []
-                cut_tree.spanning_trees(sub_tree_indices, tree={cut_tree.edges[0][0]})
-                sub_tree = TopologyGenerator([cut_tree.edge_map_lin[i] for i in sub_tree_indices[0]])
-                is_incoming_sub_tree = any(e[0] in incoming_particles for e in sub_tree.edge_map_lin)
+                cut_momenta_options.add(tuple(sorted(set(spanning_tree) - {edge_index})))
 
-                sub_tree_external = set([sub_tree.edge_map_lin[i][0] for i in sub_tree.ext])
-                super_external = set([self.edge_map_lin[i][0] for i in self.ext])
-                ext_overlap = sub_tree_external & super_external
+        for cut_momenta in cut_momenta_options:
+            cut_momenta_set = set(cut_momenta)
+            # verify that the graph is correctly split in two, with one of the subgraphs having all incoming particles
+            # and the other having all outgoing particles
+            cut_tree = TopologyGenerator([e for i, e in enumerate(self.edge_map_lin) if i in cut_momenta_set])
+            sub_tree_indices = []
+            cut_tree.generate_spanning_trees(sub_tree_indices, tree={cut_tree.edges[0][0]})
+            sub_tree = TopologyGenerator([cut_tree.edge_map_lin[i] for i in sub_tree_indices[0]])
+            is_incoming_sub_tree = any(e[0] in incoming_particles for e in sub_tree.edge_map_lin)
 
-                if ext_overlap == set(incoming_particles) or ext_overlap == super_external - set(incoming_particles):
-                    # identify which of the n+1 cuts are the cuts that separate the original diagram in two
-                    cutkosky_cut = tuple(sorted(cutkosky_edge for cutkosky_edge in set(self.edge_map_lin).difference(set(cut_tree.edge_map_lin))
-                            if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
+            sub_tree_external = set([sub_tree.edge_map_lin[i][0] for i in sub_tree.ext])
+            super_external = set([self.edge_map_lin[i][0] for i in self.ext])
+            ext_overlap = sub_tree_external & super_external
 
-                    # filter cuts with not enough jets and cuts that do not contain all desired final state particles
-                    cutkosky_particles = tuple(sorted(particle_ids[e] for (e, _, _) in cutkosky_cut if e in particle_ids))
-                    if len(cutkosky_cut) - len(final_state_particle_ids) < n_jets or \
-                            not all(final_state_particle_ids.count(p) <= cutkosky_particles.count(p) for p in final_state_particle_ids):
-                        continue
+            if ext_overlap == set(incoming_particles) or ext_overlap == super_external - set(incoming_particles):
+                # identify which of the n+1 cuts are the cuts that separate the original diagram in two
+                cutkosky_cut = tuple(sorted(cutkosky_edge for cutkosky_edge in set(self.edge_map_lin).difference(set(cut_tree.edge_map_lin))
+                        if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
 
-                    # check if the cut is incoming our outgoing
-                    cutkosky_cut = tuple((name, 1 if is_incoming_sub_tree and sub_tree.vertices.count(v2) == 0 or
-                                        not is_incoming_sub_tree and sub_tree.vertices.count(v1) == 0 else -1)
-                                    for (name, v1, v2) in cutkosky_cut)
-                    cutkosky_cuts.add(cutkosky_cut)
+                # filter cuts with not enough jets and cuts that do not contain all desired final state particles
+                cutkosky_particles = tuple(sorted(particle_ids[e] for (e, _, _) in cutkosky_cut if e in particle_ids))
+                if len(cutkosky_cut) - len(final_state_particle_ids) < n_jets or \
+                        not all(final_state_particle_ids.count(p) <= cutkosky_particles.count(p) for p in final_state_particle_ids):
+                    continue
+
+                # check if the cut is incoming our outgoing
+                cutkosky_cut = tuple((name, 1 if is_incoming_sub_tree and sub_tree.vertices.count(v2) == 0 or
+                                    not is_incoming_sub_tree and sub_tree.vertices.count(v1) == 0 else -1)
+                                for (name, v1, v2) in cutkosky_cut)
+                cutkosky_cuts.add(cutkosky_cut)
+
         return list(sorted(cutkosky_cuts))
 
     def bubble_cuts(self, cutkosky_cut, incoming_momenta, level=0):
@@ -437,7 +463,7 @@ class TopologyGenerator(object):
         """Split the graph in two using a cutkosky cut. The first has the incoming momenta, and the second the outgoing."""
         cut_tree = TopologyGenerator([e for e in self.edge_map_lin if e[0] not in cutkosky_cut])
         sub_tree_indices = []
-        cut_tree.spanning_trees(sub_tree_indices, tree={cut_tree.edges[0][0]})
+        cut_tree.generate_spanning_trees(sub_tree_indices, tree={cut_tree.edges[0][0]})
 
         # get the vertices from the spanning tree and use it to create the two subgraphs
         sub_tree_vertices = set(v for e in sub_tree_indices[0] for v in cut_tree.edge_map_lin[e][1:])
@@ -742,10 +768,10 @@ class TopologyGenerator(object):
 
     def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None,
             contour_closure=None, analytic_result=None, fixed_deformation=None, constant_deformation=None,
-            loop_momentum_map=None, shift_map=None, numerator_tensor_coefficients=None):
+            loop_momentum_map=None, shift_map=None, numerator_tensor_coefficients=None,
+            check_external_momenta_names=True):
         if loop_momentum_map is None:
             self.generate_momentum_flow(loop_momenta_names)
-
 
         # collect all loop lines and construct the signature
         loop_line_map = defaultdict(list)
@@ -779,7 +805,7 @@ class TopologyGenerator(object):
             # TODO: should this generate a minus sign when there is an odd-power numerator?
             alt_sig = tuple(s * -1 for s in signature)
             if len(signature) > 0 and any(s != 0 for s in signature) and alt_sig in loop_line_map or should_flip:
-                print('warning: changing sign of propagator %s: %s -> %s' % (edge_name, tuple(signature), alt_sig) )
+                #print('warning: changing sign of propagator %s: %s -> %s' % (edge_name, tuple(signature), alt_sig) )
                 loop_line_map[alt_sig].append((edge_name, -q, mass))
                 loop_line_vertex_map[alt_sig] += [(v2, v1)]
 
@@ -804,15 +830,14 @@ class TopologyGenerator(object):
                 # keep one edge in the one-loop case
                 if len(edges) == 1:
                     break
-                other = [(1, e[1]) if e[0] == v else (0, e[0]) for e in edges if v in e]
+                other = list(sorted((1, e[1]) if e[0] == v else (0, e[0]) for e in edges if v in e))
+                if len(sig) > 0 and other[0][0] == other[1][0]:
+                    raise AssertionError("Could not fuse vertices since the orientation is wrong")
+                else:
+                    # if there is no loop momentum dependence, the duplicate vertex may appear
+                    # as a-b,c-b. We will fuse this to a-c.
+                    newedge = (other[0][1], other[1][1])
 
-                if len(sig) == 0:
-                    # if there is no loop momentum dependence, the edge may appear in both
-                    # directions. Make sure we can fuse by adding the other option too
-                    other += [(0, e[1]) if e[0] == v else (1, e[0]) for e in edges if v in e]
-
-                # create a new edge with the correct orientation
-                newedge = tuple( next(v[1] for v in other if v[0] == i) for i in range(0, 2))
                 d = [e for e in edges if v in e]
                 edges[edges.index(d[0])] = newedge
                 del edges[edges.index(d[1])]
@@ -820,7 +845,7 @@ class TopologyGenerator(object):
             # if we have multiple sets left, they are disconnected parts in the graph
             # we shrink the vertices of all but the first group, that will be the representative
             for edge in edges[1:]:
-                assert(edge[0] not in fuse_map)
+                assert(len(sig) == 0 or edge[0] not in fuse_map)
                 fuse_map[edge[0]] = edge[1]
 
             loop_line_vertex_map[sig] = (edges[0][0], edges[0][1])
@@ -868,7 +893,8 @@ class TopologyGenerator(object):
         try:
             external_kinematics = [ext_mom["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in ext_mom.keys()])]
         except ValueError:
-            print("External kinematics are not labels as q1,...,qn. Their order will be random.")
+            if check_external_momenta_names:
+                print("External kinematics are not labels as q1,...,qn. Their order will be random.")
             external_kinematics = list(ext_mom.values())
         
         loop_topology = LoopTopology(name=name, n_loops=len(self.loop_momenta), external_kinematics=external_kinematics,

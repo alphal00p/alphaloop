@@ -98,7 +98,8 @@ class SquaredTopologyGenerator:
                         mass_map=masses,
                         loop_momentum_map=loop_mom_map,
                         numerator_tensor_coefficients=[[0., 0.] for _ in range(numerator_entries)],
-                        shift_map=shift_map)
+                        shift_map=shift_map,
+                        check_external_momenta_names=False)
 
                     # take the UV limit of the diagram
                     uv_moms = [mom for mom in uv_structure if mom in set(s.edge_name_map.keys())]
