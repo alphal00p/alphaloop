@@ -113,12 +113,13 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
         Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
 
+        base_proc_name = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
         with progressbar.ProgressBar(
             prefix = 'Generating rust inputs for {variables.super_graph_name} : ',
             max_value=len(all_super_graphs),
-            variables = {'super_graph_name' : 'N/A'}) as bar:
+            variables = {'super_graph_name' : '%s_%d'%(base_proc_name,1)}) as bar:
             for i_super_graph, super_graph in enumerate(all_super_graphs):
-                squared_topology_name = '%s_%d'%(matrix_element.get('processes')[0].shell_string().split('_',1)[1],(i_super_graph+1))
+                squared_topology_name = '%s_%d'%(base_proc_name,(i_super_graph+1))
                 super_graph.set_name(squared_topology_name)
                 bar.update(super_graph_name=super_graph.name)
                 bar.update(i_super_graph+1)

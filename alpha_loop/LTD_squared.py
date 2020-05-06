@@ -71,7 +71,7 @@ class LTD2Diagram(object):
     def build_graph(self):
         """ Build the networkx graph representation of this diagram."""
 
-        graph = nx.DiGraph()
+        graph = nx.MultiDiGraph()
 
         initial_legs = tuple([leg for leg in self.process.get('legs') if leg.get('state') == False])
         final_legs = tuple([leg for leg in self.process.get('legs') if leg.get('state') == True])
@@ -110,9 +110,9 @@ class LTD2Diagram(object):
                     u_edge, v_edge = leg_number_to_node_number[leg.get('number')], 'L%d'%next_node_number
                 if leg.get('number') not in self.initial_state_edges and leg.get('number') not in self.final_state_edges:
                     if leg.get('state') == False:
-                        self.initial_state_edges[leg.get('number')] = (u_edge, v_edge)
+                        self.initial_state_edges[leg.get('number')] = (u_edge, v_edge, 0)
                     else:
-                        self.final_state_edges[leg.get('number')] = (u_edge, v_edge)
+                        self.final_state_edges[leg.get('number')] = (u_edge, v_edge, 0)
                 graph.add_edge( u_edge, v_edge , **{
                     'pdg' : leg.get('id'),
                     }
@@ -135,11 +135,13 @@ class LTD2Diagram(object):
             complex_conjugated_LTD2_diagram.initial_state_edges[leg_number] = (
                 complex_conjugated_LTD2_diagram.initial_state_edges[leg_number][1].replace('L','R'),
                 complex_conjugated_LTD2_diagram.initial_state_edges[leg_number][0].replace('I','O'),
+                0
             )
         for leg_number in complex_conjugated_LTD2_diagram.final_state_edges:
             complex_conjugated_LTD2_diagram.final_state_edges[leg_number] = (
                 complex_conjugated_LTD2_diagram.final_state_edges[leg_number][1].replace('O','I'),
                 complex_conjugated_LTD2_diagram.final_state_edges[leg_number][0].replace('L','R'),
+                0
             )
         node_relabeling = {}
         for number in self.initial_state_edges:
@@ -242,11 +244,10 @@ class SuperGraph(object):
         """ Place here all rules regarding whether this supergraph should be 
         considered without our squared LTD framework."""
 
-        # TODO More general handling of the self-energies.
-        # For now simply omit the one-loop ones with a hacky rule
-        if len(set(e[1] for e in self.cuts))!=len(self.cuts):
-            return False
         return True
+        # TODO remove self-energies as we will be implementing them from
+        # a separate procedure involving an indpendent process generation
+        # featuring two-point vertices.
 
     def generate_yaml_input_file(self, file_path, model, alphaLoop_options):
         """ Generate the yaml input file for the rust_backend, fully specifying this squared topology."""
@@ -348,13 +349,15 @@ class SuperGraph(object):
             left_graph_edge = diag_left_of_cut.final_state_edges[final_state_leg_number]
             left_node = left_graph_edge[0]
             edge_attributes = dict(left_graph.edges[left_graph_edge])
-            left_graph.remove_edge(left_graph_edge[0],left_graph_edge[1])
+            left_graph.remove_edge(*left_graph_edge)
             right_graph_edge = diag_right_of_cut.final_state_edges[final_state_leg_number]
             right_node = right_graph_edge[1]
-            right_graph.remove_edge(right_graph_edge[0],right_graph_edge[1])
+            right_graph.remove_edge(*right_graph_edge)
             # Now add back to the whole graph, which we take to be the left graph, the edge
             # directly connecting the two nodes that use to link to the external leg_number final_state_leg_number
-            sewing_edges[final_state_leg_number]= ((left_node, right_node),edge_attributes)
+            # Use the final_state_number as the key for the multiDiGraph edge so as to support multi-edges.
+            # We are guaranteed that the final state leg number can serve as a unique key.
+            sewing_edges[final_state_leg_number]= ((left_node, right_node, final_state_leg_number),edge_attributes)
 
         # Now name edges
         initial_state_identifier=0
@@ -385,11 +388,11 @@ class SuperGraph(object):
         # And finally add back the sewing edges
         cuts = []
         for leg_number in sorted(sewing_edges.keys()):
-            (sewing_edge_u, sewing_edge_v), edge_attributes = sewing_edges[leg_number]
+            (sewing_edge_u, sewing_edge_v, edge_key), edge_attributes = sewing_edges[leg_number]
             # name the cut edge as `cut<i>` where <i> is the leg number being cut.
             edge_attributes['name']='cut%d'%leg_number
-            cuts.append((leg_number, (sewing_edge_u, sewing_edge_v)))
-            sewed_graph.add_edge(sewing_edge_u, sewing_edge_v, **edge_attributes)
+            cuts.append((leg_number, (sewing_edge_u, sewing_edge_v, edge_key)))
+            sewed_graph.add_edge(sewing_edge_u, sewing_edge_v, key=edge_key, **edge_attributes)
         
         self.graph = sewed_graph
         self.cuts = tuple(cuts)
@@ -399,8 +402,14 @@ class SuperGraph(object):
     
     def is_isomorphic_to(self, other_super_graph):
         """ Uses networkx to decide if the two graphs are isomorphic."""
-         
+
+        def edge_match_function(e1,e2):
+            # This function needs tu support multi-edges
+            # For now all we do is making sure the set of PDGs of 
+            # all edges connecting the two nodes match.
+            return set(e['pdg'] for e in e1.values()) == \
+                   set(e['pdg'] for e in e2.values())
         return nx.is_isomorphic(self.graph, other_super_graph.graph,
-            edge_match=lambda e1,e2: e1['pdg']==e2['pdg'],
+            edge_match=edge_match_function,
             node_match=lambda n1,n2: n1['vertex_id']==n2['vertex_id']
         )
