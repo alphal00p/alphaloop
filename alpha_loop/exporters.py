@@ -113,10 +113,23 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
         Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
 
+        max_super_graphs = 0
+        if self.alphaLoop_options['n_rust_inputs_to_generate'] == 0:
+            logger.warning("%sUser requested to skip the (slow) generation of rust LTD^2 inputs.%s"%(
+                utils.bcolors.RED,utils.bcolors.ENDC
+            ))
+            return
+
+        if self.alphaLoop_options['n_rust_inputs_to_generate'] > 0:
+            logger.warning("%sUser requested to only generate LTD^2 inputs for the first %d inputs.%s"%(
+                utils.bcolors.RED,self.alphaLoop_options['n_rust_inputs_to_generate'],utils.bcolors.ENDC
+            ))
+
         base_proc_name = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
         with progressbar.ProgressBar(
             prefix = 'Generating rust inputs for {variables.super_graph_name} : ',
-            max_value=len(all_super_graphs),
+            max_value=(len(all_super_graphs) if self.alphaLoop_options['n_rust_inputs_to_generate']<0 else
+                        min(len(all_super_graphs), self.alphaLoop_options['n_rust_inputs_to_generate'])),
             variables = {'super_graph_name' : '%s_%d'%(base_proc_name,1)}) as bar:
             for i_super_graph, super_graph in enumerate(all_super_graphs):
                 squared_topology_name = '%s_%d'%(base_proc_name,(i_super_graph+1))
@@ -132,6 +145,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     matrix_element.get('processes')[0].get('model'),
                     self.alphaLoop_options
                 )
+                if (self.alphaLoop_options['n_rust_inputs_to_generate']>0) and (
+                    (i_super_graph+1)==self.alphaLoop_options['n_rust_inputs_to_generate']):
+                    break
 
     def write_overall_LTD_squared_info(self, *args, **opts):
         """ Write the overall cross-section yaml input file for the rust_backend to
@@ -337,6 +353,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
         # Backup the loop mode, because it can be changed in what follows.
         old_loop_mode = aloha.loop_mode
+        aloha.loop_mode = True
 
         # Create the aloha model or use the existing one (for loop exporters
         # this is useful as the aloha model will be used again in the 
@@ -391,7 +408,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
         # Overwrite fortran model, slightly inefficient but tolerable
         fortran_model = aL_helas_call_writers.alphaLoopHelasCallWriter(
-                                    matrix_element.get('processes')[0].get('model'))
+                    matrix_element.get('processes')[0].get('model'),
+                    use_physical_gluon_helicity_sum = self.alphaLoop_options['use_physical_gluon_helicity_sum']
+                    )
 
 
         # Create the directory PN_xx_xxxxx in the specified path
@@ -535,8 +554,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         particle = model.get('particle_dict')[pdg]
         if particle.get('spin')>3:
             raise alphaLoopExporterError("alphaLoop only support particles with spin 0, 1/2 or 1.")
-        # Only modify the helicity of *final state* particles that are vector or fermions.
-        if state==True and particle.get('spin') in [2,3]:
+        # Only modify the helicity of *final state* particles that are spin-1 vectors.
+        if state==True and particle.get('spin') in [3,]:
             return [0, 1, 2, 3]
         return particle.get_helicity_states(allow_reverse)
 
@@ -706,7 +725,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                 """INTEGER NSQSO_BORN
                    PARAMETER (NSQSO_BORN=%d)"""%replace_dict['nSqAmpSplitOrders'])
 
-        replace_dict['jamp_lines'] = '\n'.join(jamp_lines)    
+        # We must make sure to replace IMAG by its appropriate sign since we are doing
+        # "manual" complex-conjugation.
+        replace_dict['jamp_lines'] = ('\n'.join(jamp_lines)).upper().replace('IMAG1','IMAG1(K)')
 
         matrix_template = self.matrix_template
 
@@ -716,9 +737,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                 logger.debug("Warning: The export format %s is not "+\
                   " available for individual ME evaluation of given coupl. orders."+\
                   " Only the total ME will be computed.", self.opt['export_format'])
-            elif  self.opt['export_format'] in ['madloop_matchbox']:
-                replace_dict["color_information"] = self.get_color_string_lines(matrix_element)
-                matrix_template = "matrix_standalone_matchbox_splitOrders_v4.inc"
             else:
                 matrix_template = "matrix_standalone_splitOrders_v4.inc"
 

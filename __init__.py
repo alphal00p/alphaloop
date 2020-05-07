@@ -11,7 +11,11 @@ import alpha_loop.exporters as exporters
 # Apply patches to some functions of madgraph to suit them to the LTD^2 programme.
 # Patch #1: Turn off the optimization of wavefunction recycling when writing matrix.f
 # Patch #2: Remove the denominator of all propagators in aloha. 
-import alpha_loop.madgraph_patches
+import alpha_loop.madgraph_patches as madgraph_patches
+madgraph_patches.remove_wavefunction_recycling()
+madgraph_patches.remove_propagator_denominators()
+madgraph_patches.force_aloha_to_loop_mode()
+madgraph_patches.enable_manual_complex_conjugation_in_aloha()
 
 # Three types of functionality are allowed in a plugin
 #   1. new output mode

@@ -8,36 +8,59 @@ import madgraph.iolibs.helas_call_writers as helas_call_writers
 import madgraph.core.helas_objects as helas_objects
 import madgraph.loop.loop_helas_objects as loop_helas_objects
 
-
 class alphaLoopHelasCallWriter(helas_call_writers.FortranUFOHelasCallWriter):
     """ HelasCallWriter for alphaLoop with functions that can be specialised as needed."""
 
-    def __init__(self, *args, **opts):
+    def __init__(self, *args, use_physical_gluon_helicity_sum=False, **opts):
         super(alphaLoopHelasCallWriter, self).__init__(*args, **opts)
+        self.use_physical_gluon_helicity_sum = use_physical_gluon_helicity_sum
 
-    def get_amplitude_calls(self, matrix_element,*args, **opts):
-        """Return a list of strings, corresponding to the Helas calls
-        for the matrix element"""
-        
-        # This function does not seem to need to be re-implemented.
-        return super(alphaLoopHelasCallWriter, self).get_amplitude_calls(
-            matrix_element,*args, **opts)
+    def add_leftright_arg(self, call):
+        """ Add the leftright 'K' argument to a HELAS call."""
+
+        # TODO maybe do something less hacky
+
+        call_elems= call.split('(')
+        call_elems = ['('.join(call_elems[:-1]),call_elems[-1]]
+        part_one_call_split = call_elems[0].split(',')
+        part_one_call_split = ','.join(part_one_call_split[:-1]+['K']+part_one_call_split[-1:])
+        return '%s(%s'%(part_one_call_split,call_elems[1])
+
+    def get_amplitude_call(self, amplitude,**opts):
+        """ Specialize funxtion as to add leftright suffix"""        
+
+        # Add to the HELAS call the information of whether it sits to the left or 
+        # or to the right of the Cutkosky cut so as to be able to apply the
+        # complex conjugation "manually" without conjugating complex momenta.
+        call = super(alphaLoopHelasCallWriter, self).get_amplitude_call(amplitude,**opts)
+
+        # Add to the HELAS call the information of whether it sits to the left or 
+        # or to the right of the Cutkosky cut so as to be able to apply the
+        # complex conjugation "manually" without conjugating complex momenta.
+        return self.add_leftright_arg(call)
 
     def get_wavefunction_call(self, wavefunction):
         """Customize Helas wavefunction call for LTD^2"""
 
         call = super(alphaLoopHelasCallWriter, self).get_wavefunction_call(wavefunction)
 
-        # Special treatment for external final_state legs
-        if len(wavefunction.get('mothers'))==0 and wavefunction.get('leg_state')==True:
-            # This is only needed for non-scalar
-            if wavefunction.get('spin') in [2,3]:
-                # Prefix the polarisation vector routine differently when on 
-                # the left or the right of the Cutkosky cut so as to be able to emulate
-                # any propagator
-                call = call.split(',')
-                call = ','.join(call[:-2]+['K']+call[-2:])
-                call = call.replace('CALL ','CALL PROP_')
+        # Add to the HELAS call the information of whether it sits to the left or 
+        # or to the right of the Cutkosky cut so as to be able to apply the
+        # complex conjugation "manually" without conjugating complex momenta.
+        call = self.add_leftright_arg(call)
+
+        # Special treatment for external legs
+        if len(wavefunction.get('mothers'))==0:
+            # Different treatment for the final and initial-state legs for our
+            # current treatment
+            if wavefunction.get('leg_state')==True:
+                if wavefunction.get('spin')==3 and wavefunction.get('mass').upper()=='ZERO' \
+                                    and self.use_physical_gluon_helicity_sum:
+                    call = call.replace('CALL ','CALL PROPPHYS_')
+                else:
+                    call = call.replace('CALL ','CALL PROP_')
+            else:
+                call = call.replace('CALL ','CALL EXTERNAL_')
 
         return call
 

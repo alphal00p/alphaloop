@@ -14,7 +14,7 @@ CF2PY INTENT(IN) :: P(0:3,NEXTERNAL)
 C  
 C ARGUMENTS 
 C  
-      REAL*8 P(0:3,NEXTERNAL),ANS
+      DOUBLE COMPLEX P(0:3,NEXTERNAL),ANS
 	INTEGER HEL, SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT
 C
 C GLOBAL VARIABLES
@@ -70,7 +70,7 @@ C     Setting below to -1 deactivate the helicity filtering
 C  
 C ARGUMENTS 
 C  
-      REAL*8 P(0:3,NEXTERNAL),ANS
+      double complex P(0:3,NEXTERNAL),ANS
 CF2PY INTENT(OUT) :: ANS
 CF2PY INTENT(IN) :: P(0:3,NEXTERNAL)
       INTEGER SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT
@@ -82,8 +82,8 @@ C
       INTEGER NHEL(NEXTERNAL,NCOMB),NTRY(NGRAPHS,NGRAPHS)
 C  put in common block to expose this variable to python interface
       COMMON/%(proc_prefix)sPROCESS_NHEL/NHEL 
-      REAL*8 T
-      REAL*8 %(proc_prefix)sMATRIX
+      double complex T
+      double complex %(proc_prefix)sMATRIX
       INTEGER IHEL,IDEN, I, J
 C     For a 1>N process, them BEAMTWO_HELAVGFACTOR would be set to 1.
       INTEGER BEAMS_HELAVGFACTOR(2)
@@ -142,7 +142,7 @@ C     ALSO DO THIS IF WE WANTED TO DEACTIVATE THE FILTER
                     IF(POLARIZATIONS(0,0).eq.-1.or.%(proc_prefix)sIS_BORN_HEL_SELECTED(IHEL)) THEN
                         ANS=ANS+T
                     ENDIF
-				    IF (T .NE. 0D0 .AND. .NOT.    GOODHEL(SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT, IHEL)) THEN
+				    IF (((DBLE(T) .NE. 0D0).OR.(DIMAG(T) .NE. 0D0)) .AND. .NOT.    GOODHEL(SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT, IHEL)) THEN
                         GOODHEL(SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT, IHEL)=.TRUE.
                     ENDIF
                 ENDIF
@@ -161,8 +161,17 @@ C     ALSO DO THIS IF WE WANTED TO DEACTIVATE THE FILTER
 	  ENDIF
 	  END
        
-       
-      REAL*8 FUNCTION %(proc_prefix)sMATRIX(P,NHEL,IC, SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT)
+      SUBROUTINE %(proc_prefix)sGET_N_DIAGRAMS( NDIAG )
+
+      INTEGER NDIAG
+      INTEGER    NGRAPHS
+      PARAMETER (NGRAPHS=%(ngraphs)d) 
+      
+      NDIAG = NGRAPHS
+
+      END SUBROUTINE %(proc_prefix)sGET_N_DIAGRAMS
+
+      DOUBLE COMPLEX FUNCTION %(proc_prefix)sMATRIX(P,NHEL,IC, SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT)
 C  
 %(info_lines)s
 C
@@ -183,12 +192,11 @@ C
       PARAMETER (NWAVEFUNCS=%(nwavefuncs)d, NCOLOR=%(ncolor)d) 
       REAL*8     ZERO
       PARAMETER (ZERO=0D0)
-      COMPLEX*16 IMAG1
-      PARAMETER (IMAG1=(0D0,1D0))
+      COMPLEX*16 IMAG1(2)
 C  
 C ARGUMENTS 
 C  
-      REAL*8 P(0:3,NEXTERNAL)
+      DOUBLE COMPLEX P(0:3,NEXTERNAL)
       INTEGER NHEL(NEXTERNAL), IC(NEXTERNAL), SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT
 C  
 C LOCAL VARIABLES 
@@ -214,6 +222,9 @@ C ----------
 C BEGIN CODE
 C ----------
 
+IMAG1(1)=DCMPLX(0D0,1D0)
+IMAG1(2)=DCMPLX(0D0,-1D0)
+
 SELECTED_DIAGS(1) = SELECTED_DIAG_LEFT
 SELECTED_DIAGS(2) = SELECTED_DIAG_RIGHT
 
@@ -238,9 +249,9 @@ ENDDO
           DO J = 1, NCOLOR
               ZTEMP = ZTEMP + CF(J,I)*JAMP(1,J)
           ENDDO
-C Complex conjugation needs to be performed otherwise the incoming polarisation sums are
-C not realised.
-          %(proc_prefix)sMATRIX = %(proc_prefix)sMATRIX+ZTEMP*DCONJG(JAMP(2,I))/DENOM(I)   
+C Complex conjugation must not be performed here.
+C It is already automatically applied to the external incoming polarisation vectors
+          %(proc_prefix)sMATRIX = %(proc_prefix)sMATRIX+ZTEMP*JAMP(2,I)/DENOM(I)   
       ENDDO
       END
 
@@ -254,7 +265,7 @@ C
 C  
 C ARGUMENTS 
 C  
-      REAL*8 P(0:3,NEXTERNAL),ANS
+      DOUBLE COMPLEX P(0:3,NEXTERNAL),ANS
       INTEGER NHEL, SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT
       DOUBLE PRECISION ALPHAS 
       real*8 pi     

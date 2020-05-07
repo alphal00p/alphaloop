@@ -35,6 +35,7 @@ import madgraph.various.cluster as cluster
 import alpha_loop.utils as utils
 import alpha_loop.exporters as aL_exporters
 import alpha_loop.helas_call_writers as aL_helas_call_writers
+import alpha_loop.madgraph_patches as madgraph_patches
 
 from madgraph.iolibs.files import cp, ln, mv
 
@@ -59,7 +60,13 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         """ Define attributes of this class."""
         
         self.alphaLoop_options = {
-            'perturbative_order' : 'LO'
+            'perturbative_order' : 'LO',
+            # By default we don't want denominators as those will be included in the rust backend
+            'include_denominators' : False, 
+            'use_physical_gluon_helicity_sum' : False,
+            # Specify the number of rust inputs to generate, -1 considers all by default.
+            # This is useful for debugging as this can be slow.
+            'n_rust_inputs_to_generate' : -1,
         }
         self.plugin_output_format_selected = None
 
@@ -110,6 +117,26 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if not re.match(r'^(N*)LO$',value):
                 raise alphaLoopInvalidCmd("Specified perturbative order should be of the form N*LO, not '%s'."%value)
             self.alphaLoop_options[key] = value
+        elif key == 'include_denominators':
+            if value.upper() not in ['TRUE','FALSE']:
+                raise alphaLoopInvalidCmd("Specified value for 'include_denominators' should be 'True' or 'False', not '%s'."%value)
+            
+            bool_val = (value.upper()=='TRUE')
+            self.alphaLoop_options['include_denominators'] = bool_val
+            if bool_val:
+                madgraph_patches.remove_propagator_denominators( restore=True )
+            else:
+                madgraph_patches.remove_propagator_denominators( restore=False )
+        elif key == 'use_physical_gluon_helicity_sum':
+            if value.upper() not in ['TRUE','FALSE']:
+                raise alphaLoopInvalidCmd("Specified value for 'use_physical_gluon_helicity_sum' should be 'True' or 'False', not '%s'."%value)
+            bool_val = (value.upper()=='TRUE')
+            self.alphaLoop_options['use_physical_gluon_helicity_sum'] = bool_val
+        elif key == 'n_rust_inputs_to_generate':
+            try:
+                self.alphaLoop_options['n_rust_inputs_to_generate'] = int(value)
+            except ValueError:
+                raise alphaLoopInvalidCmd("Specified value for 'n_rust_inputs_to_generate' should be an integer, not '%s'."%value)
         else:
             raise alphaLoopInvalidCmd("Unrecognized alphaLoop option: %s"%key)
 

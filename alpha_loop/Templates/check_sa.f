@@ -26,10 +26,12 @@ C---  integer    n_max_cg
 C     
 C     LOCAL
 C     
-      INTEGER I,J,K
+      INTEGER I,J,K, N_DIAGRAMS
       INTEGER SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT
       REAL*8 P(0:3,NEXTERNAL)   ! four momenta. Energy is the zeroth component.
-      REAL*8 SQRTS,MATELEM           ! sqrt(s)= center of mass energy 
+      DOUBLE COMPLEX PCMPLX(0:3,NEXTERNAL)   ! complex in LTD^2
+      DOUBLE COMPLEX MATELEM,SUMMED_RESULT
+      REAL*8 SQRTS           ! sqrt(s)= center of mass energy 
       REAL*8 PIN(0:3), POUT(0:3)
       CHARACTER*120 BUFF(NEXTERNAL)
 C     
@@ -92,9 +94,34 @@ c
 c     
 c     Now we can call the matrix element!
 c
-      SELECTED_DIAG_LEFT = 1
-      SELECTED_DIAG_RIGHT = 1
-      CALL PROC_PREFIX_SMATRIX(P,SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT,MATELEM)
+      DO I=1,NEXTERNAL
+        DO J=0,3
+          PCMPLX(J,I) = DCMPLX(P(J,I), 0.0d0)
+        ENDDO
+      ENDDO
+
+      CALL PROC_PREFIX_GET_N_DIAGRAMS(N_DIAGRAMS)
+      SUMMED_RESULT = DCMPLX(0.0d0,0.0d0)
+      DO I=1,N_DIAGRAMS
+        DO J=1,N_DIAGRAMS
+          SELECTED_DIAG_LEFT = I
+          SELECTED_DIAG_RIGHT = J
+          CALL PROC_PREFIX_SMATRIX(PCMPLX,SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT,MATELEM)
+c          WRITE(*,*) "Result for Diag",I," x ",J," = ",MATELEM
+          SUMMED_RESULT = SUMMED_RESULT+MATELEM
+        ENDDO
+      ENDDO
+      MATELEM=SUMMED_RESULT
+
+C     Test adding some imaginary part
+c      DO I=1,NEXTERNAL
+c        DO J=0,3
+c          PCMPLX(J,I) = DCMPLX(P(J,I), (P(J,I)*(I+J+1))/DBLE(NEXTERNAL) )
+c        ENDDO
+c      ENDDO
+c      SELECTED_DIAG_LEFT = 1
+c      SELECTED_DIAG_RIGHT = 1
+c      CALL PROC_PREFIX_SMATRIX(PCMPLX,SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT,MATELEM)
 c
 
       write (*,*) "Matrix element = ", MATELEM, " GeV^",-(2*nexternal-8)	
@@ -126,7 +153,14 @@ c         write (*,'(i2,1x,5e15.7)') i, P(0,i),P(1,i),P(2,i),P(3,i),
 c     .dsqrt(dabs(DOT(p(0,i),p(0,i))))
 c      enddo
 c
-c      CALL SMATRIX(P,MATELEM)
+c      SELECTED_DIAG_LEFT = 1
+c      SELECTED_DIAG_RIGHT = 1
+c      DO I=1,NEXTERNAL
+c        DO J=0,3
+c          PCMPLX(J,I) = DCMPLX(P(J,I), 0.0d0)
+c        ENDDO
+c      ENDDO
+c      CALL PROC_PREFIX_SMATRIX(PCMPLX,SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT,MATELEM)
 c
 c      write (*,*) "-------------------------------------------------"
 c      write (*,*) "Matrix element = ", MATELEM, " GeV^",-(2*nexternal-8)	
