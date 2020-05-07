@@ -58,7 +58,14 @@ class alphaLoopHelasCallWriter(helas_call_writers.FortranUFOHelasCallWriter):
                                     and self.use_physical_gluon_helicity_sum:
                     call = call.replace('CALL ','CALL PROPPHYS_')
                 else:
-                    call = call.replace('CALL ','CALL PROP_')
+                    if ( wavefunction.get('spin')==1 and (not wavefunction.get('self_antipart')) and wavefunction.get('color')==8 ):
+                        # This is a ghost, use external "polarisation" emulating the -1 factor of closed loops
+                        if wavefunction.get('is_part'):
+                            call = call.replace('CALL SXXXXX','CALL PROP_GHXXXX')
+                        else:
+                            call = call.replace('CALL SXXXXX','CALL PROP_GHBARX')
+                    else:
+                        call = call.replace('CALL ','CALL PROP_')
             else:
                 call = call.replace('CALL ','CALL EXTERNAL_')
 

@@ -489,6 +489,84 @@ c
       return
       end
 
+      subroutine PROP_GHxxxx(p,nss , leftright,sc)
+c
+c This subroutine computes a complex ghost wavefunction.
+c
+c input:
+c       real    p(0:3)         : four-momentum of scalar boson
+c       integer nss  = -1 or 1 : +1 for final, -1 for initial
+c
+c output:
+c       complex sc(3)          : scalar wavefunction                   s
+c
+      implicit none
+      double complex sc(5)
+      double complex p(0:3)
+      integer leftright
+      integer nss
+
+      double precision rOne
+      parameter( rOne = 1.0d0 )
+      double complex ci
+      parameter( ci = DCMPLX(0.0d0,1.0d0) )
+
+c     whatever emulates a factor -1 for the squared amplitude for each pair of
+c     two ghosts in the final states works.
+      if (leftright.eq.1) then
+          sc(5) = sqrt(ci)
+      else
+          sc(5) = sqrt(ci)
+      endif
+
+c     Convention for loop computations
+      sc(1) = p(0)*nss
+      sc(2) = p(1)*nss
+      sc(3) = p(2)*nss
+      sc(4) = p(3)*nss
+c
+      return
+      end
+
+      subroutine PROP_GHBARx(p,nss , leftright,sc)
+c
+c This subroutine computes a complex ghost wavefunction.
+c
+c input:
+c       real    p(0:3)         : four-momentum of scalar boson
+c       integer nss  = -1 or 1 : +1 for final, -1 for initial
+c
+c output:
+c       complex sc(3)          : scalar wavefunction                   s
+c
+      implicit none
+      double complex sc(5)
+      double complex p(0:3)
+      integer leftright
+      integer nss
+
+      double precision rOne
+      parameter( rOne = 1.0d0 )
+      double complex ci
+      parameter( ci = DCMPLX(0.0d0,1.0d0) )
+
+c     whatever emulates a factor -1 for the squared amplitude for each pair of
+c     two ghosts in the final states works.
+      if (leftright.eq.1) then
+          sc(5) = sqrt(ci)
+      else
+          sc(5) = sqrt(ci)
+      endif
+
+c     Convention for loop computations
+      sc(1) = p(0)*nss
+      sc(2) = p(1)*nss
+      sc(3) = p(2)*nss
+      sc(4) = p(3)*nss
+c
+      return
+      end
+
 C     Now routine for the incoming external momenta which still use a
 C     polarisation basis, but must now accept complex momenta and be
 C     complex conjugated if used in the diagram sitting on the right
