@@ -5,6 +5,8 @@ extern crate arrayvec;
 extern crate dual_num;
 #[macro_use]
 extern crate itertools;
+extern crate color_eyre;
+extern crate eyre;
 extern crate fnv;
 extern crate num;
 extern crate serde;
@@ -25,6 +27,9 @@ extern crate rand;
 extern crate scs;
 extern crate thousands;
 extern crate tui;
+
+use color_eyre::{Help, Report};
+use eyre::WrapErr;
 
 use num_traits::{Float, FloatConst, FromPrimitive, Num, One, ToPrimitive, Zero};
 use utils::Signum;
@@ -589,9 +594,13 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn from_file(filename: &str) -> Settings {
-        let f = File::open(filename).expect("Could not open settings file");
-        serde_yaml::from_reader(f).unwrap()
+    pub fn from_file(filename: &str) -> Result<Settings, Report> {
+        let f = File::open(filename)
+            .wrap_err_with(|| format!("Could not open settings file {}", filename))
+            .suggestion("Does the path exist?")?;
+        serde_yaml::from_reader(f)
+            .wrap_err("Could not parse settings file")
+            .suggestion("Is it a correct yaml file")
     }
 }
 
@@ -614,8 +623,8 @@ py_class!(class CrossSection |py| {
 
     def __new__(_cls, squared_topology_file: &str, settings_file: &str)
     -> PyResult<CrossSection> {
-        let settings = Settings::from_file(settings_file);
-        let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings);
+        let settings = Settings::from_file(settings_file).unwrap();
+        let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings).unwrap();
         let dashboard = dashboard::Dashboard::minimal_dashboard();
         let integrand = integrand::Integrand::new(squared_topology.n_loops,
             squared_topologies::SquaredTopologySet::from_one(squared_topology.clone()),
@@ -633,7 +642,7 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def evaluate(&self, loop_momenta: Vec<LorentzVector<f64>>) -> PyResult<(f64, f64)> {        
+    def evaluate(&self, loop_momenta: Vec<LorentzVector<f64>>) -> PyResult<(f64, f64)> {
         let mut integrand = self.integrand(py).borrow_mut();
         let res = self.squared_topology(py).borrow_mut().evaluate_mom(&loop_momenta, &mut *self.caches(py).borrow_mut(), &mut Some(&mut integrand.event_manager));
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
@@ -852,8 +861,8 @@ py_class!(class LTD |py| {
 
     def __new__(_cls, topology_file: &str, top_name: &str, amplitude_file: &str, amp_name: &str, settings_file: &str)
     -> PyResult<LTD> {
-        let mut settings = Settings::from_file(settings_file);
-        let mut topologies = topologies::Topology::from_file(topology_file, &settings);
+        let mut settings = Settings::from_file(settings_file).unwrap();
+        let mut topologies = topologies::Topology::from_file(topology_file, &settings).unwrap();
         let mut topo = topologies.remove(top_name).expect("Unknown topology");
         topo.process(true);
         //Skip amplitude with no name is set
@@ -861,7 +870,7 @@ py_class!(class LTD |py| {
         if amp_name == "" {
             settings.general.use_amplitude = false;
         } else {
-            let mut amplitudes = amplitude::Amplitude::from_file(amplitude_file);
+            let mut amplitudes = amplitude::Amplitude::from_file(amplitude_file).unwrap();
             settings.general.use_amplitude = true;
             amp=amplitudes.remove(amp_name).expect("Unknown amplitude");
             assert_eq!(amp.topology,top_name);
@@ -898,14 +907,14 @@ py_class!(class LTD |py| {
         let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<float>(&x,
             &mut self.cache(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
-    } 
+    }
 
    def evaluate_f128(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
         let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<f128::f128>(&x,
             &mut self.cache_f128(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
-    
+
     def parameterize(&self, x: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
         let t = self.topo(py).borrow();
         let (x, jac) = topologies::Topology::parameterize::<float>(&x, t.e_cm_squared, loop_index, &t.settings);
@@ -1049,7 +1058,7 @@ py_class!(class LTD |py| {
         match v*(Complex::new(f128::f128::from_f64(1.0).unwrap(), f128::f128::zero())+ct){
             res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
         }
-    } 
+    }
 
    def evaluate_amplitude_cut(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
         let mut topo = self.topo(py).borrow_mut();
@@ -1069,14 +1078,14 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
-        
+
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
         match topo.evaluate_amplitude_cut::<float>(&mut moms, cut, mat, &mut cache).unwrap() {
             res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
         }
     }
-    
+
    def evaluate_amplitude_cut_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
         let mut topo = self.topo(py).borrow_mut();
         topo.settings.general.use_amplitude = true;
@@ -1101,8 +1110,8 @@ py_class!(class LTD |py| {
         match topo.evaluate_amplitude_cut::<f128::f128>(&mut moms, cut, mat, &mut cache).unwrap() {
             res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
         }
-    }    
-   
+    }
+
        def get_loop_momentum_energies(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<Vec<(f64, f64)>> {
         let topo = self.topo(py).borrow();
         let mut cache = self.cache(py).borrow_mut();

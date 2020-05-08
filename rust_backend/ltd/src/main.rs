@@ -4,7 +4,10 @@ extern crate cuba;
 extern crate dual_num;
 #[macro_use]
 extern crate itertools;
+extern crate color_eyre;
 extern crate colored;
+#[macro_use]
+extern crate eyre;
 extern crate f128;
 extern crate ltd;
 extern crate nalgebra as na;
@@ -22,6 +25,8 @@ pub extern crate mpi;
 
 use arrayvec::ArrayVec;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use color_eyre::{Help, Report};
+use eyre::WrapErr;
 use ltd::topologies::{Cut, CutList};
 use ltd::LorentzVector;
 use num_traits::real::Real;
@@ -1374,7 +1379,7 @@ fn inspect<'a>(
     }
 }
 
-fn main() {
+fn main() -> Result<(), Report> {
     let matches = App::new("Feynman diagram integrator")
         .version("0.1")
         .about("Numerically integrate your favourite integrals with LTD")
@@ -1560,7 +1565,7 @@ fn main() {
         )
         .get_matches();
 
-    let mut settings = Settings::from_file(matches.value_of("config").unwrap());
+    let mut settings = Settings::from_file(matches.value_of("config").unwrap())?;
 
     let mut cores = 1;
     if let Some(x) = matches.value_of("cores") {
@@ -1641,20 +1646,21 @@ fn main() {
     let mut diagram = if let Some(cs_opt) = matches.value_of("cross_section") {
         Diagram::CrossSection(SquaredTopologySet::from_one(SquaredTopology::from_file(
             cs_opt, &settings,
-        )))
+        )?))
     } else if let Some(css_opt) = matches.value_of("cross_section_set") {
-        Diagram::CrossSection(SquaredTopologySet::from_file(css_opt, &settings))
+        Diagram::CrossSection(SquaredTopologySet::from_file(css_opt, &settings)?)
     } else {
         let topology_file = matches.value_of("topologies").unwrap();
 
         let amplitude_file = matches.value_of("amplitudes").unwrap();
-        let mut amplitudes = Amplitude::from_file(amplitude_file);
+        let mut amplitudes = Amplitude::from_file(amplitude_file)?;
         let mut amp0 = Amplitude::default();
         let amp: &mut ltd::amplitude::Amplitude = if settings.general.amplitude != "" {
             settings.general.use_amplitude = true;
             amplitudes
                 .get_mut(&settings.general.amplitude)
-                .expect("Unknown amplitude")
+                .ok_or_else(|| eyre!("Could not find ampltitude {}", settings.general.amplitude))
+                .suggestion("Check if this amplitude is in the specified amplitude file.")?
         } else {
             settings.general.use_amplitude = false;
             &mut amp0
@@ -1668,10 +1674,11 @@ fn main() {
             amp.process(&settings.general);
         }
         // Call topology
-        let mut topologies = Topology::from_file(topology_file, &settings);
+        let mut topologies = Topology::from_file(topology_file, &settings)?;
         let mut topo = topologies
             .remove(&settings.general.topology)
-            .expect("Unknown topology");
+            .ok_or_else(|| eyre!("Could not find topology {}", settings.general.topology))
+            .suggestion("Check if this topology is in the specified topology file.")?;
         topo.amplitude = amp.clone();
         topo.process(true);
         Diagram::Topology(topo)
@@ -1679,7 +1686,7 @@ fn main() {
 
     if let Some(_) = matches.subcommand_matches("bench") {
         bench(&diagram, dashboard.status_update_sender, &settings);
-        return;
+        return Ok(());
     }
 
     if let Some(matches) = matches.subcommand_matches("inspect") {
@@ -1689,7 +1696,7 @@ fn main() {
             &mut settings,
             matches,
         );
-        return;
+        return Ok(());
     }
 
     match &mut diagram {
@@ -1705,11 +1712,11 @@ fn main() {
         Diagram::Topology(topo) => {
             if let Some(matches) = matches.subcommand_matches("probe") {
                 surface_prober(topo, &settings, matches);
-                return;
+                return Ok(());
             }
             if let Some(_) = matches.subcommand_matches("integrated_ct") {
                 topo.amplitude.print_integrated_ct();
-                return;
+                return Ok(());
             }
             dashboard
                 .status_update_sender
@@ -1912,4 +1919,6 @@ fn main() {
     )
     .unwrap();
     writeln!(&mut result_file, "...").unwrap(); // write end-marker, for easy streaming
+
+    Ok(())
 }

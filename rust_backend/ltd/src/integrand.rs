@@ -1,5 +1,7 @@
 use arrayvec::ArrayVec;
+use color_eyre::{Help, Report};
 use dashboard::{StatusUpdate, StatusUpdateSender};
+use eyre::WrapErr;
 use f128::f128;
 use float;
 use num::Complex;
@@ -417,21 +419,25 @@ impl<I: IntegrandImplementation> Integrand<I> {
             topologies.push(topology.rotate(angle, rv));
         }
 
+        let log_filename = format!("{}{}.log", settings.general.log_file_prefix, id);
+        let quad_log_filename = format!("{}_f128_{}.log", settings.general.log_file_prefix, id);
+
         Integrand {
             n_loops,
             topologies,
             cache: topology.create_cache(),
             integrand_statistics: IntegrandStatistics::new(n_loops),
             log: BufWriter::new(
-                File::create(format!("{}{}.log", settings.general.log_file_prefix, id))
-                    .expect("Could not create log file"),
+                File::create(&log_filename)
+                    .wrap_err_with(|| format!("Could not create log file {}", log_filename))
+                    .suggestion("Check if this topology is in the specified topology file.")
+                    .unwrap(),
             ),
             quadruple_upgrade_log: BufWriter::new(
-                File::create(format!(
-                    "{}_f128_{}.log",
-                    settings.general.log_file_prefix, id
-                ))
-                .expect("Could not create log file"),
+                File::create(&quad_log_filename)
+                    .wrap_err_with(|| format!("Could not create log file {}", quad_log_filename))
+                    .suggestion("Check if this topology is in the specified topology file.")
+                    .unwrap(),
             ),
             settings: settings.clone(),
             id,

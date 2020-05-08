@@ -1,4 +1,6 @@
 use arrayvec::ArrayVec;
+use color_eyre::{Help, Report};
+use eyre::WrapErr;
 use fnv::FnvHashMap;
 use gamma_chain::GammaChain;
 use itertools::Itertools;
@@ -159,13 +161,16 @@ pub struct Amplitude {
 
 // Implement Setup functions
 impl Amplitude {
-    pub fn from_file(filename: &str) -> FnvHashMap<String, Amplitude> {
-        let f = File::open(filename).expect("Could not open amplitude file");
-        let amplitudes: Vec<Amplitude> = serde_yaml::from_reader(f).unwrap();
-        amplitudes
+    pub fn from_file(filename: &str) -> Result<FnvHashMap<String, Amplitude>, Report> {
+        let f = File::open(filename)
+            .wrap_err_with(|| format!("Could not open ampltitude file {}", filename))
+            .suggestion("Check if this amplitude path exists.")?;
+        let amplitudes: Vec<Amplitude> = serde_yaml::from_reader(f)?;
+
+        Ok(amplitudes
             .into_iter()
             .map(|a| (a.name.clone(), a))
-            .collect()
+            .collect())
     }
 
     pub fn process(&mut self, settings: &GeneralSettings) {

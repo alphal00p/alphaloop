@@ -18,6 +18,8 @@ use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
 use {DeformationStrategy, FloatLike, NormalisingFunction, Settings, MAX_LOOP};
+use color_eyre::{Help, Report};
+use eyre::WrapErr;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
@@ -103,11 +105,14 @@ impl SquaredTopologySet {
         }
     }
 
-    pub fn from_file(filename: &str, settings: &Settings) -> SquaredTopologySet {
-        let f = File::open(filename).expect("Could not open squared topology file");
+    pub fn from_file(filename: &str, settings: &Settings) -> Result<SquaredTopologySet, Report> {
+        let f = File::open(filename)
+            .wrap_err_with(|| format!("Could not open squared topology set file {}", filename))
+            .suggestion("Does the path exist?")?;
 
-        let squared_topology_set_input: SquaredTopologySetInput =
-            serde_yaml::from_reader(f).unwrap();
+    let squared_topology_set_input: SquaredTopologySetInput = serde_yaml::from_reader(f)
+            .wrap_err("Could not parse squared topology set file")
+            .suggestion("Is it a correct yaml file")?;
 
         let mut topologies: Vec<SquaredTopology> = vec![];
         let mut multiplicity: Vec<usize> = vec![];
@@ -118,7 +123,8 @@ impl SquaredTopologySet {
                 .with_file_name(topo.name)
                 .with_extension("yaml");
             let mut squared_topology =
-                SquaredTopology::from_file(filename.to_str().unwrap(), settings);
+                SquaredTopology::from_file(filename.to_str().unwrap(), settings).
+                wrap_err("Could not load subtopology file")?;
 
             if !topologies.is_empty() && squared_topology.n_loops != topologies[0].n_loops {
                 panic!("Topology sets require all topologies to have the same number of loops");
@@ -156,7 +162,7 @@ impl SquaredTopologySet {
             [float::zero(), float::zero(), float::one()],
         ];
 
-        SquaredTopologySet {
+        Ok(SquaredTopologySet {
             name: squared_topology_set_input.name,
             n_loops: topologies[0].n_loops,
             e_cm_squared: topologies[0].e_cm_squared,
@@ -165,7 +171,7 @@ impl SquaredTopologySet {
             settings: settings.clone(),
             multiplicity,
             multi_channeling_channels: unique_multi_channeling_channels,
-        }
+        })
     }
 
     pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<Vec<LTDCache<T>>>>> {
@@ -407,10 +413,15 @@ impl CachePrecisionSelector<f128> for SquaredTopologyCache {
 }
 
 impl SquaredTopology {
-    pub fn from_file(filename: &str, settings: &Settings) -> SquaredTopology {
-        let f = File::open(filename).expect("Could not open squared topology file");
+    pub fn from_file(filename: &str, settings: &Settings) -> Result<SquaredTopology, Report> {
+        let f = File::open(filename)
+            .wrap_err_with(|| format!("Could not open squared topology file {}", filename))
+            .suggestion("Does the path exist?")?;
 
-        let mut squared_topo: SquaredTopology = serde_yaml::from_reader(f).unwrap();
+        let mut squared_topo: SquaredTopology = serde_yaml::from_reader(f)
+            .wrap_err("Could not parse squared topology file")
+            .suggestion("Is it a correct yaml file")?;
+
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
             for uv_limit in &mut cutkosky_cuts.uv_limits {
@@ -455,7 +466,7 @@ impl SquaredTopology {
             [float::zero(), float::zero(), float::one()],
         ];
 
-        squared_topo
+        Ok(squared_topo)
     }
 
     fn evaluate_signature<T: RealNumberLike + FromPrimitive>(

@@ -1,6 +1,8 @@
 use amplitude::Amplitude;
+use color_eyre::{Help, Report};
 use dashboard::{StatusUpdate, StatusUpdateSender};
 use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
+use eyre::WrapErr;
 use float;
 use fnv::FnvHashMap;
 use num::Complex;
@@ -501,22 +503,28 @@ pub struct Topology {
     pub loop_momentum_map: Vec<(Vec<i8>, Vec<i8>)>,
     #[serde(skip_deserializing)]
     pub socp_problem: SOCPProblem,
+    #[serde(skip_deserializing)]
+    pub subspaces: Vec<(usize, usize, Vec<(usize, usize)>)>,
 }
 
 impl Topology {
-    pub fn from_file(filename: &str, settings: &Settings) -> HashMap<String, Topology> {
-        let f = File::open(filename).expect("Could not open topology file");
+    pub fn from_file(filename: &str, settings: &Settings) -> Result<HashMap<String, Topology>, Report> {
+        let f = File::open(filename)
+            .wrap_err_with(|| format!("Could not open topology file {}", filename))
+            .suggestion("Does the path exist?")?;
 
-        let mut topologies: Vec<Topology> = serde_yaml::from_reader(f).unwrap();
+        let mut topologies: Vec<Topology> = serde_yaml::from_reader(f)
+            .wrap_err("Could not parse topology file")
+            .suggestion("Is it a correct yaml file")?;
 
         for t in &mut topologies {
             t.settings = settings.clone();
         }
 
-        topologies
+        Ok(topologies
             .into_iter()
             .map(|t| (t.name.clone(), t))
-            .collect()
+            .collect())
     }
 
     pub fn print_info(&self, status_update_sender: &mut StatusUpdateSender) {
