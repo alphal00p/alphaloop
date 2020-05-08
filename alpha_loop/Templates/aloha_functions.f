@@ -15,7 +15,7 @@ C###############################################################################
 C START Subroutine specialised for emulating the cut numerator in LTD^2
 C###############################################################################
 
-      subroutine PROP_ixxxxx(p, fmass, nhel, nsf , leftright, fi)
+      subroutine PROPPOL_ixxxxx(p, fmass, nhel, nsf , leftright, fi)
 c
 c This subroutine computes a fermion wavefunction with the flowing-IN
 c fermion number.
@@ -38,7 +38,7 @@ c
       integer leftright      
       integer i
 
-      double precision fmass
+      double precision fmass, fmassExpr
 
       double complex p(0:3),sf(2),sfomeg(2),omega(2),
      &     pp,pp3,sqp0p3,sqm(0:1)
@@ -65,7 +65,9 @@ c     Convention for loop computations
 
       nh = nhel*nsf
 
-      if ( fmass.ne.rZero ) then
+      fmassExpr = sqrt(p(0)**2-p(1)**2-p(2)**2-p(3)**2)
+c      if ( fmass.ne.rZero ) then
+      if ( fmassExpr.ne.rZero ) then
 
          pp = sqrt(p(1)**2+p(2)**2+p(3)**2)
 
@@ -73,7 +75,8 @@ c     Convention for loop computations
             sf(1) = dble(1+nsf+(1-nsf)*nh)*cHalf
             sf(2) = dble(1+nsf-(1-nsf)*nh)*cHalf
             omega(1) = sqrt(p(0)+pp)
-            omega(2) = fmass/omega(1)
+c            omega(2) = fmass/omega(1)
+            omega(2) = fmassExpr/omega(1)
             ip = (3+nh)/2
             im = (3-nh)/2
             sfomeg(1) = sf(1)*omega(ip)
@@ -110,7 +113,7 @@ c     Convention for loop computations
       return
       end
 
-      subroutine PROP_oxxxxx(p,fmass,nhel,nsf ,leftright, fo)
+      subroutine PROPPOL_oxxxxx(p,fmass,nhel,nsf ,leftright, fo)
 c
 c This subroutine computes a fermion wavefunction with the flowing-OUT
 c fermion number.
@@ -206,7 +209,7 @@ c     Convention for loop computations
       return
       end
 
-      subroutine PROPNOPOL_ixxxxx(p, fmass, nhel, nsf, leftRight, fi)
+      subroutine PROP_ixxxxx(p, fmass, nhel, nsf, leftRight, fi)
       implicit none
 C     This version of PROP_ixxxxx is placing the p_slash-m entirely to the right
 C     of cutkosky cut. Could not make it work.
@@ -219,8 +222,8 @@ C     of cutkosky cut. Could not make it work.
 
       double precision rZero, rHalf, rTwo 
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
-      double complex cZero, cmplxI
-      parameter( cZero = DCMPLX(0.0d0,0.0d0) )
+      double complex cZero, ci
+      parameter( cZero = DCMPLX(0.0d0,0.0d0), ci = DCMPLX(0.0d0,1.0d0) )
 
 
       fi(1) = p(0)*(-nsf)
@@ -239,51 +242,49 @@ C     of cutkosky cut. Could not make it work.
       pz=p(3)
 
 
-C     Complex conjugation applies here
-      cmplxI = DCMPLX(0.0d0,-1.0d0) 
-C     IXXXX must apply to the amplitude on the *right* of the cutkoksy cut to have 
-C     a multiplication of the form pol_vector * slashed{P}
-      if (leftRight.eq.2) then
-C         Implement \sum_h v_h \bar{v}_h = \slashed{p}- m*1
-C         Slashed[{pE, px, py, pz}].{1, 0, 0, 0} = {0,0,pE+pz,px+I py}
+c     The tensor to reproduce here is (pslash +/-m).gamma^0
+      if (leftRight.eq.1) then
           if (nhel.eq.0) then
-             fi(5) = cZero
-             fi(6) = cZero
-             fi(7) = pE+pz
-             fi(8) = px+cmplxI*py
-C         Slashed[{pE, px, py, pz}].{0, 1, 0, 0} = {0,0,px-I py,pE-pz}
+             fi(5) = pE-pz 
+             fi(6) = -px -ci*py
+             fi(7) = cZero
+             fi(8) = cZero
           elseif (nhel.eq.1) then
-             fi(5) = cZero
-             fi(6) = cZero
-             fi(7) = px - cmplxI*py
-             fi(8) = pE - pz
-C         Slashed[{pE, px, py, pz}].{0, 0, 1, 0} = {pE-pz,-px-I py,0,0}
+             fi(5) = -px + ci*py
+             fi(6) = pE + pz
+             fi(7) = cZero
+             fi(8) = cZero
           elseif (nhel.eq.2) then
-             fi(5) = pE-pz
-             fi(6) = -px - cmplxI*py
-             fi(7) = cZero
-             fi(8) = cZero
-C         Slashed[{pE, px, py, pz}].{0, 0, 0, 1} = {-px+I py,pE+pz,0,0}
+             fi(5) = czero
+             fi(6) = czero
+             fi(7) = pE+pz
+             fi(8) = px+ci*py
           elseif (nhel.eq.3) then
-             fi(5) = -px + cmplxI*py
-             fi(6) = pE+pz
-             fi(7) = cZero
-             fi(8) = cZero
+             fi(5) = czero
+             fi(6) = czero
+             fi(7) = px -ci*py
+             fi(8) = pE-pz
           endif
-C         Add the -m*1 piece of the numerate (here this is an
-C         antifermion)
+C         Add the +m*1 piece depending if it's particle (nsf=1) or
+C         antiparticle (nsf=-1)
           if (fmass.ne.rZero) then
-             fi(5+nhel) = fi(5+nhel) - DCMPLX(fmass,0.0d0)              
+                 if (nhel.eq.0) then
+                   fi(5+2) = fi(5+2) + nsf*DCMPLX(fmass,0.0d0)
+                 elseif(nhel.eq.1) then
+                   fi(5+3) = fi(5+3) + nsf*DCMPLX(fmass,0.0d0)
+                 elseif(nhel.eq.2) then
+                   fi(5+0) = fi(5+0) + nsf*DCMPLX(fmass,0.0d0)
+                 elseif(nhel.eq.3) then
+                   fi(5+1) = fi(5+1) + nsf*DCMPLX(fmass,0.0d0)
+                 endif
           endif
       else
           fi(5+nhel) = DCMPLX(1.0d0,0.0d0)
       endif
 
-      end subroutine PROPNOPOL_ixxxxx
+      end subroutine PROP_ixxxxx
 
-      subroutine PROPNOPOL_oxxxxx(p,fmass,nhel,nsf , leftRight, fo)
-C     This version of PROP_ixxxxx is placing the p_slash-m entirely to the left
-C     of cutkosky cut. Could not make it work.
+      subroutine PROP_oxxxxx(p,fmass,nhel,nsf , leftRight, fo)
       implicit none
       double complex fo(8),chi(2)
       double precision sf(2),sfomeg(2),omega(2),fmass,
@@ -294,8 +295,8 @@ C     of cutkosky cut. Could not make it work.
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
-      double complex cZero, cmplxI
-      parameter( cZero = DCMPLX(0.0d0,0.0d0), cmplxI = DCMPLX(0.0d0,1.0d0) )
+      double complex cZero, ci
+      parameter( cZero = DCMPLX(0.0d0,0.0d0), ci = DCMPLX(0.0d0,1.0d0) )
 
       fo(1) = p(0)*(nsf)
       fo(2) = p(1)*(nsf)
@@ -312,43 +313,47 @@ C     of cutkosky cut. Could not make it work.
       px=p(1)
       py=p(2)
       pz=p(3)
+c     The tensor to reproduce here is DCONJG(gamma^0.(pslash +/-m))
       if (leftRight.eq.1) then
-C         Implement \sum_h u_h \bar{u}_h = \slashed{p}+ m*1
-C         Slashed[{pE, px, py, pz}].{1, 0, 0, 0} = {0,0,pE+pz,px+I py}
           if (nhel.eq.0) then
-             fo(5) = cZero
-             fo(6) = cZero
-             fo(7) = pE+pz
-             fo(8) = px+cmplxI*py
-C         Slashed[{pE, px, py, pz}].{0, 1, 0, 0} = {0,0,px-I py,pE-pz}
+             fo(5) = pE+pz 
+             fo(6) = px - ci*py
+             fo(7) = cZero
+             fo(8) = cZero
           elseif (nhel.eq.1) then
-             fo(5) = cZero
-             fo(6) = cZero
-             fo(7) = px - cmplxI*py
-             fo(8) = pE - pz
-C         Slashed[{pE, px, py, pz}].{0, 0, 1, 0} = {pE-pz,-px-I py,0,0}
+             fo(5) = px + ci*py
+             fo(6) = pE - pz
+             fo(7) = cZero
+             fo(8) = cZero
           elseif (nhel.eq.2) then
-             fo(5) = pE-pz
-             fo(6) = -px - cmplxI*py
-             fo(7) = cZero
-             fo(8) = cZero
-C         Slashed[{pE, px, py, pz}].{0, 0, 0, 1} = {-px+I py,pE+pz,0,0}
+             fo(5) = czero
+             fo(6) = czero
+             fo(7) = pE-pz
+             fo(8) = -px + ci*py
           elseif (nhel.eq.3) then
-             fo(5) = -px + cmplxI*py
-             fo(6) = pE+pz
-             fo(7) = cZero
-             fo(8) = cZero
+             fo(5) = czero
+             fo(6) = czero
+             fo(7) = -px - ci*py
+             fo(8) = pE+pz
           endif
-C         Add the +m*1 piece of the numerate (here this is a
-C         fermion)
+C         Add the +m*1 piece depending if it's particle (nsf=1) or
+C         antiparticle (nsf=-1)
           if (fmass.ne.rZero) then
-             fo(5+nhel) = fo(5+nhel) + DCMPLX(fmass,0.0d0)              
+                 if (nhel.eq.0) then
+                   fo(5+2) = fo(5+2) + nsf*DCMPLX(fmass,0.0d0)
+                 elseif(nhel.eq.1) then
+                   fo(5+3) = fo(5+3) + nsf*DCMPLX(fmass,0.0d0)
+                 elseif(nhel.eq.2) then
+                   fo(5+0) = fo(5+0) + nsf*DCMPLX(fmass,0.0d0)
+                 elseif(nhel.eq.3) then
+                   fo(5+1) = fo(5+1) + nsf*DCMPLX(fmass,0.0d0)
+                 endif
           endif
       else
           fo(5+nhel) = DCMPLX(1.0d0,0.0d0)
       endif
 
-      end subroutine PROPNOPOL_oxxxxx
+      end subroutine PROP_oxxxxx
 
       subroutine PROP_vxxxxx(p,vmass,nhel,nsv , leftRight, vc)
 
@@ -1047,7 +1052,6 @@ c     Convention for loop computations
       fi(4) = dcmplx(p(3),0.D0)*(-nsf)
 
       nh = nhel*nsf
-
       if ( fmass.ne.rZero ) then
 
          pp = min(p(0),dsqrt(p(1)**2+p(2)**2+p(3)**2))
@@ -1091,7 +1095,6 @@ c     Convention for loop computations
          endif
 
       else
-
          if(p(1).eq.0d0.and.p(2).eq.0d0.and.p(3).lt.0d0) then
             sqp0p3 = 0d0
          else
@@ -1242,7 +1245,7 @@ c
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
-
+      
 c#ifdef HELAS_CHECK
 c      double precision p2
 c      double precision epsi

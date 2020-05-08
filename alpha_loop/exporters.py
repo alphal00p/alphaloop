@@ -555,7 +555,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         if particle.get('spin')>3:
             raise alphaLoopExporterError("alphaLoop only support particles with spin 0, 1/2 or 1.")
         # Only modify the helicity of *final state* particles that are spin-1 vectors.
-        if state==True and particle.get('spin') in [3,]:
+        if state==True and particle.get('spin') in [2,3]:
             return [0, 1, 2, 3]
         return particle.get_helicity_states(allow_reverse)
 
