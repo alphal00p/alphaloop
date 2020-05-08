@@ -5,6 +5,7 @@ use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use eyre::WrapErr;
 use float;
 use fnv::FnvHashMap;
+use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, Signed, Zero};
 use partial_fractioning::PFCache;
@@ -47,6 +48,24 @@ pub struct Surface {
     pub signs: Vec<i8>,
     pub shift: LorentzVector<float>,
     pub id: Vec<((usize, usize), i8, i8)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Focus {
+    pub id: usize,
+    pub signature: Vec<i8>,
+    pub m_squared: f64,
+    pub shift: LorentzVector<f64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ESurface {
+    pub id: usize,
+    pub foci: Vec<Focus>,
+    pub shift: LorentzVector<f64>,
+    pub focus_basis_signature: Vec<i8>,
+    pub focus_basis_mat: Vec<f64>,
+    pub point_on_the_inside: Vec<LorentzVector<f64>>,
 }
 
 impl Topology {
@@ -508,7 +527,10 @@ pub struct Topology {
 }
 
 impl Topology {
-    pub fn from_file(filename: &str, settings: &Settings) -> Result<HashMap<String, Topology>, Report> {
+    pub fn from_file(
+        filename: &str,
+        settings: &Settings,
+    ) -> Result<HashMap<String, Topology>, Report> {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open topology file {}", filename))
             .suggestion("Does the path exist?")?;
@@ -621,7 +643,7 @@ impl Topology {
         &mut self,
         update_excluded_surfaces: bool,
     ) -> Vec<FixedDeformationLimit> {
-        let ellipsoid_ids: Vec<usize> = self
+        if self
             .surfaces
             .iter()
             .enumerate()
@@ -632,25 +654,261 @@ impl Topology {
                     None
                 }
             })
-            .collect();
-
-        if ellipsoid_ids.is_empty() {
+            .count()
+            == 0
+        {
             if self.settings.general.debug > 1 {
                 println!("No ellipsoids");
             }
             return vec![];
         }
 
-        let overlap = self.find_overlap_structure(&ellipsoid_ids, &[]);
-        if self.settings.general.debug > 1 {
-            println!("overlap={:#?}", overlap);
+        // TODO: prevent allocating so many times
+        let mut fixed_deformation = vec![];
+        let mut subspaces = mem::replace(&mut self.subspaces, vec![]);
+        let mut esurfaces = Vec::with_capacity(self.surfaces.len());
+        let mut non_existing_e_surfaces = Vec::with_capacity(10);
+        let mut constant_e_surfaces = Vec::with_capacity(10);
+
+        for subspace in &subspaces {
+            esurfaces.clear();
+            non_existing_e_surfaces.clear();
+            constant_e_surfaces.clear();
+
+            if self.settings.general.debug > 0 {
+                println!("Doing subspace {:?}", subspace);
+            }
+            if self.settings.general.debug > 1 {
+                println!(
+                    "Subspace basis: {:#?}",
+                    self.ltd_cut_options[subspace.0][subspace.1]
+                );
+            }
+
+            // rewrite all E-surfaces in the subspace basis, fill in the constraint,
+            // and check if the E-surfaces still exist
+            for i in 0..self.surfaces.len() {
+                let s = &self.surfaces[i];
+                if !s.exists || s.surface_type != SurfaceType::Ellipsoid || s.group != i {
+                    continue;
+                }
+
+                let mut foci = Vec::with_capacity(s.id.len());
+                let mut energy_shift = s.shift.t;
+                // construct a new matrix that transforms the momenta in the ellipsoid to the ellipsoid basis
+                // where only one focus has a shift
+                for ((foc_ll, foc_p), _, _) in &s.id {
+                    let prop = &self.loop_lines[*foc_ll].propagators[*foc_p];
+                    let mut shift = prop.q;
+
+                    // transform the signature using the transposed cb_to_lmb matrix
+                    let mut new_signature = vec![0; self.n_loops];
+                    for (i, new_sig) in new_signature.iter_mut().enumerate() {
+                        for (j, old_sig) in prop.signature.iter().enumerate() {
+                            *new_sig +=
+                                self.cb_to_lmb_mat[subspace.0][j * self.n_loops + i] * old_sig;
+                        }
+                    }
+
+                    // incorporate the shift from the basis transformation
+                    // all fixed components of the subspace basis should be removed from the signature
+                    let mut subspace_basis_index = 0;
+                    for (ll, c) in self.ltd_cut_options[subspace.0][subspace.1]
+                        .iter()
+                        .enumerate()
+                    {
+                        if let Cut::PositiveCut(prop_index) | Cut::NegativeCut(prop_index) = *c {
+                            shift -= self.loop_lines[ll].propagators[prop_index]
+                                .q
+                                .multiply_sign(new_signature[subspace_basis_index]);
+
+                            if subspace.2.contains(&(ll, prop_index)) {
+                                new_signature[subspace_basis_index] = 0;
+                            }
+
+                            subspace_basis_index += 1;
+                        }
+                    }
+
+                    if new_signature.iter().all(|i| *i == 0) {
+                        energy_shift += (shift.spatial_squared() + prop.m_squared).sqrt();
+                    } else {
+                        foci.push(Focus {
+                            id: prop.id,
+                            signature: new_signature,
+                            shift,
+                            m_squared: self.loop_lines[*foc_ll].propagators[*foc_p].m_squared,
+                        });
+                    }
+                }
+
+                if foci.len() == 0 {
+                    // ellipsoid is just a number!
+                    if energy_shift < 0. {
+                        // the constraint is on the inside of the ellipsoid, so we consider it existing
+                        constant_e_surfaces.push(i);
+                    } else {
+                        non_existing_e_surfaces.push(i);
+                    }
+                    continue;
+                }
+
+                let subspace_signature_matrix: Vec<f64> = foci[1..]
+                    .iter()
+                    .map(|f| f.signature.iter().map(|c| *c as f64))
+                    .flatten()
+                    .collect();
+
+                // take the right inverse of the reduced signature matrix
+                let surf_basis_len = foci.len() - 1;
+                let b = na::DMatrix::from_row_slice(
+                    surf_basis_len,
+                    self.n_loops,
+                    &subspace_signature_matrix,
+                );
+
+                // take the right inverse
+                let right_inverse = match (b.clone() * b.transpose()).try_inverse() {
+                    Some(inv) => b.transpose() * inv,
+                    None => {
+                        if self.settings.general.debug > 1 {
+                            println!("Surface {} factorizes", i);
+                        }
+                        // if the right inverse cannot be computed, it means that the e-surface in the subspace
+                        // factorizes into the sum of two or more e-surfaces:
+                        // |k|+|l|+|m|+|k-l+m|+c under constraint k-l=p goes to
+                        // |k|+|k-p|+|m|+|m+p+|+c
+                        // in this case, we use an SOCP to test for its existence and get a point on the inside.
+                        let mut surface = ESurface {
+                            id: i,
+                            foci,
+                            shift: LorentzVector::from_args(energy_shift, 0., 0., 0.),
+                            focus_basis_signature: vec![], // TODO: use Option
+                            focus_basis_mat: vec![],
+                            point_on_the_inside: vec![],
+                        };
+
+                        self.construct_socp_problem(&[0], std::slice::from_ref(&surface), true);
+                        self.socp_problem.initialize_workspace_ecos();
+                        let r = self.socp_problem.solve_ecos();
+                        let exists = r == 0 || r == -2 || r == 10;
+                        self.socp_problem.finish_ecos();
+
+                        if exists {
+                            let o = self.build_deformation_overlap_info(
+                                &[0],
+                                std::slice::from_ref(&surface),
+                            );
+
+                            surface.point_on_the_inside = o.deformation_sources;
+                            esurfaces.push(surface);
+                        } else {
+                            non_existing_e_surfaces.push(i);
+                        }
+
+                        continue;
+                    }
+                };
+
+                // note: this transpose is ONLY there because the iteration is column-wise instead of row-wise
+                let mat: Vec<f64> = right_inverse.transpose().iter().cloned().collect();
+
+                // now check if the surface still exists
+                let mass_sum: f64 = foci.iter().map(|f| f.m_squared.sqrt()).sum();
+
+                // determine the surface sign in the focus basis
+                let mut signature = vec![0; surf_basis_len];
+                for (i, s) in signature.iter_mut().enumerate() {
+                    let mut sig_f = 0.;
+                    for (j, depsig) in foci[0].signature.iter().enumerate() {
+                        // use transpose
+                        sig_f += *depsig as f64 * mat[j * surf_basis_len + i];
+                    }
+
+                    assert!(
+                        (sig_f - sig_f.round()).abs() < 1e-8,
+                        "Signature is not -1,0,1: {}",
+                        sig_f
+                    );
+                    *s = sig_f as i8;
+                }
+
+                // determine the 4-vector surface shift using the matrix
+                let mut surface_shift = foci[0].shift;
+                for (&sign, f) in signature.iter().zip_eq(&foci[1..]) {
+                    surface_shift -= f.shift.multiply_sign(sign);
+                }
+
+                surface_shift.t = energy_shift;
+
+                if surface_shift.square() - mass_sum.powi(2) >= -1e-13 * self.e_cm_squared
+                    && surface_shift.t < 0.
+                {
+                    let mut surface = ESurface {
+                        id: i,
+                        foci,
+                        shift: surface_shift,
+                        focus_basis_signature: signature,
+                        focus_basis_mat: mat,
+                        point_on_the_inside: vec![],
+                    };
+
+                    let p = self.get_point_inside_surface::<f64>(&surface);
+                    surface.point_on_the_inside.extend(&p[..self.n_loops]);
+                    esurfaces.push(surface);
+                } else {
+                    non_existing_e_surfaces.push(i);
+                }
+            }
+
+            let mut overlap = self.find_overlap_structure(&esurfaces);
+
+            // map the source back to the loop momentum basis
+            for o in &mut overlap {
+                let mut sources_lmb = vec![LorentzVector::default(); self.n_loops];
+
+                for (source_lmb, r) in sources_lmb
+                    .iter_mut()
+                    .zip_eq(self.cb_to_lmb_mat[subspace.0].chunks_exact(self.n_loops))
+                {
+                    for (i, (source, c)) in o.deformation_sources.iter().zip_eq(r).enumerate() {
+                        // find the shift
+                        let llprop = self.ltd_cut_options[subspace.0][subspace.1]
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(i, v)| match *v {
+                                Cut::PositiveCut(j) => Some((i, j)),
+                                Cut::NegativeCut(j) => Some((i, j)),
+                                Cut::NoCut => None,
+                            })
+                            .nth(i)
+                            .unwrap();
+                        let shift = &self.loop_lines[llprop.0].propagators[llprop.1].q;
+
+                        *source_lmb += (source - shift).multiply_sign(*c);
+                        source_lmb.t = 0.;
+                    }
+                }
+
+                o.deformation_sources.clear();
+                o.deformation_sources.extend(&sources_lmb[..self.n_loops]);
+
+                // add all non-existing E-surfaces to the exclusion
+                o.excluded_surface_indices.extend(&non_existing_e_surfaces);
+                o.overlap.as_mut().map(|ov| ov.extend(&constant_e_surfaces));
+            }
+
+            fixed_deformation.push(FixedDeformationLimit {
+                deformation_per_overlap: overlap,
+                excluded_propagators: subspace.2.clone(),
+            });
         }
 
-        // TODO: also determine subspace deformation vectors
-        let fixed_deformation = vec![FixedDeformationLimit {
-            deformation_per_overlap: overlap,
-            excluded_propagators: vec![],
-        }];
+        mem::swap(&mut subspaces, &mut self.subspaces);
+
+        if self.settings.general.debug > 1 {
+            println!("deformation={:#?}", fixed_deformation);
+        }
 
         if update_excluded_surfaces {
             // update the excluded surfaces
@@ -667,13 +925,87 @@ impl Topology {
             }
         }
 
+        if self.settings.general.debug > 0 && self.fixed_deformation.len() > 0 {
+            self.compare_fixed_deformation(&mut fixed_deformation);
+        }
+
         fixed_deformation
     }
 
-    /// Construct the SCS problem with all the ellipsoids in the problem.
-    fn construct_socp_problem(&mut self, ellipsoid_ids: &[usize], minimize: bool) {
+    /// Compare a fixed deformation with the one from yaml.
+    fn compare_fixed_deformation(&mut self, fixed_deformation: &mut [FixedDeformationLimit]) {
+        // check the deformation with the one from the yaml file
+        assert_eq!(fixed_deformation.len(), self.fixed_deformation.len());
+
+        for yf in &mut self.fixed_deformation {
+            for yf_ov in &mut yf.deformation_per_overlap {
+                yf_ov.excluded_surface_indices.sort();
+            }
+        }
+
+        for f in fixed_deformation.iter_mut() {
+            for f_ov in &mut f.deformation_per_overlap {
+                f_ov.excluded_surface_indices.sort();
+            }
+        }
+
+        for f in fixed_deformation.iter() {
+            let yf = self
+                .fixed_deformation
+                .iter_mut()
+                .filter(|yf| f.excluded_propagators == yf.excluded_propagators)
+                .next()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Could not find overlap with propagator exclusion {:?}",
+                        f.excluded_propagators
+                    )
+                });
+
+            assert_eq!(
+                f.deformation_per_overlap.len(),
+                yf.deformation_per_overlap.len()
+            );
+            for f_ov in &f.deformation_per_overlap {
+                let yf_ov = yf
+                    .deformation_per_overlap
+                    .iter_mut()
+                    .filter(|yf_ov| f_ov.excluded_surface_indices == yf_ov.excluded_surface_indices)
+                    .next()
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Could not find source with exclusion {:?} for subspace {:?}",
+                            f_ov.excluded_surface_indices, f.excluded_propagators,
+                        )
+                    });
+
+                // check if the sources are approximately the same
+                for (f_s, yf_s) in f_ov
+                    .deformation_sources
+                    .iter()
+                    .zip_eq(yf_ov.deformation_sources.iter())
+                {
+                    if (f_s - yf_s).spatial_squared() > 1e-5 {
+                        println!(
+                    "Warning: sources do not match precisely: rust={} vs yaml={} for subspace {:?}",
+                    f_s, yf_s, f.excluded_propagators,
+                );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Construct the SOCP problem.
+    fn construct_socp_problem(
+        &mut self,
+        ellipsoid_ids: &[usize],
+        ellipsoids: &[ESurface],
+        minimize: bool,
+    ) {
         let mut p = &mut self.socp_problem;
 
+        // TODO: change the n_loops to the number of specific variables
         let multiplier = if minimize { 6 * self.n_loops } else { 1 };
         p.radius_computation = minimize;
 
@@ -683,10 +1015,7 @@ impl Topology {
 
         for m in 0..multiplier {
             for &e_id in ellipsoid_ids {
-                p.b[b_index] = -self.surfaces[e_id]
-                    .shift
-                    .t
-                    .multiply_sign(self.surfaces[e_id].delta_sign);
+                p.b[b_index] = -ellipsoids[e_id].shift.t;
                 b_index += 1;
             }
         }
@@ -694,42 +1023,40 @@ impl Topology {
         let mut lm_tag = [false; MAX_LOOP];
 
         // construct the focus part of the shift
-        // TODO: do not generate the focus more than once if k[m/3] does not appear in the focus
+        // TODO: do not generate the focus more than once if k[m/3] does not appear in the focus!!!
         let mut focus_count = 0;
         for m in 0..multiplier {
-            for (ll_index, ll) in self.loop_lines.iter().enumerate() {
-                for (prop_index, prop) in ll.propagators.iter().enumerate() {
-                    let mut included = false;
+            for ll in &self.loop_lines {
+                for prop in &ll.propagators {
+                    // check if the focus occurs in an ellipsoid
                     'el_loop: for &e_id in ellipsoid_ids {
-                        for ((surf_ll_index, surf_prop_index), _, _) in &self.surfaces[e_id].id {
-                            if ll_index == *surf_ll_index && prop_index == *surf_prop_index {
-                                for (tag, &sig) in lm_tag.iter_mut().zip(&ll.signature) {
+                        for (foc_index, f) in ellipsoids[e_id].foci.iter().enumerate() {
+                            if f.id == prop.id {
+                                for (tag, &sig) in lm_tag.iter_mut().zip(&f.signature) {
                                     *tag |= sig != 0;
                                 }
-                                included = true;
+
+                                p.b[b_index] = 0.;
+                                b_index += 1;
+                                if f.m_squared != 0. {
+                                    p.b[b_index] = f.m_squared.sqrt();
+                                    b_index += 1;
+                                    p.q[focus_count] = 5;
+                                } else {
+                                    p.q[focus_count] = 4;
+                                };
+                                p.b[b_index] = f.shift.x;
+                                b_index += 1;
+                                p.b[b_index] = f.shift.y;
+                                b_index += 1;
+                                p.b[b_index] = f.shift.z;
+                                b_index += 1;
+
+                                p.focus_list[focus_count] = (prop.id, e_id, foc_index, m);
+                                focus_count += 1;
                                 break 'el_loop;
                             }
                         }
-                    }
-
-                    if included {
-                        p.focus_list[focus_count] = (ll_index, prop_index, m);
-                        p.b[b_index] = 0.;
-                        b_index += 1;
-                        if prop.m_squared != 0. {
-                            p.b[b_index] = prop.m_squared.sqrt();
-                            b_index += 1;
-                            p.q[focus_count] = 5;
-                        } else {
-                            p.q[focus_count] = 4;
-                        };
-                        p.b[b_index] = prop.q.x;
-                        b_index += 1;
-                        p.b[b_index] = prop.q.y;
-                        b_index += 1;
-                        p.b[b_index] = prop.q.z;
-                        b_index += 1;
-                        focus_count += 1;
                     }
                 }
             }
@@ -740,6 +1067,8 @@ impl Topology {
             if x {
                 *vm = var_count;
                 var_count += 1;
+            } else {
+                *vm = 1000;
             }
         }
 
@@ -774,11 +1103,11 @@ impl Topology {
         let mut row_counter = 0; // the start of the focus information
         for m in 0..multiplier {
             for &e_id in ellipsoid_ids {
-                for ((ll_index, prop_index), _, _) in self.surfaces[e_id].id.iter() {
+                for f in ellipsoids[e_id].foci.iter() {
                     let foc_index = p
                         .focus_list
                         .iter()
-                        .position(|x| *x == (*ll_index, *prop_index, m))
+                        .position(|x| x.0 == f.id && x.3 == m)
                         .unwrap();
                     p.a_dense[row_counter * width + focus_start + foc_index] = 1.;
                 }
@@ -787,15 +1116,15 @@ impl Topology {
         }
 
         // now for every focus f, add the norm constraints |k_x+p_x,m| < f
-        for (foc_index, (ll_index, prop_index, radius_index)) in
+        for (foc_index, (_, foc_e_surf, foc_e_surf_foc_index, radius_index)) in
             p.focus_list[..focus_count].iter().enumerate()
         {
-            let prop = &self.loop_lines[*ll_index].propagators[*prop_index];
+            let focus = &ellipsoids[*foc_e_surf].foci[*foc_e_surf_foc_index];
 
             // set the linear equation
             p.a_dense[row_counter * width + focus_start + foc_index] = -1.0;
             row_counter += 1;
-            if prop.m_squared != 0. {
+            if focus.m_squared != 0. {
                 // the mass is an empty line
                 row_counter += 1;
             }
@@ -804,7 +1133,7 @@ impl Topology {
                 (radius_index / 6, radius_index % 3, radius_index % 2);
 
             for dir_index in 0..3 {
-                for (var_index, &v) in prop.signature.iter().enumerate() {
+                for (var_index, &v) in focus.signature.iter().enumerate() {
                     if v != 0 {
                         p.a_dense[row_counter * width + 3 * p.var_map[var_index] + dir_index] =
                             Into::<float>::into(-v);
@@ -835,16 +1164,15 @@ impl Topology {
     }
 
     /// Evaluate an E-surface, where eval < 0 is the inside.
-    fn evaluate_surface<T: FloatLike>(&self, loop_momenta: &[LorentzVector<T>], s: &Surface) -> T {
-        let mut eval = Into::<T>::into(s.shift.t).multiply_sign(s.delta_sign);
-        for ((ll, pp), _, _) in &s.id {
-            let prop = &self.loop_lines[*ll].propagators[*pp];
+    fn evaluate_surface<T: FloatLike>(&self, loop_momenta: &[LorentzVector<T>], s: &ESurface) -> T {
+        let mut eval = Into::<T>::into(s.shift.t);
+        for f in &s.foci {
             // get the loop momentum
-            let mut mom = prop.q.cast();
-            for (m, sig) in loop_momenta[..self.n_loops].iter().zip(&prop.signature) {
+            let mut mom = f.shift.cast();
+            for (m, sig) in loop_momenta[..self.n_loops].iter().zip(&f.signature) {
                 mom += m.multiply_sign(*sig);
             }
-            eval += (mom.spatial_squared() + Into::<T>::into(prop.m_squared)).sqrt();
+            eval += (mom.spatial_squared() + Into::<T>::into(f.m_squared)).sqrt();
         }
         eval
     }
@@ -957,14 +1285,19 @@ impl Topology {
     fn build_deformation_overlap_info(
         &self,
         ellipsoid_list: &[usize],
-        all_ellipsoids: &[usize],
+        all_ellipsoids: &[ESurface],
     ) -> FixedDeformationOverlap {
         // TODO: recycle from pre-allocated overlap structures
         let mut var_count = 0;
         let mut sources = vec![LorentzVector::default(); self.n_loops];
-        for &i in &self.socp_problem.var_map[..self.n_loops] {
+
+        // map the source back from the loop momenta present in the ellipsoids to the full space
+        for (source, &i) in sources
+            .iter_mut()
+            .zip_eq(&self.socp_problem.var_map[..self.n_loops])
+        {
             if i < self.n_loops {
-                sources[i] = LorentzVector::from_args(
+                *source = LorentzVector::from_args(
                     0.,
                     self.socp_problem.sol_x[i * 3],
                     self.socp_problem.sol_x[i * 3 + 1],
@@ -975,9 +1308,9 @@ impl Topology {
         }
 
         let mut excluded_surface_indices = Vec::with_capacity(all_ellipsoids.len());
-        for e in all_ellipsoids {
-            if !ellipsoid_list.contains(e) {
-                excluded_surface_indices.push(*e);
+        for (i, e) in all_ellipsoids.iter().enumerate() {
+            if !ellipsoid_list.contains(&i) {
+                excluded_surface_indices.push(e.id);
             }
         }
 
@@ -996,11 +1329,16 @@ impl Topology {
             }
         }
 
+        let overlap = ellipsoid_list
+            .iter()
+            .map(|e_index| all_ellipsoids[*e_index].id)
+            .collect();
+
         FixedDeformationOverlap {
             deformation_sources: sources,
             excluded_surface_ids: vec![],
-            excluded_surface_indices: excluded_surface_indices,
-            overlap: Some(ellipsoid_list.to_vec()),
+            excluded_surface_indices,
+            overlap: Some(overlap),
             radius,
         }
     }
@@ -1009,7 +1347,7 @@ impl Topology {
     /// `E(dir * t + k) = 0`, returning `t` closest to `t_start`.
     fn get_scale_to_reach_surface<T: FloatLike>(
         &self,
-        s: &Surface,
+        s: &ESurface,
         k: &[LorentzVector<T>],
         dir: &[LorentzVector<T>],
         t_start: T,
@@ -1017,17 +1355,15 @@ impl Topology {
         let mut t = t_start;
         let tolerance = Into::<T>::into(1e-15 * self.e_cm_squared.sqrt());
         for it in 0..30 {
-            let mut f = Into::<T>::into(s.shift.t.multiply_sign(s.delta_sign));
+            let mut f = Into::<T>::into(s.shift.t);
             let mut df = T::zero();
 
-            for ((ll_index, prop_index), _, _) in &s.id {
-                let shift = self.loop_lines[*ll_index].propagators[*prop_index].q.cast();
-                let k = utils::evaluate_signature(&self.loop_lines[*ll_index].signature, k);
-                let dir = utils::evaluate_signature(&self.loop_lines[*ll_index].signature, dir);
+            for focus in &s.foci {
+                let shift = focus.shift.cast();
+                let k = utils::evaluate_signature(&focus.signature, k);
+                let dir = utils::evaluate_signature(&focus.signature, dir);
                 let energy = ((k + dir * t + shift).spatial_squared()
-                    + Into::<T>::into(
-                        self.loop_lines[*ll_index].propagators[*prop_index].m_squared,
-                    ))
+                    + Into::<T>::into(focus.m_squared))
                 .sqrt();
 
                 if !energy.is_zero() {
@@ -1065,52 +1401,39 @@ impl Topology {
 
     /// Generate a point inside an E-surface. A point that is guaranteed to be on the inside is
     /// `c_i = -p s_i m_i/(sum_j m_j)`, in the cut basis where `s` is the surface signature in the cut basis.
-    fn get_point_inside_surface<T: FloatLike>(&self, s: &Surface) -> [LorentzVector<T>; MAX_LOOP] {
-        let mut ll_on_foci = [LorentzVector::default(); MAX_LOOP];
-        let mut cut_shift = [LorentzVector::<T>::default(); MAX_LOOP]; // qs of cut
-        let mut cut_masses = [T::zero(); MAX_LOOP];
-        let mut cut_counter = 0;
-        let mut mass_sum = T::zero();
-        for (cut, ll) in s.cut.iter().zip(self.loop_lines.iter()) {
-            if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
-                // only add the shift if this cut momentum occurs in the surface
-                if s.sig_ll_in_cb[cut_counter] != 0 {
-                    cut_shift[cut_counter] = ll.propagators[*cut_prop_index].q.cast();
-                    cut_masses[cut_counter] =
-                        Into::<T>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
-                    mass_sum += cut_masses[cut_counter];
-                }
-                cut_counter += 1;
+    fn get_point_inside_surface<T: FloatLike>(&self, s: &ESurface) -> [LorentzVector<T>; MAX_LOOP] {
+        // in the focus basis, the first focus has the sum of basis momenta
+        let mass_sum: T = s
+            .foci
+            .iter()
+            .map(|f| Into::<T>::into(f.m_squared).sqrt())
+            .sum();
+
+        let mut cb_on_foci = [LorentzVector::default(); MAX_LOOP];
+
+        for ((m, f), sig) in cb_on_foci
+            .iter_mut()
+            .zip(&s.foci[1..])
+            .zip(&s.focus_basis_signature)
+        {
+            if !mass_sum.is_zero() && !f.m_squared.is_zero() {
+                *m = -s.shift.cast().multiply_sign(*sig) * Into::<T>::into(f.m_squared).sqrt()
+                    / mass_sum;
             }
         }
 
-        mass_sum += Into::<T>::into(
-            self.loop_lines[s.onshell_ll_index].propagators[s.onshell_prop_index]
-                .m_squared
-                .sqrt(),
-        );
-
-        // do the basis transformation
-        for (i, lm) in ll_on_foci[..self.n_loops].iter_mut().enumerate() {
-            for (((&sign, shift), &mass), &cut_mom_sig) in self.cb_to_lmb_mat[s.cut_structure_index]
-                [i * self.n_loops..(i + 1) * self.n_loops]
+        // do the basis transformation from the cut basis
+        let mut ll_on_foci = [LorentzVector::default(); MAX_LOOP];
+        for (lm, r) in ll_on_foci[..self.n_loops]
+            .iter_mut()
+            .zip_eq(s.focus_basis_mat.chunks_exact(s.foci.len() - 1))
+        {
+            for ((sign, cm), f) in r
                 .iter()
-                .zip(cut_shift[..self.n_loops].iter())
-                .zip(cut_masses[..self.n_loops].iter())
-                .zip(s.sig_ll_in_cb.iter())
+                .zip_eq(&cb_on_foci[..s.foci.len() - 1])
+                .zip_eq(&s.foci[1..])
             {
-                if sign != 0 {
-                    *lm += -shift.multiply_sign(sign);
-
-                    if mass_sum > T::zero() {
-                        *lm += -s
-                            .shift
-                            .cast()
-                            .multiply_sign(cut_mom_sig)
-                            .multiply_sign(sign)
-                            * (mass / mass_sum);
-                    }
-                }
+                *lm += (cm - f.shift.cast()) * Into::<T>::into(*sign);
             }
             lm.t = T::zero();
         }
@@ -1122,26 +1445,23 @@ impl Topology {
     /// Get the normal at the point on an E-surface. We always assume that the surface is positive.
     fn get_normal<T: FloatLike>(
         &self,
-        surface: &Surface,
+        surface: &ESurface,
         k: &[LorentzVector<T>],
         normalize: bool,
     ) -> [LorentzVector<T>; MAX_LOOP] {
         let mut df = [LorentzVector::default(); MAX_LOOP];
 
-        for ((ll_index, prop_index), _, _) in &surface.id {
-            let shift = self.loop_lines[*ll_index].propagators[*prop_index].q.cast();
-            let mut mom_part =
-                utils::evaluate_signature(&self.loop_lines[*ll_index].signature, k) + shift;
+        for f in &surface.foci {
+            let shift = f.shift.cast();
+            let mut mom_part = utils::evaluate_signature(&f.signature, k) + shift;
             mom_part.t = T::zero();
-            let energy = (mom_part.spatial_squared()
-                + Into::<T>::into(self.loop_lines[*ll_index].propagators[*prop_index].m_squared))
-            .sqrt();
+            let energy = (mom_part.spatial_squared() + Into::<T>::into(f.m_squared)).sqrt();
 
             if energy == T::zero() || Float::is_nan(energy) {
                 continue;
             }
 
-            for (d, s) in df.iter_mut().zip(&self.loop_lines[*ll_index].signature) {
+            for (d, s) in df.iter_mut().zip(&f.signature) {
                 if *s != 0 {
                     *d += mom_part.multiply_sign(*s) / energy;
                 }
@@ -1166,9 +1486,11 @@ impl Topology {
 
     /// Based on "On the distance between two ellipsoids" by Anhua Lin and Shih-Ping Han.
     /// It may not always converge, and thus can only be used as a heuristic.
-    fn overlap_heuristic(&self, surf1: &Surface, surf2: &Surface) -> bool {
-        let mut x1 = self.get_point_inside_surface::<f64>(surf1);
-        let mut x2 = self.get_point_inside_surface::<f64>(surf2);
+    fn overlap_heuristic(&self, surf1: &ESurface, surf2: &ESurface) -> bool {
+        let mut x1 = [LorentzVector::default(); MAX_LOOP];
+        let mut x2 = [LorentzVector::default(); MAX_LOOP];
+        x1[..self.n_loops].copy_from_slice(&surf1.point_on_the_inside);
+        x2[..self.n_loops].copy_from_slice(&surf2.point_on_the_inside);
 
         if self.evaluate_surface(&x1, surf2) < 0. || self.evaluate_surface(&x2, surf1) < 0. {
             return true;
@@ -1188,6 +1510,8 @@ impl Topology {
             for i in 0..self.n_loops {
                 dir[i] = x2[i] - x1[i];
             }
+
+            debug_assert!(dir[..self.n_loops].iter().any(|d| d.spatial_squared() > 0.));
 
             // find points on the surfaces
             let t1 = self
@@ -1279,7 +1603,7 @@ impl Topology {
                 if self.settings.general.debug > 2 {
                     println!(
                         "  | no convergence after {} iterations for surface {} and {}",
-                        it, surf1.group, surf2.group
+                        it, surf1.id, surf2.id
                     );
                 }
             }
@@ -1289,8 +1613,7 @@ impl Topology {
 
     fn find_overlap_structure(
         &mut self,
-        ellipsoid_list: &[usize],
-        _extra_constraints: &[usize],
+        ellipsoid_list: &[ESurface],
     ) -> Vec<FixedDeformationOverlap> {
         let mut overlap_structure = vec![];
 
@@ -1302,18 +1625,15 @@ impl Topology {
         if self.settings.deformation.fixed.use_heuristic_centers {
             if ellipsoid_list.len() == 1 {
                 // put ourselves on a focus
-                let ll_on_foci = self.get_point_inside_surface(&self.surfaces[ellipsoid_list[0]]);
-                let r: f64 = -self.evaluate_surface(
-                    &ll_on_foci[..self.n_loops],
-                    &self.surfaces[ellipsoid_list[0]],
-                );
+                let r: f64 = -self
+                    .evaluate_surface(&ellipsoid_list[0].point_on_the_inside, &ellipsoid_list[0]);
                 assert!(r > 0.);
 
                 return vec![FixedDeformationOverlap {
-                    deformation_sources: ll_on_foci[..self.n_loops].to_vec(),
+                    deformation_sources: ellipsoid_list[0].point_on_the_inside.clone(),
                     excluded_surface_ids: vec![],
                     excluded_surface_indices: vec![],
-                    overlap: Some(ellipsoid_list.to_vec()),
+                    overlap: Some(vec![ellipsoid_list[0].id]),
                     radius: r,
                 }];
             }
@@ -1321,15 +1641,15 @@ impl Topology {
             // the origin is often inside all surfaces, so do a quick test for that
             let mut origin_inside_radius = self.e_cm_squared;
             let origin = [LorentzVector::default(); MAX_LOOP];
-            for &e in ellipsoid_list {
-                let r: f64 = -self.evaluate_surface(&origin[..self.n_loops], &self.surfaces[e]);
+            for e in ellipsoid_list {
+                let r: f64 = -self.evaluate_surface(&origin[..self.n_loops], e);
                 if r < origin_inside_radius {
                     origin_inside_radius = r;
                 }
                 if r < 0. {
                     if self.settings.general.debug > 0 {
-                        println!("Origin not inside for {:?}: {}", &self.surfaces[e], r);
-                        let id = &self.surfaces[e].id;
+                        println!("Origin not inside for {:?}: {}", e, r);
+                        let id = &self.surfaces[e.id].id;
                         println!(
                             "shift1={}",
                             self.loop_lines[(id[0].0).0].propagators[(id[0].0).1].q
@@ -1348,20 +1668,11 @@ impl Topology {
                     deformation_sources: origin[..self.n_loops].to_vec(),
                     excluded_surface_ids: vec![],
                     excluded_surface_indices: vec![],
-                    overlap: Some(ellipsoid_list.to_vec()),
+                    overlap: Some(ellipsoid_list.iter().map(|e| e.id).collect()),
                     radius: origin_inside_radius,
                 }];
             }
         }
-
-        // first check for full overlap before constructing pair information
-        /*self.construct_socp_problem(&ellipsoid_list, true, false);
-        if self.socp_problem.solve() > 0 {
-            overlap_structure
-                .push(self.build_deformation_overlap_info(ellipsoid_list, ellipsoid_list));
-            self.socp_problem.finish();
-            return overlap_structure;
-        }*/
 
         // collect basic overlap info for all pairs
         for i in 0..ellipsoid_list.len() * ellipsoid_list.len() {
@@ -1377,12 +1688,17 @@ impl Topology {
                 // skip the SCS check if foci overlap or if the surfaces are on different loop lines
                 let mut num_overlap = 0;
                 let mut loop_line_overlap = false;
-                for (foc1, _, _) in self.surfaces[ellipsoid_list[i]].id.iter() {
-                    for (foc2, _, _) in self.surfaces[ellipsoid_list[j]].id.iter() {
-                        if foc1.0 == foc2.0 {
+                for foc1 in &ellipsoid_list[i].foci {
+                    for foc2 in &ellipsoid_list[j].foci {
+                        if foc1
+                            .signature
+                            .iter()
+                            .zip(foc2.signature.iter())
+                            .all(|(s1, s2)| s1.abs() == s2.abs())
+                        {
                             loop_line_overlap = true;
                         }
-                        if foc1 == foc2 {
+                        if foc1.id == foc2.id {
                             num_overlap += 1;
                         }
                     }
@@ -1390,8 +1706,8 @@ impl Topology {
 
                 let mut focus_overlap = false;
                 if !loop_line_overlap
-                    || (num_overlap + 1 >= self.surfaces[ellipsoid_list[i]].id.len()
-                        && num_overlap + 1 >= self.surfaces[ellipsoid_list[j]].id.len())
+                    || (num_overlap + 1 >= ellipsoid_list[i].foci.len()
+                        && num_overlap + 1 >= ellipsoid_list[j].foci.len())
                 {
                     self.socp_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
                     self.socp_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;
@@ -1404,10 +1720,8 @@ impl Topology {
                 }
 
                 let ti = Instant::now();
-                let has_overlap_heuristic = self.overlap_heuristic(
-                    &self.surfaces[ellipsoid_list[i]],
-                    &self.surfaces[ellipsoid_list[j]],
-                );
+                let has_overlap_heuristic =
+                    self.overlap_heuristic(&ellipsoid_list[i], &ellipsoid_list[j]);
                 ball_time += Instant::now().duration_since(ti).as_nanos();
 
                 if self.settings.general.debug < 2 && has_overlap_heuristic {
@@ -1417,7 +1731,7 @@ impl Topology {
                     continue;
                 }
 
-                self.construct_socp_problem(&[ellipsoid_list[i], ellipsoid_list[j]], false);
+                self.construct_socp_problem(&[i, j], ellipsoid_list, false);
 
                 // perform the ECOS test
                 let ti = Instant::now();
@@ -1429,7 +1743,7 @@ impl Topology {
 
                 if focus_overlap && !has_overlap {
                     panic!(
-                        "Foci overlap but SCS says that there is no overlap for {} and {}",
+                        "Foci overlap but SCS says that there is no overlap for {:#?} and {:#?}",
                         ellipsoid_list[i], ellipsoid_list[j]
                     );
                 }
@@ -1437,8 +1751,8 @@ impl Topology {
                 if has_overlap != has_overlap_heuristic {
                     if self.settings.general.debug > 2 {
                         println!(
-                            "Heuristic failed: {} vs {}",
-                            has_overlap, has_overlap_heuristic
+                            "Heuristic failed: {} vs {} for {} and {}",
+                            has_overlap, has_overlap_heuristic, i, j
                         );
                     }
                 }
@@ -1451,10 +1765,8 @@ impl Topology {
 
                     if has_overlap != has_overlap_scs {
                         panic!(
-                            "Inconcistency between SCS and ECOS: {} vs {} for {:?}",
-                            has_overlap_scs,
-                            has_overlap,
-                            &[ellipsoid_list[i], ellipsoid_list[j]]
+                            "Inconcistency between SCS and ECOS: {} vs {} for {:#?} and {:#?}",
+                            has_overlap_scs, has_overlap, ellipsoid_list[i], ellipsoid_list[j],
                         );
                     }
                 }
@@ -1499,10 +1811,10 @@ impl Topology {
                 initialize = false;
 
                 for (ot, o) in option_translated[..n].iter_mut().zip(&option[..n]) {
-                    *ot = ellipsoid_list[*o as usize];
+                    *ot = *o as usize;
                 }
 
-                self.construct_socp_problem(&option_translated[..n], false);
+                self.construct_socp_problem(&option_translated[..n], ellipsoid_list, false);
 
                 // perform the ECOS test
                 let ti = Instant::now();
@@ -1530,7 +1842,7 @@ impl Topology {
 
                 if has_overlap {
                     // find centers with maximal radius
-                    self.construct_socp_problem(&option_translated[..n], true);
+                    self.construct_socp_problem(&option_translated[..n], ellipsoid_list, true);
                     self.socp_problem.initialize_workspace_ecos();
                     let r = self.socp_problem.solve_ecos();
                     assert!(
@@ -1586,7 +1898,7 @@ pub struct SOCPProblem {
     pub radius_computation: bool,
     pub pair_overlap_matrix: Vec<bool>,
     pub pair_appears_in_overlap_structurex: Vec<bool>,
-    pub focus_list: Vec<(usize, usize, usize)>,
+    pub focus_list: Vec<(usize, usize, usize, usize)>,
     pub option: Vec<isize>,
     pub option_translated: Vec<usize>,
     pub different: Vec<bool>,
@@ -1619,7 +1931,7 @@ unsafe impl std::marker::Send for SOCPProblem {}
 
 impl Default for SOCPProblem {
     fn default() -> SOCPProblem {
-        SOCPProblem::new(50 * 6, 20 * 6)
+        SOCPProblem::new(50 * 6, 20 * 6 * 6 * 6)
     }
 }
 
@@ -1661,7 +1973,7 @@ impl SOCPProblem {
         let var_length = 3 * MAX_LOOP + max_foci;
         let num_non_empty = max_ellipsoids * MAX_LOOP + max_foci + 5 * MAX_LOOP * max_foci;
 
-        let focus_list = vec![(0, 0, 0); max_foci];
+        let focus_list = vec![(0, 0, 0, 0); max_foci];
         let a_dense = vec![0.; num_constraints * var_length];
         let mut q = vec![0; max_foci];
         let q_ecos = vec![0; max_foci];

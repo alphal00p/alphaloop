@@ -223,6 +223,52 @@ impl Topology {
             })
             .collect();
 
+        // Construct all subspaces required for the deformation.
+        // We store the cut structure index, so that we can use the basis transformation to go into
+        // the subspace.
+        self.subspaces.clear();
+        for n in 0..self.n_loops {
+            for subspace in (0..self.loop_lines.len()).combinations(n) {
+                let cut_structure_index = match self
+                    .ltd_cut_structure
+                    .iter()
+                    .enumerate()
+                    .filter(|(_i, c)| subspace.iter().all(|s| c[*s] != 0))
+                    .next()
+                {
+                    Some(x) => x.0,
+                    None => {
+                        continue;
+                    }
+                };
+
+                if subspace.len() == 0 {
+                    self.subspaces.push((cut_structure_index, 0, vec![]));
+                }
+
+                for subspace_opts in subspace
+                    .iter()
+                    .map(|&li| (0..self.loop_lines[li].propagators.len()).map(move |pi| (li, pi)))
+                    .multi_cartesian_product()
+                {
+                    let cut_option_index = self.ltd_cut_options[cut_structure_index]
+                        .iter()
+                        .enumerate()
+                        .filter(|(_i, c)| {
+                            subspace_opts.iter().all(|&(sli, spi)| {
+                                c[sli] == Cut::PositiveCut(spi) || c[sli] == Cut::NegativeCut(spi)
+                            })
+                        })
+                        .map(|(i, _)| i)
+                        .next()
+                        .unwrap();
+
+                    self.subspaces
+                        .push((cut_structure_index, cut_option_index, subspace_opts));
+                }
+            }
+        }
+
         self.surfaces.clear();
         for (cut_index, (residue_sign, cut_options)) in self
             .ltd_cut_structure
