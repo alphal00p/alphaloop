@@ -8,17 +8,19 @@ import copy
 import math
 from itertools import combinations_with_replacement
 import vectors
+from sympy import Matrix
 
 class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_cuts, external_momenta, final_state_particle_ids=(),
         loop_momenta_names=None, masses={}, powers=None, particle_ids={}, MG_numerator={}, overall_numerator=1., numerator_structure={},
-        cut_filter=set()):
+        cut_filter=set(), numerator_in_loop_momentum_basis=False):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         self.external_momenta = external_momenta
         self.MG_numerator = MG_numerator
-        
+        self.numerator_in_loop_momentum_basis = numerator_in_loop_momentum_basis
+
         self.loop_topo = self.topo.create_loop_topology(name,
             external_momenta,
             loop_momenta_names=loop_momenta_names,
@@ -26,7 +28,7 @@ class SquaredTopologyGenerator:
             mass_map=masses,
             numerator_tensor_coefficients=[[0., 0.]],
             shift_map=None)
-        
+
         cutkosky_cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momentum_names, final_state_particle_ids, particle_ids)
 
         self.cuts = [bc for c in cutkosky_cuts for bc in self.topo.bubble_cuts(c, incoming_momentum_names)]
@@ -78,7 +80,12 @@ class SquaredTopologyGenerator:
                 for k, v in numerator_sparse:
                     # numerator[numerator_pows.index(k)] = list(v)
                     numerator[numerator_pows_dict[k]] = list(v)
-                
+
+                # construct a matrix from the cut basis to the loop momentum basis
+                # this is useful if the numerator is specified in the loop momentum basis
+                # the matrix will be padded with the loop momentum maps
+                cut_to_lmb = [cut_edge['signature'][0] for cut_edge in c[:-1]]
+
                 loop_topos = []
                 for i, s in enumerate(sub_graphs):
                     # create a dummy numerator for the same rank
@@ -90,6 +97,7 @@ class SquaredTopologyGenerator:
                         numerator_entries += level_size
 
                     (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, c)
+                    cut_to_lmb.extend([x[0] for x in loop_mom_map])
 
                     loop_topo = s.create_loop_topology(name + '_' + ''.join(cut_name) + uv_name + '_' + str(i),
                         # provide dummy external momenta
@@ -124,7 +132,7 @@ class SquaredTopologyGenerator:
                     'numerator_structure': numerator_sparse,
                     'loop_topos': loop_topos,
                     'conjugate_deformation': [x for x in cut_info['conjugate_deformation']],
-
+                    'cb_to_lmb': None if cut_info['n_bubbles'] != 0 else [int(x) for x in Matrix(cut_to_lmb)**-1]
                 })
 
             self.cut_diagrams.append(uv_limit_info)
@@ -136,6 +144,7 @@ class SquaredTopologyGenerator:
             'overall_numerator': self.overall_numerator,
             'n_incoming_momenta': len(self.incoming_momenta),
             'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
+            'numerator_in_loop_momentum_basis': self.numerator_in_loop_momentum_basis,
             'topo': self.loop_topo.to_flat_format(),
             'MG_numerator': self.MG_numerator,
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
@@ -158,7 +167,8 @@ class SquaredTopologyGenerator:
                             'diagrams': [ x.to_flat_format() for x in d['loop_topos']],
                             'conjugate_deformation': d['conjugate_deformation'],
                             'numerator_tensor_coefficients_sparse': [[list(m[0]), list(m[1])] for m in d['numerator_structure']],
-                            'symmetry_factor': d['cut_symmetry_factors']
+                            'symmetry_factor': d['cut_symmetry_factors'],
+                            'cb_to_lmb': d['cb_to_lmb']
                         }
                     for d in diags]
                 }

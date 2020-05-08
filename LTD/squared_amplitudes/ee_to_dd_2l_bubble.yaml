@@ -28497,6 +28497,7 @@ loop_momentum_basis:
 n_incoming_momenta: 2
 n_loops: 2
 name: ee_to_dd_2l_bubble
+numerator_in_loop_momentum_basis: false
 overall_numerator: 1.0
 topo:
   analytical_result_imag: 0.0

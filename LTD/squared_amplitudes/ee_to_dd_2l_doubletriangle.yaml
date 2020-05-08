@@ -1,3 +1,4 @@
+MG_numerator: {}
 cutkosky_cuts:
 - cuts:
   - level: 0
@@ -35,7 +36,12 @@ cutkosky_cuts:
       - 0
   n_bubbles: 0
   uv_limits:
-  - conjugate_deformation:
+  - cb_to_lmb:
+    - 1
+    - 0
+    - 0
+    - 1
+    conjugate_deformation:
     - false
     - true
     diagrams:
@@ -90,7 +96,7 @@ cutkosky_cuts:
         - 0.0
         - 0.0
       loop_lines:
-      - end_node: 1
+      - end_node: 4
         propagators:
         - m_squared: 0.0
           name: p1
@@ -404,7 +410,12 @@ cutkosky_cuts:
       - 0
   n_bubbles: 0
   uv_limits:
-  - conjugate_deformation:
+  - cb_to_lmb:
+    - 1
+    - 0
+    - 0
+    - 1
+    conjugate_deformation:
     - false
     - true
     diagrams:
@@ -910,7 +921,12 @@ cutkosky_cuts:
       - - 0.0
         - -73854044.03706966
     symmetry_factor: 1.0
-  - conjugate_deformation:
+  - cb_to_lmb:
+    - 1
+    - 0
+    - 0
+    - 1
+    conjugate_deformation:
     - false
     - true
     diagrams:
@@ -1394,7 +1410,12 @@ cutkosky_cuts:
       - 0
   n_bubbles: 0
   uv_limits:
-  - conjugate_deformation:
+  - cb_to_lmb:
+    - 0
+    - 1
+    - 1
+    - 0
+    conjugate_deformation:
     - false
     - true
     diagrams:
@@ -1900,7 +1921,12 @@ cutkosky_cuts:
       - - 0.0
         - -73854044.03706966
     symmetry_factor: 1.0
-  - conjugate_deformation:
+  - cb_to_lmb:
+    - 0
+    - 1
+    - 1
+    - 0
+    conjugate_deformation:
     - false
     - true
     diagrams:
@@ -2395,7 +2421,12 @@ cutkosky_cuts:
       - 0
   n_bubbles: 0
   uv_limits:
-  - conjugate_deformation:
+  - cb_to_lmb:
+    - 0
+    - 1
+    - 1
+    - 0
+    conjugate_deformation:
     - false
     - true
     diagrams:
@@ -2581,7 +2612,7 @@ cutkosky_cuts:
           - 0.0
           - 0.0
         signature: []
-        start_node: 6
+        start_node: 4
       loop_momentum_map: []
       ltd_cut_structure:
       - - 0
@@ -2763,6 +2794,7 @@ loop_momentum_basis:
 n_incoming_momenta: 2
 n_loops: 2
 name: ee_to_dd_2l_doubletriangle
+numerator_in_loop_momentum_basis: false
 overall_numerator: 1.0
 topo:
   analytical_result_imag: 0.0

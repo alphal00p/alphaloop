@@ -41,6 +41,7 @@ pub struct CutkoskyCutLimits {
     pub numerator_tensor_coefficients: Vec<(f64, f64)>,
     #[serde(skip_deserializing)]
     pub numerator: LTDNumerator,
+    pub cb_to_lmb: Option<Vec<i8>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -57,6 +58,7 @@ pub struct SquaredTopology {
     pub n_incoming_momenta: usize,
     pub e_cm_squared: f64,
     pub overall_numerator: f64,
+    pub numerator_in_loop_momentum_basis: bool,
     pub external_momenta: Vec<LorentzVector<f64>>,
     pub cutkosky_cuts: Vec<CutkoskyCuts>,
     #[serde(skip_deserializing)]
@@ -786,17 +788,21 @@ impl SquaredTopology {
         let mut cut_energies_summed = T::zero();
         let mut scaling_result = Complex::one();
 
+        let mut k_def_lmb = [LorentzVector::default(); MAX_LOOP + 4];
+        let mut shifts = [LorentzVector::default(); MAX_LOOP + 4];
+
         // evaluate the cuts with the proper scaling
-        for (cut_mom, cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
+        for ((cut_mom, shift), cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
             .iter_mut()
+            .zip(shifts.iter_mut())
             .zip(cutkosky_cuts.cuts.iter())
         {
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
-            let shift = utils::evaluate_signature(
+            *shift = utils::evaluate_signature(
                 &cut.signature.1,
                 &external_momenta[..self.external_momenta.len()],
             );
-            *cut_mom = k * scaling + shift;
+            *cut_mom = k * scaling + *shift;
             let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
             cut_mom.t = energy.multiply_sign(cut.sign);
             scaling_result *= num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (-2 pi i)/(2E) for every cut
@@ -987,6 +993,11 @@ impl SquaredTopology {
                                 loop_momenta
                             },
                         );
+
+                        shifts[k_def_index] = utils::evaluate_signature(
+                            &lmm.1,
+                            &external_momenta[..self.external_momenta.len()],
+                        );
                     }
 
                     let (kappas, jac_def) =
@@ -1029,12 +1040,39 @@ impl SquaredTopology {
                 subgraph_cache.cached_topology_integrand.clear();
             }
 
+            // convert from the cut basis to the loop momentum basis
+            if self.numerator_in_loop_momentum_basis {
+                if let Some(m) = &cut_uv_limit.cb_to_lmb {
+                    for (kl, r) in k_def_lmb[..self.n_loops]
+                        .iter_mut()
+                        .zip_eq(m.chunks(self.n_loops))
+                    {
+                        *kl = LorentzVector::default();
+                        for ((&sign, mom), shift) in r
+                            .iter()
+                            .zip_eq(k_def.iter())
+                            .zip_eq(&shifts[..self.n_loops])
+                        {
+                            if sign != 0 {
+                                *kl += (*mom - shift).multiply_sign(sign);
+                            }
+                        }
+                    }
+                } else {
+                    panic!("The numerator is in the loop momentum basis but no map is defined.");
+                }
+            }
+
             // evaluate the cut numerator with the spatial parts of all loop momenta and
             // the energy parts of the Cutkosky cuts.
             // Store the reduced numerator in the left graph cache for now
             // TODO: this is impractical
             cut_uv_limit.numerator.evaluate_reduced_in_lb(
-                &k_def,
+                if self.numerator_in_loop_momentum_basis {
+                    &k_def_lmb[..self.n_loops]
+                } else {
+                    &k_def
+                },
                 cutkosky_cuts.cuts.len() - 1,
                 &mut diag_cache[0],
                 0,
