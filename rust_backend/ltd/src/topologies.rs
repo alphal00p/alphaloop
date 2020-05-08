@@ -694,7 +694,7 @@ impl Topology {
                 }
 
                 let mut foci = Vec::with_capacity(s.id.len());
-                let mut energy_shift = s.shift.t;
+                let mut energy_shift = s.shift.t.multiply_sign(s.delta_sign);
                 // construct a new matrix that transforms the momenta in the ellipsoid to the ellipsoid basis
                 // where only one focus has a shift
                 for ((foc_ll, foc_p), _, _) in &s.id {

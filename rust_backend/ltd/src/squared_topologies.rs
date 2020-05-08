@@ -1,4 +1,6 @@
 use arrayvec::ArrayVec;
+use color_eyre::{Help, Report};
+use eyre::WrapErr;
 use f128::f128;
 use float;
 use integrand::IntegrandImplementation;
@@ -18,8 +20,6 @@ use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
 use {DeformationStrategy, FloatLike, NormalisingFunction, Settings, MAX_LOOP};
-use color_eyre::{Help, Report};
-use eyre::WrapErr;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
@@ -110,7 +110,7 @@ impl SquaredTopologySet {
             .wrap_err_with(|| format!("Could not open squared topology set file {}", filename))
             .suggestion("Does the path exist?")?;
 
-    let squared_topology_set_input: SquaredTopologySetInput = serde_yaml::from_reader(f)
+        let squared_topology_set_input: SquaredTopologySetInput = serde_yaml::from_reader(f)
             .wrap_err("Could not parse squared topology set file")
             .suggestion("Is it a correct yaml file")?;
 
@@ -123,8 +123,8 @@ impl SquaredTopologySet {
                 .with_file_name(topo.name)
                 .with_extension("yaml");
             let mut squared_topology =
-                SquaredTopology::from_file(filename.to_str().unwrap(), settings).
-                wrap_err("Could not load subtopology file")?;
+                SquaredTopology::from_file(filename.to_str().unwrap(), settings)
+                    .wrap_err("Could not load subtopology file")?;
 
             if !topologies.is_empty() && squared_topology.n_loops != topologies[0].n_loops {
                 panic!("Topology sets require all topologies to have the same number of loops");
