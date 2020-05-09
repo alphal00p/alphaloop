@@ -36,6 +36,7 @@ use utils::Signum;
 use vector::{Field, RealNumberLike};
 
 pub const MAX_LOOP: usize = 4;
+pub const MAX_PROP: usize = 10;
 
 #[allow(non_camel_case_types)]
 #[cfg(feature = "use_f128")]
