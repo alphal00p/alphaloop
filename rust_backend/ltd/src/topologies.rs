@@ -9,7 +9,7 @@ use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, Signed, Zero};
 use partial_fractioning::PFCache;
-use partial_fractioning::PartialFractioning;
+use partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use scs;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -269,7 +269,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
         let num_propagators_deg_1l = topo
             .loop_lines
             .iter()
-            .filter(|x| x.signature == &[1])
+            //.filter(|x| x.signature == &[1])
             .map(|x| x.propagators.iter().map(|p| p.power).sum::<usize>())
             .sum();
         LTDCache {
@@ -472,6 +472,17 @@ pub struct LTDNumerator {
     pub non_empty_coeff_map_to_reduced_numerator: Vec<Vec<(usize, usize, Complex<f64>)>>,
     pub coeff_map_to_reduced_numerator: Vec<Vec<usize>>,
 }
+#[derive(Debug, Clone, Default)]
+pub struct ReducedLTDNumerator<T: Scalar + Signed + RealNumberLike> {
+    pub coefficients: Vec<Complex<T>>,
+    pub n_loops: usize,
+    pub max_rank: usize,
+    pub size: usize,
+    //pub coefficient_index_map: Vec<(usize, usize)>,
+    //pub coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
+    pub reduced_coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
+    pub reduced_blocks: Vec<usize>,
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Topology {
@@ -512,6 +523,8 @@ pub struct Topology {
     pub numerator: LTDNumerator,
     #[serde(skip_deserializing)]
     pub partial_fractioning: PartialFractioning,
+    #[serde(skip_deserializing)]
+    pub partial_fractioning_multiloops: PartialFractioningMultiLoops,
     #[serde(default)]
     pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
     #[serde(default)]
