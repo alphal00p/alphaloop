@@ -300,25 +300,3 @@ impl Topology {
         flows
     }
 }
-
-#[test]
-fn test_oneloop() {
-    let edges = Edge::from_edge_list(&[(0, 1), (1, 2), (1, 3), (2, 3), (3, 4), (2, 5)]);
-    let mut t = Topology::new(6, edges, vec![1], vec![1.0, 2.0, 3.0]);
-    println!("{:?}", t.find_paths(1, 4));
-    println!("{:?}", t.generate_momentum_flow());
-    println!("{}", t.evaluate_propagators(&[5.0]));
-    println!("{:?}", t.construct_cycles_per_loop_momentum(0, &[5.0]));
-    assert!(false);
-}
-
-#[test]
-fn test_doubletriangle() {
-    let edges = Edge::from_edge_list(&[(1, 0), (4, 1), (2, 3), (1, 2), (2, 4), (3, 4), (3, 5)]);
-    let mut t = Topology::new(6, edges, vec![1, 2], vec![1.0, -1.0]);
-    println!("{:?}", t.find_paths(0, 6));
-    println!("{:?}", t.generate_momentum_flow());
-    println!("{}", t.evaluate_propagators(&[5.0, 6.0]));
-    println!("{:?}", t.construct_cycles_per_loop_momentum(0, &[5.0, 6.0]));
-    assert!(false);
-}
