@@ -1,9 +1,14 @@
 extern crate arrayvec;
+extern crate color_eyre;
 extern crate f128;
 extern crate ltd;
 extern crate num;
 extern crate num_traits;
 extern crate vector;
+#[macro_use]
+extern crate eyre;
+
+use color_eyre::Help;
 
 use arrayvec::ArrayVec;
 use ltd::topologies::{LTDCache, Topology};
@@ -14,17 +19,19 @@ use vector::LorentzVector;
 
 fn get_test_topology(topology_file: &str, topology_name: &str) -> Topology {
     // Import settings and disable the deformation
-    let mut settings = Settings::from_file("../../LTD/hyperparameters.yaml");
+    let mut settings = Settings::from_file("../../LTD/hyperparameters.yaml").unwrap();
     settings.general.deformation_strategy = DeformationStrategy::None;
     settings.general.multi_channeling = false;
     settings.integrator.dashboard = false;
 
     // Import topology from folder
-    let mut topologies = Topology::from_file(topology_file, &settings);
+    let mut topologies = Topology::from_file(topology_file, &settings).unwrap();
     settings.general.topology = topology_name.to_string();
     topologies
         .remove(&settings.general.topology)
-        .expect("Unknown topology")
+        .ok_or_else(|| eyre!("Could not find topology {}", settings.general.topology))
+        .suggestion("Check if this topology is in the specified topology file.")
+        .unwrap()
 }
 
 fn cross_check<'a>(
@@ -258,7 +265,6 @@ mod dot_propagators_1loop {
         test_bubble(pows, &mut pt, true);
     }
 
-
     #[test]
     fn bubble_1_1_negative_cut() {
         // Select point in momentum space: 3*n_loops
@@ -411,7 +417,6 @@ mod dot_propagators_2loops {
 
         test_2L_PROPxLL(pows, &mut pt);
     }
-    
     #[test]
     fn sunrise_1_3_1() {
         // Select point in momentum space: 3*n_loops
@@ -420,7 +425,6 @@ mod dot_propagators_2loops {
 
         test_2L_PROPxLL(pows, &mut pt);
     }
-
 
     #[test]
     fn sunrise_2_2_1() {
