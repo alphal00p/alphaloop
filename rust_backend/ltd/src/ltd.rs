@@ -6,12 +6,13 @@ use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
-use partial_fractioning::PartialFractioning;
+use partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
 use topologies::{
-    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, Surface, SurfaceType, Topology,
+    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, ReducedLTDNumerator, Surface,
+    SurfaceType, Topology,
 };
 use utils::Signum;
 use vector::LorentzVector;
@@ -142,23 +143,19 @@ impl Topology {
                 )
             }
         };
-
         // Prepare the partial fractioning map at one loop if the threshold is set to a positive number
-        if self.n_loops == 1 && self.settings.general.partial_fractioning_threshold >= 0.0 {
-            // find the loop line that has a loop momentum
-            let ll_with_loop = self
-                .loop_lines
-                .iter()
-                .filter(|ll| ll.signature == &[1])
-                .next()
-                .unwrap();
-            // count the total number of propagators, including raised powers
-            let n_deg_props = ll_with_loop.propagators.iter().map(|p| p.power).sum();
-
-            // TODO: set a better rank?
-            self.partial_fractioning = PartialFractioning::new(n_deg_props, 1000);
+        if self.n_loops == 1 {
+            //&& self.settings.general.partial_fractioning_threshold > 0.0 {
+            self.partial_fractioning = PartialFractioning::new(
+                self.loop_lines[0].propagators.iter().map(|x| x.power).sum(),
+                10000,
+            );
         }
-
+        if self.n_loops > 0 {
+            //&& self.settings.general.partial_fractioning_threshold > 0.0 {
+            self.partial_fractioning_multiloops =
+                PartialFractioningMultiLoops::new(&self.loop_lines);
+        }
         // set the identity rotation matrix
         self.rotation_matrix = [
             [float::one(), float::zero(), float::zero()],
@@ -2344,6 +2341,7 @@ impl Topology {
     /// The power of the cut propagators should be 0.
     pub fn evaluate_higher_order_cut_2<T: FloatLike>(
         &self,
+        cut: &Vec<Cut>,
         cut_propagators: &[usize],
         derivative_map: &mut [usize],   // in the cut basis
         numerator_powers: &mut [usize], // in the cut basis
@@ -2367,16 +2365,21 @@ impl Topology {
             // evaluate the numerator
             for (cut_prop, num) in cut_propagators.iter().zip_eq(numerator_powers.iter()) {
                 if *num > 0 {
-                    result *= cache.complex_cut_energies[*cut_prop].powi(*num as i32);
+                    result *= match cut[self.propagator_id_to_ll_id[*cut_prop].0] {
+                        Cut::PositiveCut(_) => cache.complex_cut_energies[*cut_prop],
+                        Cut::NegativeCut(_) => -cache.complex_cut_energies[*cut_prop],
+                        Cut::NoCut => panic!("Trying to multiply the energy for uncut propagator!"),
+                    }
+                    .powi(*num as i32);
                 }
             }
-
             return result;
         }
 
         if derivative_map[index] == 0 {
             // go to the next cut
             return self.evaluate_higher_order_cut_2(
+                cut,
                 cut_propagators,
                 derivative_map,
                 numerator_powers,
@@ -2393,6 +2396,7 @@ impl Topology {
         if numerator_powers[index] > 0 {
             numerator_powers[index] -= 1;
             result += self.evaluate_higher_order_cut_2(
+                cut,
                 cut_propagators,
                 derivative_map,
                 numerator_powers,
@@ -2421,11 +2425,14 @@ impl Topology {
                 T::zero(),
             );
             let mut signature_in_cb = [0; MAX_LOOP];
-            for (sig, row) in signature_in_cb[..self.n_loops]
-                .iter_mut()
+            for (sig_ll, row) in signature_in_ll
+                .iter()
                 .zip_eq(mat.chunks_exact(self.n_loops))
             {
-                for (col, sig_ll) in row.iter().zip_eq(signature_in_ll) {
+                for (col, sig) in row
+                    .iter()
+                    .zip_eq(signature_in_cb[..self.n_loops].iter_mut())
+                {
                     *sig += col * sig_ll;
                 }
             }
@@ -2448,23 +2455,32 @@ impl Topology {
                         // we need to keep track of the power of this variable for further differentiation
                         numerator_powers[i] += 1;
                         result += self.evaluate_higher_order_cut_2(
+                            cut,
                             cut_propagators,
                             derivative_map,
                             numerator_powers,
                             mat,
                             index,
                             cache,
-                        ) * d_coeff;
+                        ) * d_coeff.multiply_sign(sig);
                         numerator_powers[i] -= 1;
                     } else {
                         // the variable does not need to be differentiated, so accumulate it in the shift
-                        shift += cache.complex_cut_energies[cut_propagators[i]].multiply_sign(sig);
+                        shift += match cut[i] {
+                            Cut::PositiveCut(_) | Cut::NoCut => {
+                                cache.complex_cut_energies[cut_propagators[i]].multiply_sign(sig)
+                            }
+                            Cut::NegativeCut(_) => {
+                                cache.complex_cut_energies[cut_propagators[i]].multiply_sign(-sig)
+                            }
+                        };
                     }
                 }
             }
 
             // evaluate the shift part
             result += self.evaluate_higher_order_cut_2(
+                cut,
                 cut_propagators,
                 derivative_map,
                 numerator_powers,
@@ -2484,8 +2500,13 @@ impl Topology {
     /// Evaluate a higher order cut. The first stage is this recursive function that
     /// goes through the combinatorics of deriving the cut propagators.
     /// The second recursive function is `evaluate_higher_order_cut_2`.
+    ///     - cut_propagators: which propagators ids are being cut
+    ///     - derivative_map: order of derivatives expressed in cut basis
+    ///     - numerator_powes: powers of the monomial in cut basis
+    ///     - mat : if chuncked is a matrix with the cut ll signatures as rows
     pub fn evaluate_higher_order_cut<T: FloatLike>(
         &self,
+        cut: &Vec<Cut>,
         cut_propagators: &[usize],
         derivative_map: &mut [usize],
         numerator_powers: &mut [usize],
@@ -2495,6 +2516,7 @@ impl Topology {
     ) -> Complex<T> {
         if index == derivative_map.len() {
             return self.evaluate_higher_order_cut_2(
+                cut,
                 cut_propagators,
                 derivative_map,
                 numerator_powers,
@@ -2503,6 +2525,17 @@ impl Topology {
                 cache,
             );
         }
+        // Compute the energy corresponding to the current cut propagator
+        //let energy = cache.propagators_eval[cut_propagators[index]];
+        let energy = match cut[self.propagator_id_to_ll_id[cut_propagators[index]].0] {
+            Cut::PositiveCut(_) => {
+                cache.complex_cut_energies[cut_propagators[index]] * Into::<T>::into(2.0)
+            }
+            Cut::NegativeCut(_) => {
+                -cache.complex_cut_energies[cut_propagators[index]] * Into::<T>::into(2.0)
+            }
+            Cut::NoCut => panic!("Trying to multiply the energy for uncut propagator!"),
+        };
 
         // for every cut, we first take out the derivatives wrt the cut propagators
         // as they transform slightly differently
@@ -2513,9 +2546,8 @@ impl Topology {
         for i in (0..=n).rev() {
             derivative_map[index] = i;
 
-            let energy = cache.propagators_eval[cut_propagators[index]];
-
             result += self.evaluate_higher_order_cut(
+                cut,
                 cut_propagators,
                 derivative_map,
                 numerator_powers,
@@ -2578,12 +2610,11 @@ impl Topology {
 
         // Prepare numerator
         //numerator.evaluate_reduced_in_lb(k_def, cache); //NOTE: Only necessary when k_vec is changed
-
         let r = if derivative_map.iter().all(|x| *x == 0) {
             // we are in the case where we do not need derivatives
             let mut r = Complex::one();
 
-            if overwrite_propagator_powers {
+            if false && overwrite_propagator_powers {
                 for (i, (ll_cut, ll)) in cut.iter().zip_eq(self.loop_lines.iter()).enumerate() {
                     // get the loop line result from the cache if possible
                     r *= match ll_cut {
@@ -2598,6 +2629,14 @@ impl Topology {
                     ll.evaluate(&k_def, ll_cut, &self, cache)?;
                 }
 
+                // Compute the factor coming from the cut direction
+                for ll_cut in cut.iter() {
+                    r *= match ll_cut {
+                        Cut::NegativeCut(_) => -Complex::one(),
+                        _ => Complex::one(),
+                    };
+                }
+
                 // if overwrite_propagator_power is false it means that the powers used are not the
                 // one coming from the topology so it's not possible to use the cached loop line result
                 for (p_e, p_pow) in cache
@@ -2607,9 +2646,8 @@ impl Topology {
                 {
                     r *= utils::powi(*p_e, *p_pow);
                 }
-                for (ll_cut, cut_prop) in cut.iter().zip_eq(cut_propagators[..self.n_loops].iter())
-                {
-                    r *= match ll_cut {
+                for cut_prop in cut_propagators[..self.n_loops].iter() {
+                    r *= match cut[self.propagator_id_to_ll_id[*cut_prop].0] {
                         Cut::PositiveCut(_) => {
                             cache.complex_cut_energies[*cut_prop] * Into::<T>::into(2.0)
                         }
@@ -2629,6 +2667,16 @@ impl Topology {
                 ll.evaluate(&k_def, ll_cut, &self, cache)?;
             }
 
+            // Compute the factor coming from the cut direction
+            let mut cut_factor = 1;
+            for ll_cut in cut.iter() {
+                cut_factor *= match ll_cut {
+                    Cut::NegativeCut(_) => -1,
+                    _ => 1,
+                };
+            }
+
+            // Compute higher order derivative looping over all numerator monomials
             let mut res = Complex::default();
             for (i, monomial_powers) in numerator
                 .reduced_coefficient_index_to_powers
@@ -2641,6 +2689,7 @@ impl Topology {
                 }
                 res += cache.reduced_coefficient_cb[i]
                     * self.evaluate_higher_order_cut(
+                        cut,
                         &cut_propagators[..self.n_loops],
                         &mut derivative_map[..self.n_loops],
                         &mut numerator_powers[..self.n_loops],
@@ -2649,7 +2698,8 @@ impl Topology {
                         cache,
                     );
             }
-            res
+            res.multiply_sign(cut_factor)
+            //res
         };
 
         if self.settings.general.debug > 1 {
@@ -3769,3 +3819,67 @@ impl LTDNumerator {
         res
     }
 }
+
+//impl<T: FloatLike> ReducedLTDNumerator<T> {
+//    pub fn evaluate_reduced_in_lb(
+//        &mut self,
+//        numerator: &LTDNumerator,
+//        loop_momenta: &[LorentzVector<Complex<T>>],
+//        absorb_n_energies: usize,
+//        cache: &mut LTDCache<T>,
+//    ) {
+//        // Get information about the numerator
+//        self.max_rank = numerator.max_rank;
+//        self.n_loops = numerator.n_loops;
+//        self.size = numerator.reduced_size;
+//        self.reduced_coefficient_index_to_powers = numerator.reduced_coefficient_index_to_powers;
+//
+//        // Update tensor loop dependent part
+//        numerator.update_numerator_momentum_some_energies(loop_momenta, absorb_n_energies, cache);
+//        // Initialize the reduced_coefficeints_lb with the factors coming from evaluating
+//        // the vectorial part of the loop momenta
+//        if self.coefficients.len() < self.size {
+//            self.coefficients.resize(self.size, Complex::default());
+//        }
+//        for c in &mut self.coefficients[..self.size] {
+//            *c = Complex::default();
+//        }
+//
+//        for (i, (&c, powers)) in numerator
+//            .coefficients
+//            .iter()
+//            .zip(numerator.coefficient_index_to_powers.iter())
+//            .enumerate()
+//        {
+//            self.coefficients[numerator.powers_to_position[powers]] += cache
+//                .numerator_momentum_cache[i]
+//                * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+//        }
+//    }
+//    pub fn evaluate_reduced_in_cb<T: FloatLike>(
+//        &self,
+//        cut: &Vec<Cut>,
+//        loop_lines: &Vec<LoopLine>,
+//        mat: &Vec<i8>,
+//        cache: &mut LTDCache<T>,
+//    ) {
+//        let mut shifts = [Complex::default(); MAX_LOOP];
+//        // compute the shifts of the propagator in the cut basis
+//        let mut index = 0;
+//        for (ll_cut, ll) in cut.iter().zip_eq(loop_lines.iter()) {
+//            if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = ll_cut {
+//                for (&mij, shift) in mat
+//                    .chunks_exact(self.n_loops)
+//                    .nth(index)
+//                    .unwrap()
+//                    .iter()
+//                    .zip_eq(shifts[..self.n_loops].iter_mut())
+//                {
+//                    *shift -= Into::<T>::into(ll.propagators[*j].q.t * mij as f64);
+//                }
+//                index += 1;
+//            }
+//        }
+//    }
+//}
+//
