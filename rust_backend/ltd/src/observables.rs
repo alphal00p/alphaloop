@@ -175,8 +175,8 @@ impl EventManager {
         &mut self,
         orig_incoming_momenta: &[LorentzVector<f64>],
         cut_momenta: &[LorentzVector<T>],
-        cut_info: &[CutkoskyCut],
-        rot_matrix: &[[f64; 3]; 3],
+        cut_info: &[CutkoskyCut<T>],
+        rot_matrix: &[[T; 3]; 3],
     ) -> bool {
         if !self.track_events && self.event_selector.is_empty() {
             return true;

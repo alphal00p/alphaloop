@@ -14,18 +14,18 @@ pub struct PartialFractioning {
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct PFCache {
+pub struct PFCache<T: FloatLike> {
     splits: Vec<usize>,
     ellipsoids_product: Vec<(usize, usize)>,
-    den_short: PartialFractioningDen,
+    den_short: PartialFractioningDen<T>,
     block_fiter: Vec<bool>,
     numerator: Vec<usize>,
     numerator_size: usize,
     numerator_index_map: Vec<usize>,
 }
 
-impl PFCache {
-    pub fn new(n_props_deg: usize) -> PFCache {
+impl<T: FloatLike> PFCache<T> {
+    pub fn new(n_props_deg: usize) -> PFCache<T> {
         if n_props_deg == 0 {
             PFCache {
                 splits: vec![],
@@ -114,8 +114,8 @@ impl PartialFractioningMonomial {
 
     pub fn evaluate<T: FloatLike>(
         &self,
-        numerator: &LTDNumerator,
-        loop_line: &[LoopLine], // make sure to only pass loop lines with a loop momentum in it
+        numerator: &LTDNumerator<T>,
+        loop_line: &[LoopLine<T>], // make sure to only pass loop lines with a loop momentum in it
         ltd_cache: &LTDCache<T>,
     ) -> Complex<T> {
         let den = PartialFractioningMonomial::evaluate_ellipsoids_product(
@@ -153,8 +153,8 @@ impl PartialFractioningMonomial {
 
     pub fn evaluate_numerator<T: FloatLike>(
         pf_numerator: &[usize],
-        ltd_numerator: &LTDNumerator,
-        ll: &[LoopLine],
+        ltd_numerator: &LTDNumerator<T>,
+        ll: &[LoopLine<T>],
         ltd_cache: &LTDCache<T>,
     ) -> Complex<T> {
         //return Complex::new(T::one(), T::zero());
@@ -176,8 +176,8 @@ impl PartialFractioningMonomial {
         pf_numerator: &[usize],
         rank: usize,
         offset: usize,
-        ltd_numerator: &LTDNumerator,
-        ll: &[LoopLine],
+        ltd_numerator: &LTDNumerator<T>,
+        ll: &[LoopLine<T>],
         ltd_cache: &LTDCache<T>,
     ) -> Complex<T> {
         let mut res = Complex::default();
@@ -266,11 +266,11 @@ impl PartialFractioning {
     ///  - cut        :  h_index[0]
     ///  - hyperboloid: h_index[1..]
     ///  - ellipsoids : e_index
-    pub fn element_partial_fractioning(
+    pub fn element_partial_fractioning<T: FloatLike>(
         &mut self,
         h_index: &[usize],
         e_index: &[usize],
-        pf_cache: &mut PFCache,
+        pf_cache: &mut PFCache<T>,
     ) -> bool {
         // Get nh and ne from the input so that we can import all the indices in
         // a single slice
@@ -363,8 +363,8 @@ impl PartialFractioning {
     ///  - complex_ellipsoids
     pub fn evaluate<T: FloatLike>(
         &self,
-        ltd_numerator: &LTDNumerator,
-        ll: &[LoopLine],
+        ltd_numerator: &LTDNumerator<T>,
+        ll: &[LoopLine<T>],
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
         println!("1L map: {:?}", cache.pf_cache.numerator_index_map);
@@ -459,45 +459,45 @@ impl PartialFractioning {
 /* MULTI LOOPS  */
 
 #[derive(Default, Debug, Clone)]
-pub struct PartialFractioningDen {
+pub struct PartialFractioningDen<T: FloatLike> {
     pub indices: Vec<u8>,
-    pub energies_and_shifts: Vec<(f64, f64)>,
+    pub energies_and_shifts: Vec<(T, T)>,
     pub size: usize,
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct PartialFractioningBlock {
-    pub factor: f64,
-    pub denominators: Vec<PartialFractioningDen>,
+pub struct PartialFractioningBlock<T: FloatLike> {
+    pub factor: T,
+    pub denominators: Vec<PartialFractioningDen<T>>,
     // TODO: numerator
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct PartialFractioningDen2 {
-    pub lambdas: Vec<f64>,
-    pub energies: Vec<f64>,
-    pub shifts: Vec<f64>,
+pub struct PartialFractioningDen2<T: FloatLike> {
+    pub lambdas: Vec<T>,
+    pub energies: Vec<T>,
+    pub shifts: Vec<T>,
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct PartialFractioningBlock2 {
-    pub factor: f64,
-    pub denominators: Vec<PartialFractioningDen2>,
+pub struct PartialFractioningBlock2<T: FloatLike> {
+    pub factor: T,
+    pub denominators: Vec<PartialFractioningDen2<T>>,
     // TODO: numerator
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct PartialFractioningMultiLoops {
-    pub partial_fractioning_element: Vec<PartialFractioningBlock>,
-    pub loop_lines: Vec<LoopLine>,
+pub struct PartialFractioningMultiLoops<T: FloatLike> {
+    pub partial_fractioning_element: Vec<PartialFractioningBlock<T>>,
+    pub loop_lines: Vec<LoopLine<T>>,
     pub ll_n_props_deg: Vec<usize>,
     pub n_loops: usize,
     //splits: Vec<usize>,
 }
-impl PartialFractioningDen {
-    pub fn evaluate<T: FloatLike>(
+impl<T: FloatLike> PartialFractioningDen<T> {
+    pub fn evaluate(
         &self,
-        loop_lines: &[LoopLine],
+        loop_lines: &[LoopLine<T>],
         min_index: usize,
         map_id: &[(usize, usize)],
         ltd_cache: &LTDCache<T>,
@@ -519,11 +519,11 @@ impl PartialFractioningDen {
         den_res.inv()
     }
 }
-impl PartialFractioningBlock {
-    pub fn evaluate<T: FloatLike>(
+impl<T: FloatLike> PartialFractioningBlock<T> {
+    pub fn evaluate(
         &self,
-        numerator: &LTDNumerator,
-        loop_lines: &[LoopLine],
+        numerator: &LTDNumerator<T>,
+        loop_lines: &[LoopLine<T>],
         min_index: usize,
         map_id: &[(usize, usize)],
         ltd_cache: &LTDCache<T>,
@@ -539,9 +539,9 @@ impl PartialFractioningBlock {
         return den_inv * Into::<T>::into(self.factor); // * num;
     }
 
-    pub fn evaluate_dens<T: FloatLike>(
+    pub fn evaluate_dens(
         &self,
-        loop_lines: &[LoopLine],
+        loop_lines: &[LoopLine<T>],
         min_index: usize,
         map_id: &[(usize, usize)],
         ltd_cache: &LTDCache<T>,
@@ -555,8 +555,8 @@ impl PartialFractioningBlock {
     }
 }
 
-impl PartialFractioningMultiLoops {
-    pub fn new(loop_lines: &Vec<LoopLine>) -> PartialFractioningMultiLoops {
+impl<T: FloatLike> PartialFractioningMultiLoops<T> {
+    pub fn new(loop_lines: &Vec<LoopLine<T>>) -> PartialFractioningMultiLoops<T> {
         let mut pf_expr = PartialFractioningMultiLoops {
             partial_fractioning_element: Vec::new(),
             loop_lines: loop_lines.clone(),
@@ -607,7 +607,7 @@ impl PartialFractioningMultiLoops {
                     lambdas: self.loop_lines[id_to_ll[n]]
                         .signature
                         .iter()
-                        .map(|x| *x as f64)
+                        .map(|x| *x as T)
                         .collect(),
                     energies: vec![0.0; n_props_deg],
                     shifts: vec![0.0; n_props_deg],
@@ -622,7 +622,7 @@ impl PartialFractioningMultiLoops {
     }
 
     /// append new result
-    fn add(&mut self, product: &mut PartialFractioningBlock2, pf_cache: &mut PFCache) {
+    fn add(&mut self, product: &mut PartialFractioningBlock2<T>, pf_cache: &mut PFCache<T>) {
         // TODO: Check that all the lambdas are now zero
         let mut dens_short = Vec::new();
         for den in product.denominators.iter() {
@@ -655,9 +655,9 @@ impl PartialFractioningMultiLoops {
     // Perform partial fractioning on a single product for an arbitrary number of loops
     fn pf_product(
         &mut self,
-        product: &mut PartialFractioningBlock2,
+        product: &mut PartialFractioningBlock2<T>,
         residue_n: usize,
-        pf_cache: &mut PFCache,
+        pf_cache: &mut PFCache<T>,
     ) -> bool {
         if residue_n == self.n_loops {
             self.add(product, pf_cache);
@@ -701,7 +701,7 @@ impl PartialFractioningMultiLoops {
         }
         //println!("  idx: {:?}, hdx: {:?}, edx: {:?}", indices, h_index, e_index);
         // Correction coming from applying partial fractioning to remove hyperboloids
-        product.factor *= (-1.0 as f64).powi(1 + h_index.len() as i32);
+        product.factor *= (-1.0 as T).powi(1 + h_index.len() as i32);
         if h_index.len() == 0 {
             // no pole
             return true;
@@ -731,7 +731,9 @@ impl PartialFractioningMultiLoops {
                 denominators: Vec::new(),
             };
             for i in spectators.iter() {
-                new_product.denominators.push(product.denominators[*i].clone());
+                new_product
+                    .denominators
+                    .push(product.denominators[*i].clone());
             }
             //print("\t   > ", mapping)
             // Add partial fractioned elements
@@ -756,9 +758,9 @@ impl PartialFractioningMultiLoops {
     /// the other one is one where we have to replace the value of the loop momentum (receiver)
     /// The result is appended to the PartialFractioningBlock given as first argument
     fn pf_mapper(
-        product: &mut PartialFractioningBlock2,
-        den_giver: &PartialFractioningDen2,
-        den_receiver: &PartialFractioningDen2,
+        product: &mut PartialFractioningBlock2<T>,
+        den_giver: &PartialFractioningDen2<T>,
+        den_receiver: &PartialFractioningDen2<T>,
         residue_n: usize,
     ) {
         let factor = den_receiver.lambdas[residue_n] / den_giver.lambdas[residue_n];
@@ -787,10 +789,10 @@ impl PartialFractioningMultiLoops {
     ///  - propagator_powers
     ///  - reduced_coefficinet_lb
     ///  - complex_ellipsoids
-    pub fn evaluate<T: FloatLike>(
+    pub fn evaluate(
         &self,
-        ltd_numerator: &LTDNumerator,
-        loop_lines: &[LoopLine],
+        ltd_numerator: &LTDNumerator<T>,
+        loop_lines: &[LoopLine<T>],
         map_id: &[(usize, usize)],
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {

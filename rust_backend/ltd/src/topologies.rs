@@ -3,7 +3,6 @@ use color_eyre::{Help, Report};
 use dashboard::{StatusUpdate, StatusUpdateSender};
 use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
 use eyre::WrapErr;
-use float;
 use fnv::FnvHashMap;
 use itertools::Itertools;
 use num::Complex;
@@ -33,7 +32,7 @@ pub enum SurfaceType {
 
 /// Ellipsoid and hyperboloid surfaces
 #[derive(Debug, Clone)]
-pub struct Surface {
+pub struct Surface<T: FloatLike> {
     pub unique_ellipsoid_id: Option<usize>,
     pub group: usize,
     pub exists: bool,
@@ -46,7 +45,7 @@ pub struct Surface {
     pub delta_sign: i8,
     pub sig_ll_in_cb: Vec<i8>,
     pub signs: Vec<i8>,
-    pub shift: LorentzVector<float>,
+    pub shift: LorentzVector<T>,
     pub id: Vec<((usize, usize), i8, i8)>,
 }
 
@@ -68,8 +67,8 @@ pub struct ESurface {
     pub point_on_the_inside: Vec<LorentzVector<f64>>,
 }
 
-impl Topology {
-    pub fn print_surface(&self, s: &Surface) {
+impl<T: FloatLike> Topology<T> {
+    pub fn print_surface(&self, s: &Surface<T>) {
         for ((ll, pp), e_sign, _) in &s.id {
             print!("{}sqrt((", if *e_sign > 0 { "+" } else { "-" });
             let prop = &self.loop_lines[*ll].propagators[*pp];
@@ -86,11 +85,11 @@ impl Topology {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Propagators {
+pub struct Propagators<T: FloatLike> {
     #[serde(skip_deserializing)]
     pub id: usize, // global id
-    pub m_squared: f64,
-    pub q: LorentzVector<f64>,
+    pub m_squared: T,
+    pub q: LorentzVector<T>,
     #[serde(default)]
     pub parametric_shift: (Vec<i8>, Vec<i8>),
     #[serde(default)]
@@ -104,11 +103,11 @@ fn set_one() -> usize {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct LoopLine {
+pub struct LoopLine<T: FloatLike> {
     pub start_node: usize,
     pub end_node: usize,
     pub signature: Vec<i8>,
-    pub propagators: Vec<Propagators>,
+    pub propagators: Vec<Propagators<T>>,
 }
 
 pub struct CutList<'a>(pub &'a Vec<Cut>);
@@ -142,7 +141,7 @@ impl fmt::Display for Cut {
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
-pub struct CutInfo<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
+pub struct CutInfo<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -161,7 +160,7 @@ where
     pub c: DualN<T, U>,
 }
 
-impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
+impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> Default
     for CutInfo<T, U>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
@@ -187,7 +186,7 @@ where
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
-pub struct LTDCacheI<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
+pub struct LTDCacheI<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -201,7 +200,7 @@ where
     pub computed_cut_ll: Vec<usize>,
 }
 
-impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
+impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> Default
     for LTDCacheI<T, U>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
@@ -220,7 +219,7 @@ where
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> LTDCacheI<T, U>
+impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> LTDCacheI<T, U>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -239,7 +238,7 @@ where
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
+pub struct LTDCache<T: FloatLike> {
     one_loop: LTDCacheI<T, U4>,
     two_loop: LTDCacheI<T, U7>,
     three_loop: LTDCacheI<T, U10>,
@@ -256,15 +255,15 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub reduced_coefficient_lb: Vec<Vec<Complex<T>>>,
     pub reduced_coefficient_lb_supergraph: Vec<Vec<Complex<T>>>,
     pub reduced_coefficient_cb: Vec<Complex<T>>,
-    pub pf_cache: PFCache,
+    pub pf_cache: PFCache<T>,
     pub propagators: FnvHashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
     pub propagators_eval: Vec<Complex<T>>,
     pub propagator_powers: Vec<usize>,
     pub cached_topology_integrand: Vec<(usize, Complex<T>)>,
 }
 
-impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
-    pub fn new(topo: &Topology) -> LTDCache<T> {
+impl<T: FloatLike> LTDCache<T> {
+    pub fn new(topo: &Topology<f64>) -> LTDCache<f64> {
         let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
         let num_propagators_deg_1l = topo
             .loop_lines
@@ -313,7 +312,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
     }
 }
 
-pub trait CacheSelector<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
+pub trait CacheSelector<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -329,7 +328,7 @@ where
         dual_num::Owned<T, U>: Copy;
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U4> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U4> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U4> {
         &self.one_loop
@@ -341,7 +340,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U4> for LTDCache<T> {
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U7> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U7> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U7> {
         &self.two_loop
@@ -353,7 +352,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U7> for LTDCache<T> {
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U10> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U10> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U10> {
         &self.three_loop
@@ -365,7 +364,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U10> for LTDCache<T> 
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U13> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U13> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U13> {
         &self.four_loop
@@ -377,7 +376,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U13> for LTDCache<T> 
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U16> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U16> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U16> {
         &self.five_loop
@@ -389,7 +388,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U16> for LTDCache<T> 
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U19> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U19> {
         &self.six_loop
@@ -403,12 +402,12 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> 
 
 #[derive(Default)]
 pub struct LTDCacheAllPrecisions {
-    float_cache: LTDCache<float>,
+    float_cache: LTDCache<f64>,
     quad_cache: LTDCache<f128::f128>,
 }
 
 impl LTDCacheAllPrecisions {
-    pub fn new(topo: &Topology) -> LTDCacheAllPrecisions {
+    pub fn new(topo: &Topology<f64>) -> LTDCacheAllPrecisions {
         LTDCacheAllPrecisions {
             float_cache: LTDCache::new(topo),
             quad_cache: LTDCache::new(topo),
@@ -420,9 +419,9 @@ pub trait CachePrecisionSelector<T: FloatLike> {
     fn get(&mut self) -> &mut LTDCache<T>;
 }
 
-impl CachePrecisionSelector<float> for LTDCacheAllPrecisions {
+impl CachePrecisionSelector<f64> for LTDCacheAllPrecisions {
     #[inline]
-    fn get(&mut self) -> &mut LTDCache<float> {
+    fn get(&mut self) -> &mut LTDCache<f64> {
         &mut self.float_cache
     }
 }
@@ -458,8 +457,8 @@ pub struct ConstantDeformation {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct LTDNumerator {
-    pub coefficients: Vec<Complex<f64>>,
+pub struct LTDNumerator<T: FloatLike> {
+    pub coefficients: Vec<Complex<T>>,
     pub n_loops: usize,
     pub max_rank: usize,
     pub reduced_size: usize,
@@ -469,11 +468,11 @@ pub struct LTDNumerator {
     pub reduced_coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
     pub reduced_blocks: Vec<usize>,
     pub coefficients_modified: bool,
-    pub non_empty_coeff_map_to_reduced_numerator: Vec<Vec<(usize, usize, Complex<f64>)>>,
+    pub non_empty_coeff_map_to_reduced_numerator: Vec<Vec<(usize, usize, Complex<T>)>>,
     pub coeff_map_to_reduced_numerator: Vec<Vec<usize>>,
 }
 #[derive(Debug, Clone, Default)]
-pub struct ReducedLTDNumerator<T: Scalar + Signed + RealNumberLike> {
+pub struct ReducedLTDNumerator<T: FloatLike> {
     pub coefficients: Vec<Complex<T>>,
     pub n_loops: usize,
     pub max_rank: usize,
@@ -485,20 +484,20 @@ pub struct ReducedLTDNumerator<T: Scalar + Signed + RealNumberLike> {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Topology {
+pub struct Topology<T: FloatLike> {
     pub name: String,
     pub n_loops: usize,
-    pub analytical_result_real: Option<f64>,
-    pub analytical_result_imag: Option<f64>,
-    pub maximum_ratio_expansion_threshold: f64,
+    pub analytical_result_real: Option<T>,
+    pub analytical_result_imag: Option<T>,
+    pub maximum_ratio_expansion_threshold: T,
     #[serde(default)]
     pub global_seed: Option<[u8; 32]>,
     #[serde(default)]
-    pub e_cm_squared: f64,
+    pub e_cm_squared: T,
     #[serde(default)]
     pub on_shell_flag: usize,
-    pub external_kinematics: Vec<LorentzVector<f64>>,
-    pub loop_lines: Vec<LoopLine>,
+    pub external_kinematics: Vec<LorentzVector<T>>,
+    pub loop_lines: Vec<LoopLine<T>>,
     #[serde(default)]
     pub propagator_id_to_ll_id: Vec<(usize, usize)>,
     pub ltd_cut_structure: Vec<Vec<i8>>,
@@ -509,28 +508,28 @@ pub struct Topology {
     #[serde(default)]
     pub settings: Settings,
     #[serde(default, skip_deserializing)]
-    pub surfaces: Vec<Surface>,
+    pub surfaces: Vec<Surface<T>>,
     #[serde(default, skip_deserializing)]
-    pub all_ellipsoid_surfaces: Vec<Surface>,
+    pub all_ellipsoid_surfaces: Vec<Surface<T>>,
     #[serde(skip_deserializing)]
-    pub rotation_matrix: [[float; 3]; 3],
+    pub rotation_matrix: [[T; 3]; 3],
     #[serde(default)]
     pub fixed_deformation: Vec<FixedDeformationLimit>,
     pub constant_deformation: Option<ConstantDeformation>,
     #[serde(skip_deserializing)]
     pub all_excluded_surfaces: Vec<bool>,
     #[serde(skip_deserializing)]
-    pub numerator: LTDNumerator,
+    pub numerator: LTDNumerator<T>,
     #[serde(skip_deserializing)]
     pub partial_fractioning: PartialFractioning,
     #[serde(skip_deserializing)]
-    pub partial_fractioning_multiloops: PartialFractioningMultiLoops,
+    pub partial_fractioning_multiloops: PartialFractioningMultiLoops<T>,
     #[serde(default)]
-    pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
+    pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (T, T))>,
     #[serde(default)]
-    pub numerator_tensor_coefficients: Vec<(f64, f64)>,
+    pub numerator_tensor_coefficients: Vec<(T, T)>,
     #[serde(default)]
-    pub amplitude: Amplitude,
+    pub amplitude: Amplitude<T>,
     #[serde(default)]
     pub loop_momentum_map: Vec<(Vec<i8>, Vec<i8>)>,
     #[serde(skip_deserializing)]
@@ -539,11 +538,11 @@ pub struct Topology {
     pub subspaces: Vec<(usize, usize, Vec<(usize, usize)>)>,
 }
 
-impl Topology {
+impl Topology<f64> {
     pub fn from_file(
         filename: &str,
         settings: &Settings,
-    ) -> Result<HashMap<String, Topology>, Report> {
+    ) -> Result<HashMap<String, Topology<f64>>, Report> {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open topology file {}", filename))
             .suggestion("Does the path exist?")?;
@@ -1149,7 +1148,7 @@ impl Topology {
                 for (var_index, &v) in focus.signature.iter().enumerate() {
                     if v != 0 {
                         p.a_dense[row_counter * width + 3 * p.var_map[var_index] + dir_index] =
-                            Into::<float>::into(-v);
+                            Into::<f64>::into(-v);
 
                         if minimize && rad_lm == var_index && rad_dir == dir_index {
                             p.a_dense[row_counter * width + 3 * var_count] =

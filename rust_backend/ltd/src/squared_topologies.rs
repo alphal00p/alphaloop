@@ -2,7 +2,6 @@ use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
 use eyre::WrapErr;
 use f128::f128;
-use float;
 use integrand::IntegrandImplementation;
 use itertools::Itertools;
 use num::Complex;
@@ -22,62 +21,62 @@ use vector::{LorentzVector, RealNumberLike};
 use {DeformationStrategy, FloatLike, NormalisingFunction, Settings, MAX_LOOP};
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCut {
+pub struct CutkoskyCut<T: FloatLike> {
     pub name: String,
     pub sign: i8,
     pub level: usize,
     pub signature: (Vec<i8>, Vec<i8>),
-    pub m_squared: f64,
+    pub m_squared: T,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCutLimits {
-    pub diagrams: Vec<Topology>,
+pub struct CutkoskyCutLimits<T: FloatLike> {
+    pub diagrams: Vec<Topology<T>>,
     pub conjugate_deformation: Vec<bool>,
-    pub symmetry_factor: f64,
+    pub symmetry_factor: T,
     #[serde(default)]
-    pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
+    pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (T, T))>,
     #[serde(default)]
-    pub numerator_tensor_coefficients: Vec<(f64, f64)>,
+    pub numerator_tensor_coefficients: Vec<(T, T)>,
     #[serde(skip_deserializing)]
-    pub numerator: LTDNumerator,
+    pub numerator: LTDNumerator<T>,
     pub cb_to_lmb: Option<Vec<i8>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCuts {
-    pub cuts: Vec<CutkoskyCut>,
+pub struct CutkoskyCuts<T: FloatLike> {
+    pub cuts: Vec<CutkoskyCut<T>>,
     pub n_bubbles: usize,
-    pub uv_limits: Vec<CutkoskyCutLimits>,
+    pub uv_limits: Vec<CutkoskyCutLimits<T>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct SquaredTopology {
+pub struct SquaredTopology<T: FloatLike> {
     pub name: String,
     pub n_loops: usize,
     pub n_incoming_momenta: usize,
-    pub e_cm_squared: f64,
-    pub overall_numerator: f64,
+    pub e_cm_squared: T,
+    pub overall_numerator: T,
     pub numerator_in_loop_momentum_basis: bool,
-    pub external_momenta: Vec<LorentzVector<f64>>,
-    pub cutkosky_cuts: Vec<CutkoskyCuts>,
+    pub external_momenta: Vec<LorentzVector<T>>,
+    pub cutkosky_cuts: Vec<CutkoskyCuts<T>>,
     #[serde(skip_deserializing)]
     pub settings: Settings,
     #[serde(skip_deserializing)]
-    pub rotation_matrix: [[float; 3]; 3],
-    pub topo: Topology,
+    pub rotation_matrix: [[T; 3]; 3],
+    pub topo: Topology<T>,
 }
 
 #[derive(Debug, Clone)]
-pub struct SquaredTopologySet {
+pub struct SquaredTopologySet<T: FloatLike> {
     pub name: String,
     pub n_loops: usize,
-    pub e_cm_squared: f64,
-    topologies: Vec<SquaredTopology>,
+    pub e_cm_squared: T,
+    topologies: Vec<SquaredTopology<T>>,
     pub multiplicity: Vec<usize>,
     pub settings: Settings,
-    pub rotation_matrix: [[float; 3]; 3],
-    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
+    pub rotation_matrix: [[T; 3]; 3],
+    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<T>>)>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -92,8 +91,8 @@ pub struct SquaredTopologySetInput {
     topologies: Vec<SquaredTopologySetTopology>,
 }
 
-impl SquaredTopologySet {
-    pub fn from_one(mut squared_topology: SquaredTopology) -> SquaredTopologySet {
+impl SquaredTopologySet<f64> {
+    pub fn from_one(mut squared_topology: SquaredTopology<f64>) -> SquaredTopologySet<f64> {
         let channels = squared_topology.generate_multi_channeling_channels();
         SquaredTopologySet {
             name: squared_topology.name.clone(),
@@ -107,7 +106,10 @@ impl SquaredTopologySet {
         }
     }
 
-    pub fn from_file(filename: &str, settings: &Settings) -> Result<SquaredTopologySet, Report> {
+    pub fn from_file(
+        filename: &str,
+        settings: &Settings,
+    ) -> Result<SquaredTopologySet<f64>, Report> {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open squared topology set file {}", filename))
             .suggestion("Does the path exist?")?;
@@ -159,9 +161,9 @@ impl SquaredTopologySet {
         }
 
         let rotation_matrix = [
-            [float::one(), float::zero(), float::zero()],
-            [float::zero(), float::one(), float::zero()],
-            [float::zero(), float::zero(), float::one()],
+            [f64::one(), f64::zero(), f64::zero()],
+            [f64::zero(), f64::one(), f64::zero()],
+            [f64::zero(), f64::zero(), f64::one()],
         ];
 
         Ok(SquaredTopologySet {
@@ -175,12 +177,14 @@ impl SquaredTopologySet {
             multi_channeling_channels: unique_multi_channeling_channels,
         })
     }
+}
 
-    pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<Vec<LTDCache<T>>>>> {
+impl<T: FloatLike> SquaredTopologySet<T> {
+    pub fn create_caches(&self) -> Vec<Vec<Vec<Vec<LTDCache<T>>>>> {
         self.topologies.iter().map(|t| t.create_caches()).collect()
     }
 
-    pub fn multi_channeling<'a, T: FloatLike>(
+    pub fn multi_channeling<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
@@ -311,7 +315,7 @@ impl SquaredTopologySet {
         (x, k_def, T::one(), Complex::one(), result)
     }
 
-    pub fn evaluate<'a, T: FloatLike>(
+    pub fn evaluate<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
@@ -392,7 +396,7 @@ impl SquaredTopologySet {
 /// Cache for squared topology sets.
 #[derive(Default)]
 pub struct SquaredTopologyCache {
-    float_cache: Vec<Vec<Vec<Vec<LTDCache<float>>>>>,
+    float_cache: Vec<Vec<Vec<Vec<LTDCache<f64>>>>>,
     quad_cache: Vec<Vec<Vec<Vec<LTDCache<f128>>>>>,
 }
 
@@ -400,9 +404,9 @@ pub trait CachePrecisionSelector<T: FloatLike> {
     fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<T>>>>>;
 }
 
-impl CachePrecisionSelector<float> for SquaredTopologyCache {
+impl CachePrecisionSelector<f64> for SquaredTopologyCache {
     #[inline]
-    fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<float>>>>> {
+    fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<f64>>>>> {
         &mut self.float_cache
     }
 }
@@ -414,8 +418,8 @@ impl CachePrecisionSelector<f128> for SquaredTopologyCache {
     }
 }
 
-impl SquaredTopology {
-    pub fn from_file(filename: &str, settings: &Settings) -> Result<SquaredTopology, Report> {
+impl SquaredTopology<f64> {
+    pub fn from_file(filename: &str, settings: &Settings) -> Result<SquaredTopology<f64>, Report> {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open squared topology file {}", filename))
             .suggestion("Does the path exist?")?;
@@ -463,15 +467,17 @@ impl SquaredTopology {
         );
 
         squared_topo.rotation_matrix = [
-            [float::one(), float::zero(), float::zero()],
-            [float::zero(), float::one(), float::zero()],
-            [float::zero(), float::zero(), float::one()],
+            [f64::one(), f64::zero(), f64::zero()],
+            [f64::zero(), f64::one(), f64::zero()],
+            [f64::zero(), f64::zero(), f64::one()],
         ];
 
         Ok(squared_topo)
     }
+}
 
-    fn evaluate_signature<T: RealNumberLike + FromPrimitive>(
+impl<T: FloatLike> SquaredTopology<T> {
+    fn evaluate_signature(
         signature: &(Vec<i8>, Vec<i8>),
         external_momenta: &[LorentzVector<T>],
         loop_momenta: &[LorentzVector<T>],
@@ -554,7 +560,7 @@ impl SquaredTopology {
         multi_channeling_channels
     }
 
-    pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<LTDCache<T>>>> {
+    pub fn create_caches(&self) -> Vec<Vec<Vec<LTDCache<T>>>> {
         let mut caches = vec![];
         for cutkosky_cuts in &self.cutkosky_cuts {
             let mut lim_cache = vec![];
@@ -572,7 +578,7 @@ impl SquaredTopology {
 
     #[inline]
     /// Kahlen function.
-    fn lambda<T: FloatLike>(s: T, sqr_mass_a: T, sqr_mass_b: T) -> T {
+    fn lambda(s: T, sqr_mass_a: T, sqr_mass_b: T) -> T {
         s * s + sqr_mass_a * sqr_mass_a + sqr_mass_b * sqr_mass_b
             - Into::<T>::into(2.) * s * sqr_mass_a
             - Into::<T>::into(2.) * sqr_mass_b * sqr_mass_a
@@ -581,8 +587,8 @@ impl SquaredTopology {
 
     /// Solve the momentum conservation delta using Newton's method. In the case of massless propagators and an external momentum with 0 spatial part,
     /// it will take one step to find the solution. This function returns the scaling parameter and its Jacobian.
-    pub fn find_scaling<T: FloatLike>(
-        cutkosky_cuts: &CutkoskyCuts,
+    pub fn find_scaling(
+        cutkosky_cuts: &CutkoskyCuts<T>,
         external_momenta: &[LorentzVector<T>],
         loop_momenta: &[LorentzVector<T>],
         incoming_energy: T,
@@ -662,7 +668,7 @@ impl SquaredTopology {
         Some(solutions)
     }
 
-    pub fn evaluate_mom<T: FloatLike>(
+    pub fn evaluate_mom(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         caches: &mut [Vec<Vec<LTDCache<T>>>],
@@ -769,7 +775,7 @@ impl SquaredTopology {
         result
     }
 
-    pub fn evaluate_cut<T: FloatLike>(
+    pub fn evaluate_cut(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         cut_momenta: &mut [LorentzVector<T>],
@@ -1298,12 +1304,12 @@ impl SquaredTopology {
     }
 
     /// Create a rotated version of this squared topology. The axis needs to be normalized.
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> SquaredTopology {
+    fn rotate(&self, angle: T, axis: (T, T, T)) -> SquaredTopology<T> {
         let cos_t = angle.cos();
         let sin_t = angle.sin();
-        let cos_t_bar = float::one() - angle.cos();
+        let cos_t_bar = T::one() - angle.cos();
 
-        let rot_matrix: [[float; 3]; 3] = [
+        let rot_matrix: [[T; 3]; 3] = [
             [
                 cos_t + axis.0 * axis.0 * cos_t_bar,
                 axis.0 * axis.1 * cos_t_bar - axis.2 * sin_t,
@@ -1325,9 +1331,9 @@ impl SquaredTopology {
         rotated_topology.rotation_matrix = rot_matrix.clone();
 
         for e in &mut rotated_topology.external_momenta {
-            let old_x = float::from_f64(e.x).unwrap();
-            let old_y = float::from_f64(e.y).unwrap();
-            let old_z = float::from_f64(e.z).unwrap();
+            let old_x = T::from_f64(e.x).unwrap();
+            let old_y = T::from_f64(e.y).unwrap();
+            let old_z = T::from_f64(e.z).unwrap();
             e.x = (rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z)
                 .to_f64()
                 .unwrap();
@@ -1349,11 +1355,11 @@ impl SquaredTopology {
     }
 }
 
-impl IntegrandImplementation for SquaredTopologySet {
+impl<T: FloatLike> IntegrandImplementation for SquaredTopologySet<T> {
     type Cache = SquaredTopologyCache;
 
     /// Create a rotated version of this squared topology. The axis needs to be normalized.
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> SquaredTopologySet {
+    fn rotate(&self, angle: T, axis: (T, T, T)) -> SquaredTopologySet<T> {
         let rotated_topologies: Vec<_> = self
             .topologies
             .iter()
@@ -1396,33 +1402,17 @@ impl IntegrandImplementation for SquaredTopologySet {
     }
 
     #[inline]
-    fn evaluate_float<'a>(
+    fn evaluate<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
         event_manager: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
-        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
-        float,
-        Complex<float>,
-        Complex<float>,
-    ) {
-        self.evaluate(x, cache.get(), event_manager)
-    }
-
-    #[inline]
-    fn evaluate_f128<'a>(
-        &mut self,
-        x: &'a [f64],
-        cache: &mut SquaredTopologyCache,
-        event_manager: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
-        f128,
-        Complex<f128>,
-        Complex<f128>,
+        ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        T,
+        Complex<T>,
+        Complex<T>,
     ) {
         self.evaluate(x, cache.get(), event_manager)
     }

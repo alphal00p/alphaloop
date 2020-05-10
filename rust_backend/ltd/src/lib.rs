@@ -38,13 +38,6 @@ use vector::{Field, RealNumberLike};
 pub const MAX_LOOP: usize = 4;
 pub const MAX_PROP: usize = 10;
 
-#[allow(non_camel_case_types)]
-#[cfg(feature = "use_f128")]
-pub type float = f128::f128;
-#[allow(non_camel_case_types)]
-#[cfg(not(feature = "use_f128"))]
-pub type float = f64;
-
 pub trait FloatLike:
     From<f64>
     + Num
@@ -618,7 +611,7 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 py_class!(class CrossSection |py| {
     data squared_topology: RefCell<squared_topologies::SquaredTopology>;
     data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopologySet>>;
-    data caches: RefCell<Vec<Vec<Vec<topologies::LTDCache<float>>>>>;
+    data caches: RefCell<Vec<Vec<Vec<topologies::LTDCache<f64>>>>>;
     data caches_f128: RefCell<Vec<Vec<Vec<topologies::LTDCache<f128::f128>>>>>;
     data dashboard: RefCell<dashboard::Dashboard>;
 
@@ -631,7 +624,7 @@ py_class!(class CrossSection |py| {
             squared_topologies::SquaredTopologySet::from_one(squared_topology.clone()),
             settings.clone(), true, dashboard.status_update_sender.clone(), 0);
 
-        let caches = squared_topology.create_caches::<float>();
+        let caches = squared_topology.create_caches::<f64>();
         let caches_f128 = squared_topology.create_caches::<f128::f128>();
 
         CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(integrand), RefCell::new(caches), RefCell::new(caches_f128),
@@ -694,7 +687,7 @@ py_class!(class CrossSection |py| {
     def evaluate_cut(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
         let mut squared_topology = self.squared_topology(py).borrow_mut();
 
-        let mut external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = squared_topology
+        let mut external_momenta: ArrayVec<[LorentzVector<f64>; MAX_LOOP]> = squared_topology
             .external_momenta
             .iter()
             .map(|m| m.map(|c| c.into()))

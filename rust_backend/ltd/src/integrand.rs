@@ -3,7 +3,6 @@ use color_eyre::{Help, Report};
 use dashboard::{StatusUpdate, StatusUpdateSender};
 use eyre::WrapErr;
 use f128::f128;
-use float;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
@@ -18,32 +17,21 @@ use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 
 pub trait IntegrandImplementation: Clone {
     type Cache: Default;
+    type T: FloatLike;
 
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> Self;
-    fn evaluate_float<'a>(
+    fn upgrade(&self) -> Self;
+    fn rotate(&self, angle: Self::T, axis: (Self::T, Self::T, Self::T)) -> Self;
+    fn evaluate<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut Self::Cache,
         events: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
-        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
-        float,
-        Complex<float>,
-        Complex<float>,
-    );
-
-    fn evaluate_f128<'a>(
-        &mut self,
-        x: &'a [f64],
-        cache: &mut Self::Cache,
-        events: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
-        f128,
-        Complex<f128>,
-        Complex<f128>,
+        ArrayVec<[LorentzVector<Complex<Self::T>>; MAX_LOOP]>,
+        Self::T,
+        Complex<Self::T>,
+        Complex<Self::T>,
     );
 
     fn create_cache(&self) -> Self::Cache;
@@ -51,7 +39,7 @@ pub trait IntegrandImplementation: Clone {
 
 #[derive(Debug, Copy, Clone)]
 pub struct IntegrandStatistics {
-    pub running_max: Complex<float>,
+    pub running_max: Complex<f64>,
     pub total_samples: usize,
     pub nan_point_count: usize,
     pub unstable_point_count: usize,
@@ -113,16 +101,27 @@ pub struct Integrand<I: IntegrandImplementation> {
     pub status_update_sender: StatusUpdateSender,
 }
 
-impl IntegrandImplementation for Topology {
+/*impl IntegrandImplementation for Topology<f64> {
+    fn upgrade(&self) -> Topology<f128> {
+        unimplemented!();
+    }
+}*/
+
+impl<T: FloatLike> IntegrandImplementation for Topology<T> {
     type Cache = LTDCacheAllPrecisions;
+    type T = T;
+
+    fn upgrade(&self) -> Topology<f128> {
+        unimplemented!();
+    }
 
     /// Create a rotated version of this topology. The axis needs to be normalized.
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
+    fn rotate(&self, angle: T, axis: (T, T, T)) -> Topology<T> {
         let cos_t = angle.cos();
         let sin_t = angle.sin();
-        let cos_t_bar = float::one() - angle.cos();
+        let cos_t_bar = T::one() - angle.cos();
 
-        let rot_matrix: [[float; 3]; 3] = [
+        let rot_matrix: [[T; 3]; 3] = [
             [
                 cos_t + axis.0 * axis.0 * cos_t_bar,
                 axis.0 * axis.1 * cos_t_bar - axis.2 * sin_t,
@@ -145,9 +144,9 @@ impl IntegrandImplementation for Topology {
         rotated_topology.rotation_matrix = rot_matrix.clone();
 
         for e in &mut rotated_topology.external_kinematics {
-            let old_x = float::from_f64(e.x).unwrap();
-            let old_y = float::from_f64(e.y).unwrap();
-            let old_z = float::from_f64(e.z).unwrap();
+            let old_x = T::from_f64(e.x).unwrap();
+            let old_y = T::from_f64(e.y).unwrap();
+            let old_z = T::from_f64(e.z).unwrap();
             e.x = (rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z)
                 .to_f64()
                 .unwrap();
@@ -161,9 +160,9 @@ impl IntegrandImplementation for Topology {
 
         for ll in &mut rotated_topology.loop_lines {
             for p in &mut ll.propagators {
-                let old_x = float::from_f64(p.q.x).unwrap();
-                let old_y = float::from_f64(p.q.y).unwrap();
-                let old_z = float::from_f64(p.q.z).unwrap();
+                let old_x = T::from_f64(p.q.x).unwrap();
+                let old_y = T::from_f64(p.q.y).unwrap();
+                let old_z = T::from_f64(p.q.z).unwrap();
                 p.q.x = (rot_matrix[0][0] * old_x
                     + rot_matrix[0][1] * old_y
                     + rot_matrix[0][2] * old_z)
@@ -225,33 +224,17 @@ impl IntegrandImplementation for Topology {
     }
 
     #[inline]
-    fn evaluate_float<'a>(
+    fn evaluate<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
         _events: Option<&mut EventManager>,
     ) -> (
         &'a [f64],
-        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
-        float,
-        Complex<float>,
-        Complex<float>,
-    ) {
-        self.evaluate(x, cache.get())
-    }
-
-    #[inline]
-    fn evaluate_f128<'a>(
-        &mut self,
-        x: &'a [f64],
-        cache: &mut LTDCacheAllPrecisions,
-        _events: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
-        f128,
-        Complex<f128>,
-        Complex<f128>,
+        ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
+        T,
+        Complex<T>,
+        Complex<T>,
     ) {
         self.evaluate(x, cache.get())
     }
@@ -406,12 +389,11 @@ impl<I: IntegrandImplementation> Integrand<I> {
             .num_f64_samples
             .max(settings.general.num_f128_samples)
         {
-            let angle =
-                float::from_f64(rng.gen::<f64>() * 2.).unwrap() * <float as FloatConst>::PI();
+            let angle = I::T::from_f64(rng.gen::<f64>() * 2.).unwrap() * <I::T as FloatConst>::PI();
             let mut rv = (
-                float::from_f64(rng.gen()).unwrap(),
-                float::from_f64(rng.gen()).unwrap(),
-                float::from_f64(rng.gen()).unwrap(),
+                I::T::from_f64(rng.gen()).unwrap(),
+                I::T::from_f64(rng.gen()).unwrap(),
+                I::T::from_f64(rng.gen()).unwrap(),
             ); // rotation axis
             let inv_norm = (rv.0 * rv.0 + rv.1 * rv.1 + rv.2 * rv.2).sqrt().inv();
             rv = (rv.0 * inv_norm, rv.1 * inv_norm, rv.2 * inv_norm);
@@ -543,8 +525,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
             s.nan_point_count, s.nan_point_count as f64 / s.total_samples as f64 * 100.).unwrap();
     }
 
-    check_stability_precision!(check_stability_float, evaluate_float, float);
-    check_stability_precision!(check_stability_quad, evaluate_f128, f128);
+    check_stability_precision!(check_stability_T, evaluate, f64);
+    check_stability_precision!(check_stability_quad, evaluate, f128);
 
     pub fn merge_statistics(&mut self, other: &mut Integrand<I>) {
         self.event_manager.merge_samples(&mut other.event_manager);
@@ -564,7 +546,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
     }
 
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
-    pub fn evaluate(&mut self, x: &[f64], mut weight: f64, iter: usize) -> Complex<float> {
+    pub fn evaluate(&mut self, x: &[f64], mut weight: f64, iter: usize) -> Complex<f64> {
         let start_time = Instant::now(); // time the evaluation
 
         // NOTE: only correct for Vegas
@@ -629,8 +611,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         let mut cache = std::mem::replace(&mut self.cache, I::Cache::default());
         let (x, k_def, jac_para, jac_def, mut result) =
-            self.topologies[0].evaluate_float(x, &mut cache, Some(&mut event_manager));
-        let (d, diff, min_rot, max_rot) = self.check_stability_float(
+            self.topologies[0].evaluate_T(x, &mut cache, Some(&mut event_manager));
+        let (d, diff, min_rot, max_rot) = self.check_stability_T(
             x,
             result,
             self.settings.general.num_f64_samples,
@@ -768,8 +750,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
                         .unwrap()
                     {
                         result = Complex::new(
-                            <float as NumCast>::from(result_f128.re).unwrap(),
-                            <float as NumCast>::from(result_f128.im).unwrap(),
+                            <I::T as NumCast>::from(result_f128.re).unwrap(),
+                            <I::T as NumCast>::from(result_f128.im).unwrap(),
                         );
                     } else {
                         self.status_update_sender
@@ -788,8 +770,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 // we have saved the integration!
                 // TODO: also modify the other parameters for the print_info below?
                 result = Complex::new(
-                    <float as NumCast>::from(result_f128.re).unwrap(),
-                    <float as NumCast>::from(result_f128.im).unwrap(),
+                    <I::T as NumCast>::from(result_f128.re).unwrap(),
+                    <I::T as NumCast>::from(result_f128.im).unwrap(),
                 );
             }
         } else {

@@ -1,7 +1,6 @@
 use arrayvec::ArrayVec;
 use colored::Colorize;
 use dual_num::{DimName, DualN};
-use float;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
@@ -35,13 +34,13 @@ type Dual16<T> = DualN<T, dual_num::U16>;
 #[cfg(feature = "higher_loops")]
 type Dual19<T> = DualN<T, dual_num::U19>;
 
-impl LoopLine {
+impl<T: FloatLike> LoopLine<T> {
     /// Return the inverse of the evaluated loop line
-    fn evaluate<T: FloatLike>(
+    fn evaluate(
         &self,
         loop_momenta: &[LorentzVector<num::Complex<T>>],
         cut: &Cut,
-        topo: &Topology,
+        topo: &Topology<T>,
         cache: &mut LTDCache<T>,
     ) -> Result<num::Complex<T>, &'static str> {
         // only set the values when we use them
@@ -119,7 +118,7 @@ impl LoopLine {
     }
 }
 
-impl Topology {
+impl<T: FloatLike> Topology<T> {
     /// Compute LTD related quantities for this topology.
     /// If `external_momenta_set` is true, the existence conditions
     /// for ellipsoids and e_cm are determined as well.
@@ -158,9 +157,9 @@ impl Topology {
         }
         // set the identity rotation matrix
         self.rotation_matrix = [
-            [float::one(), float::zero(), float::zero()],
-            [float::zero(), float::one(), float::zero()],
-            [float::zero(), float::zero(), float::one()],
+            [T::one(), T::zero(), T::zero()],
+            [T::zero(), T::one(), T::zero()],
+            [T::zero(), T::zero(), T::one()],
         ];
 
         // copy the signature to the propagators
@@ -297,14 +296,14 @@ impl Topology {
             // find all ellipsoids per cut option by expressing each propagator in terms of
             // the cut momenta
             for (cut_option_index, cut_option) in cut_options.iter().enumerate() {
-                let mut cut_shift: Vec<LorentzVector<float>> = vec![]; // qs of cut
+                let mut cut_shift: Vec<LorentzVector<T>> = vec![]; // qs of cut
                 let mut cut_mass = vec![];
                 for (cut, ll) in cut_option.iter().zip_eq(self.loop_lines.iter()) {
                     if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut
                     {
                         cut_shift.push(ll.propagators[*cut_prop_index].q.cast());
                         cut_mass.push(
-                            float::from_f64(ll.propagators[*cut_prop_index].m_squared.sqrt())
+                            T::from_f64(ll.propagators[*cut_prop_index].m_squared.sqrt())
                                 .unwrap(),
                         );
                     }
@@ -328,7 +327,7 @@ impl Topology {
                             continue;
                         }
 
-                        let mut surface_shift: LorentzVector<float> = onshell_prop.q.cast();
+                        let mut surface_shift: LorentzVector<T> = onshell_prop.q.cast();
                         for (&sign, q) in sig_ll_in_cb.iter().zip_eq(cut_shift.iter()) {
                             surface_shift -= q.multiply_sign(sign);
                         }
@@ -341,12 +340,12 @@ impl Topology {
                             }
                         }
 
-                        let mut cut_mass_sum = float::zero();
+                        let mut cut_mass_sum = T::zero();
                         for (ss, mass) in surface_signs.iter().zip_eq(cut_mass.iter()) {
                             cut_mass_sum += mass.multiply_sign(*ss);
                         }
 
-                        let surface_mass = float::from_f64(onshell_prop.m_squared.sqrt()).unwrap();
+                        let surface_mass = T::from_f64(onshell_prop.m_squared.sqrt()).unwrap();
 
                         let group = self.surfaces.len(); // every surface is in a different group at first
                         let surface_sign_sum = surface_signs.iter().sum::<i8>();
@@ -370,12 +369,12 @@ impl Topology {
                                 if external_momenta_set {
                                     if surface_shift.square()
                                         - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                        >= Into::<float>::into(-1e-13 * self.e_cm_squared)
-                                        && surface_shift.t.multiply_sign(delta_sign) < float::zero()
+                                        >= Into::<T>::into(-1e-13 * self.e_cm_squared)
+                                        && surface_shift.t.multiply_sign(delta_sign) < T::zero()
                                     {
                                         if surface_shift.square()
                                             - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                            < Into::<float>::into(1e-10 * self.e_cm_squared)
+                                            < Into::<T>::into(1e-10 * self.e_cm_squared)
                                         {
                                             if surface_mass.is_zero() {
                                                 is_pinch = true;
@@ -437,10 +436,10 @@ impl Topology {
                                     (1, 1) => {
                                         surface_shift.square()
                                             - (surface_mass - cut_mass_sum.abs()).powi(2)
-                                            <= Into::<float>::into(-1e-13 * self.e_cm_squared)
+                                            <= Into::<T>::into(-1e-13 * self.e_cm_squared)
                                     }
                                     (1, _) | (_, 1) => {
-                                        let mut eval = float::zero();
+                                        let mut eval = T::zero();
                                         for (&ss, mass) in
                                             surface_signs.iter().zip_eq(cut_mass.iter())
                                         {
@@ -460,19 +459,19 @@ impl Topology {
                                             || neg_surface_signs_count == 1 && delta_sign == -1
                                         {
                                             eval += (surface_shift.spatial_squared()
-                                                + Into::<float>::into(onshell_prop.m_squared))
+                                                + Into::<T>::into(onshell_prop.m_squared))
                                             .sqrt()
                                             .multiply_sign(delta_sign);
                                         } else {
-                                            eval += Into::<float>::into(onshell_prop.m_squared)
+                                            eval += Into::<T>::into(onshell_prop.m_squared)
                                                 .sqrt()
                                                 .multiply_sign(delta_sign);
                                         }
 
                                         eval += surface_shift.t;
 
-                                        pos_surface_signs_count == 1 && eval > float::zero()
-                                            || neg_surface_signs_count == 1 && eval < float::zero()
+                                        pos_surface_signs_count == 1 && eval > T::zero()
+                                            || neg_surface_signs_count == 1 && eval < T::zero()
                                     }
                                     _ => true,
                                 } {
@@ -617,12 +616,12 @@ impl Topology {
             }
 
             // determine the shift
-            let mut surface_shift: LorentzVector<float> = self.loop_lines[s.onshell_ll_index]
+            let mut surface_shift: LorentzVector<T> = self.loop_lines[s.onshell_ll_index]
                 .propagators[s.onshell_prop_index]
                 .q
                 .cast();
 
-            let mut mass_sum: float = self.loop_lines[s.onshell_ll_index].propagators
+            let mut mass_sum: T = self.loop_lines[s.onshell_ll_index].propagators
                 [s.onshell_prop_index]
                 .m_squared
                 .sqrt()
@@ -632,7 +631,7 @@ impl Topology {
             for (cut, ll) in s.cut.iter().zip_eq(self.loop_lines.iter()) {
                 if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
                     mass_sum +=
-                        Into::<float>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
+                        Into::<T>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
                     surface_shift -= ll.propagators[*cut_prop_index]
                         .q
                         .cast()
@@ -650,11 +649,11 @@ impl Topology {
             let mut is_pinch = false;
 
             if surface_shift.square() - mass_sum.powi(2)
-                >= Into::<float>::into(-1e-13 * self.e_cm_squared)
-                && surface_shift.t.multiply_sign(s.delta_sign) < float::zero()
+                >= Into::<T>::into(-1e-13 * self.e_cm_squared)
+                && surface_shift.t.multiply_sign(s.delta_sign) < T::zero()
             {
                 if surface_shift.square() - mass_sum.powi(2)
-                    < Into::<float>::into(1e-10 * self.e_cm_squared)
+                    < Into::<T>::into(1e-10 * self.e_cm_squared)
                 {
                     if mass_sum.is_zero() {
                         is_pinch = true;
@@ -724,7 +723,7 @@ impl Topology {
                 // now test if the source is equal to the shift of the propagators
                 for (ll_index, prop_index) in &d_lim.excluded_propagators {
                     // determine the sum of sources using the signature
-                    let mut source_sum: LorentzVector<float> = LorentzVector::default();
+                    let mut source_sum: LorentzVector<T> = LorentzVector::default();
                     for (sign, source) in self.loop_lines[*ll_index]
                         .signature
                         .iter()
@@ -733,7 +732,7 @@ impl Topology {
                         source_sum += source.multiply_sign(*sign);
                     }
 
-                    let diff: LorentzVector<float> =
+                    let diff: LorentzVector<T> =
                         source_sum + self.loop_lines[*ll_index].propagators[*prop_index].q;
 
                     if diff.spatial_squared() > 1e-10 * self.e_cm_squared {
@@ -771,7 +770,7 @@ impl Topology {
     }
 
     #[inline]
-    pub fn compute_min_mij(&self) -> f64 {
+    pub fn compute_min_mij(&self) -> T {
         // TODO make this quantity static as it does not need to be recomputed statically every
         // time.
         if self.settings.deformation.fixed.m_ij < 0. {
@@ -785,7 +784,7 @@ impl Topology {
 
     /// Map a vector in the unit hypercube to the infinite hypercube.
     /// Also compute the Jacobian.
-    pub fn parameterize<T: FloatLike>(
+    pub fn parameterize(
         x: &[f64],
         e_cm_squared: f64,
         loop_index: usize,
@@ -868,7 +867,7 @@ impl Topology {
         (l_space, jac)
     }
 
-    pub fn inv_parametrize<T: FloatLike>(
+    pub fn inv_parametrize(
         mom: &LorentzVector<T>,
         e_cm_squared: f64,
         loop_index: usize,
@@ -933,10 +932,7 @@ impl Topology {
     }
 
     #[inline]
-    fn compute_lambda_factor<U: DimName, T: FloatLike>(
-        x: DualN<T, U>,
-        y: DualN<T, U>,
-    ) -> DualN<T, U>
+    fn compute_lambda_factor<U: DimName>(x: DualN<T, U>, y: DualN<T, U>) -> DualN<T, U>
     where
         dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
         dual_num::Owned<T, U>: Copy,
@@ -955,7 +951,7 @@ impl Topology {
     /// for each cut and taking the minimum of their respective lambdas
     /// Additionally, check for the expansion condition and make sure that
     /// the real part of the cut propagator is positive
-    fn determine_lambda<U: DimName, T: FloatLike>(
+    fn determine_lambda<U: DimName>(
         &self,
         kappas: &[LorentzVector<DualN<T, U>>],
         lambda_max: f64,
@@ -1263,7 +1259,7 @@ impl Topology {
     }
 
     /// Compute the normal vector for each ellipsoid and evaluate each ellipsoid.
-    fn compute_ellipsoid_deformation_vector<U: DimName, T: FloatLike>(
+    fn compute_ellipsoid_deformation_vector<U: DimName>(
         &self,
         normalize: bool,
         cache: &mut LTDCache<T>,
@@ -1375,7 +1371,7 @@ impl Topology {
     }
 
     /// Construct a deformation vector by going through all the ellipsoids
-    fn deform_ellipsoids<U: DimName, T: FloatLike>(
+    fn deform_ellipsoids<U: DimName>(
         &self,
         cache: &mut LTDCache<T>,
     ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
@@ -1441,9 +1437,9 @@ impl Topology {
     }
 
     /// Evaluate a surface with complex momenta.
-    fn evaluate_surface_complex<T: FloatLike>(
+    fn evaluate_surface_complex(
         &self,
-        surf: &Surface,
+        surf: &Surface<T>,
         loop_momenta: &[LorentzVector<num::Complex<T>>],
     ) -> num::Complex<T> {
         // TODO: use a cache
@@ -1493,7 +1489,7 @@ impl Topology {
     }
 
     /// Construct a constant deformation vector.
-    fn deform_constant<U: DimName, T: FloatLike>(
+    fn deform_constant<U: DimName>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
     ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
@@ -1554,7 +1550,7 @@ impl Topology {
         kappas
     }
 
-    fn deform_fixed<U: DimName, T: FloatLike>(
+    fn deform_fixed<U: DimName>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         cache: &mut LTDCache<T>,
@@ -1976,7 +1972,7 @@ impl Topology {
         kappas
     }
 
-    fn normalize_on_e_surfaces<U: DimName, T: FloatLike>(
+    fn normalize_on_e_surfaces<U: DimName>(
         &self,
         kappas: &mut [LorentzVector<DualN<T, U>>],
         selector_m: f64,
@@ -2057,7 +2053,7 @@ impl Topology {
         }
     }
 
-    fn deform_generic<U: DimName, T: FloatLike>(
+    fn deform_generic<U: DimName>(
         &self,
         loop_momenta: &[LorentzVector<DualN<T, U>>],
         cache: &mut LTDCache<T>,
@@ -2207,7 +2203,7 @@ impl Topology {
         (r, jac)
     }
 
-    pub fn deform<T: FloatLike>(
+    pub fn deform(
         &self,
         loop_momenta: &[LorentzVector<T>],
         cache: &mut LTDCache<T>,
@@ -2303,7 +2299,7 @@ impl Topology {
 
     /// Set the energy component of the loop momenta according to
     /// `cut`. It takes the cut energies from the cache.
-    pub fn set_loop_momentum_energies<T: FloatLike>(
+    pub fn set_loop_momentum_energies(
         &self,
         k_def: &mut [LorentzVector<Complex<T>>],
         cut: &Vec<Cut>,
@@ -2339,7 +2335,7 @@ impl Topology {
 
     /// Evaluate a higher order cut by differentiating all non-cut propagators and the numerator.
     /// The power of the cut propagators should be 0.
-    pub fn evaluate_higher_order_cut_2<T: FloatLike>(
+    pub fn evaluate_higher_order_cut_2(
         &self,
         cut: &Vec<Cut>,
         cut_propagators: &[usize],
@@ -2504,7 +2500,7 @@ impl Topology {
     ///     - derivative_map: order of derivatives expressed in cut basis
     ///     - numerator_powes: powers of the monomial in cut basis
     ///     - mat : if chuncked is a matrix with the cut ll signatures as rows
-    pub fn evaluate_higher_order_cut<T: FloatLike>(
+    pub fn evaluate_higher_order_cut(
         &self,
         cut: &Vec<Cut>,
         cut_propagators: &[usize],
@@ -2568,10 +2564,10 @@ impl Topology {
         result / norm
     }
 
-    pub fn evaluate_cut<T: FloatLike>(
+    pub fn evaluate_cut(
         &self,
         k_def: &mut [LorentzVector<Complex<T>>],
-        numerator: &LTDNumerator,
+        numerator: &LTDNumerator<T>,
         cut: &Vec<Cut>,
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
@@ -2750,7 +2746,7 @@ impl Topology {
     }
 
     /// Compute the complex cut energies and evaluate the cut loop lines
-    pub fn compute_complex_cut_energies<T: FloatLike>(
+    pub fn compute_complex_cut_energies(
         &self,
         k_def: &[LorentzVector<Complex<T>>],
         cache: &mut LTDCache<T>,
@@ -2805,7 +2801,7 @@ impl Topology {
         Ok(())
     }
 
-    pub fn evaluate_multi_channel<T: FloatLike>(
+    pub fn evaluate_multi_channel(
         &self,
         k: &[LorentzVector<T>],
         cache: &mut LTDCache<T>,
@@ -2952,7 +2948,7 @@ impl Topology {
         Ok(res)
     }
 
-    pub fn evaluate_all_dual_integrands<T: FloatLike>(
+    pub fn evaluate_all_dual_integrands(
         &self,
         k_def: &mut [LorentzVector<Complex<T>>],
         cache: &mut LTDCache<T>,
@@ -3108,7 +3104,7 @@ impl Topology {
         Ok(result)
     }
 
-    pub fn evaluate<'a, T: FloatLike>(
+    pub fn evaluate<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCache<T>,
@@ -3220,10 +3216,7 @@ impl Topology {
         }
     }
 
-    pub fn evaluate_ellipsoids_matrix_1l<T: FloatLike>(
-        ll_with_loop: &LoopLine,
-        cache: &mut LTDCache<T>,
-    ) {
+    pub fn evaluate_ellipsoids_matrix_1l(ll_with_loop: &LoopLine<T>, cache: &mut LTDCache<T>) {
         for p1 in ll_with_loop.propagators.iter() {
             for p2 in ll_with_loop.propagators.iter() {
                 cache.complex_ellipsoids[p1.id][p2.id] = cache.complex_cut_energies[p1.id]
@@ -3234,8 +3227,11 @@ impl Topology {
     }
 }
 
-impl LTDNumerator {
-    pub fn from_sparse(n_loops: usize, coefficients: &[(Vec<usize>, (f64, f64))]) -> LTDNumerator {
+impl<T: FloatLike> LTDNumerator<T> {
+    pub fn from_sparse(
+        n_loops: usize,
+        coefficients: &[(Vec<usize>, (T, T))],
+    ) -> LTDNumerator<T> {
         let rank = coefficients.iter().map(|c| c.0.len()).max().unwrap();
 
         let dense_length = (0..=rank)
@@ -3265,7 +3261,7 @@ impl LTDNumerator {
         LTDNumerator::new(n_loops, dense.as_slice())
     }
 
-    pub fn new(n_loops: usize, coefficients: &[Complex<f64>]) -> LTDNumerator {
+    pub fn new(n_loops: usize, coefficients: &[Complex<T>]) -> LTDNumerator<T> {
         // Determine max_rank
         let mut max_rank = 0;
         let mut check_size = 1;
@@ -3410,7 +3406,7 @@ impl LTDNumerator {
     }
 
     /// Generate a numerator that is 1.
-    pub fn one(n_loops: usize) -> LTDNumerator {
+    pub fn one(n_loops: usize) -> LTDNumerator<T> {
         LTDNumerator::new(n_loops, &[Complex::one()])
     }
 
@@ -3445,7 +3441,7 @@ impl LTDNumerator {
     /// Perform the rotation to the vector component of the coefficients
     /// C_i1_i2_..._in -> R_i1_j1... R_in_jn C_j1_j2_..._jn
     /// NOTE: untested for multiloops
-    pub fn rotate(&self, rotation_matrix: [[float; 3]; 3]) -> LTDNumerator {
+    pub fn rotate(&self, rotation_matrix: [[T; 3]; 3]) -> LTDNumerator<T> {
         if self.coefficients.len() == 0 {
             return LTDNumerator::one(self.n_loops);
         }
@@ -3503,7 +3499,7 @@ impl LTDNumerator {
         LTDNumerator::new(self.n_loops, &coefficients)
     }
 
-    pub fn get_monomial_energy_rec<T: FloatLike>(
+    pub fn get_monomial_energy_rec(
         &self,
         i: usize,
         loop_momenta: &[LorentzVector<Complex<T>>],
@@ -3532,7 +3528,7 @@ impl LTDNumerator {
     }
 
     #[inline(always)]
-    pub fn get_monomial_energy<T: FloatLike>(
+    pub fn get_monomial_energy(
         &self,
         i: usize,
         loop_momenta: &[LorentzVector<Complex<T>>],
@@ -3550,7 +3546,7 @@ impl LTDNumerator {
 
     /// Change from the loop momentum basis to the cut basis for a polynomial involving only
     /// the energy components of the loop momenta.
-    pub fn change_monomial_basis<T: FloatLike>(
+    pub fn change_monomial_basis(
         &self,
         powers: &[u8; MAX_LOOP],
         mat: &Vec<i8>,
@@ -3623,7 +3619,7 @@ impl LTDNumerator {
         }
     }
 
-    pub fn evaluate_reduced_in_lb<T: FloatLike>(
+    pub fn evaluate_reduced_in_lb(
         &self,
         loop_momenta: &[LorentzVector<Complex<T>>],
         absorb_n_energies: usize,
@@ -3688,10 +3684,10 @@ impl LTDNumerator {
         }
     }
 
-    pub fn evaluate_reduced_in_cb<T: FloatLike>(
+    pub fn evaluate_reduced_in_cb(
         &self,
         cut: &Vec<Cut>,
-        loop_lines: &Vec<LoopLine>,
+        loop_lines: &Vec<LoopLine<T>>,
         mat: &Vec<i8>,
         cache: &mut LTDCache<T>,
         num_id: usize,
@@ -3742,7 +3738,7 @@ impl LTDNumerator {
         }
     }
 
-    pub fn evaluate_lb<T: FloatLike>(
+    pub fn evaluate_lb(
         &self,
         loop_momenta: &[LorentzVector<Complex<T>>],
         cache: &mut LTDCache<T>,
@@ -3766,11 +3762,7 @@ impl LTDNumerator {
         }
         res
     }
-    pub fn evaluate<T: FloatLike>(
-        &self,
-        cut_propagators: &[usize],
-        cache: &mut LTDCache<T>,
-    ) -> Complex<T> {
+    pub fn evaluate(&self, cut_propagators: &[usize], cache: &mut LTDCache<T>) -> Complex<T> {
         let mut res = Complex::default();
         for (numerator_powers, coeff) in self
             .reduced_coefficient_index_to_powers

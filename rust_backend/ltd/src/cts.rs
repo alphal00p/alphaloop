@@ -5,10 +5,10 @@ use utils;
 use vector::LorentzVector;
 use FloatLike;
 
-impl Topology {
+impl<T: FloatLike> Topology<T> {
     #[inline]
     ///Compute the xi's for the collinear limits, here mom should always by on-shell
-    fn collinear_x<T: FloatLike>(
+    fn collinear_x(
         &self,
         loopmom: &LorentzVector<Complex<T>>,
         mom: &LorentzVector<f64>,
@@ -22,14 +22,14 @@ impl Topology {
     }
 
     #[inline]
-    fn xij<T: FloatLike>(&self, i: usize, j: usize) -> T {
+    fn xij(&self, i: usize, j: usize) -> T {
         let qji = self.loop_lines[0].propagators[j].q - self.loop_lines[0].propagators[i].q;
         let pi = self.external_kinematics[i];
         T::one() + T::from_f64(qji.square()).unwrap() / (T::from_f64(2.0 * qji.dot(&pi)).unwrap())
     }
 
     #[inline]
-    fn tij<T: FloatLike>(&self, i: usize, j: usize, x: T) -> T {
+    fn tij(&self, i: usize, j: usize, x: T) -> T {
         let qji = self.loop_lines[0].propagators[j].q - self.loop_lines[0].propagators[i].q;
         let pi = self.external_kinematics[i];
         T::one()
@@ -37,7 +37,7 @@ impl Topology {
                 + T::from_f64(qji.square()).unwrap())
     }
 
-    fn aij<T: FloatLike>(&self, i: usize, j: usize) -> T {
+    fn aij(&self, i: usize, j: usize) -> T {
         let mut result = T::one();
         let n_prop = self.loop_lines[0].propagators.len();
         let im1 = if i == 0 { n_prop - 1 } else { i - 1 };
@@ -53,7 +53,7 @@ impl Topology {
         result
     }
 
-    fn bi<T: FloatLike>(&self, i: usize) -> T {
+    fn bi(&self, i: usize) -> T {
         let pi = self.external_kinematics[i];
         let n_prop = self.loop_lines[0].propagators.len();
         let tau = 1e-10 * self.e_cm_squared;
@@ -66,7 +66,7 @@ impl Topology {
             self.aij(ip1, im1)
         }
     }
-    fn eval_porp_limit<T: FloatLike>(
+    fn eval_porp_limit(
         &self,
         eval_n: usize,
         coll_n: usize,
@@ -83,7 +83,7 @@ impl Topology {
         }
     }
 
-    pub fn counterterm<T: FloatLike>(
+    pub fn counterterm(
         &self,
         k_def: &[LorentzVector<Complex<T>>],
         _cut_2energy: Complex<T>,

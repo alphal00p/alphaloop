@@ -80,7 +80,7 @@ pub struct ComplexDef<T> {
 // This should be enough love
 
 #[derive(Default, Debug, Clone, Deserialize)]
-pub struct DiagramFullRust {
+pub struct DiagramFullRust<T: FloatLike> {
     pub name: String,
     pub denominators: Vec<(usize, usize)>,
     pub pows: Vec<usize>,
@@ -88,13 +88,13 @@ pub struct DiagramFullRust {
     positions: Vec<i8>,
     loop_signature: i8,
     #[serde(with = "ComplexDef", rename = "factor")]
-    factor_f64: Complex<f64>,
+    factor_f64: Complex<T>,
     pub ct: bool,
-    tensor_coefficients_split: Vec<[f64; 2]>,
+    tensor_coefficients_split: Vec<[T; 2]>,
     #[serde(skip_deserializing)]
-    tensor_coefficients: Vec<Complex<f64>>,
+    tensor_coefficients: Vec<Complex<T>>,
     #[serde(skip_deserializing)]
-    pub numerator: LTDNumerator,
+    pub numerator: LTDNumerator<T>,
 }
 
 #[derive(Default, Debug, Clone, Deserialize)]
@@ -137,42 +137,44 @@ impl<T: Field> std::fmt::Display for SlashedMomentum<T> {
 }
 
 #[derive(Default, Debug, Clone, Deserialize)]
-pub struct Amplitude {
+pub struct Amplitude<T: FloatLike> {
     pub name: String,
     pub amp_type: String,
     pub topology: String,
     pub n_loops: usize,
     pub sets: Vec<Vec<String>>,
     #[serde(rename = "vectors")]
-    pub vectors_f64: Vec<SlashedMomentum<f64>>,
+    pub vectors_f64: Vec<SlashedMomentum<T>>,
     #[serde(skip_deserializing)]
-    pub vectors: Vec<SlashedMomentum<Complex<f64>>>,
+    pub vectors: Vec<SlashedMomentum<Complex<T>>>,
     pub pols_type: Vec<Polarizations>,
     pub ps: Vec<LorentzVector<f64>>,
-    pub mu_r_sq: f64,
+    pub mu_r_sq: T,
     #[serde(skip_deserializing)]
-    pub born: Complex<f64>,
+    pub born: Complex<T>,
     #[serde(skip_deserializing)]
-    pub int_ct: Vec<Complex<f64>>,
+    pub int_ct: Vec<Complex<T>>,
     #[serde(skip_deserializing)]
     pub polarizations: Vec<ArrayVec<[Complex<f64>; 4]>>,
-    pub diagrams: Vec<DiagramFullRust>,
+    pub diagrams: Vec<DiagramFullRust<T>>,
 }
 
 // Implement Setup functions
-impl Amplitude {
-    pub fn from_file(filename: &str) -> Result<FnvHashMap<String, Amplitude>, Report> {
+impl Amplitude<f64> {
+    pub fn from_file(filename: &str) -> Result<FnvHashMap<String, Amplitude<f64>>, Report> {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open ampltitude file {}", filename))
             .suggestion("Check if this amplitude path exists.")?;
-        let amplitudes: Vec<Amplitude> = serde_yaml::from_reader(f)?;
+        let amplitudes: Vec<Amplitude<f64>> = serde_yaml::from_reader(f)?;
 
         Ok(amplitudes
             .into_iter()
             .map(|a| (a.name.clone(), a))
             .collect())
     }
+}
 
+impl<T: FloatLike> Amplitude<T> {
     pub fn process(&mut self, settings: &GeneralSettings) {
         //Compute the needed polarizations
         self.polarizations = Vec::new();
@@ -262,10 +264,8 @@ impl Amplitude {
             _ => panic!("Unknown amplitude type: {}", self.amp_type),
         };
     }
-}
-// Implement Evaluation Functions
-impl Amplitude {
-    pub fn compute_chain<T: FloatLike>(
+
+    pub fn compute_chain(
         &self,
         indices: &[i8],
         vbar: &[Complex<T>],
@@ -483,9 +483,9 @@ impl Amplitude {
     //        return Ok(res);
     //    }
 
-    pub fn compute_coefficient_amplitude<T: FloatLike>(
+    pub fn compute_coefficient_amplitude(
         &self,
-        topo: &Topology,
+        topo: &Topology<T>,
         loop_momenta: &mut [LorentzVector<Complex<T>>],
         energy_scale: T,
         //cut_ll_id: Vec<(usize, usize)>,
@@ -688,9 +688,9 @@ impl Amplitude {
     //            e_cm_sq,
     //        )
     //    }
-    pub fn evaluate_with_coefficients<T: FloatLike>(
+    pub fn evaluate_with_coefficients(
         &self,
-        topo: &Topology,
+        topo: &Topology<T>,
         loop_momenta: &mut [LorentzVector<Complex<T>>],
         energy_scale: T,
         //cut_ll_id: Vec<(usize, usize)>,
@@ -793,8 +793,8 @@ impl Amplitude {
         }
     }
 }
-impl Topology {
-    pub fn evaluate_amplitude_cut<T: FloatLike>(
+impl<T: FloatLike> Topology<T> {
+    pub fn evaluate_amplitude_cut(
         &self,
         k_def: &mut [LorentzVector<Complex<T>>],
         cut: &Vec<Cut>,
