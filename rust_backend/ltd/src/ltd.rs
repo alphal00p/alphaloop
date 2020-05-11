@@ -104,7 +104,8 @@ impl LoopLine {
                         println!("  | prop   {}={}", i, r);
                     }
 
-                    if !r.re.is_finite() || !r.im.is_finite()
+                    if !r.re.is_finite()
+                        || !r.im.is_finite()
                         || (topo.settings.general.numerical_threshold > 0.
                             && r.re * r.re < kinematics_scale * threshold)
                     {
@@ -144,12 +145,15 @@ impl Topology {
             }
         };
         // Prepare the partial fractioning map at one loop if the threshold is set to a positive number
-        if self.n_loops == 1 {
-            //&& self.settings.general.partial_fractioning_threshold > 0.0 {
-            self.partial_fractioning = PartialFractioning::new(
-                self.loop_lines[0].propagators.iter().map(|x| x.power).sum(),
-                10000,
-            );
+        if self.n_loops == 1 && self.settings.general.partial_fractioning_threshold > 0.0 {
+            let num_propagators_deg_1l: usize = self
+                .loop_lines
+                .iter()
+                .filter(|x| x.signature == &[1])
+                .map(|x| x.propagators.iter().map(|p| p.power).sum::<usize>())
+                .sum();
+
+            self.partial_fractioning = PartialFractioning::new(num_propagators_deg_1l, 10000);
         }
         if self.n_loops > 0 {
             //&& self.settings.general.partial_fractioning_threshold > 0.0 {
