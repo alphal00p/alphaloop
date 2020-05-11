@@ -213,7 +213,7 @@ pub fn powi<T: Float + NumAssign>(c: Complex<T>, n: usize) -> Complex<T> {
     c1
 }
 
-pub fn evaluate_signature<T: RealNumberLike>(
+pub fn evaluate_signature<T: FloatLike>(
     signature: &[i8],
     momenta: &[LorentzVector<T>],
 ) -> LorentzVector<T> {

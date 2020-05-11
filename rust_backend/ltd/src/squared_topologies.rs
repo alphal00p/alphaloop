@@ -21,6 +21,61 @@ use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
 use {DeformationStrategy, FloatLike, NormalisingFunction, Settings, MAX_LOOP};
 
+#[cfg(feature = "mg_numerator")]
+mod MGNumeratorMod {
+    use libc::{c_char, c_double, c_int};
+    use num::Complex;
+
+    #[link(name = "MGnumerators", kind = "static")]
+    extern "C" {
+        #[link_name = "c_get_numerator"]
+        fn c_get_numerator(
+            p: *const c_double,
+            proc_id: *const c_int,
+            selected_diagam_left: *const c_int,
+            selected_diagram_right: *const c_int,
+            ans_re: *mut c_double,
+            ans_im: *mut c_double,
+        );
+        #[link_name = "c_initialise"]
+        fn c_initialise(p: *const c_char);
+    }
+
+    pub fn initialise(param_card_filename: &str) {
+        unsafe {
+            let mut a = ['\0' as i8; 512];
+            for (xa, c) in a.iter_mut().zip(param_card_filename.chars()) {
+                *xa = c as i8;
+            }
+            c_initialise(a.as_ptr());
+        }
+    }
+
+    pub fn get_numerator(
+        p: &[f64],
+        proc_id: usize,
+        selected_diagram_left: usize,
+        selected_diagram_right: usize,
+    ) -> Complex<f64> {
+        let proc_id = proc_id as i32;
+        let selected_diagram_left = selected_diagram_left as i32;
+        let selected_diagram_right = selected_diagram_right as i32;
+
+        unsafe {
+            let mut ans = Complex::default();
+            c_get_numerator(
+                &p[0] as *const f64,
+                &proc_id as *const i32,
+                &selected_diagram_left as *const i32,
+                &selected_diagram_right as *const i32,
+                &mut ans.re as *mut f64,
+                &mut ans.im as *mut f64,
+            );
+            ans
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
     pub name: String,
@@ -52,6 +107,18 @@ pub struct CutkoskyCuts {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct MGNumeratorCallSignature {
+    pub left_diagram_id: usize,
+    pub proc_id: usize,
+    pub right_diagram_id: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MGNumerator {
+    call_signature: Option<MGNumeratorCallSignature>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct SquaredTopology {
     pub name: String,
     pub n_loops: usize,
@@ -66,6 +133,8 @@ pub struct SquaredTopology {
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
     pub topo: Topology,
+    #[serde(rename = "MG_numerator")]
+    pub mg_numerator: MGNumerator,
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +164,16 @@ pub struct SquaredTopologySetInput {
 impl SquaredTopologySet {
     pub fn from_one(mut squared_topology: SquaredTopology) -> SquaredTopologySet {
         let channels = squared_topology.generate_multi_channeling_channels();
+
+        #[cfg(feature = "mg_numerator")]
+        {
+            let mut path = std::env::var("MG_NUMERATOR_PATH")
+                .expect("MG_NUMERATOR_PATH needs to be set in the mg_numerator mode.");
+            path += "/Cards/param_card.dat";
+
+            MGNumeratorMod::initialise(&path);
+        }
+
         SquaredTopologySet {
             name: squared_topology.name.clone(),
             n_loops: squared_topology.n_loops,
@@ -1064,6 +1143,54 @@ impl SquaredTopology {
                 }
             }
 
+            // evaluate the MG numerator
+            #[cfg(feature = "mg_numerator")]
+            {
+                if let Some(call_signature) = &self.mg_numerator.call_signature {
+                    let mut loop_momenta: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> = ArrayVec::new();
+
+                    for m in &self.external_momenta[..self.n_incoming_momenta] {
+                        loop_momenta
+                            .try_extend_from_slice(&[m.t, 0., m.x, 0., m.y, 0., m.z, 0.])
+                            .unwrap();
+                    }
+
+                    // TODO: we need all rescaled cut momenta in the lmb
+                    /*for m in &k_def_lmb[..self.n_loops] {
+                        loop_momenta.extend(&[
+                            m.t.re.to_f64().unwrap(),
+                            m.t.im.to_f64().unwrap(),
+                            m.x.re.to_f64().unwrap(),
+                            m.x.im.to_f64().unwrap(),
+                            m.y.re.to_f64().unwrap(),
+                            m.y.im.to_f64().unwrap(),
+                            m.z.re.to_f64().unwrap(),
+                            m.z.im.to_f64().unwrap(),
+                        ]);
+                    }*/
+
+                    // this only works at one-loop
+                    for m in &cut_momenta[..cutkosky_cuts.cuts.len()] {
+                        loop_momenta
+                            .try_extend_from_slice(&[
+                                m.t.to_f64().unwrap(),
+                                0.,
+                                m.x.to_f64().unwrap(),
+                                0.,
+                                m.y.to_f64().unwrap(),
+                                0.,
+                                m.z.to_f64().unwrap(),
+                                0.,
+                            ])
+                            .unwrap();
+                    }
+
+                    let num =
+                        MGNumeratorMod::get_numerator(&loop_momenta, call_signature.proc_id, 1, 1);
+                    dbg!(num);
+                }
+            }
+
             // evaluate the cut numerator with the spatial parts of all loop momenta and
             // the energy parts of the Cutkosky cuts.
             // Store the reduced numerator in the left graph cache for now
@@ -1074,7 +1201,7 @@ impl SquaredTopology {
                 } else {
                     &k_def
                 },
-                cutkosky_cuts.cuts.len() - 1,
+                cutkosky_cuts.cuts.len() - 1, // FIXME: this is not correct in the loop momentum basis!
                 &mut diag_cache[0],
                 0,
                 regenerate_momenta,

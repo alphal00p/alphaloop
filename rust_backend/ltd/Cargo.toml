@@ -8,11 +8,13 @@ authors = ["Ben Ruijl <benruyl@gmail.com>"]
 #default = ["use_f128"]
 #default = ["use_mpi"]
 #default = ["python_api", "higher_loops"]
-default = ["python_api"]
+#default = ["mg_numerator"]
+#default = ["python_api"]
 python_api = []
 higher_loops = []
 use_f128 = []
 use_mpi = ["mpi"]
+mg_numerator = []
 
 [lib]
 name = "ltd"
@@ -26,7 +28,7 @@ features = ["python3-sys"]
 [dependencies]
 vector = { path = "../vector" }
 num = "0.2"
-arrayvec = "0.4.7"
+arrayvec = "^0.5"
 dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dualn" }
 cuba = "^0.2"
 nalgebra = "*"

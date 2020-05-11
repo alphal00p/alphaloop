@@ -21,19 +21,19 @@ C       Format ia P1E_re, P1E_im, P1x_re, P1x_im, ..., P2E_re, P2E_im, ...
         real(c_double), intent(out) :: ANS_RE
         real(c_double), intent(out) :: ANS_IM
         double complex ANS
-        INTEGER SDL, SDG
+        INTEGER SDL, SDR
 
         SDL = SELECTED_DIAGRAM_LEFT
-        SDG = SELECTED_DIAGRAM_RIGHT
+        SDR = SELECTED_DIAGRAM_RIGHT
 
         GOTO (%(proc_positions_list)s) PROC_ID_TO_POSITION(PROC_ID)
 
         %(matrix_element_call_dispatch)s
 
+9999  continue
+
         ANS_RE = DBLE(ANS)
         ANS_IM = DIMAG(ANS)
-
-9999  continue
 
       END SUBROUTINE %(binding_prefix)sGET_NUMERATOR
 
