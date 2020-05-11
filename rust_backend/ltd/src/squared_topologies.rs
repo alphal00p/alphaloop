@@ -1135,15 +1135,31 @@ impl SquaredTopology {
                         // now set the coefficient to 1 for the current monomial in the subgraph
                         // by mapping the powers in the reduced numerator back to the power pattern
                         // of the complete numerator
+                        // there is partial support for numerators in the loop momentum basis: only permutations of the
+                        // order from lmb to cb are allowed
                         let mut subgraph_powers = [0; 10]; // TODO: make max rank a constant
                         let mut power_index = 0;
-                        for (lmi, p) in powers[def_mom_index..def_mom_index + subgraph.n_loops]
-                            .iter()
-                            .enumerate()
-                        {
-                            for _ in 0..*p {
-                                subgraph_powers[power_index] = lmi * 4;
-                                power_index += 1;
+
+                        if self.numerator_in_loop_momentum_basis {
+                            for (lmi, (lmm, ext)) in subgraph.loop_momentum_map.iter().enumerate() {
+                                debug_assert!(ext.iter().all(|c| *c == 0));
+                                debug_assert!(lmm.iter().filter(|c| **c != 0).count() == 1);
+
+                                let lmb_index = lmm.iter().filter(|c| **c != 0).next().unwrap();
+                                for _ in 0..powers[*lmb_index as usize] {
+                                    subgraph_powers[power_index] = lmi * 4;
+                                    power_index += 1;
+                                }
+                            }
+                        } else {
+                            for (lmi, p) in powers[def_mom_index..def_mom_index + subgraph.n_loops]
+                                .iter()
+                                .enumerate()
+                            {
+                                for _ in 0..*p {
+                                    subgraph_powers[power_index] = lmi * 4;
+                                    power_index += 1;
+                                }
                             }
                         }
 
