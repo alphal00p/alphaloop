@@ -1,7 +1,7 @@
 use amplitude::Amplitude;
 use color_eyre::{Help, Report};
 use dashboard::{StatusUpdate, StatusUpdateSender};
-use dual_num::{DualN, Scalar, U10, U13, U16, U19, U4, U7};
+use dual_num::{DualN, U10, U13, U16, U19, U4, U7};
 use eyre::WrapErr;
 use float;
 use fnv::FnvHashMap;
@@ -21,7 +21,7 @@ use std::slice;
 use std::time::Instant;
 use utils;
 use utils::Signum;
-use vector::{LorentzVector, RealNumberLike};
+use vector::LorentzVector;
 use {FloatLike, Settings, MAX_LOOP};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -142,7 +142,7 @@ impl fmt::Display for Cut {
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
-pub struct CutInfo<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
+pub struct CutInfo<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -161,8 +161,7 @@ where
     pub c: DualN<T, U>,
 }
 
-impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
-    for CutInfo<T, U>
+impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> Default for CutInfo<T, U>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -187,7 +186,7 @@ where
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
-pub struct LTDCacheI<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
+pub struct LTDCacheI<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -201,8 +200,7 @@ where
     pub computed_cut_ll: Vec<usize>,
 }
 
-impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> Default
-    for LTDCacheI<T, U>
+impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> Default for LTDCacheI<T, U>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -220,7 +218,7 @@ where
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName> LTDCacheI<T, U>
+impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> LTDCacheI<T, U>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -239,7 +237,7 @@ where
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
+pub struct LTDCache<T: FloatLike> {
     one_loop: LTDCacheI<T, U4>,
     two_loop: LTDCacheI<T, U7>,
     three_loop: LTDCacheI<T, U10>,
@@ -263,7 +261,7 @@ pub struct LTDCache<T: Scalar + Signed + RealNumberLike> {
     pub cached_topology_integrand: Vec<(usize, Complex<T>)>,
 }
 
-impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
+impl<T: FloatLike> LTDCache<T> {
     pub fn new(topo: &Topology) -> LTDCache<T> {
         let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
         let num_propagators_deg_1l = topo
@@ -313,7 +311,7 @@ impl<T: Scalar + Signed + RealNumberLike> LTDCache<T> {
     }
 }
 
-pub trait CacheSelector<T: Scalar + Signed + RealNumberLike, U: dual_num::Dim + dual_num::DimName>
+pub trait CacheSelector<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
 where
     dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
     dual_num::Owned<T, U>: Copy,
@@ -329,7 +327,7 @@ where
         dual_num::Owned<T, U>: Copy;
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U4> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U4> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U4> {
         &self.one_loop
@@ -341,7 +339,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U4> for LTDCache<T> {
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U7> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U7> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U7> {
         &self.two_loop
@@ -353,7 +351,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U7> for LTDCache<T> {
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U10> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U10> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U10> {
         &self.three_loop
@@ -365,7 +363,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U10> for LTDCache<T> 
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U13> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U13> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U13> {
         &self.four_loop
@@ -377,7 +375,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U13> for LTDCache<T> 
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U16> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U16> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U16> {
         &self.five_loop
@@ -389,7 +387,7 @@ impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U16> for LTDCache<T> 
     }
 }
 
-impl<T: Scalar + Signed + RealNumberLike> CacheSelector<T, U19> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, U19> for LTDCache<T> {
     #[inline]
     fn get_cache(&self) -> &LTDCacheI<T, U19> {
         &self.six_loop
@@ -473,7 +471,7 @@ pub struct LTDNumerator {
     pub coeff_map_to_reduced_numerator: Vec<Vec<usize>>,
 }
 #[derive(Debug, Clone, Default)]
-pub struct ReducedLTDNumerator<T: Scalar + Signed + RealNumberLike> {
+pub struct ReducedLTDNumerator<T: FloatLike> {
     pub coefficients: Vec<Complex<T>>,
     pub n_loops: usize,
     pub max_rank: usize,

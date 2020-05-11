@@ -695,6 +695,7 @@ impl SquaredTopology {
         let mut result = Complex::zero();
         for cut_index in 0..self.cutkosky_cuts.len() {
             let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
+            let n_bubbles = cutkosky_cuts.n_bubbles;
 
             if self.settings.general.debug >= 1 {
                 println!(
@@ -742,7 +743,7 @@ impl SquaredTopology {
                     &mut external_momenta,
                     &mut rescaled_loop_momenta,
                     &mut subgraph_loop_momenta,
-                    &mut k_def[..self.n_loops + 1],
+                    &mut k_def[..self.n_loops + n_bubbles],
                     &mut caches[cut_index],
                     event_manager,
                     cut_index,

@@ -464,7 +464,12 @@ impl<I: IntegrandImplementation> Integrand<I> {
         rot_result: Complex<T>,
         stable_digits: T,
     ) {
-        if new_max || unstable || !result.is_finite() || self.settings.general.debug > 0 {
+        if new_max
+            || unstable
+            || !result.re.is_finite()
+            || !result.im.is_finite()
+            || self.settings.general.debug > 0
+        {
             let sample_or_max = if new_max { "MAX" } else { "Sample" };
             let log_to_screen = self.settings.general.log_points_to_screen
                 && (self.settings.general.screen_log_core == None

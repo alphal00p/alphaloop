@@ -31,7 +31,7 @@ extern crate tui;
 use color_eyre::{Help, Report};
 use eyre::WrapErr;
 
-use num_traits::{Float, FloatConst, FromPrimitive, Num, One, ToPrimitive, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 use utils::Signum;
 use vector::{Field, RealNumberLike};
 
@@ -52,10 +52,9 @@ pub trait FloatLike:
     + Float
     + Field
     + RealNumberLike
-    + num_traits::Signed
+    + Signed
     + FloatConst
     + std::fmt::LowerExp
-    + num_traits::float::FloatCore
     + 'static
     + Signum
 {

@@ -104,7 +104,7 @@ impl LoopLine {
                         println!("  | prop   {}={}", i, r);
                     }
 
-                    if !r.is_finite()
+                    if !r.re.is_finite() || !r.im.is_finite()
                         || (topo.settings.general.numerical_threshold > 0.
                             && r.re * r.re < kinematics_scale * threshold)
                     {
