@@ -367,7 +367,6 @@ impl PartialFractioning {
         ll: &[LoopLine],
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
-        println!("1L map: {:?}", cache.pf_cache.numerator_index_map);
         // make sure that numerator.evaluate_reduced_in_lb has been called before this function
         // is not done here to avoid multiple calls in the case of amplitudes
         let mut result: na::Complex<T> = Complex::default();
@@ -384,7 +383,7 @@ impl PartialFractioning {
             norm *= (cache.complex_cut_energies[p.id] * Into::<T>::into(-2.0))
                 .powi(cache.propagator_powers[p.id] as i32);
         }
-        dbg!(&norm);
+
         let mut skip: bool;
         let mut ellipsoid_count;
         for mono in self.partial_fractioning_element.iter() {
@@ -416,31 +415,7 @@ impl PartialFractioning {
                     cache.pf_cache.numerator_size += 1;
                 }
             }
-            if mono.numerator.len() == 1 {
-                println!(
-                    //"USE:: {:?} num {:?} -> {:?} num {:?}",
-                    "USE:: {:?} -> {:?}",
-                    mono.ellipsoids_product,
-                    //mono.numerator,
-                    &cache.pf_cache.ellipsoids_product[0..ellipsoid_count],
-                    //&cache.pf_cache.numerator[0..cache.pf_cache.numerator_size]
-                );
-                println!(
-                    //"\t den: {:?}, num: {:?}",
-                    "\t den: {:?}",
-                    PartialFractioningMonomial::evaluate_ellipsoids_product(
-                        &cache.pf_cache.ellipsoids_product[0..ellipsoid_count],
-                        cache,
-                    )
-                    .inv(),
-                    //                    PartialFractioningMonomial::evaluate_numerator(
-                    //                        &cache.pf_cache.numerator[0..cache.pf_cache.numerator_size],
-                    //                        ltd_numerator,
-                    //                        ll,
-                    //                        cache,
-                    //                    )
-                );
-            }
+
             result += PartialFractioningMonomial::evaluate_ellipsoids_product(
                 &cache.pf_cache.ellipsoids_product[0..ellipsoid_count],
                 cache,
@@ -494,6 +469,13 @@ pub struct PartialFractioningMultiLoops {
     pub n_loops: usize,
     //splits: Vec<usize>,
 }
+
+#[derive(Default, Debug, Clone)]
+pub struct PartialFractioningNum {
+    pub lambdas: Vec<f64>,
+    pub energies_and_shifts: Vec<(f64, f64)>,
+}
+
 impl PartialFractioningDen {
     pub fn evaluate<T: FloatLike>(
         &self,
@@ -731,7 +713,9 @@ impl PartialFractioningMultiLoops {
                 denominators: Vec::new(),
             };
             for i in spectators.iter() {
-                new_product.denominators.push(product.denominators[*i].clone());
+                new_product
+                    .denominators
+                    .push(product.denominators[*i].clone());
             }
             //print("\t   > ", mapping)
             // Add partial fractioned elements
