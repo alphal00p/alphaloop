@@ -326,7 +326,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             matrix_element_call_dispatch.append("DO I=0,3")
             n_external = len(me.get('processes')[0].get('legs'))
             matrix_element_call_dispatch.append("DO J=0,%d"%(n_external-1))
-            matrix_element_call_dispatch.append("P%d(I,J+1)=DCMPLX(P(J*4+2*I),P(J*4+2*I+1))"%n_external)
+            matrix_element_call_dispatch.append("P%d(I,J+1)=DCMPLX(P(J*8+2*I),P(J*8+2*I+1))"%n_external)
             matrix_element_call_dispatch.append("ENDDO")
             matrix_element_call_dispatch.append("ENDDO")
             matrix_element_call_dispatch.append(
