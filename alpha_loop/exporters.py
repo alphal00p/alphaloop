@@ -312,7 +312,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # And now generate an input momenta configuration for all of them
         truncated_mom_list = []
         for n_external in sorted(list(all_externals_combination)):
-            truncated_mom_list.append("double precision P%d(0:3,%d)"%(n_external,n_external))
+            truncated_mom_list.append("double complex P%d(0:3,%d)"%(n_external,n_external))
         replace_dict['truncated_mom_list'] = '\n'.join(truncated_mom_list)
 
         replace_dict['max_n_external'] = max(all_externals_combination)
@@ -325,12 +325,12 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             # Setup the kinematics now
             matrix_element_call_dispatch.append("DO I=0,3")
             n_external = len(me.get('processes')[0].get('legs'))
-            matrix_element_call_dispatch.append("DO J=1,%d"%n_external)
-            matrix_element_call_dispatch.append("P%d(I,J)=P(I,J)"%n_external)
+            matrix_element_call_dispatch.append("DO J=0,%d"%(n_external-1))
+            matrix_element_call_dispatch.append("P%d(I,J+1)=DCMPLX(P(J*4+2*I),P(J*4+2*I+1))"%n_external)
             matrix_element_call_dispatch.append("ENDDO")
             matrix_element_call_dispatch.append("ENDDO")
             matrix_element_call_dispatch.append(
-                'CALL M%d_SMATRIXHEL(P%d, -1, SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT, ANS)'%(i_proc,n_external))
+                'CALL M%d_SMATRIXHEL(P%d, -1, SDL, SDR, ANS)'%(i_proc,n_external))
             matrix_element_call_dispatch.append("GOTO 9999")
         replace_dict['matrix_element_call_dispatch'] = '\n'.join(matrix_element_call_dispatch)
 
