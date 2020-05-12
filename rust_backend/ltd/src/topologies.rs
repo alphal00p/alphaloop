@@ -1825,34 +1825,68 @@ impl Topology {
                     *ot = *o as usize;
                 }
 
-                self.construct_socp_problem(&option_translated[..n], ellipsoid_list, false);
+                // try if a point inside is inside all other surfaces
+                let mut point_inside_all = false;
+                'o: for &o1 in &option_translated[..n] {
+                    for &o2 in &option_translated[..n] {
+                        if o1 == o2 {
+                            continue;
+                        }
 
-                // perform the ECOS test
-                let ti = Instant::now();
-                self.socp_problem.initialize_workspace_ecos();
-                let r = self.socp_problem.solve_ecos();
-                let has_overlap = r == 0 || r == -2 || r == 10;
-                self.socp_problem.finish_ecos();
-                ecos_time += Instant::now().duration_since(ti).as_nanos();
+                        if self.evaluate_surface(
+                            &ellipsoid_list[o1].point_on_the_inside,
+                            &ellipsoid_list[o2],
+                        ) >= 0.
+                        {
+                            continue 'o;
+                        }
+                    }
+                    point_inside_all = true;
+                    break;
+                }
 
-                // verify with SCS
-                if self.settings.general.debug > 1 {
-                    self.socp_problem.initialize_workspace_scs();
-                    let has_overlap_scs = self.socp_problem.solve_scs() > 0;
-                    self.socp_problem.finish_scs();
+                let mut has_overlap = point_inside_all;
+                if !point_inside_all || self.settings.general.debug > 1 {
+                    self.construct_socp_problem(&option_translated[..n], ellipsoid_list, false);
 
-                    if has_overlap != has_overlap_scs {
+                    // perform the ECOS test
+                    let ti = Instant::now();
+                    self.socp_problem.initialize_workspace_ecos();
+                    let r = self.socp_problem.solve_ecos();
+                    has_overlap = r == 0 || r == -2 || r == 10;
+
+                    if point_inside_all && !has_overlap {
                         panic!(
-                            "Inconcistency between SCS and ECOS: {} vs {} for {:?}",
-                            has_overlap_scs,
-                            has_overlap,
+                            "ECOS claims no overlap, but there is a point inside all for {:?}",
                             &option_translated[..n]
                         );
                     }
+
+                    self.socp_problem.finish_ecos();
+                    ecos_time += Instant::now().duration_since(ti).as_nanos();
+
+                    // verify with SCS
+                    if self.settings.general.debug > 1 {
+                        self.socp_problem.initialize_workspace_scs();
+                        let has_overlap_scs = self.socp_problem.solve_scs() > 0;
+                        self.socp_problem.finish_scs();
+
+                        if has_overlap != has_overlap_scs {
+                            panic!(
+                                "Inconcistency between SCS and ECOS: {} vs {} for {:?}",
+                                has_overlap_scs,
+                                has_overlap,
+                                &option_translated[..n]
+                            );
+                        }
+                    }
+
+                    problem_count += 1;
                 }
 
                 if has_overlap {
                     // find centers with maximal radius
+                    let ti = Instant::now();
                     self.construct_socp_problem(&option_translated[..n], ellipsoid_list, true);
                     self.socp_problem.initialize_workspace_ecos();
                     let r = self.socp_problem.solve_ecos();
@@ -1862,6 +1896,8 @@ impl Topology {
                         r
                     );
                     self.socp_problem.finish_ecos();
+                    ecos_time += Instant::now().duration_since(ti).as_nanos();
+                    problem_count += 1;
 
                     for (i, &ei) in option[..n].iter().enumerate() {
                         for &ej in option[i + 1..n].iter() {
@@ -1879,8 +1915,6 @@ impl Topology {
                         ),
                     );
                 }
-
-                problem_count += 1;
             }
         }
 

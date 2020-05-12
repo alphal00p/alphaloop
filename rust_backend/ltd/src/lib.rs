@@ -28,6 +28,12 @@ extern crate scs;
 extern crate thousands;
 extern crate tui;
 
+#[cfg(feature = "mg_numerator")]
+extern crate dlopen;
+#[macro_use]
+#[cfg(feature = "mg_numerator")]
+extern crate dlopen_derive;
+
 use color_eyre::{Help, Report};
 use eyre::WrapErr;
 
