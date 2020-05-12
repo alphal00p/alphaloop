@@ -12,7 +12,7 @@ LIBRARY = libMGnumerators.a
 include ../Source/DHELAS/aloha_file.inc
 C_BINDINGS = C_bindings.o $(addprefix ../Source/DHELAS/, $(ALOHARoutine) aloha_functions.o)
 
-ALL: $(LIBDIR)/$(LIBRARY) $(LIBDIR)/$(patsubst %.a,%.so,$(LIBRARY)) IO_bindings
+ALL: $(LIBDIR)/$(LIBRARY) $(LIBDIR)/$(patsubst %.a,%_dynamic.so,$(LIBRARY)) IO_bindings
 
 # For python linking (require f2py part of numpy)
 ifeq ($(origin MENUM),undefined)
@@ -28,8 +28,8 @@ allmatrix$(MENUM)py.so: $(LIBDIR)/$(LIBRARY)  all_matrix.o
 $(LIBDIR)/$(LIBRARY): $(PROCESS) $(C_BINDINGS)
 	$(call CREATELIB, $@, $^)  
 
-$(LIBDIR)/$(patsubst %.a,%.so,$(LIBRARY)): $(PROCESS) $(C_BINDINGS)
+$(LIBDIR)/$(patsubst %.a,%_dynamic.so,$(LIBRARY)): $(PROCESS) $(C_BINDINGS)
 	$(call CREATEDYNLIB, $@, $^)
 
 clean:
-	rm -f *.o $(PROCESS) IO_bindings $(LIBDIR)/$(LIBRARY) $(LIBDIR)/$(patsubst %.a,%.so,$(LIBRARY))
+	rm -f *.o $(PROCESS) IO_bindings $(LIBDIR)/$(LIBRARY) $(LIBDIR)/$(patsubst %.a,%_dynamic.so,$(LIBRARY))

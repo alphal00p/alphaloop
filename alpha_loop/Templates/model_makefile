@@ -17,7 +17,7 @@ include makeinc.inc
 LIBDIR=../../lib/
 LIBRARY=libmodel.$(libext)
 
-ALL: $(LIBDIR)$(LIBRARY) $(LIBDIR)$(patsubst %.a,%.so,$(LIBRARY))
+ALL: $(LIBDIR)$(LIBRARY) $(LIBDIR)$(patsubst %.a,%_dynamic.so,$(LIBRARY))
 
 helas_couplings: helas_couplings.o $(LIBRARY)
 	$(FC) $(FFLAGS) -o $@ $^
@@ -32,9 +32,9 @@ $(LIBRARY): $(MODEL)
 $(LIBDIR)$(LIBRARY): $(MODEL)
 	$(call CREATELIB, $@, $^)
 
-$(LIBDIR)$(patsubst %.a,%.so,$(LIBRARY)): $(MODEL)
+$(LIBDIR)$(patsubst %.a,%_dynamic.so,$(LIBRARY)): $(MODEL)
 	$(call CREATEDYNLIB, $@, $^)
 
 clean: 
-	$(RM) *.o $(LIBDIR)$(LIBRARY) $(LIBDIR)$(patsubst %.a,%.so,$(LIBRARY))
+	$(RM) *.o $(LIBDIR)$(LIBRARY) $(LIBDIR)$(patsubst %.a,%_dynamic.so,$(LIBRARY))
 

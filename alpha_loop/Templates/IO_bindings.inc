@@ -17,7 +17,15 @@
       integer proc_ID
       integer SDL, SDR
 
-      call setpara('param_card.dat')
+      CHARACTER(512) PATH
+
+      READ(*,'(A)') PATH
+
+      IF (PATH(1:1).eq.'') THEN
+          CALL SETPARA('param_card.dat')
+      ELSE
+          CALL SETPARA2(PATH)
+      ENDIF 
 
 9997  continue
       READ(*,*) PROC_ID, SDL, SDR
