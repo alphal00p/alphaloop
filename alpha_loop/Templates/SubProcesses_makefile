@@ -10,7 +10,10 @@ LIBRARY = libMGnumerators.a
 # Import the DHELAS symbols too in the matrix_element.a library
 # so that one does not have to link against libdhelas.a explicitly when using it
 include ../Source/DHELAS/aloha_file.inc
-C_BINDINGS = C_bindings.o $(addprefix ../Source/DHELAS/, $(ALOHARoutine) aloha_functions.o)
+include ../Source/MODEL/makeinc.inc
+C_BINDINGS = C_bindings.o \
+     $(addprefix ../Source/DHELAS/, $(ALOHARoutine) aloha_functions.o) \
+     $(addprefix ../Source/MODEL/, $(MODEL))
 
 ALL: $(LIBDIR)/$(LIBRARY) $(LIBDIR)/$(patsubst %.a,%_dynamic.so,$(LIBRARY)) IO_bindings
 
