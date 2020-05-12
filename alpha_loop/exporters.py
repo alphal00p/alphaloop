@@ -81,7 +81,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         """ initialization of the objects """
         
         self.alphaLoop_options = opts.pop('alphaLoop_options',{})
-        
+        self.MG5aMC_options = opts.pop('MG5aMC_options',{})
+
         super(alphaLoopExporter, self).__init__(*args, **opts)
         
         # Force prefixing
@@ -218,6 +219,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Add file in Source
         shutil.copy(pjoin(plugin_path, 'Templates', 'Source_make_opts'), 
                     pjoin(self.dir_path, 'Source','make_opts'))
+
         # add the makefile 
         filename = pjoin(self.dir_path,'Source','makefile')
         self.write_source_makefile(writers.FileWriter(filename))
@@ -239,6 +241,12 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                      'f2py': mg5options['f2py_compiler']}
 
         self.compiler_choice(compiler)
+
+        # Fix makefiles compiler definition
+        self.replace_make_opt_c_compiler(compiler['cpp'])
+#       Uncomment if necessary but it needs to be fixed as for now it seems to corrupt make_opts
+#        self.replace_make_opt_f_compiler(compiler)
+
         self.make()
 
         # Write command history as proc_card_mg5
@@ -273,11 +281,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
         # Write the overall cross-section yaml file
         self.write_overall_LTD_squared_info()
-
-        # Fix makefiles compiler definition
-        self.replace_make_opt_c_compiler(compiler['cpp'])
-#       Uncomment if necessary but it needs to be fixed as for now it seems to corrupt make_opts
-#        self.replace_make_opt_f_compiler(compiler)
 
     #===========================================================================
     # process exporter fortran switch between group and not grouped
@@ -448,6 +451,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         including the necessary matrix.f and nexternal.inc files"""
         
         self.all_processes_exported.append((matrix_element,number))
+
+        if 'use_physical_gluon_helicity_sum' not in self.alphaLoop_options:
+            raise alphaLoopExporterError("You probably forgot to specify '--mode=alphaloop' when running ./bin/mg5_aMC.")
 
         # Overwrite fortran model, slightly inefficient but tolerable
         fortran_model = aL_helas_call_writers.alphaLoopHelasCallWriter(

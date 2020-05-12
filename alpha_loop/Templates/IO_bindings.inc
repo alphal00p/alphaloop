@@ -36,7 +36,8 @@
       %(matrix_element_call_dispatch)s
 
 9999  CONTINUE
-      WRITE(*,*) DBLE(ANS), DIMAG(ANS)
+      WRITE(*,*) 'TOMATHEMATICA ',DBLE(ANS), DIMAG(ANS)
+      call flush(6)
       GOTO 9997
 9998  CONTINUE
 

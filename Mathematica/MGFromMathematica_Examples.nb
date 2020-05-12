@@ -1,0 +1,430 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 11.2' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[     15966,        422]
+NotebookOptionsPosition[     12775,        364]
+NotebookOutlinePosition[     13139,        380]
+CellTagsIndexPosition[     13096,        377]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["Calling MG numerators from Mathematica example", "Title",
+ CellChangeTimes->{{3.7807966586323357`*^9, 3.7807967073899517`*^9}, {
+  3.7962982928479967`*^9, 3.796298295554708*^9}, {3.796302489903371*^9, 
+  3.796302491325037*^9}, {3.7982705376000853`*^9, 
+  3.798270543160346*^9}},ExpressionUUID->"862fd90a-3f33-4861-845a-\
+877f7ac86f05"],
+
+Cell["First Load up the Rust from Mathematica module:", "Text",
+ CellChangeTimes->{{3.796277974983192*^9, 3.7962780038292923`*^9}, {
+  3.7963024986625566`*^9, 
+  3.796302506892592*^9}},ExpressionUUID->"9131fffc-91c9-48f2-8761-\
+6292b0a1a437"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Get", "[", 
+  RowBox[{
+   RowBox[{"NotebookDirectory", "[", "]"}], "<>", 
+   "\"\</MGFromMathematica.m\>\""}], "]"}]], "Input",
+ CellChangeTimes->{{3.79630250899262*^9, 3.79630251425735*^9}, 
+   3.796302698146188*^9, 3.796302760938518*^9, {3.796302904493197*^9, 
+   3.796302924683069*^9}, {3.798270555618122*^9, 
+   3.798270555762179*^9}},ExpressionUUID->"1cb01a94-6c0a-49a0-831a-\
+6f1cd87e1b31"],
+
+Cell[BoxData[
+ FormBox["\<\"\\nPackage for accessing MadGraph Fortran numerators from \
+Mathematica.\\n\\nNote that a MG5aMC process folder are generated from the \
+MG5aMC alphaLoop plugin, for example with:\\n./bin/mg5_aMC --mode=alphaloop \
+PLUGIN/alphaloop/examples/epem_jjj.aL\\n\\nThe function: \
+\\nMGFM$GetLTDHook[OutputProcessRootPath_,OptionsPattern[\\n{\\nDEBUG->False\\\
+n}\\n\\nAllows you to generate a hook for that process output, which will \
+automatically be placed in the list:\\n\\nMGFM$AllHooksStarted\\n\\nThen you \
+can test that one hook is active \
+with:\\n\\nMGFM$CheckHookStatus[hook_]\\n\\nAnd use them to access \
+information from Rust with the following three API entry points (for now):\\n\
+\\nMGFM$GetMGNumerator[hook_, ComplexMomenta_, \
+OptionsPattern[DEBUG->False]]\\n\"\>", TraditionalForm]], "Print",
+ CellChangeTimes->{3.796303620101728*^9, 3.796303659182082*^9, 
+  3.798270561891726*^9},ExpressionUUID->"8a88a02a-f0ed-48b6-83cf-\
+2a6b6bcff419"]
+}, Open  ]],
+
+Cell["\<\
+Copy-paste below the Process output directory path.
+For example the one below was obtained by running:
+
+./bin/mg5_aMC PLUGIN/alphaloop/examples/epem_a_ddxg.aL\[LineSeparator]cd \
+TEST_epem_a_ddxg/SubProcesses && make
+\
+\>", "Text",
+ CellChangeTimes->{{3.798270612088944*^9, 3.798270649260643*^9}, {
+  3.79827068303443*^9, 3.798270686674417*^9}, {3.798271155766522*^9, 
+  3.7982711587501383`*^9}},ExpressionUUID->"335a5b50-5a24-4240-91d3-\
+673def06c326"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+  "ExampleProcOutputPath", " ", "=", " ", 
+   "\"\</Users/valentin/Documents/MG5/3.0.2.py3/TEST_epem_a_ddxg\>\""}], 
+  ";"}]], "Input",
+ CellChangeTimes->{{3.7982705835923023`*^9, 3.798270607242154*^9}, 
+   3.7982711924987717`*^9},ExpressionUUID->"48630be6-9b6d-4fe9-8827-\
+ac59d5b274d4"],
+
+Cell["Now first obtain a hook for these MG numerators:", "Text",
+ CellChangeTimes->{{3.798271199438718*^9, 
+  3.798271219471554*^9}},ExpressionUUID->"ff9af223-3f92-413c-a15e-\
+24da5de7f653"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"MGHook", " ", "=", " ", 
+   RowBox[{"MGFM$GetLTDHook", "[", 
+    RowBox[{"ExampleProcOutputPath", ",", 
+     RowBox[{"DEBUG", "\[Rule]", "False"}]}], "]"}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.798271221236062*^9, 
+  3.7982712369618063`*^9}},ExpressionUUID->"ac899e56-37b3-4844-b613-\
+139b45f8b272"],
+
+Cell["\<\
+This hook is automatically added to the list MGFM$AllHooksStarted and its \
+availabiliity can be checked at any time with:\
+\>", "Text",
+ CellChangeTimes->{{3.798271239190515*^9, 
+  3.798271280352498*^9}},ExpressionUUID->"c5462f3f-1378-4742-9223-\
+d32bc1cb367f"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{"MGFM$CheckHookStatus", "[", "MGHook", "]"}], "\n", 
+ RowBox[{"MGFM$CheckHookStatus", "[", 
+  RowBox[{"MGFM$AllHooksStarted", "\[LeftDoubleBracket]", 
+   RowBox[{"-", "1"}], "\[RightDoubleBracket]"}], "]"}]}], "Input",
+ CellChangeTimes->{{3.798271290745698*^9, 
+  3.798271296473379*^9}},ExpressionUUID->"eba75ea8-2722-4b1d-923b-\
+4cfe08bd1043"],
+
+Cell[BoxData[
+ FormBox["True", TraditionalForm]], "Output",
+ CellChangeTimes->{
+  3.798271297399139*^9},ExpressionUUID->"26e4a147-697f-4e16-937f-\
+923ec16ec99e"],
+
+Cell[BoxData[
+ FormBox["True", TraditionalForm]], "Output",
+ CellChangeTimes->{
+  3.798271297506138*^9},ExpressionUUID->"4c2820d2-a8df-46e9-a655-\
+dbf81e9e608d"]
+}, Open  ]],
+
+Cell["\<\
+Now we can call the numerator for a specific process ID, diagram IDs and \
+complex momenta configuration.\
+\>", "Text",
+ CellChangeTimes->{{3.798271300097288*^9, 3.798271301531972*^9}, {
+  3.7982713663067217`*^9, 
+  3.7982714045537243`*^9}},ExpressionUUID->"a93104a1-9b30-4375-8fba-\
+4ede4874057c"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"ConvertMomentumToMathematica", "[", "strMom_", "]"}], ":=", 
+   RowBox[{"Block", "[", 
+    RowBox[{
+     RowBox[{"{", "}"}], ",", "\[IndentingNewLine]", 
+     RowBox[{"Table", "[", 
+      RowBox[{
+       RowBox[{"ToExpression", "[", 
+        RowBox[{"StringReplace", "[", 
+         RowBox[{"aNumber", ",", 
+          RowBox[{"{", 
+           RowBox[{"\"\<E\>\"", "\[Rule]", "\"\<*^\>\""}], "}"}]}], "]"}], 
+        "]"}], ",", 
+       RowBox[{"{", 
+        RowBox[{"aNumber", ",", " ", 
+         RowBox[{"StringSplit", "[", "strMom", "]"}]}], "}"}]}], "]"}]}], 
+    "\[IndentingNewLine]", "]"}]}], ";"}]], "Input",ExpressionUUID->"d3f9bccd-\
+5d4d-4ee6-b512-fd927b63d83c"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"ProcID", "=", "0"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"DiagramsIDs", "=", 
+   RowBox[{"{", 
+    RowBox[{"1", ",", "2"}], "}"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"ComplexKinematicConfiguration", "=", 
+   RowBox[{"{", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"500.0", ",", "0.", ",", "0.", ",", "500.0"}], "}"}], ",", 
+     "\[IndentingNewLine]", 
+     RowBox[{"{", 
+      RowBox[{"500.0", ",", "0.", ",", "0.", ",", 
+       RowBox[{"-", "500.0"}]}], "}"}], ",", "\[IndentingNewLine]", 
+     RowBox[{
+     "ConvertMomentumToMathematica", "[", 
+      "\"\<0.4585787878854402E+03   0.1694532203096798E+03   \
+0.3796536620781987E+03  -0.1935024746502525E+03\>\"", "]"}], ",", 
+     "\[IndentingNewLine]", 
+     RowBox[{
+     "ConvertMomentumToMathematica", "[", 
+      "\"\<0.3640666207368178E+03  -0.1832986929319185E+02  \
+-0.3477043013193671E+03   0.1063496077587081E+03\>\"", "]"}], ",", 
+     "\[IndentingNewLine]", 
+     RowBox[{
+     "ConvertMomentumToMathematica", "[", 
+      "\"\<0.1773545913777421E+03  -0.1511233510164880E+03  \
+-0.3194936075883155E+02   0.8715286689154436E+02\>\"", "]"}]}], 
+    "\[IndentingNewLine]", "}"}]}], ";"}]}], "Input",
+ CellChangeTimes->{{3.798271498829589*^9, 3.7982715076003647`*^9}, {
+  3.798272100751007*^9, 3.798272127180915*^9}, {3.798272200301169*^9, 
+  3.7982722503558397`*^9}},ExpressionUUID->"8a897906-6230-4be6-8595-\
+3969f88f102f"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"ExampleResult1", "=", 
+  RowBox[{"MGFM$GetMGNumerator", "[", 
+   RowBox[{
+    RowBox[{"MGFM$AllHooksStarted", "[", 
+     RowBox[{"[", 
+      RowBox[{"-", "1"}], "]"}], "]"}], ",", "\n", "ProcID", ",", 
+    "DiagramsIDs", ",", "\n", "ComplexKinematicConfiguration", ",", "\n", 
+    RowBox[{"DEBUG", "\[Rule]", "False"}]}], "]"}]}]], "Input",
+ CellChangeTimes->{{3.798272261816987*^9, 3.798272285643877*^9}, {
+  3.798272326603306*^9, 
+  3.7982723297939777`*^9}},ExpressionUUID->"31c504ba-321f-4f98-b0cc-\
+23c4103a8e90"],
+
+Cell[BoxData[
+ FormBox[
+  RowBox[{"8.542677549771087`*^15", "+", 
+   RowBox[{"0.046875`", " ", "\[ImaginaryI]"}]}], TraditionalForm]], "Output",\
+
+ CellChangeTimes->{{3.798272271298595*^9, 3.798272286052702*^9}, 
+   3.798272331167652*^9},ExpressionUUID->"bc8819ee-6cc7-4ce4-9f0c-\
+71a9935cefc0"]
+}, Open  ]],
+
+Cell["Compare against target expected result", "Text",
+ CellChangeTimes->{{3.798272594923389*^9, 
+  3.798272625859189*^9}},ExpressionUUID->"8a230e8c-d14d-442b-9989-\
+218bda69d9c1"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TargetResultForExample1", "=", 
+  RowBox[{"8.542677549771087*^15", "+", 
+   RowBox[{"0.046875", "*", "I"}]}]}]], "Input",
+ CellChangeTimes->{{3.798272287524251*^9, 
+  3.79827233677183*^9}},ExpressionUUID->"62975ea0-3ede-4903-b34e-\
+057703a6e7b1"],
+
+Cell[BoxData[
+ FormBox[
+  RowBox[{"8.542677549771087`*^15", "+", 
+   RowBox[{"0.046875`", " ", "\[ImaginaryI]"}]}], TraditionalForm]], "Output",\
+
+ CellChangeTimes->{{3.798272292918496*^9, 
+  3.798272337240254*^9}},ExpressionUUID->"7e38a98b-a1f3-403a-b4d1-\
+1a5b84dba098"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"Abs", "[", 
+   RowBox[{"TargetResultForExample1", "-", "ExampleResult1"}], "]"}], "/", 
+  RowBox[{"Abs", "[", "TargetResultForExample1", "]"}]}]], "Input",
+ CellChangeTimes->{{3.798272339509165*^9, 3.7982723586069317`*^9}, {
+  3.798272579612237*^9, 
+  3.798272584175063*^9}},ExpressionUUID->"622c53c6-1be0-400b-94b5-\
+d614e65d6a17"],
+
+Cell[BoxData[
+ FormBox["0.`", TraditionalForm]], "Output",
+ CellChangeTimes->{
+  3.798272584492828*^9},ExpressionUUID->"734b7630-be29-41b6-90da-\
+25ba5c5fc73b"]
+}, Open  ]],
+
+Cell["Now add some imaginary part here and there:", "Text",
+ CellChangeTimes->{{3.798272630571477*^9, 
+  3.798272639589715*^9}},ExpressionUUID->"77413b3e-c77b-417a-929c-\
+e00e8ce4373e"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{
+    "ComplexKinematicConfiguration", "\[LeftDoubleBracket]", "3", 
+     "\[RightDoubleBracket]"}], "\[LeftDoubleBracket]", "2", 
+    "\[RightDoubleBracket]"}], "+=", " ", 
+   RowBox[{"110.0", "\[ImaginaryI]"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{
+    "ComplexKinematicConfiguration", "\[LeftDoubleBracket]", "4", 
+     "\[RightDoubleBracket]"}], "\[LeftDoubleBracket]", "1", 
+    "\[RightDoubleBracket]"}], "+=", " ", 
+   RowBox[{
+    RowBox[{"-", "230.0"}], "\[ImaginaryI]"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{
+    "ComplexKinematicConfiguration", "\[LeftDoubleBracket]", "5", 
+     "\[RightDoubleBracket]"}], "\[LeftDoubleBracket]", "4", 
+    "\[RightDoubleBracket]"}], "+=", " ", 
+   RowBox[{"330.0", "\[ImaginaryI]"}]}], ";"}]}], "Input",
+ CellChangeTimes->{{3.798272644805393*^9, 
+  3.798272695445385*^9}},ExpressionUUID->"7c856a76-4c3f-42fe-905a-\
+13ad6f804e43"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"ExampleResult2", "=", 
+  RowBox[{"MGFM$GetMGNumerator", "[", 
+   RowBox[{
+    RowBox[{"MGFM$AllHooksStarted", "[", 
+     RowBox[{"[", 
+      RowBox[{"-", "1"}], "]"}], "]"}], ",", "\n", "ProcID", ",", 
+    "DiagramsIDs", ",", "\n", "ComplexKinematicConfiguration", ",", "\n", 
+    RowBox[{"DEBUG", "\[Rule]", "False"}]}], "]"}]}]], "Input",
+ CellChangeTimes->{{3.798272261816987*^9, 3.798272285643877*^9}, {
+  3.798272326603306*^9, 3.7982723297939777`*^9}, {3.7982727119922523`*^9, 
+  3.798272712087016*^9}},ExpressionUUID->"c53cd1fb-cac4-4313-b8c9-\
+bf57b0751a30"],
+
+Cell[BoxData[
+ FormBox[
+  RowBox[{"8.950969838764452`*^15", "-", 
+   RowBox[{"5.553969024819741`*^15", " ", "\[ImaginaryI]"}]}], 
+  TraditionalForm]], "Output",
+ CellChangeTimes->{
+  3.7982727145557528`*^9},ExpressionUUID->"f17e008f-8d57-4464-a3c6-\
+42987ec65fdd"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"TargetResultForExample2", "=", 
+   RowBox[{"8.950969838764452*^15", "-", 
+    RowBox[{"5.553969024819741*^15", "*", "I"}]}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.798272721732442*^9, 3.798272723600664*^9}, {
+  3.798272826290348*^9, 
+  3.79827284493156*^9}},ExpressionUUID->"ce51bfb3-2217-4f53-8d32-\
+54dbee00f8c8"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"Abs", "[", 
+   RowBox[{"TargetResultForExample2", "-", "ExampleResult2"}], "]"}], "/", 
+  RowBox[{"Abs", "[", "TargetResultForExample2", "]"}]}]], "Input",
+ CellChangeTimes->{{3.798272339509165*^9, 3.7982723586069317`*^9}, {
+  3.798272579612237*^9, 3.798272584175063*^9}, {3.798272852530756*^9, 
+  3.798272855551421*^9}},ExpressionUUID->"0762bd8b-b99d-4d97-b7a0-\
+7b8791c092b2"],
+
+Cell[BoxData[
+ FormBox["0.`", TraditionalForm]], "Output",
+ CellChangeTimes->{3.798272584492828*^9, 
+  3.7982728558981857`*^9},ExpressionUUID->"42ecd034-b28f-4f39-8df4-\
+a40b20308f65"]
+}, Open  ]]
+}, Open  ]]
+},
+WindowSize->{1187, 1308},
+WindowMargins->{{Automatic, 310}, {1175, Automatic}},
+FrontEndVersion->"11.2 for Mac OS X x86 (32-bit, 64-bit Kernel) (September \
+10, 2017)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[580, 22, 341, 5, 98, "Title",ExpressionUUID->"862fd90a-3f33-4861-845a-877f7ac86f05"],
+Cell[924, 29, 242, 4, 35, "Text",ExpressionUUID->"9131fffc-91c9-48f2-8761-6292b0a1a437"],
+Cell[CellGroupData[{
+Cell[1191, 37, 420, 9, 30, "Input",ExpressionUUID->"1cb01a94-6c0a-49a0-831a-6f1cd87e1b31"],
+Cell[1614, 48, 981, 15, 366, "Print",ExpressionUUID->"8a88a02a-f0ed-48b6-83cf-2a6b6bcff419"]
+}, Open  ]],
+Cell[2610, 66, 463, 11, 150, "Text",ExpressionUUID->"335a5b50-5a24-4240-91d3-673def06c326"],
+Cell[3076, 79, 323, 8, 30, "Input",ExpressionUUID->"48630be6-9b6d-4fe9-8827-ac59d5b274d4"],
+Cell[3402, 89, 190, 3, 35, "Text",ExpressionUUID->"ff9af223-3f92-413c-a15e-24da5de7f653"],
+Cell[3595, 94, 338, 8, 30, "Input",ExpressionUUID->"ac899e56-37b3-4844-b613-139b45f8b272"],
+Cell[3936, 104, 272, 6, 35, "Text",ExpressionUUID->"c5462f3f-1378-4742-9223-d32bc1cb367f"],
+Cell[CellGroupData[{
+Cell[4233, 114, 368, 7, 52, "Input",ExpressionUUID->"eba75ea8-2722-4b1d-923b-4cfe08bd1043"],
+Cell[4604, 123, 161, 4, 30, "Output",ExpressionUUID->"26e4a147-697f-4e16-937f-923ec16ec99e"],
+Cell[4768, 129, 161, 4, 30, "Output",ExpressionUUID->"4c2820d2-a8df-46e9-a655-dbf81e9e608d"]
+}, Open  ]],
+Cell[4944, 136, 308, 7, 35, "Text",ExpressionUUID->"a93104a1-9b30-4375-8fba-4ede4874057c"],
+Cell[5255, 145, 718, 19, 73, "Input",ExpressionUUID->"d3f9bccd-5d4d-4ee6-b512-fd927b63d83c"],
+Cell[5976, 166, 1482, 35, 199, "Input",ExpressionUUID->"8a897906-6230-4be6-8595-3969f88f102f"],
+Cell[CellGroupData[{
+Cell[7483, 205, 541, 12, 94, "Input",ExpressionUUID->"31c504ba-321f-4f98-b0cc-23c4103a8e90"],
+Cell[8027, 219, 295, 7, 35, "Output",ExpressionUUID->"bc8819ee-6cc7-4ce4-9f0c-71a9935cefc0"]
+}, Open  ]],
+Cell[8337, 229, 180, 3, 35, "Text",ExpressionUUID->"8a230e8c-d14d-442b-9989-218bda69d9c1"],
+Cell[CellGroupData[{
+Cell[8542, 236, 270, 6, 30, "Input",ExpressionUUID->"62975ea0-3ede-4903-b34e-057703a6e7b1"],
+Cell[8815, 244, 272, 7, 35, "Output",ExpressionUUID->"7e38a98b-a1f3-403a-b4d1-1a5b84dba098"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[9124, 256, 367, 8, 30, "Input",ExpressionUUID->"622c53c6-1be0-400b-94b5-d614e65d6a17"],
+Cell[9494, 266, 160, 4, 30, "Output",ExpressionUUID->"734b7630-be29-41b6-90da-25ba5c5fc73b"]
+}, Open  ]],
+Cell[9669, 273, 185, 3, 35, "Text",ExpressionUUID->"77413b3e-c77b-417a-929c-e00e8ce4373e"],
+Cell[9857, 278, 1017, 28, 73, "Input",ExpressionUUID->"7c856a76-4c3f-42fe-905a-13ad6f804e43"],
+Cell[CellGroupData[{
+Cell[10899, 310, 589, 12, 94, "Input",ExpressionUUID->"c53cd1fb-cac4-4313-b8c9-bf57b0751a30"],
+Cell[11491, 324, 264, 7, 35, "Output",ExpressionUUID->"f17e008f-8d57-4464-a3c6-42987ec65fdd"]
+}, Open  ]],
+Cell[11770, 334, 352, 8, 30, "Input",ExpressionUUID->"ce51bfb3-2217-4f53-8d32-54dbee00f8c8"],
+Cell[CellGroupData[{
+Cell[12147, 346, 413, 8, 30, "Input",ExpressionUUID->"0762bd8b-b99d-4d97-b7a0-7b8791c092b2"],
+Cell[12563, 356, 184, 4, 30, "Output",ExpressionUUID->"42ecd034-b28f-4f39-8df4-a40b20308f65"]
+}, Open  ]]
+}, Open  ]]
+}
+]
+*)
+

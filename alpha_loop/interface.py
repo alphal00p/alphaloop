@@ -169,7 +169,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 self.alphaLoop_options['_jet_PDGs'] = tuple([
                     pdg for pdg in self._multiparticles['j']
                 ])
-                self._curr_exporter = aL_exporters.alphaLoopExporter(self._export_dir,alphaLoop_options=self.alphaLoop_options)
+                self._curr_exporter = aL_exporters.alphaLoopExporter(self._export_dir,
+                    alphaLoop_options=self.alphaLoop_options,
+                    MG5aMC_options=self.options
+                )
             else:
                 raise alphaLoopInterfaceError("A plugin output format must have been specified at this stage.")
 
