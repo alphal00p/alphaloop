@@ -55,6 +55,13 @@ class alphaLoopModelConverter(export_v4.UFO_model_to_mg4):
         """ initialization of the objects """
         super(alphaLoopModelConverter, self).__init__(*args, **opts)
 
+    def copy_standard_file(self):
+        """ Specialize this function so as to overwrite the makefile of the MODEL 
+        with our customized one."""
+        super(alphaLoopModelConverter,self).copy_standard_file()
+        shutil.copy(pjoin(plugin_path, 'Templates', 'model_makefile'), 
+                    pjoin(self.dir_path, 'makefile'))
+
 class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
     check = False
     exporter = 'v4'
@@ -209,8 +216,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     pjoin(self.dir_path, 'SubProcesses', 'makefileP'))
            
         # Add file in Source
-        shutil.copy(pjoin(temp_dir, 'Source', 'make_opts'), 
-                    pjoin(self.dir_path, 'Source'))        
+        shutil.copy(pjoin(plugin_path, 'Templates', 'Source_make_opts'), 
+                    pjoin(self.dir_path, 'Source','make_opts'))
         # add the makefile 
         filename = pjoin(self.dir_path,'Source','makefile')
         self.write_source_makefile(writers.FileWriter(filename))
@@ -258,10 +265,19 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
         # Add the C_bindings
         filename = pjoin(self.dir_path, 'SubProcesses','C_bindings.f')
-        self.write_c_bindings(writers.FortranWriter(filename))
+        C_binding_replace_dict = self.write_c_bindings(writers.FortranWriter(filename))
+
+        # Add the IO_bindings
+        filename = pjoin(self.dir_path, 'SubProcesses','IO_bindings.f')
+        self.write_IO_bindings(writers.FortranWriter(filename),C_binding_replace_dict)
 
         # Write the overall cross-section yaml file
         self.write_overall_LTD_squared_info()
+
+        # Fix makefiles compiler definition
+        self.replace_make_opt_c_compiler(compiler['cpp'])
+#       Uncomment if necessary but it needs to be fixed as for now it seems to corrupt make_opts
+#        self.replace_make_opt_f_compiler(compiler)
 
     #===========================================================================
     # process exporter fortran switch between group and not grouped
@@ -338,7 +354,34 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
         template_path = pjoin(plugin_path,'Templates','C_bindings.inc')
         writer.writelines(open(template_path,'r').read()%replace_dict)
+
+        return replace_dict
+
+    def write_IO_bindings(self, writer, replace_dict):
+        """ Write the fortran dispatcher to all processes callable through std I/O."""
         
+        # Keep track of all ME exported so as to build the IO_binding dispatcher in finalize
+        processes = self.all_processes_exported
+
+        matrix_element_call_dispatch = []
+        for i_proc, (me, proc_number) in enumerate(processes):
+            matrix_element_call_dispatch.append('%d CONTINUE'%(i_proc+1))
+            # Setup the kinematics now
+            n_external = len(me.get('processes')[0].get('legs'))
+            matrix_element_call_dispatch.append("DO J=1,%d"%n_external)
+            matrix_element_call_dispatch.append("READ(*,*) (P(I),I=0,7)")
+            matrix_element_call_dispatch.append("DO I=0,3")
+            matrix_element_call_dispatch.append("P%d(I,J)=DCMPLX(P(2*I),P(2*I+1))"%n_external)
+            matrix_element_call_dispatch.append("ENDDO")
+            matrix_element_call_dispatch.append("ENDDO")
+            matrix_element_call_dispatch.append(
+                'CALL M%d_SMATRIXHEL(P%d, -1, SDL, SDR, ANS)'%(i_proc,n_external))
+            matrix_element_call_dispatch.append("GOTO 9999")
+        replace_dict['matrix_element_call_dispatch'] = '\n'.join(matrix_element_call_dispatch)
+
+        template_path = pjoin(plugin_path,'Templates','IO_bindings.inc')
+        writer.writelines(open(template_path,'r').read()%replace_dict)
+
     def convert_model(self, model, wanted_lorentz = [], wanted_couplings = []):
         """ Create a full valid MG4 model from a MG5 model (coming from UFO)"""
 
