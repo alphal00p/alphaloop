@@ -317,9 +317,10 @@ class SuperGraph(object):
             MG_numerator = {
                 # The call signature is typically a dictionary with the following format
                 # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }
-                'call_signature' : self.call_signature
+                'call_signature' : self.call_signature,
             },
-            # The numerator specifications below are of no use in the context of using MG numerators.
+            # The numerator specifications below are of no use in the
+            # w context of using MG numerators.
             overall_numerator=1.0,
             numerator_structure={}
         )

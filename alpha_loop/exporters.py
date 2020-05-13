@@ -344,8 +344,15 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             # Setup the kinematics now
             matrix_element_call_dispatch.append("DO I=0,3")
             n_external = len(me.get('processes')[0].get('legs'))
-            matrix_element_call_dispatch.append("DO J=0,%d"%(n_external-1))
-            matrix_element_call_dispatch.append("P%d(I,J+1)=DCMPLX(P(1+J*8+2*I),P(1+J*8+2*I+1))"%n_external)
+            n_incoming = len([l for l in me.get('processes')[0].get('legs') if l.get('state')==False])
+            matrix_element_call_dispatch.append("P%d(I,%d)=DCMPLX(0.0d0,0.0d0)"%(n_external,n_external))
+            matrix_element_call_dispatch.append("DO J=0,%d-1"%(n_external-1))
+            matrix_element_call_dispatch.append("P%d(I,J+1)=DCMPLX(P(J*8+2*I+1),P(J*8+2*I+2))"%n_external)
+            matrix_element_call_dispatch.append("IF ((J+1).le.%d) THEN"%n_incoming)
+            matrix_element_call_dispatch.append("P%d(I,%d)=P%d(I,%d)+P%d(I,J+1)"%(n_external,n_external,n_external,n_external,n_external))
+            matrix_element_call_dispatch.append("ELSE")
+            matrix_element_call_dispatch.append("P%d(I,%d)=P%d(I,%d)-P%d(I,J+1)"%(n_external,n_external,n_external,n_external,n_external))
+            matrix_element_call_dispatch.append("ENDIF")
             matrix_element_call_dispatch.append("ENDDO")
             matrix_element_call_dispatch.append("ENDDO")
             matrix_element_call_dispatch.append(
