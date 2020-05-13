@@ -108,7 +108,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         base_diagrams = base_amplitude.get('diagrams')
 
         # First build an instance "LT2DiagramLst" from the Helas matrix element object
-        LTD2_diagram_list = LTD_squared.LTD2DiagramList(matrix_element)
+        LTD2_diagram_list = LTD_squared.LTD2DiagramList(matrix_element, self.alphaLoop_options)
         all_super_graphs = LTD_squared.SuperGraphList(LTD2_diagram_list, proc_number)
         logger.info("%s%s involves %d supergraphs.%s"%(
             utils.bcolors.GREEN,

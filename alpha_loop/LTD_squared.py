@@ -9,19 +9,26 @@ import progressbar
 import copy
 import logging
 import madgraph.various.misc as misc
+from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 
 import LTD.squared_topologies as squared_topology_processor
 import alpha_loop.utils as utils
 
+
 logger = logging.getLogger('alphaLoop.LTD2Processing')
+
+class LTD2Error(MadGraph5Error):
+    """ Error for the alphaLoop LTD2 treatment."""
+    pass
 
 class LTD2DiagramList(list):
     """ Class for storing a list of LTD2Diagrams."""
 
-    def __init__(self, helas_matrix_element):
+    def __init__(self, helas_matrix_element, alphaLoop_options):
         """ Initialise this list of LTD2Diagrams from an instance of HelasMatrixElement."""
 
         self.helas_matrix_element = helas_matrix_element
+        self.alphaLoop_options = alphaLoop_options
         self.optimization = 1
         if len([wf for wf in self.helas_matrix_element.get_all_wavefunctions() if wf.get('number') == 1]) > 1:
             self.optimization = 0
@@ -32,16 +39,18 @@ class LTD2DiagramList(list):
         self.vx_list = []
 
         for diag in self.helas_matrix_element.get('diagrams'):
-            self.append(LTD2Diagram(diag, self.wf_dict, self.vx_list, self.process, self.model, self.optimization))
+            self.append(LTD2Diagram(diag, self.wf_dict, self.vx_list, 
+                self.process, self.model, self.optimization, self.alphaLoop_options))
 
 class LTD2Diagram(object):
     """ Class for storing a diagram, analoguous to base_amplitude.Diagram but with more topological information
     necessary for treating the corresponding contribution in the context of an LTD^2 computation."""
 
-    def __init__(self, helas_diagram, wf_dict, vx_list, process, model, optimization):
+    def __init__(self, helas_diagram, wf_dict, vx_list, process, model, optimization, alphaLoop_options):
         """ Initialise this LTD2Diagram from an instance of HelasDiagrams."""
 
         self.helas_diagram = helas_diagram
+        self.alphaLoop_options = alphaLoop_options
         self.process = process
         self.model = model
         self.optimization = optimization
@@ -123,11 +132,21 @@ class LTD2Diagram(object):
         #print(self.helas_amplitude_numbers)
         return graph, next_node_number
 
+    def get_copy(self):
+        """ Returns a copy of self with only relevant attributed deep-copied."""
+        self_copy = copy.copy(self)
+        self_copy.initial_state_edges = copy.deepcopy(self.initial_state_edges)
+        self_copy.final_state_edges = copy.deepcopy(self.final_state_edges)
+        self_copy.graph = copy.deepcopy(self.graph)
+        self_copy.n_internal_nodes = copy.deepcopy(self.n_internal_nodes)
+
+        return self_copy
+
     def get_complex_conjugate(self):
         """ Returns a deep copy of self corresponding to flipping the orientation of all edges, and
         potentially eventually computing the additional factors of `i`."""
 
-        complex_conjugated_LTD2_diagram = copy.deepcopy(self)
+        complex_conjugated_LTD2_diagram = self.get_copy()
         complex_conjugated_LTD2_diagram.graph = complex_conjugated_LTD2_diagram.graph.reverse(copy=False)
 
         # Also flip the orientation of the external edges.
@@ -174,7 +193,6 @@ class SuperGraphList(list):
         all_super_graphs = []
         logger.info("Building supergraphs from %d x %d diagramatic combinations..."%(
                                                 len(LTD2_diagram_list),len(LTD2_diagram_list)))
-        n_super_graphs_ignored = 0
         with progressbar.ProgressBar(
             prefix = 'Generating non-unique supergraphs : ',
             max_value=int((len(LTD2_diagram_list)*(len(LTD2_diagram_list)+1))/2)) as bar:
@@ -187,16 +205,9 @@ class SuperGraphList(list):
                             'right_diagram_id' : i_diag_left+i_diag_right+1,
                         }
                     )
-                    if not new_super_graph.should_be_considered():
-                        n_super_graphs_ignored += 1
-                        continue
                     all_super_graphs.append(new_super_graph)
                     i_bar += 1
                     bar.update(i_bar)
-
-        if n_super_graphs_ignored>0:
-            logger.critical("%salphaLoop removed a total of %d supergraphs because their kind is not supported yet. Results will be wrong!%s"%
-                                (utils.bcolors.RED,n_super_graphs_ignored,utils.bcolors.ENDC))
 
         # Then filter isomorphic ones
         logger.info("Detecting isomorphisms between %d non-unique super-graphs..."%len(all_super_graphs))
@@ -210,7 +221,28 @@ class SuperGraphList(list):
                     self.append(super_graph)
                 bar.update(n_unique_super_graphs_sofar='%d'%len(self))
                 bar.update(i_graph+1)
-        
+
+
+        logger.info("Filtering %d unique super-graphs to remove undesired ones (self-energies)..."%len(self))
+        filtered_list = []
+        n_removed_super_graphs = 0
+        with progressbar.ProgressBar(
+            prefix = 'Removing self-energy supergraphs ({variables.n_removed_graphs_so_far} removed so far) : ',
+            max_value=len(self),
+            variables = {'n_removed_graphs_so_far' : '0'}
+            ) as bar:
+            for i_graph, super_graph in enumerate(self):
+                if super_graph.should_be_considered():
+                    filtered_list.append(super_graph)
+                else:
+                    n_removed_super_graphs += 1
+                bar.update(n_removed_graphs_so_far='%d'%n_removed_super_graphs)
+                bar.update(i_graph+1)
+
+        self[:] = filtered_list
+        logger.info("alphaLoop removed a total of %d "%n_removed_super_graphs+
+                    "supergraphs (likely self-energies that will be generated independently.)")
+
         # print("This process contains %d individual different super-graphs."%len(self))
 
 class SuperGraph(object):
@@ -224,16 +256,63 @@ class SuperGraph(object):
         # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }
         self.call_signature = call_signature
 
-        self.diag_left_of_cut = copy.deepcopy(LTD2_diagram_left)
-        self.diag_right_of_cut = LTD2_diagram_right.get_complex_conjugate()
+        self.model = LTD2_diagram_left.model
+        self.process = LTD2_diagram_left.process
+        self.alphaLoop_options = LTD2_diagram_left.alphaLoop_options
+        self.diag_left_of_cut = LTD2_diagram_left.get_copy()
+        self.diag_right_of_cut = LTD2_diagram_right.get_copy()
 
         # The attributes below will be set by the function sew_graphs.
         self.graph = None
         self.cuts = None
         self.external_incoming_momenta = None
-        self.sew_graphs(self.diag_left_of_cut, self.diag_right_of_cut)
+        self.sew_graphs(
+            # Use copies to avoid border effects from edges removal
+            self.diag_left_of_cut.get_copy(), 
+            self.diag_right_of_cut.get_complex_conjugate()
+        )
+
+        self.self_energy_structure = None
 
         self.name = name
+
+    def get_self_energy_structures(self):
+        """ Computes the self-energy structure.
+        An empty dictionary denotes the lack of any self-energy
+        """
+
+        if self.self_energy_structure is not None:
+            return self.self_energy_structure
+        
+        all_external_pdgs = {l.get('id') for l in self.process.get('legs')}
+
+        # TODO the algorithm below can potentially be made faster.
+        descendants = {}
+        for graph in [self.diag_left_of_cut.graph,self.diag_right_of_cut.graph]:
+            for edge, edge_info in graph.edges.items():
+                # Skip external edges
+                if (edge[0][:1] in ['I','O']) or (edge[1][:1] in ['I','O']):
+                    continue
+                # Skip any edge corresponding to a particle that is not a jet
+                # and not in the external states of the process
+                if not (edge_info['pdg'] in self.alphaLoop_options['_jet_PDGs'] or 
+                    edge_info['pdg'] in all_external_pdgs):
+                    continue
+                this_edge_descendants = frozenset(d for d in nx.descendants(graph,edge[1]) if d[:1] in ['I','O'])
+                if this_edge_descendants in descendants:
+                    descendants[this_edge_descendants].append(edge)
+                else:
+                    descendants[this_edge_descendants] = [ edge, ]
+
+        # Now keep all group descendants which are associated to more than one edge.
+        # These correspond to self-energy raised propagators.
+        descendants = {k:v for k,v in descendants.items() if len(v)>1}
+
+        self.self_energy_structure = descendants
+        if any(len(v)>2 for v in self.self_energy_structure.values()):
+            raise LTD2Error("The self-energy detection logic must be wrong.")
+
+        return self.self_energy_structure
 
     def set_name(self, name):
         """ Define an accessor for the name attribute to make it clear that it will typically be set after 
@@ -244,87 +323,11 @@ class SuperGraph(object):
         """ Place here all rules regarding whether this supergraph should be 
         considered without our squared LTD framework."""
 
+        if not self.alphaLoop_options['include_self_energies_from_squared_amplitudes']:
+            if len(self.get_self_energy_structures()) > 0:
+                return False
+
         return True
-        # TODO remove self-energies as we will be implementing them from
-        # a separate procedure involving an indpendent process generation
-        # featuring two-point vertices.
-
-    def generate_yaml_input_file(self, file_path, model, alphaLoop_options):
-        """ Generate the yaml input file for the rust_backend, fully specifying this squared topology."""
-
-        local_DEBUG = False
-        if local_DEBUG: misc.sprint("Now processing topology '%s'."%self.name)
-        # Nodes are labelled like I<i>, O<i>, L<i> or R<i>.
-        # We will map those integers by offsets of the letter
-        letter_offsets = {'I':1000,'O':2000,'L':8000, 'R':9000}
-        def cast_node_to_int(node_name):
-            return letter_offsets[node_name[0]]+int(node_name[1:])
-
-        def get_edges_list():
-            edges_list = []
-            for edge, edge_info in self.graph.edges.items():
-                edges_list.append(
-                    ( edge_info['name'], cast_node_to_int(edge[0]),cast_node_to_int(edge[1]) )
-                )
-            if local_DEBUG: misc.sprint(edges_list)
-            return edges_list
-
-        def get_incoming_momenta_names():
-            incoming_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.external_incoming_momenta ]
-            if local_DEBUG: misc.sprint(incoming_momenta_names)
-            return incoming_momenta_names
-
-        def get_external_momenta_assignment():
-            # TODO This must go, it does not make much sense for it to be assigned in the context of using MG numerators.
-            return {'q1': [1000., 0., 0., 1000.], 'q2': [1000., 0., 0., -1000.], 'q3': [1000., 0., 0., 1000.], 'q4': [1000., 0., 0., -1000.]}
-
-        def get_loop_momenta_names():
-            loop_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.cuts[:-1] ]
-            if local_DEBUG: misc.sprint(loop_momenta_names)
-            return loop_momenta_names
-
-        def get_final_state_particle_ids():
-            final_state_particle_ids = []
-            all_external_pdgs = [ self.graph.edges[edge[1]]['pdg'] for edge in self.cuts ]
-            for pdg in all_external_pdgs:
-                if pdg not in alphaLoop_options['_jet_PDGs']:
-                    final_state_particle_ids.append(pdg)
-            if local_DEBUG: misc.sprint(final_state_particle_ids)
-            return tuple(final_state_particle_ids)
-
-        def get_njets_in_observable_process():
-            njets_in_observable_process = max( (len(self.cuts)-len(get_final_state_particle_ids()))-alphaLoop_options['perturbative_order'].count('N'), 0)
-            if local_DEBUG: misc.sprint(njets_in_observable_process)
-            return njets_in_observable_process
-
-        def get_particle_ids():
-            particle_ids = { edge_info['name'] : edge_info['pdg'] for 
-                edge, edge_info in self.graph.edges.items()
-            }
-            if local_DEBUG: misc.sprint(particle_ids)
-            return particle_ids
-
-        squared_topology = squared_topology_processor.SquaredTopologyGenerator(
-            get_edges_list(),
-            self.name, 
-            get_incoming_momenta_names(), 
-            get_njets_in_observable_process(),
-            # Below needs to be removed when interfacing to MG5aMC numerators
-            get_external_momenta_assignment(),
-            loop_momenta_names=get_loop_momenta_names(),
-            final_state_particle_ids=get_final_state_particle_ids(),
-            particle_ids=get_particle_ids(),
-            MG_numerator = {
-                # The call signature is typically a dictionary with the following format
-                # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }
-                'call_signature' : self.call_signature,
-            },
-            # The numerator specifications below are of no use in the
-            # w context of using MG numerators.
-            overall_numerator=1.0,
-            numerator_structure={}
-        )
-        squared_topology.export(file_path)
 
     def draw(self):
         """ For debugging: use matplotlib to draw this super graph. """
@@ -414,3 +417,81 @@ class SuperGraph(object):
             edge_match=edge_match_function,
             node_match=lambda n1,n2: n1['vertex_id']==n2['vertex_id']
         )
+
+
+    def generate_yaml_input_file(self, file_path, model, alphaLoop_options):
+        """ Generate the yaml input file for the rust_backend, fully specifying this squared topology."""
+
+        local_DEBUG = False
+        if local_DEBUG: misc.sprint("Now processing topology '%s'."%self.name)
+        # Nodes are labelled like I<i>, O<i>, L<i> or R<i>.
+        # We will map those integers by offsets of the letter
+        letter_offsets = {'I':1000,'O':2000,'L':8000, 'R':9000}
+        def cast_node_to_int(node_name):
+            return letter_offsets[node_name[0]]+int(node_name[1:])
+
+        def get_edges_list():
+            edges_list = []
+            for edge, edge_info in self.graph.edges.items():
+                edges_list.append(
+                    ( edge_info['name'], cast_node_to_int(edge[0]),cast_node_to_int(edge[1]) )
+                )
+            if local_DEBUG: misc.sprint(edges_list)
+            return edges_list
+
+        def get_incoming_momenta_names():
+            incoming_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.external_incoming_momenta ]
+            if local_DEBUG: misc.sprint(incoming_momenta_names)
+            return incoming_momenta_names
+
+        def get_external_momenta_assignment():
+            # TODO This must go, it does not make much sense for it to be assigned in the context of using MG numerators.
+            return {'q1': [1000., 0., 0., 1000.], 'q2': [1000., 0., 0., -1000.], 'q3': [1000., 0., 0., 1000.], 'q4': [1000., 0., 0., -1000.]}
+
+        def get_loop_momenta_names():
+            loop_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.cuts[:-1] ]
+            if local_DEBUG: misc.sprint(loop_momenta_names)
+            return loop_momenta_names
+
+        def get_final_state_particle_ids():
+            final_state_particle_ids = []
+            all_external_pdgs = [ self.graph.edges[edge[1]]['pdg'] for edge in self.cuts ]
+            for pdg in all_external_pdgs:
+                if pdg not in alphaLoop_options['_jet_PDGs']:
+                    final_state_particle_ids.append(pdg)
+            if local_DEBUG: misc.sprint(final_state_particle_ids)
+            return tuple(final_state_particle_ids)
+
+        def get_njets_in_observable_process():
+            njets_in_observable_process = max( (len(self.cuts)-len(get_final_state_particle_ids()))-alphaLoop_options['perturbative_order'].count('N'), 0)
+            if local_DEBUG: misc.sprint(njets_in_observable_process)
+            return njets_in_observable_process
+
+        def get_particle_ids():
+            particle_ids = { edge_info['name'] : edge_info['pdg'] for 
+                edge, edge_info in self.graph.edges.items()
+            }
+            if local_DEBUG: misc.sprint(particle_ids)
+            return particle_ids
+
+        squared_topology = squared_topology_processor.SquaredTopologyGenerator(
+            get_edges_list(),
+            self.name, 
+            get_incoming_momenta_names(), 
+            get_njets_in_observable_process(),
+            # Below needs to be removed when interfacing to MG5aMC numerators
+            get_external_momenta_assignment(),
+            loop_momenta_names=get_loop_momenta_names(),
+            final_state_particle_ids=get_final_state_particle_ids(),
+            particle_ids=get_particle_ids(),
+            MG_numerator = {
+                # The call signature is typically a dictionary with the following format
+                # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }
+                'call_signature' : self.call_signature,
+            },
+            # The numerator specifications below are of no use in the
+            # w context of using MG numerators.
+            overall_numerator=1.0,
+            numerator_structure={}
+        )
+        squared_topology.export(file_path)

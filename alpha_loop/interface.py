@@ -67,6 +67,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Specify the number of rust inputs to generate, -1 considers all by default.
             # This is useful for debugging as this can be slow.
             'n_rust_inputs_to_generate' : -1,
+            # We plan on include self-energies from two-point vertices so as to be able to apply our 
+            # LTD^2 LSZ treatment. So 'include_self_energies_from_squared_amplitudes' should be kept
+            # set to False, except for debugging.
+            'include_self_energies_from_squared_amplitudes' : False
         }
         self.plugin_output_format_selected = None
 
@@ -132,6 +136,17 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidCmd("Specified value for 'use_physical_gluon_helicity_sum' should be 'True' or 'False', not '%s'."%value)
             bool_val = (value.upper()=='TRUE')
             self.alphaLoop_options['use_physical_gluon_helicity_sum'] = bool_val
+        elif key == 'include_self_energies_from_squared_amplitudes':
+            if value.upper() not in ['TRUE','FALSE']:
+                raise alphaLoopInvalidCmd("Specified value for 'include_self_energies_from_squared_amplitudes' should be 'True' or 'False', not '%s'."%value)
+            bool_val = (value.upper()=='TRUE')
+            if bool_val:
+                logger.warning(
+"""Self-energies will be generated from two-point vertices so as to be able to apply the 
+LTD^2 LSZ treatment. So 'include_self_energies_from_squared_amplitudes' should be kept
+set to False, except for debugging.
+""")
+            self.alphaLoop_options['include_self_energies_from_squared_amplitudes'] = bool_val   
         elif key == 'n_rust_inputs_to_generate':
             try:
                 self.alphaLoop_options['n_rust_inputs_to_generate'] = int(value)
