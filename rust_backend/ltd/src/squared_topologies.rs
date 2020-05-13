@@ -1142,7 +1142,7 @@ impl SquaredTopology {
             }
 
             // convert from the cut basis to the loop momentum basis
-            if self.numerator_in_loop_momentum_basis {
+            if self.numerator_in_loop_momentum_basis || cfg!(feature = "mg_numerator") {
                 if let Some(m) = &cut_uv_limit.cb_to_lmb {
                     for (kl, r) in k_def_lmb[..self.n_loops]
                         .iter_mut()
@@ -1180,18 +1180,17 @@ impl SquaredTopology {
                             .unwrap();
                     }
 
-                    // TODO: we need to pattern match the particle ids to the process definition
-                    for m in &cut_momenta[..cutkosky_cuts.cuts.len()] {
+                    for m in &k_def_lmb[..self.n_loops] {
                         all_external_momenta
                             .try_extend_from_slice(&[
-                                m.t.to_f64().unwrap(),
-                                0.,
-                                m.x.to_f64().unwrap(),
-                                0.,
-                                m.y.to_f64().unwrap(),
-                                0.,
-                                m.z.to_f64().unwrap(),
-                                0.,
+                                m.t.re.to_f64().unwrap(),
+                                m.t.im.to_f64().unwrap(),
+                                m.x.re.to_f64().unwrap(),
+                                m.x.im.to_f64().unwrap(),
+                                m.y.re.to_f64().unwrap(),
+                                m.y.im.to_f64().unwrap(),
+                                m.z.re.to_f64().unwrap(),
+                                m.z.im.to_f64().unwrap(),
                             ])
                             .unwrap();
                     }
