@@ -281,9 +281,9 @@ C     the include file with the values of the parameters and masses
       G = 2* DSQRT(ALPHAS*pi)
       call UPDATE_AS_PARAM()
       if (NHEL.ne.0) then
-        CALL %(proc_prefix)sSMATRIXHEL(P, NHEL, ANS)
+        CALL %(proc_prefix)sSMATRIXHEL(P, NHEL, SELECTED_DIAG_LEFT,SELECTED_DIAG_RIGHT, ANS)
       else
-        CALL %(proc_prefix)sSMATRIX(P, ANS)
+        CALL %(proc_prefix)sSMATRIX(P, SELECTED_DIAG_LEFT, SELECTED_DIAG_RIGHT, ANS)
       endif
       return 
       end
