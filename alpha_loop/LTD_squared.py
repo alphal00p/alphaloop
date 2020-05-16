@@ -463,7 +463,9 @@ class SuperGraph(object):
             return tuple(final_state_particle_ids)
 
         def get_njets_in_observable_process():
-            njets_in_observable_process = max( (len(self.cuts)-len(get_final_state_particle_ids()))-alphaLoop_options['perturbative_order'].count('N'), 0)
+            #TODO do an actual correct filtering based on the coupling orderrs
+            njets_in_observable_process = max( (len(self.cuts)-len(get_final_state_particle_ids())) - 
+                                    sum(alphaLoop_options['perturbative_orders'].values())//2, 0)
             if local_DEBUG: misc.sprint(njets_in_observable_process)
             return njets_in_observable_process
 
