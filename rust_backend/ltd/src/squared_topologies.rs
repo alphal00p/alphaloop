@@ -12,12 +12,14 @@ use num_traits::ToPrimitive;
 use num_traits::{Float, FloatConst};
 use num_traits::{One, Zero};
 use observables::EventManager;
+use rand::Rng;
 use serde::Deserialize;
 use std::fs::File;
 use std::mem;
+use std::ops::Mul;
 use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
-use utils::Signum;
+use utils::{PolynomialReconstruction, Signum};
 use vector::{LorentzVector, RealNumberLike};
 use {DeformationStrategy, FloatLike, NormalisingFunction, Settings, MAX_LOOP};
 
@@ -114,6 +116,18 @@ pub struct CutkoskyCutLimits {
     #[serde(skip_deserializing)]
     pub numerator: LTDNumerator,
     pub cb_to_lmb: Option<Vec<i8>>,
+    #[serde(skip_deserializing)]
+    #[cfg(feature = "mg_numerator")]
+    pub energy_polynomial_matrix: Vec<Vec<f64>>,
+    #[serde(skip_deserializing)]
+    #[cfg(feature = "mg_numerator")]
+    pub energy_polynomial_map: Vec<usize>,
+    #[serde(skip_deserializing)]
+    #[cfg(feature = "mg_numerator")]
+    pub energy_polynomial_samples: Vec<Vec<f64>>,
+    #[serde(skip_deserializing)]
+    #[cfg(feature = "mg_numerator")]
+    pub energy_polynomial_coefficients: Vec<Complex<f64>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -568,6 +582,12 @@ impl SquaredTopology {
             [float::zero(), float::zero(), float::one()],
         ];
 
+        #[cfg(feature = "mg_numerator")]
+        {
+            squared_topo.mg_numerator.mg_numerator = Some(MGNumeratorMod::load());
+            squared_topo.get_energy_polynomial_matrix();
+        }
+
         Ok(squared_topo)
     }
 
@@ -590,6 +610,235 @@ impl SquaredTopology {
             }
         }
         cut_momentum
+    }
+
+    /// Reconstruct the shape of the energy polynomial for the MG numerator and
+    /// construct the transformation matrix that finds the coefficients.
+    #[cfg(feature = "mg_numerator")]
+    pub fn get_energy_polynomial_matrix(&mut self) {
+        let mut rng = rand::thread_rng();
+
+        let e_cm = self.e_cm_squared.sqrt();
+        let max_rank: usize = 8; // FIXME: make dynamic
+        let mut poly_rec = PolynomialReconstruction::new(max_rank, self.n_loops, e_cm);
+
+        let mut mg_numerator = mem::replace(&mut self.mg_numerator.mg_numerator, None);
+        let mut poly_rec_buffer = vec![Complex::zero(); max_rank.pow(self.n_loops as u32)];
+
+        for cutkosky_cuts in &mut self.cutkosky_cuts {
+            let mut shifts = [LorentzVector::default(); MAX_LOOP + 4];
+            // get the shifts
+            for (shift, cut) in shifts.iter_mut().zip(cutkosky_cuts.cuts.iter()) {
+                *shift = utils::evaluate_signature(&cut.signature.1, &self.external_momenta);
+            }
+
+            for cut_uv_limit in cutkosky_cuts.uv_limits.iter_mut() {
+                if let Some(call_signature) = &self.mg_numerator.call_signature {
+                    let mut all_external_momenta: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> =
+                        ArrayVec::new();
+
+                    let cut_energies: Vec<f64> =
+                        (0..self.n_loops).map(|_| rng.gen::<f64>() * e_cm).collect();
+
+                    for e in &self.external_momenta[..self.n_incoming_momenta] {
+                        all_external_momenta
+                            .try_extend_from_slice(&[e.t, 0., e.x, 0., e.y, 0., e.z, 0.])
+                            .unwrap();
+                    }
+
+                    for _ in 0..self.n_loops {
+                        all_external_momenta
+                            .try_extend_from_slice(&[
+                                rng.gen::<f64>() * e_cm,
+                                0.,
+                                rng.gen::<f64>() * e_cm,
+                                0.,
+                                rng.gen::<f64>() * e_cm,
+                                0.,
+                                rng.gen::<f64>() * e_cm,
+                                0.,
+                            ])
+                            .unwrap();
+                    }
+
+                    let n_incoming_momenta = self.n_incoming_momenta;
+                    let n_loops = self.n_loops;
+                    let ltd_start_index = cutkosky_cuts.cuts.len() - 1;
+                    let mut f = |x: &[f64]| {
+                        // set the energies of the LTD momenta
+                        if let Some(m) = &cut_uv_limit.cb_to_lmb {
+                            for (i, r) in m.chunks(n_loops).enumerate() {
+                                all_external_momenta[(n_incoming_momenta + i) * 8] = 0.;
+                                all_external_momenta[(n_incoming_momenta + i) * 8 + 1] = 0.;
+                                // x is only for the LTD momenta, so we need to
+                                for (j, ((&sign, cut_e), shift)) in r
+                                    .iter()
+                                    .zip_eq(cut_energies.iter())
+                                    .zip_eq(&shifts[..n_loops])
+                                    .enumerate()
+                                {
+                                    if sign != 0 {
+                                        if j < ltd_start_index {
+                                            all_external_momenta[(n_incoming_momenta + i) * 8] +=
+                                                (*cut_e - shift.t).multiply_sign(sign)
+                                        } else {
+                                            all_external_momenta[(n_incoming_momenta + i) * 8] +=
+                                                (x[j - ltd_start_index] - shift.t)
+                                                    .multiply_sign(sign);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        MGNumeratorMod::get_numerator(
+                            mg_numerator.as_mut().unwrap(),
+                            &all_external_momenta,
+                            call_signature.proc_id,
+                            call_signature.left_diagram_id,
+                            call_signature.right_diagram_id,
+                        )
+                    };
+
+                    let n_vars = self.n_loops + 1 - cutkosky_cuts.cuts.len();
+
+                    poly_rec_buffer.clear();
+                    poly_rec_buffer.resize(max_rank.pow(n_vars as u32), Complex::zero());
+
+                    poly_rec.reconstruct(&mut f, max_rank, n_vars, &mut poly_rec_buffer);
+
+                    if self.settings.general.debug > 1 {
+                        println!("Fit polynomial coefficients: {:?}", poly_rec_buffer);
+                    }
+
+                    let mut non_zero_coefficients = vec![];
+                    let mut max_rank_non_zero = 0;
+
+                    for (i, v) in poly_rec_buffer.iter().enumerate() {
+                        // TODO: check if these bounds are appropriate
+                        if v.norm_sqr() > self.e_cm_squared * 1e-6 {
+                            non_zero_coefficients.push(i);
+
+                            for j in 0..n_vars {
+                                let pow = (i / max_rank.pow((n_vars - 1 - j) as u32)) % max_rank;
+                                if pow > max_rank_non_zero {
+                                    max_rank_non_zero = pow;
+                                }
+                            }
+                        }
+                    }
+
+                    if self.settings.general.debug > 0 {
+                        println!(
+                            "Numerator shape: {:?} with max rank {}",
+                            non_zero_coefficients, max_rank_non_zero
+                        );
+                    }
+
+                    cut_uv_limit.numerator = LTDNumerator::from_sparse(
+                        n_loops,
+                        &[(vec![0; max_rank_non_zero], (0., 0.))],
+                    );
+
+                    // also give the subgraph numerators the proper size
+                    // TODO: set the proper rank of only the variables of the subgraph
+                    for subgraph in &mut cut_uv_limit.diagrams {
+                        if subgraph.n_loops > 0 {
+                            subgraph.numerator = LTDNumerator::from_sparse(
+                                subgraph.n_loops,
+                                &[(vec![0; max_rank_non_zero], (0., 0.))],
+                            );
+                        }
+                    }
+
+                    // collect all non-zero components and construct a new matrix for this particular shape
+                    let mut mat = vec![];
+                    let mut all_sample_points = vec![];
+                    let mut numerator_to_reduced_index_map = vec![];
+
+                    cut_uv_limit.energy_polynomial_coefficients.clear();
+                    cut_uv_limit
+                        .energy_polynomial_coefficients
+                        .resize(non_zero_coefficients.len(), Complex::zero());
+
+                    // construct the map to the reduced index
+                    for i in &non_zero_coefficients {
+                        let mut power_map = vec![];
+                        for j in 0..n_vars {
+                            let pow = (i / max_rank.pow((n_vars - 1 - j) as u32)) % max_rank;
+                            for _ in 0..pow {
+                                power_map.push((cutkosky_cuts.cuts.len() - 1 + j) * 4);
+                            }
+                        }
+
+                        if power_map.len() == 0 {
+                            numerator_to_reduced_index_map.push(0);
+                        } else {
+                            let index_full = cut_uv_limit.numerator.sorted_linear[..]
+                                .binary_search_by(|x| utils::compare_slice(&x[..], &power_map[..]))
+                                .unwrap()
+                                + 1;
+
+                            let index = cut_uv_limit.numerator.coeff_map_to_reduced_numerator
+                                [cutkosky_cuts.cuts.len() - 1][index_full];
+                            numerator_to_reduced_index_map.push(index);
+                        }
+                    }
+
+                    let total_samples = if max_rank_non_zero > 0 {
+                        non_zero_coefficients.len() + 2 // take 2 more samples
+                    } else {
+                        non_zero_coefficients.len()
+                    };
+
+                    for _ in 0..total_samples {
+                        let sample_points: Vec<f64> =
+                            (0..n_vars).map(|_| rng.gen::<f64>() * e_cm).collect();
+                        let mut row = vec![];
+
+                        for i in &non_zero_coefficients {
+                            let eval: f64 = sample_points
+                                .iter()
+                                .enumerate()
+                                .map(|(j, sp)| {
+                                    sp.powi(
+                                        ((i / max_rank.pow((n_vars - 1 - j) as u32)) % max_rank)
+                                            as i32,
+                                    )
+                                })
+                                .product();
+                            row.push(eval);
+                        }
+
+                        all_sample_points.push(sample_points);
+                        mat.push(row);
+                    }
+
+                    let matl: Vec<f64> = mat.iter().flatten().cloned().collect();
+                    let m = nalgebra::DMatrix::from_row_slice(
+                        total_samples,
+                        non_zero_coefficients.len(),
+                        &matl,
+                    );
+
+                    let inv = (m.transpose().mul(m.clone()))
+                        .try_inverse()
+                        .unwrap()
+                        .mul(m.transpose());
+
+                    // TODO: test stability by sampling points
+
+                    cut_uv_limit.energy_polynomial_matrix = inv
+                        .row_iter()
+                        .map(|r| r.iter().cloned().collect::<Vec<_>>())
+                        .collect();
+                    cut_uv_limit.energy_polynomial_map = numerator_to_reduced_index_map;
+                    cut_uv_limit.energy_polynomial_samples = all_sample_points;
+                }
+            }
+        }
+
+        mem::swap(&mut mg_numerator, &mut self.mg_numerator.mg_numerator);
     }
 
     pub fn generate_multi_channeling_channels(
@@ -1169,6 +1418,8 @@ impl SquaredTopology {
             #[cfg(feature = "mg_numerator")]
             {
                 let mut mg_numerator = mem::replace(&mut self.mg_numerator.mg_numerator, None);
+                let mut energy_polynomial_coefficients =
+                    mem::replace(&mut cut_uv_limit.energy_polynomial_coefficients, vec![]);
 
                 if let Some(call_signature) = &self.mg_numerator.call_signature {
                     let mut all_external_momenta: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> =
@@ -1195,24 +1446,87 @@ impl SquaredTopology {
                             .unwrap();
                     }
 
-                    let num = MGNumeratorMod::get_numerator(
-                        mg_numerator.as_mut().unwrap(),
-                        &all_external_momenta,
-                        call_signature.proc_id,
-                        call_signature.left_diagram_id,
-                        call_signature.right_diagram_id,
-                    );
+                    let n_incoming_momenta = self.n_incoming_momenta;
+                    let n_loops = self.n_loops;
+                    let ltd_start_index = cutkosky_cuts.cuts.len() - 1;
 
-                    // write the constant
-                    // FIXME: only a constant is supported now
-                    diag_cache[0].reduced_coefficient_lb[0].clear();
-                    diag_cache[0].reduced_coefficient_lb[0]
-                        .push(Complex::new(num.re.into(), num.im.into()));
+                    energy_polynomial_coefficients.clear();
+                    for s in &cut_uv_limit.energy_polynomial_samples {
+                        // set the energies of the LTD momenta
+                        if let Some(m) = &cut_uv_limit.cb_to_lmb {
+                            for (i, r) in m.chunks(n_loops).enumerate() {
+                                all_external_momenta[(n_incoming_momenta + i) * 8] = 0.;
+                                all_external_momenta[(n_incoming_momenta + i) * 8 + 1] = 0.;
+                                // x is only for the LTD momenta, so we need to
+                                for (j, ((&sign, mom), shift)) in r
+                                    .iter()
+                                    .zip_eq(k_def.iter())
+                                    .zip_eq(&shifts[..n_loops])
+                                    .enumerate()
+                                {
+                                    if sign != 0 {
+                                        if j < ltd_start_index {
+                                            all_external_momenta[(n_incoming_momenta + i) * 8] +=
+                                                (mom.t - shift.t)
+                                                    .multiply_sign(sign)
+                                                    .re
+                                                    .to_f64()
+                                                    .unwrap();
+                                        } else {
+                                            all_external_momenta[(n_incoming_momenta + i) * 8] +=
+                                                (s[j - ltd_start_index]
+                                                    - shift.t.to_f64().unwrap())
+                                                .multiply_sign(sign);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        let num = MGNumeratorMod::get_numerator(
+                            mg_numerator.as_mut().unwrap(),
+                            &all_external_momenta,
+                            call_signature.proc_id,
+                            call_signature.left_diagram_id,
+                            call_signature.right_diagram_id,
+                        );
+
+                        energy_polynomial_coefficients.push(num);
+                    }
+
+                    // multiply with the matrix to get the coefficients of the energy polynomial
+                    // and put them in the correct place in the reduced polynomial
+                    for c in &mut diag_cache[0].reduced_coefficient_lb[0] {
+                        *c = Complex::zero();
+                    }
+
+                    for (pos, r) in cut_uv_limit
+                        .energy_polynomial_map
+                        .iter_mut()
+                        .zip_eq(&cut_uv_limit.energy_polynomial_matrix)
+                    {
+                        let mut c: Complex<f64> = Complex::zero();
+                        for (v, eval) in r.iter().zip_eq(&energy_polynomial_coefficients) {
+                            c += eval * v;
+                        }
+
+                        if *pos >= diag_cache[0].reduced_coefficient_lb[0].len() {
+                            diag_cache[0].reduced_coefficient_lb[0]
+                                .resize(*pos + 1, Complex::zero());
+                        }
+
+                        diag_cache[0].reduced_coefficient_lb[0][*pos] =
+                            Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
+                    }
 
                     num_computed = true;
                 }
 
                 mem::swap(&mut mg_numerator, &mut self.mg_numerator.mg_numerator);
+                mem::swap(
+                    &mut energy_polynomial_coefficients,
+                    &mut cut_uv_limit.energy_polynomial_coefficients,
+                );
             }
 
             if !num_computed {
