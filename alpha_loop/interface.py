@@ -37,6 +37,7 @@ import madgraph.core.base_objects as base_objects
 import alpha_loop.utils as utils
 import alpha_loop.exporters as aL_exporters
 import alpha_loop.helas_call_writers as aL_helas_call_writers
+import alpha_loop.LTD_squared as LTD_squared
 import alpha_loop.madgraph_patches as madgraph_patches
 
 from madgraph.iolibs.files import cp, ln, mv
@@ -45,10 +46,6 @@ logger = logging.getLogger('alphaLoop.Interface')
 
 pjoin = os.path.join
 template_dir = pjoin(plugin_path, 'Templates')
-
-# For the self-energy treatment we have to generate additional species of
-# particles and interactions which we will differentiate using this global offset.
-_global_id_offset = 100000
 
 class alphaLoopInterfaceError(MadGraph5Error):
     """ Error for the alphaLoop plugin """
@@ -225,7 +222,7 @@ set to False, except for debugging.
 
         pure_QCD_corrections_only = list(self.alphaLoop_options['perturbative_orders'].keys())==['QCD',]
 
-        # First add the necessary Self-energt coupling_orders to the available coupling_orders 
+        # First add the necessary self-energy coupling_orders to the available coupling_orders 
         # in the model
         for n_self_energy in range(1,perturbative_order+1):
             if (not model['order_hierarchy']) or any(order in [
@@ -249,7 +246,7 @@ set to False, except for debugging.
 
         # Then add the necessary new particles
         new_particles = {}
-        pdg_offset = _global_id_offset
+        pdg_offset = LTD_squared.self_energy_global_id_offset
         bridge_offset = pdg_offset*100
         anchor_offset = pdg_offset*10
         for n_self_energy in range(1,perturbative_order+1):
@@ -302,10 +299,10 @@ set to False, except for debugging.
                 for p in se_parts.values() if p['is_part']] ))
 
         # Then create the new interactions
-        interaction_offset = _global_id_offset
+        interaction_offset = LTD_squared.self_energy_global_id_offset
         anchor_interaction_id_offset = interaction_offset*10
         dark_sector_id_offset = interaction_offset*100
-        bridge_offset = 2*(interaction_offset*100)
+        bridge_offset = interaction_offset*1000
 
         # First deterrmine that anchor vertices
         anchor_base_vertices = []

@@ -12,13 +12,14 @@ from sympy import Matrix
 
 class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_cuts, external_momenta, final_state_particle_ids=(),
-        loop_momenta_names=None, masses={}, powers=None, particle_ids={}, MG_numerator={}, overall_numerator=1., numerator_structure={},
+        loop_momenta_names=None, masses={}, powers=None, particle_ids={}, MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), numerator_in_loop_momentum_basis=False):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         self.external_momenta = external_momenta
         self.MG_numerator = MG_numerator
+        self.subgraphs_info = subgraphs_info
         self.numerator_in_loop_momentum_basis = numerator_in_loop_momentum_basis
 
         self.loop_topo = self.topo.create_loop_topology(name,
@@ -147,6 +148,8 @@ class SquaredTopologyGenerator:
             'numerator_in_loop_momentum_basis': self.numerator_in_loop_momentum_basis,
             'topo': self.loop_topo.to_flat_format(),
             'MG_numerator': self.MG_numerator,
+            # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
+            'subgraphs_info' : self.subgraphs_info,
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
             'e_cm_squared': sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))),
             'cutkosky_cuts': [
