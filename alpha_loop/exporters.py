@@ -127,63 +127,86 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             utils.bcolors.ENDC,
         ))
 
-        # Now write out a yaml file for each of these 
-        rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
-        Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
-
-        max_super_graphs = 0
-        if self.alphaLoop_options['n_rust_inputs_to_generate'] == 0:
-            logger.warning("%sUser requested to skip the (slow) generation of rust LTD^2 inputs.%s"%(
-                utils.bcolors.RED,utils.bcolors.ENDC
-            ))
-            return
-
-        if self.alphaLoop_options['n_rust_inputs_to_generate'] > 0:
-            logger.warning("%sUser requested to only generate LTD^2 inputs for the first %d inputs.%s"%(
-                utils.bcolors.RED,self.alphaLoop_options['n_rust_inputs_to_generate'],utils.bcolors.ENDC
-            ))
-
-        base_proc_name = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
-        with progressbar.ProgressBar(
-            prefix = 'Generating rust inputs for {variables.super_graph_name} : ',
-            max_value=(len(all_super_graphs) if self.alphaLoop_options['n_rust_inputs_to_generate']<0 else
-                        min(len(all_super_graphs), self.alphaLoop_options['n_rust_inputs_to_generate'])),
-            variables = {'super_graph_name' : '%s_%d'%(base_proc_name,1)}) as bar:
-            for i_super_graph, super_graph in enumerate(all_super_graphs):
-                squared_topology_name = '%s_%d'%(base_proc_name,(i_super_graph+1))
-                super_graph.set_name(squared_topology_name)
-                bar.update(super_graph_name=super_graph.name)
-                bar.update(i_super_graph+1)
-                # Keep track of all supergraphs generated so as to write the overall LTD squared info at the end of the
-                # generation in finalize()
-                self.all_super_graphs.append(super_graph)
-                file_path = pjoin(rust_inputs_path,'%s.yaml'%squared_topology_name)
-                super_graph.generate_yaml_input_file(
-                    file_path,
-                    matrix_element.get('processes')[0].get('model'),
-                    self.alphaLoop_options
-                )
-                if (self.alphaLoop_options['n_rust_inputs_to_generate']>0) and (
-                    (i_super_graph+1)==self.alphaLoop_options['n_rust_inputs_to_generate']):
-                    break
+        # Keep track of all supergraphs generated so as to write the overall LTD squared info at the end of the
+        # generation in finalize()
+        self.all_super_graphs.append((all_super_graphs,matrix_element))
 
     def write_overall_LTD_squared_info(self, *args, **opts):
         """ Write the overall cross-section yaml input file for the rust_backend to
         be able to generate the whole cross-section at once."""
 
+        # Now write out a yaml file for each of these 
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
+        Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
+
+        # Filter once again for isomorphism across all supergraphs generated
+        overall_basis = []
+        n_tot_supergraphs = sum(len(sg[0]) for sg in self.all_super_graphs)
+        logger.info("Detecting isomorphisms between all %d 'unique' super-graphs generated across all processes..."%n_tot_supergraphs)
+        i_graph = 0
+        with progressbar.ProgressBar(
+            prefix = 'Filtering supergraphs across processes ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
+            max_value=n_tot_supergraphs,
+            variables = {'n_unique_super_graphs_sofar' : '0'}
+            ) as bar:
+            for super_graph_list, ME in self.all_super_graphs:
+                new_selection_for_this_process = []
+                for super_graph in list(super_graph_list):
+                    i_graph += 1
+                    if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in overall_basis):
+                        overall_basis.append(super_graph)
+                        new_selection_for_this_process.append(super_graph)
+                    bar.update(n_unique_super_graphs_sofar='%d'%len(overall_basis))
+                    bar.update(i_graph)
+                super_graph_list[:] = new_selection_for_this_process
+        logger.info("A grand total of %d unique super-graphs have been generated across all processes."%len(overall_basis))
+
+        # Now output the Rust inputs for the remaining supergraphs.
+        for all_super_graphs, matrix_element in self.all_super_graphs:
+
+            if self.alphaLoop_options['n_rust_inputs_to_generate'] == 0:
+                logger.warning("%sUser requested to skip the (slow) generation of rust LTD^2 inputs.%s"%(
+                    utils.bcolors.RED,utils.bcolors.ENDC
+                ))
+                return
+
+            if self.alphaLoop_options['n_rust_inputs_to_generate'] > 0:
+                logger.warning("%sUser requested to only generate LTD^2 inputs for the first %d inputs.%s"%(
+                    utils.bcolors.RED,self.alphaLoop_options['n_rust_inputs_to_generate'],utils.bcolors.ENDC
+                ))
+
+            base_proc_name = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
+            with progressbar.ProgressBar(
+                prefix = 'Generating rust inputs for {variables.super_graph_name} : ',
+                max_value=(len(all_super_graphs) if self.alphaLoop_options['n_rust_inputs_to_generate']<0 else
+                            min(len(all_super_graphs), self.alphaLoop_options['n_rust_inputs_to_generate'])),
+                variables = {'super_graph_name' : '%s_%d'%(base_proc_name,1)}) as bar:
+                for i_super_graph, super_graph in enumerate(all_super_graphs):
+                    squared_topology_name = '%s_%d'%(base_proc_name,(i_super_graph+1))
+                    super_graph.set_name(squared_topology_name)
+                    bar.update(super_graph_name=super_graph.name)
+                    bar.update(i_super_graph+1)
+                    file_path = pjoin(rust_inputs_path,'%s.yaml'%squared_topology_name)
+                    super_graph.generate_yaml_input_file(
+                        file_path,
+                        matrix_element.get('processes')[0].get('model'),
+                        self.alphaLoop_options
+                    )
+                    if (self.alphaLoop_options['n_rust_inputs_to_generate']>0) and (
+                        (i_super_graph+1)==self.alphaLoop_options['n_rust_inputs_to_generate']):
+                        break
+
         # And now finally generate the overall cross section yaml input file.
         base_name = os.path.basename(self.dir_path)
         overall_xsec_yaml_file_path = pjoin(rust_inputs_path,'%s.yaml'%base_name)
         overall_xsec_yaml = {
-            'name' : base_name,
             'madgraph_numerators_lib_dir' : pjoin(self.dir_path,'lib'),
             'topologies' : [
                 { 
                     'name' : super_graph.name,
                     'multiplicity' : 1
                 }
-                for super_graph in self.all_super_graphs
+                for all_super_graph, matrix_element in self.all_super_graphs for super_graph in all_super_graph
             ]
         }
         open(overall_xsec_yaml_file_path,'w').write(yaml.dump(overall_xsec_yaml, Dumper=Dumper, default_flow_style=False))

@@ -748,6 +748,12 @@ class SuperGraphList(list):
 
         self.proc_number = proc_number
 
+        if len(LTD2_diagram_list)==0:
+            return
+        if len(LTD2_diagram_list)>=0 and isinstance(LTD2_diagram_list[0],SuperGraph):
+            self[:] = LTD2_diagram_list
+            return
+
         # First build all possible super graphs 
         # TODO there are certainly optimisations to consider here. This step will be
         # very slow for large number of diagrams (100+)
@@ -791,18 +797,8 @@ class SuperGraphList(list):
                     " undesired supergraphs *before* isomorphism check.")
 
         # Then filter isomorphic ones
-        logger.info("Detecting isomorphisms between %d non-unique super-graphs..."%len(all_super_graphs))
-        with progressbar.ProgressBar(
-            prefix = 'Filtering supergraphs ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
-            max_value=len(all_super_graphs),
-            variables = {'n_unique_super_graphs_sofar' : '0'}
-            ) as bar:
-            for i_graph, super_graph in enumerate(all_super_graphs):
-                if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in self):
-                    self.append(super_graph)
-                bar.update(n_unique_super_graphs_sofar='%d'%len(self))
-                bar.update(i_graph+1)
-
+        self[:] = all_super_graphs
+        self.filter_isomorphic_graphs()
 
         logger.info("Filtering %d unique super-graphs to remove undesired ones ..."%len(self))
         filtered_list = []
@@ -834,6 +830,21 @@ class SuperGraphList(list):
 
         # self.draw()
         # print("This process contains %d individual different super-graphs."%len(self))
+
+    def filter_isomorphic_graphs(self):
+        logger.info("Detecting isomorphisms between %d non-unique super-graphs..."%len(self))
+        new_selection = []
+        with progressbar.ProgressBar(
+            prefix = 'Filtering supergraphs ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
+            max_value=len(self),
+            variables = {'n_unique_super_graphs_sofar' : '0'}
+            ) as bar:
+            for i_graph, super_graph in enumerate(self):
+                if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in new_selection):
+                    new_selection.append(super_graph)
+                bar.update(n_unique_super_graphs_sofar='%d'%len(self))
+                bar.update(i_graph+1)
+        self[:] = new_selection
 
     def draw(self):
         """ For debugging: use matplotlib to draw this diagram. """
