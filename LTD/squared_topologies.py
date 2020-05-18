@@ -149,7 +149,7 @@ class SquaredTopologyGenerator:
             'topo': self.loop_topo.to_flat_format(),
             'MG_numerator': self.MG_numerator,
             # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
-            'subgraphs_info' : self.subgraphs_info,
+            #'subgraphs_info' : self.subgraphs_info,
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
             'e_cm_squared': sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))),
             'cutkosky_cuts': [

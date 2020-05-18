@@ -404,9 +404,16 @@ class SuperGraph(object):
             # For now consider two edges equal whenever the *abs* of PDGs matches.
             return set(abs(e['pdg']) for e in e1.values()) == \
                    set(abs(e['pdg']) for e in e2.values())
-        return nx.is_isomorphic(self.graph, other_super_graph.graph,
+        # TODO 
+        # debug why vertex_id matches is not working and also why keeping the direction is not working
+        # (different resulting number of unique supergraph with top and anti-top)
+#        return nx.is_isomorphic(self.graph, other_super_graph.graph,
+#            edge_match=edge_match_function,
+#            node_match=lambda n1,n2: n1['vertex_id']==n2['vertex_id']
+#        )
+        return nx.is_isomorphic(self.graph.to_undirected(), other_super_graph.graph.to_undirected(),
             edge_match=edge_match_function,
-            node_match=lambda n1,n2: n1['vertex_id']==n2['vertex_id']
+            node_match=lambda n1,n2: True
         )
 
     def get_subgraphs_info(self):
@@ -549,7 +556,8 @@ class SelfEnergySuperGraph(SuperGraph):
             # Whether this is an anchor edge
             edge_info['anchor_number'] = (abs(edge_info['pdg'])//(self_energy_global_id_offset*10))%10
             # Finally we can revert back the PDG to the physical one.
-            edge_info['pdg'] =  edge_info['pdg']%self_energy_global_id_offset
+            pdg_sign = -1 if edge_info['pdg']<0 else 1
+            edge_info['pdg'] =  pdg_sign*(abs(edge_info['pdg'])%self_energy_global_id_offset)
 
         # Same for the vertex id of nodes
         for node_key, node_info in self.graph.nodes.items():
@@ -576,7 +584,8 @@ class SelfEnergySuperGraph(SuperGraph):
                 else:
                     raise LTD2Error("Incorrect interaction ID in self-energy reconstruction.")
             # We can now revert the id to its original one of the base model
-            node_info['vertex_id'] =  node_info['vertex_id']%self_energy_global_id_offset
+            vertex_id_sign = -1 if node_info['vertex_id']<0 else 1
+            node_info['vertex_id'] =  vertex_id_sign*(abs(node_info['vertex_id'])%self_energy_global_id_offset)
 
         subgraph_ids = sorted(list(subgraph_ids))
 
@@ -687,8 +696,10 @@ class SelfEnergySuperGraph(SuperGraph):
             for edge_key in subgraph['edges']:
                 self.graph.edges[edge_key]['name'] = 'SE%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
 
-            self.graph.edges[subgraph['left_edge']]['name'] = 'SEL%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
-            self.graph.edges[subgraph['right_edge']]['name'] = 'SER%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
+            self.graph.edges[subgraph['left_edge']]['name'] = 'SEL%d_%s'%(subgraph['id'],
+                                                            self.graph.edges[subgraph['left_edge']]['name'])
+            self.graph.edges[subgraph['right_edge']]['name'] = 'SER%d_%s'%(subgraph['id'],
+                                                            self.graph.edges[subgraph['right_edge']]['name'])
 
             for leg_number, edge_key in subgraph['cuts']:
                 self.graph.edges[edge_key]['name'] = 'SEC%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
@@ -812,6 +823,14 @@ class SuperGraphList(list):
         self[:] = filtered_list
         logger.info("alphaLoop removed a total of %d "%n_removed_super_graphs+
                     "supergraphs (likely self-energies that will be generated independently.)")
+
+ #       from pprint import pformat
+ #       for i_graph, super_graph in enumerate(self):
+ #           misc.sprint("i_graph=%d"%i_graph)
+ #           misc.sprint("="*80)
+ #           for edge_k, edge_info in super_graph.graph.edges.items():
+ #               misc.sprint('edge_k=%s'%str(edge_k))
+ #               misc.sprint(pformat(edge_info))
 
         # self.draw()
         # print("This process contains %d individual different super-graphs."%len(self))
