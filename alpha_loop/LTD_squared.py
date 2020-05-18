@@ -9,38 +9,21 @@ import progressbar
 import copy
 import logging
 import madgraph.various.misc as misc
+from itertools import chain
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 
 import LTD.squared_topologies as squared_topology_processor
 import alpha_loop.utils as utils
 
+# For the self-energy treatment we have to generate additional species of
+# particles and interactions which we will differentiate using this global offset.
+self_energy_global_id_offset = 100000
 
 logger = logging.getLogger('alphaLoop.LTD2Processing')
 
 class LTD2Error(MadGraph5Error):
     """ Error for the alphaLoop LTD2 treatment."""
     pass
-
-class LTD2DiagramList(list):
-    """ Class for storing a list of LTD2Diagrams."""
-
-    def __init__(self, helas_matrix_element, alphaLoop_options):
-        """ Initialise this list of LTD2Diagrams from an instance of HelasMatrixElement."""
-
-        self.helas_matrix_element = helas_matrix_element
-        self.alphaLoop_options = alphaLoop_options
-        self.optimization = 1
-        if len([wf for wf in self.helas_matrix_element.get_all_wavefunctions() if wf.get('number') == 1]) > 1:
-            self.optimization = 0
-        self.process = helas_matrix_element.get('processes')[0]
-        self.model = self.process.get('model')
-
-        self.wf_dict = {}
-        self.vx_list = []
-
-        for diag in self.helas_matrix_element.get('diagrams'):
-            self.append(LTD2Diagram(diag, self.wf_dict, self.vx_list, 
-                self.process, self.model, self.optimization, self.alphaLoop_options))
 
 class LTD2Diagram(object):
     """ Class for storing a diagram, analoguous to base_amplitude.Diagram but with more topological information
@@ -76,6 +59,30 @@ class LTD2Diagram(object):
         nx.draw_networkx(self.graph)
         import matplotlib.pyplot as plt
         plt.show()
+
+    def get_descendants(self, seed_node, veto_edges=None, veto_edge_func=None):
+        """ Get all nodes reachable from seed_node, excluding edges passing function veto_edge_func."""
+
+        if veto_edge_func is None:
+            veto_edge_func = lambda e: False
+        if veto_edges is None:
+            veto_edges = []
+        
+        descendants=set([seed_node,])
+        for (u,v,c,edge_info) in chain(
+                self.graph.in_edges(seed_node,data=True,keys=True),
+                self.graph.out_edges(seed_node,data=True,keys=True)
+            ):
+            edge_key=(u,v,c)
+            if edge_key in veto_edges or veto_edge_func(edge_info):
+                continue
+            veto_edges.append(edge_key)
+            other_node = edge_key[1] if edge_key[0]==seed_node else edge_key[0]
+            descendants.add(other_node)
+            if not (other_node.startswith('I') or other_node.startswith('O')):
+                descendants |= self.get_descendants(other_node,veto_edges,veto_edge_func)
+        
+        return descendants
 
     def build_graph(self):
         """ Build the networkx graph representation of this diagram."""
@@ -179,71 +186,45 @@ class LTD2Diagram(object):
 
         return complex_conjugated_LTD2_diagram
 
-class SuperGraphList(list):
-    """ Class for storing a list of SuperGraph instances."""
+class SelfEnergyLTD2Diagram(LTD2Diagram):
+    """ Class for storing a diagram, analoguous to base_amplitude.Diagram but with more topological information
+    necessary for treating the corresponding self-energy contribution in the context of an LTD^2 computation."""
 
-    def __init__(self, LTD2_diagram_list, proc_number):
-        """ Instantiate a list of all super graphs from a list of LTD2 diagrams."""
+    def __init__(self, *args, **opts):
+        """ Initialise this self-energy LTD2Diagram from an instance of HelasDiagrams."""
 
-        self.proc_number = proc_number
+        super(SelfEnergyLTD2Diagram, self).__init__(*args, **opts)
 
-        # First build all possible super graphs 
-        # TODO there are certainly optimisations to consider here. This step will be
-        # very slow for large number of diagrams (100+)
-        all_super_graphs = []
-        logger.info("Building supergraphs from %d x %d diagramatic combinations..."%(
-                                                len(LTD2_diagram_list),len(LTD2_diagram_list)))
-        with progressbar.ProgressBar(
-            prefix = 'Generating non-unique supergraphs : ',
-            max_value=int((len(LTD2_diagram_list)*(len(LTD2_diagram_list)+1))/2)) as bar:
-            i_bar = 0
-            for i_diag_left, LTD2_diag_left in enumerate(LTD2_diagram_list):
-                for i_diag_right, LTD2_diag_right in enumerate(LTD2_diagram_list[i_diag_left:]):
-                    new_super_graph = SuperGraph(LTD2_diag_left,LTD2_diag_right, 
-                        {   'proc_id' : proc_number, 
-                            'left_diagram_id' : i_diag_left+1, 
-                            'right_diagram_id' : i_diag_left+i_diag_right+1,
-                        }
-                    )
-                    all_super_graphs.append(new_super_graph)
-                    i_bar += 1
-                    bar.update(i_bar)
+class LTD2DiagramList(list):
+    """ Class for storing a list of LTD2Diagrams."""
 
-        # Then filter isomorphic ones
-        logger.info("Detecting isomorphisms between %d non-unique super-graphs..."%len(all_super_graphs))
-        with progressbar.ProgressBar(
-            prefix = 'Filtering supergraphs ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
-            max_value=len(all_super_graphs),
-            variables = {'n_unique_super_graphs_sofar' : '0'}
-            ) as bar:
-            for i_graph, super_graph in enumerate(all_super_graphs):
-                if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in self):
-                    self.append(super_graph)
-                bar.update(n_unique_super_graphs_sofar='%d'%len(self))
-                bar.update(i_graph+1)
+    LTD2_diagram_class = LTD2Diagram
 
+    def __init__(self, helas_matrix_element, alphaLoop_options):
+        """ Initialise this list of LTD2Diagrams from an instance of HelasMatrixElement."""
 
-        logger.info("Filtering %d unique super-graphs to remove undesired ones (self-energies)..."%len(self))
-        filtered_list = []
-        n_removed_super_graphs = 0
-        with progressbar.ProgressBar(
-            prefix = 'Removing self-energy supergraphs ({variables.n_removed_graphs_so_far} removed so far) : ',
-            max_value=len(self),
-            variables = {'n_removed_graphs_so_far' : '0'}
-            ) as bar:
-            for i_graph, super_graph in enumerate(self):
-                if super_graph.should_be_considered():
-                    filtered_list.append(super_graph)
-                else:
-                    n_removed_super_graphs += 1
-                bar.update(n_removed_graphs_so_far='%d'%n_removed_super_graphs)
-                bar.update(i_graph+1)
+        self.helas_matrix_element = helas_matrix_element
+        self.alphaLoop_options = alphaLoop_options
+        self.optimization = 1
+        if len([wf for wf in self.helas_matrix_element.get_all_wavefunctions() if wf.get('number') == 1]) > 1:
+            self.optimization = 0
+        self.process = helas_matrix_element.get('processes')[0]
+        self.model = self.process.get('model')
 
-        self[:] = filtered_list
-        logger.info("alphaLoop removed a total of %d "%n_removed_super_graphs+
-                    "supergraphs (likely self-energies that will be generated independently.)")
+        self.wf_dict = {}
+        self.vx_list = []
 
-        # print("This process contains %d individual different super-graphs."%len(self))
+        for diag in self.helas_matrix_element.get('diagrams'):
+            self.append(self.LTD2_diagram_class(diag, self.wf_dict, self.vx_list, 
+                self.process, self.model, self.optimization, self.alphaLoop_options))
+
+class SelfEnergyLTD2DiagramList(LTD2DiagramList):
+    """ Class for handling/generating a list of SelfEnergyLTD2Diagrams."""
+
+    LTD2_diagram_class = SelfEnergyLTD2Diagram
+
+    def __init__(self, *args, **opts):
+        super(SelfEnergyLTD2DiagramList,self).__init__(*args, **opts)
 
 class SuperGraph(object):
     """ Class representing a super graph in the LTD^2 formalism"""
@@ -286,7 +267,6 @@ class SuperGraph(object):
         
         all_external_pdgs = {l.get('id') for l in self.process.get('legs')}
 
-        # TODO the algorithm below can potentially be made faster.
         descendants = {}
         for graph in [self.diag_left_of_cut.graph,self.diag_right_of_cut.graph]:
             for edge, edge_info in graph.edges.items():
@@ -318,6 +298,14 @@ class SuperGraph(object):
         """ Define an accessor for the name attribute to make it clear that it will typically be set after 
         the generation of the supergraph."""
         self.name = name
+
+    def should_be_considered_before_isomorphism(self):
+        """ Place here all rules regarding whether this supergraph should be 
+        considered without our squared LTD framework, but only if this filtering must take place
+        before checking for isomorphisms between supergraphs."""
+
+        # By default, all selection will be performed *after* checking for isomorphisms.
+        return True
 
     def should_be_considered(self):
         """ Place here all rules regarding whether this supergraph should be 
@@ -398,11 +386,12 @@ class SuperGraph(object):
             cuts.append((leg_number, (sewing_edge_u, sewing_edge_v, edge_key)))
             sewed_graph.add_edge(sewing_edge_u, sewing_edge_v, key=edge_key, **edge_attributes)
         
+        # Remove all nodes associated to no edges (resulting from the sewing operation)
+        sewed_graph.remove_nodes_from(list(nx.isolates(sewed_graph)))
+
         self.graph = sewed_graph
         self.cuts = tuple(cuts)
         self.external_incoming_momenta = tuple(external_incoming_momenta)
-
-        return sewed_graph, 
     
     def is_isomorphic_to(self, other_super_graph):
         """ Uses networkx to decide if the two graphs are isomorphic."""
@@ -411,13 +400,27 @@ class SuperGraph(object):
             # This function needs tu support multi-edges
             # For now all we do is making sure the set of PDGs of 
             # all edges connecting the two nodes match.
-            return set(e['pdg'] for e in e1.values()) == \
-                   set(e['pdg'] for e in e2.values())
+            # TODO: Fix ambiguity with fermion flow and part / antipart
+            # For now consider two edges equal whenever the *abs* of PDGs matches.
+            return set(abs(e['pdg']) for e in e1.values()) == \
+                   set(abs(e['pdg']) for e in e2.values())
         return nx.is_isomorphic(self.graph, other_super_graph.graph,
             edge_match=edge_match_function,
             node_match=lambda n1,n2: n1['vertex_id']==n2['vertex_id']
         )
 
+    def get_subgraphs_info(self):
+        """ Return information about subgraphs. For non self-energy supergraphs, this is actually trivial."""
+        
+        return [{
+            'id' : 0,
+            'left_edges': [ e_info['name'] for e_key, e_info in self.graph.edges.items() 
+                            if e_key[0] in ['I1','I2'] or e_key[1] in ['I1','I2'] ],
+            'right_edges' : [ e_info['name'] for e_key, e_info in self.graph.edges.items() 
+                            if e_key[0] in ['O1','O2'] or e_key[1] in ['O1','O2'] ],
+            'cuts' : [ self.graph.edges[edge[1]]['name'] for edge in self.cuts[:-1] ],
+            'momentum_sink' : self.cuts[-1][0]
+        },]
 
     def generate_yaml_input_file(self, file_path, model, alphaLoop_options):
         """ Generate the yaml input file for the rust_backend, fully specifying this squared topology."""
@@ -455,7 +458,8 @@ class SuperGraph(object):
 
         def get_final_state_particle_ids():
             final_state_particle_ids = []
-            all_external_pdgs = [ self.graph.edges[edge[1]]['pdg'] for edge in self.cuts ]
+            
+            all_external_pdgs = [ l.get('id') for l in self.process.get('legs') if l.get('state')==True ]
             for pdg in all_external_pdgs:
                 if pdg not in alphaLoop_options['_jet_PDGs']:
                     final_state_particle_ids.append(pdg)
@@ -463,7 +467,9 @@ class SuperGraph(object):
             return tuple(final_state_particle_ids)
 
         def get_njets_in_observable_process():
-            njets_in_observable_process = max( (len(self.cuts)-len(get_final_state_particle_ids()))-alphaLoop_options['perturbative_order'].count('N'), 0)
+            #TODO do an actual correct filtering based on the coupling orderrs
+            njets_in_observable_process = max( (len(self.cuts)-len(get_final_state_particle_ids())) - 
+                                    sum(alphaLoop_options['perturbative_orders'].values())//2, 0)
             if local_DEBUG: misc.sprint(njets_in_observable_process)
             return njets_in_observable_process
 
@@ -489,9 +495,347 @@ class SuperGraph(object):
                 # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }
                 'call_signature' : self.call_signature,
             },
+            subgraphs_info = self.get_subgraphs_info(),
             # The numerator specifications below are of no use in the
             # w context of using MG numerators.
             overall_numerator=1.0,
             numerator_structure={}
         )
         squared_topology.export(file_path)
+
+class SelfEnergySuperGraph(SuperGraph):
+    """ Class representing a super graph in the LTD^2 formalism corresponding to a self-energy"""
+
+    def __init__(self, LTD2_diagram_left, LTD2_diagram_right, call_signature, **opts):
+        """ Instantiate a self-nergy super graph from two LTD2Diagram instances sitting respectively
+        to the left and right of the Cutkosky cut."""
+
+        super(SelfEnergySuperGraph, self).__init__(LTD2_diagram_left, LTD2_diagram_right, call_signature, **opts)
+
+    def should_be_considered_before_isomorphism(self):
+        """ Place here all rules regarding whether this supergraph should be 
+        considered without our squared LTD framework, but only if this filtering must take place
+        before checking for isomorphisms between supergraphs."""
+
+        # By default, all selection will be performed *after* checking for isomorphisms.
+        is_connected = nx.is_weakly_connected(self.graph)
+
+        return is_connected
+
+    def should_be_considered(self):
+        """ Place here all rules regarding whether this supergraph should be 
+        considered without our squared LTD framework."""
+
+        return True
+
+    def sew_graphs(self, diag_left_of_cut, diag_right_of_cut):
+        """ Combine two diagrams into one graph that corresponds to the super graph."""
+
+        # First sew graph as normally done for any super graph built from two LTD diagram
+        super(SelfEnergySuperGraph,self).sew_graphs(diag_left_of_cut, diag_right_of_cut)
+
+        # First unpack the information about the nature of each edge stored in its PDG
+        subgraph_ids = set([])
+        for edge_key, edge_info in self.graph.edges.items():
+            # First set which self-energy this edge belongs to.
+            # 0 indicates no self-energy
+            edge_info['self_energy_number'] = (abs(edge_info['pdg'])//self_energy_global_id_offset)%10
+#            misc.sprint(edge_info['pdg'])
+#            misc.sprint(edge_info['pdg']//self_energy_global_id_offset)
+#            misc.sprint((edge_info['pdg']//self_energy_global_id_offset)%10)
+            subgraph_ids.add(edge_info['self_energy_number'])
+            # Then whether this edge is a bridge, 0 means this is not a bridge
+            edge_info['bridge_number'] = (abs(edge_info['pdg'])//(self_energy_global_id_offset*100))%10
+            # Whether this is an anchor edge
+            edge_info['anchor_number'] = (abs(edge_info['pdg'])//(self_energy_global_id_offset*10))%10
+            # Finally we can revert back the PDG to the physical one.
+            edge_info['pdg'] =  edge_info['pdg']%self_energy_global_id_offset
+
+        # Same for the vertex id of nodes
+        for node_key, node_info in self.graph.nodes.items():
+
+            vertex_id = abs(node_info['vertex_id'])
+            # The self-energy this node belongs to
+            node_info['self_energy_number'] = (vertex_id//self_energy_global_id_offset)%10
+            # Type of interaction
+            if node_info['self_energy_number']==0:
+                node_info['interaction_type'] = 'base'
+            else:
+                if ((vertex_id//(self_energy_global_id_offset*10))%10)!=0:
+                    node_info['interaction_type'] = 'selfEnergy_anchor'
+                elif ((vertex_id//(self_energy_global_id_offset*1000))%10)!=0:
+                    if vertex_id%self_energy_global_id_offset==0:
+                        node_info['interaction_type'] = 'bridge_anchor'
+                    else:
+                        if ((vertex_id//(self_energy_global_id_offset*1000))%10)==1:
+                            node_info['interaction_type'] = 'bridge_base'
+                        else:
+                            node_info['interaction_type'] = 'selfEnergy_bridge'
+                elif ((vertex_id//(self_energy_global_id_offset*100))%10)!=0:
+                    node_info['interaction_type'] = 'selfEnergy'
+                else:
+                    raise LTD2Error("Incorrect interaction ID in self-energy reconstruction.")
+            # We can now revert the id to its original one of the base model
+            node_info['vertex_id'] =  node_info['vertex_id']%self_energy_global_id_offset
+
+        subgraph_ids = sorted(list(subgraph_ids))
+
+        # Then identify all the edges of the self-energy subgraphs and all relevant information
+        # for its use later in Rust and remove all bridges
+        n_self_energies = len(subgraph_ids)-1
+        self.subgraphs = [
+            {
+                'id' : subgraph_id, # 0 for the base graph and 1 for each self-energy
+                'cuts' : [],
+                'left_edge' : None,
+                'right_edge' : None,
+                'momentum_sink' : None,
+                'nodes' : [],
+                'edges' : [],
+            } 
+            for subgraph_id in subgraph_ids
+        ]
+
+        # First assign the infrmation each self-energy:
+        for leg_number, cut_edge_key in self.cuts:
+            cut_edge = self.graph.edges[cut_edge_key]
+            cut_edge['leg_number'] = leg_number
+            if cut_edge['anchor_number'] == 0:
+                self.subgraphs[cut_edge['self_energy_number']]['cuts'].append((leg_number, cut_edge_key))
+            else:
+                if self.subgraphs[cut_edge['self_energy_number']]['momentum_sink'] is None:
+                    self.subgraphs[cut_edge['self_energy_number']]['momentum_sink'] = leg_number
+                else:
+                    raise LTD2Error("Each self-energy should only have one momentum sink.")
+
+        # Also set all the bunches that merge into a bridge, and whose momenta must therefore sum to zero.
+        # Keys are subgraph_IDs
+        nodes_defining_bunches = {}
+
+        for node_key, node_info in self.graph.nodes.items():
+
+            if 'selfEnergy' in node_info['interaction_type']:
+                self.subgraphs[edge_info['self_energy_number']]['nodes'].append(node_key)
+
+            if node_info['interaction_type']=='selfEnergy_anchor':
+                for (u,v,c,edge_info) in chain(
+                        self.graph.in_edges(node_key,keys=True,data=True),
+                        self.graph.out_edges(node_key,keys=True,data=True)
+                    ):
+                    if edge_info['self_energy_number']==0:
+                        if node_key.startswith('L'):
+                            self.subgraphs[node_info['self_energy_number']]['left_edge'] = (u,v,c)
+                            break
+                        else:
+                            self.subgraphs[node_info['self_energy_number']]['right_edge'] = (u,v,c)
+                            break
+                else:
+                    raise LTD2Error("Could not find entry or exit points of a self-energy.")
+
+            if node_info['interaction_type'] in ['selfEnergy_bridge','bridge_base']:
+                if node_info['self_energy_number'] not in nodes_defining_bunches:
+                    nodes_defining_bunches[node_info['self_energy_number']] = [node_key]
+                else:
+                    nodes_defining_bunches[node_info['self_energy_number']].append(node_key)
+
+        def is_a_bridge_or_anchor(edge_info):
+            return ( 
+                (abs(edge_info['pdg'])//(self_energy_global_id_offset*10))%10!=0 or 
+                (abs(edge_info['pdg'])//(self_energy_global_id_offset*100))%10!=0
+            )
+
+        # for each bunch node detected, identify all the cut edges that need to combine into zero momentum
+        self.bunches = {}
+        for subgraph_id in nodes_defining_bunches:
+            cut_bunches = []
+            for node_key in nodes_defining_bunches[subgraph_id]:
+                if node_key.startswith('R'):
+                    leg_number_for_this_bunch = [ int(d[1:]) for d in self.diag_right_of_cut.get_descendants(
+                            'L'+node_key[1:], 
+                            # Forbid moving through a bridge edge
+                            veto_edge_func=is_a_bridge_or_anchor
+                        ) if d[:1] in ['I','O'] ]
+                else:
+                    leg_number_for_this_bunch = [ int(d[1:]) for d in self.diag_left_of_cut.get_descendants(
+                            node_key, 
+                            # Forbid moving through a bridge edge
+                            veto_edge_func=is_a_bridge_or_anchor
+                        ) if d[:1] in ['I','O'] ]
+                if sorted(leg_number_for_this_bunch) not in cut_bunches:
+                    cut_bunches.append(sorted(leg_number_for_this_bunch))
+            self.bunches[subgraph_id] = cut_bunches
+
+        # Assign the edges of each self-energy
+        for edge_key, edge_info in self.graph.edges.items():
+
+            if edge_info['bridge_number']==0 and edge_info['anchor_number']==0:
+                self.subgraphs[edge_info['self_energy_number']]['edges'].append(edge_key)
+
+        # We can finally remove all the superfluous edges from this graph
+        for edge_key, edge_info in list(self.graph.edges.items()):
+            if edge_info['bridge_number']!=0 or edge_info['anchor_number']!=0:
+                self.graph.remove_edge(*edge_key)
+
+        # And also remove all remaining isolated nodes
+        self.graph.remove_nodes_from(list(nx.isolates(self.graph)))
+
+        # We can now appropriately rename the edges
+        for subgraph in self.subgraphs:
+            if subgraph['id']==0:
+                # Skip basegraph renaming
+                continue
+            for edge_key in subgraph['edges']:
+                self.graph.edges[edge_key]['name'] = 'SE%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
+
+            self.graph.edges[subgraph['left_edge']]['name'] = 'SEL%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
+            self.graph.edges[subgraph['right_edge']]['name'] = 'SER%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
+
+            for leg_number, edge_key in subgraph['cuts']:
+                self.graph.edges[edge_key]['name'] = 'SEC%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
+
+        # We build here the list of edges which are actually cut in the resulting self-energy super-graph.
+        # These correspond to the definition of the loop momentum basis
+        actual_cuts = []
+        for subgraph in self.subgraphs[1:]:
+            #TODO generalise to support nest_super_graphs, using information from self.bunches
+            actual_cuts.extend(subgraph['cuts'][:-1])
+        actual_cuts.extend(self.subgraphs[0]['cuts'][:-n_self_energies])
+        self.cuts = actual_cuts
+
+    def get_subgraphs_info(self):
+        """ Return information about subgraphs. For non self-energy supergraphs, this is actually trivial."""
+
+#        from pprint import pformat
+#        misc.sprint(pformat(self.cuts))
+#        misc.sprint(pformat(self.subgraphs))
+#        misc.sprint(pformat(self.bunches))
+        subgraph_info = [{
+            'id' : 0,
+            'left_edges': [ self.graph.edges[e_key]['name'] for e_key in self.subgraphs[0]['edges'] 
+                            if e_key[0] in ['I1','I2'] or e_key[1] in ['I1','I2'] ],
+            'right_edges' : [ self.graph.edges[e_key]['name'] for e_key in self.subgraphs[0]['edges'] 
+                            if e_key[0] in ['O1','O2'] or e_key[1] in ['O1','O2'] ],
+            'cuts' : [ self.graph.edges[edge[1]]['name'] for edge in self.subgraphs[0]['cuts'][:-1] ],
+            'momentum_sink' : self.subgraphs[0]['cuts'][-1][0]
+        },]
+        for subgraph in self.subgraphs[1:]:
+            subgraph_info.append({
+                'id' : subgraph['id'],
+                'left_edges': [ self.graph.edges[subgraph['left_edge']]['name'] ],
+                'right_edges' : [ self.graph.edges[subgraph['right_edge']]['name'] ],
+                'cuts' : [ self.graph.edges[edge[1]]['name'] for edge in subgraph['cuts'] ],
+                'momentum_sink' : subgraph['momentum_sink']
+            })
+
+class SuperGraphList(list):
+    """ Class for storing a list of SuperGraph instances."""
+
+    super_graph_class = SuperGraph
+
+    def __init__(self, LTD2_diagram_list, proc_number):
+        """ Instantiate a list of all super graphs from a list of LTD2 diagrams."""
+
+        self.proc_number = proc_number
+
+        # First build all possible super graphs 
+        # TODO there are certainly optimisations to consider here. This step will be
+        # very slow for large number of diagrams (100+)
+        all_super_graphs = []
+        logger.info("Building supergraphs from %d x %d diagramatic combinations..."%(
+                                                len(LTD2_diagram_list),len(LTD2_diagram_list)))
+        with progressbar.ProgressBar(
+            prefix = 'Generating non-unique supergraphs : ',
+            max_value=int((len(LTD2_diagram_list)*(len(LTD2_diagram_list)+1))/2)) as bar:
+            i_bar = 0
+            for i_diag_left, LTD2_diag_left in enumerate(LTD2_diagram_list):
+                for i_diag_right, LTD2_diag_right in enumerate(LTD2_diagram_list[i_diag_left:]):
+                    new_super_graph = self.super_graph_class(LTD2_diag_left,LTD2_diag_right, 
+                        {   'proc_id' : proc_number, 
+                            'left_diagram_id' : i_diag_left+1, 
+                            'right_diagram_id' : i_diag_left+i_diag_right+1,
+                        }
+                    )
+                    all_super_graphs.append(new_super_graph)
+                    i_bar += 1
+                    bar.update(i_bar)
+
+        logger.info("Filtering %d super-graphs (before isomorphism check) to remove undesired ones ..."%len(self))
+        filtered_list = []
+        n_removed_super_graphs = 0
+        with progressbar.ProgressBar(
+            prefix = 'Removing undesired supergraphs ({variables.n_removed_graphs_so_far} removed so far) : ',
+            max_value=len(all_super_graphs),
+            variables = {'n_removed_graphs_so_far' : '0'}
+            ) as bar:
+            for i_graph, super_graph in enumerate(all_super_graphs):
+                if super_graph.should_be_considered_before_isomorphism():
+                    filtered_list.append(super_graph)
+                else:
+                    n_removed_super_graphs += 1
+                bar.update(n_removed_graphs_so_far='%d'%n_removed_super_graphs)
+                bar.update(i_graph+1)
+
+        all_super_graphs = filtered_list
+        logger.info("alphaLoop removed a total of %d "%n_removed_super_graphs+
+                    " undesired supergraphs *before* isomorphism check.")
+
+        # Then filter isomorphic ones
+        logger.info("Detecting isomorphisms between %d non-unique super-graphs..."%len(all_super_graphs))
+        with progressbar.ProgressBar(
+            prefix = 'Filtering supergraphs ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
+            max_value=len(all_super_graphs),
+            variables = {'n_unique_super_graphs_sofar' : '0'}
+            ) as bar:
+            for i_graph, super_graph in enumerate(all_super_graphs):
+                if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in self):
+                    self.append(super_graph)
+                bar.update(n_unique_super_graphs_sofar='%d'%len(self))
+                bar.update(i_graph+1)
+
+
+        logger.info("Filtering %d unique super-graphs to remove undesired ones ..."%len(self))
+        filtered_list = []
+        n_removed_super_graphs = 0
+        with progressbar.ProgressBar(
+            prefix = 'Removing undesired supergraphs ({variables.n_removed_graphs_so_far} removed so far) : ',
+            max_value=len(self),
+            variables = {'n_removed_graphs_so_far' : '0'}
+            ) as bar:
+            for i_graph, super_graph in enumerate(self):
+                if super_graph.should_be_considered():
+                    filtered_list.append(super_graph)
+                else:
+                    n_removed_super_graphs += 1
+                bar.update(n_removed_graphs_so_far='%d'%n_removed_super_graphs)
+                bar.update(i_graph+1)
+
+        self[:] = filtered_list
+        logger.info("alphaLoop removed a total of %d "%n_removed_super_graphs+
+                    "supergraphs (likely self-energies that will be generated independently.)")
+
+        # self.draw()
+        # print("This process contains %d individual different super-graphs."%len(self))
+
+    def draw(self):
+        """ For debugging: use matplotlib to draw this diagram. """
+
+        import matplotlib.pyplot as plt
+
+        fig, axes = plt.subplots(nrows=(len(self)//2)+1, ncols=2,figsize=(20,10))
+        ax = axes.flatten()
+        for a in ax:
+            a.set_axis_off()
+
+        for i_graph, super_graph in enumerate(self):
+            nx.draw_networkx(super_graph.graph, ax=ax[i_graph], 
+                    label="Proc #%d, Graph #%d"%(self.proc_number,i_graph+1))
+
+        plt.show()
+
+class SelfEnergySuperGraphList(SuperGraphList):
+    """ Class for storing and generating a list of SelfEnergySuperGraph instances."""
+
+    super_graph_class = SelfEnergySuperGraph
+
+    def __init__(self, *args, **opts):
+        super(SelfEnergySuperGraphList,self).__init__(*args, **opts)

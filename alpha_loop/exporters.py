@@ -100,20 +100,30 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         """ Process the matrix element object so as to extract all necessary information
         for the fortran matrix element to be used by the rust_backend processor so as
         to perform LTD^2 cross-section computations. """
-
-        LTD_square_info_writer = writers.FileWriter('LTD_squared_info.yaml')
         
         # Get a diagram_generation.Amplitude instance corresponding to this HelasMatrixElement
+        process = matrix_element.get('processes')[0]
+        # This process is meant to accomodate self-energies if any of its external legs contain
+        # a self-energy "anchor" particle
+        is_self_energy = any(abs(l.get('id')) >= LTD_squared.self_energy_global_id_offset for l in process.get('legs'))
+        # Choose the appropriate class for the kind of super-graph handled here.
+        # We could use a class factory, but that would be overkill for the present case.
+        LTD2_diagram_list_class = (LTD_squared.LTD2DiagramList if not is_self_energy 
+                                                    else LTD_squared.SelfEnergyLTD2DiagramList)
+        super_graph_list_class = (LTD_squared.SuperGraphList if not is_self_energy 
+                                                    else LTD_squared.SelfEnergySuperGraphList)
+
         base_amplitude = matrix_element.get('base_amplitude')
         base_diagrams = base_amplitude.get('diagrams')
 
         # First build an instance "LT2DiagramLst" from the Helas matrix element object
-        LTD2_diagram_list = LTD_squared.LTD2DiagramList(matrix_element, self.alphaLoop_options)
-        all_super_graphs = LTD_squared.SuperGraphList(LTD2_diagram_list, proc_number)
-        logger.info("%s%s involves %d supergraphs.%s"%(
+        LTD2_diagram_list = LTD2_diagram_list_class(matrix_element, self.alphaLoop_options)
+        all_super_graphs = super_graph_list_class(LTD2_diagram_list, proc_number)
+        logger.info("%s%s involves %d %ssupergraphs.%s"%(
             utils.bcolors.GREEN,
             matrix_element.get('processes')[0].nice_string(),
             len(all_super_graphs),
+            '' if not is_self_energy else 'self-energy ',
             utils.bcolors.ENDC,
         ))
 

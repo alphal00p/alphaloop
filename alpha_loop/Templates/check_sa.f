@@ -76,21 +76,10 @@ c
 
       call printout()
 
-      CALL GET_MOMENTA(SQRTS,PMASS,P)	
-c
-c	  write the information on the four momenta 
-c
-      write (*,*)
-      write (*,*) " Phase space point:"
-      write (*,*)
-      write (*,*) "-----------------------------------------------------------------------------"
-      write (*,*)  "n        E             px             py              pz               m "
-      do i=1,nexternal
-         write (*,'(i2,1x,5e25.16)') i, P(0,i),P(1,i),P(2,i),P(3,i), 
-     .dsqrt(dabs(DOT(p(0,i),p(0,i))))
-      enddo
-      write (*,*) "-----------------------------------------------------------------------------"
 
+c      DO K=1,100
+
+      CALL GET_MOMENTA(SQRTS,PMASS,P)	
 c     
 c     Now we can call the matrix element!
 c
@@ -112,6 +101,23 @@ c          WRITE(*,*) "Result for Diag",I," x ",J," = ",MATELEM
         ENDDO
       ENDDO
       MATELEM=SUMMED_RESULT
+
+c      ENDDO
+
+c
+c	  write the information on the four momenta 
+c
+      write (*,*)
+      write (*,*) " Phase space point:"
+      write (*,*)
+      write (*,*) "-----------------------------------------------------------------------------"
+      write (*,*)  "n        E             px             py              pz               m "
+      do i=1,nexternal
+         write (*,'(i2,1x,5e25.16)') i, P(0,i),P(1,i),P(2,i),P(3,i), 
+     .dsqrt(dabs(DOT(p(0,i),p(0,i))))
+      enddo
+      write (*,*) "-----------------------------------------------------------------------------"
+
 
 C     Test adding some imaginary part
 c      DO I=1,NEXTERNAL
@@ -187,7 +193,7 @@ c---- four momenta.
 	  IMPLICIT NONE
 	  INCLUDE "nexternal.inc"
 C	  ARGUMENTS
-	  REAL*8 ENERGY,PMASS(NEXTERNAL),P(0:3,NEXTERNAL),PRAMBO(4,10),WGT
+	  REAL*8 ENERGY,PMASS(NEXTERNAL),P(0:3,NEXTERNAL),PRAMBO(4,30),WGT
 C         LOCAL
          INTEGER I
          REAL*8 etot2,mom,m1,m2,e1,e2
