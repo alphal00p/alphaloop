@@ -37,6 +37,7 @@ logger = logging.getLogger('alphaLoop.Exporter')
 import alpha_loop.LTD_squared as LTD_squared
 import alpha_loop.helas_call_writers as aL_helas_call_writers
 import alpha_loop.utils as utils
+import alpha_loop.FORM_processing as FORM_processing
 
 import yaml
 from yaml import Loader, Dumper
@@ -162,6 +163,15 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         logger.info("%sA grand total of %d unique super-graphs have been generated across all processes.%s"%(
             utils.bcolors.GREEN,len(overall_basis),utils.bcolors.ENDC
         ))
+
+        if self.alphaLoop_options['FORM_processing_output_format']:
+            FORM_super_graph_list = FORM_processing.FORMSuperGraphList(
+                sum([sg_list for sg_list, ME in  self.all_super_graphs],[])
+            )
+            FORM_output_path = pjoin(self.dir_path, 'FORM')
+            Path(FORM_output_path).mkdir(parents=True, exist_ok=True)
+            FORM_super_graph_list.generate_numerator_functions(FORM_output_path, 
+                        output_format=self.alphaLoop_options['FORM_processing_output_format'])
 
         # Now output the Rust inputs for the remaining supergraphs.
         for all_super_graphs, matrix_element in self.all_super_graphs:
