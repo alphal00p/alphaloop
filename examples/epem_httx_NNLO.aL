@@ -2,6 +2,8 @@ import model sm-no_widths
 set_alphaLoop_option perturbative_orders {'QCD':4}
 # Set the option below to -1 in order to generate all rust inputs as well
 set_alphaLoop_option n_rust_inputs_to_generate 0
+# Set the option below to False as for self-energies it is not correctly supported yet
+set_alphaLoop_option differentiate_particle_from_antiparticle_in_graph_isomorphism False
 prepare_model_for_self_energies 2 ((22,6,-6),)
 # Generate the non-self energy contributions
 # ------------------------------------------
@@ -24,7 +26,8 @@ add process e+ e- > a > t t~ h t SE_1_g SE_1_t~ t SE_2_g SE_2_t~ se_1_a_1 se_2_a
 add process e+ e- > a > t t~ h t~ SE_1_g SE_1_t t~ SE_2_g SE_2_t se_1_a_1 se_2_a_1 QCD=0 SE_1_QCD=1 SE_1_CONTACT_1=1 SE_1_BRIDGE_1=1 SE_1_ANCHOR=1 SE_1_QCD=1 SE_2_CONTACT_1=1 SE_2_BRIDGE_1=1 SE_2_ANCHOR=1 @21
 add process e+ e- > a > t t~ h t SE_1_g SE_1_t~ t~ SE_2_g SE_2_t se_1_a_1 se_2_a_1 QCD=0 SE_1_QCD=1 SE_1_CONTACT_1=1 SE_1_BRIDGE_1=1 SE_1_ANCHOR=1 SE_1_QCD=1 SE_2_CONTACT_1=1 SE_2_BRIDGE_1=1 SE_2_ANCHOR=1 @22
 #
-# The case of one 2-loop SE, with a nested 1-loop SE within, off the top and anti-top quark
+# The case of one 2-loop SE, with a nested 1-loop SE within, off the top and anti-top quark.
+# Note: this should in principle also generate the self-energy correction of the gluon from closed bubble top quark loop.
 # 
 add process e+ e- > a > t t~ h t SE_1_g SE_1_t~ SE_1_g SE_1_t SE_1_t~ se_1_a_2 QCD=0 SE_1_QCD=2 SE_1_CONTACT_1=1 SE_1_BRIDGE_1=1 SE_1_CONTACT_2=1 SE_1_BRIDGE_2=1 SE_1_ANCHOR=1 @30
 add process e+ e- > a > t t~ h t SE_1_g SE_1_t~ SE_1_g SE_1_g SE_1_g se_1_a_2 QCD=0 SE_1_QCD=2 SE_1_CONTACT_1=1 SE_1_BRIDGE_1=1 SE_1_CONTACT_2=1 SE_1_BRIDGE_2=1 SE_1_ANCHOR=1 @31

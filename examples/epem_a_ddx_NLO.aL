@@ -1,6 +1,8 @@
 import model sm-no_widths
 set_alphaLoop_option perturbative_orders {'QCD':2}
 set_alphaLoop_option n_rust_inputs_to_generate -1
+# Set the option below to False as for self-energies it is not correctly supported yet
+set_alphaLoop_option differentiate_particle_from_antiparticle_in_graph_isomorphism False
 prepare_model_for_self_energies 2 ((22,1,-1),)
 # The double-triangle topology
 add process e+ e- > a > d d~ g QCD=1 SE_1_QCD=0 SE_2_QCD=0 @1

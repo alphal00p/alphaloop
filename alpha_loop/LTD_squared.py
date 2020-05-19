@@ -396,14 +396,24 @@ class SuperGraph(object):
     def is_isomorphic_to(self, other_super_graph):
         """ Uses networkx to decide if the two graphs are isomorphic."""
 
-        def edge_match_function(e1,e2):
-            # This function needs tu support multi-edges
-            # For now all we do is making sure the set of PDGs of 
-            # all edges connecting the two nodes match.
-            # TODO: Fix ambiguity with fermion flow and part / antipart
-            # For now consider two edges equal whenever the *abs* of PDGs matches.
-            return set(abs(e['pdg']) for e in e1.values()) == \
-                   set(abs(e['pdg']) for e in e2.values())
+        if not self.alphaLoop_options['differentiate_particle_from_antiparticle_in_graph_isomorphism']:
+            def edge_match_function(e1,e2):
+                # This function needs tu support multi-edges
+                # For now all we do is making sure the set of PDGs of 
+                # all edges connecting the two nodes match.
+                # TODO: Fix ambiguity with fermion flow and part / antipart
+                # For now consider two edges equal whenever the *abs* of PDGs matches.
+                return set(abs(e['pdg']) for e in e1.values()) == \
+                    set(abs(e['pdg']) for e in e2.values())
+        else:
+            def edge_match_function(e1,e2):
+                # This function needs tu support multi-edges
+                # For now all we do is making sure the set of PDGs of 
+                # all edges connecting the two nodes match.
+                # TODO: Fix ambiguity with fermion flow and part / antipart
+                # For now consider two edges equal whenever the *abs* of PDGs matches.
+                return set(e['pdg'] for e in e1.values()) == \
+                    set(e['pdg'] for e in e2.values())
         # TODO 
         # debug why vertex_id matches is not working and also why keeping the direction is not working
         # (different resulting number of unique supergraph with top and anti-top)

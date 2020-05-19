@@ -73,7 +73,11 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # We plan on include self-energies from two-point vertices so as to be able to apply our 
             # LTD^2 LSZ treatment. So 'include_self_energies_from_squared_amplitudes' should be kept
             # set to False, except for debugging.
-            'include_self_energies_from_squared_amplitudes' : False
+            'include_self_energies_from_squared_amplitudes' : False,
+            # One must differentiate particles from anti-particles in the isomorphism check.
+            # However this is not properly working, at least not for self-energies, so we allow it
+            # to be disabled with the option below.
+            'differentiate_particle_from_antiparticle_in_graph_isomorphism' : False
         }
         self.plugin_output_format_selected = None
 
@@ -156,9 +160,14 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 logger.warning(
 """Self-energies will be generated from two-point vertices so as to be able to apply the 
 LTD^2 LSZ treatment. So 'include_self_energies_from_squared_amplitudes' should be kept
-set to False, except for debugging.
+set to False, except for debugging, which seems to be what you are doing now, so we'll se it to True now.
 """)
             self.alphaLoop_options['include_self_energies_from_squared_amplitudes'] = bool_val   
+        elif key == 'differentiate_particle_from_antiparticle_in_graph_isomorphism':
+            if value.upper() not in ['TRUE','FALSE']:
+                raise alphaLoopInvalidCmd("Specified value for 'differentiate_particle_from_antiparticle_in_graph_isomorphism' should be 'True' or 'False', not '%s'."%value)
+            bool_val = (value.upper()=='TRUE')
+            self.alphaLoop_options['differentiate_particle_from_antiparticle_in_graph_isomorphism'] = bool_val
         elif key == 'n_rust_inputs_to_generate':
             try:
                 self.alphaLoop_options['n_rust_inputs_to_generate'] = int(value)

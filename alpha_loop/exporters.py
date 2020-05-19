@@ -159,7 +159,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     bar.update(n_unique_super_graphs_sofar='%d'%len(overall_basis))
                     bar.update(i_graph)
                 super_graph_list[:] = new_selection_for_this_process
-        logger.info("A grand total of %d unique super-graphs have been generated across all processes."%len(overall_basis))
+        logger.info("%sA grand total of %d unique super-graphs have been generated across all processes.%s"%(
+            utils.bcolors.GREEN,len(overall_basis),utils.bcolors.ENDC
+        ))
 
         # Now output the Rust inputs for the remaining supergraphs.
         for all_super_graphs, matrix_element in self.all_super_graphs:
@@ -390,6 +392,24 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             matrix_element_call_dispatch.append("ENDDO")
             matrix_element_call_dispatch.append(
                 'CALL M%d_SMATRIXHEL(P%d, -1, SDL, SDR, ANS)'%(i_proc,n_external))
+            overall_phase = complex(1,0)
+            number_of_legs_for_each_SE={}
+            for leg in me.get('processes')[0].get('legs'):
+                # Consider final state legs only
+                if leg.get('state')==False:
+                    continue
+                if abs(leg.get('id'))<LTD_squared.self_energy_global_id_offset:
+                    overall_phase *= complex(0,-1)
+                SE_number = (abs(leg.get('id'))//LTD_squared.self_energy_global_id_offset)%10
+                if SE_number!=0:
+                    if SE_number in number_of_legs_for_each_SE:
+                        number_of_legs_for_each_SE[SE_number] += 1
+                    else:
+                        number_of_legs_for_each_SE[SE_number] = 1
+            # Then accumulate a phase for each additional legs in self-energies:
+            if number_of_legs_for_each_SE:
+                overall_phase *= (complex(0,-1)**(sum(v-3 for v in number_of_legs_for_each_SE.values())))
+            matrix_element_call_dispatch.append("ANS=ANS*DCMPLX(%d.0d0,%d.0d0)"%(int(overall_phase.real),int(overall_phase.imag)))
             matrix_element_call_dispatch.append("GOTO 9999")
         replace_dict['matrix_element_call_dispatch'] = '\n'.join(matrix_element_call_dispatch)
 
