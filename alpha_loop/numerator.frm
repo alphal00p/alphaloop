@@ -157,9 +157,7 @@ id color(x?) = x;
 
 id pzero = 0; * Substitute the 0-momentum by 0
 
-.sort
-Print +s;
-.end
+.sort:feynman-rules-final;
 
 *********************************************
 * Construction of optimized numerator C code
@@ -173,7 +171,6 @@ Print +s;
         id k`i'.k`j' = k`i'`j';
     #enddo
 #enddo
-
 .sort
 Format O4,stats=on,saIter=1000;
 Format C;

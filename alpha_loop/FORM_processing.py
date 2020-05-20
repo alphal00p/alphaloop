@@ -8,6 +8,7 @@ except:
     pass
 from itertools import chain
 import sys
+import subprocess
 
 logger = logging.getLogger('alphaLoop.FORM_processing')
 
@@ -67,13 +68,6 @@ class FORMSuperGraph(object):
             )
 
         return form_diag        
-    
-    def generate_numerator_functions(self, file_path, output_format='c'):
-        """ Use form to plugin Feynman Rules and process the numerator algebra so as
-        to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
-
-        # TODO Ben
-        #open(file_path,'w').write("TODO")
 
     @classmethod
     def from_LTD2SuperGraph(cls, LTD2_super_graph):
@@ -124,29 +118,34 @@ class FORMSuperGraphIsomorphicList(list):
                 self.append(FORMSuperGraph.from_LTD2SuperGraph(g))
 
     def generate_numerator_form_input(self):
-        form_input = ''
-        for g in self:
-            form_input += g.generate_numerator_form_input()
+        return '+'.join(g.generate_numerator_form_input() for g in self)
 
-        return form_input
-
-    def generate_numerator_functions(self, file_path, output_format='c'):
+    def generate_numerator_functions(self, output_format='c'):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
-
+        # write the form input to a file
         form_input = self.generate_numerator_form_input()
+        with open('input.h', 'w') as f:
+            f.write('L F = {};'.format(form_input))
 
-        print(form_input)
+        # TODO specify cores in the input
+        r = subprocess.run(["form", "numerator.frm"], capture_output=True)
+        print(r)
+        if r.returncode != 0:
+            raise AssertionError("A form run failed: {}".format(r))
 
-        # TODO Ben
-        #open(file_path,'w').write("TODO")
+        # return the code for the numerators
+        with open('out.proto_c') as f:
+            num_code = f.read()
+
+        return num_code
 
         
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
 
-    extension_names = {'rust': 'rs', 'c': 'c'}
+    extension_names = {'c': 'c'}
 
     def __init__(self, graph_list):
         """ Instantiates a list of FORMSuperGraphs from a list of either
@@ -188,17 +187,37 @@ class FORMSuperGraphList(list):
         # TODO: Dump to yaml
         pass
 
-    def generate_numerator_functions(self, root_output_path, output_format='rust'):
+    def generate_numerator_functions(self, root_output_path, output_format='c'):
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
 
         if output_format not in self.extension_names:
             raise FormProcessingError("Unsupported output format for numerator functions: '%s'"%output_format)
 
+        # add all numerators in one file and write the headers
+        numerator_code = """#include <math.h>
+            // TODO: define all masses!
+
+            double evaluate(double k[], int i){
+                switch(i) {
+        """ + '\n'.join('\t\tcase {}: return evaluate_{}(k);'.format(i, i) for i in range(len(self))) + \
+        """            
+                }
+            }
+        """
+
         for i, graph in enumerate(self):
-            graph.generate_numerator_functions(
-                pjoin(root_output_path,'%s.%s'%('G' + str(i), self.extension_names[output_format]))
-            )
+            num = graph.generate_numerator_functions()
+
+            # TODO: determine size of Z!
+            numerator_code += 'double evaluate_{}(double k[]){{\n\tdouble Z[{}];\n'.format(i, 123) + num + '\n}'
+
+        with open(pjoin(root_output_path, '/numerator.c')) as f:
+            f.write(numerator_code)
+
+        r = subprocess.run(["gcc", "--shared", "-O2", "-lm", "-o", pjoin(root_output_path, "libnumerator.so")], capture_output=True)
+        if r.returncode != 0:
+            raise AssertionError("Could not compile C code: {}".format(r))
 
 if __name__ == "__main__":
     logging.info("TODO: process arguments and load an externally provided list of yaml dump files.")
