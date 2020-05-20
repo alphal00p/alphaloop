@@ -13,6 +13,8 @@ from itertools import chain
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 
 import LTD.squared_topologies as squared_topology_processor
+import LTD.ltd_utils as ltd_utils
+
 import alpha_loop.utils as utils
 
 # For the self-energy treatment we have to generate additional species of
@@ -255,7 +257,18 @@ class SuperGraph(object):
 
         self.self_energy_structure = None
 
-        self.name = name
+        # Marker setting if momentum routing has been set:
+        self.is_momentum_routing_set = False
+        self.n_loops = None
+
+        if name is None:
+            self.name = 'proc_%d_left_diag_%d_right_diag_%d'%(
+                self.call_signature['proc_id'],
+                self.call_signature['left_diagram_id'],
+                self.call_signature['right_diagram_id'],
+            )
+        else:
+            self.name = name
 
     def get_self_energy_structures(self):
         """ Computes the self-energy structure.
@@ -323,6 +336,38 @@ class SuperGraph(object):
         nx.draw_networkx(self.graph)
         import matplotlib.pyplot as plt
         plt.show()
+
+    def set_momentum_routing(self):
+        """ Use a topology object to set the momentum routing."""
+
+        if self.is_momentum_routing_set:
+            return
+
+        # First rename nodes to make it compatible with the Topology generator
+        node_name_map = {}
+        node_index = 0
+        for node_key, node_data in self.graph.nodes.items():
+            node_index += 1
+            node_name_map[node_key] = node_index
+
+        topo_generator = ltd_utils.TopologyGenerator(
+            [
+                (edge_data['name'],node_name_map[u],node_name_map[v]) for 
+                        (u,v,c), edge_data in self.graph.edges.items()
+            ]
+        )
+
+        topo_generator.generate_momentum_flow(
+            loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]],
+            sink=self.graph.edges[self.cuts[-1][1]]['name'],
+        )
+
+        signatures = topo_generator.get_signature_map()
+        for edge_key, edge_data in self.graph.edges.items():
+            edge_data['momentum'] = signatures[edge_data['name']]
+
+        self.n_loops = topo_generator.n_loops
+        self.is_momentum_routing_set = True
 
     def sew_graphs(self, diag_left_of_cut, diag_right_of_cut):
         """ Combine two diagrams into one graph that corresponds to the super graph."""

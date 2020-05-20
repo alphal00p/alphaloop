@@ -8,7 +8,7 @@ set_alphaLoop_option differentiate_particle_from_antiparticle_in_graph_isomorphi
 # For LO we can also safely include self-energies
 set_alphaLoop_option include_self_energies_from_squared_amplitudes True
 # And finally let us also enable the FORM processing of numerators
-set_alphaLoop_option FORM_processing_output_format rust
+set_alphaLoop_option FORM_processing_output_format c 
 generate e+ e- > a > d d~ g
 !rm -rf TEST_epem_a_ddxg
 output alphaLoop TEST_epem_a_ddxg

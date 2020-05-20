@@ -59,7 +59,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     """ Interface for steering the generation/output of alphaLoop.
     We make it inherit from CmdShell so that launch_ext_prog does not attempt to start in WebMode."""
 
-    _supported_FORM_output_formats = [None, 'rust']
+    _supported_FORM_output_formats = [None, 'c']
 
     def __init__(self, *args, **opts):
         """ Define attributes of this class."""
@@ -179,7 +179,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
                 value = None
             if value not in self._supported_FORM_output_formats:
                 raise alphaLoopInvalidCmd("Specified value '%s' for 'FORM_processing_output_format' is not in %s."%(
-                                                                        value,_supported_FORM_output_formats))
+                                                                        value,self._supported_FORM_output_formats))
             self.alphaLoop_options['FORM_processing_output_format'] = value            
         elif key == 'n_rust_inputs_to_generate':
             try:
