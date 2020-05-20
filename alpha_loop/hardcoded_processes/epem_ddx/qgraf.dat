@@ -1,0 +1,18 @@
+
+output = 'output.py';
+
+style = './orientedGraphPython.sty';
+
+model = './SM.dat';
+
+in = eplus[p1], eminus[p2]; 
+
+out = eplus[p1], eminus[p2];
+
+loops = 1;
+
+loop_momentum = k;
+
+options = onshell, notadpole, nosnail;
+
+*true=iprop[photon,2,2];

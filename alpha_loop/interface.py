@@ -164,7 +164,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for 'include_self_energies_from_squared_amplitudes' should be 'True' or 'False', not '%s'."%value)
             bool_val = (value.upper()=='TRUE')
-            if bool_val:
+            if bool_val and len(self.alphaLoop_options['perturbative_orders'])>0 and sum(self.alphaLoop_options['perturbative_orders'].values())>0:
                 logger.warning(
 """%sSelf-energies will be generated from two-point vertices so as to be able to apply the 
 LTD^2 LSZ treatment. So 'include_self_energies_from_squared_amplitudes' should be kept
@@ -512,177 +512,46 @@ utils.bcolors.RED,utils.bcolors.ENDC
         logger.info('Model %s successfully patched so as to accomodate self-energy generations.'%model.get('name'))
         return
 
-    def OLD_prepare_model_for_self_energies(self, revert=False, perturbative_order=3):
-        """Commands for adding the necessary TREE UV interactions to the current model."""
+    def do_qgraf_generate(self, line):
+        """ qgraf-based output. """
+ 
+        args = self.split_arg(line)
+
+        # Check if this hardcoded process exists.  
+        hardcoded_processes_path = pjoin(plugin_path,'hardcoded_processes')        
+        if len(args)==0 or not os.path.exists(pjoin(hardcoded_processes_path,args[0])):
+            raise alphaLoopInvalidCmd("The command 'qgraf_generate' requires a first argument being"
+                " the name of the hard-coded generation process which should match a directory in:\n%s"%str(hardcoded_processes_path)+
+                "\nPossible values are:\n%s"%(str([os.path.basename(p) for p in misc.glob(pjoin(hardcoded_processes_path,'*'))])))
+        hardcoded_generation_dir = pjoin(hardcoded_processes_path,args[0])
+
+        if len(args)<=1:
+            raise alphaLoopInvalidCmd("The command 'qgraf_generate' requires the desired process output path as a second argument.")
         
-        if perturbative_order<=0:
-            return
+        proc_output_path = pjoin(MG5DIR,args[1])
 
-        if revert:
-            if self.model_backup_copy is None:
-                raise MadGraph5Error("Cannot revert to a non-existing model.")
-            logger.info('Self-energy patch for model %s successfully reverted.'%self.model_backup_copy.get('name'))
-            self._curr_model = self.model_backup_copy
-            return
+        # Check if qgraf has been compiled  
+        QGRAF_path = pjoin(plugin_path,os.path.pardir,'libraries','QGRAF')
+        if not os.path.isfile(pjoin(QGRAF_path,'qgraf')):
+            logger.info("Compiling QGRAF (needs to be done once only)...")
+            misc.compile(cwd=QGRAF_path)
+            if not os.path.isfile(pjoin(QGRAF_path,'qgraf')):
+                raise MadGraph5Error("Could not successfully compile QGRAF.")
 
-        # First create a backup of the current model.
-        self.model_backup_copy = copy.deepcopy(self._curr_model)        
+        try:
+            process_definition = self.extract_process(open(pjoin(hardcoded_generation_dir,'MG_process_definition.dat'),'r').read(), proc_number=0)
+        except MadGraph5Error as e:
+            raise alphaLoopInvalidCmd("The hardcoded process definition specified in '%s' could not be parsed. Error:\n%s"%(
+                pjoin(hardcoded_generation_dir,'MG_process_definition.dat'),str(e) ))
 
-        # Short-hand to the current model that will be modified
-        model = self._curr_model
-
-        pure_QCD_corrections_only = list(self.alphaLoop_options['perturbative_orders'].keys())==['QCD',]
-
-        # First add the necessary Self-energt coupling_orders to the available coupling_orders 
-        # in the model
-        for n_self_energy in range(1,perturbative_order+1):
-            if (not model['order_hierarchy']) or any(order in [
-                'SE_%d_ANCHOR'%n_self_energy,
-                ] for order in model['order_hierarchy']):
-                raise MadGraph5Error("Cannot prepare the currently active model for self-energies.")
-            model['order_hierarchy']['SE_%d_ANCHOR'%n_self_energy]=0
-            for order in self.alphaLoop_options['perturbative_orders']:
-                model['order_hierarchy']['SE_%d_%s'%(n_self_energy,order)]=model['order_hierarchy'][order]
-            for n_bridge in range(1,perturbative_order+1):
-                if (not model['order_hierarchy']) or any(order in [
-                    'SE_%d_BRIDGE_%d'%(n_self_energy,n_bridge),
-                    'SE_%d_CONTACT_%d'%(n_self_energy,n_bridge)
-                    ] for order in model['order_hierarchy']):
-                    raise MadGraph5Error("Cannot prepare the currently active model for self-energies.")
-                model['order_hierarchy']['SE_%d_BRIDGE_%d'%(n_self_energy,n_bridge)]=0
-                model['order_hierarchy']['SE_%d_CONTACT_%d'%(n_self_energy,n_bridge)]=0
-
-        new_order_hierarchy = dict(model['order_hierarchy'])
-        new_perturbation_couplings = list(model['perturbation_couplings'])
-
-        # Then add the necessary new particles
-        new_particles = {}
-        pdg_offset = 100000000
-        for n_self_energy in range(1,perturbative_order+1):
-            new_particles[n_self_energy] = {}
-
-            # Let us not create self-energy specific particles just yet
-            # TODO
-#            for particle in model['particles']:
-#                if pure_QCD_corrections_only:
-#                    if particle.get('color')==1:
-#                        continue
-#                new_particle=copy.deepcopy(particle)
-#                new_particle['pdg_code'] = particle['pdg_code'] + n_self_energy*pdg_offset
-#                new_particle['name'] = ('SE_%d_'%n_self_energy+particle['name']).lower()
-#                new_particle['antiname'] = ('SE_%d_'%n_self_energy+particle['antiname']).lower()
-#                new_particles[n_self_energy][particle['pdg_code']]=new_particle
-
-            for n_anchor in range(0,perturbative_order+1):
-                anchor_offset = int(pdg_offset/10)
-                anchor = base_objects.Particle({
-                    'pdg_code' : n_self_energy*pdg_offset+n_anchor*anchor_offset,
-                    'name' : ('SE_%d_A_%d'%(n_self_energy,n_anchor)).lower(),
-                    'antiname' : ('SE_%d_A_%d'%(n_self_energy,n_anchor)).lower(),
-                    'spin': 1,
-                    'color' : 1,
-                    'is_part' : True,
-                    'self_antipart' : True,
-                    'charge' : 0.
-                })
-                new_particles[n_self_energy]['anchor_%d'%n_anchor] = anchor
-
-            for n_bridge in range(1,perturbative_order+1):
-                bridge_offset = int(pdg_offset/100)
-                bridge = base_objects.Particle({
-                    'pdg_code' : n_self_energy*pdg_offset+n_bridge*bridge_offset,
-                    'name' : ('SE_%d_B_%d'%(n_self_energy,n_bridge)).lower(),
-                    'antiname' : ('SE_%d_B_%d'%(n_self_energy,n_bridge)).lower(),
-                    'spin': 1,
-                    'color' : 1,
-                    'is_part' : True,
-                    'self_antipart' : True,
-                    'charge' : 0.
-                })
-                new_particles[n_self_energy]['bridge_%d'%n_bridge] = bridge
-
-        # Assign the new particles
-        model.set('particles',base_objects.ParticleList(
-            model.get('particles')+[p for se_parts in new_particles.values() for p in se_parts.values()] ))
-
-
-        # Then create the new interactions
-        interaction_offset = 1000000
-        new_interactions = []
-        for n_self_energy in range(1,perturbative_order+1):
-            # Dubplicate base interactions so as to add the the anchor scalar #1 to it.
-            id_offset =0
-            for inter in model['interactions'].get_type('base'):
-                if (set(inter['orders'].keys())-set(self.alphaLoop_options['perturbative_orders']))!=set([]):
-                    continue
-                id_offset += 1
-                new_interaction = copy.deepcopy(inter)
-                new_interaction.set('color',inter.get('color'))
-                new_interaction.set('id',n_self_energy*interaction_offset+id_offset)
-                new_orders = {}
-                # Let's not use the "self-energy particles" just yet, but simply normal particles and therefore normal orders:
-                # TODO
-                for order in new_interaction['orders']:
-                    new_orders[order]=new_interaction['orders'][order]
-#                    new_orders['SE_%d_%s'%(n_self_energy,order)]=new_interaction['orders'][order]
-                new_orders['SE_%d_ANCHOR'%n_self_energy] = 1
-                new_interaction.set('orders',new_orders)
-                # Let's not use the "self-energy particles" just yet, but simply normal particles:
-                # TODO
-                new_interaction['particles'] = base_objects.ParticleList([
-#                       new_particles[n_self_energy][p['pdg_code']] for p in new_interaction['particles']
-                        p for p in new_interaction['particles']
-                    ]+[new_particles[n_self_energy]['anchor_0'],]
-                )
-                new_interaction['lorentz'] = ['SE_%s'%l for l in new_interaction['lorentz']]
-                new_interactions.append(new_interaction)
-
-                # TODO when using the "self-energy particles" above, then also copy down interactions
-                # for the whole perturbed sector aming the self-energy particles for a given self-energy index.
-
-            # Add an interaction between three scalars: Anchor_<i>_{n-1} | Bridge_<i>_{n} | Anchor_<i>_{n-1}
-            for n_bridge in range(1,perturbative_order+1):
-                bridge_offset = int(interaction_offset/10)
-                new_interactions.append(base_objects.Interaction({
-                    'id' : n_self_energy*interaction_offset+n_bridge*bridge_offset,
-                    'particles' : base_objects.ParticleList([
-                        new_particles[n_self_energy]['anchor_%d'%(n_bridge-1)],
-                        new_particles[n_self_energy]['bridge_%d'%n_bridge],
-                        new_particles[n_self_energy]['anchor_%d'%n_bridge],
-                    ]),
-                    'color': [color.ColorString(),],
-                    'lorentz': [ 'SE_SSS',],
-                    'couplings' : { (0, 0): '1'},
-                    'orders' : {'SE_%d_BRIDGE_%d'%(n_self_energy,n_bridge): 1}
-                }))
-                id_offset = 0
-                # TODO Make sure here to also roll over the interactions between "self-energy" particles.
-                for inter in model['interactions'].get_type('base'):
-                    id_offset += 1
-                    new_interaction = copy.deepcopy(inter)
-                    new_interaction.set('id',n_self_energy*interaction_offset+n_bridge*bridge_offset+id_offset)
-                    new_orders = new_interaction['orders']
-                    new_orders['SE_%d_CONTACT_%d'%(n_self_energy,n_bridge)] = 1
-                    new_interaction.set('orders',new_orders)
-                    new_interaction['particles'] = base_objects.ParticleList([
-                            p for p in new_interaction['particles']
-                        ]+[new_particles[n_self_energy]['bridge_%d'%n_bridge],]
-                    )
-                    new_interaction['lorentz'] = ['SE_%s'%l for l in new_interaction['lorentz']]
-                    new_interactions.append(new_interaction)                    
-
-        model.set('interactions',base_objects.InteractionList(model.get('interactions')+new_interactions))
-        # Reset the model dictionaries to sync changes
-        model.reset_dictionaries()
-        # Refresh dictionaries manually (would be done automatically anyway)
-        model.actualize_dictionaries()
-    
-        model.set('order_hierarchy', new_order_hierarchy)
-        model.set('perturbation_couplings', new_perturbation_couplings)
-
-
-        logger.info('Model %s successfully patched so as to accomodate self-energy generations.'%model.get('name'))
-        return
+        # Now generate the output directory structure:
+        qgraf_exporter =  aL_exporters.HardCodedQGRAFExporter(
+            process_definition, self._curr_model, proc_output_path, 
+            self.alphaLoop_options, self.options, hardcoded_process_path=hardcoded_generation_dir)
+        
+        logger.info("Writing output of hardcoded QGRAF generation to '%s'"%proc_output_path)
+        qgraf_exporter.generate()
+        qgraf_exporter.output()
 
     def do_output(self, line):
         """ Wrapper to support the syntax output alphaLoop <args>.

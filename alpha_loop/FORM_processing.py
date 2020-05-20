@@ -1,23 +1,32 @@
+#!/usr/bin/env python3
+
 import copy
 import logging
 import os
 from pathlib import Path
 from pprint import pprint, pformat
-try:
-    import madgraph.various.misc as misc
-except:
-    pass
+
 from itertools import chain
 import sys
 import subprocess
+pjoin = os.path.join
+
+if __name__ == "__main__":
+    root_path = os.path.dirname(os.path.realpath( __file__ ))
+    sys.path.insert(0, pjoin(root_path,os.path.pardir))
+    sys.path.insert(0, pjoin(root_path,os.path.pardir,os.path.pardir,os.path.pardir))
 import alpha_loop.utils as utils
 import re
+
+import madgraph.various.misc as misc
+import madgraph.iolibs.file_writers as writers
+from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
+import models.model_reader as model_reader
 
 logger = logging.getLogger('alphaLoop.FORM_processing')
 
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
-pjoin = os.path.join
 
 FORM_processing_options = {'FORM_path': 'form'}
 
@@ -29,7 +38,7 @@ for resource in resources_to_link:
     if not os.path.exists(pjoin(FORM_workspace,resource)):
         utils.ln(pjoin(plugin_path,resource),starting_dir=FORM_workspace)
 
-class FormProcessingError(Exception):
+class FormProcessingError(MadGraph5Error):
     """ Error for the FORM processing phase."""
     pass
 
@@ -386,7 +395,7 @@ class FORMSuperGraphList(list):
         sys.path.insert(0, str(p.parent))
         m = __import__(p.stem)
 
-        print("Imported {} graphs".format(len(m.graphs)))
+        logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         graph_list = []
         for i, g in enumerate(m.graphs):
@@ -424,26 +433,78 @@ class FORMSuperGraphList(list):
             }
         """
 
-        pattern = re.compile(r'Z(\d*)_')
+        pattern = re.compile(r'Z(()\d*)_')
 
         for i, graph in enumerate(self):
             num = graph.generate_numerator_functions()
 
-            max_intermediate_variable = max(int(index) for index in pattern.finditer(num))
+            max_intermediate_variable = max(int(index.groups()[0]) for index in pattern.finditer(num))
 
             numerator_code += 'double evaluate_{}(double k[]){{\n\tdouble {};\n'.format(i,
                 ','.join('Z' + str(i) for i in range(1,max_intermediate_variable + 1))
             ) + num + '\n}'
 
-        with open(pjoin(root_output_path, 'numerator.c'),'w') as f:
-            f.write(numerator_code)
+        writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
+        if os.path.isfile(pjoin(root_output_path,'Makefile')):
+            try:
+                misc.compile(cwd=root_output_path,mode='cpp')
+            except MadGraph5Error as e:
+                logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
+                    utils.bcolors.RED,str(e),utils.bcolors.ENDC))
+        else:
+            logger.warning(("\n%sYou are running FORM_processing directly from the __main__ of FORM_processing.py.\n"+
+                           "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
-        r = subprocess.run(["gcc", "--shared", "-O2", "-lm", "-o", pjoin(root_output_path, "libnumerator.so")], capture_output=True)
-        if r.returncode != 0:
-            raise AssertionError("Could not compile C code: {}".format(r))
+class FORMProcessor(object):
+    """ A class for taking care of the processing of a list of FORMSuperGraphList.
+    Useful because many aspects common to all supergraphs and function do not belong to FORMSuperGraphList.
+    """
+
+    def __init__(self, super_graphs_list, model, process_definition):
+        """ Specify aditional information such as the model that is useful for FORM processing."""
+        self.super_graphs_list = super_graphs_list
+        self.model = model
+        self.process_definition = process_definition
+
+        ############
+        # FOR BEN: 
+        # ##########
+
+        # example of how to access various parameters
+        PDG_code = 6
+        misc.sprint('m_top_quark=',self.model['parameter_dict'][self.model.get_particle(PDG_code).get('mass')].real)
+        PDG_code = 1
+        misc.sprint('m_down_quark=',self.model['parameter_dict'][self.model.get_particle(PDG_code).get('mass')].real)
+        PDG_code = 6
+        misc.sprint('width_top_quark=',self.model['parameter_dict'][self.model.get_particle(PDG_code).get('width')].real)
+        # And some various other useful coupling parameters:
+        misc.sprint('gs=',self.model['parameter_dict']['G'].real)
+        misc.sprint('alpha_EW=',1./self.model['parameter_dict']['aEWM1'].real)
+        misc.sprint('y_t=',self.model['parameter_dict']['mdl_yt'].real)
+        # Display all parameters as follows:
+        misc.sprint(self.model['parameter_dict'].keys())
+
+    def generate_numerator_functions(self, root_output_path, output_format='c'):
+
+        return self.super_graphs_list.generate_numerator_functions(
+            root_output_path, output_format=output_format)
 
 if __name__ == "__main__":
     logging.info("TODO: process arguments and load an externally provided list of yaml dump files.")
 
-    super_graph_list = FORMSuperGraphList.from_dict(sys.argv[1])
-    super_graph_list.generate_numerator_functions('.', output_format='c')
+    if len(sys.argv)==1 or not os.path.isfile(sys.argv[1]):
+        raise FormProcessingError("Incorrect arguments: %s"%str(sys.argv))
+    super_graph_path = sys.argv[1]
+
+    import alpha_loop.interface as interface
+    cli = interface.alphaLoopInterface()
+
+    cli.do_import('model PLUGIN/alphaloop/models/aL_sm-no_widths')
+    computed_model = model_reader.ModelReader(cli._curr_model)
+    computed_model.set_parameters_and_couplings(pjoin(
+        plugin_path,os.path.pardir,'models','aL_sm','restrict_no_widths.dat'))        
+    process_definition=cli.extract_process('e+ e- > a > d d~', proc_number=0)
+
+    super_graph_list = FORMSuperGraphList.from_dict(super_graph_path)
+    form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
+    form_processor.generate_numerator_functions('.', output_format='c')

@@ -13,6 +13,7 @@ from math import fmod
 import progressbar
 import aloha
 import shutil
+import subprocess
 
 import aloha.create_aloha as create_aloha
 
@@ -31,6 +32,9 @@ import madgraph.iolibs.file_writers as writers
 import madgraph.various.misc as misc
 import madgraph.iolibs.files as files
 from madgraph.iolibs.files import cp, ln, mv
+import madgraph.interface.common_run_interface as common_run_interface
+import models.check_param_card as check_param_card
+import models.model_reader as model_reader
 
 logger = logging.getLogger('alphaLoop.Exporter')
 
@@ -136,6 +140,11 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         """ Write the overall cross-section yaml input file for the rust_backend to
         be able to generate the whole cross-section at once."""
 
+        if len(self.all_super_graphs)==0:
+            raise alphaLoopExporterError("No supergraph generated.")
+
+        model = self.all_super_graphs[0][1].get('processes')[0].get('model')
+
         # Now write out a yaml file for each of these 
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
         Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
@@ -170,10 +179,18 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             )
             FORM_output_path = pjoin(self.dir_path, 'FORM')
             Path(FORM_output_path).mkdir(parents=True, exist_ok=True)
+            shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
+                    pjoin(FORM_output_path, 'Makefile'))
+            # Also output a copy of the input super-graph sent to the FORM processor.
             for FORM_super_graph in FORM_super_graph_list:
                 FORM_super_graph.to_dict(file_path=pjoin(FORM_output_path,'%s.py'%FORM_super_graph[0].name))
+            computed_model = model_reader.ModelReader(model)
+            computed_model.set_parameters_and_couplings(pjoin(self.dir_path,'Cards','param_card.dat')) 
+            characteristic_process_definition = self.all_super_graphs[0][1].get('processes')[0]
             logger.info("Numerators processing with FORM...")
-            FORM_super_graph_list.generate_numerator_functions(FORM_output_path, 
+            FORM_processor = FORM_processing.FORMProcessor(
+                FORM_super_graph_list, computed_model, characteristic_process_definition)
+            FORM_processor.generate_numerator_functions(FORM_output_path, 
                         output_format=self.alphaLoop_options['FORM_processing_output_format'])
 
         # Now output the Rust inputs for the remaining supergraphs.
@@ -204,7 +221,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     file_path = pjoin(rust_inputs_path,'%s.yaml'%squared_topology_name)
                     super_graph.generate_yaml_input_file(
                         file_path,
-                        matrix_element.get('processes')[0].get('model'),
+                        model,
                         self.alphaLoop_options
                     )
                     if (self.alphaLoop_options['n_rust_inputs_to_generate']>0) and (
@@ -543,7 +560,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             # avoid symmetric output
             for i,proc in enumerate(matrix_element.get('processes')):
                    
-                tag = proc.get_tag()     
+                tag = proc.get_tag()
                 legs = proc.get('legs')[:]
                 leg0 = proc.get('legs')[0]
                 leg1 = proc.get('legs')[1]
@@ -888,4 +905,134 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
     def write_source_makefile(self, writer, *args, **opts):
         super(alphaLoopExporter, self).write_source_makefile(writer, *args, **opts)
 
-         
+
+class QGRAFExporter(object):
+
+    def __init__(self, process_definition, model, output_path, alphaLoop_options, mg_options, **opts):
+        self.model = model
+        self.dir_path = output_path
+        self.proc_def = process_definition
+        self.mg_options = mg_options
+        self.alphaLoop_options = alphaLoop_options
+        self.QGRAF_path = pjoin(plugin_path,os.path.pardir,'libraries','QGRAF','qgraf')
+
+    def generate(self):
+        pass
+
+    def output(self):
+        pass
+
+    def replace_make_opt_c_compiler(self, compiler, root_dir = ""):
+        """Set CXX=compiler in Source/make_opts.
+        The version is also checked, in order to set some extra flags
+        if the compiler is clang (on MACOS)"""
+       
+        is_clang = misc.detect_if_cpp_compiler_is_clang(compiler)
+        is_lc    = misc.detect_cpp_std_lib_dependence(compiler) == '-lc++'
+
+
+        # list of the variable to set in the make_opts file
+        for_update= {'DEFAULT_CPP_COMPILER':compiler,
+                     'MACFLAG':'-mmacosx-version-min=10.7' if is_clang and is_lc else '',
+                     'STDLIB': '-lc++' if is_lc else '-lstdc++',
+                     'STDLIB_FLAG': '-stdlib=libc++' if is_lc and is_clang else ''
+                     }
+
+        # for MOJAVE remove the MACFLAG:
+        if is_clang:
+            import platform
+            version, _, _ = platform.mac_ver()
+            if not version:# not linux 
+                version = 14 # set version to remove MACFLAG
+            else:
+                version = int(version.split('.')[1])
+            if version >= 14:
+                for_update['MACFLAG'] = '-mmacosx-version-min=10.8' if is_lc else ''
+
+        if not root_dir:
+            root_dir = self.dir_path
+        make_opts = pjoin(root_dir, 'Source', 'make_opts')
+
+        try:
+            common_run_interface.CommonRunCmd.update_make_opts_full(
+                            make_opts, for_update)
+        except IOError:
+            if root_dir == self.dir_path:
+                logger.info('Fail to set compiler. Trying to continue anyway.')  
+    
+        return
+
+
+class HardCodedQGRAFExporter(QGRAFExporter):
+
+    def __init__(self, process_definition, model, output_path, alphaLoop_options, mg_options, hardcoded_process_path=None, **opts):
+        super(HardCodedQGRAFExporter,self).__init__(process_definition, model, output_path, alphaLoop_options, mg_options)
+        self.hardcoded_process_path = hardcoded_process_path
+
+    def build_output_directory(self):
+
+        Path(self.dir_path).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Cards')).mkdir(parents=True, exist_ok=True)
+        # TODO add param_card in Source
+
+        Path(pjoin(self.dir_path,'lib')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'FORM')).mkdir(parents=True, exist_ok=True)
+
+        Path(pjoin(self.dir_path,'Source')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Source','MODEL')).mkdir(parents=True, exist_ok=True)
+        shutil.copy(pjoin(plugin_path, 'Templates', 'Source_make_opts'), 
+                    pjoin(self.dir_path, 'Source','make_opts'))
+
+        # Fix makefiles compiler definition
+        self.replace_make_opt_c_compiler(self.mg_options['cpp_compiler'])
+
+    def generate(self):
+        """ Generate all supergraphs using QGRAF."""
+
+        self.build_output_directory()
+
+        # Copy QGRAF resources
+        for filepath in misc.glob(pjoin(self.hardcoded_process_path,"*.dat")):
+            shutil.copy(filepath,pjoin(self.dir_path,'FORM',os.path.basename(filepath)))
+        for filepath in misc.glob(pjoin(self.hardcoded_process_path,"*.sty")):
+            shutil.copy(filepath,pjoin(self.dir_path,'FORM',os.path.basename(filepath)))
+        r = subprocess.run([self.QGRAF_path,],
+            cwd=pjoin(self.dir_path,'FORM'),
+            capture_output=True)
+        if r.returncode != 0 or not os.path.exists(pjoin(self.dir_path,'FORM','output.py')):
+            raise alphaLoopExporterError("QGRAF generation failed with error:\n%s"%(r.stdout.decode('UTF-8')))
+
+    def output(self):
+        """ Process supergraph numerators with FORM and output result in the process output."""
+
+        write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
+        model_builder = alphaLoopModelConverter(self.model, write_dir)
+        model_builder.build([])
+        shutil.copy(
+            pjoin(self.dir_path,'Source','MODEL','param_card.dat'),
+            pjoin(self.dir_path,'Cards','param_card.dat'),
+        )
+        shutil.copy(
+            pjoin(self.dir_path,'Source','MODEL','ident_card.dat'),
+            pjoin(self.dir_path,'Cards','ident_card.dat'),
+        )
+
+        # Example of how to access information directly from a param_card.dat
+#        param_card = check_param_card.ParamCard(pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
+#        misc.sprint(param_card.get_value('mass',25))
+#        misc.sprint(param_card.get_value('width',25))
+#        misc.sprint(param_card.get_value('yukawa',6))
+#        misc.sprint(param_card.get_value('sminputs',1)) # aEWM1
+#        misc.sprint(param_card.get_value('sminputs',2)) # Gf
+#        misc.sprint(param_card.get_value('sminputs',3)) # aS
+
+        computed_model = model_reader.ModelReader(self.model)
+        computed_model.set_parameters_and_couplings(
+                                            pjoin(self.dir_path,'Source','MODEL','param_card.dat'))        
+
+        super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(pjoin(self.dir_path,'FORM','output.py'))
+        form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
+        shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
+                pjoin(self.dir_path,'FORM', 'Makefile'))
+        form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), output_format='c')

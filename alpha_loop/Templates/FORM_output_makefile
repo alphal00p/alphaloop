@@ -1,0 +1,16 @@
+include ../Source/make_opts
+
+ifeq ($(origin GCC),undefined)
+GCC=gcc
+endif
+LIBBPATH=../lib
+SOURCE=numerator.c
+LIBRARY=libFORM_numerators.so
+
+all: $(LIBBPATH)/$(LIBRARY)
+
+$(LIBBPATH)/$(LIBRARY): $(SOURCE)
+	$(GCC) --shared -O2 -lm -o $@ $^ 
+
+clean:
+	rm -f $(LIBBPATH)/$(LIBRARY)
