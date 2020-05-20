@@ -50,10 +50,12 @@ CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF u,ubar,v,vbar,f,vx;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
-S  type, in, out, virtual, L, A;
-
+S  i, type, in, out, virtual, L, A;
 
 #include- diacolor.h
+Set colF: cOli1,...,cOli40;
+Set colA: cOlj1,...,cOlj40;
+Set colAdum: cOljj1,...,cOljj40;
 
 * Load the diaggrams
 #include- input.h
@@ -81,36 +83,53 @@ id prop(x?{`Q'}, out, p?, idx?) = ubar(p, masses(x), dirac[idx]);
 id prop(x?{`Q'}, out, p?, idx?) = v(p, masses(x), dirac[idx]);
 
 * virtual edges
-id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(cOljjj[idx1], cOljjj[idx2]);
+id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]);
 id prop(`PHO', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]);
-id prop(x?{`FERM'}, virtual, p?, idx1?, idx2?) = - i_ * (gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2])) * d_(cOliii[idx1], cOliii[idx2]);
+id prop(x?{`FERM'}, virtual, p?, idx1?, idx2?) = - i_ * (gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2])) * d_(colF[idx1], colF[idx2]);
 
 .sort:feynman-rules-edges;
 
 * vertices
-id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * T(cOliii[idx1], cOljjj[idx2], cOliii[idx3]);
-id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = 2/3 * ee * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(cOliii[idx1], cOliii[idx3]);
+id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * T(colF[idx1], colA[idx2], colF[idx3]);
+id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = 2/3 * ee * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 id vx(`EP', `PHO', `EM', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ee * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+
+id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
+    - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
+    + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
+    + d_(lorentz[idx2], lorentz[idx3]) * p2(lorentz[idx1])
+    - d_(lorentz[idx1], lorentz[idx2]) * p2(lorentz[idx3])
+    - d_(lorentz[idx2], lorentz[idx3]) * p3(lorentz[idx1])
+    + d_(lorentz[idx1], lorentz[idx3]) * p3(lorentz[idx2]));
+
+* For the quartic gluon vertex we need an extra dummy index
+Multiply counter(1);
+repeat id vx(`GLU', `GLU', `GLU', `GLU', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = counter(i + 1) * gs^2 * i_ *(
+    + cOlf(colA[idx1], colA[idx2], colAdum[i]) * cOlf(colA[idx3], colA[idx4], colAdum[i])
+        * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]))
+    + cOlf(colA[idx1], colA[idx3], colAdum[i]) * cOlf(colA[idx2], colA[idx4], colAdum[i])
+        * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
+    +cOlf(colA[idx1], colA[idx4], colAdum[i]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
+        * (d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4])));
+id counter(x?) = 1;
 
 if (count(vx, 1, prop, 1));
     Print "Unsubstituted propagator or vertex: %t";
     exit "Critical error";
 endif;
 
-Print +s;
-.end
 .sort:feynman-rules-vertices;
 
 ******************
 * Color evaluation
 ******************
 repeat id T(cOli1?,?a,cOli2?)*T(cOli2?,?b,cOli3?) = T(cOli1,?a,?b,cOli3); * collect the colour string
-id  T(cOli1?, cOli1?, ?a) = cOlTr(?a);
+id  T(cOli1?, ?a, cOli1?) = cOlTr(?a);
 id  cOlTr(cOli1?) = 0;
 id  cOlTr = cOlNR;
-Multiply color;
+Multiply color(1);
 repeat id cOlTr(?a)*color(x?) = color(x * cOlTr(?a));
-Print +s;
+repeat id cOlf(cOlj1?,cOlj2?,cOlj3?)*color(x?) = color(x * cOlf(cOlj1,cOlj2,cOlj3));
 B+ color;
 .sort:color-prep;
 Keep brackets;
