@@ -66,10 +66,8 @@ class FORMSuperGraph(object):
 
         # create the input file for FORM
         form_diag = self.overall_factor
-        for node_id, node in self.nodes.items():
-            if (isinstance(node_id, str) and (node_id.startswith('I') or node_id.startswith('O'))) or \
-                (isinstance(node_id, int) and  node_id < 0):
-            #if node_id < 0:
+        for node in self.nodes.values():
+            if node['vertex_id'] < 0:
                 continue
         
             form_diag += '*vx({},{},{})'.format(

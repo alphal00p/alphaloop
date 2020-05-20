@@ -45,9 +45,10 @@ Auto S x, idx;
 
 Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
+Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop;
-CF u,ubar,v,vbar,f,vx;
+CF u,ubar,v,vbar,f,vx, vec;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
 S  i, type, in, out, virtual, L, A;
@@ -66,7 +67,7 @@ Set colAdum: cOljj1,...,cOljj40;
 
 * Fix a quirk where 0 does not match to a vector
 * The only 0 in a propagator or vertex is when a momentum is 0
-* All indices and pgs are non-zero
+* All indices and pdgs are non-zero
 repeat id prop(?a, 0, ?b) = prop(?a, pzero, ?b);
 repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
 
@@ -94,6 +95,7 @@ id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * i
 id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = 2/3 * ee * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 id vx(`EP', `PHO', `EM', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ee * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
 
+* TODO: use momentum conservation to reduce the number of different terms
 id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
     - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
     + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
@@ -109,7 +111,7 @@ repeat id vx(`GLU', `GLU', `GLU', `GLU', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?
         * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]))
     + cOlf(colA[idx1], colA[idx3], colAdum[i]) * cOlf(colA[idx2], colA[idx4], colAdum[i])
         * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
-    +cOlf(colA[idx1], colA[idx4], colAdum[i]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
+    + cOlf(colA[idx1], colA[idx4], colAdum[i]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
         * (d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4])));
 id counter(x?) = 1;
 
@@ -149,7 +151,6 @@ Argument color;
 	id	cOld44(cOlpR1,cOlpR2) = [d4RR/n]*cOlNA;
 	id	cOld44(cOlpR1,cOlpA1) = [d4RA/n]*cOlNA;
 EndArgument;
-Print +s;
 .sort:color;
 
 * Do the spin sum
@@ -159,9 +160,17 @@ repeat id v(p?,m?,s1?)*vbar(p?,m?,s2?) = gamma(s1, p, s2) - m*gamma(s1, s2);
 * construct gamma string
 repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
 
+Multiply counter(1);
+repeat id gamma(mu?,?a,p?,?b,mu?)*counter(i?) = vec(p,lorentzdummy[i])*gamma(mu,?a,lorentzdummy[i],?b,mu)*counter(i+1);
+id counter(n?) = 1;
+
 #do i=1,10
-    Print "%t";
     id once gamma(mu?,?a,mu?) = g_(`i',?a);
+#enddo
+
+id vec(p?,mu?) = p(mu);
+
+#do i=1,10
     trace4 `i';
 #enddo
 
