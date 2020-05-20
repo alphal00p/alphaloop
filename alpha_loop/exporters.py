@@ -170,10 +170,11 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             )
             FORM_output_path = pjoin(self.dir_path, 'FORM')
             Path(FORM_output_path).mkdir(parents=True, exist_ok=True)
+            for FORM_super_graph in FORM_super_graph_list:
+                FORM_super_graph.to_dict(file_path=pjoin(FORM_output_path,'%s.py'%FORM_super_graph[0].name))
+            logger.info("Numerators processing with FORM...")
             FORM_super_graph_list.generate_numerator_functions(FORM_output_path, 
                         output_format=self.alphaLoop_options['FORM_processing_output_format'])
-            for FORM_super_graph in FORM_super_graph_list:
-                FORM_super_graph.to_dict(file_path=pjoin(FORM_output_path,'%s.py'%FORM_super_graph.name))
 
         # Now output the Rust inputs for the remaining supergraphs.
         for all_super_graphs, matrix_element in self.all_super_graphs:

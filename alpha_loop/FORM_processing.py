@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+from pathlib import Path
 from pprint import pprint, pformat
 try:
     import madgraph.various.misc as misc
@@ -9,12 +10,23 @@ except:
 from itertools import chain
 import sys
 import subprocess
+import alpha_loop.utils as utils
 
 logger = logging.getLogger('alphaLoop.FORM_processing')
 
+plugin_path = os.path.dirname(os.path.realpath( __file__ ))
+
 pjoin = os.path.join
 
-FORM_processing_options = {}
+FORM_processing_options = {'FORM_path': 'form'}
+
+# Can switch to tmpdir() if necessary at some point
+FORM_workspace = pjoin(plugin_path,'FORM_workspace')
+Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
+resources_to_link = ['diacolor.h']
+for resource in resources_to_link:
+    if not os.path.exists(pjoin(FORM_workspace,resource)):
+        utils.ln(pjoin(plugin_path,resource),starting_dir=FORM_workspace)
 
 class FormProcessingError(Exception):
     """ Error for the FORM processing phase."""
@@ -33,7 +45,7 @@ class FORMSuperGraph(object):
         # GGGG
         ( 3, 3, 3, 3 ): (0, 1, 2, 3),
         # FxFV
-        ( -2, 2, 3 ): (1, 2, 0),
+        ( -2, 2, 3 ): (0, 2, 1),
         # VxVV (e.g. W+ W- a )
         ( -3, 3, 3 ): (1, 0, 2),
     }
@@ -111,6 +123,15 @@ class FORMSuperGraph(object):
 
         res = ""
         first=True
+        # The outgoing momenta are set element-wise equal to the incoming ones.
+        momenta_decomposition = [
+            momenta_decomposition[0],
+            [inp+outp for inp, outp in zip(
+                momenta_decomposition[1][:len(momenta_decomposition[1])//2],
+                momenta_decomposition[1][len(momenta_decomposition[1])//2:]
+            )]
+        ]
+        # Fuse outgoing and incoming
         for symbol, mom_decomposition in zip(('k','p'),momenta_decomposition):
             for i_k, wgt in enumerate(mom_decomposition):
                 if wgt!=0:
@@ -126,7 +147,7 @@ class FORMSuperGraph(object):
                     if abs(wgt)!=1:
                         res+="%d*"%abs(wgt)
                     res+="%s%d"%(symbol,(i_k+1))
-        
+
         return res
 
     @classmethod
@@ -154,7 +175,6 @@ class FORMSuperGraph(object):
 
             if node_key.startswith('O'):
                 outer_out_nodes.append(node_key)
-                outer_in_nodes.append(node_key)
                 node_data['momenta'] = ('p%d'%int(node_key[1:]),)
                 node_data['vertex_id'] = -2 # Incoming node at assigned vertex ID = -2
 
@@ -164,8 +184,9 @@ class FORMSuperGraph(object):
             this_index = int(node_key[1:])
             curr_index = max(curr_index,this_index)
             local_graph.nodes[node_key]['indices'] = (this_index,)
+        n_incoming=int(curr_index)
         for node_key in outer_out_nodes:
-            this_index = curr_index+int(node_key[1:])
+            this_index = n_incoming+int(node_key[1:])
             curr_index = max(curr_index,this_index)
             local_graph.nodes[node_key]['indices'] = (this_index,)
 
@@ -182,7 +203,7 @@ class FORMSuperGraph(object):
                     curr_index += 1
                     if not found_external_node:
                         edge_indices.append(curr_index)
-            edge_data['indices'] = edge_indices
+            edge_data['indices'] = tuple(edge_indices)
             if edge_key[0] in outer_in_nodes or edge_key[1] in outer_in_nodes:
                 edge_data['type'] = 'in'
 #                loop_momenta = tuple([0 for _ in range(LTD2_super_graph.n_loops)])
@@ -251,6 +272,13 @@ class FORMSuperGraph(object):
         # Finally overwrite the edge momentum so as to be a string
         for edge_key, edge_data in local_graph.edges.items():
             edge_data['momentum'] =cls.momenta_decomposition_to_string(edge_data['momentum'])
+            particle = model.get_particle(edge_data['PDG'])
+            # In the above conventions the fermion are going against their flow, so we need
+            # to flip the order of their fundamental/antifundamental indices so that FORM
+            # builds the correct propagator. 
+            if len(edge_data['indices'])>1 and particle.get('spin')==2:
+                if particle.get('is_part'):
+                    edge_data['indices'] = tuple([edge_data['indices'][1],edge_data['indices'][0]])
 
         form_super_graph =  cls(
             name = LTD2_super_graph.name,
@@ -284,6 +312,7 @@ class FORMSuperGraph(object):
 
 class FORMSuperGraphIsomorphicList(list):
     """ Container class for a list of FROMSuperGraph with the same denominator structure"""
+    
     def __init__(self, graph_list):
         """ Instantiates a list of FORMSuperGraphs from a list of either
         FORMSuperGraph instances or LTD2SuperGraph instances."""
@@ -303,22 +332,34 @@ class FORMSuperGraphIsomorphicList(list):
 
         # write the form input to a file
         form_input = self.generate_numerator_form_input()
-        with open('input.h', 'w') as f:
+
+        with open(pjoin(FORM_workspace,'input.h'),'w') as f:
             f.write('L F = {};'.format(form_input))
 
         # TODO specify cores in the input
-        r = subprocess.run(["form", "numerator.frm"], capture_output=True)
-        print(r)
+        r = subprocess.run([
+                FORM_processing_options["FORM_path"], 
+                pjoin(plugin_path,"numerator.frm")
+            ],
+            cwd=FORM_workspace,
+            capture_output=True)
         if r.returncode != 0:
-            raise AssertionError("A form run failed: {}".format(r))
+            raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
         # return the code for the numerators
-        with open('out.proto_c') as f:
+        with open(pjoin(FORM_workspace,'out.proto_c'),'r') as f:
             num_code = f.read()
 
         return num_code
 
-        
+    def to_dict(self, file_path=None):
+        """ Store that into a dict."""
+        to_dump = [g.to_dict() for g in self]
+        if file_path:
+            open(file_path,'w').write(pformat(to_dump))
+        else:
+            return to_dump
+
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
 
@@ -388,7 +429,7 @@ class FORMSuperGraphList(list):
             # TODO: determine size of Z!
             numerator_code += 'double evaluate_{}(double k[]){{\n\tdouble Z[{}];\n'.format(i, 123) + num + '\n}'
 
-        with open(pjoin(root_output_path, '/numerator.c')) as f:
+        with open(pjoin(root_output_path, 'numerator.c'),'w') as f:
             f.write(numerator_code)
 
         r = subprocess.run(["gcc", "--shared", "-O2", "-lm", "-o", pjoin(root_output_path, "libnumerator.so")], capture_output=True)

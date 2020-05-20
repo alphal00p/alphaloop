@@ -39,6 +39,7 @@ import alpha_loop.exporters as aL_exporters
 import alpha_loop.helas_call_writers as aL_helas_call_writers
 import alpha_loop.LTD_squared as LTD_squared
 import alpha_loop.madgraph_patches as madgraph_patches
+import alpha_loop.FORM_processing as FORM_processing
 
 from madgraph.iolibs.files import cp, ln, mv
 
@@ -82,7 +83,9 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'differentiate_particle_from_antiparticle_in_graph_isomorphism' : False,
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
-            'FORM_processing_output_format' : None
+            'FORM_processing_output_format' : None,
+            # Path to the FORM executable
+            'FORM_path' : FORM_processing.FORM_processing_options['FORM_path'],
         }
         self.plugin_output_format_selected = None
 
@@ -180,7 +183,12 @@ utils.bcolors.RED,utils.bcolors.ENDC
             if value not in self._supported_FORM_output_formats:
                 raise alphaLoopInvalidCmd("Specified value '%s' for 'FORM_processing_output_format' is not in %s."%(
                                                                         value,self._supported_FORM_output_formats))
-            self.alphaLoop_options['FORM_processing_output_format'] = value            
+            self.alphaLoop_options['FORM_processing_output_format'] = value
+        elif key == 'FORM_path':
+            if not os.path.isfile(value):
+                raise alphaLoopInvalidCmd("Specified path '%s' does not point to a valid FORM executable."%value)
+            self.alphaLoop_options['FORM_path'] = value
+            FORM_processing.FORM_processing_options['FORM_path'] = value
         elif key == 'n_rust_inputs_to_generate':
             try:
                 self.alphaLoop_options['n_rust_inputs_to_generate'] = int(value)

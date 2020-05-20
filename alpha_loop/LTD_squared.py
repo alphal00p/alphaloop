@@ -12,6 +12,7 @@ import madgraph.various.misc as misc
 from itertools import chain
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 
+from pprint import pprint, pformat
 import LTD.squared_topologies as squared_topology_processor
 import LTD.ltd_utils as ltd_utils
 
@@ -350,18 +351,16 @@ class SuperGraph(object):
             node_index += 1
             node_name_map[node_key] = node_index
 
-        topo_generator = ltd_utils.TopologyGenerator(
-            [
+        topo_edges = [
                 (edge_data['name'],node_name_map[u],node_name_map[v]) for 
                         (u,v,c), edge_data in self.graph.edges.items()
             ]
-        )
-
+        # Make sure to place external eges first
+        topo_edges.sort(key=lambda el: el[0] if el[0].startswith('q') else 'z%s'%el[0])
+        topo_generator = ltd_utils.TopologyGenerator(topo_edges)
         topo_generator.generate_momentum_flow(
-            loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]],
-            sink=self.graph.edges[self.cuts[-1][1]]['name'],
+            loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]]
         )
-
         signatures = topo_generator.get_signature_map()
         for edge_key, edge_data in self.graph.edges.items():
             edge_data['momentum'] = signatures[edge_data['name']]
