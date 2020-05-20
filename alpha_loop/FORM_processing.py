@@ -11,6 +11,7 @@ from itertools import chain
 import sys
 import subprocess
 import alpha_loop.utils as utils
+import re
 
 logger = logging.getLogger('alphaLoop.FORM_processing')
 
@@ -72,9 +73,9 @@ class FORMSuperGraph(object):
     def generate_numerator_form_input(self):
         # make sure all indices are positive by adding an offset
         index_offset = 0
-        for node in self.nodes.values():
-            index_offset = min(index_offset, min(node['indices']))
-        index_offset = -index_offset + 1
+        #for node in self.nodes.values():
+        #    index_offset = min(index_offset, min(node['indices']))
+        #index_offset = -index_offset + 1
 
         # create the input file for FORM
         form_diag = self.overall_factor
@@ -333,7 +334,7 @@ class FORMSuperGraphIsomorphicList(list):
         # write the form input to a file
         form_input = self.generate_numerator_form_input()
 
-        with open(pjoin(FORM_workspace,'input.h'),'w') as f:
+        with open(pjoin(FORM_workspace,'input.h'), 'w') as f:
             f.write('L F = {};'.format(form_input))
 
         # TODO specify cores in the input
@@ -347,7 +348,7 @@ class FORMSuperGraphIsomorphicList(list):
             raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
         # return the code for the numerators
-        with open(pjoin(FORM_workspace,'out.proto_c'),'r') as f:
+        with open(pjoin(FORM_workspace,'out.proto_c'), 'r') as f:
             num_code = f.read()
 
         return num_code
@@ -423,11 +424,16 @@ class FORMSuperGraphList(list):
             }
         """
 
+        pattern = re.compile(r'Z(\d*)_')
+
         for i, graph in enumerate(self):
             num = graph.generate_numerator_functions()
 
-            # TODO: determine size of Z!
-            numerator_code += 'double evaluate_{}(double k[]){{\n\tdouble Z[{}];\n'.format(i, 123) + num + '\n}'
+            max_intermediate_variable = max(int(index) for index in pattern.finditer(num))
+
+            numerator_code += 'double evaluate_{}(double k[]){{\n\tdouble {};\n'.format(i,
+                ','.join('Z' + str(i) for i in range(1,max_intermediate_variable + 1))
+            ) + num + '\n}'
 
         with open(pjoin(root_output_path, 'numerator.c'),'w') as f:
             f.write(numerator_code)

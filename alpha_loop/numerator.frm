@@ -18,25 +18,46 @@
 
 Auto S mass;
 CTable masses(-30:30);
-Fill masses(1)= mass_d;
-Fill masses(2)= mass_u;
-Fill masses(3)= mass_c;
-Fill masses(4)= mass_s;
-Fill masses(5)= mass_b;
-Fill masses(6)= mass_t;
-Fill masses(11) = mass_e;
-Fill masses(12) = mass_mu;
-Fill masses(13) = mass_tau;
-Fill masses(25) = mass_h;
+
+#ifndef `HEAVYFERMIONS'
+Fill masses(1) = 0;
+Fill masses(2) = 0;
+Fill masses(3) = 0;
+Fill masses(4) = 0;
+Fill masses(5) = 0;
+Fill masses(-1) = 0;
+Fill masses(-2) = 0;
+Fill masses(-3) = 0;
+Fill masses(-4) = 0;
+Fill masses(-5) = 0;
+Fill masses(11) = 0;
+Fill masses(12) = 0;
+Fill masses(13) = 0;
+Fill masses(-11) = 0;
+Fill masses(-12) = 0;
+Fill masses(-13) = 0;
+#else
+Fill masses(1) = mass_d;
+Fill masses(2) = mass_u;
+Fill masses(3) = mass_c;
+Fill masses(4) = mass_s;
+Fill masses(5) = mass_b;
 Fill masses(-1) = mass_d;
 Fill masses(-2) = mass_u;
 Fill masses(-3) = mass_c;
 Fill masses(-4) = mass_s;
 Fill masses(-5) = mass_b;
-Fill masses(-6) = mass_t;
+Fill masses(11) = mass_e;
+Fill masses(12) = mass_mu;
+Fill masses(13) = mass_tau;
 Fill masses(-11) = mass_e;
 Fill masses(-12) = mass_mu;
 Fill masses(-13) = mass_tau;
+#endif
+
+Fill masses(6) = mass_t;
+Fill masses(-6) = mass_t;
+Fill masses(25) = mass_h;
 
 Auto V p,k;
 Auto I mu=4,s=4;
@@ -184,7 +205,6 @@ endif;
 id color(x?) = x;
 
 id pzero = 0; * Substitute the 0-momentum by 0
-
 .sort:feynman-rules-final;
 
 *********************************************
