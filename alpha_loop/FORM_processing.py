@@ -15,6 +15,9 @@ if __name__ == "__main__":
     root_path = os.path.dirname(os.path.realpath( __file__ ))
     sys.path.insert(0, pjoin(root_path,os.path.pardir))
     sys.path.insert(0, pjoin(root_path,os.path.pardir,os.path.pardir,os.path.pardir))
+    if 'MG5DIR' in os.environ:
+        sys.path.insert(0, os.environ['MG5DIR'])
+
 import alpha_loop.utils as utils
 import re
 
@@ -499,7 +502,7 @@ if __name__ == "__main__":
     import alpha_loop.interface as interface
     cli = interface.alphaLoopInterface()
 
-    cli.do_import('model PLUGIN/alphaloop/models/aL_sm-no_widths')
+    cli.do_import('model ./PLUGIN/alphaloop/models/aL_sm-no_widths')
     computed_model = model_reader.ModelReader(cli._curr_model)
     computed_model.set_parameters_and_couplings(pjoin(
         plugin_path,os.path.pardir,'models','aL_sm','restrict_no_widths.dat'))        

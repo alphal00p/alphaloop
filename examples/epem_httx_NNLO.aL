@@ -1,4 +1,4 @@
-import model sm-no_widths
+import model ./PLUGIN/alphaloop/models/aL_sm-no_widths
 set_alphaLoop_option perturbative_orders {'QCD':4}
 # Set the option below to -1 in order to generate all rust inputs as well
 set_alphaLoop_option n_rust_inputs_to_generate 0

@@ -51,6 +51,6 @@ __version__ = (1,0,0)
 # To be updated later
 #
 
-minimal_mg5amcnlo_version = (3,0,0) 
+minimal_mg5amcnlo_version = (2,0,0) 
 maximal_mg5amcnlo_version = (1000,1000,1000)
-latest_validated_version = (3,0,0)
+latest_validated_version = (2,0,0)
