@@ -17,6 +17,9 @@ if __name__ == "__main__":
     sys.path.insert(0, pjoin(root_path,os.path.pardir,os.path.pardir,os.path.pardir))
     if 'MG5DIR' in os.environ:
         sys.path.insert(0, os.environ['MG5DIR'])
+    else:
+        print("\033[91mYou are using ./FORM_processing.py in standalone, it is recommended then "+
+              "that you define the environment variable 'MG5DIR' pointing to the root directory of MG5aMC in your system.\033[0m")
 
 import alpha_loop.utils as utils
 import re
