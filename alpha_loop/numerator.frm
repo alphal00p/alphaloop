@@ -60,8 +60,9 @@ Fill masses(-6) = mass_t;
 Fill masses(25) = mass_h;
 
 Auto V p,k;
+Auto S lm,ext;
 Auto I mu=4,s=4;
-Symbol mT,ge,ee,gs,ii,yt,n,m;
+Symbol mT,ge,gs,ii,yt,n,m;
 Auto S x, idx;
 
 Set dirac: s1,...,s40;
@@ -113,8 +114,8 @@ id prop(x?{`FERM'}, virtual, p?, idx1?, idx2?) = - i_ * (gamma(dirac[idx1], p, d
 
 * vertices
 id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * T(colF[idx1], colA[idx2], colF[idx3]);
-id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = 2/3 * ee * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
-id vx(`EP', `PHO', `EM', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ee * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = 2/3 * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
+id vx(`EP', `PHO', `EM', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ge * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
 
 * TODO: use momentum conservation to reduce the number of different terms
 id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
@@ -171,8 +172,17 @@ Argument color;
 	id	cOld44(cOlpA1,cOlpA2) = [d4AA/n]*cOlNA;
 	id	cOld44(cOlpR1,cOlpR2) = [d4RR/n]*cOlNA;
 	id	cOld44(cOlpR1,cOlpA1) = [d4RA/n]*cOlNA;
+
+* set the SU(3) values
+    id cOlNR = 3;
+    id cOlNA = 8;
+    id cf = 4 / 3;
+    id ca = 3;
 EndArgument;
 .sort:color;
+
+* set the SU(3) values
+id cOlNR = 3;
 
 * Do the spin sum
 repeat id u(p?,m?,s1?)*ubar(p?,m?,s2?) = gamma(s1, p, s2) + m*gamma(s1, s2);
@@ -213,17 +223,54 @@ id pzero = 0; * Substitute the 0-momentum by 0
 
 * TODO: split off the energy components of the LTD loop momenta
 * and optimize a monomial in the energies
-#do i =1,10
-    #do j=1,10
-        id k`i'.p`j' = k`i'p`j';
-        id k`i'.k`j' = k`i'`j';
+
+* Translate all dot products to a linear representation
+* We could also write out the dot products, at the cost of a drastic increase in variables, but does it help?
+* It could do k1.p1+k1.p2 => k1.(p1+p2)
+#$MAXK = 0;
+#do i=10,0,-1
+    if (count(k`i', 2)); 
+        $MAXK = `i';
+        goto donek;
+    endif;
+#enddo
+label donek;
+
+#$MAXP = 0;
+#do i=10,0,-1
+    if (count(p`i', 1)); 
+        $MAXP = `i';
+        goto donep;
+    endif;
+#enddo
+label donep;
+.sort
+
+#$OFFSET = 0;
+#do i=1,`$MAXP'
+    #do j=`i',`$MAXP'
+        id p`i'.p`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
     #enddo
 #enddo
+
+#do i=1,`$MAXK'
+    #do j=1,`$MAXP'
+        id k`i'.p`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
+    #enddo
+
+    #do j=`i',`$MAXK'
+        id k`i'.k`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
+    #enddo
+#enddo
+
+Format float 16; * print all constants as floats in the C output
+Format C;
 .sort
 Format O4,stats=on,saIter=1000;
-Format C;
-#Optimize F
-#write<out.proto_c> "%O\nreturn %e",F
 
-Print +s;
+#Optimize F
+#write<out.proto_c> "%O\n\treturn %e",F
 .end

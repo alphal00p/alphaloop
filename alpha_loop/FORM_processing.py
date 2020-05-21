@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 from pprint import pprint, pformat
+import math
 
 from itertools import chain
 import sys
@@ -420,7 +421,7 @@ class FORMSuperGraphList(list):
         # TODO: Dump to Python dict
         pass
 
-    def generate_numerator_functions(self, root_output_path, output_format='c'):
+    def generate_numerator_functions(self, root_output_path, params={}, output_format='c'):
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
 
@@ -429,27 +430,35 @@ class FORMSuperGraphList(list):
 
         # add all numerators in one file and write the headers
         numerator_code = """#include <math.h>
-            // TODO: define all masses!
+#include <complex.h>
 
-            double evaluate(double k[], int i){
-                switch(i) {
-        """ + '\n'.join('\t\tcase {}: return evaluate_{}(k);'.format(i, i) for i in range(len(self))) + \
-        """            
-                }
-            }
-        """
+{}
+""".format('\n'.join('const double {} = {};'.format(k, v) for k, v in params.items()))
+
 
         pattern = re.compile(r'Z(()\d*)_')
+        input_pattern = re.compile(r'lm(\d*)')
 
         for i, graph in enumerate(self):
             num = graph.generate_numerator_functions()
+            num = num.replace('i_', 'I')
+            num = input_pattern.sub(r'lm[\1]', num)
+            num = num.replace('\nZ', '\n\tZ') # nicer indentation
 
             max_intermediate_variable = max(int(index.groups()[0]) for index in pattern.finditer(num))
 
-            numerator_code += 'double evaluate_{}(double k[]){{\n\tdouble {};\n'.format(i,
-                ','.join('Z' + str(i) for i in range(1,max_intermediate_variable + 1))
-            ) + num + '\n}'
+            numerator_code += '\ndouble complex evaluate_{}(double complex lm[]) {{\n\tdouble complex {};\n'.format(i,
+                ','.join('Z' + str(i) + '_' for i in range(1,max_intermediate_variable + 1))
+            ) + num + '}\n'
 
+        numerator_code += \
+"""
+double evaluate(double complex lm[], int i) {{
+    switch(i) {{
+{}
+    }}
+}}
+""".format('\n'.join('\t\tcase {}: return evaluate_{}(lm);'.format(i, i) for i in range(len(self))))
         writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:
@@ -491,9 +500,16 @@ class FORMProcessor(object):
         misc.sprint(self.model['parameter_dict'].keys())
 
     def generate_numerator_functions(self, root_output_path, output_format='c'):
+        params = {
+            'mass_t': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
+            'gs': self.model['parameter_dict']['G'].real,
+            'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
+        }
 
         return self.super_graphs_list.generate_numerator_functions(
-            root_output_path, output_format=output_format)
+            root_output_path, output_format=output_format,
+            params=params)
+
 
 if __name__ == "__main__":
     logging.info("TODO: process arguments and load an externally provided list of yaml dump files.")
