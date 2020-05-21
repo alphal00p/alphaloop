@@ -10,6 +10,7 @@ import math
 from itertools import chain
 import sys
 import subprocess
+import argparse
 pjoin = os.path.join
 
 if __name__ == "__main__":
@@ -21,6 +22,7 @@ if __name__ == "__main__":
     else:
         print("\033[91mYou are using ./FORM_processing.py in standalone, it is recommended then "+
               "that you define the environment variable 'MG5DIR' pointing to the root directory of MG5aMC in your system.\033[0m")
+        sys.exit(1)
 
 import alpha_loop.utils as utils
 import re
@@ -512,21 +514,28 @@ class FORMProcessor(object):
 
 
 if __name__ == "__main__":
-    logging.info("TODO: process arguments and load an externally provided list of yaml dump files.")
-
-    if len(sys.argv)==1 or not os.path.isfile(sys.argv[1]):
-        raise FormProcessingError("Incorrect arguments: %s"%str(sys.argv))
-    super_graph_path = sys.argv[1]
-
+   
+    parser = argparse.ArgumentParser(description='Generate numerators with FORM and yaml for Rust.',
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('diagrams_python_source', default=None, type=str,
+    					help='path to the python diagram output files.')
+    parser.add_argument('--model', default='sm-no_widths', type=str,
+    					help='Path to UFO model to load.')
+    parser.add_argument('--process', default='e+ e- > a > d d~', type=str,
+    					help='Process definition to consider.')
+    parser.add_argument('--restrict_card', 
+        default=pjoin(os.environ['MG5DIR'],'models','sm','restrict_no_widths.dat'), 
+                        type=str, help='Model restriction card to consider.')
+    args = parser.parse_args()
+     
     import alpha_loop.interface as interface
     cli = interface.alphaLoopInterface()
 
-    cli.do_import('model ./PLUGIN/alphaloop/models/aL_sm-no_widths')
+    cli.do_import('model %s'%args.model)
     computed_model = model_reader.ModelReader(cli._curr_model)
-    computed_model.set_parameters_and_couplings(pjoin(
-        plugin_path,os.path.pardir,'models','aL_sm','restrict_no_widths.dat'))        
-    process_definition=cli.extract_process('e+ e- > a > d d~', proc_number=0)
+    computed_model.set_parameters_and_couplings(args.restrict_card)        
+    process_definition=cli.extract_process(args.process, proc_number=0)
 
-    super_graph_list = FORMSuperGraphList.from_dict(super_graph_path)
+    super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source)
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
     form_processor.generate_numerator_functions('.', output_format='c')
