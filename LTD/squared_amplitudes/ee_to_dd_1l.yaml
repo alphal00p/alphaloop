@@ -4,6 +4,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p2
+    particle_id: 1
     sign: 1
     signature:
     - - -1
@@ -14,6 +15,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p3
+    particle_id: -1
     sign: 1
     signature:
     - - 1
@@ -175,7 +177,6 @@ cutkosky_cuts:
         - 3
       - - -74709100.0
         - 0.0
-    symmetry_factor: 1.0
 e_cm_squared: 4.0
 external_momenta:
 - - 1.0

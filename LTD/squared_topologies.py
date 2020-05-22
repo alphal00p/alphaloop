@@ -54,6 +54,7 @@ class SquaredTopologyGenerator:
             # determine the signature of the cuts
             for cut_edge in c:
                 cut_edge['signature'] = copy.deepcopy(edge_map[cut_edge['edge']])
+                cut_edge['particle_id'] = particle_ids[cut_edge['edge']] if cut_edge['edge'] in particle_ids else 0
 
             cut_name = tuple(a['edge'] for a in c)
 
@@ -121,15 +122,7 @@ class SquaredTopologyGenerator:
 
                     loop_topos.append(loop_topo)
 
-                # compute external state symmetry factor
-                # TODO: filter bubbles
-                cutkosky_particles = tuple(sorted(particle_ids[e] if e in particle_ids else 'NONE' for e in cut_name))
-                sym_factor = 1.
-                for x in set(cutkosky_particles):
-                    sym_factor *= math.factorial(cutkosky_particles.count(x))
-
                 uv_limit_info.append({
-                    'cut_symmetry_factors': sym_factor,
                     'numerator_structure': numerator_sparse,
                     'loop_topos': loop_topos,
                     'conjugate_deformation': [x for x in cut_info['conjugate_deformation']],
@@ -159,6 +152,7 @@ class SquaredTopologyGenerator:
                         'name': cut_edge['edge'],
                         'sign': cut_edge['sign'],
                         'level': cut_edge['level'],
+                        'particle_id': cut_edge['particle_id'],
                         'signature': cut_edge['signature'],
                         'm_squared': self.masses[cut_edge['edge']]**2 if cut_edge['edge'] in self.masses else 0.,
                         }
@@ -170,7 +164,6 @@ class SquaredTopologyGenerator:
                             'diagrams': [ x.to_flat_format() for x in d['loop_topos']],
                             'conjugate_deformation': d['conjugate_deformation'],
                             'numerator_tensor_coefficients_sparse': [[list(m[0]), list(m[1])] for m in d['numerator_structure']],
-                            'symmetry_factor': d['cut_symmetry_factors'],
                             'cb_to_lmb': d['cb_to_lmb']
                         }
                     for d in diags]
@@ -189,11 +182,31 @@ class SquaredTopologyGenerator:
         open(output_path,'w').write(yaml.dump(out, Dumper=Dumper))
 
 if __name__ == "__main__":
+    pdgs = {
+        'd': 1,
+        'u': 2,
+        'c': 3,
+        's': 4,
+        'b': 5,
+        't': 6,
+        'd~': -1,
+        'u~': -2,
+        'c~': -3,
+        's~': -4,
+        'b~': -5,
+        't~': -6,
+        'g': 21,
+        'a': 22,
+        'e-': 11,
+        'e+': -11,
+        'H': 25,
+    }
+
     ee_to_dd_2l_bubble = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 1), ('q3', 6, 103), ('q4', 6, 104), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 3),
     ('p5', 4, 5), ('p6', 5, 6), ('p7', 5, 2)],
         "ee_to_dd_2l_bubble", ['q1', 'q2'], 2, {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
         loop_momenta_names=('p2', 'p3'),
-        particle_ids={'p%s' % i: i for i in range(8)},
+        particle_ids={ 'p1': pdgs['a'], 'p2': pdgs['d'], 'p3': pdgs['d'], 'p4': pdgs['g'], 'p5': pdgs['d'], 'p6': pdgs['a'], 'p7': pdgs['d~'] },
         overall_numerator=1.0,
         #cut_filter={('p2', 'p3', 'p4', 'p7')},
         numerator_structure={('p3', 'p4', 'p7'):
@@ -544,16 +557,14 @@ if __name__ == "__main__":
     mercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
                                         ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "M", ['q1'], 2,
                                         {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-                                        loop_momenta_names=('p1', 'p2', 'p3'),
-                                        particle_ids={'p%s' % i: i for i in range(9)})
+                                        loop_momenta_names=('p1', 'p2', 'p3'))
     mercedes.export('mercedes_squared.yaml')
 
     # result is -5 Zeta[5] 4 Pi/(16 Pi^2)^4 = -1.04773*10^-7
     doublemercedes = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 7), ('p3', 7, 3), ('p4', 3, 6),
                                         ('p5', 6, 5), ('p6', 5, 1), ('p7', 2, 4), ('p8', 3, 4), ('p9', 4, 5), ('p10', 7, 4), ('q2', 6, 8)], "DM", ['q1'], 2,
                                         {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-                                        loop_momenta_names=('p1', 'p2', 'p3', 'p4'),
-                                        particle_ids={'p%s' % i: i for i in range(11)})
+                                        loop_momenta_names=('p1', 'p2', 'p3', 'p4'))
     doublemercedes.export('doublemercedes_squared.yaml')
 
     bubble = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "B", ['q1'], 0,
@@ -563,7 +574,7 @@ if __name__ == "__main__":
 
     gamma_to_dd_1l = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 2), ('q2', 2, 3)], "gamma_to_dd_1l", ['q1'], 0,
         {'q1': [2., 0., 0., 0.], 'q2': [2., 0., 0., 0.]},
-        particle_ids={'p%s' % i: i for i in range(3)},
+        particle_ids={ 'p1': pdgs['d'], 'p2': pdgs['d~'] },
         overall_numerator=0.25,
         numerator_structure={('p1', 'p2'):
             { ():
@@ -577,7 +588,7 @@ if __name__ == "__main__":
 
     ee_to_dd_1l = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 1), ('q3', 4, 103), ('q4', 4, 104), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 3, 4)], 
         "ee_to_dd_1l", ['q1', 'q2'], 2, {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        particle_ids={'p%s' % i: i for i in range(6)},
+        particle_ids={ 'p1': pdgs['a'], 'p2': pdgs['d'], 'p3': pdgs['d~'], 'p4': pdgs['a'] },
         overall_numerator=0.25,
         numerator_structure={('p2', 'p3'):
             { ():
@@ -593,7 +604,7 @@ if __name__ == "__main__":
     ('p5',5, 4), ('p6', 4, 2), ('p7', 4, 3)],
         "ee_to_dd_2l_doubletriangle", ['q1', 'q2'], 2, {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
         loop_momenta_names=('p2', 'p3'),
-        particle_ids={'p%s' % i: i for i in range(8)},
+        particle_ids={ 'p1': pdgs['a'], 'p2': pdgs['d'], 'p3': pdgs['d'], 'p4': pdgs['a'], 'p5': pdgs['d~'], 'p6': pdgs['d~'], 'p7': pdgs['g'] },
         overall_numerator=1.0,
 #        cut_filter={('p3', 'p5')},
         numerator_structure={('p2', 'p5', 'p7'):
@@ -763,8 +774,7 @@ if __name__ == "__main__":
     ee_to_dd_2l_doubletriangle.export('ee_to_dd_2l_doubletriangle.yaml')
 
     t1 = SquaredTopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 4, 3), ('p4', 4, 1), ('p5', 2, 4), ('q2', 3, 5)], "T", ['q1'], 2,
-        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]},
-        particle_ids={'p%s' % i: i for i in range(9)},
+        {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]}
         #masses={'p1': 0.1, 'p2': 0.1, 'p3': 0.1, 'p4': 0.1,})
         )
     t1.export('t1_squared.yaml')
@@ -787,8 +797,8 @@ if __name__ == "__main__":
     tth = SquaredTopologyGenerator([('q1', 0, 1), ('q2', 6, 7), ('q3', 4, 5), ('q4', 10, 11), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 10),
         ('p5', 10, 9), ('p6', 9, 8), ('p7', 8, 7), ('p8', 1, 7), ('p9', 2, 8), ('p10', 3, 9), ], "TTH", ['q1', 'q2'], 0,
         {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        final_state_particle_ids=('t', 'tbar', 'H'), particle_ids={'p1': 't', 'p2': 't', 'p3': 't', 'p4': 'tbar', 'p5': 'tbar', 'p6': 'tbar', 'p7': 'tbar',
-            'p8': 't', 'p9': 'g', 'p10': 'H'})
+        final_state_particle_ids=(pdgs['t'], pdgs['t~'], pdgs['H']), particle_ids={'p1': pdgs['t'], 'p2': pdgs['t'], 'p3': pdgs['t'], 'p4': pdgs['t~'], 'p5': pdgs['t~'], 'p6': pdgs['t~'], 'p7': pdgs['t~'],
+            'p8': pdgs['t'], 'p9': pdgs['g'], 'p10': pdgs['H']})
     tth.export('tth_squared.yaml')
 
     two_to_two = SquaredTopologyGenerator([('q1', 0, 1), ('q2', 7, 5), ('q3', 2, 8), ('q4', 4, 9), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5),
@@ -805,6 +815,5 @@ if __name__ == "__main__":
     two_to_three = SquaredTopologyGenerator([('q1', 101, 1), ('q2', 102, 2), ('q3', 6, 103), ('q4', 5, 104), ('p1', 2, 3), ('p2', 3, 4),
         ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 1), ('p7', 1, 2)], "two_to_three", ['q1', 'q2'], 3,
         {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]},
-        masses={'p1': 1.0, 'p2': 1.0, 'p3': 1.0, 'p4': 1.0, 'p6': 1.0},
-        particle_ids={'p2': 1, 'p3': 2, 'p6': 3})
+        masses={'p1': 1.0, 'p2': 1.0, 'p3': 1.0, 'p4': 1.0, 'p6': 1.0})
     two_to_three.export('two_to_three_squared.yaml')

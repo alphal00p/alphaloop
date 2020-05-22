@@ -1,8 +1,10 @@
+MG_numerator: {}
 cutkosky_cuts:
 - cuts:
   - level: 0
     m_squared: 0.0
     name: p2
+    particle_id: 2
     sign: 1
     signature:
     - - 1
@@ -14,6 +16,7 @@ cutkosky_cuts:
   - level: 1
     m_squared: 0.0
     name: p3
+    particle_id: 2
     sign: -1
     signature:
     - - 0
@@ -25,6 +28,7 @@ cutkosky_cuts:
   - level: 1
     m_squared: 0.0
     name: p4
+    particle_id: 21
     sign: 1
     signature:
     - - -1
@@ -36,6 +40,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p7
+    particle_id: -2
     sign: -1
     signature:
     - - 1
@@ -12976,11 +12981,11 @@ cutkosky_cuts:
       - 0.0
     - - 0.0
       - 0.0
-    symmetry_factor: 1.0
 - cuts:
   - level: 0
     m_squared: 0.0
     name: p3
+    particle_id: 2
     sign: 1
     signature:
     - - 0
@@ -12992,6 +12997,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p4
+    particle_id: 21
     sign: -1
     signature:
     - - -1
@@ -13003,6 +13009,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p7
+    particle_id: -2
     sign: -1
     signature:
     - - 1
@@ -13088,6 +13095,7 @@ cutkosky_cuts:
           - 0.0
         - m_squared: 0.0
           name: p2
+          particle_id: 2
           parametric_shift:
           - - 0
             - 0
@@ -14200,11 +14208,11 @@ cutkosky_cuts:
       - 0.0
     - - 0.0
       - 0.0
-    symmetry_factor: 1.0
 - cuts:
   - level: 0
     m_squared: 0.0
     name: p5
+    particle_id: 2
     sign: 1
     signature:
     - - 1
@@ -14216,6 +14224,7 @@ cutkosky_cuts:
   - level: 1
     m_squared: 0.0
     name: p3
+    particle_id: 2
     sign: 1
     signature:
     - - 0
@@ -14227,6 +14236,7 @@ cutkosky_cuts:
   - level: 1
     m_squared: 0.0
     name: p4
+    particle_id: 21
     sign: -1
     signature:
     - - -1
@@ -14238,6 +14248,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p7
+    particle_id: -2
     sign: -1
     signature:
     - - 1
@@ -27178,11 +27189,11 @@ cutkosky_cuts:
       - 0.0
     - - 0.0
       - 0.0
-    symmetry_factor: 1.0
 - cuts:
   - level: 0
     m_squared: 0.0
     name: p5
+    particle_id: 2
     sign: 1
     signature:
     - - 1
@@ -27194,6 +27205,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p7
+    particle_id: -2
     sign: -1
     signature:
     - - 1
@@ -27343,6 +27355,7 @@ cutkosky_cuts:
         propagators:
         - m_squared: 64.0 # 4 m_uv^2 = 4 * (2E)^2
           name: p3
+          particle_id: 2
           parametric_shift:
           - - 0
             - 0
@@ -28472,7 +28485,6 @@ cutkosky_cuts:
       - 0.0
     - - 0.0
       - 0.0
-    symmetry_factor: 1.0
 e_cm_squared: 4.0
 external_momenta:
 - - 1.0

@@ -196,6 +196,7 @@ impl EventManager {
         }
 
         let mut outgoing_momenta = Vec::with_capacity(cut_info.len());
+        let mut final_state_particle_ids = Vec::with_capacity(cut_info.len());
         for (cut_mom, cut) in cut_momenta[..cut_info.len()].iter().zip(cut_info.iter()) {
             if cut.level == 0 {
                 // make sure all momenta are outgoing
@@ -207,11 +208,13 @@ impl EventManager {
                     rot_matrix[0][1] * e.x + rot_matrix[1][1] * e.y + rot_matrix[2][1] * e.z,
                     rot_matrix[0][2] * e.x + rot_matrix[1][2] * e.y + rot_matrix[2][2] * e.z,
                 ));
+                final_state_particle_ids.push(cut.particle_id);
             }
         }
 
         let mut e = Event {
             kinematic_configuration: (incoming_momenta, outgoing_momenta),
+            final_state_particle_ids,
             integrand: Complex::new(1., 0.),
             weights: vec![0.],
         };
@@ -315,6 +318,7 @@ impl EventManager {
 #[derive(Default, Debug, Clone)]
 pub struct Event {
     pub kinematic_configuration: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
+    pub final_state_particle_ids: Vec<i8>,
     pub integrand: Complex<f64>,
     pub weights: Vec<f64>,
 }
@@ -383,8 +387,11 @@ impl JetClustering {
     pub fn cluster_fastjet(&mut self, event: &Event) {
         self.fastjet_jets_in.clear();
 
-        for e in &event.kinematic_configuration.1 {
-            self.fastjet_jets_in.extend(&[e.t, e.x, e.y, e.z]);
+        for (e, id) in event.kinematic_configuration.1.iter().zip_eq(&event.final_state_particle_ids) {
+            // filter for jet particles: u, d, c, s, d, g
+            if id.abs() < 6 || *id == 21 {
+                self.fastjet_jets_in.extend(&[e.t, e.x, e.y, e.z]);
+            }
         }
 
         self.fastjet_jets_out.clear();

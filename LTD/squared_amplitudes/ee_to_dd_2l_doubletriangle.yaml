@@ -4,6 +4,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p2
+    particle_id: 1
     sign: 1
     signature:
     - - 1
@@ -15,6 +16,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p5
+    particle_id: -1
     sign: -1
     signature:
     - - 0
@@ -26,6 +28,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p7
+    particle_id: 21
     sign: 1
     signature:
     - - -1
@@ -384,11 +387,11 @@ cutkosky_cuts:
         - 7
       - - 0.0
         - -73854044.03706966
-    symmetry_factor: 1.0
 - cuts:
   - level: 0
     m_squared: 0.0
     name: p2
+    particle_id: 1
     sign: 1
     signature:
     - - 1
@@ -400,6 +403,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p6
+    particle_id: -1
     sign: -1
     signature:
     - - 1
@@ -920,7 +924,6 @@ cutkosky_cuts:
         - 7
       - - 0.0
         - -73854044.03706966
-    symmetry_factor: 1.0
   - cb_to_lmb:
     - 1
     - 0
@@ -1384,11 +1387,11 @@ cutkosky_cuts:
         - 7
       - - 0.0
         - 73854044.03706966
-    symmetry_factor: 1.0
 - cuts:
   - level: 0
     m_squared: 0.0
     name: p3
+    particle_id: 1
     sign: 1
     signature:
     - - 0
@@ -1400,6 +1403,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p5
+    particle_id: -1
     sign: -1
     signature:
     - - 0
@@ -1920,7 +1924,6 @@ cutkosky_cuts:
         - 7
       - - 0.0
         - -73854044.03706966
-    symmetry_factor: 1.0
   - cb_to_lmb:
     - 0
     - 1
@@ -2384,11 +2387,11 @@ cutkosky_cuts:
         - 7
       - - 0.0
         - 73854044.03706966
-    symmetry_factor: 1.0
 - cuts:
   - level: 0
     m_squared: 0.0
     name: p3
+    particle_id: 1
     sign: 1
     signature:
     - - 0
@@ -2400,6 +2403,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p6
+    particle_id: -1
     sign: -1
     signature:
     - - 1
@@ -2411,6 +2415,7 @@ cutkosky_cuts:
   - level: 0
     m_squared: 0.0
     name: p7
+    particle_id: 21
     sign: -1
     signature:
     - - -1
@@ -2769,7 +2774,6 @@ cutkosky_cuts:
         - 7
       - - 0.0
         - -73854044.03706966
-    symmetry_factor: 1.0
 e_cm_squared: 4.0
 external_momenta:
 - - 1.0

@@ -100,6 +100,7 @@ pub struct CutkoskyCut {
     pub name: String,
     pub sign: i8,
     pub level: usize,
+    pub particle_id: i8,
     pub signature: (Vec<i8>, Vec<i8>),
     pub m_squared: f64,
 }
@@ -108,7 +109,6 @@ pub struct CutkoskyCut {
 pub struct CutkoskyCutLimits {
     pub diagrams: Vec<Topology>,
     pub conjugate_deformation: Vec<bool>,
-    pub symmetry_factor: f64,
     #[serde(default)]
     pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
     #[serde(default)]
@@ -1760,9 +1760,6 @@ impl SquaredTopology {
             // return a weight in picobarns (from GeV^-2)
             scaling_result *= Into::<T>::into(0.389379304e9);
         }
-
-        // divide by the symmetry factor of the final state
-        //scaling_result /= Into::<T>::into(cutkosky_cuts.symmetry_factor); // TODO: no more sym factor!
 
         if let Some(em) = event_manager {
             // set the event result
