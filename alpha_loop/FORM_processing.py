@@ -89,12 +89,6 @@ class FORMSuperGraph(object):
             self.name = name
 
     def generate_numerator_form_input(self):
-        # make sure all indices are positive by adding an offset
-        index_offset = 0
-        #for node in self.nodes.values():
-        #    index_offset = min(index_offset, min(node['indices']))
-        #index_offset = -index_offset + 1
-
         # create the input file for FORM
         form_diag = self.overall_factor
         for node in self.nodes.values():
@@ -104,7 +98,7 @@ class FORMSuperGraph(object):
             form_diag += '*vx({},{},{})'.format(
                 ','.join(str(p) for p in node['PDGs']),
                 ','.join(node['momenta']),
-                ','.join(str(i + index_offset) for i in node['indices']),
+                ','.join(str(i) for i in node['indices']),
             )
 
         for edge in self.edges.values():
@@ -112,7 +106,7 @@ class FORMSuperGraph(object):
                 edge['PDG'],
                 edge['type'],
                 edge['momentum'],
-                ','.join(str(i + index_offset) for i in edge['indices']),
+                ','.join(str(i) for i in edge['indices']),
             )
 
         return form_diag
@@ -130,7 +124,7 @@ class FORMSuperGraph(object):
         canonical_identifier = tuple([identity for identity, position in identities])
 
         if canonical_identifier not in cls._FORM_Feynman_rules_conventions:
-            raise FormProcessingError("Conventions for FORM Feynman rules of signature '%s' not specifed."%canonical_identifier)
+            raise FormProcessingError("Conventions for FORM Feynman rules of signature {} not specifed.".format(canonical_identifier))
         
         new_position = cls._FORM_Feynman_rules_conventions[canonical_identifier]
 
@@ -446,8 +440,9 @@ class FORMSuperGraphList(list):
             num = num.replace('i_', 'I')
             num = input_pattern.sub(r'lm[\1]', num)
             num = num.replace('\nZ', '\n\tZ') # nicer indentation
+            max_intermediate_variable = max((int(index.groups()[0]) for index in pattern.finditer(num)), default=0)
 
-            max_intermediate_variable = max(int(index.groups()[0]) for index in pattern.finditer(num))
+            # TODO: if `max_intermediate_variable` is 0, the graph is 0 and we should skip it!
 
             numerator_code += '\ndouble complex evaluate_{}(double complex lm[]) {{\n\tdouble complex {};\n'.format(i,
                 ','.join('Z' + str(i) + '_' for i in range(1,max_intermediate_variable + 1))
@@ -506,6 +501,7 @@ class FORMProcessor(object):
             'mass_t': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
             'gs': self.model['parameter_dict']['G'].real,
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
+            'gy': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
         }
 
         return self.super_graphs_list.generate_numerator_functions(

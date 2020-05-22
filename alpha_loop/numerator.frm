@@ -12,6 +12,9 @@
 #define PHO "22"
 #define EP "-11"
 #define EM "11"
+#define H "25"
+#define GHO "82"
+#define GHOBAR "-82"
 #define FERM "-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,-11,11,-12,12,-13,13"
 #define Q "1,2,3,4,5,6"
 #define QBAR "-1,-2,-3,-4,-5,-6"
@@ -62,7 +65,7 @@ Fill masses(25) = mass_h;
 Auto V p,k;
 Auto S lm,ext;
 Auto I mu=4,s=4;
-Symbol mT,ge,gs,ii,yt,n,m;
+Symbol ge, gs, gy, type, in, out, virtual;
 Auto S x, idx;
 
 Set dirac: s1,...,s40;
@@ -73,7 +76,7 @@ CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF u,ubar,v,vbar,f,vx, vec;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
-S  i, type, in, out, virtual, L, A;
+S  i, m, n;
 
 #include- diacolor.h
 Set colF: cOli1,...,cOli40;
@@ -107,15 +110,19 @@ id prop(x?{`Q'}, out, p?, idx?) = v(p, masses(x), dirac[idx]);
 
 * virtual edges
 id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]);
+id prop(x?{`GHO',`GHOBAR'}, virtual, p?, idx1?, idx2?) = i_ * d_(colA[idx1], colA[idx2]);
 id prop(`PHO', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]);
 id prop(x?{`FERM'}, virtual, p?, idx1?, idx2?) = - i_ * (gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2])) * d_(colF[idx1], colF[idx2]);
+id prop(`H', virtual, p?, idx1?, idx2?) = -i_;
 
 .sort:feynman-rules-edges;
 
 * vertices
 id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * T(colF[idx1], colA[idx2], colF[idx3]);
+id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * cOlf(colA[idx3], colA[idx1], colA[idx2]) * p3(lorentz[idx2]);
 id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = 2/3 * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 id vx(`EP', `PHO', `EM', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ge * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 
 * TODO: use momentum conservation to reduce the number of different terms
 id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(

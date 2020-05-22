@@ -244,10 +244,16 @@ class TopologyGenerator(object):
 
         return TopologyGenerator(new_edge_map_lin, powers=new_powers)
 
-    def generate_spanning_trees(self, result, tree, accum=[], excluded_edges=[]):
+    def generate_spanning_trees(self, result, tree, accum=[], excluded_edges=[], seen_state=None):
         """Compute all spanning trees of a graph component. Disconnected graphs
         are supported: only the component connected to the vertex in `tree` is considered.
         """
+        if seen_state is not None:
+            s = tuple(sorted(accum))
+            if s in seen_state:
+                return
+            seen_state.add(s)
+
         # find all edges that connect the tree to a new node
         edges = [(i, e) for i, e in enumerate(
             self.edges) if e[0] != e[1] and len(set(e) & tree) == 1]
@@ -266,7 +272,7 @@ class TopologyGenerator(object):
                 new_v = e[0] if e[1] in tree else e[1]
                 accum.append(i)
                 tree.add(new_v)
-                self.generate_spanning_trees(result, tree, accum, excluded_edges)
+                self.generate_spanning_trees(result, tree, accum, excluded_edges, seen_state)
                 tree.remove(new_v)
                 accum.pop()
                 excluded_edges = excluded_edges[:-ei]
@@ -304,16 +310,32 @@ class TopologyGenerator(object):
         return res
 
     def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids):
-
         if not self.spanning_trees:
-            trees = []
-            self.generate_spanning_trees(trees, tree={self.edges[0][0]})
-            self.spanning_trees = trees
+            # if a final state particle only occurs once in the graph, we can always add the edge
+            # to the already visited list
+            tree = set()
+            accum = []
+            for fspi in final_state_particle_ids:
+                edges_with_id = [e for e, p in particle_ids.items() if p == fspi]
+                if len(edges_with_id) == 1:
+                    accum.append(self.edge_name_map[edges_with_id[0]])
+                    tree |= set(self.edge_map_lin[self.edge_name_map[edges_with_id[0]]][1:])
+
+            if len(tree) == 0:
+                tree = {self.edges[0][0]}
+
+            spanning_trees = []
+            seen_state = set()
+            self.generate_spanning_trees(spanning_trees, tree=tree, accum=accum, seen_state=seen_state)
+            if accum == []:
+                self.spanning_trees = spanning_trees
+        else:
+            spanning_trees = self.spanning_trees
 
         cutkosky_cuts = set()
         cut_momenta_options = set()
 
-        for spanning_tree in self.spanning_trees:
+        for spanning_tree in spanning_trees:
             # now select the extra cut
             for edge_index in spanning_tree:
                 if edge_index in self.ext:
@@ -771,6 +793,7 @@ class TopologyGenerator(object):
             loop_momentum_map=None, shift_map=None, numerator_tensor_coefficients=None,
             check_external_momenta_names=True):
         if loop_momentum_map is None:
+            # FIXME: WHY?
             self.generate_momentum_flow(loop_momenta_names)
 
         # collect all loop lines and construct the signature

@@ -791,7 +791,6 @@ if __name__ == "__main__":
         masses={'p1': 100, 'p2':100, 'p3': 100, 'p4': 100, 'p5': 100})#, loop_momenta_names=('p4', 'p3'), powers={'p3': 2})
     insertion.export('insertion_squared.yaml')
 
-    # TODO: whether it's t and tbar should be determined from the cutkosky cut direction and not hardcoded in the topology
     # NOTE: for 2 -> N, the first two entries need to be the two incoming momenta
     # the outgoing momenta will be set to the input momenta in the same order, i.e., q3=q1, q4=q2.
     tth = SquaredTopologyGenerator([('q1', 0, 1), ('q2', 6, 7), ('q3', 4, 5), ('q4', 10, 11), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 10),
