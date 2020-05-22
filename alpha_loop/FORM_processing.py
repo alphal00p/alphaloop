@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from pprint import pprint, pformat
 import math
+import igraph
 
 from itertools import chain
 import sys
@@ -391,7 +392,7 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_dict(cls, dict_file_path):
+    def from_dict(cls, dict_file_path, merge_isomorphic_graphs=True):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
         p = Path(dict_file_path)
@@ -406,10 +407,44 @@ class FORMSuperGraphList(list):
             form_graph = FORMSuperGraph(name='Graph' + str(i), edges = g['edges'], nodes=g['nodes'], overall_factor=g['overall_factor'])
             graph_list.append(form_graph)
 
-        # TODO: put isomorphic graphs in the same group
-        iso_groups = [[g] for g in graph_list]
+        iso_groups = []
 
-        return FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for iso_group in iso_groups])
+        import time
+        import sympy as sp
+
+        # group all isomorphic graphs
+        pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
+        for graph in graph_list:
+            g = igraph.Graph()
+            g.add_vertices(len(graph.nodes))
+            undirected_edges = set()
+            v_colors = []
+            for v in list(graph.nodes.keys()):
+                v_color = 1
+                for e in graph.edges.values():
+                    if v in e['vertices']:
+                        v_color *= pdg_primes[abs(e['PDG'])]
+                        sorted_edge = tuple(sorted(e['vertices']))
+                        if sorted_edge not in undirected_edges:
+                            undirected_edges.add(sorted_edge)
+                            g.add_edges([tuple(sorted([x - 1 for x in e['vertices']]))])
+                v_colors.append(v_color)
+
+            # TODO: use canonical forms instead?
+            #perm = g.canonical_permutation(color=v_colors)
+
+            for (other_graph, other_color), graph_list in iso_groups:
+                is_iso, map12, _ = g.isomorphic_bliss(other_graph, color1=v_colors, color2=other_color, return_mapping_12=True)
+                if is_iso and merge_isomorphic_graphs:
+                    # TODO: do a mapping of the signature here
+                    graph_list.append(graph)
+                    break
+            else:
+                iso_groups.append(((g, v_colors), [graph]))
+
+        logger.info("{} unique supergraphs".format(iso_groups))
+
+        return FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups])
 
     def to_dict(self, file_path):
         """ Outputs the FORMSuperGraph list to a Python dict file path."""
@@ -477,24 +512,6 @@ class FORMProcessor(object):
         self.super_graphs_list = super_graphs_list
         self.model = model
         self.process_definition = process_definition
-
-        ############
-        # FOR BEN: 
-        # ##########
-
-        # example of how to access various parameters
-        PDG_code = 6
-        misc.sprint('m_top_quark=',self.model['parameter_dict'][self.model.get_particle(PDG_code).get('mass')].real)
-        PDG_code = 1
-        misc.sprint('m_down_quark=',self.model['parameter_dict'][self.model.get_particle(PDG_code).get('mass')].real)
-        PDG_code = 6
-        misc.sprint('width_top_quark=',self.model['parameter_dict'][self.model.get_particle(PDG_code).get('width')].real)
-        # And some various other useful coupling parameters:
-        misc.sprint('gs=',self.model['parameter_dict']['G'].real)
-        misc.sprint('alpha_EW=',1./self.model['parameter_dict']['aEWM1'].real)
-        misc.sprint('y_t=',self.model['parameter_dict']['mdl_yt'].real)
-        # Display all parameters as follows:
-        misc.sprint(self.model['parameter_dict'].keys())
 
     def generate_numerator_functions(self, root_output_path, output_format='c'):
         params = {
