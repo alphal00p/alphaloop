@@ -3705,14 +3705,12 @@ impl LTDNumerator {
         let mut index = 0;
         for (ll_cut, ll) in cut.iter().zip_eq(loop_lines.iter()) {
             if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = ll_cut {
-                for (&mij, shift) in mat
+                // Map from lb to cb
+                for (m_row, shift) in mat
                     .chunks_exact(self.n_loops)
-                    .nth(index)
-                    .unwrap()
-                    .iter()
                     .zip_eq(shifts[..self.n_loops].iter_mut())
                 {
-                    *shift -= Into::<T>::into(ll.propagators[*j].q.t * mij as f64);
+                    *shift -= Into::<T>::into(ll.propagators[*j].q.t * m_row[index] as f64);
                 }
                 index += 1;
             }
