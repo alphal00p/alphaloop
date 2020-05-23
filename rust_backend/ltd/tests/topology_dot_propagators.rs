@@ -1,42 +1,23 @@
 extern crate arrayvec;
 extern crate color_eyre;
+extern crate eyre;
 extern crate f128;
 extern crate ltd;
 extern crate num;
 extern crate num_traits;
 extern crate vector;
-#[macro_use]
-extern crate eyre;
-
-use color_eyre::Help;
 
 use arrayvec::ArrayVec;
 use ltd::topologies::{LTDCache, Topology};
-use ltd::{DeformationStrategy, Settings, MAX_LOOP};
+use ltd::utils::test_utils::{get_test_topology, numeriacal_eq};
+use ltd::MAX_LOOP;
 use num::Complex;
-use num_traits::{Float, NumCast, One, ToPrimitive, Zero};
+use num_traits::{NumCast, One, ToPrimitive, Zero};
 use vector::LorentzVector;
 
-fn get_test_topology(topology_file: &str, topology_name: &str) -> Topology {
-    // Import settings and disable the deformation
-    let mut settings = Settings::from_file("../../LTD/hyperparameters.yaml").unwrap();
-    settings.general.deformation_strategy = DeformationStrategy::None;
-    settings.general.multi_channeling = false;
-    settings.integrator.dashboard = false;
-
-    // Import topology from folder
-    let mut topologies = Topology::from_file(topology_file, &settings).unwrap();
-    settings.general.topology = topology_name.to_string();
-    topologies
-        .remove(&settings.general.topology)
-        .ok_or_else(|| eyre!("Could not find topology {}", settings.general.topology))
-        .suggestion("Check if this topology is in the specified topology file.")
-        .unwrap()
-}
-
-fn cross_check<'a>(
+fn cross_check(
     topo: &mut Topology,
-    x: &'a [f64],
+    x: &[f64],
     cache: &mut LTDCache<f128::f128>,
 ) -> (
     Complex<f128::f128>,
@@ -107,63 +88,6 @@ fn cross_check<'a>(
         cache,
     );
     (result_ltd, result_pf1, result_pf2)
-    //                         //println!("{:?}", self.partial_fractioning_multiloops.partial_fractioning_element);
-    //                         for block in self
-    //                             .partial_fractioning_multiloops
-    //                             .partial_fractioning_element
-    //                             .iter()
-    //                         {
-    //                             println!("factor: {:?}", block.factor);
-    //                             print!("\t[");
-    //                             for den in block.dens.iter() {
-    //                                 let d1 = den.energies_and_shifts[0];
-    //                                 let d2 = den.energies_and_shifts[1];
-    //                                 let e1 = den.indices[0];
-    //                                 let e2 = den.indices[1];
-    //                                 if d1.1 < 0.0 {
-    //                                     //println!("\t [{:?}, {:?}] @ [{},{}]", d1, d2, e1, e2);
-    //                                     print!("({},{}), ", e1, e2);
-    //                                 } else {
-    //                                     print!("({},{}), ", e2, e1);
-    //                                     //println!("\t [{:?}, {:?}] @ [{},{}]", d2, d1, e2, e1);
-    //                                 }
-    //                                 //println!("\t {:?} @ {:?}", &den.energies_and_shifts[..den.size], &den.indices[..den.size]);
-    //                             }
-    //                             println!("]");
-    //                         }
-    //                        //println!("{:?}", self.partial_fractioning.partial_fractioning_element);
-    //                        for block in self.partial_fractioning.partial_fractioning_element.iter() {
-    //                            if block.numerator.len() > 1 {
-    //                                continue;
-    //                            }
-    //                            println!("numerator: {:?}", block.numerator);
-    //                            println!("\t {:?}", block.ellipsoids_product);
-    //                        }
-    // if ((result.re - result_pf1.re) / result.re).powf(Into::<T>::into(2.0))
-    //     > Into::<T>::into(1e-5)
-    //     || ((result.im - result_pf1.im) / result.im).powf(Into::<T>::into(2.0))
-    //         > Into::<T>::into(1e-5)
-    // {
-    //     println!("{} vs {}", result, result_pf1);
-    //     println!("k = {:?}", k_def);
-    // }
-}
-
-fn numeriacal_eq(x: Complex<f128::f128>, y: Complex<f128::f128>) -> bool {
-    let real_check = if x.re == y.re {
-        true
-    } else {
-        ((x.re - y.re) / x.re).abs().to_f64().unwrap() < 1e-29
-    };
-    let imag_check = if x.im == y.im {
-        true
-    } else {
-        ((x.im - y.im) / x.im).abs().to_f64().unwrap() < 1e-29
-    };
-
-    println!("{:?} : {}", ((x.re - y.re) / x.re).abs(), real_check);
-    println!("{:?} : {}", ((x.im - y.im) / x.im).abs(), imag_check);
-    real_check && imag_check
 }
 
 /*    BEGIN TESTS    */
@@ -196,6 +120,11 @@ mod dot_propagators_1loop {
         // Compute values using e-fractioning the standard ltd sum over cuts
         let mut cache = LTDCache::<f128::f128>::new(&topo);
         let (result_ltd, result_pf1, result_pf2) = cross_check(&mut topo, pt, &mut cache);
+
+        println!(
+            "ltd = {:?}\npf1 = {:?}\npf2 = {:?}",
+            result_ltd, result_pf1, result_pf2
+        );
 
         if topo.n_loops == 1 {
             if !numeriacal_eq(result_ltd, result_pf2) {
@@ -243,6 +172,24 @@ mod dot_propagators_1loop {
         // Select point in momentum space: 3*n_loops
         let mut pt = [1., 2., 3.];
         let pows = [3, 4];
+
+        test_bubble(pows, &mut pt, false);
+    }
+
+    #[test]
+    fn bubble_5_5() {
+        // Select point in momentum space: 3*n_loops
+        let mut pt = [1., 2., 3.];
+        let pows = [3, 4];
+
+        test_bubble(pows, &mut pt, false);
+    }
+
+    #[test]
+    fn bubble_0_1() {
+        // Select point in momentum space: 3*n_loops
+        let mut pt = [1., 2., 3.];
+        let pows = [0, 1];
 
         test_bubble(pows, &mut pt, false);
     }
@@ -297,6 +244,7 @@ mod dot_propagators_2loops {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
+    #[allow(non_snake_case)]
     fn test_2L_PROPxLL(pows: [usize; 6], pt: &mut [f64; 6]) {
         let mut topo = get_test_topology("./tests/topologies/2L_2PROPxLL.yaml", "2L_2PROPxLL");
         topo.loop_lines[0].propagators[0].power = pows[0];

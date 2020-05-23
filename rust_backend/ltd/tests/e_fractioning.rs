@@ -51,13 +51,12 @@ mod partial_fractioning_multi_loops {
         });
         // TEST 1 LOOP
         let start = std::time::Instant::now();
-        let pf_expr = PartialFractioningMultiLoops::new(&looplines_1loop); //, 1);
+        let pf_expr = PartialFractioningMultiLoops::new(&looplines_1loop, 9);
         print!("1LOOP -> #{}", pf_expr.partial_fractioning_element.len());
         println!(" :: {:?}", start.elapsed());
-        assert_eq!(pf_expr.partial_fractioning_element.len(), 48620);
+        assert_eq!(pf_expr.partial_fractioning_element.len(), 92378);
     }
 
-    
     #[test]
     fn test_pf_multi_loops_2loop() {
         //Dummy prop
@@ -83,13 +82,13 @@ mod partial_fractioning_multi_loops {
         }
         // TEST 2 LOOPS
         let start = std::time::Instant::now();
-        let pf_expr = PartialFractioningMultiLoops::new(&looplines_2loop); //, 2);
+        let pf_expr = PartialFractioningMultiLoops::new(&looplines_2loop, 0);
         print!("2LOOPS -> #{}", pf_expr.partial_fractioning_element.len());
         println!(" :: {:?}", start.elapsed());
         assert_eq!(pf_expr.partial_fractioning_element.len(), 48620);
     }
 
-    //#[/test]
+    #[test]
     fn test_pf_multi_loops_4loop() {
         //Dummy prop
         let propagator = Propagators {
@@ -124,7 +123,7 @@ mod partial_fractioning_multi_loops {
         }
         // TEST 2x2 FISHNET
         let start = std::time::Instant::now();
-        let pf_expr = PartialFractioningMultiLoops::new(&looplines_2x2_fishnet); //, 4);
+        let pf_expr = PartialFractioningMultiLoops::new(&looplines_2x2_fishnet, 0);
         print!("FISHNET - >#{}", pf_expr.partial_fractioning_element.len());
         println!(" :: {:?}", start.elapsed());
         assert_eq!(pf_expr.partial_fractioning_element.len(), 98);
