@@ -11,14 +11,15 @@ import vectors
 from sympy import Matrix
 
 class SquaredTopologyGenerator:
-    def __init__(self, edges, name, incoming_momentum_names, n_cuts, external_momenta, final_state_particle_ids=(),
+    def __init__(self, edges, name, incoming_momentum_names, n_jets, external_momenta, final_state_particle_ids=(),
         loop_momenta_names=None, masses={}, powers=None, particle_ids={}, MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
-        cut_filter=set(), numerator_in_loop_momentum_basis=False):
+        cut_filter=set(), numerator_in_loop_momentum_basis=False, FORM_numerator={}):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         self.external_momenta = external_momenta
         self.MG_numerator = MG_numerator
+        self.FORM_numerator = FORM_numerator
         self.subgraphs_info = subgraphs_info
         self.numerator_in_loop_momentum_basis = numerator_in_loop_momentum_basis
 
@@ -30,7 +31,7 @@ class SquaredTopologyGenerator:
             numerator_tensor_coefficients=[[0., 0.]],
             shift_map=None)
 
-        cutkosky_cuts = self.topo.find_cutkosky_cuts(n_cuts, incoming_momentum_names, final_state_particle_ids, particle_ids)
+        cutkosky_cuts = self.topo.find_cutkosky_cuts(n_jets, incoming_momentum_names, final_state_particle_ids, particle_ids)
 
         self.cuts = [bc for c in cutkosky_cuts for bc in self.topo.bubble_cuts(c, incoming_momentum_names)]
 
@@ -141,6 +142,7 @@ class SquaredTopologyGenerator:
             'numerator_in_loop_momentum_basis': self.numerator_in_loop_momentum_basis,
             'topo': self.loop_topo.to_flat_format(),
             'MG_numerator': self.MG_numerator,
+            'FORM_numerator': self.FORM_numerator,
             # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
             #'subgraphs_info' : self.subgraphs_info,
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],

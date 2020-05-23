@@ -91,6 +91,7 @@ class FORMSuperGraph(object):
     ):
         """ initialize a FORM SuperGraph from several options."""
 
+        self.is_zero = False
         self.edges = edges
         self.nodes = nodes
         self.overall_factor = overall_factor
@@ -355,6 +356,46 @@ class FORMSuperGraph(object):
         else:
             return dict_to_dump
 
+    def generate_squared_topology_files(self, root_output_path, n_jets, numerator_call, final_state_particle_ids=()):
+        if self.is_zero:
+            return False
+
+        # the first 4 entries are the external momenta
+        edge_map_lin = [(e['name'] if e['type'] == 'virtual' else 'q' + e['name'][1:], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
+        assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
+
+        particle_ids = {e['name'] if e['type'] == 'virtual' else 'q' + e['name'][1:]: e['PDG'] for e in self.edges.values()}
+
+        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+        num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
+
+        loop_momenta = []
+        n_loops = len(self.edges) - len(self.nodes) + 1
+        for loop_var in range(n_loops):
+            # FIXME: what if the edge is -k?
+            lm = next(ee['name'] for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+                sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
+            loop_momenta.append(lm)
+
+        topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
+            self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
+            loop_momenta_names=tuple(loop_momenta),
+            particle_ids=particle_ids,
+            final_state_particle_ids=final_state_particle_ids,
+            overall_numerator=1.0,
+            numerator_structure={},
+            FORM_numerator={'id': numerator_call})
+
+        # check if cut is possible
+        if len(topo.cuts) == 0:
+            logger.info("No cuts for graph {}".format(self.name))
+            return False
+
+        topo.export(pjoin(root_output_path, self.name + ".py"))
+
+        return True
+
+
 class FORMSuperGraphIsomorphicList(list):
     """ Container class for a list of FROMSuperGraph with the same denominator structure"""
     
@@ -405,6 +446,10 @@ class FORMSuperGraphIsomorphicList(list):
         else:
             return to_dump
 
+    def generate_squared_topology_files(self, root_output_path, n_jets, numerator_call, final_state_particle_ids=() ):
+        # only generate a yaml file for the reference graph of the isomorphic set
+        return self[0].generate_squared_topology_files(root_output_path, n_jets, numerator_call, final_state_particle_ids)
+
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
 
@@ -423,7 +468,7 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_dict(cls, dict_file_path, merge_isomorphic_graphs=True):
+    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=True):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
         p = Path(dict_file_path)
@@ -438,6 +483,10 @@ class FORMSuperGraphList(list):
             form_graph = FORMSuperGraph(name='Graph' + str(i), edges = g['edges'], nodes=g['nodes'], overall_factor=g['overall_factor'])
             form_graph.derive_signatures()
             graph_list.append(form_graph)
+
+        if first is not None:
+            logger.info("Taking first {} supergraphs.".format(first))
+            graph_list = graph_list[:first]
 
         iso_groups = []
 
@@ -541,6 +590,7 @@ class FORMSuperGraphList(list):
         pattern = re.compile(r'Z(()\d*)_')
         input_pattern = re.compile(r'lm(\d*)')
 
+        graphs_zero = True
         with progressbar.ProgressBar(
             prefix = 'Processing numerators with FORM ({variables.timing} ms / supergraph) : ',
             max_value=len(self),
@@ -556,7 +606,8 @@ class FORMSuperGraphList(list):
                 num = num.replace('\nZ', '\n\tZ') # nicer indentation
                 max_intermediate_variable = max((int(index.groups()[0]) for index in pattern.finditer(num)), default=0)
 
-                # TODO: if `max_intermediate_variable` is 0, the graph is 0 and we should skip it!
+                if max_intermediate_variable > 0:
+                    graph.is_zero = False
 
                 numerator_code += '\ndouble complex evaluate_{}(double complex lm[]) {{\n\tdouble complex {};\n'.format(i,
                     ','.join('Z' + str(i) + '_' for i in range(1,max_intermediate_variable + 1))
@@ -564,6 +615,9 @@ class FORMSuperGraphList(list):
 
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
+
+        if graphs_zero:
+            self[0].is_zero = True
 
         numerator_code += \
 """
@@ -583,6 +637,13 @@ double evaluate(double complex lm[], int i) {{
         else:
             logger.warning(("\n%sYou are running FORM_processing directly from the __main__ of FORM_processing.py.\n"+
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
+
+    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=()):
+        # TODO: create the overall file
+        for i, g in enumerate(self):
+            if g.generate_squared_topology_files(root_output_path, n_jets, numerator_call=i, final_state_particle_ids=final_state_particle_ids):
+                pass
+
 
 class FORMProcessor(object):
     """ A class for taking care of the processing of a list of FORMSuperGraphList.
@@ -607,8 +668,8 @@ class FORMProcessor(object):
             root_output_path, output_format=output_format,
             params=params)
 
-    def generate_squared_topology_files(self, root_output_path):
-        pass
+    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=()):
+        self.super_graphs_list.generate_squared_topology_files(root_output_path, n_jets, final_state_particle_ids)
 
 
 if __name__ == "__main__":
@@ -643,6 +704,7 @@ if __name__ == "__main__":
     computed_model.set_parameters_and_couplings(args.restrict_card)        
     process_definition=cli.extract_process(args.process, proc_number=0)
 
-    super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source)
+    super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source, first=10)
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
     form_processor.generate_numerator_functions('.', output_format='c')
+    form_processor.generate_squared_topology_files('.', 2, final_state_particle_ids=(6, -6, 25))
