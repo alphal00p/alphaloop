@@ -240,8 +240,10 @@ id pzero = 0; * Substitute the 0-momentum by 0
 * It could do k1.p1+k1.p2 => k1.(p1+p2)
 #$MAXK = 0;
 #do i=10,0,-1
-    if (count(k`i', 2)); 
-        $MAXK = `i';
+    if (count(k`i', 1));
+        if ($MAXK < `i');
+            $MAXK = `i';
+        endif;
         goto donek;
     endif;
 #enddo
@@ -249,8 +251,10 @@ label donek;
 
 #$MAXP = 0;
 #do i=10,0,-1
-    if (count(p`i', 1)); 
-        $MAXP = `i';
+    if (count(p`i', 1));
+        if ($MAXP < `i');
+            $MAXP = `i';
+        endif;
         goto donep;
     endif;
 #enddo
