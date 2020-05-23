@@ -8,6 +8,7 @@ from pprint import pprint, pformat
 import math
 import igraph
 import time
+import numpy as np
 
 import progressbar
 from itertools import chain
@@ -161,19 +162,20 @@ class FORMSuperGraph(object):
         return [ edges_to_sort[identities[position][1]] for position in new_position ]
 
     @classmethod
-    def momenta_decomposition_to_string(cls, momenta_decomposition):
+    def momenta_decomposition_to_string(cls, momenta_decomposition, set_outgoing_equal_to_incoming=True):
         """ Turns ((1,0,0,-1),(1,1)) into 'k1-k4+p1+p2'"""
 
         res = ""
         first=True
         # The outgoing momenta are set element-wise equal to the incoming ones.
-        momenta_decomposition = [
-            momenta_decomposition[0],
-            [inp+outp for inp, outp in zip(
-                momenta_decomposition[1][:len(momenta_decomposition[1])//2],
-                momenta_decomposition[1][len(momenta_decomposition[1])//2:]
-            )]
-        ]
+        if set_outgoing_equal_to_incoming:
+            momenta_decomposition = [
+                momenta_decomposition[0],
+                [inp+outp for inp, outp in zip(
+                    momenta_decomposition[1][:len(momenta_decomposition[1])//2],
+                    momenta_decomposition[1][len(momenta_decomposition[1])//2:]
+                )]
+            ]
         # Fuse outgoing and incoming
         for symbol, mom_decomposition in zip(('k','p'),momenta_decomposition):
             for i_k, wgt in enumerate(mom_decomposition):
@@ -461,10 +463,52 @@ class FORMSuperGraphList(list):
                 edge_colors.append(e_color)
                 g.add_edges([tuple(sorted([x - 1 for x in ue]))])
 
-            for (other_graph, other_colors), graph_list in iso_groups:
-                maps = g.get_isomorphisms_vf2(other_graph, edge_color1=edge_colors, edge_color2=other_colors)
-                if maps != [] and merge_isomorphic_graphs:
-                    # TODO: do a mapping of the signature here
+            for (ref_graph, ref_colors), graph_list in iso_groups:
+                v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1=ref_colors, edge_color2=edge_colors)
+                if v_maps != [] and merge_isomorphic_graphs:
+                    # map the signature from the new graph to the reference graph using the vertex map
+                    edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_maps[0][e.source], v_maps[0][e.target]) or \
+                        (re.source, re.target) == (v_maps[0][e.target], v_maps[0][e.source])) for e in g.es]
+
+                    # go through all loop momenta and make the matrix
+                    mat = []
+                    n_loops = len(graph_list[0].edges) - len(graph_list[0].nodes) + 1
+                    for loop_var in range(n_loops):
+                        # find the edge that has (+-)k`loop_var`
+                        orig_edge = next(ee for ee in graph_list[0].edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+                            sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
+                        orig_edge_in_ref = next(ee for ee in ref_graph.es if tuple(sorted(orig_edge['vertices'])) == (ee.source + 1, ee.target + 1))
+
+                        # now get the corresponding edge(s) in the new graph
+                        en = g.es[edge_map.index(orig_edge_in_ref.index)]
+                        new_edges = [ee for ee in graph.edges.values() if ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)]
+                        # in the case of a multi-edge, we simply take the one with the shortest momentum string
+                        new_edge = sorted(new_edges, key=lambda x: len(x['momentum']))[0]
+                        mat.append([s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
+
+                    # now map all signatures and momentum labels of the new graph
+                    mat = np.array(mat).T
+                    for e in graph.edges.values():
+                        # skip external edges
+                        if e["type"] != "virtual":
+                            continue
+
+                        new_sig = mat.dot(np.array(e['signature'][0]))
+                        e['signature'] = (list(new_sig), e['signature'][1])
+                        e['momentum'] = graph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
+
+                        # TODO: replace this by a loop over nodes once the nodes store the edge information
+                        v1 = graph.nodes[e['vertices'][0]]
+                        edge_index_in_v = v1['indices'].index(e['indices'][0]) if e['indices'][0] in v1['indices'] else v1['indices'].index(e['indices'][1])
+                        moms = list(v1['momenta'])
+                        if e['indices'][0] in v1['indices']:
+                            moms[edge_index_in_v] = e['momentum']
+                        else:
+                            sig = ([-s for s in e['signature'][0]], [-s for s in e['signature'][1]])
+                            new_momentum = graph.momenta_decomposition_to_string(sig, set_outgoing_equal_to_incoming=False)
+                            moms[edge_index_in_v] = new_momentum
+                        v1['momenta'] = tuple(moms)
+
                     graph_list.append(graph)
                     break
             else:
