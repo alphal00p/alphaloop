@@ -3,11 +3,11 @@
   loop_lines:
   - end_node: 0
     propagators:
-    - m_squared: 2.0
-      q: [0.0, 0.0, 0.0, 0.0]
-      power: 2
     - m_squared: 1.0
-      q: [1.0, 0.0, 0.0, 0.0]
+      q: [0.0, 1.0, 0.0, 0.0]
+      power: 2
+    - m_squared: 3.0
+      q: [0.0, 0.0, 0.0, 1.0]
       power: 1
     signature: [1]
     start_node: 0
