@@ -1,4 +1,5 @@
 MG_numerator: {}
+FORM_numerator: {}
 cutkosky_cuts:
 - cuts:
   - level: 0

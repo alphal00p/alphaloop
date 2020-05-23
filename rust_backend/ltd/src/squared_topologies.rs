@@ -95,6 +95,40 @@ mod MGNumeratorMod {
     }
 }
 
+#[cfg(feature = "mg_numerator")]
+mod FORMNumeratorMod {
+    use dlopen::wrapper::{Container, WrapperApi};
+    use libc::{c_double, c_int};
+    use num::Complex;
+
+    #[derive(WrapperApi)]
+    pub struct FORMNumeratorAPI {
+        evaluate: unsafe extern "C" fn(p: *const c_double, id: c_int) -> [c_double; 2],
+    }
+
+    pub fn get_numerator(
+        api_container: &mut Container<FORMNumeratorAPI>,
+        p: &[f64],
+        proc_id: usize,
+    ) -> Complex<f64> {
+        unsafe {
+            let ans = api_container.evaluate(&p[0] as *const f64, proc_id as i32);
+            Complex::new(ans[0], ans[1])
+        }
+    }
+
+    pub fn load() -> Container<FORMNumeratorAPI> {
+        let path = std::env::var("MG_NUMERATOR_PATH")
+            .expect("MG_NUMERATOR_PATH needs to be set in the mg_numerator mode.");
+
+        let container: Container<FORMNumeratorAPI> =
+            unsafe { Container::load(&(path.clone() + "lib/libFORM_numerators.so")) }
+                .expect("Could not open library or load symbols");
+
+        container
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
     pub name: String,
@@ -144,6 +178,11 @@ pub struct MGNumeratorCallSignature {
     pub right_diagram_id: usize,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct FORMNumeratorCallSignature {
+    pub id: usize,
+}
+
 #[derive(Deserialize)]
 pub struct MGNumerator {
     call_signature: Option<MGNumeratorCallSignature>,
@@ -158,6 +197,28 @@ impl Clone for MGNumerator {
             call_signature: self.call_signature.clone(),
             #[cfg(feature = "mg_numerator")]
             mg_numerator: Some(MGNumeratorMod::load()),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct FORMNumerator {
+    call_signature: Option<FORMNumeratorCallSignature>,
+    #[serde(skip_deserializing)]
+    #[cfg(feature = "mg_numerator")]
+    pub form_numerator: Option<Container<FORMNumeratorMod::FORMNumeratorAPI>>,
+}
+
+impl Clone for FORMNumerator {
+    fn clone(&self) -> Self {
+        FORMNumerator {
+            call_signature: self.call_signature.clone(),
+            #[cfg(feature = "mg_numerator")]
+            form_numerator: if self.call_signature.is_some() {
+                Some(FORMNumeratorMod::load())
+            } else {
+                None
+            },
         }
     }
 }
@@ -179,6 +240,8 @@ pub struct SquaredTopology {
     pub topo: Topology,
     #[serde(rename = "MG_numerator")]
     pub mg_numerator: MGNumerator,
+    #[serde(rename = "FORM_numerator")]
+    pub form_numerator: FORMNumerator,
 }
 
 #[derive(Clone)]
@@ -586,6 +649,10 @@ impl SquaredTopology {
         {
             squared_topo.mg_numerator.mg_numerator = Some(MGNumeratorMod::load());
             squared_topo.get_energy_polynomial_matrix();
+
+            if squared_topo.form_numerator.call_signature.is_some() {
+                squared_topo.form_numerator.form_numerator = Some(FORMNumeratorMod::load());
+            }
         }
 
         Ok(squared_topo)
@@ -1138,7 +1205,7 @@ impl SquaredTopology {
         let mut cut_energies_summed = T::zero();
         let mut scaling_result = Complex::one();
 
-        let mut k_def_lmb = [LorentzVector::default(); MAX_LOOP + 4];
+        let mut k_def_lmb = [LorentzVector::<Complex<T>>::default(); MAX_LOOP + 4];
         let mut shifts = [LorentzVector::default(); MAX_LOOP + 4];
 
         // evaluate the cuts with the proper scaling
@@ -1520,6 +1587,65 @@ impl SquaredTopology {
                     }
 
                     num_computed = true;
+                }
+
+                if self.form_numerator.form_numerator.is_some() {
+                    let mut form_numerator =
+                        mem::replace(&mut self.form_numerator.form_numerator, None);
+                    if let Some(call_signature) = &self.form_numerator.call_signature {
+                        let mut scalar_products: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> =
+                            ArrayVec::new();
+
+                        for (i1, e1) in self.external_momenta[..self.n_incoming_momenta]
+                            .iter()
+                            .enumerate()
+                        {
+                            for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
+                                scalar_products.push(e1.dot(e2));
+                                scalar_products.push(0.);
+                            }
+                        }
+
+                        for (i1, m1) in k_def_lmb[..self.n_loops].iter().enumerate() {
+                            for e1 in &self.external_momenta[..self.n_incoming_momenta] {
+                                let d = m1.dot(&e1.cast());
+                                scalar_products.push(d.re.to_f64().unwrap());
+                                scalar_products.push(d.im.to_f64().unwrap());
+                            }
+
+                            for m2 in k_def_lmb[i1..self.n_loops].iter() {
+                                let d = m1.dot(m2);
+                                scalar_products.push(d.re.to_f64().unwrap());
+                                scalar_products.push(d.im.to_f64().unwrap());
+                            }
+                        }
+
+                        let num = FORMNumeratorMod::get_numerator(
+                            form_numerator.as_mut().unwrap(),
+                            &scalar_products,
+                            call_signature.id,
+                        );
+                        let result = Complex::new(Into::<T>::into(num.re), Into::<T>::into(num.im));
+
+                         // compare against the MG numerator
+                        if self.mg_numerator.call_signature.is_some() {
+                            if (diag_cache[0].reduced_coefficient_lb[0][0] - result).norm_sqr()
+                                > Into::<T>::into(1e-10 * self.e_cm_squared)
+                            {
+                                println!(
+                                    "Mismatch between MG and RUST numerator: {} vs {} for {:?}",
+                                    diag_cache[0].reduced_coefficient_lb[0][0],
+                                    result,
+                                    loop_momenta
+                                );
+                            }
+                        }
+
+                        diag_cache[0].reduced_coefficient_lb[0][0] =
+                            Complex::new(Into::<T>::into(num.re), Into::<T>::into(num.im));
+                    }
+
+                    mem::swap(&mut form_numerator, &mut self.form_numerator.form_numerator);
                 }
 
                 mem::swap(&mut mg_numerator, &mut self.mg_numerator.mg_numerator);

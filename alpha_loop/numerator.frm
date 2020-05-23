@@ -225,6 +225,11 @@ endif;
 
 id color(x?) = x;
 
+* Set all external momenta on-shell
+#do i=1,10
+    id p`i'.p`i' = 0;
+#enddo
+
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;
 
