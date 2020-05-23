@@ -30,6 +30,7 @@ vector = { path = "../vector" }
 num = "0.2"
 arrayvec = "^0.5"
 dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dualn" }
+mpolynomial = {git = "https://github.com/apelloni/mpolynomial", branch = "master" }
 cuba = "^0.2"
 nalgebra = "*"
 num-traits = "*"
