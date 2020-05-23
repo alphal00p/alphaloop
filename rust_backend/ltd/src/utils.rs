@@ -435,3 +435,48 @@ impl PolynomialReconstruction {
         self.sample_buffer.truncate(sample_start);
     }
 }
+
+        
+pub mod test_utils {
+    extern crate eyre;
+
+    use color_eyre::Help;
+    use num::Complex;
+    use num_traits::{Float,   ToPrimitive};
+    use topologies::{ Topology};
+    use {DeformationStrategy, Settings};
+
+    pub fn get_test_topology(topology_file: &str, topology_name: &str) -> Topology {
+        // Import settings and disable the deformation
+        let mut settings = Settings::from_file("../../LTD/hyperparameters.yaml").unwrap();
+        settings.general.deformation_strategy = DeformationStrategy::None;
+        settings.general.multi_channeling = false;
+        settings.integrator.dashboard = false;
+
+        // Import topology from folder
+        let mut topologies = Topology::from_file(topology_file, &settings).unwrap();
+        settings.general.topology = topology_name.to_string();
+        topologies
+            .remove(&settings.general.topology)
+            .ok_or_else(|| eyre::eyre!("Could not find topology {}", settings.general.topology))
+            .suggestion("Check if this topology is in the specified topology file.")
+            .unwrap()
+    }
+
+    pub fn numeriacal_eq(x: Complex<f128::f128>, y: Complex<f128::f128>) -> bool {
+        let real_check = if x.re == y.re {
+            true
+        } else {
+            ((x.re - y.re) / x.re).abs().to_f64().unwrap() < 1e-24
+        };
+        let imag_check = if x.im == y.im {
+            true
+        } else {
+            ((x.im - y.im) / x.im).abs().to_f64().unwrap() < 1e-24
+        };
+
+        println!("{:?} : {}", ((x.re - y.re) / x.re).abs(), real_check);
+        println!("{:?} : {}", ((x.im - y.im) / x.im).abs(), imag_check);
+        real_check && imag_check
+    }
+}
