@@ -7,7 +7,9 @@ from pathlib import Path
 from pprint import pprint, pformat
 import math
 import igraph
+import time
 
+import progressbar
 from itertools import chain
 import sys
 import subprocess
@@ -468,22 +470,32 @@ class FORMSuperGraphList(list):
 {}
 """.format('\n'.join('const double {} = {};'.format(k, v) for k, v in params.items()))
 
-
         pattern = re.compile(r'Z(()\d*)_')
         input_pattern = re.compile(r'lm(\d*)')
 
-        for i, graph in enumerate(self):
-            num = graph.generate_numerator_functions()
-            num = num.replace('i_', 'I')
-            num = input_pattern.sub(r'lm[\1]', num)
-            num = num.replace('\nZ', '\n\tZ') # nicer indentation
-            max_intermediate_variable = max((int(index.groups()[0]) for index in pattern.finditer(num)), default=0)
+        with progressbar.ProgressBar(
+            prefix = 'Processing numerators with FORM ({variables.timing} ms / supergraph) : ',
+            max_value=len(self),
+            variables = {'timing' : '0'}
+            ) as bar:
+            total_time = 0.
+            for i, graph in enumerate(self):
+                time_before = time.time()
+                num = graph.generate_numerator_functions()
+                total_time += time.time()-time_before
+                num = num.replace('i_', 'I')
+                num = input_pattern.sub(r'lm[\1]', num)
+                num = num.replace('\nZ', '\n\tZ') # nicer indentation
+                max_intermediate_variable = max((int(index.groups()[0]) for index in pattern.finditer(num)), default=0)
 
-            # TODO: if `max_intermediate_variable` is 0, the graph is 0 and we should skip it!
+                # TODO: if `max_intermediate_variable` is 0, the graph is 0 and we should skip it!
 
-            numerator_code += '\ndouble complex evaluate_{}(double complex lm[]) {{\n\tdouble complex {};\n'.format(i,
-                ','.join('Z' + str(i) + '_' for i in range(1,max_intermediate_variable + 1))
-            ) + num + '}\n'
+                numerator_code += '\ndouble complex evaluate_{}(double complex lm[]) {{\n\tdouble complex {};\n'.format(i,
+                    ','.join('Z' + str(i) + '_' for i in range(1,max_intermediate_variable + 1))
+                ) + num + '}\n'
+
+                bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
+                bar.update(i+1)
 
         numerator_code += \
 """
