@@ -436,7 +436,143 @@ class SuperGraph(object):
         self.graph = sewed_graph
         self.cuts = tuple(cuts)
         self.external_incoming_momenta = tuple(external_incoming_momenta)
+
+        edge_keys_visited = []
+        for leg_number, cut_key in list(self.cuts):
+            if cut_key in edge_keys_visited:
+                continue
+            this_edge_data = self.graph.edges[cut_key]
+            if self.model.get_particle(this_edge_data['pdg']).get('spin')!=2:
+                continue
+            edge_keys_visited.append(cut_key)
+            self.fix_fermion_flow(
+                self.model.get_particle(this_edge_data['pdg']), 
+                cut_key[1], edge_keys_visited )
     
+        # It may be that the fixing of the fermion flow flipped the edges of some cut momenta.
+        # We must therefore refresh this list to reflect that.
+        new_cuts = []
+        for cut in self.cuts:
+            if cut[1] not in self.graph.edges:
+                # The last entry indicate if this cut direction has been flipped
+                new_cuts.append( (cut[0],(cut[1][1],cut[1][0],cut[1][2]),True) )
+            else:
+                new_cuts.append( (cut[0],cut[1],False) )
+        self.cuts = new_cuts
+
+    def fix_fermion_flow(self, fermion_particle, curr_node, edge_keys_visited):
+        """ Fix the fermion flow of the current graph."""
+
+        adjacent_in_edges = [ ((u,v,c), in_edge_data) for u,v,c,in_edge_data in 
+            self.graph.in_edges(curr_node,data=True,keys=True) if (u,v,c) not in edge_keys_visited
+        ]
+        adjacent_out_edges = [ ((u,v,c), out_edge_data) for u,v,c,out_edge_data in 
+            self.graph.out_edges(curr_node,data=True,keys=True) if (u,v,c) not in edge_keys_visited
+        ]
+        # Now find the other fermion 
+        next_direction = None
+        next_fermion = None
+        next_edge = None
+        for edge_key, edge_data in adjacent_in_edges:
+            this_edge_data = self.graph.edges[edge_key]
+            if self.model.get_particle(this_edge_data['pdg']).get('spin')!=2:
+                continue
+            if next_direction is not None:
+                raise LTD2Error("LTD2 does not yet support 4-fermion vertices.")
+            else:
+                next_direction = "IN"
+                next_fermion = self.model.get_particle(this_edge_data['pdg'])
+                next_edge = (edge_key, edge_data)
+        for edge_key, edge_data in adjacent_out_edges:
+            this_edge_data = self.graph.edges[edge_key]
+            if self.model.get_particle(this_edge_data['pdg']).get('spin')!=2:
+                continue
+            if next_direction is not None:
+                raise LTD2Error("LTD2 does not yet support 4-fermion vertices.")
+            else:
+                next_direction = "OUT"
+                next_fermion = self.model.get_particle(this_edge_data['pdg'])
+                next_edge = (edge_key, edge_data)
+
+        if next_direction is None:
+            # This means that the next fermion has already been visited/fixed.
+            # So we can now terminate the recursion.
+            return
+
+        crash_on_fermion_flow_inconsistency = False
+        if fermion_particle.get('is_part'):
+            if next_direction=="OUT":
+                if next_fermion.get('is_part'):
+                    # IN fermion -> OUT fermion: OK.
+                    pass
+                else:
+                    # IN fermion -> OUT antifermion: WRONG
+                    if crash_on_fermion_flow_inconsistency: 
+                        raise LTD2Error("LTD2 fermion flow inconsistency: IN fermion -> OUT antifermion.")
+                    else:
+                        # Fix it in this case by flipping the particle identity
+                        next_edge[1]['pdg']=next_fermion.get_anti_pdg_code()
+            else:
+                if next_fermion.get('is_part'):
+                    # IN fermion -> IN fermion: WRONG.
+                    if crash_on_fermion_flow_inconsistency: 
+                        raise LTD2Error("LTD2 fermion flow inconsistency: IN fermion -> IN fermion.")
+                    else:
+                        # Fix it in this case by flipping the direction of the edge
+                        edge_keys_visited.append(next_edge[0])
+                        self.graph.remove_edge(*next_edge[0])
+                        next_edge= ((next_edge[0][1], next_edge[0][0], next_edge[0][2]), next_edge[1])
+                        self.graph.add_edge( 
+                            next_edge[0][0], next_edge[0][1] , key=next_edge[0][2], **next_edge[1] )
+                else:
+                    # IN fermion -> IN anti-fermion: OK, but we want to follow the fermion flow.
+                    edge_keys_visited.append(next_edge[0])
+                    self.graph.remove_edge(*next_edge[0])
+                    next_edge[1]['pdg']=next_fermion.get_anti_pdg_code()
+                    next_edge= ((next_edge[0][1], next_edge[0][0], next_edge[0][2]), next_edge[1])
+                    self.graph.add_edge( 
+                        next_edge[0][0], next_edge[0][1] , key=next_edge[0][2], **next_edge[1] )
+        else:
+            if next_direction=="OUT":
+                if next_fermion.get('is_part'):
+                    # IN anti-fermion -> OUT fermion: WRONG.
+                    if crash_on_fermion_flow_inconsistency: 
+                        raise LTD2Error("LTD2 fermion flow inconsistency: IN anti-fermion -> OUT fermion.")
+                    else:
+                        # Fix it in this case by flipping the particle identity
+                        next_edge[1]['pdg']=next_fermion.get_anti_pdg_code()   
+                else:
+                    # IN anti-fermion -> OUT anti-fermion: OK.
+                    pass
+            else:            
+                if next_fermion.get('is_part'):
+                    # IN anti-fermion -> IN fermion: OK, but we want to follow the fermion flow.
+                    edge_keys_visited.append(next_edge[0])
+                    self.graph.remove_edge(*next_edge[0])
+                    next_edge[1]['pdg']=next_fermion.get_anti_pdg_code()
+                    next_edge= ((next_edge[0][1], next_edge[0][0], next_edge[0][2]), next_edge[1])
+                    self.graph.add_edge( 
+                        next_edge[0][0], next_edge[0][1] , key=next_edge[0][2], **next_edge[1] )
+                else:
+                    # IN anti-fermion -> IN anti-fermion: WRONG.
+                    if crash_on_fermion_flow_inconsistency: 
+                        raise LTD2Error("LTD2 fermion flow inconsistency: IN anti-fermion -> IN anti-fermion.")
+                    else:
+                        # Fix it in this case by flipping the direction of the edge
+                        edge_keys_visited.append(next_edge[0])
+                        self.graph.remove_edge(*next_edge[0])
+                        next_edge= ((next_edge[0][1], next_edge[0][0], next_edge[0][2]), next_edge[1])
+                        self.graph.add_edge( 
+                            next_edge[0][0], next_edge[0][1] , key=next_edge[0][2], **next_edge[1] )
+
+        edge_keys_visited.append(next_edge[0])
+        return self.fix_fermion_flow(
+            self.model.get_particle(next_edge[1]['pdg']),
+            next_edge[0][1], 
+            edge_keys_visited
+        )
+
+
     def is_isomorphic_to(self, other_super_graph):
         """ Uses networkx to decide if the two graphs are isomorphic."""
 
@@ -660,7 +796,7 @@ class SelfEnergySuperGraph(SuperGraph):
         ]
 
         # First assign the infrmation each self-energy:
-        for leg_number, cut_edge_key in self.cuts:
+        for leg_number, cut_edge_key, is_direction_flipped in self.cuts:
             cut_edge = self.graph.edges[cut_edge_key]
             cut_edge['leg_number'] = leg_number
             if cut_edge['anchor_number'] == 0:
