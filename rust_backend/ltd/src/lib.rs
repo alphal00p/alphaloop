@@ -3,6 +3,7 @@
 extern crate cpython;
 extern crate arrayvec;
 extern crate dual_num;
+extern crate mpolynomial;
 #[macro_use]
 extern crate itertools;
 extern crate color_eyre;
@@ -58,6 +59,8 @@ pub trait FloatLike:
     + Float
     + Field
     + RealNumberLike
+    + mpolynomial::Field
+    + mpolynomial::RealNumberLike
     + Signed
     + FloatConst
     + std::fmt::LowerExp

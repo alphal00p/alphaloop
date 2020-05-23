@@ -11,8 +11,7 @@ use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
 use topologies::{
-    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, ReducedLTDNumerator, Surface,
-    SurfaceType, Topology,
+    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, Surface, SurfaceType, Topology,
 };
 use utils::Signum;
 use vector::LorentzVector;
@@ -155,10 +154,9 @@ impl Topology {
 
             self.partial_fractioning = PartialFractioning::new(num_propagators_deg_1l, 10000);
         }
-        if self.n_loops > 0 {
-            //&& self.settings.general.partial_fractioning_threshold > 0.0 {
+        if self.n_loops > 0 && self.settings.general.partial_fractioning_threshold > 0.0 {
             self.partial_fractioning_multiloops =
-                PartialFractioningMultiLoops::new(&self.loop_lines);
+                PartialFractioningMultiLoops::new(&self.loop_lines, 100000);
         }
         // set the identity rotation matrix
         self.rotation_matrix = [
@@ -1251,7 +1249,7 @@ impl Topology {
                 let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
                     / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
-                let sup = (t / (t + mij_sq));
+                let sup = t / (t + mij_sq);
 
                 if sup * sup < lambda_sq {
                     lambda_sq = sup * sup;
@@ -2618,7 +2616,7 @@ impl Topology {
             // we are in the case where we do not need derivatives
             let mut r = Complex::one();
 
-            if false && overwrite_propagator_powers {
+            if overwrite_propagator_powers {
                 for (i, (ll_cut, ll)) in cut.iter().zip_eq(self.loop_lines.iter()).enumerate() {
                     // get the loop line result from the cache if possible
                     r *= match ll_cut {
@@ -3008,8 +3006,14 @@ impl Topology {
                     }
 
                     // Cache the reduced polynomial for the current diagram and evaluate
-                    diag.numerator
-                        .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
+                    diag.numerator.evaluate_reduced_in_lb(
+                        &k_def,
+                        0,
+                        cache,
+                        0,
+                        true,
+                        use_partial_fractioning,
+                    );
                     result += if diag.ct {
                         -self.partial_fractioning.evaluate(
                             &diag.numerator,
@@ -3036,8 +3040,14 @@ impl Topology {
                 }
 
                 // Evaluate in the case of a topology
-                self.numerator
-                    .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
+                self.numerator.evaluate_reduced_in_lb(
+                    &k_def,
+                    0,
+                    cache,
+                    0,
+                    true,
+                    use_partial_fractioning,
+                );
                 result = self.partial_fractioning.evaluate(
                     &self.numerator,
                     std::slice::from_ref(ll_with_loop),
@@ -3050,12 +3060,24 @@ impl Topology {
             // Compute all the necessary reduced polynomial using the value of k_vec
             if self.settings.general.use_amplitude {
                 for (num_id, diag) in self.amplitude.diagrams.iter().enumerate() {
-                    diag.numerator
-                        .evaluate_reduced_in_lb(&k_def, 0, cache, num_id, true);
+                    diag.numerator.evaluate_reduced_in_lb(
+                        &k_def,
+                        0,
+                        cache,
+                        num_id,
+                        true,
+                        use_partial_fractioning,
+                    );
                 }
             } else {
-                self.numerator
-                    .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true);
+                self.numerator.evaluate_reduced_in_lb(
+                    &k_def,
+                    0,
+                    cache,
+                    0,
+                    true,
+                    use_partial_fractioning,
+                );
             }
 
             // Sum over all the cuts
@@ -3634,6 +3656,7 @@ impl LTDNumerator {
         cache: &mut LTDCache<T>,
         num_id: usize,
         clear_momentum_cache: bool,
+        use_partial_fractioning: bool,
     ) {
         // Update tensor loop dependent part
         // Resize cache vector in case its size is not sufficient
@@ -3690,6 +3713,19 @@ impl LTDNumerator {
                     mm * Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
             }
         }
+
+        // Store coefficients in a multi variable polynomial
+        if use_partial_fractioning {
+            cache.reduced_coefficient_lb_mpoly.clear();
+            for (c, pows) in cache.reduced_coefficient_lb[num_id]
+                .iter()
+                .zip(self.reduced_coefficient_index_to_powers[..self.reduced_size].iter())
+            {
+                cache
+                    .reduced_coefficient_lb_mpoly
+                    .add(&pows[..self.n_loops], *c);
+            }
+        }
     }
 
     pub fn evaluate_reduced_in_cb<T: FloatLike>(
@@ -3715,7 +3751,7 @@ impl LTDNumerator {
                 index += 1;
             }
         }
-        // Initialize the reduced_coeffficeints_cb with the factors coming from evaluating
+        // Initialize the reduced_coefficeints_cb with the factors coming from evaluating
         // the vectorial part of the loop momenta
         if cache.reduced_coefficient_cb.len() < self.reduced_size {
             cache

@@ -1544,6 +1544,7 @@ impl SquaredTopology {
                     &mut diag_cache[0],
                     0,
                     regenerate_momenta,
+                    self.settings.general.partial_fractioning_threshold > 0.0,
                 );
                 regenerate_momenta = false;
             }

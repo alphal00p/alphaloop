@@ -10,6 +10,7 @@ use num::Complex;
 use num_traits::{Float, Signed, Zero};
 use partial_fractioning::PFCache;
 use partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
+use mpolynomial::MPolynomial;
 use scs;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -251,10 +252,11 @@ pub struct LTDCache<T: FloatLike> {
     pub overall_lambda: T, // used to log the minimum
     pub numerator_momentum_cache: Vec<Complex<T>>,
     pub numerator_cache_outdated: Vec<bool>,
+    pub reduced_coefficient_lb_mpoly: MPolynomial<Complex<T>>,
     pub reduced_coefficient_lb: Vec<Vec<Complex<T>>>,
     pub reduced_coefficient_lb_supergraph: Vec<Vec<Complex<T>>>,
     pub reduced_coefficient_cb: Vec<Complex<T>>,
-    pub pf_cache: PFCache,
+    pub pf_cache: PFCache<T>,
     pub propagators: FnvHashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
     pub propagators_eval: Vec<Complex<T>>,
     pub propagator_powers: Vec<usize>,
@@ -267,7 +269,7 @@ impl<T: FloatLike> LTDCache<T> {
         let num_propagators_deg_1l = topo
             .loop_lines
             .iter()
-            //.filter(|x| x.signature == &[1])
+           //.filter(|x| x.signature == &[1])
             .map(|x| x.propagators.iter().map(|p| p.power).sum::<usize>())
             .sum();
         LTDCache {
@@ -293,6 +295,7 @@ impl<T: FloatLike> LTDCache<T> {
             numerator_momentum_cache: vec![],
             numerator_cache_outdated: vec![],
             cached_topology_integrand: vec![],
+            reduced_coefficient_lb_mpoly: MPolynomial::new(topo.n_loops),
             reduced_coefficient_lb: vec![
                 vec![Complex::default(); topo.n_loops];
                 if topo.settings.general.use_amplitude {
@@ -303,7 +306,7 @@ impl<T: FloatLike> LTDCache<T> {
             ],
             reduced_coefficient_lb_supergraph: vec![vec![Complex::default(); topo.n_loops]],
             reduced_coefficient_cb: vec![Complex::default(); topo.n_loops],
-            pf_cache: PFCache::new(num_propagators_deg_1l),
+            pf_cache: PFCache::<T>::new(num_propagators_deg_1l, topo.n_loops),
             propagators: HashMap::default(),
             propagators_eval: vec![Complex::zero(); num_propagators],
             propagator_powers: vec![1; num_propagators],
