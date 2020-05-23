@@ -1032,7 +1032,7 @@ class SuperGraphList(list):
             for i_graph, super_graph in enumerate(self):
                 if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in new_selection):
                     new_selection.append(super_graph)
-                bar.update(n_unique_super_graphs_sofar='%d'%len(self))
+                bar.update(n_unique_super_graphs_sofar='%d'%len(new_selection))
                 bar.update(i_graph+1)
         self[:] = new_selection
 
