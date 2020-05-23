@@ -1,4 +1,4 @@
-import model PLUGIN/alphaloop/models/aL_sm-no_widths
+import model ./PLUGIN/alphaloop/models/aL_sm-no_widths
 set_alphaLoop_option perturbative_orders {'QCD':0}
 set_alphaLoop_option n_rust_inputs_to_generate -1
 set_alphaLoop_option include_self_energies_from_squared_amplitudes True

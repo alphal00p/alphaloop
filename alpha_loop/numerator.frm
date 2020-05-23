@@ -22,6 +22,10 @@
 Auto S mass;
 CTable masses(-30:30);
 
+#ifndef `OPTIMITERATIONS'
+    #define OPTIMITERATIONS "100"
+#endif
+
 #ifndef `HEAVYFERMIONS'
 Fill masses(1) = 0;
 Fill masses(2) = 0;
@@ -276,7 +280,7 @@ label donep;
 Format float 16; * print all constants as floats in the C output
 Format C;
 .sort
-Format O4,stats=on,saIter=1000;
+Format O4,stats=on,saIter=`OPTIMITERATIONS';
 
 #Optimize F
 #write<out.proto_c> "%O\n\treturn %e",F

@@ -202,7 +202,8 @@ class TopologyGenerator(object):
 
     def loop_momentum_bases(self):
         trees = []
-        self.generate_spanning_trees(trees, tree={self.edges[0][0]})
+        seen_states = set()
+        self.generate_spanning_trees(trees, tree={self.edges[0][0]}, seen_state=seen_states)
         self.spanning_trees = trees
         self.n_loops = len(self.edge_map_lin) - len(trees[0])
         return [[i for i in range(len(self.edge_map_lin)) if i not in tree] for tree in trees]

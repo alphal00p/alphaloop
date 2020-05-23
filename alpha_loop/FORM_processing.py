@@ -35,12 +35,19 @@ import madgraph.iolibs.file_writers as writers
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 import models.model_reader as model_reader
 
+import LTD.squared_topologies
+import LTD.ltd_utils
+
 logger = logging.getLogger('alphaLoop.FORM_processing')
+
+if __name__ == "__main__":
+    logging.basicConfig()
+    logger.setLevel(logging.INFO)
 
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 
-FORM_processing_options = {'FORM_path': 'form'}
+FORM_processing_options = {'FORM_path': 'form', 'TFORM_path': 'tform', 'parallel': False, 'cores': '-w1', 'extra-options': '-D OPTIMITERATIONS=100'}
 
 # Can switch to tmpdir() if necessary at some point
 FORM_workspace = pjoin(plugin_path,'FORM_workspace')
@@ -115,6 +122,24 @@ class FORMSuperGraph(object):
             )
 
         return form_diag
+
+
+    def derive_signatures(self):
+        n_incoming = sum([1 for edge in self.edges.values() if edge['type'] == 'in'])
+        n_loops = len(self.edges) - len(self.nodes) + 1
+
+        # parse momentum
+        p = re.compile(r'(^|\+|-)(k|p)(\d*)')
+        for edge in self.edges.values():
+            parsed = [e.groups() for e in p.finditer(edge['momentum'])]
+            signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+            for pa in parsed:
+                if pa[1] == 'p':
+                    signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                else:
+                    signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+
+            edge['signature'] = signature
 
     @classmethod
     def sort_edges(cls, model, edges_to_sort):
@@ -354,9 +379,9 @@ class FORMSuperGraphIsomorphicList(list):
         with open(pjoin(FORM_workspace,'input.h'), 'w') as f:
             f.write('L F = {};'.format(form_input))
 
-        # TODO specify cores in the input
         r = subprocess.run([
-                FORM_processing_options["FORM_path"], 
+                FORM_processing_options["TFORM_path"] if FORM_processing_options["parallel"] else FORM_processing_options["FORM_path"],
+                FORM_processing_options["cores"],
                 pjoin(plugin_path,"numerator.frm")
             ],
             cwd=FORM_workspace,
@@ -409,6 +434,7 @@ class FORMSuperGraphList(list):
         for i, g in enumerate(m.graphs):
             # convert to FORM supergraph
             form_graph = FORMSuperGraph(name='Graph' + str(i), edges = g['edges'], nodes=g['nodes'], overall_factor=g['overall_factor'])
+            form_graph.derive_signatures()
             graph_list.append(form_graph)
 
         iso_groups = []
@@ -422,31 +448,29 @@ class FORMSuperGraphList(list):
             g = igraph.Graph()
             g.add_vertices(len(graph.nodes))
             undirected_edges = set()
-            v_colors = []
-            for v in list(graph.nodes.keys()):
-                v_color = 1
+
+            for e in graph.edges.values():
+                undirected_edges.add(tuple(sorted(e['vertices'])))
+
+            edge_colors = []
+            for ue in undirected_edges:
+                e_color = 1
                 for e in graph.edges.values():
-                    if v in e['vertices']:
-                        v_color *= pdg_primes[abs(e['PDG'])]
-                        sorted_edge = tuple(sorted(e['vertices']))
-                        if sorted_edge not in undirected_edges:
-                            undirected_edges.add(sorted_edge)
-                            g.add_edges([tuple(sorted([x - 1 for x in e['vertices']]))])
-                v_colors.append(v_color)
+                    if tuple(sorted(e['vertices'])) == ue:
+                        e_color *= pdg_primes[abs(e['PDG'])]
+                edge_colors.append(e_color)
+                g.add_edges([tuple(sorted([x - 1 for x in ue]))])
 
-            # TODO: use canonical forms instead?
-            #perm = g.canonical_permutation(color=v_colors)
-
-            for (other_graph, other_color), graph_list in iso_groups:
-                is_iso, map12, _ = g.isomorphic_bliss(other_graph, color1=v_colors, color2=other_color, return_mapping_12=True)
-                if is_iso and merge_isomorphic_graphs:
+            for (other_graph, other_colors), graph_list in iso_groups:
+                maps = g.get_isomorphisms_vf2(other_graph, edge_color1=edge_colors, edge_color2=other_colors)
+                if maps != [] and merge_isomorphic_graphs:
                     # TODO: do a mapping of the signature here
                     graph_list.append(graph)
                     break
             else:
-                iso_groups.append(((g, v_colors), [graph]))
+                iso_groups.append(((g, edge_colors), [graph]))
 
-        logger.info("{} unique supergraphs".format(iso_groups))
+        logger.info("{} unique supergraphs".format(len(iso_groups)))
 
         return FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups])
 
@@ -539,21 +563,33 @@ class FORMProcessor(object):
             root_output_path, output_format=output_format,
             params=params)
 
+    def generate_squared_topology_files(self, root_output_path):
+        pass
+
 
 if __name__ == "__main__":
    
     parser = argparse.ArgumentParser(description='Generate numerators with FORM and yaml for Rust.',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('diagrams_python_source', default=None, type=str,
-    					help='path to the python diagram output files.')
+                        help='path to the python diagram output files.')
     parser.add_argument('--model', default='sm-no_widths', type=str,
-    					help='Path to UFO model to load.')
+                        help='Path to UFO model to load.')
     parser.add_argument('--process', default='e+ e- > a > d d~', type=str,
-    					help='Process definition to consider.')
-    parser.add_argument('--restrict_card', 
+                        help='Process definition to consider.')
+    parser.add_argument('--cores', default=1, type=int,
+                        help='Number of FORM cores')
+    parser.add_argument('--optim_iter', default=100, type=int,
+                        help='Number of iterations for numerator optimization')
+    parser.add_argument('--restrict_card',
         default=pjoin(os.environ['MG5DIR'],'models','sm','restrict_no_widths.dat'), 
                         type=str, help='Model restriction card to consider.')
     args = parser.parse_args()
+
+    if args.cores > 1:
+        FORM_processing_options['parallel'] = True
+        FORM_processing_options['cores'] = '-w' + str(args.cores)
+    FORM_processing_options['extra-options'] = '-D OPTIMITERATIONS=' + str(args.optim_iter)
      
     import alpha_loop.interface as interface
     cli = interface.alphaLoopInterface()
