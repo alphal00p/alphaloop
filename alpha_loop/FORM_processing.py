@@ -364,7 +364,7 @@ class FORMSuperGraph(object):
         edge_map_lin = [(e['name'] if e['type'] == 'virtual' else 'q' + e['name'][1:], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
-        particle_ids = {e['name'] if e['type'] == 'virtual' else 'q' + e['name'][1:]: e['PDG'] for e in self.edges.values()}
+        particle_ids = {e['name'] if e['type'] == 'virtual' else 'q' + e['name'][1:]: abs(e['PDG']) for e in self.edges.values()}
 
         external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
@@ -391,7 +391,7 @@ class FORMSuperGraph(object):
             logger.info("No cuts for graph {}".format(self.name))
             return False
 
-        topo.export(pjoin(root_output_path, self.name + ".py"))
+        topo.export(pjoin(root_output_path, self.name + ".yaml"))
 
         return True
 
@@ -455,9 +455,11 @@ class FORMSuperGraphList(list):
 
     extension_names = {'c': 'c'}
 
-    def __init__(self, graph_list):
+    def __init__(self, graph_list, name='SGL'):
         """ Instantiates a list of FORMSuperGraphs from a list of either
         FORMSuperGraphIsomorphicList instances, FORMSuperGraph, or LTD2SuperGraph instances."""
+
+        self.name = name
 
         for g in graph_list:
             if isinstance(g, FORMSuperGraph):
@@ -480,7 +482,7 @@ class FORMSuperGraphList(list):
         graph_list = []
         for i, g in enumerate(m.graphs):
             # convert to FORM supergraph
-            form_graph = FORMSuperGraph(name='Graph' + str(i), edges = g['edges'], nodes=g['nodes'], overall_factor=g['overall_factor'])
+            form_graph = FORMSuperGraph(name=p.stem + '_' + str(i), edges = g['edges'], nodes=g['nodes'], overall_factor=g['overall_factor'])
             form_graph.derive_signatures()
             graph_list.append(form_graph)
 
@@ -565,7 +567,7 @@ class FORMSuperGraphList(list):
 
         logger.info("{} unique supergraphs".format(len(iso_groups)))
 
-        return FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups])
+        return FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
 
     def to_dict(self, file_path):
         """ Outputs the FORMSuperGraph list to a Python dict file path."""
@@ -639,11 +641,28 @@ double evaluate(double complex lm[], int i) {{
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=()):
-        # TODO: create the overall file
-        for i, g in enumerate(self):
-            if g.generate_squared_topology_files(root_output_path, n_jets, numerator_call=i, final_state_particle_ids=final_state_particle_ids):
-                pass
+        topo_collection = {
+            'name': self.name,
+            'topologies': []
+        }
 
+        with progressbar.ProgressBar(prefix='Generating squared topology files : ', max_value=len(self)) as bar:
+            for i, g in enumerate(self):
+                if g.generate_squared_topology_files(root_output_path, n_jets, numerator_call=i, final_state_particle_ids=final_state_particle_ids):
+                    topo_collection['topologies'].append({
+                        'name': g[0].name,
+                        'multiplicity': 1
+                    })
+
+                bar.update(i+1)
+
+        try:
+            import yaml
+            from yaml import Loader, Dumper
+        except ImportError:
+            raise BaseException("Install yaml python module in order to import topologies from yaml.")
+
+        open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
 
 class FORMProcessor(object):
     """ A class for taking care of the processing of a list of FORMSuperGraphList.
@@ -707,4 +726,4 @@ if __name__ == "__main__":
     super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source, first=10)
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
     form_processor.generate_numerator_functions('.', output_format='c')
-    form_processor.generate_squared_topology_files('.', 2, final_state_particle_ids=(6, -6, 25))
+    form_processor.generate_squared_topology_files('.', 2, final_state_particle_ids=(6, 6, 25))
