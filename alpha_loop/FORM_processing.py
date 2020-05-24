@@ -384,7 +384,7 @@ class FORMSuperGraph(object):
             final_state_particle_ids=final_state_particle_ids,
             overall_numerator=1.0,
             numerator_structure={},
-            FORM_numerator={'id': numerator_call})
+            FORM_numerator={'call_signature': {'id': numerator_call}})
 
         # check if cut is possible
         if len(topo.cuts) == 0:

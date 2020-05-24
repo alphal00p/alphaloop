@@ -189,6 +189,7 @@ Argument color;
     id cOlNA = 8;
     id cf = 4 / 3;
     id ca = 3;
+    id nf = 1;
 EndArgument;
 .sort:color;
 

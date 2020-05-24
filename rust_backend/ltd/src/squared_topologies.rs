@@ -196,7 +196,11 @@ impl Clone for MGNumerator {
         MGNumerator {
             call_signature: self.call_signature.clone(),
             #[cfg(feature = "mg_numerator")]
-            mg_numerator: Some(MGNumeratorMod::load()),
+            mg_numerator: if self.call_signature.is_some() {
+                Some(MGNumeratorMod::load())
+            } else {
+                None
+            },
         }
     }
 }
@@ -647,8 +651,10 @@ impl SquaredTopology {
 
         #[cfg(feature = "mg_numerator")]
         {
-            squared_topo.mg_numerator.mg_numerator = Some(MGNumeratorMod::load());
-            squared_topo.get_energy_polynomial_matrix();
+            if squared_topo.mg_numerator.call_signature.is_some() {
+                squared_topo.mg_numerator.mg_numerator = Some(MGNumeratorMod::load());
+                squared_topo.get_energy_polynomial_matrix();
+            }
 
             if squared_topo.form_numerator.call_signature.is_some() {
                 squared_topo.form_numerator.form_numerator = Some(FORMNumeratorMod::load());
@@ -1627,7 +1633,7 @@ impl SquaredTopology {
                         );
                         let result = Complex::new(Into::<T>::into(num.re), Into::<T>::into(num.im));
 
-                         // compare against the MG numerator
+                        // compare against the MG numerator
                         if self.mg_numerator.call_signature.is_some() {
                             if (diag_cache[0].reduced_coefficient_lb[0][0] - result).norm_sqr()
                                 > Into::<T>::into(1e-10 * self.e_cm_squared)
@@ -1641,8 +1647,12 @@ impl SquaredTopology {
                             }
                         }
 
-                        diag_cache[0].reduced_coefficient_lb[0][0] =
-                            Complex::new(Into::<T>::into(num.re), Into::<T>::into(num.im));
+                        diag_cache[0].reduced_coefficient_lb[0].clear();
+                        diag_cache[0].reduced_coefficient_lb[0].push(Complex::new(
+                            Into::<T>::into(num.re),
+                            Into::<T>::into(num.im),
+                        ));
+                        num_computed = true;
                     }
 
                     mem::swap(&mut form_numerator, &mut self.form_numerator.form_numerator);
