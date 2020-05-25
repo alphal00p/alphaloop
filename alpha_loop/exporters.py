@@ -192,8 +192,14 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                 FORM_super_graph_list, computed_model, characteristic_process_definition)
             FORM_processor.generate_numerator_functions(FORM_output_path, 
                         output_format=self.alphaLoop_options['FORM_processing_output_format'])
+            drawings_output_path = pjoin(self.dir_path, 'Drawings')
+            Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
+            shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
+                        pjoin(drawings_output_path,'Makefile'))
+            FORM_processor.draw(drawings_output_path)
 
         # Now output the Rust inputs for the remaining supergraphs.
+        FORM_id=0
         for all_super_graphs, matrix_element in self.all_super_graphs:
 
             if self.alphaLoop_options['n_rust_inputs_to_generate'] == 0:
@@ -219,11 +225,17 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     bar.update(super_graph_name=super_graph.name)
                     bar.update(i_super_graph+1)
                     file_path = pjoin(rust_inputs_path,'%s.yaml'%squared_topology_name)
+                    if self.alphaLoop_options['FORM_processing_output_format']:
+                        FORM_id_to_supply = FORM_id
+                    else:
+                        FORM_id_to_supply = None
                     super_graph.generate_yaml_input_file(
                         file_path,
                         model,
-                        self.alphaLoop_options
+                        self.alphaLoop_options,
+                        FORM_id=FORM_id_to_supply
                     )
+                    FORM_id+=1
                     if (self.alphaLoop_options['n_rust_inputs_to_generate']>0) and (
                         (i_super_graph+1)==self.alphaLoop_options['n_rust_inputs_to_generate']):
                         break
@@ -232,7 +244,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         base_name = os.path.basename(self.dir_path)
         overall_xsec_yaml_file_path = pjoin(rust_inputs_path,'%s.yaml'%base_name)
         overall_xsec_yaml = {
-            'madgraph_numerators_lib_dir' : pjoin(self.dir_path,'lib'),
+            'name' : base_name,
             'topologies' : [
                 { 
                     'name' : super_graph.name,
@@ -1039,4 +1051,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                 pjoin(self.dir_path,'FORM', 'Makefile'))
-        form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), output_format='c')
+        form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
+            output_format=self.alphaLoop_options['FORM_processing_output_format'])
+        drawings_output_path = pjoin(self.dir_path, 'Drawings')
+        shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
+                    pjoin(drawings_output_path,'Makefile'))
+        Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
+        FORM_processor.draw(drawings_output_path)

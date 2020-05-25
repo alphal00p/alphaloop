@@ -168,14 +168,13 @@ fn eval(
     let t = std::time::Instant::now();
 
     // FIXME: uncommenting this gives a different result for the mg numerator
-    /*for i in 0..1_000_000 {
+    for i in 0..1_000 {
         let r2 = get_numerator(mg_numerator, &mg_input, 0, 1, 1);
-        if r1 != r2 {
-            println!("{} {}", r1, r2);
-        }
+//        if r1 != r2 {
+//            println!("{} {}", r1, r2);
+//        }
     }
     println!("time MG={:#?}", std::time::Instant::now().duration_since(t));
-    */
 
     //println!("r={}", r.im / r1.im);
 }
@@ -188,8 +187,10 @@ fn main() {
     let mut p2 = [1., 0., 0., -1.];
     let mut k1 = [0.1, 0.0, 0.0, 0.0];
     let mut k2 = [0.1, 0.0, 0.0, 0.0];
+    let mut k3 = [0.1, 0.0, 0.0, 0.0];
+    let mut k4 = [0.1, 0.0, 0.0, 0.0];
 
-    let lin = [&p1, &p2, &k1, &k2];
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];
 
     eval(&lin, 2, &mut mg_numerator, &mut c_numerator);
 
@@ -197,15 +198,19 @@ fn main() {
     let mut p2 = [2., 0., 0., -2.];
     let mut k1 = [0.1, 0.2, 0.3, 0.4];
     let mut k2 = [0.4, 0.2, 0.4, 0.2];
+    let mut k3 = [0.4, 0.3, 0.1, 0.5];
+    let mut k4 = [0.7, 0.3, 0.5, 0.2];
 
-    let lin = [&p1, &p2, &k1, &k2];
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];
     eval(&lin, 2, &mut mg_numerator, &mut c_numerator);
 
     let mut p1 = [6., 0., 0., 6.];
     let mut p2 = [6., 0., 0., -6.];
     let mut k1 = [0.3, 0.5, 0.3, 0.4];
     let mut k2 = [0.4, 0.2, 0.4, 0.7];
+    let mut k3 = [0.11, 0.52, 0.4, 0.3];
+    let mut k4 = [0.43, 0.15, 0.2, 0.7];
 
-    let lin = [&p1, &p2, &k1, &k2];
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];
     eval(&lin, 2, &mut mg_numerator, &mut c_numerator);
 }

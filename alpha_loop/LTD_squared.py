@@ -642,7 +642,7 @@ class SuperGraph(object):
             'momentum_sink' : self.cuts[-1][0]
         },]
 
-    def generate_yaml_input_file(self, file_path, model, alphaLoop_options):
+    def generate_yaml_input_file(self, file_path, model, alphaLoop_options, FORM_id=None):
         """ Generate the yaml input file for the rust_backend, fully specifying this squared topology."""
 
         local_DEBUG = False
@@ -715,6 +715,13 @@ class SuperGraph(object):
                 # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }
                 'call_signature' : self.call_signature,
             },
+            # If FORM numerators were generated too, then also include here the specification
+            # of the FORM call signature corresponding to this supergraph. When both MG and
+            # FORM numerators are specified, the rust backend will proceed to perform a systematic
+            # comparison of the corresponding two results at run time.
+            FORM_numerator={
+                'call_signature': {'id': FORM_id}
+            } if FORM_id is not None else {},
             subgraphs_info = self.get_subgraphs_info(),
             # The numerator specifications below are of no use in the
             # w context of using MG numerators.

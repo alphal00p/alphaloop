@@ -82,6 +82,10 @@ class FORMSuperGraph(object):
         ( -3, 3, 3 ): (1, 0, 2),
     }
 
+    _include_momentum_routing_in_rendering=False
+    _include_edge_name_in_rendering=False
+    _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
+
     def __init__(self, *args,
         call_identifier=None,
         name=None,
@@ -101,6 +105,100 @@ class FORMSuperGraph(object):
             self.name = str(self.call_identifier)
         else:
             self.name = name
+
+    def get_mathematica_rendering_code(self, model, FORM_id=None):
+        """ Generate mathematica expression for drawing this graph."""
+
+        repl_dict = {
+            'arrow_size'         : 0.015,
+            'edge_font_size'     : 10,
+            'vetex_font_size'    : 10,
+            'width'              : self._rendering_size[0],
+            'height'             : self._rendering_size[1]
+        }
+        graph_name='MG: %s'%self.name
+        if FORM_id is not None:
+            graph_name +=' | FORM: #%d'%FORM_id
+        repl_dict['graph_name'] = graph_name
+
+        # Special name rendering rules
+        def get_part_name(pdg):
+            quark_names = {1:"d",2:"u",3:"s",4:"c",5:"b",6:"t"}
+            if pdg==11:
+                return r"\!\(\*SuperscriptBox[\(e\), \(+\)]\)"
+            elif pdg==-11:
+                return r"\!\(\*SuperscriptBox[\(e\), \(-\)]\)"
+            elif pdg==22:
+                return r"\[Gamma]"
+            elif pdg in [-1,-2,-3,-4,-5,-6]:
+                return r"\!\(\*OverscriptBox[\(%s\), \(_\)]\)"%quark_names[abs(pdg)]
+            else:
+                return model.get_particle(pdg).get_name()
+
+        # Generate edge list
+        edge_template = """Labeled[Style[DirectedEdge["%(in_node)s","%(out_node)s"]%(edge_style)s,%(edge_color)s,Thickness[%(thickness)f]],"%(edge_label)s"]"""
+        all_edge_definitions = []
+        for edge_key, edge_data in self.edges.items():
+            edge_repl_dict = {}
+            edge_repl_dict['thickness'] = 0.002
+            edge_repl_dict['in_node'] = str(edge_key[0])
+            edge_repl_dict['out_node'] = str(edge_key[1])
+            if 'name' in edge_data and 'CUT' in str(edge_data['name']).upper():
+                edge_repl_dict['edge_style'] = ",Dashed"
+            else:
+                edge_repl_dict['edge_style'] = ""
+            if edge_data['PDG'] in [-1,-2,-3,-4,-5,1,2,3,4,5]:
+                color = "Cyan"
+            elif edge_data['PDG'] in [-6,6]:
+                color = "Blue"
+            elif edge_data['PDG'] in [21,]:
+                color = "Red"
+            elif edge_data['PDG'] in [82,]:
+                color = "Pink"
+            elif edge_data['PDG'] in [25,]:
+                color = "Green"
+            else:
+                color = "Gray"
+            edge_repl_dict['edge_color'] = color
+            edge_label_pieces = [get_part_name(edge_data['PDG']),]
+            if 'name' in edge_data and self._include_edge_name_in_rendering:
+                edge_label_pieces.append(edge_data['name'])
+            if self._include_momentum_routing_in_rendering:
+                edge_label_pieces.append(edge_data['momentum'])
+            edge_label = "|".join(edge_label_pieces)
+            edge_repl_dict['edge_label'] = edge_label
+            all_edge_definitions.append(edge_template%edge_repl_dict)
+
+        repl_dict['edge_lists'] = ',\n'.join(all_edge_definitions)
+        return \
+"""Labeled[GraphClass[{
+%(edge_lists)s
+},
+EdgeShapeFunction -> GraphElementData["Arrow", "ArrowSize" -> %(arrow_size)f],
+EdgeLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(edge_font_size)d, Bold],
+VertexLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(vetex_font_size)d, Bold],
+VertexSize -> Large,
+VertexLabels -> Placed[Automatic,Center],
+GraphLayout -> {"SpringEmbedding"},
+(*GraphLayout -> {"PackingLayout"->"ClosestPacking"},*)
+ImageSize -> {%(width)f, %(height)f}
+],"%(graph_name)s"]"""%repl_dict
+    
+    def draw(self, model, output_dir,FORM_id=None):
+        """ Outputs the mathematica code for rendering this FORMSuperGraph."""
+        
+        if FORM_id is not None:
+            file_name = 'Graph_%d'%FORM_id
+        else:
+            file_name = 'Graph_%s'%self.name
+
+        MM_code = "GraphClass = If[$VersionNumber > 12, EdgeTaggedGraph, Graph];\naGraph=%s;\n"%\
+                                        self.get_mathematica_rendering_code(model,FORM_id=FORM_id)
+        # Export to PDF in landscape format. One graph per page for now.
+        # The 1.2 multiplier accounts for margins
+        MM_code += 'Export["%s.pdf", GraphicsGrid[{{aGraph}}], ImageSize -> {%f, %f}];'%(
+                    file_name,1.25*self._rendering_size[0],1.25*self._rendering_size[1])
+        open(pjoin(output_dir,'%s.m'%file_name),'w').write(MM_code)
 
     def generate_numerator_form_input(self):
         # create the input file for FORM
@@ -272,7 +370,8 @@ class FORMSuperGraph(object):
                 edge_data['type'] = 'virtual'
             edge_data['PDG'] = edge_data['pdg']
             del edge_data['pdg']
-            del edge_data['name']
+            # Keep the name (used for rendering only)
+#            del edge_data['name']
 
         # assign node extra information
         for node_key, node_data in local_graph.nodes.items():
@@ -326,13 +425,17 @@ class FORMSuperGraph(object):
                 if particle.get('is_part'):
                     edge_data['indices'] = tuple([edge_data['indices'][1],edge_data['indices'][0]])
 
+        graph_name = 'P%(proc_id)dL%(left_diagram_id)dR%(right_diagram_id)d'%LTD2_super_graph.call_signature
         form_super_graph =  cls(
-            name = LTD2_super_graph.name,
+            name = graph_name,
             call_identifier=LTD2_super_graph.call_signature,
             edges = dict(local_graph.edges),
             nodes = dict(local_graph.nodes),
             overall_factor = overall_factor,
         )
+        #misc.sprint(graph_name)
+        #misc.sprint(pformat(dict(LTD2_super_graph.graph.edges.items())))
+        #misc.sprint(pformat(dict(local_graph.edges.items())))
 
         return form_super_graph
 
@@ -636,6 +739,7 @@ double complex evaluate(double complex lm[], int i) {{
         writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:
+                logger.info("Now compiling FORM-generated numerators...")
                 misc.compile(cwd=root_output_path,mode='cpp')
             except MadGraph5Error as e:
                 logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
@@ -678,6 +782,12 @@ class FORMProcessor(object):
         self.super_graphs_list = super_graphs_list
         self.model = model
         self.process_definition = process_definition
+
+    def draw(self, output_dir):
+        """ For now simply one Mathematica script per supergraph."""
+
+        for i_graph, super_graphs in enumerate(self.super_graphs_list):
+            super_graphs[0].draw(self.model, output_dir, FORM_id=i_graph)
 
     def generate_numerator_functions(self, root_output_path, output_format='c'):
         params = {

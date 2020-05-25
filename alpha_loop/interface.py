@@ -83,17 +83,16 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'differentiate_particle_from_antiparticle_in_graph_isomorphism' : False,
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
-            'FORM_processing_output_format' : None,
-            # Path to the FORM executable
-            'FORM_path' : FORM_processing.FORM_processing_options['FORM_path'],
+            'FORM_processing_output_format' : None
         }
+        self.FORM_options=FORM_processing.FORM_processing_options
         self.plugin_output_format_selected = None
 
         self.model_backup_copy = None
 
         super(alphaLoopInterface, self).__init__(*args, **opts)
 
-    def parse_set_alphaLoop_option(self, args):
+    def parse_set_option(self, args):
         """ Parsing arguments/options passed to the command set_alphaLoop option."""
 
         options = { }
@@ -128,10 +127,29 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         for opt in sorted(self.alphaLoop_options.keys()):
             logger.info('%-30s : %s'%(opt, str(self.alphaLoop_options[opt])))
 
+    def do_display_FORM_option(self, line):
+        """ Display FORM options"""
+        logger.info('%sGeneral FORM processing options%s'%(utils.bcolors.GREEN, utils.bcolors.ENDC))
+        logger.info('%s-----------------------%s'%(utils.bcolors.GREEN, utils.bcolors.ENDC))
+        for opt in sorted(self.FORM_options.keys()):
+            logger.info('%-30s : %s'%(opt, str(self.FORM_options[opt])))
+
+
+    def do_set_FROM_option(self, line):
+        """ Logic for setting alphaLoop options."""
+        args = self.split_arg(line)
+        args, options = self.parse_set_option(args)
+        key, value = args[:2]
+
+        if key in self.FORM_options:
+            self.FORM_options[key]=eval(value)
+        else:
+            raise alphaLoopInvalidCmd("Specified FORM option '%s' not reckognized."%key)
+
     def do_set_alphaLoop_option(self, line):
         """ Logic for setting alphaLoop options."""
         args = self.split_arg(line)
-        args, options = self.parse_set_alphaLoop_option(args)
+        args, options = self.parse_set_option(args)
         key, value = args[:2]
 
         if key == 'perturbative_orders':

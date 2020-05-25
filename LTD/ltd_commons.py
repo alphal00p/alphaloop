@@ -22,7 +22,7 @@ hyperparameters = HyperParameters({
         # Derive the overlap structure required for the fixed deformation in Rust.
         'derive_overlap_structure':  False,
         # can be additive, fixed, constant or none
-        'deformation_strategy'  :   'fixed',
+        'deformation_strategy'  :   'none',
         'topology'              :   'Box',
         # scale at which to use partial fractioning for the integrand
         'partial_fractioning_threshold' :  -1,
@@ -225,7 +225,7 @@ hyperparameters = HyperParameters({
     },
 
     'CrossSection'   :   {
-        'picobarns'                             :   False,
+        'picobarns'                             :   True,
         'inherit_deformation_for_uv_counterterm':   False,
         'do_rescaling'                          :   True,        
         'NormalisingFunction' : {
