@@ -387,10 +387,17 @@ impl JetClustering {
     pub fn cluster_fastjet(&mut self, event: &Event) {
         self.fastjet_jets_in.clear();
 
-        for (e, id) in event.kinematic_configuration.1.iter().zip_eq(&event.final_state_particle_ids) {
+        let mut len: c_int = 0;
+        for (e, id) in event
+            .kinematic_configuration
+            .1
+            .iter()
+            .zip_eq(&event.final_state_particle_ids)
+        {
             // filter for jet particles: u, d, c, s, d, g
             if id.abs() < 6 || *id == 21 {
                 self.fastjet_jets_in.extend(&[e.t, e.x, e.y, e.z]);
+                len += 1;
             }
         }
 
@@ -401,22 +408,23 @@ impl JetClustering {
         self.fastjet_jets_map.resize(self.fastjet_jets_in.len(), 0);
 
         let mut actual_len: c_int = 0;
-        let len: c_int = event.kinematic_configuration.1.len() as c_int;
         let palg = -1.0;
         let clustering_ptjet_min = 0.;
 
-        unsafe {
-            fjcore::fastjetppgenkt_(
-                self.fastjet_workspace,
-                &self.fastjet_jets_in[0] as *const c_double,
-                &len as *const c_int,
-                &self.d_r as *const c_double,
-                &clustering_ptjet_min as *const c_double,
-                &palg as *const c_double,
-                &mut self.fastjet_jets_out[0] as *mut c_double,
-                &mut actual_len as *mut c_int,
-                &mut self.fastjet_jets_map[0] as *mut c_int,
-            );
+        if len > 0 {
+            unsafe {
+                fjcore::fastjetppgenkt_(
+                    self.fastjet_workspace,
+                    &self.fastjet_jets_in[0] as *const c_double,
+                    &len as *const c_int,
+                    &self.d_r as *const c_double,
+                    &clustering_ptjet_min as *const c_double,
+                    &palg as *const c_double,
+                    &mut self.fastjet_jets_out[0] as *mut c_double,
+                    &mut actual_len as *mut c_int,
+                    &mut self.fastjet_jets_map[0] as *mut c_int,
+                );
+            }
         }
 
         self.ordered_pt.clear();
