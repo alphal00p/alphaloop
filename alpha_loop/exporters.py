@@ -347,6 +347,10 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Write the overall cross-section yaml file
         self.write_overall_LTD_squared_info()
 
+        # Compile the C_bindings
+        logger.info("Compiling C_bindings for MG numerators...")
+        misc.compile(arg=[],cwd=pjoin(self.dir_path, 'SubProcesses'), mode='fortran')
+
     #===========================================================================
     # process exporter fortran switch between group and not grouped
     #===========================================================================

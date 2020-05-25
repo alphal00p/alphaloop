@@ -137,11 +137,9 @@ fn eval(
         "time FORM for 1M={:#?}",
         std::time::Instant::now().duration_since(t)
     );
+//    let r = get_form_numerator(c_numerator, &form_input, 0) / 16.;
+//    println!("FORM={}", r);
 
-    let r = get_form_numerator(c_numerator, &form_input, 0) / 16.;
-    println!("FORM={}", r);
-
-    //
     let mut mg_input = vec![];
     for k in lin {
         for kk in *k {
@@ -149,10 +147,23 @@ fn eval(
             mg_input.push(0.);
         }
     }
-
+    println!("=========================");
+    let r = get_form_numerator(c_numerator, &form_input, 0) / 16.;
+    println!("FORM #0 ={}", r);
     let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 1);
-
-    println!("MG = {}", r1);
+    println!("MG #1,1 = {}", r1);
+    println!("r={}", r.im / r1.im);
+    let r = get_form_numerator(c_numerator, &form_input, 1) / 16.;
+    println!("FORM #1 ={}", r);
+    let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 2);
+    println!("MG #1,2= {}", r1);
+    println!("r={}", r.im / r1.im);
+//    let r = get_form_numerator(c_numerator, &form_input, 2) / 16.;
+//    println!("FORM #2 ={}", r);
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 2, 2);
+//    println!("MG #2,2= {}", r1);
+//    println!("r={}", r.im / r1.im);
+    println!("=========================");
 
     let t = std::time::Instant::now();
 
@@ -166,7 +177,7 @@ fn eval(
     println!("time MG={:#?}", std::time::Instant::now().duration_since(t));
     */
 
-    println!("r={}", r.im / r1.im);
+    //println!("r={}", r.im / r1.im);
 }
 
 fn main() {

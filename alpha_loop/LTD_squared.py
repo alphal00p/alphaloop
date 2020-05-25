@@ -362,8 +362,26 @@ class SuperGraph(object):
             loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]]
         )
         signatures = topo_generator.get_signature_map()
+        # In order to simplify the comparison with MG numerators, we want to make
+        # sure external momenta are always considered outgoing (i.e. from left to right).
+        # This implies that any "cut" momentum that has been flipped during the fermion-flow
+        # fixing procedure should have its "ortientation" also flipped in the kinematic signatures
+        # of the propagator.
+        # The last cut propagator should never be flipped
+        if self.cuts[-1][2]:
+            raise LTD2Error("The last cut propagator should never be flipped by the fermion-flow fixing procedure.")
+
+        #n_initial=len(self.external_incoming_momenta)
         for edge_key, edge_data in self.graph.edges.items():
-            edge_data['momentum'] = signatures[edge_data['name']]
+            this_signature=[
+                list(signatures[edge_data['name']][0]),
+                list(signatures[edge_data['name']][1]),
+            ]
+            for i_out, sig in enumerate(this_signature[0]):
+                if self.cuts[i_out][2]:
+                    this_signature[0][i_out] = -sig
+
+            edge_data['momentum'] = (tuple(this_signature[0]),tuple(this_signature[1]))
 
         self.n_loops = topo_generator.n_loops
         self.is_momentum_routing_set = True
@@ -438,7 +456,10 @@ class SuperGraph(object):
         self.external_incoming_momenta = tuple(external_incoming_momenta)
 
         edge_keys_visited = []
-        for leg_number, cut_key in list(self.cuts):
+        # Read in cuts from last to first so as to make sure that the last cut propagator
+        # (which will end up being a linear combinations of the others) will never be flipped
+        # by the fermion flow fixing procedure.
+        for leg_number, cut_key in reversed(list(self.cuts)):
             if cut_key in edge_keys_visited:
                 continue
             this_edge_data = self.graph.edges[cut_key]
@@ -454,6 +475,8 @@ class SuperGraph(object):
         new_cuts = []
         for cut in self.cuts:
             if cut[1] not in self.graph.edges:
+                if (cut[1][1],cut[1][0],cut[1][2]) not in self.graph.edges:
+                    raise LTD2Error("Flipped cut edge not found in graph.")
                 # The last entry indicate if this cut direction has been flipped
                 new_cuts.append( (cut[0],(cut[1][1],cut[1][0],cut[1][2]),True) )
             else:

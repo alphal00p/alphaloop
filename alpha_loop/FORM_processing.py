@@ -585,6 +585,7 @@ class FORMSuperGraphList(list):
         # add all numerators in one file and write the headers
         numerator_code = """#include <math.h>
 #include <complex.h>
+#include <signal.h>
 
 {}
 """.format('\n'.join('const double {} = {};'.format(k, v) for k, v in params.items()))
@@ -623,12 +624,15 @@ class FORMSuperGraphList(list):
 
         numerator_code += \
 """
-double evaluate(double complex lm[], int i) {{
+double complex evaluate(double complex lm[], int i) {{
     switch(i) {{
 {}
     }}
 }}
-""".format('\n'.join('\t\tcase {}: return evaluate_{}(lm);'.format(i, i) for i in range(len(self))))
+""".format('\n'.join(
+    ['\t\tcase {}: return evaluate_{}(lm);'.format(i, i) for i in range(len(self))]+
+    ['\t\tdefault: raise(SIGABRT);']
+    ))
         writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:

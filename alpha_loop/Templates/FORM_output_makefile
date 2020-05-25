@@ -10,7 +10,7 @@ LIBRARY=libFORM_numerators.so
 all: $(LIBBPATH)/$(LIBRARY)
 
 $(LIBBPATH)/$(LIBRARY): $(SOURCE)
-	$(GCC) --shared -O3 -lm -o $@ $^
+	$(GCC) --shared -O3 -fcx-fortran-rules -fcx-limited-range -lm -o $@ $^
 
 clean:
 	rm -f $(LIBBPATH)/$(LIBRARY)
