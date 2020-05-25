@@ -85,6 +85,7 @@ class FORMSuperGraph(object):
     _include_momentum_routing_in_rendering=False
     _include_edge_name_in_rendering=False
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
+    _graph_layout_strategy = '{"SpringEmbedding"}' # '{"PackingLayout"->"ClosestPacking"}' gives interesting results too.
 
     def __init__(self, *args,
         call_identifier=None,
@@ -114,7 +115,8 @@ class FORMSuperGraph(object):
             'edge_font_size'     : 10,
             'vetex_font_size'    : 10,
             'width'              : self._rendering_size[0],
-            'height'             : self._rendering_size[1]
+            'height'             : self._rendering_size[1],
+            'graph_layout_strategy' : self._graph_layout_strategy
         }
         graph_name='MG: %s'%self.name
         if FORM_id is not None:
@@ -179,8 +181,7 @@ EdgeLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(e
 VertexLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(vetex_font_size)d, Bold],
 VertexSize -> Large,
 VertexLabels -> Placed[Automatic,Center],
-GraphLayout -> {"SpringEmbedding"},
-(*GraphLayout -> {"PackingLayout"->"ClosestPacking"},*)
+GraphLayout -> %(graph_layout_strategy)s,
 ImageSize -> {%(width)f, %(height)f}
 ],"%(graph_name)s"]"""%repl_dict
     
