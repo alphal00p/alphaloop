@@ -840,51 +840,35 @@ class TopologyGenerator(object):
 
                 loop_line_vertex_map[tuple(signature)] += [(v1, v2)]
 
-        # fuse vertices
-        fuse_map = {}
-        for sig, edges in loop_line_vertex_map.items():
-            # fuse vertices with repeating edges
-            vertlist = [v for vs in edges for v in vs]
-
-            # a triple-vertex is not possible in a single loop line unless it's a tree
-            assert(len(sig) == 0 or len([1 for v in vertlist if vertlist.count(v) > 2]) == 0)
-            double_verts = set(v for v in vertlist if vertlist.count(v) == 2)
-
-            for v in double_verts:
-                # keep one edge in the one-loop case
-                if len(edges) == 1:
-                    break
-                other = list(sorted((1, e[1]) if e[0] == v else (0, e[0]) for e in edges if v in e))
-                if len(sig) > 0 and other[0][0] == other[1][0]:
-                    raise AssertionError("Could not fuse vertices since the orientation is wrong")
-                else:
-                    # if there is no loop momentum dependence, the duplicate vertex may appear
-                    # as a-b,c-b. We will fuse this to a-c.
-                    newedge = (other[0][1], other[1][1])
-
-                d = [e for e in edges if v in e]
-                edges[edges.index(d[0])] = newedge
-                del edges[edges.index(d[1])]
-
-            # if we have multiple sets left, they are disconnected parts in the graph
-            # we shrink the vertices of all but the first group, that will be the representative
-            for edge in edges[1:]:
-                assert(len(sig) == 0 or edge[0] not in fuse_map)
-                fuse_map[edge[0]] = edge[1]
-
-            loop_line_vertex_map[sig] = (edges[0][0], edges[0][1])
-
         # vertices that are fused may again be fused with another vertex
-        def multifuse(v):
+        def multifuse(fuse_map, v):
             if v in fuse_map:
-                return multifuse(fuse_map[v])
+                return multifuse(fuse_map, fuse_map[v])
             else:
                 return v
 
-        # now fuse the vertices in the map
+        # shrink all edges expect for the first per loop line
         for sig, edges in loop_line_vertex_map.items():
-            loop_line_vertex_map[sig] = tuple(multifuse(v) for v in edges)
+            # shrink all edges for signature 0 loop lines
+            # this will fuse disjoint graphs for non-1PI graphs
+            shrink_start = 0 if all(s == 0 for s in sig) else 1
+            fuse_map = {e[0]: e[1] for e in edges[shrink_start:]}
+            loop_line_vertex_map[sig] = [(edges[0][0], edges[0][1])]
+            # duplicate keys are not allowed, unless the signature is 0
+            # a duplicate key signals an orientation issue
+            assert(all(s == 0 for s in sig) or len(fuse_map) == len(edges) - 1)
+            
+            # apply the fuse map to all loop lines
+            for edges2 in loop_line_vertex_map.values():
+                for i, edge in enumerate(edges2):
+                    if edge[0] in fuse_map:
+                        edges2[i] = (multifuse(fuse_map, edge[0]), edge[1])
+                    if edge[1] in fuse_map:
+                        edges2[i] = (edges2[i][0], multifuse(fuse_map, edge[1]))
 
+        for sig, edges in loop_line_vertex_map.items():
+            loop_line_vertex_map[sig] = edges[0]
+        
         loop_line_list = list(loop_line_map.items())
         ll = [LoopLine(
             start_node=loop_line_vertex_map[signature][0],

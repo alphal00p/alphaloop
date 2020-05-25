@@ -612,8 +612,8 @@ class FORMSuperGraphList(list):
                 if max_intermediate_variable > 0:
                     graph.is_zero = False
 
-                numerator_code += '\ndouble complex evaluate_{}(double complex lm[]) {{\n\tdouble complex {};\n'.format(i,
-                    ','.join('Z' + str(i) + '_' for i in range(1,max_intermediate_variable + 1))
+                numerator_code += '\ndouble complex evaluate_{}(double complex lm[]) {{\n\t{}\n'.format(i,
+                    'double complex {};'.format(','.join('Z' + str(i) + '_' for i in range(1, max_intermediate_variable + 1))) if max_intermediate_variable > 0 else ''
                 ) + num + '}\n'
 
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
@@ -727,7 +727,7 @@ if __name__ == "__main__":
     computed_model.set_parameters_and_couplings(args.restrict_card)        
     process_definition=cli.extract_process(args.process, proc_number=0)
 
-    super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source, first=10)
+    super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source)
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
     form_processor.generate_numerator_functions('.', output_format='c')
     form_processor.generate_squared_topology_files('.', 2, final_state_particle_ids=(6, 6, 25))
