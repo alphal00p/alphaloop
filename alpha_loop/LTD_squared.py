@@ -361,6 +361,7 @@ class SuperGraph(object):
         # Make sure to place external eges first
         topo_edges.sort(key=lambda el: el[0] if el[0].startswith('q') else 'z%s'%el[0])
         topo_generator = ltd_utils.TopologyGenerator(topo_edges)
+
         #misc.sprint(self.name,[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]])
         #misc.sprint(pformat(self.get_subgraphs_info()))
         #misc.sprint(pformat(dict(self.graph.edges)))
@@ -404,7 +405,7 @@ class SuperGraph(object):
         #misc.sprint(self.name,[(self.graph.edges[c[1]]['name'],self.graph.edges[c[1]]['momentum'],c[2]) for c in self.cuts[:-1]])
         # If the LMB selected by MG was invalid, then overwrite here self.cuts and adjust edge names accordingly
         loop_momenta_basis_edge_names = [topo_edges[edge_position][0] for edge_position in topo_generator.loop_momenta]
-        new_cuts = [None,]*(len(self.cuts)-1)
+        new_cuts = [None,]*topo_generator.n_loops
         for edge_key, edge_data in self.graph.edges.items():
             try:
                 lmb_index = loop_momenta_basis_edge_names.index(edge_data['name'])
@@ -439,6 +440,7 @@ class SuperGraph(object):
 
         if not self.was_MG_LMB_valid:
             if any(new_cut is None for new_cut in new_cuts):
+                #misc.sprint(self.cuts)
                 #misc.sprint(new_cuts)
                 #misc.sprint([(edge_data['name'],edge_data['momentum']) for edge_key, edge_data in self.graph.edges.items()])
                 #misc.sprint([(edge_data['name'],edge_data['momentum']) for edge_key, edge_data in self.graph.edges.items() if edge_data['name'] in loop_momenta_basis_edge_names])
@@ -446,8 +448,8 @@ class SuperGraph(object):
                         new_cuts, loop_momenta_basis_edge_names))
             self.cuts = tuple(new_cuts)
             
-        self.n_loops = topo_generator.n_loops
         self.is_momentum_routing_set = True
+        self.n_loops = topo_generator.n_loops
 
     def sew_graphs(self, diag_left_of_cut, diag_right_of_cut):
         """ Combine two diagrams into one graph that corresponds to the super graph."""
