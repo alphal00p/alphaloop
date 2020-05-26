@@ -15,8 +15,8 @@ use num_traits::{NumCast, One, ToPrimitive, Zero};
 use rand::prelude::*;
 use vector::LorentzVector;
 
-type TestFloat = f128::f128;
-//type TestFloat = f64;
+//type TestFloat = f128::f128;
+type TestFloat = f64;
 
 fn cross_check<'a>(
     topo: &mut Topology,
@@ -100,7 +100,6 @@ fn cross_check<'a>(
     }
 
     let result_pf2 = topo.partial_fractioning_multiloops.evaluate(
-        &topo.numerator,
         &topo.loop_lines,
         &topo.propagator_id_to_ll_id,
         cache,

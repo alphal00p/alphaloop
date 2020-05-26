@@ -82,7 +82,6 @@ fn cross_check(
     }
 
     let result_pf2 = topo.partial_fractioning_multiloops.evaluate(
-        &topo.numerator,
         &topo.loop_lines,
         &topo.propagator_id_to_ll_id,
         cache,

@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use mpolynomial::MPolynomial;
-use num::traits::{One, Zero};
+use num::traits::Zero;
 use num::Complex;
 use topologies::{LTDCache, LTDNumerator, LoopLine};
 use FloatLike;
@@ -24,6 +24,7 @@ pub struct PFCache<T: FloatLike> {
     numerator_size: usize,
     numerator_index_map: Vec<usize>,
     numerator_mpoly: MPolynomial<Complex<T>>,
+    num_subs: NumSubtitutionCache<T>,
     //pub coeff_powers: Vec<usize>,
 }
 
@@ -43,6 +44,7 @@ impl<T: FloatLike> PFCache<T> {
                 numerator_size: 0,
                 numerator_index_map: vec![],
                 numerator_mpoly: MPolynomial::new(n_var),
+                num_subs: NumSubtitutionCache::new(n_var),
                 //coeff_powers: vec![0; MAX_LOOP]
             }
         } else {
@@ -60,7 +62,8 @@ impl<T: FloatLike> PFCache<T> {
                 numerator_size: 0,
                 numerator_index_map: vec![0; n_props_deg],
                 numerator_mpoly: MPolynomial::new(n_var),
-                //coeff_powers: vec![0; MAX_LOOP]
+                num_subs: NumSubtitutionCache::new(n_var),
+                //coeff_powers: vec![1; MAX_LOOP]
             }
         }
     }
@@ -439,6 +442,29 @@ impl PartialFractioning {
 /* MULTI LOOPS  */
 
 #[derive(Default, Debug, Clone)]
+pub struct NumSubtitutionCache<T: FloatLike> {
+    // evaluate_numerator2
+    pub factor: MPolynomial<Complex<T>>,
+    pub factor_pow: Vec<u8>,
+    // evaluate_numerator2
+    pub coeffs: Vec<Complex<T>>,
+    pub ids: Vec<usize>,
+    pub n_coeff: usize,
+}
+
+impl<T: FloatLike> NumSubtitutionCache<T> {
+    pub fn new(n_var: usize) -> NumSubtitutionCache<T> {
+        NumSubtitutionCache {
+            factor: MPolynomial::new(n_var),
+            factor_pow: vec![0; n_var],
+            coeffs: vec![Complex::default(); MAX_LOOP + 1],
+            ids: vec![0; MAX_LOOP + 1],
+            n_coeff: 1,
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct PartialFractioningDen {
     pub indices: Vec<u8>,
     pub energies_and_shifts: Vec<(f64, f64)>,
@@ -515,6 +541,21 @@ impl PartialFractioningBlock {
         map_id: &[(usize, usize)],
         ltd_cache: &mut LTDCache<T>,
     ) -> Complex<T> {
+        // TODO: check if the replacement rule involves loop momenta to have
+        //       a more accurate filter
+        let mut check_rank = 0;
+        for (r, num) in ltd_cache
+            .reduced_coefficient_lb_mpoly
+            .max_rank
+            .iter()
+            .zip(self.numerator.iter())
+        {
+            check_rank += r;
+            if check_rank as usize + 1 < num.len() {
+                return Complex::default();
+            }
+        }
+
         // Update the PFCache polynomial
         ltd_cache.pf_cache.numerator_mpoly.clear();
         // Clean
@@ -531,11 +572,11 @@ impl PartialFractioningBlock {
 
         // Start evaluation absorbing one cut at the time
         // "num" contains the set of instruction on how the evaluate the numerator function
-        let mut factor = MPolynomial::new(ltd_cache.pf_cache.numerator_mpoly.n_var);
-        let mut x = MPolynomial::new(ltd_cache.pf_cache.numerator_mpoly.n_var);
-        let mut x_pow = vec![0; ltd_cache.pf_cache.numerator_mpoly.n_var];
-        let mut f_pow = vec![0; ltd_cache.pf_cache.numerator_mpoly.n_var];
-        //let mem = &mut ltd_cache.pf_cache.numerator_mpoly;
+        // here we extract the coefficient fucntion in front of the polynomial in the
+        // variable x.
+        //         poly = c0 + c1*x + c2*x^2 + ...
+        // where the 'ci' are functions of the remaining loop variables
+        let mut x_pow: u8;
         for (residue_n, num) in self.numerator.iter().enumerate() {
             ltd_cache.pf_cache.numerator_mpoly.to_cache();
             ltd_cache.pf_cache.numerator_mpoly.scale(Complex::default());
@@ -554,47 +595,49 @@ impl PartialFractioningBlock {
             let mut pos = 0;
 
             while pos < ltd_cache.pf_cache.numerator_mpoly.cache.size {
-                x_pow[residue_n] = ltd_cache.pf_cache.numerator_mpoly.cache.powers[pos][residue_n];
+                // Select the power of x
+                x_pow = ltd_cache.pf_cache.numerator_mpoly.cache.powers[pos][residue_n];
                 if ltd_cache.pf_cache.numerator_mpoly.cache.powers[pos][residue_n] as usize + 1
                     < num.len()
                 {
                     pos += 1;
                     continue;
                 }
-                factor.clear();
-                x.clear();
-                x.add(&x_pow, Complex::<T>::one());
-                // Collect factor
-                while ltd_cache.pf_cache.numerator_mpoly.cache.powers[pos][residue_n]
-                    == x_pow[residue_n]
-                {
+                // Found valid power of x -> clear the factor
+                ltd_cache.pf_cache.num_subs.factor.clear();
+                // Fill the factor with all the components
+                while ltd_cache.pf_cache.numerator_mpoly.cache.powers[pos][residue_n] == x_pow {
                     // Inizialise the factor powers for the new addition
                     // by removing the dependece on the cut momentum energy
                     for (p1, p2) in ltd_cache.pf_cache.numerator_mpoly.cache.powers[pos]
                         .iter()
-                        .zip(f_pow.iter_mut())
+                        .zip(ltd_cache.pf_cache.num_subs.factor_pow.iter_mut())
                     {
                         *p2 = *p1;
                     }
-                    f_pow[residue_n] = 0;
+                    // Remove x
+                    ltd_cache.pf_cache.num_subs.factor_pow[residue_n] = 0;
 
-                    factor.add(&f_pow, ltd_cache.pf_cache.numerator_mpoly.cache.coeffs[pos]);
+                    ltd_cache.pf_cache.num_subs.factor.add(
+                        &ltd_cache.pf_cache.num_subs.factor_pow,
+                        ltd_cache.pf_cache.numerator_mpoly.cache.coeffs[pos],
+                    );
                     //println!("->[update1] factor: {}", factor);
                     pos += 1;
                     if pos == ltd_cache.pf_cache.numerator_mpoly.cache.size {
                         break;
                     }
                 }
-                factor.drop_zeros();
-                //println!("[end] factor: {}", factor);
-                if factor.coeffs.len() > 0 && factor.coeffs[0] != Complex::zero() {
+                ltd_cache.pf_cache.num_subs.factor.drop_zeros();
+                //println!("[end] factor: {}", ltd_cache.pf_cache.num_subs.factor);
+                if ltd_cache.pf_cache.num_subs.factor.coeffs.len() > 0
+                    && ltd_cache.pf_cache.num_subs.factor.coeffs[0] != Complex::zero()
+                {
                     ltd_cache.pf_cache.numerator_mpoly +=
                         &PartialFractioningBlock::evaluate_numerator2(
-                            //ltd_numerator.max_rank + 1 - pf_numerator.len(),
                             num,
-                            //(ltd_cache.pf_cache.numerator_mpoly.max_rank[residue_n] as usize) + 1
-                            (x_pow[residue_n] as usize) + 1 - num.len(),
-                            &factor,
+                            (x_pow as usize) + 1 - num.len(),
+                            &ltd_cache.pf_cache.num_subs.factor,
                             0,
                             loop_lines,
                             map_id,
@@ -605,7 +648,6 @@ impl PartialFractioningBlock {
                 }
             }
 
-            x_pow[residue_n] = 0;
             ltd_cache.pf_cache.numerator_mpoly.drop_zeros();
             //println!("updated numerator {}", ltd_cache.pf_cache.numerator_mpoly);
         }
@@ -635,15 +677,8 @@ impl PartialFractioningBlock {
         let mut coeffs = [Complex::default(); MAX_LOOP + 1];
         let mut x0 = Complex::default();
         let mut ids = [0; MAX_LOOP + 1];
+        let mut n_coeff = 1;
 
-        // Container to apply the substitution rule coming from the cut
-        //let mut f_num = ltd_cache.pf_cache.numerator_mpoly.clone();
-        let mut f_num = MPolynomial::new(ltd_cache.pf_cache.numerator_mpoly.n_var);
-        let mut pows = [0; MAX_LOOP];
-        pows[residue_n] += 1;
-        f_num.add(&pows[..f_num.n_var], Complex::<T>::one());
-        pows[residue_n] -= 1;
-        //println!("\t[init] f_num {}", f_num);
         // Read instructions from PartialFractioningNum: Constant
         for (idx, (v_e, v_s)) in pf_numerator[index]
             .indices
@@ -660,86 +695,139 @@ impl PartialFractioningBlock {
         // Read instructions from PartialFractioningNum: Loop dependent
         ids[0] = 0;
         coeffs[0] = x0;
-        //TODO: consider only non-zero entries
         for (i, l) in pf_numerator[index].lambdas.iter().enumerate() {
-            ids[i + 1] = i + 1;
-            coeffs[i + 1] = Complex::new(T::from_f64(*l).unwrap(), T::zero());
+            if *l != 0.0 {
+                ids[n_coeff] = i + 1;
+                coeffs[n_coeff] = Complex::new(T::from_f64(*l).unwrap(), T::zero());
+                n_coeff += 1;
+            }
         }
-        // Evaluate the loop momentum with the corresponding variable
-        f_num.replace(
-            residue_n + 1,
-            &coeffs[..ltd_cache.pf_cache.numerator_mpoly.n_var + 1],
-            &ids[..ltd_cache.pf_cache.numerator_mpoly.n_var + 1],
-        );
-        //println!("\t[lim]  f_num {}", f_num);
+
         // Check if we are at the last iteration
         if pf_numerator.len() == index + 1 {
-            let n = rank;
-            {
-                let mut tmp = f_num.clone();
-                tmp.pown3(n - offset);
-                tmp.mult(&factor);
-                res += &tmp;
+            if rank - offset == 0 {
+                res += &factor;
+            } else {
+                // If constant there is no need to call linear_pown
+                if n_coeff == 1 {
+                    res += factor;
+                    res *= coeffs[0].powi((rank - offset) as i32);
+                } else {
+                    res += &MPolynomial::linear_pown(
+                        &coeffs[..n_coeff],
+                        &ids[..n_coeff],
+                        ltd_cache.pf_cache.numerator_mpoly.n_var,
+                        rank - offset,
+                    );
+                    res *= factor;
+                }
             }
-            return res;
-        }
+            res
+        } else {
+            // If constant there is no need to call linear_pown
+            if n_coeff == 1 {
+                // Multiply the remaining energies
+                for n in offset..=rank {
+                    res -= &PartialFractioningBlock::evaluate_numerator2(
+                        pf_numerator,
+                        rank + 1,
+                        factor,
+                        n + 1,
+                        loop_lines,
+                        map_id,
+                        residue_n,
+                        index + 1,
+                        ltd_cache,
+                    )
+                    .scale(coeffs[0].powi((n - offset) as i32));
+                }
+                res
+            } else {
+                let mut f_num_pow = MPolynomial::linear_pown(
+                    &coeffs[..n_coeff],
+                    &ids[..n_coeff],
+                    ltd_cache.pf_cache.numerator_mpoly.n_var,
+                    0,
+                );
+                let f_num = MPolynomial::linear_pown(
+                    &coeffs[..n_coeff],
+                    &ids[..n_coeff],
+                    ltd_cache.pf_cache.numerator_mpoly.n_var,
+                    1,
+                );
 
-        // Multiply the remaining energies
-        for n in offset..=rank {
-            let mut tmp = f_num.clone();
-            tmp.pown(n - offset);
-            tmp.mult(&PartialFractioningBlock::evaluate_numerator2(
-                pf_numerator,
-                rank + 1,
-                factor,
-                n + 1,
-                loop_lines,
-                map_id,
-                residue_n,
-                index + 1,
-                ltd_cache,
-            ));
-            res -= &tmp;
-        }
+                // Multiply the remaining energies
+                for n in offset..=rank {
+                    if n - offset == 0 {
+                        res -= &PartialFractioningBlock::evaluate_numerator2(
+                            pf_numerator,
+                            rank + 1,
+                            factor,
+                            n + 1,
+                            loop_lines,
+                            map_id,
+                            residue_n,
+                            index + 1,
+                            ltd_cache,
+                        );
+                    } else {
+                        f_num_pow.mult(&f_num);
+                        res -= PartialFractioningBlock::evaluate_numerator2(
+                            pf_numerator,
+                            rank + 1,
+                            factor,
+                            n + 1,
+                            loop_lines,
+                            map_id,
+                            residue_n,
+                            index + 1,
+                            ltd_cache,
+                        )
+                        .mult(&f_num_pow);
+                        //println!("{}", f_num);
+                        //res -= &f_num_pow;
+                    }
+                }
 
-        return res;
+                res
+            }
+        }
     }
 }
-impl PartialFractioningBlock {
-    pub fn evaluate<T: FloatLike>(
-        &self,
-        numerator: &LTDNumerator,
-        loop_lines: &[LoopLine],
-        min_index: usize,
-        map_id: &[(usize, usize)],
-        ltd_cache: &LTDCache<T>,
-    ) -> Complex<T> {
-        //println!("===============================================");
-        if self.denominators.len() == 0 {
-            return Complex::default();
-        }
-        let den_inv = self.evaluate_dens(loop_lines, min_index, map_id, ltd_cache);
-        //println!("den: {}", den);
-        //let num = PartialFractioningBlock::evaluate_numerator()
-
-        return den_inv * Into::<T>::into(self.factor); // * num;
-    }
-
-    pub fn evaluate_dens<T: FloatLike>(
-        &self,
-        loop_lines: &[LoopLine],
-        min_index: usize,
-        map_id: &[(usize, usize)],
-        ltd_cache: &LTDCache<T>,
-    ) -> Complex<T> {
-        let mut res = Complex::new(T::one(), T::zero());
-        for den in self.denominators.iter() {
-            //println!("  :: sub [{}]", n);
-            res *= den.evaluate(loop_lines, min_index, map_id, ltd_cache);
-        }
-        return res;
-    }
-}
+//impl PartialFractioningBlock {
+//    pub fn evaluate<T: FloatLike>(
+//        &self,
+//        loop_lines: &[LoopLine],
+//        min_index: usize,
+//        map_id: &[(usize, usize)],
+//        ltd_cache: &LTDCache<T>,
+//    ) -> Complex<T> {
+//        //println!("===============================================");
+//        if self.denominators.len() == 0 {
+//            return Complex::default();
+//        }
+//        let den_inv = self.evaluate_dens(loop_lines, min_index, map_id, ltd_cache);
+//        //println!("den: {}", den);
+//        //let num = PartialFractioningBlock::evaluate_numerator()
+//
+//        return den_inv * Into::<T>::into(self.factor); // * num;
+//    }
+//
+//    pub fn evaluate_dens<T: FloatLike>(
+//        &self,
+//        loop_lines: &[LoopLine],
+//        min_index: usize,
+//        map_id: &[(usize, usize)],
+//        ltd_cache: &LTDCache<T>,
+//    ) -> Complex<T> {
+//        let mut res = Complex::new(T::one(), T::zero());
+//        for den in self.denominators.iter() {
+//            //println!("  :: sub [{}]", n);
+//            res *= den.evaluate(loop_lines, min_index, map_id, ltd_cache);
+//        }
+//        return res;
+//    }
+//}
 
 impl PartialFractioningMultiLoops {
     pub fn new(loop_lines: &Vec<LoopLine>, numerator_rank: usize) -> PartialFractioningMultiLoops {
@@ -1035,12 +1123,10 @@ impl PartialFractioningMultiLoops {
     ///  - complex_ellipsoids
     pub fn evaluate<T: FloatLike>(
         &self,
-        ltd_numerator: &LTDNumerator,
         loop_lines: &[LoopLine],
         map_id: &[(usize, usize)],
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
-        //        println!("NL map: {:?}", cache.pf_cache.numerator_index_map);
         // WARNING: make sure that numerator.evaluate_reduced_in_lb has been called before this function
         // is not done here to avoid multiple calls in the case of amplitudes
         let mut result: na::Complex<T> = Complex::default();
@@ -1061,150 +1147,21 @@ impl PartialFractioningMultiLoops {
                     .powi(cache.propagator_powers[p.id] as i32);
             }
         }
-
-        //let mut skip: bool;
+        assert_eq!(min_index, 0, "min_index must reach zero!");
 
         for block in self.partial_fractioning_element.iter() {
-            //    println!("============================================================");
-            //    println!("=                                                          =");
-            //    println!("=                           BLOCK                          =");
-            //    println!("=                                                          =");
-            //    println!("============================================================");
-            //    for den in block.denominators.iter() {
-            //        println!(
-            //            " | - {:?}: {:?}",
-            //            &den.indices[..den.size],
-            //            &den.energies_and_shifts[..den.size]
-            //        );
-            //    }
-            //    for num in block.numerator.iter() {
-            //        println!(" |");
-            //        for n in num.iter() {
-            //            println!(
-            //                " |   {:?} {:?} {:?}",
-            //                n.indices, n.lambdas, n.energies_and_shifts
-            //            );
-            //        }
-            //    }
-            // check if the all the ellipsoids exists otherwise move to the next entry
-            let mut block_size = 0;
-            //skip = false;
             let mut block_res = Complex::new(Into::<T>::into(block.factor), T::zero());
-
-            //    //new_block.dens.clear();
-            //    for (den_n, den) in block.denominators.iter().enumerate() {
-            //        // clear the short denominator
-            //        cache.pf_cache.den_short.size = 0;
-            //        // Check if we need to evaluate it
-            //        cache.pf_cache.block_fiter[den_n] = true;
-            //        for (idx, (v_e, v_s)) in den.indices[..den.size]
-            //            .iter()
-            //            .zip(den.energies_and_shifts[..den.size].iter())
-            //        {
-            //            if (*idx as usize) >= min_index {
-            //                continue;
-            //            }
-            //            // TODO: decide if we need to include abs()
-            //            // If we have fewer propagators then the one computed before we
-            //            // we can still recycle the original partial fractioning by discarding
-            //            // all the superfluous denominators
-            //            if *v_e > 0.0 && *v_s < 0.0 {
-            //                skip = true;
-            //                break;
-            //            } else if *v_e > 0.0 && *v_s > 0.0 {
-            //                cache.pf_cache.block_fiter[den_n] = false;
-            //                break;
-            //            }
-            //        }
-            //        if skip {
-            //            break;
-            //        }
-            //        if cache.pf_cache.block_fiter[den_n] {
-            //            block_size += 1;
-            //        }
-            //    }
-            // COMING-SOON: numerator
-            min_index = 0;
-            for store in cache.pf_cache.block_fiter[..n_props_deg].iter_mut() {
-                *store = true;
+            for den in block.denominators.iter() {
+                block_res *= den.evaluate(loop_lines, min_index, map_id, cache);
             }
-            //            for (store, den) in cache.pf_cache.block_fiter[..n_props_deg]
-            //                .iter()
-            //                .zip(block.denominators.iter())
-            //            {
-            //                if *store {
-            //                    println!(
-            //                        "STORE :> {:?}: {:?}",
-            //                        &den.indices[..den.size],
-            //                        &den.energies_and_shifts[..den.size]
-            //                    );
-            //                } else {
-            //                    println!(
-            //                        "DROP  :> {:?}: {:?}",
-            //                        &den.indices[..den.size],
-            //                        &den.energies_and_shifts[..den.size]
-            //                    );
-            //                }
-            //            }
-            //            println!("");
-            if false {
-                //skip || block_size + min_index != n_props_deg - self.n_loops {
-                //if skip || block_size + min_index != n_props_deg - self.n_loops {
-                block_res *= block.evaluate_numerator(loop_lines, map_id, cache);
-                //println!("SKIP");
-                //result += block_res;
-                continue;
-            } else {
-                for (store, den) in cache.pf_cache.block_fiter[..n_props_deg]
-                    .iter()
-                    .zip(block.denominators.iter())
-                {
-                    if *store {
-                        //println!(
-                        //    "den: {}",
-                        //    den.evaluate(loop_lines, min_index, map_id, cache).inv()
-                        //);
-                        block_res *= den.evaluate(loop_lines, min_index, map_id, cache);
-                    }
-                }
-                //DROP when contracting numerators
-                //if block.denominators.len()< n_props_deg - self.n_loops{
-                //    continue;
-                //}
-                let num = block.evaluate_numerator(loop_lines, map_id, cache);
-                //println!("block result: 1/den * num : {} * {}", block_res, num);
-                //block_res *= block.evaluate_numerator(loop_lines, map_id, cache);
-                block_res *= num;
-                //                print!("USE:: [");
-                //                for den in block.dens.iter() {
-                //                    let d1 = den.energies_and_shifts[0];
-                //                    let e1 = den.indices[0];
-                //                    let e2 = den.indices[1];
-                //                    if d1.1 < 0.0 {
-                //                        print!("({},{}), ", e1, e2);
-                //                    } else {
-                //                        print!("({},{}), ", e2, e1);
-                //                    }
-                //                }
-                //                print!("] -> [");
-                //                for den in block.dens.iter() {
-                //                    let d1 = den.energies_and_shifts[0];
-                //                    let e1 = cache.pf_cache.numerator_index_map[den.indices[0] as usize];
-                //                    let e2 = cache.pf_cache.numerator_index_map[den.indices[1] as usize];
-                //                    if d1.1 < 0.0 {
-                //                        print!("({},{}), ", e1, e2);
-                //                    } else {
-                //                        print!("({},{}), ", e2, e1);
-                //                    }
-                //                }
-                //                println!("]");
-                //
-                //                println!("\t den: {:?}", block_res);
-                result += block_res;
-                //println!("    |\\ ");
-                //println!("::::: > N-LOOP RESULT: {}", block_res);
-                //println!("    |/ ");
-            }
+            let num = block.evaluate_numerator(loop_lines, map_id, cache);
+            //println!("block result: 1/den * num : {} * {}", block_res, num);
+            //block_res *= block.evaluate_numerator(loop_lines, map_id, cache);
+            block_res *= num;
+            result += block_res;
+            //println!("    |\\ ");
+            //println!("::::: > N-LOOP RESULT: {}", block_res);
+            //println!("    |/ ");
         }
         return result / norm;
     }
