@@ -436,14 +436,15 @@ impl PolynomialReconstruction {
     }
 }
 
-        
 pub mod test_utils {
     extern crate eyre;
 
     use color_eyre::Help;
     use num::Complex;
-    use num_traits::{Float,   ToPrimitive};
-    use topologies::{ Topology};
+    use num_traits::cast::FromPrimitive;
+    use num_traits::Float;
+    use std::fmt::{Debug, LowerExp};
+    use topologies::Topology;
     use {DeformationStrategy, Settings};
 
     pub fn get_test_topology(topology_file: &str, topology_name: &str) -> Topology {
@@ -463,20 +464,34 @@ pub mod test_utils {
             .unwrap()
     }
 
-    pub fn numeriacal_eq(x: Complex<f128::f128>, y: Complex<f128::f128>) -> bool {
+    pub fn numeriacal_eq<T: Float + FromPrimitive + LowerExp + Debug>(
+        x: Complex<T>,
+        y: Complex<T>,
+    ) -> bool {
+        let cutoff = T::epsilon().powf(T::from_f64(0.75).unwrap());
         let real_check = if x.re == y.re {
             true
         } else {
-            ((x.re - y.re) / x.re).abs().to_f64().unwrap() < 1e-24
+            ((x.re - y.re) / x.re) < cutoff
         };
         let imag_check = if x.im == y.im {
             true
         } else {
-            ((x.im - y.im) / x.im).abs().to_f64().unwrap() < 1e-24
+            ((x.im - y.im) / x.im) < cutoff
         };
 
-        println!("{:?} : {}", ((x.re - y.re) / x.re).abs(), real_check);
-        println!("{:?} : {}", ((x.im - y.im) / x.im).abs(), imag_check);
+        println!(
+            "REAL: {:e} < {:e} ? {}",
+            ((x.re - y.re) / x.re).abs(),
+            cutoff,
+            real_check
+        );
+        println!(
+            "IMAG: {:e} < {:e} ? {}",
+            ((x.im - y.im) / x.im).abs(),
+            cutoff,
+            imag_check
+        );
         real_check && imag_check
     }
 }
