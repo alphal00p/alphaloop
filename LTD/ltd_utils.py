@@ -524,7 +524,8 @@ class TopologyGenerator(object):
         for i, (prop, (edge_name, _, _)) in enumerate(zip(self.propagators, self.edge_map_lin)):
             signature = [[0]*len(self.loop_momenta), [0]*len(self.ext)]
 
-            if prop == ():
+            # For tadpole it may be that i is not in self.ext
+            if prop == () and i in self.ext:
                 signature[1][self.ext.index(i)] = 1 # FIXME: is it always +?
 
             for (mom, sign) in prop:

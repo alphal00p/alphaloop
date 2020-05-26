@@ -1061,9 +1061,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         
         # Draw
         drawings_output_path = pjoin(self.dir_path, 'Drawings')
+        Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
         shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
                     pjoin(drawings_output_path,'Makefile'))
-        Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
         form_processor.draw(drawings_output_path)
 
         form_processor.compile(pjoin(self.dir_path,'FORM'))

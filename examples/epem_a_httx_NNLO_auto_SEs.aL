@@ -31,6 +31,7 @@ add process e+ e- > a > t t~ h SE_start SE_start SE_1 SE_1 SE_2 SE_2 se_1_a_1 se
 # The case of one 2-loop SE, with a nested 1-loop SE within, off the top and anti-top quark
 # 
 add process e+ e- > a > t t~ h SE_start SE_1 SE_1 SE_1 SE_1 SE_1 se_1_a_2 QCD=0 SE_1_QCD=2 SE_1_CONTACT_1=1 SE_1_BRIDGE_1=1 SE_1_CONTACT_2=1 SE_1_BRIDGE_2=1 SE_1_ANCHOR=1 @30
+###add process e+ e- > a > t t~ h t se_1_g se_1_g se_1_g se_1_g se_1_t~ se_1_a_2 QCD=0 SE_1_QCD=2 SE_1_CONTACT_1=1 SE_1_BRIDGE_1=1 SE_1_CONTACT_2=1 SE_1_BRIDGE_2=1 SE_1_ANCHOR=1 @30
 #
 # Self-energies in real-virtual contributions, off the top quark, anti-top quark and gluon
 #
