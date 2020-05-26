@@ -61,12 +61,13 @@ C
       PARAMETER (NGOODTRYENTIRES=NGRAPHS*NGRAPHS*NCOMB) 
       INTEGER NGRAPHSSQ
       PARAMETER (NGRAPHSSQ=NGRAPHS*NGRAPHS) 
-	  INTEGER HELAVGFACTOR
-	  PARAMETER (HELAVGFACTOR=%(hel_avg_factor)d)
+	INTEGER HELAVGFACTOR
+	PARAMETER (HELAVGFACTOR=%(hel_avg_factor)d)
       
       INTEGER MIN_TRY_FOR_HEL_FILTER
 C     Setting below to -1 deactivate the helicity filtering
-      PARAMETER(MIN_TRY_FOR_HEL_FILTER=10)
+C     TODO this filter should be precomputed and read from an external file at runtime.
+      PARAMETER(MIN_TRY_FOR_HEL_FILTER=-1)
 C  
 C ARGUMENTS 
 C  
@@ -153,7 +154,9 @@ C     ALSO DO THIS IF WE WANTED TO DEACTIVATE THE FILTER
 		     ENDIF
           ENDDO
 c      WRITE(*,*) 'N helicity config computed:',NHEL_COMPUTED,'/',NCOMB
-      ANS=ANS/DBLE(IDEN)
+C     For LTD squared we must *not* divide by the final state symmetry factor
+C      ANS=ANS/DBLE(IDEN)
+
 	  IF(USERHEL.NE.-1) THEN
           ANS=ANS*HELAVGFACTOR	  
 	  ELSE

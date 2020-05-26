@@ -118,7 +118,6 @@ class FORMSuperGraph(object):
         """ Generate mathematica expression for drawing this graph."""
 
         repl_dict = {
-            'arrow_size'         : 0.015,
             'edge_font_size'     : 10,
             'vetex_font_size'    : 10,
             'width'              : self._rendering_size[0],
@@ -145,13 +144,24 @@ class FORMSuperGraph(object):
                 return model.get_particle(pdg).get_name()
 
         # Generate edge list
-        edge_template = """Labeled[Style[DirectedEdge["%(in_node)s","%(out_node)s"]%(edge_style)s,%(edge_color)s,Thickness[%(thickness)f]],"%(edge_label)s"]"""
+        edge_template = """Labeled[Style[CreateEdge["%(in_node)s","%(out_node)s",%(edge_key)d]%(edge_style)s,%(edge_color)s,Thickness[%(thickness)f]],"%(edge_label)s"]"""
         all_edge_definitions = []
+        all_edge_shape_functions = []
         for edge_key, edge_data in self.edges.items():
             edge_repl_dict = {}
-            edge_repl_dict['thickness'] = 0.002
+            is_LMB = ('name' in edge_data and 'LMB' in str(edge_data['name']).upper())
+            if is_LMB:
+                edge_repl_dict['thickness'] = 0.004
+            else:
+                edge_repl_dict['thickness'] = 0.002
             edge_repl_dict['in_node'] = str(edge_key[0])
             edge_repl_dict['out_node'] = str(edge_key[1])
+            edge_repl_dict['edge_key'] = edge_key[2]
+            edge_repl_dict['arrow_style'] = 'Arrow' if not is_LMB else 'HalfFilledDoubleArrow'
+            edge_repl_dict['arrow_size'] = 0.015 if not is_LMB else 0.025
+            all_edge_shape_functions.append(
+                'CreateEdge["%(in_node)s","%(out_node)s",%(edge_key)d]->GraphElementData["%(arrow_style)s", "ArrowSize" -> %(arrow_size)f]'%edge_repl_dict
+            )
             if 'name' in edge_data and 'CUT' in str(edge_data['name']).upper():
                 edge_repl_dict['edge_style'] = ",Dashed"
             else:
@@ -179,11 +189,14 @@ class FORMSuperGraph(object):
             all_edge_definitions.append(edge_template%edge_repl_dict)
 
         repl_dict['edge_lists'] = ',\n'.join(all_edge_definitions)
+        repl_dict['edge_shape_definitions'] = ',\n'.join(all_edge_shape_functions)
         return \
 """Labeled[GraphClass[{
 %(edge_lists)s
 },
-EdgeShapeFunction -> GraphElementData["Arrow", "ArrowSize" -> %(arrow_size)f],
+EdgeShapeFunction -> {
+%(edge_shape_definitions)s
+},
 EdgeLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(edge_font_size)d, Bold],
 VertexLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(vetex_font_size)d, Bold],
 VertexSize -> Large,
@@ -196,12 +209,15 @@ ImageSize -> {%(width)f, %(height)f}
         """ Outputs the mathematica code for rendering this FORMSuperGraph."""
         
         if FORM_id is not None:
-            file_name = 'Graph_%d'%FORM_id
+            file_name = 'Graph_%04d'%FORM_id
         else:
             file_name = 'Graph_%s'%self.name
 
-        MM_code = "GraphClass = If[$VersionNumber > 12, EdgeTaggedGraph, Graph];\naGraph=%s;\n"%\
-                                        self.get_mathematica_rendering_code(model,FORM_id=FORM_id)
+        MM_code = \
+"""GraphClass = If[$VersionNumber > 12, EdgeTaggedGraph, Graph];
+CreateEdge[u_,v_,t_]:=If[$VersionNumber > 12, DirectedEdge[u, v, t], DirectedEdge[u, v]];
+aGraph=%s;
+"""%self.get_mathematica_rendering_code(model,FORM_id=FORM_id)
         # Export to PDF in landscape format. One graph per page for now.
         # The 1.2 multiplier accounts for margins
         MM_code += 'Export["%s.pdf", GraphicsGrid[{{aGraph}}], ImageSize -> {%f, %f}];'%(
@@ -690,8 +706,11 @@ class FORMSuperGraphList(list):
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
 
-        if output_format not in self.extension_names:
+        if len(self)==0:
             raise FormProcessingError("Unsupported output format for numerator functions: '%s'"%output_format)
+
+        if output_format not in self.extension_names:
+            raise FormProcessingError("This FORMSuperGraphList instance requires at least one entry for generating numerators.")
 
         # add all numerators in one file and write the headers
         numerator_code = """#include <math.h>

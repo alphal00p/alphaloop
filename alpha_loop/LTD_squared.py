@@ -232,6 +232,8 @@ class SelfEnergyLTD2DiagramList(LTD2DiagramList):
 class SuperGraph(object):
     """ Class representing a super graph in the LTD^2 formalism"""
 
+    _tolerates_invalid_alphaLoop_LMB = False
+
     def __init__(self, LTD2_diagram_left, LTD2_diagram_right, call_signature, name=None):
         """ Instantiate a super graph from two LTD2Diagram instances sitting respectively
         to the left and right of the Cutkosky cut."""
@@ -260,6 +262,7 @@ class SuperGraph(object):
 
         # Marker setting if momentum routing has been set:
         self.is_momentum_routing_set = False
+        self.was_MG_LMB_valid = None
         self.n_loops = None
 
         if name is None:
@@ -358,9 +361,24 @@ class SuperGraph(object):
         # Make sure to place external eges first
         topo_edges.sort(key=lambda el: el[0] if el[0].startswith('q') else 'z%s'%el[0])
         topo_generator = ltd_utils.TopologyGenerator(topo_edges)
-        topo_generator.generate_momentum_flow(
-            loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]]
-        )
+        #misc.sprint(self.name,[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]])
+        #misc.sprint(pformat(self.get_subgraphs_info()))
+        #misc.sprint(pformat(dict(self.graph.edges)))
+        try:
+            topo_generator.generate_momentum_flow(
+                loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]]
+            )
+            self.was_MG_LMB_valid = True
+        except IndexError:
+            #raise LTD2Error("Incorrect momentum LMB specified by MadGraph. Likely an unfiltered tadpole.")
+            #misc.sprint("SuperGrpah %s failed momentum routing assignment."%self.name)
+            # We instead use an automatically sepcified LMB. This super-graph is likely a tadpole that
+            # will be filtered awauy.
+            if not self._tolerates_invalid_alphaLoop_LMB: 
+                raise LTD2Error("The LMB suggested by alphaLoop failed and this should never "+
+                                "happen for instances of the class '%s'"%self.__class__.__name__)
+            self.was_MG_LMB_valid = False
+            topo_generator.generate_momentum_flow()
         signatures = topo_generator.get_signature_map()
         # In order to simplify the comparison with MG numerators, we want to make
         # sure external momenta are always considered outgoing (i.e. from left to right).
@@ -383,6 +401,51 @@ class SuperGraph(object):
 
             edge_data['momentum'] = (tuple(this_signature[0]),tuple(this_signature[1]))
 
+        #misc.sprint(self.name,[(self.graph.edges[c[1]]['name'],self.graph.edges[c[1]]['momentum'],c[2]) for c in self.cuts[:-1]])
+        # If the LMB selected by MG was invalid, then overwrite here self.cuts and adjust edge names accordingly
+        loop_momenta_basis_edge_names = [topo_edges[edge_position][0] for edge_position in topo_generator.loop_momenta]
+        new_cuts = [None,]*(len(self.cuts)-1)
+        for edge_key, edge_data in self.graph.edges.items():
+            try:
+                lmb_index = loop_momenta_basis_edge_names.index(edge_data['name'])
+            except ValueError:
+                continue
+            if len(edge_data['momentum'][0])-edge_data['momentum'][0].count(0)!=1:
+                raise LTD2Error("Incorrect momentum routing built; LMB edge named '%s' has non-trivial kinematic assignments: %s"%(
+                                                                                    edge_data['name'], edge_data['momentum']))
+            if self.was_MG_LMB_valid and (
+                ( (not self.cuts[lmb_index][2]) and (1 not in edge_data['momentum'][0]) ) or
+                ( self.cuts[lmb_index][2] and (-1 not in edge_data['momentum'][0]) ) ):
+                raise LTD2Error("Incorrect momentum routing built; LMB edge named '%s' has non-trivial kinematic assignments and alphaLoop LMB was valid: %s"%(
+                                                                                    edge_data['name'], edge_data['momentum']))
+            if (1 not in edge_data['momentum'][0]) and (-1 not in edge_data['momentum'][0]):
+                raise LTD2Error("Incorrect momentum routing built; LMB edge named '%s' has non-trivial kinematic assignments: %s"%(
+                                                                                    edge_data['name'], edge_data['momentum']))
+            if 1 in edge_data['momentum'][0]:
+                is_flipped = False
+            else:
+                is_flipped = True
+
+            if self.was_MG_LMB_valid:
+                if (self.graph.edges[self.cuts[lmb_index][1]]['name']!=loop_momenta_basis_edge_names[lmb_index]):
+                    raise LTD2Error("Incorrect momentum routing built; LMB edges in TopoGenerator do not match the ones specified by alphaLoop: %s vs %s"%(
+                        str(tuple(self.graph.edges[cut[1]]['name'] for cut in self.cuts)), str(tuple(loop_momenta_basis_edge_names))
+                    ))
+            else:
+                new_cuts[lmb_index] = ( None, edge_key, is_flipped )
+
+            # Adjust the edge name so as to specify that it is part of the LMB
+            edge_data['name'] = 'LMB%d_%s'%(lmb_index+1,edge_data['name'])
+
+        if not self.was_MG_LMB_valid:
+            if any(new_cut is None for new_cut in new_cuts):
+                #misc.sprint(new_cuts)
+                #misc.sprint([(edge_data['name'],edge_data['momentum']) for edge_key, edge_data in self.graph.edges.items()])
+                #misc.sprint([(edge_data['name'],edge_data['momentum']) for edge_key, edge_data in self.graph.edges.items() if edge_data['name'] in loop_momenta_basis_edge_names])
+                raise LTD2Error("Could not build new loop momentum basis %s from TopologyGenerator whose basis is '%s'."%(
+                        new_cuts, loop_momenta_basis_edge_names))
+            self.cuts = tuple(new_cuts)
+            
         self.n_loops = topo_generator.n_loops
         self.is_momentum_routing_set = True
 
@@ -595,7 +658,6 @@ class SuperGraph(object):
             edge_keys_visited
         )
 
-
     def is_isomorphic_to(self, other_super_graph):
         """ Uses networkx to decide if the two graphs are isomorphic."""
 
@@ -617,16 +679,22 @@ class SuperGraph(object):
                 # For now consider two edges equal whenever the *abs* of PDGs matches.
                 return set(e['pdg'] for e in e1.values()) == \
                     set(e['pdg'] for e in e2.values())
-        # TODO 
-        # debug why vertex_id matches is not working and also why keeping the direction is not working
-        # (different resulting number of unique supergraph with top and anti-top)
-#        return nx.is_isomorphic(self.graph, other_super_graph.graph,
-#            edge_match=edge_match_function,
-#            node_match=lambda n1,n2: n1['vertex_id']==n2['vertex_id']
-#        )
-        return nx.is_isomorphic(self.graph.to_undirected(), other_super_graph.graph.to_undirected(),
+
+        if self.alphaLoop_options['consider_edge_orientation_in_graph_isomorphism']:
+            graphA, graphB = self.graph, other_super_graph.graph
+        else:
+            graphA, graphB = self.graph.to_undirected(), other_super_graph.graph.to_undirected()
+
+        if self.alphaLoop_options['consider_vertex_id_in_graph_isomorphism']:
+            def node_match_function(n1,n2):
+                return n1['vertex_id']==n2['vertex_id']
+        else:
+            def node_match_function(n1,n2):
+                return True
+
+        return nx.is_isomorphic(graphA, graphB,
             edge_match=edge_match_function,
-            node_match=lambda n1,n2: True
+            node_match=lambda n1,n2: node_match_function
         )
 
     def get_subgraphs_info(self):
@@ -733,6 +801,8 @@ class SuperGraph(object):
 class SelfEnergySuperGraph(SuperGraph):
     """ Class representing a super graph in the LTD^2 formalism corresponding to a self-energy"""
 
+    _tolerates_invalid_alphaLoop_LMB = True
+
     def __init__(self, LTD2_diagram_left, LTD2_diagram_right, call_signature, **opts):
         """ Instantiate a self-nergy super graph from two LTD2Diagram instances sitting respectively
         to the left and right of the Cutkosky cut."""
@@ -752,6 +822,16 @@ class SelfEnergySuperGraph(SuperGraph):
     def should_be_considered(self):
         """ Place here all rules regarding whether this supergraph should be 
         considered without our squared LTD framework."""
+
+        # For the next test, we need to have the loop momentum routing set
+        self.set_momentum_routing()
+        if any( ( all(sig_ext==0 for sig_ext in edge_data['momentum'][0]) and 
+                  all(sig_loop==0 for sig_loop in edge_data['momentum'][1]) ) 
+                  for edge_key, edge_data in self.graph.edges.items() ):
+            # This is a tadpole that we should ignore
+            #misc.sprint("Removing tadpole found for supergraph '%s'."%self.name)
+            #misc.sprint(pformat({edge_data['name']:edge_data['momentum'] for edge_key, edge_data in self.graph.edges.items()}))
+            return False
 
         return True
 
@@ -830,7 +910,7 @@ class SelfEnergySuperGraph(SuperGraph):
             cut_edge = self.graph.edges[cut_edge_key]
             cut_edge['leg_number'] = leg_number
             if cut_edge['anchor_number'] == 0:
-                self.subgraphs[cut_edge['self_energy_number']]['cuts'].append((leg_number, cut_edge_key))
+                self.subgraphs[cut_edge['self_energy_number']]['cuts'].append((leg_number, cut_edge_key,is_direction_flipped))
             else:
                 if self.subgraphs[cut_edge['self_energy_number']]['momentum_sink'] is None:
                     self.subgraphs[cut_edge['self_energy_number']]['momentum_sink'] = leg_number
@@ -921,7 +1001,7 @@ class SelfEnergySuperGraph(SuperGraph):
             self.graph.edges[subgraph['right_edge']]['name'] = 'SER%d_%s'%(subgraph['id'],
                                                             self.graph.edges[subgraph['right_edge']]['name'])
 
-            for leg_number, edge_key in subgraph['cuts']:
+            for leg_number, edge_key, is_direction_flipped in subgraph['cuts']:
                 self.graph.edges[edge_key]['name'] = 'SEC%d_%s'%(subgraph['id'],self.graph.edges[edge_key]['name'])
 
         # We build here the list of edges which are actually cut in the resulting self-energy super-graph.
@@ -957,6 +1037,8 @@ class SelfEnergySuperGraph(SuperGraph):
                 'cuts' : [ self.graph.edges[edge[1]]['name'] for edge in subgraph['cuts'] ],
                 'momentum_sink' : subgraph['momentum_sink']
             })
+        
+        return subgraph_info
 
 class SuperGraphList(list):
     """ Class for storing a list of SuperGraph instances."""
@@ -1038,7 +1120,18 @@ class SuperGraphList(list):
 
         self[:] = filtered_list
         logger.info("alphaLoop removed a total of %d "%n_removed_super_graphs+
-                    "supergraphs (likely self-energies that will be generated independently.)")
+                    "supergraphs (likely self-energies that will be generated independently or tadpoles.)")
+
+        # Finally do some sanity check:
+#        for super_graph in self:
+#            # The momentum routine will almost always already have been computed, 
+#            # but since we need was_MG_LMB_valid to be set, we call it again below
+#            # just to be sure (there is a cache, so this is harmless)
+#            super_graph.set_momentum_routing()
+#            if not super_graph.was_MG_LMB_valid:
+#                logger.critical("The loop-momentum-basis built by alphaLoop appeared inapplicable "+
+#                                "to the following selected supergraph: '%s'"%super_graph.name)
+
 
  #       from pprint import pformat
  #       for i_graph, super_graph in enumerate(self):

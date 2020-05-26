@@ -81,6 +81,9 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # However this is not properly working, at least not for self-energies, so we allow it
             # to be disabled with the option below.
             'differentiate_particle_from_antiparticle_in_graph_isomorphism' : False,
+            # We do not want to group numerators when considering MG outputs
+            'consider_edge_orientation_in_graph_isomorphism' : False,
+            'consider_vertex_id_in_graph_isomorphism' : False,
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
             'FORM_processing_output_format' : None
@@ -190,11 +193,14 @@ set to False, except for debugging, which seems to be what you are doing now, so
 utils.bcolors.RED,utils.bcolors.ENDC
 ))
             self.alphaLoop_options['include_self_energies_from_squared_amplitudes'] = bool_val   
-        elif key == 'differentiate_particle_from_antiparticle_in_graph_isomorphism':
+        elif key in [
+            'differentiate_particle_from_antiparticle_in_graph_isomorphism',
+            'consider_edge_orientation_in_graph_isomorphism',
+            'consider_vertex_id_in_graph_isomorphism']:
             if value.upper() not in ['TRUE','FALSE']:
-                raise alphaLoopInvalidCmd("Specified value for 'differentiate_particle_from_antiparticle_in_graph_isomorphism' should be 'True' or 'False', not '%s'."%value)
+                raise alphaLoopInvalidCmd("Specified value for '%s' should be 'True' or 'False', not '%s'."%(key,value))
             bool_val = (value.upper()=='TRUE')
-            self.alphaLoop_options['differentiate_particle_from_antiparticle_in_graph_isomorphism'] = bool_val
+            self.alphaLoop_options[key] = bool_val
         elif key == 'FORM_processing_output_format':
             if value.upper() in ['NONE']:
                 value = None

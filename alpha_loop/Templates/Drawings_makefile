@@ -11,7 +11,7 @@ Graph_%.pdf: Graph_%.m
 	@echo "Generating graph $<..."
 	$(MATH) -run < $< > /dev/null 
 
-$(ALLGRAPHS): $(GRAPHS_PDF)
+$(ALLGRAPHS): $(sort $(GRAPHS_PDF))
 	pdfunite $^ $@
 
 clean:
