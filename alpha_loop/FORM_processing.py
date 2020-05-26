@@ -85,7 +85,14 @@ class FORMSuperGraph(object):
     _include_momentum_routing_in_rendering=False
     _include_edge_name_in_rendering=False
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
-    _graph_layout_strategy = '{"SpringEmbedding"}' # '{"PackingLayout"->"ClosestPacking"}' gives interesting results too.
+    # Choose graph layout strategy. Interesting options are in comment.
+    _graph_layout_strategy = '{"PackingLayout"->"ClosestPacking"}' 
+    #_graph_layout_strategy = 'GraphLayout -> "SpringElectricalEmbedding"' 
+    #_graph_layout_strategy = 'GraphLayout -> "SpringEmbedding"' 
+    #_graph_layout_strategy = 'GraphLayout -> {"LayeredEmbedding", "Orientation" -> Left, "RootVertex" -> "I1"}' 
+    #_graph_layout_strategy = 'GraphLayout -> {"LayeredDigraphEmbedding", "Orientation" -> Left}'
+    
+    # '{"SpringEmbedding"}' gives interesting results too.
 
     def __init__(self, *args,
         call_identifier=None,
@@ -738,16 +745,6 @@ double complex evaluate(double complex lm[], int i) {{
     ['\t\tdefault: raise(SIGABRT);']
     ))
         writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
-        if os.path.isfile(pjoin(root_output_path,'Makefile')):
-            try:
-                logger.info("Now compiling FORM-generated numerators...")
-                misc.compile(cwd=root_output_path,mode='cpp')
-            except MadGraph5Error as e:
-                logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
-                    utils.bcolors.RED,str(e),utils.bcolors.ENDC))
-        else:
-            logger.warning(("\n%sYou are running FORM_processing directly from the __main__ of FORM_processing.py.\n"+
-                           "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=()):
         topo_collection = {
@@ -801,6 +798,20 @@ class FORMProcessor(object):
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
             params=params)
+
+    @classmethod
+    def compile(cls, root_output_path):
+
+        if os.path.isfile(pjoin(root_output_path,'Makefile')):
+            try:
+                logger.info("Now compiling FORM-generated numerators...")
+                misc.compile(cwd=root_output_path,mode='cpp')
+            except MadGraph5Error as e:
+                logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
+                    utils.bcolors.RED,str(e),utils.bcolors.ENDC))
+        else:
+            logger.warning(("\n%sYou are running FORM_processing directly from the __main__ of FORM_processing.py.\n"+
+                           "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=()):
         self.super_graphs_list.generate_squared_topology_files(root_output_path, n_jets, final_state_particle_ids)

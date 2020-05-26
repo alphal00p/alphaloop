@@ -363,6 +363,11 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         logger.info("Compiling C_bindings for MG numerators...")
         misc.compile(arg=[],cwd=pjoin(self.dir_path, 'SubProcesses'), mode='fortran')
 
+        # Compile FORM output if present
+        FORM_output_dir = pjoin(self.dir_path,"FORM")
+        if os.path.exists(FORM_output_dir):
+            FORM_processing.FORMProcessor.compile(FORM_output_dir)
+
     #===========================================================================
     # process exporter fortran switch between group and not grouped
     #===========================================================================
@@ -1053,8 +1058,12 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 pjoin(self.dir_path,'FORM', 'Makefile'))
         form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
             output_format=self.alphaLoop_options['FORM_processing_output_format'])
+        
+        # Draw
         drawings_output_path = pjoin(self.dir_path, 'Drawings')
         shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
                     pjoin(drawings_output_path,'Makefile'))
         Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
-        FORM_processor.draw(drawings_output_path)
+        form_processor.draw(drawings_output_path)
+
+        form_processor.compile(pjoin(self.dir_path,'FORM'))
