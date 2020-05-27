@@ -1068,8 +1068,11 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
             output_format=self.alphaLoop_options['FORM_processing_output_format'])
 
-        all_processes = list(proc for proc in self.proc_def)
-        representative_proc = all_processes[0]
+        if isinstance(self.proc_def, base_objects.ProcessDefinition):
+            all_processes = list(proc for proc in self.proc_def)
+            representative_proc = all_processes[0]
+        else:
+            representative_proc = self.proc_def
         if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
             n_jets = len([1 for leg in representative_proc.get('legs') if 
                         leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])

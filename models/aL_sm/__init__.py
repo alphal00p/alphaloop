@@ -23,9 +23,11 @@ gauge = [0, 1]
 
 all_particles = particles.all_particles
 all_vertices = vertices.all_vertices
+all_CTvertices = []
 all_couplings = couplings.all_couplings
 all_lorentz = lorentz.all_lorentz
 all_parameters = parameters.all_parameters
+all_CTparameters = []
 all_orders = coupling_orders.all_orders
 all_functions = function_library.all_functions
 #all_decays = decays.all_decays

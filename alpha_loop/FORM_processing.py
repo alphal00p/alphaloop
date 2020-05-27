@@ -31,6 +31,7 @@ if __name__ == "__main__":
 import alpha_loop.utils as utils
 import re
 
+import madgraph.core.base_objects as base_objects
 import madgraph.various.misc as misc
 import madgraph.iolibs.file_writers as writers
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
@@ -76,7 +77,9 @@ class FORMSuperGraph(object):
         ( 3, 3, 3, 3 ): (0, 1, 2, 3),
         # FxFV
         ( -2, 2, 3 ): (0, 2, 1),
-        # FxFV
+        # GHxGHV
+        ( -1, 1, 3 ): (0, 2, 1),
+        # FxFS
         ( -2, 1, 2 ): (0, 1, 2),
         # VxVV (e.g. W+ W- a )
         ( -3, 3, 3 ): (1, 0, 2),
@@ -800,8 +803,11 @@ class FORMProcessor(object):
         self.super_graphs_list = super_graphs_list
         self.model = model
         self.process_definition = process_definition
-        all_processes = list(proc for proc in self.process_definition)
-        self.repr_process = all_processes[0]
+        if isinstance(self.process_definition, base_objects.ProcessDefinition):
+            all_processes = list(proc for proc in self.process_definition)
+            self.repr_process = all_processes[0]
+        else:
+            self.repr_process = self.process_definition
         
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""

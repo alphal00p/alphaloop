@@ -9,6 +9,7 @@ from .object_library import all_orders, CouplingOrder
 
 QCD = CouplingOrder(name = 'QCD',
                     expansion_order = 99,
+                    perturbative_expansion = 99,
                     hierarchy = 1)
 
 QED = CouplingOrder(name = 'QED',
