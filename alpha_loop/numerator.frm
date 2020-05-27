@@ -1,7 +1,7 @@
 #-
 * PDGs:
-*d,u,c,s,b,t -> 1 to 6
-*d~,u~,c~,s~,b~,t~ -> -1 to -6
+*d,u,s,c,b,t -> 1 to 6
+*d~,u~,s~,c~,b~,t~ -> -1 to -6
 *g, photon -> 21, 22
 *e+ e- > -11, 11
 *mu+, mu-, ta+ ,ta- > -12, 12, -13, 13
@@ -21,6 +21,7 @@
 
 Auto S mass;
 CTable masses(-30:30);
+CTable charges(-30:30);
 
 #ifndef `OPTIMITERATIONS'
     #define OPTIMITERATIONS "100"
@@ -65,6 +66,19 @@ Fill masses(-13) = mass_tau;
 Fill masses(6) = mass_t;
 Fill masses(-6) = mass_t;
 Fill masses(25) = mass_h;
+
+Fill charges(1) = -1/3; * d
+Fill charges(2) = 2/3; * u
+Fill charges(3) = -1/3; * s
+Fill charges(4) = 2/3; * c
+Fill charges(5) = -1/3; * b
+Fill charges(6) = 2/3; * t
+Fill charges(-1) = -1/3; * d
+Fill charges(-2) = 2/3; * u
+Fill charges(-3) = -1/3; * s
+Fill charges(-4) = 2/3; * c
+Fill charges(-5) = -1/3; * b
+Fill charges(-6) = 2/3; * t
 
 Auto V p,k;
 Auto S lm,ext;
@@ -124,7 +138,7 @@ id prop(`H', virtual, p?, idx1?, idx2?) = -i_;
 * vertices
 id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * T(colF[idx1], colA[idx2], colF[idx3]);
 id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * cOlf(colA[idx3], colA[idx1], colA[idx2]) * p3(lorentz[idx2]);
-id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = 2/3 * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 id vx(`EP', `PHO', `EM', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ge * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
 id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 
