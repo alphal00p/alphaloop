@@ -495,9 +495,9 @@ aGraph=%s;
         edge_map_lin = [('p' + e['name'][1:] if e['type'] == 'virtual' else 'q' + e['name'][1:], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
-        particle_ids = {e['name'] if e['type'] == 'virtual' else 'q' + e['name'][1:]: abs(e['PDG']) for e in self.edges.values()}
+        particle_ids = {'p' + e['name'][1:] if e['type'] == 'virtual' else 'q' + e['name'][1:]: abs(e['PDG']) for e in self.edges.values()}
 
-        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+        external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
         loop_momenta = []
