@@ -124,7 +124,7 @@ id prop(x?{`QBAR'}, in, p?, idx?) = vbar(p, masses(x), dirac[idx]);
 id prop(`EM', out, p?, idx?) = ubar(p, masses(`EM'), dirac[idx]);
 id prop(`EP', out, p?, idx?) = v(p, masses(`EP'), dirac[idx]);
 id prop(x?{`Q'}, out, p?, idx?) = ubar(p, masses(x), dirac[idx]);
-id prop(x?{`Q'}, out, p?, idx?) = v(p, masses(x), dirac[idx]);
+id prop(x?{`QBAR'}, out, p?, idx?) = v(p, masses(x), dirac[idx]);
 
 * virtual edges
 id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]);
