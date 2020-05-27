@@ -6,6 +6,7 @@ set_alphaLoop_option differentiate_particle_from_antiparticle_in_graph_isomorphi
 set_alphaLoop_option consider_vertex_id_in_graph_isomorphism False 
 set_alphaLoop_option consider_edge_orientation_in_graph_isomorphism False
 set_alphaLoop_option FORM_processing_output_format c
+set_alphaLoop_option apply_graph_isomorphisms True
 prepare_model_for_self_energies 2 ((22,6,-6),)
 define SE_1 = SE_1_g SE_1_t SE_1_t~
 define SE_2 = SE_2_g SE_2_t SE_2_t~

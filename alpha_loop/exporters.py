@@ -150,28 +150,29 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
 
         # Filter once again for isomorphism across all supergraphs generated
-        overall_basis = []
-        n_tot_supergraphs = sum(len(sg[0]) for sg in self.all_super_graphs)
-        logger.info("Detecting isomorphisms between all %d 'unique' super-graphs generated across all processes..."%n_tot_supergraphs)
-        i_graph = 0
-        with progressbar.ProgressBar(
-            prefix = 'Filtering supergraphs across processes ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
-            max_value=n_tot_supergraphs,
-            variables = {'n_unique_super_graphs_sofar' : '0'}
-            ) as bar:
-            for super_graph_list, ME in self.all_super_graphs:
-                new_selection_for_this_process = []
-                for super_graph in list(super_graph_list):
-                    i_graph += 1
-                    if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in overall_basis):
-                        overall_basis.append(super_graph)
-                        new_selection_for_this_process.append(super_graph)
-                    bar.update(n_unique_super_graphs_sofar='%d'%len(overall_basis))
-                    bar.update(i_graph)
-                super_graph_list[:] = new_selection_for_this_process
-        logger.info("%sA grand total of %d unique super-graphs have been generated across all processes.%s"%(
-            utils.bcolors.GREEN,len(overall_basis),utils.bcolors.ENDC
-        ))
+        if self.alphaLoop_options['apply_graph_isomorphisms']:
+            overall_basis = []
+            n_tot_supergraphs = sum(len(sg[0]) for sg in self.all_super_graphs)
+            logger.info("Detecting isomorphisms between all %d 'unique' super-graphs generated across all processes..."%n_tot_supergraphs)
+            i_graph = 0
+            with progressbar.ProgressBar(
+                prefix = 'Filtering supergraphs across processes ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
+                max_value=n_tot_supergraphs,
+                variables = {'n_unique_super_graphs_sofar' : '0'}
+                ) as bar:
+                for super_graph_list, ME in self.all_super_graphs:
+                    new_selection_for_this_process = []
+                    for super_graph in list(super_graph_list):
+                        i_graph += 1
+                        if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in overall_basis):
+                            overall_basis.append(super_graph)
+                            new_selection_for_this_process.append(super_graph)
+                        bar.update(n_unique_super_graphs_sofar='%d'%len(overall_basis))
+                        bar.update(i_graph)
+                    super_graph_list[:] = new_selection_for_this_process
+            logger.info("%sA grand total of %d unique super-graphs have been generated across all processes.%s"%(
+                utils.bcolors.GREEN,len(overall_basis),utils.bcolors.ENDC
+            ))
 
         if self.alphaLoop_options['FORM_processing_output_format']:
             FORM_super_graph_list = FORM_processing.FORMSuperGraphList(
@@ -182,8 +183,16 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
             # Also output a copy of the input super-graph sent to the FORM processor.
+            graph_dumps = []
+            graph_dumps.append("graphs=[]")
+            graph_dumps.append("graph_names=[]")
+            graph_dumps.append("")
             for FORM_super_graph in FORM_super_graph_list:
-                FORM_super_graph.to_dict(file_path=pjoin(FORM_output_path,'%s.py'%FORM_super_graph[0].name))
+                graph_dumps.append('graph_names.append("%s")'%FORM_super_graph[0].name)
+                graph_dumps.append('graphs.append(\n%s\n)'%pformat(FORM_super_graph[0].to_dict()))
+            open(pjoin(FORM_output_path,'all_MG_supergraphs.py'),'w').write(
+                '\n'.join(graph_dumps)
+            )
             computed_model = model_reader.ModelReader(model)
             computed_model.set_parameters_and_couplings(pjoin(self.dir_path,'Cards','param_card.dat')) 
             characteristic_process_definition = self.all_super_graphs[0][1].get('processes')[0]

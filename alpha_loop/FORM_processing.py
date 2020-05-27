@@ -441,6 +441,7 @@ aGraph=%s;
         # Finally overwrite the edge momentum so as to be a string
         for edge_key, edge_data in local_graph.edges.items():
             edge_data['momentum'] =cls.momenta_decomposition_to_string(edge_data['momentum'])
+            edge_data['vertices'] =(edge_key[0],edge_key[1])
             particle = model.get_particle(edge_data['PDG'])
             # In the above conventions the fermion are going against their flow, so we need
             # to flip the order of their fundamental/antifundamental indices so that FORM

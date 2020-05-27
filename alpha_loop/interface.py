@@ -76,7 +76,9 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # We plan on include self-energies from two-point vertices so as to be able to apply our 
             # LTD^2 LSZ treatment. So 'include_self_energies_from_squared_amplitudes' should be kept
             # set to False, except for debugging.
-            'include_self_energies_from_squared_amplitudes' : False,
+            'include_self_energies_from_squared_amplitudes' : True,
+            # We must not apply the graph ismorphism checks when attempting to compute LO cross-section from MG.
+            'apply_graph_isomorphisms' : False,
             # One must differentiate particles from anti-particles in the isomorphism check.
             # However this is not properly working, at least not for self-energies, so we allow it
             # to be disabled with the option below.
@@ -196,7 +198,9 @@ utils.bcolors.RED,utils.bcolors.ENDC
         elif key in [
             'differentiate_particle_from_antiparticle_in_graph_isomorphism',
             'consider_edge_orientation_in_graph_isomorphism',
-            'consider_vertex_id_in_graph_isomorphism']:
+            'consider_vertex_id_in_graph_isomorphism',
+            'apply_graph_isomorphisms'
+            ]:
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for '%s' should be 'True' or 'False', not '%s'."%(key,value))
             bool_val = (value.upper()=='TRUE')

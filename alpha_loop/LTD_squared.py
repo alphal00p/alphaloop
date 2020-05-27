@@ -739,7 +739,7 @@ class SuperGraph(object):
 
         def get_external_momenta_assignment():
             # TODO This must go, it does not make much sense for it to be assigned in the context of using MG numerators.
-            return {'q1': [1000., 0., 0., 1000.], 'q2': [1000., 0., 0., -1000.], 'q3': [1000., 0., 0., 1000.], 'q4': [1000., 0., 0., -1000.]}
+            return {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
 
         def get_loop_momenta_names():
             loop_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.cuts[:-1] ]
@@ -1057,6 +1057,7 @@ class SuperGraphList(list):
         if len(LTD2_diagram_list)>=0 and isinstance(LTD2_diagram_list[0],SuperGraph):
             self[:] = LTD2_diagram_list
             return
+        self.alphaLoop_options = LTD2_diagram_list[0].alphaLoop_options
 
         # First build all possible super graphs 
         # TODO there are certainly optimisations to consider here. This step will be
@@ -1102,7 +1103,15 @@ class SuperGraphList(list):
 
         # Then filter isomorphic ones
         self[:] = all_super_graphs
-        self.filter_isomorphic_graphs()
+        if self.alphaLoop_options['apply_graph_isomorphisms']:
+            logger.info("%sApplying graph isomorphism filtering implies that the collection of MG numerators will *not* reproduce the correct cross-section.%s"%(
+                utils.bcolors.GREEN,utils.bcolors.ENDC
+            ))
+            self.filter_isomorphic_graphs()
+        else:
+            logger.info("%sGraph isomorphism filtering skipped as per user request.%s"%(
+                utils.bcolors.GREEN,utils.bcolors.ENDC
+            ))
 
         logger.info("Filtering %d unique super-graphs to remove undesired ones ..."%len(self))
         filtered_list = []
