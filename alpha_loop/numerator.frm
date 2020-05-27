@@ -132,6 +132,8 @@ id prop(x?{`GHO',`GHOBAR'}, virtual, p?, idx1?, idx2?) = i_ * d_(colA[idx1], col
 id prop(`PHO', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]);
 id prop(x?{`FERM'}, virtual, p?, idx1?, idx2?) = - i_ * (gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2])) * d_(colF[idx1], colF[idx2]);
 id prop(`H', virtual, p?, idx1?, idx2?) = -i_;
+id prop(`H', in, p?, idx1?) = 1;
+id prop(`H', out, p?, idx1?) = 1;
 
 .sort:feynman-rules-edges;
 

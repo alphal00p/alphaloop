@@ -153,20 +153,23 @@ C     ALSO DO THIS IF WE WANTED TO DEACTIVATE THE FILTER
                 ENDIF
 		     ENDIF
           ENDDO
+
 c      WRITE(*,*) 'N helicity config computed:',NHEL_COMPUTED,'/',NCOMB
+
 C     For LTD squared we must *not* divide by the final state symmetry factor
 C      ANS=ANS/DBLE(IDEN)
+      ANS=ANS/DBLE(HELAVGFACTOR)
 
-	  IF(USERHEL.NE.-1) THEN
-          ANS=ANS*HELAVGFACTOR	  
-	  ELSE
-		DO J=1,NINITIAL
-		  IF (POLARIZATIONS(J,0).ne.-1) THEN
-            ANS=ANS*BEAMS_HELAVGFACTOR(J)
-            ANS=ANS/POLARIZATIONS(J,0)
-		  ENDIF
-		ENDDO
-	  ENDIF
+C	  IF(USERHEL.NE.-1) THEN
+C          ANS=ANS*HELAVGFACTOR	  
+C	  ELSE
+C		DO J=1,NINITIAL
+C		  IF (POLARIZATIONS(J,0).ne.-1) THEN
+C            ANS=ANS*BEAMS_HELAVGFACTOR(J)
+C            ANS=ANS/POLARIZATIONS(J,0)
+C		  ENDIF
+C		ENDDO
+C	  ENDIF
 	  END
        
       SUBROUTINE %(proc_prefix)sGET_N_DIAGRAMS( NDIAG )

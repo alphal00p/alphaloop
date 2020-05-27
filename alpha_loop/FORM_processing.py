@@ -81,6 +81,10 @@ class FORMSuperGraph(object):
         ( -1, 1, 3 ): (0, 2, 1),
         # FxFS
         ( -2, 1, 2 ): (0, 1, 2),
+        # SSS
+        ( 1, 1, 1 ): (0, 1, 2),
+        # SSSS
+        ( 1, 1, 1, 1 ): (0, 1, 2),
         # VxVV (e.g. W+ W- a )
         ( -3, 3, 3 ): (1, 0, 2),
     }
@@ -833,7 +837,7 @@ class FORMProcessor(object):
         helicity_averaging_factor = "/" + str(helicity_averaging_factor)
 
         # there is another 1/4 difference between FORM and MG that is unexplained
-        additional_overall_factor = helicity_averaging_factor + '/4'
+        additional_overall_factor = helicity_averaging_factor
 
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
