@@ -73,12 +73,14 @@ Fill charges(3) = -1/3; * s
 Fill charges(4) = 2/3; * c
 Fill charges(5) = -1/3; * b
 Fill charges(6) = 2/3; * t
+Fill charges(11) = -1; * e
 Fill charges(-1) = -1/3; * d
 Fill charges(-2) = 2/3; * u
 Fill charges(-3) = -1/3; * s
 Fill charges(-4) = 2/3; * c
 Fill charges(-5) = -1/3; * b
 Fill charges(-6) = 2/3; * t
+Fill charges(-11) = -1; * e
 
 Auto V p,k;
 Auto S lm,ext;
@@ -115,16 +117,12 @@ repeat id prop(?a, 0, ?b) = prop(?a, pzero, ?b);
 repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
 
 * incoming edges
-id prop(`EM', in, p?, idx?) = u(p, masses(`EM'), dirac[idx]);
-id prop(x?{`Q'}, in, p?, idx?) = u(p, masses(x), dirac[idx]);
-id prop(`EP', in, p?, idx?) = vbar(p, masses(`EP'), dirac[idx]);
-id prop(x?{`QBAR'}, in, p?, idx?) = vbar(p, masses(x), dirac[idx]);
+id prop(x?{`Q', `EM'}, in, p?, idx?) = u(p, masses(x), idx);
+id prop(x?{`QBAR', `EP'}, in, p?, idx?) = vbar(p, masses(x), idx);
 
 * outgoing edges
-id prop(`EM', out, p?, idx?) = ubar(p, masses(`EM'), dirac[idx]);
-id prop(`EP', out, p?, idx?) = v(p, masses(`EP'), dirac[idx]);
-id prop(x?{`Q'}, out, p?, idx?) = ubar(p, masses(x), dirac[idx]);
-id prop(x?{`QBAR'}, out, p?, idx?) = v(p, masses(x), dirac[idx]);
+id prop(x?{`Q', `EM'}, out, p?, idx?) = ubar(p, masses(x), idx);
+id prop(x?{`QBAR', `EP'}, out, p?, idx?) = v(p, masses(x), idx);
 
 * virtual edges
 id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]);
@@ -140,9 +138,8 @@ id prop(`H', out, p?, idx1?) = 1;
 * vertices
 id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * T(colF[idx1], colA[idx2], colF[idx3]);
 id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * cOlf(colA[idx3], colA[idx1], colA[idx2]) * p3(lorentz[idx2]);
-id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
-id vx(`EP', `PHO', `EM', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ge * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
-id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`QBAR', `EP'}, `PHO', x2?{`Q', `EM'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`QBAR', `EP'}, `H', x2?{`Q', `EM'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 
 * TODO: use momentum conservation to reduce the number of different terms
 id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
@@ -168,6 +165,10 @@ if (count(vx, 1, prop, 1));
     Print "Unsubstituted propagator or vertex: %t";
     exit "Critical error";
 endif;
+
+* Do the spin sum
+repeat id u(p?,m?,idx1?)*ubar(p?,m?,idx2?) = d_(colF[idx1], colF[idx2])*(gamma(dirac[idx1], p, dirac[idx2]) + m*gamma(dirac[idx1], dirac[idx2]));
+repeat id v(p?,m?,idx1?)*vbar(p?,m?,idx2?) = d_(colF[idx1], colF[idx2])*(gamma(dirac[idx1], p, dirac[idx2]) - m*gamma(dirac[idx1], dirac[idx2]));
 
 .sort:feynman-rules-vertices;
 
@@ -211,10 +212,6 @@ EndArgument;
 
 * set the SU(3) values
 id cOlNR = 3;
-
-* Do the spin sum
-repeat id u(p?,m?,s1?)*ubar(p?,m?,s2?) = gamma(s1, p, s2) + m*gamma(s1, s2);
-repeat id v(p?,m?,s1?)*vbar(p?,m?,s2?) = gamma(s1, p, s2) - m*gamma(s1, s2);
 
 * construct gamma string
 repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
