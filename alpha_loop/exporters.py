@@ -1067,7 +1067,17 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 pjoin(self.dir_path,'FORM', 'Makefile'))
         form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
             output_format=self.alphaLoop_options['FORM_processing_output_format'])
-        
+
+        all_processes = list(proc for proc in self.proc_def)
+        representative_proc = all_processes[0]
+        if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
+            n_jets = len([1 for leg in representative_proc.get('legs') if 
+                        leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
+            final_state_particle_ids = tuple([leg.get('id') for leg in representative_proc.get('legs') if 
+                        leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
+            form_processor.generate_squared_topology_files(
+                pjoin(self.dir_path,'Rust_inputs'), n_jets, final_state_particle_ids=final_state_particle_ids)
+
         # Draw
         drawings_output_path = pjoin(self.dir_path, 'Drawings')
         Path(drawings_output_path).mkdir(parents=True, exist_ok=True)

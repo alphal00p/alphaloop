@@ -800,7 +800,9 @@ class FORMProcessor(object):
         self.super_graphs_list = super_graphs_list
         self.model = model
         self.process_definition = process_definition
-
+        all_processes = list(proc for proc in self.process_definition)
+        self.repr_process = all_processes[0]
+        
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""
 
@@ -816,7 +818,7 @@ class FORMProcessor(object):
         }
 
         helicity_averaging_factor = 1
-        for leg in self.process_definition.get('legs'):
+        for leg in self.repr_process.get('legs'):
             # Skip final states
             if leg.get('state') is True:
                 continue

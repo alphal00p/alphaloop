@@ -572,6 +572,10 @@ utils.bcolors.RED,utils.bcolors.ENDC
             raise alphaLoopInvalidCmd("The hardcoded process definition specified in '%s' could not be parsed. Error:\n%s"%(
                 pjoin(hardcoded_generation_dir,'MG_process_definition.dat'),str(e) ))
 
+        self.alphaLoop_options['_jet_PDGs'] = tuple([
+            pdg for pdg in self._multiparticles['j']
+        ])
+
         # Now generate the output directory structure:
         qgraf_exporter =  aL_exporters.HardCodedQGRAFExporter(
             process_definition, self._curr_model, proc_output_path, 
