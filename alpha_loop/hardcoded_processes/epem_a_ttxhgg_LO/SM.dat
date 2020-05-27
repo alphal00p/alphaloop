@@ -9,7 +9,7 @@
 [higgs, higgs, +; pdg=('25')]
 [gluon,gluon,+; pdg=('21')]
 * Psi PsiBar
-[ghost,ghostbar,-; pdg=('82','82')]
+[ghost,ghostbar,-; pdg=('82','-82')]
 [photon,photon,+;pdg=('22')]
 [eminus, eplus, - , external; pdg= ('+11', '-11')]
 [u, ubar, - ; pdg= ('+2','-2')]
