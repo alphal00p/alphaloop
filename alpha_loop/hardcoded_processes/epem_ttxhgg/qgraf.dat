@@ -1,5 +1,5 @@
 
-output = 'epem_ttH.py';
+output = 'output.py';
 
 style = './orientedGraphPython.sty';
 
