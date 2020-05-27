@@ -224,9 +224,9 @@ aGraph=%s;
                     file_name,1.25*self._rendering_size[0],1.25*self._rendering_size[1])
         open(pjoin(output_dir,'%s.m'%file_name),'w').write(MM_code)
 
-    def generate_numerator_form_input(self):
+    def generate_numerator_form_input(self, additional_overall_factor=''):
         # create the input file for FORM
-        form_diag = self.overall_factor
+        form_diag = self.overall_factor + additional_overall_factor
         for node in self.nodes.values():
             if node['vertex_id'] < 0:
                 continue
@@ -536,15 +536,15 @@ class FORMSuperGraphIsomorphicList(list):
             else:
                 self.append(FORMSuperGraph.from_LTD2SuperGraph(g))
 
-    def generate_numerator_form_input(self):
-        return '+'.join(g.generate_numerator_form_input() for g in self)
+    def generate_numerator_form_input(self, additional_overall_factor='',):
+        return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
 
-    def generate_numerator_functions(self, output_format='c'):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c'):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
         # write the form input to a file
-        form_input = self.generate_numerator_form_input()
+        form_input = self.generate_numerator_form_input(additional_overall_factor)
 
         with open(pjoin(FORM_workspace,'input.h'), 'w') as f:
             f.write('L F = {};'.format(form_input))
@@ -702,7 +702,7 @@ class FORMSuperGraphList(list):
         # TODO: Dump to Python dict
         pass
 
-    def generate_numerator_functions(self, root_output_path, params={}, output_format='c'):
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c'):
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
 
@@ -732,7 +732,7 @@ class FORMSuperGraphList(list):
             total_time = 0.
             for i, graph in enumerate(self):
                 time_before = time.time()
-                num = graph.generate_numerator_functions()
+                num = graph.generate_numerator_functions(additional_overall_factor)
                 total_time += time.time()-time_before
                 num = num.replace('i_', 'I')
                 num = input_pattern.sub(r'lm[\1]', num)
@@ -814,8 +814,21 @@ class FORMProcessor(object):
             'gy': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
         }
 
+        helicity_averaging_factor = 1
+        for leg in self.process_definition.get('legs'):
+            # Skip final states
+            if leg.get('state') is True:
+                continue
+
+            helicity_averaging_factor *= len(self.model.get_particle(leg.get('id')).get_helicity_states())
+        helicity_averaging_factor = "/" + str(helicity_averaging_factor)
+
+        # there is another 1/4 difference between FORM and MG that is unexplained
+        additional_overall_factor = helicity_averaging_factor + '/4'
+
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
+            additional_overall_factor=additional_overall_factor,
             params=params)
 
     @classmethod
@@ -870,5 +883,5 @@ if __name__ == "__main__":
 
     super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source)
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
-    form_processor.generate_numerator_functions('.', output_format='c')
-    form_processor.generate_squared_topology_files('.', 2, final_state_particle_ids=(6, 6, 25))
+    form_processor.generate_numerator_functions('./lib', output_format='c')
+    form_processor.generate_squared_topology_files('./RUST_input', 2, final_state_particle_ids=(6, 6, 25))
