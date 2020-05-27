@@ -491,8 +491,8 @@ aGraph=%s;
         if self.is_zero:
             return False
 
-        # the first 4 entries are the external momenta
-        edge_map_lin = [(e['name'] if e['type'] == 'virtual' else 'q' + e['name'][1:], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
+        # TODO: sort such that the first 4 entries are external (it seems to happen by chance now every time)
+        edge_map_lin = [('p' + e['name'][1:] if e['type'] == 'virtual' else 'q' + e['name'][1:], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
         particle_ids = {e['name'] if e['type'] == 'virtual' else 'q' + e['name'][1:]: abs(e['PDG']) for e in self.edges.values()}
@@ -504,7 +504,7 @@ aGraph=%s;
         n_loops = len(self.edges) - len(self.nodes) + 1
         for loop_var in range(n_loops):
             # FIXME: what if the edge is -k?
-            lm = next(ee['name'] for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+            lm = next('p' + ee['name'][1:] for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
                 sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
             loop_momenta.append(lm)
 
