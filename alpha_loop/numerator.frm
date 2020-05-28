@@ -84,10 +84,11 @@ Fill charges(-5) = 1/3; * b
 Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
+V p1,...,p40,k1,...,k40; * force this internal ordering in FORM
 Auto V p,k;
 Auto S lm,ext;
 Auto I mu=4,s=4;
-Symbol ge, gs, gy, type, in, out, virtual;
+Symbol ge, gs, gy, ghhh, type, in, out, virtual;
 Auto S x, idx;
 
 Set dirac: s1,...,s40;
