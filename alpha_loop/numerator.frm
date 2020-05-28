@@ -18,6 +18,8 @@
 #define FERM "-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,-11,11,-12,12,-13,13"
 #define Q "1,2,3,4,5,6"
 #define QBAR "-1,-2,-3,-4,-5,-6"
+#define L "11,12,13"
+#define LBAR "-11,-12,-13"
 
 Auto S mass;
 CTable masses(-30:30);
@@ -74,13 +76,13 @@ Fill charges(4) = 2/3; * c
 Fill charges(5) = -1/3; * b
 Fill charges(6) = 2/3; * t
 Fill charges(11) = -1; * e
-Fill charges(-1) = -1/3; * d
-Fill charges(-2) = 2/3; * u
-Fill charges(-3) = -1/3; * s
-Fill charges(-4) = 2/3; * c
-Fill charges(-5) = -1/3; * b
-Fill charges(-6) = 2/3; * t
-Fill charges(-11) = -1; * e
+Fill charges(-1) = 1/3; * d
+Fill charges(-2) = -2/3; * u
+Fill charges(-3) = 1/3; * s
+Fill charges(-4) = -2/3; * c
+Fill charges(-5) = 1/3; * b
+Fill charges(-6) = -2/3; * t
+Fill charges(-11) = 1; * e
 
 Auto V p,k;
 Auto S lm,ext;
@@ -93,7 +95,7 @@ Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop;
-CF u,ubar,v,vbar,f,vx, vec;
+CF f,vx, vec;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
 S  i, m, n;
@@ -116,13 +118,11 @@ Set colAdum: cOljj1,...,cOljj40;
 repeat id prop(?a, 0, ?b) = prop(?a, pzero, ?b);
 repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
 
-* incoming edges
-id prop(x?{`Q', `EM'}, in, p?, idx?) = u(p, masses(x), idx);
-id prop(x?{`QBAR', `EP'}, in, p?, idx?) = vbar(p, masses(x), idx);
-
-* outgoing edges
-id prop(x?{`Q', `EM'}, out, p?, idx?) = ubar(p, masses(x), idx);
-id prop(x?{`QBAR', `EP'}, out, p?, idx?) = v(p, masses(x), idx);
+* do the spin sum external particles
+repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
+repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = d_(colF[idx1], colF[idx2])*(gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]));
+repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
+repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = d_(colF[idx1], colF[idx2])*(gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]));
 
 * virtual edges
 id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]);
@@ -138,8 +138,11 @@ id prop(`H', out, p?, idx1?) = 1;
 * vertices
 id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * i_ * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * T(colF[idx1], colA[idx2], colF[idx3]);
 id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * cOlf(colA[idx3], colA[idx1], colA[idx2]) * p3(lorentz[idx2]);
-id vx(x1?{`QBAR', `EP'}, `PHO', x2?{`Q', `EM'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
-id vx(x1?{`QBAR', `EP'}, `H', x2?{`Q', `EM'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
+id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
 * TODO: use momentum conservation to reduce the number of different terms
 id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
@@ -165,10 +168,6 @@ if (count(vx, 1, prop, 1));
     Print "Unsubstituted propagator or vertex: %t";
     exit "Critical error";
 endif;
-
-* Do the spin sum
-repeat id u(p?,m?,idx1?)*ubar(p?,m?,idx2?) = d_(colF[idx1], colF[idx2])*(gamma(dirac[idx1], p, dirac[idx2]) + m*gamma(dirac[idx1], dirac[idx2]));
-repeat id v(p?,m?,idx1?)*vbar(p?,m?,idx2?) = d_(colF[idx1], colF[idx2])*(gamma(dirac[idx1], p, dirac[idx2]) - m*gamma(dirac[idx1], dirac[idx2]));
 
 .sort:feynman-rules-vertices;
 
