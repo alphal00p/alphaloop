@@ -21,7 +21,7 @@ Block MASS
    13 0.000000e+00 # MM 
    15 1.777000e+00 # MTA 
    23 9.118800e+01 # MZ 
-   25 1.200000e+02 # MH 
+   25 1.250000e+02 # MH 
 
 ###################################
 ## INFORMATION FOR DECAY
@@ -47,7 +47,7 @@ Block Wolfenstein
 Block YUKAWA 
     4 0.000000e+00 # ymc 
     5 4.200000e+00 # ymb 
-    6 1.645000e+02 # ymt 
+    6 1.730000e+02 # ymt 
    11 0.000000e+00 # yme 
    13 0.000000e+00 # ymm 
    15 1.777000e+00 # ymtau 

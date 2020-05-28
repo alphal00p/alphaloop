@@ -364,9 +364,9 @@ class TopologyGenerator(object):
                         if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
 
                 # filter cuts with not enough jets and cuts that do not contain all desired final state particles
-                cutkosky_particles = tuple(sorted(particle_ids[e] for (e, _, _) in cutkosky_cut if e in particle_ids))
+                cutkosky_particles = tuple(sorted(abs(particle_ids[e]) for (e, _, _) in cutkosky_cut if e in particle_ids))
                 if len(cutkosky_cut) - len(final_state_particle_ids) < n_jets or \
-                        not all(final_state_particle_ids.count(p) <= cutkosky_particles.count(p) for p in final_state_particle_ids):
+                        not all(final_state_particle_ids.count(abs(p)) <= cutkosky_particles.count(abs(p)) for p in final_state_particle_ids):
                     continue
 
                 # check if the cut is incoming our outgoing
