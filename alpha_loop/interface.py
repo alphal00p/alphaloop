@@ -140,7 +140,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             logger.info('%-30s : %s'%(opt, str(self.FORM_options[opt])))
 
 
-    def do_set_FROM_option(self, line):
+    def do_set_FORM_option(self, line):
         """ Logic for setting alphaLoop options."""
         args = self.split_arg(line)
         args, options = self.parse_set_option(args)

@@ -15,6 +15,7 @@ from itertools import chain
 import sys
 import subprocess
 import argparse
+import shutil
 pjoin = os.path.join
 
 if __name__ == "__main__":
@@ -89,7 +90,7 @@ class FORMSuperGraph(object):
         ( -3, 3, 3 ): (1, 0, 2),
     }
 
-    _include_momentum_routing_in_rendering=False
+    _include_momentum_routing_in_rendering=True
     _include_edge_name_in_rendering=False
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
     # Choose graph layout strategy. Interesting options are in comment.
@@ -491,15 +492,20 @@ aGraph=%s;
         else:
             return dict_to_dump
 
-    def generate_squared_topology_files(self, root_output_path, n_jets, numerator_call, final_state_particle_ids=()):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=()):
         if self.is_zero:
             return False
 
+        # Relabel edges according to alphaLoop conventions:
+        for edge_key, edge_data in self.edges.items():
+            edge_data['name'] = 'p' + edge_data['name'][1:] if edge_data['type'] == 'virtual' else 'q' + edge_data['name'][1:]
+
         # TODO: sort such that the first 4 entries are external (it seems to happen by chance now every time)
-        edge_map_lin = [('p' + e['name'][1:] if e['type'] == 'virtual' else 'q' + e['name'][1:], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
+        edge_map_lin = [(e['name'], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
-        particle_ids = {'p' + e['name'][1:] if e['type'] == 'virtual' else 'q' + e['name'][1:]: abs(e['PDG']) for e in self.edges.values()}
+        particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
+        particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
         external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
@@ -507,19 +513,21 @@ aGraph=%s;
         loop_momenta = []
         n_loops = len(self.edges) - len(self.nodes) + 1
         for loop_var in range(n_loops):
-            # FIXME: what if the edge is -k?
-            lm = next('p' + ee['name'][1:] for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+            lm = next(('p' + ee['name'][1:], ee['signature'][0][loop_var]) for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
                 sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
             loop_momenta.append(lm)
 
         topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
             self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
-            loop_momenta_names=tuple(loop_momenta),
+            loop_momenta_names=tuple([l for l,s in loop_momenta]),
+            loop_momenta_signs=tuple([s for l,s in loop_momenta]),
             particle_ids=particle_ids,
+            masses=particle_masses,
             final_state_particle_ids=final_state_particle_ids,
             overall_numerator=1.0,
             numerator_structure={},
-            FORM_numerator={'call_signature': {'id': numerator_call}})
+            FORM_numerator={'call_signature': {'id': numerator_call}}
+        )
 
         # check if cut is possible
         if len(topo.cuts) == 0:
@@ -547,28 +555,37 @@ class FORMSuperGraphIsomorphicList(list):
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c'):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
         # write the form input to a file
         form_input = self.generate_numerator_form_input(additional_overall_factor)
 
-        with open(pjoin(FORM_workspace,'input.h'), 'w') as f:
+        if workspace is None:
+            selected_workspace = FORM_workspace
+            FORM_source = pjoin(plugin_path,"numerator.frm")
+        else:
+            selected_workspace = workspace
+            shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
+            shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
+            FORM_source = pjoin(selected_workspace,'numerator.frm')
+
+        with open(pjoin(selected_workspace,'input.h'), 'w') as f:
             f.write('L F = {};'.format(form_input))
 
         r = subprocess.run([
                 FORM_processing_options["TFORM_path"] if FORM_processing_options["parallel"] else FORM_processing_options["FORM_path"],
                 FORM_processing_options["cores"],
-                pjoin(plugin_path,"numerator.frm")
+                FORM_source
             ],
-            cwd=FORM_workspace,
+            cwd=selected_workspace,
             capture_output=True)
         if r.returncode != 0:
             raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
         # return the code for the numerators
-        with open(pjoin(FORM_workspace,'out.proto_c'), 'r') as f:
+        with open(pjoin(selected_workspace,'out.proto_c'), 'r') as f:
             num_code = f.read()
 
         return num_code
@@ -581,9 +598,9 @@ class FORMSuperGraphIsomorphicList(list):
         else:
             return to_dump
 
-    def generate_squared_topology_files(self, root_output_path, n_jets, numerator_call, final_state_particle_ids=() ):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=() ):
         # only generate a yaml file for the reference graph of the isomorphic set
-        return self[0].generate_squared_topology_files(root_output_path, n_jets, numerator_call, final_state_particle_ids)
+        return self[0].generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, final_state_particle_ids)
 
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
@@ -710,7 +727,7 @@ class FORMSuperGraphList(list):
         # TODO: Dump to Python dict
         pass
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c'):
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None):
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
 
@@ -740,7 +757,7 @@ class FORMSuperGraphList(list):
             total_time = 0.
             for i, graph in enumerate(self):
                 time_before = time.time()
-                num = graph.generate_numerator_functions(additional_overall_factor)
+                num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace)
                 total_time += time.time()-time_before
                 num = num.replace('i_', 'I')
                 num = input_pattern.sub(r'lm[\1]', num)
@@ -773,19 +790,21 @@ double complex evaluate(double complex lm[], int i) {{
     ))
         writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
 
-    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=()):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), filter_non_contributing_graphs=True):
         topo_collection = {
             'name': self.name,
             'topologies': []
         }
 
+        contributing_supergraphs = []
         with progressbar.ProgressBar(prefix='Generating squared topology files : ', max_value=len(self)) as bar:
             for i, g in enumerate(self):
-                if g.generate_squared_topology_files(root_output_path, n_jets, numerator_call=i, final_state_particle_ids=final_state_particle_ids):
+                if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=i, final_state_particle_ids=final_state_particle_ids):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         'multiplicity': 1
                     })
+                    contributing_supergraphs.append(g)
 
                 bar.update(i+1)
 
@@ -796,6 +815,9 @@ double complex evaluate(double complex lm[], int i) {{
             raise BaseException("Install yaml python module in order to import topologies from yaml.")
 
         open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
+
+        if filter_non_contributing_graphs:
+            self[:] = contributing_supergraphs
 
 class FORMProcessor(object):
     """ A class for taking care of the processing of a list of FORMSuperGraphList.
@@ -819,7 +841,7 @@ class FORMProcessor(object):
         for i_graph, super_graphs in enumerate(self.super_graphs_list):
             super_graphs[0].draw(self.model, output_dir, FORM_id=i_graph)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c'):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None):
         params = {
             'mass_t': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
             'gs': self.model['parameter_dict']['G'].real,
@@ -842,7 +864,7 @@ class FORMProcessor(object):
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
             additional_overall_factor=additional_overall_factor,
-            params=params)
+            params=params,workspace=workspace)
 
     @classmethod
     def compile(cls, root_output_path):
@@ -858,8 +880,10 @@ class FORMProcessor(object):
             logger.warning(("\n%sYou are running FORM_processing directly from the __main__ of FORM_processing.py.\n"+
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
-    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=()):
-        self.super_graphs_list.generate_squared_topology_files(root_output_path, n_jets, final_state_particle_ids)
+    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), filter_non_contributing_graphs=True):
+        self.super_graphs_list.generate_squared_topology_files(
+            root_output_path, self.model, n_jets, final_state_particle_ids, filter_non_contributing_graphs=filter_non_contributing_graphs
+        )
 
 
 if __name__ == "__main__":

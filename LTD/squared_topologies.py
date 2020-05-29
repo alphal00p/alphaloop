@@ -8,11 +8,11 @@ import copy
 import math
 from itertools import combinations_with_replacement
 import vectors
-from sympy import Matrix
+from sympy import Matrix, diag
 
 class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_jets, external_momenta, final_state_particle_ids=(),
-        loop_momenta_names=None, masses={}, powers=None, particle_ids={}, MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
+        loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), numerator_in_loop_momentum_basis=False, FORM_numerator={}):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
@@ -22,6 +22,11 @@ class SquaredTopologyGenerator:
         self.FORM_numerator = FORM_numerator
         self.subgraphs_info = subgraphs_info
         self.numerator_in_loop_momentum_basis = numerator_in_loop_momentum_basis
+
+        # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
+        # This is supported by adjusting the cb to lmb rotation matrix to be applied
+        # before calling the numerator.
+        self.loop_momenta_signs = loop_momenta_signs
 
         self.loop_topo = self.topo.create_loop_topology(name,
             external_momenta,
@@ -87,7 +92,7 @@ class SquaredTopologyGenerator:
                 # construct a matrix from the cut basis to the loop momentum basis
                 # this is useful if the numerator is specified in the loop momentum basis
                 # the matrix will be padded with the loop momentum maps
-                cut_to_lmb = [cut_edge['signature'][0] for cut_edge in c[:-1]]
+                cut_to_lmb = [ cut_edge['signature'][0] for cut_edge in c[:-1]]
 
                 loop_topos = []
                 for i, s in enumerate(sub_graphs):
@@ -123,11 +128,20 @@ class SquaredTopologyGenerator:
 
                     loop_topos.append(loop_topo)
 
+                lmb_to_cb_matrix = Matrix(cut_to_lmb)**-1
+                # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
+                # This is supported by adjusting the cb to lmb rotation matrix to be applied
+                # before calling the numerator.
+                if self.loop_momenta_signs is not None:
+                    assert(len(self.loop_momenta_signs)==len(cut_to_lmb[0]))
+                    assert(all(abs(s)==1 for s in self.loop_momenta_signs))
+                    lmb_to_cb_matrix = lmb_to_cb_matrix*diag([s for s in self.loop_momenta_signs])
+
                 uv_limit_info.append({
                     'numerator_structure': numerator_sparse,
                     'loop_topos': loop_topos,
                     'conjugate_deformation': [x for x in cut_info['conjugate_deformation']],
-                    'cb_to_lmb': None if cut_info['n_bubbles'] != 0 else [int(x) for x in Matrix(cut_to_lmb)**-1]
+                    'cb_to_lmb': None if cut_info['n_bubbles'] != 0 else [int(x) for x in lmb_to_cb_matrix]
                 })
 
             self.cut_diagrams.append(uv_limit_info)

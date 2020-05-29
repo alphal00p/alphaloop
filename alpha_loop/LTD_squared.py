@@ -746,6 +746,11 @@ class SuperGraph(object):
             if local_DEBUG: misc.sprint(loop_momenta_names)
             return loop_momenta_names
 
+        def get_loop_momenta_signs():
+            loop_momenta_signs = [ (-1 if edge[2] else +1) for edge in self.cuts[:-1] ]
+            if local_DEBUG: misc.sprint(loop_momenta_signs)
+            return loop_momenta_signs
+
         def get_final_state_particle_ids():
             final_state_particle_ids = []
             
@@ -770,6 +775,14 @@ class SuperGraph(object):
             if local_DEBUG: misc.sprint(particle_ids)
             return particle_ids
 
+        def get_particle_masses():
+            particle_masses = { edge_info['name'] :
+                model['parameter_dict'][model.get_particle(edge_info['pdg']).get('mass')].real
+                for edge, edge_info in self.graph.edges.items()
+            }
+            if local_DEBUG: misc.sprint(particle_masses)
+            return particle_masses
+
         squared_topology = squared_topology_processor.SquaredTopologyGenerator(
             get_edges_list(),
             self.name, 
@@ -778,8 +791,10 @@ class SuperGraph(object):
             # Below needs to be removed when interfacing to MG5aMC numerators
             get_external_momenta_assignment(),
             loop_momenta_names=get_loop_momenta_names(),
+            loop_momenta_signs=get_loop_momenta_signs(),
             final_state_particle_ids=get_final_state_particle_ids(),
             particle_ids=get_particle_ids(),
+            masses=get_particle_masses(),
             MG_numerator = {
                 # The call signature is typically a dictionary with the following format
                 # {'proc_id' : <i>, 'left_diagram_id' : <i>, 'right_diagram_id' : <i> }

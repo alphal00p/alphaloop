@@ -144,6 +144,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             raise alphaLoopExporterError("No supergraph generated.")
 
         model = self.all_super_graphs[0][1].get('processes')[0].get('model')
+        computed_model = model_reader.ModelReader(model)
+        computed_model.set_parameters_and_couplings(pjoin(self.dir_path,'Cards','param_card.dat'))      
 
         # Now write out a yaml file for each of these 
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
@@ -180,6 +182,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             )
             FORM_output_path = pjoin(self.dir_path, 'FORM')
             Path(FORM_output_path).mkdir(parents=True, exist_ok=True)
+            FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
+            Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
             # Also output a copy of the input super-graph sent to the FORM processor.
@@ -200,7 +204,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             FORM_processor = FORM_processing.FORMProcessor(
                 FORM_super_graph_list, computed_model, characteristic_process_definition)
             FORM_processor.generate_numerator_functions(FORM_output_path, 
-                        output_format=self.alphaLoop_options['FORM_processing_output_format'])
+                        output_format=self.alphaLoop_options['FORM_processing_output_format'],
+                        workspace=FORM_workspace
+            )
             drawings_output_path = pjoin(self.dir_path, 'Drawings')
             Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
             shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
@@ -240,7 +246,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                         FORM_id_to_supply = None
                     super_graph.generate_yaml_input_file(
                         file_path,
-                        model,
+                        computed_model,
                         self.alphaLoop_options,
                         FORM_id=FORM_id_to_supply
                     )
@@ -1065,8 +1071,12 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                 pjoin(self.dir_path,'FORM', 'Makefile'))
+        FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
+        Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
         form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
-            output_format=self.alphaLoop_options['FORM_processing_output_format'])
+            output_format=self.alphaLoop_options['FORM_processing_output_format'],
+            workspace=FORM_workspace
+        )
 
         if isinstance(self.proc_def, base_objects.ProcessDefinition):
             all_processes = list(proc for proc in self.proc_def)
@@ -1079,7 +1089,11 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             final_state_particle_ids = tuple([leg.get('id') for leg in representative_proc.get('legs') if 
                         leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
             form_processor.generate_squared_topology_files(
-                pjoin(self.dir_path,'Rust_inputs'), n_jets, final_state_particle_ids=final_state_particle_ids)
+                pjoin(self.dir_path,'Rust_inputs'), n_jets, 
+                final_state_particle_ids=final_state_particle_ids,
+                # Remove non-contributing graphs from the list stored in the form_processor
+                filter_non_contributing_graphs=True
+            )
 
         # Draw
         drawings_output_path = pjoin(self.dir_path, 'Drawings')
