@@ -103,17 +103,18 @@ mod FORMNumeratorMod {
 
     #[derive(WrapperApi)]
     pub struct FORMNumeratorAPI {
-        evaluate: unsafe extern "C" fn(p: *const c_double, id: c_int) -> [c_double; 2],
+        evaluate: unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int, out: *mut c_double),
     }
 
     pub fn get_numerator(
         api_container: &mut Container<FORMNumeratorAPI>,
         p: &[f64],
-        proc_id: usize,
-    ) -> Complex<f64> {
+        diag: usize,
+        conf: usize,
+        poly: &mut[f64]
+    ) {
         unsafe {
-            let ans = api_container.evaluate(&p[0] as *const f64, proc_id as i32);
-            Complex::new(ans[0], ans[1])
+            api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32, &mut poly[0] as *mut f64);
         }
     }
 
@@ -211,6 +212,9 @@ pub struct FORMNumerator {
     #[serde(skip_deserializing)]
     #[cfg(feature = "mg_numerator")]
     pub form_numerator: Option<Container<FORMNumeratorMod::FORMNumeratorAPI>>,
+    #[serde(skip_deserializing)]
+    #[cfg(feature = "mg_numerator")]
+    pub form_numerator_buffer: Vec<f64>,
 }
 
 impl Clone for FORMNumerator {
@@ -223,6 +227,7 @@ impl Clone for FORMNumerator {
             } else {
                 None
             },
+            form_numerator_buffer: self.form_numerator_buffer.clone(),
         }
     }
 }
@@ -1598,14 +1603,18 @@ impl SquaredTopology {
                 if self.form_numerator.form_numerator.is_some() {
                     let mut form_numerator =
                         mem::replace(&mut self.form_numerator.form_numerator, None);
+                    let mut form_numerator_buffer =
+                        mem::replace(&mut self.form_numerator.form_numerator_buffer, vec![]);
                     if let Some(call_signature) = &self.form_numerator.call_signature {
-                        let mut scalar_products: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> =
+                        let mut scalar_products: ArrayVec<[f64; MAX_LOOP * MAX_LOOP * 6]> =
                             ArrayVec::new();
 
                         for (i1, e1) in self.external_momenta[..self.n_incoming_momenta]
                             .iter()
                             .enumerate()
                         {
+                            scalar_products.push(e1.t);
+                            scalar_products.push(0.);
                             for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
                                 scalar_products.push(e1.dot(e2));
                                 scalar_products.push(0.);
@@ -1613,8 +1622,13 @@ impl SquaredTopology {
                         }
 
                         for (i1, m1) in k_def_lmb[..self.n_loops].iter().enumerate() {
+                            scalar_products.push(m1.t.re.to_f64().unwrap());
+                            scalar_products.push(m1.t.im.to_f64().unwrap());
                             for e1 in &self.external_momenta[..self.n_incoming_momenta] {
                                 let d = m1.dot(&e1.cast());
+                                scalar_products.push(d.re.to_f64().unwrap());
+                                scalar_products.push(d.im.to_f64().unwrap());
+                                let d = m1.spatial_dot(&e1.cast());
                                 scalar_products.push(d.re.to_f64().unwrap());
                                 scalar_products.push(d.im.to_f64().unwrap());
                             }
@@ -1623,15 +1637,24 @@ impl SquaredTopology {
                                 let d = m1.dot(m2);
                                 scalar_products.push(d.re.to_f64().unwrap());
                                 scalar_products.push(d.im.to_f64().unwrap());
+                                let d = m1.spatial_dot(m2);
+                                scalar_products.push(d.re.to_f64().unwrap());
+                                scalar_products.push(d.im.to_f64().unwrap());
                             }
                         }
 
-                        let num = FORMNumeratorMod::get_numerator(
+                        if form_numerator_buffer.len()  < 2 {
+                            form_numerator_buffer.resize(2, 0.);
+                        }
+
+                        FORMNumeratorMod::get_numerator(
                             form_numerator.as_mut().unwrap(),
                             &scalar_products,
                             call_signature.id,
+                            0, // only evaluate the constant part for now
+                            &mut form_numerator_buffer,
                         );
-                        let result = Complex::new(Into::<T>::into(num.re), Into::<T>::into(num.im));
+                        let result = Complex::new(Into::<T>::into(form_numerator_buffer[0]), Into::<T>::into(form_numerator_buffer[1]));
 
                         // compare against the MG numerator
                         if self.mg_numerator.call_signature.is_some() {
@@ -1649,13 +1672,14 @@ impl SquaredTopology {
 
                         diag_cache[0].reduced_coefficient_lb[0].clear();
                         diag_cache[0].reduced_coefficient_lb[0].push(Complex::new(
-                            Into::<T>::into(num.re),
-                            Into::<T>::into(num.im),
+                            Into::<T>::into(result.re),
+                            Into::<T>::into(result.im),
                         ));
                         num_computed = true;
                     }
 
                     mem::swap(&mut form_numerator, &mut self.form_numerator.form_numerator);
+                    mem::swap(&mut form_numerator_buffer, &mut self.form_numerator.form_numerator_buffer);
                 }
 
                 mem::swap(&mut mg_numerator, &mut self.mg_numerator.mg_numerator);

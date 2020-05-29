@@ -9,6 +9,7 @@ import math
 import igraph
 import time
 import numpy as np
+from itertools import combinations_with_replacement
 
 import progressbar
 from itertools import chain
@@ -50,7 +51,7 @@ if __name__ == "__main__":
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 
-FORM_processing_options = {'FORM_path': 'form', 'TFORM_path': 'tform', 'parallel': False, 'cores': '-w1', 'extra-options': '-D OPTIMITERATIONS=100'}
+FORM_processing_options = {'FORM_path': 'form', 'TFORM_path': 'tform', 'parallel': False, 'cores': 4, 'extra-options': '-D OPTIMITERATIONS=1000'}
 
 # Can switch to tmpdir() if necessary at some point
 FORM_workspace = pjoin(plugin_path,'FORM_workspace')
@@ -576,7 +577,7 @@ class FORMSuperGraphIsomorphicList(list):
 
         r = subprocess.run([
                 FORM_processing_options["TFORM_path"] if FORM_processing_options["parallel"] else FORM_processing_options["FORM_path"],
-                FORM_processing_options["cores"],
+                '-w' + str(FORM_processing_options["cores"]),
                 FORM_source
             ],
             cwd=selected_workspace,
@@ -738,16 +739,18 @@ class FORMSuperGraphList(list):
             raise FormProcessingError("This FORMSuperGraphList instance requires at least one entry for generating numerators.")
 
         # add all numerators in one file and write the headers
-        numerator_code = """#include <math.h>
+        numerator_header = """#include <math.h>
 #include <complex.h>
 #include <signal.h>
+#include "numerator.h"
+"""
 
-{}
-""".format('\n'.join('const double {} = {};'.format(k, v) for k, v in params.items()))
-
-        pattern = re.compile(r'Z(()\d*)_')
+        var_pattern = re.compile(r'Z\d*_')
         input_pattern = re.compile(r'lm(\d*)')
+        energy_exp = re.compile(r'f\(([^)]*)\)\n')
+        return_exp = re.compile(r'return ([^;]*);\n')
 
+        # TODO: multiprocess this loop
         graphs_zero = True
         with progressbar.ProgressBar(
             prefix = 'Processing numerators with FORM ({variables.timing} ms / supergraph) : ',
@@ -755,6 +758,12 @@ class FORMSuperGraphList(list):
             variables = {'timing' : '0'}
             ) as bar:
             total_time = 0.
+
+            n_loops = len(self[0][0].edges) - len(self[0][0].nodes) + 1
+            max_rank = 8 # FIXME: determine somehow
+            # create the dense polynomial in the energies
+            numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(n_loops), i)]
+
             for i, graph in enumerate(self):
                 time_before = time.time()
                 num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace)
@@ -762,35 +771,104 @@ class FORMSuperGraphList(list):
                 num = num.replace('i_', 'I')
                 num = input_pattern.sub(r'lm[\1]', num)
                 num = num.replace('\nZ', '\n\tZ') # nicer indentation
-                max_intermediate_variable = max((int(index.groups()[0]) for index in pattern.finditer(num)), default=0)
 
-                if max_intermediate_variable > 0:
-                    graph.is_zero = False
+                confs = []
+                numerator_main_code = ''
+                conf_secs = num.split('#CONF')
+                for conf_sec in conf_secs[1:]:
+                    conf_sec = conf_sec.replace("#CONF\n", '')
 
-                numerator_code += '\ndouble complex evaluate_{}(double complex lm[]) {{\n\t{}\n'.format(i,
-                    'double complex {};'.format(','.join('Z' + str(i) + '_' for i in range(1, max_intermediate_variable + 1))) if max_intermediate_variable > 0 else ''
-                ) + num + '}\n'
+                    # collect all temporary variables
+                    temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
+
+                    # parse energy configuration
+                    conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
+                    conf = tuple(int(r[1:]) -1 for r in conf)
+                    if conf == (-1,):
+                        conf_id = 0
+                    else:
+                        conf_id = sum(2**i if i in conf else 0 for i in range(n_loops))
+                    confs.append(conf_id)
+
+                    mono_secs = conf_sec.split('#NEWMONOMIAL')
+                    
+                    num_body =''
+                    for mono_sec in mono_secs[1:]:
+                        mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
+                        # parse monomial powers
+                        pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
+                        pows = tuple(int(r[1:]) - 1 for r in pows)
+                        if pows == (-1,):
+                            index = 0
+                        else:
+                            index = numerator_pows.index(pows)
+                        mono_sec = energy_exp.sub('', mono_sec)
+                        returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
+                        mono_sec = return_exp.sub('out[{}] = {};'.format(index, returnval), mono_sec)
+                        num_body += mono_sec
+
+                    if len(temp_vars) > 0:
+                        graph.is_zero = False
+
+                    numerator_main_code += '\ninline void evaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
+                        'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
+                    ) + num_body + '}\n'
+
+                
+                numerator_main_code += \
+"""
+void evaluate_{}(double complex lm[], int conf, double complex* out) {{
+    switch(conf) {{
+{}
+    }}
+}}
+""".format(i,
+    '\n'.join(
+    ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf in sorted(confs)] +
+    ['\t\tdefault: raise(SIGABRT);'] if 2**(n_loops + 1) - 1 not in confs else ['\t\treturn evaluate_{}_{}(lm, out);'.format(i, 2**(n_loops + 1) - 1)]
+    ))
 
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
 
+                writers.CPPWriter(pjoin(root_output_path, 'numerator{}.c').format(i)).write(numerator_header + numerator_main_code)
+
         if graphs_zero:
             self[0].is_zero = True
 
-        numerator_code += \
+        numerator_code = \
 """
-double complex evaluate(double complex lm[], int i) {{
-    switch(i) {{
+#include <complex.h>
+#include <signal.h>
+
+{}
+
+void evaluate(double complex lm[], int diag, int conf, double complex* out) {{
+    switch(diag) {{
 {}
     }}
 }}
-""".format('\n'.join(
-    ['\t\tcase {}: return evaluate_{}(lm);'.format(i, i) for i in range(len(self))]+
+""".format(
+    '\n'.join('void evaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in range(len(self))),
+    '\n'.join(
+    ['\t\tcase {}: return evaluate_{}(lm, conf, out);'.format(i, i) for i in range(len(self))]+
     ['\t\tdefault: raise(SIGABRT);']
     ))
         writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), filter_non_contributing_graphs=True):
+        header_code = \
+"""
+#ifndef NUM_H
+#define NUM_H
+
+{}
+
+#endif
+""".format('\n'.join('#define  {} {}'.format(k, v) for k, v in params.items()))
+
+        writers.CPPWriter(pjoin(root_output_path, 'numerator.h')).write(header_code)
+
+    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), filter_non_contributing_graphs=True):
         topo_collection = {
             'name': self.name,
             'topologies': []
@@ -847,6 +925,7 @@ class FORMProcessor(object):
             'gs': self.model['parameter_dict']['G'].real,
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
             'gy': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
+            'ghhh': 6. * self.model['parameter_dict']['mdl_lam'].real,
         }
 
         helicity_averaging_factor = 1
@@ -872,7 +951,7 @@ class FORMProcessor(object):
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:
                 logger.info("Now compiling FORM-generated numerators...")
-                misc.compile(cwd=root_output_path,mode='cpp')
+                misc.compile(cwd=root_output_path,mode='cpp', nb_core=FORM_processing_options["cores"])
             except MadGraph5Error as e:
                 logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
                     utils.bcolors.RED,str(e),utils.bcolors.ENDC))
@@ -900,6 +979,8 @@ if __name__ == "__main__":
                         help='Number of FORM cores')
     parser.add_argument('--optim_iter', default=100, type=int,
                         help='Number of iterations for numerator optimization')
+    parser.add_argument('--full_energy_poly', default=False, type=bool,
+                        help='Always generate the full energy polynomial')
     parser.add_argument('--restrict_card',
         default=pjoin(os.environ['MG5DIR'],'models','sm','restrict_no_widths.dat'), 
                         type=str, help='Model restriction card to consider.')
@@ -907,8 +988,10 @@ if __name__ == "__main__":
 
     if args.cores > 1:
         FORM_processing_options['parallel'] = True
-        FORM_processing_options['cores'] = '-w' + str(args.cores)
+        FORM_processing_options['cores'] = args.cores
     FORM_processing_options['extra-options'] = '-D OPTIMITERATIONS=' + str(args.optim_iter)
+    if args.full_energy_poly:
+        FORM_processing_options['extra-options'] += ' -D FULL_ENERGY_POLY=1'
      
     import alpha_loop.interface as interface
     cli = interface.alphaLoopInterface()

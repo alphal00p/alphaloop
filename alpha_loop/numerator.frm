@@ -7,6 +7,7 @@
 *mu+, mu-, ta+ ,ta- > -12, 12, -13, 13
 *z w+ w- z -> 23, 24, -24
 *H 25
+Off statistics;
 
 #define GLU "21"
 #define PHO "22"
@@ -97,6 +98,7 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f,vx, vec;
+CF energyconfigurations, conf, energy, penergy, spatial(s);
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
 S  i, m, n;
@@ -251,12 +253,7 @@ id pzero = 0; * Substitute the 0-momentum by 0
 * Construction of optimized numerator C code
 *********************************************
 
-* TODO: split off the energy components of the LTD loop momenta
-* and optimize a monomial in the energies
-
-* Translate all dot products to a linear representation
-* We could also write out the dot products, at the cost of a drastic increase in variables, but does it help?
-* It could do k1.p1+k1.p2 => k1.(p1+p2)
+* Obtain the maximal p and k
 #$MAXK = 0;
 #do i=10,0,-1
     if (count(k`i', 1));
@@ -280,31 +277,101 @@ label donek;
 label donep;
 .sort
 
-#$OFFSET = 0;
-#do i=1,`$MAXP'
-    #do j=`i',`$MAXP'
-        id p`i'.p`j' = lm`$OFFSET';
-        #$OFFSET = $OFFSET + 1;
-    #enddo
-#enddo
+#ifdef `FULL_ENERGY_POLY'
+    if (count(energyconfigurations, 1) == 0);
+        Multiply energyconfigurations(conf(k0), conf(k1,...,k`$MAXK'));
+    else;
+        if (!match(energyconfigurations(?a, conf(k1,...,k`$MAXK'),?b)))
+            id energyconfigurations(?a) = energyconfigurations(?a, conf(k1,...,k`$MAXK'));
+    endif;
+#endif
 
-#do i=1,`$MAXK'
-    #do j=1,`$MAXP'
-        id k`i'.p`j' = lm`$OFFSET';
-        #$OFFSET = $OFFSET + 1;
-    #enddo
-
-    #do j=`i',`$MAXK'
-        id k`i'.k`j' = lm`$OFFSET';
-        #$OFFSET = $OFFSET + 1;
-    #enddo
-#enddo
-
-Format float 16; * print all constants as floats in the C output
-Format C;
+* create a numerator for every energy configuration
+transform energyconfigurations addargs(1,last);
+id energyconfigurations(x?) = x;
+if (count(conf, 1) == 0) Multiply conf(k0); * signal with k0 that we are dealing with the constant term
 .sort
-Format O4,stats=on,saIter=`OPTIMITERATIONS';
 
-#Optimize F
-#write<out.proto_c> "%O\n\treturn %e",F
+* now extract the energy components of the LTD loop variables
+id k1?.k2? = g(k1, k2);
+repeat id conf(?a,k1?,?b)*g(k1?,k1?) = conf(?a,k1,?b)*(energy(k1)*energy(k1)-spatial(k1,k1));
+repeat id conf(?a,k1?,?b,k2?,?c)*g(k1?,k2?) = conf(?a,k1,?b,k2,?c)*(energy(k1)*energy(k2)-spatial(k1,k2));
+repeat id conf(?a,k?,?b)*g(k?,p?) = conf(?a,k,?b)*(energy(k)*penergy(p)-spatial(k,p));
+id g(p1?,p2?) = p1.p2;
+
+repeat id energy(?a)*energy(?b) = energy(?a,?b);
+symmetrize energy;
+id energy(?a) = energy(f(?a));
+if (count(energy,1) == 0) Multiply energy(f(k0)); * signal with k0 that we are dealing with the constant term
+
+* split off every energy configuration into a new expression
+id conf(?a) = conf(conf(?a));
+argtoextrasymbol tonumber,conf,1;
+#redefine oldextrasymbols "`extrasymbols_'"
+B+ conf;
+.sort:conf-1;
+Hide F;
+
+#redefine energysymbolstart "`extrasymbols_'"
+#do ext={`oldextrasymbols'+1}, `extrasymbols_'
+    #$tmp = extrasymbol_(`ext');
+    #write<out.proto_c> "#CONF\n%$", $tmp;
+    L FF`ext' = F[conf(`ext')];
+    .sort:conf-2;
+    
+    argtoextrasymbol tonumber, energy, 1;
+    B+ energy;
+    .sort:energy-1;
+    Hide FF`ext';
+    #do ps={`energysymbolstart'+1}, `extrasymbols_'
+        #$tmp = extrasymbol_(`ps');
+        L FTMP = FF`ext'[energy(`ps')];
+        .sort:energy-2;
+
+        #if ( termsin(FTMP) > 0 )
+            #write<out.proto_c> "#NEWMONOMIAL\n%$", $tmp;
+
+* Convert the dot products and energies to a symbol
+            #$OFFSET = 0;
+            #do i=1,`$MAXP'
+                id penergy(p`i') = lm`$OFFSET';
+                #$OFFSET = $OFFSET + 1;
+                #do j=`i',`$MAXP'
+                    id p`i'.p`j' = lm`$OFFSET';
+                    #$OFFSET = $OFFSET + 1;
+                #enddo
+            #enddo
+
+            #do i=1,`$MAXK'
+                id penergy(k`i') = lm`$OFFSET';
+                #$OFFSET = $OFFSET + 1;
+                #do j=1,`$MAXP'
+                    id k`i'.p`j' = lm`$OFFSET';
+                    #$OFFSET = $OFFSET + 1;
+                    id spatial(p`j', k`i') = lm`$OFFSET';
+                    #$OFFSET = $OFFSET + 1;
+                #enddo
+
+                #do j=`i',`$MAXK'
+                    id k`i'.k`j' = lm`$OFFSET';
+                    #$OFFSET = $OFFSET + 1;
+                    id spatial(k`i', k`j') = lm`$OFFSET';
+                    #$OFFSET = $OFFSET + 1;
+                #enddo
+            #enddo
+            .sort:lm-subs;
+
+* Optimize the output
+            Format C;
+            Format O4,stats=off,saIter=`OPTIMITERATIONS';
+            #Optimize FTMP
+            #write<out.proto_c> "%O\n\treturn %e",FTMP
+            #clearoptimize;
+            .sort:optim-`ext'-`ps';
+            Format O0;
+            Format normal;
+        #endif
+    #enddo
+    Drop FF`ext';
+#enddo
 .end
