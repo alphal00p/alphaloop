@@ -135,7 +135,7 @@ class SquaredTopologyGenerator:
                 if self.loop_momenta_signs is not None:
                     assert(len(self.loop_momenta_signs)==len(cut_to_lmb[0]))
                     assert(all(abs(s)==1 for s in self.loop_momenta_signs))
-                    lmb_to_cb_matrix = lmb_to_cb_matrix*diag([s for s in self.loop_momenta_signs])
+                    lmb_to_cb_matrix = lmb_to_cb_matrix*diag(*[s for s in self.loop_momenta_signs])
 
                 uv_limit_info.append({
                     'numerator_structure': numerator_sparse,
