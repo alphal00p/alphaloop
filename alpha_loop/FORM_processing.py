@@ -816,7 +816,8 @@ class FORMSuperGraphList(list):
                     if len(temp_vars) > 0:
                         graph.is_zero = False
 
-                    numerator_main_code += '\ninline void evaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
+                    # TODO: Check that static inline vs inline induces no regression!
+                    numerator_main_code += '\nstatic inline void evaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
                         'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
                     ) + num_body + '}\n'
 
