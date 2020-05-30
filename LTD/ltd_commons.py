@@ -68,16 +68,16 @@ hyperparameters = HyperParameters({
     'Integrator'    :   {
         # Rust will do the parallelization instead of Cuba. Make sure to set n_vec to about 50 to 100 times
         # the numer of cores for best performance.
-        'internal_parallelization'  : False,
+        'internal_parallelization'  : True,
         # Use the dashboard. Make sure to run Cuba with 0 cores or enable internal_parallelization.
-        'dashboard'         :   False,
+        'dashboard'         :   True,
         # The integrator can be vegas, divonne, cuhre or suave
         'integrator'        :   'vegas',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e5),
-        # can be set to high values for use with MPI, otherwise leave it at 1
-        'n_vec'             :   1,
+        # can be set to high values for use with MPI or internal_parallelization, otherwise leave it at 1
+        'n_vec'             :   80,
         'seed'              :   1,
         'integrated_phase'  :  'both',
         'state_filename_prefix' :   None,
@@ -235,6 +235,8 @@ hyperparameters = HyperParameters({
             'center'                            :   1.0,
             'spread'                            :   1.0,
         },
+        # Can be yaml, MG, FORM, MG_and_FORM
+        'numerator_source'                      :   'yaml'
     },
 
     'Observables'   :   {

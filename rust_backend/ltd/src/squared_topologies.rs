@@ -1,5 +1,6 @@
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
+use dlopen::wrapper::Container;
 use eyre::WrapErr;
 use f128::f128;
 use float;
@@ -21,13 +22,9 @@ use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
 use utils::{PolynomialReconstruction, Signum};
 use vector::{LorentzVector, RealNumberLike};
-use {DeformationStrategy, FloatLike, NormalisingFunction, Settings, MAX_LOOP};
+use {DeformationStrategy, FloatLike, NormalisingFunction, NumeratorSource, Settings, MAX_LOOP};
 
-#[cfg(feature = "mg_numerator")]
-use dlopen::wrapper::Container;
-
-#[cfg(feature = "mg_numerator")]
-mod MGNumeratorMod {
+mod mg_numerator {
     use dlopen::wrapper::{Container, WrapperApi};
     use libc::{c_char, c_double, c_int};
     use num::Complex;
@@ -95,15 +92,14 @@ mod MGNumeratorMod {
     }
 }
 
-#[cfg(feature = "mg_numerator")]
-mod FORMNumeratorMod {
+mod form_numerator {
     use dlopen::wrapper::{Container, WrapperApi};
     use libc::{c_double, c_int};
-    use num::Complex;
 
     #[derive(WrapperApi)]
     pub struct FORMNumeratorAPI {
-        evaluate: unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int, out: *mut c_double),
+        evaluate:
+            unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int, out: *mut c_double),
     }
 
     pub fn get_numerator(
@@ -111,10 +107,15 @@ mod FORMNumeratorMod {
         p: &[f64],
         diag: usize,
         conf: usize,
-        poly: &mut[f64]
+        poly: &mut [f64],
     ) {
         unsafe {
-            api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32, &mut poly[0] as *mut f64);
+            api_container.evaluate(
+                &p[0] as *const f64,
+                diag as i32,
+                conf as i32,
+                &mut poly[0] as *mut f64,
+            );
         }
     }
 
@@ -134,16 +135,21 @@ mod FORMNumeratorMod {
 pub struct CutkoskyCut {
     pub name: String,
     pub sign: i8,
-    pub level: usize,
+    pub power: usize,
     pub particle_id: i8,
     pub signature: (Vec<i8>, Vec<i8>),
     pub m_squared: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCutLimits {
-    pub diagrams: Vec<Topology>,
-    pub conjugate_deformation: Vec<bool>,
+pub struct CutkoskyCutDiagramInfo {
+    pub graph: Topology,
+    pub conjugate_deformation: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CutkoskyCutDiagramSet {
+    pub diagram_info: Vec<CutkoskyCutDiagramInfo>,
     #[serde(default)]
     pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
     #[serde(default)]
@@ -152,24 +158,19 @@ pub struct CutkoskyCutLimits {
     pub numerator: LTDNumerator,
     pub cb_to_lmb: Option<Vec<i8>>,
     #[serde(skip_deserializing)]
-    #[cfg(feature = "mg_numerator")]
     pub energy_polynomial_matrix: Vec<Vec<f64>>,
     #[serde(skip_deserializing)]
-    #[cfg(feature = "mg_numerator")]
     pub energy_polynomial_map: Vec<usize>,
     #[serde(skip_deserializing)]
-    #[cfg(feature = "mg_numerator")]
     pub energy_polynomial_samples: Vec<Vec<f64>>,
     #[serde(skip_deserializing)]
-    #[cfg(feature = "mg_numerator")]
     pub energy_polynomial_coefficients: Vec<Complex<f64>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCuts {
     pub cuts: Vec<CutkoskyCut>,
-    pub n_bubbles: usize,
-    pub uv_limits: Vec<CutkoskyCutLimits>,
+    pub diagram_sets: Vec<CutkoskyCutDiagramSet>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -188,17 +189,16 @@ pub struct FORMNumeratorCallSignature {
 pub struct MGNumerator {
     call_signature: Option<MGNumeratorCallSignature>,
     #[serde(skip_deserializing)]
-    #[cfg(feature = "mg_numerator")]
-    pub mg_numerator: Option<Container<MGNumeratorMod::MGNumeratorAPI>>,
+    pub mg_numerator: Option<Container<mg_numerator::MGNumeratorAPI>>,
 }
 
 impl Clone for MGNumerator {
     fn clone(&self) -> Self {
         MGNumerator {
             call_signature: self.call_signature.clone(),
-            #[cfg(feature = "mg_numerator")]
+
             mg_numerator: if self.call_signature.is_some() {
-                Some(MGNumeratorMod::load())
+                Some(mg_numerator::load())
             } else {
                 None
             },
@@ -210,10 +210,8 @@ impl Clone for MGNumerator {
 pub struct FORMNumerator {
     call_signature: Option<FORMNumeratorCallSignature>,
     #[serde(skip_deserializing)]
-    #[cfg(feature = "mg_numerator")]
-    pub form_numerator: Option<Container<FORMNumeratorMod::FORMNumeratorAPI>>,
+    pub form_numerator: Option<Container<form_numerator::FORMNumeratorAPI>>,
     #[serde(skip_deserializing)]
-    #[cfg(feature = "mg_numerator")]
     pub form_numerator_buffer: Vec<f64>,
 }
 
@@ -221,9 +219,8 @@ impl Clone for FORMNumerator {
     fn clone(&self) -> Self {
         FORMNumerator {
             call_signature: self.call_signature.clone(),
-            #[cfg(feature = "mg_numerator")]
             form_numerator: if self.call_signature.is_some() {
-                Some(FORMNumeratorMod::load())
+                Some(form_numerator::load())
             } else {
                 None
             },
@@ -612,21 +609,21 @@ impl SquaredTopology {
 
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
-            for uv_limit in &mut cutkosky_cuts.uv_limits {
-                uv_limit.numerator = if uv_limit.numerator_tensor_coefficients.len() == 0
-                    && uv_limit.numerator_tensor_coefficients_sparse.len() == 0
+            for diagram_set in &mut cutkosky_cuts.diagram_sets {
+                diagram_set.numerator = if diagram_set.numerator_tensor_coefficients.len() == 0
+                    && diagram_set.numerator_tensor_coefficients_sparse.len() == 0
                 {
-                    LTDNumerator::one(squared_topo.n_loops + cutkosky_cuts.n_bubbles)
+                    LTDNumerator::one(squared_topo.n_loops)
                 } else {
-                    if !uv_limit.numerator_tensor_coefficients_sparse.is_empty() {
+                    if !diagram_set.numerator_tensor_coefficients_sparse.is_empty() {
                         LTDNumerator::from_sparse(
-                            squared_topo.n_loops + cutkosky_cuts.n_bubbles,
-                            &uv_limit.numerator_tensor_coefficients_sparse,
+                            squared_topo.n_loops,
+                            &diagram_set.numerator_tensor_coefficients_sparse,
                         )
                     } else {
                         LTDNumerator::new(
-                            squared_topo.n_loops + cutkosky_cuts.n_bubbles,
-                            &uv_limit
+                            squared_topo.n_loops,
+                            &diagram_set
                                 .numerator_tensor_coefficients
                                 .iter()
                                 .map(|x| Complex::new(x.0, x.1))
@@ -635,9 +632,9 @@ impl SquaredTopology {
                     }
                 };
 
-                for d in &mut uv_limit.diagrams {
-                    d.settings = settings.clone();
-                    d.process(false);
+                for d in &mut diagram_set.diagram_info {
+                    d.graph.settings = settings.clone();
+                    d.graph.process(false);
                 }
             }
         }
@@ -654,15 +651,14 @@ impl SquaredTopology {
             [float::zero(), float::zero(), float::one()],
         ];
 
-        #[cfg(feature = "mg_numerator")]
         {
             if squared_topo.mg_numerator.call_signature.is_some() {
-                squared_topo.mg_numerator.mg_numerator = Some(MGNumeratorMod::load());
+                squared_topo.mg_numerator.mg_numerator = Some(mg_numerator::load());
                 squared_topo.get_energy_polynomial_matrix();
             }
 
             if squared_topo.form_numerator.call_signature.is_some() {
-                squared_topo.form_numerator.form_numerator = Some(FORMNumeratorMod::load());
+                squared_topo.form_numerator.form_numerator = Some(form_numerator::load());
             }
         }
 
@@ -692,7 +688,7 @@ impl SquaredTopology {
 
     /// Reconstruct the shape of the energy polynomial for the MG numerator and
     /// construct the transformation matrix that finds the coefficients.
-    #[cfg(feature = "mg_numerator")]
+
     pub fn get_energy_polynomial_matrix(&mut self) {
         let mut rng = rand::thread_rng();
 
@@ -710,7 +706,7 @@ impl SquaredTopology {
                 *shift = utils::evaluate_signature(&cut.signature.1, &self.external_momenta);
             }
 
-            for cut_uv_limit in cutkosky_cuts.uv_limits.iter_mut() {
+            for diagram_set in cutkosky_cuts.diagram_sets.iter_mut() {
                 if let Some(call_signature) = &self.mg_numerator.call_signature {
                     let mut all_external_momenta: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> =
                         ArrayVec::new();
@@ -744,7 +740,7 @@ impl SquaredTopology {
                     let ltd_start_index = cutkosky_cuts.cuts.len() - 1;
                     let mut f = |x: &[f64]| {
                         // set the energies of the LTD momenta
-                        if let Some(m) = &cut_uv_limit.cb_to_lmb {
+                        if let Some(m) = &diagram_set.cb_to_lmb {
                             for (i, r) in m.chunks(n_loops).enumerate() {
                                 all_external_momenta[(n_incoming_momenta + i) * 8] = 0.;
                                 all_external_momenta[(n_incoming_momenta + i) * 8 + 1] = 0.;
@@ -769,7 +765,7 @@ impl SquaredTopology {
                             }
                         }
 
-                        MGNumeratorMod::get_numerator(
+                        mg_numerator::get_numerator(
                             mg_numerator.as_mut().unwrap(),
                             &all_external_momenta,
                             call_signature.proc_id,
@@ -813,17 +809,17 @@ impl SquaredTopology {
                         );
                     }
 
-                    cut_uv_limit.numerator = LTDNumerator::from_sparse(
+                    diagram_set.numerator = LTDNumerator::from_sparse(
                         n_loops,
                         &[(vec![0; max_rank_non_zero], (0., 0.))],
                     );
 
                     // also give the subgraph numerators the proper size
                     // TODO: set the proper rank of only the variables of the subgraph
-                    for subgraph in &mut cut_uv_limit.diagrams {
-                        if subgraph.n_loops > 0 {
-                            subgraph.numerator = LTDNumerator::from_sparse(
-                                subgraph.n_loops,
+                    for diagram_info in &mut diagram_set.diagram_info {
+                        if diagram_info.graph.n_loops > 0 {
+                            diagram_info.graph.numerator = LTDNumerator::from_sparse(
+                                diagram_info.graph.n_loops,
                                 &[(vec![0; max_rank_non_zero], (0., 0.))],
                             );
                         }
@@ -834,8 +830,8 @@ impl SquaredTopology {
                     let mut all_sample_points = vec![];
                     let mut numerator_to_reduced_index_map = vec![];
 
-                    cut_uv_limit.energy_polynomial_coefficients.clear();
-                    cut_uv_limit
+                    diagram_set.energy_polynomial_coefficients.clear();
+                    diagram_set
                         .energy_polynomial_coefficients
                         .resize(non_zero_coefficients.len(), Complex::zero());
 
@@ -852,12 +848,12 @@ impl SquaredTopology {
                         if power_map.len() == 0 {
                             numerator_to_reduced_index_map.push(0);
                         } else {
-                            let index_full = cut_uv_limit.numerator.sorted_linear[..]
+                            let index_full = diagram_set.numerator.sorted_linear[..]
                                 .binary_search_by(|x| utils::compare_slice(&x[..], &power_map[..]))
                                 .unwrap()
                                 + 1;
 
-                            let index = cut_uv_limit.numerator.coeff_map_to_reduced_numerator
+                            let index = diagram_set.numerator.coeff_map_to_reduced_numerator
                                 [cutkosky_cuts.cuts.len() - 1][index_full];
                             numerator_to_reduced_index_map.push(index);
                         }
@@ -906,12 +902,12 @@ impl SquaredTopology {
 
                     // TODO: test stability by sampling points
 
-                    cut_uv_limit.energy_polynomial_matrix = inv
+                    diagram_set.energy_polynomial_matrix = inv
                         .row_iter()
                         .map(|r| r.iter().cloned().collect::<Vec<_>>())
                         .collect();
-                    cut_uv_limit.energy_polynomial_map = numerator_to_reduced_index_map;
-                    cut_uv_limit.energy_polynomial_samples = all_sample_points;
+                    diagram_set.energy_polynomial_map = numerator_to_reduced_index_map;
+                    diagram_set.energy_polynomial_samples = all_sample_points;
                 }
             }
         }
@@ -985,10 +981,10 @@ impl SquaredTopology {
         let mut caches = vec![];
         for cutkosky_cuts in &self.cutkosky_cuts {
             let mut lim_cache = vec![];
-            for uv_limit in &cutkosky_cuts.uv_limits {
+            for diagram_set in &cutkosky_cuts.diagram_sets {
                 let mut diag_cache = vec![];
-                for d in &uv_limit.diagrams {
-                    diag_cache.push(LTDCache::<T>::new(d));
+                for d in &diagram_set.diagram_info {
+                    diag_cache.push(LTDCache::<T>::new(&d.graph));
                 }
                 lim_cache.push(diag_cache);
             }
@@ -1020,10 +1016,6 @@ impl SquaredTopology {
         let mut t_start = T::zero();
         let mut sum_k = T::zero();
         for cut in &cutkosky_cuts.cuts {
-            if cut.level != 0 {
-                continue;
-            }
-
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
             let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
             let k_norm_sq = k.spatial_squared();
@@ -1041,9 +1033,6 @@ impl SquaredTopology {
                 let mut df = T::zero();
 
                 for cut in &cutkosky_cuts.cuts {
-                    if cut.level != 0 {
-                        continue;
-                    }
                     let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
                     let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
                     let energy =
@@ -1122,7 +1111,6 @@ impl SquaredTopology {
         let mut result = Complex::zero();
         for cut_index in 0..self.cutkosky_cuts.len() {
             let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
-            let n_bubbles = cutkosky_cuts.n_bubbles;
 
             if self.settings.general.debug >= 1 {
                 println!(
@@ -1170,7 +1158,7 @@ impl SquaredTopology {
                     &mut external_momenta,
                     &mut rescaled_loop_momenta,
                     &mut subgraph_loop_momenta,
-                    &mut k_def[..self.n_loops + n_bubbles],
+                    &mut k_def[..self.n_loops],
                     &mut caches[cut_index],
                     event_manager,
                     cut_index,
@@ -1233,12 +1221,11 @@ impl SquaredTopology {
             *cut_mom = k * scaling + *shift;
             let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
             cut_mom.t = energy.multiply_sign(cut.sign);
-            scaling_result *= num::Complex::new(T::zero(), -<T as FloatConst>::PI() / energy); // add (-2 pi i)/(2E) for every cut
-
-            if cut.level == 0 {
-                // only Cutkosky cuts constribute to the energy delta
-                cut_energies_summed += energy;
-            }
+            // add (-2 pi i)/(2E)^power for every cut
+            scaling_result *=
+                num::Complex::new(T::zero(), -Into::<T>::into(2.0) * <T as FloatConst>::PI())
+                    / (Into::<T>::into(2.0) * energy).powi(cut.power as i32);
+            cut_energies_summed += energy;
         }
 
         if self.settings.general.debug >= 1 {
@@ -1349,11 +1336,12 @@ impl SquaredTopology {
         let mut def_jacobian = Complex::one();
         // regenerate the evaluation of the exponent map of the numerator since the loop momenta have changed
         let mut regenerate_momenta = true;
-        for (uv_index, (cut_uv_limit, diag_cache)) in
-            cutkosky_cuts.uv_limits.iter_mut().zip(cache).enumerate()
+        for (uv_index, (diagram_set, diag_cache)) in
+            cutkosky_cuts.diagram_sets.iter_mut().zip(cache).enumerate()
         {
             // set the shifts, which are expressed in the cut basis
-            for subgraph in &mut cut_uv_limit.diagrams {
+            for diagram_info in &mut diagram_set.diagram_info {
+                let subgraph = &mut diagram_info.graph;
                 for ll in &mut subgraph.loop_lines {
                     for p in &mut ll.propagators {
                         p.q = SquaredTopology::evaluate_signature(
@@ -1394,12 +1382,12 @@ impl SquaredTopology {
 
             // compute the deformation vectors
             let mut k_def_index = cutkosky_cuts.cuts.len() - 1;
-            for ((subgraph, subgraph_cache), &conjugate_deformation) in cut_uv_limit
-                .diagrams
+            for (diagram_info, subgraph_cache) in diagram_set
+                .diagram_info
                 .iter_mut()
                 .zip_eq(diag_cache.iter_mut())
-                .zip_eq(cut_uv_limit.conjugate_deformation.iter())
             {
+                let subgraph = &diagram_info.graph;
                 if !self
                     .settings
                     .cross_section
@@ -1435,7 +1423,7 @@ impl SquaredTopology {
                         .iter()
                         .zip(&kappas)
                     {
-                        k_def[k_def_index] = if conjugate_deformation {
+                        k_def[k_def_index] = if diagram_info.conjugate_deformation {
                             // take the complex conjugate of the deformation
                             lm.map(|x| Complex::new(x, T::zero()))
                                 - kappa.map(|x| Complex::new(T::zero(), x))
@@ -1446,7 +1434,7 @@ impl SquaredTopology {
                         k_def_index += 1;
                     }
 
-                    if conjugate_deformation {
+                    if diagram_info.conjugate_deformation {
                         def_jacobian *= jac_def.conj();
                     } else {
                         def_jacobian *= jac_def;
@@ -1469,8 +1457,10 @@ impl SquaredTopology {
             }
 
             // convert from the cut basis to the loop momentum basis
-            if self.numerator_in_loop_momentum_basis || cfg!(feature = "mg_numerator") {
-                if let Some(m) = &cut_uv_limit.cb_to_lmb {
+            if self.numerator_in_loop_momentum_basis
+                || self.settings.cross_section.numerator_source != NumeratorSource::Yaml
+            {
+                if let Some(m) = &diagram_set.cb_to_lmb {
                     for (kl, r) in k_def_lmb[..self.n_loops]
                         .iter_mut()
                         .zip_eq(m.chunks(self.n_loops))
@@ -1491,13 +1481,12 @@ impl SquaredTopology {
                 }
             }
 
-            // evaluate the MG numerator
-            let mut num_computed = false;
-            #[cfg(feature = "mg_numerator")]
+            if self.settings.cross_section.numerator_source == NumeratorSource::Mg
+                || self.settings.cross_section.numerator_source == NumeratorSource::MgAndForm
             {
                 let mut mg_numerator = mem::replace(&mut self.mg_numerator.mg_numerator, None);
                 let mut energy_polynomial_coefficients =
-                    mem::replace(&mut cut_uv_limit.energy_polynomial_coefficients, vec![]);
+                    mem::replace(&mut diagram_set.energy_polynomial_coefficients, vec![]);
 
                 if let Some(call_signature) = &self.mg_numerator.call_signature {
                     let mut all_external_momenta: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> =
@@ -1529,9 +1518,9 @@ impl SquaredTopology {
                     let ltd_start_index = cutkosky_cuts.cuts.len() - 1;
 
                     energy_polynomial_coefficients.clear();
-                    for s in &cut_uv_limit.energy_polynomial_samples {
+                    for s in &diagram_set.energy_polynomial_samples {
                         // set the energies of the LTD momenta
-                        if let Some(m) = &cut_uv_limit.cb_to_lmb {
+                        if let Some(m) = &diagram_set.cb_to_lmb {
                             for (i, r) in m.chunks(n_loops).enumerate() {
                                 all_external_momenta[(n_incoming_momenta + i) * 8] = 0.;
                                 all_external_momenta[(n_incoming_momenta + i) * 8 + 1] = 0.;
@@ -1561,7 +1550,7 @@ impl SquaredTopology {
                             }
                         }
 
-                        let num = MGNumeratorMod::get_numerator(
+                        let num = mg_numerator::get_numerator(
                             mg_numerator.as_mut().unwrap(),
                             &all_external_momenta,
                             call_signature.proc_id,
@@ -1578,10 +1567,10 @@ impl SquaredTopology {
                         *c = Complex::zero();
                     }
 
-                    for (pos, r) in cut_uv_limit
+                    for (pos, r) in diagram_set
                         .energy_polynomial_map
                         .iter_mut()
-                        .zip_eq(&cut_uv_limit.energy_polynomial_matrix)
+                        .zip_eq(&diagram_set.energy_polynomial_matrix)
                     {
                         let mut c: Complex<f64> = Complex::zero();
                         for (v, eval) in r.iter().zip_eq(&energy_polynomial_coefficients) {
@@ -1596,105 +1585,112 @@ impl SquaredTopology {
                         diag_cache[0].reduced_coefficient_lb[0][*pos] =
                             Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
                     }
-
-                    num_computed = true;
-                }
-
-                if self.form_numerator.form_numerator.is_some() {
-                    let mut form_numerator =
-                        mem::replace(&mut self.form_numerator.form_numerator, None);
-                    let mut form_numerator_buffer =
-                        mem::replace(&mut self.form_numerator.form_numerator_buffer, vec![]);
-                    if let Some(call_signature) = &self.form_numerator.call_signature {
-                        let mut scalar_products: ArrayVec<[f64; MAX_LOOP * MAX_LOOP * 6]> =
-                            ArrayVec::new();
-
-                        for (i1, e1) in self.external_momenta[..self.n_incoming_momenta]
-                            .iter()
-                            .enumerate()
-                        {
-                            scalar_products.push(e1.t);
-                            scalar_products.push(0.);
-                            for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
-                                scalar_products.push(e1.dot(e2));
-                                scalar_products.push(0.);
-                            }
-                        }
-
-                        for (i1, m1) in k_def_lmb[..self.n_loops].iter().enumerate() {
-                            scalar_products.push(m1.t.re.to_f64().unwrap());
-                            scalar_products.push(m1.t.im.to_f64().unwrap());
-                            for e1 in &self.external_momenta[..self.n_incoming_momenta] {
-                                let d = m1.dot(&e1.cast());
-                                scalar_products.push(d.re.to_f64().unwrap());
-                                scalar_products.push(d.im.to_f64().unwrap());
-                                let d = m1.spatial_dot(&e1.cast());
-                                scalar_products.push(d.re.to_f64().unwrap());
-                                scalar_products.push(d.im.to_f64().unwrap());
-                            }
-
-                            for m2 in k_def_lmb[i1..self.n_loops].iter() {
-                                let d = m1.dot(m2);
-                                scalar_products.push(d.re.to_f64().unwrap());
-                                scalar_products.push(d.im.to_f64().unwrap());
-                                let d = m1.spatial_dot(m2);
-                                scalar_products.push(d.re.to_f64().unwrap());
-                                scalar_products.push(d.im.to_f64().unwrap());
-                            }
-                        }
-
-                        if form_numerator_buffer.len()  < 2 {
-                            form_numerator_buffer.resize(2, 0.);
-                        }
-
-                        FORMNumeratorMod::get_numerator(
-                            form_numerator.as_mut().unwrap(),
-                            &scalar_products,
-                            call_signature.id,
-                            0, // only evaluate the constant part for now
-                            &mut form_numerator_buffer,
-                        );
-                        let result = Complex::new(Into::<T>::into(form_numerator_buffer[0]), Into::<T>::into(form_numerator_buffer[1]));
-
-                        // compare against the MG numerator
-                        if self.mg_numerator.call_signature.is_some() {
-                            if (diag_cache[0].reduced_coefficient_lb[0][0] - result).norm_sqr()
-                                > Into::<T>::into(1e-10 * self.e_cm_squared)
-                            {
-                                println!(
-                                    "Mismatch between MG and RUST numerator: {} vs {} for {:?}",
-                                    diag_cache[0].reduced_coefficient_lb[0][0],
-                                    result,
-                                    loop_momenta
-                                );
-                            }
-                        }
-
-                        diag_cache[0].reduced_coefficient_lb[0].clear();
-                        diag_cache[0].reduced_coefficient_lb[0].push(Complex::new(
-                            Into::<T>::into(result.re),
-                            Into::<T>::into(result.im),
-                        ));
-                        num_computed = true;
-                    }
-
-                    mem::swap(&mut form_numerator, &mut self.form_numerator.form_numerator);
-                    mem::swap(&mut form_numerator_buffer, &mut self.form_numerator.form_numerator_buffer);
+                } else {
+                    panic!("No call signature for MG numerator, but MG numerator mode is enabled");
                 }
 
                 mem::swap(&mut mg_numerator, &mut self.mg_numerator.mg_numerator);
                 mem::swap(
                     &mut energy_polynomial_coefficients,
-                    &mut cut_uv_limit.energy_polynomial_coefficients,
+                    &mut diagram_set.energy_polynomial_coefficients,
                 );
             }
 
-            if !num_computed {
+            if self.settings.cross_section.numerator_source == NumeratorSource::Form
+                || self.settings.cross_section.numerator_source == NumeratorSource::MgAndForm
+            {
+                let mut form_numerator =
+                    mem::replace(&mut self.form_numerator.form_numerator, None);
+                let mut form_numerator_buffer =
+                    mem::replace(&mut self.form_numerator.form_numerator_buffer, vec![]);
+                if let Some(call_signature) = &self.form_numerator.call_signature {
+                    let mut scalar_products: ArrayVec<[f64; MAX_LOOP * MAX_LOOP * 6]> =
+                        ArrayVec::new();
+
+                    for (i1, e1) in self.external_momenta[..self.n_incoming_momenta]
+                        .iter()
+                        .enumerate()
+                    {
+                        scalar_products.push(e1.t);
+                        scalar_products.push(0.);
+                        for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
+                            scalar_products.push(e1.dot(e2));
+                            scalar_products.push(0.);
+                        }
+                    }
+
+                    for (i1, m1) in k_def_lmb[..self.n_loops].iter().enumerate() {
+                        scalar_products.push(m1.t.re.to_f64().unwrap());
+                        scalar_products.push(m1.t.im.to_f64().unwrap());
+                        for e1 in &self.external_momenta[..self.n_incoming_momenta] {
+                            let d = m1.dot(&e1.cast());
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                            let d = m1.spatial_dot(&e1.cast());
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+
+                        for m2 in k_def_lmb[i1..self.n_loops].iter() {
+                            let d = m1.dot(m2);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                            let d = m1.spatial_dot(m2);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+                    }
+
+                    if form_numerator_buffer.len() < 2 {
+                        form_numerator_buffer.resize(2, 0.);
+                    }
+
+                    form_numerator::get_numerator(
+                        form_numerator.as_mut().unwrap(),
+                        &scalar_products,
+                        call_signature.id,
+                        0, // only evaluate the constant part for now
+                        &mut form_numerator_buffer,
+                    );
+                    let result = Complex::new(
+                        Into::<T>::into(form_numerator_buffer[0]),
+                        Into::<T>::into(form_numerator_buffer[1]),
+                    );
+
+                    // compare against the MG numerator
+                    if self.settings.cross_section.numerator_source == NumeratorSource::MgAndForm {
+                        if (diag_cache[0].reduced_coefficient_lb[0][0] - result).norm_sqr()
+                            > Into::<T>::into(1e-10 * self.e_cm_squared)
+                        {
+                            println!(
+                                "Mismatch between MG and RUST numerator: {} vs {} for {:?}",
+                                diag_cache[0].reduced_coefficient_lb[0][0], result, loop_momenta
+                            );
+                        }
+                    }
+
+                    diag_cache[0].reduced_coefficient_lb[0].clear();
+                    diag_cache[0].reduced_coefficient_lb[0].push(Complex::new(
+                        Into::<T>::into(result.re),
+                        Into::<T>::into(result.im),
+                    ));
+                } else {
+                    panic!(
+                        "No call signature for FORM numerator, but FORM numerator mode is enabled"
+                    );
+                }
+
+                mem::swap(&mut form_numerator, &mut self.form_numerator.form_numerator);
+                mem::swap(
+                    &mut form_numerator_buffer,
+                    &mut self.form_numerator.form_numerator_buffer,
+                );
+            } else {
                 // evaluate the cut numerator with the spatial parts of all loop momenta and
                 // the energy parts of the Cutkosky cuts.
                 // Store the reduced numerator in the left graph cache for now
                 // TODO: this is impractical
-                cut_uv_limit.numerator.evaluate_reduced_in_lb(
+                diagram_set.numerator.evaluate_reduced_in_lb(
                     if self.numerator_in_loop_momentum_basis {
                         &k_def_lmb[..self.n_loops]
                     } else {
@@ -1724,7 +1720,7 @@ impl SquaredTopology {
             let mut result_complete_numerator = Complex::default();
             for (coeff, powers) in supergraph_coeff
                 .iter()
-                .zip(&cut_uv_limit.numerator.reduced_coefficient_index_to_powers)
+                .zip(&diagram_set.numerator.reduced_coefficient_index_to_powers)
             {
                 if coeff.is_zero() {
                     continue;
@@ -1742,11 +1738,12 @@ impl SquaredTopology {
                 let mut num_result = *coeff;
 
                 let mut def_mom_index = cutkosky_cuts.cuts.len() - 1;
-                for (subgraph, subgraph_cache) in cut_uv_limit
-                    .diagrams
+                for (diagram_set, subgraph_cache) in diagram_set
+                    .diagram_info
                     .iter_mut()
                     .zip_eq(diag_cache.iter_mut())
                 {
+                    let subgraph = &mut diagram_set.graph;
                     // build the subgraph numerator
                     // TODO: build the reduced numerator directly
 
@@ -1982,7 +1979,7 @@ impl SquaredTopology {
         }
 
         for cut in rotated_topology.cutkosky_cuts.iter_mut() {
-            for uv_limit in cut.uv_limits.iter_mut() {
+            for uv_limit in cut.diagram_sets.iter_mut() {
                 uv_limit.numerator = uv_limit.numerator.rotate(rot_matrix);
             }
         }

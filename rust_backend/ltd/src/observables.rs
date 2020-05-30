@@ -198,18 +198,16 @@ impl EventManager {
         let mut outgoing_momenta = Vec::with_capacity(cut_info.len());
         let mut final_state_particle_ids = Vec::with_capacity(cut_info.len());
         for (cut_mom, cut) in cut_momenta[..cut_info.len()].iter().zip(cut_info.iter()) {
-            if cut.level == 0 {
-                // make sure all momenta are outgoing
-                let e = cut_mom.cast::<f64>() * cut.sign as f64;
+            // make sure all momenta are outgoing
+            let e = cut_mom.cast::<f64>() * cut.sign as f64;
 
-                outgoing_momenta.push(LorentzVector::from_args(
-                    e.t,
-                    rot_matrix[0][0] * e.x + rot_matrix[1][0] * e.y + rot_matrix[2][0] * e.z,
-                    rot_matrix[0][1] * e.x + rot_matrix[1][1] * e.y + rot_matrix[2][1] * e.z,
-                    rot_matrix[0][2] * e.x + rot_matrix[1][2] * e.y + rot_matrix[2][2] * e.z,
-                ));
-                final_state_particle_ids.push(cut.particle_id);
-            }
+            outgoing_momenta.push(LorentzVector::from_args(
+                e.t,
+                rot_matrix[0][0] * e.x + rot_matrix[1][0] * e.y + rot_matrix[2][0] * e.z,
+                rot_matrix[0][1] * e.x + rot_matrix[1][1] * e.y + rot_matrix[2][1] * e.z,
+                rot_matrix[0][2] * e.x + rot_matrix[1][2] * e.y + rot_matrix[2][2] * e.z,
+            ));
+            final_state_particle_ids.push(cut.particle_id);
         }
 
         let mut e = Event {

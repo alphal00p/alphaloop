@@ -20,6 +20,7 @@ use cpython::{exc, PyErr, PyResult};
 use std::cell::RefCell;
 extern crate colored;
 extern crate cuba;
+extern crate dlopen;
 extern crate f128;
 extern crate libc;
 extern crate nalgebra as na;
@@ -28,11 +29,7 @@ extern crate rand;
 extern crate scs;
 extern crate thousands;
 extern crate tui;
-
-#[cfg(feature = "mg_numerator")]
-extern crate dlopen;
 #[macro_use]
-#[cfg(feature = "mg_numerator")]
 extern crate dlopen_derive;
 
 use color_eyre::{Help, Report};
@@ -575,6 +572,25 @@ pub struct NormalisingFunctionSettings {
     pub center: f64,
 }
 
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub enum NumeratorSource {
+    #[serde(rename = "yaml")]
+    Yaml,
+    #[serde(rename = "MG")]
+    Mg,
+    #[serde(rename = "FORM")]
+    Form,
+    #[serde(rename = "MG_and_FORM")]
+    MgAndForm
+}
+
+impl Default for NumeratorSource {
+    fn default() -> Self {
+        Self::Yaml
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct CrossSectionSettings {
     pub picobarns: bool,
@@ -582,6 +598,7 @@ pub struct CrossSectionSettings {
     #[serde(rename = "NormalisingFunction")]
     pub normalising_function: NormalisingFunctionSettings,
     pub inherit_deformation_for_uv_counterterm: bool,
+    pub numerator_source: NumeratorSource,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

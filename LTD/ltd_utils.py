@@ -377,23 +377,24 @@ class TopologyGenerator(object):
 
         return list(sorted(cutkosky_cuts))
 
-    def bubble_cuts(self, cutkosky_cut, incoming_momenta, level=0):
+    def bubble_cuts(self, cutkosky_cut, incoming_momenta):
         # check if some of the cutkosky cuts cut a bubble external
-        duplicate_edges_set = set()
+        duplicate_cut_edges_set = set()
+        cut_powers = []
         for c, _ in cutkosky_cut:
             sig = tuple(self.propagators[self.edge_name_map[c]])
             inv_sig = tuple([(x[0], not x[1]) for x in sig])
             bubble_props = [eml[0] for prop, eml in zip(self.propagators, self.edge_map_lin) if eml[0] != c and tuple(prop) == sig or tuple(prop) == inv_sig]
-            duplicate_edges_set |= set(bubble_props)
+            cut_powers.append(len(bubble_props) + 1)
+            duplicate_cut_edges_set |= set(bubble_props)
 
-        # TODO: keep track of left and right
         cut_names = [a[0] for a in cutkosky_cut]
         graphs = self.split_graph(cut_names, incoming_momenta)
         graphs[0].conjugate = False
         graphs[1].conjugate = True
 
         # now apply fake cuts one by one
-        for d in duplicate_edges_set:
+        for d in duplicate_cut_edges_set:
             # keep cutting graphs
             split_graphs = []
             for g in graphs:
@@ -407,78 +408,54 @@ class TopologyGenerator(object):
 
             graphs = split_graphs
 
-        # identify the bubble part and cut that further
-        # create the bubble graphs by removing all duplicate edges and finding new cuts per subtopology
+        # identify the bubble part and create the cartesian product of all derivatives
         split_graphs = []
         for g in graphs:
             # bubble: 2 external momenta only
             if len(g.ext) == 2 and len(g.edge_map_lin) > 2:
-                # add a propagator to the bubble and remove the other leg
-                # TODO: also remove the other leg from the other graph
-                if g.edge_map_lin[g.ext[0]][0] in cut_names:
-                    ext = g.edge_map_lin[g.ext[0]]
-                    ext_other_name = g.edge_map_lin[g.ext[1]][0]
-                    g.edge_map_lin = [e for e in g.edge_map_lin if e[0] != g.edge_map_lin[g.ext[1]][0]]
-                else:
-                    assert(g.edge_map_lin[g.ext[1]][0] in cut_names)
-                    ext = g.edge_map_lin[g.ext[1]]
-                    ext_other_name = g.edge_map_lin[g.ext[0]][0]
-                    g.edge_map_lin = [e for e in g.edge_map_lin if e[0] != g.edge_map_lin[g.ext[0]][0]]
+                # take the derivative by raising the propagator of every propagator that has the bubble momentum
+                dep_momenta = [g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i not in g.ext
+                    and ((g.ext[0], True) in e or (g.ext[0], False) in e)]
 
-                highest_vertex = max(v for e in g.edge_map_lin for v in e[1:]) + 1
-                cut_on_right_vertex = len([1 for e in g.edge_map_lin if ext[1] in e[1:]]) == 1
-                g.edge_map_lin.append((ext[0] + 'bub', ext[1], ext[2]))
-                if cut_on_right_vertex:
-                    g.edge_map_lin[g.ext[0]] = (ext[0], highest_vertex, ext[1])
-                else:
-                    g.edge_map_lin[g.ext[0]] = (ext[0], ext[2], highest_vertex)
+                bubble_derivatives = []
+                for x in dep_momenta:
+                    g1 = copy.deepcopy(g)
+                    g1.powers[x] = 2
+                    bubble_derivatives.append({
+                        'graph':  g1,
+                        'derivative': x,
+                        'conjugate_deformation': g.conjugate
+                    })
 
-                g = TopologyGenerator(g.edge_map_lin) # TODO: inherit powers?
-                g.powers[ext[0] + 'bub'] = 2
+                # the g itself will have the derivative of the numerator
+                bubble_derivatives.append({
+                    'graph':  g,
+                    'derivative': g.edge_map_lin[g.ext[0]][0],
+                    'conjugate_deformation': g.conjugate
+                })
 
-                # TODO: get the proper sign for the cutkosky cut, ie, set the correct incoming momentum
-                cuts = g.find_cutkosky_cuts(2, [ext_other_name], set(), set())
-
-                g.generate_momentum_flow() # get a random flow for the recursive bubble finding
-                sub_bubble_cuts = [{
-                    'cuts': [a for a in y['cuts']],
-                    'n_bubbles': 1 + y['n_bubbles'],
-                    'graphs':  [b for b in y['graphs']],
-                    'conjugate_deformation': [b for b in y['conjugate_deformation']],
-                }  for c in cuts for y in g.bubble_cuts(c, set(), level + 1)]
-                split_graphs.append(sub_bubble_cuts)
+                split_graphs.append(bubble_derivatives)
             else:
                 split_graphs.append([{
-                    'cuts': [],
-                    'n_bubbles': 0,
-                    'graphs':  [g],
-                    'conjugate_deformation': [g.conjugate]
+                    'derivative': None,
+                    'graph':  g,
+                    'conjugate_deformation': g.conjugate
                 }])
 
         # take the cartesian product
-        # if the current level is 0, move the dependent cut momentum to the back of the list
-        graph_combinations = [{
-                'cuts': 
-                    [{
-                        'edge': c[0],
-                        'sign': c[1],
-                        'level': level} for c in cutkosky_cut] 
-                    + [c for a in x for c in a['cuts']]
-                if level != 0 else
-                    [{
-                        'edge': c[0],
-                        'sign': c[1],
-                        'level': level} for c in cutkosky_cut[:-1]
-                    ]
-                    + [c for a in x for c in a['cuts']]
-                    + [{
-                        'edge': cutkosky_cut[-1][0],
-                        'sign': cutkosky_cut[-1][1],
-                        'level': level}],
-                'n_bubbles': sum(a['n_bubbles'] for a in x),
-                'graphs':  [b for a in x for b in a['graphs']],
-                'conjugate_deformation': [b for a in x for b in a['conjugate_deformation']],
-            }  for x in product(*split_graphs)]
+        graph_prod = list(product(*split_graphs))
+        graph_combinations = {
+            'cuts': [{
+                    'edge': c[0],
+                    'sign': c[1],
+                    'power': p}
+                for c, p in zip(cutkosky_cut, cut_powers)],
+            'diagram_sets': [{
+                    'diagram_info': [ diag for diag in diag_set ] }
+                for diag_set in graph_prod]
+        }
+        from pprint import pprint
+        pprint(graph_combinations)
 
         return graph_combinations
 

@@ -8,13 +8,11 @@ authors = ["Ben Ruijl <benruyl@gmail.com>"]
 #default = ["use_f128"]
 #default = ["use_mpi"]
 #default = ["python_api", "higher_loops"]
-#default = ["mg_numerator"]
 #default = ["python_api"]
 python_api = []
 higher_loops = []
 use_f128 = []
 use_mpi = ["mpi"]
-mg_numerator = ["dlopen", "dlopen_derive"]
 
 [lib]
 name = "ltd"
@@ -52,5 +50,5 @@ libc = "*"
 thousands = "0.2.0"
 eyre = "^0.4"
 color-eyre = { version = "^0.3", default-features = false }
-dlopen = { version = "*", optional = true }
-dlopen_derive = { version = "*", optional = true }
+dlopen = "*"
+dlopen_derive = "*"
