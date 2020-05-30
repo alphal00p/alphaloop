@@ -337,6 +337,12 @@ aGraph=%s;
 
         # TODO: correctly assign the overall factor.
         overall_factor = "1"
+        # Let us just match the overall phase picked for the MG num:
+        overall_phase = complex(-1.0,0.0)**len(LTD2_super_graph.cuts)
+        if overall_phase.imag != 0:
+            raise FormProcessingError("No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
+        else:
+            overall_factor = '%d'%int(overall_phase.real)
 
         model = LTD2_super_graph.model
         local_graph = copy.deepcopy(LTD2_super_graph.graph)
@@ -868,7 +874,7 @@ void evaluate(double complex lm[], int diag, int conf, double complex* out) {{
 
         writers.CPPWriter(pjoin(root_output_path, 'numerator.h')).write(header_code)
 
-    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), filter_non_contributing_graphs=True):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), filter_non_contributing_graphs=True):
         topo_collection = {
             'name': self.name,
             'topologies': []
@@ -877,7 +883,8 @@ void evaluate(double complex lm[], int diag, int conf, double complex* out) {{
         contributing_supergraphs = []
         with progressbar.ProgressBar(prefix='Generating squared topology files : ', max_value=len(self)) as bar:
             for i, g in enumerate(self):
-                if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=i, final_state_particle_ids=final_state_particle_ids):
+                if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=i, 
+                                                                            final_state_particle_ids=final_state_particle_ids):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         'multiplicity': 1
@@ -1004,4 +1011,4 @@ if __name__ == "__main__":
     super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source)
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
     form_processor.generate_numerator_functions('./lib', output_format='c')
-    form_processor.generate_squared_topology_files('./RUST_input', 2, final_state_particle_ids=(6, 6, 25))
+    form_processor.generate_squared_topology_files('./RUST_input', computed_model, 2, final_state_particle_ids=(6, 6, 25))

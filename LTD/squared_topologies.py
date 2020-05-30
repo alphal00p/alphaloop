@@ -128,7 +128,7 @@ class SquaredTopologyGenerator:
 
                     loop_topos.append(loop_topo)
 
-                lmb_to_cb_matrix = Matrix(cut_to_lmb)**-1
+                lmb_to_cb_matrix = Matrix(cut_to_lmb)
                 # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
                 # This is supported by adjusting the cb to lmb rotation matrix to be applied
                 # before calling the numerator.
@@ -136,6 +136,7 @@ class SquaredTopologyGenerator:
                     assert(len(self.loop_momenta_signs)==len(cut_to_lmb[0]))
                     assert(all(abs(s)==1 for s in self.loop_momenta_signs))
                     lmb_to_cb_matrix = lmb_to_cb_matrix*diag(*[s for s in self.loop_momenta_signs])
+                lmb_to_cb_matrix = lmb_to_cb_matrix**-1
 
                 uv_limit_info.append({
                     'numerator_structure': numerator_sparse,

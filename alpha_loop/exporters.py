@@ -465,7 +465,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                 if leg.get('state')==False:
                     continue
                 if abs(leg.get('id'))<LTD_squared.self_energy_global_id_offset:
-                    overall_phase *= complex(0,-1)
+                    overall_phase *= complex(0,1)
                 SE_number = (abs(leg.get('id'))//LTD_squared.self_energy_global_id_offset)%10
                 if SE_number!=0:
                     if SE_number in number_of_legs_for_each_SE:
