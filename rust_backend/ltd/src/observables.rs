@@ -33,6 +33,7 @@ mod fjcore {
 pub struct EventInfo {
     pub accepted_event_counter: usize,
     pub rejected_event_counter: usize,
+    pub no_phase_space_counter: usize,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -116,6 +117,7 @@ pub struct EventManager {
     pub track_events: bool,
     pub accepted_event_counter: usize,
     pub rejected_event_counter: usize,
+    pub no_phase_space_counter: usize,
     pub event_group_counter: usize,
     pub status_update_sender: Option<StatusUpdateSender>,
 }
@@ -166,6 +168,7 @@ impl EventManager {
             track_events,
             accepted_event_counter: 0,
             rejected_event_counter: 0,
+            no_phase_space_counter: 0,
             event_group_counter: 0,
             status_update_sender: Some(status_update_sender),
         }
@@ -245,10 +248,12 @@ impl EventManager {
 
         self.accepted_event_counter += other.accepted_event_counter;
         self.rejected_event_counter += other.rejected_event_counter;
+        self.no_phase_space_counter += other.no_phase_space_counter;
         self.event_group_counter += other.event_group_counter;
         other.accepted_event_counter = 0;
         other.rejected_event_counter = 0;
         other.event_group_counter = 0;
+        other.no_phase_space_counter = 0;
     }
 
     pub fn update_result(&mut self) {
@@ -262,6 +267,7 @@ impl EventManager {
             .send(StatusUpdate::EventInfo(EventInfo {
                 accepted_event_counter: self.accepted_event_counter,
                 rejected_event_counter: self.rejected_event_counter,
+                no_phase_space_counter: self.no_phase_space_counter,
             }))
             .unwrap();
     }
@@ -281,6 +287,7 @@ impl EventManager {
             .send(StatusUpdate::EventInfo(EventInfo {
                 accepted_event_counter: self.accepted_event_counter,
                 rejected_event_counter: self.rejected_event_counter,
+                no_phase_space_counter: self.no_phase_space_counter,
             }))
             .unwrap();
     }

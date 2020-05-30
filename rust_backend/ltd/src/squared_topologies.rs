@@ -1045,7 +1045,7 @@ impl SquaredTopology {
                     println!("  | t{} finder: f={}, df={}, t={}", i, f, df, t);
                 }
 
-                if Float::abs(f) < Into::<T>::into(1e-14) * incoming_energy {
+                if Float::abs(f) < T::epsilon() * Into::<T>::into(10.) * incoming_energy {
                     if debug_level > 2 {
                         println!("  | t{} = {}", i, t);
                     }
@@ -1136,13 +1136,18 @@ impl SquaredTopology {
                 Some([(-T::one(), T::one()), (T::one(), T::one())])
             };
 
-            if scaling_solutions.is_none() {
+            if scaling_solutions.is_none() || scaling_solutions.unwrap()[1].0 < T::zero() {
                 if self.settings.general.debug >= 1 {
                     println!(
                         "Phase space point has no solutions for cut {:?}:",
                         cutkosky_cuts.cuts.iter().map(|c| &c.name).format(", ")
                     );
                 }
+
+                if let Some(em) = event_manager {
+                    em.no_phase_space_counter += 1;
+                }
+
                 continue;
             }
 

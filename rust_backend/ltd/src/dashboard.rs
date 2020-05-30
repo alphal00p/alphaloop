@@ -266,6 +266,17 @@ impl Dashboard {
                                     + event_info.accepted_event_counter as f64)
                                 * 100.
                         )),
+                        Text::styled(
+                            format!(
+                                "No phase space for sample: {}",
+                                event_info.no_phase_space_counter.separate_with_spaces()
+                            ),
+                            if event_info.no_phase_space_counter > 0 {
+                                Style::default().fg(Color::Red)
+                            } else {
+                                Style::default()
+                            },
+                        ),
                     ];
 
                     let stats_list = List::new(stats.into_iter())
