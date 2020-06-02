@@ -413,9 +413,24 @@ class TopologyGenerator(object):
         for g in graphs:
             # bubble: 2 external momenta only
             if len(g.ext) == 2 and len(g.edge_map_lin) > 2:
+                # select a basis with the most loop momenta shared with the supergraph
+                # this procedure needs to be identical to the one in build_proto_topology
+                sink = next(cn for cn in cut_names if cn in g.edge_name_map)
+                lm_names = [ self.edge_map_lin[e][0] for e in self.loop_momenta]
+                bases = [ tuple(g.edge_map_lin[e][0] for e in b) for b in g.loop_momentum_bases()]
+                bases = sorted(bases, key=lambda b: len([lm for lm in b if lm in lm_names]), reverse=True)
+                g.generate_momentum_flow(loop_momenta=bases[0], sink=sink)
+
+                ext = g.ext[1] if g.edge_map_lin[g.ext[0]] == sink else g.ext[1]
+
                 # take the derivative by raising the propagator of every propagator that has the bubble momentum
                 dep_momenta = [g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i not in g.ext
-                    and ((g.ext[0], True) in e or (g.ext[0], False) in e)]
+                    and ((ext, True) in e or (ext, False) in e)]
+
+                # find the cut momentum associated with this bubble
+                sig = tuple(self.propagators[self.edge_name_map[g.edge_map_lin[ext][0]]])
+                inv_sig = tuple([(x[0], not x[1]) for x in sig])
+                cut_mom = next(c for c in cut_names if tuple(self.propagators[self.edge_name_map[c]]) == sig or tuple(self.propagators[self.edge_name_map[c]]) == inv_sig )
 
                 bubble_derivatives = []
                 for x in dep_momenta:
@@ -423,14 +438,14 @@ class TopologyGenerator(object):
                     g1.powers[x] = 2
                     bubble_derivatives.append({
                         'graph':  g1,
-                        'derivative': x,
+                        'derivative': (cut_mom, x),
                         'conjugate_deformation': g.conjugate
                     })
 
                 # the g itself will have the derivative of the numerator
                 bubble_derivatives.append({
                     'graph':  g,
-                    'derivative': g.edge_map_lin[g.ext[0]][0],
+                    'derivative': (cut_mom, g.edge_map_lin[ext][0]),
                     'conjugate_deformation': g.conjugate
                 })
 
@@ -515,11 +530,7 @@ class TopologyGenerator(object):
         return edge_map
 
     def build_proto_topology(self, sub_graph, cuts, inherit_loop_momenta=True):
-        # for the bubble problem with numerators, it is important that the shifts are done with the deepest
-        # level of the cuts. If we chose the sink of the momentum routing in the subgraph to be of the lowst
-        # level, we always satisfy that.
-        cut_momenta_names = [c['edge'] for c in cuts] # ordered by level
-        # FIXME: the last momentum has level 0!
+        cut_momenta_names = [c['edge'] for c in cuts]
         sink = next(cn for cn in cut_momenta_names if cn in sub_graph.edge_name_map)
 
         if inherit_loop_momenta and sub_graph.n_loops > 0:
@@ -552,16 +563,24 @@ class TopologyGenerator(object):
             signature = [[0]*len(cuts), [0]*len(self.ext)]
 
             # map the external momenta back to cuts and the external momenta of the full graph
-            # since the sink of the subgraph routing was chosen to be the propagator of the lowest level,
-            # every propagator's shift will depend on the highest level cuts
             for ext_index, s in enumerate(sub_graph_edge_map[edge_name][1]):
                 mom = sub_graph.edge_map_lin[sub_graph.ext[ext_index]][0]
                 if s != 0:
                     if mom in cut_momenta_names:
                         signature[0][cut_momenta_names.index(mom)] = s
                     else:
-                        edge_index = next(i for i, e in enumerate(self.edge_map_lin) if e[0] == mom)
-                        signature[1][self.ext.index(edge_index)] = s
+                        # in the case of bubbles, we have propagators identical to a cut
+                        # check if this is the case by comparing signatures
+                        for mom1 in cut_momenta_names:
+                            if edge_map[mom1] == edge_map[mom]:
+                                signature[0][cut_momenta_names.index(mom1)] = s
+                                break
+                            if edge_map[mom1] == [[s * -1 for s in sig] for sig in edge_map[mom]]:
+                                signature[0][cut_momenta_names.index(mom1)] = -s
+                                break
+                        else:
+                            edge_index = next(i for i, e in enumerate(self.edge_map_lin) if e[0] == mom)
+                            signature[1][self.ext.index(edge_index)] = s
             param_shift[edge_name] = signature
 
         return loop_momentum_map, param_shift

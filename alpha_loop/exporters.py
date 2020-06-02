@@ -271,11 +271,11 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                                     utils.bcolors.ENDC
                                 ) )
 
-                            if is_LO:
-                                super_graph.symmetry_factor = int(reconstructed_symmetry_factor/fs_symm_factor)
-                            else:
-                                logger.info("No strategy yet for determining symmetry factors beyond LO contributions. Setting it to 1 for now, but this is incorrect.")
-                                super_graph.symmetry_factor = 1
+                        if is_LO:
+                            super_graph.symmetry_factor = int(reconstructed_symmetry_factor/fs_symm_factor)
+                        else:
+                            logger.info("No strategy yet for determining symmetry factors beyond LO contributions. Setting it to 1 for now, but this is incorrect.")
+                            super_graph.symmetry_factor = 1
 
                         n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * len(super_graph.cutkosky_cuts_generated)
                         # For now the debug/check below always pass by constribution, but in the future we could think of computing super_graph.symmetry_factor independently
@@ -342,7 +342,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             logger.info("Numerators processing with FORM...")
             FORM_processor = FORM_processing.FORMProcessor(
                 FORM_processing.FORMSuperGraphList.from_dict(
-                    pjoin(FORM_output_path,'all_MG_supergraphs.py'), first=None, merge_isomorphic_graphs=True),
+                    pjoin(FORM_output_path,'all_MG_supergraphs.py'), first=None, merge_isomorphic_graphs=False),
                 computed_model, characteristic_process_definition
             )
 
@@ -1180,16 +1180,12 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         computed_model.set_parameters_and_couplings(
                                             pjoin(self.dir_path,'Source','MODEL','param_card.dat'))        
 
-        super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(pjoin(self.dir_path,'FORM','output.py'))
+        super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(pjoin(self.dir_path,'FORM','output.py'), merge_isomorphic_graphs=False)
         form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                 pjoin(self.dir_path,'FORM', 'Makefile'))
         FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
         Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
-        form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
-            output_format=self.alphaLoop_options['FORM_processing_output_format'],
-            workspace=FORM_workspace
-        )
 
         if isinstance(self.proc_def, base_objects.ProcessDefinition):
             all_processes = list(proc for proc in self.proc_def)
@@ -1206,6 +1202,11 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 final_state_particle_ids=final_state_particle_ids,
                 # Remove non-contributing graphs from the list stored in the form_processor
                 filter_non_contributing_graphs=True
+            )
+
+            form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
+                output_format=self.alphaLoop_options['FORM_processing_output_format'],
+                workspace=FORM_workspace
             )
 
         # Draw

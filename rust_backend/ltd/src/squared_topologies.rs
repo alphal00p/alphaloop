@@ -98,8 +98,12 @@ mod form_numerator {
 
     #[derive(WrapperApi)]
     pub struct FORMNumeratorAPI {
-        evaluate:
-            unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int, out: *mut c_double),
+        evaluate: unsafe extern "C" fn(
+            p: *const c_double,
+            diag: c_int,
+            conf: c_int,
+            out: *mut c_double,
+        ) -> c_int,
     }
 
     pub fn get_numerator(
@@ -108,14 +112,14 @@ mod form_numerator {
         diag: usize,
         conf: usize,
         poly: &mut [f64],
-    ) {
+    ) -> usize {
         unsafe {
             api_container.evaluate(
                 &p[0] as *const f64,
                 diag as i32,
                 conf as i32,
                 &mut poly[0] as *mut f64,
-            );
+            ) as usize
         }
     }
 
@@ -149,6 +153,7 @@ pub struct CutkoskyCutDiagramInfo {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCutDiagramSet {
+    pub id: usize,
     pub diagram_info: Vec<CutkoskyCutDiagramInfo>,
     #[serde(default)]
     pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
@@ -256,7 +261,7 @@ pub struct SquaredTopologySet {
     pub n_loops: usize,
     pub e_cm_squared: f64,
     topologies: Vec<SquaredTopology>,
-    pub multiplicity: Vec<usize>,
+    pub multiplicity: Vec<f64>,
     pub settings: Settings,
     pub rotation_matrix: [[float; 3]; 3],
     pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
@@ -265,7 +270,7 @@ pub struct SquaredTopologySet {
 #[derive(Debug, Clone, Deserialize)]
 pub struct SquaredTopologySetTopology {
     pub name: String,
-    pub multiplicity: usize,
+    pub multiplicity: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -285,7 +290,7 @@ impl SquaredTopologySet {
             e_cm_squared: squared_topology.e_cm_squared,
             rotation_matrix: squared_topology.rotation_matrix.clone(),
             topologies: vec![squared_topology],
-            multiplicity: vec![1],
+            multiplicity: vec![1.],
             multi_channeling_channels: channels,
         }
     }
@@ -300,7 +305,7 @@ impl SquaredTopologySet {
             .suggestion("Is it a correct yaml file")?;
 
         let mut topologies: Vec<SquaredTopology> = vec![];
-        let mut multiplicity: Vec<usize> = vec![];
+        let mut multiplicity: Vec<f64> = vec![];
         let mut multi_channeling_channels = vec![];
 
         for topo in squared_topology_set_input.topologies {
@@ -659,6 +664,35 @@ impl SquaredTopology {
 
             if squared_topo.form_numerator.call_signature.is_some() {
                 squared_topo.form_numerator.form_numerator = Some(form_numerator::load());
+
+                let max_rank = 8; // TODO: set to proper value by sampling once
+
+                for cut in &mut squared_topo.cutkosky_cuts {
+                    for diagram_set in cut.diagram_sets.iter_mut() {
+                        diagram_set.numerator = LTDNumerator::from_sparse(
+                            squared_topo.n_loops,
+                            &[(vec![0; max_rank], (0., 0.))],
+                        );
+
+                        if squared_topo.form_numerator.form_numerator_buffer.len()
+                            < diagram_set.numerator.coefficients.len() * 2
+                        {
+                            squared_topo.form_numerator.form_numerator_buffer =
+                                vec![0.; diagram_set.numerator.coefficients.len() * 2];
+                        }
+
+                        // also give the subgraph numerators the proper size
+                        // TODO: set the proper rank of only the variables of the subgraph
+                        for diagram_info in &mut diagram_set.diagram_info {
+                            if diagram_info.graph.n_loops > 0 {
+                                diagram_info.graph.numerator = LTDNumerator::from_sparse(
+                                    diagram_info.graph.n_loops,
+                                    &[(vec![0; max_rank], (0., 0.))],
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -688,7 +722,6 @@ impl SquaredTopology {
 
     /// Reconstruct the shape of the energy polynomial for the MG numerator and
     /// construct the transformation matrix that finds the coefficients.
-
     pub fn get_energy_polynomial_matrix(&mut self) {
         let mut rng = rand::thread_rng();
 
@@ -1646,39 +1679,36 @@ impl SquaredTopology {
                         }
                     }
 
-                    if form_numerator_buffer.len() < 2 {
-                        form_numerator_buffer.resize(2, 0.);
-                    }
-
-                    form_numerator::get_numerator(
+                    let len = form_numerator::get_numerator(
                         form_numerator.as_mut().unwrap(),
                         &scalar_products,
                         call_signature.id,
-                        0, // only evaluate the constant part for now
+                        diagram_set.id,
                         &mut form_numerator_buffer,
                     );
-                    let result = Complex::new(
-                        Into::<T>::into(form_numerator_buffer[0]),
-                        Into::<T>::into(form_numerator_buffer[1]),
-                    );
 
-                    // compare against the MG numerator
-                    if self.settings.cross_section.numerator_source == NumeratorSource::MgAndForm {
-                        if (diag_cache[0].reduced_coefficient_lb[0][0] - result).norm_sqr()
-                            > Into::<T>::into(1e-10 * self.e_cm_squared)
+                    // the output of the FORM numerator is already in the reduced lb format
+                    diag_cache[0].reduced_coefficient_lb[0].resize(len, Complex::zero());
+                    for (rlb, r) in diag_cache[0].reduced_coefficient_lb[0]
+                        .iter_mut()
+                        .zip(form_numerator_buffer.chunks(2))
+                    {
+                        let coeff = Complex::new(Into::<T>::into(r[0]), Into::<T>::into(r[1]));
+
+                        if self.settings.cross_section.numerator_source
+                            == NumeratorSource::MgAndForm
                         {
-                            println!(
-                                "Mismatch between MG and RUST numerator: {} vs {} for {:?}",
-                                diag_cache[0].reduced_coefficient_lb[0][0], result, loop_momenta
-                            );
+                            if (*rlb - coeff).norm_sqr()
+                                > Into::<T>::into(1e-10 * self.e_cm_squared)
+                            {
+                                println!(
+                                    "Mismatch between MG and RUST numerator: {} vs {} for {:?}",
+                                    rlb, coeff, loop_momenta
+                                );
+                            }
                         }
+                        *rlb = coeff;
                     }
-
-                    diag_cache[0].reduced_coefficient_lb[0].clear();
-                    diag_cache[0].reduced_coefficient_lb[0].push(Complex::new(
-                        Into::<T>::into(result.re),
-                        Into::<T>::into(result.im),
-                    ));
                 } else {
                     panic!(
                         "No call signature for FORM numerator, but FORM numerator mode is enabled"
@@ -1690,7 +1720,9 @@ impl SquaredTopology {
                     &mut form_numerator_buffer,
                     &mut self.form_numerator.form_numerator_buffer,
                 );
-            } else {
+            }
+
+            if self.settings.cross_section.numerator_source == NumeratorSource::Yaml {
                 // evaluate the cut numerator with the spatial parts of all loop momenta and
                 // the energy parts of the Cutkosky cuts.
                 // Store the reduced numerator in the left graph cache for now

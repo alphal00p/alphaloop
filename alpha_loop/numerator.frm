@@ -1,12 +1,4 @@
 #-
-* PDGs:
-*d,u,s,c,b,t -> 1 to 6
-*d~,u~,s~,c~,b~,t~ -> -1 to -6
-*g, photon -> 21, 22
-*e+ e- > -11, 11
-*mu+, mu-, ta+ ,ta- > -12, 12, -13, 13
-*z w+ w- z -> 23, 24, -24
-*H 25
 Off statistics;
 
 #define GLU "21"
@@ -98,7 +90,8 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f,vx, vec;
-CF energyconfigurations, conf, energy, penergy, spatial(s);
+CF subs, configurations, conf, der, energy, spatial(s);
+CT penergy;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
 S  i, m, n;
@@ -249,9 +242,44 @@ id color(x?) = x;
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;
 
-*********************************************
-* Construction of optimized numerator C code
-*********************************************
+*************************************************
+* Process different configurations (bubbles, etc)
+*************************************************
+
+* process all the configurations
+id configurations(x?) = x;
+
+* multiply the numerator contribution of derivatives
+id conf(?a,p?) = conf(?a) * penergy(p); 
+id conf(?a,x?) = conf(?a) * x; * note the type difference
+
+* Taylor expand in pbubble_i^0
+repeat;
+    id once der(p?) = der*replace_(p, p + pzero * x * penergy(p));
+    if ((count(der, 1)) && (count(x, 1) != 1)) Discard;
+    id x = 1;
+    id der = 1;
+    id pzero.p? = penergy(p);
+
+    argument subs;
+        id x = 0; * undo the replacement in subs
+    endargument;
+endrepeat;
+
+id subs(p1?,p2?) = replace_(p1, p2);
+.sort
+
+* now extract the energy components of the LTD loop variables
+id k1?.k2? = g(k1, k2);
+repeat id conf(x?,?a,k1?,?b)*g(k1?,k1?) = conf(x,?a,k1,?b)*(energy(k1)*energy(k1)-spatial(k1,k1));
+repeat id conf(x?,?a,k1?,?b,k2?,?c)*g(k1?,k2?) = conf(x,?a,k1,?b,k2,?c)*(energy(k1)*energy(k2)-spatial(k1,k2));
+repeat id conf(x?,?a,k?,?b)*g(k?,p?) = conf(x,?a,k,?b)*(energy(k)*penergy(p)-spatial(k,p));
+id g(p1?,p2?) = p1.p2;
+
+repeat id energy(?a)*energy(?b) = energy(?a,?b);
+symmetrize energy;
+id energy(?a) = energy(f(?a));
+if (count(energy,1) == 0) Multiply energy(f(k0)); * signal with k0 that we are dealing with the constant term
 
 * Obtain the maximal p and k
 #$MAXK = 0;
@@ -277,32 +305,9 @@ label donek;
 label donep;
 .sort
 
-#ifdef `FULL_ENERGY_POLY'
-    if (count(energyconfigurations, 1) == 0);
-        Multiply energyconfigurations(conf(k0), conf(k1,...,k`$MAXK'));
-    else;
-        if (!match(energyconfigurations(?a, conf(k1,...,k`$MAXK'),?b)))
-            id energyconfigurations(?a) = energyconfigurations(?a, conf(k1,...,k`$MAXK'));
-    endif;
-#endif
-
-* create a numerator for every energy configuration
-transform energyconfigurations addargs(1,last);
-id energyconfigurations(x?) = x;
-if (count(conf, 1) == 0) Multiply conf(k0); * signal with k0 that we are dealing with the constant term
-.sort
-
-* now extract the energy components of the LTD loop variables
-id k1?.k2? = g(k1, k2);
-repeat id conf(?a,k1?,?b)*g(k1?,k1?) = conf(?a,k1,?b)*(energy(k1)*energy(k1)-spatial(k1,k1));
-repeat id conf(?a,k1?,?b,k2?,?c)*g(k1?,k2?) = conf(?a,k1,?b,k2,?c)*(energy(k1)*energy(k2)-spatial(k1,k2));
-repeat id conf(?a,k?,?b)*g(k?,p?) = conf(?a,k,?b)*(energy(k)*penergy(p)-spatial(k,p));
-id g(p1?,p2?) = p1.p2;
-
-repeat id energy(?a)*energy(?b) = energy(?a,?b);
-symmetrize energy;
-id energy(?a) = energy(f(?a));
-if (count(energy,1) == 0) Multiply energy(f(k0)); * signal with k0 that we are dealing with the constant term
+*********************************************
+* Construction of optimized numerator C code
+*********************************************
 
 * split off every energy configuration into a new expression
 id conf(?a) = conf(conf(?a));

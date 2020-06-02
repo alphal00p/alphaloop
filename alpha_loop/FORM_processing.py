@@ -10,6 +10,7 @@ import igraph
 import time
 import numpy as np
 from itertools import combinations_with_replacement
+from collections import OrderedDict
 
 import progressbar
 from itertools import chain
@@ -122,6 +123,8 @@ class FORMSuperGraph(object):
             self.name = str(self.call_identifier)
         else:
             self.name = name
+
+        self.replacement_rules = None
 
     def get_mathematica_rendering_code(self, model, FORM_id=None):
         """ Generate mathematica expression for drawing this graph."""
@@ -254,6 +257,12 @@ aGraph=%s;
                 ','.join(str(i) for i in edge['indices']),
             )
 
+        if self.replacement_rules is None:
+            raise AssertionError("No energy configurations specified for numerator: run the denominator generation first")
+
+        # now add all the replacement rules
+        form_diag += self.replacement_rules
+
         return form_diag
 
 
@@ -345,7 +354,7 @@ aGraph=%s;
         if overall_phase.imag != 0:
             raise FormProcessingError("No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
         else:
-            overall_factor = '%d'%int(overall_phase.real)
+            overall_factor += '*%d'%int(overall_phase.real)
 
         model = LTD2_super_graph.model
         local_graph = copy.deepcopy(LTD2_super_graph.graph)
@@ -502,13 +511,13 @@ aGraph=%s;
         else:
             return dict_to_dump
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=()):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), write_yaml=True):
         if self.is_zero:
             return False
 
         # Relabel edges according to alphaLoop conventions:
         for edge_key, edge_data in self.edges.items():
-            edge_data['name'] = 'p' + edge_data['name'][1:] if edge_data['type'] == 'virtual' else 'q' + edge_data['name'][1:]
+            edge_data['name'] = 'p' + edge_data['name'] if edge_data['type'] == 'virtual' else 'q' + edge_data['name'][1:]
 
         # TODO: sort such that the first 4 entries are external (it seems to happen by chance now every time)
         edge_map_lin = [(e['name'], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
@@ -523,7 +532,7 @@ aGraph=%s;
         loop_momenta = []
         n_loops = len(self.edges) - len(self.nodes) + 1
         for loop_var in range(n_loops):
-            lm = next(('p' + ee['name'][1:], ee['signature'][0][loop_var]) for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+            lm = next((ee['name'], ee['signature'][0][loop_var]) for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
                 sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
             loop_momenta.append(lm)
 
@@ -544,9 +553,60 @@ aGraph=%s;
             logger.info("No cuts for graph {}".format(self.name))
             return False
 
-        topo.export(pjoin(root_output_path, self.name + ".yaml"))
+        self.generate_replacement_rules(topo)
+
+        if write_yaml:
+            topo.export(pjoin(root_output_path, self.name + ".yaml"))
 
         return True
+
+
+    def generate_replacement_rules(self, topo):
+        # collect the transformations of the bubble
+        configurations = []
+        bubble_to_cut = OrderedDict()
+        for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
+            for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
+                # determine LTD momenta in the same order as rust expects them (the cb)
+                ltd_momenta = []
+                trans = ['1']
+
+                for diag_info, loop_diag_info in zip(diag_set['diagram_info'], loop_diag_set['diagram_info']):
+                    for ltd_mom in loop_diag_info['graph'].loop_momentum_map:
+                        ltd_momenta.extend('k' + str(i) + 1 for i, s in enumerate(ltd_mom[0]) if s != 0)
+                    if diag_info['derivative'] is not None:
+                        ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
+                        der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
+
+                        edges = tuple(sorted(e[0] for i, e in enumerate(diag_info['graph'].edge_map_lin) if i not in diag_info['graph'].ext))
+                        bubble_to_cut[edges] = ext_mom
+
+                        # numerator derivative
+                        if ext_mom == der_mom:
+                            trans.append('der(pbubble' + str(len(bubble_to_cut) - 1) + ')')
+                        else:
+                            trans.append('-2*(' + der_mom + ')')
+
+                if len(ltd_momenta) == 0:
+                    conf = 'k0' # signal that there are no ltd momenta
+                else:
+                    conf = ','.join(ltd_momenta)
+
+                configurations.append('conf({},{},{})'.format(diag_set['id'], conf, '*'.join(trans)))
+
+        # replace external momentum in all bubbles with a dummy momentum
+        mommap = []
+        for i, (bubble, cut_mom) in enumerate(bubble_to_cut.items()):
+            for e in bubble:
+                e = next(ee for ee in self.edges.values() if ee['name'] == e)
+                e['momentum'] += '-(' + cut_mom + ') + pbubble' + str(i)
+            mommap.append('subs(pbubble{},{})'.format(i, cut_mom))
+
+        self.replacement_rules = ''
+        if len(mommap) > 0:
+            self.replacement_rules = '*' + '*'.join(mommap)
+
+        self.replacement_rules += '*configurations({})'.format('+'.join(configurations))
 
 
 class FORMSuperGraphIsomorphicList(list):
@@ -609,8 +669,12 @@ class FORMSuperGraphIsomorphicList(list):
             return to_dump
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=() ):
-        # only generate a yaml file for the reference graph of the isomorphic set
-        return self[0].generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, final_state_particle_ids)
+        for i, g in enumerate(self):
+            # TODO: now we generate the squared topology for isomorphic graphs just to obtain
+            # the replacement rules for the bubble. Can this be avoided?
+            r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, final_state_particle_ids, write_yaml=i==0)
+
+        return r
 
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
@@ -632,7 +696,7 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=True):
+    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
         p = Path(dict_file_path)
@@ -656,16 +720,16 @@ class FORMSuperGraphList(list):
                 g['nodes'] = new_nodes
                 g['edges'] = new_edges
 
-        graph_list = []
+        full_graph_list = []
         for i, g in enumerate(m.graphs):
             # convert to FORM supergraph
             form_graph = FORMSuperGraph(name=p.stem + '_' + str(i), edges = g['edges'], nodes=g['nodes'], overall_factor=g['overall_factor'])
             form_graph.derive_signatures()
-            graph_list.append(form_graph)
+            full_graph_list.append(form_graph)
 
         if first is not None:
             logger.info("Taking first {} supergraphs.".format(first))
-            graph_list = graph_list[:first]
+            full_graph_list = full_graph_list[:first]
 
         iso_groups = []
 
@@ -674,7 +738,7 @@ class FORMSuperGraphList(list):
 
         # group all isomorphic graphs
         pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
-        for graph in graph_list:
+        for graph in full_graph_list:
             g = igraph.Graph()
             g.add_vertices(len(graph.nodes))
             undirected_edges = set()
@@ -805,27 +869,25 @@ class FORMSuperGraphList(list):
                     # collect all temporary variables
                     temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
 
-                    # parse energy configuration
+                    # parse the configuration id
                     conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
-                    conf = tuple(int(r[1:]) -1 for r in conf)
-                    if conf == (-1,):
-                        conf_id = 0
-                    else:
-                        conf_id = sum(2**i if i in conf else 0 for i in range(n_loops))
+                    conf_id = conf[0]
                     confs.append(conf_id)
 
                     mono_secs = conf_sec.split('#NEWMONOMIAL')
                     
-                    num_body =''
+                    max_index = 0
+                    num_body = ''
                     for mono_sec in mono_secs[1:]:
                         mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
-                        # parse monomial powers
+                        # parse monomial powers and get the index in the polynomial in the cb
                         pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
                         pows = tuple(int(r[1:]) - 1 for r in pows)
                         if pows == (-1,):
                             index = 0
                         else:
                             index = numerator_pows.index(pows)
+                        max_index = max(index, max_index)
                         mono_sec = energy_exp.sub('', mono_sec)
                         returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
                         mono_sec = return_exp.sub('out[{}] = {};'.format(index, returnval), mono_sec)
@@ -835,14 +897,15 @@ class FORMSuperGraphList(list):
                         graph.is_zero = False
 
                     # TODO: Check that static inline vs inline induces no regression!
-                    numerator_main_code += '\nstatic inline void evaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
+                    numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
+                    numerator_main_code += '\nstatic inline int evaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
                         'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
-                    ) + num_body + '}\n'
+                    ) + num_body + '\treturn {}; \n}}\n'.format(max_index + 1)
 
                 
                 numerator_main_code += \
 """
-void evaluate_{}(double complex lm[], int conf, double complex* out) {{
+int evaluate_{}(double complex lm[], int conf, double complex* out) {{
     switch(conf) {{
 {}
     }}
@@ -850,14 +913,13 @@ void evaluate_{}(double complex lm[], int conf, double complex* out) {{
 """.format(i,
     '\n'.join(
     ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf in sorted(confs)] +
-    ['\t\tdefault: raise(SIGABRT);'] if 2**(n_loops + 1) - 1 not in confs else ['\t\treturn evaluate_{}_{}(lm, out);'.format(i, 2**(n_loops + 1) - 1)]
+    ['\t\tdefault: raise(SIGABRT);']
     ))
 
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
 
                 writers.CPPWriter(pjoin(root_output_path, 'numerator{}.c').format(i)).write(numerator_header + numerator_main_code)
-
         if graphs_zero:
             self[0].is_zero = True
 
@@ -901,13 +963,15 @@ void evaluate(double complex lm[], int diag, int conf, double complex* out) {{
 
         contributing_supergraphs = []
         with progressbar.ProgressBar(prefix='Generating squared topology files : ', max_value=len(self)) as bar:
+            non_zero_graph = 0
             for i, g in enumerate(self):
-                if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=i, 
+                if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
                                                                             final_state_particle_ids=final_state_particle_ids):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         'multiplicity': 1
                     })
+                    non_zero_graph += 1
                     contributing_supergraphs.append(g)
 
                 bar.update(i+1)
@@ -1031,5 +1095,5 @@ if __name__ == "__main__":
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
     TMP_OUTPUT = pjoin(root_path,'TMPDIR')
     Path(TMP_OUTPUT).mkdir(parents=True, exist_ok=True)
-    form_processor.generate_numerator_functions(TMP_OUTPUT, output_format='c')
     form_processor.generate_squared_topology_files(TMP_OUTPUT, 0, final_state_particle_ids=(6, 6, 25, 25))
+    form_processor.generate_numerator_functions(TMP_OUTPUT, output_format='c')

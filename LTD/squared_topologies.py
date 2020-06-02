@@ -53,6 +53,7 @@ class SquaredTopologyGenerator:
                         sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))))
 
         self.cut_diagrams = []
+        diagram_set_counter = 0
         for cut_info in self.cuts:
             c = cut_info['cuts']
 
@@ -88,12 +89,15 @@ class SquaredTopologyGenerator:
                     # numerator[numerator_pows.index(k)] = list(v)
                     numerator[numerator_pows_dict[k]] = list(v)
 
-                # construct a matrix from the cut basis to the loop momentum basis
-                # this is useful if the numerator is specified in the loop momentum basis
-                # the matrix will be padded with the loop momentum maps
-                cut_to_lmb = [ cut_edge['signature'][0] for cut_edge in c[:-1]]
-
                 for diag_set in cut_info['diagram_sets']:
+                    diag_set['id'] = diagram_set_counter
+                    diagram_set_counter += 1
+
+                    # construct a matrix from the cut basis to the loop momentum basis
+                    # this is useful if the numerator is specified in the loop momentum basis
+                    # the matrix will be padded with the loop momentum maps
+                    cut_to_lmb = [ cut_edge['signature'][0] for cut_edge in c[:-1]]
+
                     loop_topos = []
                     for i, diag_info in enumerate(diag_set['diagram_info']):
                         s = diag_info['graph']
@@ -117,6 +121,7 @@ class SquaredTopologyGenerator:
                             numerator_tensor_coefficients=[[0., 0.] for _ in range(numerator_entries)],
                             shift_map=shift_map,
                             check_external_momenta_names=False)
+                        loop_topo.external_kinematics = []
 
                         # take the UV limit of the diagram
                         uv_moms = [mom for mom in uv_structure if mom in set(s.edge_name_map.keys())]
@@ -140,16 +145,17 @@ class SquaredTopologyGenerator:
                     if self.loop_momenta_signs is not None:
                         assert(len(self.loop_momenta_signs)==len(cut_to_lmb[0]))
                         assert(all(abs(s)==1 for s in self.loop_momenta_signs))
-                        lmb_to_cb_matrix = lmb_to_cb_matrix*diag(*[s for s in self.loop_momenta_signs])
+                        lmb_to_cb_matrix = lmb_to_cb_matrix*diag(*[int(s) for s in self.loop_momenta_signs])
                     lmb_to_cb_matrix = lmb_to_cb_matrix**-1
 
                     diagram_sets.append({
+                        'id': diag_set['id'],
                         'numerator_structure': numerator_sparse,
                         'diagram_info': loop_topos,
                         'cb_to_lmb': [int(x) for x in lmb_to_cb_matrix]
                     })
 
-                self.cut_diagrams.append(diagram_sets)
+            self.cut_diagrams.append(diagram_sets)
 
     def export(self, output_path):
         out = {
@@ -181,6 +187,7 @@ class SquaredTopologyGenerator:
                     ],
                     'diagram_sets': [
                         {
+                            'id': diag_set['id'],
                             'diagram_info': [{
                                 'graph': diag['graph'].to_flat_format(),
                                 'conjugate_deformation': diag['conjugate_deformation'],
