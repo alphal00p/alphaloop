@@ -155,6 +155,15 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         shutil.copy(pjoin(plugin_path, 'Templates', 'select_numerator.py'), 
                     pjoin(rust_inputs_path, 'select_numerator.py'))
 
+        # Compute final state symmetry factor
+        for super_graph_list, ME in self.all_super_graphs:
+            final_ids = [l.get('id') for l in ME.get('processes')[0].get('legs') if l.get('state') is True]
+            fs_symm_factor = 1
+            for pdg in set(final_ids):
+                fs_symm_factor *= final_ids.count(pdg)
+            for sg in super_graph_list:
+                sg.fs_symm_factor = fs_symm_factor
+                
         # Filter once again for isomorphism across all supergraphs generated
         if self.alphaLoop_options['apply_graph_isomorphisms']:
             overall_basis = []
@@ -249,12 +258,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                             ) )
                         super_graph.symmetry_factor = 0
                     else:
-                        # Compute final state symmetry factor
-                        final_ids = [l.get('id') for l in matrix_element.get('processes')[0].get('legs') if l.get('state') is True]
-                        fs_symm_factor = 1
-                        for pdg in set(final_ids):
-                            fs_symm_factor *= final_ids.count(pdg)
-
+                        fs_symm_factor = super_graph.fs_symm_factor
                         if is_LO:
                             if len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph)%len(super_graph.cutkosky_cuts_generated)!=0:
                                 log_func("%s%s: Incorrect LO cutkosky cut generation. %d not divisible by %d.%s"%(
