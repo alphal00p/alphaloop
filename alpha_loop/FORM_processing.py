@@ -110,6 +110,7 @@ class FORMSuperGraph(object):
         edges=None,
         nodes=None,
         overall_factor="1",
+        multiplicity=1,
     ):
         """ initialize a FORM SuperGraph from several options."""
 
@@ -117,6 +118,7 @@ class FORMSuperGraph(object):
         self.edges = edges
         self.nodes = nodes
         self.overall_factor = overall_factor
+        self.multiplicity = multiplicity
         # A hashable call signature
         self.call_identifier = call_identifier
         if name is None:
@@ -238,7 +240,7 @@ aGraph=%s;
 
     def generate_numerator_form_input(self, additional_overall_factor=''):
         # create the input file for FORM
-        form_diag = self.overall_factor + additional_overall_factor
+        form_diag = self.overall_factor+additional_overall_factor
         for node in self.nodes.values():
             if node['vertex_id'] < 0:
                 continue
@@ -344,10 +346,12 @@ aGraph=%s;
         # is set:
         LTD2_super_graph.set_momentum_routing()
 
-        if LTD2_super_graph.symmetry_factor is None:
-            overall_factor = "1"
+        overall_factor = "1"
+
+        if LTD2_super_graph.symmetry_factor is not None:
+            multiplicity = LTD2_super_graph.symmetry_factor
         else:
-            overall_factor = "%d"%LTD2_super_graph.symmetry_factor
+            multiplicity = 1
 
         # Let us just match the overall phase picked for the MG num:
         overall_phase = complex(-1.0,0.0)**len(LTD2_super_graph.cuts)
@@ -484,6 +488,7 @@ aGraph=%s;
             edges = dict(local_graph.edges),
             nodes = dict(local_graph.nodes),
             overall_factor = overall_factor,
+            multiplicity = multiplicity
         )
         #misc.sprint(graph_name)
         #misc.sprint(pformat(dict(LTD2_super_graph.graph.edges.items())))
@@ -504,7 +509,8 @@ aGraph=%s;
         dict_to_dump = {
             'edges' : self.edges,
             'nodes' : self.nodes,
-            'overall_factor' : self.overall_factor
+            'overall_factor' : self.overall_factor,
+            'multiplicity' : self.multiplicity
         }
         if file_path:
             open(file_path,'w').write(pformat(dict_to_dump))
@@ -725,7 +731,8 @@ class FORMSuperGraphList(list):
         full_graph_list = []
         for i, g in enumerate(m.graphs):
             # convert to FORM supergraph
-            form_graph = FORMSuperGraph(name=p.stem + '_' + str(i), edges = g['edges'], nodes=g['nodes'], overall_factor=g['overall_factor'])
+            form_graph = FORMSuperGraph(name=p.stem + '_' + str(i), edges = g['edges'], nodes=g['nodes'], 
+                        overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1) )
             form_graph.derive_signatures()
             full_graph_list.append(form_graph)
 
@@ -978,7 +985,7 @@ int get_buffer_size() {{
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
-                        'multiplicity': 1
+                        'multiplicity': g[0].multiplicity
                     })
                     non_zero_graph += 1
                     contributing_supergraphs.append(g)
