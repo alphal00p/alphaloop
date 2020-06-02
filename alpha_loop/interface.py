@@ -78,7 +78,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # set to False, except for debugging.
             'include_self_energies_from_squared_amplitudes' : True,
             # We must not apply the graph ismorphism checks when attempting to compute LO cross-section from MG.
-            'apply_graph_isomorphisms' : False,
+            'apply_graph_isomorphisms' : True,
             # One must differentiate particles from anti-particles in the isomorphism check.
             # However this is not properly working, at least not for self-energies, so we allow it
             # to be disabled with the option below.

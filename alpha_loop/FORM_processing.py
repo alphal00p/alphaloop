@@ -511,7 +511,7 @@ aGraph=%s;
         else:
             return dict_to_dump
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), write_yaml=True):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True):
         if self.is_zero:
             return False
 
@@ -543,6 +543,7 @@ aGraph=%s;
             particle_ids=particle_ids,
             masses=particle_masses,
             final_state_particle_ids=final_state_particle_ids,
+            jet_ids=jet_ids,
             overall_numerator=1.0,
             numerator_structure={},
             FORM_numerator={'call_signature': {'id': numerator_call}}
@@ -668,11 +669,12 @@ class FORMSuperGraphIsomorphicList(list):
         else:
             return to_dump
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=() ):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None ):
         for i, g in enumerate(self):
             # TODO: now we generate the squared topology for isomorphic graphs just to obtain
             # the replacement rules for the bubble. Can this be avoided?
-            r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, final_state_particle_ids, write_yaml=i==0)
+            r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
+                            final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0)
 
         return r
 
@@ -955,7 +957,7 @@ void evaluate(double complex lm[], int diag, int conf, double complex* out) {{
 
         writers.CPPWriter(pjoin(root_output_path, 'numerator.h')).write(header_code)
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), filter_non_contributing_graphs=True):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True):
         topo_collection = {
             'name': self.name,
             'topologies': []
@@ -966,7 +968,7 @@ void evaluate(double complex lm[], int diag, int conf, double complex* out) {{
             non_zero_graph = 0
             for i, g in enumerate(self):
                 if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
-                                                                            final_state_particle_ids=final_state_particle_ids):
+                                                            final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         'multiplicity': 1
@@ -1049,9 +1051,9 @@ class FORMProcessor(object):
             logger.warning(("\n%sYou are running FORM_processing directly from the __main__ of FORM_processing.py.\n"+
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
-    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), filter_non_contributing_graphs=True):
+    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True):
         self.super_graphs_list.generate_squared_topology_files(
-            root_output_path, self.model, n_jets, final_state_particle_ids, filter_non_contributing_graphs=filter_non_contributing_graphs
+            root_output_path, self.model, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs
         )
 
 

@@ -12,7 +12,8 @@ from sympy import Matrix, diag
 
 class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_jets, external_momenta, final_state_particle_ids=(),
-        loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
+        loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, jet_ids=None,
+        MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), numerator_in_loop_momentum_basis=False, FORM_numerator={}):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
@@ -36,7 +37,8 @@ class SquaredTopologyGenerator:
             numerator_tensor_coefficients=[[0., 0.]],
             shift_map=None)
 
-        cutkosky_cuts = self.topo.find_cutkosky_cuts(n_jets, incoming_momentum_names, final_state_particle_ids, particle_ids)
+        cutkosky_cuts = self.topo.find_cutkosky_cuts(n_jets, incoming_momentum_names, final_state_particle_ids, 
+                                                        particle_ids, PDGs_in_jet=jet_ids)
 
         self.cuts = [self.topo.bubble_cuts(c, incoming_momentum_names) for c in cutkosky_cuts]
 

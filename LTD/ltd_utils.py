@@ -310,7 +310,17 @@ class TopologyGenerator(object):
                 break
         return res
 
-    def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids):
+    def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids, PDGs_in_jet=None ):
+        """ Note that when called from withing the MG/QGRAF generation pipeline, the PDGs_in_jet option will be specified
+        in accordance with the user model considered."""
+        
+        # Only allow specification of absolute PDG values in 
+        final_state_particle_ids = tuple(abs(p) for p in final_state_particle_ids)
+
+        # Let us use sane defaults
+        if PDGs_in_jet is None:
+            PDGs_in_jet=(1,2,3,4,5,-1,-2,-3,-4,-5,21,82,-82)
+
         if not self.spanning_trees:
             # if a final state particle only occurs once in the graph, we can always add the edge
             # to the already visited list
@@ -365,8 +375,11 @@ class TopologyGenerator(object):
 
                 # filter cuts with not enough jets and cuts that do not contain all desired final state particles
                 cutkosky_particles = tuple(sorted(abs(particle_ids[e]) for (e, _, _) in cutkosky_cut if e in particle_ids))
-                if len(cutkosky_cut) - len(final_state_particle_ids) < n_jets or \
-                        not all(final_state_particle_ids.count(abs(p)) <= cutkosky_particles.count(abs(p)) for p in final_state_particle_ids):
+                cutkosky_jet_particles = tuple(p for p in cutkosky_particles if p in PDGs_in_jet)
+                cutkosky_non_jet_particles = tuple(p for p in cutkosky_particles if p not in PDGs_in_jet)
+
+                if len(cutkosky_jet_particles) < n_jets or \
+                        not all(final_state_particle_ids.count(abs(p)) == cutkosky_non_jet_particles.count(abs(p)) for p in final_state_particle_ids):
                     continue
 
                 # check if the cut is incoming our outgoing

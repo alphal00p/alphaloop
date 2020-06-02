@@ -796,6 +796,7 @@ class SuperGraph(object):
             loop_momenta_names=get_loop_momenta_names(),
             loop_momenta_signs=get_loop_momenta_signs(),
             final_state_particle_ids=get_final_state_particle_ids(),
+            jet_ids=alphaLoop_options['_jet_PDGs'],
             particle_ids=get_particle_ids(),
             masses=get_particle_masses(),
             MG_numerator = {
