@@ -104,6 +104,7 @@ mod form_numerator {
             conf: c_int,
             out: *mut c_double,
         ) -> c_int,
+        get_buffer_size: unsafe extern "C" fn() -> c_int,
     }
 
     pub fn get_numerator(
@@ -121,6 +122,10 @@ mod form_numerator {
                 &mut poly[0] as *mut f64,
             ) as usize
         }
+    }
+
+    pub fn get_buffer_size(api_container: &mut Container<FORMNumeratorAPI>) -> usize {
+        unsafe { api_container.get_buffer_size() as usize }
     }
 
     pub fn load() -> Container<FORMNumeratorAPI> {
@@ -665,21 +670,28 @@ impl SquaredTopology {
             if squared_topo.form_numerator.call_signature.is_some() {
                 squared_topo.form_numerator.form_numerator = Some(form_numerator::load());
 
+                let max_buffer_size = form_numerator::get_buffer_size(
+                    squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
+                );
+
                 let max_rank = 8; // TODO: set to proper value by sampling once
 
                 for cut in &mut squared_topo.cutkosky_cuts {
                     for diagram_set in cut.diagram_sets.iter_mut() {
-                        diagram_set.numerator = LTDNumerator::from_sparse(
-                            squared_topo.n_loops,
-                            &[(vec![0; max_rank], (0., 0.))],
-                        );
-
-                        if squared_topo.form_numerator.form_numerator_buffer.len()
-                            < diagram_set.numerator.coefficients.len() * 2
+                        if diagram_set
+                            .diagram_info
+                            .iter()
+                            .any(|diagram_info| diagram_info.graph.n_loops > 0)
                         {
-                            squared_topo.form_numerator.form_numerator_buffer =
-                                vec![0.; diagram_set.numerator.coefficients.len() * 2];
+                            // FIXME: this consumes excessive amounts of memory
+                            diagram_set.numerator = LTDNumerator::from_sparse(
+                                squared_topo.n_loops,
+                                &[(vec![0; max_rank], (0., 0.))],
+                            );
                         }
+
+                        squared_topo.form_numerator.form_numerator_buffer =
+                            vec![0.; max_buffer_size];
 
                         // also give the subgraph numerators the proper size
                         // TODO: set the proper rank of only the variables of the subgraph

@@ -842,6 +842,7 @@ class FORMSuperGraphList(list):
 
         # TODO: multiprocess this loop
         graphs_zero = True
+        max_buffer_size = 0
         with progressbar.ProgressBar(
             prefix = 'Processing numerators with FORM ({variables.timing} ms / supergraph) : ',
             max_value=len(self),
@@ -890,6 +891,7 @@ class FORMSuperGraphList(list):
                         else:
                             index = numerator_pows.index(pows)
                         max_index = max(index, max_index)
+                        max_buffer_size = max(index, max_buffer_size)
                         mono_sec = energy_exp.sub('', mono_sec)
                         returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
                         mono_sec = return_exp.sub('out[{}] = {};'.format(index, returnval), mono_sec)
@@ -937,12 +939,17 @@ void evaluate(double complex lm[], int diag, int conf, double complex* out) {{
 {}
     }}
 }}
+
+int get_buffer_size() {{
+    return {};
+}}
 """.format(
     '\n'.join('void evaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in range(len(self))),
     '\n'.join(
     ['\t\tcase {}: return evaluate_{}(lm, conf, out);'.format(i, i) for i in range(len(self))]+
     ['\t\tdefault: raise(SIGABRT);']
-    ))
+    ), (max_buffer_size + 1) * 2
+    )
         writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
 
         header_code = \

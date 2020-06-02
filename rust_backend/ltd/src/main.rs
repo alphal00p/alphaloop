@@ -345,7 +345,7 @@ fn integrand(
     iter: usize,
 ) -> Result<(), &'static str> {
     if user_data.internal_parallelization {
-        let cores = user_data.integrand.len() - 1;
+        let cores = user_data.integrand.len();
         // the number of points per core for all cores but the last, which may have fewer
         let nvec_per_core = (nvec - 1) / cores + 1;
         let loops = user_data.n_loops;
