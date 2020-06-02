@@ -247,6 +247,9 @@ class SuperGraph(object):
         self.alphaLoop_options = LTD2_diagram_left.alphaLoop_options
         self.diag_left_of_cut = LTD2_diagram_left.get_copy()
         self.diag_right_of_cut = LTD2_diagram_right.get_copy()
+        self.MG_LO_cuts_corresponding_to_this_supergraph = []
+        self.cutkosky_cuts_generated = None
+        self.symmetry_factor = None
 
         # The attributes below will be set by the function sew_graphs.
         self.graph = None
@@ -815,6 +818,10 @@ class SuperGraph(object):
         )
         squared_topology.export(file_path)
 
+        # Return the number of cuts!
+        self.cutkosky_cuts_generated = squared_topology.cuts
+        return len(self.cutkosky_cuts_generated)
+
 class SelfEnergySuperGraph(SuperGraph):
     """ Class representing a super graph in the LTD^2 formalism corresponding to a self-energy"""
 
@@ -1082,16 +1089,19 @@ class SuperGraphList(list):
                                                 len(LTD2_diagram_list),len(LTD2_diagram_list)))
         with progressbar.ProgressBar(
             prefix = 'Generating non-unique supergraphs : ',
-            max_value=int((len(LTD2_diagram_list)*(len(LTD2_diagram_list)+1))/2)) as bar:
+            max_value=int((len(LTD2_diagram_list)**2))) as bar: # *2))) as bar: # (len(LTD2_diagram_list)+1))/2)) as bar:
             i_bar = 0
             for i_diag_left, LTD2_diag_left in enumerate(LTD2_diagram_list):
-                for i_diag_right, LTD2_diag_right in enumerate(LTD2_diagram_list[i_diag_left:]):
+                for i_diag_right, LTD2_diag_right in enumerate(LTD2_diagram_list): # enumerate(LTD2_diagram_list): # enumerate(LTD2_diagram_list[i_diag_left:]):
                     new_super_graph = self.super_graph_class(LTD2_diag_left,LTD2_diag_right, 
                         {   'proc_id' : proc_number, 
                             'left_diagram_id' : i_diag_left+1, 
-                            'right_diagram_id' : i_diag_left+i_diag_right+1,
+                            'right_diagram_id' : i_diag_right+1, #i_diag_right+1 # i_diag_left+i_diag_right+1
                         }
                     )
+                    new_super_graph.MG_LO_cuts_corresponding_to_this_supergraph = [ (
+                                        new_super_graph.call_signature['left_diagram_id'],
+                                        new_super_graph.call_signature['right_diagram_id'] ) ]
                     all_super_graphs.append(new_super_graph)
                     i_bar += 1
                     bar.update(i_bar)
@@ -1119,9 +1129,6 @@ class SuperGraphList(list):
         # Then filter isomorphic ones
         self[:] = all_super_graphs
         if self.alphaLoop_options['apply_graph_isomorphisms']:
-            logger.info("%sApplying graph isomorphism filtering implies that the collection of MG numerators will *not* reproduce the correct cross-section.%s"%(
-                utils.bcolors.GREEN,utils.bcolors.ENDC
-            ))
             self.filter_isomorphic_graphs()
         else:
             logger.info("%sGraph isomorphism filtering skipped as per user request.%s"%(
@@ -1173,14 +1180,26 @@ class SuperGraphList(list):
     def filter_isomorphic_graphs(self):
         logger.info("Detecting isomorphisms between %d non-unique super-graphs..."%len(self))
         new_selection = []
+
+        def find_isomorphic_partner(sg):
+            for partner_candidate in new_selection:
+                if sg.is_isomorphic_to(partner_candidate):
+                    return partner_candidate
+            return None
+
         with progressbar.ProgressBar(
             prefix = 'Filtering supergraphs ({variables.n_unique_super_graphs_sofar} unique found so far) : ',
             max_value=len(self),
             variables = {'n_unique_super_graphs_sofar' : '0'}
             ) as bar:
             for i_graph, super_graph in enumerate(self):
-                if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in new_selection):
+                sg_partner = find_isomorphic_partner(super_graph)
+                if sg_partner is None:
                     new_selection.append(super_graph)
+                else:
+                    sg_partner.MG_LO_cuts_corresponding_to_this_supergraph.extend(
+                        super_graph.MG_LO_cuts_corresponding_to_this_supergraph)
+
                 bar.update(n_unique_super_graphs_sofar='%d'%len(new_selection))
                 bar.update(i_graph+1)
         self[:] = new_selection

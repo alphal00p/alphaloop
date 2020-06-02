@@ -638,6 +638,21 @@ class FORMSuperGraphList(list):
 
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
+        # No convert the vertex names to be integers according to QGRAF format:
+        if isinstance(list(m.graphs[0]['nodes'].keys())[0],str):
+            for i, g in enumerate(m.graphs):
+                new_nodes ={}
+                node_names={}
+                for i_node, (n_key, n) in enumerate(g['nodes'].items()):
+                    node_names[n_key]=i_node+1
+                    new_nodes[i_node+1] = n
+                new_edges = {}
+                for edge_key, edge in g['edges'].items():
+                    edge['vertices']=(node_names[edge_key[0]],node_names[edge_key[1]])
+                    new_edges[(node_names[edge_key[0]],node_names[edge_key[1]],edge_key[2])]=edge
+                g['nodes'] = new_nodes
+                g['edges'] = new_edges
+
         graph_list = []
         for i, g in enumerate(m.graphs):
             # convert to FORM supergraph
@@ -1011,5 +1026,7 @@ if __name__ == "__main__":
 
     super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source)
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
-    form_processor.generate_numerator_functions('./lib', output_format='c')
-    form_processor.generate_squared_topology_files('./RUST_input', computed_model, 2, final_state_particle_ids=(6, 6, 25))
+    TMP_OUTPUT = pjoin(root_path,'TMPDIR')
+    Path(TMP_OUTPUT).mkdir(parents=True, exist_ok=True)
+    form_processor.generate_numerator_functions(TMP_OUTPUT, output_format='c')
+    form_processor.generate_squared_topology_files(TMP_OUTPUT, 0, final_state_particle_ids=(6, 6, 25, 25))

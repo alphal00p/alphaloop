@@ -150,10 +150,22 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Now write out a yaml file for each of these 
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
         Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
+        # BELOW is temporary until we have an hyperparameter to control which numerator to pick...
+        shutil.copy(pjoin(plugin_path, 'Templates', 'select_numerator.sh'), 
+                    pjoin(rust_inputs_path, 'select_numerator.sh'))
+        shutil.copy(pjoin(plugin_path, 'Templates', 'select_numerator.py'), 
+                    pjoin(rust_inputs_path, 'select_numerator.py'))
 
         # Filter once again for isomorphism across all supergraphs generated
         if self.alphaLoop_options['apply_graph_isomorphisms']:
             overall_basis = []
+
+            def find_isomorphic_partner(sg):
+                for partner_candidate in overall_basis:
+                    if sg.is_isomorphic_to(partner_candidate):
+                        return partner_candidate
+                return None
+
             n_tot_supergraphs = sum(len(sg[0]) for sg in self.all_super_graphs)
             logger.info("Detecting isomorphisms between all %d 'unique' super-graphs generated across all processes..."%n_tot_supergraphs)
             i_graph = 0
@@ -166,9 +178,13 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     new_selection_for_this_process = []
                     for super_graph in list(super_graph_list):
                         i_graph += 1
-                        if not any(super_graph.is_isomorphic_to(graph_in_basis) for graph_in_basis in overall_basis):
+                        partner_sg = find_isomorphic_partner(super_graph)
+                        if partner_sg is None:
                             overall_basis.append(super_graph)
                             new_selection_for_this_process.append(super_graph)
+                        else:
+                            partner_sg.MG_LO_cuts_corresponding_to_this_supergraph.extend(
+                                super_graph.MG_LO_cuts_corresponding_to_this_supergraph)
                         bar.update(n_unique_super_graphs_sofar='%d'%len(overall_basis))
                         bar.update(i_graph)
                     super_graph_list[:] = new_selection_for_this_process
@@ -214,6 +230,18 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             FORM_processor.draw(drawings_output_path)
 
         # Now output the Rust inputs for the remaining supergraphs.
+        is_LO = (not self.alphaLoop_options['perturbative_orders']) or sum(self.alphaLoop_options['perturbative_orders'].values())==0
+        # Adjust below to `and False` in order to disable debugging.
+        do_debug = is_LO and True
+        if do_debug:
+            if len(self.all_super_graphs)==1:
+                log_func = logger.critical
+                err_text = 'ERROR'
+                color = utils.bcolors.RED
+            else:
+                log_func = logger.warning
+                err_text = 'WARNING'
+                color = utils.bcolors.BLUE
         FORM_id=0
         for all_super_graphs, matrix_element in self.all_super_graphs:
 
@@ -229,6 +257,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                 ))
 
             base_proc_name = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
+            n_tot_cutkosky_cuts = 0
             with progressbar.ProgressBar(
                 prefix = 'Generating rust inputs for {variables.super_graph_name} : ',
                 max_value=(len(all_super_graphs) if self.alphaLoop_options['n_rust_inputs_to_generate']<0 else
@@ -250,10 +279,63 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                         self.alphaLoop_options,
                         FORM_id=FORM_id_to_supply
                     )
+
+                    # Compute final state symmetry factor
+                    final_ids = [l.get('id') for l in matrix_element.get('processes')[0].get('legs') if l.get('state') is True]
+                    fs_symm_factor = 1
+                    for pdg in set(final_ids):
+                        fs_symm_factor *= final_ids.count(pdg)
+
+                    if is_LO:
+                        if len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph)%len(super_graph.cutkosky_cuts_generated)!=0:
+                            raise alphaLoopExporterError("Incorrect LO cutkosky cut generation. %d not divisible by %d."%(
+                                len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
+                                len(super_graph.cutkosky_cuts_generated)
+                            ) )
+                        reconstructed_symmetry_factor = int(len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph)/len(super_graph.cutkosky_cuts_generated))
+                        if reconstructed_symmetry_factor%fs_symm_factor!=0:
+                            raise alphaLoopExporterError("Incorrect LO cutkosky cut generation. %d not divisible by %d."%(reconstructed_symmetry_factor,fs_symm_factor))
+
+                        if is_LO:
+                            super_graph.symmetry_factor = int(reconstructed_symmetry_factor/fs_symm_factor)
+                        else:
+                            logger.info("No strategy yet for determining symmetry factors beyond LO contributions. Setting it to 1 for now, but this is incorrect.")
+                            super_graph.symmetry_factor = 1
+
+                    n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * len(super_graph.cutkosky_cuts_generated)
+                    # For now the debug/check below always pass by constribution, but in the future we could think of computing super_graph.symmetry_factor independently
+                    # from the number of MG_LO cuts.
+                    if do_debug:
+                        if fs_symm_factor*super_graph.symmetry_factor*len(super_graph.cutkosky_cuts_generated) != len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph):
+                            log_func(("%s%s: alphaLoop only found %d (fs_sym) x %d (graph_sym) x %d (n_cuts) LO cutkosky cuts in diagram '%s'%s, whereas the "+
+                                     "following %d were expected from the following amplitude diagram interferences:\n%s%s")%(
+                                color,
+                                err_text,
+                                fs_symm_factor,
+                                super_graph.symmetry_factor,
+                                len(super_graph.cutkosky_cuts_generated),
+                                squared_topology_name,
+                                ' (FORM_ID: %d)'%FORM_id_to_supply if FORM_id_to_supply is not None else '',
+                                len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
+                                ', '.join('%dx%d'%interf for interf in super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
+                                utils.bcolors.ENDC
+                            ))
+
                     FORM_id+=1
                     if (self.alphaLoop_options['n_rust_inputs_to_generate']>0) and (
                         (i_super_graph+1)==self.alphaLoop_options['n_rust_inputs_to_generate']):
                         break
+
+            if do_debug:
+                n_diag = len(matrix_element.get('diagrams'))
+                target_n_tot_cutkosky_cuts = n_diag**2
+                if n_tot_cutkosky_cuts != target_n_tot_cutkosky_cuts:
+                    log_func("%s%s: alphaLoop only found %d LO cutkosky cuts whereas %d were expected from the %d amplitude diagrams generated!%s"%(
+                        color,
+                        err_text,
+                        n_tot_cutkosky_cuts,target_n_tot_cutkosky_cuts,n_diag,
+                        utils.bcolors.ENDC
+                    ))
 
         # And now finally generate the overall cross section yaml input file.
         base_name = os.path.basename(self.dir_path)
@@ -263,7 +345,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             'topologies' : [
                 { 
                     'name' : super_graph.name,
-                    'multiplicity' : 1
+                    'multiplicity' : super_graph.symmetry_factor
                 }
                 for all_super_graph, matrix_element in self.all_super_graphs for super_graph in all_super_graph
             ]
