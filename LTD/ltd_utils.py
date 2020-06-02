@@ -455,7 +455,7 @@ class TopologyGenerator(object):
                 for diag_set in graph_prod]
         }
         from pprint import pprint
-        pprint(graph_combinations)
+        #pprint(graph_combinations)
 
         return graph_combinations
 

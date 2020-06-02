@@ -151,8 +151,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
         Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
         # BELOW is temporary until we have an hyperparameter to control which numerator to pick...
-        shutil.copy(pjoin(plugin_path, 'Templates', 'select_numerator.sh'), 
-                    pjoin(rust_inputs_path, 'select_numerator.sh'))
         shutil.copy(pjoin(plugin_path, 'Templates', 'select_numerator.py'), 
                     pjoin(rust_inputs_path, 'select_numerator.py'))
 
