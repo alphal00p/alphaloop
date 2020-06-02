@@ -1802,16 +1802,20 @@ fn main() -> Result<(), Report> {
     }
     .clone();
 
-    if settings.integrator.internal_parallelization {
+    let num_integrands = if settings.integrator.internal_parallelization {
         rayon::ThreadPoolBuilder::new()
             .num_threads(cores)
             .build_global()
             .unwrap();
-    }
+        cores
+    } else {
+        // cuba needs one more core, as the master could theoretically also do some work
+        cores + 1
+    };
 
     let user_data_generator = || UserData {
         n_loops,
-        integrand: (0..=cores)
+        integrand: (0..num_integrands)
             .map(|i| match &diagram {
                 Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
                     sqt.n_loops,

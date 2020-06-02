@@ -11,7 +11,8 @@ use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
 use topologies::{
-    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, Surface, SurfaceType, Topology,
+    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, SOCPProblem, Surface,
+    SurfaceType, Topology,
 };
 use utils::Signum;
 use vector::LorentzVector;
@@ -510,6 +511,7 @@ impl Topology {
         // If a surface is the first of a new group, the group id will be the index
         // in the surface list
         let mut unique_ellipsoids = 0;
+        let mut total_unique_ellipsoids = 0;
         let mut group_representative: Vec<(Vec<((usize, usize), i8, i8)>, usize)> = vec![];
         for (surf_index, s) in &mut self.surfaces.iter_mut().enumerate() {
             // create a vector of tuples that identifies a surface:
@@ -547,9 +549,12 @@ impl Topology {
             match group_representative.iter().find(|r| r.0 == s_cut_sorted) {
                 Some(i) => s.group = i.1,
                 None => {
-                    if s.surface_type == SurfaceType::Ellipsoid && s.exists {
-                        s.unique_ellipsoid_id = Some(unique_ellipsoids);
-                        unique_ellipsoids += 1;
+                    if s.surface_type == SurfaceType::Ellipsoid {
+                        total_unique_ellipsoids += 1;
+                        if s.exists {
+                            s.unique_ellipsoid_id = Some(unique_ellipsoids);
+                            unique_ellipsoids += 1;
+                        }
                     }
                     s.group = surf_index;
                     group_representative.push((s_cut_sorted, surf_index));
@@ -590,6 +595,18 @@ impl Topology {
                     if !found {
                         panic!("Unkown surface id in fixed deformation: {:?}", surf_id);
                     }
+                }
+            }
+        }
+
+        if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+            if total_unique_ellipsoids > 0 {
+                let num_propagators = self.loop_lines.iter().map(|x| x.propagators.len()).sum();
+                if external_momenta_set {
+                    self.socp_problem = SOCPProblem::new(unique_ellipsoids, num_propagators);
+                } else {
+                    self.socp_problem =
+                        SOCPProblem::new(total_unique_ellipsoids / 2, num_propagators);
                 }
             }
         }

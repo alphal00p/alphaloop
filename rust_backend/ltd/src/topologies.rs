@@ -1979,7 +1979,7 @@ unsafe impl std::marker::Send for SOCPProblem {}
 
 impl Default for SOCPProblem {
     fn default() -> SOCPProblem {
-        SOCPProblem::new(50 * 6, 20 * 6 * 6 * 6)
+        SOCPProblem::new(1,1)
     }
 }
 
