@@ -143,7 +143,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         if len(self.all_super_graphs)==0:
             raise alphaLoopExporterError("No supergraph generated.")
 
-        model = self.all_super_graphs[0][1].get('processes')[0].get('model')
+        representative_process = self.all_super_graphs[0][1].get('processes')[0]
+        model = representative_process.get('model')
         computed_model = model_reader.ModelReader(model)
         computed_model.set_parameters_and_couplings(pjoin(self.dir_path,'Cards','param_card.dat'))      
 
@@ -189,43 +190,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             logger.info("%sA grand total of %d unique super-graphs have been generated across all processes.%s"%(
                 utils.bcolors.GREEN,len(overall_basis),utils.bcolors.ENDC
             ))
-
-        if self.alphaLoop_options['FORM_processing_output_format']:
-            FORM_super_graph_list = FORM_processing.FORMSuperGraphList(
-                sum([sg_list for sg_list, ME in  self.all_super_graphs],[])
-            )
-            FORM_output_path = pjoin(self.dir_path, 'FORM')
-            Path(FORM_output_path).mkdir(parents=True, exist_ok=True)
-            FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
-            Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
-            shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
-                    pjoin(FORM_output_path, 'Makefile'))
-            # Also output a copy of the input super-graph sent to the FORM processor.
-            graph_dumps = []
-            graph_dumps.append("graphs=[]")
-            graph_dumps.append("graph_names=[]")
-            graph_dumps.append("")
-            for FORM_super_graph in FORM_super_graph_list:
-                graph_dumps.append('graph_names.append("%s")'%FORM_super_graph[0].name)
-                graph_dumps.append('graphs.append(\n%s\n)'%pformat(FORM_super_graph[0].to_dict()))
-            open(pjoin(FORM_output_path,'all_MG_supergraphs.py'),'w').write(
-                '\n'.join(graph_dumps)
-            )
-            computed_model = model_reader.ModelReader(model)
-            computed_model.set_parameters_and_couplings(pjoin(self.dir_path,'Cards','param_card.dat')) 
-            characteristic_process_definition = self.all_super_graphs[0][1].get('processes')[0]
-            logger.info("Numerators processing with FORM...")
-            FORM_processor = FORM_processing.FORMProcessor(
-                FORM_super_graph_list, computed_model, characteristic_process_definition)
-            FORM_processor.generate_numerator_functions(FORM_output_path, 
-                        output_format=self.alphaLoop_options['FORM_processing_output_format'],
-                        workspace=FORM_workspace
-            )
-            drawings_output_path = pjoin(self.dir_path, 'Drawings')
-            Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
-            shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
-                        pjoin(drawings_output_path,'Makefile'))
-            FORM_processor.draw(drawings_output_path)
 
         # Now output the Rust inputs for the remaining supergraphs.
         is_LO = (not self.alphaLoop_options['perturbative_orders']) or sum(self.alphaLoop_options['perturbative_orders'].values())==0
@@ -277,47 +241,60 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                         self.alphaLoop_options,
                         FORM_id=FORM_id_to_supply
                     )
-
-                    # Compute final state symmetry factor
-                    final_ids = [l.get('id') for l in matrix_element.get('processes')[0].get('legs') if l.get('state') is True]
-                    fs_symm_factor = 1
-                    for pdg in set(final_ids):
-                        fs_symm_factor *= final_ids.count(pdg)
-
-                    if is_LO:
-                        if len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph)%len(super_graph.cutkosky_cuts_generated)!=0:
-                            raise alphaLoopExporterError("Incorrect LO cutkosky cut generation. %d not divisible by %d."%(
-                                len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
-                                len(super_graph.cutkosky_cuts_generated)
+                    if len(super_graph.cutkosky_cuts_generated)==0:
+                        log_func("%s%s: Supergraph '%s' yielded no Cutkosky cuts. That should not happen at LO.%s"%(
+                                color,err_text,
+                                squared_topology_name,
+                                utils.bcolors.ENDC
                             ) )
-                        reconstructed_symmetry_factor = int(len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph)/len(super_graph.cutkosky_cuts_generated))
-                        if reconstructed_symmetry_factor%fs_symm_factor!=0:
-                            raise alphaLoopExporterError("Incorrect LO cutkosky cut generation. %d not divisible by %d."%(reconstructed_symmetry_factor,fs_symm_factor))
+                        super_graph.symmetry_factor = 0
+                    else:
+                        # Compute final state symmetry factor
+                        final_ids = [l.get('id') for l in matrix_element.get('processes')[0].get('legs') if l.get('state') is True]
+                        fs_symm_factor = 1
+                        for pdg in set(final_ids):
+                            fs_symm_factor *= final_ids.count(pdg)
 
                         if is_LO:
-                            super_graph.symmetry_factor = int(reconstructed_symmetry_factor/fs_symm_factor)
-                        else:
-                            logger.info("No strategy yet for determining symmetry factors beyond LO contributions. Setting it to 1 for now, but this is incorrect.")
-                            super_graph.symmetry_factor = 1
+                            if len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph)%len(super_graph.cutkosky_cuts_generated)!=0:
+                                log_func("%s%s: Incorrect LO cutkosky cut generation. %d not divisible by %d.%s"%(
+                                    color,err_text,
+                                    len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
+                                    len(super_graph.cutkosky_cuts_generated),
+                                    utils.bcolors.ENDC
+                                ) )
+                            reconstructed_symmetry_factor = int(len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph)/len(super_graph.cutkosky_cuts_generated))
+                            if reconstructed_symmetry_factor%fs_symm_factor!=0:
+                                log_func("%s%s: Incorrect LO cutkosky cut generation. %d not divisible by %d.%s"%(
+                                    color,err_text,
+                                    reconstructed_symmetry_factor,fs_symm_factor,
+                                    utils.bcolors.ENDC
+                                ) )
 
-                    n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * len(super_graph.cutkosky_cuts_generated)
-                    # For now the debug/check below always pass by constribution, but in the future we could think of computing super_graph.symmetry_factor independently
-                    # from the number of MG_LO cuts.
-                    if do_debug:
-                        if fs_symm_factor*super_graph.symmetry_factor*len(super_graph.cutkosky_cuts_generated) != len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph):
-                            log_func(("%s%s: alphaLoop only found %d (fs_sym) x %d (graph_sym) x %d (n_cuts) LO cutkosky cuts in diagram '%s'%s, whereas the "+
-                                     "following %d were expected from the following amplitude diagram interferences:\n%s%s")%(
-                                color,
-                                err_text,
-                                fs_symm_factor,
-                                super_graph.symmetry_factor,
-                                len(super_graph.cutkosky_cuts_generated),
-                                squared_topology_name,
-                                ' (FORM_ID: %d)'%FORM_id_to_supply if FORM_id_to_supply is not None else '',
-                                len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
-                                ', '.join('%dx%d'%interf for interf in super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
-                                utils.bcolors.ENDC
-                            ))
+                            if is_LO:
+                                super_graph.symmetry_factor = int(reconstructed_symmetry_factor/fs_symm_factor)
+                            else:
+                                logger.info("No strategy yet for determining symmetry factors beyond LO contributions. Setting it to 1 for now, but this is incorrect.")
+                                super_graph.symmetry_factor = 1
+
+                        n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * len(super_graph.cutkosky_cuts_generated)
+                        # For now the debug/check below always pass by constribution, but in the future we could think of computing super_graph.symmetry_factor independently
+                        # from the number of MG_LO cuts.
+                        if do_debug:
+                            if fs_symm_factor*super_graph.symmetry_factor*len(super_graph.cutkosky_cuts_generated) != len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph):
+                                log_func(("%s%s: alphaLoop only found %d (fs_sym) x %d (graph_sym) x %d (n_cuts) LO cutkosky cuts in diagram '%s'%s, whereas the "+
+                                        "following %d were expected from the following amplitude diagram interferences:\n%s%s")%(
+                                    color,
+                                    err_text,
+                                    fs_symm_factor,
+                                    super_graph.symmetry_factor,
+                                    len(super_graph.cutkosky_cuts_generated),
+                                    squared_topology_name,
+                                    ' (FORM_ID: %d)'%FORM_id_to_supply if FORM_id_to_supply is not None else '',
+                                    len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
+                                    ', '.join('%dx%d'%interf for interf in super_graph.MG_LO_cuts_corresponding_to_this_supergraph),
+                                    utils.bcolors.ENDC
+                                ))
 
                     FORM_id+=1
                     if (self.alphaLoop_options['n_rust_inputs_to_generate']>0) and (
@@ -334,6 +311,62 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                         n_tot_cutkosky_cuts,target_n_tot_cutkosky_cuts,n_diag,
                         utils.bcolors.ENDC
                     ))
+
+        if self.alphaLoop_options['FORM_processing_output_format']:
+
+            FORM_super_graph_list = FORM_processing.FORMSuperGraphList(
+                sum([sg_list for sg_list, ME in  self.all_super_graphs],[])
+            )
+            FORM_output_path = pjoin(self.dir_path, 'FORM')
+            Path(FORM_output_path).mkdir(parents=True, exist_ok=True)
+            FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
+            Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
+            FORM_workspace = pjoin(self.dir_path, 'FORM', 'Rust_inputs')
+            Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
+            shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
+                    pjoin(FORM_output_path, 'Makefile'))
+            # Also output a copy of the input super-graph sent to the FORM processor.
+            graph_dumps = []
+            graph_dumps.append("graphs=[]")
+            graph_dumps.append("graph_names=[]")
+            graph_dumps.append("")
+            for FORM_super_graph in FORM_super_graph_list:
+                graph_dumps.append('graph_names.append("%s")'%FORM_super_graph[0].name)
+                graph_dumps.append('graphs.append(\n%s\n)'%pformat(FORM_super_graph[0].to_dict()))
+            open(pjoin(FORM_output_path,'all_MG_supergraphs.py'),'w').write(
+                '\n'.join(graph_dumps)
+            )
+            computed_model = model_reader.ModelReader(model)
+            computed_model.set_parameters_and_couplings(pjoin(self.dir_path,'Cards','param_card.dat')) 
+            characteristic_process_definition = self.all_super_graphs[0][1].get('processes')[0]
+            logger.info("Numerators processing with FORM...")
+            FORM_processor = FORM_processing.FORMProcessor(
+                FORM_processing.FORMSuperGraphList.from_dict(
+                    pjoin(FORM_output_path,'all_MG_supergraphs.py'), first=None, merge_isomorphic_graphs=True),
+                computed_model, characteristic_process_definition
+            )
+
+            n_jets = len([1 for leg in representative_process.get('legs') if 
+                        leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
+            final_state_particle_ids = tuple([leg.get('id') for leg in representative_process.get('legs') if 
+                        leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
+            logger.info("Generating yaml input files with FORM processing...")
+            FORM_processor.generate_squared_topology_files(
+                pjoin(self.dir_path,'FORM','Rust_inputs'), n_jets, 
+                final_state_particle_ids=final_state_particle_ids,
+                filter_non_contributing_graphs=True
+            )
+
+            logger.info("Generating FORM numerators...")
+            FORM_processor.generate_numerator_functions(FORM_output_path, 
+                        output_format=self.alphaLoop_options['FORM_processing_output_format'],
+                        workspace=FORM_workspace
+            )
+            drawings_output_path = pjoin(self.dir_path, 'Drawings')
+            Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
+            shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
+                        pjoin(drawings_output_path,'Makefile'))
+            FORM_processor.draw(drawings_output_path)
 
         # And now finally generate the overall cross section yaml input file.
         base_name = os.path.basename(self.dir_path)

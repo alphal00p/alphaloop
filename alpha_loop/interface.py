@@ -572,9 +572,9 @@ utils.bcolors.RED,utils.bcolors.ENDC
             raise alphaLoopInvalidCmd("The hardcoded process definition specified in '%s' could not be parsed. Error:\n%s"%(
                 pjoin(hardcoded_generation_dir,'MG_process_definition.dat'),str(e) ))
 
+        # TODO make this 82, -82 general
         self.alphaLoop_options['_jet_PDGs'] = tuple([
-            pdg for pdg in self._multiparticles['j']
-        ])
+            pdg for pdg in self._multiparticles['j'] ]+[82,-82])
 
         # Now generate the output directory structure:
         qgraf_exporter =  aL_exporters.HardCodedQGRAFExporter(
@@ -611,9 +611,10 @@ utils.bcolors.RED,utils.bcolors.ENDC
                 # Set what are the jet pdgs in alphaLoop options
                 if 'j' not in self._multiparticles:
                     raise alphaLoopInvalidCmd("alphaLoop requires the 'j' multiparticle label to be defined.")
+                # TODO make this 82, -82 general
                 self.alphaLoop_options['_jet_PDGs'] = tuple([
                     pdg for pdg in self._multiparticles['j']
-                ])
+                ]+[82,-82])
                 self._curr_exporter = aL_exporters.alphaLoopExporter(self._export_dir,
                     alphaLoop_options=self.alphaLoop_options,
                     MG5aMC_options=self.options

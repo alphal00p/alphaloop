@@ -335,8 +335,11 @@ aGraph=%s;
         # is set:
         LTD2_super_graph.set_momentum_routing()
 
-        # TODO: correctly assign the overall factor.
-        overall_factor = "1"
+        if LTD2_super_graph.symmetry_factor is None:
+            overall_factor = "1"
+        else:
+            overall_factor = "%d"%LTD2_super_graph.symmetry_factor
+
         # Let us just match the overall phase picked for the MG num:
         overall_phase = complex(-1.0,0.0)**len(LTD2_super_graph.cuts)
         if overall_phase.imag != 0:
