@@ -541,7 +541,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         for proc_number in range(max_proc_number+1):
             try:
                 position = all_proc_numbers.index(proc_number)
-                proc_number_to_position_map.append('%d'%position)
+                proc_number_to_position_map.append('%d'%(position+1))
             except ValueError:
                 proc_number_to_position_map.append('-1')
         replace_dict['proc_number_to_position_map'] = ','.join(proc_number_to_position_map)

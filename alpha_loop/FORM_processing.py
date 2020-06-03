@@ -632,7 +632,7 @@ class FORMSuperGraphIsomorphicList(list):
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, i_graph=0):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
@@ -648,21 +648,27 @@ class FORMSuperGraphIsomorphicList(list):
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'numerator.frm')
 
-        with open(pjoin(selected_workspace,'input.h'), 'w') as f:
+        with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             f.write('L F = {};'.format(form_input))
 
-        r = subprocess.run([
+        # NO FUCKING way of passing -D SIGID=<int> without shell=True... be my guest to fix this. Too old for that sh&$#$#$t...
+        r = subprocess.run(' '.join([
                 FORM_processing_options["TFORM_path"] if FORM_processing_options["parallel"] else FORM_processing_options["FORM_path"],
-                '-w' + str(FORM_processing_options["cores"]),
+                '-w' + str(FORM_processing_options["cores"]), '-D SGID=%d'%i_graph,
                 FORM_source
-            ],
+            ]),
+            shell=True,
             cwd=selected_workspace,
             capture_output=True)
         if r.returncode != 0:
             raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
         # return the code for the numerators
-        with open(pjoin(selected_workspace,'out.proto_c'), 'r') as f:
+        if not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
+            raise FormProcessingError("FORM failed to produce an output for super graph ID=%d. Output file not found at '%s'."%
+                                                                    (i_graph,pjoin(selected_workspace,'out_%d.proto_c'%i_graph)))
+
+        with open(pjoin(selected_workspace,'out_%d.proto_c'%i_graph), 'r') as f:
             num_code = f.read()
 
         return num_code
@@ -713,7 +719,7 @@ class FORMSuperGraphList(list):
 
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
-        # No convert the vertex names to be integers according to QGRAF format:
+        # Now convert the vertex names to be integers according to QGRAF format:
         if isinstance(list(m.graphs[0]['nodes'].keys())[0],str):
             for i, g in enumerate(m.graphs):
                 new_nodes ={}
@@ -864,7 +870,7 @@ class FORMSuperGraphList(list):
 
             for i, graph in enumerate(self):
                 time_before = time.time()
-                num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace)
+                num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, i_graph=i)
                 total_time += time.time()-time_before
                 num = num.replace('i_', 'I')
                 num = input_pattern.sub(r'lm[\1]', num)

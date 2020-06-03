@@ -102,7 +102,7 @@ Set colA: cOlj1,...,cOlj40;
 Set colAdum: cOljj1,...,cOljj40;
 
 * Load the diaggrams
-#include- input.h
+#include- input_`SGID'.h
 
 ************************************************
 * Substitute the Feynman rules for the numerator
@@ -320,7 +320,7 @@ Hide F;
 #redefine energysymbolstart "`extrasymbols_'"
 #do ext={`oldextrasymbols'+1}, `extrasymbols_'
     #$tmp = extrasymbol_(`ext');
-    #write<out.proto_c> "#CONF\n%$", $tmp;
+    #write<out_`SGID'.proto_c> "#CONF\n%$", $tmp;
     L FF`ext' = F[conf(`ext')];
     .sort:conf-2;
     
@@ -334,7 +334,7 @@ Hide F;
         .sort:energy-2;
 
         #if ( termsin(FTMP) > 0 )
-            #write<out.proto_c> "#NEWMONOMIAL\n%$", $tmp;
+            #write<out_`SGID'.proto_c> "#NEWMONOMIAL\n%$", $tmp;
 
 * Convert the dot products and energies to a symbol
             #$OFFSET = 0;
@@ -370,7 +370,7 @@ Hide F;
             Format C;
             Format O4,stats=off,saIter=`OPTIMITERATIONS';
             #Optimize FTMP
-            #write<out.proto_c> "%O\n\treturn %e",FTMP
+            #write<out_`SGID'.proto_c> "%O\n\treturn %e",FTMP
             #clearoptimize;
             .sort:optim-`ext'-`ps';
             Format O0;

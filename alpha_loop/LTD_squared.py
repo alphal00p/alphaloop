@@ -1106,6 +1106,11 @@ class SuperGraphList(list):
             i_bar = 0
             for i_diag_left, LTD2_diag_left in enumerate(LTD2_diagram_list):
                 for i_diag_right, LTD2_diag_right in enumerate(LTD2_diagram_list): # enumerate(LTD2_diagram_list): # enumerate(LTD2_diagram_list[i_diag_left:]):
+                    # The hack below is useful to investigate one particular supergraph.
+                    #if i_diag_left !=0:
+                    #    continue
+                    #if i_diag_right!=41:
+                    #    continue
                     new_super_graph = self.super_graph_class(LTD2_diag_left,LTD2_diag_right, 
                         {   'proc_id' : proc_number, 
                             'left_diagram_id' : i_diag_left+1, 
