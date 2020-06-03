@@ -268,15 +268,17 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                                     utils.bcolors.ENDC
                                 ) )
                             reconstructed_symmetry_factor = int(len(super_graph.MG_LO_cuts_corresponding_to_this_supergraph)/len(super_graph.cutkosky_cuts_generated))
-                            if reconstructed_symmetry_factor%fs_symm_factor!=0:
-                                log_func("%s%s: Incorrect LO cutkosky cut generation. %d not divisible by %d.%s"%(
-                                    color,err_text,
-                                    reconstructed_symmetry_factor,fs_symm_factor,
-                                    utils.bcolors.ENDC
-                                ) )
+                            # Actually this can happen, like in the supergraph 7x8 of e+ e- > a > t t~ g g featuring a purely gluonic bubble that must be associated
+                            # with a factor 1/2.
+#                            if reconstructed_symmetry_factor%fs_symm_factor!=0:
+#                                log_func("%s%s: Incorrect LO cutkosky cut generation. %d not divisible by %d.%s"%(
+#                                    color,err_text,
+#                                    reconstructed_symmetry_factor,fs_symm_factor,
+#                                    utils.bcolors.ENDC
+#                                ) )
 
                         if is_LO:
-                            super_graph.symmetry_factor = int(reconstructed_symmetry_factor/fs_symm_factor)
+                            super_graph.symmetry_factor = reconstructed_symmetry_factor/float(fs_symm_factor)
                         else:
                             logger.info("No strategy yet for determining symmetry factors beyond LO contributions. Setting it to 1 for now, but this is incorrect.")
                             super_graph.symmetry_factor = 1
@@ -323,9 +325,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             )
             FORM_output_path = pjoin(self.dir_path, 'FORM')
             Path(FORM_output_path).mkdir(parents=True, exist_ok=True)
+            Path(pjoin(self.dir_path, 'FORM', 'Rust_inputs')).mkdir(parents=True, exist_ok=True)
+
             FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
-            Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
-            FORM_workspace = pjoin(self.dir_path, 'FORM', 'Rust_inputs')
             Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))

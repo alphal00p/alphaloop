@@ -1,4 +1,4 @@
-import model ./PLUGIN/alphaloop/models/aL_sm-no_widths
+import model aL_sm-no_widths
 # Set LO cuts only
 set_alphaLoop_option perturbative_orders {'QCD':0}
 # Also enable the generation of Rust yaml inputs

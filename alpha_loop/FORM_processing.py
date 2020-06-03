@@ -186,7 +186,7 @@ class FORMSuperGraph(object):
                 color = "Blue"
             elif edge_data['PDG'] in [21,]:
                 color = "Red"
-            elif edge_data['PDG'] in [82,]:
+            elif edge_data['PDG'] in [82,-82]:
                 color = "Pink"
             elif edge_data['PDG'] in [25,]:
                 color = "Green"
@@ -477,7 +477,7 @@ aGraph=%s;
             # In the above conventions the fermion are going against their flow, so we need
             # to flip the order of their fundamental/antifundamental indices so that FORM
             # builds the correct propagator. 
-            if len(edge_data['indices'])>1 and particle.get('spin')==2:
+            if len(edge_data['indices'])>1 and (particle.get('spin')%2==0 or particle.get('ghost')):
                 if particle.get('is_part'):
                     edge_data['indices'] = tuple([edge_data['indices'][1],edge_data['indices'][0]])
 

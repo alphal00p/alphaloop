@@ -159,6 +159,10 @@ class LTD2Diagram(object):
         complex_conjugated_LTD2_diagram = self.get_copy()
         complex_conjugated_LTD2_diagram.graph = complex_conjugated_LTD2_diagram.graph.reverse(copy=False)
 
+        # flipt the particle-anti-particle identity of all edges
+#        for edge_key, edge_data in complex_conjugated_LTD2_diagram.graph.edges.items():
+#            edge_data['pdg'] = self.model.get_particle( edge_data['pdg']).get_anti_pdg_code()
+
         # Also flip the orientation of the external edges.
         for leg_number in complex_conjugated_LTD2_diagram.initial_state_edges:
             complex_conjugated_LTD2_diagram.initial_state_edges[leg_number] = (
@@ -454,6 +458,14 @@ class SuperGraph(object):
         self.is_momentum_routing_set = True
         self.n_loops = topo_generator.n_loops
 
+    @classmethod
+    def is_commutating(cls, particle):
+        """ Returns whether this particle is anticommutating."""
+
+        if (particle.get('spin') % 2 != 0) and (not particle.get('ghost')):
+            return True
+        return False
+
     def sew_graphs(self, diag_left_of_cut, diag_right_of_cut):
         """ Combine two diagrams into one graph that corresponds to the super graph."""
 
@@ -531,7 +543,7 @@ class SuperGraph(object):
             if cut_key in edge_keys_visited:
                 continue
             this_edge_data = self.graph.edges[cut_key]
-            if self.model.get_particle(this_edge_data['pdg']).get('spin')!=2:
+            if self.is_commutating(self.model.get_particle(this_edge_data['pdg'])):
                 continue
             edge_keys_visited.append(cut_key)
             self.fix_fermion_flow(
@@ -566,7 +578,7 @@ class SuperGraph(object):
         next_edge = None
         for edge_key, edge_data in adjacent_in_edges:
             this_edge_data = self.graph.edges[edge_key]
-            if self.model.get_particle(this_edge_data['pdg']).get('spin')!=2:
+            if self.is_commutating(self.model.get_particle(this_edge_data['pdg'])):
                 continue
             if next_direction is not None:
                 raise LTD2Error("LTD2 does not yet support 4-fermion vertices.")
@@ -576,7 +588,7 @@ class SuperGraph(object):
                 next_edge = (edge_key, edge_data)
         for edge_key, edge_data in adjacent_out_edges:
             this_edge_data = self.graph.edges[edge_key]
-            if self.model.get_particle(this_edge_data['pdg']).get('spin')!=2:
+            if self.is_commutating(self.model.get_particle(this_edge_data['pdg'])):
                 continue
             if next_direction is not None:
                 raise LTD2Error("LTD2 does not yet support 4-fermion vertices.")

@@ -14,7 +14,9 @@ except ImportError:
 
 GHGHG = Lorentz(name = 'GHGHG',
                  spins = [ 1, 1, 3 ],
-                structure = 'P(3,2)')
+                # Below we symmetrized the ghost Feynman rules so as to facilitate comparison with FORM.
+                # we checked that this returns locally the same result.
+                structure = '0.5*(P(3,2)-P(3,1))') # 'P(3,2)')
 
 UUS1 = Lorentz(name = 'UUS1',
                spins = [ -1, -1, 1 ],
