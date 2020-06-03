@@ -399,8 +399,9 @@ impl JetClustering {
             .iter()
             .zip_eq(&event.final_state_particle_ids)
         {
-            // filter for jet particles: u, d, c, s, d, g
-            if id.abs() < 6 || *id == 21 {
+            // filter for jet particles: u, d, c, s, d, g, QCD_ghost
+            //TODO make it a hyperparam of the observable! 
+            if id.abs() < 6 || *id == 21 || id.abs() == 82 {
                 self.fastjet_jets_in.extend(&[e.t, e.x, e.y, e.z]);
                 len += 1;
             }

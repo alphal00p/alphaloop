@@ -1710,12 +1710,18 @@ impl SquaredTopology {
                         if self.settings.cross_section.numerator_source
                             == NumeratorSource::MgAndForm
                         {
-                            if (*rlb - coeff).norm_sqr()
-                                > Into::<T>::into(1e-10 * self.e_cm_squared)
-                            {
-                                println!(
-                                    "Mismatch between MG and RUST numerator: {} vs {} for {:?}",
-                                    rlb, coeff, loop_momenta
+                            if let Some(mg_call_signature) = &self.mg_numerator.call_signature {
+                                if (*rlb - coeff).norm_sqr()/((*rlb).norm_sqr()+coeff.norm_sqr()) > Into::<T>::into(1e-10)
+                                {
+                                    println!(
+                                        "Mismatch between MG and FORM numerator: {} (proc_id: {}, left_diag_id: {}, right_diag_id: {}) vs {} (diagram_set: {}, call_sig: {}) for config:\n-> {:?}",
+                                        rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id, 
+                                        coeff, diagram_set.id, call_signature.id, loop_momenta
+                                    );
+                                }
+                            } else {
+                                panic!(
+                                    "No call signature for MG numerator, but MG numerator mode is enabled"
                                 );
                             }
                         }
