@@ -86,7 +86,7 @@ impl Dashboard {
         thread::spawn(move || loop {
             while let Ok(x) = log_receiver.try_recv() {
                 match x {
-                    StatusUpdate::Message(m) => log_messages.push(Text::raw(m)),
+                    StatusUpdate::Message(m) => log_messages.push(Text::raw(m + "\n")),
                     StatusUpdate::IntegratorUpdate(m) => {
                         integrator_update_messages.push(Text::raw(m))
                     }
@@ -144,7 +144,7 @@ impl Dashboard {
                     let vert_chunks = Layout::default()
                         .direction(Direction::Vertical)
                         .constraints(
-                            [Constraint::Percentage(80), Constraint::Percentage(20)].as_ref(),
+                            [Constraint::Percentage(60), Constraint::Percentage(40)].as_ref(),
                         )
                         .split(f.size());
                     let chunks_hor = Layout::default()
@@ -387,9 +387,11 @@ impl Dashboard {
                         .borders(Borders::ALL)
                         .title("Log")
                         .title_style(Style::default().fg(Color::Magenta).modifier(Modifier::BOLD));
-                    let log = List::new(log_messages.iter().rev().cloned())
+                    let log = Paragraph::new(log_messages.iter().rev())
+                        .wrap(true)
                         .block(block)
-                        .start_corner(Corner::BottomLeft);
+                        //.scroll(scroll);
+                        ;//.start_corner(Corner::BottomLeft);
                     f.render_widget(log, vert_chunks[1]);
                 })
                 .unwrap();
