@@ -214,7 +214,7 @@ class SquaredTopologyGenerator:
         except ImportError:
             raise BaseException("Install yaml python module in order to import topologies from yaml.")
 
-        open(output_path,'w').write(yaml.dump(out, Dumper=Dumper))
+        open(output_path,'w').write(yaml.dump(out, Dumper=Dumper, default_flow_style=None))
 
 if __name__ == "__main__":
     pdgs = {
