@@ -415,6 +415,7 @@ pub struct JetSliceSettings {
     pub min_j1pt: f64,
     pub max_j1pt: f64,
     pub dR: f64,
+    pub min_jpt: f64,
     pub use_fastjet: bool,
 }
 
@@ -424,6 +425,7 @@ pub struct Jet1PTSettings {
     pub x_min: f64,
     pub x_max: f64,
     pub dR: f64,
+    pub min_jpt: f64,
     pub n_bins: usize,
     pub write_to_file: bool,
     pub filename: String,

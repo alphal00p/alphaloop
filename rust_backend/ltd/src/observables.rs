@@ -138,6 +138,7 @@ impl EventManager {
                             settings.observables.Jet1PT.x_max,
                             settings.observables.Jet1PT.n_bins,
                             settings.observables.Jet1PT.dR,
+                            settings.observables.Jet1PT.min_jpt,
                             settings.observables.Jet1PT.write_to_file,
                             settings.observables.Jet1PT.filename.clone(),
                             settings.observables.Jet1PT.use_fastjet,
@@ -364,6 +365,7 @@ pub struct JetClustering {
     ordered_pt: Vec<f64>,
     //jet_structure: Vec<usize>, // map from original momenta to jets
     d_r: f64,
+    min_jpt: f64,
     use_fastjet: bool,
     fastjet_jets_in: Vec<f64>,
     fastjet_jets_out: Vec<f64>,
@@ -374,7 +376,7 @@ pub struct JetClustering {
 unsafe impl std::marker::Send for JetClustering {}
 
 impl JetClustering {
-    pub fn new(use_fastjet: bool, d_r: f64) -> JetClustering {
+    pub fn new(use_fastjet: bool, d_r: f64, min_jpt: f64) -> JetClustering {
         let fastjet_workspace = unsafe { fjcore::fastjet_workspace() }; // TODO: free
         JetClustering {
             //ordered_jets: vec![],
@@ -384,6 +386,7 @@ impl JetClustering {
             fastjet_jets_out: vec![],
             fastjet_jets_map: vec![],
             d_r,
+            min_jpt,
             fastjet_workspace,
             use_fastjet,
         }
@@ -438,6 +441,10 @@ impl JetClustering {
             let jet = LorentzVector::from_slice(&self.fastjet_jets_out[i * 4..(i + 1) * 4]);
             self.ordered_pt.push(jet.pt());
         }
+
+        // Filter order_pt jets by removing those below the necessary min_jpt
+        let min_pt = self.min_jpt;
+        self.ordered_pt.retain(|&pt| pt >= min_pt);
     }
 
     pub fn cluster(&mut self, event: &Event) {
@@ -497,6 +504,10 @@ impl JetClustering {
             self.ordered_pt
                 .sort_unstable_by(|a, b| b.partial_cmp(a).unwrap());
         }
+
+        // Filter order_pt jets by removing those below the necessary min_jpt
+        let min_pt = self.min_jpt;
+        self.ordered_pt.retain(|&pt| pt >= min_pt);
     }
 }
 
@@ -509,7 +520,7 @@ impl JetSelector {
     pub fn new(settings: &JetSliceSettings) -> JetSelector {
         JetSelector {
             jet_selector_settings: settings.clone(),
-            clustering: JetClustering::new(settings.use_fastjet, settings.dR),
+            clustering: JetClustering::new(settings.use_fastjet, settings.dR, settings.min_jpt),
         }
     }
 }
@@ -518,10 +529,12 @@ impl EventSelector for JetSelector {
     #[inline]
     fn process_event(&mut self, event: &mut Event) -> bool {
         self.clustering.cluster_fastjet(event);
+        //println!("Event: {:#?}",event);
+        //println!("clustering: {:#?}",self.clustering);
         self.clustering.ordered_pt.len() >= self.jet_selector_settings.min_jets
             && self.clustering.ordered_pt.len() <= self.jet_selector_settings.max_jets
             && self.clustering.ordered_pt[0] >= self.jet_selector_settings.min_j1pt
-            && self.clustering.ordered_pt[0] <= self.jet_selector_settings.max_j1pt
+            && (self.jet_selector_settings.max_j1pt < 0.0 || (self.clustering.ordered_pt[0] <= self.jet_selector_settings.max_j1pt) )
     }
 }
 
@@ -673,6 +686,7 @@ impl Jet1PTObservable {
         x_max: f64,
         num_bins: usize,
         d_r: f64,
+        min_jpt : f64,
         write_to_file: bool,
         filename: String,
         use_fastjet: bool,
@@ -682,7 +696,7 @@ impl Jet1PTObservable {
             x_max,
             index_event_accumulator: Vec::with_capacity(20),
             bins: vec![AverageAndErrorAccumulator::default(); num_bins],
-            jet_clustering: JetClustering::new(use_fastjet, d_r),
+            jet_clustering: JetClustering::new(use_fastjet, d_r, min_jpt),
             write_to_file,
             filename,
             num_events: 0,
