@@ -517,6 +517,18 @@ aGraph=%s;
         else:
             return dict_to_dump
 
+    def get_edge_scaling(self, pdg):
+        # all scalings that deviate from -2
+        scalings = {1: -1, 2: -1, 3: -1, 4: -1, 5: -1, 6: -1, 11: -1, 12: -1, 13: -1}
+        return scalings[abs(pdg)] if abs(pdg) in scalings else -2
+
+    def get_node_scaling(self, pdgs):
+        # only the triple gluon vertex and the ghost gluon vertex have a non-zero scaling
+        if pdgs == (22, 22, 22) or pdgs == (-82, 22, 82):
+            return 1
+        else:
+            return 0
+
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True):
         if self.is_zero:
             return False
@@ -552,7 +564,9 @@ aGraph=%s;
             jet_ids=jet_ids,
             overall_numerator=1.0,
             numerator_structure={},
-            FORM_numerator={'call_signature': {'id': numerator_call}}
+            FORM_numerator={'call_signature': {'id': numerator_call}},
+            edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
+            vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
         )
 
         # check if cut is possible
@@ -854,7 +868,6 @@ class FORMSuperGraphList(list):
         return_exp = re.compile(r'return ([^;]*);\n')
 
         # TODO: multiprocess this loop
-        graphs_zero = True
         max_buffer_size = 0
         with progressbar.ProgressBar(
             prefix = 'Processing numerators with FORM ({variables.timing} ms / supergraph) : ',
@@ -869,6 +882,7 @@ class FORMSuperGraphList(list):
             numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(n_loops), i)]
 
             for i, graph in enumerate(self):
+                graph.is_zero = True
                 time_before = time.time()
                 num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, i_graph=i)
                 total_time += time.time()-time_before
@@ -930,15 +944,13 @@ int evaluate_{}(double complex lm[], int conf, double complex* out) {{
 """.format(i,
     '\n'.join(
     ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf in sorted(confs)] +
-    ['\t\tdefault: raise(SIGABRT);']
+    (['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else ['\t\tdefault: out[0] = 0.; return 1;'])
     ))
 
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
 
                 writers.CPPWriter(pjoin(root_output_path, 'numerator{}.c').format(i)).write(numerator_header + numerator_main_code)
-        if graphs_zero:
-            self[0].is_zero = True
 
         numerator_code = \
 """

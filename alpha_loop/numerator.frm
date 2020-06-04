@@ -101,7 +101,7 @@ Set colF: cOli1,...,cOli40;
 Set colA: cOlj1,...,cOlj40;
 Set colAdum: cOljj1,...,cOljj40;
 
-* Load the diaggrams
+* Load the diagrams
 #include- input_`SGID'.h
 
 ************************************************
@@ -242,6 +242,11 @@ id color(x?) = x;
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;
 
+* If the expression is empty (due to color), we still write a file
+#if ( termsin(F) == 0 )
+    #write<out_`SGID'.proto_c> "#0 due to color\n"
+#endif
+
 *************************************************
 * Process different configurations (bubbles, etc)
 *************************************************
@@ -254,6 +259,7 @@ id conf(?a,p?) = conf(?a) * penergy(p);
 id conf(?a,x?) = conf(?a) * x; * note the type difference
 
 * Taylor expand in pbubble_i^0
+* FIXME: if the number of terms is 0 after differentiating, this configuration will not be created
 repeat;
     id once der(p?) = der*replace_(p, p + pzero * x * penergy(p));
     if ((count(der, 1)) && (count(x, 1) != 1)) Discard;

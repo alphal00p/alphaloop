@@ -15,7 +15,7 @@ from collections import defaultdict
 from pprint import pformat
 import numpy as numpy
 import numpy.linalg
-from itertools import product, combinations, combinations_with_replacement, permutations
+from itertools import chain, product, combinations, combinations_with_replacement, permutations
 import multiprocessing
 import signal
 import time
@@ -309,6 +309,83 @@ class TopologyGenerator(object):
             if len(paths) == 0:
                 break
         return res
+
+    def contruct_uv_forest(self, vertex_weights, edge_weights):
+        # construct all paths in a graph
+        # we store edges instead of vertices, so that the procedure
+        # supports duplicate edges
+        cycles = set()
+        unique_cycles = []
+        for i, _ in enumerate(self.edge_map_lin):
+            for path in self.find_path(i, i):
+                path_rep = tuple(sorted(e for e, _ in path[1:]))
+                if path_rep not in cycles:
+                    unique_cycles.append([e for e, _ in path[1:]])
+                    cycles.add(path_rep)
+
+        trees = set() # all trees, also no subgraphs
+        subgraphs = set()
+
+        # now construct all subgraphs by taking the power set of cycles
+        for subset in chain.from_iterable(combinations(unique_cycles, r) for r in range(len(unique_cycles) + 1)):
+            # check if the set is vertex-wise connected
+            vertex_subset = [set(v for e in cycle for v in self.edge_map_lin[e][1:]) for cycle in subset]
+
+            subgraph_edges = tuple(sorted(set(e for c in subset for e in c)))
+            if subgraph_edges in trees:
+                continue
+            
+            trees.add(subgraph_edges)
+
+            tree = set()
+            leftover = vertex_subset[1:]
+            while len(leftover) > 0:
+                for cycle in leftover:
+                    if len(tree) == 0 or len(tree & cycle) > 0:
+                        tree |= cycle
+                        leftover.remove(cycle)
+                        break
+                else:
+                    # not connected
+                    break
+
+            if len(leftover) == 0:
+                subgraphs.add(subgraph_edges)
+
+        # filter for UV divergences
+        div_subgraphs = []
+        for s in subgraphs:
+            dod = 0
+            for e in s:
+                dod += edge_weights[self.edge_map_lin[e][0]]
+
+            vertices = set(v for e in s for v in self.edge_map_lin[e][1:])
+            for v in vertices:
+                dod += vertex_weights[v]
+
+            loops = 0 if len(s) == 0 else len(s) - len(vertices) + 1
+            dod += 4 * loops
+
+            if dod >= 0 and loops > 0:
+                div_subgraphs.append((s, dod))
+
+        # create the forest from all UV subdivergences
+        forest = []
+        for subset in chain.from_iterable(combinations(div_subgraphs, r) for r in range(len(div_subgraphs) + 1)):
+            vertex_subset = [set(v for e in cycle for v in self.edge_map_lin[e][1:]) for cycle, _ in subset]
+
+            # check if the components are not overlapping (ie, they do not share a vertex or they are embedded in the other)
+            for (e1, v1), (e2, v2) in combinations(zip(subset, vertex_subset), 2):
+                fuse_len_v12 = len(v1 | v2)
+                fuse_len_e12 = len(set(e1) | set(e2))
+                if fuse_len_v12 != len(v1) and fuse_len_v12 != len(v2) and fuse_len_v12 != len(v1) + len(v2) or \
+                    fuse_len_e12 != len(e1) and fuse_len_e12 != len(e2) and fuse_len_e12 != len(e1) + len(e2):
+                    break
+            else:
+                forest.append(tuple((tuple(sorted(self.edge_map_lin[e][0] for e in s)), dod) for s, dod in subset))
+
+        return forest
+
 
     def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids, PDGs_in_jet=None ):
         """ Note that when called from withing the MG/QGRAF generation pipeline, the PDGs_in_jet option will be specified

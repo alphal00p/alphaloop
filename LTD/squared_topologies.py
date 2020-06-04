@@ -14,7 +14,8 @@ class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_jets, external_momenta, final_state_particle_ids=(),
         loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, jet_ids=None,
         MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
-        cut_filter=set(), numerator_in_loop_momentum_basis=False, FORM_numerator={}):
+        cut_filter=set(), numerator_in_loop_momentum_basis=False, FORM_numerator={},
+        vertex_weights={}, edge_weights={}):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
@@ -28,6 +29,9 @@ class SquaredTopologyGenerator:
         # This is supported by adjusting the cb to lmb rotation matrix to be applied
         # before calling the numerator.
         self.loop_momenta_signs = loop_momenta_signs
+
+        self.uv_forest = self.topo.contruct_uv_forest({v: vertex_weights[v] if v in vertex_weights else 0 for e in self.topo.edges for v in e[1:]},
+            {e: edge_weights[e] if e in edge_weights else -2 for e, _, _ in self.topo.edge_map_lin})
 
         self.loop_topo = self.topo.create_loop_topology(name,
             external_momenta,
