@@ -356,6 +356,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
             n_jets = len([1 for leg in representative_process.get('legs') if 
                         leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
+            # Relax n_jets constraint based on the perturbative chosen
+            if len(self.alphaLoop_options['perturbative_orders'])!=0:
+                n_jets -= sum(self.alphaLoop_options['perturbative_orders'].values())//2
             final_state_particle_ids = tuple([leg.get('id') for leg in representative_process.get('legs') if 
                         leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
             logger.info("Generating yaml input files with FORM processing...")

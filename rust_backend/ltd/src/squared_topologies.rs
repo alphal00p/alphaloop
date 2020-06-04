@@ -1711,8 +1711,17 @@ impl SquaredTopology {
                             == NumeratorSource::MgAndForm
                         {
                             if let Some(mg_call_signature) = &self.mg_numerator.call_signature {
-                                if (*rlb - coeff).norm_sqr()/((*rlb).norm_sqr()+coeff.norm_sqr()) > Into::<T>::into(1e-10)
-                                {
+                                if ( (*rlb).norm_sqr()==Into::<T>::into(0.0) || coeff.norm_sqr()==Into::<T>::into(0.0) ) {
+                                    // TODO the dimensionality of (*rlb - coeff).norm_sqr() is not GeV^2 but depends on the number of incoming
+                                    // and outgoing momenta. This is only for debugging though, so prolly ok for now.
+                                    if (*rlb - coeff).norm_sqr() > Into::<T>::into(1e-10*self.e_cm_squared) {
+                                        println!(
+                                            "Mismatch between MG and FORM numerator: {} (proc_id: {}, left_diag_id: {}, right_diag_id: {}) vs {} (diagram_set: {}, call_sig: {}) for config:\n-> {:?}",
+                                            rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id, 
+                                            coeff, diagram_set.id, call_signature.id, loop_momenta
+                                        );
+                                    } 
+                                } else if (*rlb - coeff).norm_sqr()/((*rlb).norm_sqr()+coeff.norm_sqr()) > Into::<T>::into(1e-10) {
                                     println!(
                                         "Mismatch between MG and FORM numerator: {} (proc_id: {}, left_diag_id: {}, right_diag_id: {}) vs {} (diagram_set: {}, call_sig: {}) for config:\n-> {:?}",
                                         rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id, 
