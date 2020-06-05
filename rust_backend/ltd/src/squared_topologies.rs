@@ -1112,8 +1112,13 @@ impl SquaredTopology {
                 t = t - f / df;
             }
         }
-
-        if Float::abs(solutions[0].0 - solutions[1].0) < Into::<T>::into(1e-12) * incoming_energy {
+        if Float::abs(solutions[0].0) + Float::abs(solutions[1].0) == Into::<T>::into(0.0) {
+            panic!(
+                "Found exact zero solutions: {} for t={} and t={} for k={:?}, ext={:?}",
+                solutions[0].0, -t_start, t_start, loop_momenta, external_momenta
+            );
+        }
+        if Float::abs(solutions[0].0 - solutions[1].0) / (Float::abs(solutions[0].0) + Float::abs(solutions[1].0)) < Into::<T>::into(1e-12) {
             panic!(
                 "Found the same scaling solution twice: {} for t={} and t={} for k={:?}, ext={:?}",
                 solutions[0].0, -t_start, t_start, loop_momenta, external_momenta
