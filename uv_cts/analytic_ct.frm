@@ -4,7 +4,7 @@
 
 #-
 CFunction den, topo1, topo2;
-Symbols mUV, d, eps, n1,...,n3;
+Symbols mUV, d, eps, n1,...,n3, M1, M2;
 Vectors V p1,...,p40,k1,k2; 
 
 
