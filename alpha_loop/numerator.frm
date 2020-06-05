@@ -288,28 +288,9 @@ symmetrize energy;
 id energy(?a) = energy(f(?a));
 if (count(energy,1) == 0) Multiply energy(f(k0)); * signal with k0 that we are dealing with the constant term
 
-* Obtain the maximal p and k
-#$MAXK = 0;
-#do i=10,0,-1
-    if (count(k`i', 1));
-        if ($MAXK < `i');
-            $MAXK = `i';
-        endif;
-        goto donek;
-    endif;
-#enddo
-label donek;
-
-#$MAXP = 0;
-#do i=10,0,-1
-    if (count(p`i', 1));
-        if ($MAXP < `i');
-            $MAXP = `i';
-        endif;
-        goto donep;
-    endif;
-#enddo
-label donep;
+* Obtain the maximal p and k from Python. It would be unsafe to retrieve it from the expression.
+#$MAXK = `NFINALMOMENTA';
+#$MAXP = `NINITIALMOMENTA';
 .sort
 
 *********************************************

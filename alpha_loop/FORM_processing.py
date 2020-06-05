@@ -646,9 +646,28 @@ class FORMSuperGraphIsomorphicList(list):
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, i_graph=0):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
+
+        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA']
+
+        if FORM_vars is None:
+            raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
+        FORM_vars = dict(FORM_vars)
+
+        characteristic_super_graph = self[0]
+        if 'NINITIALMOMENTA' not in FORM_vars:
+            n_incoming = sum([1 for edge in characteristic_super_graph.edges.values() if edge['type'] == 'in'])
+            FORM_vars['NINITIALMOMENTA'] = n_incoming
+        if 'NFINALMOMENTA' not in FORM_vars:
+            n_loops = len(characteristic_super_graph.edges) - len(characteristic_super_graph.nodes) + 1
+            FORM_vars['NFINALMOMENTA'] = n_loops
+
+        if FORM_vars is None or not all(opt in FORM_vars for opt in _MANDATORY_FORM_VARIABLES):
+            raise FormProcessingError("The following variables must be supplied to FORM: %s"%str(_MANDATORY_FORM_VARIABLES))
+
+        i_graph = int(FORM_vars['SGID'])
 
         # write the form input to a file
         form_input = self.generate_numerator_form_input(additional_overall_factor)
@@ -668,9 +687,11 @@ class FORMSuperGraphIsomorphicList(list):
         # NO FUCKING way of passing -D SIGID=<int> without shell=True... be my guest to fix this. Too old for that sh&$#$#$t...
         r = subprocess.run(' '.join([
                 FORM_processing_options["TFORM_path"] if FORM_processing_options["parallel"] else FORM_processing_options["FORM_path"],
-                '-w' + str(FORM_processing_options["cores"]), '-D SGID=%d'%i_graph,
-                FORM_source
-            ]),
+                '-w' + str(FORM_processing_options["cores"])
+                ]+
+                [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
+                [ FORM_source, ]
+            ),
             shell=True,
             cwd=selected_workspace,
             capture_output=True)
@@ -867,6 +888,8 @@ class FORMSuperGraphList(list):
         energy_exp = re.compile(r'f\(([^)]*)\)\n')
         return_exp = re.compile(r'return ([^;]*);\n')
 
+        FORM_vars={}
+
         # TODO: multiprocess this loop
         max_buffer_size = 0
         with progressbar.ProgressBar(
@@ -884,7 +907,8 @@ class FORMSuperGraphList(list):
             for i, graph in enumerate(self):
                 graph.is_zero = True
                 time_before = time.time()
-                num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, i_graph=i)
+                FORM_vars['SGID']='%d'%i
+                num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, FORM_vars=FORM_vars)
                 total_time += time.time()-time_before
                 num = num.replace('i_', 'I')
                 num = input_pattern.sub(r'lm[\1]', num)
