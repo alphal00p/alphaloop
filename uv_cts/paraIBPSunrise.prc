@@ -9,13 +9,15 @@
 
         id topo2(n1?,n2?{<1},n3?{<1}) = 0;
 
+* sector mappings   
+
         id topo2(n1?{>0}, n2?{<1}, n3?{>0}) =
            topo2(n2, n3, n1);
 
         id topo2(n1?{>0}, n2?{>0}, n3?{<1}) =
             topo2(n3, n2, n1);
-        
-* sector mappings        
+* actual reduction
+     
         id topo2(n1?{<0}, n2?{>0}, n3?{>1}) = 
             topo2(1 + n1, -1 + n2, n3) + 
             ((-3 + d - 3*n1)*topo2(1 + n1, n2, -1 + n3))/(2*(-1 + n3)) + 
@@ -29,8 +31,6 @@
             ((1 + n1)*topo2(2 + n1, -2 + n2, n3))/(2*(-1 + n2)) + 
             ((-1 - n1)*topo2(2 + n1, -1 + n2, -1 + n3))/(2*(-1 + n2)) - 
             (3*mUV^2*(1 + n1)*topo2(2 + n1, -1 + n2, n3))/(2*(-1 + n2));
-
-* actual reduction
 
         id topo2(n1?{<1}, n2?{>0}, n3?{>1})  = 
             ((2 + d - n1 - 2*n3)*topo2(n1, n2, -1 + n3))/(2*mUV^2*(-1 + n3)) + 
