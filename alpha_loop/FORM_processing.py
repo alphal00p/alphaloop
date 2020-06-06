@@ -92,7 +92,7 @@ class FORMSuperGraph(object):
         ( -3, 3, 3 ): (1, 0, 2),
     }
 
-    _include_momentum_routing_in_rendering=True
+    _include_momentum_routing_in_rendering=False
     _include_edge_name_in_rendering=False
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
     # Choose graph layout strategy. Interesting options are in comment.
@@ -138,7 +138,10 @@ class FORMSuperGraph(object):
             'height'             : self._rendering_size[1],
             'graph_layout_strategy' : self._graph_layout_strategy
         }
-        graph_name='MG: %s'%self.name
+        if self.call_identifier and all(k in self.call_identifier for k in ['proc_id','left_diagram_id','right_diagram_id']):
+            graph_name='MG: %s'%('P%(proc_id)dL%(left_diagram_id)dR%(right_diagram_id)d'%self.call_identifier)
+        else:
+            graph_name='MG: %s'%self.name
         if FORM_id is not None:
             graph_name +=' | FORM: #%d'%FORM_id
         repl_dict['graph_name'] = graph_name
@@ -361,6 +364,15 @@ aGraph=%s;
             overall_factor += '*%d'%int(overall_phase.real)
 
         model = LTD2_super_graph.model
+
+        # Let us also include a factor -1 for each closed ghost loop.
+        # This is automatically done in MadGraph already by considering the "wavefunction" of external scalar ghosts to be sqrt(i).
+        # Said differently, we want a factor -1 for each pair of two ghosts in the final state
+        n_ghosts = len([ 1 for c in LTD2_super_graph.cuts if model.get_particle(LTD2_super_graph.graph.edges[c[1]]['pdg']).get('ghost') ])
+        assert(n_ghosts%2==0)
+        if n_ghosts > 0:
+            overall_factor += '*%d'%(-1**(n_ghosts//2))
+
         local_graph = copy.deepcopy(LTD2_super_graph.graph)
 
         # Collect the outer-most nodes
@@ -771,8 +783,12 @@ class FORMSuperGraphList(list):
 
         full_graph_list = []
         for i, g in enumerate(m.graphs):
+            if hasattr(m,'graph_names'):
+                graph_name=m.graph_names[i]
+            else:
+                graph_name=p.stem + '_' + str(i)
             # convert to FORM supergraph
-            form_graph = FORMSuperGraph(name=p.stem + '_' + str(i), edges = g['edges'], nodes=g['nodes'], 
+            form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
                         overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1) )
             form_graph.derive_signatures()
             full_graph_list.append(form_graph)
