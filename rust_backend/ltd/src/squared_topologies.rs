@@ -1769,7 +1769,7 @@ impl SquaredTopology {
                     &mut diag_cache[0],
                     0,
                     regenerate_momenta,
-                    self.settings.general.partial_fractioning_threshold > 0.0,
+                    false,
                 );
                 regenerate_momenta = false;
             }
@@ -1896,6 +1896,26 @@ impl SquaredTopology {
                         }
                     }
 
+                    // Store coefficients in a multi variable polynomial
+                    if self.settings.general.partial_fractioning_threshold > 0.0 {
+                        subgraph_cache.reduced_coefficient_lb_mpoly.clear();
+                        for (c, pows) in subgraph_cache.reduced_coefficient_lb[0].iter().zip(
+                            subgraph.numerator.reduced_coefficient_index_to_powers
+                                [..subgraph.numerator.reduced_size]
+                                .iter(),
+                        ) {
+                            //println!("#{:?} -> {}", &pows[..subgraph.n_loops], c);
+                            subgraph_cache
+                                .reduced_coefficient_lb_mpoly
+                                .add(&pows[..subgraph.n_loops], *c);
+                            //println!(
+                            //    "\t->pows: {:?},\n\t->coeffs: {:?},\n\t->n_var: {}",
+                            //    subgraph_cache.reduced_coefficient_lb_mpoly.powers,
+                            //    subgraph_cache.reduced_coefficient_lb_mpoly.coeffs,
+                            //    subgraph_cache.reduced_coefficient_lb_mpoly.n_var
+                            //);
+                        }
+                    }
                     let mut res = if cached_res.is_none() {
                         let res = if subgraph.loop_lines.len() > 0 {
                             subgraph

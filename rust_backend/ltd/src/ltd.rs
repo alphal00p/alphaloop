@@ -145,7 +145,10 @@ impl Topology {
             }
         };
         // Prepare the partial fractioning map at one loop if the threshold is set to a positive number
-        if self.n_loops == 1 && self.settings.general.partial_fractioning_threshold > 0.0 {
+        if self.n_loops == 1
+            && self.settings.general.partial_fractioning_multiloop
+            && self.settings.general.partial_fractioning_threshold > 0.0
+        {
             let num_propagators_deg_1l: usize = self
                 .loop_lines
                 .iter()
@@ -2978,34 +2981,38 @@ impl Topology {
     ) -> Result<Complex<T>, &'static str> {
         let mut result = Complex::default();
         // Check if partial fraction needs to be used
-        let use_partial_fractioning = self.n_loops == 1
-            && self.settings.general.partial_fractioning_threshold >= 0.0
+        let use_partial_fractioning = self.settings.general.partial_fractioning_threshold >= 0.0
+            && k_def.len() > 0
             && k_def[0].real().spatial_distance()
                 > Into::<T>::into(self.settings.general.partial_fractioning_threshold);
+        // Check if need to use multiloop version of partial fractioning
+        let use_new_pf = self.settings.general.partial_fractioning_multiloop;
 
         // Partial fractioning
         if use_partial_fractioning {
-            // find the loop line that has a loop momentum
-            let ll_with_loop = self
-                .loop_lines
-                .iter()
-                .filter(|ll| ll.signature == &[1])
-                .next()
-                .unwrap();
-
             // evaluate the loop lines without a signature, since they will not be part of the fractioning
             let mut inv_result_static = Complex::one();
-            for ll in &self.loop_lines {
-                if ll.signature == &[0] {
-                    inv_result_static *= ll.evaluate(&k_def, &Cut::NoCut, &self, cache)?;
+
+            // When using the old version it needs to manually compute the porpagators with no loop energy dependence
+            // WARNING: only works at 1-loop
+            if !use_new_pf {
+                for ll in &self.loop_lines {
+                    if ll.signature == &[0] {
+                        inv_result_static *= ll.evaluate(&k_def, &Cut::NoCut, &self, cache)?;
+                    }
                 }
             }
-
-            // Precompute all the ellipsoids that will appear in the partial fractioned expression
-            // TODO: limit it to only those that are called
-            Topology::evaluate_ellipsoids_matrix_1l(ll_with_loop, cache);
-
             if self.settings.general.use_amplitude {
+                // find the loop line that has a loop momentum
+                let ll_with_loop = self
+                    .loop_lines
+                    .iter()
+                    .filter(|ll| ll.signature == &[1])
+                    .next()
+                    .unwrap();
+                // Precompute all the ellipsoids that will appear in the partial fractioned expression
+                // TODO: limit it to only those that are called
+                Topology::evaluate_ellipsoids_matrix_1l(ll_with_loop, cache);
                 // Evaluate in the case of an amplitude
                 for diag in self.amplitude.diagrams.iter() {
                     if diag.name == "born" || diag.name.contains("UV_") {
@@ -3065,11 +3072,30 @@ impl Topology {
                     true,
                     use_partial_fractioning,
                 );
-                result = self.partial_fractioning.evaluate(
-                    &self.numerator,
-                    std::slice::from_ref(ll_with_loop),
-                    cache,
-                );
+
+                result = if !use_new_pf {
+                    // find the loop line that has a loop momentum
+                    let ll_with_loop = self
+                        .loop_lines
+                        .iter()
+                        .filter(|ll| ll.signature == &[1])
+                        .next()
+                        .unwrap();
+                    // Precompute all the ellipsoids that will appear in the partial fractioned expression
+                    // TODO: limit it to only those that are called
+                    Topology::evaluate_ellipsoids_matrix_1l(ll_with_loop, cache);
+                    self.partial_fractioning.evaluate(
+                        &self.numerator,
+                        std::slice::from_ref(ll_with_loop),
+                        cache,
+                    )
+                } else {
+                    self.partial_fractioning_multiloops.evaluate(
+                        &self.loop_lines,
+                        &self.propagator_id_to_ll_id,
+                        cache,
+                    )
+                };
             }
 
             result /= inv_result_static;
@@ -3782,8 +3808,8 @@ impl LTDNumerator {
         for (index, powers_lb) in self.reduced_coefficient_index_to_powers.iter().enumerate() {
             let mut powers_cb = [0; MAX_LOOP];
             //println!(
-            //    "MONOMIAL: {:?} * {}",
-            //    powers_lb, cache.reduced_coefficient_lb[index]
+            //    "MONOMIAL: {:?} * {:?}",
+            //    powers_lb, cache.reduced_coefficient_lb[num_id][index]
             //);
             self.change_monomial_basis(
                 powers_lb,
