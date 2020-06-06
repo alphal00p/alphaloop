@@ -15,8 +15,8 @@ use num_traits::{NumCast, One, ToPrimitive, Zero};
 use rand::prelude::*;
 use vector::LorentzVector;
 
-//type TestFloat = f128::f128;
-type TestFloat = f64;
+type TestFloat = f128::f128;
+//type TestFloat = f64;
 
 fn cross_check<'a>(
     topo: &mut Topology,
@@ -58,9 +58,9 @@ fn cross_check<'a>(
         .unwrap();
 
     // Compute using standard LTD
-    let topo2 = topo.clone();
-    let start = std::time::Instant::now();
     topo.settings.general.partial_fractioning_threshold = -1.0;
+    let topo2 = topo.clone();
+    let mut start = std::time::Instant::now();
     let result_ltd = topo2
         .evaluate_all_dual_integrands(&mut k_def[..topo.n_loops], cache)
         .unwrap();
@@ -68,21 +68,16 @@ fn cross_check<'a>(
     println!("\t#LTD in {:?}", dt_ltd);
 
     // Compute using partial fractioning
-    let mut start = std::time::Instant::now();
     topo.settings.general.partial_fractioning_threshold = 1e-99;
-    let result_pf1 = if topo.n_loops == 1 {
-        let topo2 = topo.clone();
-        start = std::time::Instant::now();
-        topo2
-            .numerator
-            .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true, true);
+    let topo2 = topo.clone();
+    start = std::time::Instant::now();
+    topo2
+        .numerator
+        .evaluate_reduced_in_lb(&k_def, 0, cache, 0, true, true);
 
-        topo2
-            .evaluate_all_dual_integrands(&mut k_def[..topo.n_loops], cache)
-            .unwrap()
-    } else {
-        Complex::zero()
-    };
+    let result_pf1 = topo2
+        .evaluate_all_dual_integrands(&mut k_def[..topo.n_loops], cache)
+        .unwrap();
     let dt_pf1 = start.elapsed();
     println!("\t#PF1 in {:?}", dt_pf1);
 
@@ -221,11 +216,11 @@ mod dot_propagators_1loop {
             result_ltd, result_pf1, result_pf2
         );
         if topo.n_loops == 1 {
-            if !numeriacal_eq(result_ltd, result_pf2) {
-                assert_eq!(result_ltd, result_pf2);
-            }
             if !numeriacal_eq(result_pf1, result_pf2) {
                 assert_eq!(result_pf1, result_pf2);
+            }
+            if !numeriacal_eq(result_ltd, result_pf2) {
+                assert_eq!(result_ltd, result_pf2);
             }
         } else {
             if !numeriacal_eq(result_ltd, result_pf2) {
@@ -1109,6 +1104,7 @@ mod dot_propagators_multiloops {
     fn test_multiloops(name: &str, pt: &mut [f64], coeffs: &[(f64, f64)]) {
         let mut topo = get_test_topology("./tests/topologies/MultiLoops.yaml", name);
         topo.settings.general.partial_fractioning_threshold = 1e-99;
+        topo.numerator_tensor_coefficients.clear();
         // Overwrite coefficients
         for coeff in coeffs.iter() {
             topo.numerator_tensor_coefficients.push(*coeff);
@@ -1132,11 +1128,13 @@ mod dot_propagators_multiloops {
         let mut cache = LTDCache::<TestFloat>::new(&topo);
         let (result_ltd, result_pf1, result_pf2) = cross_check(&mut topo, pt, &mut cache);
 
-        if topo.n_loops == 1 {
-            if !numeriacal_eq(result_ltd, result_pf2) {
+        if topo.n_loops > 0 {
+            let check_1 = !numeriacal_eq(result_ltd, result_pf2);
+            let check_2 = !numeriacal_eq(result_pf1, result_pf2);
+            if check_1 {
                 assert_eq!(result_ltd, result_pf2);
             }
-            if !numeriacal_eq(result_pf1, result_pf2) {
+            if check_2 {
                 assert_eq!(result_pf1, result_pf2);
             }
         } else {
