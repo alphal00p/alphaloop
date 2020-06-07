@@ -86,8 +86,8 @@
 
         label end;
 
-        id topo2(0, 1, 1) = M1;
-        id topo2(1, 1, 1) = M2;
+        id topo2(0, 1, 1) =tp2P011;
+        id topo2(1, 1, 1) = tp2P111;
 
         if (count(topo2, 1));
             $doloop = 1;
@@ -100,4 +100,7 @@
             #redefine loop "0"
         #endif
     #enddo
+* I want the MIs to be topo2(0,2,2) and topo2(2,2,1)
+    id tp2P011=mi1L2*rat(4*mUV^4,d^2 - 4*d + 4);
+    id tp2P111= rat(9*mUV^4,d^2 - 5*d + 6)*(mi2L2-mi1L2*rat(-1,3*mUV^2) );
 #endprocedure
