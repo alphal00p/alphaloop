@@ -1,12 +1,13 @@
-
+#define epsGoal "0"
 #-
-CFunction den, topo1, topo2;
-* ii denotes imaginary unit
-* lMUV denotes log(mUV^2)
-Symbols mUV, d, eps, n1,...,n3, tp2P011, tp2P111, mi1L1 ,mi1L2, mi2L2, lMUV;
+CFunction  topo1, topo2;
+
+Symbol mUV, d, eps, n1,...,n3, tp2P011, tp2P111, mi1L1 ,mi1L2, mi2L2, lMUV, x1, x2;
 Vectors V p1,...,p40,k1,k2; 
-CFunction rat; 
-Polyratfun rat;
+CFunction rat, num,den;
+PolyRatFun rat;
+
+*PolyRatFun expEps(expand,eps,0);
 * coefficints of eps expansion: CMi; not computed coeff: alarmMI
 AutoDeclare Symbol cMi, alarmMi;
 
@@ -16,8 +17,8 @@ AutoDeclare Symbol cMi, alarmMi;
 
 * Local ibps1=-((-36633600 + 57571584*d - 34603072*d^2 + 10196480*d^3 - 1603480*d^4 + 135716*d^5 - 5758*d^6 + 95*d^7)*topo2(1, 1, 0))/(33592320*mUV^16) - ((-23042880 + 20938896*d - 7321734*d^2 + 1271809*d^3 - 117180*d^4 + 5614*d^5 - 126*d^6 + d^7)*topo2(1, 1, 1))/(11022480*mUV^14) + topo2(1, 1, 8);
 
-Local expr1=topo1(2);
-Local expr2=topo2(0,2,2);
+*Local expr1=topo1(2);
+*Local expr2=topo2(0,2,2);
 Local expr3=topo2(2,2,1);
 
 
@@ -54,11 +55,38 @@ id topo1(1)=mi1L1*rat(2*mUV^2,d - 2);
 .sort
 
 * plug in eps expansion
-id d=4-2*eps;
+multiply replace_(d,4-2*eps);
 #include mi1L1epsEpxansion.inc;
 #include mi1L2epsEpxansion.inc;
 #include mi2L2epsEpxansion.inc;
+
+.sort
+PolyRatFun;
+id rat(x1?,x2?) = num(x1)*den(x2);
+FactArg den;
+.sort
+
+
+* the only variable left in the denominator should be mUV and at this stage, it should be factorized
+repeat;
+    id den(x1?!{eps}) = 1/x1;
+    id den(x1?!{eps},x2?,?a) =1/x1*den(x2,?a);
+endrepeat;
+* write eps denominators back as a product
+repeat;
+    id den(x1?,x2?,?a)=den(x1*x2,?a);
+endrepeat;
+repeat;
+    id num(x1?)*den(x2?) = rat(x1,x2);
+endrepeat;
+id num(x1?) = rat(x1,1);
 print;
+
+.sort
+
+PolyRatFun rat(expand,eps,1);
+print;
+
 
 * export for running fullTest
 *format mathematica;
