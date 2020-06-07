@@ -79,6 +79,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'include_self_energies_from_squared_amplitudes' : True,
             # We must not apply the graph ismorphism checks when attempting to compute LO cross-section from MG.
             'apply_graph_isomorphisms' : True,
+            # Instead of None, the option below can be a list of supergraphs identified as a two-tuple of the 
+            # of the two LTD2Diagram ids making them up on the left and right of the Cutkosky cut respectively.
+            # For example [(2,2),(1,49)] will select only the supergraphs built from the 2x2 and 1x49 sewings of LT2Diagrams.
+            'supergraphs_selection' : None,
             # One must differentiate particles from anti-particles in the isomorphism check.
             # However this is not properly working, at least not for self-energies, so we allow it
             # to be disabled with the option below.
@@ -212,11 +216,21 @@ utils.bcolors.RED,utils.bcolors.ENDC
                 raise alphaLoopInvalidCmd("Specified value '%s' for 'FORM_processing_output_format' is not in %s."%(
                                                                         value,self._supported_FORM_output_formats))
             self.alphaLoop_options['FORM_processing_output_format'] = value
-        elif key == 'FORM_path':
-            if not os.path.isfile(value):
-                raise alphaLoopInvalidCmd("Specified path '%s' does not point to a valid FORM executable."%value)
-            self.alphaLoop_options['FORM_path'] = value
-            FORM_processing.FORM_processing_options['FORM_path'] = value
+        elif key == 'supergraphs_selection':
+            if value.upper() in ['NONE']:
+                parsed_value = None
+            else:
+                try:
+                    parsed_value = eval(value)
+                except:
+                    parsed_value = value
+            if not parsed_value is None:
+                if (not (isinstance(parsed_value,list) or isinstance(parsed_value,tuple))) or \
+                    (not all(len(el)==2 for el in parsed_value)) or \
+                    (not all(isinstance(el[0],int) and isinstance(el[1],int) for el in parsed_value)):
+                    raise alphaLoopInvalidCmd("Invalid value for option supergraphs_selection: '%s'"%value)
+            self.alphaLoop_options['supergraphs_selection'] = parsed_value
+
         elif key == 'n_rust_inputs_to_generate':
             try:
                 self.alphaLoop_options['n_rust_inputs_to_generate'] = int(value)

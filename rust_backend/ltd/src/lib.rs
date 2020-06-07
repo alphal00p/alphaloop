@@ -471,6 +471,7 @@ pub struct GeneralSettings {
     pub cut_filter: Vec<usize>,
     pub topology: String,
     pub partial_fractioning_threshold: f64,
+    pub partial_fractioning_multiloop: bool,
     #[serde(default)]
     pub use_amplitude: bool,
     pub amplitude: String,

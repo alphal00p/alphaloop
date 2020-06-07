@@ -495,8 +495,9 @@ pub struct PartialFractioningBlock2 {
 #[derive(Default, Debug, Clone)]
 pub struct PartialFractioningMultiLoops {
     pub partial_fractioning_element: Vec<PartialFractioningBlock>,
-    pub loop_lines: Vec<LoopLine>,
+    pub loop_lines_red: Vec<LoopLine>,
     pub ll_n_props_deg: Vec<usize>,
+    pub n_props_deg: usize,
     pub n_loops: usize,
     //splits: Vec<usize>,
 }
@@ -541,6 +542,7 @@ impl PartialFractioningBlock {
         map_id: &[(usize, usize)],
         ltd_cache: &mut LTDCache<T>,
     ) -> Complex<T> {
+        let verbose = false;
         // TODO: check if the replacement rule involves loop momenta to have
         //       a more accurate filter
         let mut check_rank = 0;
@@ -558,17 +560,27 @@ impl PartialFractioningBlock {
 
         // Update the PFCache polynomial
         ltd_cache.pf_cache.numerator_mpoly.clear();
-        // Clean
+        // Clear
         ltd_cache.reduced_coefficient_lb_mpoly.drop_zeros();
+
+        ltd_cache.pf_cache.numerator_mpoly.max_rank =
+            ltd_cache.reduced_coefficient_lb_mpoly.max_rank.clone();
         for (pow, c) in ltd_cache
             .reduced_coefficient_lb_mpoly
             .powers
             .iter()
             .zip(ltd_cache.reduced_coefficient_lb_mpoly.coeffs.iter())
         {
-            ltd_cache.pf_cache.numerator_mpoly.add(pow, *c);
+            ltd_cache.pf_cache.numerator_mpoly.powers.push(pow.clone());
+            ltd_cache.pf_cache.numerator_mpoly.coeffs.push(*c);
+            //    ltd_cache.pf_cache.numerator_mpoly.add(pow, *c);
         }
-        //println!("starting numerator {}", ltd_cache.pf_cache.numerator_mpoly);
+        if verbose {
+            println!(
+                "\nSTARTING numerator:\n\t{}",
+                ltd_cache.pf_cache.numerator_mpoly
+            );
+        }
 
         // Start evaluation absorbing one cut at the time
         // "num" contains the set of instruction on how the evaluate the numerator function
@@ -578,19 +590,68 @@ impl PartialFractioningBlock {
         // where the 'ci' are functions of the remaining loop variables
         let mut x_pow: u8;
         for (residue_n, num) in self.numerator.iter().enumerate() {
+            //            if num.len() == 1 {
+            //                let mut x0 = Complex::default();
+            //
+            //                // Read instructions from PartialFractioningNum: Constant
+            //                for (idx, (v_e, v_s)) in num[0]
+            //                    .indices
+            //                    .iter()
+            //                    .zip_eq(num[0].energies_and_shifts.iter())
+            //                {
+            //                    let id = ltd_cache.pf_cache.numerator_index_map[*idx as usize];
+            //                    if ltd_cache.propagator_powers[id] == 0 {
+            //                        panic!("Ellipsoid do not exists!");
+            //                    }
+            //                    x0 += ltd_cache.complex_cut_energies[id] * Into::<T>::into(*v_e);
+            //                    x0 += Into::<T>::into(
+            //                        loop_lines[map_id[id].0].propagators[map_id[id].1].q.t * v_s,
+            //                    );
+            //                }
+            //                // Read instructions from PartialFractioningNum: Loop dependent
+            //                ltd_cache.pf_cache.num_subs.ids[0] = 0;
+            //                ltd_cache.pf_cache.num_subs.coeffs[0] = x0;
+            //                ltd_cache.pf_cache.num_subs.n_coeff = 1;
+            //                for (i, l) in num[0].lambdas.iter().enumerate() {
+            //                    if *l != 0.0 {
+            //                        ltd_cache.pf_cache.num_subs.ids[ltd_cache.pf_cache.num_subs.n_coeff] =
+            //                            i + 1;
+            //                        ltd_cache.pf_cache.num_subs.coeffs[ltd_cache.pf_cache.num_subs.n_coeff] =
+            //                            Complex::new(T::from_f64(*l).unwrap(), T::zero());
+            //                        ltd_cache.pf_cache.num_subs.n_coeff += 1;
+            //                    }
+            //                }
+            //                ltd_cache.pf_cache.numerator_mpoly.replace(
+            //                    residue_n + 1,
+            //                    &ltd_cache.pf_cache.num_subs.coeffs[..ltd_cache.pf_cache.num_subs.n_coeff],
+            //                    &ltd_cache.pf_cache.num_subs.ids[..ltd_cache.pf_cache.num_subs.n_coeff],
+            //                );
+            //                continue;
+            //            }
             ltd_cache.pf_cache.numerator_mpoly.to_cache();
             ltd_cache.pf_cache.numerator_mpoly.scale(Complex::default());
             // Save a copy of the current evaluation from which we are going
             // to take all the limits corresponding to different cuts
-            //println!("------------------------------------------------------------");
-            //println!("Instructions:");
-            //for inst in num.iter() {
-            //    print!("\tidx: {:?}", inst.indices);
-            //    print!("\tl  :{:?}", inst.lambdas);
-            //    println!("\te&s:{:?}", inst.energies_and_shifts);
-            //}
-            //println!("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
-
+            if verbose {
+                println!("------------------------------------------------------------");
+                println!("Instructions:");
+                for inst in num.iter() {
+                    print!("\tk{} -> ", residue_n);
+                    for (i, s) in inst.lambdas.iter().enumerate() {
+                        if *s != 0.0 {
+                            print!("{:+}*\x1b[0;31mk{}\x1b[0m", *s, i);
+                        }
+                    }
+                    for (idx, (e, s)) in inst.indices.iter().zip(inst.energies_and_shifts.iter()) {
+                        print!("+({:+}*e{}{:+}*p{})", e, idx, s, idx);
+                    }
+                    println!("");
+                    //print!("\tidx: {:?}", inst.indices);
+                    //print!("\tl  :{:?}", inst.lambdas);
+                    //println!("\te&s:{:?}", inst.energies_and_shifts);
+                }
+                println!("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
+            }
             // TODO: Initialize factor with 1 when necessary!!!!
             let mut pos = 0;
 
@@ -649,7 +710,9 @@ impl PartialFractioningBlock {
             }
 
             ltd_cache.pf_cache.numerator_mpoly.drop_zeros();
-            //println!("updated numerator {}", ltd_cache.pf_cache.numerator_mpoly);
+            if verbose {
+                println!("UPDATE numerator: {}", ltd_cache.pf_cache.numerator_mpoly);
+            }
         }
 
         // Return the constant term
@@ -794,50 +857,31 @@ impl PartialFractioningBlock {
         }
     }
 }
-//impl PartialFractioningBlock {
-//    pub fn evaluate<T: FloatLike>(
-//        &self,
-//        loop_lines: &[LoopLine],
-//        min_index: usize,
-//        map_id: &[(usize, usize)],
-//        ltd_cache: &LTDCache<T>,
-//    ) -> Complex<T> {
-//        //println!("===============================================");
-//        if self.denominators.len() == 0 {
-//            return Complex::default();
-//        }
-//        let den_inv = self.evaluate_dens(loop_lines, min_index, map_id, ltd_cache);
-//        //println!("den: {}", den);
-//        //let num = PartialFractioningBlock::evaluate_numerator()
-//
-//        return den_inv * Into::<T>::into(self.factor); // * num;
-//    }
-//
-//    pub fn evaluate_dens<T: FloatLike>(
-//        &self,
-//        loop_lines: &[LoopLine],
-//        min_index: usize,
-//        map_id: &[(usize, usize)],
-//        ltd_cache: &LTDCache<T>,
-//    ) -> Complex<T> {
-//        let mut res = Complex::new(T::one(), T::zero());
-//        for den in self.denominators.iter() {
-//            //println!("  :: sub [{}]", n);
-//            res *= den.evaluate(loop_lines, min_index, map_id, ltd_cache);
-//        }
-//        return res;
-//    }
-//}
 
 impl PartialFractioningMultiLoops {
     pub fn new(loop_lines: &Vec<LoopLine>, numerator_rank: usize) -> PartialFractioningMultiLoops {
+        // Keep only the loop lines that do not belong to a tree
+        let mut loop_lines_red = Vec::new();
+        for ll in loop_lines
+            .iter()
+            .filter(|x| !x.signature.iter().all(|x| *x == 0))
+        {
+            loop_lines_red.push(ll.clone());
+        }
+
         let mut pf_expr = PartialFractioningMultiLoops {
             partial_fractioning_element: Vec::new(),
-            loop_lines: loop_lines.clone(),
+            loop_lines_red: loop_lines_red,
             ll_n_props_deg: loop_lines
                 .iter()
+                .filter(|x| !x.signature.iter().all(|x| *x == 0))
                 .map(|x| x.propagators.iter().map(|x| x.power).sum())
                 .collect(),
+            n_props_deg: loop_lines
+                .iter()
+                .filter(|x| !x.signature.iter().all(|x| *x == 0))
+                .map(|x| x.propagators.iter().map(|x| x.power).sum::<usize>())
+                .sum(),
             n_loops: loop_lines[0].signature.len(),
         };
         pf_expr.partial_fractioning_nl(numerator_rank);
@@ -859,7 +903,7 @@ impl PartialFractioningMultiLoops {
         let n_props_deg = self.ll_n_props_deg.iter().sum();
         // create cache
         let mut pf_cache: PFCache<f64> =
-            PFCache::new(n_props_deg, self.loop_lines[0].signature.len());
+            PFCache::new(n_props_deg, self.loop_lines_red[0].signature.len());
 
         // Take all combination of plus and minus energies from the first E_fractioning
         //    1.0: positive energy
@@ -879,7 +923,7 @@ impl PartialFractioningMultiLoops {
                 product.factor *= -which;
 
                 let mut den = PartialFractioningDen2 {
-                    lambdas: self.loop_lines[id_to_ll[n]]
+                    lambdas: self.loop_lines_red[id_to_ll[n]]
                         .signature
                         .iter()
                         .map(|x| *x as f64)
@@ -1132,19 +1176,23 @@ impl PartialFractioningMultiLoops {
         let mut result: na::Complex<T> = Complex::default();
         // Compute the overall factor coming from partial fractioning
         let mut norm: na::Complex<T> = Complex::new(T::one(), T::zero());
-        let n_props_deg = self.ll_n_props_deg.iter().sum();
-        let mut min_index = n_props_deg;
+        let mut min_index = self.n_props_deg;
         for ll in loop_lines.iter().rev() {
             //for ll in loop_lines.iter() {
             for p in ll.propagators.iter() {
-                // Build the map to read the indices in PartialFractioningMonomial
-                // in terms of propagator's id
-                for _ in 0..cache.propagator_powers[p.id] {
-                    min_index -= 1;
-                    cache.pf_cache.numerator_index_map[min_index] = p.id;
-                }
-                norm *= (cache.complex_cut_energies[p.id] * Into::<T>::into(2.0))
-                    .powi(cache.propagator_powers[p.id] as i32);
+                norm *= if ll.signature.iter().all(|x| *x == 0) {
+                    (-cache.complex_cut_energies[p.id].powi(2) + Into::<T>::into(p.q.t.powi(2)))
+                        .powi(cache.propagator_powers[p.id] as i32)
+                } else {
+                    // Build the map to read the indices in PartialFractioningMonomial
+                    // in terms of propagator's id
+                    for _ in 0..cache.propagator_powers[p.id] {
+                        min_index -= 1;
+                        cache.pf_cache.numerator_index_map[min_index] = p.id;
+                    }
+                    (cache.complex_cut_energies[p.id] * Into::<T>::into(2.0))
+                        .powi(cache.propagator_powers[p.id] as i32)
+                };
             }
         }
         assert_eq!(min_index, 0, "min_index must reach zero!");

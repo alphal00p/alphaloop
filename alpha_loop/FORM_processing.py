@@ -92,7 +92,7 @@ class FORMSuperGraph(object):
         ( -3, 3, 3 ): (1, 0, 2),
     }
 
-    _include_momentum_routing_in_rendering=True
+    _include_momentum_routing_in_rendering=False
     _include_edge_name_in_rendering=False
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
     # Choose graph layout strategy. Interesting options are in comment.
@@ -138,7 +138,10 @@ class FORMSuperGraph(object):
             'height'             : self._rendering_size[1],
             'graph_layout_strategy' : self._graph_layout_strategy
         }
-        graph_name='MG: %s'%self.name
+        if self.call_identifier and all(k in self.call_identifier for k in ['proc_id','left_diagram_id','right_diagram_id']):
+            graph_name='MG: %s'%('P%(proc_id)dL%(left_diagram_id)dR%(right_diagram_id)d'%self.call_identifier)
+        else:
+            graph_name='MG: %s'%self.name
         if FORM_id is not None:
             graph_name +=' | FORM: #%d'%FORM_id
         repl_dict['graph_name'] = graph_name
@@ -361,6 +364,15 @@ aGraph=%s;
             overall_factor += '*%d'%int(overall_phase.real)
 
         model = LTD2_super_graph.model
+
+        # Let us also include a factor -1 for each closed ghost loop.
+        # This is automatically done in MadGraph already by considering the "wavefunction" of external scalar ghosts to be sqrt(i).
+        # Said differently, we want a factor -1 for each pair of two ghosts in the final state
+        n_ghosts = len([ 1 for c in LTD2_super_graph.cuts if model.get_particle(LTD2_super_graph.graph.edges[c[1]]['pdg']).get('ghost') ])
+        assert(n_ghosts%2==0)
+        if n_ghosts > 0:
+            overall_factor += '*%d'%(-1**(n_ghosts//2))
+
         local_graph = copy.deepcopy(LTD2_super_graph.graph)
 
         # Collect the outer-most nodes
@@ -646,9 +658,28 @@ class FORMSuperGraphIsomorphicList(list):
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, i_graph=0):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
+
+        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA']
+
+        if FORM_vars is None:
+            raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
+        FORM_vars = dict(FORM_vars)
+
+        characteristic_super_graph = self[0]
+        if 'NINITIALMOMENTA' not in FORM_vars:
+            n_incoming = sum([1 for edge in characteristic_super_graph.edges.values() if edge['type'] == 'in'])
+            FORM_vars['NINITIALMOMENTA'] = n_incoming
+        if 'NFINALMOMENTA' not in FORM_vars:
+            n_loops = len(characteristic_super_graph.edges) - len(characteristic_super_graph.nodes) + 1
+            FORM_vars['NFINALMOMENTA'] = n_loops
+
+        if FORM_vars is None or not all(opt in FORM_vars for opt in _MANDATORY_FORM_VARIABLES):
+            raise FormProcessingError("The following variables must be supplied to FORM: %s"%str(_MANDATORY_FORM_VARIABLES))
+
+        i_graph = int(FORM_vars['SGID'])
 
         # write the form input to a file
         form_input = self.generate_numerator_form_input(additional_overall_factor)
@@ -668,9 +699,11 @@ class FORMSuperGraphIsomorphicList(list):
         # NO FUCKING way of passing -D SIGID=<int> without shell=True... be my guest to fix this. Too old for that sh&$#$#$t...
         r = subprocess.run(' '.join([
                 FORM_processing_options["TFORM_path"] if FORM_processing_options["parallel"] else FORM_processing_options["FORM_path"],
-                '-w' + str(FORM_processing_options["cores"]), '-D SGID=%d'%i_graph,
-                FORM_source
-            ]),
+                '-w' + str(FORM_processing_options["cores"])
+                ]+
+                [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
+                [ FORM_source, ]
+            ),
             shell=True,
             cwd=selected_workspace,
             capture_output=True)
@@ -750,8 +783,12 @@ class FORMSuperGraphList(list):
 
         full_graph_list = []
         for i, g in enumerate(m.graphs):
+            if hasattr(m,'graph_names'):
+                graph_name=m.graph_names[i]
+            else:
+                graph_name=p.stem + '_' + str(i)
             # convert to FORM supergraph
-            form_graph = FORMSuperGraph(name=p.stem + '_' + str(i), edges = g['edges'], nodes=g['nodes'], 
+            form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
                         overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1) )
             form_graph.derive_signatures()
             full_graph_list.append(form_graph)
@@ -867,6 +904,8 @@ class FORMSuperGraphList(list):
         energy_exp = re.compile(r'f\(([^)]*)\)\n')
         return_exp = re.compile(r'return ([^;]*);\n')
 
+        FORM_vars={}
+
         # TODO: multiprocess this loop
         max_buffer_size = 0
         with progressbar.ProgressBar(
@@ -884,7 +923,8 @@ class FORMSuperGraphList(list):
             for i, graph in enumerate(self):
                 graph.is_zero = True
                 time_before = time.time()
-                num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, i_graph=i)
+                FORM_vars['SGID']='%d'%i
+                num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, FORM_vars=FORM_vars)
                 total_time += time.time()-time_before
                 num = num.replace('i_', 'I')
                 num = input_pattern.sub(r'lm[\1]', num)

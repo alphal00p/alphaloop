@@ -6,11 +6,11 @@ use eyre::WrapErr;
 use float;
 use fnv::FnvHashMap;
 use itertools::Itertools;
+use mpolynomial::MPolynomial;
 use num::Complex;
 use num_traits::{Float, Signed, Zero};
 use partial_fractioning::PFCache;
 use partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
-use mpolynomial::MPolynomial;
 use scs;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -269,7 +269,7 @@ impl<T: FloatLike> LTDCache<T> {
         let num_propagators_deg_1l = topo
             .loop_lines
             .iter()
-           //.filter(|x| x.signature == &[1])
+            .filter(|x| !x.signature.iter().all(|x| *x == 0))
             .map(|x| x.propagators.iter().map(|p| p.power).sum::<usize>())
             .sum();
         LTDCache {
@@ -1979,7 +1979,7 @@ unsafe impl std::marker::Send for SOCPProblem {}
 
 impl Default for SOCPProblem {
     fn default() -> SOCPProblem {
-        SOCPProblem::new(1,1)
+        SOCPProblem::new(1, 1)
     }
 }
 

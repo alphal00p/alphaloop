@@ -106,6 +106,9 @@ fn spatial_dot(a: &[f64], b: &[f64]) -> f64 {
 }
 
 fn eval(
+    mgleft: usize,
+    mgright: usize,
+    formid: usize,
     lin: &[&[f64; 4]],
     ext: usize,
     mg_numerator: &mut Container<MGNumeratorAPI>,
@@ -159,7 +162,37 @@ fn eval(
     let t2 = std::time::Instant::now().duration_since(t);
     println!("time FORM for 1M={:#?}",  t2);
 
-    get_form_numerator(c_numerator, &form_input, 0, 0, &mut buffer);
+//    get_form_numerator(c_numerator, &form_input, 0, 0, &mut buffer);
+//     get_form_numerator(c_numerator, &form_input, 77, 0, &mut buffer);
+//    get_form_numerator(c_numerator, &form_input, 35, 0, &mut buffer);
+
+//    get_form_numerator(c_numerator, &form_input, 94, 0, &mut buffer);
+
+//    get_form_numerator(c_numerator, &form_input, 6, 0, &mut buffer);
+//    get_form_numerator(c_numerator, &form_input, 10, 0, &mut buffer);
+
+/*
+        1,49 -> 39 SIGN
+        3,40 -> 51 ZERO IMPRRECISE MG, so prolly OK
+        3,50 -> 54 SIGN
+        7,49 -> 64 WRONG
+        7,50 -> 65 WRONG
+        8,50 -> 71 WRONG
+        37,49 -> 74 SIGN 
+        38,49 -> 79 SIGN
+        38,50 -> 80 SIGN
+        49,49 -> 81 WRONG
+        49,50 -> 82 WRONG
+        1,50 -> 40 SIGN
+*/
+
+//    get_form_numerator(c_numerator, &form_input, 39, 0, &mut buffer);
+//    get_form_numerator(c_numerator, &form_input, 81, 0, &mut buffer);
+//    get_form_numerator(c_numerator, &form_input, 51, 0, &mut buffer);
+
+    get_form_numerator(c_numerator, &form_input, formid, 0, &mut buffer);
+//    get_form_numerator(c_numerator, &form_input, 1, 0, &mut buffer);
+//    get_form_numerator(c_numerator, &form_input, 2, 0, &mut buffer);
 
     let mut r = Complex::<f64>::default();
     for (expm, num) in exponent_map.iter().zip(buffer.chunks(2)) {
@@ -169,9 +202,25 @@ fn eval(
     
     println!("=========================");
     println!("FORM={}", r);
-    let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 1);
+
+    let r1 = get_numerator(mg_numerator, &mg_input, 0, mgleft, mgright);
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 9);
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 9, 9);
+
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 49);
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 49, 49);
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 3, 40);
+    
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 1);
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 38, 42);
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 42);
+
+//    let r1 = get_numerator(mg_numerator, &mg_input, 1, 1, 1);
+
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 7);
+//    let r1 = get_numerator(mg_numerator, &mg_input, 0, 7, 8);
     println!("MG #1,1 = {}", r1);
-    println!("r={}", r.im / r1.im);
+    println!("r={}", r.norm() / r1.norm());
     println!("=========================");
     /*let r = get_form_numerator(c_numerator, &form_input, 1) / 16.;
     println!("FORM #1 ={}", r);
@@ -205,13 +254,45 @@ fn main() {
 
     let mut p1 = [1., 0., 0., 1.];
     let mut p2 = [1., 0., 0., -1.];
-    let mut k1 = [0.1, 0.0, 0.0, 0.0];
-    let mut k2 = [0.1, 0.0, 0.0, 0.0];
-    let mut k3 = [0.1, 0.0, 0.0, 0.0];
-    let mut k4 = [0.1, 0.0, 0.0, 0.0];
+    let mut k1 = [0.3, 0.0, 0.0, 0.];
+    let mut k2 = [0.1, 0.0, 0.0, 0.];
+    let mut k3 = [0.2, 0.0, 0.0, 1.0];
+    let mut k4 = [0.3, 0.0, 0.0, 0.0];
 
-    let lin = [&p1, &p2, &k1, &k2];//, &k3, &k4];
+    let mut p1 = [500., 0., 0., 500.];
+    let mut p2 = [500., 0., 0., -500.];
+    let mut k1 = [0.1871526174824760E+03,  -0.1257780476763981E+02,   0.3111387284817541E+02,  -0.6301450606135616E+02];
+    let mut k2 = [0.2890726872654491E+03,  -0.6872525125230017E+02,  -0.2176061267288446E+03,   0.3947698029543776E+02];
+    let mut k3 = [0.1054303841594690E+03,  -0.7477954838939333E+02,  -0.6876840480238191E+02,   0.2818672644397240E+02];
+    let mut k4 = [0.3423857129250602E+03,   0.1919284080684538E+03,   0.2751076866100379E+03,  -0.6860920754231151E+02];
 
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];//, &k3, &k4];
+    eval(1,2,0,&lin, 2, &mut mg_numerator, &mut c_numerator);
+    eval(1,9,1,&lin, 2, &mut mg_numerator, &mut c_numerator);
+    eval(9,9,2,&lin, 2, &mut mg_numerator, &mut c_numerator);
+
+/*
+    let mut p1 = [500., 0., 0., 500.];
+    let mut p2 = [500., 0., 0., -500.];
+    let mut k1 = [0.8635406814378139E+02,  -0.1521338932026180E+02,   0.3763355129491628E+02,  -0.7621872268218542E+02];
+    let mut k2 = [0.2801181818093764E+03,  -0.8312611165058223E+02,  -0.2632038567586505E+03,   0.4774908511602658E+02];
+    let mut k3 = [100.0*0.11, 100.0*0.52, 100.0*0.4, 100.0*0.3];
+    let mut k4 = [100.0*0.43, 100.0*0.15, 100.0*0.2, 100.0*0.7];
+
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];//, &k3, &k4];
+    eval(&lin, 2, &mut mg_numerator, &mut c_numerator);
+*/
+/*
+
+
+    let mut p1 = [500., 0., 0., 500.];
+    let mut p2 = [500., 0., 0., -500.];
+    let mut k1 = [-0.8635406814378139E+02,  0.1521338932026180E+02,  -0.3763355129491628E+02,  0.7621872268218542E+02];
+    let mut k2 = [-0.2801181818093764E+03,  0.8312611165058223E+02,  0.2632038567586505E+03,  -0.4774908511602658E+02];
+    let mut k3 = [-0.1275225295696605E+03,  0.9044904129599348E+02,  0.8317830770307893E+02,  -0.3409304333925805E+02];
+    let mut k4 = [-0.4141300683745435E+03,  -0.2321455649459386E+03,  -0.3327544367808187E+03,  0.8298575185244263E+02];
+
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];//, &k3, &k4];
     eval(&lin, 2, &mut mg_numerator, &mut c_numerator);
 
     let mut p1 = [2., 0., 0., 2.];
@@ -221,7 +302,7 @@ fn main() {
     let mut k3 = [0.4, 0.3, 0.1, 0.5];
     let mut k4 = [0.7, 0.3, 0.5, 0.2];
 
-    let lin = [&p1, &p2, &k1, &k2];//, &k3, &k4];
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];//, &k3, &k4];
     eval(&lin, 2, &mut mg_numerator, &mut c_numerator);
 
     let mut p1 = [6., 0., 0., 6.];
@@ -230,6 +311,18 @@ fn main() {
     let mut k2 = [0.4, 0.2, 0.4, 0.7];
     let mut k3 = [0.11, 0.52, 0.4, 0.3];
     let mut k4 = [0.43, 0.15, 0.2, 0.7];
+
+    let mut p1 = [6., 0., 0., 6.];
+    let mut p2 = [6., 0., 0., -6.];
+    let mut k1 = [0.3, 0.5, 0.3, 0.1];
+    let mut k2 = [0.4, 0.2, 0.4, 0.7];
+    let mut k3 = [0.11, 0.52, 0.4, 0.3];
+    let mut k4 = [0.43, 0.15, 0.2, 0.7];
+
+
+    //let lin = [&p1, &p2, &k1, &k2, &k3, &k4];
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];
+    eval(&lin, 2, &mut mg_numerator, &mut c_numerator);
 
     let mut p1 = [100.0*6., 0., 0., 100.0*6.];
     let mut p2 = [100.0*6., 0., 0., 100.0*-6.];
@@ -240,6 +333,8 @@ fn main() {
 
 
     //let lin = [&p1, &p2, &k1, &k2, &k3, &k4];
-    let lin = [&p1, &p2, &k1, &k2];
+    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];
     eval(&lin, 2, &mut mg_numerator, &mut c_numerator);
+
+*/
 }
