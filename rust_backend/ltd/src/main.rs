@@ -1708,6 +1708,7 @@ fn main() -> Result<(), Report> {
                     sqt.name, settings.integrator.n_max, settings.general.deformation_strategy
                 )))
                 .unwrap();
+            sqt.print_info(&mut dashboard.status_update_sender);
         }
         Diagram::Topology(topo) => {
             if let Some(matches) = matches.subcommand_matches("probe") {

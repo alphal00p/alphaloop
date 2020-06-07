@@ -3,8 +3,11 @@ use color_eyre::{Help, Report};
 use dlopen::wrapper::Container;
 use eyre::WrapErr;
 use f128::f128;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use float;
 use integrand::IntegrandImplementation;
+use dashboard::{StatusUpdate, StatusUpdateSender};
 use itertools::Itertools;
 use num::Complex;
 use num_traits::FromPrimitive;
@@ -371,6 +374,80 @@ impl SquaredTopologySet {
 
     pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<Vec<LTDCache<T>>>>> {
         self.topologies.iter().map(|t| t.create_caches()).collect()
+    }
+
+    pub fn print_info(&self, status_update_sender: &mut StatusUpdateSender) {
+
+        /*
+        status_update_sender
+            .send(StatusUpdate::Message(format!(
+                "Overall number of loops in all supergraphs: {}",
+                self.n_loops
+            )))
+            .unwrap();
+        */
+        let n_topologies = self.topologies.len();
+
+        let mut n_Cutkosky_cuts_per_cut_cardinality = HashMap::<i32, i32>::new();
+        let mut n_diagrams_per_loop = HashMap::<i32, i32>::new();
+        let mut n_LTD_cuts_per_loop = HashMap::<i32, i32>::new();
+
+        for topology in &self.topologies {
+            for cutkosky_cuts in &topology.cutkosky_cuts {
+                *n_Cutkosky_cuts_per_cut_cardinality.entry(cutkosky_cuts.cuts.len() as i32).or_insert(0)+=1;
+                for diagram_set in &cutkosky_cuts.diagram_sets {
+                    for d_info in &diagram_set.diagram_info {
+                        *n_diagrams_per_loop.entry(d_info.graph.n_loops as i32).or_insert(0)+=1;
+                        *n_LTD_cuts_per_loop.entry(d_info.graph.n_loops as i32).or_insert(0) += (d_info.graph.ltd_cut_options.len() as i32);
+                    }
+                }
+            }
+        }
+
+        let mut tmp_vec: Vec<(i32,i32)> = n_LTD_cuts_per_loop.iter().map(|(k, v)| (*k as i32, *v as i32)).collect();
+        let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
+        tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
+        status_update_sender
+            .send(StatusUpdate::Message(format!(
+                "Loop count -> number of LTD cuts: {} total: {}",
+                tmp_vec.iter().map(|(k,v)| format!("{}->{}",k,v)).collect::<Vec<String>>().join(", "), tmp_sum
+            )))
+            .unwrap();
+
+        let mut tmp_vec: Vec<(i32,i32)> = n_diagrams_per_loop.iter().map(|(k, v)| (*k as i32, *v as i32)).collect();
+        let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
+        tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
+        status_update_sender
+            .send(StatusUpdate::Message(format!(
+                "Loop count -> number of subdiagrams: {} total: {}",
+                tmp_vec.iter().map(|(k,v)| format!("{}->{}",k,v)).collect::<Vec<String>>().join(", "), tmp_sum
+            )))
+            .unwrap();
+
+        let mut tmp_vec: Vec<(i32,i32)> = n_Cutkosky_cuts_per_cut_cardinality.iter().map(|(k, v)| (*k as i32, *v as i32)).collect();
+        let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
+        tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
+        status_update_sender
+            .send(StatusUpdate::Message(format!(
+                "Cut cardinality -> number of Cutkosky cuts: {} total: {}",
+                tmp_vec.iter().map(|(k,v)| format!("{}->{}",k,v)).collect::<Vec<String>>().join(", "), tmp_sum
+            )))
+            .unwrap();
+
+        status_update_sender
+            .send(StatusUpdate::Message(format!(
+                "Number of integration channels: {}",
+                self.multi_channeling_channels.len()
+            )))
+            .unwrap();
+
+        status_update_sender
+            .send(StatusUpdate::Message(format!(
+                "Number of supergraphs: {}",
+                n_topologies
+            )))
+            .unwrap();
+
     }
 
     pub fn multi_channeling<'a, T: FloatLike>(
@@ -1121,7 +1198,7 @@ impl SquaredTopology {
         if Float::abs(solutions[0].0 - solutions[1].0) / (Float::abs(solutions[0].0) + Float::abs(solutions[1].0)) < Into::<T>::into(1e-12) {
             panic!(
                 "Found the same scaling solution twice: {} for t={} and t={} for k={:?}, ext={:?}",
-                solutions[0].0, -t_start, t_start, loop_momenta, external_momenta
+                solutions[0].0, solutions[0].0, solutions[1].0, loop_momenta, external_momenta
             );
         }
 
