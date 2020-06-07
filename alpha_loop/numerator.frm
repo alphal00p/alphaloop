@@ -198,6 +198,7 @@ Argument color;
 	id	cOld44(cOlpR1,cOlpA1) = [d4RA/n]*cOlNA;
 
 * set the SU(3) values
+    id [dabc^2/n] = 13/18;
     id cOlNR = 3;
     id cOlNA = 8;
     id cf = 4 / 3;

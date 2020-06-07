@@ -45,6 +45,9 @@ class LTD2Diagram(object):
 
         # The amplidue.Diagram representation of this helas_diagram
         self.base_diagram = self.helas_diagram.get('amplitudes')[0].get_base_diagram(self.wf_dict, self.vx_list, self.optimization)
+        self.fermion_factor = self.helas_diagram.get('amplitudes')[0].get('fermionfactor')
+        if not all(amp.get('fermionfactor')==self.fermion_factor for amp in self.helas_diagram.get('amplitudes')):
+            raise LTD2Error("For now alphaLoop only supports diagrams build up from amplitudes all sharing the same fermion factor.")
         self.base_diagram.calculate_orders(self.model)
 
         self.helas_amplitude_numbers = tuple([amp.get('number') for amp in helas_diagram.get('amplitudes')])

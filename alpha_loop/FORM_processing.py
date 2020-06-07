@@ -39,6 +39,7 @@ import madgraph.various.misc as misc
 import madgraph.iolibs.file_writers as writers
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 import models.model_reader as model_reader
+import multiprocessing
 
 import LTD.squared_topologies
 import LTD.ltd_utils
@@ -52,7 +53,7 @@ if __name__ == "__main__":
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 
-FORM_processing_options = {'FORM_path': 'form', 'TFORM_path': 'tform', 'parallel': False, 'cores': 4, 'extra-options': '-D OPTIMITERATIONS=1000'}
+FORM_processing_options = {'FORM_path': 'form', 'TFORM_path': 'tform', 'parallel': False, 'cores': multiprocessing.cpu_count(), 'extra-options': '-D OPTIMITERATIONS=1000'}
 
 # Can switch to tmpdir() if necessary at some point
 FORM_workspace = pjoin(plugin_path,'FORM_workspace')
@@ -362,6 +363,9 @@ aGraph=%s;
             raise FormProcessingError("No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
         else:
             overall_factor += '*%d'%int(overall_phase.real)
+
+        fermion_factor = LTD2_super_graph.diag_left_of_cut.fermion_factor*LTD2_super_graph.diag_right_of_cut.fermion_factor
+        overall_factor += '*%d'%fermion_factor
 
         model = LTD2_super_graph.model
 
