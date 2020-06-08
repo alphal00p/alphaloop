@@ -1211,9 +1211,11 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                         leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
             final_state_particle_ids = tuple([leg.get('id') for leg in representative_proc.get('legs') if 
                         leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
+
             form_processor.generate_squared_topology_files(
                 pjoin(self.dir_path,'Rust_inputs'), n_jets, 
                 final_state_particle_ids=final_state_particle_ids,
+                jet_ids=self.alphaLoop_options['_jet_PDGs'],
                 # Remove non-contributing graphs from the list stored in the form_processor
                 filter_non_contributing_graphs=True
             )

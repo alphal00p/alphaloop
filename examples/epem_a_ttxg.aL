@@ -7,6 +7,6 @@ set_alphaLoop_option consider_vertex_id_in_graph_isomorphism False
 set_alphaLoop_option consider_edge_orientation_in_graph_isomorphism False
 set_alphaLoop_option FORM_processing_output_format c
 set_alphaLoop_option apply_graph_isomorphisms True 
-generate e+ e- > a > t t~ g
+add process e+ e- > a > t t~ g @0
 !rm -rf TEST_epem_a_ttxg
 output alphaLoop TEST_epem_a_ttxg

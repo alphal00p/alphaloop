@@ -584,7 +584,6 @@ aGraph=%s;
             edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
             vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
         )
-
         # check if cut is possible
         if len(topo.cuts) == 0:
             logger.info("No cuts for graph {}".format(self.name))
@@ -891,7 +890,7 @@ class FORMSuperGraphList(list):
         files rooted in the specified root_output_path."""
 
         if len(self)==0:
-            raise FormProcessingError("Unsupported output format for numerator functions: '%s'"%output_format)
+            raise FormProcessingError("Cannot generat numerators for an empty list of supergraphs.")
 
         if output_format not in self.extension_names:
             raise FormProcessingError("This FORMSuperGraphList instance requires at least one entry for generating numerators.")
@@ -1039,6 +1038,10 @@ int get_buffer_size() {{
             'topologies': []
         }
 
+        # Set sensible jet_ids if none
+        if jet_ids is None:
+            jet_ids=tuple(list(range(1,6))+list(range(-1,-6,-1))+[21,82,-82,])
+
         contributing_supergraphs = []
         with progressbar.ProgressBar(prefix='Generating squared topology files : ', max_value=len(self)) as bar:
             non_zero_graph = 0
@@ -1107,7 +1110,6 @@ class FORMProcessor(object):
 
         # there is another 1/4 difference between FORM and MG that is unexplained
         additional_overall_factor = helicity_averaging_factor
-
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
             additional_overall_factor=additional_overall_factor,
