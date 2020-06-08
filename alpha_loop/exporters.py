@@ -914,6 +914,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         replace_dict = {'global_variable':'', 'amp2_lines':'',
                                        'proc_prefix':proc_prefix, 'proc_id':''}
 
+
+        replace_dict['ndiags_in_this_proc'] = len(matrix_element.get('diagrams'))
+
         # Extract helas calls
         helas_calls = fortran_model.get_matrix_element_calls(\
                     matrix_element)

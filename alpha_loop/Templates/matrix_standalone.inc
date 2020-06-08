@@ -175,10 +175,10 @@ C	  ENDIF
       SUBROUTINE %(proc_prefix)sGET_N_DIAGRAMS( NDIAG )
 
       INTEGER NDIAG
-      INTEGER    NGRAPHS
-      PARAMETER (NGRAPHS=%(ngraphs)d) 
+      INTEGER    NDIAGS_IN_THIS_PROC
+      PARAMETER (NDIAGS_IN_THIS_PROC=%(ndiags_in_this_proc)d) 
       
-      NDIAG = NGRAPHS
+      NDIAG = NDIAGS_IN_THIS_PROC
 
       END SUBROUTINE %(proc_prefix)sGET_N_DIAGRAMS
 
