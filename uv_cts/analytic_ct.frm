@@ -1,4 +1,4 @@
-#define epsGoal "3"
+#define epsGoal "0"
 #-
 CFunction  topo1, topo2;
 
@@ -13,15 +13,10 @@ AutoDeclare Symbol cMi, alarmMi;
 
 *Local expr= topo2(3,2,3)+topo2(-5,4,3);
 *(k1.k1*mUV^2+p1.p2*k1.k1)*topo1(3);
+* full test checks IBPs
 *#include fullTest.inc
-
-* Local ibps1=-((-36633600 + 57571584*d - 34603072*d^2 + 10196480*d^3 - 1603480*d^4 + 135716*d^5 - 5758*d^6 + 95*d^7)*topo2(1, 1, 0))/(33592320*mUV^16) - ((-23042880 + 20938896*d - 7321734*d^2 + 1271809*d^3 - 117180*d^4 + 5614*d^5 - 126*d^6 + d^7)*topo2(1, 1, 1))/(11022480*mUV^14) + topo2(1, 1, 8);
-
-Local expr1=topo1(1);
-*Local expr2=topo2(0,2,2);
-*Local expr3=topo2(2,2,1);
-
-
+* fullExpansionTest computes expansions 
+#include fullExpansionTest.inc
 
 * replace partial fraction scalar-products 
 repeat;
@@ -61,10 +56,10 @@ multiply replace_(d,4-2*eps);
 #include mi2L2epsEpxansion.inc;
 
 .sort
-on nospacesinnumbers;
-format mathematica;
-#write <testExpA0.log>  "formRes=%E", expr1
-.sort
+*on nospacesinnumbers;
+*format mathematica;
+*#write <testExpA0.log>  "formRes=%E", expr1
+*.sort
 PolyRatFun;
 id rat(x1?,x2?) = num(x1)*den(x2);
 FactArg den, num;
@@ -87,27 +82,26 @@ endrepeat;
 PolyRatFun rat;
 Symbol eps;
 .sort
-on nospacesinnumbers;
-format mathematica;
-#write <testExpA.log>  "formRes=%E", expr1
-.sort;
+*on nospacesinnumbers;
+*format mathematica;
+*#write <testExpA.log>  "formRes=%E", expr1
+*.sort;
 PolyRatFun rat(expand,eps,10);
 Symbol eps;
 .sort
 PolyRatFun;
 id rat(x1?)=x1;
 id eps^n1?{>'epsGoal'}=0;
-print;
+*print;
 .sort
 
 on nospacesinnumbers;
 format mathematica;
-#write <testExpB.log>  "formRes=%E", expr1
-
-* export for running fullTest
+*#write <testExpB.log>  "formRes=%E", expr1
+* export for running fullTestEps
 *format mathematica;
-*#Do i=1,889;
-*    #write <ibpTest.log>  "%e", ibps'i'
-*#enddo;  
+#Do i=1,889;
+    #write <expansionTest.log>  "res'i'=%e", int'i'
+#enddo;  
 
 .end
