@@ -489,13 +489,14 @@ aGraph=%s;
         for edge_key, edge_data in local_graph.edges.items():
             edge_data['momentum'] =cls.momenta_decomposition_to_string(edge_data['momentum'])
             edge_data['vertices'] =(edge_key[0],edge_key[1])
-            particle = model.get_particle(edge_data['PDG'])
-            # In the above conventions the fermion are going against their flow, so we need
+            # In FORM conventions the fermion are going together with their flow, so we need
             # to flip the order of their fundamental/antifundamental indices so that FORM
             # builds the correct propagator. 
-            if len(edge_data['indices'])>1 and (particle.get('spin')%2==0 or particle.get('ghost')):
-                if particle.get('is_part'):
-                    edge_data['indices'] = tuple([edge_data['indices'][1],edge_data['indices'][0]])
+            # NO LONGER NEEDED: This now directly done right in FORM.
+#            particle = model.get_particle(edge_data['PDG'])
+#            if len(edge_data['indices'])>1 and (particle.get('spin')%2==0 or particle.get('ghost')):
+#                if not particle.get('is_part'):
+#                    edge_data['indices'] = tuple([edge_data['indices'][1],edge_data['indices'][0]])
 
         graph_name = 'P%(proc_id)dL%(left_diagram_id)dR%(right_diagram_id)d'%LTD2_super_graph.call_signature
         form_super_graph =  cls(
