@@ -151,9 +151,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Now write out a yaml file for each of these 
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
         Path(rust_inputs_path).mkdir(parents=True, exist_ok=True)
-        # BELOW is temporary until we have an hyperparameter to control which numerator to pick...
-        shutil.copy(pjoin(plugin_path, 'Templates', 'select_numerator.py'), 
-                    pjoin(rust_inputs_path, 'select_numerator.py'))
 
         # Compute final state symmetry factor
         for super_graph_list, ME in self.all_super_graphs:
@@ -353,14 +350,19 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 #                FORM_super_graph_list,
                 computed_model, characteristic_process_definition
             )
-
-            n_jets = len([1 for leg in representative_process.get('legs') if 
-                        leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
-            # Relax n_jets constraint based on the perturbative chosen
-            if len(self.alphaLoop_options['perturbative_orders'])!=0:
-                n_jets -= sum(self.alphaLoop_options['perturbative_orders'].values())//2
-            final_state_particle_ids = tuple([leg.get('id') for leg in representative_process.get('legs') if 
-                        leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
+            if self.alphaLoop_options['n_jets'] is not None:
+                n_jets = self.alphaLoop_options['n_jets']
+            else:
+                n_jets = len([1 for leg in representative_process.get('legs') if 
+                            leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
+                # Relax n_jets constraint based on the perturbative chosen
+                if len(self.alphaLoop_options['perturbative_orders'])!=0:
+                    n_jets -= sum(self.alphaLoop_options['perturbative_orders'].values())//2
+            if self.alphaLoop_options['final_state_pdgs'] is not None:
+                final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
+            else:
+                final_state_particle_ids = tuple([leg.get('id') for leg in representative_process.get('legs') if 
+                            leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
             logger.info("Generating yaml input files with FORM processing...")
             FORM_processor.generate_squared_topology_files(
                 pjoin(self.dir_path,'FORM','Rust_inputs'), n_jets, jet_ids=self.alphaLoop_options['_jet_PDGs'],
@@ -1207,11 +1209,16 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         else:
             representative_proc = self.proc_def
         if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
-            n_jets = len([1 for leg in representative_proc.get('legs') if 
-                        leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
-            final_state_particle_ids = tuple([leg.get('id') for leg in representative_proc.get('legs') if 
-                        leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
-
+            if self.alphaLoop_options['n_jets'] is None:
+                n_jets = len([1 for leg in representative_proc.get('legs') if 
+                            leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
+            else:
+                n_jets = self.alphaLoop_options['n_jets']
+            if self.alphaLoop_options['final_state_pdgs'] is None:
+                final_state_particle_ids = tuple([leg.get('id') for leg in representative_proc.get('legs') if 
+                            leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
+            else:
+                final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
             form_processor.generate_squared_topology_files(
                 pjoin(self.dir_path,'Rust_inputs'), n_jets, 
                 final_state_particle_ids=final_state_particle_ids,

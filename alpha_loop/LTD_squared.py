@@ -797,6 +797,8 @@ class SuperGraph(object):
             return loop_momenta_signs
 
         def get_final_state_particle_ids():
+            if self.alphaLoop_options['final_state_pdgs'] is not None:
+                return self.alphaLoop_options['final_state_pdgs']
             final_state_particle_ids = []
             
             all_external_pdgs = [ l.get('id') for l in self.process.get('legs') if l.get('state')==True ]
@@ -807,6 +809,8 @@ class SuperGraph(object):
             return tuple(final_state_particle_ids)
 
         def get_njets_in_observable_process():
+            if self.alphaLoop_options['n_jets'] is not None:
+                return self.alphaLoop_options['n_jets']
             #TODO do an actual correct filtering based on the coupling orderrs
             njets_in_observable_process = max( (len(self.cuts)-len(get_final_state_particle_ids())) - 
                                     sum(alphaLoop_options['perturbative_orders'].values())//2, 0)

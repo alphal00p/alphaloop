@@ -67,6 +67,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         
         self.alphaLoop_options = {
             'perturbative_orders' : { 'QCD': 0 },
+            # Offers the possibility of overwriting the requirement of final_state_pdgs. Set None to have this automatically set.
+            'final_state_pdgs' : None,
+            # Offers the possibility of overwriting n_jets. Set to None to have this automatically set.
+            'n_jets' : None,
             # By default we don't want denominators as those will be included in the rust backend
             'include_denominators' : False, 
             'use_physical_gluon_helicity_sum' : False,
@@ -172,6 +176,24 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 if v%2 != 0:
                     raise alphaLoopInvalidCmd("Specified perturbative orders shoudl be multiple of 2, not '%d'."%v)
             self.alphaLoop_options[key] = orders_dict
+        elif key == 'n_jets':
+            if value.upper()=='NONE':
+                value = None
+            else:
+                try:
+                    value = int(value)
+                except ValueError:
+                    raise alphaLoopInvalidCmd("alphaLoop option 'n_jets' should either be None or an integer, not '%s'."%value)
+            self.alphaLoop_options[key] = value
+        elif key == 'final_state_pdgs':
+            if value.upper()=='NONE':
+                fs_pdgs = None
+            else:
+                try:
+                    fs_pdgs = eval(value)
+                except:
+                    raise alphaLoopInvalidCmd("alphaLoop option 'final_state_pdgs' should either be None or a list/tuple of integer, not '%s'."%value)
+            self.alphaLoop_options[key] = tuple(fs_pdgs)
         elif key == 'include_denominators':
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for 'include_denominators' should be 'True' or 'False', not '%s'."%value)
