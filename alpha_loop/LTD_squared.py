@@ -835,14 +835,20 @@ class SuperGraph(object):
         def get_particle_scalings():
             # all scalings that deviate from -2
             scalings = {1: -1, 2: -1, 3: -1, 4: -1, 5: -1, 6: -1, 11: -1, 12: -1, 13: -1}
-            particle_scalings = {scalings[abs(edge_info['pdg'])] if abs(edge_info['pdg']) in scalings else -2 for edge, edge_info in self.graph.edges.items() }
+            particle_scalings = { edge_info['name'] :
+                scalings[abs(edge_info['pdg'])] if abs(edge_info['pdg']) in scalings else -2 
+                for edge, edge_info in self.graph.edges.items()
+            }
             if local_DEBUG: misc.sprint(particle_scalings)
             return particle_scalings
 
         def get_node_scalings():
             # only the triple gluon vertex and the ghost gluon vertex have a non-zero scaling
             scalings = {20: 1, 1: 1}
-            node_scalings = {scalings[node_info['vertex_id']] if node_info['vertex_id'] in scalings else 0 for node, node_info in self.graph.nodes.items() }
+            node_scalings = { cast_node_to_int(node) :
+                scalings[node_info['vertex_id']] if node_info['vertex_id'] in scalings else 0
+                for node, node_info in self.graph.nodes.items()
+            }
             if local_DEBUG: misc.sprint(node_scalings)
             return node_scalings
 

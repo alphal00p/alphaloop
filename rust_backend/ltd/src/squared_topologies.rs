@@ -249,7 +249,6 @@ pub struct SquaredTopology {
     pub n_incoming_momenta: usize,
     pub e_cm_squared: f64,
     pub overall_numerator: f64,
-    pub numerator_in_loop_momentum_basis: bool,
     pub external_momenta: Vec<LorentzVector<f64>>,
     pub cutkosky_cuts: Vec<CutkoskyCuts>,
     #[serde(skip_deserializing)]
@@ -1589,8 +1588,7 @@ impl SquaredTopology {
             }
 
             // convert from the cut basis to the loop momentum basis
-            if self.numerator_in_loop_momentum_basis
-                || self.settings.cross_section.numerator_source != NumeratorSource::Yaml
+            if self.settings.cross_section.numerator_source != NumeratorSource::Yaml
             {
                 if let Some(m) = &diagram_set.cb_to_lmb {
                     for (kl, r) in k_def_lmb[..self.n_loops]
@@ -1793,7 +1791,7 @@ impl SquaredTopology {
                             == NumeratorSource::MgAndForm
                         {
                             if let Some(mg_call_signature) = &self.mg_numerator.call_signature {
-                                if ( (*rlb).norm_sqr()==Into::<T>::into(0.0) || coeff.norm_sqr()==Into::<T>::into(0.0) ) {
+                                if (*rlb).norm_sqr()==Into::<T>::into(0.0) || coeff.norm_sqr()==Into::<T>::into(0.0) {
                                     // TODO the dimensionality of (*rlb - coeff).norm_sqr() is not GeV^2 but depends on the number of incoming
                                     // and outgoing momenta. This is only for debugging though, so prolly ok for now.
                                     if (*rlb - coeff).norm_sqr() > Into::<T>::into(1e-10*self.e_cm_squared) {
@@ -1837,12 +1835,8 @@ impl SquaredTopology {
                 // Store the reduced numerator in the left graph cache for now
                 // TODO: this is impractical
                 diagram_set.numerator.evaluate_reduced_in_lb(
-                    if self.numerator_in_loop_momentum_basis {
-                        &k_def_lmb[..self.n_loops]
-                    } else {
-                        &k_def
-                    },
-                    cutkosky_cuts.cuts.len() - 1, // FIXME: this is not correct in the loop momentum basis!
+                        &k_def,
+                    cutkosky_cuts.cuts.len() - 1,
                     &mut diag_cache[0],
                     0,
                     regenerate_momenta,
@@ -1866,7 +1860,7 @@ impl SquaredTopology {
             let mut result_complete_numerator = Complex::default();
             for (coeff, powers) in supergraph_coeff
                 .iter()
-                .zip(&diagram_set.numerator.reduced_coefficient_index_to_powers)
+                .zip(&diagram_set.numerator.reduced_coefficient_index_to_powers[..diagram_set.numerator.reduced_size])
             {
                 if coeff.is_zero() {
                     continue;
@@ -1906,31 +1900,16 @@ impl SquaredTopology {
                         // now set the coefficient to 1 for the current monomial in the subgraph
                         // by mapping the powers in the reduced numerator back to the power pattern
                         // of the complete numerator
-                        // there is partial support for numerators in the loop momentum basis: only permutations of the
-                        // order from lmb to cb are allowed
                         let mut subgraph_powers = [0; 10]; // TODO: make max rank a constant
                         let mut power_index = 0;
 
-                        if self.numerator_in_loop_momentum_basis {
-                            for (lmi, (lmm, ext)) in subgraph.loop_momentum_map.iter().enumerate() {
-                                debug_assert!(ext.iter().all(|c| *c == 0));
-                                debug_assert!(lmm.iter().filter(|c| **c != 0).count() == 1);
-
-                                let lmb_index = lmm.iter().filter(|c| **c != 0).next().unwrap();
-                                for _ in 0..powers[*lmb_index as usize] {
-                                    subgraph_powers[power_index] = lmi * 4;
-                                    power_index += 1;
-                                }
-                            }
-                        } else {
-                            for (lmi, p) in powers[def_mom_index..def_mom_index + subgraph.n_loops]
-                                .iter()
-                                .enumerate()
-                            {
-                                for _ in 0..*p {
-                                    subgraph_powers[power_index] = lmi * 4;
-                                    power_index += 1;
-                                }
+                        for (lmi, p) in powers[def_mom_index..def_mom_index + subgraph.n_loops]
+                            .iter()
+                            .enumerate()
+                        {
+                            for _ in 0..*p {
+                                subgraph_powers[power_index] = lmi * 4;
+                                power_index += 1;
                             }
                         }
 

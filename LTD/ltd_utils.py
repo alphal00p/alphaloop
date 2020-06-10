@@ -311,6 +311,9 @@ class TopologyGenerator(object):
         return res
 
     def contruct_uv_forest(self, vertex_weights, edge_weights):
+        """Construct the UV forest. The subgraphs in each spinney are order from smallest to largest, as this
+        is the order in which they need to be Taylor expanded.
+        """
         # construct all paths in a graph
         # we store edges instead of vertices, so that the procedure
         # supports duplicate edges
@@ -375,17 +378,115 @@ class TopologyGenerator(object):
             vertex_subset = [set(v for e in cycle for v in self.edge_map_lin[e][1:]) for cycle, _ in subset]
 
             # check if the components are not overlapping (ie, they do not share a vertex or they are embedded in the other)
-            for (e1, v1), (e2, v2) in combinations(zip(subset, vertex_subset), 2):
+            for ((e1, _), v1), ((e2, _), v2) in combinations(zip(subset, vertex_subset), 2):
                 fuse_len_v12 = len(v1 | v2)
                 fuse_len_e12 = len(set(e1) | set(e2))
                 if fuse_len_v12 != len(v1) and fuse_len_v12 != len(v2) and fuse_len_v12 != len(v1) + len(v2) or \
                     fuse_len_e12 != len(e1) and fuse_len_e12 != len(e2) and fuse_len_e12 != len(e1) + len(e2):
                     break
             else:
-                forest.append(tuple((tuple(sorted(self.edge_map_lin[e][0] for e in s)), dod) for s, dod in subset))
+                forest.append(tuple(sorted(((tuple(sorted(self.edge_map_lin[e][0] for e in s)), dod) for s, dod in subset), key=lambda x: len(x))))
 
         return forest
 
+    def construct_uv_limits(self, vertex_weights, edge_weights):
+        f = self.contruct_uv_forest(vertex_weights, edge_weights)
+        #print('subgraph forest', f)
+
+        new_graphs = []
+        for spinney in f:
+            gs = [{
+                'graph': copy.deepcopy(self),
+                'spinney': spinney,
+                'numerator': []}]
+
+            for graph_index, (subgraph_momenta_full, dod) in enumerate(spinney):
+                # strip all subgraphs in the spinney from the current subgraph momenta
+                # as these subgraphs have already been factored out by the Taylor expansion
+                subgraph_momenta = [m for m in subgraph_momenta_full if not any(m in s for s, _ in spinney[:graph_index])]
+                subgraph_indices = [i for i, (m, _) in enumerate(spinney[:graph_index]) if len(set(m) & set(subgraph_momenta_full)) != 0]
+
+                new_gs = []
+                for graph_info in gs:
+                    g = graph_info['graph']
+                    #print(g.edge_map_lin)
+                    subgraph_vertices = set(v for m in subgraph_momenta for v in g.edge_map_lin[g.edge_name_map[m]][1:])
+                    subgraph_external_edges = [e[0] for i, e in enumerate(g.edge_map_lin) if len(set(e[1:]) & subgraph_vertices) == 1]
+                    subgraph_external_edges =  [m for m in subgraph_external_edges if not any(m in s for s, _ in spinney[:graph_index])]
+
+                    subgraph_loop_edges = [m for m in subgraph_momenta if len(self.propagators[self.edge_name_map[m]]) == 1 and 
+                        self.propagators[self.edge_name_map[m]][0][0] not in self.ext]
+
+                    # group subgraph momenta by their subgraph loop momentum signature
+                    loop_lines = defaultdict(list)
+                    for m in subgraph_momenta:
+                        sig = tuple(self.edge_map_lin[k[0]][0] for k in self.propagators[self.edge_name_map[m]] if self.edge_map_lin[k[0]][0] in subgraph_loop_edges)
+                        ext_sig = tuple(self.edge_map_lin[k[0]][0] for k in self.propagators[self.edge_name_map[m]] if self.edge_map_lin[k[0]][0] not in subgraph_loop_edges)
+                        assert(len(sig) > 0)
+                        if len(ext_sig) > 0:
+                            # only add propagators that contain a shift
+                            loop_lines[sig].append(m)
+                    loop_lines = [p for l, p in loop_lines.items()]
+
+                    # construct all different denominator configurations, ie, 
+                    # raising of loop lines that have external momentum dependence)
+                    for d in range(dod + 1):
+                        # get all combinations of propagators
+                        for c in combinations_with_replacement(range(len(loop_lines)), d):
+                             # loop lines with only 1 propagator cannot have a shift, so we filter them
+                            if any(len(loop_lines[i]) == 1 for i in c):
+                                continue
+                            gn = copy.deepcopy(g)
+                            for loop_line in c:
+                                gn.powers[loop_lines[loop_line][0]] += 1
+
+                            # take the UV limit of the propagators by fusing the vertices of the subgraph
+                            external_vertices = [v for v in subgraph_vertices if any(v in gn.edge_map_lin[g.edge_name_map[e]][1:] for e in subgraph_external_edges)]
+                            for ei, e in enumerate(gn.edge_map_lin):
+                                if e[0] in subgraph_momenta or e[0] in subgraph_external_edges:
+                                    if e[1] in external_vertices[1:]:
+                                        gn.edge_map_lin[ei] = (e[0], external_vertices[0], e[2])
+                                    if e[2] in external_vertices[1:]:
+                                        gn.edge_map_lin[ei] = (e[0], gn.edge_map_lin[ei][1], external_vertices[0])
+
+                            # fuse duplicate edges, keeping loop momentum edges to preserve parts of the signature map
+                            # TODO: give UV mass here? now it will be added in squared_topologies.py
+                            # TODO: strip legs from tadpoles
+                            # TODO: drop shift, we need a signature map for that
+                            sorted_subgraph_momenta = sorted(subgraph_momenta, key=lambda m: m in subgraph_loop_edges)
+                            print(sorted_subgraph_momenta)
+                            for i, e in enumerate(sorted_subgraph_momenta):
+                                for e2 in sorted_subgraph_momenta[i+1:]:
+                                    # TODO: what if the edge is in reverse?
+                                    if gn.edge_map_lin[gn.edge_name_map[e]][1:] == gn.edge_map_lin[gn.edge_name_map[e2]][1:]:
+                                        gn.powers[e2] += gn.powers[e]
+                                        del gn.edge_map_lin[gn.edge_name_map[e]]
+                                        gn = TopologyGenerator(gn.edge_map_lin, powers=gn.powers)
+                                        break
+
+                            graph_configuration = {
+                                'graph_index': graph_index,
+                                'subgraph_indices': subgraph_indices,
+                                'taylor_order': d,
+                                'derived_loop_lines': c,
+                                'external_edges': subgraph_external_edges,
+                                'loop_edges': subgraph_loop_edges,
+                                'loop_lines': loop_lines
+                            }
+
+                            new_gs.append( {
+                                'graph': gn,
+                                'spinney': spinney,
+                                'numerator': graph_info['numerator'] + [graph_configuration],
+                            })
+                gs = new_gs
+
+            # TODO: cut up the graph since it factorizes now
+            new_graphs.extend(gs)
+
+        #import pprint
+        #pprint.pprint(new_graphs)
+        return new_graphs
 
     def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids, PDGs_in_jet=None ):
         """ Note that when called from withing the MG/QGRAF generation pipeline, the PDGs_in_jet option will be specified
@@ -396,7 +497,7 @@ class TopologyGenerator(object):
 
         # Let us use sane defaults
         if PDGs_in_jet is None:
-            PDGs_in_jet=(1,2,3,4,5,-1,-2,-3,-4,-5,21,82,-82)
+            PDGs_in_jet=(0,1,2,3,4,5,-1,-2,-3,-4,-5,21,82,-82)
 
         if not self.spanning_trees:
             # if a final state particle only occurs once in the graph, we can always add the edge
@@ -451,7 +552,7 @@ class TopologyGenerator(object):
                         if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
 
                 # filter cuts with not enough jets and cuts that do not contain all desired final state particles
-                cutkosky_particles = tuple(sorted(abs(particle_ids[e]) for (e, _, _) in cutkosky_cut if e in particle_ids))
+                cutkosky_particles = tuple(sorted(abs(particle_ids[e]) if e in particle_ids else 0 for (e, _, _) in cutkosky_cut))
                 cutkosky_jet_particles = tuple(p for p in cutkosky_particles if p in PDGs_in_jet)
                 cutkosky_non_jet_particles = tuple(p for p in cutkosky_particles if p not in PDGs_in_jet)
 
@@ -2133,9 +2234,30 @@ class TopologyCollection(dict):
         return result
 
 if __name__ == "__main__":
-    triangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3),
-                                ('p3', 2, 3), ('q2', 3, 4), ('q3', 2, 5)])  # triangle
-    doubletriangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3), ('p3', 2, 3),
-                                        ('p4', 3, 4), ('p5', 2, 4), ('q2', 4, 5)])  # double-triangle
-    loop_topology = doubletriangle.create_loop_topology("DoubleTriangle", ext_mom={'q1': vectors.LorentzVector(
-        [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)
+    #triangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3),
+    #                            ('p3', 2, 3), ('q2', 3, 4), ('q3', 2, 5)])  # triangle
+    #doubletriangle = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 1, 3), ('p3', 2, 3),
+    #                                    ('p4', 3, 4), ('p5', 2, 4), ('q2', 4, 5)])  # double-triangle
+    #loop_topology = doubletriangle.create_loop_topology("DoubleTriangle", ext_mom={'q1': vectors.LorentzVector(
+    #    [0.1, 0.2, 0.3, 0.4])}, mass_map={'p1': 1.0, 'p2': 2.0, 'p3': 3.0}, loop_momenta_names=('p1', 'p5'), analytic_result=None)
+
+    uv = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 2, 3), ('p4', 1, 3), ('q2', 3, 4)])
+    uv.generate_momentum_flow()
+    vw = {v: 0 for e in uv.edge_map_lin for v in e[1:]}
+    ew = {e: -2 for e, _, _ in uv.edge_map_lin}
+
+    ew['p3'] = -1
+    ew['p1'] = -3
+    uvl = uv.construct_uv_limits(vw, ew)
+    for x in uvl:
+        print(x['graph'].edge_map_lin, x['graph'].powers, x['numerator'])
+
+    #print('-------------')
+    #uv = TopologyGenerator([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 4), ('p4', 4, 5), ('p5', 5, 6), ('p6', 6, 7), ('p7', 7, 8),
+    #('p8', 8, 1), ('p9', 2, 6), ('p10', 3, 7), ('p11', 4, 8), ('q2', 5, 9)])
+    #uv.generate_momentum_flow()
+    #vw = {v: 0 for e in uv.edge_map_lin for v in e[1:]}
+    #ew = {'p1': -1,'p2': -1,'p3': -1,'p4': -1,'p5': -1,'p6': -1,'p7': -1,'p8': -1,'p9': -2,'p10': -2,'p11': -2}
+    #uvl = uv.construct_uv_limits(vw, ew)
+    #for x in uvl:
+    #    print(x['graph'].edge_map_lin, x['graph'].powers, x['numerator'])

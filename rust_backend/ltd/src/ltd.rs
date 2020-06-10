@@ -3494,7 +3494,7 @@ impl LTDNumerator {
             return 0;
         }
         let mut pos = reduced_blocks[(rank as usize - 1) * n_variable + n_variable - 1];
-        for (n, pow) in basis[..n_variable].iter().rev().enumerate() {
+        for (n, pow) in basis[..n_variable].iter().enumerate() {
             rank -= pow;
             pos += 1;
 

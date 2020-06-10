@@ -541,7 +541,7 @@ aGraph=%s;
 
     def get_node_scaling(self, pdgs):
         # only the triple gluon vertex and the ghost gluon vertex have a non-zero scaling
-        if pdgs == (22, 22, 22) or pdgs == (-82, 22, 82):
+        if pdgs == (21, 21, 21) or pdgs == (-82, 21, 82):
             return 1
         else:
             return 0
@@ -607,10 +607,11 @@ aGraph=%s;
                 # determine LTD momenta in the same order as rust expects them (the cb)
                 ltd_momenta = []
                 trans = ['1']
+                diag_set_uv_conf = []
 
                 for diag_info, loop_diag_info in zip(diag_set['diagram_info'], loop_diag_set['diagram_info']):
                     for ltd_mom in loop_diag_info['graph'].loop_momentum_map:
-                        ltd_momenta.extend('k' + str(i) + 1 for i, s in enumerate(ltd_mom[0]) if s != 0)
+                        ltd_momenta.extend('k' + str(i + 1) for i, s in enumerate(ltd_mom[0]) if s != 0)
                     if diag_info['derivative'] is not None:
                         ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
                         der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
@@ -624,12 +625,46 @@ aGraph=%s;
                         else:
                             trans.append('-2*(' + der_mom + ')')
 
+                    # translate the UV forest
+                    uv_subgraphs = []
+                    for num in diag_info['numerator']:
+                        uv_sig = '*'.join(['t{}^{}'.format(x, num['derived_loop_lines'].count(x)) for x in range(len(num['loop_lines']))])
+                        # get the external momenta without sign
+                        # note: the signatures are unaffected by the bubble treatment from before
+                        external_momenta = set(m for e in num['external_edges'] 
+                            for m in self.momenta_decomposition_to_string(next(ee for ee in self.edges.values() if ee['name'] == e)['signature'], False)
+                                    .replace('-', '+').split('+') if m != '')
+                        loop_momenta_signatures = [next(ee for ee in self.edges.values() if ee['name'] == e)['signature'] for e in num['loop_edges']]
+                        
+                        uv_props = []
+                        for i, ll in enumerate(num['loop_lines']):
+                            for edge in ll:
+                                # split off the subgraph loop momenta from the signature
+                                edge_signature = next(ee for ee in self.edges.values() if ee['name'] == edge)['signature']
+                                loop_signature = [[s if all(sl[0][i] != 0 for sl in loop_momenta_signatures) else 0 for i, s in enumerate(edge_signature[0])], [0]*len(edge_signature[1])]
+                                ext_signature = [[s if sl == 0 else 0 for s, sl in zip(edge_signature[0], loop_signature[0])], edge_signature[1]]
+
+                                uv_props.append('uvprop({},t{},{})'.format(self.momenta_decomposition_to_string(loop_signature, False), i, 
+                                    self.momenta_decomposition_to_string(ext_signature, False)))
+
+                        uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, num['taylor_order'], ','.join(external_momenta), '*'.join(uv_props))
+                        uv_subgraphs.append('subgraph({}{},{})'.format(num['graph_index'], 
+                        (',' if len(num['subgraph_indices']) > 0 else '') + ','.join(num['subgraph_indices']),
+                        uv_conf))
+
+                    if uv_subgraphs != []:
+                        diag_set_uv_conf.append('*'.join(uv_subgraphs))
+
                 if len(ltd_momenta) == 0:
                     conf = 'k0' # signal that there are no ltd momenta
                 else:
                     conf = ','.join(ltd_momenta)
 
-                configurations.append('conf({},{},{})'.format(diag_set['id'], conf, '*'.join(trans)))
+                conf = 'conf({},{},{})'.format(diag_set['id'], conf, '*'.join(trans))
+                if diag_set_uv_conf != []:
+                    conf += '*uv({})'.format('*'.join(diag_set_uv_conf))
+
+                configurations.append(conf)
 
         # replace external momentum in all bubbles with a dummy momentum
         mommap = []
@@ -947,6 +982,9 @@ class FORMSuperGraphList(list):
                     conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
                     conf_id = conf[0]
                     confs.append(conf_id)
+                    
+                    ltd_vars = [v for v in conf[1:] if v != 'k0']
+                    n_cuts = n_loops - len(ltd_vars)
 
                     mono_secs = conf_sec.split('#NEWMONOMIAL')
                     
@@ -956,11 +994,8 @@ class FORMSuperGraphList(list):
                         mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
                         # parse monomial powers and get the index in the polynomial in the cb
                         pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
-                        pows = tuple(int(r[1:]) - 1 for r in pows)
-                        if pows == (-1,):
-                            index = 0
-                        else:
-                            index = numerator_pows.index(pows)
+                        pows = tuple(n_cuts + ltd_vars.index(r) for r in pows if r != 'k0')
+                        index = numerator_pows.index(pows)
                         max_index = max(index, max_index)
                         max_buffer_size = max(index, max_buffer_size)
                         mono_sec = energy_exp.sub('', mono_sec)
@@ -1003,7 +1038,7 @@ int evaluate_{}(double complex lm[], int conf, double complex* out) {{
 
 {}
 
-void evaluate(double complex lm[], int diag, int conf, double complex* out) {{
+int evaluate(double complex lm[], int diag, int conf, double complex* out) {{
     switch(diag) {{
 {}
     }}
@@ -1013,7 +1048,7 @@ int get_buffer_size() {{
     return {};
 }}
 """.format(
-    '\n'.join('void evaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in range(len(self))),
+    '\n'.join('int evaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in range(len(self))),
     '\n'.join(
     ['\t\tcase {}: return evaluate_{}(lm, conf, out);'.format(i, i) for i in range(len(self))]+
     ['\t\tdefault: raise(SIGABRT);']

@@ -82,7 +82,7 @@ Auto V p,k;
 Auto S lm,ext;
 Auto I mu=4,s=4;
 Symbol ge, gs, gy, ghhh, type, in, out, virtual;
-Auto S x, idx;
+Auto S x, idx, t;
 
 Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
@@ -91,10 +91,12 @@ Set lorentzdummy: mud1,...,mud40;
 CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f,vx, vec;
 CF subs, configurations, conf, der, energy, spatial(s);
+CF subgraph, uvconf, uvconf1, uvprop, uv;
+Set ts: t1,...,t20;
 CT penergy;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
-S  i, m, n;
+S  i, m, n, ALARM;
 
 #include- diacolor.h
 Set colF: cOli1,...,cOli40;
@@ -291,11 +293,40 @@ repeat id energy(?a)*energy(?b) = energy(?a,?b);
 symmetrize energy;
 id energy(?a) = energy(f(?a));
 if (count(energy,1) == 0) Multiply energy(f(k0)); * signal with k0 that we are dealing with the constant term
+.sort:bubble-treatment;
 
-* Obtain the maximal p and k from Python. It would be unsafe to retrieve it from the expression.
-#$MAXK = `NFINALMOMENTA';
-#$MAXP = `NINITIALMOMENTA';
-.sort
+argument uv;
+   repeat;
+* all subgraphs without dependencies can be treated at the same time
+* multiply each graph with -1 to correctly subtract it
+        id subgraph(x1?, x2?) = -uvconf1(x1, x2);
+        argument uvconf1,2;
+            id uvconf(x1?,x2?,?a,x3?) = uvconf(x1, x2) * uvconf1(?a) * x3;
+            chainout uvconf1;
+            repeat id uvconf1(p?)*uvconf1(p?) = uvconf1(p);
+            id uvconf1(p?) = replace_(p, t * p);
+
+            id uvprop(k?,t1?,p?) = 1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t^4;
+* select the right Taylor expansion depth
+            id uvconf(x?, x1?)*t^x2? = uvconf(x)*theta_(x1-x2)*t^x2;
+* select the right denominator structure
+            id uvconf(x?) = 1/x;
+            id t?ts^n? = 0;
+            id t = 1;
+        endargument;
+
+* now fill in the subgraph evaluation into the supergraph
+        repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf1(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*x3));
+    endrepeat;
+    
+    id once uvconf1(x?,x1?) = x1;
+    if (count(subgraph, 1));
+        Print "Unsubstituted UV subgraph: %t";
+        exit "Critical error";
+    endif;
+endargument;
+id uv(x?) = x;
+.sort:uv-treatment;
 
 *********************************************
 * Construction of optimized numerator C code
@@ -308,6 +339,9 @@ argtoextrasymbol tonumber,conf,1;
 B+ conf;
 .sort:conf-1;
 Hide F;
+
+#$MAXK = `NFINALMOMENTA';
+#$MAXP = `NINITIALMOMENTA';
 
 #redefine energysymbolstart "`extrasymbols_'"
 #do ext={`oldextrasymbols'+1}, `extrasymbols_'

@@ -403,7 +403,7 @@ impl JetClustering {
             .zip_eq(&event.final_state_particle_ids)
         {
             // filter for jet particles: u, d, c, s, d, g, QCD_ghost
-            //TODO make it a hyperparam of the observable! 
+            //TODO make it a hyperparam of the observable!
             if id.abs() < 6 || *id == 21 || id.abs() == 82 {
                 self.fastjet_jets_in.extend(&[e.t, e.x, e.y, e.z]);
                 len += 1;
@@ -535,7 +535,8 @@ impl EventSelector for JetSelector {
         self.clustering.ordered_pt.len() >= self.jet_selector_settings.min_jets
             && self.clustering.ordered_pt.len() <= self.jet_selector_settings.max_jets
             && self.clustering.ordered_pt[0] >= self.jet_selector_settings.min_j1pt
-            && (self.jet_selector_settings.max_j1pt < 0.0 || (self.clustering.ordered_pt[0] <= self.jet_selector_settings.max_j1pt) )
+            && (self.jet_selector_settings.max_j1pt < 0.0
+                || (self.clustering.ordered_pt[0] <= self.jet_selector_settings.max_j1pt))
     }
 }
 
@@ -687,7 +688,7 @@ impl Jet1PTObservable {
         x_max: f64,
         num_bins: usize,
         d_r: f64,
-        min_jpt : f64,
+        min_jpt: f64,
         write_to_file: bool,
         filename: String,
         use_fastjet: bool,
