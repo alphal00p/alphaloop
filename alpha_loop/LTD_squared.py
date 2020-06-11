@@ -261,6 +261,8 @@ class SuperGraph(object):
         # The attributes below will be set by the function sew_graphs.
         self.graph = None
         self.cuts = None
+        self.MG_external_momenta_sign_flips = None
+
         self.external_incoming_momenta = None
         self.sew_graphs(
             # Use copies to avoid border effects from edges removal
@@ -401,6 +403,19 @@ class SuperGraph(object):
             raise LTD2Error("The last cut propagator should never be flipped by the fermion-flow fixing procedure.")
 
         #n_initial=len(self.external_incoming_momenta)
+
+        # There are two possible options: Either make sure all edges have positive energies (i.e go from left to right)
+        # in the loop momentum basis, which means that they could go against their edge orientation which would force
+        # to have minus signs in the cb_to_lmb *OR* one can chose to instead have all edge momenta always aligned with their
+        # orientation and perform the flip of the momenta so that they are all outgoing on the cutkosky cut in the MG num.
+        _FORCE_MOMENTA_TO_BE_ALIGNED_WITH_EDGE_ORIENTATION = True
+        self.MG_external_momenta_sign_flips = [False,]*(len(self.cuts)-1)
+        if _FORCE_MOMENTA_TO_BE_ALIGNED_WITH_EDGE_ORIENTATION:
+            for i_cut in range(len(self.cuts)-1):
+                self.MG_external_momenta_sign_flips[i_cut] = self.cuts[i_cut][2]
+            for i_cut in range(len(self.cuts)):
+                self.cuts[i_cut] = (self.cuts[i_cut][0],self.cuts[i_cut][1],False)
+
         for edge_key, edge_data in self.graph.edges.items():
             this_signature=[
                 list(signatures[edge_data['name']][0]),
@@ -760,6 +775,10 @@ class SuperGraph(object):
     def generate_yaml_input_file(self, file_path, model, alphaLoop_options, FORM_id=None):
         """ Generate the yaml input file for the rust_backend, fully specifying this squared topology."""
 
+        # We need to enforce at this stage the momentum routing to be set so that we may correctly
+        # se the loop momenta sign when the users opts for _FORCE_MOMENTA_TO_BE_ALIGNED_WITH_EDGE_ORIENTATION=True.
+        self.set_momentum_routing()
+
         local_DEBUG = False
         if local_DEBUG: misc.sprint("Now processing topology '%s'."%self.name)
         # Nodes are labelled like I<i>, O<i>, L<i> or R<i>.
@@ -785,6 +804,7 @@ class SuperGraph(object):
         def get_external_momenta_assignment():
             # TODO This must go, it does not make much sense for it to be assigned in the context of using MG numerators.
             return {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+#            return {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
 
         def get_loop_momenta_names():
             loop_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.cuts[:-1] ]

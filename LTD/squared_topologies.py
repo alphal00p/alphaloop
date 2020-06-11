@@ -28,6 +28,10 @@ class SquaredTopologyGenerator:
         # This is supported by adjusting the cb to lmb rotation matrix to be applied
         # before calling the numerator.
         self.loop_momenta_signs = loop_momenta_signs
+        # However, we no longer want to support this case and instead enforce momenta to always follow
+        # the edge orientation. The numerator must therefore be modified upstream so as to satisfy this requirement.
+        assert(all(lms==1 for lms in loop_momenta_signs))
+
         self.loop_topo = self.topo.create_loop_topology(name,
             external_momenta,
             loop_momenta_names=loop_momenta_names,

@@ -489,6 +489,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         self.write_f2py_splitter()
         self.write_hook_makefile()
 
+        # Write the overall cross-section yaml file
+        self.write_overall_LTD_squared_info()
+
         # Add the C_bindings
         filename = pjoin(self.dir_path, 'SubProcesses','C_bindings.f')
         C_binding_replace_dict = self.write_c_bindings(writers.FortranWriter(filename))
@@ -496,9 +499,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Add the IO_bindings
         filename = pjoin(self.dir_path, 'SubProcesses','IO_bindings.f')
         self.write_IO_bindings(writers.FortranWriter(filename),C_binding_replace_dict)
-
-        # Write the overall cross-section yaml file
-        self.write_overall_LTD_squared_info()
 
         # Compile the C_bindings
         logger.info("Compiling C_bindings for MG numerators...")
@@ -555,6 +555,34 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         all_externals_combination = set([])
         for me, number in processes:
             all_externals_combination.add(len(me.get('processes')[0].get('legs')))
+        
+        max_n_indep_mom = max(all_externals_combination)
+        replace_dict['max_n_indep_mom'] = max_n_indep_mom
+
+        max_n_diags = 0
+        for super_graph_list, ME in self.all_super_graphs:
+            for sg in super_graph_list:
+                max_n_diags=max(sg.call_signature['left_diagram_id'],sg.call_signature['right_diagram_id'])
+
+        replace_dict['max_n_diags'] = max_n_diags
+
+        mom_sign_flips = []
+        for i_proc, (super_graph_list, ME) in enumerate(self.all_super_graphs):
+            (nexternal, ninitial) = ME.get_nexternal_ninitial()
+            for sg in super_graph_list:
+                mom_sign_flips.append("DATA (MOM_SIGNS(%d,%d,%d,I),I=1,%d)/%s/"%(
+                    i_proc, 
+                    sg.call_signature['left_diagram_id'],
+                    sg.call_signature['right_diagram_id'],
+                    ninitial+len(sg.cuts)-1,
+                    ','.join((['1',]*ninitial)+(
+                    ['1',]*(len(sg.cuts)-1) if sg.MG_external_momenta_sign_flips is None else
+                    ['-1' if is_flipped else '1' for is_flipped in sg.MG_external_momenta_sign_flips])
+                    )
+                ))
+
+        replace_dict['mom_sign_flips_def'] = '\n'.join(mom_sign_flips)
+
         # And now generate an input momenta configuration for all of them
         truncated_mom_list = []
         for n_external in sorted(list(all_externals_combination)):
@@ -574,7 +602,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             n_incoming = len([l for l in me.get('processes')[0].get('legs') if l.get('state')==False])
             matrix_element_call_dispatch.append("P%d(I,%d)=DCMPLX(0.0d0,0.0d0)"%(n_external,n_external))
             matrix_element_call_dispatch.append("DO J=0,%d-1"%(n_external-1))
-            matrix_element_call_dispatch.append("P%d(I,J+1)=DCMPLX(P(J*8+2*I+1),P(J*8+2*I+2))"%n_external)
+            matrix_element_call_dispatch.append("P%d(I,J+1)=MOM_SIGNS(PROC_ID,SDL,SDR,J+1)*DCMPLX(P(J*8+2*I+1),P(J*8+2*I+2))"%n_external)
             matrix_element_call_dispatch.append("IF ((J+1).le.%d) THEN"%n_incoming)
             matrix_element_call_dispatch.append("P%d(I,%d)=P%d(I,%d)+P%d(I,J+1)"%(n_external,n_external,n_external,n_external,n_external))
             matrix_element_call_dispatch.append("ELSE")

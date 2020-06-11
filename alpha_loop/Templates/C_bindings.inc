@@ -8,10 +8,17 @@ C Additional interface subroutines to add:
 
         INTEGER MAX_PROC_NUMBER
         PARAMETER( MAX_PROC_NUMBER=%(max_proc_number)d)
+        INTEGER MAX_N_DIAGS
+        PARAMETER( MAX_N_DIAGS=%(max_n_diags)d)
+        INTEGER MAX_N_INDEP_MOM
+        PARAMETER( MAX_N_INDEP_MOM=%(max_n_indep_mom)d)
         INTEGER PROC_ID_TO_POSITION(0:MAX_PROC_NUMBER)
         DATA (PROC_ID_TO_POSITION(I),I=0,MAX_PROC_NUMBER)/%(proc_number_to_position_map)s/
 
         %(truncated_mom_list)s
+
+        INTEGER MOM_SIGNS(0:MAX_PROC_NUMBER,MAX_N_DIAGS,MAX_N_DIAGS,MAX_N_INDEP_MOM)
+        %(mom_sign_flips_def)s
 
 C       Format ia P1E_re, P1E_im, P1x_re, P1x_im, ..., P2E_re, P2E_im, ...
         real(c_double), intent(in)  :: P(*)
