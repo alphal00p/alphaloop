@@ -383,11 +383,18 @@ aGraph=%s;
         outer_in_nodes = []
         outer_out_nodes = []
         for node_key, node_data in local_graph.nodes.items():
+            # Assign the corresponding edge
+            if node_key.startswith('I') or node_key.startswith('O'):
+                for edge_key, edge_data in local_graph.edges.items():
+                    if edge_key[0]==node_key or edge_key[1]==node_key:
+                        node_data['edge_ids'] = tuple([edge_key,])
+                        break
+                if 'edge_ids' not in node_data:
+                    node_data['edge_ids'] = tuple([])
             if node_key.startswith('I'):
                 outer_in_nodes.append(node_key)
                 node_data['momenta'] = ('p%d'%int(node_key[1:]),)
                 node_data['vertex_id'] = -1 # Incoming node at assigned vertex ID = -1
-
             if node_key.startswith('O'):
                 outer_out_nodes.append(node_key)
                 node_data['momenta'] = ('p%d'%int(node_key[1:]),)
@@ -399,6 +406,7 @@ aGraph=%s;
             this_index = int(node_key[1:])
             curr_index = max(curr_index,this_index)
             local_graph.nodes[node_key]['indices'] = (this_index,)
+
         n_incoming=int(curr_index)
         for node_key in outer_out_nodes:
             this_index = n_incoming+int(node_key[1:])
@@ -838,6 +846,8 @@ class FORMSuperGraphList(list):
                 for i_node, (n_key, n) in enumerate(g['nodes'].items()):
                     node_names[n_key]=i_node+1
                     new_nodes[i_node+1] = n
+                for n in g['nodes'].values():
+                    n['edge_ids'] = tuple([ (node_names[edge_key[0]],node_names[edge_key[1]],edge_key[2]) for edge_key in n['edge_ids'] ])
                 new_edges = {}
                 for edge_key, edge in g['edges'].items():
                     edge['vertices']=(node_names[edge_key[0]],node_names[edge_key[1]])
