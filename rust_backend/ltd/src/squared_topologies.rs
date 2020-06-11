@@ -1427,7 +1427,41 @@ impl SquaredTopology {
             external_momenta[1].t = cut_energies_summed;
         }
 
+        let mut constants = Complex::one();
+
+        constants *= utils::powi(
+            num::Complex::new(
+                Into::<T>::into(1.)
+                    / <T as Float>::powi(Into::<T>::into(2.) * <T as FloatConst>::PI(), 4),
+                T::zero(),
+            ),
+            self.n_loops,
+        );
+
+        // multiply the flux factor
+        constants /= if self.n_incoming_momenta == 2 {
+            Into::<T>::into(2.)
+                * (SquaredTopology::lambda(
+                    (external_momenta[0] + external_momenta[1]).square(),
+                    external_momenta[0].square(),
+                    external_momenta[1].square(),
+                ))
+                .sqrt()
+        } else {
+            let e_cm = external_momenta[0].square().sqrt();
+            e_cm * Into::<T>::into(2.0)
+        };
+
+        if self.settings.cross_section.picobarns {
+            // return a weight in picobarns (from GeV^-2)
+            constants *= Into::<T>::into(0.389379304e9);
+        }
+
+        scaling_result *= constants;
+
         if self.settings.general.debug >= 2 {
+            println!("  | constants={}", constants);
+            println!("  | scaling part = {}", scaling_result);
             println!(
                 "  | rescaled loop momenta = {:?}",
                 &rescaled_loop_momenta[..self.n_loops]
@@ -1868,11 +1902,12 @@ impl SquaredTopology {
 
                 // only consider the coefficients that have no powers in the cutkosky cuts
                 // TODO: make a more efficient way of skipping the other contributions
-                if powers[..cutkosky_cuts.cuts.len() - 1]
-                    .iter()
-                    .any(|p| *p != 0)
-                {
-                    continue;
+                assert!(powers[..cutkosky_cuts.cuts.len() - 1]
+                .iter()
+                .all(|p| *p == 0));
+                
+                if self.settings.general.debug >= 1 {
+                    println!("  | monomial {:?} = {}", powers, coeff);
                 }
 
                 let mut num_result = *coeff;
@@ -2009,13 +2044,19 @@ impl SquaredTopology {
 
                     if self.settings.general.debug >= 1 {
                         println!(
-                            "  | monomial res {} ({}l) = {:e}",
-                            subgraph.name, subgraph.n_loops, res
+                            "  | monomial {} res {} ({}l) = {:e}",
+                            monomial_index, subgraph.name, subgraph.n_loops, res
                         );
                     }
 
                     def_mom_index += subgraph.n_loops;
                 }
+
+                if self.settings.general.debug >= 1 {
+                    println!("  | monomial result = {:e}", num_result * def_jacobian);
+                    println!("  | monomial result full weight = {:e}", num_result * def_jacobian * scaling_result)
+                }
+
                 result_complete_numerator += num_result * def_jacobian;
             }
 
@@ -2026,7 +2067,7 @@ impl SquaredTopology {
 
             if self.settings.general.debug >= 1 {
                 println!(
-                    "  | res uv limit {}: = {:e}",
+                    "  | res diagram set {}: = {:e}",
                     uv_index, result_complete_numerator
                 );
             }
@@ -2036,33 +2077,6 @@ impl SquaredTopology {
 
         scaling_result *= diag_and_num_contributions;
 
-        scaling_result *= utils::powi(
-            num::Complex::new(
-                Into::<T>::into(1.)
-                    / <T as Float>::powi(Into::<T>::into(2.) * <T as FloatConst>::PI(), 4),
-                T::zero(),
-            ),
-            self.n_loops,
-        );
-
-        // multiply the flux factor
-        scaling_result /= if self.n_incoming_momenta == 2 {
-            Into::<T>::into(2.)
-                * (SquaredTopology::lambda(
-                    (external_momenta[0] + external_momenta[1]).square(),
-                    external_momenta[0].square(),
-                    external_momenta[1].square(),
-                ))
-                .sqrt()
-        } else {
-            let e_cm = external_momenta[0].square().sqrt();
-            e_cm * Into::<T>::into(2.0)
-        };
-
-        if self.settings.cross_section.picobarns {
-            // return a weight in picobarns (from GeV^-2)
-            scaling_result *= Into::<T>::into(0.389379304e9);
-        }
 
         if let Some(em) = event_manager {
             // set the event result

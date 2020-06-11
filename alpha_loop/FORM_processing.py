@@ -615,12 +615,14 @@ aGraph=%s;
                 for diag_info, loop_diag_info in zip(diag_set['diagram_info'], loop_diag_set['diagram_info']):
                     for ltd_mom in loop_diag_info['graph'].loop_momentum_map:
                         ltd_momenta.extend('k' + str(i + 1) for i, s in enumerate(ltd_mom[0]) if s != 0)
+                    der_edge = None
                     if diag_info['derivative'] is not None:
+                        der_edge = diag_info['derivative'][1]
                         ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
                         der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
 
                         edges = tuple(sorted(e[0] for i, e in enumerate(diag_info['graph'].edge_map_lin) if i not in diag_info['graph'].ext))
-                        bubble_to_cut[edges] = ext_mom
+                        bubble_to_cut[edges] = diag_info['derivative'][0]
 
                         # numerator derivative
                         if ext_mom == der_mom:
@@ -647,8 +649,11 @@ aGraph=%s;
                                 loop_signature = [[s if all(sl[0][i] != 0 for sl in loop_momenta_signatures) else 0 for i, s in enumerate(edge_signature[0])], [0]*len(edge_signature[1])]
                                 ext_signature = [[s if sl == 0 else 0 for s, sl in zip(edge_signature[0], loop_signature[0])], edge_signature[1]]
 
-                                uv_props.append('uvprop({},t{},{})'.format(self.momenta_decomposition_to_string(loop_signature, False), i, 
-                                    self.momenta_decomposition_to_string(ext_signature, False)))
+                                # the edge may have a raised power due to the bubble derivative
+                                power = 2 if edge == der_edge else 1
+                                for _ in range(power):
+                                    uv_props.append('uvprop({},t{},{})'.format(self.momenta_decomposition_to_string(loop_signature, False), i, 
+                                        self.momenta_decomposition_to_string(ext_signature, False)))
 
                         uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, num['taylor_order'], ','.join(external_momenta), '*'.join(uv_props))
                         uv_subgraphs.append('subgraph({}{},{})'.format(num['graph_index'], 
@@ -669,13 +674,30 @@ aGraph=%s;
 
                 configurations.append(conf)
 
-        # replace external momentum in all bubbles with a dummy momentum
+        # replace external momentum in all bubble vertices and edges with a dummy momentum
+        # TODO: there is an awful lot of string manipulation here...
         mommap = []
-        for i, (bubble, cut_mom) in enumerate(bubble_to_cut.items()):
+        for i, (bubble, cut_edge) in enumerate(bubble_to_cut.items()):
+            ce = next(ee for ee in self.edges.values() if ee['name'] == cut_edge)
             for e in bubble:
                 e = next(ee for ee in self.edges.values() if ee['name'] == e)
-                e['momentum'] += '-(' + cut_mom + ') + pbubble' + str(i)
-            mommap.append('subs(pbubble{},{})'.format(i, cut_mom))
+                if any(s != 0 for s in e['signature'][1]) or any(se != 0 and sc != 0 for se, sc in zip(e['signature'][0], ce['signature'][0])):
+                    signs = [se * sc for se, sc in zip(e['signature'][0] + e['signature'][1], ce['signature'][0] + ce['signature'][1]) if se * sc != 0]
+                    assert(len(set(signs)) == 1)
+                    e['momentum'] += '{}(pbubble{}-({}))'.format('+' if signs[0] == 1 else '-', i, ce['momentum'])
+
+                    # update the vertices
+                    ext_mom_part = ce['momentum'].replace('-', '+').split('+')[0] # get a single variable
+                    for vi in e['vertices']:
+                        v = self.nodes[vi]
+                        momenta = list(v['momenta'])
+                        for mi, m in enumerate(momenta):
+                            if ext_mom_part in m:
+                                sign = '-' if ('-' + ext_mom_part) in m else '+'
+                                momenta[mi] += '{}(pbubble{}-({}))'.format(sign, i, ce['momentum'])
+                        v['momenta'] = tuple(momenta)
+
+            mommap.append('subs(pbubble{},{})'.format(i, ce['momentum']))
 
         self.replacement_rules = ''
         if len(mommap) > 0:
@@ -1026,7 +1048,7 @@ int evaluate_{}(double complex lm[], int conf, double complex* out) {{
 """.format(i,
     '\n'.join(
     ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf in sorted(confs)] +
-    (['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else ['\t\tdefault: out[0] = 0.; return 1;'])
+    (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
     ))
 
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))

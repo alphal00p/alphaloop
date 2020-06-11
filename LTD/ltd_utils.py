@@ -433,36 +433,34 @@ class TopologyGenerator(object):
                     for d in range(dod + 1):
                         # get all combinations of propagators
                         for c in combinations_with_replacement(range(len(loop_lines)), d):
-                             # loop lines with only 1 propagator cannot have a shift, so we filter them
-                            if any(len(loop_lines[i]) == 1 for i in c):
-                                continue
                             gn = copy.deepcopy(g)
                             for loop_line in c:
                                 gn.powers[loop_lines[loop_line][0]] += 1
 
+                            # FIXME: is this safe? could these momenta be picked up as external momenta?
                             # take the UV limit of the propagators by fusing the vertices of the subgraph
-                            external_vertices = [v for v in subgraph_vertices if any(v in gn.edge_map_lin[g.edge_name_map[e]][1:] for e in subgraph_external_edges)]
-                            for ei, e in enumerate(gn.edge_map_lin):
-                                if e[0] in subgraph_momenta or e[0] in subgraph_external_edges:
-                                    if e[1] in external_vertices[1:]:
-                                        gn.edge_map_lin[ei] = (e[0], external_vertices[0], e[2])
-                                    if e[2] in external_vertices[1:]:
-                                        gn.edge_map_lin[ei] = (e[0], gn.edge_map_lin[ei][1], external_vertices[0])
-
+                            #external_vertices = [v for v in subgraph_vertices if any(v in gn.edge_map_lin[g.edge_name_map[e]][1:] for e in subgraph_external_edges)]
+                            #for ei, e in enumerate(gn.edge_map_lin):
+                            #    if e[0] in subgraph_momenta or e[0] in subgraph_external_edges:
+                            #        if e[1] in external_vertices[1:]:
+                            #            gn.edge_map_lin[ei] = (e[0], external_vertices[0], e[2])
+                            #        if e[2] in external_vertices[1:]:
+                            #            gn.edge_map_lin[ei] = (e[0], gn.edge_map_lin[ei][1], external_vertices[0])
+#
                             # fuse duplicate edges, keeping loop momentum edges to preserve parts of the signature map
                             # TODO: give UV mass here? now it will be added in squared_topologies.py
                             # TODO: strip legs from tadpoles
                             # TODO: drop shift, we need a signature map for that
-                            sorted_subgraph_momenta = sorted(subgraph_momenta, key=lambda m: m in subgraph_loop_edges)
-                            print(sorted_subgraph_momenta)
-                            for i, e in enumerate(sorted_subgraph_momenta):
-                                for e2 in sorted_subgraph_momenta[i+1:]:
-                                    # TODO: what if the edge is in reverse?
-                                    if gn.edge_map_lin[gn.edge_name_map[e]][1:] == gn.edge_map_lin[gn.edge_name_map[e2]][1:]:
-                                        gn.powers[e2] += gn.powers[e]
-                                        del gn.edge_map_lin[gn.edge_name_map[e]]
-                                        gn = TopologyGenerator(gn.edge_map_lin, powers=gn.powers)
-                                        break
+                            #sorted_subgraph_momenta = sorted(subgraph_momenta, key=lambda m: m in subgraph_loop_edges)
+                            #print(sorted_subgraph_momenta)
+                            #for i, e in enumerate(sorted_subgraph_momenta):
+                            #    for e2 in sorted_subgraph_momenta[i+1:]:
+                            #        # TODO: what if the edge is in reverse?
+                            #        if gn.edge_map_lin[gn.edge_name_map[e]][1:] == gn.edge_map_lin[gn.edge_name_map[e2]][1:]:
+                            #            gn.powers[e2] += gn.powers[e]
+                            #            del gn.edge_map_lin[gn.edge_name_map[e]]
+                            #            gn = TopologyGenerator(gn.edge_map_lin, powers=gn.powers)
+                            #            break
 
                             graph_configuration = {
                                 'graph_index': graph_index,

@@ -92,7 +92,7 @@ CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f,vx, vec;
 CF subs, configurations, conf, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv;
-Set ts: t1,...,t20;
+Set ts: t0,...,t20;
 CT penergy;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 

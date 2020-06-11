@@ -163,14 +163,15 @@ class SquaredTopologyGenerator:
                         check_external_momenta_names=False)
                     loop_topo.external_kinematics = []
 
-                    # take the UV limit of the diagram and add the mass
+                    # take the UV limit of the diagram, add the mass and set the parametric shift to 0
                     uv_moms = [mom for mom in diag_set['uv_propagators'] if mom in set(s.edge_name_map.keys())]
                     for ll in loop_topo.loop_lines:
                         if any(p for p in ll.propagators if p.name in uv_moms):
                             prop = next(p for p in ll.propagators if p.name in uv_moms)
                             prop.m_squared = mu_uv**2
-                            ll.propagators[0].power = sum(pp.power for pp in ll.propagators)
-                            ll.propagators = [ll.propagators[0]]
+                            prop.power = sum(pp.power for pp in ll.propagators)
+                            prop.parametric_shift = [[0 for _ in prop.parametric_shift[0]], [0 for _ in prop.parametric_shift[1]]]
+                            ll.propagators = [prop]
 
                     loop_topos.append(
                         {
