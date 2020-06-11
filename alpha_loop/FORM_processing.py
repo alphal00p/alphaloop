@@ -451,12 +451,12 @@ aGraph=%s;
                 continue
             # First collect all adjacent edges:
             adjacent_in_edges = [
-                dict(in_edge_data) for u,v,in_edge_data in 
-                local_graph.in_edges(node_key,data=True)
+                dict(list(in_edge_data.items())+[('key',(u,v,c))]) for u,v,c,in_edge_data in 
+                local_graph.in_edges(node_key,data=True,keys=True)
             ]
             adjacent_out_edges = [
-                dict(out_edge_data) for u,v,out_edge_data in 
-                local_graph.out_edges(node_key,data=True)
+                dict(list(out_edge_data.items())+[('key',(u,v,c))]) for u,v,c,out_edge_data in 
+                local_graph.out_edges(node_key,data=True,keys=True)
             ]
             # The direction only matters in so far as we must flip the
             # momentum carried by edges that are outgoing as well as
@@ -480,6 +480,7 @@ aGraph=%s;
             node_data['PDGs'] = tuple([e['PDG'] for e in all_adjacent_edges])
             node_data['indices'] = tuple([e['index_for_this_node'] for e in all_adjacent_edges])
             node_data['momenta'] = tuple([cls.momenta_decomposition_to_string(e['momentum']) for e in all_adjacent_edges])
+            node_data['edge_ids'] = tuple([e['key'] for e in all_adjacent_edges])
 
             # Example printout information about the vertex
             #misc.sprint("Vertex of node %s:\n%s"%(
