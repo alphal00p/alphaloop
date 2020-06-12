@@ -1246,7 +1246,7 @@ fn inspect<'a>(
     let mut pt: Vec<_> = matches
         .values_of("point")
         .unwrap()
-        .map(|x| f64::from_str(x).unwrap())
+        .map(|x| f64::from_str(x.trim_end_matches(',')).unwrap())
         .collect();
     if pt.len() != 3 * n_loops {
         panic!(
