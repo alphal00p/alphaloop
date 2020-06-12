@@ -1,13 +1,11 @@
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
+use dashboard::{StatusUpdate, StatusUpdateSender};
 use dlopen::wrapper::Container;
 use eyre::WrapErr;
 use f128::f128;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 use float;
 use integrand::IntegrandImplementation;
-use dashboard::{StatusUpdate, StatusUpdateSender};
 use itertools::Itertools;
 use num::Complex;
 use num_traits::FromPrimitive;
@@ -18,6 +16,8 @@ use num_traits::{One, Zero};
 use observables::EventManager;
 use rand::Rng;
 use serde::Deserialize;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
 use std::ops::Mul;
@@ -108,6 +108,7 @@ mod form_numerator {
             out: *mut c_double,
         ) -> c_int,
         get_buffer_size: unsafe extern "C" fn() -> c_int,
+        get_rank: unsafe extern "C" fn(diag: c_int, conf: c_int) -> c_int,
     }
 
     pub fn get_numerator(
@@ -129,6 +130,14 @@ mod form_numerator {
 
     pub fn get_buffer_size(api_container: &mut Container<FORMNumeratorAPI>) -> usize {
         unsafe { api_container.get_buffer_size() as usize }
+    }
+
+    pub fn get_rank(
+        api_container: &mut Container<FORMNumeratorAPI>,
+        diag: usize,
+        conf: usize,
+    ) -> usize {
+        unsafe { api_container.get_rank(diag as i32, conf as i32) as usize }
     }
 
     pub fn load() -> Container<FORMNumeratorAPI> {
@@ -376,7 +385,6 @@ impl SquaredTopologySet {
     }
 
     pub fn print_info(&self, status_update_sender: &mut StatusUpdateSender) {
-
         /*
         status_update_sender
             .send(StatusUpdate::Message(format!(
@@ -393,43 +401,73 @@ impl SquaredTopologySet {
 
         for topology in &self.topologies {
             for cutkosky_cuts in &topology.cutkosky_cuts {
-                *n_Cutkosky_cuts_per_cut_cardinality.entry(cutkosky_cuts.cuts.len() as i32).or_insert(0)+=1;
+                *n_Cutkosky_cuts_per_cut_cardinality
+                    .entry(cutkosky_cuts.cuts.len() as i32)
+                    .or_insert(0) += 1;
                 for diagram_set in &cutkosky_cuts.diagram_sets {
                     for d_info in &diagram_set.diagram_info {
-                        *n_diagrams_per_loop.entry(d_info.graph.n_loops as i32).or_insert(0)+=1;
-                        *n_LTD_cuts_per_loop.entry(d_info.graph.n_loops as i32).or_insert(0) += (d_info.graph.ltd_cut_options.len() as i32);
+                        *n_diagrams_per_loop
+                            .entry(d_info.graph.n_loops as i32)
+                            .or_insert(0) += 1;
+                        *n_LTD_cuts_per_loop
+                            .entry(d_info.graph.n_loops as i32)
+                            .or_insert(0) += d_info.graph.ltd_cut_options.len() as i32;
                     }
                 }
             }
         }
 
-        let mut tmp_vec: Vec<(i32,i32)> = n_LTD_cuts_per_loop.iter().map(|(k, v)| (*k as i32, *v as i32)).collect();
+        let mut tmp_vec: Vec<(i32, i32)> = n_LTD_cuts_per_loop
+            .iter()
+            .map(|(k, v)| (*k as i32, *v as i32))
+            .collect();
         let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
                 "Loop count -> number of LTD cuts: {} total: {}",
-                tmp_vec.iter().map(|(k,v)| format!("{}->{}",k,v)).collect::<Vec<String>>().join(", "), tmp_sum
+                tmp_vec
+                    .iter()
+                    .map(|(k, v)| format!("{}->{}", k, v))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                tmp_sum
             )))
             .unwrap();
 
-        let mut tmp_vec: Vec<(i32,i32)> = n_diagrams_per_loop.iter().map(|(k, v)| (*k as i32, *v as i32)).collect();
+        let mut tmp_vec: Vec<(i32, i32)> = n_diagrams_per_loop
+            .iter()
+            .map(|(k, v)| (*k as i32, *v as i32))
+            .collect();
         let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
                 "Loop count -> number of subdiagrams: {} total: {}",
-                tmp_vec.iter().map(|(k,v)| format!("{}->{}",k,v)).collect::<Vec<String>>().join(", "), tmp_sum
+                tmp_vec
+                    .iter()
+                    .map(|(k, v)| format!("{}->{}", k, v))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                tmp_sum
             )))
             .unwrap();
 
-        let mut tmp_vec: Vec<(i32,i32)> = n_Cutkosky_cuts_per_cut_cardinality.iter().map(|(k, v)| (*k as i32, *v as i32)).collect();
+        let mut tmp_vec: Vec<(i32, i32)> = n_Cutkosky_cuts_per_cut_cardinality
+            .iter()
+            .map(|(k, v)| (*k as i32, *v as i32))
+            .collect();
         let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
                 "Cut cardinality -> number of Cutkosky cuts: {} total: {}",
-                tmp_vec.iter().map(|(k,v)| format!("{}->{}",k,v)).collect::<Vec<String>>().join(", "), tmp_sum
+                tmp_vec
+                    .iter()
+                    .map(|(k, v)| format!("{}->{}", k, v))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                tmp_sum
             )))
             .unwrap();
 
@@ -446,7 +484,6 @@ impl SquaredTopologySet {
                 n_topologies
             )))
             .unwrap();
-
     }
 
     pub fn multi_channeling<'a, T: FloatLike>(
@@ -744,26 +781,37 @@ impl SquaredTopology {
             }
 
             if squared_topo.form_numerator.call_signature.is_some() {
+                let diagram_id = squared_topo
+                    .form_numerator
+                    .call_signature
+                    .as_ref()
+                    .unwrap()
+                    .id;
                 squared_topo.form_numerator.form_numerator = Some(form_numerator::load());
 
                 let max_buffer_size = form_numerator::get_buffer_size(
                     squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
                 );
 
-                let max_rank = 8; // TODO: set to proper value by sampling once
-
                 for cut in &mut squared_topo.cutkosky_cuts {
                     for diagram_set in cut.diagram_sets.iter_mut() {
-                        if diagram_set
+                        let rank = form_numerator::get_rank(
+                            squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
+                            diagram_id,
+                            diagram_set.id,
+                        );
+
+                        // for the FORM numerator, the output is provided in the
+                        // basis of the ltd momenta
+                        let n_ltd = diagram_set
                             .diagram_info
                             .iter()
-                            .any(|diagram_info| diagram_info.graph.n_loops > 0)
-                        {
-                            // FIXME: this consumes excessive amounts of memory
-                            diagram_set.numerator = LTDNumerator::from_sparse(
-                                squared_topo.n_loops,
-                                &[(vec![0; max_rank], (0., 0.))],
-                            );
+                            .map(|diagram_info| diagram_info.graph.n_loops)
+                            .sum();
+
+                        if n_ltd > 0 {
+                            diagram_set.numerator =
+                                LTDNumerator::from_sparse(n_ltd, &[(vec![0; rank], (0., 0.))]);
                         }
 
                         squared_topo.form_numerator.form_numerator_buffer =
@@ -775,7 +823,7 @@ impl SquaredTopology {
                             if diagram_info.graph.n_loops > 0 {
                                 diagram_info.graph.numerator = LTDNumerator::from_sparse(
                                     diagram_info.graph.n_loops,
-                                    &[(vec![0; max_rank], (0., 0.))],
+                                    &[(vec![0; rank], (0., 0.))],
                                 );
                             }
                         }
@@ -1194,7 +1242,10 @@ impl SquaredTopology {
                 solutions[0].0, -t_start, t_start, loop_momenta, external_momenta
             );
         }
-        if Float::abs(solutions[0].0 - solutions[1].0) / (Float::abs(solutions[0].0) + Float::abs(solutions[1].0)) < Into::<T>::into(1e-12) {
+        if Float::abs(solutions[0].0 - solutions[1].0)
+            / (Float::abs(solutions[0].0) + Float::abs(solutions[1].0))
+            < Into::<T>::into(1e-12)
+        {
             panic!(
                 "Found the same scaling solution twice: {} for t={} and t={} for k={:?}, ext={:?}",
                 solutions[0].0, solutions[0].0, solutions[1].0, loop_momenta, external_momenta
@@ -1522,6 +1573,7 @@ impl SquaredTopology {
                 subgraph.update_ellipsoids();
 
                 if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+                    // TODO: it is no longer true that only uv_index=0 is a non-UV diagram set
                     if uv_index == 0 {
                         subgraph.fixed_deformation =
                             subgraph.determine_ellipsoid_overlap_structure(true);
@@ -1622,8 +1674,7 @@ impl SquaredTopology {
             }
 
             // convert from the cut basis to the loop momentum basis
-            if self.settings.cross_section.numerator_source != NumeratorSource::Yaml
-            {
+            if self.settings.cross_section.numerator_source != NumeratorSource::Yaml {
                 if let Some(m) = &diagram_set.cb_to_lmb {
                     for (kl, r) in k_def_lmb[..self.n_loops]
                         .iter_mut()
@@ -1825,20 +1876,27 @@ impl SquaredTopology {
                             == NumeratorSource::MgAndForm
                         {
                             if let Some(mg_call_signature) = &self.mg_numerator.call_signature {
-                                if (*rlb).norm_sqr()==Into::<T>::into(0.0) || coeff.norm_sqr()==Into::<T>::into(0.0) {
+                                if (*rlb).norm_sqr() == Into::<T>::into(0.0)
+                                    || coeff.norm_sqr() == Into::<T>::into(0.0)
+                                {
                                     // TODO the dimensionality of (*rlb - coeff).norm_sqr() is not GeV^2 but depends on the number of incoming
                                     // and outgoing momenta. This is only for debugging though, so prolly ok for now.
-                                    if (*rlb - coeff).norm_sqr() > Into::<T>::into(1e-10*self.e_cm_squared) {
+                                    if (*rlb - coeff).norm_sqr()
+                                        > Into::<T>::into(1e-10 * self.e_cm_squared)
+                                    {
                                         println!(
                                             "Mismatch between MG and FORM numerator: {} (proc_id: {}, left_diag_id: {}, right_diag_id: {}) vs {} (diagram_set: {}, call_sig: {}) for config:\n-> {:?}",
-                                            rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id, 
+                                            rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id,
                                             coeff, diagram_set.id, call_signature.id, loop_momenta
                                         );
-                                    } 
-                                } else if (*rlb - coeff).norm_sqr()/((*rlb).norm_sqr()+coeff.norm_sqr()) > Into::<T>::into(1e-10) {
+                                    }
+                                } else if (*rlb - coeff).norm_sqr()
+                                    / ((*rlb).norm_sqr() + coeff.norm_sqr())
+                                    > Into::<T>::into(1e-10)
+                                {
                                     println!(
                                         "Mismatch between MG and FORM numerator: {} (proc_id: {}, left_diag_id: {}, right_diag_id: {}) vs {} (diagram_set: {}, call_sig: {}) for config:\n-> {:?}",
-                                        rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id, 
+                                        rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id,
                                         coeff, diagram_set.id, call_signature.id, loop_momenta
                                     );
                                 }
@@ -1869,7 +1927,7 @@ impl SquaredTopology {
                 // Store the reduced numerator in the left graph cache for now
                 // TODO: this is impractical
                 diagram_set.numerator.evaluate_reduced_in_lb(
-                        &k_def,
+                    &k_def,
                     cutkosky_cuts.cuts.len() - 1,
                     &mut diag_cache[0],
                     0,
@@ -1892,27 +1950,32 @@ impl SquaredTopology {
 
             // evaluate the subgraphs for every monomial in the numerator
             let mut result_complete_numerator = Complex::default();
-            for (coeff, powers) in supergraph_coeff
-                .iter()
-                .zip(&diagram_set.numerator.reduced_coefficient_index_to_powers[..diagram_set.numerator.reduced_size])
-            {
+            for (coeff, powers) in supergraph_coeff.iter().zip(
+                &diagram_set.numerator.reduced_coefficient_index_to_powers
+                    [..diagram_set.numerator.reduced_size],
+            ) {
                 if coeff.is_zero() {
                     continue;
                 }
 
+                // the yaml gives the numerator in the cb basis, the other methods in the LTD basis, consisting
+                // of only the LTD momenta
+                let mut ltd_index =
+                    if self.settings.cross_section.numerator_source == NumeratorSource::Yaml {
+                        cutkosky_cuts.cuts.len() - 1
+                    } else {
+                        0
+                    };
+
                 // only consider the coefficients that have no powers in the cutkosky cuts
                 // TODO: make a more efficient way of skipping the other contributions
-                assert!(powers[..cutkosky_cuts.cuts.len() - 1]
-                .iter()
-                .all(|p| *p == 0));
-                
+                assert!(powers[..ltd_index].iter().all(|p| *p == 0));
+
                 if self.settings.general.debug >= 1 {
                     println!("  | monomial {:?} = {}", powers, coeff);
                 }
 
                 let mut num_result = *coeff;
-
-                let mut def_mom_index = cutkosky_cuts.cuts.len() - 1;
                 for (diagram_set, subgraph_cache) in diagram_set
                     .diagram_info
                     .iter_mut()
@@ -1938,7 +2001,7 @@ impl SquaredTopology {
                         let mut subgraph_powers = [0; 10]; // TODO: make max rank a constant
                         let mut power_index = 0;
 
-                        for (lmi, p) in powers[def_mom_index..def_mom_index + subgraph.n_loops]
+                        for (lmi, p) in powers[ltd_index..ltd_index + subgraph.n_loops]
                             .iter()
                             .enumerate()
                         {
@@ -2012,7 +2075,14 @@ impl SquaredTopology {
                             subgraph
                                 .evaluate_all_dual_integrands::<T>(
                                     if subgraph.n_loops != 0 {
-                                        &mut k_def[def_mom_index..def_mom_index + subgraph.n_loops]
+                                        if self.settings.cross_section.numerator_source
+                                            == NumeratorSource::Yaml
+                                        {
+                                            &mut k_def[ltd_index..ltd_index + subgraph.n_loops]
+                                        } else {
+                                            let start = cutkosky_cuts.cuts.len() - 1 + ltd_index;
+                                            &mut k_def[start..start + subgraph.n_loops]
+                                        }
                                     } else {
                                         &mut []
                                     },
@@ -2049,12 +2119,15 @@ impl SquaredTopology {
                         );
                     }
 
-                    def_mom_index += subgraph.n_loops;
+                    ltd_index += subgraph.n_loops;
                 }
 
                 if self.settings.general.debug >= 1 {
                     println!("  | monomial result = {:e}", num_result * def_jacobian);
-                    println!("  | monomial result full weight = {:e}", num_result * def_jacobian * scaling_result)
+                    println!(
+                        "  | monomial result full weight = {:e}",
+                        num_result * def_jacobian * scaling_result
+                    )
                 }
 
                 result_complete_numerator += num_result * def_jacobian;
@@ -2068,7 +2141,7 @@ impl SquaredTopology {
             if self.settings.general.debug >= 1 {
                 println!(
                     "  | res diagram set {}: = {:e}",
-                    uv_index, result_complete_numerator
+                    diagram_set.id, result_complete_numerator
                 );
             }
 
@@ -2076,7 +2149,6 @@ impl SquaredTopology {
         }
 
         scaling_result *= diag_and_num_contributions;
-
 
         if let Some(em) = event_manager {
             // set the event result

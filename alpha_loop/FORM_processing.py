@@ -989,11 +989,6 @@ class FORMSuperGraphList(list):
             ) as bar:
             total_time = 0.
 
-            n_loops = len(self[0][0].edges) - len(self[0][0].nodes) + 1
-            max_rank = 8 # FIXME: determine somehow
-            # create the dense polynomial in the energies
-            numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(n_loops), i)]
-
             for i, graph in enumerate(self):
                 graph.is_zero = True
                 time_before = time.time()
@@ -1016,20 +1011,23 @@ class FORMSuperGraphList(list):
                     # parse the configuration id
                     conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
                     conf_id = conf[0]
-                    confs.append(conf_id)
                     
                     ltd_vars = [v for v in conf[1:] if v != 'k0']
-                    n_cuts = n_loops - len(ltd_vars)
+                    max_rank = 8 # FIXME: determine somehow
+                    # create the dense polynomial in the LTD energies
+                    numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
 
                     mono_secs = conf_sec.split('#NEWMONOMIAL')
                     
+                    rank = 0
                     max_index = 0
                     num_body = ''
                     for mono_sec in mono_secs[1:]:
                         mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
-                        # parse monomial powers and get the index in the polynomial in the cb
+                        # parse monomial powers and get the index in the polynomial in the LTD basis
                         pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
-                        pows = tuple(n_cuts + ltd_vars.index(r) for r in pows if r != 'k0')
+                        pows = tuple(ltd_vars.index(r) for r in pows if r != 'k0')
+                        rank = max(rank, len(pows))
                         index = numerator_pows.index(pows)
                         max_index = max(index, max_index)
                         max_buffer_size = max(index, max_buffer_size)
@@ -1037,6 +1035,8 @@ class FORMSuperGraphList(list):
                         returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
                         mono_sec = return_exp.sub('out[{}] = {};'.format(index, returnval), mono_sec)
                         num_body += mono_sec
+
+                    confs.append((conf_id, rank))
 
                     if len(temp_vars) > 0:
                         graph.is_zero = False
@@ -1055,10 +1055,21 @@ int evaluate_{}(double complex lm[], int conf, double complex* out) {{
 {}
     }}
 }}
+
+int get_rank_{}(int conf) {{
+    switch(conf) {{
+{}
+    }}
+}}
 """.format(i,
     '\n'.join(
-    ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf in sorted(confs)] +
+    ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
     (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+    ),
+    i,
+    '\n'.join(
+    ['\t\tcase {}: return {};'.format(conf, rank) for conf, rank in sorted(confs)] +
+    (['\t\tdefault: return 0;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
     ))
 
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
@@ -1072,6 +1083,7 @@ int evaluate_{}(double complex lm[], int conf, double complex* out) {{
 #include <signal.h>
 
 {}
+{}
 
 int evaluate(double complex lm[], int diag, int conf, double complex* out) {{
     switch(diag) {{
@@ -1082,12 +1094,24 @@ int evaluate(double complex lm[], int diag, int conf, double complex* out) {{
 int get_buffer_size() {{
     return {};
 }}
+
+int get_rank(int diag, int conf) {{
+    switch(diag) {{
+{}
+    }}
+}}
 """.format(
     '\n'.join('int evaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in range(len(self))),
+    '\n'.join('int get_rank_{}(int conf);'.format(i) for i in range(len(self))),
     '\n'.join(
     ['\t\tcase {}: return evaluate_{}(lm, conf, out);'.format(i, i) for i in range(len(self))]+
     ['\t\tdefault: raise(SIGABRT);']
-    ), (max_buffer_size + 1) * 2
+    ), 
+    (max_buffer_size + 1) * 2,
+    '\n'.join(
+    ['\t\tcase {}: return get_rank_{}(conf);'.format(i, i) for i in range(len(self))]+
+    ['\t\tdefault: raise(SIGABRT);']
+    )
     )
         writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
 
