@@ -877,7 +877,6 @@ class SuperGraph(object):
             self.name, 
             get_incoming_momenta_names(), 
             get_njets_in_observable_process(),
-            # Below needs to be removed when interfacing to MG5aMC numerators
             get_external_momenta_assignment(),
             loop_momenta_names=get_loop_momenta_names(),
             loop_momenta_signs=get_loop_momenta_signs(),

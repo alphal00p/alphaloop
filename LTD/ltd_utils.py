@@ -162,6 +162,9 @@ class HyperParameters(dict):
 
 class TopologyGenerator(object):
 
+    # Do not spam import warnings
+    _HAS_ISSUED_IMPORT_WARNING = False
+
 #   Below is tricky to make work
 #    def __new__(cls, *args, **opts):
 #        """ Factory creating an instance of the appropriate class for the inputs supplied for building the
@@ -1161,7 +1164,8 @@ class TopologyGenerator(object):
 
             if not found_it:
                 found_error = True
-                print("Error in guessing one-loop analytical formula.")
+                if not TopologyGenerator._HAS_ISSUED_IMPORT_WARNING:
+                    print("Error in guessing one-loop analytical formula.")
                 break
         
         if found_error:
@@ -1171,7 +1175,9 @@ class TopologyGenerator(object):
         try:
             import AVHOneLOopHook.pyAVH_OneLOop_hook as one_loop
         except ImportError:
-            print("Run make in LTD/AVHOneLOopHook to generate the python bindings for OneLoop.")
+            if not TopologyGenerator._HAS_ISSUED_IMPORT_WARNING:
+                print("Run make in LTD/AVHOneLOopHook to generate the python bindings for OneLoop.")
+                TopologyGenerator._HAS_ISSUED_IMPORT_WARNING = True
             return None
         
         #print(ordered_external_momenta,ordered_masses)

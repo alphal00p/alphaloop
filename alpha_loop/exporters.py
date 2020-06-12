@@ -200,7 +200,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Now output the Rust inputs for the remaining supergraphs.
         is_LO = (not self.alphaLoop_options['perturbative_orders']) or sum(self.alphaLoop_options['perturbative_orders'].values())==0
         # Adjust below to `and False` in order to disable debugging.
-        do_debug = is_LO and True
+        do_debug = is_LO
         if do_debug:
             if len(self.all_super_graphs)==1:
                 log_func = logger.critical
@@ -210,6 +210,12 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                 log_func = logger.warning
                 err_text = 'WARNING'
                 color = utils.bcolors.BLUE
+        else:
+            log_func = lambda el: None
+            err_text = 'WARNING'
+            color = utils.bcolors.BLUE
+
+        _HAS_WARNED_ABOUT_SYMMETRY_FACTORS = False 
         FORM_id=0
         for all_super_graphs, matrix_element in self.all_super_graphs:
 
@@ -241,12 +247,18 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                         FORM_id_to_supply = FORM_id
                     else:
                         FORM_id_to_supply = None
-                    super_graph.generate_yaml_input_file(
-                        file_path,
-                        computed_model,
-                        self.alphaLoop_options,
-                        FORM_id=FORM_id_to_supply
-                    )
+                    try:
+                        super_graph.generate_yaml_input_file(
+                            file_path,
+                            computed_model,
+                            self.alphaLoop_options,
+                            FORM_id=FORM_id_to_supply
+                        )
+                    except Exception as e:
+                        logger.exception("%sRust input yaml file generation from MadGraph for supergraph '%s' failed. Proceeding nonetheless.%s"%(
+                                        utils.bcolors.RED, super_graph.get_name(), utils.bcolors.ENDC))
+                        super_graph.cutkosky_cuts_generated = []             
+
                     if len(super_graph.cutkosky_cuts_generated)==0:
                         log_func("%s%s: Supergraph '%s' yielded no Cutkosky cuts. That should not happen at LO.%s"%(
                                 color,err_text,
@@ -277,7 +289,11 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                         if is_LO:
                             super_graph.symmetry_factor = reconstructed_symmetry_factor/float(fs_symm_factor)
                         else:
-                            logger.info("No strategy yet for determining symmetry factors beyond LO contributions. Setting it to 1 for now, but this is incorrect.")
+                            if not _HAS_WARNED_ABOUT_SYMMETRY_FACTORS:
+                                logger.critical("%sNo strategy yet for determining symmetry factors beyond LO contributions. Setting it to 1 for now, but this is incorrect.%s"%(
+                                                                                                                                        utils.bcolors.RED,utils.bcolors.ENDC))
+                                _HAS_WARNED_ABOUT_SYMMETRY_FACTORS = True
+
                             super_graph.symmetry_factor = 1
 
                         n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * len(super_graph.cutkosky_cuts_generated)
@@ -502,8 +518,12 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
         # Compile the C_bindings
         logger.info("Compiling C_bindings for MG numerators...")
-        misc.compile(arg=[],cwd=pjoin(self.dir_path, 'SubProcesses'), mode='fortran')
-
+        try:
+            misc.compile(arg=[],cwd=pjoin(self.dir_path, 'SubProcesses'), mode='fortran')
+        except MadGraph5Error as e:
+            logger.critical("%sMG numerator failed to compile:\n%s\nProceeding nonetheless.%s"%(
+                utils.bcolors.RED, str(e), utils.bcolors.ENDC))
+        
         # Compile FORM output if present
         FORM_output_dir = pjoin(self.dir_path,"FORM")
         if os.path.exists(FORM_output_dir):
