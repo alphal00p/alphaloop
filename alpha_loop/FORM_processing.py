@@ -625,6 +625,8 @@ aGraph=%s;
                         ltd_momenta.extend('k' + str(i + 1) for i, s in enumerate(ltd_mom[0]) if s != 0)
                     der_edge = None
                     if diag_info['derivative'] is not None:
+                        trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts
+
                         der_edge = diag_info['derivative'][1]
                         ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
                         der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']

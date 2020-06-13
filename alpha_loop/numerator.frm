@@ -280,19 +280,6 @@ repeat;
 endrepeat;
 
 id subs(p1?,p2?) = replace_(p1, p2);
-.sort
-
-* now extract the energy components of the LTD loop variables
-id k1?.k2? = g(k1, k2);
-repeat id conf(x?,?a,k1?,?b)*g(k1?,k1?) = conf(x,?a,k1,?b)*(energy(k1)*energy(k1)-spatial(k1,k1));
-repeat id conf(x?,?a,k1?,?b,k2?,?c)*g(k1?,k2?) = conf(x,?a,k1,?b,k2,?c)*(energy(k1)*energy(k2)-spatial(k1,k2));
-repeat id conf(x?,?a,k?,?b)*g(k?,p?) = conf(x,?a,k,?b)*(energy(k)*penergy(p)-spatial(k,p));
-id g(p1?,p2?) = p1.p2;
-
-repeat id energy(?a)*energy(?b) = energy(?a,?b);
-symmetrize energy;
-id energy(?a) = energy(f(?a));
-if (count(energy,1) == 0) Multiply energy(f(k0)); * signal with k0 that we are dealing with the constant term
 .sort:bubble-treatment;
 
 argument uv;
@@ -327,6 +314,20 @@ argument uv;
 endargument;
 id uv(x?) = x;
 .sort:uv-treatment;
+
+* now extract the energy components of the LTD loop variables
+id k1?.k2? = g(k1, k2);
+repeat id conf(x?,?a,k1?,?b)*penergy(k1?) = conf(x,?a,k1,?b)*energy(k1); * detect loop energies from the bubble derivative
+repeat id conf(x?,?a,k1?,?b)*g(k1?,k1?) = conf(x,?a,k1,?b)*(energy(k1)*energy(k1)-spatial(k1,k1));
+repeat id conf(x?,?a,k1?,?b,k2?,?c)*g(k1?,k2?) = conf(x,?a,k1,?b,k2,?c)*(energy(k1)*energy(k2)-spatial(k1,k2));
+repeat id conf(x?,?a,k?,?b)*g(k?,p?) = conf(x,?a,k,?b)*(energy(k)*penergy(p)-spatial(k,p));
+id g(p1?,p2?) = p1.p2;
+
+repeat id energy(?a)*energy(?b) = energy(?a,?b);
+symmetrize energy;
+id energy(?a) = energy(f(?a));
+if (count(energy,1) == 0) Multiply energy(f(k0)); * signal with k0 that we are dealing with the constant term
+.sort:energy-splitoff;
 
 *********************************************
 * Construction of optimized numerator C code
