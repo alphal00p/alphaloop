@@ -388,20 +388,22 @@ class TopologyGenerator(object):
                     fuse_len_e12 != len(e1) and fuse_len_e12 != len(e2) and fuse_len_e12 != len(e1) + len(e2):
                     break
             else:
-                forest.append(tuple(sorted(((tuple(sorted(self.edge_map_lin[e][0] for e in s)), dod) for s, dod in subset), key=lambda x: len(x))))
+                forest.append(tuple(sorted(((tuple(sorted(self.edge_map_lin[e][0] for e in s)), dod) for s, dod in subset), key=lambda x: len(x[0]))))
 
         return forest
 
     def construct_uv_limits(self, vertex_weights, edge_weights):
+        """Construct the uv limits by factorizing out all UV subgraphs from smallest to largest"""
         f = self.contruct_uv_forest(vertex_weights, edge_weights)
         #print('subgraph forest', f)
 
         new_graphs = []
         for spinney in f:
             gs = [{
-                'graph': copy.deepcopy(self),
-                'spinney': spinney,
-                'numerator': []}]
+                'uv_subgraphs': [],
+                'remaining_graph': copy.deepcopy(self),
+                'spinney': spinney
+                }]
 
             for graph_index, (subgraph_momenta_full, dod) in enumerate(spinney):
                 # strip all subgraphs in the spinney from the current subgraph momenta
@@ -411,20 +413,39 @@ class TopologyGenerator(object):
 
                 new_gs = []
                 for graph_info in gs:
-                    g = graph_info['graph']
-                    #print(g.edge_map_lin)
+                    g = graph_info['remaining_graph']
                     subgraph_vertices = set(v for m in subgraph_momenta for v in g.edge_map_lin[g.edge_name_map[m]][1:])
-                    subgraph_external_edges = [e[0] for i, e in enumerate(g.edge_map_lin) if len(set(e[1:]) & subgraph_vertices) == 1]
-                    subgraph_external_edges =  [m for m in subgraph_external_edges if not any(m in s for s, _ in spinney[:graph_index])]
+                    # find all external edges, supporting duplicate edges with one edge inside the subgraph and the other outside
+                    subgraph_external_edges = [e[0] for i, e in enumerate(g.edge_map_lin) if len(set(e[1:]) & subgraph_vertices) > 0 and e[0] not in subgraph_momenta]
+                    external_vertices = [v for v in subgraph_vertices if any(v in g.edge_map_lin[g.edge_name_map[e]][1:] for e in subgraph_external_edges)]
 
-                    subgraph_loop_edges = [m for m in subgraph_momenta if len(self.propagators[self.edge_name_map[m]]) == 1 and 
-                        self.propagators[self.edge_name_map[m]][0][0] not in self.ext]
+                    uv_subgraph = TopologyGenerator([ee for ee in g.edge_map_lin if ee[0] in subgraph_momenta or ee[0] in subgraph_external_edges],
+                        powers=g.powers)
+                    uv_subgraph.inherit_loop_momentum_basis(g)
+                    uv_subgraph.loop_momentum_bases()
+
+                    # construct the remaining graph by shrinking the UV subgraph in g
+                    remaining_graph_edges = [e for e in g.edge_map_lin if e[0] not in subgraph_momenta]
+                    for ei, e in enumerate(remaining_graph_edges):
+                        if e[1] in external_vertices[1:]:
+                            remaining_graph_edges[ei] = (e[0], external_vertices[0], e[2])
+                        if e[2] in external_vertices[1:]:
+                            remaining_graph_edges[ei] = (e[0], remaining_graph_edges[ei][1], external_vertices[0])
+
+                    # make sure the remaining diagram has the correct loop momentum basis
+                    remaining_graph = TopologyGenerator(remaining_graph_edges, powers=g.powers)
+                    remaining_graph.inherit_loop_momentum_basis(g)
+                    
+                    subgraph_loop_edges = [m for m in subgraph_momenta if len(uv_subgraph.propagators[uv_subgraph.edge_name_map[m]]) == 1 and 
+                        uv_subgraph.propagators[uv_subgraph.edge_name_map[m]][0][0] not in uv_subgraph.ext]
 
                     # group subgraph momenta by their subgraph loop momentum signature
                     loop_lines = defaultdict(list)
                     for m in subgraph_momenta:
-                        sig = tuple(self.edge_map_lin[k[0]][0] for k in self.propagators[self.edge_name_map[m]] if self.edge_map_lin[k[0]][0] in subgraph_loop_edges)
-                        ext_sig = tuple(self.edge_map_lin[k[0]][0] for k in self.propagators[self.edge_name_map[m]] if self.edge_map_lin[k[0]][0] not in subgraph_loop_edges)
+                        sig = tuple(uv_subgraph.edge_map_lin[k[0]][0] for k in uv_subgraph.propagators[uv_subgraph.edge_name_map[m]] 
+                            if uv_subgraph.edge_map_lin[k[0]][0] in subgraph_loop_edges)
+                        ext_sig = tuple(uv_subgraph.edge_map_lin[k[0]][0] for k in uv_subgraph.propagators[uv_subgraph.edge_name_map[m]]
+                            if uv_subgraph.edge_map_lin[k[0]][0] not in subgraph_loop_edges)
                         assert(len(sig) > 0)
                         if len(ext_sig) > 0:
                             # only add propagators that contain a shift
@@ -436,34 +457,9 @@ class TopologyGenerator(object):
                     for d in range(dod + 1):
                         # get all combinations of propagators
                         for c in combinations_with_replacement(range(len(loop_lines)), d):
-                            gn = copy.deepcopy(g)
+                            gn = copy.deepcopy(uv_subgraph)
                             for loop_line in c:
                                 gn.powers[loop_lines[loop_line][0]] += 1
-
-                            # FIXME: is this safe? could these momenta be picked up as external momenta?
-                            # take the UV limit of the propagators by fusing the vertices of the subgraph
-                            #external_vertices = [v for v in subgraph_vertices if any(v in gn.edge_map_lin[g.edge_name_map[e]][1:] for e in subgraph_external_edges)]
-                            #for ei, e in enumerate(gn.edge_map_lin):
-                            #    if e[0] in subgraph_momenta or e[0] in subgraph_external_edges:
-                            #        if e[1] in external_vertices[1:]:
-                            #            gn.edge_map_lin[ei] = (e[0], external_vertices[0], e[2])
-                            #        if e[2] in external_vertices[1:]:
-                            #            gn.edge_map_lin[ei] = (e[0], gn.edge_map_lin[ei][1], external_vertices[0])
-#
-                            # fuse duplicate edges, keeping loop momentum edges to preserve parts of the signature map
-                            # TODO: give UV mass here? now it will be added in squared_topologies.py
-                            # TODO: strip legs from tadpoles
-                            # TODO: drop shift, we need a signature map for that
-                            #sorted_subgraph_momenta = sorted(subgraph_momenta, key=lambda m: m in subgraph_loop_edges)
-                            #print(sorted_subgraph_momenta)
-                            #for i, e in enumerate(sorted_subgraph_momenta):
-                            #    for e2 in sorted_subgraph_momenta[i+1:]:
-                            #        # TODO: what if the edge is in reverse?
-                            #        if gn.edge_map_lin[gn.edge_name_map[e]][1:] == gn.edge_map_lin[gn.edge_name_map[e2]][1:]:
-                            #            gn.powers[e2] += gn.powers[e]
-                            #            del gn.edge_map_lin[gn.edge_name_map[e]]
-                            #            gn = TopologyGenerator(gn.edge_map_lin, powers=gn.powers)
-                            #            break
 
                             graph_configuration = {
                                 'graph_index': graph_index,
@@ -472,17 +468,16 @@ class TopologyGenerator(object):
                                 'derived_loop_lines': c,
                                 'external_edges': subgraph_external_edges,
                                 'loop_edges': subgraph_loop_edges,
-                                'loop_lines': loop_lines
+                                'loop_lines': loop_lines,
+                                'graph': gn,
                             }
 
                             new_gs.append( {
-                                'graph': gn,
+                                'uv_subgraphs': graph_info['uv_subgraphs'] + [graph_configuration],
+                                'remaining_graph': remaining_graph,
                                 'spinney': spinney,
-                                'numerator': graph_info['numerator'] + [graph_configuration],
                             })
                 gs = new_gs
-
-            # TODO: cut up the graph since it factorizes now
             new_graphs.extend(gs)
 
         #import pprint
@@ -605,15 +600,10 @@ class TopologyGenerator(object):
         for g in graphs:
             # bubble: 2 external momenta only
             if len(g.ext) == 2 and len(g.edge_map_lin) > 2:
-                # select a basis with the most loop momenta shared with the supergraph
-                # this procedure needs to be identical to the one in build_proto_topology
-                sink = next(cn for cn in cut_names if cn in g.edge_name_map)
-                lm_names = [ self.edge_map_lin[e][0] for e in self.loop_momenta]
-                bases = [ tuple(g.edge_map_lin[e][0] for e in b) for b in g.loop_momentum_bases()]
-                bases = sorted(bases, key=lambda b: len([lm for lm in b if lm in lm_names]), reverse=True)
-                g.generate_momentum_flow(loop_momenta=bases[0], sink=sink)
+                g.inherit_loop_momentum_basis(self)
+                ext = g.ext[0]
 
-                ext = g.ext[1] if g.edge_map_lin[g.ext[0]] == sink else g.ext[1]
+                bubble_momenta = tuple(sorted(g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i not in g.ext))
 
                 # take the derivative by raising the propagator of every propagator that has the bubble momentum
                 dep_momenta = [g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i not in g.ext
@@ -622,7 +612,7 @@ class TopologyGenerator(object):
                 # find the cut momentum associated with this bubble
                 sig = tuple(self.propagators[self.edge_name_map[g.edge_map_lin[ext][0]]])
                 inv_sig = tuple([(x[0], not x[1]) for x in sig])
-                cut_mom = next(c for c in cut_names if tuple(self.propagators[self.edge_name_map[c]]) == sig or tuple(self.propagators[self.edge_name_map[c]]) == inv_sig )
+                cut_mom = next(c for c in cut_names if tuple(self.propagators[self.edge_name_map[c]]) == sig or tuple(self.propagators[self.edge_name_map[c]]) == inv_sig)
 
                 bubble_derivatives = []
                 for x in dep_momenta:
@@ -630,6 +620,7 @@ class TopologyGenerator(object):
                     g1.powers[x] = 2
                     bubble_derivatives.append({
                         'graph':  g1,
+                        'bubble_momenta': bubble_momenta,
                         'derivative': (cut_mom, x),
                         'conjugate_deformation': g.conjugate
                     })
@@ -637,6 +628,7 @@ class TopologyGenerator(object):
                 # the g itself will have the derivative of the numerator
                 bubble_derivatives.append({
                     'graph':  g,
+                    'bubble_momenta': bubble_momenta,
                     'derivative': (cut_mom, g.edge_map_lin[ext][0]),
                     'conjugate_deformation': g.conjugate
                 })
@@ -645,6 +637,7 @@ class TopologyGenerator(object):
             else:
                 split_graphs.append([{
                     'derivative': None,
+                    'bubble_momenta': [],
                     'graph':  g,
                     'conjugate_deformation': g.conjugate
                 }])
@@ -721,18 +714,21 @@ class TopologyGenerator(object):
             edge_map[edge_name] = signature
         return edge_map
 
-    def build_proto_topology(self, sub_graph, cuts, inherit_loop_momenta=True):
-        cut_momenta_names = [c['edge'] for c in cuts]
-        sink = next(cn for cn in cut_momenta_names if cn in sub_graph.edge_name_map)
-
-        if inherit_loop_momenta and sub_graph.n_loops > 0:
+    def inherit_loop_momentum_basis(self, super_graph, sink=None):
+        lmbs = self.loop_momentum_bases()
+        if self.n_loops > 0:
             # select a basis with the most loop momenta shared with the supergraph
-            lm_names = [ self.edge_map_lin[e][0] for e in self.loop_momenta]
-            bases = [ tuple(sub_graph.edge_map_lin[e][0] for e in b) for b in sub_graph.loop_momentum_bases()]
+            lm_names = [super_graph.edge_map_lin[e][0] for e in  super_graph.loop_momenta]
+            bases = [tuple(self.edge_map_lin[e][0] for e in b) for b in lmbs]
             bases = sorted(bases, key=lambda b: len([lm for lm in b if lm in lm_names]), reverse=True)
-            sub_graph.generate_momentum_flow(loop_momenta=bases[0], sink=sink)
+            self.generate_momentum_flow(loop_momenta=bases[0], sink=sink) 
         else:
-            sub_graph.generate_momentum_flow(sink=sink)
+            self.generate_momentum_flow(sink)
+
+    def build_proto_topology(self, sub_graph, cuts, skip_shift=False):
+        cut_momenta_names = [c['edge'] for c in cuts]
+
+        sub_graph.inherit_loop_momentum_basis(self)
 
         # for each edge, determine the momentum map from full graph to subgraph and the shift
         # the shift will in general also have loop momentum dependence
@@ -753,6 +749,11 @@ class TopologyGenerator(object):
 
             # determine the shift in the subgraph in the cut basis
             signature = [[0]*len(cuts), [0]*len(self.ext)]
+
+            if skip_shift:
+                # keep the local subgraph map instead of translating it
+                param_shift[edge_name] = sub_graph_edge_map[edge_name]
+                continue
 
             # map the external momenta back to cuts and the external momenta of the full graph
             for ext_index, s in enumerate(sub_graph_edge_map[edge_name][1]):
@@ -1041,7 +1042,7 @@ class TopologyGenerator(object):
             # shrink all edges for signature 0 loop lines
             # this will fuse disjoint graphs for non-1PI graphs
             shrink_start = 0 if all(s == 0 for s in sig) else 1
-            fuse_map = {e[0]: e[1] for e in edges[shrink_start:]}
+            fuse_map = {e[0]: e[1] for e in edges[shrink_start:] if e[0] != e[1]}
             loop_line_vertex_map[sig] = [(edges[0][0], edges[0][1])]
             # duplicate keys are not allowed, unless the signature is 0
             # a duplicate key signals an orientation issue

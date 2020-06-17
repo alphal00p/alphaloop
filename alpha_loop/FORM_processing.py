@@ -53,7 +53,7 @@ if __name__ == "__main__":
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 
-FORM_processing_options = {'FORM_path': 'form', 'TFORM_path': 'tform', 'parallel': False, 'cores': multiprocessing.cpu_count(), 'extra-options': '-D OPTIMITERATIONS=1000'}
+FORM_processing_options = {'FORM_path': 'form', 'cores': multiprocessing.cpu_count(), 'extra-options': '-D OPTIMITERATIONS=1000'}
 
 # Can switch to tmpdir() if necessary at some point
 FORM_workspace = pjoin(plugin_path,'FORM_workspace')
@@ -631,44 +631,70 @@ aGraph=%s;
                         ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
                         der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
 
-                        edges = tuple(sorted(e[0] for i, e in enumerate(diag_info['graph'].edge_map_lin) if i not in diag_info['graph'].ext))
-                        bubble_to_cut[edges] = diag_info['derivative'][0]
+                        if diag_info['bubble_momenta'] not in bubble_to_cut:
+                            bubble_to_cut[diag_info['bubble_momenta']] = diag_info['derivative'][0]
 
                         # numerator derivative
                         if ext_mom == der_mom:
-                            trans.append('der(pbubble' + str(len(bubble_to_cut) - 1) + ')')
+                            index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
+                            trans.append('der(pbubble' + str(index) + ')')
                         else:
                             trans.append('-2*(' + der_mom + ')')
 
                     # translate the UV forest
                     uv_subgraphs = []
-                    for num in diag_info['numerator']:
-                        uv_sig = '*'.join(['t{}^{}'.format(x, num['derived_loop_lines'].count(x)) for x in range(len(num['loop_lines']))])
-                        # get the external momenta without sign
-                        # note: the signatures are unaffected by the bubble treatment from before
-                        external_momenta = set(m for e in num['external_edges'] 
-                            for m in self.momenta_decomposition_to_string(next(ee for ee in self.edges.values() if ee['name'] == e)['signature'], False)
-                                    .replace('-', '+').split('+') if m != '')
-                        loop_momenta_signatures = [next(ee for ee in self.edges.values() if ee['name'] == e)['signature'] for e in num['loop_edges']]
-                        
-                        uv_props = []
-                        for i, ll in enumerate(num['loop_lines']):
-                            for edge in ll:
-                                # split off the subgraph loop momenta from the signature
-                                edge_signature = next(ee for ee in self.edges.values() if ee['name'] == edge)['signature']
-                                loop_signature = [[s if all(sl[0][i] != 0 for sl in loop_momenta_signatures) else 0 for i, s in enumerate(edge_signature[0])], [0]*len(edge_signature[1])]
-                                ext_signature = [[s if sl == 0 else 0 for s, sl in zip(edge_signature[0], loop_signature[0])], edge_signature[1]]
 
-                                # the edge may have a raised power due to the bubble derivative
-                                power = 2 if edge == der_edge else 1
-                                for _ in range(power):
-                                    uv_props.append('uvprop({},t{},{})'.format(self.momenta_decomposition_to_string(loop_signature, False), i, 
-                                        self.momenta_decomposition_to_string(ext_signature, False)))
+                    if diag_info['uv_info'] is None:
+                        continue
 
-                        uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, num['taylor_order'], ','.join(external_momenta), '*'.join(uv_props))
-                        uv_subgraphs.append('subgraph({}{},{})'.format(num['graph_index'], 
-                        (',' if len(num['subgraph_indices']) > 0 else '') + ','.join(num['subgraph_indices']),
-                        uv_conf))
+                    uv_info = diag_info['uv_info']
+
+                    uv_sig = '*'.join(['t{}^{}'.format(x, uv_info['derived_loop_lines'].count(x)) for x in range(len(uv_info['loop_lines']))])
+
+                    # get the external momenta without sign
+                    # note: the signatures are unaffected by the bubble treatment from before
+                    external_momenta = set(m for e in uv_info['external_edges'] 
+                        for m in self.momenta_decomposition_to_string(next(ee for ee in self.edges.values() if ee['name'] == e)['signature'], False)
+                                .replace('-', '+').split('+') if m != '')
+                    
+                    uv_props = []
+                    for i, uv_ll_props in enumerate(uv_info['loop_lines']):
+                        # loop through all parametric shifts of all the propagators in this loop line
+                        # find the associated LTD loop line
+                        ll_sig, propagators = next(ll for ll in loop_diag_info['uv_loop_lines'] if set(p[0] for p in ll[1]).issuperset(set(uv_ll_props)))
+
+                        # the parametric shift is given in terms of external momenta of the subgraph
+                        # translate the signature and param_shift to momenta of the supergraph
+                        loop_mom_sig = ''
+                        for s, lmm in zip(ll_sig, loop_diag_info['loop_momentum_map']):
+                            if s != 0:
+                                loop_mom_sig += '{}({})'.format('+' if s == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
+
+                        for (edge_name, param_shift) in propagators:
+                            ext_mom_sig = ''
+
+                            if all(s == 0 for s in param_shift[1]):
+                                continue
+
+                            for (ext_index, s) in enumerate(param_shift[1]):
+                                if s != 0:
+                                    ext_mom = diag_info['graph'].edge_map_lin[diag_info['graph'].ext[ext_index]][0]
+                                    ext_edge = next(ee for ee in self.edges.values() if ee['name'] == ext_mom)
+                                    ext_mom_sig += '{}({})'.format('+' if s == 1 else '-',
+                                        self.momenta_decomposition_to_string(ext_edge['signature'], False))
+
+                            # the edge may have a raised power due to the bubble derivative
+                            power = 2 if edge_name == der_edge else 1
+                            for _ in range(power):
+                                uv_props.append('uvprop({},t{},{})'.format(loop_mom_sig, i, ext_mom_sig))
+                    # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
+                    if uv_props == []:
+                        uv_sig = 't0^0'
+                        uv_props = ['1']
+                    uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), '*'.join(uv_props))
+                    uv_subgraphs.append('subgraph({}{},{})'.format(uv_info['graph_index'], 
+                    (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
+                    uv_conf))
 
                     if uv_subgraphs != []:
                         diag_set_uv_conf.append('*'.join(uv_subgraphs))
@@ -689,8 +715,8 @@ aGraph=%s;
         mommap = []
         for i, (bubble, cut_edge) in enumerate(bubble_to_cut.items()):
             ce = next(ee for ee in self.edges.values() if ee['name'] == cut_edge)
-            for e in bubble:
-                e = next(ee for ee in self.edges.values() if ee['name'] == e)
+            for edge in bubble:
+                e = next(ee for ee in self.edges.values() if ee['name'] == edge)
                 if any(s != 0 for s in e['signature'][1]) or any(se != 0 and sc != 0 for se, sc in zip(e['signature'][0], ce['signature'][0])):
                     signs = [se * sc for se, sc in zip(e['signature'][0] + e['signature'][1], ce['signature'][0] + ce['signature'][1]) if se * sc != 0]
                     assert(len(set(signs)) == 1)
@@ -713,7 +739,7 @@ aGraph=%s;
         if len(mommap) > 0:
             self.replacement_rules = '*' + '*'.join(mommap)
 
-        self.replacement_rules += '*configurations({})'.format('+'.join(configurations))
+        self.replacement_rules += '*configurations({})'.format('\n+'.join(configurations))
 
 
 class FORMSuperGraphIsomorphicList(list):
@@ -772,8 +798,7 @@ class FORMSuperGraphIsomorphicList(list):
 
         # NO FUCKING way of passing -D SIGID=<int> without shell=True... be my guest to fix this. Too old for that sh&$#$#$t...
         r = subprocess.run(' '.join([
-                FORM_processing_options["TFORM_path"] if FORM_processing_options["parallel"] else FORM_processing_options["FORM_path"],
-                '-w' + str(FORM_processing_options["cores"])
+                FORM_processing_options["FORM_path"],
                 ]+
                 [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
                 [ FORM_source, ]
@@ -1246,20 +1271,15 @@ if __name__ == "__main__":
                         help='Number of FORM cores')
     parser.add_argument('--optim_iter', default=100, type=int,
                         help='Number of iterations for numerator optimization')
-    parser.add_argument('--full_energy_poly', default=False, type=bool,
-                        help='Always generate the full energy polynomial')
     parser.add_argument('--restrict_card',
         default=pjoin(os.environ['MG5DIR'],'models','sm','restrict_no_widths.dat'), 
                         type=str, help='Model restriction card to consider.')
     args = parser.parse_args()
 
     if args.cores > 1:
-        FORM_processing_options['parallel'] = True
         FORM_processing_options['cores'] = args.cores
     FORM_processing_options['extra-options'] = '-D OPTIMITERATIONS=' + str(args.optim_iter)
-    if args.full_energy_poly:
-        FORM_processing_options['extra-options'] += ' -D FULL_ENERGY_POLY=1'
-     
+
     import alpha_loop.interface as interface
     cli = interface.alphaLoopInterface()
 

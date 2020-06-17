@@ -30,7 +30,7 @@ class SquaredTopologyGenerator:
         self.loop_momenta_signs = loop_momenta_signs
         # However, we no longer want to support this case and instead enforce momenta to always follow
         # the edge orientation. The numerator must therefore be modified upstream so as to satisfy this requirement.
-        assert(all(lms==1 for lms in loop_momenta_signs))
+        assert(loop_momenta_signs is None or all(lms==1 for lms in loop_momenta_signs))
 
         self.loop_topo = self.topo.create_loop_topology(name,
             external_momenta,
@@ -74,8 +74,7 @@ class SquaredTopologyGenerator:
             for diag_set in cut_info['diagram_sets']:
                 uv_diags = []
                 for i, diag_info in enumerate(diag_set['diagram_info']):
-                    diag_info['graph'].loop_momentum_bases() # sets the number of loops
-                    (loop_mom_map, shift_map) = self.topo.build_proto_topology(diag_info['graph'], c)
+                    diag_info['graph'].inherit_loop_momentum_basis(self.topo)
 
                     vw = {v: vertex_weights[v] if v in vertex_weights else 0 for e in diag_info['graph'].edge_map_lin for v in e[1:]}
                     ew = {e: edge_weights[e] if e in edge_weights else -2 for e, _, _ in diag_info['graph'].edge_map_lin}
@@ -87,11 +86,12 @@ class SquaredTopologyGenerator:
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew)
 
                     uv_diagram_info = [{
-                        'numerator': uv_limit['numerator'],
+                        'uv_subgraphs': uv_limit['uv_subgraphs'],
                         'uv_propagators': [m for g, _ in uv_limit['spinney'] for m in g],
-                        'graph': uv_limit['graph'],
+                        'remaining_graph': uv_limit['remaining_graph'],
                         'derivative': diag_info['derivative'],
-                        'conjugate_deformation': diag_info['conjugate_deformation'] 
+                        'bubble_momenta': diag_info['bubble_momenta'],
+                        'conjugate_deformation': diag_info['conjugate_deformation']
                     } for uv_limit in uv_limits]
 
                     uv_diags.append(uv_diagram_info)
@@ -100,6 +100,35 @@ class SquaredTopologyGenerator:
                     'diagram_info': list(x),
                     'uv_propagators': set(m for d in x for m in d['uv_propagators'])
                     } for x in product(*uv_diags)]
+
+                # unpack the factorized UV subgraphs
+                for uv_diag_set in uv_diag_sets:
+                    unfolded_diag_info = []
+                    for diag_id, di in enumerate(uv_diag_set['diagram_info']):
+                        # only the remaining graph gets the derivative flag to prevent
+                        # it being applied more than once per diagram set
+                        unfolded_diag_info.append({
+                            'uv_info': None,
+                            'graph': di['remaining_graph'],
+                            'derivative': di['derivative'],
+                            'bubble_momenta': di['bubble_momenta'],
+                            'conjugate_deformation': di['conjugate_deformation']
+                        })
+
+                        for uv_lim in di['uv_subgraphs']:
+                            # give every subdiagram a globally unique id
+                            uv_lim['graph_index'] += diag_id * 100
+                            uv_lim['subgraph_indices'] = [i + diag_id * 100 for i in uv_lim['subgraph_indices']]
+                            unfolded_diag_info.append({
+                                'uv_info': uv_lim,
+                                'graph': uv_lim['graph'],
+                                'derivative': None,
+                                'bubble_momenta': [],
+                                'conjugate_deformation': di['conjugate_deformation']
+                            })
+
+                    uv_diag_set['diagram_info'] = unfolded_diag_info
+
                 uv_diagram_sets.extend(uv_diag_sets)
 
             cut_info['diagram_sets'] = uv_diagram_sets
@@ -139,17 +168,16 @@ class SquaredTopologyGenerator:
                 for i, diag_info in enumerate(diag_set['diagram_info']):
                     s = diag_info['graph']
                     # create a dummy numerator for the same rank
-                    s.loop_momentum_bases() # sets the number of loops
-                    numerator_entries = 1
+                    #s.loop_momentum_bases() # sets the number of loops
+                    #numerator_entries = 1
                     #level_size = 1
                     #for cur_rank in range(0, max_rank):
                     #    level_size = (level_size * (s.n_loops * 4 + cur_rank)) // (cur_rank + 1)
                     #    numerator_entries += level_size
 
-                    # TODO: this map will still have shifts that may have been set to 0 in the UV limit.
-                    # The current workaround is to add the mass and set the shift to 0 in the loop
-                    # topology
-                    (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, c)
+                    # the shift map cannot be constructed for UV counterterms of LTD subgraphs, so we keep the
+                    # original signature map
+                    (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, c, skip_shift=diag_info['uv_info'] is not None)
                     cut_to_lmb.extend([x[0] for x in loop_mom_map])
 
                     loop_topo = s.create_loop_topology(name + '_' + ''.join(cut_name) + uv_name + '_' + str(i),
@@ -158,24 +186,31 @@ class SquaredTopologyGenerator:
                         fixed_deformation=False,
                         mass_map=masses,
                         loop_momentum_map=loop_mom_map,
-                        numerator_tensor_coefficients=[[0., 0.] for _ in range(numerator_entries)],
+                        numerator_tensor_coefficients=[[0., 0.,]],#[[0., 0.] for _ in range(numerator_entries)],
                         shift_map=shift_map,
-                        check_external_momenta_names=False)
+                        check_external_momenta_names=False,
+                        analytic_result=0)
                     loop_topo.external_kinematics = []
 
                     # take the UV limit of the diagram, add the mass and set the parametric shift to 0
+                    # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
+                    # the UV subgraph
                     uv_moms = [mom for mom in diag_set['uv_propagators'] if mom in set(s.edge_name_map.keys())]
+                    uv_loop_lines = []
                     for ll in loop_topo.loop_lines:
                         if any(p for p in ll.propagators if p.name in uv_moms):
+                            uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators]))
                             prop = next(p for p in ll.propagators if p.name in uv_moms)
                             prop.m_squared = mu_uv**2
                             prop.power = sum(pp.power for pp in ll.propagators)
-                            prop.parametric_shift = [[0 for _ in prop.parametric_shift[0]], [0 for _ in prop.parametric_shift[1]]]
+                            prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
                             ll.propagators = [prop]
 
                     loop_topos.append(
                         {
                             'graph': loop_topo,
+                            'loop_momentum_map': loop_mom_map,
+                            'uv_loop_lines': uv_loop_lines,
                             'conjugate_deformation': diag_info['conjugate_deformation']
                         })
 

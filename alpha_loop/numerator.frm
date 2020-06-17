@@ -280,7 +280,10 @@ repeat;
 endrepeat;
 
 id subs(p1?,p2?) = replace_(p1, p2);
+
+B+ uv;
 .sort:bubble-treatment;
+Keep brackets;
 
 argument uv;
    repeat;
@@ -292,6 +295,10 @@ argument uv;
             chainout uvconf1;
             repeat id uvconf1(p?)*uvconf1(p?) = uvconf1(p);
             id uvconf1(p?) = replace_(p, t * p);
+
+            argument uvprop,1;
+                id t = 1; * it could be that the LTD momentum also makes an appearance as an external momentum
+            endargument;
 
             id uvprop(k?,t1?,p?) = 1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t^4;
 * select the right Taylor expansion depth
