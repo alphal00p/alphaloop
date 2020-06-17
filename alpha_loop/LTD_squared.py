@@ -382,12 +382,22 @@ class SuperGraph(object):
                 loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]]
             )
             self.was_MG_LMB_valid = True
+#            misc.sprint([v['name'] for k,v in self.graph.edges.items()])
+#            if self.call_signature['left_diagram_id']==2 and self.call_signature['right_diagram_id']==2:
+#                topo_generator.generate_momentum_flow(
+#                    loop_momenta=["Lp2","cut4"]
+#                )
+#                self.was_MG_LMB_valid = True
+#            else:
+#                topo_generator.generate_momentum_flow(
+#                    loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]]
+#                )
         except IndexError:
             #raise LTD2Error("Incorrect momentum LMB specified by MadGraph. Likely an unfiltered tadpole.")
             #misc.sprint("SuperGrpah %s failed momentum routing assignment."%self.name)
             # We instead use an automatically sepcified LMB. This super-graph is likely a tadpole that
             # will be filtered awauy.
-            if not self._tolerates_invalid_alphaLoop_LMB: 
+            if not self._tolerates_invalid_alphaLoop_LMB:
                 raise LTD2Error("The LMB suggested by alphaLoop failed and this should never "+
                                 "happen for instances of the class '%s'"%self.__class__.__name__)
             self.was_MG_LMB_valid = False
@@ -459,6 +469,7 @@ class SuperGraph(object):
                     ))
             else:
                 new_cuts[lmb_index] = ( None, edge_key, is_flipped )
+#            new_cuts[lmb_index] = ( None, edge_key, is_flipped )
 
             # Adjust the edge name so as to specify that it is part of the LMB
             edge_data['name'] = 'LMB%d_%s'%(lmb_index+1,edge_data['name'])
@@ -472,7 +483,7 @@ class SuperGraph(object):
                 raise LTD2Error("Could not build new loop momentum basis %s from TopologyGenerator whose basis is '%s'."%(
                         new_cuts, loop_momenta_basis_edge_names))
             self.cuts = tuple(new_cuts)
-            
+
         self.is_momentum_routing_set = True
         self.n_loops = topo_generator.n_loops
 
@@ -803,8 +814,8 @@ class SuperGraph(object):
 
         def get_external_momenta_assignment():
             # TODO This must go, it does not make much sense for it to be assigned in the context of using MG numerators.
-            return {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
-#            return {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+#            return {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+            return {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
 
         def get_loop_momenta_names():
             loop_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.cuts[:-1] ]
