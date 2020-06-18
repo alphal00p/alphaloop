@@ -301,7 +301,13 @@ argument uv;
             endargument;
 
 * Taylor expand to the right depth
-            repeat id uvprop(k?,t1?,p?)*t^x1?*tmax^x2 = t^x1*tmax^x2 * theta_(x2-x1) * (1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t1^4);
+            repeat;
+                id once ifnomatch->skiptruncation uvprop(k?,t1?,p?)*t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1) * 
+                    (1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t^4);
+                id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
+                label skiptruncation;
+            endrepeat;
+
 * select the right denominator structure
             id uvconf(x?) = 1/x;
             id t?ts^n? = 0;

@@ -1053,7 +1053,7 @@ class FORMSuperGraphList(list):
                         mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
                         # parse monomial powers and get the index in the polynomial in the LTD basis
                         pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
-                        pows = tuple(ltd_vars.index(r) for r in pows if r != 'k0')
+                        pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'k0'))
                         rank = max(rank, len(pows))
                         index = numerator_pows.index(pows)
                         max_index = max(index, max_index)
