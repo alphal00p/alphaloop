@@ -1,4 +1,4 @@
-import model aL_sm-no_widths_no_masses
+import model aL_sm_no_masses-no_widths
 set_alphaLoop_option perturbative_orders {'QCD':0}
 # Force including *all* cutkosky cuts!
 set_alphaLoop_option n_jets 0
