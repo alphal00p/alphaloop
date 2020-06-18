@@ -344,18 +344,17 @@ class TopologyGenerator(object):
             trees.add(subgraph_edges)
 
             tree = set()
-            leftover = vertex_subset[1:]
-            while len(leftover) > 0:
-                for cycle in leftover:
+            while len(vertex_subset) > 0:
+                for cycle in vertex_subset:
                     if len(tree) == 0 or len(tree & cycle) > 0:
                         tree |= cycle
-                        leftover.remove(cycle)
+                        vertex_subset.remove(cycle)
                         break
                 else:
                     # not connected
                     break
 
-            if len(leftover) == 0:
+            if len(vertex_subset) == 0:
                 subgraphs.add(subgraph_edges)
 
         # filter for UV divergences
