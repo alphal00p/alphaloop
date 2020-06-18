@@ -87,6 +87,7 @@ class SquaredTopologyGenerator:
 
                     uv_diagram_info = [{
                         'uv_subgraphs': uv_limit['uv_subgraphs'],
+                        'uv_spinney': [[list(g), dod] for g, dod in uv_limit['spinney']],
                         'uv_propagators': [m for g, _ in uv_limit['spinney'] for m in g],
                         'remaining_graph': uv_limit['remaining_graph'],
                         'derivative': diag_info['derivative'],
@@ -98,6 +99,7 @@ class SquaredTopologyGenerator:
 
                 uv_diag_sets = [{
                     'diagram_info': list(x),
+                    'uv_spinney': list(list(d['uv_spinney']) for d in x if len(d['uv_spinney']) != 0),
                     'uv_propagators': set(m for d in x for m in d['uv_propagators'])
                     } for x in product(*uv_diags)]
 
@@ -226,6 +228,7 @@ class SquaredTopologyGenerator:
 
                 diagram_sets.append({
                     'id': diag_set['id'],
+                    'uv_spinney': diag_set['uv_spinney'],
                     'numerator_structure': numerator_sparse,
                     'diagram_info': loop_topos,
                     'cb_to_lmb': [int(x) for x in lmb_to_cb_matrix]
@@ -263,6 +266,7 @@ class SquaredTopologyGenerator:
                     'diagram_sets': [
                         {
                             'id': diag_set['id'],
+                            'uv_spinney': diag_set['uv_spinney'],
                             'diagram_info': [{
                                 'graph': diag['graph'].to_flat_format(),
                                 'conjugate_deformation': diag['conjugate_deformation'],

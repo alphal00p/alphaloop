@@ -575,7 +575,6 @@ pub struct NormalisingFunctionSettings {
     pub center: f64,
 }
 
-
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum NumeratorSource {
     #[serde(rename = "yaml")]
@@ -585,7 +584,7 @@ pub enum NumeratorSource {
     #[serde(rename = "FORM")]
     Form,
     #[serde(rename = "MG_and_FORM")]
-    MgAndForm
+    MgAndForm,
 }
 
 impl Default for NumeratorSource {
@@ -719,7 +718,7 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def evaluate_cut(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
+    def evaluate_cut(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64, diagram_set: Option<usize> = None) -> PyResult<(f64, f64)> {
         let mut squared_topology = self.squared_topology(py).borrow_mut();
 
         let mut external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = squared_topology
@@ -737,25 +736,26 @@ py_class!(class CrossSection |py| {
 
         let mut integrand = self.integrand(py).borrow_mut();
 
-        let max_cuts = squared_topology.n_loops + 1;
+        let n_loops = squared_topology.n_loops;
         let res = squared_topology.evaluate_cut(
             &loop_momenta,
             &mut cut_momenta,
             &mut external_momenta,
             &mut rescaled_loop_momenta,
             &mut subgraph_loop_momenta,
-            &mut k_def[..max_cuts],
+            &mut k_def[..n_loops],
             cache,
             &mut Some(&mut integrand.event_manager),
             cut_index,
             scaling,
             scaling_jac,
+            diagram_set,
         );
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-   def evaluate_cut_f128(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64) -> PyResult<(f64, f64)> {
+   def evaluate_cut_f128(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64, diagram_set: Option<usize> = None) -> PyResult<(f64, f64)> {
         let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(l.cast());
@@ -778,25 +778,26 @@ py_class!(class CrossSection |py| {
 
         let mut integrand = self.integrand(py).borrow_mut();
 
-        let max_cuts = squared_topology.n_loops + 1;
+        let n_loops = squared_topology.n_loops;
         let res = squared_topology.evaluate_cut(
             &moms,
             &mut cut_momenta,
             &mut external_momenta,
             &mut rescaled_loop_momenta,
             &mut subgraph_loop_momenta,
-            &mut k_def[..max_cuts],
+            &mut k_def[..n_loops],
             cache,
             &mut Some(&mut integrand.event_manager),
             cut_index,
             f128::f128::from_f64(scaling).unwrap(),
             f128::f128::from_f64(scaling_jac).unwrap(),
+            diagram_set,
         );
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def get_cut_deformation(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize) -> PyResult<Vec<LorentzVector<Complex<f64>>>> {
+    def get_cut_deformation(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, diagram_set: Option<usize> = None) -> PyResult<Vec<LorentzVector<Complex<f64>>>> {
         let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(l.cast());
@@ -853,6 +854,7 @@ py_class!(class CrossSection |py| {
             cut_index,
             scaling[1].0,
             scaling[1].1,
+            diagram_set,
         );
 
         let def = k_def[num_cuts - 1..max_cuts - 1].iter().map(|k| k.map(|d| Complex::new(d.re.into(), d.im.into()))).collect();
@@ -985,8 +987,14 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+
+        let use_partial_fractioning = topo.settings.general.partial_fractioning_threshold >= 0.0
+            && moms.len() > 0
+            && moms[0].real().spatial_distance()
+                > topo.settings.general.partial_fractioning_threshold;
+
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true);
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true, use_partial_fractioning);
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
@@ -1014,8 +1022,14 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+
+        let use_partial_fractioning = topo.settings.general.partial_fractioning_threshold >= 0.0
+        && moms.len() > 0
+        && moms[0].real().spatial_distance()
+            > f128::f128::from_f64(topo.settings.general.partial_fractioning_threshold).unwrap();
+
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true);
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true, use_partial_fractioning);
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
@@ -1043,8 +1057,14 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+
+        let use_partial_fractioning = topo.settings.general.partial_fractioning_threshold >= 0.0
+        && moms.len() > 0
+        && moms[0].real().spatial_distance()
+            > topo.settings.general.partial_fractioning_threshold;
+
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true); //NOTE: Only necessary when k_vec is changed
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true, use_partial_fractioning); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
@@ -1074,8 +1094,14 @@ py_class!(class LTD |py| {
         if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
+
+        let use_partial_fractioning = topo.settings.general.partial_fractioning_threshold >= 0.0
+        && moms.len() > 0
+        && moms[0].real().spatial_distance()
+            > f128::f128::from_f64(topo.settings.general.partial_fractioning_threshold).unwrap();
+
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true); //NOTE: Only necessary when k_vec is changed
+        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true, use_partial_fractioning); //NOTE: Only necessary when k_vec is changed
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];

@@ -1346,6 +1346,7 @@ impl SquaredTopology {
                     cut_index,
                     scaling,
                     scaling_jac,
+                    None,
                 );
             }
         }
@@ -1380,6 +1381,7 @@ impl SquaredTopology {
         cut_index: usize,
         scaling: T,
         scaling_jac: T,
+        selected_diagram_set: Option<usize>,
     ) -> Complex<T> {
         let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
 
@@ -1555,6 +1557,12 @@ impl SquaredTopology {
         for (uv_index, (diagram_set, diag_cache)) in
             cutkosky_cuts.diagram_sets.iter_mut().zip(cache).enumerate()
         {
+            if let Some(sid) = selected_diagram_set {
+                if sid != diagram_set.id {
+                    continue;
+                }
+            }
+
             // set the shifts, which are expressed in the cut basis
             for diagram_info in &mut diagram_set.diagram_info {
                 let subgraph = &mut diagram_info.graph;

@@ -1042,6 +1042,8 @@ class TopologyGenerator(object):
 
                 loop_line_vertex_map[tuple(signature)] += [(v1, v2)]
 
+        # TODO: merge edges with identical propagator map!
+
         # vertices that are fused may again be fused with another vertex
         def multifuse(fuse_map, v):
             if v in fuse_map:

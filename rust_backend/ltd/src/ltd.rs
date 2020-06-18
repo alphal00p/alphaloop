@@ -3806,6 +3806,10 @@ impl LTDNumerator {
         }
 
         for (index, powers_lb) in self.reduced_coefficient_index_to_powers.iter().enumerate() {
+            if cache.reduced_coefficient_lb[num_id][index].is_zero() {
+                continue;
+            }
+
             let mut powers_cb = [0; MAX_LOOP];
             //println!(
             //    "MONOMIAL: {:?} * {:?}",
