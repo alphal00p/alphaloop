@@ -291,7 +291,7 @@ argument uv;
 * multiply each graph with -1 to correctly subtract it
         id subgraph(x1?, x2?) = -uvconf1(x1, x2);
         argument uvconf1,2;
-            id uvconf(x1?,x2?,?a,x3?) = uvconf(x1, x2) * uvconf1(?a) * x3;
+            id uvconf(x1?,x2?,?a,x3?) = uvconf(x1) * tmax^x2 * uvconf1(?a) * x3;
             chainout uvconf1;
             repeat id uvconf1(p?)*uvconf1(p?) = uvconf1(p);
             id uvconf1(p?) = replace_(p, t * p);
@@ -300,9 +300,8 @@ argument uv;
                 id t = 1; * it could be that the LTD momentum also makes an appearance as an external momentum
             endargument;
 
-            id uvprop(k?,t1?,p?) = 1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t^4;
-* select the right Taylor expansion depth
-            id uvconf(x?, x1?)*t^x2? = uvconf(x)*theta_(x1-x2)*t^x2;
+* Taylor expand to the right depth
+            repeat id uvprop(k?,t1?,p?)*t^x1?*tmax^x2 = t^x1*tmax^x2 * theta_(x2-x1) * (1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t1^4);
 * select the right denominator structure
             id uvconf(x?) = 1/x;
             id t?ts^n? = 0;

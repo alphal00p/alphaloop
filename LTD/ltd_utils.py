@@ -419,8 +419,20 @@ class TopologyGenerator(object):
                     subgraph_external_edges = [e[0] for i, e in enumerate(g.edge_map_lin) if len(set(e[1:]) & subgraph_vertices) > 0 and e[0] not in subgraph_momenta]
                     external_vertices = [v for v in subgraph_vertices if any(v in g.edge_map_lin[g.edge_name_map[e]][1:] for e in subgraph_external_edges)]
 
-                    uv_subgraph = TopologyGenerator([ee for ee in g.edge_map_lin if ee[0] in subgraph_momenta or ee[0] in subgraph_external_edges],
-                        powers=g.powers)
+                    uv_subgraph_edges = [ee for ee in g.edge_map_lin if ee[0] in subgraph_momenta]
+                    highest_vertex = max(v for e in uv_subgraph_edges for v in e[1:]) + 1
+                    for c in subgraph_external_edges:
+                        (_, cut_v1, cut_v2) = next(e for e in g.edge_map_lin if e[0] == c)
+                        # TODO: what to do if the external edge is connected to the UV subgraph on both sides?
+                        # now we remove the connection on one of the sides. If we wouldn't, we would have to introduce
+                        # an edge with a new name that does not exist in the supergraph
+                        if cut_v1 in subgraph_vertices:
+                            uv_subgraph_edges.append((c, cut_v1, highest_vertex))
+                        else:
+                            uv_subgraph_edges.append((c, highest_vertex, cut_v2))
+                        highest_vertex += 1
+
+                    uv_subgraph = TopologyGenerator(uv_subgraph_edges, powers=g.powers)
                     uv_subgraph.inherit_loop_momentum_basis(g)
                     uv_subgraph.loop_momentum_bases()
 
@@ -521,9 +533,9 @@ class TopologyGenerator(object):
         cut_momenta_options = set()
 
         for spanning_tree in spanning_trees:
-            # now select the extra cut
+            # now select the extra cut, which needs to have a loop dependence
             for edge_index in spanning_tree:
-                if edge_index in self.ext:
+                if edge_index in self.ext or all(i in self.ext for i, _ in self.propagators[edge_index]):
                     continue
 
                 cut_momenta_options.add(tuple(sorted(set(spanning_tree) - {edge_index})))
