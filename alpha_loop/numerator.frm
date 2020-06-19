@@ -312,6 +312,7 @@ argument uv;
             id uvconf(x?) = 1/x;
             id t?ts^n? = 0;
             id t = 1;
+            id tmax = 1;
         endargument;
 
 * now fill in the subgraph evaluation into the supergraph
