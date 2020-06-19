@@ -366,6 +366,13 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 #                FORM_super_graph_list,
                 computed_model, characteristic_process_definition
             )
+
+            drawings_output_path = pjoin(self.dir_path, 'Drawings')
+            Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
+            shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
+                        pjoin(drawings_output_path,'Makefile'))
+            FORM_processor.draw(drawings_output_path)
+
             if self.alphaLoop_options['n_jets'] is not None:
                 n_jets = self.alphaLoop_options['n_jets']
             else:
@@ -391,11 +398,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                         output_format=self.alphaLoop_options['FORM_processing_output_format'],
                         workspace=FORM_workspace
             )
-            drawings_output_path = pjoin(self.dir_path, 'Drawings')
-            Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
-            shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
-                        pjoin(drawings_output_path,'Makefile'))
-            FORM_processor.draw(drawings_output_path)
 
         # And now finally generate the overall cross section yaml input file.
         base_name = os.path.basename(self.dir_path)

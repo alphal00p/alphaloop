@@ -76,6 +76,30 @@ RFM$AllHooksStarted={};
 (*Then start the process hook to the Python bindings*)
 
 
+RFM$LoadYaml[name_]:=Block[
+{WexPath="Mathematica/wex",Arguments},
+If[Not[FileExistsQ[name]],
+Print["Could not find target specified yaml file at path: "<>name];
+Return[];
+];
+If[Not[FileExistsQ[RFM$LTDFolder<>"/"<>WexPath]],
+Print["Could not find the converter binary 'wex' at path: "<>RFM$LTDFolder<>"/"<>WexPath];
+Print["Please first install it with 'cargo install wxf-converter' or following instructions on: https://github.com/GalAster/wolfram-exchange-cli"];
+Return[];
+];
+Arguments={
+RFM$LTDFolder<>"/"<>WexPath,
+"-f","yaml","-t",name
+};
+RunProcess[Arguments];
+If[Not[FileExistsQ[name<>".m"]],
+Print["Wex apparently failed the processing of the specified yaml file since output file "<>name<>".m"<>" cannot be found."];
+Return[];
+];
+Get[name<>".m"]
+];
+
+
 (* ::Input::Initialization:: *)
 RFM$GetLTDHook[name_,OptionsPattern[
 {
@@ -220,12 +244,12 @@ DeformedMomenta=ArrayReshape[ParsedOutput[[3;;]],{Length[ParsedOutput[[3;;]]]/3,
 
 
 (* ::Input::Initialization:: *)
-RFM$GetCrossSectionDeformation[hook_, CutID_,RealMomenta_,OptionsPattern[DEBUG->False]]:=Module[
+RFM$GetCrossSectionDeformation[hook_, CutID_,RealMomenta_,OptionsPattern[{DEBUG->False,DiagramSet->-1}]]:=Module[
 {RawOutput, DeformedMomenta, ParsedOutput, Jacobian},
 
 (* Write the real momenta to sys.stdin of the hook *)
 RFM$SendNumbersToHook[hook,"get_deformation",
-Prepend[Join@@Table[Table[ke,{ke,k}],{k,RealMomenta}],CutID],DEBUG->OptionValue[DEBUG]
+Prepend[Prepend[Join@@Table[Table[ke,{ke,k}],{k,RealMomenta}],OptionValue[DiagramSet]],CutID],DEBUG->OptionValue[DEBUG]
 ];
 
 (* Now recover the deformed momenta *)
@@ -344,12 +368,12 @@ ParsedOutput[[1]]+I ParsedOutput[[2]]
 
 
 (* ::Input::Initialization:: *)
-RFM$EvaluateCut[hook_,CutID_,scalingFactor_, scalingFactorJacobian_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
+RFM$EvaluateCut[hook_,CutID_,scalingFactor_, scalingFactorJacobian_,Momenta_,OptionsPattern[{DEBUG->False,f128->False,DiagramSet->-1}]]:=Module[
 {RawOutput, ParsedOutput},
 
 (* Write the real momenta to sys.stdin of the hook *)
 RFM$SendNumbersToHook[hook,"evaluate_cut",
-Join[{CutID,scalingFactor,scalingFactorJacobian},Join@@Table[Table[ke,{ke,k}],{k,Momenta}]],DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
+Join[{CutID,OptionValue[DiagramSet],scalingFactor,scalingFactorJacobian},Join@@Table[Table[ke,{ke,k}],{k,Momenta}]],DEBUG->OptionValue[DEBUG],f128->OptionValue[f128]
 ];
 
 (* Now recover the output *)

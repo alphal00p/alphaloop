@@ -108,8 +108,12 @@ while True:
             print('TOMATHEMATICA '+'%.16e '%jac_re+'%.16e '%jac_im+' '.join('%.16e'%(ke) for k in kappas for ke in k))
         elif args.mode == 'cross_section':
             cut_ID = int(raw_input_str[0])
-            momenta_input = [ [float(k) for k in raw_input_str[1:][il*3:(il+1)*3]] for il in range(len(raw_input_str[1:])//3) ]
-            deformed_momenta = rust_instance.get_cut_deformation(momenta_input, cut_ID)
+            diagram_set_ID = int(raw_input_str[1])
+            call_opts = {}
+            if diagram_set_ID >= 0:
+                call_opts['diagram_set'] = diagram_set_ID
+            momenta_input = [ [float(k) for k in raw_input_str[2:][il*3:(il+1)*3]] for il in range(len(raw_input_str[2:])//3) ]
+            deformed_momenta = rust_instance.get_cut_deformation(momenta_input, cut_ID, **call_opts)
             print('TOMATHEMATICA '+' '.join('%.16e'%(ke[0]) for k in deformed_momenta for ke in k)+' '+' '.join('%.16e'%(ke[1]) for k in deformed_momenta for ke in k))
     elif API_name == 'parameterize': 
             loop_index = int(raw_input_str[0])
@@ -142,13 +146,17 @@ while True:
     elif API_name == 'evaluate_cut':
         if args.mode == 'cross_section':
             cut_ID = int(raw_input_str[0])
-            scaling = float(raw_input_str[1])
-            scaling_jac = float(raw_input_str[2])
-            momenta_input = [ [0.0]+[float(k) for k in raw_input_str[3:][il*3:(il+1)*3]] for il in range(len(raw_input_str[3:])//3) ]
+            diagram_set_ID = int(raw_input_str[1])
+            scaling = float(raw_input_str[2])
+            scaling_jac = float(raw_input_str[3])
+            momenta_input = [ [0.0]+[float(k) for k in raw_input_str[4:][il*3:(il+1)*3]] for il in range(len(raw_input_str[4:])//3) ]
+            call_opts = {}
+            if diagram_set_ID >= 0:
+                call_opts['diagram_set'] = diagram_set_ID
             if f128_mode:
-                res_re, res_im = rust_instance.evaluate_cut_f128(momenta_input,cut_ID,scaling,scaling_jac)
+                res_re, res_im = rust_instance.evaluate_cut_f128(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
             else:
-                res_re, res_im = rust_instance.evaluate_cut(momenta_input,cut_ID,scaling,scaling_jac)
+                res_re, res_im = rust_instance.evaluate_cut(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
             print('TOMATHEMATICA '+'%.16e'%res_re+' '+'%.16e'%res_im)
         else:
             print("ERROR Function %s not support for LTD mode yet."%API_name)
