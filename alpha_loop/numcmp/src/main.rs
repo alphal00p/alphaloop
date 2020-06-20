@@ -9,7 +9,7 @@ use itertools::Itertools;
 
 #[derive(WrapperApi)]
 pub struct CNumeratorAPI {
-    evaluate: unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int, out: *mut c_double),
+    evaluate: unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int, out: *mut c_double) -> c_int,
 }
 
 #[derive(WrapperApi)]
@@ -41,9 +41,9 @@ pub fn get_form_numerator(
     diag: usize,
     conf: usize,
     poly: &mut[f64]
-) {
+) -> usize {
     unsafe {
-        api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32, &mut poly[0] as *mut f64);
+        api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32, &mut poly[0] as *mut f64) as usize
     }
 }
 
@@ -151,16 +151,17 @@ fn eval(
         }
     }
 
-    let exponent_map: Vec<Vec<usize>> = (0..=8).map(|rank| (0..lin.len() - ext).combinations_with_replacement(rank)).flatten().collect();
+    let exponent_map_k: Vec<Vec<usize>> = (0..=8).map(|rank| (0..1).combinations_with_replacement(rank)).flatten().collect();
+    let exponent_map_l: Vec<Vec<usize>> = (0..=8).map(|rank| (1..2).combinations_with_replacement(rank)).flatten().collect();
     let mut buffer = vec![0.; lin.len() * lin.len() * 4];
 
     let t = std::time::Instant::now();
 
-    for i in 0..1_000_000 {
+    /*for i in 0..1_000_000 {
         get_form_numerator(c_numerator, &form_input, 0, 0, &mut buffer);
     }
-    let t2 = std::time::Instant::now().duration_since(t);
-    println!("time FORM for 1M={:#?}",  t2);
+    let t2 = std::time::Instant::now().duration_since(t);*/
+    //println!("time FORM for 1M={:#?}",  t2);
 
 //    get_form_numerator(c_numerator, &form_input, 0, 0, &mut buffer);
 //     get_form_numerator(c_numerator, &form_input, 77, 0, &mut buffer);
@@ -191,17 +192,29 @@ fn eval(
 //    get_form_numerator(c_numerator, &form_input, 51, 0, &mut buffer);
 
     get_form_numerator(c_numerator, &form_input, formid, 0, &mut buffer);
-//    get_form_numerator(c_numerator, &form_input, 1, 0, &mut buffer);
-//    get_form_numerator(c_numerator, &form_input, 2, 0, &mut buffer);
+    println!("FORM={}", Complex::new(buffer[0], buffer[1]));
+    println!("=========================");
+
+    let entries = get_form_numerator(c_numerator, &form_input, formid, 4, &mut buffer); // 1 is with k2
 
     let mut r = Complex::<f64>::default();
-    for (expm, num) in exponent_map.iter().zip(buffer.chunks(2)) {
+    for (expm, num) in exponent_map_k.iter().zip(buffer[..entries * 2].chunks(2)) {
         //println!("expm={:?}, {} {}", expm, num[0], num[1]);
         r += Complex::new(num[0], num[1]) * expm.iter().fold(1., |prod, i| prod * lin[ext + *i][0]);
     }
     
+    println!("FORM k energy={}", r);
     println!("=========================");
-    println!("FORM={}", r);
+
+    let entries = get_form_numerator(c_numerator, &form_input, formid, 1, &mut buffer);
+    let mut r = Complex::<f64>::default();
+    for (expm, num) in exponent_map_l.iter().zip(buffer[..entries * 2].chunks(2)) {
+        //println!("expm={:?}, {} {}", expm, num[0], num[1]);
+        r += Complex::new(num[0], num[1]) * expm.iter().fold(1., |prod, i| prod * lin[ext + *i][0]);
+    }
+
+    println!("FORM l energy={}", r);
+    println!("=========================");
 
     let r1 = get_numerator(mg_numerator, &mg_input, 0, mgleft, mgright);
 //    let r1 = get_numerator(mg_numerator, &mg_input, 0, 1, 9);
@@ -263,13 +276,13 @@ fn main() {
     let mut p2 = [500., 0., 0., -500.];
     let mut k1 = [0.1871526174824760E+03,  -0.1257780476763981E+02,   0.3111387284817541E+02,  -0.6301450606135616E+02];
     let mut k2 = [0.2890726872654491E+03,  -0.6872525125230017E+02,  -0.2176061267288446E+03,   0.3947698029543776E+02];
-    let mut k3 = [0.1054303841594690E+03,  -0.7477954838939333E+02,  -0.6876840480238191E+02,   0.2818672644397240E+02];
-    let mut k4 = [0.3423857129250602E+03,   0.1919284080684538E+03,   0.2751076866100379E+03,  -0.6860920754231151E+02];
+    //let mut k3 = [0.1054303841594690E+03,  -0.7477954838939333E+02,  -0.6876840480238191E+02,   0.2818672644397240E+02];
+    //let mut k4 = [0.3423857129250602E+03,   0.1919284080684538E+03,   0.2751076866100379E+03,  -0.6860920754231151E+02];
 
-    let lin = [&p1, &p2, &k1, &k2, &k3, &k4];//, &k3, &k4];
-    eval(1,2,0,&lin, 2, &mut mg_numerator, &mut c_numerator);
-    eval(1,9,1,&lin, 2, &mut mg_numerator, &mut c_numerator);
-    eval(9,9,2,&lin, 2, &mut mg_numerator, &mut c_numerator);
+    let lin = [&p1, &p2, &k1, &k2];//, &k3, &k4];//, &k3, &k4];
+    eval(1,2,1,&lin, 2, &mut mg_numerator, &mut c_numerator);
+    //eval(1,9,1,&lin, 2, &mut mg_numerator, &mut c_numerator);
+    //eval(9,9,2,&lin, 2, &mut mg_numerator, &mut c_numerator);
 
 /*
     let mut p1 = [500., 0., 0., 500.];
