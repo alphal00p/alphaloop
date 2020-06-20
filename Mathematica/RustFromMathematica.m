@@ -107,6 +107,7 @@ RunMode->"LTD",
 HyperparametersPath->"LTD/hyperparameters.yaml",
 TopologiesPath->"LTD/topologies.yaml",
 AmplitudesPath->"LTD/anplitudes.yaml",
+MGNumeratorPath->"N/A",
 DEBUG->False
 }
 ]]:= Block[
@@ -124,13 +125,15 @@ RFM$LTDFolder<>"/"<>"API_accessor.py",
 If[OptionValue[DEBUG],
 RunProcess[Arguments,
 ProcessEnvironment-><|
-"DYLD_LIBRARY_PATH"->RFM$DYLDPATHS
+"DYLD_LIBRARY_PATH"->RFM$DYLDPATHS,
+"MG_NUMERATOR_PATH"->(OptionValue[MGNumeratorPath]<>"/")
 |>
 ],
 AppendTo[RFM$AllHooksStarted,
 StartProcess[Arguments,
 ProcessEnvironment-><|
-"DYLD_LIBRARY_PATH"->RFM$DYLDPATHS
+"DYLD_LIBRARY_PATH"->RFM$DYLDPATHS,
+"MG_NUMERATOR_PATH"->(OptionValue[MGNumeratorPath]<>"/")
 |>
 ]
 ];
