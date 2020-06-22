@@ -53,7 +53,19 @@ if __name__ == "__main__":
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 
-FORM_processing_options = {'FORM_path': 'form', 'cores': multiprocessing.cpu_count(), 'extra-options': '-D OPTIMITERATIONS=1000'}
+FORM_processing_options = {
+    'FORM_path': 'form', 
+    'cores': multiprocessing.cpu_count(), 
+    'extra-options': '-D OPTIMITERATIONS=1000',
+    # If None, only consider the LMB originally chosen.
+    # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
+    # If negative consider all possible LMBs.
+    'number_of_lmbs' : None,
+    # If None, the reference LMB will be the one originally chosen.
+    # If positive and equal to N, the Nth LMB will be used for the reference implementation of the supergraph.
+    'reference_lmb' : None,
+    'FORM_call_sig_id_offset_for_additional_lmb' : 1000000
+}
 
 # Can switch to tmpdir() if necessary at some point
 FORM_workspace = pjoin(plugin_path,'FORM_workspace')
@@ -93,7 +105,7 @@ class FORMSuperGraph(object):
         ( -3, 3, 3 ): (1, 0, 2),
     }
 
-    _include_momentum_routing_in_rendering=False
+    _include_momentum_routing_in_rendering=True
     _include_edge_name_in_rendering=False
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
     # Choose graph layout strategy. Interesting options are in comment.
@@ -128,6 +140,9 @@ class FORMSuperGraph(object):
             self.name = name
 
         self.replacement_rules = None
+
+        # Store copies of self for different choices of LMB to be used for cross-check.
+        self.additional_lmbs = []
 
     def get_mathematica_rendering_code(self, model, FORM_id=None):
         """ Generate mathematica expression for drawing this graph."""
@@ -271,6 +286,109 @@ aGraph=%s;
 
         return form_diag
 
+    def get_topo_generator(self, specified_LMB=None):
+        """ Returns a topology generator for that FORMSuperGraph."""
+
+        topo_edges = copy.deepcopy(self.edges)
+
+        original_LMB = {}
+        external_edges = []
+        other_edges = []
+        edge_name_to_key = {}
+        # Relabel edges according to alphaLoop conventions:
+        for edge_key, edge_data in topo_edges.items():
+            if edge_data['type'] == 'virtual':
+                if not edge_data['name'].startswith('p'):
+                    edge_data['name'] = 'p%s'%edge_data['name']
+                other_edges.append((edge_data['name'],edge_key[0],edge_key[1]))
+            else:
+                if not edge_data['name'].startswith('q'):
+                    edge_data['name'] = 'q%s'%edge_data['name'][1:]
+                external_edges.append((edge_data['name'],edge_data['vertices'][0],edge_data['vertices'][1]))
+            edge_name_to_key[edge_data['name']]=edge_key
+
+            # Test if it is a defining edge of the lmb
+            abs_sig = ( [abs(s) for s in edge_data['signature'][0]], [abs(s) for s in edge_data['signature'][1]])
+            if sum(abs_sig[0]) == 1 and sum(abs_sig[1]) == 0:
+                original_LMB[abs_sig[0].index(1)]=edge_data['name']
+
+        topo_edges = external_edges+other_edges
+
+        # Set the LMB to a sorted one
+        original_LMB = sorted(list(original_LMB.items()),key=lambda e: e[0])
+        assert(all(oLMBe[0]==i for i,oLMBe in enumerate(original_LMB)))
+        original_LMB = [oLMBe[1] for oLMBe in original_LMB]
+
+        topo_generator = LTD.ltd_utils.TopologyGenerator(topo_edges)
+        topo_generator.generate_momentum_flow( loop_momenta = (original_LMB if specified_LMB is None else specified_LMB) )
+        original_LMB = [edge_name_to_key[oLMBe] for oLMBe in original_LMB]
+
+        return topo_generator, edge_name_to_key, original_LMB
+
+    def generate_additional_LMBs(self):
+        """ Depending on the FORM options 'number_of_lmbs' and 'reference_lmb', this function fills in the attribute 
+        additional_lmbs of this class."""
+
+        if FORM_processing_options['number_of_lmbs'] is None:
+            return
+    
+        topo_generator, edge_name_to_key, original_LMB = self.get_topo_generator()
+        edge_key_to_name = {v:k for k,v in edge_name_to_key.items()}
+
+        all_lmbs = topo_generator.loop_momentum_bases()
+        all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
+        
+        # Then overwrite the reference LMB if the user requested it
+        if FORM_processing_options['reference_lmb'] is not None:
+            original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
+            # Regenerate the topology with this new overwritten LMB
+            topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ] )
+            # And adjust all signatures (incl. the string momenta assignment accordingly)
+            signatures = topo_generator.get_signature_map()
+            signatures = { edge_name_to_key[edge_name]: [sig[0],
+                    [ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ]
+                ] for edge_name, sig in signatures.items() }
+            for edge_key, edge_data in self.edges.items():
+                edge_data['signature'] = signatures[edge_key]
+                edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(edge_data['signature'], set_outgoing_equal_to_incoming=False)
+            for node_key, node_data in self.nodes.items():
+                node_data['momenta'] = tuple([self.edges[e_key]['momentum'] for e_key in node_data['edge_ids']])
+
+        # Now generate copies of this supergraph with different LMBs
+        additional_lmbs_SGs = []
+        for i_lmb, lmb in enumerate(all_lmbs):
+            if lmb==original_LMB:
+                continue
+            if FORM_processing_options['number_of_lmbs']>=0 and len(additional_lmbs_SGs)==FORM_processing_options['number_of_lmbs']:
+                break
+
+            # Generate the topology with this additional LMB
+            other_lmb_topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in lmb ])
+            # And adjust all signatures (incl. the string momenta assignment accordingly)
+            other_lmb_signatures = other_lmb_topo_generator.get_signature_map()
+            other_lmb_signatures = { edge_name_to_key[edge_name]: [sig[0],
+                    [ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ]
+                ] for edge_name, sig in other_lmb_signatures.items() }
+
+            # Compute the affine transformation to go from the original LMB to this additional LMB
+            affine_transfo = []
+            for defining_edge_key in original_LMB:
+                other_sig = other_lmb_signatures[defining_edge_key]
+                affine_transfo.append( [ list(other_sig[0]), list(other_sig[1]) ]  )
+
+            other_LMB_super_graph = copy.deepcopy(self)
+            # Flag these additional supergraphs as *NOT* original representative by setting their 'additional_lmbs' to an integer instead
+            # which identifies which additional LMB it corresponds to.
+            other_LMB_super_graph.additional_lmbs = i_lmb+1
+            for edge_key, edge_data in other_LMB_super_graph.edges.items():
+                edge_data['signature'] = other_lmb_signatures[edge_key]
+                edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(edge_data['signature'], set_outgoing_equal_to_incoming=False)
+            for node_key, node_data in other_LMB_super_graph.nodes.items():
+                node_data['momenta'] = tuple([other_LMB_super_graph.edges[e_key]['momentum'] for e_key in node_data['edge_ids']])
+
+            additional_lmbs_SGs.append( (i_lmb+1, affine_transfo, other_LMB_super_graph ) )
+
+        self.additional_lmbs = additional_lmbs_SGs
 
     def derive_signatures(self):
         n_incoming = sum([1 for edge in self.edges.values() if edge['type'] == 'in'])
@@ -570,8 +688,8 @@ aGraph=%s;
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
         particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
-        external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
-#        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+#        external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
@@ -581,6 +699,11 @@ aGraph=%s;
             lm = next((ee['name'], ee['signature'][0][loop_var]) for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
                 sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
             loop_momenta.append(lm)
+
+        if isinstance(self.additional_lmbs, list):
+            call_signature_ID = numerator_call
+        else:
+            call_signature_ID = self.additional_lmbs*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+numerator_call
 
         topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
             self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
@@ -592,7 +715,7 @@ aGraph=%s;
             jet_ids=jet_ids,
             overall_numerator=1.0,
             numerator_structure={},
-            FORM_numerator={'call_signature': {'id': numerator_call}},
+            FORM_numerator={'call_signature': {'id': call_signature_ID}},
             edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
             vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
         )
@@ -603,8 +726,17 @@ aGraph=%s;
 
         self.generate_replacement_rules(topo)
 
+        # Also generate the squared topology yaml files of all additional LMB topologies used for cross-check
+        if isinstance(self.additional_lmbs, list):
+            for _,_,other_lmb_supergraph in self.additional_lmbs:
+                other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
+                                    final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml)
+
         if write_yaml:
-            topo.export(pjoin(root_output_path, self.name + ".yaml"))
+            if isinstance(self.additional_lmbs, int):
+                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)))
+            else:
+                topo.export(pjoin(root_output_path, "%s.yaml"%self.name))
 
         return True
 
@@ -758,7 +890,7 @@ class FORMSuperGraphIsomorphicList(list):
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
@@ -768,7 +900,11 @@ class FORMSuperGraphIsomorphicList(list):
             raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
         FORM_vars = dict(FORM_vars)
 
-        characteristic_super_graph = self[0]
+        if active_graph is None:
+            characteristic_super_graph = self[0]
+        else:
+            characteristic_super_graph = active_graph
+
         if 'NINITIALMOMENTA' not in FORM_vars:
             n_incoming = sum([1 for edge in characteristic_super_graph.edges.values() if edge['type'] == 'in'])
             FORM_vars['NINITIALMOMENTA'] = n_incoming
@@ -796,7 +932,6 @@ class FORMSuperGraphIsomorphicList(list):
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             f.write('L F = {};'.format(form_input))
 
-        # NO FUCKING way of passing -D SIGID=<int> without shell=True... be my guest to fix this. Too old for that sh&$#$#$t...
         r = subprocess.run(' '.join([
                 FORM_processing_options["FORM_path"],
                 ]+
@@ -975,7 +1110,14 @@ class FORMSuperGraphList(list):
 
         logger.info("{} unique supergraphs".format(len(iso_groups)))
 
-        return FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
+        FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
+
+        # Generate additional copies for different LMB of the representative graph of each isomorphic set.
+        # Note that depending on the option FORM_processing['representative_lmb'], the function below can also modify the LMB of the representative sg.
+        for FORM_iso_sg in FORM_iso_sg_list:
+            FORM_iso_sg[0].generate_additional_LMBs()
+
+        return FORM_iso_sg_list
 
     def to_dict(self, file_path):
         """ Outputs the FORMSuperGraph list to a Python dict file path."""
@@ -1009,6 +1151,7 @@ class FORMSuperGraphList(list):
 
         # TODO: multiprocess this loop
         max_buffer_size = 0
+        all_numerator_ids = []
         with progressbar.ProgressBar(
             prefix = 'Processing numerators with FORM ({variables.timing} ms / supergraph) : ',
             max_value=len(self),
@@ -1016,93 +1159,100 @@ class FORMSuperGraphList(list):
             ) as bar:
             total_time = 0.
 
-            for i, graph in enumerate(self):
+            for i_graph, graph in enumerate(self):
                 graph.is_zero = True
                 time_before = time.time()
-                FORM_vars['SGID']='%d'%i
-                num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, FORM_vars=FORM_vars)
-                total_time += time.time()-time_before
-                num = num.replace('i_', 'I')
-                num = input_pattern.sub(r'lm[\1]', num)
-                num = num.replace('\nZ', '\n\tZ') # nicer indentation
 
-                confs = []
-                numerator_main_code = ''
-                conf_secs = num.split('#CONF')
-                for conf_sec in conf_secs[1:]:
-                    conf_sec = conf_sec.replace("#CONF\n", '')
+                graphs_to_process = [(0,i_graph,graph[0])]
+                if isinstance(graph[0].additional_lmbs,list):
+                    graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,g in graph[0].additional_lmbs])
+                for i_lmb, i_g, active_graph in graphs_to_process:
+                    i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
+                    all_numerator_ids.append(i)
+                    FORM_vars['SGID']='%d'%i
+                    num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph)
+                    total_time += time.time()-time_before
+                    num = num.replace('i_', 'I')
+                    num = input_pattern.sub(r'lm[\1]', num)
+                    num = num.replace('\nZ', '\n\tZ') # nicer indentation
 
-                    # collect all temporary variables
-                    temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
+                    confs = []
+                    numerator_main_code = ''
+                    conf_secs = num.split('#CONF')
+                    for conf_sec in conf_secs[1:]:
+                        conf_sec = conf_sec.replace("#CONF\n", '')
 
-                    # parse the configuration id
-                    conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
-                    conf_id = conf[0]
+                        # collect all temporary variables
+                        temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
+
+                        # parse the configuration id
+                        conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
+                        conf_id = conf[0]
+                        
+                        ltd_vars = [v for v in conf[1:] if v != 'k0']
+                        max_rank = 8 # FIXME: determine somehow
+                        # create the dense polynomial in the LTD energies
+                        numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
+
+                        mono_secs = conf_sec.split('#NEWMONOMIAL')
+                        
+                        rank = 0
+                        max_index = 0
+                        num_body = ''
+                        for mono_sec in mono_secs[1:]:
+                            mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
+                            # parse monomial powers and get the index in the polynomial in the LTD basis
+                            pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
+                            pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'k0'))
+                            rank = max(rank, len(pows))
+                            index = numerator_pows.index(pows)
+                            max_index = max(index, max_index)
+                            max_buffer_size = max(index, max_buffer_size)
+                            mono_sec = energy_exp.sub('', mono_sec)
+                            returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
+                            mono_sec = return_exp.sub('out[{}] = {};'.format(index, returnval), mono_sec)
+                            num_body += mono_sec
+
+                        confs.append((conf_id, rank))
+
+                        if len(temp_vars) > 0:
+                            graph.is_zero = False
+
+                        # TODO: Check that static inline vs inline induces no regression!
+                        numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
+                        numerator_main_code += '\nstatic inline int evaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
+                            'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
+                        ) + num_body + '\treturn {}; \n}}\n'.format(max_index + 1)
+
                     
-                    ltd_vars = [v for v in conf[1:] if v != 'k0']
-                    max_rank = 8 # FIXME: determine somehow
-                    # create the dense polynomial in the LTD energies
-                    numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
-
-                    mono_secs = conf_sec.split('#NEWMONOMIAL')
-                    
-                    rank = 0
-                    max_index = 0
-                    num_body = ''
-                    for mono_sec in mono_secs[1:]:
-                        mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
-                        # parse monomial powers and get the index in the polynomial in the LTD basis
-                        pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
-                        pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'k0'))
-                        rank = max(rank, len(pows))
-                        index = numerator_pows.index(pows)
-                        max_index = max(index, max_index)
-                        max_buffer_size = max(index, max_buffer_size)
-                        mono_sec = energy_exp.sub('', mono_sec)
-                        returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
-                        mono_sec = return_exp.sub('out[{}] = {};'.format(index, returnval), mono_sec)
-                        num_body += mono_sec
-
-                    confs.append((conf_id, rank))
-
-                    if len(temp_vars) > 0:
-                        graph.is_zero = False
-
-                    # TODO: Check that static inline vs inline induces no regression!
-                    numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
-                    numerator_main_code += '\nstatic inline int evaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
-                        'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
-                    ) + num_body + '\treturn {}; \n}}\n'.format(max_index + 1)
-
-                
-                numerator_main_code += \
-"""
-int evaluate_{}(double complex lm[], int conf, double complex* out) {{
-    switch(conf) {{
-{}
+                    numerator_main_code += \
+    """
+    int evaluate_{}(double complex lm[], int conf, double complex* out) {{
+        switch(conf) {{
+    {}
+        }}
     }}
-}}
 
-int get_rank_{}(int conf) {{
-    switch(conf) {{
-{}
+    int get_rank_{}(int conf) {{
+        switch(conf) {{
+    {}
+        }}
     }}
-}}
-""".format(i,
-    '\n'.join(
-    ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
-    (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-    ),
-    i,
-    '\n'.join(
-    ['\t\tcase {}: return {};'.format(conf, rank) for conf, rank in sorted(confs)] +
-    (['\t\tdefault: return 0;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-    ))
+    """.format(i,
+        '\n'.join(
+        ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
+        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ),
+        i,
+        '\n'.join(
+        ['\t\tcase {}: return {};'.format(conf, rank) for conf, rank in sorted(confs)] +
+        (['\t\tdefault: return 0;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ))
 
-                bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
-                bar.update(i+1)
+                    bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
+                    bar.update(i_graph+1)
 
-                writers.CPPWriter(pjoin(root_output_path, 'numerator{}.c').format(i)).write(numerator_header + numerator_main_code)
+                    writers.CPPWriter(pjoin(root_output_path, 'numerator{}.c').format(i)).write(numerator_header + numerator_main_code)
 
         numerator_code = \
 """
@@ -1128,15 +1278,15 @@ int get_rank(int diag, int conf) {{
     }}
 }}
 """.format(
-    '\n'.join('int evaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in range(len(self))),
-    '\n'.join('int get_rank_{}(int conf);'.format(i) for i in range(len(self))),
+    '\n'.join('int evaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in all_numerator_ids),
+    '\n'.join('int get_rank_{}(int conf);'.format(i) for i in all_numerator_ids),
     '\n'.join(
-    ['\t\tcase {}: return evaluate_{}(lm, conf, out);'.format(i, i) for i in range(len(self))]+
+    ['\t\tcase {}: return evaluate_{}(lm, conf, out);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     ), 
     (max_buffer_size + 1) * 2,
     '\n'.join(
-    ['\t\tcase {}: return get_rank_{}(conf);'.format(i, i) for i in range(len(self))]+
+    ['\t\tcase {}: return get_rank_{}(conf);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     )
     )
@@ -1172,7 +1322,17 @@ int get_rank(int diag, int conf) {{
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
-                        'multiplicity': g[0].multiplicity
+                        'multiplicity': g[0].multiplicity,
+
+#                        @Ben, when you are ready to add the parsing of the these additional LMBs in alphaLoop then we can uncomming the lines below.
+#                        'additional_LMBs': [
+#                            {
+#                                'name' : '%s_LMB%d'%(other_supergraph.name,other_supergraph.additional_lmbs),
+#                                'defining_lmb_to_this_lmb' : lmb_to_other_lmb_affine_transformation, 
+#                            }
+#                            for i_lmb, lmb_to_other_lmb_affine_transformation, other_supergraph in g[0].additional_lmbs
+#                        ]
+
                     })
                     non_zero_graph += 1
                     contributing_supergraphs.append(g)
@@ -1230,7 +1390,6 @@ class FORMProcessor(object):
             helicity_averaging_factor *= len(self.model.get_particle(leg.get('id')).get_helicity_states())
         helicity_averaging_factor = "/" + str(helicity_averaging_factor)
 
-        # there is another 1/4 difference between FORM and MG that is unexplained
         additional_overall_factor = helicity_averaging_factor
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
