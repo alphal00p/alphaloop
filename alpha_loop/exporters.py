@@ -233,7 +233,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             base_proc_name = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
             n_tot_cutkosky_cuts = 0
             with progressbar.ProgressBar(
-                prefix = 'Generating rust inputs for {variables.super_graph_name} : ',
+                prefix = 'Generating rust inputs (from MadGraph) for {variables.super_graph_name} : ',
                 max_value=(len(all_super_graphs) if self.alphaLoop_options['n_rust_inputs_to_generate']<0 else
                             min(len(all_super_graphs), self.alphaLoop_options['n_rust_inputs_to_generate'])),
                 variables = {'super_graph_name' : '%s_%d'%(base_proc_name,1)}) as bar:

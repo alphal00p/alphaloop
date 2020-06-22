@@ -105,7 +105,7 @@ class FORMSuperGraph(object):
         ( -3, 3, 3 ): (1, 0, 2),
     }
 
-    _include_momentum_routing_in_rendering=True
+    _include_momentum_routing_in_rendering=False
     _include_edge_name_in_rendering=False
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
     # Choose graph layout strategy. Interesting options are in comment.
@@ -673,7 +673,15 @@ aGraph=%s;
         else:
             return 0
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None):
+
+        if bar:
+            bar.update(i_lmb='1')
+            max_lmb = 1
+            if isinstance(self.additional_lmbs, list):
+                max_lmb += len(self.additional_lmbs)
+            bar.update(max_lmb='%d'%max_lmb)
+
         if self.is_zero:
             return False
 
@@ -728,7 +736,9 @@ aGraph=%s;
 
         # Also generate the squared topology yaml files of all additional LMB topologies used for cross-check
         if isinstance(self.additional_lmbs, list):
-            for _,_,other_lmb_supergraph in self.additional_lmbs:
+            for i_lmb, (_,_,other_lmb_supergraph) in enumerate(self.additional_lmbs):
+                if bar:
+                    bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
                                     final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml)
 
@@ -962,12 +972,12 @@ class FORMSuperGraphIsomorphicList(list):
         else:
             return to_dump
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None ):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, bar=None ):
         for i, g in enumerate(self):
             # TODO: now we generate the squared topology for isomorphic graphs just to obtain
             # the replacement rules for the bubble. Can this be avoided?
             r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
-                            final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0)
+                            final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, bar=bar)
 
         return r
 
@@ -1153,23 +1163,25 @@ class FORMSuperGraphList(list):
         max_buffer_size = 0
         all_numerator_ids = []
         with progressbar.ProgressBar(
-            prefix = 'Processing numerators with FORM ({variables.timing} ms / supergraph) : ',
+            prefix = 'Processing numerators (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}) with FORM ({variables.timing} ms / supergraph) : '%len(self),
             max_value=len(self),
-            variables = {'timing' : '0'}
+            variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb': '0'}
             ) as bar:
             total_time = 0.
 
             for i_graph, graph in enumerate(self):
                 graph.is_zero = True
-                time_before = time.time()
 
                 graphs_to_process = [(0,i_graph,graph[0])]
                 if isinstance(graph[0].additional_lmbs,list):
                     graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,g in graph[0].additional_lmbs])
+                bar.update(max_lmb='%d'%len(graphs_to_process))
                 for i_lmb, i_g, active_graph in graphs_to_process:
+                    bar.update(i_graph='%d'%(i_graph+1), i_lmb='%d'%(i_lmb+1))
                     i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
                     all_numerator_ids.append(i)
                     FORM_vars['SGID']='%d'%i
+                    time_before = time.time()
                     num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph)
                     total_time += time.time()-time_before
                     num = num.replace('i_', 'I')
@@ -1315,17 +1327,22 @@ int get_rank(int diag, int conf) {{
             jet_ids=tuple(list(range(1,6))+list(range(-1,-6,-1))+[21,82,-82,])
 
         contributing_supergraphs = []
-        with progressbar.ProgressBar(prefix='Generating squared topology files : ', max_value=len(self)) as bar:
+
+        with progressbar.ProgressBar(prefix='Generating squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, {variables.timing} ms / supergraph) : '%len(self), 
+                max_value=len(self), variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb' : '0'} ) as bar:
             non_zero_graph = 0
+            total_time=0.0
             for i, g in enumerate(self):
+                time_before = time.time()
+                bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
-                                                            final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids):
+                                                            final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, bar=bar):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
-                        'multiplicity': g[0].multiplicity,
+                        'multiplicity': g[0].multiplicity
 
 #                        @Ben, when you are ready to add the parsing of the these additional LMBs in alphaLoop then we can uncomming the lines below.
-#                        'additional_LMBs': [
+#                        ,'additional_LMBs': [
 #                            {
 #                                'name' : '%s_LMB%d'%(other_supergraph.name,other_supergraph.additional_lmbs),
 #                                'defining_lmb_to_this_lmb' : lmb_to_other_lmb_affine_transformation, 
@@ -1337,7 +1354,10 @@ int get_rank(int diag, int conf) {{
                     non_zero_graph += 1
                     contributing_supergraphs.append(g)
 
+                total_time += time.time()-time_before
+                bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
+
 
         try:
             import yaml
