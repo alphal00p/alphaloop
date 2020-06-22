@@ -484,8 +484,8 @@ class TopologyGenerator(object):
                             }
 
                             new_gs.append( {
-                                'uv_subgraphs': graph_info['uv_subgraphs'] + [graph_configuration],
-                                'remaining_graph': remaining_graph,
+                                'uv_subgraphs': [copy.deepcopy(x) for x in graph_info['uv_subgraphs']] + [graph_configuration],
+                                'remaining_graph': copy.deepcopy(remaining_graph),
                                 'spinney': spinney,
                             })
                 gs = new_gs
