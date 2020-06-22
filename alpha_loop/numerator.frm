@@ -77,8 +77,8 @@ Fill charges(-5) = 1/3; * b
 Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
-V p1,...,p40,k1,...,k40; * force this internal ordering in FORM
-Auto V p,k;
+V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
+Auto V p,k,c;
 Auto S lm,ext;
 Auto I mu=4,s=4;
 Symbol ge, gs, gy, ghhh, type, in, out, virtual;
@@ -90,7 +90,7 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f,vx, vec;
-CF subs, configurations, conf, der, energy, spatial(s);
+CF subs, configurations, conf, cmb, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv;
 Set ts: t0,...,t20;
 CT penergy;
@@ -328,6 +328,10 @@ endargument;
 id uv(x?) = x;
 .sort:uv-treatment;
 
+* convert the polynomial to the cut momentum basis
+id conf(x?,cmb(?a),?b) = conf(x,?b)*replace_(?a);
+.sort:cmb;
+
 * now extract the energy components of the LTD loop variables
 id k1?.k2? = g(k1, k2);
 repeat id conf(x?,?a,k1?,?b)*penergy(k1?) = conf(x,?a,k1,?b)*energy(k1); * detect loop energies from the bubble derivative
@@ -339,7 +343,7 @@ id g(p1?,p2?) = p1.p2;
 repeat id energy(?a)*energy(?b) = energy(?a,?b);
 symmetrize energy;
 id energy(?a) = energy(f(?a));
-if (count(energy,1) == 0) Multiply energy(f(k0)); * signal with k0 that we are dealing with the constant term
+if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are dealing with the constant term
 .sort:energy-splitoff;
 
 *********************************************
@@ -388,19 +392,19 @@ Hide F;
             #enddo
 
             #do i=1,`$MAXK'
-                id penergy(k`i') = lm`$OFFSET';
+                id penergy(c`i') = lm`$OFFSET';
                 #$OFFSET = $OFFSET + 1;
                 #do j=1,`$MAXP'
-                    id k`i'.p`j' = lm`$OFFSET';
+                    id c`i'.p`j' = lm`$OFFSET';
                     #$OFFSET = $OFFSET + 1;
-                    id spatial(p`j', k`i') = lm`$OFFSET';
+                    id spatial(p`j', c`i') = lm`$OFFSET';
                     #$OFFSET = $OFFSET + 1;
                 #enddo
 
                 #do j=`i',`$MAXK'
-                    id k`i'.k`j' = lm`$OFFSET';
+                    id c`i'.c`j' = lm`$OFFSET';
                     #$OFFSET = $OFFSET + 1;
-                    id spatial(k`i', k`j') = lm`$OFFSET';
+                    id spatial(c`i', c`j') = lm`$OFFSET';
                     #$OFFSET = $OFFSET + 1;
                 #enddo
             #enddo

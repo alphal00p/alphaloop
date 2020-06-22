@@ -85,6 +85,12 @@ class SquaredTopologyGenerator:
 
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew)
 
+                    # give every subdiagram a globally unique id
+                    for uv_limit in uv_limits:
+                        for uv_lim in uv_limit['uv_subgraphs']:
+                            uv_lim['graph_index'] += i * 100
+                            uv_lim['subgraph_indices'] = [j + i * 100 for j in uv_lim['subgraph_indices']]
+
                     uv_diagram_info = [{
                         'uv_subgraphs': uv_limit['uv_subgraphs'],
                         'uv_spinney': [[list(g), dod] for g, dod in uv_limit['spinney']],
@@ -106,7 +112,7 @@ class SquaredTopologyGenerator:
                 # unpack the factorized UV subgraphs
                 for uv_diag_set in uv_diag_sets:
                     unfolded_diag_info = []
-                    for diag_id, di in enumerate(uv_diag_set['diagram_info']):
+                    for di in uv_diag_set['diagram_info']:
                         # only the remaining graph gets the derivative flag to prevent
                         # it being applied more than once per diagram set
                         unfolded_diag_info.append({
@@ -118,9 +124,6 @@ class SquaredTopologyGenerator:
                         })
 
                         for uv_lim in di['uv_subgraphs']:
-                            # give every subdiagram a globally unique id
-                            uv_lim['graph_index'] += diag_id * 100
-                            uv_lim['subgraph_indices'] = [i + diag_id * 100 for i in uv_lim['subgraph_indices']]
                             unfolded_diag_info.append({
                                 'uv_info': uv_lim,
                                 'graph': uv_lim['graph'],
@@ -234,6 +237,7 @@ class SquaredTopologyGenerator:
                     'cb_to_lmb': [int(x) for x in lmb_to_cb_matrix]
                 })
 
+            # TODO: fuse with cut_info['diagram_sets']
             self.cut_diagrams.append(diagram_sets)
 
     def export(self, output_path):

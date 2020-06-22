@@ -1540,8 +1540,7 @@ impl SquaredTopology {
         }
 
         // for the evaluation of the numerator we need complex loop momenta of the supergraph.
-        // the order is: cut momenta, momenta left graph, momenta right graph
-        // NOTE: this requires that the last level 0 cutkosky cut is at the end of the list
+        // the order is: cut momenta, momenta graph 1, ... graph n
         for (kd, cut_mom) in k_def
             .iter_mut()
             .zip(&cut_momenta[..cutkosky_cuts.cuts.len() - 1])
@@ -1681,8 +1680,9 @@ impl SquaredTopology {
                 subgraph_cache.cached_topology_integrand.clear();
             }
 
-            // convert from the cut basis to the loop momentum basis
-            if self.settings.cross_section.numerator_source != NumeratorSource::Yaml {
+            if self.settings.cross_section.numerator_source == NumeratorSource::Mg
+                || self.settings.cross_section.numerator_source == NumeratorSource::MgAndForm
+            {
                 if let Some(m) = &diagram_set.cb_to_lmb {
                     for (kl, r) in k_def_lmb[..self.n_loops]
                         .iter_mut()
@@ -1702,11 +1702,7 @@ impl SquaredTopology {
                 } else {
                     panic!("The numerator is in the loop momentum basis but no map is defined.");
                 }
-            }
 
-            if self.settings.cross_section.numerator_source == NumeratorSource::Mg
-                || self.settings.cross_section.numerator_source == NumeratorSource::MgAndForm
-            {
                 let mut mg_numerator = mem::replace(&mut self.mg_numerator.mg_numerator, None);
                 let mut energy_polynomial_coefficients =
                     mem::replace(&mut diagram_set.energy_polynomial_coefficients, vec![]);
@@ -1842,7 +1838,7 @@ impl SquaredTopology {
                         }
                     }
 
-                    for (i1, m1) in k_def_lmb[..self.n_loops].iter().enumerate() {
+                    for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
                         scalar_products.push(m1.t.re.to_f64().unwrap());
                         scalar_products.push(m1.t.im.to_f64().unwrap());
                         for e1 in &self.external_momenta[..self.n_incoming_momenta] {
@@ -1854,7 +1850,7 @@ impl SquaredTopology {
                             scalar_products.push(d.im.to_f64().unwrap());
                         }
 
-                        for m2 in k_def_lmb[i1..self.n_loops].iter() {
+                        for m2 in k_def[i1..self.n_loops].iter() {
                             let d = m1.dot(m2);
                             scalar_products.push(d.re.to_f64().unwrap());
                             scalar_products.push(d.im.to_f64().unwrap());

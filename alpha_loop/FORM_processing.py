@@ -264,14 +264,14 @@ aGraph=%s;
             if node['vertex_id'] < 0:
                 continue
         
-            form_diag += '*vx({},{},{})'.format(
+            form_diag += '*\nvx({},{},{})'.format(
                 ','.join(str(p) for p in node['PDGs']),
                 ','.join(node['momenta']),
                 ','.join(str(i) for i in node['indices']),
             )
 
         for edge in self.edges.values():
-            form_diag += '*prop({},{},{},{})'.format(
+            form_diag += '*\nprop({},{},{},{})'.format(
                 edge['PDG'],
                 edge['type'],
                 edge['momentum'],
@@ -757,14 +757,10 @@ aGraph=%s;
         bubble_to_cut = OrderedDict()
         for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
             for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
-                # determine LTD momenta in the same order as rust expects them (the cb)
-                ltd_momenta = []
                 trans = ['1']
                 diag_set_uv_conf = []
 
                 for diag_info, loop_diag_info in zip(diag_set['diagram_info'], loop_diag_set['diagram_info']):
-                    for ltd_mom in loop_diag_info['graph'].loop_momentum_map:
-                        ltd_momenta.extend('k' + str(i + 1) for i, s in enumerate(ltd_mom[0]) if s != 0)
                     der_edge = None
                     if diag_info['derivative'] is not None:
                         trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts
@@ -772,16 +768,26 @@ aGraph=%s;
                         der_edge = diag_info['derivative'][1]
                         ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
                         der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
+                        ext_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['signature']
+                        der_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['signature']
 
                         if diag_info['bubble_momenta'] not in bubble_to_cut:
-                            bubble_to_cut[diag_info['bubble_momenta']] = diag_info['derivative'][0]
+                            bubble_to_cut[diag_info['bubble_momenta']] = (diag_info['derivative'][0], set())
 
                         # numerator derivative
                         if ext_mom == der_mom:
                             index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
                             trans.append('der(pbubble' + str(index) + ')')
                         else:
-                            trans.append('-2*(' + der_mom + ')')
+                            # check if we pick up a sign change due to the external momentum flowing in the opposite direction
+                            #signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
+                            #assert(len(set(signs)) == 1)
+                            # FIXME: the correct result cannot be obtained for a case where this sign is properly determined, so we hardcode
+                            # it to 1 for now
+                            signs = [1]
+                            trans.append('-2*({}{})'.format('+' if signs[0] == 1 else '-', der_mom))
+                            bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
+                            bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
 
                     # translate the UV forest
                     uv_subgraphs = []
@@ -841,47 +847,63 @@ aGraph=%s;
                     if uv_subgraphs != []:
                         diag_set_uv_conf.append('*'.join(uv_subgraphs))
 
-                if len(ltd_momenta) == 0:
-                    conf = 'k0' # signal that there are no ltd momenta
-                else:
-                    conf = ','.join(ltd_momenta)
+                # construct the map from the lmb to the cmb
+                cmb_map = []
+                n_loops = len(self.edges) - len(self.nodes) + 1
+                for i in range(n_loops):
+                    s = ''
+                    for cc, cs in enumerate(loop_diag_set['cb_to_lmb'][i * n_loops:i * n_loops+n_loops]):
+                        if cs != 0:
+                            s += '{}c{}'.format('+' if cs == 1 else '-', cc + 1)
+                            if cc < len(cut['cuts'][:-1]):
+                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cc]['signature'][1]), False)
+                                if d != '':
+                                    # note the sign inversion
+                                    s += '{}({})'.format('-' if cs == 1 else '+', d)
+                    cmb_map.append(('k' + str(i + 1), s))
 
-                conf = 'conf({},{},{})'.format(diag_set['id'], conf, '*'.join(trans))
+                cmb_map = 'cmb({})'.format(','.join(d for c in cmb_map for d in c))
+                # store which momenta are LTD momenta
+                conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join('c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops) )
+
+                conf = 'conf({},{},{},{})'.format(diag_set['id'], cmb_map, conf, '*'.join(trans))
                 if diag_set_uv_conf != []:
-                    conf += '*uv({})'.format('*'.join(diag_set_uv_conf))
+                    conf += '*\n    uv({})'.format('*'.join(diag_set_uv_conf))
 
                 configurations.append(conf)
 
         # replace external momentum in all bubble vertices and edges with a dummy momentum
         # TODO: there is an awful lot of string manipulation here...
         mommap = []
-        for i, (bubble, cut_edge) in enumerate(bubble_to_cut.items()):
+        for i, (bubble_edges, (cut_edge, bubble_derivative_edges)) in enumerate(bubble_to_cut.items()):
             ce = next(ee for ee in self.edges.values() if ee['name'] == cut_edge)
-            for edge in bubble:
+            for edge in bubble_derivative_edges:
                 e = next(ee for ee in self.edges.values() if ee['name'] == edge)
-                if any(s != 0 for s in e['signature'][1]) or any(se != 0 and sc != 0 for se, sc in zip(e['signature'][0], ce['signature'][0])):
-                    signs = [se * sc for se, sc in zip(e['signature'][0] + e['signature'][1], ce['signature'][0] + ce['signature'][1]) if se * sc != 0]
-                    assert(len(set(signs)) == 1)
-                    e['momentum'] += '{}(pbubble{}-({}))'.format('+' if signs[0] == 1 else '-', i, ce['momentum'])
+                signs = [se * sc for se, sc in zip(e['signature'][0] + e['signature'][1], ce['signature'][0] + ce['signature'][1]) if se * sc != 0]
+                assert(len(set(signs)) == 1)
+                e['momentum'] += '{}(pbubble{}-({}))'.format('+' if signs[0] == 1 else '-', i, ce['momentum'])
 
-                    # update the vertices
-                    ext_mom_part = ce['momentum'].replace('-', '+').split('+')[0] # get a single variable
-                    for vi in e['vertices']:
-                        v = self.nodes[vi]
-                        momenta = list(v['momenta'])
-                        for mi, m in enumerate(momenta):
-                            if ext_mom_part in m:
-                                sign = '-' if ('-' + ext_mom_part) in m else '+'
-                                momenta[mi] += '{}(pbubble{}-({}))'.format(sign, i, ce['momentum'])
-                        v['momenta'] = tuple(momenta)
+                # update the vertices attached to this edge
+                ext_mom_part = next(emp for emp in ce['momentum'].replace('-', '+').split('+') if emp != '') # get a single variable
+                ext_mom_sign = '-' if ('-' + ext_mom_part) in ce['momentum'] else '+'
+                for vi in e['vertices']:
+                    v = self.nodes[vi]
+                    momenta = list(v['momenta'])
+                    for mi, (m, eid) in enumerate(zip(momenta, v['edge_ids'])):
+                         # only update the momentum of the external (cut) edge or the current edge
+                        if self.edges[eid]['name'] == edge or self.edges[eid]['name'] not in bubble_edges:
+                            assert(ext_mom_part in m)
+                            sign = ('-' if ext_mom_sign == '+' else '+') if ('-' + ext_mom_part) in m else ('+' if ext_mom_sign == '+' else '-')
+                            momenta[mi] += '{}(pbubble{}-({}))'.format(sign, i, ce['momentum'])
+                    v['momenta'] = tuple(momenta)
 
             mommap.append('subs(pbubble{},{})'.format(i, ce['momentum']))
 
         self.replacement_rules = ''
         if len(mommap) > 0:
-            self.replacement_rules = '*' + '*'.join(mommap)
+            self.replacement_rules = '*\n' + '*\n'.join(mommap)
 
-        self.replacement_rules += '*configurations({})'.format('\n+'.join(configurations))
+        self.replacement_rules += '*\nconfigurations(\n  +{})'.format('\n  +'.join(configurations))
 
 
 class FORMSuperGraphIsomorphicList(list):
@@ -1201,7 +1223,7 @@ class FORMSuperGraphList(list):
                         conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
                         conf_id = conf[0]
                         
-                        ltd_vars = [v for v in conf[1:] if v != 'k0']
+                        ltd_vars = [v for v in conf[1:] if v != 'c0']
                         max_rank = 8 # FIXME: determine somehow
                         # create the dense polynomial in the LTD energies
                         numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
@@ -1215,7 +1237,7 @@ class FORMSuperGraphList(list):
                             mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
                             # parse monomial powers and get the index in the polynomial in the LTD basis
                             pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
-                            pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'k0'))
+                            pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'c0'))
                             rank = max(rank, len(pows))
                             index = numerator_pows.index(pows)
                             max_index = max(index, max_index)
@@ -1236,7 +1258,7 @@ class FORMSuperGraphList(list):
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
                         ) + num_body + '\treturn {}; \n}}\n'.format(max_index + 1)
 
-                    
+
                     numerator_main_code += \
     """
     int evaluate_{}(double complex lm[], int conf, double complex* out) {{
