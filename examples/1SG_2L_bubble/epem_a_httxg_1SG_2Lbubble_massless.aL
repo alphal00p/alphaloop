@@ -14,5 +14,5 @@ set_FORM_option number_of_lmbs -1
 set_FORM_option reference_lmb None 
 set_alphaLoop_option supergraphs_selection [(1,5),]
 add process e+ e- > a > h t t~ g @0
-!rm -rf single_SG_paper_epem_a_httxg_1SG_massless
-output alphaLoop single_SG_paper_epem_a_httxg_1SG_massless
+!rm -rf single_SG_paper_epem_a_httxg_1SG_2Lbubble_massless
+output alphaLoop single_SG_paper_epem_a_httxg_1SG_2Lbubble_massless
