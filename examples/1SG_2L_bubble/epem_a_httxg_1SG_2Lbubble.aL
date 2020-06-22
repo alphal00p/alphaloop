@@ -1,4 +1,4 @@
-import model aL_sm_no_masses-no_widths
+import model aL_sm-no_widths
 set_alphaLoop_option perturbative_orders {'QCD':0}
 # Force including *all* cutkosky cuts!
 set_alphaLoop_option n_jets 0
@@ -10,9 +10,9 @@ set_alphaLoop_option consider_vertex_id_in_graph_isomorphism False
 set_alphaLoop_option consider_edge_orientation_in_graph_isomorphism False
 set_alphaLoop_option FORM_processing_output_format c
 set_alphaLoop_option apply_graph_isomorphisms True
-set_FORM_option number_of_lmbs -1
+set_FORM_option number_of_lmbs -1 
 set_FORM_option reference_lmb None 
-set_alphaLoop_option supergraphs_selection [(1,3),]
+set_alphaLoop_option supergraphs_selection [(1,5),]
 add process e+ e- > a > h t t~ g @0
-!rm -rf single_SG_paper_epem_a_httxg_1SG_massless
-output alphaLoop single_SG_paper_epem_a_httxg_1SG_massless
+!rm -rf single_SG_paper_epem_a_httxg_1SG
+output alphaLoop single_SG_paper_epem_a_httxg_1SG
