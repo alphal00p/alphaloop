@@ -814,8 +814,8 @@ class SuperGraph(object):
 
         def get_external_momenta_assignment():
             # TODO This must go, it does not make much sense for it to be assigned in the context of using MG numerators.
-#            return {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
-            return {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+            return {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+#            return {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
 
         def get_loop_momenta_names():
             loop_momenta_names = [ self.graph.edges[edge[1]]['name'] for edge in self.cuts[:-1] ]

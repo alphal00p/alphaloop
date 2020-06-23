@@ -352,7 +352,14 @@ aGraph=%s;
                 edge_data['signature'] = signatures[edge_key]
                 edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(edge_data['signature'], set_outgoing_equal_to_incoming=False)
             for node_key, node_data in self.nodes.items():
-                node_data['momenta'] = tuple([self.edges[e_key]['momentum'] for e_key in node_data['edge_ids']])
+                node_data['momenta'] = tuple([                    
+                        FORMSuperGraph.momenta_decomposition_to_string(
+                            [ 
+                                [ s*(1 if self.edges[e_key]['vertices'][1]==node_key else -1) for s in self.edges[e_key]['signature'][0] ],
+                                [ s*(1 if self.edges[e_key]['vertices'][1]==node_key else -1) for s in self.edges[e_key]['signature'][1] ],
+                            ],
+                            set_outgoing_equal_to_incoming=False)
+                    for e_key in node_data['edge_ids']])
 
         # Now generate copies of this supergraph with different LMBs
         additional_lmbs_SGs = []
@@ -384,7 +391,14 @@ aGraph=%s;
                 edge_data['signature'] = other_lmb_signatures[edge_key]
                 edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(edge_data['signature'], set_outgoing_equal_to_incoming=False)
             for node_key, node_data in other_LMB_super_graph.nodes.items():
-                node_data['momenta'] = tuple([other_LMB_super_graph.edges[e_key]['momentum'] for e_key in node_data['edge_ids']])
+                node_data['momenta'] = tuple([
+                    FORMSuperGraph.momenta_decomposition_to_string(
+                        [ 
+                            [ s*(1 if other_LMB_super_graph.edges[e_key]['vertices'][1]==node_key else -1) for s in other_LMB_super_graph.edges[e_key]['signature'][0] ],
+                            [ s*(1 if other_LMB_super_graph.edges[e_key]['vertices'][1]==node_key else -1) for s in other_LMB_super_graph.edges[e_key]['signature'][1] ],
+                        ],
+                        set_outgoing_equal_to_incoming=False)
+                     for e_key in node_data['edge_ids']])
 
             additional_lmbs_SGs.append( (i_lmb+1, affine_transfo, other_LMB_super_graph ) )
 
@@ -696,8 +710,8 @@ aGraph=%s;
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
         particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
-#        external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
-        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+        external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+#        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
@@ -872,7 +886,7 @@ aGraph=%s;
                     conf += '*\n    uv({})'.format('*'.join(diag_set_uv_conf))
 
                 configurations.append(conf)
-
+        
         # replace external momentum in all bubble vertices and edges with a dummy momentum
         # TODO: there is an awful lot of string manipulation here...
         mommap = []
