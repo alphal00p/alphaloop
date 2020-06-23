@@ -765,6 +765,10 @@ aGraph=%s;
                     if diag_info['derivative'] is not None:
                         trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts
 
+                        # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
+                        # here we compensate for this sign
+                        trans.append(str(next(c for c in cut['cuts'] if c['edge'] == diag_info['derivative'][0])['sign']))
+
                         der_edge = diag_info['derivative'][1]
                         ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
                         der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
@@ -780,11 +784,8 @@ aGraph=%s;
                             trans.append('der(pbubble' + str(index) + ')')
                         else:
                             # check if we pick up a sign change due to the external momentum flowing in the opposite direction
-                            #signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
-                            #assert(len(set(signs)) == 1)
-                            # FIXME: the correct result cannot be obtained for a case where this sign is properly determined, so we hardcode
-                            # it to 1 for now
-                            signs = [1]
+                            signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
+                            assert(len(set(signs)) == 1)
                             trans.append('-2*({}{})'.format('+' if signs[0] == 1 else '-', der_mom))
                             bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
                             bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
@@ -879,21 +880,23 @@ aGraph=%s;
             ce = next(ee for ee in self.edges.values() if ee['name'] == cut_edge)
             for edge in bubble_derivative_edges:
                 e = next(ee for ee in self.edges.values() if ee['name'] == edge)
+
                 signs = [se * sc for se, sc in zip(e['signature'][0] + e['signature'][1], ce['signature'][0] + ce['signature'][1]) if se * sc != 0]
                 assert(len(set(signs)) == 1)
                 e['momentum'] += '{}(pbubble{}-({}))'.format('+' if signs[0] == 1 else '-', i, ce['momentum'])
 
                 # update the vertices attached to this edge
-                ext_mom_part = next(emp for emp in ce['momentum'].replace('-', '+').split('+') if emp != '') # get a single variable
-                ext_mom_sign = '-' if ('-' + ext_mom_part) in ce['momentum'] else '+'
+                ext_mom_vars = [emp for emp in ce['momentum'].replace('-', '+').split('+') if emp != '']
+                ext_mom_signs = ['-' if ('-' + emp) in ce['momentum'] else '+' for emp in ext_mom_vars]
                 for vi in e['vertices']:
                     v = self.nodes[vi]
                     momenta = list(v['momenta'])
                     for mi, (m, eid) in enumerate(zip(momenta, v['edge_ids'])):
-                         # only update the momentum of the external (cut) edge or the current edge
+                        # only update the momentum of the external (cut) edge or the current edge
                         if self.edges[eid]['name'] == edge or self.edges[eid]['name'] not in bubble_edges:
-                            assert(ext_mom_part in m)
-                            sign = ('-' if ext_mom_sign == '+' else '+') if ('-' + ext_mom_part) in m else ('+' if ext_mom_sign == '+' else '-')
+                            # find a momentum that is shared between the external momentum and the edge to determine the sign
+                            (ext_var_in_mom, ext_sign_in_mom) = next((emp, ems) for emp, ems in zip(ext_mom_vars, ext_mom_signs) if emp in m)
+                            sign = ('-' if ext_sign_in_mom == '+' else '+') if ('-' + ext_var_in_mom) in m else ('+' if ext_sign_in_mom == '+' else '-')
                             momenta[mi] += '{}(pbubble{}-({}))'.format(sign, i, ce['momentum'])
                     v['momenta'] = tuple(momenta)
 
