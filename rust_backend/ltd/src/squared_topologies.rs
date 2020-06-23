@@ -16,7 +16,6 @@ use num_traits::{One, Zero};
 use observables::EventManager;
 use rand::Rng;
 use serde::Deserialize;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
@@ -277,6 +276,7 @@ pub struct SquaredTopologySet {
     pub n_loops: usize,
     pub e_cm_squared: f64,
     topologies: Vec<SquaredTopology>,
+    additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>>,
     pub multiplicity: Vec<f64>,
     pub settings: Settings,
     pub rotation_matrix: [[float; 3]; 3],
@@ -284,9 +284,17 @@ pub struct SquaredTopologySet {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct SquaredTopologySetAdditionalTopology {
+    pub name: String,
+    pub defining_lmb_to_this_lmb: Vec<(Vec<i8>, Vec<i8>)>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct SquaredTopologySetTopology {
     pub name: String,
     pub multiplicity: f64,
+    #[serde(default, rename = "additional_LMBs")]
+    pub additional_lmbs: Vec<SquaredTopologySetAdditionalTopology>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -306,6 +314,7 @@ impl SquaredTopologySet {
             e_cm_squared: squared_topology.e_cm_squared,
             rotation_matrix: squared_topology.rotation_matrix.clone(),
             topologies: vec![squared_topology],
+            additional_topologies: vec![],
             multiplicity: vec![1.],
             multi_channeling_channels: channels,
         }
@@ -321,6 +330,8 @@ impl SquaredTopologySet {
             .suggestion("Is it a correct yaml file")?;
 
         let mut topologies: Vec<SquaredTopology> = vec![];
+        let mut additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>> =
+            vec![];
         let mut multiplicity: Vec<f64> = vec![];
         let mut multi_channeling_channels = vec![];
 
@@ -335,6 +346,19 @@ impl SquaredTopologySet {
             if !topologies.is_empty() && squared_topology.n_loops != topologies[0].n_loops {
                 panic!("Topology sets require all topologies to have the same number of loops");
             }
+
+            let mut additional_topologies_for_topo = vec![];
+            for t in topo.additional_lmbs {
+                let filename = std::path::Path::new(&filename)
+                    .with_file_name(t.name)
+                    .with_extension("yaml");
+                let additional_squared_topology =
+                    SquaredTopology::from_file(filename.to_str().unwrap(), settings)
+                        .wrap_err("Could not load subtopology file")?;
+                additional_topologies_for_topo
+                    .push((additional_squared_topology, t.defining_lmb_to_this_lmb));
+            }
+            additional_topologies.push(additional_topologies_for_topo);
 
             multi_channeling_channels.extend(squared_topology.generate_multi_channeling_channels());
             topologies.push(squared_topology);
@@ -373,6 +397,7 @@ impl SquaredTopologySet {
             n_loops: topologies[0].n_loops,
             e_cm_squared: topologies[0].e_cm_squared,
             topologies,
+            additional_topologies,
             rotation_matrix,
             settings: settings.clone(),
             multiplicity,
@@ -2233,7 +2258,6 @@ impl IntegrandImplementation for SquaredTopologySet {
             .iter()
             .map(|t| t.rotate(angle, axis))
             .collect();
-
         let mut c = self.multi_channeling_channels.clone();
 
         let rot_matrix = &self.rotation_matrix;
@@ -2264,6 +2288,7 @@ impl IntegrandImplementation for SquaredTopologySet {
             n_loops: self.n_loops.clone(),
             settings: self.settings.clone(),
             rotation_matrix: rotated_topologies[0].rotation_matrix.clone(),
+            additional_topologies: vec![], // rotated versions of additional topologies are not supported
             topologies: rotated_topologies,
             multi_channeling_channels: c,
         }

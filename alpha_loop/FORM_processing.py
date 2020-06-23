@@ -1365,15 +1365,13 @@ int get_rank(int diag, int conf) {{
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         'multiplicity': g[0].multiplicity
-
-#                        @Ben, when you are ready to add the parsing of the these additional LMBs in alphaLoop then we can uncomming the lines below.
-#                        ,'additional_LMBs': [
-#                            {
-#                                'name' : '%s_LMB%d'%(other_supergraph.name,other_supergraph.additional_lmbs),
-#                                'defining_lmb_to_this_lmb' : lmb_to_other_lmb_affine_transformation, 
-#                            }
-#                            for i_lmb, lmb_to_other_lmb_affine_transformation, other_supergraph in g[0].additional_lmbs
-#                        ]
+                        ,'additional_LMBs': [
+                            {
+                                'name' : '%s_LMB%d'%(other_supergraph.name,other_supergraph.additional_lmbs),
+                                'defining_lmb_to_this_lmb' : lmb_to_other_lmb_affine_transformation, 
+                            }
+                            for i_lmb, lmb_to_other_lmb_affine_transformation, other_supergraph in g[0].additional_lmbs
+                        ]
 
                     })
                     non_zero_graph += 1
