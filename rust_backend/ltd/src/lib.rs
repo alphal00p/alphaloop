@@ -601,6 +601,7 @@ pub struct CrossSectionSettings {
     pub normalising_function: NormalisingFunctionSettings,
     pub inherit_deformation_for_uv_counterterm: bool,
     pub numerator_source: NumeratorSource,
+    pub compare_with_additional_topologies: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

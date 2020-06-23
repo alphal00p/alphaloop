@@ -314,7 +314,7 @@ impl SquaredTopologySet {
             e_cm_squared: squared_topology.e_cm_squared,
             rotation_matrix: squared_topology.rotation_matrix.clone(),
             topologies: vec![squared_topology],
-            additional_topologies: vec![],
+            additional_topologies: vec![vec![]],
             multiplicity: vec![1.],
             multi_channeling_channels: channels,
         }
@@ -690,15 +690,72 @@ impl SquaredTopologySet {
 
         let mut result = Complex::zero();
         let mut event_counter = 0;
-        for ((t, cache), &m) in self
+        for (((t, cache), &m), extra_topos) in self
             .topologies
             .iter_mut()
             .zip_eq(cache.iter_mut())
             .zip_eq(&self.multiplicity)
+            .zip_eq(self.additional_topologies.iter_mut())
         {
-            result += t.evaluate_mom(&k[..n_loops], cache, &mut event_manager)
+            if self.settings.general.debug > 0 {
+                println!("Evaluating supergraph {}", t.name);
+            }
+
+            let r = t.evaluate_mom(&k[..n_loops], cache, &mut event_manager)
                 * jac_para
                 * Into::<T>::into(m as f64);
+            result += r;
+
+            if self
+                .settings
+                .cross_section
+                .compare_with_additional_topologies
+            {
+                let mut track_setting = false;
+                if let Some(em) = event_manager.as_mut() {
+                    track_setting = em.track_events;
+                    em.track_events = false;
+                }
+                for (add_id, (topo, mat)) in extra_topos.iter_mut().enumerate() {
+                    if self.settings.general.debug > 0 {
+                        println!("Evaluating additional topology {}", add_id);
+                    }
+
+                    let mut add_ks = [LorentzVector::default(); MAX_LOOP];
+                    let external_momenta: ArrayVec<[LorentzVector<T>; MAX_LOOP]> =
+                        t.external_momenta.iter().map(|e| e.cast()).collect();
+
+                    for (add_k, row) in add_ks.iter_mut().zip(mat) {
+                        *add_k += SquaredTopology::evaluate_signature(
+                            row,
+                            &external_momenta,
+                            &k[..self.n_loops],
+                        );
+                    }
+
+                    let add_r = topo.evaluate_mom(&add_ks[..n_loops], cache, &mut event_manager)
+                        * jac_para
+                        * Into::<T>::into(m as f64);
+
+                    if r.is_zero() || add_r.is_zero() {
+                        if (r - add_r).norm_sqr() > Into::<T>::into(1e-10 * self.e_cm_squared) {
+                            println!(
+                            "Mismatch between standard and additional topology {}: r={} vs add_r={}", add_id, r, add_r
+                        );
+                        }
+                    } else if (r - add_r).norm_sqr() / (r.norm_sqr() + add_r.norm_sqr())
+                        > Into::<T>::into(1e-10)
+                    {
+                        println!(
+                        "Mismatch between standard and additional topology {}: r={} vs add_r={}",
+                        add_id, r, add_r
+                    );
+                    }
+                }
+                if let Some(em) = event_manager.as_mut() {
+                    em.track_events = track_setting;
+                }
+            }
 
             if let Some(em) = &mut event_manager {
                 if em.track_events {
@@ -873,7 +930,8 @@ impl SquaredTopology {
             }
         }
 
-        for (&sign, mom) in signature.1.iter().zip_eq(external_momenta) {
+        debug_assert!(signature.1.len() <= external_momenta.len());
+        for (&sign, mom) in signature.1.iter().zip(external_momenta) {
             if sign != 0 {
                 cut_momentum += mom.multiply_sign(sign);
             }
@@ -2288,7 +2346,7 @@ impl IntegrandImplementation for SquaredTopologySet {
             n_loops: self.n_loops.clone(),
             settings: self.settings.clone(),
             rotation_matrix: rotated_topologies[0].rotation_matrix.clone(),
-            additional_topologies: vec![], // rotated versions of additional topologies are not supported
+            additional_topologies: vec![vec![]; rotated_topologies.len()], // rotated versions of additional topologies are not supported
             topologies: rotated_topologies,
             multi_channeling_channels: c,
         }
