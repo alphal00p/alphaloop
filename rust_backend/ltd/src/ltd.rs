@@ -10,6 +10,7 @@ use partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
+use std::cmp::Ordering;
 use topologies::{
     CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, SOCPProblem, Surface,
     SurfaceType, Topology,
@@ -2983,8 +2984,13 @@ impl Topology {
         // Check if partial fraction needs to be used
         let use_partial_fractioning = self.settings.general.partial_fractioning_threshold >= 0.0
             && k_def.len() > 0
-            && k_def[0].real().spatial_distance()
-                > Into::<T>::into(self.settings.general.partial_fractioning_threshold);
+            && k_def
+                .iter()
+                .map(|k| k.real().spatial_squared())
+                .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+                .unwrap()
+                > Into::<T>::into(self.settings.general.partial_fractioning_threshold)
+                    * Into::<T>::into(self.e_cm_squared);
         // Check if need to use multiloop version of partial fractioning
         let use_new_pf = self.settings.general.partial_fractioning_multiloop;
 
