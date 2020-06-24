@@ -144,7 +144,7 @@ class FORMSuperGraph(object):
         # Store copies of self for different choices of LMB to be used for cross-check.
         self.additional_lmbs = []
 
-    def get_mathematica_rendering_code(self, model, FORM_id=None):
+    def get_mathematica_rendering_code(self, model, FORM_id=None, lmb_id=None):
         """ Generate mathematica expression for drawing this graph."""
 
         repl_dict = {
@@ -160,6 +160,8 @@ class FORMSuperGraph(object):
             graph_name='MG: %s'%self.name
         if FORM_id is not None:
             graph_name +=' | FORM: #%d'%FORM_id
+        if lmb_id is not None:
+            graph_name +=' | LMB: #%d'%lmb_id
         repl_dict['graph_name'] = graph_name
 
         # Special name rendering rules
@@ -182,9 +184,11 @@ class FORMSuperGraph(object):
         all_edge_shape_functions = []
         for edge_key, edge_data in self.edges.items():
             edge_repl_dict = {}
-            is_LMB = ('name' in edge_data and 'LMB' in str(edge_data['name']).upper())
+            # is_LMB = ('name' in edge_data and 'LMB' in str(edge_data['name']).upper())
+            abs_sig = ( [abs(s) for s in edge_data['signature'][0]], [abs(s) for s in edge_data['signature'][1]])
+            is_LMB = (sum(abs_sig[0]) == 1 and sum(abs_sig[1]) == 0)
             if is_LMB:
-                edge_repl_dict['thickness'] = 0.004
+                edge_repl_dict['thickness'] = 0.005
             else:
                 edge_repl_dict['thickness'] = 0.002
             edge_repl_dict['in_node'] = str(edge_key[0])
@@ -238,19 +242,22 @@ GraphLayout -> %(graph_layout_strategy)s,
 ImageSize -> {%(width)f, %(height)f}
 ],"%(graph_name)s"]"""%repl_dict
     
-    def draw(self, model, output_dir,FORM_id=None):
+    def draw(self, model, output_dir,FORM_id=None, lmb_id=None):
         """ Outputs the mathematica code for rendering this FORMSuperGraph."""
         
         if FORM_id is not None:
             file_name = 'Graph_%04d'%FORM_id
         else:
             file_name = 'Graph_%s'%self.name
+        
+        if lmb_id is not None:
+            file_name += '_LMB_%04d'%lmb_id
 
         MM_code = \
 """GraphClass = If[$VersionNumber > 12, EdgeTaggedGraph, Graph];
 CreateEdge[u_,v_,t_]:=If[$VersionNumber > 12, DirectedEdge[u, v, t], DirectedEdge[u, v]];
 aGraph=%s;
-"""%self.get_mathematica_rendering_code(model,FORM_id=FORM_id)
+"""%self.get_mathematica_rendering_code(model,FORM_id=FORM_id, lmb_id=lmb_id)
         # Export to PDF in landscape format. One graph per page for now.
         # The 1.2 multiplier accounts for margins
         MM_code += 'Export["%s.pdf", GraphicsGrid[{{aGraph}}], ImageSize -> {%f, %f}];'%(
@@ -361,6 +368,11 @@ aGraph=%s;
                             set_outgoing_equal_to_incoming=False)
                     for e_key in node_data['edge_ids']])
 
+        original_lmb_signatures = topo_generator.get_signature_map()
+        original_lmb_signatures = { edge_name_to_key[edge_name]: [sig[0],
+                    [ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ]
+                ] for edge_name, sig in original_lmb_signatures.items() }
+
         # Now generate copies of this supergraph with different LMBs
         additional_lmbs_SGs = []
         for i_lmb, lmb in enumerate(all_lmbs):
@@ -378,10 +390,14 @@ aGraph=%s;
                 ] for edge_name, sig in other_lmb_signatures.items() }
 
             # Compute the affine transformation to go from the original LMB to this additional LMB
-            affine_transfo = []
+            affine_transfo_other_lmb_to_original = []
+            for defining_edge_key in lmb:
+                other_sig = original_lmb_signatures[defining_edge_key]
+                affine_transfo_other_lmb_to_original.append( [ list(other_sig[0]), list(other_sig[1]) ]  )
+            affine_transfo_original_lmb_to_other_lmb = []
             for defining_edge_key in original_LMB:
                 other_sig = other_lmb_signatures[defining_edge_key]
-                affine_transfo.append( [ list(other_sig[0]), list(other_sig[1]) ]  )
+                affine_transfo_original_lmb_to_other_lmb.append( [ list(other_sig[0]), list(other_sig[1]) ]  )
 
             other_LMB_super_graph = copy.deepcopy(self)
             # Flag these additional supergraphs as *NOT* original representative by setting their 'additional_lmbs' to an integer instead
@@ -400,7 +416,7 @@ aGraph=%s;
                         set_outgoing_equal_to_incoming=False)
                      for e_key in node_data['edge_ids']])
 
-            additional_lmbs_SGs.append( (i_lmb+1, affine_transfo, other_LMB_super_graph ) )
+            additional_lmbs_SGs.append( (i_lmb+1, affine_transfo_other_lmb_to_original, affine_transfo_original_lmb_to_other_lmb, other_LMB_super_graph ) )
 
         self.additional_lmbs = additional_lmbs_SGs
 
@@ -510,7 +526,7 @@ aGraph=%s;
             overall_factor += '*%d'%(-1**(n_ghosts//2))
 
         local_graph = copy.deepcopy(LTD2_super_graph.graph)
-
+        
         # Collect the outer-most nodes
         outer_in_nodes = []
         outer_out_nodes = []
@@ -750,7 +766,7 @@ aGraph=%s;
 
         # Also generate the squared topology yaml files of all additional LMB topologies used for cross-check
         if isinstance(self.additional_lmbs, list):
-            for i_lmb, (_,_,other_lmb_supergraph) in enumerate(self.additional_lmbs):
+            for i_lmb, (_,_,_,other_lmb_supergraph) in enumerate(self.additional_lmbs):
                 if bar:
                     bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
@@ -1213,7 +1229,7 @@ class FORMSuperGraphList(list):
 
                 graphs_to_process = [(0,i_graph,graph[0])]
                 if isinstance(graph[0].additional_lmbs,list):
-                    graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,g in graph[0].additional_lmbs])
+                    graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in graph[0].additional_lmbs])
                 bar.update(max_lmb='%d'%len(graphs_to_process))
                 for i_lmb, i_g, active_graph in graphs_to_process:
                     bar.update(i_graph='%d'%(i_graph+1), i_lmb='%d'%(i_lmb+1))
@@ -1382,9 +1398,11 @@ int get_rank(int diag, int conf) {{
                         ,'additional_LMBs': [
                             {
                                 'name' : '%s_LMB%d'%(other_supergraph.name,other_supergraph.additional_lmbs),
-                                'defining_lmb_to_this_lmb' : lmb_to_other_lmb_affine_transformation, 
+                                'defining_lmb_to_this_lmb' : original_lmb_to_other_lmb_affine_transfo,
+                                'this_lmb_to_defining_lmb' : other_lmb_to_original_lmb_affine_transfo
                             }
-                            for i_lmb, lmb_to_other_lmb_affine_transformation, other_supergraph in g[0].additional_lmbs
+                            for i_lmb, other_lmb_to_original_lmb_affine_transfo, 
+                                original_lmb_to_other_lmb_affine_transfo, other_supergraph in g[0].additional_lmbs
                         ]
 
                     })
@@ -1422,12 +1440,16 @@ class FORMProcessor(object):
             self.repr_process = all_processes[0]
         else:
             self.repr_process = self.process_definition
-        
+
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""
 
         for i_graph, super_graphs in enumerate(self.super_graphs_list):
             super_graphs[0].draw(self.model, output_dir, FORM_id=i_graph)
+            # Draw supergraphs for additional LMBs
+            if isinstance(super_graphs[0].additional_lmbs,list):
+                for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
+                    sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
     def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None):
         params = {
