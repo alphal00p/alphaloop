@@ -983,7 +983,10 @@ class FORMSuperGraphIsomorphicList(list):
         i_graph = int(FORM_vars['SGID'])
 
         # write the form input to a file
-        form_input = self.generate_numerator_form_input(additional_overall_factor)
+        if active_graph is None:
+            form_input = self.generate_numerator_form_input(additional_overall_factor)
+        else:
+            form_input = characteristic_super_graph.generate_numerator_form_input(additional_overall_factor)
 
         if workspace is None:
             selected_workspace = FORM_workspace
@@ -1227,9 +1230,13 @@ class FORMSuperGraphList(list):
             for i_graph, graph in enumerate(self):
                 graph.is_zero = True
 
-                graphs_to_process = [(0,i_graph,graph[0])]
+                graphs_to_process = []
                 if isinstance(graph[0].additional_lmbs,list):
+                    graphs_to_process.append( (0,i_graph,graph[0]) )
                     graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in graph[0].additional_lmbs])
+                else:
+                    # By setting the active graph to None we will then sum overall members of the iso set.
+                    graphs_to_process.append( (0,i_graph, None) )
                 bar.update(max_lmb='%d'%len(graphs_to_process))
                 for i_lmb, i_g, active_graph in graphs_to_process:
                     bar.update(i_graph='%d'%(i_graph+1), i_lmb='%d'%(i_lmb+1))
