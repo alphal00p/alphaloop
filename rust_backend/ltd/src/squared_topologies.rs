@@ -286,7 +286,7 @@ pub struct SquaredTopologySet {
 #[derive(Debug, Clone, Deserialize)]
 pub struct SquaredTopologySetAdditionalTopology {
     pub name: String,
-    pub defining_lmb_to_this_lmb: Vec<(Vec<i8>, Vec<i8>)>,
+    pub this_lmb_to_defining_lmb: Vec<(Vec<i8>, Vec<i8>)>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -356,7 +356,7 @@ impl SquaredTopologySet {
                     SquaredTopology::from_file(filename.to_str().unwrap(), settings)
                         .wrap_err("Could not load subtopology file")?;
                 additional_topologies_for_topo
-                    .push((additional_squared_topology, t.defining_lmb_to_this_lmb));
+                    .push((additional_squared_topology, t.this_lmb_to_defining_lmb));
             }
             additional_topologies.push(additional_topologies_for_topo);
 
@@ -726,7 +726,7 @@ impl SquaredTopologySet {
                         t.external_momenta.iter().map(|e| e.cast()).collect();
 
                     for (add_k, row) in add_ks.iter_mut().zip(mat) {
-                        *add_k += SquaredTopology::evaluate_signature(
+                        *add_k = SquaredTopology::evaluate_signature(
                             row,
                             &external_momenta,
                             &k[..self.n_loops],
@@ -740,15 +740,15 @@ impl SquaredTopologySet {
                     if r.is_zero() || add_r.is_zero() {
                         if (r - add_r).norm_sqr() > Into::<T>::into(1e-10 * self.e_cm_squared) {
                             println!(
-                            "Mismatch between standard and additional topology {}: r={} vs add_r={}", add_id, r, add_r
+                            "Mismatch for {} between standard and additional topology {}: r={} vs add_r={}", t.name, add_id, r, add_r
                         );
                         }
                     } else if (r - add_r).norm_sqr() / (r.norm_sqr() + add_r.norm_sqr())
                         > Into::<T>::into(1e-10)
                     {
                         println!(
-                        "Mismatch between standard and additional topology {}: r={} vs add_r={}",
-                        add_id, r, add_r
+                        "Mismatch for {} between standard and additional topology {}: r={} vs add_r={}",
+                        t.name, add_id, r, add_r
                     );
                     }
                 }
@@ -1941,6 +1941,10 @@ impl SquaredTopology {
                             scalar_products.push(d.re.to_f64().unwrap());
                             scalar_products.push(d.im.to_f64().unwrap());
                         }
+                    }
+
+                    for m in &mut form_numerator_buffer {
+                        *m = 0.;
                     }
 
                     let len = form_numerator::get_numerator(
