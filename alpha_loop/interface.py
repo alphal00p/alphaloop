@@ -94,6 +94,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # We do not want to group numerators when considering MG outputs
             'consider_edge_orientation_in_graph_isomorphism' : False,
             'consider_vertex_id_in_graph_isomorphism' : False,
+            # Select which templete to use for qgraf generation:
+            'qgraf_template_model': 'epem',
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
             'FORM_processing_output_format' : None
@@ -102,6 +104,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.plugin_output_format_selected = None
 
         self.model_backup_copy = None
+
+        self.qgraf_exporter = None
 
         super(alphaLoopInterface, self).__init__(*args, **opts)
 
@@ -209,6 +213,13 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidCmd("Specified value for 'use_physical_gluon_helicity_sum' should be 'True' or 'False', not '%s'."%value)
             bool_val = (value.upper()=='TRUE')
             self.alphaLoop_options['use_physical_gluon_helicity_sum'] = bool_val
+        elif key == 'qgraf_template_model':
+            print(value)
+            if value not in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.keys():
+                raise alphaLoopInvalidCmd("QGraf template model '{}' not supported.\nTry models (: example)\n{}"\
+                    .format(value,"\n".join(["\t%s: %s"%(k,v['example']) for k,v in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.items()]))
+                )
+            self.alphaLoop_options['qgraf_template_model'] = value
         elif key == 'include_self_energies_from_squared_amplitudes':
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for 'include_self_energies_from_squared_amplitudes' should be 'True' or 'False', not '%s'."%value)
@@ -580,19 +591,9 @@ utils.bcolors.RED,utils.bcolors.ENDC
         """ qgraf-based output. """
  
         args = self.split_arg(line)
-
-        # Check if this hardcoded process exists.  
-        hardcoded_processes_path = pjoin(plugin_path,'hardcoded_processes')        
-        if len(args)==0 or not os.path.exists(pjoin(hardcoded_processes_path,args[0])):
-            raise alphaLoopInvalidCmd("The command 'qgraf_generate' requires a first argument being"
-                " the name of the hard-coded generation process which should match a directory in:\n%s"%str(hardcoded_processes_path)+
-                "\nPossible values are:\n%s"%(str([os.path.basename(p) for p in misc.glob(pjoin(hardcoded_processes_path,'*'))])))
-        hardcoded_generation_dir = pjoin(hardcoded_processes_path,args[0])
-
-        if len(args)<=1:
-            raise alphaLoopInvalidCmd("The command 'qgraf_generate' requires the desired process output path as a second argument.")
+        process_definition = self.extract_process(" ".join(args), proc_number=0)
         
-        proc_output_path = pjoin(MG5DIR,args[1])
+#        proc_output_path = pjoin(MG5DIR,args[1])
 
         # Check if qgraf has been compiled  
         QGRAF_path = pjoin(plugin_path,os.path.pardir,'libraries','QGRAF')
@@ -602,24 +603,15 @@ utils.bcolors.RED,utils.bcolors.ENDC
             if not os.path.isfile(pjoin(QGRAF_path,'qgraf')):
                 raise MadGraph5Error("Could not successfully compile QGRAF.")
 
-        try:
-            process_definition = self.extract_process(open(pjoin(hardcoded_generation_dir,'MG_process_definition.dat'),'r').read(), proc_number=0)
-        except MadGraph5Error as e:
-            raise alphaLoopInvalidCmd("The hardcoded process definition specified in '%s' could not be parsed. Error:\n%s"%(
-                pjoin(hardcoded_generation_dir,'MG_process_definition.dat'),str(e) ))
-
         # TODO make this 82, -82 general
         self.alphaLoop_options['_jet_PDGs'] = tuple([
             pdg for pdg in self._multiparticles['j'] ]+[82,-82])
-
-        # Now generate the output directory structure:
-        qgraf_exporter =  aL_exporters.HardCodedQGRAFExporter(
-            process_definition, self._curr_model, proc_output_path, 
-            self.alphaLoop_options, self.options, hardcoded_process_path=hardcoded_generation_dir)
         
-        logger.info("Writing output of hardcoded QGRAF generation to '%s'"%proc_output_path)
-        qgraf_exporter.generate()
-        qgraf_exporter.output()
+        # Now generate the output directory structure:
+        self.qgraf_exporter =  aL_exporters.HardCodedQGRAFExporter(
+            process_definition, self._curr_model, 
+            MG5aMC_options=self.options,alphaLoop_options=self.alphaLoop_options)
+                    
 
     def do_output(self, line):
         """ Wrapper to support the syntax output alphaLoop <args>.
@@ -630,12 +622,20 @@ utils.bcolors.RED,utils.bcolors.ENDC
         if len(args)>=1 and args[0]=='alphaLoop':
             self.plugin_output_format_selected = 'alphaLoop'
             self.do_output_alphaLoop(' '.join(args[1:]))    
+        if len(args)>=1 and args[0]=='qgraf':
+            self.plugin_output_format_selected = 'qgraf'
+            self.do_output_qgraf(' '.join(args[1:]))
         else:
             super(alphaLoopInterface,self).do_output(' '.join(args))
 
     def do_output_alphaLoop(self, line):
         args = self.split_arg(line)
         super(alphaLoopInterface,self).do_output(' '.join(['alphaLoop']+args))
+    
+    def do_output_qgraf(self, line):
+        args = self.split_arg(line)
+        print(' '.join(args))
+        self.qgraf_exporter.output(' '.join(args))
 
     def export(self,*args,**opts):
         """Overwrite this so as to force a pythia8 type of output if the output mode is PY8MEs."""

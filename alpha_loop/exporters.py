@@ -1122,13 +1122,22 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
 
 class QGRAFExporter(object):
+    
+    qgraf_style = pjoin(plugin_src_path,'Templates','qgraf','orientedGraphPython.sty')
+    qgraf_model = pjoin(plugin_src_path,'Templates','qgraf','SM.dat')
+    qgraf_template_epem = pjoin(plugin_src_path,'Templates','qgraf','qgraf_epem.dat')
+    qgraf_template_no_s = pjoin(plugin_src_path,'Templates','qgraf','qgraf_no_s.dat')
 
-    def __init__(self, process_definition, model, output_path, alphaLoop_options, mg_options, **opts):
+    qgraf_templates = {
+        'epem':{'path': qgraf_template_epem, 'example': 'e+ e- > a > ...'},
+        'no_s':{'paht': qgraf_template_no_s, 'example': 'a a > h'}
+    }
+    
+    default_opt = {'vetos': []}
+
+    def __init__(self, process_definition, model, **opts):
         self.model = model
-        self.dir_path = output_path
         self.proc_def = process_definition
-        self.mg_options = mg_options
-        self.alphaLoop_options = alphaLoop_options
         self.QGRAF_path = pjoin(plugin_path,os.path.pardir,'libraries','QGRAF','qgraf')
 
     def generate(self):
@@ -1177,48 +1186,53 @@ class QGRAFExporter(object):
     
         return
 
-
 class HardCodedQGRAFExporter(QGRAFExporter):
 
-    def __init__(self, process_definition, model, output_path, alphaLoop_options, mg_options, hardcoded_process_path=None, **opts):
-        super(HardCodedQGRAFExporter,self).__init__(process_definition, model, output_path, alphaLoop_options, mg_options)
-        self.hardcoded_process_path = hardcoded_process_path
+    def __init__(self, process_definition, model, **opts):
+        self.alphaLoop_options = opts.pop('alphaLoop_options',{})
+        self.MG5aMC_options = opts.pop('MG5aMC_options',{})
+        self.dir_path = None
+        self.qgraf_raw_output = None
+        self.qgraf_output = None
 
-    def build_output_directory(self):
+        if isinstance(process_definition, base_objects.ProcessDefinition):
+            all_processes = list(proc for proc in process_definition)
+            representative_proc = all_processes[0]
+        else:
+            representative_proc = process_definition
+        
+        n_cuts = len([1 for leg in representative_proc.get('legs') if leg.get('state')==True ])
+        overall_phase = -complex(-1.0,0.0)**n_cuts
+        if overall_phase.imag != 0:
+            raise alphaLoopExporterError("No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
+        else:
+            self.overall_phase = '%d'%int(overall_phase.real)
 
-        Path(self.dir_path).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'Cards')).mkdir(parents=True, exist_ok=True)
-        # TODO add param_card in Source
+        #print([leg.get('id') for leg in representative_proc.get('legs') if
+        #                     leg.get('state')==True ])
+        #print([leg.get('id') for leg in representative_proc.get('legs') if
+        #                     leg.get('state')==False])
+        
+        super(HardCodedQGRAFExporter,self).__init__(process_definition, model, **opts)
 
-        Path(pjoin(self.dir_path,'lib')).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'FORM')).mkdir(parents=True, exist_ok=True)
+    def output(self, output_path):
+        self.dir_path = os.path.abspath(output_path)
+        self.qgraf_raw_output = pjoin(self.dir_path,'qgraf','output.py')
+        self.qgraf_output = pjoin(self.dir_path,'qgraf','all_QG_supergraphs.py')
 
-        Path(pjoin(self.dir_path,'Source')).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'Source','MODEL')).mkdir(parents=True, exist_ok=True)
-        shutil.copy(pjoin(plugin_path, 'Templates', 'Source_make_opts'), 
-                    pjoin(self.dir_path, 'Source','make_opts'))
+        logger.info("Writing output of hardcoded QGRAF generation to '%s'"%self.dir_path)
 
-        # Fix makefiles compiler definition
-        self.replace_make_opt_c_compiler(self.mg_options['cpp_compiler'])
-
-    def generate(self):
+        """ Extract process information"""
+        if isinstance(self.proc_def, base_objects.ProcessDefinition):
+             representative_proc = next(proc for proc in self.proc_def)
+        else:
+            representative_proc = self.proc_def
+ 
         """ Generate all supergraphs using QGRAF."""
-
         self.build_output_directory()
+        getattr(self,"build_qgraf_%s"%self.alphaLoop_options['qgraf_template_model'])(representative_proc)
+        self.standalone_qgraf_file()
 
-        # Copy QGRAF resources
-        for filepath in misc.glob(pjoin(self.hardcoded_process_path,"*.dat")):
-            shutil.copy(filepath,pjoin(self.dir_path,'FORM',os.path.basename(filepath)))
-        for filepath in misc.glob(pjoin(self.hardcoded_process_path,"*.sty")):
-            shutil.copy(filepath,pjoin(self.dir_path,'FORM',os.path.basename(filepath)))
-        r = subprocess.run([self.QGRAF_path,],
-            cwd=pjoin(self.dir_path,'FORM'),
-            capture_output=True)
-        if r.returncode != 0 or not os.path.exists(pjoin(self.dir_path,'FORM','output.py')):
-            raise alphaLoopExporterError("QGRAF generation failed with error:\n%s"%(r.stdout.decode('UTF-8')))
-
-    def output(self):
         """ Process supergraph numerators with FORM and output result in the process output."""
 
         write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
@@ -1234,30 +1248,26 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         )
 
         # Example of how to access information directly from a param_card.dat
-#        param_card = check_param_card.ParamCard(pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
-#        misc.sprint(param_card.get_value('mass',25))
-#        misc.sprint(param_card.get_value('width',25))
-#        misc.sprint(param_card.get_value('yukawa',6))
-#        misc.sprint(param_card.get_value('sminputs',1)) # aEWM1
-#        misc.sprint(param_card.get_value('sminputs',2)) # Gf
-#        misc.sprint(param_card.get_value('sminputs',3)) # aS
+        #        param_card = check_param_card.ParamCard(pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
+        #        misc.sprint(param_card.get_value('mass',25))
+        #        misc.sprint(param_card.get_value('width',25))
+        #        misc.sprint(param_card.get_value('yukawa',6))
+        #        misc.sprint(param_card.get_value('sminputs',1)) # aEWM1
+        #        misc.sprint(param_card.get_value('sminputs',2)) # Gf
+        #        misc.sprint(param_card.get_value('sminputs',3)) # aS
 
         computed_model = model_reader.ModelReader(self.model)
         computed_model.set_parameters_and_couplings(
                                             pjoin(self.dir_path,'Source','MODEL','param_card.dat'))        
 
-        super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(pjoin(self.dir_path,'FORM','output.py'), merge_isomorphic_graphs=False)
+        super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
+            self.qgraf_output, merge_isomorphic_graphs=True, model=self.model)
         form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                 pjoin(self.dir_path,'FORM', 'Makefile'))
         FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
         Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
 
-        if isinstance(self.proc_def, base_objects.ProcessDefinition):
-            all_processes = list(proc for proc in self.proc_def)
-            representative_proc = all_processes[0]
-        else:
-            representative_proc = self.proc_def
         if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
             if self.alphaLoop_options['n_jets'] is None:
                 n_jets = len([1 for leg in representative_proc.get('legs') if 
@@ -1269,6 +1279,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                             leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
             else:
                 final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
+            
+            #print(n_jets)
+            #print(final_state_particle_ids)
+            #print(self.alphaLoop_options['_jet_PDGs'])
             form_processor.generate_squared_topology_files(
                 pjoin(self.dir_path,'Rust_inputs'), n_jets, 
                 final_state_particle_ids=final_state_particle_ids,
@@ -1276,6 +1290,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 # Remove non-contributing graphs from the list stored in the form_processor
                 filter_non_contributing_graphs=True
             )
+
+            for graphs in form_processor.super_graphs_list:
+                for g in graphs:
+                    g.overall_factor = "({})*({})".format(self.overall_phase, g.overall_factor)
 
             form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
                 output_format=self.alphaLoop_options['FORM_processing_output_format'],
@@ -1290,3 +1308,172 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         form_processor.draw(drawings_output_path)
 
         form_processor.compile(pjoin(self.dir_path,'FORM'))
+
+    def build_qgraf_epem(self, representative_process):
+        # Check if e+ e- > a > ...
+        check_initial_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==False]==[-11,11]
+        check_s_channel = representative_process.get('required_s_channels') == [[22]]
+        if not (check_initial_states and check_s_channel):
+            raise alphaLoopExporterError("The command 'qgraf_generate' with model 'epem' does not support this process.\nAvailable models (: example)\n{}"\
+                .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
+            )
+
+        final_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True]
+
+        field_replace = {}
+        for field in ['d', 'u', 's', 'c', 'b', 't']:
+            field_replace[field] = field
+            field_replace[field+'~'] = field+'bar'
+        field_replace['h'] = 'higgs'
+        field_replace['e-'] = 'eminus'
+        field_replace['e+'] = 'eplus'
+        field_replace['a'] = 'photon'
+        field_replace['g'] = 'gluon'
+
+        dict_replace = {}
+
+        dict_replace['n_loops'] = len(final_states) - 1 + self.alphaLoop_options['perturbative_orders']['QCD']//2
+
+        dict_replace['vetos'] = ''
+        #dict_replace['vetos'] += 'true=iprop[d,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[u,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[c,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[s,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[b,0,0];\n'
+
+        dict_replace['final_states'] = ''
+        for field in final_states:
+            if field >= 0:
+                field = field_replace[self.model.get_particle(abs(field))['name']]
+            else:
+                field = field_replace[self.model.get_particle(abs(field))['antiname']]
+            dict_replace['final_states'] += 'true=iprop[{},1,10];\n'.format(field)
+
+        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
+        shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
+        
+        qgraf_output = pjoin(self.dir_path, 'qgraf/qgraf.dat')
+        qgraf_folder = pjoin(self.dir_path, 'qgraf')
+
+        with open(self.qgraf_template_epem, 'r') as stream:
+            with open(qgraf_output, 'w') as f:
+                f.write(stream.read() % dict_replace)
+
+            subprocess.run(['rm', 'output.py'], cwd=qgraf_folder)
+            r = subprocess.run([self.QGRAF_path, ],
+                               cwd=qgraf_folder,
+                               capture_output=True)
+            if r.returncode != 0 or not os.path.exists(pjoin(qgraf_folder, 'output.py')):
+                raise print("QGRAF generation failed with error:\n%s" %
+                            (r.stdout.decode('UTF-8')))
+
+    def build_qgraf_no_s(self, representative_process, vetos=None):
+        #keys = ['legs', 'orders', 'model', 'id', 'uid', 'required_s_channels', 'forbidden_onsh_s_channels', 'forbidden_s_channels', 'forbidden_particles', 'is_decay_chain', 'overall_orders', 'decay_chains', 'legs_with_decays', 'perturbation_couplings', 'squared_orders', 'sqorders_types', 'constrained_orders', 'has_born', 'NLO_mode', 'split_orders']
+        #for k in keys:
+        #    print(representative_process.get(k))
+        # Check if a1 a2 a3 ... > a4 a5 ...
+        check_s_channel = representative_process.get('required_s_channels') == []
+        if not check_s_channel:
+            raise alphaLoopExporterError("The command 'qgraf_generate' with model 'no_s' does not support this process.\nAvailable models (: example)"\
+                .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
+            )
+        incoming_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==False]
+        final_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True]
+
+        field_replace = {}
+        for field in ['d', 'u', 's', 'c', 'b', 't']:
+            field_replace[field] = field
+            field_replace[field+'~'] = field+'bar'
+        field_replace['h'] = 'higgs'
+        field_replace['e-'] = 'eminus'
+        field_replace['e+'] = 'eplus'
+        field_replace['a'] = 'photon'
+        field_replace['g'] = 'gluon'
+
+        dict_replace = {}
+
+        dict_replace['n_loops'] = len(final_states) - 1 + self.alphaLoop_options['perturbative_orders']['QCD']//2
+
+        dict_replace['vetos'] = ''
+        dict_replace['vetos'] += 'true=iprop[eplus,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[eminus,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[d,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[u,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[c,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[s,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[b,0,0];\n'
+
+        dict_replace['incoming_states'] = 'in = '
+        dict_replace['outgoing_states'] = 'out = '
+        incoming_fields = []
+        pn = 1
+        for field in incoming_states:
+            if field >= 0:
+                incoming_fields += [(field_replace[self.model.get_particle(abs(field))['name']],'p%d'%pn)]
+            else:
+                incoming_fields += [(field_replace[self.model.get_particle(abs(field))['antiname']],'p%d'%pn)]
+            pn += 1
+        dict_replace['incoming_states'] += ", ".join(["{}[{}]".format(*field) for field in incoming_fields])+";"
+        dict_replace['outgoing_states'] += ", ".join(["{}[{}]".format(*field) for field in incoming_fields])+";"
+
+        dict_replace['final_states'] = ''
+        for field in final_states:
+            if field >= 0:
+                field = field_replace[self.model.get_particle(abs(field))['name']]
+            else:
+                field = field_replace[self.model.get_particle(abs(field))['antiname']]
+            dict_replace['final_states'] += 'true=iprop[{},1,10];\n'.format(field)
+
+        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
+        shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
+        
+        qgraf_output = pjoin(self.dir_path, 'qgraf/qgraf.dat')
+        qgraf_folder = pjoin(self.dir_path, 'qgraf')
+
+        with open(self.qgraf_template_no_s, 'r') as stream:
+            with open(qgraf_output, 'w') as f:
+                f.write(stream.read() % dict_replace)
+
+            subprocess.run(['rm', 'output.py'], cwd=qgraf_folder)
+            r = subprocess.run([self.QGRAF_path, ],
+                               cwd=qgraf_folder,
+                               capture_output=True)
+            if r.returncode != 0 or not os.path.exists(pjoin(qgraf_folder, 'output.py')):
+                raise print("QGRAF generation failed with error:\n%s" %
+                            (r.stdout.decode('UTF-8')))
+
+    def build_output_directory(self):
+
+        Path(self.dir_path).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Cards')).mkdir(parents=True, exist_ok=True)
+        # TODO add param_card in Source
+
+        Path(pjoin(self.dir_path,'lib')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'FORM')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'qgraf')).mkdir(parents=True, exist_ok=True)
+
+        Path(pjoin(self.dir_path,'Source')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Source','MODEL')).mkdir(parents=True, exist_ok=True)
+        shutil.copy(pjoin(plugin_path, 'Templates', 'Source_make_opts'), 
+                    pjoin(self.dir_path, 'Source','make_opts'))
+
+        # Fix makefiles compiler definition
+        self.replace_make_opt_c_compiler(self.MG5aMC_options['cpp_compiler'])
+
+
+    def standalone_qgraf_file(self):
+        logger.info('Create standalone QGRAF from: {}'.format(self.qgraf_output))
+
+        with open(self.qgraf_output, 'w') as f:
+            f.write("graphs=[]\n")
+            f.write("graph_names=[]\n")
+            with open(self.qgraf_raw_output, 'r') as stream:
+                n_graph = 0
+                for line in stream.read().splitlines():
+                    if 'graphs=[]' in line or 'graph_names=[]' in line:
+                        continue
+                    if 'graphs.append' in line:
+                        f.write('graph_names+=[\"SG_QG{}\"]\n'.format(n_graph))
+                        n_graph += 1
+                    f.write(line+'\n')
