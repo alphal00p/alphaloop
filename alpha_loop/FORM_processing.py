@@ -1032,11 +1032,16 @@ class FORMSuperGraphIsomorphicList(list):
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, bar=None ):
         for i, g in enumerate(self):
-            # TODO: now we generate the squared topology for isomorphic graphs just to obtain
-            # the replacement rules for the bubble. Can this be avoided?
-            r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
-                            final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, bar=bar)
-
+            # Now we generate the squared topology only for the first isomorphic graph
+            # to obtain the replacement rules for the bubble.
+            # The other elements of the isomorphic set are going to contribute only at the 
+            # numerator 
+            if i==0:
+                r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
+                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, bar=bar)
+            else:
+                g.replacement_rules = self[0].replacement_rules
+        #print(r)
         return r
 
 class FORMSuperGraphList(list):
@@ -1333,7 +1338,7 @@ class FORMSuperGraphList(list):
                 graph.is_zero = True
 
                 graphs_to_process = []
-                if isinstance(graph[0].additional_lmbs,list):
+                if isinstance(graph[0].additional_lmbs,list) and graph[0].additional_lmbs != []:
                     graphs_to_process.append( (0,i_graph,graph[0]) )
                     graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in graph[0].additional_lmbs])
                 else:
