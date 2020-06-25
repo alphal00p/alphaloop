@@ -1059,7 +1059,7 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False):
+    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
         p = Path(dict_file_path)
@@ -1068,9 +1068,14 @@ class FORMSuperGraphList(list):
 
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
+        # Filter specific graphs by name 
+        #filter_graphs = ['MGP0L49R50', 'SG_QG0']
+        #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
+        #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
+
         # Now convert the vertex names to be integers according to QGRAF format:
-        if isinstance(list(m.graphs[0]['nodes'].keys())[0],str):
-            for i, g in enumerate(m.graphs):
+        for i, g in enumerate(m.graphs):
+            if isinstance(list(g['nodes'].keys())[0], str):
                 new_nodes ={}
                 node_names={}
                 for i_node, (n_key, n) in enumerate(g['nodes'].items()):
@@ -1085,6 +1090,39 @@ class FORMSuperGraphList(list):
                 g['nodes'] = new_nodes
                 g['edges'] = new_edges
 
+        # Check for the rooting of the loop momenta form the QGRAF OUTPUT
+        # If necessary flip the flow direction
+        for name, g in zip(m.graph_names, m.graphs):
+            n_loops = len(g['edges']) - len(g['nodes']) + 1
+            flows = []
+            for lms in {e['momentum'] for e in g['edges'].values() if 'p' not in e['momentum'] and e['momentum'].count('k') == 1}:
+                lm = lms.replace('-', '')
+                assert(re.match('^k[0-9]+$', lm))
+                if lm in flows or '-'+lm in flows:
+                    continue
+                flows += [lms]
+            assert(len(flows) == n_loops)
+            
+            for lms in flows:
+                if '-' not in lms:
+                    continue
+                lm = lms.replace('-', '')
+                if verbose:
+                    logger.info("QGraf remap loop momentum {} for graph {}: {} -> {}".format(lm, name, lm, lms))
+                subs = [('^-'+lm, 'TMP'),('\+'+lm, '-TMP'), ('-'+lm, '+TMP'), ('^'+lm, '-TMP'), ('TMP', lm)]
+                for e in g['edges'].values():
+                    for sub in subs:
+                        e['momentum'] = re.sub(*sub, e['momentum'])
+                for n in g['nodes'].values():
+                    # skip if external
+                    if n['vertex_id'] < 0:
+                        continue
+                    moms = list(n['momenta'])
+                    for sub in subs:
+                        for n_mom in range(len(moms)):
+                            moms[n_mom] = re.sub(*sub, moms[n_mom])
+                    n['momenta'] = tuple(moms)
+        
         full_graph_list = []
         for i, g in enumerate(m.graphs):
             if hasattr(m,'graph_names'):
@@ -1105,9 +1143,12 @@ class FORMSuperGraphList(list):
 
         import time
         import sympy as sp
-
         # group all isomorphic graphs
-        pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
+        if model is None:
+            pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
+        else:
+            pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
+        
         for graph in full_graph_list:
             g = igraph.Graph()
             g.add_vertices(len(graph.nodes))
@@ -1121,56 +1162,116 @@ class FORMSuperGraphList(list):
                 e_color = 1
                 for e in graph.edges.values():
                     if tuple(sorted(e['vertices'])) == ue:
+                        if e['type'] == 'in':
+                            e_color *= -1
                         e_color *= pdg_primes[abs(e['PDG'])]
                 edge_colors.append(e_color)
                 g.add_edges([tuple(sorted([x - 1 for x in ue]))])
-
+            
             for (ref_graph, ref_colors), graph_list in iso_groups:
                 v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1=ref_colors, edge_color2=edge_colors)
                 if v_maps != [] and merge_isomorphic_graphs:
+                    v_map = v_maps[0]
+                    if verbose: 
+                        logger.info("\033[1m{} <- {}\033[0m".format(graph_list[0].name,graph.name))
+                    
                     # map the signature from the new graph to the reference graph using the vertex map
-                    edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_maps[0][e.source], v_maps[0][e.target]) or \
-                        (re.source, re.target) == (v_maps[0][e.target], v_maps[0][e.source])) for e in g.es]
+                    edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_map[e.source], v_map[e.target]) or \
+                        (re.source, re.target) == (v_map[e.target], v_map[e.source])) for e in g.es]
 
                     # go through all loop momenta and make the matrix
+                    # and the shifts
                     mat = []
+                    shifts = []
+                    selected_edges = []
                     n_loops = len(graph_list[0].edges) - len(graph_list[0].nodes) + 1
                     for loop_var in range(n_loops):
                         # find the edge that has (+-)k`loop_var`
+                        # TODO: Fix for higher degeneracy
                         orig_edge = next(ee for ee in graph_list[0].edges.values() if all(s == 0 for s in ee['signature'][1]) and \
                             sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
                         orig_edge_in_ref = next(ee for ee in ref_graph.es if tuple(sorted(orig_edge['vertices'])) == (ee.source + 1, ee.target + 1))
 
                         # now get the corresponding edge(s) in the new graph
                         en = g.es[edge_map.index(orig_edge_in_ref.index)]
-                        new_edges = [ee for ee in graph.edges.values() if ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)]
+                        new_edges = [ee for ee in graph.edges.values() \
+                            if (ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)) and abs(ee['PDG'])== abs(orig_edge['PDG']) and ee not in selected_edges]
+                       
                         # in the case of a multi-edge, we simply take the one with the shortest momentum string
                         new_edge = sorted(new_edges, key=lambda x: len(x['momentum']))[0]
-                        mat.append([s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
+                        selected_edges.append(new_edge)
+                        new_edge['name'] += 'LMB'
+                        
+                        orientation_factor = 1
+                        if model.get_particle(abs(new_edge['PDG']))['self_antipart']:
+                            if v_map[new_edge['vertices'][0]-1]+1 != orig_edge['vertices'][0]:
+                                orientation_factor = -1
+                        else:
+                            match_direction = v_map[new_edge['vertices'][0]-1]+1 == orig_edge['vertices'][0]
+                            match_particle = new_edge['PDG'] == orig_edge['PDG']
+                            if not match_direction:# != match_particle:
+                                orientation_factor = -1
 
-                    # now map all signatures and momentum labels of the new graph
-                    mat = np.array(mat).T
+                        shifts.append([-orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][1]])
+                        mat.append([orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
+
+                    # Map all signatures and momentum labels of the new graph
+                    shifts = np.array(shifts).T
+                    mat = np.array(np.matrix(mat).T.I)
                     for e in graph.edges.values():
                         # skip external edges
                         if e["type"] != "virtual":
                             continue
 
                         new_sig = mat.dot(np.array(e['signature'][0]))
-                        e['signature'] = (list(new_sig), e['signature'][1])
+                        new_shift = e['signature'][1]+shifts.dot(new_sig)
+                        
+                        e['signature'] = (list(new_sig), list(new_shift))
                         e['momentum'] = graph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
+                    
+                    if verbose:
+                        parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
+                        n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
+                        n_loops = len(graph.edges) - len(graph.nodes) + 1
+                        old_momenta =['k%d'%(i+1) for i in range(n_loops)] 
+                        new_momenta =[] 
+                        for momentum in old_momenta:
+                            parsed = [e.groups() for e in parser.finditer(momentum)]
+                            signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+                            for pa in parsed:
+                                if pa[1] == 'p':
+                                    signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                else:
+                                    signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                            new_sig = mat.dot(np.array(signature[0]))
+                            new_shift = signature[1]+shifts.dot(new_sig)
+                            new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
+                        logger.info("Map: {} -> {}".format(tuple(old_momenta), tuple(new_momenta)))
+                    
+                    
+                    # Map vertices
+                    for v in graph.nodes.values():
+                        if v['vertex_id']<0:
+                            continue
+                        # skip external edge        
+                        n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
+                        n_loops = len(graph.edges) - len(graph.nodes) + 1
 
-                        # TODO: replace this by a loop over nodes once the nodes store the edge information
-                        v1 = graph.nodes[e['vertices'][0]]
-                        edge_index_in_v = v1['indices'].index(e['indices'][0]) if e['indices'][0] in v1['indices'] else v1['indices'].index(e['indices'][1])
-                        moms = list(v1['momenta'])
-                        if e['indices'][0] in v1['indices']:
-                            moms[edge_index_in_v] = e['momentum']
-                        else:
-                            sig = ([-s for s in e['signature'][0]], [-s for s in e['signature'][1]])
-                            new_momentum = graph.momenta_decomposition_to_string(sig, set_outgoing_equal_to_incoming=False)
-                            moms[edge_index_in_v] = new_momentum
-                        v1['momenta'] = tuple(moms)
-
+                        # parse momentum
+                        parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
+                        new_momenta = []
+                        for momentum in v['momenta']:
+                            parsed = [e.groups() for e in parser.finditer(momentum)]
+                            signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+                            for pa in parsed:
+                                if pa[1] == 'p':
+                                    signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                else:
+                                    signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                            new_sig = mat.dot(np.array(signature[0]))
+                            new_shift = signature[1]+shifts.dot(new_sig)
+                            new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
+                        v['momenta'] = tuple(new_momenta)
                     graph_list.append(graph)
                     break
             else:
@@ -1193,7 +1294,8 @@ class FORMSuperGraphList(list):
         # TODO: Dump to Python dict
         pass
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None):
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header=""):
+        header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
 
@@ -1207,7 +1309,7 @@ class FORMSuperGraphList(list):
         numerator_header = """#include <math.h>
 #include <complex.h>
 #include <signal.h>
-#include "numerator.h"
+#include "%(header)snumerator.h"
 """
 
         var_pattern = re.compile(r'Z\d*_')
@@ -1294,27 +1396,27 @@ class FORMSuperGraphList(list):
 
                         # TODO: Check that static inline vs inline induces no regression!
                         numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
-                        numerator_main_code += '\nstatic inline int evaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
+                        numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
                         ) + num_body + '\treturn {}; \n}}\n'.format(max_index + 1)
 
 
                     numerator_main_code += \
     """
-    int evaluate_{}(double complex lm[], int conf, double complex* out) {{
+    int %(header)sevaluate_{}(double complex lm[], int conf, double complex* out) {{
         switch(conf) {{
     {}
         }}
     }}
 
-    int get_rank_{}(int conf) {{
+    int %(header)sget_rank_{}(int conf) {{
         switch(conf) {{
     {}
         }}
     }}
     """.format(i,
         '\n'.join(
-        ['\t\tcase {}: return evaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
         (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ),
         i,
@@ -1326,7 +1428,7 @@ class FORMSuperGraphList(list):
                     bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
                     bar.update(i_graph+1)
 
-                    writers.CPPWriter(pjoin(root_output_path, 'numerator{}.c').format(i)).write(numerator_header + numerator_main_code)
+                    writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}.c'%header_map).format(i)).write((numerator_header + numerator_main_code)%header_map)
 
         numerator_code = \
 """
@@ -1336,35 +1438,35 @@ class FORMSuperGraphList(list):
 {}
 {}
 
-int evaluate(double complex lm[], int diag, int conf, double complex* out) {{
+int %(header)sevaluate(double complex lm[], int diag, int conf, double complex* out) {{
     switch(diag) {{
 {}
     }}
 }}
 
-int get_buffer_size() {{
+int %(header)sget_buffer_size() {{
     return {};
 }}
 
-int get_rank(int diag, int conf) {{
+int %(header)sget_rank(int diag, int conf) {{
     switch(diag) {{
 {}
     }}
 }}
 """.format(
-    '\n'.join('int evaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in all_numerator_ids),
-    '\n'.join('int get_rank_{}(int conf);'.format(i) for i in all_numerator_ids),
+    '\n'.join('int %(header)sevaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in all_numerator_ids),
+    '\n'.join('int %(header)sget_rank_{}(int conf);'.format(i) for i in all_numerator_ids),
     '\n'.join(
-    ['\t\tcase {}: return evaluate_{}(lm, conf, out);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: return %(header)sevaluate_{}(lm, conf, out);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     ), 
     (max_buffer_size + 1) * 2,
     '\n'.join(
-    ['\t\tcase {}: return get_rank_{}(conf);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: return %(header)sget_rank_{}(conf);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     )
     )
-        writers.CPPWriter(pjoin(root_output_path, 'numerator.c')).write(numerator_code)
+        writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.c'%header_map)).write(numerator_code%header_map)
 
         header_code = \
 """
@@ -1376,7 +1478,7 @@ int get_rank(int diag, int conf) {{
 #endif
 """.format('\n'.join('#define  {} {}'.format(k, v) for k, v in params.items()))
 
-        writers.CPPWriter(pjoin(root_output_path, 'numerator.h')).write(header_code)
+        writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.h'%header_map)).write(header_code%header_map)
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True):
         topo_collection = {
@@ -1458,7 +1560,9 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header=""):
+        assert(header in ['MG', 'QG', ''])
+
         params = {
             'mass_t': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
             'gs': self.model['parameter_dict']['G'].real,
@@ -1480,7 +1584,7 @@ class FORMProcessor(object):
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
             additional_overall_factor=additional_overall_factor,
-            params=params,workspace=workspace)
+            params=params,workspace=workspace, header=header)
 
     @classmethod
     def compile(cls, root_output_path):
