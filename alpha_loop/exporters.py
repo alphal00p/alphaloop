@@ -1280,6 +1280,14 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             else:
                 final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
             
+            # Extract multiplicity factor
+            for graphs in form_processor.super_graphs_list:
+                multiplicity = len(graphs)
+                for g in graphs:
+                    g.multiplicity = multiplicity
+                    g.overall_factor = "({})/{}*({})"\
+                        .format(self.overall_phase, multiplicity, g.overall_factor)
+
             #print(n_jets)
             #print(final_state_particle_ids)
             #print(self.alphaLoop_options['_jet_PDGs'])
@@ -1290,10 +1298,6 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 # Remove non-contributing graphs from the list stored in the form_processor
                 filter_non_contributing_graphs=True
             )
-
-            for graphs in form_processor.super_graphs_list:
-                for g in graphs:
-                    g.overall_factor = "({})*({})".format(self.overall_phase, g.overall_factor)
 
             form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
                 output_format=self.alphaLoop_options['FORM_processing_output_format'],
