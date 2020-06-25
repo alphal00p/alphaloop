@@ -1260,13 +1260,13 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         computed_model.set_parameters_and_couplings(
                                             pjoin(self.dir_path,'Source','MODEL','param_card.dat'))        
 
+        FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
+        Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
         super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
-            self.qgraf_output, merge_isomorphic_graphs=True, model=self.model)
+            self.qgraf_output, merge_isomorphic_graphs=True, model=self.model, workspace=FORM_workspace)
         form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                 pjoin(self.dir_path,'FORM', 'Makefile'))
-        FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
-        Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
 
         if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
             if self.alphaLoop_options['n_jets'] is None:
@@ -1280,14 +1280,6 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             else:
                 final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
             
-            # Extract multiplicity factor
-            for graphs in form_processor.super_graphs_list:
-                multiplicity = len(graphs)
-                for g in graphs:
-                    g.multiplicity = multiplicity
-                    g.overall_factor = "({})/{}*({})"\
-                        .format(self.overall_phase, multiplicity, g.overall_factor)
-
             #print(n_jets)
             #print(final_state_particle_ids)
             #print(self.alphaLoop_options['_jet_PDGs'])
@@ -1298,6 +1290,12 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 # Remove non-contributing graphs from the list stored in the form_processor
                 filter_non_contributing_graphs=True
             )
+
+            # Add phase
+            for graphs in form_processor.super_graphs_list:
+                for g in graphs:
+                    g.overall_factor = "({})*({})"\
+                        .format(self.overall_phase, g.overall_factor)
 
             form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
                 output_format=self.alphaLoop_options['FORM_processing_output_format'],

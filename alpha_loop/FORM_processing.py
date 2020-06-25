@@ -264,7 +264,7 @@ aGraph=%s;
                     file_name,1.25*self._rendering_size[0],1.25*self._rendering_size[1])
         open(pjoin(output_dir,'%s.m'%file_name),'w').write(MM_code)
 
-    def generate_numerator_form_input(self, additional_overall_factor=''):
+    def generate_numerator_form_input(self, additional_overall_factor='', only_algebra=False):
         # create the input file for FORM
         form_diag = self.overall_factor+additional_overall_factor
         for node in self.nodes.values():
@@ -284,6 +284,9 @@ aGraph=%s;
                 edge['momentum'],
                 ','.join(str(i) for i in edge['indices']),
             )
+
+        if only_algebra:
+            return form_diag
 
         if self.replacement_rules is None:
             raise AssertionError("No energy configurations specified for numerator: run the denominator generation first")
@@ -1029,6 +1032,40 @@ class FORMSuperGraphIsomorphicList(list):
             open(file_path,'w').write(pformat(to_dump))
         else:
             return to_dump
+    
+    def multiplicity_factor(self,iso_id, workspace, form_source):
+        output_match = re.compile("isoF=[-10]+;")
+        factor_match = re.compile("[-10]+")
+        multiplicity = 1
+        reference = self[0].generate_numerator_form_input('', only_algebra=True)
+        FORM_vars = {}
+        FORM_vars['SGID'] = iso_id
+        FORM_vars['ID0'] = 0
+        for i_graph, g in enumerate(self[1:]):
+            mapped = g.generate_numerator_form_input('', only_algebra=True)
+            with open(pjoin(workspace,'iso_check_{}_{}_{}.frm'.format(iso_id, 0, i_graph+1)), 'w') as f:
+                FORM_vars['IDn'] = i_graph+1
+                f.write("L F1 = %s;\n"%reference)
+                f.write("L F2 = %s;\n"%mapped)
+                
+            r = subprocess.run(' '.join([
+                FORM_processing_options["FORM_path"],
+                ]+
+                [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
+                [ form_source, ]
+            ),
+            shell=True,
+            cwd=workspace,
+            capture_output=True)
+            if r.returncode != 0:
+                raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
+
+            output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
+            factor = int(factor_match.findall(output_match.findall(output)[0])[0])
+            if factor == 0:
+                raise FormProcessingError("Diag_%(IDn)d is not (+/-)Diag_%(ID0)d in iso_group %(SGID)d."%FORM_vars)
+            multiplicity += factor
+        return multiplicity    
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, bar=None ):
         for i, g in enumerate(self):
@@ -1064,7 +1101,7 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None):
+    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
         p = Path(dict_file_path)
@@ -1285,6 +1322,22 @@ class FORMSuperGraphList(list):
         logger.info("{} unique supergraphs".format(len(iso_groups)))
 
         FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
+
+        if workspace is not None:
+            selected_workspace = workspace
+            shutil.copy(pjoin(plugin_path,"multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
+            shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
+            FORM_source = pjoin(selected_workspace,'multiplicity.frm')
+
+            for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
+                multiplicity = iso_graphs.multiplicity_factor(iso_id, selected_workspace, FORM_source)
+                iso_graphs[:] = iso_graphs[:1]
+                iso_graphs[0].multiplicity = multiplicity
+            
+            #for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
+            #    g = iso_graphs[0]
+            #    print(g.name,": ", g.multiplicity)
+
 
         # Generate additional copies for different LMB of the representative graph of each isomorphic set.
         # Note that depending on the option FORM_processing['representative_lmb'], the function below can also modify the LMB of the representative sg.
