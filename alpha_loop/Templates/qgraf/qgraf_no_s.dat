@@ -1,0 +1,22 @@
+
+output = 'output.py';
+style = './orientedGraphPython.sty';
+model = './SM.dat';
+
+* incoming states
+%(incoming_states)s
+
+* outgoing states
+%(outgoing_states)s
+
+loops = %(n_loops)s;
+loop_momentum = k;
+
+options = onshell, notadpole, nosnail;
+
+* final states
+%(final_states)s
+
+* Vetos
+%(vetos)s
+
