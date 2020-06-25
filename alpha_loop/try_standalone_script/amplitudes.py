@@ -188,6 +188,7 @@ def sew_amp_diags(left_diag, right_diag):
                     cc += 1
                     ec['momentum'] = left_diag['edges'][el]['momentum']
                     ec['vertices'] = (el[0], er[1])
+                    ec['PDG'] = copy.copy(left_diag['edges'][el]['PDG'])
                     full_edge = {key:ec}
                     sewed_graph['edges'].update(full_edge)
                     # relabel the edge_ids
@@ -210,7 +211,7 @@ def sew_amp_diags(left_diag, right_diag):
 
     sewed_graph['analytic_num'] = "(" + \
         left_diag['analytic_num']+")*("+right_diag['analytic_num']+")"
-    sewed_graph['overall_numerator'] ='1'
+    sewed_graph['overall_factor'] ='1'
     # we need continous vertex labels for igraph
     new_vert = sorted(list(range(1,len(sewed_graph['nodes'])+1)))
     # old keys will always be larger than new keys
