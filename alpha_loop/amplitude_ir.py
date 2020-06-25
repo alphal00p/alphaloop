@@ -112,14 +112,13 @@ mygraphs=qqbaaNLO.graphs
 for g in mygraphs:
     if 'analytic_num' not in g.keys():
         g['analytic_num'] = "1"
-    # indices and PDGs on edges and vertices have no meaning for the scalar integrals we consider
+    # indices on edges and vertices have no meaning for the scalar integrals we consider
     # lets drop them, before they are misintepreted
+    # PDGs are are supposed to give pure information on the mass
     for ee in list(g['edges']):
         del g['edges'][ee]['indices']
-        del g['edges'][ee]['PDG']
     for nn in list(g['nodes']):
         del g['nodes'][nn]['indices']
-        del g['nodes'][nn]['PDGs']
 
 
 ld=mygraphs[0]
