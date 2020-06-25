@@ -1,13 +1,13 @@
 import model aL_sm-no_widths
-set_alphaLoop_option perturbative_orders {'QCD':0}
+set_alphaLoop_option perturbative_orders {'QCD':4}
 set_alphaLoop_option n_rust_inputs_to_generate -1
-set_alphaLoop_option include_self_energies_from_squared_amplitudes True
+set_alphaLoop_option include_self_energies_from_squared_amplitudes False
 set_alphaLoop_option differentiate_particle_from_antiparticle_in_graph_isomorphism False
 set_alphaLoop_option consider_vertex_id_in_graph_isomorphism False 
 set_alphaLoop_option consider_edge_orientation_in_graph_isomorphism False
 set_alphaLoop_option FORM_processing_output_format c
 set_alphaLoop_option apply_graph_isomorphisms True
-set_alphaLoop_option qgraf_template_model epem
-qgraf_generate e+ e- > a > t t~
-!rm -rf TEST_QGRAF_epem_a_ttx
-output qgraf TEST_QGRAF_epem_a_ttx
+set_alphaLoop_option qgraf_template_model no_s
+qgraf_generate a a > h
+!rm -rf TEST_QGRAF_aa_h
+output qgraf TEST_QGRAF_aa_h
