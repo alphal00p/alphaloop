@@ -506,13 +506,9 @@ graphs.append(
     "vertex_id": 0
     }
 },
-"overall_factor": "+1",
 "incoming_momenta":("p1","p2"),
 "outgoing_momenta":("p3","p4")
 }
-)
-
-
 graphs.append(
 {
 "edges":{

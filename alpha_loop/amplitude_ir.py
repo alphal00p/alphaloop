@@ -115,10 +115,10 @@ for g in mygraphs:
     # indices on edges and vertices have no meaning for the scalar integrals we consider
     # lets drop them, before they are misintepreted
     # PDGs are are supposed to give pure information on the mass
-    for ee in list(g['edges']):
-        del g['edges'][ee]['indices']
-    for nn in list(g['nodes']):
-        del g['nodes'][nn]['indices']
+for ee in list(g['edges']):
+    del g['edges'][ee]['indices']
+for nn in list(g['nodes']):
+    del g['nodes'][nn]['indices']
 
 
 ld=mygraphs[0]
