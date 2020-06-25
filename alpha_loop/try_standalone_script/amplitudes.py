@@ -189,6 +189,7 @@ def sew_amp_diags(left_diag, right_diag):
                     ec['momentum'] = left_diag['edges'][el]['momentum']
                     ec['vertices'] = (el[0], er[1])
                     ec['PDG'] = copy.copy(left_diag['edges'][el]['PDG'])
+                    ec['indices'] = copy.copy(left_diag['edges'][el]['indices'])
                     full_edge = {key:ec}
                     sewed_graph['edges'].update(full_edge)
                     # relabel the edge_ids
@@ -225,9 +226,16 @@ def sew_amp_diags(left_diag, right_diag):
             sewed_graph['edges'][new_edge_key] = sewed_graph['edges'].pop(ee)
     for i, nn in enumerate(list(sewed_graph['nodes'])):
         sewed_graph['nodes'][new_vert[i]] = sewed_graph['nodes'].pop(nn)
-
-
-
+    # rename edges (ask ben why)
+    propCount = 1
+    extCount =1
+    for ee in sewed_graph['edges'].values():
+        if ee['type'] == 'virtual':
+            ee['name'] = 'q'+ str(propCount)
+            propCount+=1
+        else:
+            ee['name'] = 'p'+str(extCount)
+            extCount+=1
     return sewed_graph
 
 
