@@ -622,7 +622,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
         if len(args)>=1 and args[0]=='alphaLoop':
             self.plugin_output_format_selected = 'alphaLoop'
             self.do_output_alphaLoop(' '.join(args[1:]))    
-        if len(args)>=1 and args[0]=='qgraf':
+        elif len(args)>=1 and args[0]=='qgraf':
             self.plugin_output_format_selected = 'qgraf'
             self.do_output_qgraf(' '.join(args[1:]))
         else:

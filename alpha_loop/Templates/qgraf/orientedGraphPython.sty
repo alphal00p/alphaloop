@@ -6,8 +6,7 @@ graphs=[[]]
 graphs.append(
 {
 "edges":{
-<in_loop> (<field_index>+<legs>+1, 
-<back><vertex_index>+<legs>,<field_index>+<legs>):{
+<in_loop>(<field_index>+<legs>):{
     "name":"p<in_index>", 
     "PDG": [pdg],
     "type": "in",
@@ -17,9 +16,7 @@ graphs.append(
 <back><vertex_index>+<legs>)
  },
 <end>
-<back><out_loop>
-    (<vertex_index>+<legs>, 
-<back><field_index>+<legs>+1,<field_index>+<legs>):{
+<back><out_loop>(<field_index>+<legs>):{
     "name": "p<leg_index>",
     "PDG": [pdg],
     "type": "out",
@@ -29,8 +26,7 @@ graphs.append(
 <back><field_index>+<legs>+1)
  },
 <end>
-<back><propagator_loop>(<dual-vertex_index>+<legs>,
-<back><vertex_index>+<legs>,<propagator_index>+<legs>):{
+<back><propagator_loop>(<propagator_index>+<legs>):{
     "name":"q"+str(<propagator_index>),
     "PDG": [pdg],
     "type": "virtual",
