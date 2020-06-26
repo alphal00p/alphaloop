@@ -1192,15 +1192,17 @@ class FORMSuperGraphList(list):
             logger.info("Taking first {} supergraphs.".format(first))
             full_graph_list = full_graph_list[:first]
 
+        
         iso_groups = []
 
         import time
         import sympy as sp
         # group all isomorphic graphs
+        n_externals = max(len([1 for e in graph.edges.values() if e['type']=='in' or e['type']=='out']) for graph in full_graph_list)
         if model is None:
-            pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
+            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
         else:
-            pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
+            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
         
         for graph in full_graph_list:
             g = igraph.Graph()
@@ -1211,6 +1213,7 @@ class FORMSuperGraphList(list):
                 undirected_edges.add(tuple(sorted(e['vertices'])))
 
             edge_colors = []
+            ext_id = 0
             for ue in undirected_edges:
                 e_color = 1
                 for e in graph.edges.values():
@@ -1219,8 +1222,10 @@ class FORMSuperGraphList(list):
                         # with the current implementation it still allows swap 
                         # of final/initial state edges
                         if e['type'] == 'in':
-                            e_color *= -1
-                        e_color *= pdg_primes[abs(e['PDG'])]
+                            ext_id += 1
+                            e_color *= sp.prime(ext_id)
+                        else:
+                            e_color *= pdg_primes[abs(e['PDG'])]
                 edge_colors.append(e_color)
                 g.add_edges([tuple(sorted([x - 1 for x in ue]))])
             
