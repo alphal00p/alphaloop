@@ -1064,10 +1064,17 @@ class FORMSuperGraphIsomorphicList(list):
 
             output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
             factor = int(factor_match.findall(output_match.findall(output)[0])[0])
+
             if factor == 0:
                 raise FormProcessingError("Multiplicity not found: {} =/= (+/-) * {}. (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
+            elif factor == 10:
+                multiplicity = 0
+            elif factor == -1 or factor == 1:
+                multiplicity += factor
+            else:
+                raise FormProcessingError("Unknown isoF for multiplicity factor : usiF={}".format(factor))
+
             #logger.info("{} = ({:+d}) * {}".format(self[0].name, factor, g.name ))
-            multiplicity += factor
         return multiplicity    
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, bar=None ):

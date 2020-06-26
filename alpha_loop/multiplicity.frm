@@ -260,15 +260,17 @@ id pzero = 0; * Substitute the 0-momentum by 0
 * Check multiplicity +/-1
 ********************************
 L isoF = 
-	#if termsin(F12p) == 0
-		-1
-	#elseif termsin(F12m) == 0
-		1
+	#if termsin(F12m) == 0
+        #if termsin(F1) == 0
+            10;
+        #else
+		    1;
+        #endif
+	#elseif termsin(F12p) == 0
+		-1;
 	#else 
-*	        .exit "Critical error";
-		0
+		0;
 	#endif
-;
 	
 
 print isoF;
