@@ -1320,8 +1320,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
             )
 
+        additional_loops = len(representative_process['perturbation_couplings']);
         final_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True]
 
+        pdg_model_map = self.model['particles'].generate_dict()
         field_replace = {}
         for field in ['d', 'u', 's', 'c', 'b', 't']:
             field_replace[field] = field
@@ -1334,15 +1336,25 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         dict_replace = {}
 
-        dict_replace['n_loops'] = len(final_states) - 1 + self.alphaLoop_options['perturbative_orders']['QCD']//2
+        dict_replace['n_loops'] = len(final_states) - 1 + additional_loops 
 
+        # Veto particles that are forbidden
         dict_replace['vetos'] = ''
-        #dict_replace['vetos'] += 'true=iprop[d,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[u,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[c,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[s,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[b,0,0];\n'
+        for particle in representative_process['forbidden_particles']:
+            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%field_replace[pdg_model_map[particle]['name']]
 
+        # Enforce coupling order
+        coupling_order_id = 0
+        for sq_coupling, order in representative_process['squared_orders'].items():
+            if sq_coupling == 'QED':
+                coupling_order_id += 2*order
+            elif sq_coupling == 'QCD':
+                coupling_order_id += 200*order
+            else:
+                raise alphaLoopExporterError("Unsupported Coupling for QGRAF: %s"%sq_coupling)
+        dict_replace['coupling_order'] = 'true=vsum[QCD_QED,{0},{0}];\n'.format(coupling_order_id)
+
+        # Ensure final state
         dict_replace['final_states'] = ''
         for field in final_states:
             if field >= 0:
@@ -1399,6 +1411,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         dict_replace['vetos'] = ''
         dict_replace['vetos'] += 'true=iprop[eplus,0,0];\n'
         dict_replace['vetos'] += 'true=iprop[eminus,0,0];\n'
+        dict_replace['vetos'] += 'true=iprop[higgs,1,1];\n'
         dict_replace['vetos'] += 'true=iprop[d,0,0];\n'
         dict_replace['vetos'] += 'true=iprop[u,0,0];\n'
         dict_replace['vetos'] += 'true=iprop[c,0,0];\n'
