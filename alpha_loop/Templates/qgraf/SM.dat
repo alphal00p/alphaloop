@@ -29,32 +29,35 @@
 * vertices
 *****************
 
+* Total QED Coupling supported: 0-99
+* Total QCE Coupling supported: 0-..
+
 * EW
-[eplus,photon,eminus]
-[dbar,photon,d]
-[ubar,photon,u]
-[cbar,photon,c]
-[sbar,photon,s]
-[bbar,photon,b]
-[tbar,photon,t]
+[eplus,photon,eminus; QCD_QED='1']
+[dbar,photon,d; QCD_QED='1']
+[ubar,photon,u; QCD_QED='1']
+[cbar,photon,c; QCD_QED='1']
+[sbar,photon,s; QCD_QED='1']
+[bbar,photon,b; QCD_QED='1']
+[tbar,photon,t; QCD_QED='1']
 
 * ghosts
-[ghostbar,gluon,ghost]
+[ghostbar,gluon,ghost; QCD_QED='1']
 
 * quarks gluon
-[dbar,gluon,d]
-[ubar,gluon,u]
-[cbar,gluon,c]
-[sbar,gluon,s]
-[bbar,gluon,b]
-[tbar,gluon,t]
+[dbar,gluon,d; QCD_QED='100']
+[ubar,gluon,u; QCD_QED='100']
+[cbar,gluon,c; QCD_QED='100']
+[sbar,gluon,s; QCD_QED='100']
+[bbar,gluon,b; QCD_QED='100']
+[tbar,gluon,t; QCD_QED='100']
 
 * gluons
-[gluon,gluon,gluon]
-[gluon,gluon,gluon,gluon]
+[gluon,gluon,gluon; QCD_QED='100']
+[gluon,gluon,gluon,gluon; QCD_QED='100']
 
 * higgs
-[tbar,higgs,t]
+[tbar,higgs,t; QCD_QED='1']
 
 * EFT
 *[higgs,gluon,gluon]

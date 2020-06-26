@@ -1,2 +1,0 @@
-graphs=[]
-graph_names=[]
