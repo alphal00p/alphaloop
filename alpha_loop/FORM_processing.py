@@ -183,6 +183,8 @@ class FORMSuperGraph(object):
         all_edge_definitions = []
         all_edge_shape_functions = []
         for edge_key, edge_data in self.edges.items():
+            if not isinstance(edge_key, tuple):
+                edge_key = (*edge_data['vertices'], edge_key)
             edge_repl_dict = {}
             # is_LMB = ('name' in edge_data and 'LMB' in str(edge_data['name']).upper())
             abs_sig = ( [abs(s) for s in edge_data['signature'][0]], [abs(s) for s in edge_data['signature'][1]])
@@ -1063,7 +1065,8 @@ class FORMSuperGraphIsomorphicList(list):
             output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
             factor = int(factor_match.findall(output_match.findall(output)[0])[0])
             if factor == 0:
-                raise FormProcessingError("Diag_%(IDn)d is not (+/-)Diag_%(ID0)d in iso_group %(SGID)d."%FORM_vars)
+                raise FormProcessingError("Multiplicity not found: {} =/= (+/-) * {}. (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
+            #logger.info("{} = ({:+d}) * {}".format(self[0].name, factor, g.name ))
             multiplicity += factor
         return multiplicity    
 
@@ -1111,7 +1114,7 @@ class FORMSuperGraphList(list):
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         # Filter specific graphs by name 
-        #filter_graphs = ['MGP0L49R50', 'SG_QG0']
+        #filter_graphs = ['SG_QG8']
         #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
         #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
 
@@ -1329,14 +1332,35 @@ class FORMSuperGraphList(list):
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'multiplicity.frm')
 
-            for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
-                multiplicity = iso_graphs.multiplicity_factor(iso_id, selected_workspace, FORM_source)
-                iso_graphs[:] = iso_graphs[:1]
-                iso_graphs[0].multiplicity = multiplicity
+            with progressbar.ProgressBar(
+                prefix = 'Processing Isomorphic sets (ISO #{variables.iso_id}/%d, Zeros: {variables.zero_multiplicity_count})'%len(iso_groups),
+                max_value=len(iso_groups),
+                variables = {'iso_id' : '0', 'zero_multiplicity_count' : '0'}
+                ) as bar:
+            
+                zero_multiplicity_count = 0
+                for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
+                    bar.update(iso_id='%d'%iso_id, zero_multiplicity_count='%d'%zero_multiplicity_count)
+                    multiplicity = iso_graphs.multiplicity_factor(iso_id, selected_workspace, FORM_source)
+                    if multiplicity == 0:
+                        zero_multiplicity_count += 1
+                        iso_graphs[:] = []
+                    else:
+                        iso_graphs[:] = iso_graphs[:1]
+                        iso_graphs[0].multiplicity = multiplicity
+                    bar.update(iso_id + 1)
+                bar.update(zero_multiplicity_count='%d'%zero_multiplicity_count)
+
+                for iso_id in reversed(range(len(FORM_iso_sg_list))):
+                    if FORM_iso_sg_list[iso_id] == []:
+                        del FORM_iso_sg_list[iso_id]
+                
+            if zero_multiplicity_count > 0 :
+                logger.info("%d isomorphic sets have 0 multiplicity -> they are dropped!"%zero_multiplicity_count)
             
             #for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
             #    g = iso_graphs[0]
-            #    print(g.name,": ", g.multiplicity)
+            #    print("#{}\t{:10}: {}".format(iso_id, g.name, g.multiplicity))
 
 
         # Generate additional copies for different LMB of the representative graph of each isomorphic set.
