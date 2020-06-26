@@ -1043,7 +1043,7 @@ class FORMSuperGraphIsomorphicList(list):
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
         FORM_vars['ID0'] = 0
-        for i_graph, g in enumerate(self[1:]):
+        for i_graph, g in enumerate(self):
             mapped = g.generate_numerator_form_input('', only_algebra=True)
             with open(pjoin(workspace,'iso_check_{}_{}_{}.frm'.format(iso_id, 0, i_graph+1)), 'w') as f:
                 FORM_vars['IDn'] = i_graph+1
@@ -1069,6 +1069,7 @@ class FORMSuperGraphIsomorphicList(list):
                 raise FormProcessingError("Multiplicity not found: {} =/= (+/-) * {}. (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
             elif factor == 10:
                 multiplicity = 0
+                continue
             elif factor == -1 or factor == 1:
                 multiplicity += factor
             else:
@@ -1214,6 +1215,9 @@ class FORMSuperGraphList(list):
                 e_color = 1
                 for e in graph.edges.values():
                     if tuple(sorted(e['vertices'])) == ue:
+                        #TODO: Reserve the first #externals primes for external edges
+                        # with the current implementation it still allows swap 
+                        # of final/initial state edges
                         if e['type'] == 'in':
                             e_color *= -1
                         e_color *= pdg_primes[abs(e['PDG'])]
