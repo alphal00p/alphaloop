@@ -371,6 +371,9 @@ class TopologyGenerator(object):
             loops = 0 if len(s) == 0 else len(s) - len(vertices) + 1
             dod += 4 * loops
 
+            # Adjust the depth of the UV subtraction here
+            #if dod >= 0:
+            #    dod += 1
             if dod >= 0 and loops > 0:
                 div_subgraphs.append((s, dod))
 

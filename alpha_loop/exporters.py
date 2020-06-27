@@ -265,7 +265,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                                 squared_topology_name,
                                 utils.bcolors.ENDC
                             ) )
-                        super_graph.symmetry_factor = 0
+                        super_graph.symmetry_factor = 1
                     else:
                         fs_symm_factor = super_graph.fs_symm_factor
                         if is_LO:
@@ -296,7 +296,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
                             super_graph.symmetry_factor = 1
 
-                        n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * len(super_graph.cutkosky_cuts_generated)
+                        n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * max(len(super_graph.cutkosky_cuts_generated),0)
                         # For now the debug/check below always pass by constribution, but in the future we could think of computing super_graph.symmetry_factor independently
                         # from the number of MG_LO cuts.
                         if do_debug:
@@ -578,31 +578,37 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         for me, number in processes:
             all_externals_combination.add(len(me.get('processes')[0].get('legs')))
         
-        max_n_indep_mom = max(all_externals_combination)
-        replace_dict['max_n_indep_mom'] = max_n_indep_mom
-
         max_n_diags = 0
         for super_graph_list, ME in self.all_super_graphs:
             for sg in super_graph_list:
-                max_n_diags=max(sg.call_signature['left_diagram_id'],sg.call_signature['right_diagram_id'])
+                max_n_diags=max(max_n_diags,sg.call_signature['left_diagram_id'],sg.call_signature['right_diagram_id'])
 
         replace_dict['max_n_diags'] = max_n_diags
+
+        max_n_indep_mom = max(all_externals_combination)
 
         mom_sign_flips = []
         for i_proc, (super_graph_list, ME) in enumerate(self.all_super_graphs):
             (nexternal, ninitial) = ME.get_nexternal_ninitial()
             for sg in super_graph_list:
+                mom_signs= (['1',]*ninitial)+(['1',]*(len(sg.cuts)-1) if sg.MG_external_momenta_sign_flips is None else \
+                        ['-1' if is_flipped else '1' for is_flipped in sg.MG_external_momenta_sign_flips])
+                if len(mom_signs) > max_n_indep_mom:
+                    logger.critical("The number of momenta sign in C_bindings.f is larger than the allowed maximum.")
+                    logger.critical("The length is now adjusted so as to make sure C_bindings.f compiles, but this is indicative of a bug.")
+                    max_n_indep_mom = len(mom_signs)
+                elif max_n_indep_mom > len(mom_signs):
+                    mom_signs += ['1',]*(max_n_indep_mom-len(mom_signs))
+
                 mom_sign_flips.append("DATA (MOM_SIGNS(%d,%d,%d,I),I=1,%d)/%s/"%(
                     i_proc, 
                     sg.call_signature['left_diagram_id'],
                     sg.call_signature['right_diagram_id'],
-                    ninitial+len(sg.cuts)-1,
-                    ','.join((['1',]*ninitial)+(
-                    ['1',]*(len(sg.cuts)-1) if sg.MG_external_momenta_sign_flips is None else
-                    ['-1' if is_flipped else '1' for is_flipped in sg.MG_external_momenta_sign_flips])
-                    )
+                    len(mom_signs),
+                    ','.join(mom_signs)
                 ))
 
+        replace_dict['max_n_indep_mom'] = max_n_indep_mom
         replace_dict['mom_sign_flips_def'] = '\n'.join(mom_sign_flips)
 
         # And now generate an input momenta configuration for all of them
