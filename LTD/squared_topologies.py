@@ -134,13 +134,29 @@ class SquaredTopologyGenerator:
 
                     uv_diag_set['diagram_info'] = unfolded_diag_info
 
-                uv_diagram_sets.extend(uv_diag_sets)
+                # add integrated counterterms to the diagram set
+                uv_diag_sets_with_integrated_ct = []
+                for uv_diag_set in uv_diag_sets:
+                    uv_diag_set['integrated_ct'] = False
+                    uv_diag_sets_with_integrated_ct.append(uv_diag_set)
+                    integrated_diag_set = copy.deepcopy(uv_diag_set)
+                    integrated_diag_set['integrated_ct'] = True
+                    has_uv = False
+                    for di in integrated_diag_set['diagram_info']:
+                        if di['uv_info'] is not None:
+                            has_uv = True
+
+                    if has_uv:
+                        uv_diag_sets_with_integrated_ct.append(integrated_diag_set)
+
+                uv_diagram_sets.extend(uv_diag_sets_with_integrated_ct)
 
             cut_info['diagram_sets'] = uv_diagram_sets
 
             diagram_sets = []
             for diag_set in uv_diagram_sets:
-                uv_name = ('_uv_' + '_'.join(diag_set['uv_propagators'])) if len(diag_set['uv_propagators']) > 0 else ''
+                uv_name = ('_uv_' + ('integrated_' if diag_set['integrated_ct'] else '') +
+                    '_'.join(diag_set['uv_propagators'])) if len(diag_set['uv_propagators']) > 0 else ''
                 numerator_sparse = []
 
                 # TODO: support yaml UV numerators again
@@ -210,6 +226,30 @@ class SquaredTopologyGenerator:
                             prop.power = sum(pp.power for pp in ll.propagators)
                             prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
                             ll.propagators = [prop]
+
+                    if diag_set['integrated_ct'] and diag_info['uv_info'] is not None:
+                        # replace the graphs by finite vacuum bubbles
+                        # the numerator will be the integrated CT
+                        lm = [s.edge_map_lin[i][0] for i in s.loop_momenta]
+                        g_int = TopologyGenerator([(lm, i, i) for i, lm in enumerate(lm)],
+                            powers={lm: 3 for lm in lm})
+                        (loop_mom_map, shift_map) = self.topo.build_proto_topology(g_int, c, skip_shift=diag_info['uv_info'] is not None)
+                        loop_topo = g_int.create_loop_topology(name + '_' + ''.join(cut_name) + uv_name + '_' + str(i),
+                            # provide dummy external momenta
+                            ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                            fixed_deformation=False,
+                            mass_map=masses,
+                            loop_momentum_map=loop_mom_map,
+                            numerator_tensor_coefficients=[[0., 0.,]],#[[0., 0.] for _ in range(numerator_entries)],
+                            shift_map=shift_map,
+                            check_external_momenta_names=False,
+                            analytic_result=0)
+                        for ll in loop_topo.loop_lines:
+                            ll.propagators[0].m_squared = mu_uv**2
+                            ll.propagators[0].power = 3
+                            ll.propagators[0].parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
+
+                    loop_topo.external_kinematics = []
 
                     loop_topos.append(
                         {

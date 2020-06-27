@@ -812,7 +812,9 @@ class TopologyGenerator(object):
 
         # now route the external loop_momenta to the sink
         if sink is None:
-            sink = self.ext[-1]
+            if len(self.ext) > 0:
+                # vacuum bubbles don't have external momenta
+                sink = self.ext[-1]
         else:
             sink = next(i for i, e in enumerate(self.edge_map_lin) if e[0] == sink)
 

@@ -734,6 +734,11 @@ aGraph=%s;
         external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
 #        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
 
+        # compute mUV
+        p = np.array(external_momenta['q1']) + np.array(external_momenta['q2'])
+        FORM_processing_options['mUV'] = 2 * math.sqrt(p[0]**2 - p[1]**2 - p[2]**2 - p[3]**2)
+        FORM_processing_options['logmUV'] = math.log(FORM_processing_options['mUV']**2)
+
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
         loop_momenta = []
@@ -875,6 +880,10 @@ aGraph=%s;
                     if uv_props == []:
                         uv_sig = 't0^0'
                         uv_props = ['1']
+
+                    if diag_set['integrated_ct']:
+                        uv_props.append('integratedctflag')
+
                     uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), '*'.join(uv_props))
                     uv_subgraphs.append('subgraph({}{},{})'.format(uv_info['graph_index'], 
                     (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
@@ -1413,6 +1422,7 @@ class FORMSuperGraphList(list):
         var_pattern = re.compile(r'Z\d*_')
         input_pattern = re.compile(r'lm(\d*)')
         energy_exp = re.compile(r'f\(([^)]*)\)\n')
+        split_number = re.compile(r'\\\n\s*')
         return_exp = re.compile(r'return ([^;]*);\n')
 
         FORM_vars={}
@@ -1475,6 +1485,7 @@ class FORMSuperGraphList(list):
                         num_body = ''
                         for mono_sec in mono_secs[1:]:
                             mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
+                            mono_sec = split_number.sub('', mono_sec)
                             # parse monomial powers and get the index in the polynomial in the LTD basis
                             pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
                             pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'c0'))
@@ -1500,19 +1511,19 @@ class FORMSuperGraphList(list):
 
 
                     numerator_main_code += \
-    """
-    int %(header)sevaluate_{}(double complex lm[], int conf, double complex* out) {{
-        switch(conf) {{
-    {}
-        }}
+"""
+int %(header)sevaluate_{}(double complex lm[], int conf, double complex* out) {{
+   switch(conf) {{
+{}
     }}
+}}
 
-    int %(header)sget_rank_{}(int conf) {{
-        switch(conf) {{
-    {}
-        }}
+int %(header)sget_rank_{}(int conf) {{
+   switch(conf) {{
+{}
     }}
-    """.format(i,
+}}
+""".format(i,
         '\n'.join(
         ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
         (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
@@ -1566,6 +1577,9 @@ int %(header)sget_rank(int diag, int conf) {{
     )
         writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.c'%header_map)).write(numerator_code%header_map)
 
+
+        params['mUV'] = FORM_processing_options['mUV']
+        params['logmUV'] = FORM_processing_options['logmUV']
         header_code = \
 """
 #ifndef NUM_H
