@@ -1047,7 +1047,7 @@ class FORMSuperGraphIsomorphicList(list):
     def multiplicity_factor(self,iso_id, workspace, form_source):
         output_match = re.compile("isoF=[-10]+;")
         factor_match = re.compile("[-10]+")
-        multiplicity = 1
+        multiplicity = 0
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
