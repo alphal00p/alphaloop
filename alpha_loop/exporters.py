@@ -1228,19 +1228,18 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         logger.info("Writing output of hardcoded QGRAF generation to '%s'"%self.dir_path)
 
-        """ Extract process information"""
+        # Extract process information
         if isinstance(self.proc_def, base_objects.ProcessDefinition):
              representative_proc = next(proc for proc in self.proc_def)
         else:
             representative_proc = self.proc_def
  
-        """ Generate all supergraphs using QGRAF."""
+        # Generate all supergraphs using QGRAF
         self.build_output_directory()
         getattr(self,"build_qgraf_%s"%self.alphaLoop_options['qgraf_template_model'])(representative_proc)
         self.standalone_qgraf_file()
 
-        """ Process supergraph numerators with FORM and output result in the process output."""
-
+        # Process supergraph numerators with FORM and output result in the process output.
         write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
         model_builder = alphaLoopModelConverter(self.model, write_dir)
         model_builder.build([])
@@ -1334,6 +1333,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         for field in ['d', 'u', 's', 'c', 'b', 't']:
             field_replace[field] = field
             field_replace[field+'~'] = field+'bar'
+        field_replace['gh'] = 'ghost'
+        field_replace['gh~'] = 'ghostbar'
         field_replace['h'] = 'higgs'
         field_replace['e-'] = 'eminus'
         field_replace['e+'] = 'eplus'
@@ -1397,6 +1398,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             raise alphaLoopExporterError("The command 'qgraf_generate' with model 'no_s' does not support this process.\nAvailable models (: example)"\
                 .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
             )
+        additional_loops = len(representative_process['perturbation_couplings']);
         incoming_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==False]
         final_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True]
 
@@ -1404,6 +1406,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         for field in ['d', 'u', 's', 'c', 'b', 't']:
             field_replace[field] = field
             field_replace[field+'~'] = field+'bar'
+        field_replace['gh'] = 'ghost'
+        field_replace['gh~'] = 'ghostbar'
         field_replace['h'] = 'higgs'
         field_replace['e-'] = 'eminus'
         field_replace['e+'] = 'eplus'
@@ -1412,18 +1416,25 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         dict_replace = {}
 
-        dict_replace['n_loops'] = len(final_states) - 1 + self.alphaLoop_options['perturbative_orders']['QCD']//2
-
+        dict_replace['n_loops'] = len(final_states) - 1 + additional_loops;
+        
+        # Veto particles that are forbidden
         dict_replace['vetos'] = ''
-        dict_replace['vetos'] += 'true=iprop[eplus,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[eminus,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[higgs,1,1];\n'
-        dict_replace['vetos'] += 'true=iprop[d,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[u,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[c,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[s,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[b,0,0];\n'
+        for particle in representative_process['forbidden_particles']:
+            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%field_replace[pdg_model_map[particle]['name']]
 
+        # Enforce coupling order
+        coupling_order_id = 0
+        for sq_coupling, order in representative_process['squared_orders'].items():
+            if sq_coupling == 'QED':
+                coupling_order_id += 2*order
+            elif sq_coupling == 'QCD':
+                coupling_order_id += 200*order
+            else:
+                raise alphaLoopExporterError("Unsupported Coupling for QGRAF: %s"%sq_coupling)
+        dict_replace['coupling_order'] = 'true=vsum[QCD_QED,{0},{0}];\n'.format(coupling_order_id)
+
+        # Set externals and enforce final states
         dict_replace['incoming_states'] = 'in = '
         dict_replace['outgoing_states'] = 'out = '
         incoming_fields = []
