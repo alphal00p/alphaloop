@@ -4,6 +4,13 @@
 (*Evaluate PF Expression*)
 
 
+(* ::Subsection::Closed:: *)
+(*Path*)
+
+
+$PFPATH = NotebookDirectory[];
+
+
 (* ::Subsection:: *)
 (*Functions*)
 
@@ -13,24 +20,27 @@
 
 
 ClearAll[num]
-num[n_Integer][y_List,vars___?(Head[#]=!=List&)]:=Module[{
-newy},
-If[Length[y] == 1,
-num[n][y[[1]],vars]
-,
-newy=Drop[y,-2];
-(num[n][Append[newy,y[[-1]]],vars]-num[n][Append[newy,y[[-2]]],vars])/(y[[-2]]-y[[-1]])]//Cancel
+num[n_Integer][y_List,vars___?(Head[#]=!=List&)]:=Module[{newy},
+	If[Length[y] == 1,
+		num[n][y[[1]],vars],
+		newy=Drop[y,-2];
+		(num[n][Append[newy,y[[-1]]],vars]-num[n][Append[newy,y[[-2]]],vars])/(y[[-2]]-y[[-1]])]//Cancel
 ]
 
-num[ys__List,Num_,vars_List]:=Module[{
-xs,x},
-If[Length[{ys}]!=Length[vars],Print["ys list must be of same length as vars"];Abort[]];
-num[0][x__?(Head[#]=!=List&)]:=Num[x];
-Table[
-xs = vars[[i+1;;]]/.List->Sequence;
-num[i][x___?(Head[#]=!=List&)]=num[i-1][{ys}[[i]],x];
-(*num[i][xs]*),{i,Length[{ys}]}];
-num[Length[vars]][xs]
+num[ys__List,Num_,vars_List]:=Module[{xs,x},
+	(*Check inputs*)
+	If[Length[{ys}]!=Length[vars],Print["ys list must be of same length as vars"];Abort[]];
+	
+	(*Top numerator N0 initialized with the provided Num function*)
+	num[0][x__?(Head[#]=!=List&)]:=Num[x];
+	(*Apply steps*)
+	Table[
+		xs = vars[[i+1;;]]/.List->Sequence;
+		num[i][x___?(Head[#]=!=List&)]=num[i-1][{ys}[[i]],x];
+		(*num[i][xs]*),
+	{i,Length[{ys}]}];
+	(*Return Final expression*)
+	num[Length[vars]][xs]
 ]
 
 
@@ -40,9 +50,10 @@ num[Length[vars]][xs]
 
 ClearAll[evaluate]
 evaluate[{factor_,dens_List,zs_List},NumFunction_,vars_]:=Module[{
-denominator = Times@@dens,
-numerator=num @@Join[zs,{NumFunction,vars}]},
-factor *numerator/denominator
+		denominator = Times@@dens,
+		numerator=num @@Join[zs,{NumFunction,vars}]
+	},
+	factor *numerator/denominator
 ]
 
 
@@ -56,7 +67,7 @@ factor *numerator/denominator
 
 ClearAll[pf,MyNum]
 (*Import instructions*)
-pf= Import["pf_1l_box.m"];
+pf= Import[$PFPATH <> "pf_1l_box.m"];
 (*Define Numerator*)
 MyNum[x_]:=c[0]+c[1]x +c[2]x^2
 MyNum[x_]:=1
@@ -70,7 +81,7 @@ evaluate[#,MyNum,{x}]&/@pf//MatrixForm//Simplify
 
 ClearAll[pf,MyNum]
 (*Import instructions*)
-pf= Import["pf_2l_sunrise.m"];
+pf= Import[$PFPATH <> "pf_2l_sunrise.m"];
 (*Define Numerator*)
 MyNum[x_,y_]:=c[1]x^2+c[2]y^3x +c[3]x^2y^2 
 MyNum[x_,y_]:=1
@@ -87,7 +98,7 @@ evaluate[#,MyNum,{x,y}]&/@pf//MatrixForm//Simplify
 
 
 ClearAll[pf, MyNum]
-pf = Import["pf_2l_pentabox.m"]; 
+pf = Import[$PFPATH <> "pf_2l_pentabox.m"]; 
 (*MyNum[x_, y_] := c[1]*x^2 + c[2]*y^3*x + c[3]*x^2*y^2*)
 MyNum[x_, y_] := 1
 Print["Evaluate:"]
@@ -100,7 +111,7 @@ Monitor[Table[evaluate[pf[[ipf]], MyNum, {x, y}], {ipf, Length[pf]}], PercentFor
 
 ClearAll[pf,MyNum]
 (*Import instructions*)
-pf= Import["pf_4l_2x2fishnet.m"];
+pf= Import[$PFPATH <> "pf_4l_2x2fishnet.m"];
 (*Define Numerator*)
 MyNum[x1_,x2_,x3_,x4_]:=1
 (*Evaluate*)
