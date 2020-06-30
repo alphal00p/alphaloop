@@ -77,10 +77,11 @@ Fill charges(-5) = 1/3; * b
 Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
+S D, ep;
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext;
-Auto I mu=4,s=4;
+Auto I mu=D,s=D;
 Symbol ge, gs, gy, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
@@ -92,7 +93,7 @@ CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f, vx, vec, vec1;
 CF subs, configurations, conf, cmb, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv;
-S integratedctflag, mUV, logmUV, mi1L1, D, ep, alarmMi1L1;
+S integratedctflag, mUV, logmUV, mi1L1, alarmMi1L1;
 CF integratedct, rat, num, den;
 Set ts: t0,...,t20;
 CT penergy;
@@ -104,6 +105,8 @@ S  i, m, n, ALARM;
 Set colF: cOli1,...,cOli40;
 Set colA: cOlj1,...,cOlj40;
 Set colAdum: cOljj1,...,cOljj40;
+
+Polyratfun rat;
 
 * Load the diagrams
 #include- input_`SGID'.h
@@ -148,6 +151,9 @@ id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
+id D^n? = rat(D^n, 1);
+.sort:feynman-rules-vertices-1;
+
 * TODO: use momentum conservation to reduce the number of different terms
 id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
     - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
@@ -174,7 +180,8 @@ if (count(vx, 1, prop, 1));
     exit "Critical error";
 endif;
 
-.sort:feynman-rules-vertices;
+id D^n? = rat(D^n, 1);
+.sort:feynman-rules-vertices-2;
 
 ******************
 * Color evaluation
@@ -232,7 +239,7 @@ id counter(n?) = 1;
 id vec(p?,mu?) = p(mu);
 
 #do i=1,10
-    trace4 `i';
+    tracen `i';
 #enddo
 
 if (count(gamma, 1));
@@ -240,6 +247,7 @@ if (count(gamma, 1));
     exit "Critical error";
 endif;
 
+id D^n? = rat(D^n, 1);
 .sort:gamma-traces;
 
 id color(x?) = x;
@@ -336,11 +344,8 @@ id uv(x?) = x;
 .sort:uv-treatment;
 
 * compute the integrated UV counterterm
-Dimension D;
-Polyratfun rat;
-
 * FIXME: we are not given the complete denominator: denominators that have no external momentum dependence are not in the subgraph
-id uvconf(k?,n?) = uvconf(k, n + 1);
+id uvprop(k?,n?) = uvprop(k, n + 1);
 if (count(integratedctflag, 1) > 0);
     id integratedctflag = -1; * we add back the counterterm
     Multiply counter(mu1,...,mu20);
@@ -378,6 +383,11 @@ if (count(integratedctflag, 1) > 0);
         exit "Critical error";
     endif;
 
+* Set all external momenta on-shell
+    #do i=1,10
+        id p`i'.p`i' = 0;
+    #enddo
+
     id vec(k1?,mu?)*vec(k2?,mu?) = k1.k2;
 
 * divide by the normalizing factor of the denominator that is added to the topology
@@ -385,12 +395,17 @@ if (count(integratedctflag, 1) > 0);
     Multiply i_ * rat(4 * 30246273033735921/9627687726852338,1)^2 * 2 * mUV^2;
 
 * reduce the numerator
-    id k1?.k1?*uvprop(k1?,n1?) = uvprop(n1-1) + mUV^2 * uvprop(n1);
+    repeat id k1?.k1?*uvprop(k1?,n1?) = uvprop(k1, n1-1) + mUV^2 * uvprop(k1, n1);
+    id uvprop(k1?,n?) = uvprop(n);
 
 * 1-loop IBP
     id uvprop(n1?{<1}) = 0;
     repeat id uvprop(n1?{>1}) = uvprop(-1 + n1)*rat((2 + D - 2*n1), 2 * mUV^2 * (-1 + n1));
     id uvprop(1) = mi1L1 * rat(2*mUV^2, D - 2);
+
+* TODO: take to the power of loops
+* normalize with 1/(4 pi e^-gamma)
+    Multiply 1 - rat(53646286447601093/27457288774331243 * ep  + 7812755848557151/4093268398007683 * ep^2 - 4523275530886483/3638800576560925 * ep^3, 1);
 
     Multiply replace_(D, 4 - 2 * ep);
 
@@ -428,18 +443,17 @@ if (count(integratedctflag, 1) > 0);
     id cMi1L1Eps3logmUV2 = rat(238365146153033*i_,27564286879591370);
     id cMi1L1Eps3logmUV3 = rat(-10530606329595*i_,5106723491205427);
     id cMi1L1Eps3logmUV4 = rat(3349661396909*i_,12694975820195403);
-
-    id logmUV = 0;
 endif;
 .sort:integrated-ct-1;
-* Factor out the mass
-Dimension 4;
-Polyratfun;
 
+* Factor out the mass
+Polyratfun;
 id rat(x1?,x2?) = num(x1)*den(x2);
 FactArg den, num;
 ChainOut,num;
 ChainOut,den;
+
+Multiply replace_(D, 4 - 2 * ep);
 
 id num(x1?)=x1;
 id den(x1?number_)=1/x1;
@@ -452,6 +466,9 @@ PolyRatFun rat(expand,ep,10);
 PolyRatFun;
 id rat(x1?) = x1;
 if (count(ep, 1)) Discard; * keep only the ep^0 piece
+
+* for now, just set the log piece to 0
+id logmUV = 0;
 .sort:integrated-ct-2;
 
 * convert the polynomial to the cut momentum basis
