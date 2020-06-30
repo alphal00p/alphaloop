@@ -46,7 +46,7 @@ def set_hyperparameters(process_name, sg_name, multi_channeling=False, workspace
     hyperparameters['General']['multi_channeling'] = multi_channeling
     hyperparameters['General']['multi_channeling_including_massive_propagators'] = multi_channeling
     hyperparameters['General']['deformation_strategy'] = 'fixed'
-    hyperparameters['General']['topology'] = sg_name
+    hyperparameters['General']['topology'] = "%s_%s" % (sg_name, min_jpt)
     hyperparameters['General']['res_file_prefix'] = "%s_" % process_name
     hyperparameters['General']['log_file_prefix'] =\
         "stats/%s_%s_%d_" % (process_name, sg_name, min_jpt)
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     hyper_settings['Integrator']['n_increase'] = int(1e5)
     # Selector Settings
     hyper_settings['Selectors']['active_selectors'] = ['jet']
-    hyper_settings['Selectors']['jet'] = {'min_jets': 1, 'min_jpt': 100}
+    hyper_settings['Selectors']['jet'] = {'min_jets': 1, 'min_jpt': 10}
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hp:', [
@@ -206,8 +206,15 @@ if __name__ == "__main__":
         results = []
         print(output_file)
         for sg in instructions['topologies']:
-            filename = glob.glob("%s/*%s*.dat" % (WORKSPACE, sg['name']))[0]
-            print("Extracting %s" % sg['name'], end="\n")
+            print("%s/*%s_%s*.dat" % (
+                WORKSPACE,
+                sg['name'],
+                hyper_settings['Selectors']['jet']['min_jpt']))
+            filename = glob.glob("%s/*%s_%s*.dat" % (
+                WORKSPACE,
+                sg['name'],
+                hyper_settings['Selectors']['jet']['min_jpt']))[0]
+            print("Extracting %s: %s" % (sg['name'], filename), end="\n")
 
             data = [sg['name'], sg['multiplicity']]
             data.extend(get_result(filename))
