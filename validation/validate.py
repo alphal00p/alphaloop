@@ -12,6 +12,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import pandas as pd
+import progressbar
 import yaml
 
 pjoin = os.path.join
@@ -58,7 +59,7 @@ def set_hyperparameters(process_name, sg_name, multi_channeling=False, workspace
     hyperparameters['Integrator']['dashboard'] = False
     hyperparameters['Integrator']['integrator'] = 'vegas'
     hyperparameters['Integrator']['internal_parallelization'] = True
-    hyperparameters['Integrator']['n_vec'] = int(1e8)
+    hyperparameters['Integrator']['n_vec'] = int(1e4)
     # Set values for CrossSection
     hyperparameters['CrossSection']['numerator_source'] = 'FORM'
     hyperparameters['CrossSection']['picobarns'] = True
@@ -104,25 +105,56 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
     # Store output
     err_path = pjoin(WORKSPACE, '%s.err' % sg_name)
     out_path = pjoin(WORKSPACE, '%s.out' % sg_name)
+    log_path = pjoin(WORKSPACE, '%s.log' % sg_name)
 
-    r = subprocess.Popen(rust_executable,
-                       cwd=workspace,
-                       #stdout=open(out_path, 'w'),
-                       stdout=subprocess.PIPE,
-                       stderr=open(err_path, 'w'),
-                       env=os.environ.update(
-                           {'RUST_BACKTRACE':'1','MG_NUMERATOR_PATH': '%s/' % aL_path_output}),
-                       bufsize=1,
-                       universal_newlines=True)
-    import time
-    time.sleep(1)
-    with open(out_path, 'w') as stdout:
-        for line in r.stdout:
-            if any(s in line for s in ['integrand evaluation', 'chisq']):
-                sys.stdout.write(line)
-            elif line == '\n':
-                sys.stdout.write(line)
-            stdout.write(line)
+    log_info = {'Eventinfo': '', 'IntegrandStatistics': ''}
+    with progressbar.ProgressBar(prefix='%s | Accepter: {variables.accepted}, Rejected: {variables.rejected} : ' % sg_name,
+                max_value=multi_settings['Integrator']['n_max'],
+                variables={'total_samples': '0',
+                    'accepted': '0', 'rejected': '0'}
+                ) as bar:
+                bar.update(i+1)
+        r = subprocess.Popen(rust_executable,
+                             cwd=workspace,
+                             stdout=subprocess.PIPE,
+                             stderr=open(err_path, 'w'),
+                             env=os.environ.update(
+                                 {'RUST_BACKTRACE': '1', 'MG_NUMERATOR_PATH': '%s/' % aL_path_output}),
+                             bufsize=1,
+                             universal_newlines=True)
+        import ast
+        import time
+        time.sleep(1)
+        def parse_value_from_key(line, key):
+            pos = line.find(key)
+            if pos == -1:
+                raise KeyError("{} not present in {}".format(key,line))
+            start = line.find(':',pos)+1
+            end = line.find(',',pos)
+            value = line[start:end]
+            return value 
+        total_events=0
+        with open(out_path, 'w') as stdout:
+            for line in r.stdout:
+                if any(s in line for s in ['integrand evaluation', 'chisq']):
+                    stdout.write(line)
+                elif line == '\n':
+                    stdout.write(line)
+                elif 'IntegrandStatistics' in line:
+                    log_info['IntegrandStatistics'] = line
+                elif 'EventInfo' in line:
+                    log_info['Eventinfo'] = line
+                    line_stats = log_info['IntegrandStatistics']
+                    line_info = log_info['Eventinfo']
+                    total_events=int(parse_value_from_key(line_stats,'total_samples'))
+                    bar.update(accepted='{:.2%}'.format(int(parse_value_from_key(line_info,'accepted_event_counter'))/total_events))
+                    bar.update(rejected='{:.2%}'.format(int(parse_value_from_key(line_info,'rejected_event_counter'))/total_events))
+                    bar.update(total_events)
+                else:
+                    stdout.write(line)
+    with open(log_path, 'w') as stdlog:
+        stdlog.write(log_info['IntegrandStatistics'])
+        stdlog.write(log_info['Eventinfo'])
     r.wait()
     if r.returncode != 0:
         print("\033[1;31mFAIL: see {} and {} for further details.\033[0m".format(
@@ -197,15 +229,15 @@ if __name__ == "__main__":
     CORES = args.cores
     # Integrator Settings
     hyper_settings['Integrator']['n_max'] = args.n_max
-    hyper_settings['Integrator']['n_new'] = int(1e5)
-    hyper_settings['Integrator']['n_start'] = int(1e5)
-    hyper_settings['Integrator']['n_increase'] = int(1e5)
+    hyper_settings['Integrator']['n_new'] = int(1e6)
+    hyper_settings['Integrator']['n_start'] = int(1e6)
+    hyper_settings['Integrator']['n_increase'] = int(1e6)
     # Selector Settings
     hyper_settings['Selectors']['active_selectors'] = [
     ] if args.no_jets else ['jet']
     hyper_settings['Selectors']['jet'] = {
         'min_jets': 1,
-#        'dR': 0.4,
+        #        'dR': 0.4,
         'min_jpt': args.min_jpt}
     # define alpha loop input folder
     aL_process_output = pjoin(MG_PATH, 'TEST_QGRAF_%s_%s' %
@@ -253,7 +285,7 @@ if __name__ == "__main__":
     if args.collect:
         sg_list = [topo['name'] for topo in instructions['topologies']]
         output_file = pjoin(WORKSPACE, "%s_%s_results.csv" %
-                            (process_name, args.min_jpt))
+                            (process_name,'nocut' if args.no_jets else args.min_jpt))
         results = []
         for sg in instructions['topologies']:
             filename = glob.glob("%s/*%s_%s*.dat" %
@@ -280,26 +312,27 @@ if __name__ == "__main__":
         bench_results = bench_results[bench_results['Process'] == process_name]
         # Filter by min_jpt
         if args.no_jets:
-            bench_results = bench_results[bench_results['min_ptj[GeV]'].isnull()]
+            bench_results = bench_results[bench_results['min_ptj[GeV]'].isnull(
+            )]
         else:
-            bench_results = bench_results[bench_results['min_ptj[GeV]'] == args.min_jpt]
-        print("\033[1mBENCH:\033[0m\n",bench_results)
+            bench_results = bench_results[bench_results['min_ptj[GeV]']
+                                          == args.min_jpt]
+        print("\033[1mBENCH:\033[0m\n", bench_results)
 
         # alphaLoop result
         aL_results = pd.read_csv(pjoin(WORKSPACE, "%s_%s_results.csv" %
-                            (process_name, args.min_jpt)))
+                            (process_name,'nocut' if args.no_jets else args.min_jpt)))
         print("\033[1maL SGs:\033[0m\n", aL_results)
-        aL_total = aL_results[['real', 'real_err', 'imag','imag_err']]\
-                .multiply(aL_results['multiplicity'],axis='index').sum()
+        aL_total = aL_results[['real', 'real_err', 'imag', 'imag_err']]\
+            .multiply(aL_results['multiplicity'], axis='index').sum()
         print("\033[1maL Total:\033[0m\n", aL_total)
-        
+
         print("\033[1mCompare:\033[0m")
         diff = (aL_total['real'] - bench_results['cross-section[pb]'])
         rel = abs(diff/bench_results['cross-section[pb]'])
-        mg5_prec = bench_results['MCerror[pb]']/abs(bench_results['cross-section[pb]'])
+        mg5_prec = bench_results['MCerror[pb]'] / \
+            abs(bench_results['cross-section[pb]'])
         aL_prec = [aL_total['real_err']/abs(aL_total['real'])]
-        print("\t\033[1mMG precision:\033[0m",mg5_prec.values)
-        print("\t\033[1maL precision:\033[0m",aL_prec)
-        print("\t\033[1m|(MG-aL)/MG|:\033[0m",rel.values)
-        
-
+        print("\t\033[1mMG precision:\033[0m", mg5_prec.values)
+        print("\t\033[1maL precision:\033[0m", aL_prec)
+        print("\t\033[1m|(MG-aL)/MG|:\033[0m", rel.values)
