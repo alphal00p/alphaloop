@@ -94,7 +94,6 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
         workspace=workspace,
         no_jets=no_jets,
         multi_settings=multi_settings)
-    print(hyperparameters_path)
     # run integration
     rust_executable = [rALPHA]
     rust_executable += ['-f', '%s' % hyperparameters_path]
@@ -106,13 +105,25 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
     err_path = pjoin(WORKSPACE, '%s.err' % sg_name)
     out_path = pjoin(WORKSPACE, '%s.out' % sg_name)
 
-    r = subprocess.run(rust_executable,
+    r = subprocess.Popen(rust_executable,
                        cwd=workspace,
-                       stdout=open(out_path, 'w'),
+                       #stdout=open(out_path, 'w'),
+                       stdout=subprocess.PIPE,
                        stderr=open(err_path, 'w'),
                        env=os.environ.update(
-                           {'MG_NUMERATOR_PATH': '%s/' % aL_path_output}),
-                       capture_output=False)
+                           {'RUST_BACKTRACE':'1','MG_NUMERATOR_PATH': '%s/' % aL_path_output}),
+                       bufsize=1,
+                       universal_newlines=True)
+    import time
+    time.sleep(1)
+    with open(out_path, 'w') as stdout:
+        for line in r.stdout:
+            if any(s in line for s in ['integrand evaluation', 'chisq']):
+                sys.stdout.write(line)
+            elif line == '\n':
+                sys.stdout.write(line)
+            stdout.write(line)
+    r.wait()
     if r.returncode != 0:
         print("\033[1;31mFAIL: see {} and {} for further details.\033[0m".format(
             err_path, out_path))
@@ -173,6 +184,7 @@ if __name__ == "__main__":
     parser.add_argument("-@", dest="order", default='LO', type=str,
                         help="Perturabtive QCD order")
     args = parser.parse_args()
+    print(args)
     if args.process is None:
         raise ValueError(
             "Missing process definition: %s --process=epem_a_ttx --run" % sys.argv[0])
@@ -259,21 +271,35 @@ if __name__ == "__main__":
     #############
     #  VALIDATE
     #############
+    import numpy as np
     if args.validate:
         # Bench result
         bench_results = pd.read_csv(
             pjoin(VALIDATION_PATH, 'bench', "%s_epem.csv" % suffix))
         # Filter by process
         bench_results = bench_results[bench_results['Process'] == process_name]
-        mycut = 'nocut' if args.no_jets else str(args.min_jpt)
         # Filter by min_jpt
-        bench_results = bench_results[ bench_results['min_ptj[GeV]'] == mycut]
+        if args.no_jets:
+            bench_results = bench_results[bench_results['min_ptj[GeV]'].isnull()]
+        else:
+            bench_results = bench_results[bench_results['min_ptj[GeV]'] == args.min_jpt]
         print("\033[1mBENCH:\033[0m\n",bench_results)
 
         # alphaLoop result
         aL_results = pd.read_csv(pjoin(WORKSPACE, "%s_%s_results.csv" %
                             (process_name, args.min_jpt)))
         print("\033[1maL SGs:\033[0m\n", aL_results)
-        aL_total = aL_results[['real', 'real_err', 'imag','imag_err']].multiply(aL_results['multiplicity'],axis='index')
-        print("\033[1maL Total:\033[0m\n", aL_total.sum())
+        aL_total = aL_results[['real', 'real_err', 'imag','imag_err']]\
+                .multiply(aL_results['multiplicity'],axis='index').sum()
+        print("\033[1maL Total:\033[0m\n", aL_total)
+        
+        print("\033[1mCompare:\033[0m")
+        diff = (aL_total['real'] - bench_results['cross-section[pb]'])
+        rel = abs(diff/bench_results['cross-section[pb]'])
+        mg5_prec = bench_results['MCerror[pb]']/abs(bench_results['cross-section[pb]'])
+        aL_prec = [aL_total['real_err']/abs(aL_total['real'])]
+        print("\t\033[1mMG precision:\033[0m",mg5_prec.values)
+        print("\t\033[1maL precision:\033[0m",aL_prec)
+        print("\t\033[1m|(MG-aL)/MG|:\033[0m",rel.values)
+        
 

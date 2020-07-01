@@ -1,5 +1,5 @@
 Code,Order,Process,min_ptj[GeV],drjj,statistics,cross-section[pb],MCerror[pb],Comment
-MG,LO,epem_a_ddx,nocut,nocut,10kunwgt.evts.,0.030939,3.8295e-05,-
+MG,LO,epem_a_ddx,N/A,N/A,10kunwgt.evts.,0.030939,3.8295e-05,-
 MG,LO,epem_a_ddx,300,0.4,10kunwgt.evts.,0.02256,2.099e-05,-
 MG,LO,epem_a_ddx,100,0.4,10kunwgt.evts.,0.02997,3.897e-05,-
 MG,LO,epem_a_ddx,20,0.4,10kunwgt.evts.,0.03096,2.512e-05,-
