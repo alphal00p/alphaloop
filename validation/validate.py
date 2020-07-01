@@ -109,10 +109,10 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
 
     log_info = {'Eventinfo': '', 'IntegrandStatistics': ''}
     with progressbar.ProgressBar(prefix='%s | Accepter: {variables.accepted}, Rejected: {variables.rejected} : ' % sg_name,
-                max_value=multi_settings['Integrator']['n_max'],
-                variables={'total_samples': '0',
-                    'accepted': '0', 'rejected': '0'}
-                ) as bar:
+                                 max_value=multi_settings['Integrator']['n_max'],
+                                 variables={'total_samples': '0',
+                                            'accepted': '0', 'rejected': '0'}
+                                 ) as bar:
         r = subprocess.Popen(rust_executable,
                              cwd=workspace,
                              stdout=subprocess.PIPE,
@@ -124,15 +124,16 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
         import ast
         import time
         time.sleep(1)
+
         def parse_value_from_key(line, key):
             pos = line.find(key)
             if pos == -1:
-                raise KeyError("{} not present in {}".format(key,line))
-            start = line.find(':',pos)+1
-            end = line.find(',',pos)
+                raise KeyError("{} not present in {}".format(key, line))
+            start = line.find(':', pos)+1
+            end = line.find(',', pos)
             value = line[start:end]
-            return value 
-        total_events=0
+            return value
+        total_events = 0
         with open(out_path, 'w') as stdout:
             for line in r.stdout:
                 if any(s in line for s in ['integrand evaluation', 'chisq']):
@@ -145,9 +146,16 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                     log_info['Eventinfo'] = line
                     line_stats = log_info['IntegrandStatistics']
                     line_info = log_info['Eventinfo']
-                    total_events=int(parse_value_from_key(line_stats,'total_samples'))
-                    bar.update(accepted='{:.2%}'.format(int(parse_value_from_key(line_info,'accepted_event_counter'))/total_events))
-                    bar.update(rejected='{:.2%}'.format(int(parse_value_from_key(line_info,'rejected_event_counter'))/total_events))
+                    total_events = int(parse_value_from_key(
+                        line_stats, 'total_samples'))
+                    accepted = int(parse_value_from_key(
+                        line_info, 'accepted_event_counter'))
+                    rejected = int(parse_value_from_key(
+                        line_info, 'rejected_event_counter'))
+                    bar.update(accepted='{:.2%}'.format(
+                        accepted/(accepted+rejected)))
+                    bar.update(rejected='{:.2%}'.format(
+                        rejected/(accepted+rejected)))
                     bar.update(total_events)
                 else:
                     stdout.write(line)
@@ -214,6 +222,10 @@ if __name__ == "__main__":
                         help="number of cores used during integration")
     parser.add_argument("-@", dest="order", default='LO', type=str,
                         help="Perturabtive QCD order")
+    parser.add_argument("--diag_name", dest="diag_name", default=None, type=str,
+                        help="Integrate single SG: selecting by name")
+    parser.add_argument("--diag_id", dest="diag_id", default=None, type=int,
+                        help="Integrate single SG: selecting by position in the collected table")
     args = parser.parse_args()
     print(args)
     if args.process is None:
@@ -271,7 +283,13 @@ if __name__ == "__main__":
         Path(pjoin(WORKSPACE, 'hyperparameters')).mkdir(
             parents=True, exist_ok=True)
         sg_list = [topo['name'] for topo in instructions['topologies']]
-        for sg_name in sg_list:
+        for sg_id, sg_name in enumerate(sg_list):
+            if args.diag_id is not None:
+                if sg_id != args.diag_id:
+                    continue
+            elif args.diag_name is not None:
+                if sg_name != args.diag_name:
+                    continue
             run_super_graph(process_name,
                             sg_name,
                             aL_process_output, suffix='_%s' % suffix,
@@ -284,7 +302,7 @@ if __name__ == "__main__":
     if args.collect:
         sg_list = [topo['name'] for topo in instructions['topologies']]
         output_file = pjoin(WORKSPACE, "%s_%s_results.csv" %
-                            (process_name,'nocut' if args.no_jets else args.min_jpt))
+                            (process_name, 'nocut' if args.no_jets else args.min_jpt))
         results = []
         for sg in instructions['topologies']:
             filename = glob.glob("%s/*%s_%s*.dat" %
@@ -296,7 +314,7 @@ if __name__ == "__main__":
             results += [data]
         print("")
         df = pd.DataFrame(results, columns=[
-            "id", "multiplicity", "neval", "real", "real_err", "imag", "imag_err"])
+            "name", "multiplicity", "neval", "real", "real_err", "imag", "imag_err"])
         df.to_csv(output_file, sep=',', encoding='utf-8', index=False)
 
     #############
@@ -320,11 +338,11 @@ if __name__ == "__main__":
 
         # alphaLoop result
         aL_results = pd.read_csv(pjoin(WORKSPACE, "%s_%s_results.csv" %
-                            (process_name,'nocut' if args.no_jets else args.min_jpt)))
+                                       (process_name, 'nocut' if args.no_jets else args.min_jpt)))
         print("\033[1maL SGs:\033[0m\n", aL_results)
         aL_total = aL_results[['real', 'real_err', 'imag', 'imag_err']]\
             .multiply(aL_results['multiplicity'], axis='index').sum()
-        print("\033[1maL Total:\033[0m\n", aL_total)
+        #print("\033[1maL Total:\033[0m\n", aL_total)
 
         print("\033[1mCompare:\033[0m")
         diff = (aL_total['real'] - bench_results['cross-section[pb]'])
@@ -332,6 +350,12 @@ if __name__ == "__main__":
         mg5_prec = bench_results['MCerror[pb]'] / \
             abs(bench_results['cross-section[pb]'])
         aL_prec = [aL_total['real_err']/abs(aL_total['real'])]
+        print("\t\033[1mMG res:\033[0m {:.5e} +/- {:.5e}".format(
+            bench_results['cross-section[pb]'].values[0],
+            bench_results['MCerror[pb]'].values[0]))
+        print("\t\033[1maL res:\033[0m {:.5e} +/- {:.5e}".format(
+            aL_total['real'], aL_total['real_err']))
+        print()
         print("\t\033[1mMG precision:\033[0m", mg5_prec.values)
         print("\t\033[1maL precision:\033[0m", aL_prec)
         print("\t\033[1m|(MG-aL)/MG|:\033[0m", rel.values)
