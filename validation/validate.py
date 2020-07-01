@@ -113,7 +113,6 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                 variables={'total_samples': '0',
                     'accepted': '0', 'rejected': '0'}
                 ) as bar:
-                bar.update(i+1)
         r = subprocess.Popen(rust_executable,
                              cwd=workspace,
                              stdout=subprocess.PIPE,
