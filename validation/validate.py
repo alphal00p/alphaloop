@@ -32,7 +32,7 @@ Path(VALIDATION_PATH).mkdir(parents=True, exist_ok=True)
 rALPHA = pjoin(AL_PATH, 'rust_backend', 'target', 'debug', 'ltd')
 
 
-def set_hyperparameters(process_name, sg_name, multi_channeling=False, workspace=None, no_jets=False, multi_settings={}):
+def set_hyperparameters(process_name, sg_name, multi_channeling=False, workspace=None, min_jets=0, multi_settings={}):
     '''Create the correct hyperparameter file'''
     path = pjoin(AL_PATH, 'LTD', 'hyperparameters.yaml')
     hyperparameters = yaml.load(open(path, 'r'), Loader=yaml.Loader)
@@ -42,7 +42,7 @@ def set_hyperparameters(process_name, sg_name, multi_channeling=False, workspace
     except KeyError:
         min_jpt = hyperparameters['Selectors']['jet']['min_jpt']
 
-    if no_jets:
+    if min_jets == 0:
         min_jpt = 'nocut'
     # Set some default values for the hyperparameter
     # Set values for General
@@ -86,14 +86,14 @@ def set_hyperparameters(process_name, sg_name, multi_channeling=False, workspace
     return output_path
 
 
-def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_settings={}, no_jets=False, workspace=None):
+def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_settings={}, min_jets=0, workspace=None):
     ''' run supergraph for specific process '''
     # Create hyperparameter file
     hyperparameters_path = set_hyperparameters(
         process_name,
         sg_name,
         workspace=workspace,
-        no_jets=no_jets,
+        min_jets=min_jets,
         multi_settings=multi_settings)
     # run integration
     rust_executable = [rALPHA]
@@ -108,10 +108,12 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
     log_path = pjoin(WORKSPACE, '%s.log' % sg_name)
 
     log_info = {'Eventinfo': '', 'IntegrandStatistics': ''}
-    with progressbar.ProgressBar(prefix='%s | Accepter: {variables.accepted}, Rejected: {variables.rejected} : ' % sg_name,
+    with progressbar.ProgressBar(prefix='%s | {variables.accepted}\u2713  {variables.rejected}\u2717, res: {variables.real_result} : ' % sg_name,
                                  max_value=multi_settings['Integrator']['n_max'],
                                  variables={'total_samples': '0',
-                                            'accepted': '0', 'rejected': '0'}
+                                            'accepted': '0',
+                                            'rejected': '0',
+                                            'real_result': 'N/A'}
                                  ) as bar:
         r = subprocess.Popen(rust_executable,
                              cwd=workspace,
@@ -121,9 +123,7 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                                  {'RUST_BACKTRACE': '1', 'MG_NUMERATOR_PATH': '%s/' % aL_path_output}),
                              bufsize=1,
                              universal_newlines=True)
-        import ast
-        import time
-        time.sleep(1)
+        bar.update(0)
 
         def parse_value_from_key(line, key):
             pos = line.find(key)
@@ -136,9 +136,17 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
         total_events = 0
         with open(out_path, 'w') as stdout:
             for line in r.stdout:
-                if any(s in line for s in ['integrand evaluation', 'chisq']):
-                    stdout.write(line)
-                elif line == '\n':
+                if all(s in line for s in ['[1]', 'chisq', 'df']):
+                    split = line.replace("(", "").split(" ")
+                    value = float(split[split.index('+-')-1])
+                    err = float(split[split.index('+-')+1])
+                    df = float(split[split.index('df)\n')-1])
+                    if df == 0:
+                        chisq = 0
+                    else:
+                        chisq = float(split[split.index('\tchisq')+1])/df
+                    bar.update(
+                        real_result="{:e} +- {:.2e} (\u03C7\u00B2 {:.2f})".format(value, err, chisq))
                     stdout.write(line)
                 elif 'IntegrandStatistics' in line:
                     log_info['IntegrandStatistics'] = line
@@ -156,6 +164,10 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                         accepted/(accepted+rejected)))
                     bar.update(rejected='{:.2%}'.format(
                         rejected/(accepted+rejected)))
+                    # Sometimes Vegas exceed in the last iteration the n_max
+                    # based on the definition of n_new, n_increase
+                    if total_events > bar.max_value:
+                        bar.max_value = total_events
                     bar.update(total_events)
                 else:
                     stdout.write(line)
@@ -174,16 +186,20 @@ def get_result(filename):
     with open(filename, 'r') as stream:
         try:
             ss = ""
-            for i in range(10):
-                line = stream.readline()
-                if '...' in line:
-                    break
+            line = stream.readline()
+            while line and '...' not in line:
                 ss += line
-            # print(ss)
+                line = stream.readline()
             result = yaml.safe_load(ss)
-            return [result['neval'],
-                    result['result'][0], result['error'][0],
-                    result['result'][1], result['error'][1]]
+            # If only one output store it as real phase
+            if len(result['result']) == 1:
+                return [result['neval'],
+                        result['result'][0], result['error'][0],
+                        'N/A', 'N/A']
+            else:
+                return [result['neval'],
+                        result['result'][0], result['error'][0],
+                        result['result'][1], result['error'][1]]
         except yaml.YAMLError as exc:
             print(exc)
 
@@ -209,11 +225,11 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--run", action="store_true", dest="run", default=False,
                         help="run the integration for all SG")
     parser.add_argument("-c", "--collect", action="store_true", dest="collect", default=False,
-                        help="Collect the reults from individual SQ in one CSV file")
+                        help="collect the reults from individual SQ in one CSV file")
     parser.add_argument("-v", "--validate", action="store_true", dest="validate", default=False,
-                        help="Compare with bench results")
-    parser.add_argument("--no_jets", action="store_true", dest="no_jets", default=False,
-                        help="No jets in the final state")
+                        help="compare with bench results")
+    parser.add_argument("--min_jets", dest="min_jets", default=0, type=int,
+                        help="minimum number of jets in the dinal state")
     parser.add_argument("--min_jpt",  dest="min_jpt", default=100, type=int,
                         help="Jet cutoff")
     parser.add_argument("--n_max", dest="n_max", default=int(1e9), type=int,
@@ -221,13 +237,12 @@ if __name__ == "__main__":
     parser.add_argument("--cores", dest="cores", default=CORES, type=int,
                         help="number of cores used during integration")
     parser.add_argument("-@", dest="order", default='LO', type=str,
-                        help="Perturabtive QCD order")
+                        help="perturabtive QCD order")
     parser.add_argument("--diag_name", dest="diag_name", default=None, type=str,
                         help="Integrate single SG: selecting by name")
     parser.add_argument("--diag_id", dest="diag_id", default=None, type=int,
                         help="Integrate single SG: selecting by position in the collected table")
     args = parser.parse_args()
-    print(args)
     if args.process is None:
         raise ValueError(
             "Missing process definition: %s --process=epem_a_ttx --run" % sys.argv[0])
@@ -239,40 +254,47 @@ if __name__ == "__main__":
     suffix = args.order
     CORES = args.cores
     # Integrator Settings
+    hyper_settings['Integrator']['integrated_phase'] = 'real'
     hyper_settings['Integrator']['n_max'] = args.n_max
     hyper_settings['Integrator']['n_new'] = int(1e6)
     hyper_settings['Integrator']['n_start'] = int(1e6)
     hyper_settings['Integrator']['n_increase'] = int(1e6)
     # Selector Settings
     hyper_settings['Selectors']['active_selectors'] = [
-    ] if args.no_jets else ['jet']
+    ] if args.min_jets == 0 else ['jet']
     hyper_settings['Selectors']['jet'] = {
-        'min_jets': 1,
-        #        'dR': 0.4,
+        'min_jets': args.min_jets,
+        'dR': 0.4,
         'min_jpt': args.min_jpt}
-    # define alpha loop input folder
+
+    # Define paths to executables, files and workspace
     aL_process_output = pjoin(MG_PATH, 'TEST_QGRAF_%s_%s' %
                               (process_name, suffix))
-    # Define workspace for the computation of all the diagrams
+    CROSS_SECTION_SET = pjoin(aL_process_output, 'Rust_inputs',
+                              'all_QG_supergraphs.yaml')
     WORKSPACE = pjoin(VALIDATION_PATH, '%s_%s' % (process_name, suffix))
+    COLLECTION_PATH = pjoin(WORKSPACE, "%s_%s_results.csv" %
+                            (process_name, 'nocut' if args.min_jets == 0 else args.min_jpt))
+    MG5 = pjoin(MG_PATH, 'bin', 'mg5_aMC')
+    CARD = pjoin(VALIDATION_PATH, 'cards', "%s_%s.aL" % (process_name, suffix))
 
     #############
     #  Generate
     #############
     if args.generate:
-        MG5 = pjoin(MG_PATH, 'bin', 'mg5_aMC')
-        CARD = pjoin(VALIDATION_PATH, 'cards', "%s_%s.aL" %
-                     (process_name, suffix))
-
         r = subprocess.run([MG5, '--mode=alphaloop', CARD],
                            cwd=MG_PATH,
                            capture_output=False)
 
     # load instructions
-    instructions = yaml.load(
-        open(pjoin(aL_process_output, 'Rust_inputs',
-                   'all_QG_supergraphs.yaml'), 'r'),
-        Loader=yaml.Loader)
+    try:
+        instructions = yaml.load(
+            open(CROSS_SECTION_SET, 'r'), Loader=yaml.Loader)
+    except FileNotFoundError:
+        print(
+            "\033[1;31mFAIL: missing {}.\nHave you run with --generate?\033[0m".format(CROSS_SECTION_SET))
+        raise
+
     #############
     #   RUN
     #############
@@ -294,19 +316,24 @@ if __name__ == "__main__":
                             sg_name,
                             aL_process_output, suffix='_%s' % suffix,
                             multi_settings=hyper_settings,
-                            no_jets=args.no_jets,
+                            min_jets=args.min_jets,
                             workspace=WORKSPACE)
+
     #############
     #  COLLECT
     #############
     if args.collect:
         sg_list = [topo['name'] for topo in instructions['topologies']]
-        output_file = pjoin(WORKSPACE, "%s_%s_results.csv" %
-                            (process_name, 'nocut' if args.no_jets else args.min_jpt))
         results = []
         for sg in instructions['topologies']:
-            filename = glob.glob("%s/*%s_%s*.dat" %
-                                 (WORKSPACE, sg['name'], 'nocut' if args.no_jets else args.min_jpt))[0]
+            try:
+                filename = glob.glob("%s/*%s_%s*.dat" %
+                                     (WORKSPACE, sg['name'], 'nocut' if args.min_jets == 0 else args.min_jpt))[0]
+            except IndexError:
+                print(
+                    "\033[1;31mFAIL: Cannot find .dat file for {0}.\nTry to generate it with --run --diag_name={0}\033[0m".format(sg['name']))
+                raise
+
             print("Extracting %s: %s" % (sg['name'], filename), end="\n")
 
             data = [sg['name'], sg['multiplicity']]
@@ -315,7 +342,7 @@ if __name__ == "__main__":
         print("")
         df = pd.DataFrame(results, columns=[
             "name", "multiplicity", "neval", "real", "real_err", "imag", "imag_err"])
-        df.to_csv(output_file, sep=',', encoding='utf-8', index=False)
+        df.to_csv(COLLECTION_PATH, sep=',', encoding='utf-8', index=False)
 
     #############
     #  VALIDATE
@@ -328,7 +355,7 @@ if __name__ == "__main__":
         # Filter by process
         bench_results = bench_results[bench_results['Process'] == process_name]
         # Filter by min_jpt
-        if args.no_jets:
+        if args.min_jets == 0:
             bench_results = bench_results[bench_results['min_ptj[GeV]'].isnull(
             )]
         else:
@@ -337,8 +364,7 @@ if __name__ == "__main__":
         print("\033[1mBENCH:\033[0m\n", bench_results)
 
         # alphaLoop result
-        aL_results = pd.read_csv(pjoin(WORKSPACE, "%s_%s_results.csv" %
-                                       (process_name, 'nocut' if args.no_jets else args.min_jpt)))
+        aL_results = pd.read_csv(COLLECTION_PATH)
         print("\033[1maL SGs:\033[0m\n", aL_results)
         aL_total = aL_results[['real', 'real_err', 'imag', 'imag_err']]\
             .multiply(aL_results['multiplicity'], axis='index').sum()
