@@ -1,6 +1,8 @@
 #-
 Off statistics;
 
+*--#[ setup :
+
 #define GLU "21"
 #define PHO "22"
 #define EP "-11"
@@ -108,8 +110,12 @@ Set colAdum: cOljj1,...,cOljj40;
 
 Polyratfun rat;
 
+*--#] setup :
+
 * Load the diagrams
 #include- input_`SGID'.h
+
+*--#[ feynman-rules :
 
 ************************************************
 * Substitute the Feynman rules for the numerator
@@ -237,9 +243,11 @@ id counter(n?) = 1;
 #enddo
 
 id vec(p?,mu?) = p(mu);
+.sort
 
 #do i=1,10
     tracen `i';
+    .sort:trace-`i';
 #enddo
 
 if (count(gamma, 1));
@@ -259,6 +267,7 @@ id color(x?) = x;
 
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;
+*--#] feynman-rules :
 
 * If the expression is empty (due to color), we still write a file
 #if ( termsin(F) == 0 )
@@ -493,6 +502,37 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
 * Construction of optimized numerator C code
 *********************************************
 
+* Convert the dot products and energies to a symbol
+#$MAXK = `NFINALMOMENTA';
+#$MAXP = `NINITIALMOMENTA';
+#$OFFSET = 0;
+#do i=1,`$MAXP'
+    id penergy(p`i') = lm`$OFFSET';
+    #$OFFSET = $OFFSET + 1;
+    #do j=`i',`$MAXP'
+        id p`i'.p`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
+    #enddo
+#enddo
+
+#do i=1,`$MAXK'
+    id penergy(c`i') = lm`$OFFSET';
+    #$OFFSET = $OFFSET + 1;
+    #do j=1,`$MAXP'
+        id c`i'.p`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
+        id spatial(p`j', c`i') = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
+    #enddo
+
+    #do j=`i',`$MAXK'
+        id c`i'.c`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
+        id spatial(c`i', c`j') = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
+    #enddo
+#enddo
+
 * split off every energy configuration into a new expression
 id conf(?a) = conf(conf(?a));
 argtoextrasymbol tonumber,conf,1;
@@ -500,70 +540,38 @@ argtoextrasymbol tonumber,conf,1;
 B+ conf;
 .sort:conf-1;
 Hide F;
-
-#$MAXK = `NFINALMOMENTA';
-#$MAXP = `NINITIALMOMENTA';
-
 #redefine energysymbolstart "`extrasymbols_'"
-#do ext={`oldextrasymbols'+1}, `extrasymbols_'
-    #$tmp = extrasymbol_(`ext');
-    #write<out_`SGID'.proto_c> "#CONF\n%$", $tmp;
+#do ext={`oldextrasymbols'+1}, `energysymbolstart'
+    delete extrasymbols>`energysymbolstart'; * clear all extra symbols from the last configuration
+    #$conf = extrasymbol_(`ext');
+    #write<out_`SGID'.proto_c> "#CONF\n%$", $conf;
     L FF`ext' = F[conf(`ext')];
+    .sort
+    argtoextrasymbol energy,1;
+    id energy(x?) = x;
+    .sort
+    #define energysymbolend "`extrasymbols_'"
+    B+ <Z{`energysymbolstart' + 1}_>,...,<Z`energysymbolend'_>;
     .sort:conf-2;
-   
-    argtoextrasymbol tonumber, energy, 1;
-    B+ energy;
-    .sort:energy-1;
-    Hide FF`ext';
-    #do ps={`energysymbolstart'+1}, `extrasymbols_'
-        #$tmp = extrasymbol_(`ps');
-        L FTMP = FF`ext'[energy(`ps')];
-        .sort:energy-2;
-
-        #if ( termsin(FTMP) > 0 )
-            #write<out_`SGID'.proto_c> "#NEWMONOMIAL\n%$", $tmp;
-
-* Convert the dot products and energies to a symbol
-            #$OFFSET = 0;
-            #do i=1,`$MAXP'
-                id penergy(p`i') = lm`$OFFSET';
-                #$OFFSET = $OFFSET + 1;
-                #do j=`i',`$MAXP'
-                    id p`i'.p`j' = lm`$OFFSET';
-                    #$OFFSET = $OFFSET + 1;
-                #enddo
-            #enddo
-
-            #do i=1,`$MAXK'
-                id penergy(c`i') = lm`$OFFSET';
-                #$OFFSET = $OFFSET + 1;
-                #do j=1,`$MAXP'
-                    id c`i'.p`j' = lm`$OFFSET';
-                    #$OFFSET = $OFFSET + 1;
-                    id spatial(p`j', c`i') = lm`$OFFSET';
-                    #$OFFSET = $OFFSET + 1;
-                #enddo
-
-                #do j=`i',`$MAXK'
-                    id c`i'.c`j' = lm`$OFFSET';
-                    #$OFFSET = $OFFSET + 1;
-                    id spatial(c`i', c`j') = lm`$OFFSET';
-                    #$OFFSET = $OFFSET + 1;
-                #enddo
-            #enddo
-            .sort:lm-subs;
 
 * Optimize the output
-            Format C;
-            Format O4,stats=off,saIter=`OPTIMITERATIONS';
-            #Optimize FTMP
-            #write<out_`SGID'.proto_c> "%O\n\treturn %e",FTMP
-            #clearoptimize;
-            .sort:optim-`ext'-`ps';
-            Format O0;
-            Format normal;
-        #endif
+    Format C;
+    Format O4,stats=off,saIter=`OPTIMITERATIONS';
+    #Optimize FF`ext'
+    #write<out_`SGID'.proto_c> "%O"
+    B+ <Z{`energysymbolstart' + 1}_>,...,<Z`energysymbolend'_>;
+    .sort:optim-`ext'-1;
+
+    #do symb={`energysymbolstart' + 1}, `energysymbolend'
+        #$energyexpr = FF`ext'[Z`symb'_];
+        #$energyconf = extrasymbol_(`symb');
+        #write<out_`SGID'.proto_c> "#NEWMONOMIAL\n%$\nreturn %$;",$energyconf, $energyexpr
     #enddo
+
+    #clearoptimize;
+    .sort:optim-`ext'-2;
+    Format O0;
+    Format normal;
     Drop FF`ext';
 #enddo
 .end

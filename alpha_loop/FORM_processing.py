@@ -1479,10 +1479,12 @@ class FORMSuperGraphList(list):
                         numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
 
                         mono_secs = conf_sec.split('#NEWMONOMIAL')
+
+                        num_body = energy_exp.sub('', '\n'.join(mono_secs[0].split('\n')[2:]))
                         
                         rank = 0
                         max_index = 0
-                        num_body = ''
+                        return_statements = []
                         for mono_sec in mono_secs[1:]:
                             mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
                             mono_sec = split_number.sub('', mono_sec)
@@ -1495,8 +1497,10 @@ class FORMSuperGraphList(list):
                             max_buffer_size = max(index, max_buffer_size)
                             mono_sec = energy_exp.sub('', mono_sec)
                             returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
-                            mono_sec = return_exp.sub('out[{}] = {};'.format(index, returnval), mono_sec)
-                            num_body += mono_sec
+                            return_statements.append((index, return_exp.sub('\tout[{}] = {};'.format(index, returnval), mono_sec)))
+
+                        for r in sorted(return_statements, key=lambda x: x[0]):
+                            num_body += r[1]
 
                         confs.append((conf_id, rank))
 
@@ -1507,7 +1511,7 @@ class FORMSuperGraphList(list):
                         numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
                         numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
-                        ) + num_body + '\treturn {}; \n}}\n'.format(max_index + 1)
+                        ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
 
 
                     numerator_main_code += \
