@@ -7,6 +7,7 @@ Run Validation for different processes
 import datetime
 import glob
 import os
+import re
 import subprocess
 import sys
 from argparse import ArgumentParser
@@ -109,8 +110,9 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
     log_path = pjoin(WORKSPACE, '%s' % os.path.basename(
         hyperparameters_path).replace('yaml', 'log'))
 
-    log_info = {'Eventinfo': '', 'IntegrandStatistics': '',
-                'StartTime': None, 'LastUpdateTime': None}
+    log_info = {'EventInfo': '', 'IntegrandStatistics': '',
+                'StartTime': None, 'LastUpdatedTime': None,
+                'ElapsedTime': None, 'Cores': CORES}
     accepted = 0
     rejected = 0
     with progressbar.ProgressBar(prefix='%s | {variables.accepted}\u2713  {variables.rejected}\u2717, res: {variables.real_result} : ' % sg_name,
@@ -131,14 +133,6 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
         bar.update(0)
         log_info['StartTime'] = bar.start_time
 
-        def parse_value_from_key(line, key):
-            pos = line.find(key)
-            if pos == -1:
-                raise KeyError("{} not present in {}".format(key, line))
-            start = line.find(':', pos)+1
-            end = line.find(',', pos)
-            value = line[start:end]
-            return value
         total_events = 0
         with open(out_path, 'w') as stdout:
             for line in r.stdout:
@@ -155,17 +149,12 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                         real_result="{:e} +- {:.2e} (\u03C7\u00B2 {:.2f})".format(value, err, chisq))
                     stdout.write(line)
                 elif 'IntegrandStatistics' in line:
-                    log_info['IntegrandStatistics'] = line
+                    log_info['IntegrandStatistics'] = parse_rust_dict(line)
                 elif 'EventInfo' in line:
-                    log_info['Eventinfo'] = line
-                    line_stats = log_info['IntegrandStatistics']
-                    line_info = log_info['Eventinfo']
-                    total_events = int(parse_value_from_key(
-                        line_stats, 'total_samples'))
-                    accepted = int(parse_value_from_key(
-                        line_info, 'accepted_event_counter'))
-                    rejected = int(parse_value_from_key(
-                        line_info, 'rejected_event_counter'))
+                    log_info['EventInfo'] = parse_rust_dict(line)
+                    total_events = log_info['IntegrandStatistics']['total_samples']
+                    accepted = log_info['EventInfo']['accepted_event_counter']
+                    rejected = log_info['EventInfo']['rejected_event_counter']
                     bar.update(accepted='{:.2%}'.format(
                         accepted/(accepted+rejected)))
                     bar.update(rejected='{:.2%}'.format(
@@ -178,21 +167,25 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                 else:
                     stdout.write(line)
             log_info['LastUpdatedTime'] = bar.get_last_update_time()
+            log_info['ElapsedTime'] = str(
+                log_info['LastUpdatedTime']-log_info['StartTime'])
 
     with open(log_path, 'w') as stdlog:
-        stdlog.write("Integration with n_max {} in:\n\t{}\n\n".format(
-            accepted+rejected, log_info['LastUpdatedTime']-log_info['StartTime']))
-        stdlog.write(log_info['IntegrandStatistics'])
-        stdlog.write(log_info['Eventinfo'])
-    r.wait()
-    if r.returncode != 0:
-        print("\033[1;31mFAIL: see {} and {} for further details.\033[0m".format(
-            err_path, out_path))
-    #    print(r.stdout.decode('UTF-8'))
-    #    print(r.stderr.decode('UTF-8'))
+        yaml.dump(log_info, stdlog, default_flow_style=None)
+
+
+def parse_rust_dict(rust_dict_string):
+    """ Parse the printed output of rust into a python dict """
+    rust_dict = re.search(r'\{(.*)\}', rust_dict_string).group(0)
+    rust_dict = re.sub(
+        r'Complex \{ re: (.*?), im: (.*?)\}', r'[\1, \2]', rust_dict)
+    rust_dict = re.sub(
+        r'Complex \{ re: (.*?), im: (.*?)\}', r'[\1, \2]', rust_dict)
+    return eval(re.sub(r' ([^:^,]+):', r'"\1":', rust_dict))
 
 
 def get_result(filename):
+    """ Read the information in the .dat file """
     with open(filename, 'r') as stream:
         try:
             ss = ""
@@ -281,7 +274,7 @@ if __name__ == "__main__":
     # Set multi-channeling strategy
     hyper_settings['General']['multi_channeling'] = args.multi_channeling
     hyper_settings['General']['multi_channeling_including_massive_propagators'] = args.multi_channeling
-    
+
     # Define paths to executables, files and workspace
     aL_process_output = pjoin(MG_PATH, 'TEST_QGRAF_%s_%s' %
                               (process_name, suffix))
