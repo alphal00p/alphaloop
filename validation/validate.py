@@ -48,7 +48,7 @@ def set_hyperparameters(process_name, sg_name, workspace=None, min_jets=0, multi
         min_jpt = 'nocut'
     # Set some default values for the hyperparameter
     # Set values for General
-    hyperparameters['General']['deformation_strategy'] = 'fixed'
+    hyperparameters['General']['deformation_strategy'] = 'none'
     hyperparameters['General']['topology'] = "%s_%s" % (sg_name, min_jpt)
     hyperparameters['General']['res_file_prefix'] = "%s_" % process_name
     hyperparameters['General']['log_file_prefix'] =\
@@ -169,6 +169,10 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
             log_info['LastUpdatedTime'] = bar.get_last_update_time()
             log_info['ElapsedTime'] = str(
                 log_info['LastUpdatedTime']-log_info['StartTime'])
+            r.wait()
+            if r.returncode != 0:
+                print("\033[1;31mFAIL: see {} and {} for further details.\033[0m".format(
+                    err_path, out_path))
 
     with open(log_path, 'w') as stdlog:
         yaml.dump(log_info, stdlog, default_flow_style=None)
@@ -385,7 +389,8 @@ if __name__ == "__main__":
             .multiply(aL_results['multiplicity'], axis='index').sum()
         aL_total_err = np.sqrt((aL_results[['real_err', 'imag_err']]
                                 .multiply(aL_results['multiplicity'], axis='index')**2).sum())
-        #print("\033[1maL Total:\033[0m\n", aL_total)
+        print("\033[1maL SGs ERROR SORT:\033[0m\n",
+              aL_results.sort_values(by=['real_err'], ascending=False))
 
         print("\033[1mCompare:\033[0m")
         diff = (aL_total_res['real'] - bench_results['cross-section[pb]'])
