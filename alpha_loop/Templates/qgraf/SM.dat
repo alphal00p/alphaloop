@@ -42,7 +42,7 @@
 [tbar,photon,t; QCD_QED='1']
 
 * ghosts
-[ghostbar,gluon,ghost; QCD_QED='1']
+[ghostbar,gluon,ghost; QCD_QED='100']
 
 * quarks gluon
 [dbar,gluon,d; QCD_QED='100']
