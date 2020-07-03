@@ -16,6 +16,7 @@ L F12m = F1-F2;
 ********************************
 * Check multiplicity +/-1
 ********************************
+PolyRatFun;
 L isoF = 
 	#if termsin(F12m) == 0
         #if termsin(F1) == 0

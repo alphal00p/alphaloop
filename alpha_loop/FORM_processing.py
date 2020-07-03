@@ -1045,8 +1045,8 @@ class FORMSuperGraphIsomorphicList(list):
             return to_dump
     
     def multiplicity_factor(self,iso_id, workspace, form_source):
-        output_match = re.compile("isoF=rat\([-10]+,1\);")
-        factor_match = re.compile("[-10]+,")
+        output_match = re.compile("isoF=[-10]+;")
+        factor_match = re.compile("[-10]+")
         multiplicity = 0
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
@@ -1072,7 +1072,7 @@ class FORMSuperGraphIsomorphicList(list):
                 raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
             output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
-            factor = int(factor_match.findall(output_match.findall(output)[0])[0].replace(',',''))
+            factor = int(factor_match.findall(output_match.findall(output)[0])[0])
 
             if factor == 0:
                 raise FormProcessingError("Multiplicity not found: {} =/= (+/-) * {}. (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
@@ -1131,8 +1131,9 @@ class FORMSuperGraphList(list):
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         # Filter specific graphs by name 
-        #filter_graphs = ['SG_QG8']
+        #filter_graphs = ['SG_QG8','SG_QG9']
         #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
+        #m.graph_names = ['SG_MG8','SG_QG9']
         #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
 
         # Now convert the vertex names to be integers according to QGRAF format:
