@@ -4,6 +4,7 @@ Run Validation for different processes
 """
 
 
+import datetime
 import glob
 import os
 import subprocess
@@ -32,7 +33,7 @@ Path(VALIDATION_PATH).mkdir(parents=True, exist_ok=True)
 rALPHA = pjoin(AL_PATH, 'rust_backend', 'target', 'debug', 'ltd')
 
 
-def set_hyperparameters(process_name, sg_name, multi_channeling=False, workspace=None, min_jets=0, multi_settings={}):
+def set_hyperparameters(process_name, sg_name, workspace=None, min_jets=0, multi_settings={}):
     '''Create the correct hyperparameter file'''
     path = pjoin(AL_PATH, 'LTD', 'hyperparameters.yaml')
     hyperparameters = yaml.load(open(path, 'r'), Loader=yaml.Loader)
@@ -46,8 +47,6 @@ def set_hyperparameters(process_name, sg_name, multi_channeling=False, workspace
         min_jpt = 'nocut'
     # Set some default values for the hyperparameter
     # Set values for General
-    hyperparameters['General']['multi_channeling'] = multi_channeling
-    hyperparameters['General']['multi_channeling_including_massive_propagators'] = multi_channeling
     hyperparameters['General']['deformation_strategy'] = 'fixed'
     hyperparameters['General']['topology'] = "%s_%s" % (sg_name, min_jpt)
     hyperparameters['General']['res_file_prefix'] = "%s_" % process_name
@@ -103,11 +102,17 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
     rust_executable += ['-c', '%d' % CORES]
 
     # Store output
-    err_path = pjoin(WORKSPACE, '%s.err' % sg_name)
-    out_path = pjoin(WORKSPACE, '%s.out' % sg_name)
-    log_path = pjoin(WORKSPACE, '%s.log' % sg_name)
+    err_path = pjoin(WORKSPACE, '%s' % os.path.basename(
+        hyperparameters_path).replace('yaml', 'err'))
+    out_path = pjoin(WORKSPACE, '%s' % os.path.basename(
+        hyperparameters_path).replace('yaml', 'out'))
+    log_path = pjoin(WORKSPACE, '%s' % os.path.basename(
+        hyperparameters_path).replace('yaml', 'log'))
 
-    log_info = {'Eventinfo': '', 'IntegrandStatistics': ''}
+    log_info = {'Eventinfo': '', 'IntegrandStatistics': '',
+                'StartTime': None, 'LastUpdateTime': None}
+    accepted = 0
+    rejected = 0
     with progressbar.ProgressBar(prefix='%s | {variables.accepted}\u2713  {variables.rejected}\u2717, res: {variables.real_result} : ' % sg_name,
                                  max_value=multi_settings['Integrator']['n_max'],
                                  variables={'total_samples': '0',
@@ -124,6 +129,7 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                              bufsize=1,
                              universal_newlines=True)
         bar.update(0)
+        log_info['StartTime'] = bar.start_time
 
         def parse_value_from_key(line, key):
             pos = line.find(key)
@@ -171,7 +177,11 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                     bar.update(total_events)
                 else:
                     stdout.write(line)
+            log_info['LastUpdatedTime'] = bar.get_last_update_time()
+
     with open(log_path, 'w') as stdlog:
+        stdlog.write("Integration with n_max {} in:\n\t{}\n\n".format(
+            accepted+rejected, log_info['LastUpdatedTime']-log_info['StartTime']))
         stdlog.write(log_info['IntegrandStatistics'])
         stdlog.write(log_info['Eventinfo'])
     r.wait()
@@ -234,6 +244,8 @@ if __name__ == "__main__":
                         help="Jet cutoff")
     parser.add_argument("--n_max", dest="n_max", default=int(1e9), type=int,
                         help="max number of evaluation with Vegas")
+    parser.add_argument("--multi_channeling", action="store_true", dest="multi_channeling", default=False,
+                        help="enable multi-channeling during integration")
     parser.add_argument("--cores", dest="cores", default=CORES, type=int,
                         help="number of cores used during integration")
     parser.add_argument("-@", dest="order", default='LO', type=str,
@@ -266,7 +278,10 @@ if __name__ == "__main__":
         'min_jets': args.min_jets,
         'dR': 0.4,
         'min_jpt': args.min_jpt}
-
+    # Set multi-channeling strategy
+    hyper_settings['General']['multi_channeling'] = args.multi_channeling
+    hyper_settings['General']['multi_channeling_including_massive_propagators'] = args.multi_channeling
+    
     # Define paths to executables, files and workspace
     aL_process_output = pjoin(MG_PATH, 'TEST_QGRAF_%s_%s' %
                               (process_name, suffix))
@@ -338,10 +353,14 @@ if __name__ == "__main__":
 
             data = [sg['name'], sg['multiplicity']]
             data.extend(get_result(filename))
+            with open(filename.replace('_res.dat', '.log'), 'r') as log:
+                eval_time = log.readlines()[1].replace(
+                    "\n", "").replace("\t", "")
+            data.extend([eval_time])
             results += [data]
-        print("")
+
         df = pd.DataFrame(results, columns=[
-            "name", "multiplicity", "neval", "real", "real_err", "imag", "imag_err"])
+            "name", "multiplicity", "neval", "real", "real_err", "imag", "imag_err", 'eval_time'])
         df.to_csv(COLLECTION_PATH, sep=',', encoding='utf-8', index=False)
 
     #############
@@ -349,6 +368,9 @@ if __name__ == "__main__":
     #############
     import numpy as np
     if args.validate:
+        pd.options.display.float_format = '{:e}'.format
+        print(
+            "\033[1mProcess:\033[0m\n\tname=%(process)s, min_jets=%(min_jets)d, min_jpt=%(min_jpt)d" % args.__dict__)
         # Bench result
         bench_results = pd.read_csv(
             pjoin(VALIDATION_PATH, 'bench', "%s_epem.csv" % suffix))
@@ -366,21 +388,24 @@ if __name__ == "__main__":
         # alphaLoop result
         aL_results = pd.read_csv(COLLECTION_PATH)
         print("\033[1maL SGs:\033[0m\n", aL_results)
-        aL_total = aL_results[['real', 'real_err', 'imag', 'imag_err']]\
+        aL_total_res = aL_results[['real', 'imag']]\
             .multiply(aL_results['multiplicity'], axis='index').sum()
+        aL_total_err = np.sqrt((aL_results[['real_err', 'imag_err']]
+                                .multiply(aL_results['multiplicity'], axis='index')**2).sum())
         #print("\033[1maL Total:\033[0m\n", aL_total)
 
         print("\033[1mCompare:\033[0m")
-        diff = (aL_total['real'] - bench_results['cross-section[pb]'])
+        diff = (aL_total_res['real'] - bench_results['cross-section[pb]'])
         rel = abs(diff/bench_results['cross-section[pb]'])
         mg5_prec = bench_results['MCerror[pb]'] / \
             abs(bench_results['cross-section[pb]'])
-        aL_prec = [aL_total['real_err']/abs(aL_total['real'])]
-        print("\t\033[1mMG res:\033[0m {:.5e} +/- {:.5e}".format(
-            bench_results['cross-section[pb]'].values[0],
-            bench_results['MCerror[pb]'].values[0]))
+        aL_prec = [aL_total_err['real_err']/abs(aL_total_res['real'])]
+        if not bench_results.empty:
+            print("\t\033[1mMG res:\033[0m {:.5e} +/- {:.5e}".format(
+                bench_results['cross-section[pb]'].values[0],
+                bench_results['MCerror[pb]'].values[0]))
         print("\t\033[1maL res:\033[0m {:.5e} +/- {:.5e}".format(
-            aL_total['real'], aL_total['real_err']))
+            aL_total_res['real'], aL_total_err['real_err']))
         print()
         print("\t\033[1mMG precision:\033[0m", mg5_prec.values)
         print("\t\033[1maL precision:\033[0m", aL_prec)
