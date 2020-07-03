@@ -13,6 +13,7 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
+import contextlib
 import pandas as pd
 import progressbar
 import yaml
@@ -229,12 +230,17 @@ if __name__ == "__main__":
     parser.add_argument("--process", dest="process", help="process name")
     parser.add_argument("-g", "--generate", action="store_true", dest="generate", default=False,
                         help="Generate alphaLoop output")
+    parser.add_argument("--force", action="store_true", dest="force", default=False,
+                        help="Allow to overwrite an existent alphaLoop output \
+                            and regenerate the state files for the integration")
     parser.add_argument("-r", "--run", action="store_true", dest="run", default=False,
                         help="run the integration for all SG")
     parser.add_argument("-c", "--collect", action="store_true", dest="collect", default=False,
                         help="collect the reults from individual SQ in one CSV file")
     parser.add_argument("-v", "--validate", action="store_true", dest="validate", default=False,
                         help="compare with bench results")
+    parser.add_argument("--refine", dest="refine", default=0, type=int,
+                        help="run refinement REFINE number of times integrating the worst SG")
     parser.add_argument("--min_jets", dest="min_jets", default=0, type=int,
                         help="minimum number of jets in the dinal state")
     parser.add_argument("--min_jpt",  dest="min_jpt", default=100, type=int,
@@ -264,6 +270,10 @@ if __name__ == "__main__":
     CORES = args.cores
     # Integrator Settings
     hyper_settings['Integrator']['integrated_phase'] = 'real'
+    hyper_settings['Integrator']['state_filename_prefix'] = "%s_%s_" % (
+        process_name, "nocut" if args.min_jets == 0 else args.min_jpt)
+    hyper_settings['Integrator']['keep_state_file'] = True
+    hyper_settings['Integrator']['load_from_state_file'] = True
     hyper_settings['Integrator']['n_max'] = args.n_max
     hyper_settings['Integrator']['n_new'] = int(1e6)
     hyper_settings['Integrator']['n_start'] = int(1e6)
@@ -294,9 +304,13 @@ if __name__ == "__main__":
     #  Generate
     #############
     if args.generate:
-        r = subprocess.run([MG5, '--mode=alphaloop', CARD],
-                           cwd=MG_PATH,
-                           capture_output=False)
+        if os.path.exists(aL_process_output) and not args.force:
+            print(
+                "\033[1;32;48mSkip generation use --force to regenerate!\033[0m")
+        else:
+            r = subprocess.run([MG5, '--mode=alphaloop', CARD],
+                               cwd=MG_PATH,
+                               capture_output=False)
 
     # load instructions
     try:
@@ -318,12 +332,21 @@ if __name__ == "__main__":
             parents=True, exist_ok=True)
         sg_list = [topo['name'] for topo in instructions['topologies']]
         for sg_id, sg_name in enumerate(sg_list):
+            VEGAS_STATE_FILE = pjoin(WORKSPACE, "%s_%s_%s_state.dat" %
+                                     (process_name, 'nocut' if args.min_jets == 0 else args.min_jpt, sg_name))
+           
             if args.diag_id is not None:
                 if sg_id != args.diag_id:
                     continue
             elif args.diag_name is not None:
                 if sg_name != args.diag_name:
                     continue
+            if args.force:
+                with contextlib.suppress(FileNotFoundError):
+                    os.remove(VEGAS_STATE_FILE)
+            else:
+                print(
+                    "\033[1;32;48mLoading state! Use --force to overwrite!\033[0m")
             run_super_graph(process_name,
                             sg_name,
                             aL_process_output, suffix='_%s' % suffix,
@@ -360,6 +383,31 @@ if __name__ == "__main__":
             "name", "multiplicity", "neval", "real", "real_err", "imag", "imag_err", 'eval_time'])
         df.to_csv(COLLECTION_PATH, sep=',', encoding='utf-8', index=False)
 
+    #############
+    #  Refine
+    #############
+    if args.refine > 0:
+        CALL_BASE_ARGS = [arg % args.__dict__ for arg in ['python', os.path.basename(__file__),
+                                                          "--process=%(process)s",
+                                                          "-@%(order)s",
+                                                          "--n_max=%(n_max)d",
+                                                          "--cores=%(cores)d",
+                                                          "--min_jets=%(min_jets)d",
+                                                          "--min_jpt=%(min_jpt)d"]]
+        if args.multi_channeling:
+            CALL_BASE_ARGS += ["--multi_channeling"]
+        
+        # Collect
+        subprocess.run(CALL_BASE_ARGS + ['-cv'])
+        for _ in range(args.refine):
+            # Extract worst diag
+            worst_SG = pd.read_csv(COLLECTION_PATH).sort_values(by=['real_err'], ascending=False)['name'].values[0]
+            print("\033[1;32;48mRefine %s\033[0m"%worst_SG)
+            # Run with more points
+            subprocess.run(CALL_BASE_ARGS + ['-rc', '--diag_name=%s'%worst_SG])
+            print("\033[1maL SGs ERROR SORT:\033[0m\n",
+              pd.read_csv(COLLECTION_PATH).sort_values(by=['real_err'], ascending=False))
+    
     #############
     #  VALIDATE
     #############
