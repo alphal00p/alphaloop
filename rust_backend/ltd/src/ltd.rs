@@ -607,10 +607,14 @@ impl Topology {
             if total_unique_ellipsoids > 0 {
                 let num_propagators = self.loop_lines.iter().map(|x| x.propagators.len()).sum();
                 if external_momenta_set {
-                    self.socp_problem = SOCPProblem::new(unique_ellipsoids, num_propagators);
-                } else {
                     self.socp_problem =
-                        SOCPProblem::new(total_unique_ellipsoids / 2, num_propagators);
+                        SOCPProblem::new(unique_ellipsoids, num_propagators, self.n_loops);
+                } else {
+                    self.socp_problem = SOCPProblem::new(
+                        total_unique_ellipsoids / 2,
+                        num_propagators,
+                        self.n_loops,
+                    );
                 }
             }
         }

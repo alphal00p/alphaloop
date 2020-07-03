@@ -185,7 +185,7 @@ hyperparameters = HyperParameters({
             'a_ijs' : [],
             # use heuristics for the center finding instead of ECOS. Heuristics are built for one ellipsoid
             # and it will test when 0 is on the inside.
-            'use_heuristic_centers': False,
+            'use_heuristic_centers': True,
             # Normalize to each source
             'normalize_per_source': False,
             # Normalise the deformation of each subspace with the number of sources in that subspace
