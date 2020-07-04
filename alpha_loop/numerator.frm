@@ -343,7 +343,7 @@ argument uv;
         repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf1(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*x3));
     endrepeat;
    
-    id once uvconf1(x?,x1?) = x1;
+    id uvconf1(x?,x1?) = x1;
     if (count(subgraph, 1));
         Print "Unsubstituted UV subgraph: %t";
         exit "Critical error";
