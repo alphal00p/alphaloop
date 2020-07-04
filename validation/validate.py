@@ -20,6 +20,12 @@ import yaml
 
 pjoin = os.path.join
 
+class ValidateError(Exception):
+    """ Error for the validation phase."""
+    pass
+# pandas float formatting
+pd.options.display.float_format = '{:e}'.format
+
 # Define the number of cores to use for each integration
 CORES = 4
 
@@ -87,7 +93,7 @@ def set_hyperparameters(process_name, sg_name, workspace=None, min_jets=0, multi
     return output_path
 
 
-def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_settings={}, min_jets=0, workspace=None):
+def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_settings={}, min_jets=0, workspace=None, force=False):
     ''' run supergraph for specific process '''
     # Create hyperparameter file
     hyperparameters_path = set_hyperparameters(
@@ -175,8 +181,8 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                 print("\033[1;31mFAIL: see {} and {} for further details.\033[0m".format(
                     err_path, out_path))
 
-    with open(log_path, 'w') as stdlog:
-        yaml.dump(log_info, stdlog, default_flow_style=None)
+    with open(log_path, 'w' if force else 'a') as stdlog:
+        yaml.dump([log_info], stdlog, default_flow_style=None)
 
 
 def parse_rust_dict(rust_dict_string):
@@ -352,7 +358,8 @@ if __name__ == "__main__":
                             aL_process_output, suffix='_%s' % suffix,
                             multi_settings=hyper_settings,
                             min_jets=args.min_jets,
-                            workspace=WORKSPACE)
+                            workspace=WORKSPACE,
+                            force=args.force)
 
     #############
     #  COLLECT
@@ -369,13 +376,13 @@ if __name__ == "__main__":
                     "\033[1;31mFAIL: Cannot find .dat file for {0}.\nTry to generate it with --run --diag_name={0}\033[0m".format(sg['name']))
                 raise
 
-            print("Extracting %s: %s" % (sg['name'], filename), end="\n")
+            #print("Extracting %s: %s" % (sg['name'], filename), end="\n")
 
             data = [sg['name'], sg['multiplicity']]
             data.extend(get_result(filename))
-            with open(filename.replace('_res.dat', '.log'), 'r') as log:
-                eval_time = log.readlines()[1].replace(
-                    "\n", "").replace("\t", "")
+            eval_time = pd.Timedelta(0)
+            for log in yaml.safe_load(open(filename.replace('_res.dat', '.log'), 'r')):
+                eval_time += pd.to_timedelta(log['ElapsedTime'])
             data.extend([eval_time])
             results += [data]
 
@@ -398,13 +405,17 @@ if __name__ == "__main__":
             CALL_BASE_ARGS += ["--multi_channeling"]
         
         # Collect
-        subprocess.run(CALL_BASE_ARGS + ['-cv'])
-        for _ in range(args.refine):
+        r = subprocess.run(CALL_BASE_ARGS + ['-cv'])
+        if r.returncode != 0:
+            raise ValidateError()
+        for ref_i in range(args.refine):
             # Extract worst diag
             worst_SG = pd.read_csv(COLLECTION_PATH).sort_values(by=['real_err'], ascending=False)['name'].values[0]
-            print("\033[1;32;48mRefine %s\033[0m"%worst_SG)
+            print("\033[1;32;48mRefine (%d/%d): %s\033[0m"%(ref_i+1,args.refine,worst_SG))
             # Run with more points
             subprocess.run(CALL_BASE_ARGS + ['-rc', '--diag_name=%s'%worst_SG])
+            if r.returncode != 0:
+                raise ValidateError()
             print("\033[1maL SGs ERROR SORT:\033[0m\n",
               pd.read_csv(COLLECTION_PATH).sort_values(by=['real_err'], ascending=False))
     
@@ -413,7 +424,6 @@ if __name__ == "__main__":
     #############
     import numpy as np
     if args.validate:
-        pd.options.display.float_format = '{:e}'.format
         print(
             "\033[1mProcess:\033[0m\n\tname=%(process)s, min_jets=%(min_jets)d, min_jpt=%(min_jpt)d" % args.__dict__)
         # Bench result
