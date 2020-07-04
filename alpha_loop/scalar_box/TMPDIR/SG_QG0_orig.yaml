@@ -1,0 +1,237 @@
+FORM_numerator:
+  call_signature: {id: 0}
+MG_numerator: {}
+cutkosky_cuts:
+- cuts:
+  - m_squared: 15625.0
+    name: pq10
+    particle_id: 25
+    power: 1
+    sign: 1
+    signature:
+    - [0, 0, -1]
+    - [1, 1, 0, 0]
+  - m_squared: 15625.0
+    name: pq9
+    particle_id: 25
+    power: 1
+    sign: 1
+    signature:
+    - [0, 0, 1]
+    - [0, 0, 0, 0]
+  diagram_sets:
+  - cb_to_lmb: [0, 1, 0, 0, 0, 1, -1, 0, 0]
+    diagram_info:
+    
+    - conjugate_deformation: false 
+      graph:
+        analytical_result_imag: 0.0
+        analytical_result_real: 0.0
+        constant_deformation:
+          alpha:
+          - [0.0, 0.0, 0.0, 1.0]
+          beta:
+          - [0.0, 0.0, 0.0, 0.0]
+        external_kinematics: []
+        loop_lines:
+        - end_node: 4
+          propagators:
+          - m_squared: 29929.0
+            name: pq1
+            parametric_shift:
+            - [0, 0]
+            - [0, 0, 0, 0]
+            power: 1
+            q: [0.0, 0.0, 0.0, 0.0]
+          - m_squared: 29929.0
+            name: pq2
+            parametric_shift:
+            - [0, 0]
+            - [1, 0, 0, 0]
+            power: 1
+            q: [0.0, 0.0, 0.0, 0.0]
+          - m_squared: 29929.0
+            name: pq3
+            parametric_shift:
+            - [0, 0]
+            - [0, -1, 0, 0]
+            power: 1
+            q: [0.0, 0.0, 0.0, 0.0]
+          - m_squared: 29929.0
+            name: pq4
+            parametric_shift: # k1 +(-k3 +p2 +p1) -p2
+            - [1, 0]
+            - [0, -1, 0, 0]
+            power: 1
+            q: [0.0, 0.0, 0.0, 0.0]
+          signature: [1]
+          start_node: 4
+        loop_momentum_map:
+        - - [1, 0, 0]
+          - [0, 0, 0, 0]
+        ltd_cut_structure:
+        - [1]
+        maximum_ratio_expansion_threshold: -1.0
+        n_loops: 1
+        name: SG_QG0_pq10pq9_0
+        numerator_tensor_coefficients:
+        - [0.0, 0.0]
+    - conjugate_deformation: true
+      graph:
+        analytical_result_imag: 0.0
+        analytical_result_real: 0.0
+        constant_deformation:
+          alpha:
+          - [0.0, 0.0, 0.0, 1.0]
+          beta:
+          - [0.0, 0.0, 0.0, 0.0]
+        external_kinematics: []
+        loop_lines:
+        - end_node: 9
+          propagators:
+          - m_squared: 29929.0
+            name: pq5
+            parametric_shift:
+            - [0, 0]
+            - [0, 0, 0, 0]
+            power: 1
+            q: [0.0, 0.0, 0.0, 0.0]
+          - m_squared: 29929.0
+            name: pq6
+            parametric_shift:
+            - [0, 0]
+            - [0, 0, 1, 0]
+            power: 1
+            q: [0.0, 0.0, 0.0, 0.0]
+          - m_squared: 29929.0
+            name: pq7
+            parametric_shift:
+            - [0, 0]
+            - [0, 0, 0, -1]
+            power: 1
+            q: [0.0, 0.0, 0.0, 0.0]
+          - m_squared: 29929.0
+            name: pq8
+            parametric_shift: # k2 + (-k3 +p1 +p2)-p2
+            - [1, 0]
+            - [0, 0, 0, -1]
+            power: 1
+            q: [0.0, 0.0, 0.0, 0.0]
+          signature: [1]
+          start_node: 9
+        loop_momentum_map:
+        - - [0, 1, 0]
+          - [0, 0, 0, 0]
+        ltd_cut_structure:
+        - [1]
+        maximum_ratio_expansion_threshold: -1.0
+        n_loops: 1
+        name: SG_QG0_pq10pq9_1
+        numerator_tensor_coefficients:
+        - [0.0, 0.0]
+    id: 0
+    numerator_tensor_coefficients_sparse: []
+    uv_spinney: []
+e_cm_squared: 1000000.0
+external_momenta:
+- [500.0, 0.0, 0.0, 500.0]
+- [500.0, 0.0, 0.0, -500.0]
+- [500.0, 0.0, 0.0, 500.0]
+- [500.0, 0.0, 0.0, -500.0]
+loop_momentum_basis: [pq1, pq5, pq9]
+n_incoming_momenta: 2
+n_loops: 3
+name: SG_QG0
+overall_numerator: 1.0
+topo:
+  analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id001 [0.0, 0.0, 0.0, 1.0]
+    - *id001
+    - *id001
+    beta:
+    - &id002 [0.0, 0.0, 0.0, 0.0]
+    - *id002
+    - *id002
+  external_kinematics:
+  - [500.0, 0.0, 0.0, 500.0]
+  - [500.0, 0.0, 0.0, -500.0]
+  - [500.0, 0.0, 0.0, 500.0]
+  - [500.0, 0.0, 0.0, -500.0]
+  loop_lines:
+  - end_node: 5
+    propagators:
+    - m_squared: 29929.0
+      name: pq1
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 29929.0
+      name: pq2
+      power: 1
+      q: [500.0, 0.0, 0.0, 500.0]
+    - m_squared: 29929.0
+      name: pq3
+      power: 1
+      q: [-500.0, 0.0, 0.0, 500.0]
+    signature: [1, 0, 0]
+    start_node: 4
+  - end_node: 4
+    propagators:
+    - m_squared: 29929.0
+      name: pq4
+      power: 1
+      q: [500.0, 0.0, 0.0, 500.0]
+    signature: [1, 0, -1]
+    start_node: 5
+  - end_node: 4
+    propagators:
+    - m_squared: 29929.0
+      name: pq5
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 29929.0
+      name: pq6
+      power: 1
+      q: [500.0, 0.0, 0.0, 500.0]
+    - m_squared: 29929.0
+      name: pq7
+      power: 1
+      q: [-500.0, 0.0, 0.0, 500.0]
+    signature: [0, 1, 0]
+    start_node: 9
+  - end_node: 9
+    propagators:
+    - m_squared: 29929.0
+      name: pq8
+      power: 1
+      q: [500.0, 0.0, 0.0, 500.0]
+    signature: [0, 1, -1]
+    start_node: 4
+  - end_node: 9
+    propagators:
+    - m_squared: 15625.0
+      name: pq9
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+    - m_squared: 15625.0
+      name: pq10
+      power: 1
+      q: [-1000.0, -0.0, -0.0, -0.0]
+    signature: [0, 0, 1]
+    start_node: 5
+  ltd_cut_structure:
+  - [0, 1, 0, 1, 1]
+  - [0, 1, 1, 0, 1]
+  - [0, 1, 1, -1, 0]
+  - [1, 0, 0, 1, 1]
+  - [1, 0, 1, 0, 1]
+  - [1, 0, 1, -1, 0]
+  - [1, -1, 0, 1, 0]
+  - [1, -1, 1, 0, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 3
+  name: SG_QG0
+  numerator_tensor_coefficients:
+  - [0.0, 0.0]

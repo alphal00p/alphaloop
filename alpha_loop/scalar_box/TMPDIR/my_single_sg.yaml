@@ -1,0 +1,5 @@
+name: my_single_sg
+topologies:
+- additional_LMBs: []
+  multiplicity: 1
+  name: SG_QG0

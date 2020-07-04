@@ -75,7 +75,8 @@ def to_right_diag(left_diag):
     # complex conjugation. will be perforemed in form
     right_diag['analytic_num'] = "conjugate("+right_diag['analytic_num']+")"
 
-    node_offset = len(left_diag['nodes'])
+    node_offset = max(len(left_diag['nodes']),len(right_diag['nodes']))+1
+    edge_offset =max(len(left_diag['edges']),len(right_diag['edges']))+1
 
     # reverse edge orientations but keep momentum flow
     for ee in list(right_diag['edges']):
@@ -85,12 +86,14 @@ def to_right_diag(left_diag):
             right_diag['edges'][ee]['type'] = 'out'
         elif right_diag['edges'][ee]['type'] == 'out':
             right_diag['edges'][ee]['type'] = 'in'
-        newEdgeKey = tuple(x+node_offset for x in rev_tup(ee[:2]))+(-ee[2],)
+    
+    for ee in list(right_diag['edges']):
+        newEdgeKey = ee+edge_offset
         right_diag['edges'][ee]['name'] = right_diag['edges'][ee]['name']+'r'
         right_diag['edges'][newEdgeKey] = right_diag['edges'].pop(ee)
 
     for nn in list(right_diag['nodes']):
-        right_diag['nodes'][nn]['edge_ids']=tuple(-x for x in right_diag['nodes'][nn]['edge_ids'])
+        right_diag['nodes'][nn]['edge_ids']=tuple(x+edge_offset for x in right_diag['nodes'][nn]['edge_ids'])
         if right_diag['nodes'][nn]['vertex_id'] == -1:
             right_diag['nodes'][nn]['vertex_id'] = -2
         elif right_diag['nodes'][nn]['vertex_id'] == -2:
@@ -134,9 +137,10 @@ def sew_amp_diags(left_diag, right_diag):
     left_diag = impose_mom_conservation(left_diag)
     right_diag = impose_mom_conservation(right_diag)
 
-    # check if loop-momenta are different and relabel
+    # check if loop-momenta need relabeling (they are not different)
+    offset = max(len(left_diag['loop_momenta']),len(left_diag['loop_momenta']))
     if len(left_diag['loop_momenta'])+len(right_diag['loop_momenta']) != len(set(left_diag['loop_momenta']+right_diag['loop_momenta'])):
-        offset = max(len(left_diag['loop_momenta']),len(left_diag['loop_momenta']))        
+                
         for i in range(1,len(right_diag['loop_momenta'])+1):
             lhs = right_diag['loop_momenta'][i-1]
             rhs = 'k' + str(i+offset)
@@ -150,6 +154,8 @@ def sew_amp_diags(left_diag, right_diag):
             right_diag['loop_momenta'] = tuple(x.replace(lhs,rhs) for x in right_diag['loop_momenta'])
             right_diag['analytic_num'] = right_diag['analytic_num'].replace(lhs,rhs)  
             full_offset= offset+i
+    else:
+        full_offset = offset
 
     # fill external edges
     sewed_graph['edges'] = {}
@@ -179,22 +185,24 @@ def sew_amp_diags(left_diag, right_diag):
     for el in list(left_diag['edges']):
         if left_diag['edges'][el]['type'] == 'out':
             sewed = False
+            
             for er in list(right_diag['edges']):
+                
                 if right_diag['edges'][er]['type'] == 'in' and right_diag['edges'][er]['momentum'] == left_diag['edges'][el]['momentum']:
-                    key=copy.copy((el[0], er[1], el[2]))
+                    key=copy.copy(el)
                     ec = {}
                     ec['type'] = "virtual"
                     ec['name'] = "c"+str(cc)
                     cc += 1
                     ec['momentum'] = left_diag['edges'][el]['momentum']
-                    ec['vertices'] = (el[0], er[1])
+                    ec['vertices'] = (left_diag['edges'][el]['vertices'][0], right_diag['edges'][er]['vertices'][1])
                     ec['PDG'] = copy.copy(left_diag['edges'][el]['PDG'])
                     ec['indices'] = copy.copy(left_diag['edges'][el]['indices'])
                     full_edge = {key:ec}
                     sewed_graph['edges'].update(full_edge)
                     # relabel the edge_ids
                     for nn in sewed_graph['nodes'].values():
-                        nn['edge_ids'] =  tuple(map(lambda x: el[-1] if x==er[-1] else x,nn['edge_ids']))
+                        nn['edge_ids'] =  tuple(map(lambda x: el if x==er else x,nn['edge_ids']))
                     sewed = True
                     break
             if sewed == False:
@@ -213,19 +221,18 @@ def sew_amp_diags(left_diag, right_diag):
     sewed_graph['analytic_num'] = "(" + \
         left_diag['analytic_num']+")*("+right_diag['analytic_num']+")"
     sewed_graph['overall_factor'] ='1'
+
+
     # we need continous vertex labels for igraph
     new_vert = sorted(list(range(1,len(sewed_graph['nodes'])+1)))
     # old keys will always be larger than new keys
-
     old_vert = sorted(list(sewed_graph['nodes'].keys()))
     for i, vnew in enumerate(new_vert):
-        for ee in list(sewed_graph['edges'].keys()):
-            new_edge_key = tuple(map(lambda x: vnew if x==old_vert[i] else x, ee[:-1]))
-            sewed_graph['edges'][ee]['vertices'] = new_edge_key
-            new_edge_key =new_edge_key +(ee[-1],)
-            sewed_graph['edges'][new_edge_key] = sewed_graph['edges'].pop(ee)
+        for ee in sewed_graph['edges'].values():
+            ee['vertices'] =tuple(map(lambda x: vnew if x==old_vert[i] else x, ee['vertices']))          
     for i, nn in enumerate(list(sewed_graph['nodes'])):
         sewed_graph['nodes'][new_vert[i]] = sewed_graph['nodes'].pop(nn)
+    
     # rename edges (ask ben why)
     # look at edge-map-lin
     # look at edge-name-map
@@ -245,27 +252,25 @@ def sew_amp_diags(left_diag, right_diag):
     return sewed_graph
 
 
-MG_PATH = "/home/armin/my_programs/MG5_aMC_v3_0_2_py3/"
 if True:
     pjoin = os.path.join
     root_path = os.path.dirname(os.path.realpath(__file__))
     sys.path.insert(0, os.path.normpath(pjoin(root_path, 'test_process')))
-    sys.path.insert(0, MG_PATH)
-    import qqbaaNLO
+    import scalarBox
 
 
 
-mygraphs = qqbaaNLO.graphs
+mygraphs = scalarBox.graphs
 for g in mygraphs:
     if 'analytic_num' not in g.keys():
         g['analytic_num'] = "1"
     # indices on edges and vertices have no meaning for the scalar integrals we consider
     # lets drop them, before they are misintepreted
     # PDGs are are supposed to give pure information on the mass
-#for ee in list(g['edges']):
-#    del g['edges'][ee]['indices']
-#for nn in list(g['nodes']):
-#    del g['nodes'][nn]['indices']
+for ee in list(g['edges']):
+   del g['edges'][ee]['indices']
+for nn in list(g['nodes']):
+   del g['nodes'][nn]['indices']
 
 
 ld = append_loop_moms(mygraphs[0])
@@ -273,10 +278,14 @@ ld = impose_mom_conservation(ld)
 rd = copy.deepcopy(ld)
 rd = to_right_diag(rd)
 
-sg = sew_amp_diags(ld,rd)
+#for ee in ld['edges'].values():
+#    print((ee['type'],ee['momentum']))
+#print("*******")
+#for ee in rd['edges'].values():
+#    print((ee['type'],ee['momentum']))
 
 def save_dict_to_file(dic):
-    f = open('/home/armin/my_programs/pynloop/alpha_loop/try_standalone_script/my_single_sg.py','w')
+    f = open('/home/armin/my_programs/pynloop/alpha_loop/scalar_box/my_single_sg.py','w')
     f.write('graphs=[]\n')
     f.write('graph_names=[]\n')
     f.write('graph_names+=["SG_QG0"]\n')
@@ -284,5 +293,6 @@ def save_dict_to_file(dic):
     f.write(str(dic))
     f.write(')')
     f.close()
+sg = sew_amp_diags(ld,rd)
 save_dict_to_file(sg)
 

@@ -1,0 +1,80 @@
+<prologue>
+graphs=[[]]
+
+<diagram>
+
+graphs.append(
+{
+"edges":{
+<in_loop>(<field_index>+<legs>):{
+    "name":"q<in_index>",
+    "PDG": [pdg],
+    "type": "in",
+    "momentum": "<momentum>",
+    "indices": (<field_index>+<legs>+1,),
+    "vertices": (<field_index>+<legs>+1,
+<back><vertex_index>+<legs>)
+ },
+<end>
+<back><out_loop>(<field_index>+<legs>):{
+    "name": "q<leg_index>",
+    "PDG": [pdg],
+    "type": "out",
+    "momentum": "<momentum>",
+    "indices": (<field_index>+<legs>+1,),
+    "vertices":(<vertex_index>+<legs>,
+<back><field_index>+<legs>+1)
+ },
+<end>
+<back><propagator_loop>(<propagator_index>+<legs>):{
+    "name":"p"+str(<propagator_index>),
+    "PDG": [pdg],
+    "type": "virtual",
+    "momentum": "<momentum>",
+    "indices": (<dual-field_index>+<legs>+1,
+<back><field_index>+<legs>+1,),
+    "vertices":(<dual-vertex_index>+<legs>,
+<back><vertex_index>+<legs>)
+ },
+<end>
+<back>
+},
+"nodes": {
+<in_loop> <field_index>+<legs>+1:{
+    "PDGs": ([pdg],),
+    "momenta": ("<momentum>"),
+    "indices": (<field_index>+<legs>+1,),
+    "vertex_id": -1,
+    "edge_ids": (<field_index>+<legs>,)
+ },
+<back>
+<end>
+<back><out_loop> <field_index>+<legs>+1:{
+    "PDGs": ([pdg],),
+    "momenta": ("<momentum>"),
+    "indices": (<field_index>+<legs>+1,),
+    "vertex_id": -2,
+    "edge_ids": (<field_index>+<legs>,)
+ },
+<back>
+<end>
+<back><vertex_loop> <vertex_index>+<legs>:{
+    "PDGs": (<ray_loop>[pdg],<end><back>),
+    "momenta": (<ray_loop>"<momentum>",<end><back>),
+    "indices": (<ray_loop><field_index>+<legs>+1,<end><back>),
+    "vertex_id": 0,
+    "edge_ids": (<ray_loop><propagator_index>+<legs>,<end><back>)
+    },
+<end><back><back>
+},
+"overall_factor": "<sign><symmetry_factor>",
+"in_momenta":(
+<back><in_loop>"<momentum>",<end><back>),
+"out_momenta":(
+<back><out_loop>"<momentum>",<end><back>)
+}
+)
+
+<epilogue>
+
+<exit>
