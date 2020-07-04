@@ -7,6 +7,6 @@ set_alphaLoop_option consider_edge_orientation_in_graph_isomorphism False
 set_alphaLoop_option FORM_processing_output_format c
 set_alphaLoop_option apply_graph_isomorphisms True
 set_alphaLoop_option qgraf_template_model epem
-qgraf_generate e+ e- > a > h t t~ g /d u s c b QCD^2==1 QED^2==3 []
-!rm -rf TEST_QGRAF_epem_a_httxg
-output qgraf TEST_QGRAF_epem_a_httxg
+qgraf_generate e+ e- > a > t t~ /d u s c b QCD^2==0 QED^2==2 []
+!rm -rf TEST_QGRAF_epem_a_ttx_LO
+output qgraf TEST_QGRAF_epem_a_ttx_LO

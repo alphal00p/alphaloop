@@ -14,6 +14,9 @@ options = onshell, notadpole, nosnail;
 * final states
 %(final_states)s
 
+* coupling order
+%(coupling_order)s
+
 * exactly 2 photons
 true=iprop[photon,2,2];
 

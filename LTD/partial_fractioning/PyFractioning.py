@@ -6,14 +6,24 @@ import sys
 
 
 class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
+    HEADER = '\033[1;35;48m'
+    OKBLUE = '\033[1;34;48m'
+    OKGREEN = '\033[1;32;48m'
+    WARNING = '\033[1;33;48m'
+    FAIL = '\033[1;31m'
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+    def disable(self):
+        self.HEADER = ''
+        self.OKBLUE = ''
+        self.OKGREEN = ''
+        self.WARNING = ''
+        self.FAIL = ''
+        self.ENDC = ''
+        self.BOLD = ''
+        self.UNDERLINE = ''
 
 
 ###############################################################################
@@ -31,8 +41,12 @@ def timeit(method):
             name = kw.get('log_name', method.__name__.upper())
             kw['log_time'][name] = elapsed
         else:
-            print("\033[K{} PF elements generated in {}ms"
-                  .format(len(result), elapsed))
+            if elapsed > 1000:
+                print("\033[K{} PF elements generated in {}s"
+                      .format(len(result), elapsed/1000))
+            else:
+                print("\033[K{} PF elements generated in {}ms"
+                      .format(len(result), elapsed))
         return result
     return timed
 
@@ -61,8 +75,8 @@ def print_info(method):
 
         idx = 0
         for (s, n) in zip(signatures, n_props):
-            print("\t> signature {}".format(s, n))
-            print("\t  i: {}-{}".format(idx, idx+n))
+            print("\t> signature {}".format(s))
+            print("\t  i: {},..,{}".format(idx, idx+n-1))
             idx += n
 
             # Propagator with 4-momenta
@@ -102,13 +116,39 @@ def print_info(method):
                 .format(bcolors.OKGREEN, bcolors.ENDC, "i")
             print(den)
 
+        # Notation
         print(" {}Notation{}:".format(bcolors.BOLD, bcolors.ENDC))
         print(
             "\t{0:}ki{1:}, {0:}pi{1:}   : 4-vectors".format(bcolors.BOLD, bcolors.ENDC))
         print("\t{0:}ki{2:}, {1:}pi{2:}   : Energy components".format(
             bcolors.OKBLUE, bcolors.OKGREEN, bcolors.ENDC))
         print("\tvki, vpi : Spatial part of 4-vector")
-        print("\t{}Ei{}^2     : vki^2+vpi^2+mi^2\n".format(bcolors.OKGREEN, bcolors.ENDC))
+        loop_energies_vector = '('
+        for i in range(n_loops):
+            if i+1 == n_loops:
+                loop_energies_vector += "vk{})".format(i)
+            else:
+                loop_energies_vector += "vk{},".format(i)
+        print("\t{}Ei{}^2     : ({}.signature)^2+vpi^2+mi^2\n".format(
+            bcolors.OKGREEN, bcolors.ENDC, loop_energies_vector))
+
+        # Prefactor
+        print(" {}Prefactor{}:".format(bcolors.BOLD, bcolors.ENDC))
+        energies_product = ""
+        size = 0
+        for i in range(sum(n_props)):
+            size += len("2E{}".format(i))
+            if i+1 == sum(n_props):
+                energies_product += "2{}E{}{}".format(
+                    bcolors.OKGREEN, i, bcolors.ENDC)
+            else:
+                energies_product += "2{}E{}{}*".format(
+                    bcolors.OKGREEN, i, bcolors.ENDC)
+                size+=1
+        size += len("(2πi)^{}".format(n_loops))
+        print("{4:}{3:}(2πi)^{0:}\n{4:}{2:}\n{4:}   {1:}\n".format(
+            n_loops, energies_product, '-'*size, ' '*((size-5)//2), '\t'))
+
         return method(*args, **kw)
     return pretty_print_topology
 
@@ -275,13 +315,19 @@ def print_pretty_report(method):
             print("\t{}Factor{}: {}".format(
                 bcolors.BOLD + bcolors.WARNING, bcolors.ENDC, fact))
 
-            den_f = "1"
+            # Denominators
+            den_f = ""
+            if len(prod) == 0:
+                den_f = "1"
             for n in range(len(prod)):
-                den_f += "*d{}".format(n)
+                if n == 0:
+                    den_f += "d{}".format(n)
+                else:
+                    den_f += "*d{}".format(n)
+
             print("\t{}Denominators{}: {}".format(
                 bcolors.BOLD + bcolors.WARNING, bcolors.ENDC, den_f))
-            # print(fact)
-            # print(prod)
+            
             for n, r in enumerate(prod):
                 print("\t\td{} = ".format(n), end='')
                 for (j, (e, p)) in enumerate(zip(r['energies'], r['shifts'])):
@@ -291,6 +337,7 @@ def print_pretty_report(method):
                               end='')
                 print("")
 
+            # Numerator
             num_f = "\tN{}() from N0(".format(n_loops)
             for n in range(n_loops):
                 if n+1 != n_loops:
@@ -567,44 +614,116 @@ def pf_product(product, n_loops, r=0, global_factor=1.0, numerator=[]):
 
 
 if __name__ == '__main__':
+    bcolors = bcolors()
+    # Uncomment next line to disable colors
+    # bcolors.disable()
 
     #########################################
     #            1-LOOP - Box               #
     #########################################
+    #              _  _____  _
+    #                |     |
+    #                |     |
+    #              _ '_____' _
+    #
     signatures = [[1]]
     n_props = [4]
 
     res = integrate_energies(n_props, signatures,
-                                   verbose=False,
-                                   name='Box',
-                                   output_type='mathematica')
-    # print_report(res)
-
+                             verbose=False,
+                             name='Box',
+                             output_type='mathematica')
     #########################################
     #            2-LOOP - Sunrise           #
     #########################################
+    #                  ___
+    #             _  /_____\ _
+    #                \_____/
+    #
     signatures = [[1, 0], [1, -1], [0, 1]]
     n_props = [1, 1, 1]
 
     res = integrate_energies(n_props, signatures,
-                                   verbose=True,
-                                   name='Sunrise',
-                                   output_type='mathematica')
+                             verbose=False,
+                             name='Sunrise',
+                             output_type='mathematica')
 
     #########################################
-    #            2-LOOP - PentaBox           #
+    #            2-LOOP - PentaBox          #
     #########################################
+    #
+    #                 |___  _
+    #          _  ___/    |
+    #            |   |    |
+    #          _ |___|____| _
+    #
     signatures = [[1, 0], [1, -1], [0, 1]]
-    n_props = [1, 4, 5]
+    n_props = [1, 3, 4]
 
     res = integrate_energies(n_props, signatures,
-                                   verbose=False,
-                                   name="PentaBox",
-                                   output_type='mathematica')
+                             verbose=False,
+                             name="PentaBox",
+                             output_type='mathematica')
+
+    #########################################
+    #            4-LOOP - Banana            #
+    #########################################
+    #              _____
+    #             / ___ \
+    #          _ (/_____\)_
+    #            (\_____/)
+    #             \_____/
+    #
+    signatures = [[1, 0, 0, 0],
+                  [0, 1, 0, 0],
+                  [0, 0, 1, 0],
+                  [0, 0, 0, 1],
+                  [-1, -1, -1, 1]]
+    n_props = [1, 1, 1, 1, 1]
+
+    res = integrate_energies(n_props, signatures,
+                             verbose=False,
+                             name="banana",
+                             output_type='mathematica')
+
+    #########################################
+    #            6-LOOP - Diamond           #
+    #########################################
+    #              _________
+    #           _ /_|_____|_\ _
+    #             '. \   / .'
+    #               '.\ /.'
+    #                 '.'
+    #
+
+    signatures = [[1, 0, 0, 0, 0, 0],
+                  [1, -1, 0, 0, 0, 0],
+                  [0, 1, 0, 0, 0, 0],
+                  [0, 1, -1, 0, 0, 0],
+                  [0, 0, 1, 0, 0, 0],
+                  [0, 0, 1, -1, 0, 0],
+                  [0, 0, 0, 1, 0, 0],
+                  [0, 0, 0, 1, -1, 0],
+                  [0, 0, 0, 0, 1, 0],
+                  [-1, 0, 0, 0, 0, 1],
+                  [0, 0, -1, 0, 0, 1],
+                  [0, 0, 0, 0, -1, 1]]
+    n_props = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+    res = integrate_energies(n_props, signatures,
+                             verbose=False,
+                             name="diamond",
+                             output_type='mathematica')
 
     #########################################
     #         4-LOOP -  2x2 FISHNET         #
     #########################################
+    #           _ ._________. _
+    #             |    |    |
+    #             |____|____|
+    #             |    |    |
+    #           _ '____|____' _
+    #
     signatures = [[1, 0, 0, 0],
                   [0, 1, 0, 0],
                   [1, -1, 0, 0],
@@ -616,5 +735,5 @@ if __name__ == '__main__':
     n_props = [2, 2, 1, 1, 1, 2, 1, 2]
 
     res = integrate_energies(n_props, signatures,
-                                   name="2x2 Fishnet",
-                                   output_type='pickle')
+                             name="2x2 Fishnet",
+                             output_type='pickle')

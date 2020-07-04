@@ -265,7 +265,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                                 squared_topology_name,
                                 utils.bcolors.ENDC
                             ) )
-                        super_graph.symmetry_factor = 0
+                        super_graph.symmetry_factor = 1
                     else:
                         fs_symm_factor = super_graph.fs_symm_factor
                         if is_LO:
@@ -296,7 +296,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 
                             super_graph.symmetry_factor = 1
 
-                        n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * len(super_graph.cutkosky_cuts_generated)
+                        n_tot_cutkosky_cuts += fs_symm_factor * super_graph.symmetry_factor * max(len(super_graph.cutkosky_cuts_generated),0)
                         # For now the debug/check below always pass by constribution, but in the future we could think of computing super_graph.symmetry_factor independently
                         # from the number of MG_LO cuts.
                         if do_debug:
@@ -578,31 +578,37 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         for me, number in processes:
             all_externals_combination.add(len(me.get('processes')[0].get('legs')))
         
-        max_n_indep_mom = max(all_externals_combination)
-        replace_dict['max_n_indep_mom'] = max_n_indep_mom
-
         max_n_diags = 0
         for super_graph_list, ME in self.all_super_graphs:
             for sg in super_graph_list:
-                max_n_diags=max(sg.call_signature['left_diagram_id'],sg.call_signature['right_diagram_id'])
+                max_n_diags=max(max_n_diags,sg.call_signature['left_diagram_id'],sg.call_signature['right_diagram_id'])
 
         replace_dict['max_n_diags'] = max_n_diags
+
+        max_n_indep_mom = max(all_externals_combination)
 
         mom_sign_flips = []
         for i_proc, (super_graph_list, ME) in enumerate(self.all_super_graphs):
             (nexternal, ninitial) = ME.get_nexternal_ninitial()
             for sg in super_graph_list:
+                mom_signs= (['1',]*ninitial)+(['1',]*(len(sg.cuts)-1) if sg.MG_external_momenta_sign_flips is None else \
+                        ['-1' if is_flipped else '1' for is_flipped in sg.MG_external_momenta_sign_flips])
+                if len(mom_signs) > max_n_indep_mom:
+                    logger.critical("The number of momenta sign in C_bindings.f is larger than the allowed maximum.")
+                    logger.critical("The length is now adjusted so as to make sure C_bindings.f compiles, but this is indicative of a bug.")
+                    max_n_indep_mom = len(mom_signs)
+                elif max_n_indep_mom > len(mom_signs):
+                    mom_signs += ['1',]*(max_n_indep_mom-len(mom_signs))
+
                 mom_sign_flips.append("DATA (MOM_SIGNS(%d,%d,%d,I),I=1,%d)/%s/"%(
                     i_proc, 
                     sg.call_signature['left_diagram_id'],
                     sg.call_signature['right_diagram_id'],
-                    ninitial+len(sg.cuts)-1,
-                    ','.join((['1',]*ninitial)+(
-                    ['1',]*(len(sg.cuts)-1) if sg.MG_external_momenta_sign_flips is None else
-                    ['-1' if is_flipped else '1' for is_flipped in sg.MG_external_momenta_sign_flips])
-                    )
+                    len(mom_signs),
+                    ','.join(mom_signs)
                 ))
 
+        replace_dict['max_n_indep_mom'] = max_n_indep_mom
         replace_dict['mom_sign_flips_def'] = '\n'.join(mom_sign_flips)
 
         # And now generate an input momenta configuration for all of them
@@ -1222,19 +1228,18 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         logger.info("Writing output of hardcoded QGRAF generation to '%s'"%self.dir_path)
 
-        """ Extract process information"""
+        # Extract process information
         if isinstance(self.proc_def, base_objects.ProcessDefinition):
              representative_proc = next(proc for proc in self.proc_def)
         else:
             representative_proc = self.proc_def
  
-        """ Generate all supergraphs using QGRAF."""
+        # Generate all supergraphs using QGRAF
         self.build_output_directory()
         getattr(self,"build_qgraf_%s"%self.alphaLoop_options['qgraf_template_model'])(representative_proc)
         self.standalone_qgraf_file()
 
-        """ Process supergraph numerators with FORM and output result in the process output."""
-
+        # Process supergraph numerators with FORM and output result in the process output.
         write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
         model_builder = alphaLoopModelConverter(self.model, write_dir)
         model_builder.build([])
@@ -1320,12 +1325,16 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
             )
 
+        additional_loops = len(representative_process['perturbation_couplings']);
         final_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True]
 
+        pdg_model_map = self.model['particles'].generate_dict()
         field_replace = {}
         for field in ['d', 'u', 's', 'c', 'b', 't']:
             field_replace[field] = field
             field_replace[field+'~'] = field+'bar'
+        field_replace['gh'] = 'ghost'
+        field_replace['gh~'] = 'ghostbar'
         field_replace['h'] = 'higgs'
         field_replace['e-'] = 'eminus'
         field_replace['e+'] = 'eplus'
@@ -1334,15 +1343,25 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         dict_replace = {}
 
-        dict_replace['n_loops'] = len(final_states) - 1 + self.alphaLoop_options['perturbative_orders']['QCD']//2
+        dict_replace['n_loops'] = len(final_states) - 1 + additional_loops 
 
+        # Veto particles that are forbidden
         dict_replace['vetos'] = ''
-        #dict_replace['vetos'] += 'true=iprop[d,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[u,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[c,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[s,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[b,0,0];\n'
+        for particle in representative_process['forbidden_particles']:
+            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%field_replace[pdg_model_map[particle]['name']]
 
+        # Enforce coupling order
+        coupling_order_id = 0
+        for sq_coupling, order in representative_process['squared_orders'].items():
+            if sq_coupling == 'QED':
+                coupling_order_id += 2*order
+            elif sq_coupling == 'QCD':
+                coupling_order_id += 200*order
+            else:
+                raise alphaLoopExporterError("Unsupported Coupling for QGRAF: %s"%sq_coupling)
+        dict_replace['coupling_order'] = 'true=vsum[QCD_QED,{0},{0}];\n'.format(coupling_order_id)
+
+        # Ensure final state
         dict_replace['final_states'] = ''
         for field in final_states:
             if field >= 0:
@@ -1379,6 +1398,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             raise alphaLoopExporterError("The command 'qgraf_generate' with model 'no_s' does not support this process.\nAvailable models (: example)"\
                 .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
             )
+        additional_loops = len(representative_process['perturbation_couplings']);
         incoming_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==False]
         final_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True]
 
@@ -1386,6 +1406,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         for field in ['d', 'u', 's', 'c', 'b', 't']:
             field_replace[field] = field
             field_replace[field+'~'] = field+'bar'
+        field_replace['gh'] = 'ghost'
+        field_replace['gh~'] = 'ghostbar'
         field_replace['h'] = 'higgs'
         field_replace['e-'] = 'eminus'
         field_replace['e+'] = 'eplus'
@@ -1394,17 +1416,25 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         dict_replace = {}
 
-        dict_replace['n_loops'] = len(final_states) - 1 + self.alphaLoop_options['perturbative_orders']['QCD']//2
-
+        dict_replace['n_loops'] = len(final_states) - 1 + additional_loops;
+        
+        # Veto particles that are forbidden
         dict_replace['vetos'] = ''
-        dict_replace['vetos'] += 'true=iprop[eplus,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[eminus,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[d,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[u,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[c,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[s,0,0];\n'
-        dict_replace['vetos'] += 'true=iprop[b,0,0];\n'
+        for particle in representative_process['forbidden_particles']:
+            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%field_replace[pdg_model_map[particle]['name']]
 
+        # Enforce coupling order
+        coupling_order_id = 0
+        for sq_coupling, order in representative_process['squared_orders'].items():
+            if sq_coupling == 'QED':
+                coupling_order_id += 2*order
+            elif sq_coupling == 'QCD':
+                coupling_order_id += 200*order
+            else:
+                raise alphaLoopExporterError("Unsupported Coupling for QGRAF: %s"%sq_coupling)
+        dict_replace['coupling_order'] = 'true=vsum[QCD_QED,{0},{0}];\n'.format(coupling_order_id)
+
+        # Set externals and enforce final states
         dict_replace['incoming_states'] = 'in = '
         dict_replace['outgoing_states'] = 'out = '
         incoming_fields = []

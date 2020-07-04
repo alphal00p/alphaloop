@@ -371,6 +371,9 @@ class TopologyGenerator(object):
             loops = 0 if len(s) == 0 else len(s) - len(vertices) + 1
             dod += 4 * loops
 
+            # Adjust the depth of the UV subtraction here
+            #if dod >= 0:
+            #    dod += 1
             if dod >= 0 and loops > 0:
                 div_subgraphs.append((s, dod))
 
@@ -812,7 +815,9 @@ class TopologyGenerator(object):
 
         # now route the external loop_momenta to the sink
         if sink is None:
-            sink = self.ext[-1]
+            if len(self.ext) > 0:
+                # vacuum bubbles don't have external momenta
+                sink = self.ext[-1]
         else:
             sink = next(i for i, e in enumerate(self.edge_map_lin) if e[0] == sink)
 

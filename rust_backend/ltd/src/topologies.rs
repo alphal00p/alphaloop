@@ -1943,6 +1943,9 @@ impl Topology {
 /// Resizing vectors is also not allowed.
 #[derive(Debug)]
 pub struct SOCPProblem {
+    pub max_ellipsoids: usize,
+    pub max_foci: usize,
+    pub n_loops: usize,
     pub radius_computation: bool,
     pub pair_overlap_matrix: Vec<bool>,
     pub pair_appears_in_overlap_structurex: Vec<bool>,
@@ -1979,13 +1982,13 @@ unsafe impl std::marker::Send for SOCPProblem {}
 
 impl Default for SOCPProblem {
     fn default() -> SOCPProblem {
-        SOCPProblem::new(1, 1)
+        SOCPProblem::new(1, 1, 1)
     }
 }
 
 impl Clone for SOCPProblem {
     fn clone(&self) -> SOCPProblem {
-        let mut p = SOCPProblem::default();
+        let mut p = SOCPProblem::new(self.max_ellipsoids, self.max_foci, self.n_loops);
 
         // now copy the settings from the old problem
         // all other data is not copied
@@ -1995,7 +1998,7 @@ impl Clone for SOCPProblem {
 }
 
 impl SOCPProblem {
-    pub fn new(max_ellipsoids: usize, max_foci: usize) -> SOCPProblem {
+    pub fn new(mut max_ellipsoids: usize, mut max_foci: usize, n_loops: usize) -> SOCPProblem {
         let mut settings = Box::new(scs::ScsSettings {
             normalize: 1,
             scale: 1.0,
@@ -2010,6 +2013,10 @@ impl SOCPProblem {
             write_data_filename: ptr::null(),
         });
 
+        // for the center finding, every ellipsoid and focus is shifted
+        max_ellipsoids *= 6 * n_loops;
+        max_foci *= 6 * n_loops;
+
         let pair_overlap_matrix = vec![false; max_ellipsoids * max_ellipsoids];
         let pair_appears_in_overlap_structurex = vec![false; max_ellipsoids * max_ellipsoids];
 
@@ -2018,8 +2025,8 @@ impl SOCPProblem {
         let different = vec![false; max_ellipsoids];
 
         let num_constraints = max_ellipsoids + max_foci * 5;
-        let var_length = 3 * MAX_LOOP + max_foci;
-        let num_non_empty = max_ellipsoids * MAX_LOOP + max_foci + 5 * MAX_LOOP * max_foci;
+        let var_length = 3 * n_loops + max_foci;
+        let num_non_empty = max_ellipsoids * n_loops + max_foci + 5 * n_loops * max_foci;
 
         let focus_list = vec![(0, 0, 0, 0); max_foci];
         let a_dense = vec![0.; num_constraints * var_length];
@@ -2075,6 +2082,9 @@ impl SOCPProblem {
         });
 
         SOCPProblem {
+            max_ellipsoids: max_ellipsoids / 6 / n_loops,
+            max_foci: max_foci / 6 / n_loops,
+            n_loops,
             radius_computation: false,
             pair_overlap_matrix,
             pair_appears_in_overlap_structurex,

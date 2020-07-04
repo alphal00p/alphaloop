@@ -734,6 +734,11 @@ aGraph=%s;
         external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
 #        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
 
+        # compute mUV
+        p = np.array(external_momenta['q1']) + np.array(external_momenta['q2'])
+        FORM_processing_options['mUV'] = 2 * math.sqrt(p[0]**2 - p[1]**2 - p[2]**2 - p[3]**2)
+        FORM_processing_options['logmUV'] = math.log(FORM_processing_options['mUV']**2)
+
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
         loop_momenta = []
@@ -875,6 +880,10 @@ aGraph=%s;
                     if uv_props == []:
                         uv_sig = 't0^0'
                         uv_props = ['1']
+
+                    if diag_set['integrated_ct']:
+                        uv_props.append('integratedctflag')
+
                     uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), '*'.join(uv_props))
                     uv_subgraphs.append('subgraph({}{},{})'.format(uv_info['graph_index'], 
                     (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
@@ -1038,12 +1047,12 @@ class FORMSuperGraphIsomorphicList(list):
     def multiplicity_factor(self,iso_id, workspace, form_source):
         output_match = re.compile("isoF=[-10]+;")
         factor_match = re.compile("[-10]+")
-        multiplicity = 1
+        multiplicity = 0
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
         FORM_vars['ID0'] = 0
-        for i_graph, g in enumerate(self[1:]):
+        for i_graph, g in enumerate(self):
             mapped = g.generate_numerator_form_input('', only_algebra=True)
             with open(pjoin(workspace,'iso_check_{}_{}_{}.frm'.format(iso_id, 0, i_graph+1)), 'w') as f:
                 FORM_vars['IDn'] = i_graph+1
@@ -1064,10 +1073,18 @@ class FORMSuperGraphIsomorphicList(list):
 
             output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
             factor = int(factor_match.findall(output_match.findall(output)[0])[0])
+
             if factor == 0:
                 raise FormProcessingError("Multiplicity not found: {} =/= (+/-) * {}. (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
+            elif factor == 10:
+                multiplicity = 0
+                continue
+            elif factor == -1 or factor == 1:
+                multiplicity += factor
+            else:
+                raise FormProcessingError("Unknown isoF for multiplicity factor : usiF={}".format(factor))
+
             #logger.info("{} = ({:+d}) * {}".format(self[0].name, factor, g.name ))
-            multiplicity += factor
         return multiplicity    
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, bar=None ):
@@ -1114,8 +1131,9 @@ class FORMSuperGraphList(list):
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         # Filter specific graphs by name 
-        #filter_graphs = ['SG_QG8']
+        #filter_graphs = ['SG_QG8','SG_QG9']
         #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
+        #m.graph_names = ['SG_MG8','SG_QG9']
         #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
 
         # Now convert the vertex names to be integers according to QGRAF format:
@@ -1184,15 +1202,17 @@ class FORMSuperGraphList(list):
             logger.info("Taking first {} supergraphs.".format(first))
             full_graph_list = full_graph_list[:first]
 
+        
         iso_groups = []
 
         import time
         import sympy as sp
         # group all isomorphic graphs
+        n_externals = max(len([1 for e in graph.edges.values() if e['type']=='in' or e['type']=='out']) for graph in full_graph_list)
         if model is None:
-            pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
+            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
         else:
-            pdg_primes = {pdg : sp.prime(i + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
+            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
         
         for graph in full_graph_list:
             g = igraph.Graph()
@@ -1203,13 +1223,19 @@ class FORMSuperGraphList(list):
                 undirected_edges.add(tuple(sorted(e['vertices'])))
 
             edge_colors = []
+            ext_id = 0
             for ue in undirected_edges:
                 e_color = 1
                 for e in graph.edges.values():
                     if tuple(sorted(e['vertices'])) == ue:
+                        #TODO: Reserve the first #externals primes for external edges
+                        # with the current implementation it still allows swap 
+                        # of final/initial state edges
                         if e['type'] == 'in':
-                            e_color *= -1
-                        e_color *= pdg_primes[abs(e['PDG'])]
+                            ext_id += 1
+                            e_color *= sp.prime(ext_id)
+                        else:
+                            e_color *= pdg_primes[abs(e['PDG'])]
                 edge_colors.append(e_color)
                 g.add_edges([tuple(sorted([x - 1 for x in ue]))])
             
@@ -1329,6 +1355,7 @@ class FORMSuperGraphList(list):
         if workspace is not None:
             selected_workspace = workspace
             shutil.copy(pjoin(plugin_path,"multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
+            shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'multiplicity.frm')
 
@@ -1397,6 +1424,7 @@ class FORMSuperGraphList(list):
         var_pattern = re.compile(r'Z\d*_')
         input_pattern = re.compile(r'lm(\d*)')
         energy_exp = re.compile(r'f\(([^)]*)\)\n')
+        split_number = re.compile(r'\\\n\s*')
         return_exp = re.compile(r'return ([^;]*);\n')
 
         FORM_vars={}
@@ -1453,12 +1481,15 @@ class FORMSuperGraphList(list):
                         numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
 
                         mono_secs = conf_sec.split('#NEWMONOMIAL')
+
+                        num_body = energy_exp.sub('', '\n'.join(mono_secs[0].split('\n')[2:]))
                         
                         rank = 0
                         max_index = 0
-                        num_body = ''
+                        return_statements = []
                         for mono_sec in mono_secs[1:]:
                             mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
+                            mono_sec = split_number.sub('', mono_sec)
                             # parse monomial powers and get the index in the polynomial in the LTD basis
                             pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
                             pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'c0'))
@@ -1468,8 +1499,10 @@ class FORMSuperGraphList(list):
                             max_buffer_size = max(index, max_buffer_size)
                             mono_sec = energy_exp.sub('', mono_sec)
                             returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
-                            mono_sec = return_exp.sub('out[{}] = {};'.format(index, returnval), mono_sec)
-                            num_body += mono_sec
+                            return_statements.append((index, return_exp.sub('\tout[{}] = {};'.format(index, returnval), mono_sec)))
+
+                        for r in sorted(return_statements, key=lambda x: x[0]):
+                            num_body += r[1]
 
                         confs.append((conf_id, rank))
 
@@ -1480,23 +1513,23 @@ class FORMSuperGraphList(list):
                         numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
                         numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
-                        ) + num_body + '\treturn {}; \n}}\n'.format(max_index + 1)
+                        ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
 
 
                     numerator_main_code += \
-    """
-    int %(header)sevaluate_{}(double complex lm[], int conf, double complex* out) {{
-        switch(conf) {{
-    {}
-        }}
+"""
+int %(header)sevaluate_{}(double complex lm[], int conf, double complex* out) {{
+   switch(conf) {{
+{}
     }}
+}}
 
-    int %(header)sget_rank_{}(int conf) {{
-        switch(conf) {{
-    {}
-        }}
+int %(header)sget_rank_{}(int conf) {{
+   switch(conf) {{
+{}
     }}
-    """.format(i,
+}}
+""".format(i,
         '\n'.join(
         ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
         (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
@@ -1550,6 +1583,9 @@ int %(header)sget_rank(int diag, int conf) {{
     )
         writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.c'%header_map)).write(numerator_code%header_map)
 
+
+        params['mUV'] = FORM_processing_options['mUV']
+        params['logmUV'] = FORM_processing_options['logmUV']
         header_code = \
 """
 #ifndef NUM_H
