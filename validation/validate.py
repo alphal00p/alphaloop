@@ -123,7 +123,7 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
     accepted = 0
     rejected = 0
     with progressbar.ProgressBar(prefix='%s | {variables.accepted}\u2713  {variables.rejected}\u2717, res: {variables.real_result} : ' % sg_name,
-                                 max_value=multi_settings['Integrator']['n_max'],
+                                 max_value=multi_settings['Integrator']['n_max'] if force else progressbar.UnknownLength,
                                  variables={'total_samples': '0',
                                             'accepted': '0',
                                             'rejected': '0',
@@ -168,7 +168,7 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                         rejected/(accepted+rejected)))
                     # Sometimes Vegas exceed in the last iteration the n_max
                     # based on the definition of n_new, n_increase
-                    if total_events > bar.max_value:
+                    if force and total_events > bar.max_value:
                         bar.max_value = total_events
                     bar.update(total_events)
                 else:
@@ -281,9 +281,9 @@ if __name__ == "__main__":
     hyper_settings['Integrator']['keep_state_file'] = True
     hyper_settings['Integrator']['load_from_state_file'] = True
     hyper_settings['Integrator']['n_max'] = args.n_max
-    hyper_settings['Integrator']['n_new'] = int(1e6)
-    hyper_settings['Integrator']['n_start'] = int(1e6)
-    hyper_settings['Integrator']['n_increase'] = int(1e6)
+    hyper_settings['Integrator']['n_new'] = int(1e4)
+    hyper_settings['Integrator']['n_start'] = int(1e4)
+    hyper_settings['Integrator']['n_increase'] = int(1e4)
     # Selector Settings
     hyper_settings['Selectors']['active_selectors'] = [
     ] if args.min_jets == 0 else ['jet']
@@ -350,16 +350,17 @@ if __name__ == "__main__":
             if args.force:
                 with contextlib.suppress(FileNotFoundError):
                     os.remove(VEGAS_STATE_FILE)
-            else:
+            elif os.path.exists(VEGAS_STATE_FILE):
                 print(
-                    "\033[1;32;48mLoading state! Use --force to overwrite!\033[0m")
+                    "\033[1;32;48mLoading state!\033[0m (Use --force to overwrite)")
+            print(VEGAS_STATE_FILE, os.path.exists(VEGAS_STATE_FILE))
             run_super_graph(process_name,
                             sg_name,
                             aL_process_output, suffix='_%s' % suffix,
                             multi_settings=hyper_settings,
                             min_jets=args.min_jets,
                             workspace=WORKSPACE,
-                            force=args.force)
+                            force=args.force or not os.path.exists(VEGAS_STATE_FILE))
 
     #############
     #  COLLECT
@@ -416,8 +417,10 @@ if __name__ == "__main__":
             subprocess.run(CALL_BASE_ARGS + ['-rc', '--diag_name=%s'%worst_SG])
             if r.returncode != 0:
                 raise ValidateError()
-            print("\033[1maL SGs ERROR SORT:\033[0m\n",
-              pd.read_csv(COLLECTION_PATH).sort_values(by=['real_err'], ascending=False))
+            ranked = pd.read_csv(COLLECTION_PATH).sort_values(by=['real_err'], ascending=False)
+            print("\033[1;32;48mMoved down by %s positions!\033[0m"%(list(ranked['name']==worst_SG).index(True)))
+            print("\033[1maL SGs ERROR SORT:\033[0m\n",ranked)
+            print()
     
     #############
     #  VALIDATE
