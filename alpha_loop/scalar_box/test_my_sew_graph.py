@@ -108,9 +108,21 @@ process_definition = cli.extract_process(process, proc_number=0)
 #diagrams_python_source_QG = 'all_QG_supergraphs.py'
 #standalone_qgraph_files(diag_path_qg, diagrams_python_source_QG)
 diagrams_python_source_QG = '/home/armin/my_programs/pynloop/alpha_loop/try_standalone_script/my_single_sg.py'
+
 # Import
+# Here I should include valentin PS-generator
+external_momenta = {
+    'q1':[5.0000000000000000e+02,  0.0000000000000000e+00,  0.0000000000000000e+00,  5.0000000000000000e+02],
+    'q2':[5.0000000000000000e+02,  0.0000000000000000e+00,  0.0000000000000000e+00, -5.0000000000000000e+02],
+    'q3':[5.0000000000000000e+02,  0.0000000000000000e+00,  0.0000000000000000e+00,  5.0000000000000000e+02],
+    'q4':[5.0000000000000000e+02,  0.0000000000000000e+00,  0.0000000000000000e+00, -5.0000000000000000e+02]}
+cut_momentum ={
+    'c1':[4.9999999999999977e+02,  1.0740197658523471e+02,  4.3070555989194781e+02, -1.9321629357729731e+02],
+    }
+
 super_graphs_list = FORMSuperGraphList.from_dict(
-    diagrams_python_source_QG, merge_isomorphic_graphs=False, verbose=True, model=computed_model)
+    diagrams_python_source_QG, merge_isomorphic_graphs=False, verbose=True, model=computed_model,
+    external_mom=external_momenta,fixed_cut_mom=cut_momentum,num_fixed_loops=1,is_scalar=True)
 
 # Define number of jets and final state ids
 n_jets = 0

@@ -105,8 +105,8 @@ class FORMSuperGraph(object):
         ( -3, 3, 3 ): (1, 0, 2),
     }
 
-    _include_momentum_routing_in_rendering=False
-    _include_edge_name_in_rendering=False
+    _include_momentum_routing_in_rendering=True
+    _include_edge_name_in_rendering=True
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
     # Choose graph layout strategy. Interesting options are in comment.
     _graph_layout_strategy = '{"PackingLayout"->"ClosestPacking"}' 
@@ -124,6 +124,11 @@ class FORMSuperGraph(object):
         nodes=None,
         overall_factor="1",
         multiplicity=1,
+        analytic_num = '',
+        num_cut_loops = 0,
+        is_scalar = False,
+        ext_momenta ={'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]},
+        cut_momenta = {},
     ):
         """ initialize a FORM SuperGraph from several options."""
 
@@ -132,6 +137,15 @@ class FORMSuperGraph(object):
         self.nodes = nodes
         self.overall_factor = overall_factor
         self.multiplicity = multiplicity
+
+        # for scalar amplitudes
+        self.analytic_num = analytic_num
+        self.num_cut_loops=num_cut_loops
+        self.is_scalar = is_scalar
+        self.ext_momenta = ext_momenta
+        self.cut_momenta =cut_momenta
+
+
         # A hashable call signature
         self.call_identifier = call_identifier
         if name is None:
@@ -268,24 +282,28 @@ aGraph=%s;
 
     def generate_numerator_form_input(self, additional_overall_factor='', only_algebra=False):
         # create the input file for FORM
-        form_diag = self.overall_factor+additional_overall_factor
-        for node in self.nodes.values():
-            if node['vertex_id'] < 0:
-                continue
         
-            form_diag += '*\nvx({},{},{})'.format(
-                ','.join(str(p) for p in node['PDGs']),
-                ','.join(node['momenta']),
-                ','.join(str(i) for i in node['indices']),
-            )
+        if self.is_scalar:
+            form_diag = self.analytic_num
+        else:
+            form_diag = self.overall_factor+additional_overall_factor
+            for node in self.nodes.values():
+                if node['vertex_id'] < 0:
+                    continue
+        
+                form_diag += '*\nvx({},{},{})'.format(
+                    ','.join(str(p) for p in node['PDGs']),
+                    ','.join(node['momenta']),
+                    ','.join(str(i) for i in node['indices']),
+                )
 
-        for edge in self.edges.values():
-            form_diag += '*\nprop({},{},{},{})'.format(
-                edge['PDG'],
-                edge['type'],
-                edge['momentum'],
-                ','.join(str(i) for i in edge['indices']),
-            )
+            for edge in self.edges.values():
+                form_diag += '*\nprop({},{},{},{})'.format(
+                    edge['PDG'],
+                    edge['type'],
+                    edge['momentum'],
+                    ','.join(str(i) for i in edge['indices']),
+                )
 
         if only_algebra:
             return form_diag
@@ -731,7 +749,9 @@ aGraph=%s;
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
         particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
-        external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+        external_momenta = self.ext_momenta
+        
+        
 #        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
 
         # compute mUV
@@ -752,7 +772,7 @@ aGraph=%s;
             call_signature_ID = numerator_call
         else:
             call_signature_ID = self.additional_lmbs*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+numerator_call
-
+        
         topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
             self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
             loop_momenta_names=tuple([l for l,s in loop_momenta]),
@@ -764,9 +784,14 @@ aGraph=%s;
             overall_numerator=1.0,
             numerator_structure={},
             FORM_numerator={'call_signature': {'id': call_signature_ID}},
-            edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
-            vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
+            edge_weights={e['name']: -4 for e in self.edges.values()},
+            vertex_weights={nv: 0 for nv, n in self.nodes.items()},
+            cut_momenta_fixed = self.cut_momenta,
+            num_cut_loops=self.num_cut_loops    
         )
+    
+
+
         # check if cut is possible
         if len(topo.cuts) == 0:
             logger.info("No cuts for graph {}".format(self.name))
@@ -889,7 +914,7 @@ aGraph=%s;
                     (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
                     uv_conf))
 
-                    if uv_subgraphs != []:
+                    if uv_subgraphs != [] and self.is_scalar == False:
                         diag_set_uv_conf.append('*'.join(uv_subgraphs))
 
                 # construct the map from the lmb to the cmb
@@ -1121,7 +1146,7 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None):
+    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None,external_mom ={},num_fixed_loops=0,fixed_cut_mom={},is_scalar=False):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
         p = Path(dict_file_path)
@@ -1192,9 +1217,19 @@ class FORMSuperGraphList(list):
                 graph_name=m.graph_names[i]
             else:
                 graph_name=p.stem + '_' + str(i)
+            
+            
             # convert to FORM supergraph
+            # New arguments for scalar amplitudes
+            # analytic_num = '',
+            # num_cut_loops = 0, number fixed loop-momenta
+            # is_scalar = False, dont do any UV 
+            # ext_momenta ={'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]},
+            # cut_momenta = {} like externals but values for the fixed loop-momenta
+
             form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
-                        overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1) )
+                        overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1),analytic_num = g.get('analytic_num',1),
+                        ext_momenta =external_mom, cut_momenta= fixed_cut_mom, is_scalar=is_scalar, num_cut_loops=num_fixed_loops)
             form_graph.derive_signatures()
             full_graph_list.append(form_graph)
 

@@ -15,7 +15,10 @@ class SquaredTopologyGenerator:
         loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, jet_ids=None,
         MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), FORM_numerator={},
-        vertex_weights={}, edge_weights={}):
+        vertex_weights={}, edge_weights={},       
+        cut_momenta_fixed = {},  num_cut_loops=0        
+        ):
+
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
@@ -23,7 +26,8 @@ class SquaredTopologyGenerator:
         self.MG_numerator = MG_numerator
         self.FORM_numerator = FORM_numerator
         self.subgraphs_info = subgraphs_info
-
+        self.cut_momenta_fixed = cut_momenta_fixed
+        self.num_cut_loops = num_cut_loops
         # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
         # This is supported by adjusting the cb to lmb rotation matrix to be applied
         # before calling the numerator.
@@ -290,6 +294,8 @@ class SquaredTopologyGenerator:
             'topo': self.loop_topo.to_flat_format(),
             'MG_numerator': self.MG_numerator,
             'FORM_numerator': self.FORM_numerator,
+            'num_fixed_cuts':self.num_cut_loops,
+            'fixed_cut_momenta':self.cut_momenta_fixed,
             # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
             #'subgraphs_info' : self.subgraphs_info,
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],

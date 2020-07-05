@@ -137,10 +137,13 @@ external_momenta:
 - [500.0, 0.0, 0.0, -500.0]
 - [500.0, 0.0, 0.0, 500.0]
 - [500.0, 0.0, 0.0, -500.0]
+fixed_cut_momenta:
+  c1: [499.9999999999998, 107.4019765852347, 430.7055598919478, -193.2162935772973]
 loop_momentum_basis: [pq1, pq5, pq9]
 n_incoming_momenta: 2
 n_loops: 3
 name: SG_QG0
+num_fixed_cuts: 1
 overall_numerator: 1.0
 topo:
   analytical_result_imag: 0.0

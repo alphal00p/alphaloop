@@ -94,7 +94,7 @@ Set lorentzdummy: mud1,...,mud40;
 CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f, vx, vec, vec1;
 CF subs, configurations, conf, cmb, der, energy, spatial(s);
-CF subgraph, uvconf, uvconf1, uvprop, uv;
+CF subgraph, uvconf, uvconf1, uvprop, uv, conjugate;
 S integratedctflag, mUV, logmUV, mi1L1, alarmMi1L1;
 CF integratedct, rat, num, den;
 Set ts: t0,...,t20;
@@ -126,7 +126,7 @@ Polyratfun rat;
 * All indices and pdgs are non-zero
 repeat id prop(?a, 0, ?b) = prop(?a, pzero, ?b);
 repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
-
+id conjugate(x?) = x;
 * do the spin sum external particles
 repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
 repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
