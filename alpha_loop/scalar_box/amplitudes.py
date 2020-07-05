@@ -73,7 +73,7 @@ def to_right_diag(left_diag):
 
     right_diag = left_diag
     # complex conjugation. will be perforemed in form
-    right_diag['analytic_num'] = "conjugate("+right_diag['analytic_num']+")"
+    right_diag['analytic_num'] = "hermconjugate("+right_diag['analytic_num']+")"
 
     node_offset = max(len(left_diag['nodes']),len(right_diag['nodes']))+1
     edge_offset =max(len(left_diag['edges']),len(right_diag['edges']))+1

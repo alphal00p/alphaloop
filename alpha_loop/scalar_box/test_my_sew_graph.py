@@ -107,7 +107,7 @@ process_definition = cli.extract_process(process, proc_number=0)
 #diag_path_qg = root_path+'/test_process_intefered/qqbaaNLO.py'
 #diagrams_python_source_QG = 'all_QG_supergraphs.py'
 #standalone_qgraph_files(diag_path_qg, diagrams_python_source_QG)
-diagrams_python_source_QG = '/home/armin/my_programs/pynloop/alpha_loop/try_standalone_script/my_single_sg.py'
+diagrams_python_source_QG = '/home/armin/my_programs/pynloop/alpha_loop/scalar_box/my_single_sg.py'
 
 # Import
 # Here I should include valentin PS-generator
