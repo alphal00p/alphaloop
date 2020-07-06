@@ -254,10 +254,12 @@ impl Clone for FORMNumerator {
 pub struct SquaredTopology {
     pub name: String,
     pub n_loops: usize,
+    pub num_fixed_cuts: usize,
     pub n_incoming_momenta: usize,
     pub e_cm_squared: f64,
     pub overall_numerator: f64,
     pub external_momenta: Vec<LorentzVector<f64>>,
+    pub fixed_cut_momenta: Vec<Vec<f64>>,
     pub cutkosky_cuts: Vec<CutkoskyCuts>,
     #[serde(skip_deserializing)]
     pub settings: Settings,
@@ -274,6 +276,8 @@ pub struct SquaredTopology {
 pub struct SquaredTopologySet {
     pub name: String,
     pub n_loops: usize,
+    pub num_fixed_cuts: usize,
+    pub fixed_cut_momenta: Vec<Vec<f64>>,
     pub e_cm_squared: f64,
     topologies: Vec<SquaredTopology>,
     additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>>,
@@ -310,6 +314,8 @@ impl SquaredTopologySet {
         SquaredTopologySet {
             name: squared_topology.name.clone(),
             n_loops: squared_topology.n_loops,
+            num_fixed_cuts: squared_topology.num_fixed_cuts,
+            fixed_cut_momenta: squared_topology.fixed_cut_momenta.clone(),
             settings: squared_topology.settings.clone(),
             e_cm_squared: squared_topology.e_cm_squared,
             rotation_matrix: squared_topology.rotation_matrix.clone(),
@@ -395,6 +401,8 @@ impl SquaredTopologySet {
         Ok(SquaredTopologySet {
             name: squared_topology_set_input.name,
             n_loops: topologies[0].n_loops,
+            num_fixed_cuts: topologies[0].num_fixed_cuts,
+            fixed_cut_momenta: topologies[0].fixed_cut_momenta.clone(),
             e_cm_squared: topologies[0].e_cm_squared,
             topologies,
             additional_topologies,
@@ -660,16 +668,31 @@ impl SquaredTopologySet {
 
         // jointly parameterize all squared topologies
         let n_loops = x.len() / 3;
+        if self.settings.general.debug > 0 {
+            println!("number of fixed loops {}", self.num_fixed_cuts);
+            println!("fixed cut momenta {:#?}", (self.fixed_cut_momenta)[0]);
+        }
+
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut jac_para = T::one();
+        let mut cut_count = 0;
+        let mut reweight = Into::<T>::into(1. as f64);
         for i in 0..n_loops {
             // set the loop index to i + 1 so that we can also shift k
-            let (l_space, jac) = Topology::parameterize(
+            let (mut l_space, mut jac) = Topology::parameterize(
                 &x[i * 3..(i + 1) * 3],
                 self.e_cm_squared, // NOTE: taking e_cm from the first graph
                 i,
                 &self.settings,
             );
+            if i >= n_loops - self.num_fixed_cuts {
+                l_space[0] = <T as NumCast>::from((self.fixed_cut_momenta)[cut_count][1]).unwrap();
+                l_space[1] = <T as NumCast>::from((self.fixed_cut_momenta)[cut_count][2]).unwrap();
+                l_space[2] = <T as NumCast>::from((self.fixed_cut_momenta)[cut_count][3]).unwrap();
+                jac = <T as NumCast>::from(1.).unwrap();
+                reweight *= (Into::<T>::into(2.) * <T as FloatConst>::PI()).powi(4);
+                cut_count += 1;
+            };
 
             // there could be some rounding here
             let rot = &self.rotation_matrix;
@@ -703,7 +726,8 @@ impl SquaredTopologySet {
 
             let r = t.evaluate_mom(&k[..n_loops], cache, &mut event_manager)
                 * jac_para
-                * Into::<T>::into(m as f64);
+                * Into::<T>::into(m as f64)
+                * reweight;
             result += r;
 
             if self
@@ -760,7 +784,8 @@ impl SquaredTopologySet {
             if let Some(em) = &mut event_manager {
                 if em.track_events {
                     for e in em.event_buffer[event_counter..].iter_mut() {
-                        e.integrand *= jac_para.to_f64().unwrap() * m as f64;
+                        e.integrand *=
+                            jac_para.to_f64().unwrap() * m as f64 * reweight.to_f64().unwrap();
                     }
                     event_counter = em.event_buffer.len();
                 }
@@ -1489,9 +1514,11 @@ impl SquaredTopology {
             let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
             cut_mom.t = energy.multiply_sign(cut.sign);
             // add (-2 pi i)/(2E)^power for every cut
-            scaling_result *=
-                num::Complex::new(T::zero(), -Into::<T>::into(2.0) * <T as FloatConst>::PI())
-                    / (Into::<T>::into(2.0) * energy).powi(cut.power as i32);
+            if self.num_fixed_cuts == 0 {
+                scaling_result *=
+                    num::Complex::new(T::zero(), -Into::<T>::into(2.0) * <T as FloatConst>::PI())
+                        / (Into::<T>::into(2.0) * energy).powi(cut.power as i32);
+            };
             cut_energies_summed += energy;
         }
 
@@ -1546,9 +1573,10 @@ impl SquaredTopology {
                 }
                 NormalisingFunction::None => (Into::<T>::into(1.0), Into::<T>::into(1.0)),
             };
-            scaling_result *=
-                scaling_jac * Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm;
-
+            if self.num_fixed_cuts == 0 {
+                scaling_result *=
+                    scaling_jac * Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm;
+            };
             // rescale the loop momenta
             for (rlm, lm) in rescaled_loop_momenta[..self.n_loops]
                 .iter_mut()
@@ -1575,19 +1603,20 @@ impl SquaredTopology {
         );
 
         // multiply the flux factor
-        constants /= if self.n_incoming_momenta == 2 {
-            Into::<T>::into(2.)
-                * (SquaredTopology::lambda(
-                    (external_momenta[0] + external_momenta[1]).square(),
-                    external_momenta[0].square(),
-                    external_momenta[1].square(),
-                ))
-                .sqrt()
-        } else {
-            let e_cm = external_momenta[0].square().sqrt();
-            e_cm * Into::<T>::into(2.0)
+        if self.num_fixed_cuts == 0 {
+            constants /= if self.n_incoming_momenta == 2 {
+                Into::<T>::into(2.)
+                    * (SquaredTopology::lambda(
+                        (external_momenta[0] + external_momenta[1]).square(),
+                        external_momenta[0].square(),
+                        external_momenta[1].square(),
+                    ))
+                    .sqrt()
+            } else {
+                let e_cm = external_momenta[0].square().sqrt();
+                e_cm * Into::<T>::into(2.0)
+            };
         };
-
         if self.settings.cross_section.picobarns {
             // return a weight in picobarns (from GeV^-2)
             constants *= Into::<T>::into(0.389379304e9);
@@ -2348,6 +2377,8 @@ impl IntegrandImplementation for SquaredTopologySet {
             multiplicity: self.multiplicity.clone(),
             e_cm_squared: self.e_cm_squared,
             n_loops: self.n_loops.clone(),
+            num_fixed_cuts: self.num_fixed_cuts.clone(),
+            fixed_cut_momenta: self.fixed_cut_momenta.clone(),
             settings: self.settings.clone(),
             rotation_matrix: rotated_topologies[0].rotation_matrix.clone(),
             additional_topologies: vec![vec![]; rotated_topologies.len()], // rotated versions of additional topologies are not supported

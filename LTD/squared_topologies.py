@@ -295,7 +295,7 @@ class SquaredTopologyGenerator:
             'MG_numerator': self.MG_numerator,
             'FORM_numerator': self.FORM_numerator,
             'num_fixed_cuts':self.num_cut_loops,
-            'fixed_cut_momenta':self.cut_momenta_fixed,
+            'fixed_cut_momenta':list((self.cut_momenta_fixed).values()),
             # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
             #'subgraphs_info' : self.subgraphs_info,
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],
