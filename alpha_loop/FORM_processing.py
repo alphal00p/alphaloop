@@ -731,15 +731,20 @@ aGraph=%s;
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
         particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
-        external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
-#        external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+        num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
+
+        if num_incoming == 1:
+            external_momenta = {'q1': [500., 0., 0., 0.], 'q2': [500., 0., 0., 0.]}
+            #external_momenta = {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]}
+            p = np.array(external_momenta['q1'])
+        else:
+            external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+            #external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+            p = np.array(external_momenta['q1']) + np.array(external_momenta['q2'])
 
         # compute mUV
-        p = np.array(external_momenta['q1']) + np.array(external_momenta['q2'])
         FORM_processing_options['mUV'] = 2 * math.sqrt(p[0]**2 - p[1]**2 - p[2]**2 - p[3]**2)
         FORM_processing_options['logmUV'] = math.log(FORM_processing_options['mUV']**2)
-
-        num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
         loop_momenta = []
         n_loops = len(self.edges) - len(self.nodes) + 1

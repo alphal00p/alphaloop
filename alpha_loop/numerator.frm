@@ -1,5 +1,6 @@
 #-
 Off statistics;
+On nospacesinnumbers;
 
 *--#[ setup :
 
