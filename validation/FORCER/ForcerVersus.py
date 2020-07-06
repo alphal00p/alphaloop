@@ -190,34 +190,43 @@ ST_FORCER_2P_5L.append(([(0, 1), (1, 2), (1, 3), (2, 4), (3, 5), (3, 6), (4, 5),
 ST_FORCER_2P_5L.append(([(0, 1), (1, 2), (1, 3), (2, 4), (3, 4), (3, 5), (4, 9), (5, 6), (5, 9), (6, 7), (6, 8), (7, 8), (7, 9), (8, 9), (2, 10)], "-1/4*ep^-1*z3"))
 
 def analytic_result(pole_string, n_loops):
-    print(pole_string)
     r = eval(re.sub(r'z(\d+)',r'zeta(\1)', pole_string.replace("*ep^-1","").replace("ep^-1*","").replace("^","**")))
     return r * n_loops * np.pi/(16.0 * np.pi**2)**n_loops
 
 if __name__ == '__main__':
     Path(pjoin(root_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
     analytic_results = {'name':[], 'result':[]}
-    for n_loops in range(3,5+1):
+    #regulating_mass = 1e-4
+    regulating_mass = 0
+
+    #for n_loops in range(3,6):
+    for n_loops in range(3,5):
         for n, (edges_raw, pole_string) in enumerate(ST_FORCER_LIBRARY[n_loops]):
             name = "STF_%dL_%d"%(n_loops, n)
-            print("Creating %s"%name, end='\r')
+            print("Creating %s"%name, end='\n')
             edges = [('p%d'%i , *e) for i, e in enumerate(edges_raw)]
             edges[0] = ('q1',*edges[0][1:])
             edges[-1] = ('q2',*edges[-1][1:])
             incoming_momenta_names = ['q1']
             n_jets=0
+            if name == "STF_3L_2":
+                LMB = ('p2', 'p4', 'p6',)
+            else:
+                LMB = None
             analytic_results['name'] += [name]
             analytic_results['result'] += [analytic_result(pole_string, n_loops)]
-            external_momenta = {'q1': [1.0, 0.0, 0.0 ,0.0], 'q2':[1.0, 0.0, 0.0, 0.0]}
-            stf_2P = SquaredTopologyGenerator(edges, 
-                                              name, 
+            external_momenta = {'q1': [1.0, 0.0, 0.0, 0.0], 'q2':[1.0, 0.0, 0.0, 0.0]}
+            stf_2P = SquaredTopologyGenerator(edges,
+                                              name,
                                               incoming_momenta_names,
                                               n_jets,
                                               external_momenta,
                                               overall_numerator=1.0,
+                                              masses={'p%d'%i: regulating_mass for i in range(1, len(edges_raw)-1)},
+                                              loop_momenta_names=LMB,
     )
             stf_2P.export(pjoin(root_path,'Rust_inputs','%s.yaml'%name))
     print("\x1b[2K\rInput YAML files for cross_section can be found in Rust_inputs")
     
-    pd.DataFrame(analytic_results).to_csv("analytic_results.csv")
+    pd.DataFrame(analytic_results).to_csv("analytic_results.csv", index=False)
     
