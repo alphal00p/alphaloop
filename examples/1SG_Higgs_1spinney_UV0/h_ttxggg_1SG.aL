@@ -12,7 +12,7 @@ set_alphaLoop_option FORM_processing_output_format c
 set_alphaLoop_option apply_graph_isomorphisms True
 set_FORM_option number_of_lmbs -1
 set_FORM_option reference_lmb None 
-set_alphaLoop_option supergraphs_selection [(1,1),]
-add process h > t t~ g @0
-!rm -rf single_SG_paper_h_ttxg_1SG
-output alphaLoop single_SG_paper_h_ttxg_1SG
+set_alphaLoop_option supergraphs_selection [(1,25),]
+add process h > t t~ g g g @0
+!rm -rf single_SG_paper_h_ttxggg_1SG
+output alphaLoop single_SG_paper_h_ttxggg_1SG
