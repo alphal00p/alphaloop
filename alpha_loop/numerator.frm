@@ -88,6 +88,7 @@ Symbol ge, gs, gy, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
 Set dirac: s1,...,s40;
+Set diracdummy: sd1,...,sd40;
 Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
@@ -97,7 +98,8 @@ CF subs, configurations, conf, cmb, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv;
 S integratedctflag, mUV, logmUV, mi1L1, alarmMi1L1;
 CF integratedct, rat, num, den;
-CF hermconjugate;
+
+
 Set ts: t0,...,t20;
 CT penergy;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
@@ -109,6 +111,9 @@ Set colF: cOli1,...,cOli40;
 Set colA: cOlj1,...,cOlj40;
 Set colAdum: cOljj1,...,cOljj40;
 
+CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor, sp;
+S ii,m,x,y;
+
 Polyratfun rat;
 
 *--#] setup :
@@ -118,14 +123,73 @@ Polyratfun rat;
 
 *--#[ feynman-rules :
 
+
+*id hermconjugate(x?) = x;
+************************************************
+* Implement the inteferences of scalar integrals
+************************************************
+
+* extract polarizations and spinors
+argument hermconjugate;
+    Multiply counter(1);
+* vectors
+    repeat id gamma(?a,pol(?b),?c)*counter(i?) = pol(?b)*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
+    repeat id gamma(?a,cpol(?b),?c)*counter(i?) = cpol(?b)*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
+    repeat id sp(pol(?a),p?vector_)*counter(i?) = pol(?a,lorentzdummy[i])*p(lorentzdummy[i])*counter(i+1);
+    repeat id sp(cpol(?a),p?vector_)*counter(i?) = cpol(?a,lorentzdummy[i])*p(lorentzdummy[i])*counter(i+1);
+    repeat id sp(pol(?a),pol(?b))*counter(i?) = pol(?a,lorentzdummy[i])*pol(?b,lorentzdummy[i])*counter(i+1);
+    repeat id sp(cpol(?a),cpol(?b))*counter(i?) = cpol(?a,lorentzdummy[i])*cpol(?b,lorentzdummy[i])*counter(i+1);
+    repeat id sp(pol(?a),cpol(?b))*counter(i?) = pol(?a,lorentzdummy[i])*cpol(?b,lorentzdummy[i])*counter(i+1);
+    id counter(n?) = 1;
+* spinors
+    Multiply counter(1);
+    repeat id gamma(ubarSpinor(?a),?b)*counter(i?) = ubarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    repeat id gamma(vbarSpinor(?a),?b)*counter(i?) = vbarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    repeat id gamma(?b,uSpinor(?a))*counter(i?) = uSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    repeat id gamma(?b,vSpinor(?a))*counter(i?) = vSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    id counter(n?) =1;
+endargument;
+.sort 
+
+Splitarg,hermconjugate;
+repeat id hermconjugate(x?,y?,?a)= hermconjugate(x)+hermconjugate(y)+hermconjugate(?a);
+FactArg,hermconjugate;
+repeat id hermconjugate(x?,y?,?a)= hermconjugate(x)*hermconjugate(y)*hermconjugate(?a);
+id  hermconjugate(ii) = -ii;
+id hermconjugate(vSpinor(?a)) =vbarSpinor(?a);
+id hermconjugate(vbarSpinor(?a)) =vSpinor(?a);
+id hermconjugate(uSpinor(?a)) =ubarSpinor(?a);
+id hermconjugate(ubarSpinor(?a)) =uSpinor(?a);
+id hermconjugate(pol(?a)) = cpol(?a);
+id hermconjugate(cpol(?a)) = pol(?a);
+* assume no gamma5
+argument hermconjugate;
+    Transform, gamma, reverse(1,last);
+endargument;
+id hermconjugate(x?)=x;
+id ii=i_;
+*polarization sums
+id cpol(p1?,0,mu1?)*cpol(p1?,0,mu2?) = -d_(mu1,mu2);
+id uSpinor(p1?,m?,s1?)*ubarSpinor(p1?,m?,s2?) = gamma(s1,p,s2)+m*d_(s1,s2);
+id vSpinor(p1?,m?,s1?)*vbarSpinor(p1?,m?,s2?) = gamma(s1,p,s2)-m*d_(s1,s2);
+* construct gamma string
+repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
+repeat id p(mu1?)*gamma(s1?,?a,mu1?,?b,s2?)= gamma(s1,?a,p1,?b,s2);
+
+if (count(pol,1,cpol,1,uSpinor,1,vSpinor,1,ubarSpinor,1,vbarSpinor,1));
+    Print "Unsubstituted polarization sum: %t";
+    exit "Critical error";
+endif;
+
+Print;
+.sort
+
 ************************************************
 * Substitute the Feynman rules for the numerator
 ************************************************
-
 * Fix a quirk where 0 does not match to a vector
 * The only 0 in a propagator or vertex is when a momentum is 0
 * All indices and pdgs are non-zero
-id hermconjugate(x?) = x;
 
 repeat id prop(?a, 0, ?b) = prop(?a, pzero, ?b);
 repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
