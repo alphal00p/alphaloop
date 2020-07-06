@@ -190,7 +190,8 @@ ST_FORCER_2P_5L.append(([(0, 1), (1, 2), (1, 3), (2, 4), (3, 5), (3, 6), (4, 5),
 ST_FORCER_2P_5L.append(([(0, 1), (1, 2), (1, 3), (2, 4), (3, 4), (3, 5), (4, 9), (5, 6), (5, 9), (6, 7), (6, 8), (7, 8), (7, 9), (8, 9), (2, 10)], "-1/4*ep^-1*z3"))
 
 def analytic_result(pole_string, n_loops):
-    r = eval(re.sub(r'z(\d+)',r'zeta(\1)', pole_string.replace("*ep^-1","").replace("^","**")))
+    print(pole_string)
+    r = eval(re.sub(r'z(\d+)',r'zeta(\1)', pole_string.replace("*ep^-1","").replace("ep^-1*","").replace("^","**")))
     return r * n_loops * np.pi/(16.0 * np.pi**2)**n_loops
 
 if __name__ == '__main__':
