@@ -574,7 +574,7 @@ fn divonne_integrand(
 fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: &Settings) {
     let mut integrand = match diagram {
         Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
-            sqt.n_loops,
+            sqt.get_maximum_loop_count(),
             sqt.clone(),
             settings.clone(),
             true,
@@ -592,7 +592,7 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
     };
 
     let n_loops = match &diagram {
-        Diagram::CrossSection(sqt) => sqt.n_loops,
+        Diagram::CrossSection(sqt) => sqt.get_maximum_loop_count(),
         Diagram::Topology(t) => t.n_loops,
     };
 
@@ -1239,7 +1239,7 @@ fn inspect<'a>(
     matches: &ArgMatches<'a>,
 ) {
     let (n_loops, e_cm_squared) = match &diagram {
-        Diagram::CrossSection(sqt) => (sqt.n_loops, sqt.e_cm_squared),
+        Diagram::CrossSection(sqt) => (sqt.get_maximum_loop_count(), sqt.e_cm_squared),
         Diagram::Topology(t) => (t.n_loops, t.e_cm_squared),
     };
 
@@ -1277,7 +1277,7 @@ fn inspect<'a>(
 
         match diagram {
             Diagram::CrossSection(sqt) => Integrand::new(
-                sqt.n_loops,
+                sqt.get_maximum_loop_count(),
                 sqt.clone(),
                 settings.clone(),
                 true,
@@ -1793,7 +1793,7 @@ fn main() -> Result<(), Report> {
         );
 
     let n_loops = match &diagram {
-        Diagram::CrossSection(sqt) => sqt.n_loops,
+        Diagram::CrossSection(sqt) => sqt.get_maximum_loop_count(),
         Diagram::Topology(t) => t.n_loops,
     };
 
@@ -1819,7 +1819,7 @@ fn main() -> Result<(), Report> {
         integrand: (0..num_integrands)
             .map(|i| match &diagram {
                 Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
-                    sqt.n_loops,
+                    sqt.get_maximum_loop_count(),
                     sqt.clone(),
                     settings.clone(),
                     true,

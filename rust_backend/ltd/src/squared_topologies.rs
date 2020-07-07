@@ -273,7 +273,6 @@ pub struct SquaredTopology {
 #[derive(Clone)]
 pub struct SquaredTopologySet {
     pub name: String,
-    pub n_loops: usize,
     pub e_cm_squared: f64,
     topologies: Vec<SquaredTopology>,
     additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>>,
@@ -309,7 +308,6 @@ impl SquaredTopologySet {
 
         SquaredTopologySet {
             name: squared_topology.name.clone(),
-            n_loops: squared_topology.n_loops,
             settings: squared_topology.settings.clone(),
             e_cm_squared: squared_topology.e_cm_squared,
             rotation_matrix: squared_topology.rotation_matrix.clone(),
@@ -335,6 +333,7 @@ impl SquaredTopologySet {
         let mut multiplicity: Vec<f64> = vec![];
         let mut multi_channeling_channels = vec![];
 
+        let mut max_loops = 0;
         for topo in squared_topology_set_input.topologies {
             let filename = std::path::Path::new(&filename)
                 .with_file_name(topo.name)
@@ -342,10 +341,6 @@ impl SquaredTopologySet {
             let mut squared_topology =
                 SquaredTopology::from_file(filename.to_str().unwrap(), settings)
                     .wrap_err("Could not load subtopology file")?;
-
-            if !topologies.is_empty() && squared_topology.n_loops != topologies[0].n_loops {
-                panic!("Topology sets require all topologies to have the same number of loops");
-            }
 
             let mut additional_topologies_for_topo = vec![];
             for t in topo.additional_lmbs {
@@ -360,7 +355,15 @@ impl SquaredTopologySet {
             }
             additional_topologies.push(additional_topologies_for_topo);
 
-            multi_channeling_channels.extend(squared_topology.generate_multi_channeling_channels());
+            // only construct multichanneling factors on graphs with the highest loop count
+            if squared_topology.n_loops > max_loops {
+                multi_channeling_channels.clear();
+                max_loops = squared_topology.n_loops;
+            }
+            if squared_topology.n_loops == max_loops {
+                multi_channeling_channels
+                    .extend(squared_topology.generate_multi_channeling_channels());
+            }
             topologies.push(squared_topology);
             multiplicity.push(topo.multiplicity);
         }
@@ -394,7 +397,6 @@ impl SquaredTopologySet {
 
         Ok(SquaredTopologySet {
             name: squared_topology_set_input.name,
-            n_loops: topologies[0].n_loops,
             e_cm_squared: topologies[0].e_cm_squared,
             topologies,
             additional_topologies,
@@ -403,6 +405,10 @@ impl SquaredTopologySet {
             multiplicity,
             multi_channeling_channels: unique_multi_channeling_channels,
         })
+    }
+
+    pub fn get_maximum_loop_count(&self) -> usize {
+        self.topologies.iter().map(|t| t.n_loops).max().unwrap()
     }
 
     pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<Vec<LTDCache<T>>>>> {
@@ -555,13 +561,10 @@ impl SquaredTopologySet {
         let mut result = Complex::zero();
         for (channel, _, channel_shift) in &self.multi_channeling_channels {
             // transform to the loop momentum basis
-            for (kk, r) in k_lmb[..self.n_loops]
-                .iter_mut()
-                .zip_eq(channel.chunks(self.n_loops))
-            {
+            for (kk, r) in k_lmb[..n_loops].iter_mut().zip_eq(channel.chunks(n_loops)) {
                 *kk = LorentzVector::default();
 
-                for ((ko, s), shift) in k_channel[..self.n_loops]
+                for ((ko, s), shift) in k_channel[..n_loops]
                     .iter()
                     .zip_eq(r.iter())
                     .zip_eq(channel_shift)
@@ -574,13 +577,13 @@ impl SquaredTopologySet {
             let mut normalization = T::zero();
             for (_, other_channel_inv, other_channel_shift) in &self.multi_channeling_channels {
                 // transform from the loop momentum basis to the other channel basis
-                for ((kk, r), shift) in k_other_channel[..self.n_loops]
+                for ((kk, r), shift) in k_other_channel[..n_loops]
                     .iter_mut()
-                    .zip_eq(other_channel_inv.chunks(self.n_loops))
+                    .zip_eq(other_channel_inv.chunks(n_loops))
                     .zip_eq(other_channel_shift)
                 {
                     *kk = shift.cast();
-                    for (ko, s) in k_lmb[..self.n_loops].iter().zip_eq(r.iter()) {
+                    for (ko, s) in k_lmb[..n_loops].iter().zip_eq(r.iter()) {
                         *kk += ko.multiply_sign(*s);
                     }
                 }
@@ -619,13 +622,23 @@ impl SquaredTopologySet {
                 .zip_eq(cache.iter_mut())
                 .zip_eq(&self.multiplicity)
             {
-                channel_result += t.evaluate_mom(&k_lmb[..n_loops], cache, &mut event_manager)
+                // undo the jacobian for unused dimensions
+                let mut jac_correction = T::one();
+                for i in t.n_loops..n_loops {
+                    let (_, jac) =
+                        Topology::inv_parametrize(&k_lmb[i], self.e_cm_squared, i, &self.settings);
+                    jac_correction *= jac;
+                }
+
+                channel_result += t.evaluate_mom(&k_lmb[..t.n_loops], cache, &mut event_manager)
                     / normalization
+                    * jac_correction
                     * Into::<T>::into(m as f64);
                 if let Some(em) = &mut event_manager {
                     if em.track_events {
                         for e in em.event_buffer[event_counter..].iter_mut() {
-                            e.integrand *= m as f64 / normalization.to_f64().unwrap();
+                            e.integrand *= m as f64 / normalization.to_f64().unwrap()
+                                * jac_correction.to_f64().unwrap();
                         }
                         event_counter = em.event_buffer.len();
                     }
@@ -636,9 +649,8 @@ impl SquaredTopologySet {
         }
 
         // we don't have a meaningful jacobian nor k_def
-        let k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = (0..self.n_loops)
-            .map(|_| LorentzVector::default())
-            .collect();
+        let k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> =
+            (0..n_loops).map(|_| LorentzVector::default()).collect();
         (x, k_def, T::one(), Complex::one(), result)
     }
 
@@ -661,6 +673,7 @@ impl SquaredTopologySet {
         // jointly parameterize all squared topologies
         let n_loops = x.len() / 3;
         let mut k = [LorentzVector::default(); MAX_LOOP];
+        let mut para_jacs = [T::one(); MAX_LOOP];
         let mut jac_para = T::one();
         for i in 0..n_loops {
             // set the loop index to i + 1 so that we can also shift k
@@ -685,7 +698,9 @@ impl SquaredTopologySet {
                     + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
                     + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
             );
+
             jac_para *= jac;
+            para_jacs[i] = jac_para;
         }
 
         let mut result = Complex::zero();
@@ -701,8 +716,9 @@ impl SquaredTopologySet {
                 println!("Evaluating supergraph {}", t.name);
             }
 
-            let r = t.evaluate_mom(&k[..n_loops], cache, &mut event_manager)
-                * jac_para
+            // a squared topology may not use all loop variables, so we set the unused jacobians to 1
+            let r = t.evaluate_mom(&k[..t.n_loops], cache, &mut event_manager)
+                * para_jacs[t.n_loops - 1]
                 * Into::<T>::into(m as f64);
             result += r;
 
@@ -729,12 +745,12 @@ impl SquaredTopologySet {
                         *add_k = SquaredTopology::evaluate_signature(
                             row,
                             &external_momenta,
-                            &k[..self.n_loops],
+                            &k[..t.n_loops],
                         );
                     }
 
-                    let add_r = topo.evaluate_mom(&add_ks[..n_loops], cache, &mut event_manager)
-                        * jac_para
+                    let add_r = topo.evaluate_mom(&add_ks[..t.n_loops], cache, &mut event_manager)
+                        * para_jacs[t.n_loops - 1]
                         * Into::<T>::into(m as f64);
 
                     if r.is_zero() || add_r.is_zero() {
@@ -760,7 +776,7 @@ impl SquaredTopologySet {
             if let Some(em) = &mut event_manager {
                 if em.track_events {
                     for e in em.event_buffer[event_counter..].iter_mut() {
-                        e.integrand *= jac_para.to_f64().unwrap() * m as f64;
+                        e.integrand *= para_jacs[t.n_loops - 1].to_f64().unwrap() * m as f64;
                     }
                     event_counter = em.event_buffer.len();
                 }
@@ -2283,6 +2299,7 @@ impl SquaredTopology {
         ];
 
         let mut rotated_topology = self.clone();
+        rotated_topology.name += "_rot";
         rotated_topology.rotation_matrix = rot_matrix.clone();
 
         for e in &mut rotated_topology.external_momenta {
@@ -2347,7 +2364,6 @@ impl IntegrandImplementation for SquaredTopologySet {
             name: self.name.clone(),
             multiplicity: self.multiplicity.clone(),
             e_cm_squared: self.e_cm_squared,
-            n_loops: self.n_loops.clone(),
             settings: self.settings.clone(),
             rotation_matrix: rotated_topologies[0].rotation_matrix.clone(),
             additional_topologies: vec![vec![]; rotated_topologies.len()], // rotated versions of additional topologies are not supported
