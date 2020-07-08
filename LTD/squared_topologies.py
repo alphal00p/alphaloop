@@ -94,6 +94,7 @@ class SquaredTopologyGenerator:
                     uv_diagram_info = [{
                         'uv_subgraphs': uv_limit['uv_subgraphs'],
                         'uv_spinney': [[list(g), dod] for g, dod in uv_limit['spinney']],
+                        'uv_vertices': [x for x in uv_limit['uv_vertices']],
                         'uv_propagators': [m for g, _ in uv_limit['spinney'] for m in g],
                         'remaining_graph': uv_limit['remaining_graph'],
                         'derivative': diag_info['derivative'],
@@ -117,6 +118,7 @@ class SquaredTopologyGenerator:
                         # it being applied more than once per diagram set
                         unfolded_diag_info.append({
                             'uv_info': None,
+                            'uv_vertices': di['uv_vertices'],
                             'graph': di['remaining_graph'],
                             'derivative': di['derivative'],
                             'bubble_momenta': di['bubble_momenta'],
@@ -126,6 +128,7 @@ class SquaredTopologyGenerator:
                         for uv_lim in di['uv_subgraphs']:
                             unfolded_diag_info.append({
                                 'uv_info': uv_lim,
+                                'uv_vertices': None,
                                 'graph': uv_lim['graph'],
                                 'derivative': None,
                                 'bubble_momenta': [],
@@ -139,14 +142,9 @@ class SquaredTopologyGenerator:
                 for uv_diag_set in uv_diag_sets:
                     uv_diag_set['integrated_ct'] = False
                     uv_diag_sets_with_integrated_ct.append(uv_diag_set)
-                    integrated_diag_set = copy.deepcopy(uv_diag_set)
-                    integrated_diag_set['integrated_ct'] = True
-                    has_uv = False
-                    for di in integrated_diag_set['diagram_info']:
-                        if di['uv_info'] is not None:
-                            has_uv = True
-
-                    if has_uv:
+                    if any(di['uv_info'] is not None for di in uv_diag_set['diagram_info']):
+                        integrated_diag_set = copy.deepcopy(uv_diag_set)
+                        integrated_diag_set['integrated_ct'] = True
                         uv_diag_sets_with_integrated_ct.append(integrated_diag_set)
 
                 uv_diagram_sets.extend(uv_diag_sets_with_integrated_ct)

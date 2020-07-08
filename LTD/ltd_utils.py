@@ -403,6 +403,7 @@ class TopologyGenerator(object):
         for spinney in f:
             gs = [{
                 'uv_subgraphs': [],
+                'uv_vertices' : [],
                 'remaining_graph': copy.deepcopy(self),
                 'spinney': spinney
                 }]
@@ -466,6 +467,15 @@ class TopologyGenerator(object):
                             loop_lines[sig].append(m)
                     loop_lines = [p for l, p in loop_lines.items()]
 
+                    uv_vertices = []
+                    n_loops = uv_subgraph.n_loops
+                    for v, l in graph_info['uv_vertices']:
+                        if v in subgraph_vertices:
+                            n_loops += l
+                        else:
+                            uv_vertices.append((v, l))
+                    uv_vertices.append((external_vertices[0], n_loops))
+
                     # construct all different denominator configurations, ie, 
                     # raising of loop lines that have external momentum dependence)
                     for d in range(dod + 1):
@@ -488,6 +498,7 @@ class TopologyGenerator(object):
 
                             new_gs.append( {
                                 'uv_subgraphs': [copy.deepcopy(x) for x in graph_info['uv_subgraphs']] + [graph_configuration],
+                                'uv_vertices' : uv_vertices,
                                 'remaining_graph': copy.deepcopy(remaining_graph),
                                 'spinney': spinney,
                             })

@@ -103,6 +103,8 @@ class FORMSuperGraph(object):
         ( 1, 1, 1, 1 ): (0, 1, 2),
         # VxVV (e.g. W+ W- a )
         ( -3, 3, 3 ): (1, 0, 2),
+        # Fx F
+        (-2, 2): (0, 1)
     }
 
     _include_momentum_routing_in_rendering=False
@@ -139,6 +141,7 @@ class FORMSuperGraph(object):
         else:
             self.name = name
 
+        self.squared_topology = None
         self.replacement_rules = None
 
         # Store copies of self for different choices of LMB to be used for cross-check.
@@ -778,6 +781,7 @@ aGraph=%s;
             return False
 
         self.generate_replacement_rules(topo)
+        self.squared_topology = topo
 
         # Also generate the squared topology yaml files of all additional LMB topologies used for cross-check
         if isinstance(self.additional_lmbs, list):
@@ -1615,9 +1619,9 @@ int %(header)sget_rank(int diag, int conf) {{
 
         contributing_supergraphs = []
 
+        non_zero_graph = 0
         with progressbar.ProgressBar(prefix='Generating squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, {variables.timing} ms / supergraph) : '%len(self), 
                 max_value=len(self), variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb' : '0'} ) as bar:
-            non_zero_graph = 0
             total_time=0.0
             for i, g in enumerate(self):
                 time_before = time.time()
@@ -1645,6 +1649,28 @@ int %(header)sget_rank(int diag, int conf) {{
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
 
+        renormalization_graphs = self.generate_renormalization_graphs(model)
+        self.extend([FORMSuperGraphIsomorphicList([g]) for g in renormalization_graphs])
+
+        with progressbar.ProgressBar(prefix='Generating renormalization squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, {variables.timing} ms / supergraph) : '%len(renormalization_graphs), 
+                max_value=len(renormalization_graphs), variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb' : '0'} ) as bar:
+            total_time=0.0
+            for i, g in enumerate(renormalization_graphs):
+                time_before = time.time()
+                bar.update(i_graph='%d'%(i+1))
+                if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
+                                                            final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, bar=bar):
+                    topo_collection['topologies'].append({
+                        'name': g.name,
+                        'multiplicity': g.multiplicity,
+                        'additional_LMBs': []
+                    })
+                    non_zero_graph += 1
+                    contributing_supergraphs.append(g)
+
+                total_time += time.time()-time_before
+                bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
+                bar.update(i+1)
 
         try:
             import yaml
@@ -1656,6 +1682,164 @@ int %(header)sget_rank(int diag, int conf) {{
 
         if filter_non_contributing_graphs:
             self[:] = contributing_supergraphs
+
+    def get_renormalization_vertex(self, pdgs, loop_count):
+        if len(pdgs) == 2 and abs(pdgs[0]) in range(1,7) and abs(pdgs[1]) in range(1,7):
+            # quark self energy
+            if loop_count == 1:
+                return '-(1/ep)/4*4/3*gs^2/8/pi^2'
+
+        if 22 in pdgs and any(i in pdgs or -i in pdgs for i in range(1,7)):
+            if loop_count == 1:
+                return '-(1/ep)/4*4/3*gs^2/8/pi^2*2'
+
+        return None
+
+    def generate_renormalization_graphs(self, model):
+        """Generate all required renormalization graphs for the graphs in the supergraph list"""
+
+        import sympy as sp
+        n_externals = max(len([1 for e in graph[0].edges.values() if e['type']=='in' or e['type']=='out']) for graph in self)
+        if model is None:
+            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
+        else:
+            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
+
+        renormalization_graphs = []
+        for gs in self:
+            squared_topology = gs[0].squared_topology
+            for cut_info in squared_topology.cuts:
+                for diag_set in cut_info['diagram_sets']:
+                    if len(diag_set['uv_propagators']) == 0:
+                        continue
+
+                    # create the renormalization graph per diagram set
+                    nodes = copy.deepcopy(gs[0].nodes)
+                    edges = copy.deepcopy(gs[0].edges)
+                    vertex_factors = []
+                    uv_effective_vertex_edges = []
+
+                    for diag_info in diag_set['diagram_info']:
+                        if diag_info['uv_vertices'] is not None and len(diag_info['uv_vertices']) > 0:
+                            graph = diag_info['graph']
+                            # look up every uv vertex in the table
+                            for v, l in diag_info['uv_vertices']:
+                                edges_on_vertex = [e[0] for e in graph.edge_map_lin if v in e[1:]]
+                                uv_effective_vertex_edges.append((edges_on_vertex, l))
+                                edge_pdgs = tuple(next(ee for ee in edges.values() if ee['name'] == e)['PDG'] for e in edges_on_vertex)
+
+                                vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l)
+                                if vertex_contrib is None:
+                                    print("WARNING: unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
+                                    #raise AssertionError("Unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
+                                    vertex_factors.append('1')
+                                else:
+                                    vertex_factors.append('(' + vertex_contrib + ')')
+
+                    # shrink the UV subgraph in the edge list
+                    subgraph_pdgs = set()
+                    for ek in list(edges.keys()):
+                        ee = edges[ek]
+                        if ee['name'] not in diag_set['uv_propagators']:
+                            continue
+                        subgraph_pdgs.add(ee['PDG'])
+
+                        # remove the edge from the vertices
+                        for na in ee['vertices']:
+                            node = nodes[na]
+                            edge_index = node['edge_ids'].index(ek)
+                            for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
+                                node[g] = tuple(ind for i, ind in enumerate(node[g]) if i != edge_index)
+
+                        # fuse vertices
+                        if ee['vertices'][0] != ee['vertices'][1]:
+                            node = nodes[ee['vertices'][0]]
+                            for na in ee['vertices'][1:]:
+                                n = nodes[na]
+                                for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
+                                    node[g] = tuple(list(node[g]) + list(n[g]))
+                                del nodes[na]
+
+                            vert_to_replace = ee['vertices'][1]
+                            vert_to_replace_with = ee['vertices'][0]                                    
+                            for e in edges.values():
+                                e['vertices'] = tuple(vert_to_replace_with if ind == vert_to_replace else ind for ind in e['vertices'])
+
+                        del edges[ek]
+
+                    # compute the proper multiplicity by dividing out the symmetry factor of the UV divergent subgraphs
+                    # TODO: make multi-loop and multi-uv subgraph compatible
+                    multiplicity = gs[0].multiplicity
+                    if len(set([21, 22]) & subgraph_pdgs) == 0:
+                        multiplicity /= 2
+
+                    # set the correct particle ordering for all the edges
+                    for n in nodes.values():
+                        if len(n['PDGs']) > 1:
+                            edge_order = FORMSuperGraph.sort_edges(model, [{'PDG': pdg, 'index': i} for i, pdg in enumerate(n['PDGs'])])
+                            for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
+                                n[g] = tuple(n[g][eo['index']] for eo in edge_order)
+
+                    # check if the remaining graph is seen before
+                    # NOTE: this must be exactly the same procedure as the graph isomorphic filtering,
+                    # to obtain the correct multiplicity
+                    g = igraph.Graph()
+                    vertex_map = list(nodes.keys())
+                    g.add_vertices(len(vertex_map))
+                    undirected_edges = set()
+
+                    for e in edges.values():
+                        undirected_edges.add(tuple(sorted(vertex_map.index(v) for v in e['vertices'])))
+
+                    edge_colors = []
+                    ext_id = 0
+                    for ue in undirected_edges:
+                        e_color = 1
+                        for e in edges.values():
+                            if tuple(sorted(vertex_map.index(v) for v in e['vertices'])) == ue:
+                                # find the associated edge to get the PDG
+                                edge = next(ee for ee in edges.values() if ee['name'] == e['name'])
+                                if edge['type'] == 'in':
+                                    ext_id += 1
+                                    e_color *= sp.prime(ext_id)
+                                else:
+                                    e_color *= pdg_primes[abs(edge['PDG'])]
+                        edge_colors.append(e_color)
+                        g.add_edges([ue])
+
+                    v_colors = [0]*len(vertex_map)
+                    for v, l in uv_effective_vertex_edges:
+                        # find the vertex that is shrunk and give it a color
+                        n = next(ni for ni, n in nodes.items() if set(v) == set(edges[e]['name'] for e in n['edge_ids']))
+                        v_colors[vertex_map.index(n)] = l
+
+                    for (ref_graph, ref_v_colors, ref_e_colors),  ref_ren_graph in renormalization_graphs:
+                        if ref_graph.get_isomorphisms_vf2(g,
+                            color1=ref_v_colors,
+                            color2=v_colors,
+                            edge_color1=ref_e_colors,
+                            edge_color2=edge_colors) != []:
+                            assert(multiplicity == ref_ren_graph.multiplicity)
+                            break
+                    else:
+                        # add a new supergraph for this renormalization component
+                        form_graph = FORMSuperGraph(name='{}_{}_renorm'.format(gs[0].name, diag_set['id']),
+                                edges=edges, nodes=nodes, 
+                                overall_factor='({})'.format('*'.join(vertex_factors)), multiplicity=multiplicity)
+
+                        # set a basis
+                        topo_generator = LTD.ltd_utils.TopologyGenerator([(e['name'], e['vertices'][0], e['vertices'][1]) for e in edges.values()])
+                        topo_generator.generate_momentum_flow()
+                        sig = topo_generator.get_signature_map()
+
+                        for e in edges.values():
+                            e['signature'] = [sig[e['name']][0],
+                                [ i+o for i,o in zip(sig[e['name']] [1][:len(sig[e['name']] [1])//2],sig[e['name']] [1][len(sig[e['name']] [1])//2:]) ]]
+                            e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
+
+                        renormalization_graphs.append(((g, v_colors, edge_colors), form_graph))
+        return [g for _, g in renormalization_graphs]
+
 
 class FORMProcessor(object):
     """ A class for taking care of the processing of a list of FORMSuperGraphList.
@@ -1692,6 +1876,7 @@ class FORMProcessor(object):
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
             'gy': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
             'ghhh': 6. * self.model['parameter_dict']['mdl_lam'].real,
+            'pi': '3.1415926535897932384626433832795',
         }
 
         helicity_averaging_factor = 1

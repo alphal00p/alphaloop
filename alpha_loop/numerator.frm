@@ -158,6 +158,8 @@ id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
+id vx(x1?{`QBAR'}, x2?{`Q'}, p1?, p2?, idx1?, idx2?) = gamma(dirac[idx1], dirac[idx2]) * d_(colF[idx1], colF[idx2]);
+
 id D^n? = rat(D^n, 1);
 .sort:feynman-rules-vertices-1;
 
