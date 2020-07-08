@@ -1,7 +1,0 @@
-#CONF
-conf(0,c2,c3)
-
-
-#NEWMONOMIAL
-f(c0)
-return 1;

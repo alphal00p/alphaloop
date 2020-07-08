@@ -1182,6 +1182,7 @@ class FORMSuperGraphList(list):
         # If necessary flip the flow direction
         for name, g in zip(m.graph_names, m.graphs):
             n_loops = len(g['edges']) - len(g['nodes']) + 1
+            print((name,n_loops))
             flows = []
             for lms in {e['momentum'] for e in g['edges'].values() if 'p' not in e['momentum'] and e['momentum'].count('k') == 1}:
                 lm = lms.replace('-', '')
@@ -1189,6 +1190,7 @@ class FORMSuperGraphList(list):
                 if lm in flows or '-'+lm in flows:
                     continue
                 flows += [lms]
+            print(flows)
             assert(len(flows) == n_loops)
             
             for lms in flows:

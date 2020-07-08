@@ -87,10 +87,10 @@ Auto I mu=D,s=D;
 Symbol ge, gs, gy, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
-Set dirac: s1,...,s40;
-Set diracdummy: sd1,...,sd40;
-Set lorentz: mu1,...,mu40;
-Set lorentzdummy: mud1,...,mud40;
+Set dirac: s1,...,s80;
+Set diracdummy: sd1,...,sd80;
+Set lorentz: mu1,...,mu80;
+Set lorentzdummy: mud1,...,mud80;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f, vx, vec, vec1;
@@ -107,12 +107,13 @@ Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 S  i, m, n, ALARM;
 
 #include- diacolor.h
-Set colF: cOli1,...,cOli40;
-Set colA: cOlj1,...,cOlj40;
+Set colF: cOli1,...,cOli80;
+Set colA: cOlj1,...,cOlj80;
 Set colAdum: cOljj1,...,cOljj40;
 
-CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor, sp;
+CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor, sp, d, sunA, sunF, diracInd, lorentzInd;
 S ii,m,x,y;
+Auto I i1, i2, j1,j2;
 
 Polyratfun rat;
 
@@ -129,12 +130,52 @@ Polyratfun rat;
 * Implement the inteferences of scalar integrals
 ************************************************
 
+*id hermconjugate(x?) = x;
+************************************************
+* Implement the inteferences of scalar integrals
+************************************************
+
+* now on the left-diagram
 * extract polarizations and spinors
-argument hermconjugate;
+id d(i1?,i2?) = d_(i1,i2);
+* construct gamma string
+    repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
+    repeat id p(mu1?)*gamma(s1?,?a,mu1?,?b,s2?)= gamma(s1,?a,p1,?b,s2);
     Multiply counter(1);
 * vectors
-    repeat id gamma(?a,pol(?b),?c)*counter(i?) = pol(?b)*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
-    repeat id gamma(?a,cpol(?b),?c)*counter(i?) = cpol(?b)*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
+    repeat id gamma(?a,pol(?b),?c)*counter(i?) = pol(?b,lorentzdummy[i])*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
+    repeat id gamma(?a,cpol(?b),?c)*counter(i?) = cpol(?b,lorentzdummy[i])*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
+    repeat id sp(pol(?a),p?vector_)*counter(i?) = pol(?a,lorentzdummy[i])*p(lorentzdummy[i])*counter(i+1);
+    repeat id sp(cpol(?a),p?vector_)*counter(i?) = cpol(?a,lorentzdummy[i])*p(lorentzdummy[i])*counter(i+1);
+    repeat id sp(pol(?a),pol(?b))*counter(i?) = pol(?a,lorentzdummy[i])*pol(?b,lorentzdummy[i])*counter(i+1);
+    repeat id sp(cpol(?a),cpol(?b))*counter(i?) = cpol(?a,lorentzdummy[i])*cpol(?b,lorentzdummy[i])*counter(i+1);
+    repeat id sp(pol(?a),cpol(?b))*counter(i?) = pol(?a,lorentzdummy[i])*cpol(?b,lorentzdummy[i])*counter(i+1);
+    id counter(n?) = 1;
+* spinors
+    Multiply counter(1);
+    repeat id gamma(ubarSpinor(?a),?b)*counter(i?) = ubarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    repeat id gamma(vbarSpinor(?a),?b)*counter(i?) = vbarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    repeat id gamma(?b,uSpinor(?a))*counter(i?) = uSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    repeat id gamma(?b,vSpinor(?a))*counter(i?) = vSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    id counter(n?) =1;
+* replace by proper indices from the corresponding set
+argument;
+    id sunA(x?) = colA[x];
+    id sunF(x?) = colF[x];
+    id diracInd(x?) = dirac[x];
+    id lorentzInd(x?) = lorentz[x];
+endargument;
+id d(i1?,i2?) = d_(i1,i2);
+.sort
+* play the same game with the right-diagram
+argument hermconjugate;
+* construct gamma string
+    repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
+    repeat id p(mu1?)*gamma(s1?,?a,mu1?,?b,s2?)= gamma(s1,?a,p1,?b,s2);
+    Multiply counter(1);
+* vectors
+    repeat id gamma(?a,pol(?b),?c)*counter(i?) = pol(?b,lorentzdummy[i])*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
+    repeat id gamma(?a,cpol(?b),?c)*counter(i?) = cpol(?b,lorentzdummy[i])*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
     repeat id sp(pol(?a),p?vector_)*counter(i?) = pol(?a,lorentzdummy[i])*p(lorentzdummy[i])*counter(i+1);
     repeat id sp(cpol(?a),p?vector_)*counter(i?) = cpol(?a,lorentzdummy[i])*p(lorentzdummy[i])*counter(i+1);
     repeat id sp(pol(?a),pol(?b))*counter(i?) = pol(?a,lorentzdummy[i])*pol(?b,lorentzdummy[i])*counter(i+1);
@@ -152,9 +193,25 @@ endargument;
 .sort 
 
 Splitarg,hermconjugate;
-repeat id hermconjugate(x?,y?,?a)= hermconjugate(x)+hermconjugate(y)+hermconjugate(?a);
+repeat id hermconjugate(x?,y?,?a)= hermconjugate(x)+hermconjugate(y,?a);
 FactArg,hermconjugate;
-repeat id hermconjugate(x?,y?,?a)= hermconjugate(x)*hermconjugate(y)*hermconjugate(?a);
+repeat id hermconjugate(x?,y?,?a)= hermconjugate(x)*hermconjugate(y,?a);
+.sort
+* manipulate indices for the right diagrams
+argument hermconjugate;
+    argument;
+        id sunA(x?) = sunA(x+40);
+        id sunF(x?) = sunF(x+40);
+        id diracInd(x?) = diracInd(x+40);
+        id lorentzInd(x?) = lorentzInd(x+40);
+        id sunA(x?) = colA[x];
+        id sunF(x?) = colF[x];
+        id diracInd(x?) = dirac[x];
+        id lorentzInd(x?) = lorentz[x];
+    endargument;
+    id d(i1?,i2?) = d_(i1,i2);
+endargument;
+.sort
 id  hermconjugate(ii) = -ii;
 id hermconjugate(vSpinor(?a)) =vbarSpinor(?a);
 id hermconjugate(vbarSpinor(?a)) =vSpinor(?a);
@@ -162,16 +219,19 @@ id hermconjugate(uSpinor(?a)) =ubarSpinor(?a);
 id hermconjugate(ubarSpinor(?a)) =uSpinor(?a);
 id hermconjugate(pol(?a)) = cpol(?a);
 id hermconjugate(cpol(?a)) = pol(?a);
+
 * assume no gamma5
 argument hermconjugate;
     Transform, gamma, reverse(1,last);
 endargument;
 id hermconjugate(x?)=x;
 id ii=i_;
+.sort
 *polarization sums
-id cpol(p1?,0,mu1?)*cpol(p1?,0,mu2?) = -d_(mu1,mu2);
-id uSpinor(p1?,m?,s1?)*ubarSpinor(p1?,m?,s2?) = gamma(s1,p,s2)+m*d_(s1,s2);
-id vSpinor(p1?,m?,s1?)*vbarSpinor(p1?,m?,s2?) = gamma(s1,p,s2)-m*d_(s1,s2);
+repeat id cpol(p1?,0,i1?)*pol(p1?,0,i2?) = -d_(i1,i2);
+repeat id cpol(p1?,0,j1?,i1?)*pol(p1?,0,j2?,i2?) = -d_(j1,j2)*d_(i1,i2);
+repeat id uSpinor(p1?,m?,s1?)*ubarSpinor(p1?,m?,s2?) = gamma(s1,p,s2)+m*d_(s1,s2);
+repeat id vSpinor(p1?,m?,s1?)*vbarSpinor(p1?,m?,s2?) = gamma(s1,p,s2)-m*d_(s1,s2);
 * construct gamma string
 repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
 repeat id p(mu1?)*gamma(s1?,?a,mu1?,?b,s2?)= gamma(s1,?a,p1,?b,s2);
@@ -181,9 +241,10 @@ if (count(pol,1,cpol,1,uSpinor,1,vSpinor,1,ubarSpinor,1,vbarSpinor,1));
     exit "Critical error";
 endif;
 
-Print;
+repeat id gamma(?a,p1?+p2?,?b) = gamma(?a,p1,?b)+gamma(?a,p2,?b);
+repeat id gamma(?a,p1?-p2?,?b) = gamma(?a,p1,?b)-gamma(?a,p2,?b);
+repeat id sp(p1?,p2?) = p1.p2;
 .sort
-
 ************************************************
 * Substitute the Feynman rules for the numerator
 ************************************************
@@ -296,6 +357,7 @@ EndArgument;
 .sort:color;
 
 * set the SU(3) values
+id cOlNA =8;
 id cOlNR = 3;
 
 * construct gamma string
@@ -326,11 +388,7 @@ id D^n? = rat(D^n, 1);
 .sort:gamma-traces;
 
 id color(x?) = x;
-
-* Set all external momenta on-shell
-#do i=1,10
-    id p`i'.p`i' = 0;
-#enddo
+.sort
 
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;
@@ -624,7 +682,7 @@ Hide F;
 
 * Optimize the output
     Format C;
-    Format O1,stats=off,saIter=`OPTIMITERATIONS';
+    Format O4,stats=off,saIter=`OPTIMITERATIONS';
     #Optimize FF`ext'
     #write<out_`SGID'.proto_c> "%O"
     B+ <Z{`energysymbolstart' + 1}_>,...,<Z`energysymbolend'_>;
