@@ -76,7 +76,10 @@ def print_info(method):
         idx = 0
         for (s, n) in zip(signatures, n_props):
             print("\t> signature {}".format(s))
-            print("\t  i: {},..,{}".format(idx, idx+n-1))
+            if idx == idx+n-1:
+                print("\t  i: {}".format(idx))
+            else:
+                print("\t  i: {},..,{}".format(idx, idx+n-1))
             idx += n
 
             # Propagator with 4-momenta
@@ -170,13 +173,17 @@ def store_report(method):
             file_name = 'pf_{}l_{}.yaml'.format(
                 n_loops, name.lower().replace(' ', '_'))
             store_report_yaml(result, file_name)
+        elif output_type == 'FORM':
+            file_name = 'pf_{}l_{}.frm'.format(
+                n_loops, name.lower().replace(' ', '_'))
+            store_report_form(result, file_name)
         elif output_type == 'pickle':
             file_name = 'pf_{}l_{}.pkl'.format(
                 n_loops, name.lower().replace(' ', '_'))
             store_report_pkl(result, file_name)
         else:
             print(
-                "Skip storing. Valid output_type: ['mathematica','yaml','pickle']")
+                "Skip storing. Valid output_type: ['mathematica','yaml','pickle','FORM']")
         return result
 
     def store_report_mathematica(res, file_name):
@@ -239,6 +246,78 @@ def store_report(method):
             f.close()
         print("\033[KStored in {}  ".format(file_name))
 
+    def store_report_form(res, file_name):
+        # For the moment convert coefficients to int
+        def cast_int(f):
+            if int(f)-f == 0:
+                return int(f)
+            else:
+                raise ValueError("Cannont safe cast %f into int."%f)
+
+        ss = "L F = \n"
+        t0 = time.time()
+        size = len(res)
+
+        den_library = []
+        for pf_id, (fact, prod, num) in enumerate(res):
+            dt = int((time.time()-t0)*2) % 4
+            if dt == 0:
+                print("Storing as FORM   ({}/{})".format(pf_id+1, size), end="\r")
+            elif dt == 1:
+                print("Storing as FORM.  ({}/{})".format(pf_id+1, size), end="\r")
+            elif dt == 2:
+                print("Storing as FORM.. ({}/{})".format(pf_id+1, size), end="\r")
+            elif dt == 3:
+                print("Storing as FORM...({}/{})".format(pf_id+1, size), end="\r")
+
+            # store factor
+            ss += "%+d"%cast_int(fact)
+
+            # store denominators
+            if prod != []:
+                den = ""
+                for n, r in enumerate(prod):
+                    den = ""
+                    for (j, (e, p)) in enumerate(zip(r['energies'], r['shifts'])):
+                        if e != 0 and p != 0:
+                            den += "{:+}*E{}{:+}*p{}".format(cast_int(e), j, cast_int(p), j)
+                    try:
+                        d_idx = den_library.index(den)
+                    except ValueError:
+                        d_idx = len(den_library)
+                        den_library += [den]
+                    ss += "*invd%d"%d_idx
+
+            # store numerator steps
+            ss += "*num(ncmd("
+            for n, zs in enumerate(num):
+                for i, num_step in enumerate(zs):
+                    for j, l in enumerate(num_step['lambdas']):
+                        if l != 0:
+                            ss += "{:+}*k{}".format(cast_int(l), j)
+                    for (j, (e, p)) in enumerate(zip(num_step['energies'], num_step['shifts'])):
+                        if e != 0 and p != 0:
+                            ss += "{:+}*E{}{:+}*p{}".format(cast_int(e), j, cast_int(p), j)
+                    if i+1 == len(zs) and n+1 == len(num):
+                        ss += ") )"
+                    elif i+1 == len(zs):
+                        ss += "), ncmd("
+                    else:
+                        ss += ", "
+            ss += "\n"
+        
+
+        with open("{}".format(file_name.replace(".frm",".den")), 'w') as f:
+            ss_den = ""
+            for n,den in enumerate(den_library):
+                ss_den += "d%d = %s;\n"%(n,den)
+            f.write(ss_den)
+            f.close()
+        with open("{}".format(file_name), 'w') as f:
+            f.write("%s;"%ss)
+            f.close()
+        print("\033[KStored in {}  ".format(file_name))
+ 
     def store_report_yaml(res, file_name):
         try:
             import yaml
