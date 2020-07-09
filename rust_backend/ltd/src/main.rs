@@ -1910,8 +1910,9 @@ fn main() -> Result<(), Report> {
         .write(true)
         .open(format!(
             "{}{}.dat",
-            settings.general.res_file_prefix,
-            settings.general.topology.clone() + "_res"
+             settings.general.res_file_prefix,
+            // settings.general.topology.clone() 
+            name.to_string() + "_res"
         ))
         .expect("Unable to create result file");
     let mut result_file = BufWriter::new(f);
