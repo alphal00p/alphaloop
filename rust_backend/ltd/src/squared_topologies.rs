@@ -1679,17 +1679,21 @@ impl SquaredTopology {
                 subgraph.update_ellipsoids();
 
                 if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-                    // TODO: it is no longer true that only uv_index=0 is a non-UV diagram set
-                    if uv_index == 0 {
+                    if uv_index == 0
+                        || !self
+                            .settings
+                            .cross_section
+                            .inherit_deformation_for_uv_counterterm
+                    {
                         subgraph.fixed_deformation =
                             subgraph.determine_ellipsoid_overlap_structure(true);
+
+                        if self.settings.general.debug > 0 {
+                            // check if the overlap structure makes sense
+                            subgraph.check_fixed_deformation();
+                        }
                     } else {
                         subgraph.fixed_deformation = vec![];
-                    }
-
-                    if self.settings.general.debug > 0 {
-                        // check if the overlap structure makes sense
-                        subgraph.check_fixed_deformation();
                     }
                 }
             }
