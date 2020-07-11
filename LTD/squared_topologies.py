@@ -121,6 +121,7 @@ class SquaredTopologyGenerator:
                             'uv_vertices': di['uv_vertices'],
                             'graph': di['remaining_graph'],
                             'derivative': di['derivative'],
+                            'derivative_edge': None,
                             'bubble_momenta': di['bubble_momenta'],
                             'conjugate_deformation': di['conjugate_deformation']
                         })
@@ -131,6 +132,7 @@ class SquaredTopologyGenerator:
                                 'uv_vertices': None,
                                 'graph': uv_lim['graph'],
                                 'derivative': None,
+                                'derivative_edge': di['derivative'][1] if di['derivative'] and di['derivative'][0] != di['derivative'][1] else None,
                                 'bubble_momenta': [],
                                 'conjugate_deformation': di['conjugate_deformation']
                             })

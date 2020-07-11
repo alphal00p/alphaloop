@@ -102,6 +102,8 @@ Set ts: t0,...,t20;
 CT penergy;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
+S eulergamma, log4pi, pi;
+
 S  i, m, n, ALARM;
 
 #include- diacolor.h
@@ -158,7 +160,8 @@ id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
-id vx(x1?{`QBAR'}, x2?{`Q'}, p1?, p2?, idx1?, idx2?) = gamma(dirac[idx1], dirac[idx2]) * d_(colF[idx1], colF[idx2]);
+* delta_Z vertex
+id vx(x1?{`QBAR'}, x2?{`Q'}, p1?, p2?, idx1?, idx2?) = i_ * gamma(dirac[idx1], p1, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
 
 id D^n? = rat(D^n, 1);
 .sort:feynman-rules-vertices-1;
@@ -362,6 +365,10 @@ if (count(integratedctflag, 1) > 0);
     id integratedctflag = -1; * we add back the counterterm
     Multiply counter(mu1,...,mu20);
     repeat id k1?.k2?*counter(mu?,?a) = vec(k1,mu)*vec(k2,mu)*counter(?a);
+
+* convert every k^0 into k.p0select, where p0select is effectively (1,0,0,0)
+* TODO: is this safe in D dimensions? 
+    repeat id uvprop(k1?,n?)*penergy(k1?)*counter(mu?,?a) = uvprop(k1,n)*vec1(k1,mu)*vec(p0select,mu)*counter(?a);
     id counter(?a) = 1;
     repeat id uvprop(k1?,n?)*vec(k1?,mu?) = uvprop(k1,n)*vec1(k1,mu);
     chainin vec1;
@@ -402,9 +409,11 @@ if (count(integratedctflag, 1) > 0);
 
     id vec(k1?,mu?)*vec(k2?,mu?) = k1.k2;
 
+    id k1?.p0select = penergy(k1);
+
 * divide by the normalizing factor of the denominator that is added to the topology
 * this is always 1/(k^2 - m_UV^2)^3 = -i / (4 pi)^2 * 1/2 * 1/mUV^2
-    Multiply i_ * rat(4 * 30246273033735921/9627687726852338,1)^2 * 2 * mUV^2;
+    Multiply i_ * (4 * pi)^2 * 2 * mUV^2;
 
 * reduce the numerator
     repeat id k1?.k1?*uvprop(k1?,n1?) = uvprop(k1, n1-1) + mUV^2 * uvprop(k1, n1);
@@ -412,40 +421,41 @@ if (count(integratedctflag, 1) > 0);
 
 * 1-loop IBP
     id uvprop(n1?{<1}) = 0;
-    repeat id uvprop(n1?{>1}) = uvprop(-1 + n1)*rat((2 + D - 2*n1), 2 * mUV^2 * (-1 + n1));
-    id uvprop(1) = mi1L1 * rat(2*mUV^2, D - 2);
+    repeat id uvprop(n1?{>1}) = uvprop(-1 + n1)*rat((2 + D - 2*n1), 2* (-1 + n1)) / mUV^2;
+    id uvprop(1) = mi1L1 * mUV^2 * rat(2, D - 2);
 
 * TODO: take to the power of loops
-* normalize with 1/(4 pi e^-gamma)
-    Multiply 1 - rat(53646286447601093/27457288774331243 * ep  + 7812755848557151/4093268398007683 * ep^2 - 4523275530886483/3638800576560925 * ep^3, 1);
+* normalize with 1/(4 pi e^-gamma)^ep
+    Multiply 1 + (eulergamma - log4pi)*ep + 1/2*(eulergamma^2 - 2*eulergamma*log4pi + log4pi^2)*ep^2 +
+        1/6*(eulergamma^3 - 3*eulergamma^2*log4pi + 3*log4pi*log4pi^2 - log4pi^3)*ep^3;
 
     Multiply replace_(D, 4 - 2 * ep);
 
 	id mi1L1 = (
-        cMi1L1EpsM1logmUV0*rat(logmUV^0,1)*rat(1,ep^1)
-        +cMi1L1Eps0logmUV0*rat(logmUV^0,1)*rat(ep^0,1)
-        +cMi1L1Eps0logmUV1*rat(logmUV^1,1)*rat(ep^0,1)
-        +cMi1L1Eps1logmUV0*rat(logmUV^0,1)*rat(ep^1,1)
-        +cMi1L1Eps1logmUV1*rat(logmUV^1,1)*rat(ep^1,1)
-        +cMi1L1Eps1logmUV2*rat(logmUV^2,1)*rat(ep^1,1)
-        +cMi1L1Eps2logmUV0*rat(logmUV^0,1)*rat(ep^2,1)
-        +cMi1L1Eps2logmUV1*rat(logmUV^1,1)*rat(ep^2,1)
-        +cMi1L1Eps2logmUV2*rat(logmUV^2,1)*rat(ep^2,1)
-        +cMi1L1Eps2logmUV3*rat(logmUV^3,1)*rat(ep^2,1)
-        +cMi1L1Eps3logmUV0*rat(logmUV^0,1)*rat(ep^3,1)
-        +cMi1L1Eps3logmUV1*rat(logmUV^1,1)*rat(ep^3,1)
-        +cMi1L1Eps3logmUV2*rat(logmUV^2,1)*rat(ep^3,1)
-        +cMi1L1Eps3logmUV3*rat(logmUV^3,1)*rat(ep^3,1)
-        +cMi1L1Eps3logmUV4*rat(logmUV^4,1)*rat(ep^3,1)
+        cMi1L1EpsM1logmUV0*logmUV^0*rat(1,ep^1)
+        +cMi1L1Eps0logmUV0*logmUV^0*rat(ep^0,1)
+        +cMi1L1Eps0logmUV1*logmUV^1*rat(ep^0,1)
+        +cMi1L1Eps1logmUV0*logmUV^0*rat(ep^1,1)
+        +cMi1L1Eps1logmUV1*logmUV^1*rat(ep^1,1)
+        +cMi1L1Eps1logmUV2*logmUV^2*rat(ep^1,1)
+        +cMi1L1Eps2logmUV0*logmUV^0*rat(ep^2,1)
+        +cMi1L1Eps2logmUV1*logmUV^1*rat(ep^2,1)
+        +cMi1L1Eps2logmUV2*logmUV^2*rat(ep^2,1)
+        +cMi1L1Eps2logmUV3*logmUV^3*rat(ep^2,1)
+        +cMi1L1Eps3logmUV0*logmUV^0*rat(ep^3,1)
+        +cMi1L1Eps3logmUV1*logmUV^1*rat(ep^3,1)
+        +cMi1L1Eps3logmUV2*logmUV^2*rat(ep^3,1)
+        +cMi1L1Eps3logmUV3*logmUV^3*rat(ep^3,1)
+        +cMi1L1Eps3logmUV4*logmUV^4*rat(ep^3,1)
         +alarmMi1L1*rat(ep^4,1)
 	);
 
-    id cMi1L1EpsM1logmUV0 = rat(132049792606502*i_,20852467428353107);
-    id cMi1L1Eps0logmUV0 = rat(930733834984243*i_,75225176822851668);
-    id cMi1L1Eps0logmUV1 = rat(-132049792606502*i_,20852467428353107);
-    id cMi1L1Eps1logmUV0 = rat(238365146153033*i_,13782143439795685);
-    id cMi1L1Eps1logmUV1 = rat(-1057101110939383*i_,85438623805262522);
-    id cMi1L1Eps1logmUV2 = rat(66024896303251*i_,20852467428353107);
+    id cMi1L1EpsM1logmUV0= i_/(16*pi^2);
+    id cMi1L1Eps0logmUV0 = i_*(-eulergamma + log4pi)/(16*pi^2);
+    id cMi1L1Eps0logmUV1 = -i_/(16*pi^2);
+    id cMi1L1Eps1logmUV0 = i_*(6*eulergamma^2 + pi^2 - 12*eulergamma*log4pi + 6*log4pi^2)/(192*pi^2);
+    id cMi1L1Eps1logmUV1 = i_*(eulergamma - log4pi)/(16*pi^2);
+    id cMi1L1Eps1logmUV2 = i_/(32*pi^2);
     id cMi1L1Eps2logmUV0 = rat(267137567007244*i_,17222977639926303);
     id cMi1L1Eps2logmUV1 = rat(-238365146153033*i_,13782143439795685);
     id cMi1L1Eps2logmUV2 = rat(31591818988785*i_,5106723491205427);
@@ -458,22 +468,10 @@ if (count(integratedctflag, 1) > 0);
 endif;
 .sort:integrated-ct-1;
 
-* Factor out the mass
-Polyratfun;
-id rat(x1?,x2?) = num(x1)*den(x2);
-FactArg den, num;
-ChainOut,num;
-ChainOut,den;
-
 Multiply replace_(D, 4 - 2 * ep);
-
-id num(x1?)=x1;
-id den(x1?number_)=1/x1;
-id den(mUV) = 1/mUV;
-id den(x1?) = rat(1,x1);
-id ep^n1?  = rat(ep^n1,1);
-.sort:mass-factorization;
-PolyRatFun rat(expand,ep,10);
+id ep^n1? = rat(ep^n1,1);
+.sort:ep-collection;
+PolyRatFun rat(expand,ep,6);
 .sort:ep-expansion;
 PolyRatFun;
 id rat(x1?) = x1;

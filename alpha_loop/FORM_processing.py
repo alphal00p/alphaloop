@@ -827,15 +827,15 @@ aGraph=%s;
                         if diag_info['bubble_momenta'] not in bubble_to_cut:
                             bubble_to_cut[diag_info['bubble_momenta']] = (diag_info['derivative'][0], set())
 
-                        # numerator derivative
-                        if ext_mom == der_mom:
+                        if diag_info['derivative'][0] == diag_info['derivative'][1]:
+                            # numerator derivative
                             index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
                             trans.append('der(pbubble' + str(index) + ')')
                         else:
                             # check if we pick up a sign change due to the external momentum flowing in the opposite direction
                             signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
                             assert(len(set(signs)) == 1)
-                            trans.append('-2*({}{})'.format('+' if signs[0] == 1 else '-', der_mom))
+                            trans.append('-2*{}({})'.format('1*' if signs[0] == 1 else '-1*', der_mom))
                             bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
                             bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
 
@@ -882,7 +882,7 @@ aGraph=%s;
                                         self.momenta_decomposition_to_string(ext_edge['signature'], False))
 
                             # the edge may have a raised power due to the bubble derivative
-                            power = 2 if edge_name == der_edge else 1
+                            power = 2 if edge_name == diag_info['derivative_edge'] else 1
                             for _ in range(power):
                                 uv_props.append('uvprop({},t{},{})'.format(loop_mom_sig, i, ext_mom_sig))
                     # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
@@ -1687,13 +1687,46 @@ int %(header)sget_rank(int diag, int conf) {{
         if len(pdgs) == 2 and abs(pdgs[0]) in range(1,7) and abs(pdgs[1]) in range(1,7):
             # quark self energy
             if loop_count == 1:
-                return '-(1/ep)/4*4/3*gs^2/8/pi^2'
+                return '(1/ep)/4*4/3*gs^2/8/pi^2*2'
 
         if 22 in pdgs and any(i in pdgs or -i in pdgs for i in range(1,7)):
             if loop_count == 1:
                 return '-(1/ep)/4*4/3*gs^2/8/pi^2*2'
 
         return None
+
+    @classmethod
+    def shrink_edges(cls, edges, nodes, edges_to_shrink):
+        subgraph_pdgs = set()
+        for ek in list(edges.keys()):
+            ee = edges[ek]
+            if ee['name'] not in edges_to_shrink:
+                continue
+            subgraph_pdgs.add(ee['PDG'])
+
+            # remove the edge from the vertices
+            for na in ee['vertices']:
+                node = nodes[na]
+                edge_index = node['edge_ids'].index(ek)
+                for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
+                    node[g] = tuple(ind for i, ind in enumerate(node[g]) if i != edge_index)
+
+            # fuse vertices
+            if ee['vertices'][0] != ee['vertices'][1]:
+                node = nodes[ee['vertices'][0]]
+                for na in ee['vertices'][1:]:
+                    n = nodes[na]
+                    for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
+                        node[g] = tuple(list(node[g]) + list(n[g]))
+                    del nodes[na]
+
+                vert_to_replace = ee['vertices'][1]
+                vert_to_replace_with = ee['vertices'][0]
+                for e in edges.values():
+                    e['vertices'] = tuple(vert_to_replace_with if ind == vert_to_replace else ind for ind in e['vertices'])
+
+            del edges[ek]
+        return subgraph_pdgs
 
     def generate_renormalization_graphs(self, model):
         """Generate all required renormalization graphs for the graphs in the supergraph list"""
@@ -1737,35 +1770,14 @@ int %(header)sget_rank(int diag, int conf) {{
                                     vertex_factors.append('(' + vertex_contrib + ')')
 
                     # shrink the UV subgraph in the edge list
-                    subgraph_pdgs = set()
-                    for ek in list(edges.keys()):
-                        ee = edges[ek]
-                        if ee['name'] not in diag_set['uv_propagators']:
-                            continue
-                        subgraph_pdgs.add(ee['PDG'])
+                    subgraph_pdgs = self.shrink_edges(edges, nodes, diag_set['uv_propagators'])
 
-                        # remove the edge from the vertices
-                        for na in ee['vertices']:
-                            node = nodes[na]
-                            edge_index = node['edge_ids'].index(ek)
-                            for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
-                                node[g] = tuple(ind for i, ind in enumerate(node[g]) if i != edge_index)
-
-                        # fuse vertices
-                        if ee['vertices'][0] != ee['vertices'][1]:
-                            node = nodes[ee['vertices'][0]]
-                            for na in ee['vertices'][1:]:
-                                n = nodes[na]
-                                for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
-                                    node[g] = tuple(list(node[g]) + list(n[g]))
-                                del nodes[na]
-
-                            vert_to_replace = ee['vertices'][1]
-                            vert_to_replace_with = ee['vertices'][0]                                    
-                            for e in edges.values():
-                                e['vertices'] = tuple(vert_to_replace_with if ind == vert_to_replace else ind for ind in e['vertices'])
-
-                        del edges[ek]
+                    # get all bubble edges, they will be removed at the end
+                    bubble_edges = set()
+                    for c in cut_info['cuts']:
+                        sig = next(ee['signature'] for ee in edges.values() if ee['name'] == c['edge'])
+                        inv_sig = tuple([(x[0], not x[1]) for x in sig])
+                        bubble_edges |= set(ee['name'] for ee in edges.values() if (ee['signature'] == sig or ee['signature'] == inv_sig) and ee['name'] != c['edge'])
 
                     # compute the proper multiplicity by dividing out the symmetry factor of the UV divergent subgraphs
                     # TODO: make multi-loop and multi-uv subgraph compatible
@@ -1822,9 +1834,12 @@ int %(header)sget_rank(int diag, int conf) {{
                             assert(multiplicity == ref_ren_graph.multiplicity)
                             break
                     else:
+                        # remove all bubble edges, since they will cancel with the effective vertex
+                        subgraph_pdgs = self.shrink_edges(edges, nodes, bubble_edges)
+
                         # add a new supergraph for this renormalization component
                         form_graph = FORMSuperGraph(name='{}_{}_renorm'.format(gs[0].name, diag_set['id']),
-                                edges=edges, nodes=nodes, 
+                                edges=edges, nodes=nodes,
                                 overall_factor='({})'.format('*'.join(vertex_factors)), multiplicity=multiplicity)
 
                         # set a basis
@@ -1832,10 +1847,19 @@ int %(header)sget_rank(int diag, int conf) {{
                         topo_generator.generate_momentum_flow()
                         sig = topo_generator.get_signature_map()
 
-                        for e in edges.values():
+                        for eid, e in edges.items():
                             e['signature'] = [sig[e['name']][0],
                                 [ i+o for i,o in zip(sig[e['name']] [1][:len(sig[e['name']] [1])//2],sig[e['name']] [1][len(sig[e['name']] [1])//2:]) ]]
                             e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
+
+                            if len(e['vertices']) == 1:
+                                continue
+
+                            for i, vi in enumerate(e['vertices']):
+                                e_index = nodes[vi]['edge_ids'].index(eid)
+                                mom = list(nodes[vi]['momenta'])
+                                mom[e_index] = '-({})'.format(e['momentum']) if i == 0 else e['momentum']
+                                nodes[vi]['momenta'] = mom
 
                         renormalization_graphs.append(((g, v_colors, edge_colors), form_graph))
         return [g for _, g in renormalization_graphs]

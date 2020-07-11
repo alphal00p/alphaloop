@@ -653,7 +653,7 @@ class TopologyGenerator(object):
                 bubble_derivatives.append({
                     'graph':  g,
                     'bubble_momenta': bubble_momenta,
-                    'derivative': (cut_mom, g.edge_map_lin[ext][0]),
+                    'derivative': (cut_mom, cut_mom),
                     'conjugate_deformation': g.conjugate
                 })
 
