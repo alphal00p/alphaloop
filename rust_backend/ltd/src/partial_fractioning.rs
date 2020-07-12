@@ -25,6 +25,7 @@ pub struct PFCache<T: FloatLike> {
     numerator_index_map: Vec<usize>,
     numerator_mpoly: MPolynomial<Complex<T>>,
     num_subs: NumSubtitutionCache<T>,
+    den_values: Vec<Complex<T>>,
     //pub coeff_powers: Vec<usize>,
 }
 
@@ -38,6 +39,7 @@ impl<T: FloatLike> PFCache<T> {
                     indices: vec![],
                     energies_and_shifts: vec![],
                     size: 0,
+                    string: "".to_string(),
                 },
                 block_fiter: vec![],
                 numerator: vec![],
@@ -45,7 +47,7 @@ impl<T: FloatLike> PFCache<T> {
                 numerator_index_map: vec![],
                 numerator_mpoly: MPolynomial::new(n_var),
                 num_subs: NumSubtitutionCache::new(n_var),
-                //coeff_powers: vec![0; MAX_LOOP]
+                den_values: vec![], //coeff_powers: vec![0; MAX_LOOP]
             }
         } else {
             // Use this to avoid redundant allocation
@@ -56,6 +58,7 @@ impl<T: FloatLike> PFCache<T> {
                     indices: vec![0; 2 * MAX_LOOP],
                     energies_and_shifts: vec![(0.0, 0.0); 2 * MAX_LOOP],
                     size: 0,
+                    string: "".to_string(),
                 },
                 block_fiter: vec![false; MAX_PROP],
                 numerator: vec![0; n_props_deg],
@@ -63,7 +66,7 @@ impl<T: FloatLike> PFCache<T> {
                 numerator_index_map: vec![0; n_props_deg],
                 numerator_mpoly: MPolynomial::new(n_var),
                 num_subs: NumSubtitutionCache::new(n_var),
-                //coeff_powers: vec![1; MAX_LOOP]
+                den_values: vec![], //coeff_powers: vec![1; MAX_LOOP]
             }
         }
     }
@@ -469,12 +472,13 @@ pub struct PartialFractioningDen {
     pub indices: Vec<u8>,
     pub energies_and_shifts: Vec<(f64, f64)>,
     pub size: usize,
+    pub string: String,
 }
 
 #[derive(Default, Debug, Clone)]
 pub struct PartialFractioningBlock {
     pub factor: f64,
-    pub denominators: Vec<PartialFractioningDen>,
+    pub denominators: Vec<usize>,
     pub numerator: Vec<Vec<PartialFractioningNum>>,
 }
 
@@ -499,6 +503,7 @@ pub struct PartialFractioningMultiLoops {
     pub ll_n_props_deg: Vec<usize>,
     pub n_props_deg: usize,
     pub n_loops: usize,
+    pub unique_dens: Vec<PartialFractioningDen>,
     //splits: Vec<usize>,
 }
 
@@ -883,6 +888,7 @@ impl PartialFractioningMultiLoops {
                 .map(|x| x.propagators.iter().map(|x| x.power).sum::<usize>())
                 .sum(),
             n_loops: loop_lines[0].signature.len(),
+            unique_dens: vec![],
         };
         pf_expr.partial_fractioning_nl(numerator_rank);
         return pf_expr;
@@ -947,7 +953,7 @@ impl PartialFractioningMultiLoops {
         pf_cache: &mut PFCache<T>,
     ) {
         // TODO: Check that all the lambdas are now zero
-        let mut dens_short = Vec::new();
+        let mut den_ids = Vec::new();
         for den in product.denominators.iter() {
             //            println!("energies: {:?}", den.energies);
             //            println!("shifts  : {:?}", den.shifts);
@@ -966,12 +972,36 @@ impl PartialFractioningMultiLoops {
             //println!("indices   : {:?}", pf_cache.den_short.indices);
             //println!("en_and_sh : {:?}", pf_cache.den_short.energies_and_shifts);
             // Store the value in dens_short
-            dens_short.push(pf_cache.den_short.clone());
+            pf_cache.den_short.string.clear();
+            for (idx, (e, s)) in pf_cache
+                .den_short
+                .indices
+                .iter()
+                .zip(pf_cache.den_short.energies_and_shifts.iter())
+            {
+                pf_cache
+                    .den_short
+                    .string
+                    .push_str(&format!("{1:+}*E{0}{2:+}*p{0}", idx, e, s));
+            }
+            match self
+                .unique_dens
+                .iter()
+                .position(|x| x.string == pf_cache.den_short.string)
+            {
+                Some(pos) => {
+                    den_ids.push(pos);
+                }
+                None => {
+                    den_ids.push(self.unique_dens.len());
+                    self.unique_dens.push(pf_cache.den_short.clone());
+                }
+            }
         }
         self.partial_fractioning_element
             .push(PartialFractioningBlock {
                 factor: product.factor,
-                denominators: dens_short,
+                denominators: den_ids,
                 numerator: product.numerator.clone(),
             });
     }
@@ -1161,6 +1191,38 @@ impl PartialFractioningMultiLoops {
         }
     }
 
+    pub fn evaluate_unique_dens<T: FloatLike>(
+        &self,
+        loop_lines: &[LoopLine],
+        min_index: usize,
+        map_id: &[(usize, usize)],
+        ltd_cache: &mut LTDCache<T>,
+    ) {
+        if ltd_cache.pf_cache.den_values.len() < self.unique_dens.len() {
+            ltd_cache
+                .pf_cache
+                .den_values
+                .resize(self.unique_dens.len(), Complex::default());
+        }
+        for (den_idx, den) in self.unique_dens.iter().enumerate() {
+            ltd_cache.pf_cache.den_values[den_idx] = Complex::default();
+
+            for (idx, (v_e, v_s)) in den.indices[..den.size]
+                .iter()
+                .zip_eq(den.energies_and_shifts[..den.size].iter())
+                .skip(min_index)
+            {
+                let id = ltd_cache.pf_cache.numerator_index_map[*idx as usize];
+                if ltd_cache.propagator_powers[id] == 0 {
+                    panic!("Ellipsoid do not exists!");
+                }
+                ltd_cache.pf_cache.den_values[den_idx] +=
+                    ltd_cache.complex_cut_energies[id] * Into::<T>::into(*v_e);
+                ltd_cache.pf_cache.den_values[den_idx] +=
+                    Into::<T>::into(loop_lines[map_id[id].0].propagators[map_id[id].1].q.t * v_s);
+            }
+        }
+    }
     /// Evaluate the partial fractioned expression using the information contained in LTDCache
     ///  - propagator_powers
     ///  - reduced_coefficinet_lb
@@ -1196,11 +1258,12 @@ impl PartialFractioningMultiLoops {
             }
         }
         assert_eq!(min_index, 0, "min_index must reach zero!");
+        self.evaluate_unique_dens(loop_lines, min_index, map_id, cache);
 
         for block in self.partial_fractioning_element.iter() {
             let mut block_res = Complex::new(Into::<T>::into(block.factor), T::zero());
-            for den in block.denominators.iter() {
-                block_res *= den.evaluate(loop_lines, min_index, map_id, cache);
+            for idx in block.denominators.iter() {
+                block_res *= cache.pf_cache.den_values[*idx].inv()
             }
             let num = block.evaluate_numerator(loop_lines, map_id, cache);
             //println!("block result: 1/den * num : {} * {}", block_res, num);
