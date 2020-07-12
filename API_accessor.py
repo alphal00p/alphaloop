@@ -1,21 +1,10 @@
 #!/usr/bin/env python3
-import argparse
 import sys
+import argparse
 import os
 pjoin = os.path.join
 
-root_path = os.path.dirname(os.path.realpath( __file__ ))
-sys.path.insert(0, root_path)
-
 from pprint import pprint
-
-try:
-    # Import the rust bindings
-    from ltd import LTD, CrossSection
-except ImportError:
-    raise BaseException(
-        "Could not import the rust back-end 'ltd' module. Compile it first with:"
-        " ./make_lib from within the pyNLoop directory." )
 
 _VALID_MODES = ['LTD', 'cross_section']
 
@@ -59,22 +48,155 @@ parser.add_argument('--amplitudes-path', '--apath', type=str, default=pjoin('LTD
 parser.add_argument('--input', '-i', type=str, default='',
                     help='Specify an input string to process.')
 
-args = parser.parse_args()
+_CALLED_FROM_MATHEMATICA = False
+if len(sys.argv)>1 and "start" in sys.argv[1]:
+    _CALLED_FROM_MATHEMATICA = True
 
+rust_instances = []
+_MODEs = []
+root_path = None
+if not _CALLED_FROM_MATHEMATICA:
+    root_path = os.path.dirname(os.path.realpath( __file__ ))
+    sys.path.insert(0, root_path)
 
-if args.mode=='LTD':
-    rust_instance = LTD(
+    try:
+        # Import the rust bindings
+        from ltd import LTD, CrossSection
+    except ImportError:
+        print("ERROR: Could not import the rust back-end 'ltd' module. Compile it first with:"
+            " ./make_lib from within the pyNLoop directory.")
+        raise
+
+    args = parser.parse_args()
+    _MODEs.append(args.mode)
+
+    if args.mode=='LTD':
+        rust_instance = LTD(
             settings_file = pjoin(root_path, args.hyperparameter_path),
             topology_file = pjoin(root_path, args.topologies_path),
             amplitude_file = pjoin(root_path, args.amplitudes_path),
             top_name = args.name,
             amp_name = '' 
         )
-elif args.mode=='cross_section':
-    rust_instance = CrossSection(
-        pjoin(root_path,args.name),
-        pjoin(root_path,args.hyperparameter_path)
-    )
+    elif args.mode=='cross_section':
+        rust_instance = CrossSection(
+            pjoin(root_path,args.name),
+            pjoin(root_path,args.hyperparameter_path)
+        )
+    rust_instances.append(rust_instance)        
+
+def API_show_mode():
+    print(_MODEs[0])
+
+def API_show_env(variable):
+    print(os.environ[variable])
+
+def API_show_rust_instance():
+    print(rust_instances[0])
+
+def API_initialise(
+               base_path,
+               name, 
+               mode=_VALID_MODES[0], 
+               hyperparameter_path=pjoin('LTD','hyperparameters.yaml'), 
+               topologies_path=pjoin('LTD','topologies.yaml'), 
+               amplitudes_path=pjoin('LTD','amplitudes.yaml')
+              ):
+
+    _MODEs.append(mode)
+
+    root_path = base_path
+    sys.path.insert(0, root_path)
+
+    try:
+        # Import the rust bindings
+        from ltd import LTD, CrossSection
+    except ImportError:
+        print("ERROR: Could not import the rust back-end 'ltd' module. Compile it first with:"
+            " ./make_lib from within the pyNLoop directory.")
+        raise
+
+    if mode=='LTD':
+        rust_instance = LTD(
+            settings_file = pjoin(root_path, hyperparameter_path),
+            topology_file = pjoin(root_path, topologies_path),
+            amplitude_file = pjoin(root_path, amplitudes_path),
+            top_name = name,
+            amp_name = '' 
+        )
+    elif mode=='cross_section':
+        rust_instance = CrossSection(
+            pjoin(root_path,name),
+            pjoin(root_path,hyperparameter_path)
+        )
+    rust_instances.append(rust_instance)
+
+def API_exit():
+    sys.exit(1)
+
+def API_get_deformation(f128_mode, momenta_input, cut_ID=None, diagram_set_ID=-1):
+    if _MODEs[0]=='LTD':
+        kappas, jac_re, jac_im = rust_instances[-1].deform(momenta_input)
+        return {'jac':jac_re+jac_im*1j, 'kappas':kappas}
+    elif _MODEs[0]=='cross_section':
+        call_opts = {}
+        if diagram_set_ID >= 0:
+            call_opts['diagram_set'] = diagram_set_ID
+        deformed_momenta = rust_instances[-1].get_cut_deformation(momenta_input, cut_ID, **call_opts)
+        return {'deformed_momenta':deformed_momenta}
+
+def API_parameterize(f128_mode, loop_index, e_cm, xs):
+    if f128_mode:
+        kx, ky, kz, jac = rust_instances[-1].parameterize_f128(xs,loop_index,e_cm)
+    else:
+        kx, ky, kz, jac = rust_instances[-1].parameterize(xs,loop_index,e_cm)
+    return {'jacobian':jac,'momentum':[kx,ky,kz]}
+
+def API_inv_parameterize(f128_mode, loop_index, e_cm, ks):
+    if f128_mode:
+        kx, ky, kz, jac = rust_instances[-1].inv_parameterize_f128(ks,loop_index,e_cm)
+    else:
+        kx, ky, kz, jac = rust_instances[-1].inv_parameterize(ks,loop_index,e_cm)
+    return {'jacobian':jac,'xs':[kx,ky,kz]}
+
+def API_get_scaling(f128_mode, cut_ID, momenta_input):
+    rescaling_solutions = rust_instances[-1].get_scaling(momenta_input, cut_ID)
+    return {'solutions': rescaling_solutions}
+    
+def API_evaluate(f128_mode, momenta_input):
+    if _MODEs[0] == 'cross_section':
+        momenta_input = [ [0.0]+[ki for ki in k] for k in momenta_input ]
+        if f128_mode:
+            res_re, res_im = rust_instances[-1].evaluate_f128(momenta_input)
+        else:
+            res_re, res_im = rust_instances[-1].evaluate(momenta_input)
+        return {'res':res_re+res_im*1j}
+    else:
+        print("ERROR Function %s not support for LTD mode yet."%"evaluate")
+
+def API_evaluate_cut(f128_mode, cut_ID, diagram_set_ID, scaling, scaling_jac, momenta_input):
+    if _MODEs[0] == 'cross_section':
+        momenta_input = [ [0.0]+[ki for ki in k] for k in momenta_input ]
+        call_opts = {}
+        if diagram_set_ID >= 0:
+            call_opts['diagram_set'] = diagram_set_ID
+        if f128_mode:
+            res_re, res_im = rust_instances[-1].evaluate_cut_f128(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
+        else:
+            res_re, res_im = rust_instances[-1].evaluate_cut(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
+        return {'res':res_re+res_im*1j}
+    else:
+        print("ERROR Function %s not support for LTD mode yet."%"evaluate_cut")
+
+def API_evaluate_integrand(f128_mode, xs):
+    if _MODEs[0] == 'cross_section':
+        if f128_mode:
+            print("ERROR Function %s does not support f128 mode."%"evaluate_integrand")     
+        else:
+            res_re, res_im = rust_instances[-1].evaluate_integrand(xs)
+        return {'res':res_re+res_im*1j}
+    else:
+        print("ERROR Function %s not support for LTD mode yet."%"evaluate_integrand")
 
 _SUPPORTED_API_FUNCTIONS = { 
     'LTD':
@@ -83,7 +205,7 @@ _SUPPORTED_API_FUNCTIONS = {
         ('exit', 'get_deformation', 'get_scaling', 'parameterize', 'inv_parameterize','evaluate','evaluate_cut','evaluate_integrand'),
 }
 
-while True:
+while True and not _CALLED_FROM_MATHEMATICA:
     if args.input == '':
         raw_input_str = input()
     else:
@@ -104,7 +226,7 @@ while True:
     elif API_name == 'get_deformation':        
         if args.mode == 'LTD':
             momenta_input = [ [float(k) for k in raw_input_str[il*4:(il+1)*4]] for il in range(len(raw_input_str)//4) ]
-            kappas, jac_re, jac_im = rust_instance.deform(momenta_input)
+            kappas, jac_re, jac_im = rust_instances[-1].deform(momenta_input)
             print('TOMATHEMATICA '+'%.16e '%jac_re+'%.16e '%jac_im+' '.join('%.16e'%(ke) for k in kappas for ke in k))
         elif args.mode == 'cross_section':
             cut_ID = int(raw_input_str[0])
@@ -113,33 +235,33 @@ while True:
             if diagram_set_ID >= 0:
                 call_opts['diagram_set'] = diagram_set_ID
             momenta_input = [ [float(k) for k in raw_input_str[2:][il*3:(il+1)*3]] for il in range(len(raw_input_str[2:])//3) ]
-            deformed_momenta = rust_instance.get_cut_deformation(momenta_input, cut_ID, **call_opts)
+            deformed_momenta = rust_instances[-1].get_cut_deformation(momenta_input, cut_ID, **call_opts)
             print('TOMATHEMATICA '+' '.join('%.16e'%(ke[0]) for k in deformed_momenta for ke in k)+' '+' '.join('%.16e'%(ke[1]) for k in deformed_momenta for ke in k))
     elif API_name == 'parameterize': 
             loop_index = int(raw_input_str[0])
             e_cm = float(raw_input_str[1])
             xs = [float(x) for x in raw_input_str[2:]]
             if f128_mode:
-                kx, ky, kz, jac = rust_instance.parameterize_f128(xs,loop_index,e_cm)
+                kx, ky, kz, jac = rust_instances[-1].parameterize_f128(xs,loop_index,e_cm)
             else:
-                kx, ky, kz, jac = rust_instance.parameterize(xs,loop_index,e_cm)
+                kx, ky, kz, jac = rust_instances[-1].parameterize(xs,loop_index,e_cm)
             print('TOMATHEMATICA '+' '.join('%.16e'%f for f in [jac, kx, ky, kz]))
     elif API_name == 'inv_parameterize':
             loop_index = int(raw_input_str[0])
             e_cm = float(raw_input_str[1])
             ks = [0.0]+[float(ke) for ke in raw_input_str[2:]]
             if f128_mode:
-                kx, ky, kz, jac = rust_instance.inv_parameterize_f128(ks,loop_index,e_cm)
+                kx, ky, kz, jac = rust_instances[-1].inv_parameterize_f128(ks,loop_index,e_cm)
             else:
-                kx, ky, kz, jac = rust_instance.inv_parameterize(ks,loop_index,e_cm)
+                kx, ky, kz, jac = rust_instances[-1].inv_parameterize(ks,loop_index,e_cm)
             print('TOMATHEMATICA '+' '.join('%.16e'%f for f in [jac, kx, ky, kz]))
     elif API_name == 'evaluate':
         if args.mode == 'cross_section':
             momenta_input = [ [0.0]+[float(k) for k in raw_input_str[il*3:(il+1)*3]] for il in range(len(raw_input_str)//3) ]
             if f128_mode:
-                res_re, res_im = rust_instance.evaluate_f128(momenta_input)
+                res_re, res_im = rust_instances[-1].evaluate_f128(momenta_input)
             else:
-                res_re, res_im = rust_instance.evaluate(momenta_input)
+                res_re, res_im = rust_instances[-1].evaluate(momenta_input)
             print('TOMATHEMATICA '+'%.16e'%res_re+' '+'%.16e'%res_im)
         else:
             print("ERROR Function %s not support for LTD mode yet."%API_name)
@@ -154,9 +276,9 @@ while True:
             if diagram_set_ID >= 0:
                 call_opts['diagram_set'] = diagram_set_ID
             if f128_mode:
-                res_re, res_im = rust_instance.evaluate_cut_f128(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
+                res_re, res_im = rust_instances[-1].evaluate_cut_f128(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
             else:
-                res_re, res_im = rust_instance.evaluate_cut(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
+                res_re, res_im = rust_instances[-1].evaluate_cut(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
             print('TOMATHEMATICA '+'%.16e'%res_re+' '+'%.16e'%res_im)
         else:
             print("ERROR Function %s not support for LTD mode yet."%API_name)
@@ -166,14 +288,14 @@ while True:
             if f128_mode:
                 print("ERROR Function %s does not support f128 mode."%API_name)     
             else:
-                res_re, res_im = rust_instance.evaluate_integrand(xs)
+                res_re, res_im = rust_instances[-1].evaluate_integrand(xs)
                 print('TOMATHEMATICA '+'%.16e'%res_re+' '+'%.16e'%res_im)   
         else:
             print("ERROR Function %s not support for LTD mode yet."%API_name)
     elif API_name == 'get_scaling':
         cut_ID = int(raw_input_str[0])
         momenta_input = [ [float(k) for k in raw_input_str[1:][il*3:(il+1)*3]] for il in range(len(raw_input_str[1:])//3) ]
-        rescaling_solutions = rust_instance.get_scaling(momenta_input, cut_ID) 
+        rescaling_solutions = rust_instances[-1].get_scaling(momenta_input, cut_ID) 
         print('TOMATHEMATICA '+' '.join('%.16e'%(s) for ss in rescaling_solutions for s in ss))
 
     # Send out stdout
