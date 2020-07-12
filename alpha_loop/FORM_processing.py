@@ -1424,8 +1424,7 @@ class FORMSuperGraphList(list):
             raise FormProcessingError("This FORMSuperGraphList instance requires at least one entry for generating numerators.")
 
         # add all numerators in one file and write the headers
-        numerator_header = """#include <math.h>
-#include <complex.h>
+        numerator_header = """#include <tgmath.h>
 #include <signal.h>
 #include "%(header)snumerator.h"
 """
@@ -1556,7 +1555,7 @@ int %(header)sget_rank_{}(int conf) {{
 
         numerator_code = \
 """
-#include <complex.h>
+#include <tgmath.h>
 #include <signal.h>
 
 {}
