@@ -101,7 +101,7 @@ CF integratedct, rat, num, den;
 Set ts: t0,...,t20;
 CT penergy;
 NF energync;
-Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
+Symbol ca,cf,nf,[dabc^2],[d4RR],[d4RA],[d4AA];
 
 S eulergamma, log4pi, pi;
 
@@ -216,17 +216,20 @@ Argument color;
     #call simpli
     id  cOlI2R = cOlcR*cOlNR/cOlNA;
     id  cOlNR/cOlNA*cOlcR = cOlI2R;
-    id  cOld33(cOlpR1,cOlpR2) = [dabc^2/n]*cOlNR;
+    id  cOld33(cOlpR1,cOlpR2) = [dabc^2];
     id  cOlNR/cOlNA = nf/cf/2;
     id  cOlcR = cf;
     id  cOlcA = ca;
     id  cOlI2R = nf/2;
-	id	cOld44(cOlpA1,cOlpA2) = [d4AA/n]*cOlNA;
-	id	cOld44(cOlpR1,cOlpR2) = [d4RR/n]*cOlNA;
-	id	cOld44(cOlpR1,cOlpA1) = [d4RA/n]*cOlNA;
+	id	cOld44(cOlpA1,cOlpA2) = [d4AA];
+	id	cOld44(cOlpR1,cOlpR2) = [d4RR];
+	id	cOld44(cOlpR1,cOlpA1) = [d4RA];
 
 * set the SU(3) values
-    id [dabc^2/n] = 5/18;
+    id [dabc^2] = 15/18;
+    id [d4AA] = 135;
+    id [d4RR] = 5/12;
+    id [d4RA] = 15/2;
     id cOlNR = 3;
     id cOlNA = 8;
     id cf = 4 / 3;
