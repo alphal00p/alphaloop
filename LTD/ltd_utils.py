@@ -1019,6 +1019,7 @@ class TopologyGenerator(object):
 
         # since edges could be flipped, we create an new shift map
         new_shift_map = copy.deepcopy(shift_map)
+        powers = copy.deepcopy(self.powers)
 
         for prop, (edge_name, v1, v2) in zip(self.propagators, self.edge_map_lin):
             if prop == ():
@@ -1044,19 +1045,39 @@ class TopologyGenerator(object):
             # flip the sign if the inverse exists
             # TODO: should this generate a minus sign when there is an odd-power numerator?
             alt_sig = tuple(s * -1 for s in signature)
+            alt_prop = tuple((e, not d) for e, d in prop)
             if len(signature) > 0 and any(s != 0 for s in signature) and alt_sig in loop_line_map or should_flip:
                 #print('warning: changing sign of propagator %s: %s -> %s' % (edge_name, tuple(signature), alt_sig) )
-                loop_line_map[alt_sig].append((edge_name, -q, mass))
+                if tuple(alt_sig) in loop_line_map:
+                    for ll in loop_line_map[tuple(alt_sig)]:
+                        # if the edge is duplicate, raise the power and don't add it to the map
+                        if ll[3] == alt_prop and ll[2] == mass:
+                            #print('Merging with flip', name, ll[0], edge_name)
+                            powers[ll[0]] += powers[edge_name]
+                            break
+                    else:
+                        loop_line_map[alt_sig].append((edge_name, -q, mass, alt_prop))
+                else:
+                    loop_line_map[alt_sig].append((edge_name, -q, mass, alt_prop))
+
                 loop_line_vertex_map[alt_sig] += [(v2, v1)]
 
                 if shift_map is not None:
                     new_shift_map[edge_name] = [[s * -1 for s in shift_map[edge_name][0]], [s * -1 for s in shift_map[edge_name][1]]]
             else:
-                loop_line_map[tuple(signature)].append((edge_name, q, mass))
+                if tuple(signature) in loop_line_map:
+                    for ll in loop_line_map[tuple(signature)]:
+                        # if the edge is duplicate, raise the power and don't add it to the map
+                        if ll[3] == prop and ll[2] == mass:
+                            #print('Merging', name, ll[0], edge_name)
+                            powers[ll[0]] += powers[edge_name]
+                            break
+                    else:
+                        loop_line_map[tuple(signature)].append((edge_name, q, mass, prop))
+                else:
+                    loop_line_map[tuple(signature)].append((edge_name, q, mass, prop))
 
                 loop_line_vertex_map[tuple(signature)] += [(v1, v2)]
-
-        # TODO: merge edges with identical propagator map!
 
         # vertices that are fused may again be fused with another vertex
         def multifuse(fuse_map, v):
@@ -1094,10 +1115,10 @@ class TopologyGenerator(object):
             signature=signature,
             propagators=tuple(
                 Propagator(q=q, m_squared=mass**2,
-                            power=self.powers[edge_name],
+                            power=powers[edge_name],
                             parametric_shift=new_shift_map[edge_name] if shift_map is not None else None,
                             name=edge_name)
-                for (edge_name, q, mass) in propagators)) for signature, propagators in loop_line_list]
+                for (edge_name, q, mass, _) in propagators)) for signature, propagators in loop_line_list]
 
         cs = self.get_cut_structures([l for l in ll if any(s != 0 for s in l.signature)], contour_closure)
 
