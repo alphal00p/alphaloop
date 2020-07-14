@@ -550,9 +550,9 @@ def num_mapper(product, indices, residue_n):
 
     for idx in indices:
         den_giver = product[idx]
-        factor = 1/den_giver['lambdas'][residue_n]
+        factor = -1/den_giver['lambdas'][residue_n]
         num_mapped += [
-            {'lambdas': - factor*den_giver['lambdas'],
+            {'lambdas': factor*den_giver['lambdas'],
              'shifts': factor*den_giver['shifts'],
              'energies': factor*den_giver['energies']}
         ]
