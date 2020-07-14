@@ -1133,8 +1133,7 @@ class FORMSuperGraphIsomorphicList(list):
             return to_dump
     
     def multiplicity_factor(self,iso_id, workspace, form_source):
-        output_match = re.compile("isoF=[-10]+;")
-        factor_match = re.compile("[-10]+")
+        output_match = re.compile(r'isoF=(.*?);')
         multiplicity = 0
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
@@ -1160,19 +1159,14 @@ class FORMSuperGraphIsomorphicList(list):
                 raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
             output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
-            factor = int(factor_match.findall(output_match.findall(output)[0])[0])
+            factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
 
-            if factor == 0:
-                raise FormProcessingError("Multiplicity not found: {} =/= (+/-) * {}. (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
-            elif factor == 10:
-                multiplicity = 0
-                continue
-            elif factor == -1 or factor == 1:
-                multiplicity += factor
+            if "rat" in factor:
+                raise FormProcessingError("Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
             else:
-                raise FormProcessingError("Unknown isoF for multiplicity factor : usiF={}".format(factor))
+                multiplicity += eval(factor)
 
-            #logger.info("{} = ({:+d}) * {}".format(self[0].name, factor, g.name ))
+            logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
         return multiplicity    
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, bar=None ):
