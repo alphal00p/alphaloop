@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[    156459,       4286]
-NotebookOptionsPosition[    153409,       4234]
-NotebookOutlinePosition[    153743,       4249]
-CellTagsIndexPosition[    153700,       4246]
+NotebookDataLength[     50235,        954]
+NotebookOptionsPosition[     47295,        903]
+NotebookOutlinePosition[     47629,        918]
+CellTagsIndexPosition[     47586,        915]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -21,7 +21,7 @@ Notebook[{
 Cell[BoxData[
  RowBox[{"Quit", "[", "]"}]], "Input",
  CellChangeTimes->{{3.793711595145846*^9, 3.7937115986297398`*^9}},
- CellLabel->"In[9]:=",ExpressionUUID->"609309bb-30ea-4a5f-9444-accd47c8c739"],
+ CellLabel->"In[14]:=",ExpressionUUID->"609309bb-30ea-4a5f-9444-accd47c8c739"],
 
 Cell[CellGroupData[{
 
@@ -33,8 +33,9 @@ Cell[BoxData[
 
 Cell[BoxData["\<\"/home/armin/my_programs/pynloop/alpha_loop/gg_hhh\"\>"], \
 "Output",
- CellChangeTimes->{3.803120515500506*^9, 3.8031224220834303`*^9},
- CellLabel->"Out[1]=",ExpressionUUID->"b4a3e977-baff-42cb-b794-dfb3388e7428"]
+ CellChangeTimes->{3.803120515500506*^9, 3.8031224220834303`*^9, 
+  3.803709546939258*^9, 3.803709807393675*^9},
+ CellLabel->"Out[1]=",ExpressionUUID->"2dfb51b7-4180-4eb1-b0b0-5a085e13ed0a"]
 }, Open  ]],
 
 Cell[CellGroupData[{
@@ -61,10 +62,11 @@ m\\\"]; InstallFeynCalc[]\\n Needs the package IGraphM which can be \
 downloaded from https://github.com/szhorvat/IGraphM. !!! \\n Run: \
 Get[\\\"https://raw.githubusercontent.com/szhorvat/IGraphM/master/IGInstaller.\
 m\\\"] for installation. \"\>"], "Print",
- CellChangeTimes->{3.80312051562564*^9, 3.8031224232829437`*^9},
+ CellChangeTimes->{3.80312051562564*^9, 3.8031224232829437`*^9, 
+  3.803709547048799*^9, 3.803709808826488*^9},
  CellLabel->
   "During evaluation of \
-In[2]:=",ExpressionUUID->"cc48ef1e-28de-42c4-ae43-299b4469a073"],
+In[2]:=",ExpressionUUID->"9164a333-9f22-485b-af24-0e6bf1355872"],
 
 Cell[BoxData[
  InterpretationBox[
@@ -130,10 +132,11 @@ Cell[BoxData[
       "Hyperlink", ButtonNote -> "http://www.feyncalc.org/forum/"]], "Text"]],
   
   Editable->False]], "Print",
- CellChangeTimes->{3.80312051562564*^9, 3.803122428117416*^9},
+ CellChangeTimes->{3.80312051562564*^9, 3.8031224232829437`*^9, 
+  3.803709547048799*^9, 3.803709813363752*^9},
  CellLabel->
   "During evaluation of \
-In[2]:=",ExpressionUUID->"94e0dac9-5232-43b6-8443-b0c4f65dcf38"],
+In[2]:=",ExpressionUUID->"c718483c-f9b1-43b5-bafd-aca2ff2b688c"],
 
 Cell[BoxData[
  InterpretationBox[
@@ -162,10 +165,11 @@ Cell[BoxData[
       "https://github.com/FeynCalc/feyncalc/wiki"]], "Text"], 
    Style[" for answers to some common FeynCalc questions.", "Text"]],
   Editable->False]], "Print",
- CellChangeTimes->{3.80312051562564*^9, 3.803122428129694*^9},
+ CellChangeTimes->{3.80312051562564*^9, 3.8031224232829437`*^9, 
+  3.803709547048799*^9, 3.803709813366227*^9},
  CellLabel->
   "During evaluation of \
-In[2]:=",ExpressionUUID->"7f21174e-5492-409e-9bdb-732562b30296"],
+In[2]:=",ExpressionUUID->"4b7235ca-c05b-4f8b-b751-c850a968d5c7"],
 
 Cell[BoxData[
  InterpretationBox[
@@ -196,37 +200,41 @@ Cell[BoxData[
       Automatic, Method -> "Preemptive"]], "Text"], 
    Style[" If you use FeynCalc in your research, please cite", "Text"]],
   Editable->False]], "Print",
- CellChangeTimes->{3.80312051562564*^9, 3.8031224281322117`*^9},
+ CellChangeTimes->{3.80312051562564*^9, 3.8031224232829437`*^9, 
+  3.803709547048799*^9, 3.803709813367633*^9},
  CellLabel->
   "During evaluation of \
-In[2]:=",ExpressionUUID->"a0250eb4-b4d2-487b-948b-f0f915a3664d"],
+In[2]:=",ExpressionUUID->"c093d122-6a42-4b2f-8668-9326e2af6156"],
 
 Cell[BoxData[
  StyleBox["\<\" \[Bullet] V. Shtabovenko, R. Mertig and F. Orellana, \
 P3H-20-002, TTP19-020, TUM-EFT 130/19, arXiv:2001.04407\"\>", "Text",
   StripOnInput->False]], "Print",
- CellChangeTimes->{3.80312051562564*^9, 3.803122428135378*^9},
+ CellChangeTimes->{3.80312051562564*^9, 3.8031224232829437`*^9, 
+  3.803709547048799*^9, 3.8037098133687487`*^9},
  CellLabel->
   "During evaluation of \
-In[2]:=",ExpressionUUID->"398b311b-57ef-4680-a68a-eb8ad0bfc9cf"],
+In[2]:=",ExpressionUUID->"e1c9b4e9-c548-4aa4-a0a2-7520254c900a"],
 
 Cell[BoxData[
  StyleBox["\<\" \[Bullet] V. Shtabovenko, R. Mertig and F. Orellana, Comput. \
 Phys. Commun., 207, 432-444, 2016, arXiv:1601.01167\"\>", "Text",
   StripOnInput->False]], "Print",
- CellChangeTimes->{3.80312051562564*^9, 3.80312242814145*^9},
+ CellChangeTimes->{3.80312051562564*^9, 3.8031224232829437`*^9, 
+  3.803709547048799*^9, 3.803709813369776*^9},
  CellLabel->
   "During evaluation of \
-In[2]:=",ExpressionUUID->"3c2fef4c-3970-43a2-ad18-a4268377689e"],
+In[2]:=",ExpressionUUID->"0f70b179-678f-439b-8b79-dd0069332d03"],
 
 Cell[BoxData[
  StyleBox["\<\" \[Bullet] R. Mertig, M. B\[ODoubleDot]hm, and A. Denner, \
 Comput. Phys. Commun., 64, 345-359, 1991.\"\>", "Text",
   StripOnInput->False]], "Print",
- CellChangeTimes->{3.80312051562564*^9, 3.8031224281435423`*^9},
+ CellChangeTimes->{3.80312051562564*^9, 3.8031224232829437`*^9, 
+  3.803709547048799*^9, 3.8037098133707952`*^9},
  CellLabel->
   "During evaluation of \
-In[2]:=",ExpressionUUID->"705e9137-4fba-449e-b270-758acde011ba"]
+In[2]:=",ExpressionUUID->"b9d2d58e-7afb-49a5-828a-308b478b83a9"]
 }, Open  ]]
 }, Open  ]],
 
@@ -373,6 +381,8 @@ Cell[BoxData[{
                    RowBox[{
                     RowBox[{
                     RowBox[{
+                    RowBox[{
+                    RowBox[{
                     RowBox[{"(", 
                     RowBox[{
                     RowBox[{
@@ -392,22 +402,29 @@ Cell[BoxData[{
                     "\[RuleDelayed]", 
                     RowBox[{"gamma", "[", 
                     RowBox[{"a", ",", "x", ",", "b"}], "]"}]}]}], "/.", " ", 
-                   RowBox[{
+                    RowBox[{
                     RowBox[{"sunA", "[", "x_", "]"}], "\[RuleDelayed]", 
                     RowBox[{"sunA", "[", 
                     RowBox[{"x", "+", "10"}], "]"}]}]}], " ", "/.", " ", 
+                    RowBox[{
+                    RowBox[{"GSD", "[", "x_", "]"}], "\[RuleDelayed]", 
+                    "x"}]}], " ", "/.", " ", 
+                   RowBox[{"mT", "\[Rule]", 
+                    RowBox[{"masses", "[", "6", "]"}]}]}], " ", "/.", " ", 
                   RowBox[{
-                   RowBox[{"GSD", "[", "x_", "]"}], "\[RuleDelayed]", "x"}]}],
-                  " ", "/.", " ", 
-                 RowBox[{"mT", "\[Rule]", 
-                  RowBox[{"masses", "[", "6", "]"}]}]}], " ", "/.", " ", 
+                   RowBox[{"SD", "[", "x__", "]"}], "\[RuleDelayed]", 
+                   RowBox[{"d", "[", "x", "]"}]}]}], " ", "/.", " ", 
+                 RowBox[{
+                  RowBox[{"s", "[", "x_", "]"}], "\[RuleDelayed]", 
+                  RowBox[{"diracInd", "[", "x", "]"}]}]}], " ", "/.", " ", 
                 RowBox[{
-                 RowBox[{"SD", "[", "x__", "]"}], "\[RuleDelayed]", 
-                 RowBox[{"d", "[", "x", "]"}]}]}], " ", "/.", " ", 
+                 RowBox[{"pol", "[", 
+                  RowBox[{"p1", ",", "x__"}], "]"}], "\[RuleDelayed]", 
+                 RowBox[{"pol", "[", "1", "]"}]}]}], " ", "/.", " ", 
                RowBox[{
-                RowBox[{"s", "[", "x_", "]"}], "\[RuleDelayed]", 
-                RowBox[{"diracInd", "[", "x", "]"}]}]}], " ", ",", 
-              "InputForm"}], "]"}], ",", 
+                RowBox[{"pol", "[", 
+                 RowBox[{"2", ",", "x__"}], "]"}], "\[RuleDelayed]", 
+                "eps2"}]}], " ", ",", "InputForm"}], "]"}], ",", 
             RowBox[{"{", 
              RowBox[{
               RowBox[{"\"\<]\>\"", "\[Rule]", "\"\<)\>\""}], ",", 
@@ -449,7 +466,8 @@ Cell[BoxData[{
    3.803117219360359*^9, 3.803117272037321*^9}, {3.803117372471439*^9, 
    3.803117411144022*^9}, {3.8031175103813763`*^9, 3.803117530413258*^9}, {
    3.80311944335109*^9, 3.8031194499037857`*^9}, {3.803120499259474*^9, 
-   3.803120499447915*^9}},
+   3.803120499447915*^9}, {3.8037095015097837`*^9, 3.8037095391915503`*^9}, {
+   3.803709786624321*^9, 3.803709793916966*^9}},
  CellLabel->"In[5]:=",ExpressionUUID->"5a30e0ea-de43-49f2-b78d-9fb991faac45"],
 
 Cell[BoxData[
@@ -575,3646 +593,12 @@ Cell[BoxData[
  CellLabel->"In[8]:=",ExpressionUUID->"14ab0af5-1f0d-4035-b5b3-40ea3b8bf4fc"],
 
 Cell[BoxData["\<\"ggHHHLeftDiags.py\"\>"], "Output",
- CellChangeTimes->{3.803120534253289*^9, 3.8031224439815683`*^9},
- CellLabel->"Out[8]=",ExpressionUUID->"a4a3631c-9a59-4450-bbf3-fa13ea0fe6f0"]
+ CellChangeTimes->{3.803120534253289*^9, 3.8031224439815683`*^9, 
+  3.803709574314063*^9, 3.803709828073887*^9},
+ CellLabel->"Out[8]=",ExpressionUUID->"41131112-31cf-4df3-a0b2-60e3ddbc6165"]
 }, Open  ]],
 
 Cell[CellGroupData[{
-
-Cell[BoxData[
- RowBox[{
-  RowBox[{
-   RowBox[{"allGraphs", "[", 
-    RowBox[{"[", 
-     RowBox[{"1", ",", "\"\<numerator\>\""}], "]"}], "]"}], "/.", " ", 
-   RowBox[{
-    RowBox[{"scalarProp", "[", "x__", "]"}], "\[RuleDelayed]", "1"}]}], "//", 
-  "FCE"}]], "Input",
- CellChangeTimes->{{3.803122535110106*^9, 3.80312257237525*^9}},
- CellLabel->"In[12]:=",ExpressionUUID->"10a7824d-6d1d-4273-af00-851003d572e6"],
-
-Cell[BoxData[
- RowBox[{
-  FractionBox["1", "2"], " ", 
-  SuperscriptBox["gs", "2"], " ", 
-  SuperscriptBox["gy", "3"], " ", 
-  SuperscriptBox["ii", "10"], " ", 
-  RowBox[{"(", 
-   RowBox[{
-    RowBox[{
-     RowBox[{"-", 
-      RowBox[{"DCHN", "[", 
-       RowBox[{
-        RowBox[{"GSD", "[", "k1", "]"}], ",", 
-        RowBox[{"s", "[", "1", "]"}], ",", 
-        RowBox[{"s", "[", "2", "]"}]}], "]"}]}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2", "-", "p4"}], "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "-", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "5"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{"mT", " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1", "+", "p3"}], "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "2"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "+", "p2"}], "]"}], ",", 
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "3"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"k1", "-", "p1"}], "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "4"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", "k1", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}], "+", 
-    RowBox[{
-     SuperscriptBox["mT", "5"], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p1", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "1"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}], ",", 
-       RowBox[{"s", "[", "3", "]"}]}], "]"}], " ", 
-     RowBox[{"DCHN", "[", 
-      RowBox[{
-       RowBox[{"GSD", "[", 
-        RowBox[{"pol", "[", 
-         RowBox[{"p2", ",", "0", ",", 
-          RowBox[{"sunA", "[", 
-           RowBox[{"-", "3"}], "]"}]}], "]"}], "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}], ",", 
-       RowBox[{"s", "[", "1", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "1", "]"}], ",", 
-       RowBox[{"s", "[", "2", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "3", "]"}], ",", 
-       RowBox[{"s", "[", "4", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "4", "]"}], ",", 
-       RowBox[{"s", "[", "7", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "6", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "5", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "7", "]"}], ",", 
-       RowBox[{"s", "[", "8", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "8", "]"}], ",", 
-       RowBox[{"s", "[", "9", "]"}]}], "]"}], " ", 
-     RowBox[{"DIDelta", "[", 
-      RowBox[{
-       RowBox[{"s", "[", "9", "]"}], ",", 
-       RowBox[{"s", "[", "10", "]"}]}], "]"}]}]}], ")"}], " ", 
-  RowBox[{"SD", "[", 
-   RowBox[{
-    RowBox[{"sunA", "[", 
-     RowBox[{"-", "3"}], "]"}], ",", 
-    RowBox[{"sunA", "[", 
-     RowBox[{"-", "1"}], "]"}]}], "]"}]}]], "Output",
- CellChangeTimes->{{3.803122543633883*^9, 3.803122573281529*^9}},
- CellLabel->"Out[12]=",ExpressionUUID->"70c2b2ef-b7c8-440f-9e57-53c5be4524e2"]
-}, Open  ]],
 
 Cell[BoxData[
  RowBox[{"dictPY", "[", 
@@ -4222,7 +606,292 @@ Cell[BoxData[
    RowBox[{"1", ",", "\"\<analytic_num\>\""}], "]"}], "]"}]], "Input",
  CellChangeTimes->{{3.803109761850058*^9, 3.803109785182021*^9}, {
   3.803117326366231*^9, 3.803117332406467*^9}},
- CellLabel->"In[34]:=",ExpressionUUID->"d6cf9e8c-ac82-4029-bdc3-0b06121a597e"],
+ CellLabel->"In[10]:=",ExpressionUUID->"d6cf9e8c-ac82-4029-bdc3-0b06121a597e"],
+
+Cell[BoxData["\<\"(gs^2*gy^3*ii^10*d(sunA(7),sunA(9))*(-(d(diracInd(3),\
+diracInd(8))*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*gamma(\
+diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps2,diracInd(5))*gamma(\
+diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,diracInd(1))*gamma(\
+diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(\
+diracInd(9),k1+p2-p4,diracInd(10)))+d(diracInd(4),diracInd(7))*d(diracInd(5),\
+diracInd(10))*d(diracInd(8),diracInd(9))*gamma(diracInd(1),k1,diracInd(2))*\
+gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(3),k1-p1,diracInd(4))*\
+gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(6),eps2,diracInd(1))*\
+gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(diracInd(9),k1+p2-p4,diracInd(\
+10))+d(diracInd(3),diracInd(8))*d(diracInd(6),diracInd(9))*d(diracInd(7),\
+diracInd(10))*d(diracInd(9),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*\
+gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*\
+gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*\
+gamma(diracInd(7),k1-p1+p3,diracInd(8))*masses(6)+d(diracInd(4),diracInd(7))*\
+d(diracInd(5),diracInd(10))*d(diracInd(8),diracInd(9))*d(diracInd(9),diracInd(\
+10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*\
+gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(5),k1+p2,diracInd(6))*\
+gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*\
+masses(6)+d(diracInd(3),diracInd(8))*d(diracInd(6),diracInd(9))*d(diracInd(7),\
+diracInd(8))*d(diracInd(7),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*\
+gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*\
+gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*\
+gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)+d(diracInd(4),diracInd(7))*\
+d(diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8))*d(diracInd(8),diracInd(\
+9))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*\
+gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(5),k1+p2,diracInd(6))*\
+gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*\
+masses(6)+d(diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),\
+diracInd(9))*d(diracInd(7),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*\
+gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*\
+gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*\
+gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)+d(diracInd(3),diracInd(4))*\
+d(diracInd(3),diracInd(8))*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(\
+10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps2,diracInd(5))*\
+gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*\
+gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(diracInd(9),k1+p2-p4,diracInd(\
+10))*masses(6)+d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(8))*d(\
+diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*gamma(diracInd(2),eps2,\
+diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,\
+diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(7),k1-p1+p3,\
+diracInd(8))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)+d(diracInd(4),\
+diracInd(7))*d(diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(\
+diracInd(8),diracInd(9))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),\
+eps1,diracInd(3))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(6),eps2,\
+diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(diracInd(9),k1+p2-\
+p4,diracInd(10))*masses(6)+d(diracInd(3),diracInd(4))*d(diracInd(4),diracInd(\
+7))*d(diracInd(5),diracInd(10))*d(diracInd(8),diracInd(9))*gamma(diracInd(1),\
+k1,diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(5),k1+p2,\
+diracInd(6))*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-p1+p3,\
+diracInd(8))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)+d(diracInd(1),\
+diracInd(2))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(10))*d(\
+diracInd(8),diracInd(9))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(3)\
+,k1-p1,diracInd(4))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(6),\
+eps2,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(diracInd(9),\
+k1+p2-p4,diracInd(10))*masses(6)-d(diracInd(3),diracInd(8))*d(diracInd(6),\
+diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(10))*d(\
+diracInd(9),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),\
+eps2,diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,\
+diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*masses(6)^2+d(diracInd(4),\
+diracInd(7))*d(diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8))*d(\
+diracInd(8),diracInd(9))*d(diracInd(9),diracInd(10))*gamma(diracInd(1),k1,\
+diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(3),k1-p1,\
+diracInd(4))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(6),eps2,\
+diracInd(1))*masses(6)^2-d(diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))\
+*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*d(diracInd(9),\
+diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps2,\
+diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,\
+diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*masses(6)^2-d(diracInd(3)\
+,diracInd(4))*d(diracInd(3),diracInd(8))*d(diracInd(6),diracInd(9))*d(\
+diracInd(7),diracInd(10))*d(diracInd(9),diracInd(10))*gamma(diracInd(1),k1,\
+diracInd(2))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(4),eps1,\
+diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(7),k1-p1+p3,\
+diracInd(8))*masses(6)^2-d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(8))\
+*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*d(diracInd(9),\
+diracInd(10))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(3),k1-p1,\
+diracInd(4))*gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(5),k1+p2,\
+diracInd(6))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*masses(6)^2+d(diracInd(4)\
+,diracInd(7))*d(diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(\
+diracInd(8),diracInd(9))*d(diracInd(9),diracInd(10))*gamma(diracInd(1),k1,\
+diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(3),k1-p1,\
+diracInd(4))*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-p1+p3,\
+diracInd(8))*masses(6)^2+d(diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))\
+*d(diracInd(5),diracInd(10))*d(diracInd(8),diracInd(9))*d(diracInd(9),\
+diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps1,\
+diracInd(3))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(6),eps2,\
+diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*masses(6)^2+d(diracInd(1)\
+,diracInd(2))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(10))*d(\
+diracInd(8),diracInd(9))*d(diracInd(9),diracInd(10))*gamma(diracInd(2),eps1,\
+diracInd(3))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(5),k1+p2,\
+diracInd(6))*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-p1+p3,\
+diracInd(8))*masses(6)^2-d(diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))\
+*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(\
+10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps2,diracInd(5))*\
+gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,diracInd(1))*\
+gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^2-d(diracInd(3),diracInd(4)\
+)*d(diracInd(3),diracInd(8))*d(diracInd(6),diracInd(9))*d(diracInd(7),\
+diracInd(8))*d(diracInd(7),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*\
+gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(4),eps1,diracInd(1))*gamma(\
+diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*\
+masses(6)^2-d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(8))*d(diracInd(\
+6),diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(10))*gamma(\
+diracInd(2),eps2,diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(\
+diracInd(4),eps1,diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(\
+diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^2+d(diracInd(4),diracInd(7))*d(\
+diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8)\
+)*d(diracInd(8),diracInd(9))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(\
+2),eps1,diracInd(3))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(6),\
+eps2,diracInd(1))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^2+d(\
+diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(10)\
+)*d(diracInd(7),diracInd(8))*d(diracInd(8),diracInd(9))*gamma(diracInd(1),k1,\
+diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(5),k1+p2,\
+diracInd(6))*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(9),k1+p2-p4,\
+diracInd(10))*masses(6)^2+d(diracInd(1),diracInd(2))*d(diracInd(4),diracInd(7)\
+)*d(diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8))*d(diracInd(8),\
+diracInd(9))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(3),k1-p1,\
+diracInd(4))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(6),eps2,\
+diracInd(1))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^2-d(diracInd(\
+3),diracInd(4))*d(diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))*d(\
+diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*gamma(diracInd(1),k1,\
+diracInd(2))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(4),eps1,\
+diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(diracInd(9),k1+p2-\
+p4,diracInd(10))*masses(6)^2-d(diracInd(1),diracInd(2))*d(diracInd(3),\
+diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),diracInd(9))*d(diracInd(\
+7),diracInd(10))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(3),k1-p1,\
+diracInd(4))*gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(7),k1-p1+p3,\
+diracInd(8))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^2-d(diracInd(\
+1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(3),diracInd(8))*d(\
+diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*gamma(diracInd(2),eps2,\
+diracInd(5))*gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(5),k1+p2,\
+diracInd(6))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(diracInd(9),k1+p2-\
+p4,diracInd(10))*masses(6)^2+d(diracInd(3),diracInd(4))*d(diracInd(4),\
+diracInd(7))*d(diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(\
+diracInd(8),diracInd(9))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),\
+eps1,diracInd(3))*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-p1+\
+p3,diracInd(8))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^2+d(\
+diracInd(1),diracInd(2))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(6))\
+*d(diracInd(5),diracInd(10))*d(diracInd(8),diracInd(9))*gamma(diracInd(2),\
+eps1,diracInd(3))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(6),eps2,\
+diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(diracInd(9),k1+p2-\
+p4,diracInd(10))*masses(6)^2+d(diracInd(1),diracInd(2))*d(diracInd(3),\
+diracInd(4))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(10))*d(\
+diracInd(8),diracInd(9))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(5)\
+,k1+p2,diracInd(6))*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-\
+p1+p3,diracInd(8))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^2+d(\
+diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),diracInd(9))\
+*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(10))*d(diracInd(9),\
+diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps2,\
+diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,\
+diracInd(1))*masses(6)^3+d(diracInd(3),diracInd(4))*d(diracInd(3),diracInd(8))\
+*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(\
+10))*d(diracInd(9),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*gamma(\
+diracInd(2),eps2,diracInd(5))*gamma(diracInd(4),eps1,diracInd(1))*gamma(\
+diracInd(5),k1+p2,diracInd(6))*masses(6)^3+d(diracInd(1),diracInd(2))*d(\
+diracInd(3),diracInd(8))*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(8))\
+*d(diracInd(7),diracInd(10))*d(diracInd(9),diracInd(10))*gamma(diracInd(2),\
+eps2,diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,\
+diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*masses(6)^3+d(diracInd(4),\
+diracInd(7))*d(diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(\
+diracInd(7),diracInd(8))*d(diracInd(8),diracInd(9))*d(diracInd(9),diracInd(10)\
+)*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*gamma(\
+diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(6),eps2,diracInd(1))*masses(6)^\
+3+d(diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))*d(diracInd(5),\
+diracInd(10))*d(diracInd(7),diracInd(8))*d(diracInd(8),diracInd(9))*d(\
+diracInd(9),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),\
+eps1,diracInd(3))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(6),eps2,\
+diracInd(1))*masses(6)^3+d(diracInd(1),diracInd(2))*d(diracInd(4),diracInd(7))\
+*d(diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8))*d(diracInd(8),\
+diracInd(9))*d(diracInd(9),diracInd(10))*gamma(diracInd(2),eps1,diracInd(3))*\
+gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(5),k1+p2,diracInd(6))*\
+gamma(diracInd(6),eps2,diracInd(1))*masses(6)^3+d(diracInd(3),diracInd(4))*d(\
+diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),diracInd(9))\
+*d(diracInd(7),diracInd(10))*d(diracInd(9),diracInd(10))*gamma(diracInd(1),k1,\
+diracInd(2))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(4),eps1,\
+diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*masses(6)^3+d(diracInd(1)\
+,diracInd(2))*d(diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))*d(\
+diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*d(diracInd(9),diracInd(\
+10))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*\
+gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*\
+masses(6)^3+d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(\
+3),diracInd(8))*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*d(\
+diracInd(9),diracInd(10))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(\
+4),eps1,diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(7),\
+k1-p1+p3,diracInd(8))*masses(6)^3+d(diracInd(3),diracInd(4))*d(diracInd(4),\
+diracInd(7))*d(diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(\
+diracInd(8),diracInd(9))*d(diracInd(9),diracInd(10))*gamma(diracInd(1),k1,\
+diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(6),eps2,\
+diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*masses(6)^3+d(diracInd(1)\
+,diracInd(2))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(6))*d(\
+diracInd(5),diracInd(10))*d(diracInd(8),diracInd(9))*d(diracInd(9),diracInd(\
+10))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(3),k1-p1,diracInd(4))*\
+gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*\
+masses(6)^3+d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(\
+4),diracInd(7))*d(diracInd(5),diracInd(10))*d(diracInd(8),diracInd(9))*d(\
+diracInd(9),diracInd(10))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(\
+5),k1+p2,diracInd(6))*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),\
+k1-p1+p3,diracInd(8))*masses(6)^3+d(diracInd(3),diracInd(4))*d(diracInd(3),\
+diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),diracInd(9))*d(diracInd(\
+7),diracInd(8))*d(diracInd(7),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*\
+gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(4),eps1,diracInd(1))*gamma(\
+diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^3+d(diracInd(1),diracInd(2))*d(\
+diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),diracInd(9))\
+*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(10))*gamma(diracInd(2),\
+eps2,diracInd(5))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,\
+diracInd(1))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^3+d(diracInd(\
+1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(3),diracInd(8))*d(\
+diracInd(6),diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(10)\
+)*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(4),eps1,diracInd(1))*\
+gamma(diracInd(5),k1+p2,diracInd(6))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*\
+masses(6)^3+d(diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))*d(diracInd(\
+5),diracInd(6))*d(diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8))*d(\
+diracInd(8),diracInd(9))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),\
+eps1,diracInd(3))*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(9),k1+p2-\
+p4,diracInd(10))*masses(6)^3+d(diracInd(1),diracInd(2))*d(diracInd(4),\
+diracInd(7))*d(diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(\
+diracInd(7),diracInd(8))*d(diracInd(8),diracInd(9))*gamma(diracInd(2),eps1,\
+diracInd(3))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(6),eps2,\
+diracInd(1))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^3+d(diracInd(\
+1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))*d(\
+diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8))*d(diracInd(8),diracInd(9)\
+)*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(5),k1+p2,diracInd(6))*\
+gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(9),k1+p2-p4,diracInd(10))*\
+masses(6)^3+d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(\
+3),diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),diracInd(9))*d(\
+diracInd(7),diracInd(10))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(\
+4),eps1,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*gamma(diracInd(9)\
+,k1+p2-p4,diracInd(10))*masses(6)^3+d(diracInd(1),diracInd(2))*d(diracInd(3),\
+diracInd(4))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(6))*d(diracInd(\
+5),diracInd(10))*d(diracInd(8),diracInd(9))*gamma(diracInd(2),eps1,diracInd(3)\
+)*gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*\
+gamma(diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^3-d(diracInd(3),diracInd(4)\
+)*d(diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),\
+diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(10))*d(\
+diracInd(9),diracInd(10))*gamma(diracInd(1),k1,diracInd(2))*gamma(diracInd(2),\
+eps2,diracInd(5))*gamma(diracInd(4),eps1,diracInd(1))*masses(6)^4-d(diracInd(\
+1),diracInd(2))*d(diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))*d(\
+diracInd(6),diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(10)\
+)*d(diracInd(9),diracInd(10))*gamma(diracInd(2),eps2,diracInd(5))*gamma(\
+diracInd(3),k1-p1,diracInd(4))*gamma(diracInd(4),eps1,diracInd(1))*masses(6)^\
+4-d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(3),\
+diracInd(8))*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(\
+7),diracInd(10))*d(diracInd(9),diracInd(10))*gamma(diracInd(2),eps2,diracInd(\
+5))*gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(5),k1+p2,diracInd(6))*\
+masses(6)^4+d(diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))*d(diracInd(\
+5),diracInd(6))*d(diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8))*d(\
+diracInd(8),diracInd(9))*d(diracInd(9),diracInd(10))*gamma(diracInd(1),k1,\
+diracInd(2))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(6),eps2,\
+diracInd(1))*masses(6)^4+d(diracInd(1),diracInd(2))*d(diracInd(4),diracInd(7))\
+*d(diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(diracInd(7),\
+diracInd(8))*d(diracInd(8),diracInd(9))*d(diracInd(9),diracInd(10))*gamma(\
+diracInd(2),eps1,diracInd(3))*gamma(diracInd(3),k1-p1,diracInd(4))*gamma(\
+diracInd(6),eps2,diracInd(1))*masses(6)^4+d(diracInd(1),diracInd(2))*d(\
+diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(10)\
+)*d(diracInd(7),diracInd(8))*d(diracInd(8),diracInd(9))*d(diracInd(9),\
+diracInd(10))*gamma(diracInd(2),eps1,diracInd(3))*gamma(diracInd(5),k1+p2,\
+diracInd(6))*gamma(diracInd(6),eps2,diracInd(1))*masses(6)^4-d(diracInd(1),\
+diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(3),diracInd(8))*d(diracInd(\
+5),diracInd(6))*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(10))*d(\
+diracInd(9),diracInd(10))*gamma(diracInd(2),eps2,diracInd(5))*gamma(diracInd(\
+4),eps1,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*masses(6)^4+d(\
+diracInd(1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))\
+*d(diracInd(5),diracInd(6))*d(diracInd(5),diracInd(10))*d(diracInd(8),\
+diracInd(9))*d(diracInd(9),diracInd(10))*gamma(diracInd(2),eps1,diracInd(3))*\
+gamma(diracInd(6),eps2,diracInd(1))*gamma(diracInd(7),k1-p1+p3,diracInd(8))*\
+masses(6)^4-d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(4))*d(diracInd(\
+3),diracInd(8))*d(diracInd(5),diracInd(6))*d(diracInd(6),diracInd(9))*d(\
+diracInd(7),diracInd(8))*d(diracInd(7),diracInd(10))*gamma(diracInd(2),eps2,\
+diracInd(5))*gamma(diracInd(4),eps1,diracInd(1))*gamma(diracInd(9),k1+p2-p4,\
+diracInd(10))*masses(6)^4+d(diracInd(1),diracInd(2))*d(diracInd(3),diracInd(4)\
+)*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(6))*d(diracInd(5),\
+diracInd(10))*d(diracInd(7),diracInd(8))*d(diracInd(8),diracInd(9))*gamma(\
+diracInd(2),eps1,diracInd(3))*gamma(diracInd(6),eps2,diracInd(1))*gamma(\
+diracInd(9),k1+p2-p4,diracInd(10))*masses(6)^4+d(diracInd(1),diracInd(2))*d(\
+diracInd(3),diracInd(4))*d(diracInd(3),diracInd(8))*d(diracInd(5),diracInd(6))\
+*d(diracInd(6),diracInd(9))*d(diracInd(7),diracInd(8))*d(diracInd(7),diracInd(\
+10))*d(diracInd(9),diracInd(10))*gamma(diracInd(2),eps2,diracInd(5))*gamma(\
+diracInd(4),eps1,diracInd(1))*masses(6)^5+d(diracInd(1),diracInd(2))*d(\
+diracInd(3),diracInd(4))*d(diracInd(4),diracInd(7))*d(diracInd(5),diracInd(6))\
+*d(diracInd(5),diracInd(10))*d(diracInd(7),diracInd(8))*d(diracInd(8),\
+diracInd(9))*d(diracInd(9),diracInd(10))*gamma(diracInd(2),eps1,diracInd(3))*\
+gamma(diracInd(6),eps2,diracInd(1))*masses(6)^5))/2\"\>"], "Output",
+ CellChangeTimes->{3.803709597394009*^9},
+ CellLabel->"Out[10]=",ExpressionUUID->"e84e5e1e-1957-4cfd-a9fa-f80f2be23a13"]
+}, Open  ]],
 
 Cell[BoxData[
  RowBox[{"dictPY", "[", 
@@ -4248,45 +917,44 @@ CellTagsIndex->{}
 *)
 (*NotebookFileOutline
 Notebook[{
-Cell[558, 20, 198, 3, 31, "Input",ExpressionUUID->"609309bb-30ea-4a5f-9444-accd47c8c739"],
+Cell[558, 20, 199, 3, 31, "Input",ExpressionUUID->"609309bb-30ea-4a5f-9444-accd47c8c739"],
 Cell[CellGroupData[{
-Cell[781, 27, 248, 4, 31, "Input",ExpressionUUID->"6134f5ca-721b-48cb-8d44-5cdd056ae503"],
-Cell[1032, 33, 230, 3, 35, "Output",ExpressionUUID->"b4a3e977-baff-42cb-b794-dfb3388e7428"]
+Cell[782, 27, 248, 4, 31, "Input",ExpressionUUID->"6134f5ca-721b-48cb-8d44-5cdd056ae503"],
+Cell[1033, 33, 277, 4, 35, "Output",ExpressionUUID->"2dfb51b7-4180-4eb1-b0b0-5a085e13ed0a"]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[1299, 41, 421, 6, 31, "Input",ExpressionUUID->"46eb0a4f-d719-41c9-82cc-b7b93b217cc7"],
+Cell[1347, 42, 421, 6, 31, "Input",ExpressionUUID->"46eb0a4f-d719-41c9-82cc-b7b93b217cc7"],
 Cell[CellGroupData[{
-Cell[1745, 51, 996, 15, 444, "Print",ExpressionUUID->"cc48ef1e-28de-42c4-ae43-299b4469a073"],
-Cell[2744, 68, 2396, 67, 31, "Print",ExpressionUUID->"94e0dac9-5232-43b6-8443-b0c4f65dcf38"],
-Cell[5143, 137, 1180, 30, 31, "Print",ExpressionUUID->"7f21174e-5492-409e-9bdb-732562b30296"],
-Cell[6326, 169, 1180, 32, 31, "Print",ExpressionUUID->"a0250eb4-b4d2-487b-948b-f0f915a3664d"],
-Cell[7509, 203, 355, 7, 29, "Print",ExpressionUUID->"398b311b-57ef-4680-a68a-eb8ad0bfc9cf"],
-Cell[7867, 212, 358, 7, 29, "Print",ExpressionUUID->"3c2fef4c-3970-43a2-ad18-a4268377689e"],
-Cell[8228, 221, 347, 7, 29, "Print",ExpressionUUID->"705e9137-4fba-449e-b270-758acde011ba"]
+Cell[1793, 52, 1043, 16, 444, "Print",ExpressionUUID->"9164a333-9f22-485b-af24-0e6bf1355872"],
+Cell[2839, 70, 2445, 68, 31, "Print",ExpressionUUID->"c718483c-f9b1-43b5-bafd-aca2ff2b688c"],
+Cell[5287, 140, 1229, 31, 31, "Print",ExpressionUUID->"4b7235ca-c05b-4f8b-b751-c850a968d5c7"],
+Cell[6519, 173, 1227, 33, 31, "Print",ExpressionUUID->"c093d122-6a42-4b2f-8668-9326e2af6156"],
+Cell[7749, 208, 406, 8, 29, "Print",ExpressionUUID->"e1c9b4e9-c548-4aa4-a0a2-7520254c900a"],
+Cell[8158, 218, 408, 8, 29, "Print",ExpressionUUID->"0f70b179-678f-439b-8b79-dd0069332d03"],
+Cell[8569, 228, 396, 8, 29, "Print",ExpressionUUID->"b9d2d58e-7afb-49a5-828a-308b478b83a9"]
 }, Open  ]]
 }, Open  ]],
-Cell[8602, 232, 174, 3, 31, "Input",ExpressionUUID->"57dac024-f876-4ae4-b80e-b71d1d0165d9"],
-Cell[8779, 237, 201, 4, 31, "Input",ExpressionUUID->"ea06ef97-89a6-440d-86cd-7d76800d7a5c"],
+Cell[8992, 240, 174, 3, 31, "Input",ExpressionUUID->"57dac024-f876-4ae4-b80e-b71d1d0165d9"],
+Cell[9169, 245, 201, 4, 31, "Input",ExpressionUUID->"ea06ef97-89a6-440d-86cd-7d76800d7a5c"],
 Cell[CellGroupData[{
-Cell[9005, 245, 283, 7, 107, "Section",ExpressionUUID->"92b89489-252b-44f1-a2c1-ffe620e0666d"],
-Cell[9291, 254, 1896, 32, 78, "Input",ExpressionUUID->"e6416ec1-1b06-4b7c-8793-6b7e88b76a1b"],
-Cell[11190, 288, 175, 3, 31, "Input",ExpressionUUID->"64d0e722-5027-4d99-a35e-0f49abe40e4c"],
-Cell[11368, 293, 152, 3, 31, InheritFromParent,ExpressionUUID->"edec51c2-b73a-4b9a-8cad-538a1a24f99b"],
-Cell[11523, 298, 2151, 36, 78, "Input",ExpressionUUID->"1a9e525d-6397-4bcc-9062-88d91580848b"],
-Cell[13677, 336, 401, 7, 31, "Input",ExpressionUUID->"2e0ff881-b93d-42d3-8371-8d55c5b1f926"],
-Cell[14081, 345, 4886, 107, 193, "Input",ExpressionUUID->"5a30e0ea-de43-49f2-b78d-9fb991faac45"],
-Cell[18970, 454, 245, 6, 31, "Input",ExpressionUUID->"bfacb2de-1b20-4586-9637-5be3f8f60c81"],
-Cell[19218, 462, 3272, 86, 262, "Input",ExpressionUUID->"d9599775-9309-4670-a7ee-d2f7b08ccdef"],
+Cell[9395, 253, 283, 7, 107, "Section",ExpressionUUID->"92b89489-252b-44f1-a2c1-ffe620e0666d"],
+Cell[9681, 262, 1896, 32, 78, "Input",ExpressionUUID->"e6416ec1-1b06-4b7c-8793-6b7e88b76a1b"],
+Cell[11580, 296, 175, 3, 31, "Input",ExpressionUUID->"64d0e722-5027-4d99-a35e-0f49abe40e4c"],
+Cell[11758, 301, 152, 3, 31, "Input",ExpressionUUID->"edec51c2-b73a-4b9a-8cad-538a1a24f99b"],
+Cell[11913, 306, 2151, 36, 78, "Input",ExpressionUUID->"1a9e525d-6397-4bcc-9062-88d91580848b"],
+Cell[14067, 344, 401, 7, 31, "Input",ExpressionUUID->"2e0ff881-b93d-42d3-8371-8d55c5b1f926"],
+Cell[14471, 353, 5433, 117, 262, "Input",ExpressionUUID->"5a30e0ea-de43-49f2-b78d-9fb991faac45"],
+Cell[19907, 472, 245, 6, 31, "Input",ExpressionUUID->"bfacb2de-1b20-4586-9637-5be3f8f60c81"],
+Cell[20155, 480, 3272, 86, 262, "Input",ExpressionUUID->"d9599775-9309-4670-a7ee-d2f7b08ccdef"],
 Cell[CellGroupData[{
-Cell[22515, 552, 1201, 22, 31, "Input",ExpressionUUID->"14ab0af5-1f0d-4035-b5b3-40ea3b8bf4fc"],
-Cell[23719, 576, 196, 2, 35, "Output",ExpressionUUID->"a4a3631c-9a59-4450-bbf3-fa13ea0fe6f0"]
+Cell[23452, 570, 1201, 22, 78, "Input",ExpressionUUID->"14ab0af5-1f0d-4035-b5b3-40ea3b8bf4fc"],
+Cell[24656, 594, 243, 3, 35, "Output",ExpressionUUID->"41131112-31cf-4df3-a0b2-60e3ddbc6165"]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[23952, 583, 410, 10, 31, "Input",ExpressionUUID->"10a7824d-6d1d-4273-af00-851003d572e6"],
-Cell[24365, 595, 128424, 3620, 1636, "Output",ExpressionUUID->"70c2b2ef-b7c8-440f-9e57-53c5be4524e2"]
+Cell[24936, 602, 319, 6, 31, "Input",ExpressionUUID->"d6cf9e8c-ac82-4029-bdc3-0b06121a597e"],
+Cell[25258, 610, 21739, 282, 3601, "Output",ExpressionUUID->"e84e5e1e-1957-4cfd-a9fa-f80f2be23a13"]
 }, Open  ]],
-Cell[152804, 4218, 319, 6, 31, "Input",ExpressionUUID->"d6cf9e8c-ac82-4029-bdc3-0b06121a597e"],
-Cell[153126, 4226, 267, 5, 31, "Input",ExpressionUUID->"14190e3c-029c-46f9-87f6-46894ab190b1"]
+Cell[47012, 895, 267, 5, 31, "Input",ExpressionUUID->"14190e3c-029c-46f9-87f6-46894ab190b1"]
 }, Open  ]]
 }
 ]

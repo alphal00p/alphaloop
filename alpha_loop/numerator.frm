@@ -112,7 +112,7 @@ Set colA: cOlj1,...,cOlj80;
 Set colAdum: cOljj1,...,cOljj40;
 
 CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor, sp, d, sunA, sunF, diracInd, lorentzInd;
-S ii,m,x,y;
+S ii,m,y;
 Auto I i1, i2, j1,j2;
 
 Polyratfun rat;
@@ -155,8 +155,8 @@ id d(i1?,i2?) = d_(i1,i2);
     Multiply counter(1);
     repeat id gamma(ubarSpinor(?a),?b)*counter(i?) = ubarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
     repeat id gamma(vbarSpinor(?a),?b)*counter(i?) = vbarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
-    repeat id gamma(?b,uSpinor(?a))*counter(i?) = uSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
-    repeat id gamma(?b,vSpinor(?a))*counter(i?) = vSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    repeat id gamma(?b,uSpinor(?a))*counter(i?) = uSpinor(?a,diracdummy[i])*gamma(?b,diracdummy[i])*counter(i+1);
+    repeat id gamma(?b,vSpinor(?a))*counter(i?) = vSpinor(?a,diracdummy[i])*gamma(?b,diracdummy[i])*counter(i+1);
     id counter(n?) =1;
 * replace by proper indices from the corresponding set
 argument;
@@ -186,8 +186,8 @@ argument hermconjugate;
     Multiply counter(1);
     repeat id gamma(ubarSpinor(?a),?b)*counter(i?) = ubarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
     repeat id gamma(vbarSpinor(?a),?b)*counter(i?) = vbarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
-    repeat id gamma(?b,uSpinor(?a))*counter(i?) = uSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
-    repeat id gamma(?b,vSpinor(?a))*counter(i?) = vSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
+    repeat id gamma(?b,uSpinor(?a))*counter(i?) = uSpinor(?a,diracdummy[i])*gamma(?b,diracdummy[i])*counter(i+1);
+    repeat id gamma(?b,vSpinor(?a))*counter(i?) = vSpinor(?a,diracdummy[i])*gamma(?b,diracdummy[i])*counter(i+1);
     id counter(n?) =1;
 endargument;
 .sort 
