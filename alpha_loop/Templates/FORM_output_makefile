@@ -6,15 +6,22 @@ endif
 LIBBPATH=../lib
 SRC=$(wildcard numerator*.c)
 OBJ=$(patsubst %.c,%.o, $(SRC))
+INTEGRANDSRC=$(wildcard integrand*.c)
+INTEGRANDOBJ=$(patsubst %.c,%.o, $(INTEGRANDSRC))
 LIBRARY=libFORM_numerators.so
+INTEGRANDLIBRARY=libFORM_integrands.so
 
-all: $(LIBBPATH)/$(LIBRARY)
+all: $(LIBBPATH)/$(LIBRARY) $(LIBBPATH)/$(INTEGRANDLIBRARY)
 
 %.o: %.c
-	$(GCC) -c -O3 -fcx-fortran-rules -fcx-limited-range -lm $< -o $@
+	$(GCC) -c -g -O3 -fcx-fortran-rules -fcx-limited-range -lm $< -o $@
 
 $(LIBBPATH)/$(LIBRARY): $(OBJ)
 	$(GCC) --shared -fPIC -O3 -fcx-fortran-rules -fcx-limited-range -lm -o $@ $^
 
+$(LIBBPATH)/$(INTEGRANDLIBRARY): $(INTEGRANDOBJ)
+	$(GCC) --shared -fPIC -O3 -fcx-fortran-rules -fcx-limited-range -lm -o $@ $^
+
 clean:
 	rm -f $(LIBBPATH)/$(LIBRARY)
+	rm -f $(LIBBPATH)/$(INTEGRANDLIBRARY)

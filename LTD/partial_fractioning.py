@@ -173,9 +173,9 @@ class PartialFractioning:
 
         for idx in indices:
             den_giver = product[idx]
-            factor = 1/den_giver['lambdas'][residue_n]
+            factor = -1/den_giver['lambdas'][residue_n]
             num_mapped += [
-                {'lambdas': - factor*den_giver['lambdas'],
+                {'lambdas': factor*den_giver['lambdas'],
                  'shifts': factor*den_giver['shifts'],
                  'energies': factor*den_giver['energies']}
             ]
@@ -290,7 +290,7 @@ class PartialFractioning:
                     for (j, p) in enumerate(r['shifts']):
                         if p != 0:
                             if j < self.n_cuts:
-                                shifts += "{:+}*c{}".format(cast_int(p), j+1)
+                                shifts += "{:+}*k{}".format(cast_int(p), j+1)
                             else:
                                 shifts += "{:+}*p{}".format(cast_int(p),
                                                             j-self.n_cuts+1)
@@ -316,7 +316,7 @@ class PartialFractioning:
                     for (j, p) in enumerate(num_step['shifts']):
                         if p != 0:
                             if j < self.n_cuts:
-                                shifts += "{:+}*c{}".format(cast_int(p), j+1)
+                                shifts += "{:+}*k{}".format(cast_int(p), j+1)
                             else:
                                 shifts += "{:+}*p{}".format(cast_int(p),
                                                             j-self.n_cuts+1)
@@ -361,7 +361,6 @@ class PartialFractioning:
         # Remap energies
         if len(self.esq_library[1]) == sum(self.ll_n_props):
             return
-        print(self.energies_map)
         for f, dens, num in self.pf_res:
             for d in dens:
                 d['energies'] = self.energies_map.dot(d['energies'])

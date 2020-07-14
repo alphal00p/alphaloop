@@ -14,7 +14,7 @@ class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_jets, external_momenta, final_state_particle_ids=(),
         loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, jet_ids=None,
         MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
-        cut_filter=set(), FORM_numerator={},
+        cut_filter=set(), FORM_numerator={}, FORM_integrand={},
         vertex_weights={}, edge_weights={}):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
@@ -22,6 +22,7 @@ class SquaredTopologyGenerator:
         self.external_momenta = external_momenta
         self.MG_numerator = MG_numerator
         self.FORM_numerator = FORM_numerator
+        self.FORM_integrand = FORM_integrand
         self.subgraphs_info = subgraphs_info
 
         # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
@@ -290,6 +291,7 @@ class SquaredTopologyGenerator:
             'topo': self.loop_topo.to_flat_format(),
             'MG_numerator': self.MG_numerator,
             'FORM_numerator': self.FORM_numerator,
+            'FORM_integrand': self.FORM_integrand,
             # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
             #'subgraphs_info' : self.subgraphs_info,
             'loop_momentum_basis': [self.topo.edge_map_lin[e][0] for e in self.topo.loop_momenta],

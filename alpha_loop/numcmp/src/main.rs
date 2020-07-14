@@ -7,6 +7,34 @@ use libc::{c_char, c_double, c_int};
 use num::Complex;
 use itertools::Itertools;
 
+
+#[derive(WrapperApi)]
+pub struct FORMIntegrandAPI {
+    evaluate:
+        unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int) -> Complex<c_double>,
+}
+
+pub fn get_integrand(
+    api_container: &mut Container<FORMIntegrandAPI>,
+    p: &[f64],
+    diag: usize,
+    conf: usize,
+) -> Complex<f64> {
+    unsafe { api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32) }
+}
+
+pub fn load_integrand() -> Container<FORMIntegrandAPI> {
+    let path = std::env::var("MG_NUMERATOR_PATH")
+        .expect("MG_NUMERATOR_PATH needs to be set in the mg_numerator mode.");
+
+    let container: Container<FORMIntegrandAPI> =
+        unsafe { Container::load(&(path.clone() + "lib/libFORM_integrands.so")) }
+            .expect("Could not open library or load symbols");
+
+    container
+}
+
+
 #[derive(WrapperApi)]
 pub struct CNumeratorAPI {
     evaluate: unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int, out: *mut c_double) -> c_int,
@@ -113,6 +141,7 @@ fn eval(
     ext: usize,
     mg_numerator: &mut Container<MGNumeratorAPI>,
     c_numerator: &mut Container<CNumeratorAPI>,
+    form_integrand: &mut Container<FORMIntegrandAPI>,
 ) {
     let mut form_input = vec![];
 
@@ -121,6 +150,8 @@ fn eval(
         form_input.push(0.);
         for j in &lin[ii..ext] {
             form_input.push(dot(*p, *j));
+            form_input.push(0.);
+            form_input.push(spatial_dot(*p, *j));
             form_input.push(0.);
         }
     }
@@ -150,6 +181,12 @@ fn eval(
             mg_input.push(0.);
         }
     }
+
+    for i in 0..100 {
+        form_input.push(0.);
+    }
+
+    get_integrand(form_integrand, &form_input, formid, 0);
 
     let exponent_map_k: Vec<Vec<usize>> = (0..=8).map(|rank| (0..1).combinations_with_replacement(rank)).flatten().collect();
     let exponent_map_l: Vec<Vec<usize>> = (0..=8).map(|rank| (1..2).combinations_with_replacement(rank)).flatten().collect();
@@ -264,6 +301,7 @@ fn eval(
 fn main() {
     let mut c_numerator = load_form();
     let mut mg_numerator = load();
+    let mut form_integrand = load_integrand();
 
     let mut p1 = [1., 0., 0., 1.];
     let mut p2 = [1., 0., 0., -1.];
@@ -279,8 +317,10 @@ fn main() {
     //let mut k3 = [0.1054303841594690E+03,  -0.7477954838939333E+02,  -0.6876840480238191E+02,   0.2818672644397240E+02];
     //let mut k4 = [0.3423857129250602E+03,   0.1919284080684538E+03,   0.2751076866100379E+03,  -0.6860920754231151E+02];
 
+    
+
     let lin = [&p1, &p2, &k1, &k2];//, &k3, &k4];//, &k3, &k4];
-    eval(1,2,1,&lin, 2, &mut mg_numerator, &mut c_numerator);
+    eval(1,2,1,&lin, 2, &mut mg_numerator, &mut c_numerator, &mut form_integrand);
     //eval(1,9,1,&lin, 2, &mut mg_numerator, &mut c_numerator);
     //eval(9,9,2,&lin, 2, &mut mg_numerator, &mut c_numerator);
 

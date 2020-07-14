@@ -585,6 +585,8 @@ pub enum NumeratorSource {
     Form,
     #[serde(rename = "MG_and_FORM")]
     MgAndForm,
+    #[serde(rename = "FORM_integrand")]
+    FormIntegrand,
 }
 
 impl Default for NumeratorSource {

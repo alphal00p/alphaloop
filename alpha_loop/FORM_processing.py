@@ -43,6 +43,7 @@ import multiprocessing
 
 import LTD.squared_topologies
 import LTD.ltd_utils
+import LTD.partial_fractioning
 
 logger = logging.getLogger('alphaLoop.FORM_processing')
 
@@ -143,6 +144,7 @@ class FORMSuperGraph(object):
 
         self.squared_topology = None
         self.replacement_rules = None
+        self.integrand_info = {}
 
         # Store copies of self for different choices of LMB to be used for cross-check.
         self.additional_lmbs = []
@@ -699,6 +701,78 @@ aGraph=%s;
         else:
             return dict_to_dump
 
+    def generate_integrand(self, topo, root_output_path, numerator_call):
+        """Construct a table of integrand descriptors"""
+        integrand_body = ''
+        max_diag_id = 0
+        for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
+            for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
+                signatures, n_props, energy_map, energies, constants, shift_map = [], [], [], [], [], []
+                signature_offset = 0
+                loops = 0 # LTD loop count
+                for diag_info in loop_diag_set['diagram_info']:
+                    for l in diag_info['graph'].loop_lines:
+                        is_constant = all(s == 0 for s in l.signature)
+                        if not is_constant:
+                            signatures.append([0]*signature_offset + list(l.signature)) # LTD signatures
+                            n_props.append(sum(p.power for p in (l.propagators)))
+                        for p in l.propagators:
+                            # contruct the momentum in the LMB, using that LTD
+                            lmp = np.array([0]*topo.topo.n_loops)
+                            for s, v in zip(l.signature, diag_info['loop_momentum_map']):
+                                lmp += s * np.array(v[0])
+
+                            # transport shift to LMB
+                            shift = np.array([0]*topo.topo.n_loops)
+                            extshift = np.array(p.parametric_shift[1])
+                            for s, c in zip(p.parametric_shift[0], cut['cuts']):
+                                shift += s * np.array(c['signature'][0])
+                                extshift += s * np.array(c['signature'][1])
+                            extshift = np.array(list(extshift[:len(extshift)//2]) + [0]*(len(extshift)//2)) +\
+                                np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
+
+                            totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
+
+                            for _ in range(p.power):
+                                # TODO: recycle energy computations when there are duplicate edges
+                                if not is_constant:
+                                    energy_map.append(p.m_squared)
+                                    energies.append(totalmom)
+                                    shift_map.append(list(shift) + list(extshift))
+                                else:
+                                    constants.append((totalmom, p.m_squared))
+                    loops += diag_info['graph'].n_loops
+                    signature_offset += diag_info['graph'].n_loops
+
+                if len(signatures) == 0:
+                    # no loop dependence for this cut
+                    res = '\t1\n'
+                    resden = ''
+                else:
+                    pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
+                                            name=str(diag_set['id']), shift_map=np.array(shift_map).T, n_cuts=topo.topo.n_loops)
+                    pf.shifts_to_externals()
+                    res = pf.to_FORM()
+                    res = '\n'.join(['\t' + l for l in res.split('\n')])
+                    resden = ','.join(pf.den_library)
+
+                self.integrand_info[diag_set['id']] = (energy_map, constants, loops)
+                max_diag_id = max(max_diag_id, diag_set['id'])
+                integrand_body += 'Fill pftopo({}) = constants({})*\nenergies({})*\nellipsoids({})*(\n{});\n'.format(diag_set['id'],
+                    ','.join(c[0] for c in constants), ','.join(energies), resden, res)
+
+        with open(pjoin(root_output_path, '..', 'workspace', 'pftable_{}.h'.format(numerator_call)), 'w') as f:
+            f.write("""
+Auto S invd, E, shift;
+S r, s;
+CF a, num, ncmd, conf1, ellipsoids, replace, constants;
+NF energies;
+CTable pftopo(0:{});
+
+{}
+""".format(max_diag_id, integrand_body))
+
+
     def get_edge_scaling(self, pdg):
         # all scalings that deviate from -2
         scalings = {1: -1, 2: -1, 3: -1, 4: -1, 5: -1, 6: -1, 11: -1, 12: -1, 13: -1}
@@ -711,7 +785,8 @@ aGraph=%s;
         else:
             return 0
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
+        generate_integrand=True):
 
         if bar:
             bar.update(i_lmb='1')
@@ -772,6 +847,7 @@ aGraph=%s;
             overall_numerator=1.0,
             numerator_structure={},
             FORM_numerator={'call_signature': {'id': call_signature_ID}},
+            FORM_integrand={'call_signature': {'id': call_signature_ID}},
             edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
             vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
         )
@@ -790,6 +866,9 @@ aGraph=%s;
                     bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
                                     final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml)
+
+        if generate_integrand:
+            self.generate_integrand(topo, root_output_path, numerator_call)
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
@@ -1412,7 +1491,151 @@ class FORMSuperGraphList(list):
         # TODO: Dump to Python dict
         pass
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header=""):
+    def generate_integrand_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header=""):
+        header_map = {'header': header}
+        """ Generates optimised source code for the graph numerator in several
+        files rooted in the specified root_output_path."""
+
+        if len(self)==0:
+            raise FormProcessingError("Cannot generat numerators for an empty list of supergraphs.")
+
+        if output_format not in self.extension_names:
+            raise FormProcessingError("This FORMSuperGraphList instance requires at least one entry for generating numerators.")
+
+        # add all numerators in one file and write the headers
+        numerator_header = """#include <tgmath.h>
+#include <signal.h>
+#include "%(header)snumerator.h"
+"""
+
+        var_pattern = re.compile(r'Z\d*_')
+        input_pattern = re.compile(r'lm(\d*)')
+        conf_exp = re.compile(r'conf\(([^)]*)\)\n')
+        return_exp = re.compile(r'return ([^;]*);\n')
+
+        FORM_vars={}
+
+        # TODO: multiprocess this loop
+        all_numerator_ids = []
+        with progressbar.ProgressBar(
+            prefix = 'Processing numerators (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}) with FORM ({variables.timing} ms / supergraph) : '%len(self),
+            max_value=len(self),
+            variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb': '0'}
+            ) as bar:
+            total_time = 0.
+
+            for i_graph, graph in enumerate(self):
+                graph.is_zero = True
+
+                graphs_to_process = []
+                if isinstance(graph[0].additional_lmbs,list) and graph[0].additional_lmbs != []:
+                    graphs_to_process.append( (0,i_graph,graph[0]) )
+                    graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in graph[0].additional_lmbs])
+                else:
+                    # By setting the active graph to None we will then sum overall members of the iso set.
+                    graphs_to_process.append( (0,i_graph, None) )
+                bar.update(max_lmb='%d'%len(graphs_to_process))
+                for i_lmb, i_g, active_graph in graphs_to_process:
+                    bar.update(i_graph='%d'%(i_graph+1), i_lmb='%d'%(i_lmb+1))
+                    i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
+                    all_numerator_ids.append(i)
+                    FORM_vars['SGID']='%d'%i
+                    time_before = time.time()
+
+                    with open(pjoin(root_output_path, 'workspace', 'out_integrand_{}.proto_c'.format(i))) as f:
+                        num = f.read()
+
+                    total_time += time.time()-time_before
+                    num = num.replace('i_', 'I')
+                    num = input_pattern.sub(r'lm[\1]', num)
+                    num = num.replace('\nZ', '\n\tZ') # nicer indentation
+
+                    confs = []
+                    integrand_main_code = ''
+                    conf_secs = num.split('#CONF')
+                    for conf_sec in conf_secs[1:]:
+                        conf_sec = conf_sec.replace("#CONF\n", '')
+
+                        # parse the configuration id
+                        conf = list(conf_exp.finditer(conf_sec))[0].groups()[0].split(',')
+                        conf_id = int(conf[0])
+                        confs.append(conf_id)
+
+                        conf_sec = conf_exp.sub('', conf_sec)
+
+                        # parse the constants
+                        mom_map, constants, loops = graph[0].integrand_info[conf_id]
+                        const_secs = conf_sec.split('#CONSTANTS')[1]
+                        const_secs = const_secs.replace('\n', '')
+                        const_code = '*'.join('\t({}+{})'.format(e, mass) for e, (_, mass) in zip(const_secs.split(','), constants) if e != '')
+
+                        # parse the energies
+                        energy_secs = conf_sec.split('#ENERGIES')[1]
+                        energy_secs = energy_secs.replace('\n', '')
+                        energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
+                        const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2*E{}'.format(i) for i in range(len(mom_map)))
+
+                        # parse the denominators
+                        denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
+                        denom_secs = denom_secs.replace('\n', '')
+                        denom_code = '\n'.join('\tdouble complex invd{} = 1./({});'.format(i, d) for i, d in enumerate(denom_secs.split(',')) if d != '')
+
+                        conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
+                        returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
+                        conf_sec = return_exp.sub('return pow(2*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+
+                        # collect all temporary variables
+                        temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
+
+                        if len(temp_vars) > 0:
+                            graph.is_zero = False
+
+                        main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
+                        integrand_main_code += '\nstatic inline double complex %(header)sevaluate_{}_{}(double complex lm[]) {{\n\t{}\n{}}}'.format(i, conf_id,
+                            'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
+                        )
+
+                    integrand_main_code += \
+"""
+double complex %(header)sevaluate_{}(double complex lm[], int conf) {{
+   switch(conf) {{
+{}
+    }}
+}}
+""".format(i,
+        '\n'.join(
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm);'.format(conf, i, conf) for conf in sorted(confs)] +
+        (['\t\tdefault: return 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ))
+
+                    bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
+                    bar.update(i_graph+1)
+
+                    writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand{}.c'%header_map).format(i)).write((numerator_header + integrand_main_code)%header_map)
+
+        numerator_code = \
+"""
+#include <tgmath.h>
+#include <signal.h>
+
+{}
+
+double complex %(header)sevaluate(double complex lm[], int diag, int conf) {{
+    switch(diag) {{
+{}
+    }}
+}}
+""".format(
+    '\n'.join('double complex %(header)sevaluate_{}(double complex[], int conf);'.format(i) for i in all_numerator_ids),
+    '\n'.join(
+    ['\t\tcase {}: return %(header)sevaluate_{}(lm, conf);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tdefault: raise(SIGABRT);']
+    )
+    )
+        writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(numerator_code%header_map)
+
+
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", generate_integrand=True):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -1605,6 +1828,9 @@ int %(header)sget_rank(int diag, int conf) {{
 """.format('\n'.join('#define  {} {}'.format(k, v) for k, v in params.items()))
 
         writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.h'%header_map)).write(header_code%header_map)
+
+        if generate_integrand:
+            self.generate_integrand_functions(root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None)
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True):
         topo_collection = {

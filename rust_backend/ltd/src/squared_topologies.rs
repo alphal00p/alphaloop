@@ -151,6 +151,38 @@ mod form_numerator {
     }
 }
 
+mod form_integrand {
+    use dlopen::wrapper::{Container, WrapperApi};
+    use libc::{c_double, c_int};
+    use num::Complex;
+
+    #[derive(WrapperApi)]
+    pub struct FORMIntegrandAPI {
+        evaluate:
+            unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int) -> Complex<c_double>,
+    }
+
+    pub fn get_integrand(
+        api_container: &mut Container<FORMIntegrandAPI>,
+        p: &[f64],
+        diag: usize,
+        conf: usize,
+    ) -> Complex<f64> {
+        unsafe { api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32) }
+    }
+
+    pub fn load() -> Container<FORMIntegrandAPI> {
+        let path = std::env::var("MG_NUMERATOR_PATH")
+            .expect("MG_NUMERATOR_PATH needs to be set in the mg_numerator mode.");
+
+        let container: Container<FORMIntegrandAPI> =
+            unsafe { Container::load(&(path.clone() + "lib/libFORM_integrands.so")) }
+                .expect("Could not open library or load symbols");
+
+        container
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCut {
     pub name: String,
@@ -206,6 +238,11 @@ pub struct FORMNumeratorCallSignature {
     pub id: usize,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct FORMIntegrandCallSignature {
+    pub id: usize,
+}
+
 #[derive(Deserialize)]
 pub struct MGNumerator {
     call_signature: Option<MGNumeratorCallSignature>,
@@ -250,6 +287,26 @@ impl Clone for FORMNumerator {
     }
 }
 
+#[derive(Deserialize)]
+pub struct FORMIntegrand {
+    call_signature: Option<FORMIntegrandCallSignature>,
+    #[serde(skip_deserializing)]
+    pub form_integrand: Option<Container<form_integrand::FORMIntegrandAPI>>,
+}
+
+impl Clone for FORMIntegrand {
+    fn clone(&self) -> Self {
+        FORMIntegrand {
+            call_signature: self.call_signature.clone(),
+            form_integrand: if self.call_signature.is_some() {
+                Some(form_integrand::load())
+            } else {
+                None
+            },
+        }
+    }
+}
+
 #[derive(Clone, Deserialize)]
 pub struct SquaredTopology {
     pub name: String,
@@ -268,6 +325,8 @@ pub struct SquaredTopology {
     pub mg_numerator: MGNumerator,
     #[serde(rename = "FORM_numerator")]
     pub form_numerator: FORMNumerator,
+    #[serde(rename = "FORM_integrand")]
+    pub form_integrand: FORMIntegrand,
 }
 
 #[derive(Clone)]
@@ -876,6 +935,10 @@ impl SquaredTopology {
             if squared_topo.mg_numerator.call_signature.is_some() {
                 squared_topo.mg_numerator.mg_numerator = Some(mg_numerator::load());
                 squared_topo.get_energy_polynomial_matrix();
+            }
+
+            if squared_topo.form_integrand.call_signature.is_some() {
+                squared_topo.form_integrand.form_integrand = Some(form_integrand::load());
             }
 
             if squared_topo.form_numerator.call_signature.is_some() {
@@ -1938,6 +2001,8 @@ impl SquaredTopology {
                         for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
                             scalar_products.push(e1.dot(e2));
                             scalar_products.push(0.);
+                            scalar_products.push(e1.spatial_dot(e2));
+                            scalar_products.push(0.);
                         }
                     }
 
@@ -2032,6 +2097,85 @@ impl SquaredTopology {
                 );
             }
 
+            if self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand {
+                let mut form_integrand =
+                    mem::replace(&mut self.form_integrand.form_integrand, None);
+                let mut res = if let Some(call_signature) = &self.form_integrand.call_signature {
+                    let mut scalar_products: ArrayVec<[f64; MAX_LOOP * MAX_LOOP * 6]> =
+                        ArrayVec::new();
+
+                    for (i1, e1) in self.external_momenta[..self.n_incoming_momenta]
+                        .iter()
+                        .enumerate()
+                    {
+                        scalar_products.push(e1.t);
+                        scalar_products.push(0.);
+                        for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
+                            scalar_products.push(e1.dot(e2));
+                            scalar_products.push(0.);
+                            scalar_products.push(e1.spatial_dot(e2));
+                            scalar_products.push(0.);
+                        }
+                    }
+
+                    for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
+                        scalar_products.push(m1.t.re.to_f64().unwrap());
+                        scalar_products.push(m1.t.im.to_f64().unwrap());
+                        for e1 in &self.external_momenta[..self.n_incoming_momenta] {
+                            let d = m1.dot(&e1.cast());
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                            let d = m1.spatial_dot(&e1.cast());
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+
+                        for m2 in k_def[i1..self.n_loops].iter() {
+                            let d = m1.dot(m2);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                            let d = m1.spatial_dot(m2);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+                    }
+
+                    let res = form_integrand::get_integrand(
+                        form_integrand.as_mut().unwrap(),
+                        &scalar_products,
+                        call_signature.id,
+                        diagram_set.id,
+                    );
+
+                    Complex::new(Into::<T>::into(res.re), Into::<T>::into(res.im))
+                } else {
+                    panic!(
+                        "No call signature for FORM integrand, but FORM integrand mode is enabled"
+                    );
+                };
+
+                mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
+
+                /*for diagram_info in diagram_set.diagram_info.iter() {
+                    res *= utils::powi(
+                        num::Complex::new(
+                            T::zero(),
+                            Into::<T>::into(-2.) * <T as FloatConst>::PI(),
+                        ),
+                        diagram_info.graph.n_loops,
+                    ); // factor of delta cut
+                }*/
+
+                res *= def_jacobian;
+
+                if self.settings.general.debug >= 1 {
+                    println!("  | res diagram set {}: = {:e}", diagram_set.id, res);
+                }
+
+                diag_and_num_contributions += res;
+                continue;
+            }
+
             if self.settings.cross_section.numerator_source == NumeratorSource::Yaml {
                 // evaluate the cut numerator with the spatial parts of all loop momenta and
                 // the energy parts of the Cutkosky cuts.
@@ -2045,7 +2189,7 @@ impl SquaredTopology {
                     regenerate_momenta,
                     false,
                 );
-                regenerate_momenta = false;
+                regenerate_momenta = true; // false;
             }
 
             let left_cache = &mut diag_cache[0];

@@ -100,6 +100,7 @@ S integratedctflag, mUV, logmUV, mi1L1, alarmMi1L1;
 CF integratedct, rat, num, den;
 Set ts: t0,...,t20;
 CT penergy;
+NF energync;
 Symbol ca,cf,nf,[dabc^2/n],[d4RR/n],[d4RA/n],[d4AA/n];
 
 S eulergamma, log4pi, pi;
@@ -267,6 +268,7 @@ id D^n? = rat(D^n, 1);
 id color(x?) = x;
 
 * Set all external momenta on-shell
+* FIXME: incorrect for massive externals
 #do i=1,10
     id p`i'.p`i' = 0;
 #enddo
@@ -481,6 +483,19 @@ if (count(ep, 1)) Discard; * keep only the ep^0 piece
 id logmUV = 0;
 .sort:integrated-ct-2;
 
+#ifndef `NOINTEGRAND'
+    L FINTEGRAND = F;
+    .sort
+
+    #include- pftable_`SGID'.h
+    .sort:load-pf;
+
+    inexpression FINTEGRAND;
+        id conf(n?,?a) = conf(n,?a)*pftopo(n);
+        id pftopo(n?) = 0; * unrecognized topology
+    endinexpression;
+#endif
+
 * convert the polynomial to the cut momentum basis
 id conf(x?,cmb(?a),?b) = conf(x,?b)*replace_(?a);
 .sort:cmb;
@@ -500,6 +515,173 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
 .sort:energy-splitoff;
 
 *********************************************
+* Construction of the integrand
+*********************************************
+#ifndef `NOINTEGRAND'
+    Hide F;
+    .sort
+
+* transform the LTD energies back to normal energies
+    id energy(f(?a)) = energy(?a);
+    chainout energy;
+    id energy(c0) = 1;
+
+* apply the numerator procedure
+    Multiply conf1;
+    #do i = 0,{`NFINALMOMENTA'-1}
+        id conf(n?,p?,?a) = conf(n,?a)*f(p);
+        repeat id energy(p?)*f(p?) = x1*f(p);
+        id once num(ncmd(?z),?x) =ncmd(?z,0)*num(?x);
+        B+ ncmd, x1;
+        .sort:collect-ncmd;
+        keep brackets;
+
+        id x1^r?*ncmd(?z,x?,0) = sum_(s,0, r - nargs_(?z), a(r,s,?z)*x^s);
+        B+ a;
+        .sort:collect-a;
+        keep brackets;
+
+        repeat id a(r?,s?,?z,x?) = -sum_(s1, s+1,r-nargs_(?z), a(r,s1,?z)*x^(s1-s-1));
+        id a(r?,s?) = delta_(r,s);
+        .sort:energy-`i';
+        id conf1(?a)*f(p?) = conf1(?a,p);
+    #enddo
+    id num=1;
+
+* check that the substitution is complete
+    if (count(ncmd, 1,num,1,a, 1, energy, 1));
+        Print "Unsubstituted ncmd: %t";
+        exit "Critical error";
+    endif;
+
+    id conf(n?)*conf1(?a) = conf(n, ?a);
+
+* fill in the shifts
+    id replace(?a) = replace_(?a);
+    id energy(p?) = penergy(p);
+    id energies(p?) = penergy(p);
+
+    argument ellipsoids;
+        id energies(p?) = penergy(p);
+    endargument;
+
+    repeat id energies(p?,?a) = energync(p.p)*energies(?a);
+    argument energync;
+        id p1?.p2? = spatial(p1, p2);
+    endargument;
+    chainin energync;
+    id energync(?a)*energies = energies(?a);
+
+    repeat id constants(p?,?a) = energync(p.p)*constants(?a);
+    chainin energync;
+    id energync(?a)*constants = constants(?a);
+
+
+    argument ellipsoids, constants;
+        id energy(p?) = penergy(p);
+    endargument;
+
+* Convert the dot products and energies to a symbol
+    #$MAXK = `NFINALMOMENTA';
+    #$MAXP = `NINITIALMOMENTA';
+    #$OFFSET = 0;
+    #do i=1,`$MAXP'
+        id penergy(p`i') = lm`$OFFSET';
+        argument energies, ellipsoids, constants;
+            id penergy(p`i') = lm`$OFFSET';
+        endargument;
+        #$OFFSET = $OFFSET + 1;
+        #do j=`i',`$MAXP'
+            id p`i'.p`j' = lm`$OFFSET';
+            argument energies, ellipsoids, constants;
+                id p`i'.p`j' = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+            id spatial(p`i', p`j') = lm`$OFFSET';
+            argument energies;
+                id spatial(p`i', p`j') = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+        #enddo
+    #enddo
+
+    #do i=1,`$MAXK'
+        id penergy(c`i') = lm`$OFFSET';
+        argument energies, ellipsoids, constants;
+            id penergy(c`i') = lm`$OFFSET';
+        endargument;
+        #$OFFSET = $OFFSET + 1;
+        #do j=1,`$MAXP'
+            id c`i'.p`j' = lm`$OFFSET';
+            argument energies, ellipsoids, constants;
+                id c`i'.p`j' = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+            id spatial(p`j', c`i') = lm`$OFFSET';
+            argument energies;
+                id spatial(p`j', c`i') = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+        #enddo
+
+        #do j=`i',`$MAXK'
+            id c`i'.c`j' = lm`$OFFSET';
+            argument energies, ellipsoids, constants;
+                id c`i'.c`j' = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+            id spatial(c`i', c`j') = lm`$OFFSET';
+            argument energies;
+                id spatial(c`i', c`j') = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+        #enddo
+    #enddo
+
+* TODO: write everything in terms of energies
+* cut energies, propagator energies, propagator shifts
+
+* split off every energy configuration into a new expression
+    id conf(?a) = conf(conf(?a));
+    argtoextrasymbol tonumber,conf,1;
+    #redefine oldextrasymbols "`extrasymbols_'"
+    B+ conf;
+    .sort:conf-1;
+    Hide FINTEGRAND;
+    #redefine energysymbolstart "`extrasymbols_'"
+    #do ext={`oldextrasymbols'+1}, `energysymbolstart'
+        #$conf = extrasymbol_(`ext');
+        #write<out_integrand_`SGID'.proto_c> "#CONF\n%$", $conf;
+        L FF`ext' = FINTEGRAND[conf(`ext')];
+        id ellipsoids(?a$ellipsoids) = 1;
+        id energies(?a$energies) = 1;
+        id constants(?a$constants) = 1;
+        .sort
+        #write<out_integrand_`SGID'.proto_c> "#CONSTANTS\n%$\n#CONSTANTS", $constants
+        #write<out_integrand_`SGID'.proto_c> "#ENERGIES\n%$\n#ENERGIES", $energies
+        #write<out_integrand_`SGID'.proto_c> "#ELLIPSOIDS\n%$\n#ELLIPSOIDS",$ellipsoids
+
+* Optimize the output
+        Format C;
+        Format O4,stats=off,saIter=`OPTIMITERATIONS';
+        #Optimize FF`ext'
+        #write<out_integrand_`SGID'.proto_c> "%O"
+        #write<out_integrand_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
+        .sort:optim-`ext'-1;
+
+        #clearoptimize;
+        .sort:optim-`ext'-2;
+        Format O0;
+        Format normal;
+        Drop FF`ext';
+    #enddo
+    .sort
+    Unhide F;
+    Drop FINTEGRAND;
+    delete extrasymbols>`oldextrasymbols';
+#endif
+
+*********************************************
 * Construction of optimized numerator C code
 *********************************************
 
@@ -512,6 +694,8 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
     #$OFFSET = $OFFSET + 1;
     #do j=`i',`$MAXP'
         id p`i'.p`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 1;
+        id spatial(p`i', p`j') = lm`$OFFSET';
         #$OFFSET = $OFFSET + 1;
     #enddo
 #enddo
