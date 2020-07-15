@@ -248,6 +248,11 @@ impl Clone for FORMIntegrand {
 }
 
 #[derive(Clone, Deserialize)]
+pub struct MultiChannelingBasis {
+    pub defining_propagators: Vec<(usize, usize)>,
+}
+
+#[derive(Clone, Deserialize)]
 pub struct SquaredTopology {
     pub name: String,
     pub n_loops: usize,
@@ -261,6 +266,8 @@ pub struct SquaredTopology {
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
     pub topo: Topology,
+    #[serde(default)]
+    pub multi_channeling_bases: Vec<MultiChannelingBasis>,
     #[serde(rename = "FORM_numerator")]
     pub form_numerator: FORMNumerator,
     #[serde(rename = "FORM_integrand")]
@@ -957,6 +964,10 @@ impl SquaredTopology {
         // construct the channels from all loop momentum basis (i.e. the LTD cuts)
         self.topo.process(true);
 
+        for mcb in &mut self.multi_channeling_bases {
+            mcb.defining_propagators.sort();
+        }
+
         let mut multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> =
             vec![];
         for (cuts, mat) in self
@@ -968,6 +979,29 @@ impl SquaredTopology {
             for cut in cuts {
                 let mut lmb_to_cb_mat = vec![];
                 let mut cut_shifts = vec![];
+
+                if self.multi_channeling_bases.len() > 0 {
+                    let cut_defining_propagators: Vec<(usize, usize)> = cut
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, x)| {
+                            if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = x {
+                                Some((i, *j))
+                            } else {
+                                None
+                            }
+                        })
+                        .sorted()
+                        .collect();
+
+                    if !self
+                        .multi_channeling_bases
+                        .iter()
+                        .all(|mcb| mcb.defining_propagators == cut_defining_propagators)
+                    {
+                        continue;
+                    }
+                }
 
                 let mut include = true;
                 for (ll_cut_sig, ll_cut) in cut.iter().zip_eq(&self.topo.loop_lines) {
