@@ -145,8 +145,8 @@ OptionValue[AmplitudesPath]
 },
 SessionProlog="import os;os.environ['DYLD_LIBRARY_PATH']='"<>
 RFM$DYLDPATHS<>":'+os.environ.get('DYLD_LIBRARY_PATH','');"
-<>"os.environ['LD_LIBRARY_PATH']="<>RFM$DYLDPATHS<>":'+os.environ.get('LD_LIBRARY_PATH','');"
-<>"os.environ['LIBRARY_PATH']="<>RFM$DYLDPATHS<>":'+os.environ.get('LIBRARY_PATH','');"
+<>"os.environ['LD_LIBRARY_PATH']='"<>RFM$DYLDPATHS<>":'+os.environ.get('LD_LIBRARY_PATH','');"
+<>"os.environ['LIBRARY_PATH']='"<>RFM$DYLDPATHS<>":'+os.environ.get('LIBRARY_PATH','');"
 <>"os.environ['MG_NUMERATOR_PATH']='"<>
 (OptionValue[MGNumeratorPath]<>"/")<>"';"
 },
@@ -166,11 +166,10 @@ RFM$AllHooksStarted[[-1]]
 
 (* ::Text:: *)
 (*We can verify that it is indeed running and waiting to be fed with data*)
-(*No easy way to do that with ProcessEvaluate*)
 
 
 (* ::Input::Initialization:: *)
-RFM$CheckHookStatus[Hook_]:=True
+RFM$CheckHookStatus[Hook_]:=ExternalEvaluate[Hook,<|"Command"->"API_is_alive","Arguments"->{}|>]
 
 
 (* ::Text:: *)
