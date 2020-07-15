@@ -96,7 +96,7 @@ CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f, vx, vec, vec1;
 CF subs, configurations, conf, cmb, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv;
-S integratedctflag, mUV, logmUV, mi1L1, alarmMi1L1;
+S integratedctflag, mUV, logmu, logmUV, mi1L1, alarmMi1L1;
 CF integratedct, rat, num, den;
 Set ts: t0,...,t20;
 CT penergy;
@@ -433,6 +433,9 @@ if (count(integratedctflag, 1) > 0);
 * normalize with 1/(4 pi e^-gamma)^ep
     Multiply 1 + (eulergamma - log4pi)*ep + 1/2*(eulergamma^2 - 2*eulergamma*log4pi + log4pi^2)*ep^2 +
         1/6*(eulergamma^3 - 3*eulergamma^2*log4pi + 3*log4pi*log4pi^2 - log4pi^3)*ep^3;
+* TODO: take to the power of loops
+* add mu^2-dependence
+    Multiply 1 + logmu * ep + 1/2 * logmu^2 * ep^2 + 1/6 * logmu^3 * ep^3;
 
     Multiply replace_(D, 4 - 2 * ep);
 
@@ -482,8 +485,8 @@ PolyRatFun;
 id rat(x1?) = x1;
 if (count(ep, 1)) Discard; * keep only the ep^0 piece
 
-* for now, just set the log piece to 0
-id logmUV = 0;
+* for now, just set mu^2 = m_uv^2
+id logmu = logmUV;
 .sort:integrated-ct-2;
 
 #ifndef `NOINTEGRAND'
