@@ -534,12 +534,12 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
     #do i = 0,{`NFINALMOMENTA'-1}
         id conf(n?,p?,?a) = conf(n,?a)*f(p);
         repeat id energy(p?)*f(p?) = x1*f(p);
-        id once num(ncmd(?z),?x) =ncmd(?z,0)*num(?x);
+        id once num(ncmd(?z),?x) =ncmd(?z)*num(?x);
         B+ ncmd, x1;
         .sort:collect-ncmd;
         keep brackets;
 
-        id x1^r?*ncmd(?z,x?,0) = sum_(s,0, r - nargs_(?z), a(r,s,?z)*x^s);
+        id x1^r?*ncmd(?z,x?) = sum_(s,0, r - nargs_(?z), a(r,s,?z)*x^s);
         B+ a;
         .sort:collect-a;
         keep brackets;

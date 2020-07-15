@@ -103,7 +103,8 @@ class PartialFractioning:
         self.n_loops = len(signatures[0])
         self.name = kwargs.pop("name", "topo").lower().replace(' ', '_')
         self.shift_map = kwargs.pop("shift_map", None)
-        self.n_cuts = kwargs.pop("n_cuts", 0)
+        self.n_sg_loops = kwargs.pop("n_sg_loops", 0)
+        self.ltd_index = kwargs.pop("ltd_index", 0)
         self.den_library = []
         self.esq_library = [[], []]
         self.energies_map = []
@@ -289,11 +290,11 @@ class PartialFractioning:
                     shifts = ""
                     for (j, p) in enumerate(r['shifts']):
                         if p != 0:
-                            if j < self.n_cuts:
+                            if j < self.n_sg_loops:
                                 shifts += "{:+}*k{}".format(cast_int(p), j+1)
                             else:
                                 shifts += "{:+}*p{}".format(cast_int(p),
-                                                            j-self.n_cuts+1)
+                                                            j-self.n_sg_loops+1)
                     if shifts != "":
                         den += "+energies(%s)" % shifts
                     try:
@@ -307,19 +308,20 @@ class PartialFractioning:
             for n, zs in enumerate(num):
                 for i, num_step in enumerate(zs):
                     for j, l in enumerate(num_step['lambdas']):
+                        # LTD energy in the cut basis
                         if l != 0:
-                            ss += "{:+}*k{}".format(cast_int(l), j)
+                            ss += "{:+}*energies(c{})".format(cast_int(l), j + self.ltd_index)
                     for (j, e) in enumerate(num_step['energies']):
                         if e != 0:
                             ss += "{:+}*E{}".format(cast_int(e), j)
                     shifts = ""
                     for (j, p) in enumerate(num_step['shifts']):
                         if p != 0:
-                            if j < self.n_cuts:
+                            if j < self.n_sg_loops:
                                 shifts += "{:+}*k{}".format(cast_int(p), j+1)
                             else:
                                 shifts += "{:+}*p{}".format(cast_int(p),
-                                                            j-self.n_cuts+1)
+                                                            j-self.n_sg_loops+1)
                     if shifts != "":
                         ss += "+energies(%s)" % shifts
                     if i+1 == len(zs) and n+1 == len(num):
@@ -389,7 +391,7 @@ if __name__ == '__main__':
                  [0, 0, 0, 0],
                  [0, 0, 0, 0]]
     pf = PartialFractioning(n_props, signatures,
-                            name='Box', shift_map=shift_map, n_cuts=0)
+                            name='Box', shift_map=shift_map, n_sg_loops=0)
     pf.shifts_to_externals()
     print("1L Result:")
     print(pf.to_FORM())
@@ -428,7 +430,7 @@ if __name__ == '__main__':
                  [0, 0, 0, 0, 0, 0, 1, 0]]
 
     pf = PartialFractioning(n_props, signatures,
-                            name='PentaBox', shift_map=shift_map, n_cuts=1)
+                            name='PentaBox', shift_map=shift_map, n_sg_loops=1)
     pf.shifts_to_externals()
     output = "L F =\n"
     output += pf.to_FORM()

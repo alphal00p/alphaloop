@@ -750,7 +750,8 @@ aGraph=%s;
                     resden = ''
                 else:
                     pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
-                                            name=str(diag_set['id']), shift_map=np.array(shift_map).T, n_cuts=topo.topo.n_loops)
+                                            name=str(diag_set['id']), shift_map=np.array(shift_map).T,
+                                            n_sg_loops=topo.topo.n_loops, ltd_index=len(cut['cuts']) - 1)
                     pf.shifts_to_externals()
                     res = pf.to_FORM()
                     res = '\n'.join(['\t' + l for l in res.split('\n')])
@@ -1990,7 +1991,7 @@ int %(header)sget_rank(int diag, int conf) {{
 
                                 vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l)
                                 if vertex_contrib is None:
-                                    print("WARNING: unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
+                                    logger.warning("WARNING: unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
                                     #raise AssertionError("Unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
                                     vertex_factors.append('1')
                                 else:
@@ -2003,7 +2004,7 @@ int %(header)sget_rank(int diag, int conf) {{
                     bubble_edges = set()
                     for c in cut_info['cuts']:
                         sig = next(ee['signature'] for ee in edges.values() if ee['name'] == c['edge'])
-                        inv_sig = tuple([(x[0], not x[1]) for x in sig])
+                        inv_sig = tuple([-s for s in x] for x in sig)
                         bubble_edges |= set(ee['name'] for ee in edges.values() if (ee['signature'] == sig or ee['signature'] == inv_sig) and ee['name'] != c['edge'])
 
                     # compute the proper multiplicity by dividing out the symmetry factor of the UV divergent subgraphs
