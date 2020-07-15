@@ -1265,10 +1265,13 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         computed_model.set_parameters_and_couplings(
                                             pjoin(self.dir_path,'Source','MODEL','param_card.dat'))        
 
+        cuts = self.get_cuts(representative_proc)
+
         FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
         Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
         super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
-            self.qgraf_output, merge_isomorphic_graphs=True, model=self.model, workspace=FORM_workspace)
+            self.qgraf_output, merge_isomorphic_graphs=True, 
+            model=self.model, workspace=FORM_workspace,cuts=cuts)
         form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                 pjoin(self.dir_path,'FORM', 'Makefile'))
@@ -1316,6 +1319,15 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         form_processor.draw(drawings_output_path)
 
         form_processor.compile(pjoin(self.dir_path,'FORM'))
+    
+    def get_cuts(self, representative_process):
+        cuts=[]
+        additional_loops = len(representative_process['perturbation_couplings'])
+        final_states = [abs(leg.get('id')) for leg in representative_process.get('legs') if leg.get('state')==True]
+        for pdg in set(final_states):
+            cuts += [([pdg],final_states.count(pdg))]
+        cuts += [('any', additional_loops )]
+        return cuts
 
     def build_qgraf_epem(self, representative_process):
         # Check if e+ e- > a > ...

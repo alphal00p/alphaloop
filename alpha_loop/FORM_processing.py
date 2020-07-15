@@ -13,7 +13,7 @@ from itertools import combinations_with_replacement
 from collections import OrderedDict
 
 import progressbar
-from itertools import chain
+from itertools import chain, product
 import sys
 import subprocess
 import argparse
@@ -148,6 +148,61 @@ class FORMSuperGraph(object):
 
         # Store copies of self for different choices of LMB to be used for cross-check.
         self.additional_lmbs = []
+
+    def filter_valid_cuts(self, cuts):
+        """ 
+        filter graph base on a list of allowed cuts whose entires are defined as:
+            ([allowd pdg], n) : to ensure to cut "n" times particles contained 
+                                in the pdg list
+            ('any', n)        : cut "n" edges that could be anything 
+                                (usefull for extra real radiations)
+        example: e+e- > ggh @NLO => [([21],2), ([25],1), ('any',1)]
+        """
+        g = igraph.Graph()
+        g.add_vertices(len(self.nodes))
+        undirected_edges = set()
+
+        for e in self.edges.values():
+            undirected_edges.add(tuple(sorted(e['vertices'])))
+
+        cut_edges = [[] for _ in range(len(cuts))]
+        for ue in undirected_edges:
+            multiple = 0
+            for e in self.edges.values():
+                if tuple(sorted(e['vertices'])) == ue:
+                    multiple += 1
+                    if e['type'] == 'virtual':
+                        for ci, c in enumerate(cuts):
+                            if c[0] == 'any':
+                                cut_edges[ci] += [tuple(sorted([x - 1 for x in ue]))]
+                            else:
+                                if abs(e['PDG']) in c[0]:
+                                    cut_edges[ci] += [tuple(sorted([x - 1 for x in ue]))]
+            g.add_edges([tuple(sorted([x - 1 for x in ue]))]*multiple)
+
+        take_cuts = []
+        valid_cut = False
+        for ci, cut in enumerate(cuts):
+            take_cuts += [cut_edges[ci]] * cut[1]
+
+        for cut_edges in product(*take_cuts):
+            # When a valid is cut we know we need to keep this graph
+            if valid_cut:
+                break
+            # Apply set of cuts
+            gtmp = g.copy()
+            for ci in range(len(cut_edges)):
+                if not gtmp.are_connected(*cut_edges[ci]):
+                    break
+                gtmp.delete_edges(gtmp.get_eid(*cut_edges[ci]))
+                #print("cut:", cut_edges[ci], " :: ", gtmp.is_connected(), "\t", cm)
+                if not gtmp.is_connected():
+                    if ci+1 < len(cut_edges):
+                        break
+                    else:
+                        valid_cut = True
+        return valid_cut
+
 
     def get_mathematica_rendering_code(self, model, FORM_id=None, lmb_id=None):
         """ Generate mathematica expression for drawing this graph."""
@@ -1204,7 +1259,7 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None):
+    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None, cuts=None):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
         p = Path(dict_file_path)
@@ -1285,7 +1340,20 @@ class FORMSuperGraphList(list):
             logger.info("Taking first {} supergraphs.".format(first))
             full_graph_list = full_graph_list[:first]
 
-        
+        if not cuts is None:
+            print(cuts)
+            graph_filtered = {'DUMP':[], 'KEEP':[]}
+            for graph in full_graph_list:
+                if graph.filter_valid_cuts(cuts):
+                    graph_filtered["KEEP"] += [graph]
+                else: 
+                    graph_filtered["DUMP"] += [graph]
+            #for k,v in graph_filtered.items():
+            #    print(k,":")
+            #    print("\t",np.array([g.name for g in v]))
+            full_graph_list[:] = graph_filtered['KEEP']
+            logger.info("\033[1mRemoved {} graphs with no valid cuts\033[0m".format(len(graph_filtered['DUMP'])))
+
         iso_groups = []
 
         import time
