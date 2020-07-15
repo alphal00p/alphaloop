@@ -600,6 +600,9 @@ pub struct CrossSectionSettings {
     pub inherit_deformation_for_uv_counterterm: bool,
     pub numerator_source: NumeratorSource,
     pub compare_with_additional_topologies: bool,
+    pub m_uv_sq: f64,
+    pub mu_r_sq: f64,
+    pub gs: f64,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

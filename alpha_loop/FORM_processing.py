@@ -792,11 +792,11 @@ aGraph=%s;
                             for _ in range(p.power):
                                 # TODO: recycle energy computations when there are duplicate edges
                                 if not is_constant:
-                                    energy_map.append(p.m_squared)
+                                    energy_map.append(p.m_squared if not p.uv else 'mUV*mUV')
                                     energies.append(totalmom)
                                     shift_map.append(list(shift) + list(extshift))
                                 else:
-                                    constants.append((totalmom, p.m_squared))
+                                    constants.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV'))
                     loops += diag_info['graph'].n_loops
                     signature_offset += diag_info['graph'].n_loops
 
@@ -876,10 +876,6 @@ CTable pftopo(0:{});
             external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
             #external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
             p = np.array(external_momenta['q1']) + np.array(external_momenta['q2'])
-
-        # compute mUV
-        FORM_processing_options['mUV'] = 2 * math.sqrt(p[0]**2 - p[1]**2 - p[2]**2 - p[3]**2)
-        FORM_processing_options['logmUV'] = math.log(FORM_processing_options['mUV']**2)
 
         loop_momenta = []
         n_loops = len(self.edges) - len(self.nodes) + 1
@@ -1659,40 +1655,41 @@ class FORMSuperGraphList(list):
                             graph.is_zero = False
 
                         main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
-                        integrand_main_code += '\nstatic inline double complex %(header)sevaluate_{}_{}(double complex lm[]) {{\n\t{}\n{}}}'.format(i, conf_id,
+                        main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)')
+                        integrand_main_code += '\nstatic inline double complex %(header)sevaluate_{}_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                         )
 
-                        main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                        main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                         main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                        integrand_main_code += '\n' + '\nstatic inline __complex128 %(header)sevaluate_{}_{}_f128(__complex128 lm[]) {{\n\t{}\n{}}}'.format(i, conf_id,
+                        integrand_main_code += '\n' + '\nstatic inline __complex128 %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
                             '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                         )
 
                     integrand_main_code += \
 """
-double complex %(header)sevaluate_{}(double complex lm[], int conf) {{
+double complex %(header)sevaluate_{}(double complex lm[], double complex params[], int conf) {{
    switch(conf) {{
 {}
     }}
 }}
 """.format(i,
         '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm);'.format(conf, i, conf) for conf in sorted(confs)] +
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, params);'.format(conf, i, conf) for conf in sorted(confs)] +
         (['\t\tdefault: return 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
 
 
                     integrand_main_code += \
 """
-__complex128 %(header)sevaluate_{}_f128(__complex128 lm[], int conf) {{
+__complex128 %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf) {{
    switch(conf) {{
 {}
     }}
 }}
 """.format(i,
         '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm);'.format(conf, i, conf) for conf in sorted(confs)] +
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params);'.format(conf, i, conf) for conf in sorted(confs)] +
         (['\t\tdefault: return 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
 
@@ -1710,26 +1707,26 @@ __complex128 %(header)sevaluate_{}_f128(__complex128 lm[], int conf) {{
 {}
 {}
 
-double complex %(header)sevaluate(double complex lm[], int diag, int conf) {{
+double complex %(header)sevaluate(double complex lm[], double complex params[], int diag, int conf) {{
     switch(diag) {{
 {}
     }}
 }}
 
-__complex128 %(header)sevaluate_f128(__complex128 lm[], int diag, int conf) {{
+__complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], int diag, int conf) {{
     switch(diag) {{
 {}
     }}
 }}
 """.format(
-    '\n'.join('double complex %(header)sevaluate_{}(double complex[], int conf);'.format(i) for i in all_numerator_ids),
-    '\n'.join('__complex128 %(header)sevaluate_{}_f128(__complex128[], int conf);'.format(i) for i in all_numerator_ids),
+    '\n'.join('double complex %(header)sevaluate_{}(double complex[], double complex[], int conf);'.format(i) for i in all_numerator_ids),
+    '\n'.join('__complex128 %(header)sevaluate_{}_f128(__complex128[], __complex128[], int conf);'.format(i) for i in all_numerator_ids),
     '\n'.join(
-    ['\t\tcase {}: return %(header)sevaluate_{}(lm, conf);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: return %(header)sevaluate_{}(lm, params, conf);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     ),
     '\n'.join(
-    ['\t\tcase {}: return %(header)sevaluate_{}_f128(lm, conf);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: return %(header)sevaluate_{}_f128(lm, params, conf);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     )
     )
@@ -1836,6 +1833,8 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], int diag, int conf) {{
                         for r in sorted(return_statements, key=lambda x: x[0]):
                             num_body += r[1]
 
+                        num_body = num_body.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)')
+
                         confs.append((conf_id, rank))
 
                         if len(temp_vars) > 0:
@@ -1843,14 +1842,14 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], int diag, int conf) {{
 
                         # TODO: Check that static inline vs inline induces no regression!
                         numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
-                        numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex* out) {{\n\t{}'.format(i, conf_id,
+                        numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
                         ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
 
 
                     numerator_main_code += \
 """
-int %(header)sevaluate_{}(double complex lm[], int conf, double complex* out) {{
+int %(header)sevaluate_{}(double complex lm[], double complex params[], int conf, double complex* out) {{
    switch(conf) {{
 {}
     }}
@@ -1863,7 +1862,7 @@ int %(header)sget_rank_{}(int conf) {{
 }}
 """.format(i,
         '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
         (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ),
         i,
@@ -1885,7 +1884,7 @@ int %(header)sget_rank_{}(int conf) {{
 {}
 {}
 
-int %(header)sevaluate(double complex lm[], int diag, int conf, double complex* out) {{
+int %(header)sevaluate(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
     switch(diag) {{
 {}
     }}
@@ -1901,10 +1900,10 @@ int %(header)sget_rank(int diag, int conf) {{
     }}
 }}
 """.format(
-    '\n'.join('int %(header)sevaluate_{}(double complex[], int conf, double complex*);'.format(i) for i in all_numerator_ids),
+    '\n'.join('int %(header)sevaluate_{}(double complex[], double complex[], int conf, double complex*);'.format(i) for i in all_numerator_ids),
     '\n'.join('int %(header)sget_rank_{}(int conf);'.format(i) for i in all_numerator_ids),
     '\n'.join(
-    ['\t\tcase {}: return %(header)sevaluate_{}(lm, conf, out);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: return %(header)sevaluate_{}(lm, params, conf, out);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     ), 
     (max_buffer_size + 1) * 2,
@@ -1916,8 +1915,11 @@ int %(header)sget_rank(int diag, int conf) {{
         writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.c'%header_map)).write(numerator_code%header_map)
 
 
-        params['mUV'] = FORM_processing_options['mUV']
-        params['logmUV'] = FORM_processing_options['logmUV']
+        params = copy.deepcopy(params)
+        params['mUV'] = 'params[0]'
+        params['mu'] = 'params[1]'
+        params['gs'] = 'params[2]'
+
         header_code = \
 """
 #ifndef NUM_H
@@ -2233,7 +2235,7 @@ class FORMProcessor(object):
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
             'gy': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
             'ghhh': 6. * self.model['parameter_dict']['mdl_lam'].real,
-            'pi': '3.1415926535897932384626433832795',
+            'pi': 'M_PI',
         }
 
         helicity_averaging_factor = 1

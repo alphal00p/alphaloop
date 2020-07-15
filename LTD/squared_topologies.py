@@ -223,6 +223,7 @@ class SquaredTopologyGenerator:
                         if any(p for p in ll.propagators if p.name in uv_moms):
                             uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators]))
                             prop = next(p for p in ll.propagators if p.name in uv_moms)
+                            prop.uv = True
                             prop.m_squared = mu_uv**2
                             prop.power = sum(pp.power for pp in ll.propagators)
                             prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
@@ -246,6 +247,7 @@ class SquaredTopologyGenerator:
                             check_external_momenta_names=False,
                             analytic_result=0)
                         for ll in loop_topo.loop_lines:
+                            ll.propagators[0].uv = True
                             ll.propagators[0].m_squared = mu_uv**2
                             ll.propagators[0].power = 3
                             ll.propagators[0].parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]

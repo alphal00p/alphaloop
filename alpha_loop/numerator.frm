@@ -485,8 +485,6 @@ PolyRatFun;
 id rat(x1?) = x1;
 if (count(ep, 1)) Discard; * keep only the ep^0 piece
 
-* for now, just set mu^2 = m_uv^2
-id logmu = logmUV;
 .sort:integrated-ct-2;
 
 #ifndef `NOINTEGRAND'

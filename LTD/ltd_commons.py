@@ -228,6 +228,9 @@ hyperparameters = HyperParameters({
     },
 
     'CrossSection'   :   {
+        'm_uv_sq'                               :   16.,
+        'mu_r_sq'                               :   16.,
+        'gs'                                    :   1.2177157847767195,
         'picobarns'                             :   True,
         'inherit_deformation_for_uv_counterterm':   False,
         'do_rescaling'                          :   True,        

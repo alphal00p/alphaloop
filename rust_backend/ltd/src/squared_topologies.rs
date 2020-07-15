@@ -32,6 +32,7 @@ mod form_numerator {
     pub struct FORMNumeratorAPI {
         evaluate: unsafe extern "C" fn(
             p: *const c_double,
+            params: *const c_double,
             diag: c_int,
             conf: c_int,
             out: *mut c_double,
@@ -43,6 +44,7 @@ mod form_numerator {
     pub fn get_numerator(
         api_container: &mut Container<FORMNumeratorAPI>,
         p: &[f64],
+        params: &[f64],
         diag: usize,
         conf: usize,
         poly: &mut [f64],
@@ -50,6 +52,7 @@ mod form_numerator {
         unsafe {
             api_container.evaluate(
                 &p[0] as *const f64,
+                &params[0] as *const f64,
                 diag as i32,
                 conf as i32,
                 &mut poly[0] as *mut f64,
@@ -90,6 +93,7 @@ mod form_integrand {
         fn get_integrand(
             api_container: &mut Container<FORMIntegrandAPI>,
             p: &[Self],
+            params: &[Self],
             diag: usize,
             conf: usize,
         ) -> Complex<Self>
@@ -101,10 +105,18 @@ mod form_integrand {
         fn get_integrand(
             api_container: &mut Container<FORMIntegrandAPI>,
             p: &[f64],
+            params: &[f64],
             diag: usize,
             conf: usize,
         ) -> Complex<f64> {
-            unsafe { api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32) }
+            unsafe {
+                api_container.evaluate(
+                    &p[0] as *const f64,
+                    &params[0] as *const f64,
+                    diag as i32,
+                    conf as i32,
+                )
+            }
         }
     }
 
@@ -112,21 +124,32 @@ mod form_integrand {
         fn get_integrand(
             api_container: &mut Container<FORMIntegrandAPI>,
             p: &[f128::f128],
+            params: &[f128::f128],
             diag: usize,
             conf: usize,
         ) -> Complex<f128::f128> {
             unsafe {
-                api_container.evaluate_f128(&p[0] as *const f128::f128, diag as i32, conf as i32)
+                api_container.evaluate_f128(
+                    &p[0] as *const f128::f128,
+                    &params[0] as *const f128::f128,
+                    diag as i32,
+                    conf as i32,
+                )
             }
         }
     }
 
     #[derive(WrapperApi)]
     pub struct FORMIntegrandAPI {
-        evaluate:
-            unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int) -> Complex<c_double>,
+        evaluate: unsafe extern "C" fn(
+            p: *const c_double,
+            params: *const c_double,
+            diag: c_int,
+            conf: c_int,
+        ) -> Complex<c_double>,
         evaluate_f128: unsafe extern "C" fn(
             p: *const f128::f128,
+            params: *const f128::f128,
             diag: c_int,
             conf: c_int,
         ) -> Complex<f128::f128>,
@@ -860,6 +883,15 @@ impl SquaredTopology {
                 for d in &mut diagram_set.diagram_info {
                     d.graph.settings = settings.clone();
                     d.graph.process(false);
+
+                    // update the UV mass
+                    for ll in &mut d.graph.loop_lines {
+                        for p in &mut ll.propagators {
+                            if p.uv {
+                                p.m_squared = settings.cross_section.m_uv_sq;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1630,6 +1662,15 @@ impl SquaredTopology {
                         }
                     }
 
+                    let params = [
+                        self.settings.cross_section.m_uv_sq.sqrt(),
+                        0.,
+                        self.settings.cross_section.mu_r_sq,
+                        0.,
+                        self.settings.cross_section.gs,
+                        0.,
+                    ];
+
                     for m in &mut form_numerator_buffer {
                         *m = 0.;
                     }
@@ -1637,6 +1678,7 @@ impl SquaredTopology {
                     let len = form_numerator::get_numerator(
                         form_numerator.as_mut().unwrap(),
                         &scalar_products,
+                        &params,
                         call_signature.id,
                         diagram_set.id,
                         &mut form_numerator_buffer,
@@ -1706,9 +1748,19 @@ impl SquaredTopology {
                         }
                     }
 
+                    let params = [
+                        Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
+                        T::zero(),
+                        Into::<T>::into(self.settings.cross_section.mu_r_sq),
+                        T::zero(),
+                        Into::<T>::into(self.settings.cross_section.gs),
+                        T::zero(),
+                    ];
+
                     let res = T::get_integrand(
                         form_integrand.as_mut().unwrap(),
                         &scalar_products,
+                        &params,
                         call_signature.id,
                         diagram_set.id,
                     );

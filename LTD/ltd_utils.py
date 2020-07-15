@@ -2178,11 +2178,12 @@ class LoopLine(object):
 class Propagator(object):
     """ A simple container for describing a loop propagator."""
 
-    def __init__(self, q, m_squared, power=1, signature = None, name = None, parametric_shift = None, **opts):
+    def __init__(self, q, m_squared, power=1, signature = None, name = None, parametric_shift = None, uv = False, **opts):
         self.name       = name
         self.q          = q
         self.m_squared  = m_squared
         self.power      = power
+        self.uv         = uv
         # Note that this signature member is not strictly speaking necessary as it should always be the
         # same as the signature attribute of the LoopLine containing it. We forward it here for convenience however.
         self.signature  = signature
@@ -2196,6 +2197,7 @@ class Propagator(object):
         res['q'] = [float(v) for v in self.q]
         res['m_squared'] = self.m_squared
         res['power'] = self.power
+        res['uv'] = self.uv
 
         if self.parametric_shift is not None:
             res['parametric_shift'] = self.parametric_shift
@@ -2214,6 +2216,7 @@ class Propagator(object):
             m_squared   =   flat_dict['m_squared'],
             power       =   flat_dict['power'],
             name        =   flat_dict['name'],
+            uv          =   flat_dict['uv'],
             parametric_shift = flat_dict['parametric_shift']
         ) 
 
