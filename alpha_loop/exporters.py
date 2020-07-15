@@ -1293,7 +1293,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 final_state_particle_ids=final_state_particle_ids,
                 jet_ids=self.alphaLoop_options['_jet_PDGs'],
                 # Remove non-contributing graphs from the list stored in the form_processor
-                filter_non_contributing_graphs=True
+                filter_non_contributing_graphs=True,
+                workspace=FORM_workspace, 
             )
 
             # Add phase

@@ -701,7 +701,7 @@ aGraph=%s;
         else:
             return dict_to_dump
 
-    def generate_integrand(self, topo, root_output_path, numerator_call):
+    def generate_integrand(self, topo, workspace, numerator_call):
         """Construct a table of integrand descriptors"""
         integrand_body = ''
         max_diag_id = 0
@@ -761,7 +761,7 @@ aGraph=%s;
                 integrand_body += 'Fill pftopo({}) = constants({})*\nenergies({})*\nellipsoids({})*(\n{});\n'.format(diag_set['id'],
                     ','.join(c[0] for c in constants), ','.join(energies), resden, res)
 
-        with open(pjoin(root_output_path, '..', 'workspace', 'pftable_{}.h'.format(numerator_call)), 'w') as f:
+        with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
 Auto S invd, E, shift;
 S r, s;
@@ -786,7 +786,7 @@ CTable pftopo(0:{});
             return 0
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
-        generate_integrand=True):
+        generate_integrand=True, workspace=None):
 
         if bar:
             bar.update(i_lmb='1')
@@ -868,7 +868,7 @@ CTable pftopo(0:{});
                                     final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml)
 
         if generate_integrand:
-            self.generate_integrand(topo, root_output_path, numerator_call)
+            self.generate_integrand(topo, workspace, numerator_call)
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
@@ -1169,7 +1169,7 @@ class FORMSuperGraphIsomorphicList(list):
             logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
         return multiplicity    
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, bar=None ):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None ):
         for i, g in enumerate(self):
             # Now we generate the squared topology only for the first isomorphic graph
             # to obtain the replacement rules for the bubble.
@@ -1177,7 +1177,7 @@ class FORMSuperGraphIsomorphicList(list):
             # numerator 
             if i==0:
                 r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
-                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, bar=bar)
+                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar)
             else:
                 g.replacement_rules = self[0].replacement_rules
         #print(r)
@@ -1213,9 +1213,9 @@ class FORMSuperGraphList(list):
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         # Filter specific graphs by name 
-        #filter_graphs = ['SG_QG8','SG_QG9']
+        #filter_graphs = ['SG_QG3','SG_QG4']
         #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
-        #m.graph_names = ['SG_MG8','SG_QG9']
+        #m.graph_names = ['SG_MG3','SG_QG4']
         #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
 
         # Now convert the vertex names to be integers according to QGRAF format:
@@ -1826,7 +1826,10 @@ int %(header)sget_rank(int diag, int conf) {{
         if generate_integrand:
             self.generate_integrand_functions(root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None)
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None):
+        if workspace is None:
+            workspace = pjoin(root_output_path, os.pardir, 'workspace')
+        print("WORKSPACE: ",workspace)
         topo_collection = {
             'name': self.name,
             'topologies': []
@@ -1846,7 +1849,8 @@ int %(header)sget_rank(int diag, int conf) {{
                 time_before = time.time()
                 bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
-                                                            final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, bar=bar):
+                                                            final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, 
+                                                            workspace=workspace, bar=bar):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         'multiplicity': g[0].multiplicity
@@ -1878,7 +1882,8 @@ int %(header)sget_rank(int diag, int conf) {{
                 time_before = time.time()
                 bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
-                                                            final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, bar=bar):
+                                                            final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids,
+                                                            workspace=workspace, bar=bar):
                     topo_collection['topologies'].append({
                         'name': g.name,
                         'multiplicity': g.multiplicity,
@@ -2151,9 +2156,9 @@ class FORMProcessor(object):
             logger.warning(("\n%sYou are running FORM_processing directly from the __main__ of FORM_processing.py.\n"+
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
-    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True):
+    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None):
         self.super_graphs_list.generate_squared_topology_files(
-            root_output_path, self.model, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs
+            root_output_path, self.model, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace
         )
 
 
