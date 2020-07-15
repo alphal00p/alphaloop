@@ -1499,6 +1499,7 @@ class FORMSuperGraphList(list):
 
         # add all numerators in one file and write the headers
         numerator_header = """#include <tgmath.h>
+#include <quadmath.h>
 #include <signal.h>
 #include "%(header)snumerator.h"
 """
@@ -1507,6 +1508,7 @@ class FORMSuperGraphList(list):
         input_pattern = re.compile(r'lm(\d*)')
         conf_exp = re.compile(r'conf\(([^)]*)\)\n')
         return_exp = re.compile(r'return ([^;]*);\n')
+        float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
         FORM_vars={}
 
@@ -1569,6 +1571,8 @@ class FORMSuperGraphList(list):
                         energy_secs = energy_secs.replace('\n', '')
                         energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
                         const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2*E{}'.format(i) for i in range(len(mom_map)))
+                        if const_code == '':
+                            const_code = '1'
 
                         # parse the denominators
                         denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
@@ -1590,6 +1594,12 @@ class FORMSuperGraphList(list):
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                         )
 
+                        main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                        main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
+                        integrand_main_code += '\n' + '\nstatic inline __complex128 %(header)sevaluate_{}_{}_f128(__complex128 lm[]) {{\n\t{}\n{}}}'.format(i, conf_id,
+                            '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                        )
+
                     integrand_main_code += \
 """
 double complex %(header)sevaluate_{}(double complex lm[], int conf) {{
@@ -1603,6 +1613,20 @@ double complex %(header)sevaluate_{}(double complex lm[], int conf) {{
         (['\t\tdefault: return 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
 
+
+                    integrand_main_code += \
+"""
+__complex128 %(header)sevaluate_{}_f128(__complex128 lm[], int conf) {{
+   switch(conf) {{
+{}
+    }}
+}}
+""".format(i,
+        '\n'.join(
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm);'.format(conf, i, conf) for conf in sorted(confs)] +
+        (['\t\tdefault: return 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ))
+
                     bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
                     bar.update(i_graph+1)
 
@@ -1611,8 +1635,10 @@ double complex %(header)sevaluate_{}(double complex lm[], int conf) {{
         numerator_code = \
 """
 #include <tgmath.h>
+#include <quadmath.h>
 #include <signal.h>
 
+{}
 {}
 
 double complex %(header)sevaluate(double complex lm[], int diag, int conf) {{
@@ -1620,10 +1646,21 @@ double complex %(header)sevaluate(double complex lm[], int diag, int conf) {{
 {}
     }}
 }}
+
+__complex128 %(header)sevaluate_f128(__complex128 lm[], int diag, int conf) {{
+    switch(diag) {{
+{}
+    }}
+}}
 """.format(
     '\n'.join('double complex %(header)sevaluate_{}(double complex[], int conf);'.format(i) for i in all_numerator_ids),
+    '\n'.join('__complex128 %(header)sevaluate_{}_f128(__complex128[], int conf);'.format(i) for i in all_numerator_ids),
     '\n'.join(
     ['\t\tcase {}: return %(header)sevaluate_{}(lm, conf);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tdefault: raise(SIGABRT);']
+    ),
+    '\n'.join(
+    ['\t\tcase {}: return %(header)sevaluate_{}_f128(lm, conf);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     )
     )

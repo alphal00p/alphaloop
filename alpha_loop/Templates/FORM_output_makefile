@@ -14,13 +14,13 @@ INTEGRANDLIBRARY=libFORM_integrands.so
 all: $(LIBBPATH)/$(LIBRARY) $(LIBBPATH)/$(INTEGRANDLIBRARY)
 
 %.o: %.c
-	$(GCC) -c -g -O3 -fcx-fortran-rules -fcx-limited-range -lm $< -o $@
+	$(GCC) -c -Wconversion -march=native -O3 -fcx-fortran-rules -fcx-limited-range -lm $< -o $@
 
 $(LIBBPATH)/$(LIBRARY): $(OBJ)
-	$(GCC) --shared -fPIC -O3 -fcx-fortran-rules -fcx-limited-range -lm -o $@ $^
+	$(GCC) --shared -fPIC -Wconversion -march=native -O3 -fcx-fortran-rules -fcx-limited-range -lm -o $@ $^
 
 $(LIBBPATH)/$(INTEGRANDLIBRARY): $(INTEGRANDOBJ)
-	$(GCC) --shared -fPIC -O3 -fcx-fortran-rules -fcx-limited-range -lm -o $@ $^
+	$(GCC) --shared -fPIC -Wconversion -march=native -O3 -fcx-fortran-rules -fcx-limited-range -lm -o $@ $^
 
 clean:
 	rm -f $(LIBBPATH)/$(LIBRARY)

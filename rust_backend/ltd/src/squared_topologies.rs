@@ -14,85 +14,15 @@ use num_traits::ToPrimitive;
 use num_traits::{Float, FloatConst};
 use num_traits::{One, Zero};
 use observables::EventManager;
-use rand::Rng;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
-use std::ops::Mul;
 use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
-use utils::{PolynomialReconstruction, Signum};
+use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
 use {DeformationStrategy, FloatLike, NormalisingFunction, NumeratorSource, Settings, MAX_LOOP};
-
-mod mg_numerator {
-    use dlopen::wrapper::{Container, WrapperApi};
-    use libc::{c_char, c_double, c_int};
-    use num::Complex;
-
-    #[derive(WrapperApi)]
-    pub struct MGNumeratorAPI {
-        c_get_numerator: unsafe extern "C" fn(
-            p: *const c_double,
-            proc_id: *const c_int,
-            selected_diagam_left: *const c_int,
-            selected_diagram_right: *const c_int,
-            ans_re: *mut c_double,
-            ans_im: *mut c_double,
-        ),
-        c_initialise: unsafe extern "C" fn(p: *const c_char),
-    }
-
-    pub fn initialise(api_container: &mut Container<MGNumeratorAPI>, param_card_filename: &str) {
-        unsafe {
-            let mut a = ['\0' as i8; 512];
-            for (xa, c) in a.iter_mut().zip(param_card_filename.chars()) {
-                *xa = c as i8;
-            }
-            api_container.c_initialise(a.as_ptr());
-        }
-    }
-
-    pub fn get_numerator(
-        api_container: &mut Container<MGNumeratorAPI>,
-        p: &[f64],
-        proc_id: usize,
-        left_diagram_id: usize,
-        right_diagram_id: usize,
-    ) -> Complex<f64> {
-        let proc_id = proc_id as i32;
-        let selected_diagram_left = left_diagram_id as i32;
-        let selected_diagram_right = right_diagram_id as i32;
-
-        unsafe {
-            let mut ans = Complex::default();
-            api_container.c_get_numerator(
-                &p[0] as *const f64,
-                &proc_id as *const i32,
-                &selected_diagram_left as *const i32,
-                &selected_diagram_right as *const i32,
-                &mut ans.re as *mut f64,
-                &mut ans.im as *mut f64,
-            );
-            ans
-        }
-    }
-
-    pub fn load() -> Container<MGNumeratorAPI> {
-        let mut path = std::env::var("MG_NUMERATOR_PATH")
-            .expect("MG_NUMERATOR_PATH needs to be set in the mg_numerator mode.");
-
-        let mut container: Container<MGNumeratorAPI> =
-            unsafe { Container::load(&(path.clone() + "lib/libMGnumerators_dynamic.so")) }
-                .expect("Could not open library or load symbols");
-
-        path += "/Cards/param_card.dat";
-        initialise(&mut container, &path);
-
-        container
-    }
-}
 
 mod form_numerator {
     use dlopen::wrapper::{Container, WrapperApi};
@@ -156,19 +86,50 @@ mod form_integrand {
     use libc::{c_double, c_int};
     use num::Complex;
 
+    pub trait GetIntegrand {
+        fn get_integrand(
+            api_container: &mut Container<FORMIntegrandAPI>,
+            p: &[Self],
+            diag: usize,
+            conf: usize,
+        ) -> Complex<Self>
+        where
+            Self: std::marker::Sized;
+    }
+
+    impl GetIntegrand for f64 {
+        fn get_integrand(
+            api_container: &mut Container<FORMIntegrandAPI>,
+            p: &[f64],
+            diag: usize,
+            conf: usize,
+        ) -> Complex<f64> {
+            unsafe { api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32) }
+        }
+    }
+
+    impl GetIntegrand for f128::f128 {
+        fn get_integrand(
+            api_container: &mut Container<FORMIntegrandAPI>,
+            p: &[f128::f128],
+            diag: usize,
+            conf: usize,
+        ) -> Complex<f128::f128> {
+            unsafe {
+                api_container.evaluate_f128(&p[0] as *const f128::f128, diag as i32, conf as i32)
+            }
+        }
+    }
+
     #[derive(WrapperApi)]
     pub struct FORMIntegrandAPI {
         evaluate:
             unsafe extern "C" fn(p: *const c_double, diag: c_int, conf: c_int) -> Complex<c_double>,
-    }
-
-    pub fn get_integrand(
-        api_container: &mut Container<FORMIntegrandAPI>,
-        p: &[f64],
-        diag: usize,
-        conf: usize,
-    ) -> Complex<f64> {
-        unsafe { api_container.evaluate(&p[0] as *const f64, diag as i32, conf as i32) }
+        evaluate_f128: unsafe extern "C" fn(
+            p: *const f128::f128,
+            diag: c_int,
+            conf: c_int,
+        ) -> Complex<f128::f128>,
     }
 
     pub fn load() -> Container<FORMIntegrandAPI> {
@@ -244,27 +205,6 @@ pub struct FORMIntegrandCallSignature {
 }
 
 #[derive(Deserialize)]
-pub struct MGNumerator {
-    call_signature: Option<MGNumeratorCallSignature>,
-    #[serde(skip_deserializing)]
-    pub mg_numerator: Option<Container<mg_numerator::MGNumeratorAPI>>,
-}
-
-impl Clone for MGNumerator {
-    fn clone(&self) -> Self {
-        MGNumerator {
-            call_signature: self.call_signature.clone(),
-
-            mg_numerator: if self.call_signature.is_some() {
-                Some(mg_numerator::load())
-            } else {
-                None
-            },
-        }
-    }
-}
-
-#[derive(Deserialize)]
 pub struct FORMNumerator {
     call_signature: Option<FORMNumeratorCallSignature>,
     #[serde(skip_deserializing)]
@@ -321,8 +261,6 @@ pub struct SquaredTopology {
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
     pub topo: Topology,
-    #[serde(rename = "MG_numerator")]
-    pub mg_numerator: MGNumerator,
     #[serde(rename = "FORM_numerator")]
     pub form_numerator: FORMNumerator,
     #[serde(rename = "FORM_integrand")]
@@ -576,7 +514,7 @@ impl SquaredTopologySet {
             .unwrap();
     }
 
-    pub fn multi_channeling<'a, T: FloatLike>(
+    pub fn multi_channeling<'a, T: form_integrand::GetIntegrand + FloatLike>(
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
@@ -713,7 +651,7 @@ impl SquaredTopologySet {
         (x, k_def, T::one(), Complex::one(), result)
     }
 
-    pub fn evaluate<'a, T: FloatLike>(
+    pub fn evaluate<'a, T: form_integrand::GetIntegrand + FloatLike>(
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
@@ -932,11 +870,6 @@ impl SquaredTopology {
         ];
 
         {
-            if squared_topo.mg_numerator.call_signature.is_some() {
-                squared_topo.mg_numerator.mg_numerator = Some(mg_numerator::load());
-                squared_topo.get_energy_polynomial_matrix();
-            }
-
             if squared_topo.form_integrand.call_signature.is_some() {
                 squared_topo.form_integrand.form_integrand = Some(form_integrand::load());
             }
@@ -1016,234 +949,6 @@ impl SquaredTopology {
             }
         }
         cut_momentum
-    }
-
-    /// Reconstruct the shape of the energy polynomial for the MG numerator and
-    /// construct the transformation matrix that finds the coefficients.
-    pub fn get_energy_polynomial_matrix(&mut self) {
-        let mut rng = rand::thread_rng();
-
-        let e_cm = self.e_cm_squared.sqrt();
-        let max_rank: usize = 8; // FIXME: make dynamic
-        let mut poly_rec = PolynomialReconstruction::new(max_rank, self.n_loops, e_cm);
-
-        let mut mg_numerator = mem::replace(&mut self.mg_numerator.mg_numerator, None);
-        let mut poly_rec_buffer = vec![Complex::zero(); max_rank.pow(self.n_loops as u32)];
-
-        for cutkosky_cuts in &mut self.cutkosky_cuts {
-            let mut shifts = [LorentzVector::default(); MAX_LOOP + 4];
-            // get the shifts
-            for (shift, cut) in shifts.iter_mut().zip(cutkosky_cuts.cuts.iter()) {
-                *shift = utils::evaluate_signature(&cut.signature.1, &self.external_momenta);
-            }
-
-            for diagram_set in cutkosky_cuts.diagram_sets.iter_mut() {
-                if let Some(call_signature) = &self.mg_numerator.call_signature {
-                    let mut all_external_momenta: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> =
-                        ArrayVec::new();
-
-                    let cut_energies: Vec<f64> =
-                        (0..self.n_loops).map(|_| rng.gen::<f64>() * e_cm).collect();
-
-                    for e in &self.external_momenta[..self.n_incoming_momenta] {
-                        all_external_momenta
-                            .try_extend_from_slice(&[e.t, 0., e.x, 0., e.y, 0., e.z, 0.])
-                            .unwrap();
-                    }
-
-                    for _ in 0..self.n_loops {
-                        all_external_momenta
-                            .try_extend_from_slice(&[
-                                rng.gen::<f64>() * e_cm,
-                                0.,
-                                rng.gen::<f64>() * e_cm,
-                                0.,
-                                rng.gen::<f64>() * e_cm,
-                                0.,
-                                rng.gen::<f64>() * e_cm,
-                                0.,
-                            ])
-                            .unwrap();
-                    }
-
-                    let n_incoming_momenta = self.n_incoming_momenta;
-                    let n_loops = self.n_loops;
-                    let ltd_start_index = cutkosky_cuts.cuts.len() - 1;
-                    let mut f = |x: &[f64]| {
-                        // set the energies of the LTD momenta
-                        if let Some(m) = &diagram_set.cb_to_lmb {
-                            for (i, r) in m.chunks(n_loops).enumerate() {
-                                all_external_momenta[(n_incoming_momenta + i) * 8] = 0.;
-                                all_external_momenta[(n_incoming_momenta + i) * 8 + 1] = 0.;
-                                // x is only for the LTD momenta, so we need to
-                                for (j, ((&sign, cut_e), shift)) in r
-                                    .iter()
-                                    .zip_eq(cut_energies.iter())
-                                    .zip_eq(&shifts[..n_loops])
-                                    .enumerate()
-                                {
-                                    if sign != 0 {
-                                        if j < ltd_start_index {
-                                            all_external_momenta[(n_incoming_momenta + i) * 8] +=
-                                                (*cut_e - shift.t).multiply_sign(sign)
-                                        } else {
-                                            all_external_momenta[(n_incoming_momenta + i) * 8] +=
-                                                (x[j - ltd_start_index] - shift.t)
-                                                    .multiply_sign(sign);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        mg_numerator::get_numerator(
-                            mg_numerator.as_mut().unwrap(),
-                            &all_external_momenta,
-                            call_signature.proc_id,
-                            call_signature.left_diagram_id,
-                            call_signature.right_diagram_id,
-                        )
-                    };
-
-                    let n_vars = self.n_loops + 1 - cutkosky_cuts.cuts.len();
-
-                    poly_rec_buffer.clear();
-                    poly_rec_buffer.resize(max_rank.pow(n_vars as u32), Complex::zero());
-
-                    poly_rec.reconstruct(&mut f, max_rank, n_vars, &mut poly_rec_buffer);
-
-                    if self.settings.general.debug > 1 {
-                        println!("Fit polynomial coefficients: {:?}", poly_rec_buffer);
-                    }
-
-                    let mut non_zero_coefficients = vec![];
-                    let mut max_rank_non_zero = 0;
-
-                    for (i, v) in poly_rec_buffer.iter().enumerate() {
-                        // TODO: check if these bounds are appropriate
-                        if v.norm_sqr() > self.e_cm_squared * 1e-6 {
-                            non_zero_coefficients.push(i);
-
-                            for j in 0..n_vars {
-                                let pow = (i / max_rank.pow((n_vars - 1 - j) as u32)) % max_rank;
-                                if pow > max_rank_non_zero {
-                                    max_rank_non_zero = pow;
-                                }
-                            }
-                        }
-                    }
-
-                    if self.settings.general.debug > 0 {
-                        println!(
-                            "Numerator shape: {:?} with max rank {}",
-                            non_zero_coefficients, max_rank_non_zero
-                        );
-                    }
-
-                    diagram_set.numerator = LTDNumerator::from_sparse(
-                        n_loops,
-                        &[(vec![0; max_rank_non_zero], (0., 0.))],
-                    );
-
-                    // also give the subgraph numerators the proper size
-                    // TODO: set the proper rank of only the variables of the subgraph
-                    for diagram_info in &mut diagram_set.diagram_info {
-                        if diagram_info.graph.n_loops > 0 {
-                            diagram_info.graph.numerator = LTDNumerator::from_sparse(
-                                diagram_info.graph.n_loops,
-                                &[(vec![0; max_rank_non_zero], (0., 0.))],
-                            );
-                        }
-                    }
-
-                    // collect all non-zero components and construct a new matrix for this particular shape
-                    let mut mat = vec![];
-                    let mut all_sample_points = vec![];
-                    let mut numerator_to_reduced_index_map = vec![];
-
-                    diagram_set.energy_polynomial_coefficients.clear();
-                    diagram_set
-                        .energy_polynomial_coefficients
-                        .resize(non_zero_coefficients.len(), Complex::zero());
-
-                    // construct the map to the reduced index
-                    for i in &non_zero_coefficients {
-                        let mut power_map = vec![];
-                        for j in 0..n_vars {
-                            let pow = (i / max_rank.pow((n_vars - 1 - j) as u32)) % max_rank;
-                            for _ in 0..pow {
-                                power_map.push((cutkosky_cuts.cuts.len() - 1 + j) * 4);
-                            }
-                        }
-
-                        if power_map.len() == 0 {
-                            numerator_to_reduced_index_map.push(0);
-                        } else {
-                            let index_full = diagram_set.numerator.sorted_linear[..]
-                                .binary_search_by(|x| utils::compare_slice(&x[..], &power_map[..]))
-                                .unwrap()
-                                + 1;
-
-                            let index = diagram_set.numerator.coeff_map_to_reduced_numerator
-                                [cutkosky_cuts.cuts.len() - 1][index_full];
-                            numerator_to_reduced_index_map.push(index);
-                        }
-                    }
-
-                    let total_samples = if max_rank_non_zero > 0 {
-                        non_zero_coefficients.len() + 2 // take 2 more samples
-                    } else {
-                        non_zero_coefficients.len()
-                    };
-
-                    for _ in 0..total_samples {
-                        let sample_points: Vec<f64> =
-                            (0..n_vars).map(|_| rng.gen::<f64>() * e_cm).collect();
-                        let mut row = vec![];
-
-                        for i in &non_zero_coefficients {
-                            let eval: f64 = sample_points
-                                .iter()
-                                .enumerate()
-                                .map(|(j, sp)| {
-                                    sp.powi(
-                                        ((i / max_rank.pow((n_vars - 1 - j) as u32)) % max_rank)
-                                            as i32,
-                                    )
-                                })
-                                .product();
-                            row.push(eval);
-                        }
-
-                        all_sample_points.push(sample_points);
-                        mat.push(row);
-                    }
-
-                    let matl: Vec<f64> = mat.iter().flatten().cloned().collect();
-                    let m = nalgebra::DMatrix::from_row_slice(
-                        total_samples,
-                        non_zero_coefficients.len(),
-                        &matl,
-                    );
-
-                    let inv = (m.transpose().mul(m.clone()))
-                        .try_inverse()
-                        .unwrap()
-                        .mul(m.transpose());
-
-                    // TODO: test stability by sampling points
-
-                    diagram_set.energy_polynomial_matrix = inv
-                        .row_iter()
-                        .map(|r| r.iter().cloned().collect::<Vec<_>>())
-                        .collect();
-                    diagram_set.energy_polynomial_map = numerator_to_reduced_index_map;
-                    diagram_set.energy_polynomial_samples = all_sample_points;
-                }
-            }
-        }
-
-        mem::swap(&mut mg_numerator, &mut self.mg_numerator.mg_numerator);
     }
 
     pub fn generate_multi_channeling_channels(
@@ -1417,7 +1122,7 @@ impl SquaredTopology {
         Some(solutions)
     }
 
-    pub fn evaluate_mom<T: FloatLike>(
+    pub fn evaluate_mom<T: form_integrand::GetIntegrand + FloatLike>(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         caches: &mut [Vec<Vec<LTDCache<T>>>],
@@ -1530,7 +1235,7 @@ impl SquaredTopology {
         result
     }
 
-    pub fn evaluate_cut<T: FloatLike>(
+    pub fn evaluate_cut<T: form_integrand::GetIntegrand + FloatLike>(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         cut_momenta: &mut [LorentzVector<T>],
@@ -1846,144 +1551,7 @@ impl SquaredTopology {
                 subgraph_cache.cached_topology_integrand.clear();
             }
 
-            if self.settings.cross_section.numerator_source == NumeratorSource::Mg
-                || self.settings.cross_section.numerator_source == NumeratorSource::MgAndForm
-            {
-                if let Some(m) = &diagram_set.cb_to_lmb {
-                    for (kl, r) in k_def_lmb[..self.n_loops]
-                        .iter_mut()
-                        .zip_eq(m.chunks(self.n_loops))
-                    {
-                        *kl = LorentzVector::default();
-                        for ((&sign, mom), shift) in r
-                            .iter()
-                            .zip_eq(k_def.iter())
-                            .zip_eq(&shifts[..self.n_loops])
-                        {
-                            if sign != 0 {
-                                *kl += (*mom - shift).multiply_sign(sign);
-                            }
-                        }
-                    }
-                } else {
-                    panic!("The numerator is in the loop momentum basis but no map is defined.");
-                }
-
-                let mut mg_numerator = mem::replace(&mut self.mg_numerator.mg_numerator, None);
-                let mut energy_polynomial_coefficients =
-                    mem::replace(&mut diagram_set.energy_polynomial_coefficients, vec![]);
-
-                if let Some(call_signature) = &self.mg_numerator.call_signature {
-                    let mut all_external_momenta: ArrayVec<[f64; (MAX_LOOP + 4) * 8]> =
-                        ArrayVec::new();
-
-                    for m in &self.external_momenta[..self.n_incoming_momenta] {
-                        all_external_momenta
-                            .try_extend_from_slice(&[m.t, 0., m.x, 0., m.y, 0., m.z, 0.])
-                            .unwrap();
-                    }
-
-                    for m in &k_def_lmb[..self.n_loops] {
-                        all_external_momenta
-                            .try_extend_from_slice(&[
-                                m.t.re.to_f64().unwrap(),
-                                m.t.im.to_f64().unwrap(),
-                                m.x.re.to_f64().unwrap(),
-                                m.x.im.to_f64().unwrap(),
-                                m.y.re.to_f64().unwrap(),
-                                m.y.im.to_f64().unwrap(),
-                                m.z.re.to_f64().unwrap(),
-                                m.z.im.to_f64().unwrap(),
-                            ])
-                            .unwrap();
-                    }
-
-                    let n_incoming_momenta = self.n_incoming_momenta;
-                    let n_loops = self.n_loops;
-                    let ltd_start_index = cutkosky_cuts.cuts.len() - 1;
-
-                    energy_polynomial_coefficients.clear();
-                    for s in &diagram_set.energy_polynomial_samples {
-                        // set the energies of the LTD momenta
-                        if let Some(m) = &diagram_set.cb_to_lmb {
-                            for (i, r) in m.chunks(n_loops).enumerate() {
-                                all_external_momenta[(n_incoming_momenta + i) * 8] = 0.;
-                                all_external_momenta[(n_incoming_momenta + i) * 8 + 1] = 0.;
-                                // x is only for the LTD momenta, so we need to
-                                for (j, ((&sign, mom), shift)) in r
-                                    .iter()
-                                    .zip_eq(k_def.iter())
-                                    .zip_eq(&shifts[..n_loops])
-                                    .enumerate()
-                                {
-                                    if sign != 0 {
-                                        if j < ltd_start_index {
-                                            all_external_momenta[(n_incoming_momenta + i) * 8] +=
-                                                (mom.t - shift.t)
-                                                    .multiply_sign(sign)
-                                                    .re
-                                                    .to_f64()
-                                                    .unwrap();
-                                        } else {
-                                            all_external_momenta[(n_incoming_momenta + i) * 8] +=
-                                                (s[j - ltd_start_index]
-                                                    - shift.t.to_f64().unwrap())
-                                                .multiply_sign(sign);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        let num = mg_numerator::get_numerator(
-                            mg_numerator.as_mut().unwrap(),
-                            &all_external_momenta,
-                            call_signature.proc_id,
-                            call_signature.left_diagram_id,
-                            call_signature.right_diagram_id,
-                        );
-
-                        energy_polynomial_coefficients.push(num);
-                    }
-
-                    // multiply with the matrix to get the coefficients of the energy polynomial
-                    // and put them in the correct place in the reduced polynomial
-                    for c in &mut diag_cache[0].reduced_coefficient_lb[0] {
-                        *c = Complex::zero();
-                    }
-
-                    for (pos, r) in diagram_set
-                        .energy_polynomial_map
-                        .iter_mut()
-                        .zip_eq(&diagram_set.energy_polynomial_matrix)
-                    {
-                        let mut c: Complex<f64> = Complex::zero();
-                        for (v, eval) in r.iter().zip_eq(&energy_polynomial_coefficients) {
-                            c += eval * v;
-                        }
-
-                        if *pos >= diag_cache[0].reduced_coefficient_lb[0].len() {
-                            diag_cache[0].reduced_coefficient_lb[0]
-                                .resize(*pos + 1, Complex::zero());
-                        }
-
-                        diag_cache[0].reduced_coefficient_lb[0][*pos] =
-                            Complex::new(Into::<T>::into(c.re), Into::<T>::into(c.im));
-                    }
-                } else {
-                    panic!("No call signature for MG numerator, but MG numerator mode is enabled");
-                }
-
-                mem::swap(&mut mg_numerator, &mut self.mg_numerator.mg_numerator);
-                mem::swap(
-                    &mut energy_polynomial_coefficients,
-                    &mut diagram_set.energy_polynomial_coefficients,
-                );
-            }
-
-            if self.settings.cross_section.numerator_source == NumeratorSource::Form
-                || self.settings.cross_section.numerator_source == NumeratorSource::MgAndForm
-            {
+            if self.settings.cross_section.numerator_source == NumeratorSource::Form {
                 let mut form_numerator =
                     mem::replace(&mut self.form_numerator.form_numerator, None);
                 let mut form_numerator_buffer =
@@ -2046,43 +1614,7 @@ impl SquaredTopology {
                         .iter_mut()
                         .zip(form_numerator_buffer.chunks(2))
                     {
-                        let coeff = Complex::new(Into::<T>::into(r[0]), Into::<T>::into(r[1]));
-
-                        if self.settings.cross_section.numerator_source
-                            == NumeratorSource::MgAndForm
-                        {
-                            if let Some(mg_call_signature) = &self.mg_numerator.call_signature {
-                                if (*rlb).norm_sqr() == Into::<T>::into(0.0)
-                                    || coeff.norm_sqr() == Into::<T>::into(0.0)
-                                {
-                                    // TODO the dimensionality of (*rlb - coeff).norm_sqr() is not GeV^2 but depends on the number of incoming
-                                    // and outgoing momenta. This is only for debugging though, so prolly ok for now.
-                                    if (*rlb - coeff).norm_sqr()
-                                        > Into::<T>::into(1e-10 * self.e_cm_squared)
-                                    {
-                                        println!(
-                                            "Mismatch between MG and FORM numerator: {} (proc_id: {}, left_diag_id: {}, right_diag_id: {}) vs {} (diagram_set: {}, call_sig: {}) for config:\n-> {:?}",
-                                            rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id,
-                                            coeff, diagram_set.id, call_signature.id, loop_momenta
-                                        );
-                                    }
-                                } else if (*rlb - coeff).norm_sqr()
-                                    / ((*rlb).norm_sqr() + coeff.norm_sqr())
-                                    > Into::<T>::into(1e-10)
-                                {
-                                    println!(
-                                        "Mismatch between MG and FORM numerator: {} (proc_id: {}, left_diag_id: {}, right_diag_id: {}) vs {} (diagram_set: {}, call_sig: {}) for config:\n-> {:?}",
-                                        rlb, mg_call_signature.proc_id, mg_call_signature.left_diagram_id, mg_call_signature.right_diagram_id,
-                                        coeff, diagram_set.id, call_signature.id, loop_momenta
-                                    );
-                                }
-                            } else {
-                                panic!(
-                                    "No call signature for MG numerator, but MG numerator mode is enabled"
-                                );
-                            }
-                        }
-                        *rlb = coeff;
+                        *rlb = Complex::new(Into::<T>::into(r[0]), Into::<T>::into(r[1]));
                     }
                 } else {
                     panic!(
@@ -2101,46 +1633,46 @@ impl SquaredTopology {
                 let mut form_integrand =
                     mem::replace(&mut self.form_integrand.form_integrand, None);
                 let mut res = if let Some(call_signature) = &self.form_integrand.call_signature {
-                    let mut scalar_products: ArrayVec<[f64; MAX_LOOP * MAX_LOOP * 6]> =
+                    let mut scalar_products: ArrayVec<[T; MAX_LOOP * MAX_LOOP * 6]> =
                         ArrayVec::new();
 
-                    for (i1, e1) in self.external_momenta[..self.n_incoming_momenta]
+                    for (i1, e1) in external_momenta[..self.n_incoming_momenta]
                         .iter()
                         .enumerate()
                     {
                         scalar_products.push(e1.t);
-                        scalar_products.push(0.);
-                        for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
+                        scalar_products.push(T::zero());
+                        for e2 in &external_momenta[i1..self.n_incoming_momenta] {
                             scalar_products.push(e1.dot(e2));
-                            scalar_products.push(0.);
+                            scalar_products.push(T::zero());
                             scalar_products.push(e1.spatial_dot(e2));
-                            scalar_products.push(0.);
+                            scalar_products.push(T::zero());
                         }
                     }
 
                     for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                        scalar_products.push(m1.t.re.to_f64().unwrap());
-                        scalar_products.push(m1.t.im.to_f64().unwrap());
-                        for e1 in &self.external_momenta[..self.n_incoming_momenta] {
+                        scalar_products.push(m1.t.re);
+                        scalar_products.push(m1.t.im);
+                        for e1 in &external_momenta[..self.n_incoming_momenta] {
                             let d = m1.dot(&e1.cast());
-                            scalar_products.push(d.re.to_f64().unwrap());
-                            scalar_products.push(d.im.to_f64().unwrap());
+                            scalar_products.push(d.re);
+                            scalar_products.push(d.im);
                             let d = m1.spatial_dot(&e1.cast());
-                            scalar_products.push(d.re.to_f64().unwrap());
-                            scalar_products.push(d.im.to_f64().unwrap());
+                            scalar_products.push(d.re);
+                            scalar_products.push(d.im);
                         }
 
                         for m2 in k_def[i1..self.n_loops].iter() {
                             let d = m1.dot(m2);
-                            scalar_products.push(d.re.to_f64().unwrap());
-                            scalar_products.push(d.im.to_f64().unwrap());
+                            scalar_products.push(d.re);
+                            scalar_products.push(d.im);
                             let d = m1.spatial_dot(m2);
-                            scalar_products.push(d.re.to_f64().unwrap());
-                            scalar_products.push(d.im.to_f64().unwrap());
+                            scalar_products.push(d.re);
+                            scalar_products.push(d.im);
                         }
                     }
 
-                    let res = form_integrand::get_integrand(
+                    let res = T::get_integrand(
                         form_integrand.as_mut().unwrap(),
                         &scalar_products,
                         call_signature.id,
@@ -2155,16 +1687,6 @@ impl SquaredTopology {
                 };
 
                 mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
-
-                /*for diagram_info in diagram_set.diagram_info.iter() {
-                    res *= utils::powi(
-                        num::Complex::new(
-                            T::zero(),
-                            Into::<T>::into(-2.) * <T as FloatConst>::PI(),
-                        ),
-                        diagram_info.graph.n_loops,
-                    ); // factor of delta cut
-                }*/
 
                 res *= def_jacobian;
 

@@ -238,7 +238,7 @@ hyperparameters = HyperParameters({
             'center'                            :   1.0,
             'spread'                            :   1.0,
         },
-        # Can be yaml, MG, FORM, MG_and_FORM, FORM_integrand
+        # Can be yaml, FORM, FORM_integrand
         'numerator_source'                      :   'yaml',
         # compare locally against the same topology written in another loop momentum basis
         'compare_with_additional_topologies'    :   False,

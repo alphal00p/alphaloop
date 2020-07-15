@@ -1262,6 +1262,7 @@ impl Topology {
         // dampen every pinch
         if self.settings.deformation.fixed.dampen_on_pinch
             && self.settings.deformation.fixed.dampen_on_pinch_after_lambda
+            && !self.fixed_deformation.is_empty()
         {
             let mij_min_sq = Into::<T>::into(self.compute_min_mij().powi(2));
             let mij_sq =

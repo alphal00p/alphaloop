@@ -579,12 +579,8 @@ pub struct NormalisingFunctionSettings {
 pub enum NumeratorSource {
     #[serde(rename = "yaml")]
     Yaml,
-    #[serde(rename = "MG")]
-    Mg,
     #[serde(rename = "FORM")]
     Form,
-    #[serde(rename = "MG_and_FORM")]
-    MgAndForm,
     #[serde(rename = "FORM_integrand")]
     FormIntegrand,
 }
