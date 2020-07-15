@@ -40,6 +40,17 @@ RFM$InvParameterize[hook_,LoopIndex_,ECM_,Momentum_,OptionsPattern[{DEBUG->False
 RFM$Evaluate[hook_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]
 RFM$EvaluateCut[hook_,CutID_,scalingFactor_, scalingFactorJacobian_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]
 RFM$EvaluateIntegrand[hook_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]
+
+Set your environment variables as follows:
+
+RFM$CUBAPath = \"<PATHTO>/Cuba-4.2/lib\";
+RFM$SCSPath=\"<PATHTO>/scs/out\";
+RFM$ECOSPath=\"<PATHTO>/ecos\";
+RFM$DYLDPATHS=RFM$CUBAPath<>\":\"<>RFM$SCSPath<>\":\"<>RFM$ECOSPath;
+
+and then call:
+RFM$SetEnvironment[];
+
 "];
 
 
@@ -101,6 +112,17 @@ Get[name<>".m"]
 ];
 
 
+(* ::Text:: *)
+(*Facility to set proper environment variables from RFM$DYLDPATHS*)
+
+
+RFM$SetEnvironment[]:=Block[{},
+SetEnvironment["DYLD_LIBRARY_PATH"->If[GetEnvironment["DYLD_LIBRARY_PATH"][[2]]===None,"",GetEnvironment["DYLD_LIBRARY_PATH"][[2]]<>":"]<>RFM$DYLDPATHS];
+SetEnvironment["LD_LIBRARY_PATH"->If[GetEnvironment["LD_LIBRARY_PATH"][[2]]===None,"",GetEnvironment["LD_LIBRARY_PATH"][[2]]<>":"]<>RFM$DYLDPATHS];
+SetEnvironment["LIBRARY_PATH"->If[GetEnvironment["LIBRARY_PATH"][[2]]===None,"",GetEnvironment["LIBRARY_PATH"][[2]]<>":"]<>RFM$DYLDPATHS];
+]
+
+
 (* ::Input::Initialization:: *)
 RFM$GetLTDHook[name_,OptionsPattern[
 {
@@ -122,8 +144,10 @@ OptionValue[TopologiesPath],
 OptionValue[AmplitudesPath]
 },
 SessionProlog="import os;os.environ['DYLD_LIBRARY_PATH']='"<>
-RFM$DYLDPATHS<>":'+os.environ.get('DYLD_LIBRARY_PATH','');"<>
-"os.environ['MG_NUMERATOR_PATH']='"<>
+RFM$DYLDPATHS<>":'+os.environ.get('DYLD_LIBRARY_PATH','');"
+<>"os.environ['LD_LIBRARY_PATH']="<>RFM$DYLDPATHS<>":'+os.environ.get('LD_LIBRARY_PATH','');"
+<>"os.environ['LIBRARY_PATH']="<>RFM$DYLDPATHS<>":'+os.environ.get('LIBRARY_PATH','');"
+<>"os.environ['MG_NUMERATOR_PATH']='"<>
 (OptionValue[MGNumeratorPath]<>"/")<>"';"
 },
 If[OptionValue[DEBUG],
@@ -163,7 +187,7 @@ RFM$AllHooksStarted={};
 
 
 (* ::Text:: *)
-(*The hook can be debuged by running a command like the one below*)
+(*The hook can be debugged by running a command like the one below*)
 
 
 (* ::Input::Initialization:: *)

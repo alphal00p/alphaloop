@@ -107,13 +107,16 @@ def API_initialise(
 
     root_path = base_path
     sys.path.insert(0, root_path)
-
+    
     try:
         # Import the rust bindings
         from ltd import LTD, CrossSection
-    except ImportError:
+    except ImportError as e:
+        print("PYTHONPATH:\n%s"%str(sys.path))
+        print("DYLD_LIBRARY_PATH:\n%s"%os.environ.get('DYLD_LIBRARY_PATH',''))
+        print("LD_LIBRARY_PATH:\n%s"%os.environ.get('LD_LIBRARY_PATH',''))
         print("ERROR: Could not import the rust back-end 'ltd' module. Compile it first with:"
-            " ./make_lib from within the pyNLoop directory.")
+              " ./make_lib from within the pyNLoop directory. Error:\n%s"%str(e))
         raise
 
     if mode=='LTD':
