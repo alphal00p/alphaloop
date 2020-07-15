@@ -603,6 +603,7 @@ pub struct CrossSectionSettings {
     pub m_uv_sq: f64,
     pub mu_r_sq: f64,
     pub gs: f64,
+    pub incoming_momenta: Vec<LorentzVector<f64>>
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

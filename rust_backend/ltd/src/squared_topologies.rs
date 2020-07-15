@@ -896,6 +896,17 @@ impl SquaredTopology {
             }
         }
 
+        // set the external momenta and e_cm
+        squared_topo.external_momenta = settings.cross_section.incoming_momenta.clone();
+        squared_topo
+            .external_momenta
+            .extend(&settings.cross_section.incoming_momenta);
+        let mut sum_incoming = LorentzVector::default();
+        for m in &settings.cross_section.incoming_momenta {
+            sum_incoming += *m;
+        }
+        squared_topo.e_cm_squared = sum_incoming.square();
+
         debug_assert_eq!(
             squared_topo.external_momenta.len(),
             squared_topo.n_incoming_momenta * 2,

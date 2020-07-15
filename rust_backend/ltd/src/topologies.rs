@@ -98,6 +98,8 @@ pub struct Propagators {
     pub signature: Vec<i8>,
     #[serde(default = "set_one")]
     pub power: usize,
+    #[serde(default)]
+    pub uv: bool,
 }
 
 fn set_one() -> usize {
