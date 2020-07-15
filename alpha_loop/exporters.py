@@ -390,7 +390,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             FORM_processor.generate_squared_topology_files(
                 pjoin(self.dir_path,'FORM','Rust_inputs'), n_jets, jet_ids=self.alphaLoop_options['_jet_PDGs'],
                 final_state_particle_ids=final_state_particle_ids,
-                filter_non_contributing_graphs=False
+                filter_non_contributing_graphs=False,
+                workspace=FORM_workspace
             )
 
             logger.info("Generating FORM numerators...")

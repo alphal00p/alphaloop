@@ -760,6 +760,7 @@ aGraph=%s;
         """Construct a table of integrand descriptors"""
         integrand_body = ''
         max_diag_id = 0
+
         for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
             for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
                 signatures, n_props, energy_map, energies, constants, shift_map = [], [], [], [], [], []
@@ -921,7 +922,7 @@ CTable pftopo(0:{});
                 if bar:
                     bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
-                                    final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml)
+                        final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace)
 
         if generate_integrand:
             self.generate_integrand(topo, workspace, numerator_call)
@@ -1935,7 +1936,6 @@ int %(header)sget_rank(int diag, int conf) {{
     def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
-        print("WORKSPACE: ",workspace)
         topo_collection = {
             'name': self.name,
             'topologies': []
