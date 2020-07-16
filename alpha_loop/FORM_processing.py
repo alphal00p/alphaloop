@@ -1251,7 +1251,7 @@ class FORMSuperGraphIsomorphicList(list):
             else:
                 multiplicity += eval(factor)
 
-            logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
+            #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
         return multiplicity    
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None ):
@@ -1372,12 +1372,15 @@ class FORMSuperGraphList(list):
         if not cuts is None:
             print(cuts)
             graph_filtered = {'DUMP':[], 'KEEP':[]}
-            for graph in full_graph_list:
-                if graph.filter_valid_cuts(cuts):
-                    graph_filtered["KEEP"] += [graph]
-                else: 
-                    print("drop: ", graph.name)
-                    graph_filtered["DUMP"] += [graph]
+            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(full_graph_list),variables={'keep': '0', 'drop':'0'}) as bar:
+                for sgid, graph in enumerate(full_graph_list):
+                    if graph.filter_valid_cuts(cuts):
+                        graph_filtered["KEEP"] += [graph]
+                    else: 
+                        graph_filtered["DUMP"] += [graph]
+                    bar.update(sgid+1)
+                    bar.update(keep=len(graph_filtered['KEEP']))
+                    bar.update(drop=len(graph_filtered['DUMP']))
             #for k,v in graph_filtered.items():
             #    print(k,":")
             #    print("\t",np.array([g.name for g in v]))
