@@ -183,7 +183,10 @@ class FORMSuperGraph(object):
         take_cuts = []
         valid_cut = False
         for ci, cut in enumerate(cuts):
-            take_cuts += [cut_edges[ci]] * cut[1]
+            if cut[0] == 'any':
+                take_cuts += [cut_edges[ci]+[None]]* cut[1]
+            else:
+                take_cuts += [cut_edges[ci]] * cut[1]
 
         invalid_cuts = []
         count_checks = 0
@@ -195,6 +198,14 @@ class FORMSuperGraph(object):
             if any(all(cut_edges.count(c) >= veto_c.count(c) for c in set(veto_c)) for veto_c in invalid_cuts):
                 continue
             count_checks += 1
+            
+            # Allow for Pure Virtual corrections
+            vitual_loops = cut_edges.count(None)
+            for _ in range(vitual_loops):
+                cut_edges = list(cut_edges)
+                cut_edges.remove(None)
+                cut_edges = tuple(cut_edges)
+            
             # Apply set of cuts
             gtmp = g.copy()
             for ci in range(len(cut_edges)):
