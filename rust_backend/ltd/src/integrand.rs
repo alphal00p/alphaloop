@@ -51,6 +51,7 @@ pub trait IntegrandImplementation: Clone {
 
 #[derive(Debug, Copy, Clone)]
 pub struct IntegrandStatistics {
+    pub phase: IntegratedPhase,
     pub running_max: Complex<float>,
     pub total_samples: usize,
     pub nan_point_count: usize,
@@ -61,12 +62,14 @@ pub struct IntegrandStatistics {
     pub n_loops: usize,
     pub running_max_coordinate_re: [f64; 3 * MAX_LOOP],
     pub running_max_coordinate_im: [f64; 3 * MAX_LOOP],
+    pub running_max_stability: (f64, f64),
 }
 
 impl IntegrandStatistics {
-    pub fn new(n_loops: usize) -> IntegrandStatistics {
+    pub fn new(n_loops: usize, phase: IntegratedPhase) -> IntegrandStatistics {
         IntegrandStatistics {
             n_loops,
+            phase,
             running_max: Complex::default(),
             total_samples: 0,
             regular_point_count: 0,
@@ -76,6 +79,7 @@ impl IntegrandStatistics {
             total_sample_time: 0.,
             running_max_coordinate_re: [0.; 3 * MAX_LOOP],
             running_max_coordinate_im: [0.; 3 * MAX_LOOP],
+            running_max_stability: (0., 0.),
         }
     }
 
@@ -86,8 +90,19 @@ impl IntegrandStatistics {
         self.unstable_f128_point_count += other.unstable_f128_point_count;
         self.nan_point_count += other.nan_point_count;
         self.total_sample_time += other.total_sample_time;
-        self.running_max.re = self.running_max.re.max(other.running_max.re);
-        self.running_max.im = self.running_max.im.max(other.running_max.im);
+
+        if self.running_max.re < other.running_max.re {
+            self.running_max.re = other.running_max.re;
+            if self.phase != IntegratedPhase::Imag {
+                self.running_max_stability = other.running_max_stability;
+            }
+        }
+        if self.running_max.im < other.running_max.im {
+            self.running_max.im = other.running_max.im;
+            if self.phase != IntegratedPhase::Real {
+                self.running_max_stability = other.running_max_stability;
+            }
+        }
 
         other.total_samples = 0;
         other.regular_point_count = 0;
@@ -426,7 +441,10 @@ impl<I: IntegrandImplementation> Integrand<I> {
             n_loops,
             topologies,
             cache: topology.create_cache(),
-            integrand_statistics: IntegrandStatistics::new(n_loops),
+            integrand_statistics: IntegrandStatistics::new(
+                n_loops,
+                settings.integrator.integrated_phase,
+            ),
             log: BufWriter::new(
                 File::create(&log_filename)
                     .wrap_err_with(|| format!("Could not create log file {}", log_filename))
@@ -645,7 +663,30 @@ impl<I: IntegrandImplementation> Integrand<I> {
         std::mem::swap(&mut self.cache, &mut cache);
         self.integrand_statistics.total_samples += 1;
 
+        let do_f128 = match self.settings.integrator.integrated_phase {
+            IntegratedPhase::Real => {
+                result.re.abs() * weight
+                    > self.integrand_statistics.running_max.re
+                        * self.settings.general.force_f128_for_large_weight_threshold
+            }
+            IntegratedPhase::Both => {
+                result.re.abs() * weight
+                    > self.integrand_statistics.running_max.re
+                        * self.settings.general.force_f128_for_large_weight_threshold
+                    || result.im.abs() * weight
+                        > self.integrand_statistics.running_max.im
+                            * self.settings.general.force_f128_for_large_weight_threshold
+            }
+            IntegratedPhase::Imag => {
+                result.im.abs() * weight
+                    > self.integrand_statistics.running_max.im
+                        * self.settings.general.force_f128_for_large_weight_threshold
+            }
+        };
+
+        let mut stability = (d, 0.);
         if self.settings.general.force_f128
+            || do_f128
             || !result.is_finite()
             || !min_rot.is_finite()
             || !max_rot.is_finite()
@@ -731,6 +772,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             );
             std::mem::swap(&mut self.cache, &mut cache);
             self.integrand_statistics.unstable_point_count += 1;
+            stability = (stability.0, d_f128.to_f64().unwrap());
 
             if !result_f128.is_finite()
                 || !min_rot_f128.is_finite()
@@ -807,12 +849,20 @@ impl<I: IntegrandImplementation> Integrand<I> {
             self.integrand_statistics.running_max.re = result.re.abs() * weight;
             self.integrand_statistics.running_max_coordinate_re[..3 * self.n_loops]
                 .copy_from_slice(x);
+
+            if self.settings.integrator.integrated_phase != IntegratedPhase::Imag {
+                self.integrand_statistics.running_max_stability = stability;
+            }
         }
         if self.integrand_statistics.running_max.im < result.im.abs() * weight {
             new_max = true;
             self.integrand_statistics.running_max.im = result.im.abs() * weight;
             self.integrand_statistics.running_max_coordinate_im[..3 * self.n_loops]
                 .copy_from_slice(x);
+
+            if self.settings.integrator.integrated_phase != IntegratedPhase::Real {
+                self.integrand_statistics.running_max_stability = stability;
+            }
         }
 
         if self.settings.general.integration_statistics {

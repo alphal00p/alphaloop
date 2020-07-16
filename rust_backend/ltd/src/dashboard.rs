@@ -11,6 +11,7 @@ use tui::symbols::Marker;
 use tui::widgets::{Axis, Block, Borders, Chart, Dataset, List, Paragraph, Text};
 use tui::{backend::TermionBackend, Terminal};
 use utils;
+use IntegratedPhase;
 
 pub type StatusUpdateSender = Sender<StatusUpdate>;
 
@@ -79,7 +80,7 @@ impl Dashboard {
         let mut mc_err_re = std::f64::EPSILON;
         let mut mc_err_im = std::f64::EPSILON;
 
-        let mut integrand_statistics = IntegrandStatistics::new(0);
+        let mut integrand_statistics = IntegrandStatistics::new(0, IntegratedPhase::Real);
         let mut event_info = EventInfo::default();
 
         terminal.clear().unwrap();
@@ -303,9 +304,14 @@ impl Dashboard {
                             integrand_statistics.running_max.im
                         )),
                         Text::raw(format!(
-                            "Max im x: {:?}",
+                            "Max im x: {:?}\n",
                             &integrand_statistics.running_max_coordinate_im
                                 [..3 * integrand_statistics.n_loops]
+                        )),
+                        Text::raw(format!(
+                            "Max stability f64 and f128: {:.3}, {:.3}",
+                            &integrand_statistics.running_max_stability.0,
+                            &integrand_statistics.running_max_stability.1
                         )),
                     ];
                     let weight_para = Paragraph::new(weight_stats.iter())
@@ -391,7 +397,7 @@ impl Dashboard {
                         .wrap(true)
                         .block(block)
                         //.scroll(scroll);
-                        ;//.start_corner(Corner::BottomLeft);
+                        ; //.start_corner(Corner::BottomLeft);
                     f.render_widget(log, vert_chunks[1]);
                 })
                 .unwrap();

@@ -480,6 +480,7 @@ pub struct GeneralSettings {
     pub force_f128: bool,
     pub relative_precision: f64,
     pub absolute_precision: f64,
+    pub force_f128_for_large_weight_threshold: f64,
     pub numerical_instability_check: bool,
     pub minimal_precision_for_returning_result: f64,
     pub minimal_precision_to_skip_further_checks: f64,
@@ -603,7 +604,7 @@ pub struct CrossSectionSettings {
     pub m_uv_sq: f64,
     pub mu_r_sq: f64,
     pub gs: f64,
-    pub incoming_momenta: Vec<LorentzVector<f64>>
+    pub incoming_momenta: Vec<LorentzVector<f64>>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

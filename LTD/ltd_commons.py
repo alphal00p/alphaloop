@@ -46,6 +46,8 @@ hyperparameters = HyperParameters({
         'relative_precision'    :   4.,
         # absolute precision, heavily dependent on integral value
         'absolute_precision'    :   1e+99,
+        # force an f128 upgrade when a new weight is this threshold times the current maximum weight
+        'force_f128_for_large_weight_threshold': 1.,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
         'minimal_precision_to_skip_further_checks': 12.,
