@@ -850,7 +850,7 @@ class TopologyGenerator(object):
                 mom.append(())
                 continue
             if i in loop_momenta:
-                mom.append([(i, True)])
+                mom.append(((i, True),))
                 s.append("1/k{}^2".format(i))
             else:
                 newmom = []
