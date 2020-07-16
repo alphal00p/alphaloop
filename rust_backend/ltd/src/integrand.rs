@@ -5,21 +5,19 @@ use eyre::WrapErr;
 use f128::f128;
 use float;
 use num::Complex;
-use num_traits::ops::inv::Inv;
-use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, ToPrimitive, Zero};
+use num_traits::{Float, FromPrimitive, NumCast, ToPrimitive, Zero};
 use observables::EventManager;
-use rand::Rng;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::time::Instant;
-use topologies::{CachePrecisionSelector, LTDCacheAllPrecisions, Topology};
 use vector::LorentzVector;
 use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 
 pub trait IntegrandImplementation: Clone {
     type Cache: Default;
 
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> Self;
+    fn create_stability_check(&self, num_checks: usize) -> Vec<Self>;
+
     fn evaluate_float<'a>(
         &mut self,
         x: &'a [f64],
@@ -126,155 +124,6 @@ pub struct Integrand<I: IntegrandImplementation> {
     pub id: usize,
     pub event_manager: EventManager,
     pub status_update_sender: StatusUpdateSender,
-}
-
-impl IntegrandImplementation for Topology {
-    type Cache = LTDCacheAllPrecisions;
-
-    /// Create a rotated version of this topology. The axis needs to be normalized.
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
-        let cos_t = angle.cos();
-        let sin_t = angle.sin();
-        let cos_t_bar = float::one() - angle.cos();
-
-        let rot_matrix: [[float; 3]; 3] = [
-            [
-                cos_t + axis.0 * axis.0 * cos_t_bar,
-                axis.0 * axis.1 * cos_t_bar - axis.2 * sin_t,
-                axis.0 * axis.2 * cos_t_bar + axis.1 * sin_t,
-            ],
-            [
-                axis.0 * axis.1 * cos_t_bar + axis.2 * sin_t,
-                cos_t + axis.1 * axis.1 * cos_t_bar,
-                axis.1 * axis.2 * cos_t_bar - axis.0 * sin_t,
-            ],
-            [
-                axis.0 * axis.2 * cos_t_bar - axis.1 * sin_t,
-                axis.1 * axis.2 * cos_t_bar + axis.0 * sin_t,
-                cos_t + axis.2 * axis.2 * cos_t_bar,
-            ],
-        ];
-
-        let mut rotated_topology = self.clone();
-        rotated_topology.name = rotated_topology.name + "_rot";
-        rotated_topology.rotation_matrix = rot_matrix.clone();
-
-        for e in &mut rotated_topology.external_kinematics {
-            let old_x = float::from_f64(e.x).unwrap();
-            let old_y = float::from_f64(e.y).unwrap();
-            let old_z = float::from_f64(e.z).unwrap();
-            e.x = (rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z)
-                .to_f64()
-                .unwrap();
-            e.y = (rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z)
-                .to_f64()
-                .unwrap();
-            e.z = (rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z)
-                .to_f64()
-                .unwrap();
-        }
-
-        for ll in &mut rotated_topology.loop_lines {
-            for p in &mut ll.propagators {
-                let old_x = float::from_f64(p.q.x).unwrap();
-                let old_y = float::from_f64(p.q.y).unwrap();
-                let old_z = float::from_f64(p.q.z).unwrap();
-                p.q.x = (rot_matrix[0][0] * old_x
-                    + rot_matrix[0][1] * old_y
-                    + rot_matrix[0][2] * old_z)
-                    .to_f64()
-                    .unwrap();
-                p.q.y = (rot_matrix[1][0] * old_x
-                    + rot_matrix[1][1] * old_y
-                    + rot_matrix[1][2] * old_z)
-                    .to_f64()
-                    .unwrap();
-                p.q.z = (rot_matrix[2][0] * old_x
-                    + rot_matrix[2][1] * old_y
-                    + rot_matrix[2][2] * old_z)
-                    .to_f64()
-                    .unwrap();
-            }
-        }
-
-        for surf in &mut rotated_topology.surfaces {
-            let old_x = surf.shift.x;
-            let old_y = surf.shift.y;
-            let old_z = surf.shift.z;
-            surf.shift.x =
-                rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-            surf.shift.y =
-                rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-            surf.shift.z =
-                rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
-        }
-
-        // now rotate the fixed deformation vectors
-        for d_lim in &mut rotated_topology.fixed_deformation {
-            for d in &mut d_lim.deformation_per_overlap {
-                for source in &mut d.deformation_sources {
-                    let old_x = source.x;
-                    let old_y = source.y;
-                    let old_z = source.z;
-                    source.x = rot_matrix[0][0] * old_x
-                        + rot_matrix[0][1] * old_y
-                        + rot_matrix[0][2] * old_z;
-                    source.y = rot_matrix[1][0] * old_x
-                        + rot_matrix[1][1] * old_y
-                        + rot_matrix[1][2] * old_z;
-                    source.z = rot_matrix[2][0] * old_x
-                        + rot_matrix[2][1] * old_y
-                        + rot_matrix[2][2] * old_z;
-                }
-            }
-        }
-        // now rotate the numerators
-        rotated_topology.numerator = rotated_topology.numerator.rotate(rot_matrix);
-        if rotated_topology.settings.general.use_amplitude {
-            for diag in rotated_topology.amplitude.diagrams.iter_mut() {
-                diag.numerator = diag.numerator.rotate(rot_matrix);
-            }
-        }
-
-        rotated_topology
-    }
-
-    #[inline]
-    fn evaluate_float<'a>(
-        &mut self,
-        x: &'a [f64],
-        cache: &mut LTDCacheAllPrecisions,
-        _events: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
-        float,
-        Complex<float>,
-        Complex<float>,
-    ) {
-        self.evaluate(x, cache.get())
-    }
-
-    #[inline]
-    fn evaluate_f128<'a>(
-        &mut self,
-        x: &'a [f64],
-        cache: &mut LTDCacheAllPrecisions,
-        _events: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
-        f128,
-        Complex<f128>,
-        Complex<f128>,
-    ) {
-        self.evaluate(x, cache.get())
-    }
-
-    #[inline]
-    fn create_cache(&self) -> LTDCacheAllPrecisions {
-        LTDCacheAllPrecisions::new(self)
-    }
 }
 
 macro_rules! check_stability_precision {
@@ -416,23 +265,14 @@ impl<I: IntegrandImplementation> Integrand<I> {
             settings.general.num_f64_samples = 1;
         }
 
-        for _ in 0..settings
-            .general
-            .num_f64_samples
-            .max(settings.general.num_f128_samples)
-        {
-            let angle =
-                float::from_f64(rng.gen::<f64>() * 2.).unwrap() * <float as FloatConst>::PI();
-            let mut rv = (
-                float::from_f64(rng.gen()).unwrap(),
-                float::from_f64(rng.gen()).unwrap(),
-                float::from_f64(rng.gen()).unwrap(),
-            ); // rotation axis
-            let inv_norm = (rv.0 * rv.0 + rv.1 * rv.1 + rv.2 * rv.2).sqrt().inv();
-            rv = (rv.0 * inv_norm, rv.1 * inv_norm, rv.2 * inv_norm);
-
-            topologies.push(topology.rotate(angle, rv));
-        }
+        topologies.extend(
+            topology.create_stability_check(
+                settings
+                    .general
+                    .num_f64_samples
+                    .max(settings.general.num_f128_samples),
+            ),
+        );
 
         let log_filename = format!("{}{}.log", settings.general.log_file_prefix, id);
         let quad_log_filename = format!("{}_f128_{}.log", settings.general.log_file_prefix, id);

@@ -8,12 +8,9 @@ use float;
 use integrand::IntegrandImplementation;
 use itertools::Itertools;
 use num::Complex;
-use num_traits::FromPrimitive;
-use num_traits::NumCast;
-use num_traits::ToPrimitive;
-use num_traits::{Float, FloatConst};
-use num_traits::{One, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
 use observables::EventManager;
+use rand::Rng;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -353,6 +350,7 @@ pub struct SquaredTopologySet {
     pub settings: Settings,
     pub rotation_matrix: [[float; 3]; 3],
     pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
+    pub stability_check_topologies: Vec<Vec<SquaredTopology>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -367,6 +365,8 @@ pub struct SquaredTopologySetTopology {
     pub multiplicity: f64,
     #[serde(default, rename = "additional_LMBs")]
     pub additional_lmbs: Vec<SquaredTopologySetAdditionalTopology>,
+    #[serde(default)]
+    pub stability_check_topologies: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -388,6 +388,7 @@ impl SquaredTopologySet {
             additional_topologies: vec![vec![]],
             multiplicity: vec![1.],
             multi_channeling_channels: channels,
+            stability_check_topologies: vec![],
         }
     }
 
@@ -404,9 +405,8 @@ impl SquaredTopologySet {
         let mut additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>> =
             vec![];
         let mut multiplicity: Vec<f64> = vec![];
-        let mut multi_channeling_channels = vec![];
+        let mut stability_topologies = vec![];
 
-        let mut max_loops = 0;
         for topo in squared_topology_set_input.topologies {
             let filename = std::path::Path::new(&filename)
                 .with_file_name(topo.name)
@@ -428,17 +428,54 @@ impl SquaredTopologySet {
             }
             additional_topologies.push(additional_topologies_for_topo);
 
-            // only construct multichanneling factors on graphs with the highest loop count
-            if squared_topology.n_loops > max_loops {
-                multi_channeling_channels.clear();
-                max_loops = squared_topology.n_loops;
+            let mut stability_topologies_for_topo = vec![];
+            for t in topo.stability_check_topologies {
+                let filename = std::path::Path::new(&filename)
+                    .with_file_name(t)
+                    .with_extension("yaml");
+                let additional_squared_topology =
+                    SquaredTopology::from_file(filename.to_str().unwrap(), settings)
+                        .wrap_err("Could not load subtopology file")?;
+                stability_topologies_for_topo.push(additional_squared_topology);
             }
-            if squared_topology.n_loops == max_loops {
-                multi_channeling_channels
-                    .extend(squared_topology.generate_multi_channeling_channels());
-            }
+            stability_topologies.push(stability_topologies_for_topo);
+
             topologies.push(squared_topology);
             multiplicity.push(topo.multiplicity);
+        }
+
+        let rotation_matrix = [
+            [float::one(), float::zero(), float::zero()],
+            [float::zero(), float::one(), float::zero()],
+            [float::zero(), float::zero(), float::one()],
+        ];
+
+        let mut sts = SquaredTopologySet {
+            name: squared_topology_set_input.name,
+            e_cm_squared: topologies[0].e_cm_squared,
+            topologies,
+            additional_topologies,
+            rotation_matrix,
+            settings: settings.clone(),
+            multiplicity,
+            multi_channeling_channels: vec![],
+            stability_check_topologies: stability_topologies,
+        };
+        sts.create_multi_channeling_channels();
+        Ok(sts)
+    }
+
+    fn create_multi_channeling_channels(&mut self) {
+        let mut multi_channeling_channels = vec![];
+        let mut max_loops = 0;
+        for t in &mut self.topologies {
+            if t.n_loops > max_loops {
+                multi_channeling_channels.clear();
+                max_loops = t.n_loops;
+            }
+            if t.n_loops == max_loops {
+                multi_channeling_channels.extend(t.generate_multi_channeling_channels());
+            }
         }
 
         // filter duplicate channels between supergraphs
@@ -462,22 +499,50 @@ impl SquaredTopologySet {
             unique_multi_channeling_channels.push(c);
         }
 
-        let rotation_matrix = [
-            [float::one(), float::zero(), float::zero()],
-            [float::zero(), float::one(), float::zero()],
-            [float::zero(), float::zero(), float::one()],
-        ];
+        self.multi_channeling_channels = unique_multi_channeling_channels;
+    }
 
-        Ok(SquaredTopologySet {
-            name: squared_topology_set_input.name,
-            e_cm_squared: topologies[0].e_cm_squared,
-            topologies,
-            additional_topologies,
-            rotation_matrix,
-            settings: settings.clone(),
-            multiplicity,
-            multi_channeling_channels: unique_multi_channeling_channels,
-        })
+    /// Create a rotated version of this squared topology. The axis needs to be normalized.
+    fn rotate(&self, angle: float, axis: (float, float, float)) -> SquaredTopologySet {
+        let rotated_topologies: Vec<_> = self
+            .topologies
+            .iter()
+            .map(|t| t.rotate(angle, axis))
+            .collect();
+        let mut c = self.multi_channeling_channels.clone();
+
+        let rot_matrix = &self.rotation_matrix;
+        for (_, _, shifts) in &mut c {
+            for shift in shifts.iter_mut() {
+                shift.x = (rot_matrix[0][0] * shift.x
+                    + rot_matrix[0][1] * shift.y
+                    + rot_matrix[0][2] * shift.z)
+                    .to_f64()
+                    .unwrap();
+                shift.y = (rot_matrix[1][0] * shift.x
+                    + rot_matrix[1][1] * shift.y
+                    + rot_matrix[1][2] * shift.z)
+                    .to_f64()
+                    .unwrap();
+                shift.z = (rot_matrix[2][0] * shift.x
+                    + rot_matrix[2][1] * shift.y
+                    + rot_matrix[2][2] * shift.z)
+                    .to_f64()
+                    .unwrap();
+            }
+        }
+
+        SquaredTopologySet {
+            name: self.name.clone(),
+            multiplicity: self.multiplicity.clone(),
+            e_cm_squared: self.e_cm_squared,
+            settings: self.settings.clone(),
+            rotation_matrix: rotated_topologies[0].rotation_matrix.clone(),
+            additional_topologies: vec![vec![]; rotated_topologies.len()], // rotated versions of additional topologies are not supported
+            topologies: rotated_topologies,
+            multi_channeling_channels: c,
+            stability_check_topologies: vec![],
+        }
     }
 
     pub fn get_maximum_loop_count(&self) -> usize {
@@ -1389,7 +1454,6 @@ impl SquaredTopology {
         let mut cut_energies_summed = T::zero();
         let mut scaling_result = Complex::one();
 
-        let mut k_def_lmb = [LorentzVector::<Complex<T>>::default(); MAX_LOOP + 4];
         let mut shifts = [LorentzVector::default(); MAX_LOOP + 4];
 
         // evaluate the cuts with the proper scaling
@@ -2109,46 +2173,45 @@ impl SquaredTopology {
 impl IntegrandImplementation for SquaredTopologySet {
     type Cache = SquaredTopologyCache;
 
-    /// Create a rotated version of this squared topology. The axis needs to be normalized.
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> SquaredTopologySet {
-        let rotated_topologies: Vec<_> = self
-            .topologies
-            .iter()
-            .map(|t| t.rotate(angle, axis))
-            .collect();
-        let mut c = self.multi_channeling_channels.clone();
+    fn create_stability_check(&self, num_checks: usize) -> Vec<SquaredTopologySet> {
+        let mut stability_topologies = vec![];
 
-        let rot_matrix = &self.rotation_matrix;
-        for (_, _, shifts) in &mut c {
-            for shift in shifts.iter_mut() {
-                shift.x = (rot_matrix[0][0] * shift.x
-                    + rot_matrix[0][1] * shift.y
-                    + rot_matrix[0][2] * shift.z)
-                    .to_f64()
-                    .unwrap();
-                shift.y = (rot_matrix[1][0] * shift.x
-                    + rot_matrix[1][1] * shift.y
-                    + rot_matrix[1][2] * shift.z)
-                    .to_f64()
-                    .unwrap();
-                shift.z = (rot_matrix[2][0] * shift.x
-                    + rot_matrix[2][1] * shift.y
-                    + rot_matrix[2][2] * shift.z)
-                    .to_f64()
-                    .unwrap();
+        let mut rng = rand::thread_rng();
+        for i in 0..num_checks {
+            if self.stability_check_topologies.iter().all(|x| i < x.len()) {
+                let mut sts = SquaredTopologySet {
+                    name: self.name.clone(),
+                    e_cm_squared: self.e_cm_squared,
+                    topologies: self
+                        .stability_check_topologies
+                        .iter()
+                        .map(|sct| sct[i].clone())
+                        .collect(),
+                    additional_topologies: vec![],
+                    multiplicity: self.multiplicity.clone(),
+                    settings: self.settings.clone(),
+                    rotation_matrix: self.rotation_matrix.clone(),
+                    multi_channeling_channels: vec![],
+                    stability_check_topologies: vec![],
+                };
+                sts.create_multi_channeling_channels();
+                stability_topologies.push(sts);
+            } else {
+                // we don't have enough stability topologies, so we pad with rotations
+                let angle =
+                    float::from_f64(rng.gen::<f64>() * 2.).unwrap() * <float as FloatConst>::PI();
+                let mut rv = (
+                    float::from_f64(rng.gen()).unwrap(),
+                    float::from_f64(rng.gen()).unwrap(),
+                    float::from_f64(rng.gen()).unwrap(),
+                ); // rotation axis
+                let inv_norm = (rv.0 * rv.0 + rv.1 * rv.1 + rv.2 * rv.2).sqrt().inv();
+                rv = (rv.0 * inv_norm, rv.1 * inv_norm, rv.2 * inv_norm);
+
+                stability_topologies.push(self.rotate(angle, rv))
             }
         }
-
-        SquaredTopologySet {
-            name: self.name.clone(),
-            multiplicity: self.multiplicity.clone(),
-            e_cm_squared: self.e_cm_squared,
-            settings: self.settings.clone(),
-            rotation_matrix: rotated_topologies[0].rotation_matrix.clone(),
-            additional_topologies: vec![vec![]; rotated_topologies.len()], // rotated versions of additional topologies are not supported
-            topologies: rotated_topologies,
-            multi_channeling_channels: c,
-        }
+        stability_topologies
     }
 
     #[inline]
