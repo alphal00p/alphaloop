@@ -185,21 +185,40 @@ class FORMSuperGraph(object):
         for ci, cut in enumerate(cuts):
             take_cuts += [cut_edges[ci]] * cut[1]
 
+        invalid_cuts = []
+        count_checks = 0
         for cut_edges in product(*take_cuts):
             # When a valid is cut we know we need to keep this graph
             if valid_cut:
                 break
+            # Check if cut has to be dropped based on previous failed attempts
+            if any(all(cut_edges.count(c) >= veto_c.count(c) for c in set(veto_c)) for veto_c in invalid_cuts):
+                continue
+            count_checks += 1
             # Apply set of cuts
             gtmp = g.copy()
             for ci in range(len(cut_edges)):
                 if not gtmp.are_connected(*cut_edges[ci]):
+                    # update invalid cuts
+                    new_veto = cut_edges[:ci+1]
+                    invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
+                    invalid_cuts += [new_veto]
                     break
                 gtmp.delete_edges(gtmp.get_eid(*cut_edges[ci]))
-                #print("cut:", cut_edges[ci], " :: ", gtmp.is_connected(), "\t", cm)
                 if not gtmp.is_connected():
                     if ci+1 < len(cut_edges):
+                        # update invalid cuts
+                        new_veto = cut_edges[:ci+1]
+                        invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
+                        invalid_cuts += [new_veto]
                         break
                     else:
+                        # check that the vertices are correctly connected 
+                        # to the left and right paths
+                        # Meaning two vertices involved in a cut should belong do
+                        # the opposite disconnected graphs
+                        if any(len(gtmp.get_shortest_paths(c[0],to=c[1])[0])>0 for c in cut_edges):
+                            break
                         valid_cut = True
         return valid_cut
 
@@ -844,6 +863,8 @@ CTable pftopo(0:{});
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
         generate_integrand=True, workspace=None):
+        if workspace is None:
+            workspace = pjoin(root_output_path, os.pardir, 'workspace')
 
         if bar:
             bar.update(i_lmb='1')
@@ -1344,6 +1365,7 @@ class FORMSuperGraphList(list):
                 if graph.filter_valid_cuts(cuts):
                     graph_filtered["KEEP"] += [graph]
                 else: 
+                    print("drop: ", graph.name)
                     graph_filtered["DUMP"] += [graph]
             #for k,v in graph_filtered.items():
             #    print(k,":")
