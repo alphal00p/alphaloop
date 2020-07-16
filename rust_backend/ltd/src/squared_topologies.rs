@@ -28,6 +28,61 @@ mod form_numerator {
     use dlopen::wrapper::{Container, WrapperApi};
     use libc::{c_double, c_int};
 
+    pub trait GetNumerator {
+        fn get_numerator(
+            api_container: &mut Container<FORMNumeratorAPI>,
+            p: &[Self],
+            params: &[Self],
+            diag: usize,
+            conf: usize,
+            poly: &mut [Self],
+        ) -> usize
+        where
+            Self: std::marker::Sized;
+    }
+
+    impl GetNumerator for f64 {
+        fn get_numerator(
+            api_container: &mut Container<FORMNumeratorAPI>,
+            p: &[f64],
+            params: &[f64],
+            diag: usize,
+            conf: usize,
+            poly: &mut [f64],
+        ) -> usize {
+            unsafe {
+                api_container.evaluate(
+                    &p[0] as *const f64,
+                    &params[0] as *const f64,
+                    diag as i32,
+                    conf as i32,
+                    &mut poly[0] as *mut f64,
+                ) as usize
+            }
+        }
+    }
+
+    impl GetNumerator for f128::f128 {
+        fn get_numerator(
+            api_container: &mut Container<FORMNumeratorAPI>,
+            p: &[f128::f128],
+            params: &[f128::f128],
+            diag: usize,
+            conf: usize,
+            poly: &mut [f128::f128],
+        ) -> usize {
+            unsafe {
+                api_container.evaluate_f128(
+                    &p[0] as *const f128::f128,
+                    &params[0] as *const f128::f128,
+                    diag as i32,
+                    conf as i32,
+                    &mut poly[0] as *mut f128::f128,
+                ) as usize
+            }
+        }
+    }
+
     #[derive(WrapperApi)]
     pub struct FORMNumeratorAPI {
         evaluate: unsafe extern "C" fn(
@@ -37,27 +92,15 @@ mod form_numerator {
             conf: c_int,
             out: *mut c_double,
         ) -> c_int,
+        evaluate_f128: unsafe extern "C" fn(
+            p: *const f128::f128,
+            params: *const f128::f128,
+            diag: c_int,
+            conf: c_int,
+            out: *mut f128::f128,
+        ) -> c_int,
         get_buffer_size: unsafe extern "C" fn() -> c_int,
         get_rank: unsafe extern "C" fn(diag: c_int, conf: c_int) -> c_int,
-    }
-
-    pub fn get_numerator(
-        api_container: &mut Container<FORMNumeratorAPI>,
-        p: &[f64],
-        params: &[f64],
-        diag: usize,
-        conf: usize,
-        poly: &mut [f64],
-    ) -> usize {
-        unsafe {
-            api_container.evaluate(
-                &p[0] as *const f64,
-                &params[0] as *const f64,
-                diag as i32,
-                conf as i32,
-                &mut poly[0] as *mut f64,
-            ) as usize
-        }
     }
 
     pub fn get_buffer_size(api_container: &mut Container<FORMNumeratorAPI>) -> usize {
@@ -234,6 +277,8 @@ pub struct FORMNumerator {
     pub form_numerator: Option<Container<form_numerator::FORMNumeratorAPI>>,
     #[serde(skip_deserializing)]
     pub form_numerator_buffer: Vec<f64>,
+    #[serde(skip_deserializing)]
+    pub form_numerator_buffer_size: usize,
 }
 
 impl Clone for FORMNumerator {
@@ -246,6 +291,7 @@ impl Clone for FORMNumerator {
                 None
             },
             form_numerator_buffer: self.form_numerator_buffer.clone(),
+            form_numerator_buffer_size: self.form_numerator_buffer_size,
         }
     }
 }
@@ -544,7 +590,10 @@ impl SquaredTopologySet {
             .unwrap();
     }
 
-    pub fn multi_channeling<'a, T: form_integrand::GetIntegrand + FloatLike>(
+    pub fn multi_channeling<
+        'a,
+        T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
+    >(
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
@@ -681,7 +730,10 @@ impl SquaredTopologySet {
         (x, k_def, T::one(), Complex::one(), result)
     }
 
-    pub fn evaluate<'a, T: form_integrand::GetIntegrand + FloatLike>(
+    pub fn evaluate<
+        'a,
+        T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
+    >(
         &mut self,
         x: &'a [f64],
         cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
@@ -958,6 +1010,7 @@ impl SquaredTopology {
                                 LTDNumerator::from_sparse(n_ltd, &[(vec![0; rank], (0., 0.))]);
                         }
 
+                        squared_topo.form_numerator.form_numerator_buffer_size = max_buffer_size;
                         squared_topo.form_numerator.form_numerator_buffer =
                             vec![0.; max_buffer_size];
 
@@ -1199,7 +1252,9 @@ impl SquaredTopology {
         Some(solutions)
     }
 
-    pub fn evaluate_mom<T: form_integrand::GetIntegrand + FloatLike>(
+    pub fn evaluate_mom<
+        T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
+    >(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         caches: &mut [Vec<Vec<LTDCache<T>>>],
@@ -1312,7 +1367,9 @@ impl SquaredTopology {
         result
     }
 
-    pub fn evaluate_cut<T: form_integrand::GetIntegrand + FloatLike>(
+    pub fn evaluate_cut<
+        T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
+    >(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         cut_momenta: &mut [LorentzVector<T>],
@@ -1628,171 +1685,126 @@ impl SquaredTopology {
                 subgraph_cache.cached_topology_integrand.clear();
             }
 
-            if self.settings.cross_section.numerator_source == NumeratorSource::Form {
-                let mut form_numerator =
-                    mem::replace(&mut self.form_numerator.form_numerator, None);
-                let mut form_numerator_buffer =
-                    mem::replace(&mut self.form_numerator.form_numerator_buffer, vec![]);
-                if let Some(call_signature) = &self.form_numerator.call_signature {
-                    let mut scalar_products: ArrayVec<[f64; MAX_LOOP * MAX_LOOP * 6]> =
-                        ArrayVec::new();
+            if self.settings.cross_section.numerator_source == NumeratorSource::Form
+                || self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand
+            {
+                let mut scalar_products: ArrayVec<[T; MAX_LOOP * MAX_LOOP * 6]> = ArrayVec::new();
 
-                    for (i1, e1) in self.external_momenta[..self.n_incoming_momenta]
-                        .iter()
-                        .enumerate()
-                    {
-                        scalar_products.push(e1.t);
-                        scalar_products.push(0.);
-                        for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
-                            scalar_products.push(e1.dot(e2));
-                            scalar_products.push(0.);
-                            scalar_products.push(e1.spatial_dot(e2));
-                            scalar_products.push(0.);
+                for (i1, e1) in external_momenta[..self.n_incoming_momenta]
+                    .iter()
+                    .enumerate()
+                {
+                    scalar_products.push(e1.t);
+                    scalar_products.push(T::zero());
+                    for e2 in &external_momenta[i1..self.n_incoming_momenta] {
+                        scalar_products.push(e1.dot(e2));
+                        scalar_products.push(T::zero());
+                        scalar_products.push(e1.spatial_dot(e2));
+                        scalar_products.push(T::zero());
+                    }
+                }
+
+                for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
+                    scalar_products.push(m1.t.re);
+                    scalar_products.push(m1.t.im);
+                    for e1 in &external_momenta[..self.n_incoming_momenta] {
+                        let d = m1.dot(&e1.cast());
+                        scalar_products.push(d.re);
+                        scalar_products.push(d.im);
+                        let d = m1.spatial_dot(&e1.cast());
+                        scalar_products.push(d.re);
+                        scalar_products.push(d.im);
+                    }
+
+                    for m2 in k_def[i1..self.n_loops].iter() {
+                        let d = m1.dot(m2);
+                        scalar_products.push(d.re);
+                        scalar_products.push(d.im);
+                        let d = m1.spatial_dot(m2);
+                        scalar_products.push(d.re);
+                        scalar_products.push(d.im);
+                    }
+                }
+
+                let params = [
+                    Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
+                    T::zero(),
+                    Into::<T>::into(self.settings.cross_section.mu_r_sq),
+                    T::zero(),
+                    Into::<T>::into(self.settings.cross_section.gs),
+                    T::zero(),
+                ];
+
+                if self.settings.cross_section.numerator_source == NumeratorSource::Form {
+                    let mut form_numerator =
+                        mem::replace(&mut self.form_numerator.form_numerator, None);
+                    let mut form_numerator_buffer =
+                        mem::replace(&mut self.form_numerator.form_numerator_buffer, vec![]);
+                    if let Some(call_signature) = &self.form_numerator.call_signature {
+                        let mut form_numerator_buffer: ArrayVec<[T; 100]> =
+                            (0..2 * self.form_numerator.form_numerator_buffer_size)
+                                .map(|_| T::zero())
+                                .collect();
+
+                        let len = T::get_numerator(
+                            form_numerator.as_mut().unwrap(),
+                            &scalar_products,
+                            &params,
+                            call_signature.id,
+                            diagram_set.id,
+                            &mut form_numerator_buffer,
+                        );
+
+                        // the output of the FORM numerator is already in the reduced lb format
+                        diag_cache[0].reduced_coefficient_lb[0].resize(len, Complex::zero());
+                        for (rlb, r) in diag_cache[0].reduced_coefficient_lb[0]
+                            .iter_mut()
+                            .zip(form_numerator_buffer.chunks(2))
+                        {
+                            *rlb = Complex::new(Into::<T>::into(r[0]), Into::<T>::into(r[1]));
                         }
-                    }
-
-                    for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                        scalar_products.push(m1.t.re.to_f64().unwrap());
-                        scalar_products.push(m1.t.im.to_f64().unwrap());
-                        for e1 in &self.external_momenta[..self.n_incoming_momenta] {
-                            let d = m1.dot(&e1.cast());
-                            scalar_products.push(d.re.to_f64().unwrap());
-                            scalar_products.push(d.im.to_f64().unwrap());
-                            let d = m1.spatial_dot(&e1.cast());
-                            scalar_products.push(d.re.to_f64().unwrap());
-                            scalar_products.push(d.im.to_f64().unwrap());
-                        }
-
-                        for m2 in k_def[i1..self.n_loops].iter() {
-                            let d = m1.dot(m2);
-                            scalar_products.push(d.re.to_f64().unwrap());
-                            scalar_products.push(d.im.to_f64().unwrap());
-                            let d = m1.spatial_dot(m2);
-                            scalar_products.push(d.re.to_f64().unwrap());
-                            scalar_products.push(d.im.to_f64().unwrap());
-                        }
-                    }
-
-                    let params = [
-                        self.settings.cross_section.m_uv_sq.sqrt(),
-                        0.,
-                        self.settings.cross_section.mu_r_sq,
-                        0.,
-                        self.settings.cross_section.gs,
-                        0.,
-                    ];
-
-                    for m in &mut form_numerator_buffer {
-                        *m = 0.;
-                    }
-
-                    let len = form_numerator::get_numerator(
-                        form_numerator.as_mut().unwrap(),
-                        &scalar_products,
-                        &params,
-                        call_signature.id,
-                        diagram_set.id,
-                        &mut form_numerator_buffer,
-                    );
-
-                    // the output of the FORM numerator is already in the reduced lb format
-                    diag_cache[0].reduced_coefficient_lb[0].resize(len, Complex::zero());
-                    for (rlb, r) in diag_cache[0].reduced_coefficient_lb[0]
-                        .iter_mut()
-                        .zip(form_numerator_buffer.chunks(2))
-                    {
-                        *rlb = Complex::new(Into::<T>::into(r[0]), Into::<T>::into(r[1]));
-                    }
-                } else {
-                    panic!(
+                    } else {
+                        panic!(
                         "No call signature for FORM numerator, but FORM numerator mode is enabled"
                     );
-                }
-
-                mem::swap(&mut form_numerator, &mut self.form_numerator.form_numerator);
-                mem::swap(
-                    &mut form_numerator_buffer,
-                    &mut self.form_numerator.form_numerator_buffer,
-                );
-            }
-
-            if self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand {
-                let mut form_integrand =
-                    mem::replace(&mut self.form_integrand.form_integrand, None);
-                let mut res = if let Some(call_signature) = &self.form_integrand.call_signature {
-                    let mut scalar_products: ArrayVec<[T; MAX_LOOP * MAX_LOOP * 6]> =
-                        ArrayVec::new();
-
-                    for (i1, e1) in external_momenta[..self.n_incoming_momenta]
-                        .iter()
-                        .enumerate()
-                    {
-                        scalar_products.push(e1.t);
-                        scalar_products.push(T::zero());
-                        for e2 in &external_momenta[i1..self.n_incoming_momenta] {
-                            scalar_products.push(e1.dot(e2));
-                            scalar_products.push(T::zero());
-                            scalar_products.push(e1.spatial_dot(e2));
-                            scalar_products.push(T::zero());
-                        }
                     }
 
-                    for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                        scalar_products.push(m1.t.re);
-                        scalar_products.push(m1.t.im);
-                        for e1 in &external_momenta[..self.n_incoming_momenta] {
-                            let d = m1.dot(&e1.cast());
-                            scalar_products.push(d.re);
-                            scalar_products.push(d.im);
-                            let d = m1.spatial_dot(&e1.cast());
-                            scalar_products.push(d.re);
-                            scalar_products.push(d.im);
-                        }
-
-                        for m2 in k_def[i1..self.n_loops].iter() {
-                            let d = m1.dot(m2);
-                            scalar_products.push(d.re);
-                            scalar_products.push(d.im);
-                            let d = m1.spatial_dot(m2);
-                            scalar_products.push(d.re);
-                            scalar_products.push(d.im);
-                        }
-                    }
-
-                    let params = [
-                        Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
-                        T::zero(),
-                        Into::<T>::into(self.settings.cross_section.mu_r_sq),
-                        T::zero(),
-                        Into::<T>::into(self.settings.cross_section.gs),
-                        T::zero(),
-                    ];
-
-                    let res = T::get_integrand(
-                        form_integrand.as_mut().unwrap(),
-                        &scalar_products,
-                        &params,
-                        call_signature.id,
-                        diagram_set.id,
+                    mem::swap(&mut form_numerator, &mut self.form_numerator.form_numerator);
+                    mem::swap(
+                        &mut form_numerator_buffer,
+                        &mut self.form_numerator.form_numerator_buffer,
                     );
-
-                    Complex::new(Into::<T>::into(res.re), Into::<T>::into(res.im))
                 } else {
-                    panic!(
+                    let mut form_integrand =
+                        mem::replace(&mut self.form_integrand.form_integrand, None);
+                    let mut res = if let Some(call_signature) = &self.form_integrand.call_signature
+                    {
+                        let res = T::get_integrand(
+                            form_integrand.as_mut().unwrap(),
+                            &scalar_products,
+                            &params,
+                            call_signature.id,
+                            diagram_set.id,
+                        );
+
+                        Complex::new(Into::<T>::into(res.re), Into::<T>::into(res.im))
+                    } else {
+                        panic!(
                         "No call signature for FORM integrand, but FORM integrand mode is enabled"
                     );
-                };
+                    };
 
-                mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
+                    mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
 
-                res *= def_jacobian;
+                    res *= def_jacobian;
 
-                if self.settings.general.debug >= 1 {
-                    println!("  | res diagram set {}: = {:e}", diagram_set.id, res);
+                    if self.settings.general.debug >= 1 {
+                        println!("  | res diagram set {}: = {:e}", diagram_set.id, res);
+                    }
+
+                    diag_and_num_contributions += res;
+                    continue;
                 }
-
-                diag_and_num_contributions += res;
-                continue;
             }
 
             if self.settings.cross_section.numerator_source == NumeratorSource::Yaml {

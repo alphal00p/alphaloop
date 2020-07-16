@@ -1782,6 +1782,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
 
         # add all numerators in one file and write the headers
         numerator_header = """#include <tgmath.h>
+#include <quadmath.h>
 #include <signal.h>
 #include "%(header)snumerator.h"
 """
@@ -1791,6 +1792,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         energy_exp = re.compile(r'f\(([^)]*)\)\n')
         split_number = re.compile(r'\\\n\s*')
         return_exp = re.compile(r'return ([^;]*);\n')
+        float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
         FORM_vars={}
 
@@ -1876,17 +1878,27 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
                         if len(temp_vars) > 0:
                             graph.is_zero = False
 
-                        # TODO: Check that static inline vs inline induces no regression!
                         numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
                         numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
                         ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
 
+                        numerator_main_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                        numerator_main_code_f128 = float_pattern.sub(r'\1q', numerator_main_code_f128)
+                        numerator_main_code += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}}}'.format(i, conf_id,
+                            '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_main_code_f128
+                        )
 
                     numerator_main_code += \
 """
 int %(header)sevaluate_{}(double complex lm[], double complex params[], int conf, double complex* out) {{
    switch(conf) {{
+{}
+    }}
+}}
+
+int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
+    switch(conf) {{
 {}
     }}
 }}
@@ -1903,6 +1915,11 @@ int %(header)sget_rank_{}(int conf) {{
         ),
         i,
         '\n'.join(
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
+        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ),
+        i,
+        '\n'.join(
         ['\t\tcase {}: return {};'.format(conf, rank) for conf, rank in sorted(confs)] +
         (['\t\tdefault: return 0;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
@@ -1915,12 +1932,20 @@ int %(header)sget_rank_{}(int conf) {{
         numerator_code = \
 """
 #include <tgmath.h>
+#include <quadmath.h>
 #include <signal.h>
 
 {}
 {}
+{}
 
 int %(header)sevaluate(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
+    switch(diag) {{
+{}
+    }}
+}}
+
+int %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
     switch(diag) {{
 {}
     }}
@@ -1937,9 +1962,14 @@ int %(header)sget_rank(int diag, int conf) {{
 }}
 """.format(
     '\n'.join('int %(header)sevaluate_{}(double complex[], double complex[], int conf, double complex*);'.format(i) for i in all_numerator_ids),
+    '\n'.join('int %(header)sevaluate_{}_f128(__complex128[], __complex128[], int conf, __complex128*);'.format(i) for i in all_numerator_ids),
     '\n'.join('int %(header)sget_rank_{}(int conf);'.format(i) for i in all_numerator_ids),
     '\n'.join(
     ['\t\tcase {}: return %(header)sevaluate_{}(lm, params, conf, out);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tdefault: raise(SIGABRT);']
+    ),
+    '\n'.join(
+    ['\t\tcase {}: return %(header)sevaluate_{}_f128(lm, params, conf, out);'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     ), 
     (max_buffer_size + 1) * 2,
