@@ -12,6 +12,9 @@ LIBRARY=libFORM_numerators.so
 INTEGRANDLIBRARY=libFORM_integrands.so
 
 all: $(LIBBPATH)/$(LIBRARY) $(LIBBPATH)/$(INTEGRANDLIBRARY)
+numerator: $(LIBBPATH)/$(LIBRARY)
+integrand: $(LIBBPATH)/$(INTEGRANDLIBRARY)
+
 
 CFLAGS=-Wconversion -march=native -O3 -fcx-fortran-rules -fcx-limited-range -lm -lquadmath
 
