@@ -2320,12 +2320,12 @@ class FORMProcessor(object):
             params=params,workspace=workspace, header=header)
 
     @classmethod
-    def compile(cls, root_output_path):
+    def compile(cls, root_output_path, arg=[]):
 
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:
                 logger.info("Now compiling FORM-generated numerators...")
-                misc.compile(cwd=root_output_path,mode='cpp', nb_core=FORM_processing_options["cores"])
+                misc.compile(arg=arg,cwd=root_output_path,mode='cpp', nb_core=FORM_processing_options["cores"])
             except MadGraph5Error as e:
                 logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
                     utils.bcolors.RED,str(e),utils.bcolors.ENDC))

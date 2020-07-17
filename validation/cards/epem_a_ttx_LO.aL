@@ -5,6 +5,7 @@ set_alphaLoop_option differentiate_particle_from_antiparticle_in_graph_isomorphi
 set_alphaLoop_option consider_vertex_id_in_graph_isomorphism False 
 set_alphaLoop_option consider_edge_orientation_in_graph_isomorphism False
 set_alphaLoop_option FORM_processing_output_format c
+set_alphaLoop_option FORM_compile_arg numerator
 set_alphaLoop_option apply_graph_isomorphisms True
 set_alphaLoop_option qgraf_template_model epem
 qgraf_generate e+ e- > a > t t~ /d u s c b QCD^2==0 QED^2==2 []

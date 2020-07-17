@@ -530,7 +530,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Compile FORM output if present
         FORM_output_dir = pjoin(self.dir_path,"FORM")
         if os.path.exists(FORM_output_dir):
-            FORM_processing.FORMProcessor.compile(FORM_output_dir)
+            FORM_processing.FORMProcessor.compile(
+                FORM_output_dir, arg=self.alphaLoop_options['FORM_compile_arg'])
 
     #===========================================================================
     # process exporter fortran switch between group and not grouped
@@ -1319,7 +1320,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                     pjoin(drawings_output_path,'Makefile'))
         form_processor.draw(drawings_output_path)
 
-        form_processor.compile(pjoin(self.dir_path,'FORM'))
+        form_processor.compile(pjoin(self.dir_path,'FORM'), arg=self.alphaLoop_options['FORM_compile_arg'])
     
     def get_cuts(self, representative_process):
         cuts=[]

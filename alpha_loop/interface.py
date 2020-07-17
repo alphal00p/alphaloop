@@ -96,9 +96,13 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'consider_vertex_id_in_graph_isomorphism' : False,
             # Select which templete to use for qgraf generation:
             'qgraf_template_model': 'epem',
+            # Veto some field from the QGRAF generation
+            'qgraf_vetoes': None,
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
-            'FORM_processing_output_format' : None
+            'FORM_processing_output_format' : None,
+            # Select what to compile of the FORM output. Default is ['numerator']
+            'FORM_compile_arg' : ['numerator']
         }
         self.FORM_options=FORM_processing.FORM_processing_options
         self.plugin_output_format_selected = None
@@ -214,12 +218,15 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             bool_val = (value.upper()=='TRUE')
             self.alphaLoop_options['use_physical_gluon_helicity_sum'] = bool_val
         elif key == 'qgraf_template_model':
-            print(value)
             if value not in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.keys():
                 raise alphaLoopInvalidCmd("QGraf template model '{}' not supported.\nTry models (: example)\n{}"\
                     .format(value,"\n".join(["\t%s: %s"%(k,v['example']) for k,v in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.items()]))
                 )
             self.alphaLoop_options['qgraf_template_model'] = value
+        elif key == 'FORM_compile_arg':
+            if not value in ['integrand', 'numerator', 'all']:
+                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_output' should be one of 'numerator', 'integrand', 'all'")
+            self.alphaLoop_options['FORM_compile_arg'] = [value]
         elif key == 'include_self_energies_from_squared_amplitudes':
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for 'include_self_energies_from_squared_amplitudes' should be 'True' or 'False', not '%s'."%value)
@@ -611,7 +618,6 @@ utils.bcolors.RED,utils.bcolors.ENDC
         self.qgraf_exporter =  aL_exporters.HardCodedQGRAFExporter(
             process_definition, self._curr_model, 
             MG5aMC_options=self.options,alphaLoop_options=self.alphaLoop_options)
-                    
 
     def do_output(self, line):
         """ Wrapper to support the syntax output alphaLoop <args>.
