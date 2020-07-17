@@ -388,7 +388,7 @@ impl SquaredTopologySet {
             additional_topologies: vec![vec![]],
             multiplicity: vec![1.],
             multi_channeling_channels: channels,
-            stability_check_topologies: vec![],
+            stability_check_topologies: vec![vec![]],
         }
     }
 
@@ -541,7 +541,7 @@ impl SquaredTopologySet {
             additional_topologies: vec![vec![]; rotated_topologies.len()], // rotated versions of additional topologies are not supported
             topologies: rotated_topologies,
             multi_channeling_channels: c,
-            stability_check_topologies: vec![],
+            stability_check_topologies: vec![vec![]; self.topologies.len()],
         }
     }
 
@@ -2187,12 +2187,12 @@ impl IntegrandImplementation for SquaredTopologySet {
                         .iter()
                         .map(|sct| sct[i].clone())
                         .collect(),
-                    additional_topologies: vec![],
+                    additional_topologies: vec![vec![]; self.topologies.len()],
                     multiplicity: self.multiplicity.clone(),
                     settings: self.settings.clone(),
                     rotation_matrix: self.rotation_matrix.clone(),
                     multi_channeling_channels: vec![],
-                    stability_check_topologies: vec![],
+                    stability_check_topologies: vec![vec![]; self.topologies.len()],
                 };
                 sts.create_multi_channeling_channels();
                 stability_topologies.push(sts);
