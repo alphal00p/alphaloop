@@ -1,0 +1,588 @@
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id001 [0.0, 0.0, 0.0, 1.0]
+    - *id001
+    beta:
+    - &id002 [0.0, 0.0, 0.0, 0.0]
+    - *id002
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [-1, 1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, -1, 1]
+  - [1, 0, 1]
+  - [1, 1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_0
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id003 [0.0, 0.0, 0.0, 1.0]
+    - *id003
+    beta:
+    - &id004 [0.0, 0.0, 0.0, 0.0]
+    - *id004
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, 1, -1]
+  - [1, 0, 1]
+  - [1, 1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_1
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id005 [0.0, 0.0, 0.0, 1.0]
+    - *id005
+    beta:
+    - &id006 [0.0, 0.0, 0.0, 0.0]
+    - *id006
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, 1, 1]
+  - [-1, 0, 1]
+  - [1, 1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_2
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id007 [0.0, 0.0, 0.0, 1.0]
+    - *id007
+    beta:
+    - &id008 [0.0, 0.0, 0.0, 0.0]
+    - *id008
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, 1, 1]
+  - [1, 0, -1]
+  - [1, 1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_3
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id009 [0.0, 0.0, 0.0, 1.0]
+    - *id009
+    beta:
+    - &id010 [0.0, 0.0, 0.0, 0.0]
+    - *id010
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, 1, 1]
+  - [1, 0, 1]
+  - [-1, 1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_4
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id011 [0.0, 0.0, 0.0, 1.0]
+    - *id011
+    beta:
+    - &id012 [0.0, 0.0, 0.0, 0.0]
+    - *id012
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, 1, 1]
+  - [1, 0, 1]
+  - [1, -1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_5
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id013 [0.0, 0.0, 0.0, 1.0]
+    - *id013
+    beta:
+    - &id014 [0.0, 0.0, 0.0, 0.0]
+    - *id014
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, 1, -1]
+  - [-1, 0, -1]
+  - [-1, -1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_6
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id015 [0.0, 0.0, 0.0, 1.0]
+    - *id015
+    beta:
+    - &id016 [0.0, 0.0, 0.0, 0.0]
+    - *id016
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, -1, 1]
+  - [-1, 0, -1]
+  - [-1, -1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_7
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id017 [0.0, 0.0, 0.0, 1.0]
+    - *id017
+    beta:
+    - &id018 [0.0, 0.0, 0.0, 0.0]
+    - *id018
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, -1, -1]
+  - [1, 0, -1]
+  - [-1, -1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_8
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id019 [0.0, 0.0, 0.0, 1.0]
+    - *id019
+    beta:
+    - &id020 [0.0, 0.0, 0.0, 0.0]
+    - *id020
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, -1, -1]
+  - [-1, 0, 1]
+  - [-1, -1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_9
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id021 [0.0, 0.0, 0.0, 1.0]
+    - *id021
+    beta:
+    - &id022 [0.0, 0.0, 0.0, 0.0]
+    - *id022
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, -1, -1]
+  - [-1, 0, -1]
+  - [1, -1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_10
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
+- analytical_result_imag: 0.0
+  analytical_result_real: 0.0
+  constant_deformation:
+    alpha:
+    - &id023 [0.0, 0.0, 0.0, 1.0]
+    - *id023
+    beta:
+    - &id024 [0.0, 0.0, 0.0, 0.0]
+    - *id024
+  external_kinematics:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [1.0, 0.0, 0.0, 0.0]
+  loop_lines:
+  - end_node: 2
+    propagators:
+    - m_squared: 1.0
+      name: p1
+      power: 2
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, 0]
+    start_node: 1
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p2
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [0, 1]
+    start_node: 2
+  - end_node: 1
+    propagators:
+    - m_squared: 1.0
+      name: p3
+      power: 1
+      q: [0.0, 0.0, 0.0, 0.0]
+      uv: false
+    signature: [1, -1]
+    start_node: 2
+  ltd_cut_structure:
+  - [0, -1, -1]
+  - [-1, 0, -1]
+  - [-1, 1, 0]
+  maximum_ratio_expansion_threshold: -1.0
+  n_loops: 2
+  name: sunrise_CS_11
+  numerator_tensor_coefficients:
+  - [1.0, 0.0]
