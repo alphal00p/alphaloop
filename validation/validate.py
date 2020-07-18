@@ -178,6 +178,7 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                 log_info['LastUpdatedTime']-log_info['StartTime'])
             r.wait()
             if r.returncode != 0:
+                print("\033[1;31m FAIL: {}.\033[0m".format(" ".join(rust_executable)))
                 print("\033[1;31mFAIL: see {} and {} for further details.\033[0m".format(
                     err_path, out_path))
 
@@ -192,6 +193,8 @@ def parse_rust_dict(rust_dict_string):
         r'Complex \{ re: (.*?), im: (.*?)\}', r'[\1, \2]', rust_dict)
     rust_dict = re.sub(
         r'Complex \{ re: (.*?), im: (.*?)\}', r'[\1, \2]', rust_dict)
+    rust_dict = re.sub(
+        r'(Real|Imag|Both)', r'"\1"', rust_dict)
     return eval(re.sub(r' ([^:^,]+):', r'"\1":', rust_dict))
 
 
@@ -294,6 +297,9 @@ if __name__ == "__main__":
     # Set multi-channeling strategy
     hyper_settings['General']['multi_channeling'] = args.multi_channeling
     hyper_settings['General']['multi_channeling_including_massive_propagators'] = args.multi_channeling
+    # Cross section settings
+    hyper_settings['CrossSection']['incoming_momenta'] = [[500,0,0,500],[500,0,0,-500]]
+    hyper_settings['CrossSection']['gs'] = 1.2177157847767195
 
     # Define paths to executables, files and workspace
     aL_process_output = pjoin(MG_PATH, 'TEST_QGRAF_%s_%s' %
@@ -382,7 +388,7 @@ if __name__ == "__main__":
             data = [sg['name'], sg['multiplicity']]
             data.extend(get_result(filename))
             eval_time = pd.Timedelta(0)
-            for log in yaml.safe_load(open(filename.replace('_res.dat', '.log'), 'r')):
+            for log in yaml.load(open(filename.replace('_res.dat', '.log'), 'r'), Loader=yaml.Loader):
                 eval_time += pd.to_timedelta(log['ElapsedTime'])
             data.extend([eval_time])
             results += [data]
@@ -395,7 +401,7 @@ if __name__ == "__main__":
     #  Refine
     #############
     if args.refine > 0:
-        CALL_BASE_ARGS = [arg % args.__dict__ for arg in ['python', os.path.basename(__file__),
+        CALL_BASE_ARGS = [arg % args.__dict__ for arg in [sys.executable, os.path.basename(__file__),
                                                           "--process=%(process)s",
                                                           "-@%(order)s",
                                                           "--n_max=%(n_max)d",
