@@ -1885,8 +1885,8 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
 
                         numerator_main_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                         numerator_main_code_f128 = float_pattern.sub(r'\1q', numerator_main_code_f128)
-                        numerator_main_code += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}}}'.format(i, conf_id,
-                            '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_main_code_f128
+                        numerator_main_code += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}\n\treturn {};\n}}\n'.format(i, conf_id,
+                            '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_main_code_f128, max_index + 1
                         )
 
                     numerator_main_code += \

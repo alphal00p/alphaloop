@@ -50,7 +50,8 @@ pub trait IntegrandImplementation: Clone {
 #[derive(Debug, Copy, Clone)]
 pub struct IntegrandStatistics {
     pub phase: IntegratedPhase,
-    pub running_max: Complex<float>,
+    pub running_max_re: (float, Option<float>, float),
+    pub running_max_im: (float, Option<float>, float),
     pub total_samples: usize,
     pub nan_point_count: usize,
     pub unstable_point_count: usize,
@@ -68,7 +69,8 @@ impl IntegrandStatistics {
         IntegrandStatistics {
             n_loops,
             phase,
-            running_max: Complex::default(),
+            running_max_re: (0., None, 0.),
+            running_max_im: (0., None, 0.),
             total_samples: 0,
             regular_point_count: 0,
             unstable_point_count: 0,
@@ -89,14 +91,18 @@ impl IntegrandStatistics {
         self.nan_point_count += other.nan_point_count;
         self.total_sample_time += other.total_sample_time;
 
-        if self.running_max.re < other.running_max.re {
-            self.running_max.re = other.running_max.re;
+        if self.running_max_re.2 < other.running_max_re.2 {
+            self.running_max_re = other.running_max_re;
+            self.running_max_coordinate_re[..3 * self.n_loops]
+                .copy_from_slice(&other.running_max_coordinate_re[..3 * self.n_loops]);
             if self.phase != IntegratedPhase::Imag {
                 self.running_max_stability = other.running_max_stability;
             }
         }
-        if self.running_max.im < other.running_max.im {
-            self.running_max.im = other.running_max.im;
+        if self.running_max_im.2 < other.running_max_im.2 {
+            self.running_max_im = other.running_max_im;
+            self.running_max_coordinate_im[..3 * self.n_loops]
+                .copy_from_slice(&other.running_max_coordinate_im[..3 * self.n_loops]);
             if self.phase != IntegratedPhase::Real {
                 self.running_max_stability = other.running_max_stability;
             }
@@ -133,12 +139,13 @@ macro_rules! check_stability_precision {
         &mut self,
         x: &[f64],
         result: Complex<$ty>,
+        relative_precision: f64,
         num_samples: usize,
         cache: &mut I::Cache,
         event_manager: &mut EventManager,
     ) -> ($ty, $ty, Complex<$ty>, Complex<$ty>) {
         let mut ret = (
-            <$ty>::from_f64(self.settings.general.relative_precision).unwrap(),
+            <$ty>::from_f64(relative_precision).unwrap(),
             <$ty>::from_f64(self.settings.general.absolute_precision).unwrap(),
             Complex::default(),
             Complex::default(),
@@ -228,7 +235,7 @@ macro_rules! check_stability_precision {
             if !result_rot.is_finite()
                 || !min.is_finite()
                 || !max.is_finite()
-                || d < NumCast::from(self.settings.general.relative_precision).unwrap()
+                || d < NumCast::from(relative_precision).unwrap()
                 || diff > NumCast::from(self.settings.general.absolute_precision).unwrap() {
                 break;
             }
@@ -392,7 +399,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         {
             eprintln!(
             "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)\n",
-            s.running_max, s.total_samples, s.regular_point_count, s.regular_point_count as f64 / s.total_samples as f64 * 100.,
+            s.running_max_re.2, s.total_samples, s.regular_point_count, s.regular_point_count as f64 / s.total_samples as f64 * 100.,
             s.unstable_point_count, s.unstable_point_count as f64 / s.total_samples as f64 * 100.,
             s.unstable_f128_point_count, s.unstable_f128_point_count as f64 / s.total_samples as f64 * 100.,
             s.nan_point_count, s.nan_point_count as f64 / s.total_samples as f64 * 100.);
@@ -400,7 +407,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         writeln!(self.log,
             "Statistics\n  | running max={:e}\n  | total samples={}\n  | regular points={} ({:.2}%)\n  | unstable points={} ({:.2}%)\n  | unstable f128 points={} ({:.2}%)\n  | nan points={} ({:.2}%)\n",
-            s.running_max, s.total_samples, s.regular_point_count, s.regular_point_count as f64 / s.total_samples as f64 * 100.,
+            s.running_max_re.2, s.total_samples, s.regular_point_count, s.regular_point_count as f64 / s.total_samples as f64 * 100.,
             s.unstable_point_count, s.unstable_point_count as f64 / s.total_samples as f64 * 100.,
             s.unstable_f128_point_count, s.unstable_f128_point_count as f64 / s.total_samples as f64 * 100.,
             s.nan_point_count, s.nan_point_count as f64 / s.total_samples as f64 * 100.).unwrap();
@@ -496,6 +503,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         let (d, diff, min_rot, max_rot) = self.check_stability_float(
             x,
             result,
+            self.settings.general.relative_precision_f64,
             self.settings.general.num_f64_samples,
             &mut cache,
             &mut event_manager,
@@ -503,34 +511,37 @@ impl<I: IntegrandImplementation> Integrand<I> {
         std::mem::swap(&mut self.cache, &mut cache);
         self.integrand_statistics.total_samples += 1;
 
+        let result_f64 = result;
+
         let do_f128 = match self.settings.integrator.integrated_phase {
             IntegratedPhase::Real => {
                 result.re.abs() * weight
-                    > self.integrand_statistics.running_max.re
+                    > self.integrand_statistics.running_max_re.2
                         * self.settings.general.force_f128_for_large_weight_threshold
             }
             IntegratedPhase::Both => {
                 result.re.abs() * weight
-                    > self.integrand_statistics.running_max.re
+                    > self.integrand_statistics.running_max_re.2
                         * self.settings.general.force_f128_for_large_weight_threshold
                     || result.im.abs() * weight
-                        > self.integrand_statistics.running_max.im
+                        > self.integrand_statistics.running_max_im.2
                             * self.settings.general.force_f128_for_large_weight_threshold
             }
             IntegratedPhase::Imag => {
                 result.im.abs() * weight
-                    > self.integrand_statistics.running_max.im
+                    > self.integrand_statistics.running_max_im.2
                         * self.settings.general.force_f128_for_large_weight_threshold
             }
         };
 
         let mut stability = (d, 0.);
+        let mut result_f128_option = None;
         if self.settings.general.force_f128
             || do_f128
             || !result.is_finite()
             || !min_rot.is_finite()
             || !max_rot.is_finite()
-            || d < NumCast::from(self.settings.general.relative_precision).unwrap()
+            || d < NumCast::from(self.settings.general.relative_precision_f64).unwrap()
             || diff > NumCast::from(self.settings.general.absolute_precision).unwrap()
         {
             // clear events when there is instability
@@ -606,6 +617,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability_quad(
                 x,
                 result_f128,
+                self.settings.general.relative_precision_f128,
                 self.settings.general.num_f128_samples,
                 &mut cache,
                 &mut event_manager,
@@ -613,11 +625,12 @@ impl<I: IntegrandImplementation> Integrand<I> {
             std::mem::swap(&mut self.cache, &mut cache);
             self.integrand_statistics.unstable_point_count += 1;
             stability = (stability.0, d_f128.to_f64().unwrap());
+            result_f128_option = Some(result_f128);
 
             if !result_f128.is_finite()
                 || !min_rot_f128.is_finite()
                 || !max_rot_f128.is_finite()
-                || d_f128 < NumCast::from(self.settings.general.relative_precision).unwrap()
+                || d_f128 < NumCast::from(self.settings.general.relative_precision_f128).unwrap()
                 || diff_f128 > NumCast::from(self.settings.general.absolute_precision).unwrap()
             {
                 if self.settings.general.integration_statistics {
@@ -684,9 +697,13 @@ impl<I: IntegrandImplementation> Integrand<I> {
         }
 
         let mut new_max = false;
-        if self.integrand_statistics.running_max.re < result.re.abs() * weight {
+        if self.integrand_statistics.running_max_re.2 < result.re.abs() * weight {
             new_max = true;
-            self.integrand_statistics.running_max.re = result.re.abs() * weight;
+            self.integrand_statistics.running_max_re = (
+                result_f64.re.abs() * weight,
+                result_f128_option.map(|x| x.re.abs().to_f64().unwrap() * weight),
+                result.re.abs() * weight,
+            );
             self.integrand_statistics.running_max_coordinate_re[..3 * self.n_loops]
                 .copy_from_slice(x);
 
@@ -694,9 +711,13 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 self.integrand_statistics.running_max_stability = stability;
             }
         }
-        if self.integrand_statistics.running_max.im < result.im.abs() * weight {
+        if self.integrand_statistics.running_max_im.2 < result.im.abs() * weight {
             new_max = true;
-            self.integrand_statistics.running_max.im = result.im.abs() * weight;
+            self.integrand_statistics.running_max_im = (
+                result_f64.im.abs() * weight,
+                result_f128_option.map(|x| x.im.abs().to_f64().unwrap() * weight),
+                result.im.abs() * weight,
+            );
             self.integrand_statistics.running_max_coordinate_im[..3 * self.n_loops]
                 .copy_from_slice(x);
 

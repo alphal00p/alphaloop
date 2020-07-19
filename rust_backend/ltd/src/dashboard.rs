@@ -238,15 +238,15 @@ impl Dashboard {
                         Text::styled(
                             format!(
                                 "Maximum weight influence: re={:.4e}, im={:.4e}",
-                                integrand_statistics.running_max.re.abs()
+                                integrand_statistics.running_max_re.2.abs()
                                     / (mc_err_re * integrand_statistics.total_samples as f64),
-                                integrand_statistics.running_max.im.abs()
+                                integrand_statistics.running_max_im.2.abs()
                                     / (mc_err_im * integrand_statistics.total_samples as f64)
                             ),
-                            if integrand_statistics.running_max.re.abs()
+                            if integrand_statistics.running_max_re.2.abs()
                                 / (mc_err_re * integrand_statistics.total_samples as f64)
                                 > 10.
-                                || integrand_statistics.running_max.im.abs()
+                                || integrand_statistics.running_max_im.2.abs()
                                     / (mc_err_im * integrand_statistics.total_samples as f64)
                                     > 10.
                             {
@@ -291,8 +291,12 @@ impl Dashboard {
 
                     let weight_stats = vec![
                         Text::raw(format!(
-                            "Max re: {:e}\n",
-                            integrand_statistics.running_max.re
+                            "Max re f64: {:e}\n",
+                            integrand_statistics.running_max_re.0
+                        )),
+                        Text::raw(format!(
+                            "Max re f128: {:e}\n",
+                            integrand_statistics.running_max_re.1.unwrap_or(0.)
                         )),
                         Text::raw(format!(
                             "Max re x: {:?}\n",
@@ -300,8 +304,12 @@ impl Dashboard {
                                 [..3 * integrand_statistics.n_loops]
                         )),
                         Text::raw(format!(
-                            "Max im: {:e}\n",
-                            integrand_statistics.running_max.im
+                            "Max im f64: {:e}\n",
+                            integrand_statistics.running_max_im.0
+                        )),
+                        Text::raw(format!(
+                            "Max im f128: {:e}\n",
+                            integrand_statistics.running_max_im.1.unwrap_or(0.)
                         )),
                         Text::raw(format!(
                             "Max im x: {:?}\n",

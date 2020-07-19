@@ -43,11 +43,14 @@ hyperparameters = HyperParameters({
         # always evaluate in f128
         'force_f128'            :   False,
         # number of digits that should be the same between integrand and rotated version
-        'relative_precision'    :   4.,
+        'relative_precision_f64'    :   4.,
+        'relative_precision_f128'   :   8.,
         # absolute precision, heavily dependent on integral value
         'absolute_precision'    :   1e+99,
         # force an f128 upgrade when a new weight is this threshold times the current maximum weight
         'force_f128_for_large_weight_threshold': 1.,
+        # randomly shift each component in x-space by plus or minus stability_nudge_size
+        'stability_nudge_size'  :   0.,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
         'minimal_precision_to_skip_further_checks': 12.,

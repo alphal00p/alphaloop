@@ -10,7 +10,7 @@ use itertools::Itertools;
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
 use observables::EventManager;
-use rand::Rng;
+use rand::{thread_rng, Rng};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -351,6 +351,7 @@ pub struct SquaredTopologySet {
     pub rotation_matrix: [[float; 3]; 3],
     pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
     pub stability_check_topologies: Vec<Vec<SquaredTopology>>,
+    pub is_stability_check_topo: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -389,6 +390,7 @@ impl SquaredTopologySet {
             multiplicity: vec![1.],
             multi_channeling_channels: channels,
             stability_check_topologies: vec![vec![]],
+            is_stability_check_topo: false,
         }
     }
 
@@ -460,6 +462,7 @@ impl SquaredTopologySet {
             multiplicity,
             multi_channeling_channels: vec![],
             stability_check_topologies: stability_topologies,
+            is_stability_check_topo: false,
         };
         sts.create_multi_channeling_channels();
         Ok(sts)
@@ -542,6 +545,7 @@ impl SquaredTopologySet {
             topologies: rotated_topologies,
             multi_channeling_channels: c,
             stability_check_topologies: vec![vec![]; self.topologies.len()],
+            is_stability_check_topo: true,
         }
     }
 
@@ -814,15 +818,32 @@ impl SquaredTopologySet {
             return self.multi_channeling(x, cache, event_manager);
         }
 
+        let mut rng = thread_rng();
+        let mut xrot = [0.; MAX_LOOP * 3];
+
         // jointly parameterize all squared topologies
         let n_loops = x.len() / 3;
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut para_jacs = [T::one(); MAX_LOOP];
         let mut jac_para = T::one();
         for i in 0..n_loops {
+            xrot[..x.len()].copy_from_slice(x);
+
+            if self.is_stability_check_topo && self.settings.general.stability_nudge_size > 0. {
+                for xi in xrot.iter_mut() {
+                    if rng.gen_bool(0.5) {
+                        *xi += self.settings.general.stability_nudge_size;
+                    } else {
+                        *xi -= self.settings.general.stability_nudge_size;
+                    }
+
+                    *xi = xi.max(0.).min(1.0);
+                }
+            }
+
             // set the loop index to i + 1 so that we can also shift k
             let (l_space, jac) = Topology::parameterize(
-                &x[i * 3..(i + 1) * 3],
+                &xrot[i * 3..(i + 1) * 3],
                 self.e_cm_squared, // NOTE: taking e_cm from the first graph
                 i,
                 &self.settings,
@@ -2193,6 +2214,7 @@ impl IntegrandImplementation for SquaredTopologySet {
                     rotation_matrix: self.rotation_matrix.clone(),
                     multi_channeling_channels: vec![],
                     stability_check_topologies: vec![vec![]; self.topologies.len()],
+                    is_stability_check_topo: true,
                 };
                 sts.create_multi_channeling_channels();
                 stability_topologies.push(sts);
