@@ -183,6 +183,7 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                     err_path, out_path))
 
     with open(log_path, 'w' if force else 'a') as stdlog:
+        log_info['IntegrandStatistics']['running_max_stability'] = list(log_info['IntegrandStatistics']['running_max_stability'])
         yaml.dump([log_info], stdlog, default_flow_style=None)
 
 
@@ -194,8 +195,12 @@ def parse_rust_dict(rust_dict_string):
     rust_dict = re.sub(
         r'Complex \{ re: (.*?), im: (.*?)\}', r'[\1, \2]', rust_dict)
     rust_dict = re.sub(
-        r'(Real|Imag|Both)', r'"\1"', rust_dict)
-    return eval(re.sub(r' ([^:^,]+):', r'"\1":', rust_dict))
+        r'(Real|Imag|Both|inf)', r'"\1"', rust_dict)
+    try:
+        return eval(re.sub(r' ([^:^,]+):', r'"\1":', rust_dict))
+    except:
+        print(re.sub(r' ([^:^,]+):', r'"\1":', rust_dict))
+        raise
 
 
 def get_result(filename):
