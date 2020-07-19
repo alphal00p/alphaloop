@@ -953,7 +953,7 @@ CTable pftopo(0:{});
                         final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace)
 
         if generate_integrand:
-            self.generate_integrand(topo, workspace, numerator_call)
+            self.generate_integrand(topo, workspace, call_signature_ID)
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
@@ -2080,9 +2080,6 @@ int %(header)sget_rank(int diag, int conf) {{
             raise BaseException("Install yaml python module in order to import topologies from yaml.")
 
         open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
-
-        if filter_non_contributing_graphs:
-            self[:] = contributing_supergraphs
 
     def get_renormalization_vertex(self, pdgs, loop_count):
         if len(pdgs) == 2 and abs(pdgs[0]) in range(1,7) and abs(pdgs[1]) in range(1,7):

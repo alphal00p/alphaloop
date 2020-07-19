@@ -1274,6 +1274,13 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
             self.qgraf_output, merge_isomorphic_graphs=True, 
             model=self.model, workspace=FORM_workspace,cuts=cuts)
+        
+        # Add phase
+        for graphs in super_graph_list:
+            for g in graphs:
+                g.overall_factor = "({})*({})"\
+                    .format(self.overall_phase, g.overall_factor)
+
         form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                 pjoin(self.dir_path,'FORM', 'Makefile'))
@@ -1301,12 +1308,6 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 filter_non_contributing_graphs=True,
                 workspace=FORM_workspace, 
             )
-
-            # Add phase
-            for graphs in form_processor.super_graphs_list:
-                for g in graphs:
-                    g.overall_factor = "({})*({})"\
-                        .format(self.overall_phase, g.overall_factor)
 
             form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
                 output_format=self.alphaLoop_options['FORM_processing_output_format'],
