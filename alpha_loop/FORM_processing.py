@@ -2234,6 +2234,13 @@ int %(header)sget_rank(int diag, int conf) {{
                     else:
                         # remove all bubble edges, since they will cancel with the effective vertex
                         subgraph_pdgs = self.shrink_edges(edges, nodes, bubble_edges)
+                        
+                        # set the correct particle ordering for all the edges
+                        for n in nodes.values():
+                            if len(n['PDGs']) > 1:
+                                edge_order = FORMSuperGraph.sort_edges(model, [{'PDG': pdg, 'index': i} for i, pdg in enumerate(n['PDGs'])])
+                                for n_keys in ('PDGs', 'indices', 'momenta', 'edge_ids'):
+                                    n[n_keys] = tuple(n[n_keys][eo['index']] for eo in edge_order)
 
                         # add a new supergraph for this renormalization component
                         form_graph = FORMSuperGraph(name='{}_{}_renorm'.format(gs[0].name, diag_set['id']),
