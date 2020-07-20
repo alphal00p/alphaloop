@@ -166,6 +166,9 @@ class FORMSuperGraph(object):
             undirected_edges.add(tuple(sorted(e['vertices'])))
 
         cut_edges = [[] for _ in range(len(cuts))]
+        incoming_vertices = []
+        outgoing_vertices = []
+        edge_colors = {tuple(sorted([x - 1 for x in ue])) : [] for ue in undirected_edges}
         for ue in undirected_edges:
             multiple = 0
             for e in self.edges.values():
@@ -178,59 +181,84 @@ class FORMSuperGraph(object):
                             else:
                                 if abs(e['PDG']) in c[0]:
                                     cut_edges[ci] += [tuple(sorted([x - 1 for x in ue]))]
+                        edge_colors[tuple(sorted([x - 1 for x in ue]))] += [abs(e['PDG'])]
+                    elif e['type'] == 'in':
+                        incoming_vertices += [e['vertices'][0]-1]
+                    elif e['type'] == 'out':
+                        outgoing_vertices += [e['vertices'][0]-1]
             g.add_edges([tuple(sorted([x - 1 for x in ue]))]*multiple)
 
         take_cuts = []
+        cut_colors = []
         valid_cut = False
         for ci, cut in enumerate(cuts):
+            cut_colors += [cut[0]] * cut[1]
             if cut[0] == 'any':
-                take_cuts += [cut_edges[ci]+[None]]* cut[1]
+                take_cuts += [cut_edges[ci]+[None]] * cut[1]
             else:
                 take_cuts += [cut_edges[ci]] * cut[1]
-
+        #print(take_cuts)
+        #print(cut_colors)
+        #print(incoming_vertices)
+        #print(outgoing_vertices)
         invalid_cuts = []
         count_checks = 0
         for cut_edges in product(*take_cuts):
             # When a valid is cut we know we need to keep this graph
             if valid_cut:
                 break
+            
             # Check if cut has to be dropped based on previous failed attempts
             if any(all(cut_edges.count(c) >= veto_c.count(c) for c in set(veto_c)) for veto_c in invalid_cuts):
                 continue
             count_checks += 1
             
-            # Allow for Pure Virtual corrections
-            vitual_loops = cut_edges.count(None)
-            for _ in range(vitual_loops):
-                cut_edges = list(cut_edges)
-                cut_edges.remove(None)
-                cut_edges = tuple(cut_edges)
-            
-            # Apply set of cuts
-            gtmp = g.copy()
-            for ci in range(len(cut_edges)):
-                if not gtmp.are_connected(*cut_edges[ci]):
-                    # update invalid cuts
-                    new_veto = cut_edges[:ci+1]
-                    invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
-                    invalid_cuts += [new_veto]
+            # Check valid color cuts
+            ec = copy.deepcopy(edge_colors)
+            for ce, cc in zip(cut_edges,cut_colors):
+                if cc == 'any':
+                    continue
+                try:
+                    ec[ce].remove(cc[0])
+                except ValueError:
                     break
-                gtmp.delete_edges(gtmp.get_eid(*cut_edges[ci]))
-                if not gtmp.is_connected():
-                    if ci+1 < len(cut_edges):
+            else:
+                # Allow for Pure Virtual corrections
+                vitual_loops = cut_edges.count(None)
+                for _ in range(vitual_loops):
+                    cut_edges = list(cut_edges)
+                    cut_edges.remove(None)
+                    cut_edges = tuple(cut_edges)
+
+                # Apply set of cuts
+                gtmp = g.copy()
+                for ci in range(len(cut_edges)):
+                    if not gtmp.are_connected(*cut_edges[ci]):
                         # update invalid cuts
                         new_veto = cut_edges[:ci+1]
                         invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
                         invalid_cuts += [new_veto]
                         break
-                    else:
-                        # check that the vertices are correctly connected 
-                        # to the left and right paths
-                        # Meaning two vertices involved in a cut should belong do
-                        # the opposite disconnected graphs
-                        if any(len(gtmp.get_shortest_paths(c[0],to=c[1])[0])>0 for c in cut_edges):
+                    gtmp.delete_edges(gtmp.get_eid(*cut_edges[ci]))
+                    if not gtmp.is_connected():
+                        if ci+1 < len(cut_edges):
+                            # update invalid cuts
+                            new_veto = cut_edges[:ci+1]
+                            invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
+                            invalid_cuts += [new_veto]
                             break
-                        valid_cut = True
+                        else:
+                            # check that the vertices are correctly connected 
+                            # to the left and right paths
+                            # Meaning two vertices involved in a cut should belong do
+                            # the opposite disconnected graphs
+                            if any(len(gtmp.get_shortest_paths(c[0],to=c[1])[0])>0 for c in cut_edges):
+                                break
+                            # check that incoming and outgoing are on separate disconnected graphs
+                            if any(len(gtmp.get_shortest_paths(incoming_vertices[0],to=c)[0])==0 for c in incoming_vertices[1:]) or\
+                               any(len(gtmp.get_shortest_paths(incoming_vertices[0],to=c)[0])>0 for c in outgoing_vertices):
+                                break
+                            valid_cut = True
         return valid_cut
 
 
@@ -1532,7 +1560,7 @@ class FORMSuperGraphList(list):
             else:
                 iso_groups.append(((g, edge_colors), [graph]))
 
-        logger.info("{} unique supergraphs".format(len(iso_groups)))
+        logger.info("\033[1m{} unique supergraphs\033[m".format(len(iso_groups)))
 
         FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
 
