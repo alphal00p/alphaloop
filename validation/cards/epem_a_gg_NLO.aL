@@ -9,6 +9,6 @@ set_alphaLoop_option FORM_compile_arg all
 set_alphaLoop_option apply_graph_isomorphisms True
 set_alphaLoop_option qgraf_template_model epem
 set_FORM_option number_of_lmbs None
-qgraf_generate e+ e- > a > d d~ /t u s c b QCD^2==1 QED^2==2 [QCD]
-!rm -rf TEST_QGRAF_epem_a_ddx_NLO
-output qgraf TEST_QGRAF_epem_a_ddx_NLO
+qgraf_generate e+ e- > a > g g /t u s c b QCD^2==1 QED^2==2 [QCD]
+!rm -rf TEST_QGRAF_epem_a_gg_NLO
+output qgraf TEST_QGRAF_epem_a_gg_NLO
