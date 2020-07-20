@@ -2109,15 +2109,46 @@ int %(header)sget_rank(int diag, int conf) {{
 
         open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
 
-    def get_renormalization_vertex(self, pdgs, loop_count):
-        if len(pdgs) == 2 and abs(pdgs[0]) in range(1,7) and abs(pdgs[1]) in range(1,7):
-            # quark self energy
-            if loop_count == 1:
-                return '(1/ep)/4*4/3*gs^2/8/pi^2*2'
+    def get_renormalization_vertex(self, in_pdgs, loop_count, model):
 
-        if 22 in pdgs and any(i in pdgs or -i in pdgs for i in range(1,7)):
+        pdgs = sorted([abs(pdg) for pdg in in_pdgs],reverse=True)
+        quark_pdgs = range(1,7)
+
+        symbol_replacement_dict = {
+            'C_F' : '(4/3)',
+            'pi'  : 'pi',
+            'gs'  : 'gs',
+            'ep'  : 'ep',
+            'mu_r': 'mu_r'
+        }
+
+        delta_Z_massless_quark = '(1/%(ep)s)/4*%(C_F)s*%(gs)s^2/8/%(pi)s^2*2'
+        delta_Z_massive_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*((1/%(ep)s)+log(%(mu_r)s^2/%(quark_mass)s^2))'
+
+        # quark self-energy
+        if len(pdgs) == 2 and pdgs[0] in quark_pdgs and pdgs[1]==pdgs[0]:
+            quark_mass = model.get_particle(pdgs[0]).get('mass')
             if loop_count == 1:
-                return '-(1/ep)/4*4/3*gs^2/8/pi^2*2'
+                if quark_mass=='ZERO':
+                    res = ('+(%s)'%delta_Z_massless_quark)%symbol_replacement_dict
+                    res = res
+                    return res
+                else:
+                    res = ('+(%s)'%delta_Z_massive_quark)%(
+                        dict(symbol_replacement_dict,**{'quark_mass':quark_mass}))
+                    return res
+
+        # aqq vertex
+        if len(pdgs) == 3 and pdgs[0]==22 and pdgs[1] in quark_pdgs and pdgs[2]==pdgs[1]:
+            quark_mass = model.get_particle(pdgs[1]).get('mass')
+            if loop_count == 1:
+                if quark_mass=='ZERO':
+                    res = ('-(%s)'%delta_Z_massless_quark)%symbol_replacement_dict
+                    return res
+                else:
+                    res = ('-(%s)'%delta_Z_massive_quark)%(
+                        dict(symbol_replacement_dict,**{'quark_mass':quark_mass}))
+                    return res
 
         return None
 
@@ -2187,11 +2218,17 @@ int %(header)sget_rank(int diag, int conf) {{
                                 uv_effective_vertex_edges.append((edges_on_vertex, l))
                                 edge_pdgs = tuple(next(ee for ee in edges.values() if ee['name'] == e)['PDG'] for e in edges_on_vertex)
 
-                                vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l)
+                                vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l, model)
                                 if vertex_contrib is None:
                                     logger.warning("WARNING: unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
                                     #raise AssertionError("Unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
-                                    vertex_factors.append('1')
+                                    # It can often happen, for example for (but not only) Loop-Induced processes, that there must be
+                                    # not renormalisation vertex associated to an integrated UV CT. For instance g g H H.
+                                    # Ideally one should code those explicitly in the function `get_renormalization_vertex`, but for 
+                                    # now it is also OK to simply let it return None with the above warning and use `0` as the numerator
+                                    # for this renormalisation supergraph, so that it hopefully gets removed automatically at the time 
+                                    # of explicitly building its numerator.
+                                    vertex_factors.append('0')
                                 else:
                                     vertex_factors.append('(' + vertex_contrib + ')')
 
