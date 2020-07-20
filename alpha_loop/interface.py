@@ -96,6 +96,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'consider_vertex_id_in_graph_isomorphism' : False,
             # Select which templete to use for qgraf generation:
             'qgraf_template_model': 'epem',
+            # Loop induced processes will enforce the presence of at least two virtual corrections:
+            'loop_induced': False,
             # Veto some field from the QGRAF generation
             'qgraf_vetoes': None,
             # Set the output processing format of Rust to `None` if you want to skip it.
@@ -217,6 +219,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidCmd("Specified value for 'use_physical_gluon_helicity_sum' should be 'True' or 'False', not '%s'."%value)
             bool_val = (value.upper()=='TRUE')
             self.alphaLoop_options['use_physical_gluon_helicity_sum'] = bool_val
+        elif key == 'loop_induced':
+            if value.upper() not in ['TRUE','FALSE']:
+                raise alphaLoopInvalidCmd("alphaLoop option 'loop_induced' should be 'True' or 'False', not %s"%value)
+            self.alphaLoop_options['loop_induced'] = value.upper() == 'TRUE'
         elif key == 'qgraf_template_model':
             if value not in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.keys():
                 raise alphaLoopInvalidCmd("QGraf template model '{}' not supported.\nTry models (: example)\n{}"\

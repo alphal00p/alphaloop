@@ -1141,12 +1141,27 @@ class QGRAFExporter(object):
         'no_s':{'paht': qgraf_template_no_s, 'example': 'a a > h'}
     }
     
+    qgraf_field_replace = {}
+    for field in ['d', 'u', 's', 'c', 'b', 't']:
+        qgraf_field_replace[field] = field
+        qgraf_field_replace[field+'~'] = field+'bar'
+    qgraf_field_replace['gh'] = 'ghost'
+    qgraf_field_replace['gh~'] = 'ghostbar'
+    qgraf_field_replace['h'] = 'higgs'
+    qgraf_field_replace['e-'] = 'eminus'
+    qgraf_field_replace['e+'] = 'eplus'
+    qgraf_field_replace['a'] = 'photon'
+    qgraf_field_replace['g'] = 'gluon'
+ 
+
     default_opt = {'vetos': []}
 
     def __init__(self, process_definition, model, **opts):
         self.model = model
         self.proc_def = process_definition
         self.QGRAF_path = pjoin(plugin_path,os.path.pardir,'libraries','QGRAF','qgraf')
+        # TODO: Ensure no multiparticles in the initial states
+        self.initial_states = [leg.get('ids')[0] for leg in process_definition.get('legs') if not leg.get('state')]
         self.final_states = [leg.get('ids') for leg in process_definition.get('legs') if leg.get('state')]
 
     def generate(self):
@@ -1338,30 +1353,21 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
             )
 
-        additional_loops = len(representative_process['perturbation_couplings']);
+        if self.alphaLoop_options['loop_induced']:
+            virtual_loops = len(representative_process['perturbation_couplings']);
+        else:
+            virtual_loops = len(representative_process['perturbation_couplings']) + 2;
         n_final_states = len([leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True])
 
         pdg_model_map = self.model['particles'].generate_dict()
-        field_replace = {}
-        for field in ['d', 'u', 's', 'c', 'b', 't']:
-            field_replace[field] = field
-            field_replace[field+'~'] = field+'bar'
-        field_replace['gh'] = 'ghost'
-        field_replace['gh~'] = 'ghostbar'
-        field_replace['h'] = 'higgs'
-        field_replace['e-'] = 'eminus'
-        field_replace['e+'] = 'eplus'
-        field_replace['a'] = 'photon'
-        field_replace['g'] = 'gluon'
 
         dict_replace = {}
-
-        dict_replace['n_loops'] = n_final_states - 1 + additional_loops 
+        dict_replace['n_loops'] = n_final_states - 1 + virtual_loops 
 
         # Veto particles that are forbidden
         dict_replace['vetos'] = ''
         for particle in representative_process['forbidden_particles']:
-            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%field_replace[pdg_model_map[particle]['name']]
+            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%self.qgraf_field_replace[pdg_model_map[particle]['name']]
 
         # Enforce coupling order
         coupling_order_id = 0
@@ -1379,9 +1385,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         required_final_states = [fields[0] for fields in self.final_states if len(fields) == 1]
         for field in set(required_final_states):
             if field >= 0:
-                field_name = field_replace[self.model.get_particle(abs(field))['name']]
+                field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['name']]
             else:
-                field_name = field_replace[self.model.get_particle(abs(field))['antiname']]
+                field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
             dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
 
         shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
@@ -1403,39 +1409,72 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                             (r.stdout.decode('UTF-8')))
 
     def build_qgraf_no_s(self, representative_process, vetos=None):
-        #keys = ['legs', 'orders', 'model', 'id', 'uid', 'required_s_channels', 'forbidden_onsh_s_channels', 'forbidden_s_channels', 'forbidden_particles', 'is_decay_chain', 'overall_orders', 'decay_chains', 'legs_with_decays', 'perturbation_couplings', 'squared_orders', 'sqorders_types', 'constrained_orders', 'has_born', 'NLO_mode', 'split_orders']
-        #for k in keys:
-        #    print(representative_process.get(k))
         # Check if a1 a2 a3 ... > a4 a5 ...
         check_s_channel = representative_process.get('required_s_channels') == []
         if not check_s_channel:
             raise alphaLoopExporterError("The command 'qgraf_generate' with model 'no_s' does not support this process.\nAvailable models (: example)"\
                 .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
             )
-        additional_loops = len(representative_process['perturbation_couplings']);
-        incoming_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==False]
-        final_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True]
+        if self.alphaLoop_options['loop_induced']:
+            virtual_loops = len(representative_process['perturbation_couplings']) + 2 
+        else:
+            virtual_loops = len(representative_process['perturbation_couplings'])
+        n_final_states = len([leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True])
 
-        field_replace = {}
-        for field in ['d', 'u', 's', 'c', 'b', 't']:
-            field_replace[field] = field
-            field_replace[field+'~'] = field+'bar'
-        field_replace['gh'] = 'ghost'
-        field_replace['gh~'] = 'ghostbar'
-        field_replace['h'] = 'higgs'
-        field_replace['e-'] = 'eminus'
-        field_replace['e+'] = 'eplus'
-        field_replace['a'] = 'photon'
-        field_replace['g'] = 'gluon'
-
+        pdg_model_map = self.model['particles'].generate_dict()
+        
         dict_replace = {}
-
-        dict_replace['n_loops'] = len(final_states) - 1 + additional_loops;
+        dict_replace['n_loops'] = n_final_states - 1 + virtual_loops;
         
         # Veto particles that are forbidden
         dict_replace['vetos'] = ''
         for particle in representative_process['forbidden_particles']:
-            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%field_replace[pdg_model_map[particle]['name']]
+            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%self.qgraf_field_replace[pdg_model_map[particle]['name']]
+
+        # Enforce coupling order
+        coupling_order_id = 0
+        for sq_coupling, order in representative_process['squared_orders'].items():
+            if sq_coupling == 'QED':
+                coupling_order_id += 2*order
+            elif sq_coupling == 'QCD':
+                coupling_order_id += 200*order
+            else:
+                raise alphaLoopExporterError("Unsupported Coupling for QGRAF: %s"%sq_coupling)
+        dict_replace['coupling_order'] = 'true=vsum[QCD_QED,{0},{0}];\n'.format(coupling_order_id)
+
+        # Ensure final state
+        dict_replace['final_states'] = ''
+        required_final_states = [fields[0] for fields in self.final_states if len(fields) == 1]
+        for field in set(required_final_states):
+            if field >= 0:
+                field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['name']]
+            else:
+                field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
+            dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
+
+        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
+        shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
+        
+        qgraf_output = pjoin(self.dir_path, 'qgraf/qgraf.dat')
+        qgraf_folder = pjoin(self.dir_path, 'qgraf')
+
+        with open(self.qgraf_template_epem, 'r') as stream:
+            with open(qgraf_output, 'w') as f:
+                f.write(stream.read() % dict_replace)
+
+            subprocess.run(['rm', 'output.py'], cwd=qgraf_folder)
+            r = subprocess.run([self.QGRAF_path, ],
+                               cwd=qgraf_folder,
+                               capture_output=True)
+            if r.returncode != 0 or not os.path.exists(pjoin(qgraf_folder, 'output.py')):
+                raise print("QGRAF generation failed with error:\n%s" %
+                            (r.stdout.decode('UTF-8')))
+
+
+        # Veto particles that are forbidden
+        dict_replace['vetos'] = ''
+        for particle in representative_process['forbidden_particles']:
+            dict_replace['vetos'] += 'true=iprop[%s,0,0];\n'%self.qgraf_field_replace[pdg_model_map[particle]['name']]
 
         # Enforce coupling order
         coupling_order_id = 0
@@ -1453,22 +1492,23 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         dict_replace['outgoing_states'] = 'out = '
         incoming_fields = []
         pn = 1
-        for field in incoming_states:
+        for field in self.initial_states:
             if field >= 0:
-                incoming_fields += [(field_replace[self.model.get_particle(abs(field))['name']],'p%d'%pn)]
+                incoming_fields += [(self.qgraf_field_replace[self.model.get_particle(abs(field))['name']],'p%d'%pn)]
             else:
-                incoming_fields += [(field_replace[self.model.get_particle(abs(field))['antiname']],'p%d'%pn)]
+                incoming_fields += [(self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']],'p%d'%pn)]
             pn += 1
         dict_replace['incoming_states'] += ", ".join(["{}[{}]".format(*field) for field in incoming_fields])+";"
         dict_replace['outgoing_states'] += ", ".join(["{}[{}]".format(*field) for field in incoming_fields])+";"
 
         dict_replace['final_states'] = ''
-        for field in final_states:
+        required_final_states = [fields[0] for fields in self.final_states if len(fields) == 1]
+        for field in set(required_final_states):
             if field >= 0:
-                field = field_replace[self.model.get_particle(abs(field))['name']]
+                field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['name']]
             else:
-                field = field_replace[self.model.get_particle(abs(field))['antiname']]
-            dict_replace['final_states'] += 'true=iprop[{},1,10];\n'.format(field)
+                field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
+            dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
 
         shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
         shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))

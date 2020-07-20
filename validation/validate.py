@@ -117,7 +117,7 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
     log_path = pjoin(WORKSPACE, '%s' % os.path.basename(
         hyperparameters_path).replace('yaml', 'log'))
 
-    log_info = {'EventInfo': '', 'IntegrandStatistics': '',
+    log_info = {'EventInfo': None, 'IntegrandStatistics': None,
                 'StartTime': None, 'LastUpdatedTime': None,
                 'ElapsedTime': None, 'Cores': CORES}
     accepted = 0
@@ -183,7 +183,8 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                     err_path, out_path))
 
     with open(log_path, 'w' if force else 'a') as stdlog:
-        log_info['IntegrandStatistics']['running_max_stability'] = list(log_info['IntegrandStatistics']['running_max_stability'])
+        if not log_info['IntegrandStatistics']:
+            log_info['IntegrandStatistics']['running_max_stability'] = list(log_info['IntegrandStatistics']['running_max_stability'])
         yaml.dump([log_info], stdlog, default_flow_style=None)
 
 
