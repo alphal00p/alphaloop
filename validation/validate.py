@@ -196,6 +196,8 @@ def parse_rust_dict(rust_dict_string):
         r'Complex \{ re: (.*?), im: (.*?)\}', r'[\1, \2]', rust_dict)
     rust_dict = re.sub(
         r'(Real|Imag|Both|inf)', r'"\1"', rust_dict)
+    rust_dict = re.sub(
+        r'Some\((.*?)\)', r'"\1"', rust_dict)
     try:
         return eval(re.sub(r' ([^:^,]+):', r'"\1":', rust_dict))
     except:
@@ -303,7 +305,7 @@ if __name__ == "__main__":
     hyper_settings['General']['multi_channeling'] = args.multi_channeling
     hyper_settings['General']['multi_channeling_including_massive_propagators'] = args.multi_channeling
     # Cross section settings
-    hyper_settings['CrossSection']['incoming_momenta'] = [[500,0,0,500],[500,0,0,-500]]
+    hyper_settings['CrossSection']['incoming_momenta'] = [[500, 0, 0 ,500],[500, 0, 0, -500]]
     hyper_settings['CrossSection']['gs'] = 1.2177157847767195
 
     # Define paths to executables, files and workspace

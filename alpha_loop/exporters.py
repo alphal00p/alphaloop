@@ -1147,6 +1147,7 @@ class QGRAFExporter(object):
         self.model = model
         self.proc_def = process_definition
         self.QGRAF_path = pjoin(plugin_path,os.path.pardir,'libraries','QGRAF','qgraf')
+        self.final_states = [leg.get('ids') for leg in process_definition.get('legs') if leg.get('state')]
 
     def generate(self):
         pass
@@ -1209,19 +1210,16 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         else:
             representative_proc = process_definition
         
-        n_cuts = len([1 for leg in representative_proc.get('legs') if leg.get('state')==True ])
+        super(HardCodedQGRAFExporter,self).__init__(process_definition, model, **opts)
+        
+        #print(self.final_states)
+        n_cuts = len(self.final_states)
         overall_phase = -complex(-1.0,0.0)**n_cuts
         if overall_phase.imag != 0:
             raise alphaLoopExporterError("No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
         else:
             self.overall_phase = '%d'%int(overall_phase.real)
 
-        #print([leg.get('id') for leg in representative_proc.get('legs') if
-        #                     leg.get('state')==True ])
-        #print([leg.get('id') for leg in representative_proc.get('legs') if
-        #                     leg.get('state')==False])
-        
-        super(HardCodedQGRAFExporter,self).__init__(process_definition, model, **opts)
 
     def output(self, output_path):
         self.dir_path = os.path.abspath(output_path)
@@ -1235,7 +1233,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
              representative_proc = next(proc for proc in self.proc_def)
         else:
             representative_proc = self.proc_def
- 
+
         # Generate all supergraphs using QGRAF
         self.build_output_directory()
         getattr(self,"build_qgraf_%s"%self.alphaLoop_options['qgraf_template_model'])(representative_proc)
@@ -1326,9 +1324,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
     def get_cuts(self, representative_process):
         cuts=[]
         additional_loops = len(representative_process['perturbation_couplings'])
-        final_states = [abs(leg.get('id')) for leg in representative_process.get('legs') if leg.get('state')==True]
-        for pdg in set(final_states):
-            cuts += [([pdg],final_states.count(pdg))]
+        for pdgs in self.final_states:
+            cuts += [([abs(pdg) for pdg in pdgs],1)]
         cuts += [('any', additional_loops )]
         return cuts
 
@@ -1342,7 +1339,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             )
 
         additional_loops = len(representative_process['perturbation_couplings']);
-        final_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True]
+        n_final_states = len([leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True])
 
         pdg_model_map = self.model['particles'].generate_dict()
         field_replace = {}
@@ -1359,7 +1356,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         dict_replace = {}
 
-        dict_replace['n_loops'] = len(final_states) - 1 + additional_loops 
+        dict_replace['n_loops'] = n_final_states - 1 + additional_loops 
 
         # Veto particles that are forbidden
         dict_replace['vetos'] = ''
@@ -1379,12 +1376,13 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         # Ensure final state
         dict_replace['final_states'] = ''
-        for field in final_states:
+        required_final_states = [fields[0] for fields in self.final_states if len(fields) == 1]
+        for field in set(required_final_states):
             if field >= 0:
-                field = field_replace[self.model.get_particle(abs(field))['name']]
+                field_name = field_replace[self.model.get_particle(abs(field))['name']]
             else:
-                field = field_replace[self.model.get_particle(abs(field))['antiname']]
-            dict_replace['final_states'] += 'true=iprop[{},1,10];\n'.format(field)
+                field_name = field_replace[self.model.get_particle(abs(field))['antiname']]
+            dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
 
         shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
         shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))

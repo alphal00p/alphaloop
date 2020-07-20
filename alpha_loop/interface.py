@@ -594,6 +594,11 @@ utils.bcolors.RED,utils.bcolors.ENDC
         logger.info('Model %s successfully patched so as to accomodate self-energy generations.'%model.get('name'))
         return
 
+    def do_qgraf_define(self, line):
+        """ define specific multiparticles to be used at generation time. """
+        self.do_define(line)
+        self.alphaLoop_options['_multiparticles'] = self._multiparticles
+
     def do_qgraf_generate(self, line):
         """ qgraf-based output. """
  
