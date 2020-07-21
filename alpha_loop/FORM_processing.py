@@ -2327,7 +2327,7 @@ int %(header)sget_rank(int diag, int conf) {{
                     return res
 
         # aqq vertex
-        if len(pdgs) == 3 and pdgs[0]==22 and pdgs[1] in quark_pdgs and pdgs[2]==pdgs[1]:
+        if len(pdgs) == 3 and (pdgs[0] in [22,23,25]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
             quark_mass = get_particle_mass(pdgs[1])
             if loop_count == 1:
                 if quark_mass=='ZERO':
