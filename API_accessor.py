@@ -134,6 +134,9 @@ def API_initialise(
         )
     rust_instances.append(rust_instance)
 
+def API_is_alive():
+    return (rust_instances is not None)
+
 def API_exit():
     sys.exit(1)
 

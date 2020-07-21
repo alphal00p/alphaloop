@@ -1880,7 +1880,7 @@ class FORMSuperGraphList(list):
                             graph.is_zero = False
 
                         main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
-                        main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)')
+                        main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
                         integrand_main_code += '\nstatic inline double complex %(header)sevaluate_{}_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                         )
@@ -2062,7 +2062,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
                         for r in sorted(return_statements, key=lambda x: x[0]):
                             num_body += r[1]
 
-                        num_body = num_body.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)')
+                        num_body = num_body.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
 
                         confs.append((conf_id, rank))
 
@@ -2275,7 +2275,11 @@ int %(header)sget_rank(int diag, int conf) {{
 
         open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
 
-    def get_renormalization_vertex(self, in_pdgs, loop_count, model):
+    def get_renormalization_vertex(self, in_pdgs, loop_count, model, is_external_bubble=False):
+
+        # Internal renormalisation 2-point vertices are coded directly in numerator.frm
+        if len(in_pdgs)==2 and not is_external_bubble:
+            return '1'
 
         pdgs = sorted([abs(pdg) for pdg in in_pdgs],reverse=True)
         quark_pdgs = range(1,7)
@@ -2288,12 +2292,29 @@ int %(header)sget_rank(int diag, int conf) {{
             'mu_r': 'mu_r'
         }
 
-        delta_Z_massless_quark = '(1/%(ep)s)/4*%(C_F)s*%(gs)s^2/8/%(pi)s^2*2'
-        delta_Z_massive_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*((1/%(ep)s)+log(%(mu_r)s^2/%(quark_mass)s^2))'
+        delta_Z_massless_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*(1/%(ep)s)'
+        delta_Z_massive_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*((1/%(ep)s)+4+3*(logmu - %(log_quark_mass)s))'
+
+        # All the things below are a shame and must be generalised as soon as we're done with the publication....
+
+        hardcoded_mass_parameters = {
+            6   : 'mass_t',
+            -6  : 'mass_t',
+        }
+        
+        hardcoded_log_quark_mass = {
+            6   : 'logmt',
+            -6  : 'logmt'
+        }
+
+        def get_particle_mass(pdg):
+            if pdg in hardcoded_mass_parameters:
+                return hardcoded_mass_parameters[pdg]
+            return model.get_particle(pdg).get('mass')
 
         # quark self-energy
         if len(pdgs) == 2 and pdgs[0] in quark_pdgs and pdgs[1]==pdgs[0]:
-            quark_mass = model.get_particle(pdgs[0]).get('mass')
+            quark_mass = get_particle_mass(pdgs[0])
             if loop_count == 1:
                 if quark_mass=='ZERO':
                     res = ('+(%s)'%delta_Z_massless_quark)%symbol_replacement_dict
@@ -2301,19 +2322,25 @@ int %(header)sget_rank(int diag, int conf) {{
                     return res
                 else:
                     res = ('+(%s)'%delta_Z_massive_quark)%(
-                        dict(symbol_replacement_dict,**{'quark_mass':quark_mass}))
+                        dict(symbol_replacement_dict,**{
+                            'quark_mass':quark_mass,
+                            'log_quark_mass':hardcoded_log_quark_mass[pdgs[0]],                            
+                        }))
                     return res
 
         # aqq vertex
         if len(pdgs) == 3 and pdgs[0]==22 and pdgs[1] in quark_pdgs and pdgs[2]==pdgs[1]:
-            quark_mass = model.get_particle(pdgs[1]).get('mass')
+            quark_mass = get_particle_mass(pdgs[1])
             if loop_count == 1:
                 if quark_mass=='ZERO':
-                    res = ('-(%s)'%delta_Z_massless_quark)%symbol_replacement_dict
+                    res = ('-(2)*(1/2)*(%s)'%delta_Z_massless_quark)%symbol_replacement_dict
                     return res
                 else:
-                    res = ('-(%s)'%delta_Z_massive_quark)%(
-                        dict(symbol_replacement_dict,**{'quark_mass':quark_mass}))
+                    res = ('-(2)*(1/2)*(%s)'%delta_Z_massive_quark)%(
+                        dict(symbol_replacement_dict,**{
+                            'quark_mass':quark_mass,
+                            'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
+                        }))
                     return res
 
         return None
@@ -2349,6 +2376,7 @@ int %(header)sget_rank(int diag, int conf) {{
                     e['vertices'] = tuple(vert_to_replace_with if ind == vert_to_replace else ind for ind in e['vertices'])
 
             del edges[ek]
+
         return subgraph_pdgs
 
     def generate_renormalization_graphs(self, model):
@@ -2375,6 +2403,13 @@ int %(header)sget_rank(int diag, int conf) {{
                     vertex_factors = []
                     uv_effective_vertex_edges = []
 
+                    # Compute the bubble edges so as to be able to determine if the bubble to computed the renormalisation vertex for is "internal" or "external".
+                    bubble_edges = set()
+                    for c in cut_info['cuts']:
+                        sig = next(ee['signature'] for ee in edges.values() if ee['name'] == c['edge'])
+                        inv_sig = tuple([-s for s in x] for x in sig)
+                        bubble_edges |= set(ee['name'] for ee in edges.values() if (ee['signature'] == sig or ee['signature'] == inv_sig) and ee['name'] != c['edge'])
+
                     for diag_info in diag_set['diagram_info']:
                         if diag_info['uv_vertices'] is not None and len(diag_info['uv_vertices']) > 0:
                             graph = diag_info['graph']
@@ -2383,8 +2418,8 @@ int %(header)sget_rank(int diag, int conf) {{
                                 edges_on_vertex = [e[0] for e in graph.edge_map_lin if v in e[1:]]
                                 uv_effective_vertex_edges.append((edges_on_vertex, l))
                                 edge_pdgs = tuple(next(ee for ee in edges.values() if ee['name'] == e)['PDG'] for e in edges_on_vertex)
-
-                                vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l, model)
+                                is_external_bubble = ( (len(edges_on_vertex)==2) and any( (e in bubble_edges) for e in edges_on_vertex) )
+                                vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l, model, is_external_bubble=is_external_bubble)
                                 if vertex_contrib is None:
                                     logger.warning("WARNING: unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
                                     #raise AssertionError("Unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
@@ -2401,7 +2436,7 @@ int %(header)sget_rank(int diag, int conf) {{
                     # shrink the UV subgraph in the edge list
                     subgraph_pdgs = self.shrink_edges(edges, nodes, diag_set['uv_propagators'])
 
-                    # get all bubble edges, they will be removed at the end
+                    # Recomputed the bubble edges now the that UV subgraph has been shrunk, they will be removed at the end
                     bubble_edges = set()
                     for c in cut_info['cuts']:
                         sig = next(ee['signature'] for ee in edges.values() if ee['name'] == c['edge'])

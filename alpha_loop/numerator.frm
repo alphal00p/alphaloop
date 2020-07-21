@@ -14,11 +14,16 @@ On nospacesinnumbers;
 #define FERM "-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,-11,11,-12,12,-13,13"
 #define Q "1,2,3,4,5,6"
 #define QBAR "-1,-2,-3,-4,-5,-6"
+#define QMASSLESS "1,2,3,4,5"
+#define QBARMASSLESS "-1,-2,-3,-4,-5"
+#define QMASSIVE "1,2,3,4,5"
+#define QBARMASSIVE "-1,-2,-3,-4,-5"
 #define L "11,12,13"
 #define LBAR "-11,-12,-13"
 
 Auto S mass;
 CTable masses(-30:30);
+CTable logmasses(-30:30);
 CTable charges(-30:30);
 
 #ifndef `OPTIMLVL'
@@ -67,6 +72,7 @@ Fill masses(-13) = mass_tau;
 
 Fill masses(6) = mass_t;
 Fill masses(-6) = mass_t;
+
 Fill masses(25) = mass_h;
 
 Fill charges(1) = -1/3; * d
@@ -100,7 +106,11 @@ CF gamma, vector,g(s),delta(s),T, counter,color, prop;
 CF f, vx, vec, vec1;
 CF subs, configurations, conf, cmb, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv;
-S integratedctflag, mUV, logmu, logmUV, mi1L1, alarmMi1L1;
+
+S integratedctflag, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
+Fill logmasses(6) = logmt;
+Fill logmasses(-6) = logmt;
+
 CF integratedct, rat, num, den;
 Set ts: t0,...,t20;
 CT penergy;
@@ -166,7 +176,10 @@ id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
 * delta_Z vertex
-id vx(x1?{`QBAR'}, x2?{`Q'}, p1?, p2?, idx1?, idx2?) = i_ * gamma(dirac[idx1], p1, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
+id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = ((4/3)*gs^2/16/pi^2) * i_ * (1/ep) * gamma(dirac[idx1], p1, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
+id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = ((4/3)*gs^2/16/pi^2) * i_ * ( 
+      (1/ep + 4 + 3*(logmu - logmasses(x)) ) * gamma(dirac[idx1], p1, dirac[idx2]) 
+    + (2/ep + 8 + 6*(logmu - logmasses(x)) ) * masses(x) * gamma(dirac[idx1], dirac[idx2]) ) * d_(colF[idx1], colF[idx2]);
 
 id D^n? = rat(D^n, 1);
 .sort:feynman-rules-vertices-1;
