@@ -183,9 +183,9 @@ class FORMSuperGraph(object):
                                     cut_edges[ci] += [tuple(sorted([x - 1 for x in ue]))]
                         edge_colors[tuple(sorted([x - 1 for x in ue]))] += [abs(e['PDG'])]
                     elif e['type'] == 'in':
-                        incoming_vertices += [e['vertices'][0]-1]
+                        incoming_vertices += [min(e['vertices'])-1]
                     elif e['type'] == 'out':
-                        outgoing_vertices += [e['vertices'][0]-1]
+                        outgoing_vertices += [min(e['vertices'])-1]
             g.add_edges([tuple(sorted([x - 1 for x in ue]))]*multiple)
 
         take_cuts = []
@@ -901,7 +901,7 @@ CTable pftopo(0:{});
             return 0
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
-        generate_integrand=True, workspace=None):
+        generate_integrand= True, workspace=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
 
@@ -1797,7 +1797,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(numerator_code%header_map)
 
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", generate_integrand=True):
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", generate_integrand=True, optimization_lvl=3):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -1822,7 +1822,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
-        FORM_vars={}
+        FORM_vars={'OPTIMLVL': [1,1,2,4][optimization_lvl]}
 
         # TODO: multiprocess this loop
         max_buffer_size = 0
@@ -2361,7 +2361,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header=""):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", optimization_lvl=3):
         assert(header in ['MG', 'QG', ''])
 
         params = {
@@ -2386,7 +2386,7 @@ class FORMProcessor(object):
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
             additional_overall_factor=additional_overall_factor,
-            params=params,workspace=workspace, header=header)
+            params=params,workspace=workspace, header=header, optimization_lvl=optimization_lvl)
 
     @classmethod
     def compile(cls, root_output_path, arg=[]):

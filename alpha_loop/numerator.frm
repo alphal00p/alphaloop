@@ -21,6 +21,10 @@ Auto S mass;
 CTable masses(-30:30);
 CTable charges(-30:30);
 
+#ifndef `OPTIMLVL'
+    #define OPTIMLVL "3"
+#endif 
+
 #ifndef `OPTIMITERATIONS'
     #define OPTIMITERATIONS "100"
 #endif
@@ -667,7 +671,7 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
 
 * Optimize the output
         Format C;
-        Format O4,stats=off,saIter=`OPTIMITERATIONS';
+        Format O`OPTIMLVL',stats=off,saIter=`OPTIMITERATIONS';
         #Optimize FF`ext'
         #write<out_integrand_`SGID'.proto_c> "%O"
         #write<out_integrand_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
@@ -745,7 +749,7 @@ Hide F;
 
 * Optimize the output
     Format C;
-    Format O4,stats=off,saIter=`OPTIMITERATIONS';
+    Format O`OPTIMLVL',stats=off,saIter=`OPTIMITERATIONS';
     #Optimize FF`ext'
     #write<out_`SGID'.proto_c> "%O"
     B+ <Z{`energysymbolstart' + 1}_>,...,<Z`energysymbolend'_>;

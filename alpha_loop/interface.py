@@ -103,8 +103,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
             'FORM_processing_output_format' : None,
-            # Select what to compile of the FORM output. Default is ['numerator']
-            'FORM_compile_arg' : ['numerator']
+            # Select what to compile of the FORM output. Default is ['all']
+            'FORM_compile_arg' : ['all'],
+            # Optimization level for the FORM processing and compilation. 0 to 3
+            'FORM_compile_optimization' : 3
         }
         self.FORM_options=FORM_processing.FORM_processing_options
         self.plugin_output_format_selected = None
@@ -233,6 +235,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if not value in ['integrand', 'numerator', 'all']:
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_output' should be one of 'numerator', 'integrand', 'all'")
             self.alphaLoop_options['FORM_compile_arg'] = [value]
+        elif key == 'FORM_compile_optimization':
+            if not value in [str(opt_n) for opt_n in range(4)]:
+                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_optimizaiton' should be between 0 and 3, not %s"%value)
+            self.alphaLoop_options['FORM_compile_optimization'] = int(value)
         elif key == 'include_self_energies_from_squared_amplitudes':
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for 'include_self_energies_from_squared_amplitudes' should be 'True' or 'False', not '%s'."%value)

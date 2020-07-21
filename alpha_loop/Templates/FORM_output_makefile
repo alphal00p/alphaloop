@@ -15,8 +15,8 @@ all: $(LIBBPATH)/$(LIBRARY) $(LIBBPATH)/$(INTEGRANDLIBRARY)
 numerator: $(LIBBPATH)/$(LIBRARY)
 integrand: $(LIBBPATH)/$(INTEGRANDLIBRARY)
 
-
-CFLAGS=-Wconversion -march=native -O3 -fcx-fortran-rules -fcx-limited-range -lm -lquadmath
+OPTIMIZATION_LVL = 3
+CFLAGS=-Wconversion -march=native -O$(OPTIMIZATION_LVL) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath
 
 %.o: %.c
 	$(GCC) -c $(CFLAGS) $< -o $@

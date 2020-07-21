@@ -397,7 +397,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             logger.info("Generating FORM numerators...")
             FORM_processor.generate_numerator_functions(FORM_output_path, 
                         output_format=self.alphaLoop_options['FORM_processing_output_format'],
-                        workspace=FORM_workspace
+                        workspace=FORM_workspace,
+                        optimization_lvl=self.alphaLoop_options['FORM_compile_optimization']
             )
 
         # And now finally generate the overall cross section yaml input file.
@@ -531,7 +532,9 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         FORM_output_dir = pjoin(self.dir_path,"FORM")
         if os.path.exists(FORM_output_dir):
             FORM_processing.FORMProcessor.compile(
-                FORM_output_dir, arg=self.alphaLoop_options['FORM_compile_arg'])
+                FORM_output_dir, 
+                arg=self.alphaLoop_options['FORM_compile_arg'] +\
+                 ['-e OPTIMIZATION_LVL=%d'%self.alphaLoop_options['FORM_compile_optimization']])
 
     #===========================================================================
     # process exporter fortran switch between group and not grouped
@@ -1324,7 +1327,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
             form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
                 output_format=self.alphaLoop_options['FORM_processing_output_format'],
-                workspace=FORM_workspace
+                workspace=FORM_workspace,
+                optimization_lvl=self.alphaLoop_options['FORM_compile_optimization']
             )
 
         # Draw
@@ -1334,7 +1338,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                     pjoin(drawings_output_path,'Makefile'))
         form_processor.draw(drawings_output_path)
 
-        form_processor.compile(pjoin(self.dir_path,'FORM'), arg=self.alphaLoop_options['FORM_compile_arg'])
+        form_processor.compile(pjoin(self.dir_path,'FORM'),
+                arg=self.alphaLoop_options['FORM_compile_arg'] +\
+                 ['-e', 'OPTIMIZATION_LVL=%d'%self.alphaLoop_options['FORM_compile_optimization']])
     
     def get_cuts(self, representative_process):
         cuts=[]
@@ -1354,9 +1360,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             )
 
         if self.alphaLoop_options['loop_induced']:
-            virtual_loops = len(representative_process['perturbation_couplings']);
+            virtual_loops = len(representative_process['perturbation_couplings']) + 2
         else:
-            virtual_loops = len(representative_process['perturbation_couplings']) + 2;
+            virtual_loops = len(representative_process['perturbation_couplings'])
         n_final_states = len([leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==True])
 
         pdg_model_map = self.model['particles'].generate_dict()
