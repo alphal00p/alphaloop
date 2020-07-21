@@ -2241,7 +2241,6 @@ int %(header)sget_rank(int diag, int conf) {{
         if filter_non_contributing_graphs:
             self[:] = contributing_supergraphs
 
-        """
         renormalization_graphs = self.generate_renormalization_graphs(model)
         self.extend([FORMSuperGraphIsomorphicList([g]) for g in renormalization_graphs])
 
@@ -2265,7 +2264,6 @@ int %(header)sget_rank(int diag, int conf) {{
                 total_time += time.time()-time_before
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
-        """
 
         try:
             import yaml
@@ -2276,7 +2274,7 @@ int %(header)sget_rank(int diag, int conf) {{
         open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
 
     def get_renormalization_vertex(self, in_pdgs, loop_count, model, is_external_bubble=False):
-
+        
         # Internal renormalisation 2-point vertices are coded directly in numerator.frm
         if len(in_pdgs)==2 and not is_external_bubble:
             return '1'
