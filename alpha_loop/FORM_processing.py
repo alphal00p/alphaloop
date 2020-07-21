@@ -838,10 +838,14 @@ aGraph=%s;
 
                 res = []
                 propagators = []
+                #ltd_signatures = {}
                 propcount = 1
                 for di, diag_info in enumerate(loop_diag_set['diagram_info']):
-                    for l in diag_info['graph'].loop_lines:
+                    for li, l in enumerate(diag_info['graph'].loop_lines):
                         is_constant = all(s == 0 for s in l.signature)
+
+                        #ltd_signatures[(di, li)] = [0]* l.signature
+
                         for p in l.propagators:
                             # contruct the momentum in the LMB, using that LTD
                             lmp = np.array([0]*topo.topo.n_loops)
@@ -872,8 +876,8 @@ aGraph=%s;
 
                     diagres = []
                     # enumerate all cut options
-                    for co in product(*[[(cs, (li, i)) for i in range(len(l.propagators))] for css in diag_info['graph'].ltd_cut_structure
-                            for li, (cs, l) in enumerate(zip(css, diag_info['graph'].loop_lines)) if cs != 0]):
+                    for co in [x for css in diag_info['graph'].ltd_cut_structure for x in 
+                            product(*[[(cs, (li, i)) for i in range(len(l.propagators))] for li, (cs, l) in enumerate(zip(css, diag_info['graph'].loop_lines)) if cs != 0])]:
                         ltd_closure_factor = int(np.prod([s for (s, _) in co]))
                         
                         # construct the cut basis to LTD loop momentum basis mapping, used to substitute the numerator
@@ -902,15 +906,15 @@ aGraph=%s;
                             if all(s == 0 for s in l.signature):
                                 continue
 
-                            energy = ''
+                            energy = []
                             energy_full = ''
                             sig_map = nmi.dot(l.signature)
                             for (sig_sign, (cut_sign, (lci, pci))) in zip(sig_map, co):
                                 if sig_sign != 0:
                                     momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(di, lci, pci)]][1], prop_mom_in_lmb[prop_id[(di, lci, pci)]][2]), True)
-                                    energy += '{},ltd{},{}energies({})'.format(int(sig_sign), prop_id[(di, lci, pci)], 
+                                    energy.append('{},ltd{},{}energies({})'.format(int(sig_sign), prop_id[(di, lci, pci)], 
                                         '+' if -sig_sign == 1 else '-', 
-                                        '0' if momp == '' else momp)
+                                        '0' if momp == '' else momp))
                                     # the full energy including the cut sign
                                     energy_full += '{}E{}{}energies({})'.format('+' if int(cut_sign * sig_sign) == 1 else '-', prop_id[(di, lci, pci)], 
                                         '+' if -int(sig_sign) == 1 else '-', 
@@ -932,7 +936,7 @@ aGraph=%s;
                                         der.append('ltd{},{}'.format(prop_id[(di, li, pi)], p.power - 1))
                                 else:
                                     momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(di, li, pi)]][1], prop_mom_in_lmb[prop_id[(di, li, pi)]][2]), True)
-                                    r.append('prop({0},{1},E{2}+energies({3})){4}*prop({5},{1},-E{2}+energies({3})){4}'.format(propcount, energy, prop_id[(di, li, pi)],
+                                    r.append('prop({0},{1},E{2}+energies({3})){4}*prop({5},{1},-E{2}+energies({3})){4}'.format(propcount, ','.join(energy), prop_id[(di, li, pi)],
                                         '0' if momp == '' else momp, powmod, propcount + 1))
 
                                     propagators.append('{}+E{}+energies({})'.format(energy_full, prop_id[(di, li, pi)], '0' if momp == '' else momp))
@@ -963,7 +967,7 @@ Auto S invd, E, shift, ltd;
 S r, s;
 CF a, num, ncmd, conf1, replace, energies, ellipsoids, ltdcbtolmb, ltdenergy, constants;
 NF allenergies;
-Set invdset: invd0,...,invd40;
+Set invdset: invd0,...,invd400;
 CTable ltdtopo(0:{});
 
 {}
@@ -2237,6 +2241,7 @@ int %(header)sget_rank(int diag, int conf) {{
         if filter_non_contributing_graphs:
             self[:] = contributing_supergraphs
 
+        """
         renormalization_graphs = self.generate_renormalization_graphs(model)
         self.extend([FORMSuperGraphIsomorphicList([g]) for g in renormalization_graphs])
 
@@ -2260,6 +2265,7 @@ int %(header)sget_rank(int diag, int conf) {{
                 total_time += time.time()-time_before
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
+        """
 
         try:
             import yaml
