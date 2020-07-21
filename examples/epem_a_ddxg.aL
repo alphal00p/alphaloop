@@ -14,6 +14,11 @@ set_alphaLoop_option FORM_processing_output_format c
 #set_alphaLoop_option supergraphs_selection [(1,2),(2,2)]
 set_FORM_option number_of_lmbs -1
 set_FORM_option reference_lmb 2 
+
+set_alphaLoop_option FORM_integrand_type PF
+set_alphaLoop_option FORM_compile_arg all
+set_alphaLoop_option FORM_compile_optimization 3
+
 generate e+ e- > a > d d~ g
 !rm -rf TEST_epem_a_ddxg_NLO
 output alphaLoop TEST_epem_a_ddxg_NLO

@@ -491,17 +491,27 @@ if (count(ep, 1)) Discard; * keep only the ep^0 piece
 
 .sort:integrated-ct-2;
 
-#ifndef `NOINTEGRAND'
+#ifdef `INTEGRAND'
     L FINTEGRAND = F;
     .sort
 
-    #include- pftable_`SGID'.h
-    .sort:load-pf;
+    #if `INTEGRAND' == "PF"
+        #include- pftable_`SGID'.h
+        .sort:load-pf;
 
-    inexpression FINTEGRAND;
-        id conf(n?,?a) = conf(n,?a)*pftopo(n);
-        id pftopo(n?) = 0; * unrecognized topology
-    endinexpression;
+        inexpression FINTEGRAND;
+            id conf(n?,?a) = conf(n,?a)*pftopo(n);
+            id pftopo(n?) = 0; * unrecognized topology
+        endinexpression;
+    #elseif `INTEGRAND' == "LTD" 
+        #include- ltdtable_`SGID'.h
+        .sort:load-pf;
+
+        inexpression FINTEGRAND;
+            id conf(n?,?a) = conf(n,?a)*ltdtopo(n);
+            id ltdtopo(n?) = 0; * unrecognized topology
+        endinexpression;
+    #endif
 #endif
 
 * convert the polynomial to the cut momentum basis
@@ -525,7 +535,7 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
 *********************************************
 * Construction of the integrand
 *********************************************
-#ifndef `NOINTEGRAND'
+#ifdef `INTEGRAND'
     Hide F;
     .sort
 
@@ -533,7 +543,53 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
     id energy(f(?a)) = energy(?a);
     chainout energy;
     id energy(c0) = 1;
+#if (`INTEGRAND' == "LTD")
+    repeat id ltdcbtolmb(?a,c1?,x?,?b)*energy(c1?) = x*ltdcbtolmb(?a,c1,x,?b);
+    id ltdcbtolmb(?a) = 1;
 
+    if (count(energy,1));
+        Print "Unsubstituted energies: %t";
+        exit "Critical error";
+    endif;        
+
+    id prop(?a) = prop(-1,?a);
+    repeat id prop(x1?,x?,?a)*prop(x2?,x?,?a) = prop(x1+x2,x,?a);
+
+    #do i = 1,`NFINALMOMENTA'
+        id once der(ltd1?,n?,?a) = f(ltd1,n)*der(?a)/fac_(n);
+* write the numerator as a propagator
+        id ltd1?^n?*f(ltd1?,n1?) = prop(n,-1,1,ltd1,0,0)*f(ltd1,n1);
+        repeat id prop(x1?,x?,?a)*prop(x2?,x?,?a) = prop(x1+x2,x,?a);
+* perform the derivative
+        repeat id all prop(n2?,x1?,?a,n1?,ltd1?,?b)*f(ltd1?,n3?{>0}) = n2*n1*prop(n2-1,x1,?a,n1,ltd1,?b)*f(ltd1,n3 - 1);
+
+        id prop(n?{>=0},-1,1,E?,0,0) = E^n;
+
+        id f(ltd1?,0) = 1;
+
+        if (count(f,1));
+            Print "Derivative left in result: %t";
+            exit "Critical error";
+        endif;
+        .sort:der-`i';
+    #enddo
+    id der = 1;
+
+* rewrite the propagators
+id energies(0) = 0;
+id prop(n?,x?,?a) = invdset[x]^(-n);
+
+* set the ltd energies (including cut sign)
+id ltdenergy(?a) = replace_(?a);
+
+
+argument ellipsoids;
+    id energies(0) = 0;
+endargument;
+
+.sort:integrand-ltd;
+
+#elseif (`INTEGRAND' == "PF")
 * apply the numerator procedure
     Multiply conf1;
     #do i = 0,{`NFINALMOMENTA'-1}
@@ -564,6 +620,8 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
 
     id conf(n?)*conf1(?a) = conf(n, ?a);
 
+#endif
+
 * fill in the shifts
     id replace(?a) = replace_(?a);
     id energy(p?) = penergy(p);
@@ -573,12 +631,13 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
         id energies(p?) = penergy(p);
     endargument;
 
-    repeat id energies(p?,?a) = energync(p.p)*energies(?a);
+    repeat id allenergies(p?,?a) = energync(p.p)*allenergies(?a);
     argument energync;
         id p1?.p2? = spatial(p1, p2);
     endargument;
     chainin energync;
-    id energync(?a)*energies = energies(?a);
+    id energync(?a)*allenergies = allenergies(?a);
+    id allenergies(?a) = energies(?a);
 
     repeat id constants(p?,?a) = energync(p.p)*constants(?a);
     chainin energync;

@@ -391,14 +391,16 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                 pjoin(self.dir_path,'FORM','Rust_inputs'), n_jets, jet_ids=self.alphaLoop_options['_jet_PDGs'],
                 final_state_particle_ids=final_state_particle_ids,
                 filter_non_contributing_graphs=False,
-                workspace=FORM_workspace
+                workspace=FORM_workspace,
+                integrand_type=self.alphaLoop_options['FORM_integrand_type']
             )
 
             logger.info("Generating FORM numerators...")
             FORM_processor.generate_numerator_functions(FORM_output_path, 
                         output_format=self.alphaLoop_options['FORM_processing_output_format'],
                         workspace=FORM_workspace,
-                        optimization_lvl=self.alphaLoop_options['FORM_compile_optimization']
+                        optimization_lvl=self.alphaLoop_options['FORM_compile_optimization'],
+                        integrand_type=self.alphaLoop_options['FORM_integrand_type']
             )
 
         # And now finally generate the overall cross section yaml input file.
@@ -534,7 +536,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             FORM_processing.FORMProcessor.compile(
                 FORM_output_dir, 
                 arg=self.alphaLoop_options['FORM_compile_arg'] +\
-                 ['-e OPTIMIZATION_LVL=%d'%self.alphaLoop_options['FORM_compile_optimization']])
+                 ['-e', 'OPTIMIZATION_LVL=%d'%self.alphaLoop_options['FORM_compile_optimization']])
 
     #===========================================================================
     # process exporter fortran switch between group and not grouped
@@ -1323,12 +1325,14 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 # Remove non-contributing graphs from the list stored in the form_processor
                 filter_non_contributing_graphs=True,
                 workspace=FORM_workspace, 
+                integrand_type=self.alphaLoop_options['FORM_integrand_type']
             )
 
             form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
                 output_format=self.alphaLoop_options['FORM_processing_output_format'],
                 workspace=FORM_workspace,
-                optimization_lvl=self.alphaLoop_options['FORM_compile_optimization']
+                optimization_lvl=self.alphaLoop_options['FORM_compile_optimization'],
+                integrand_type=self.alphaLoop_options['FORM_integrand_type']
             )
 
         # Draw

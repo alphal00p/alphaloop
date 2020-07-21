@@ -814,6 +814,161 @@ aGraph=%s;
         else:
             return dict_to_dump
 
+    def generate_ltd_integrand(self, topo, workspace, numerator_call):
+        """Construct a table of integrand descriptors"""
+        integrand_body = ''
+        max_diag_id = 0
+
+        for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
+            for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
+                energy_map, energies, constants, shift_map = [], [], [], []
+                prop_mom_in_lmb = []
+                signature_offset = 0
+                loops = 0 # LTD loop count
+
+                prop_id = {}
+                counter = 0
+                for di, diag_info in enumerate(loop_diag_set['diagram_info']):
+                    for li, l in enumerate(diag_info['graph'].loop_lines):
+                        if all(s == 0 for s in l.signature):
+                            continue
+                        for pi, p in enumerate(l.propagators):
+                            prop_id[(di, li, pi)] = counter
+                            counter += 1
+
+                res = []
+                propagators = []
+                propcount = 1
+                for di, diag_info in enumerate(loop_diag_set['diagram_info']):
+                    for l in diag_info['graph'].loop_lines:
+                        is_constant = all(s == 0 for s in l.signature)
+                        for p in l.propagators:
+                            # contruct the momentum in the LMB, using that LTD
+                            lmp = np.array([0]*topo.topo.n_loops)
+                            for s, v in zip(l.signature, diag_info['loop_momentum_map']):
+                                lmp += s * np.array(v[0])
+
+                            # transport shift to LMB
+                            shift = np.array([0]*topo.topo.n_loops)
+                            extshift = np.array(p.parametric_shift[1])
+                            for s, c in zip(p.parametric_shift[0], cut['cuts']):
+                                shift += s * np.array(c['signature'][0])
+                                extshift += s * np.array(c['signature'][1])
+                            extshift = np.array(list(extshift[:len(extshift)//2]) + [0]*(len(extshift)//2)) +\
+                                np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
+
+                            totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
+
+                            # TODO: recycle energy computations since Es will appear more than once
+                            if not is_constant:
+                                prop_mom_in_lmb.append((lmp, shift, extshift))
+                                energy_map.append(p.m_squared if not p.uv else 'mUV*mUV')
+                                energies.append(totalmom)
+                                shift_map.append(list(shift) + list(extshift))
+
+                            for _ in range(p.power):
+                                if is_constant:
+                                    constants.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV'))
+
+                    diagres = []
+                    # enumerate all cut options
+                    for co in product(*[[(cs, (li, i)) for i in range(len(l.propagators))] for css in diag_info['graph'].ltd_cut_structure
+                            for li, (cs, l) in enumerate(zip(css, diag_info['graph'].loop_lines)) if cs != 0]):
+                        ltd_closure_factor = int(np.prod([s for (s, _) in co]))
+                        
+                        # construct the cut basis to LTD loop momentum basis mapping, used to substitute the numerator
+                        mat = [diag_info['graph'].loop_lines[li].signature for (_, (li, _)) in co]
+                        if mat == []:
+                            nmi = []
+                        else:
+                            nmi = np.linalg.inv(np.array(mat).transpose())
+
+                        m = []
+                        ltdenergy = ['ltd{0},{1}E{0}'.format(prop_id[(di, li, pi)], '+' if cut_sign == 1 else '-') for (cut_sign, (li, pi)) in co]
+                        for i, r in enumerate(nmi):
+                            mm = []
+                            for (c, (_, (li, pi))) in zip(r, co):
+                                if c != 0:
+                                    ext = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(di,li, pi)]][1], prop_mom_in_lmb[prop_id[(di, li, pi)]][2]), True)
+                                    if ext == '':
+                                        ext = '0'
+                                    
+                                    mm.append('{}ltd{}{}energies({})'.format('+' if c == 1 else '-', prop_id[(di, li, pi)], '-' if c == 1 else '+', ext))
+                            m += ['c{}'.format(i + len(cut['cuts']) + signature_offset), '+'.join(mm)]
+
+                        r = []
+                        der = []
+                        for li, l in enumerate(diag_info['graph'].loop_lines):
+                            if all(s == 0 for s in l.signature):
+                                continue
+
+                            energy = ''
+                            energy_full = ''
+                            sig_map = nmi.dot(l.signature)
+                            for (sig_sign, (cut_sign, (lci, pci))) in zip(sig_map, co):
+                                if sig_sign != 0:
+                                    momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(di, lci, pci)]][1], prop_mom_in_lmb[prop_id[(di, lci, pci)]][2]), True)
+                                    energy += '{},ltd{},{}energies({})'.format(int(sig_sign), prop_id[(di, lci, pci)], 
+                                        '+' if -sig_sign == 1 else '-', 
+                                        '0' if momp == '' else momp)
+                                    # the full energy including the cut sign
+                                    energy_full += '{}E{}{}energies({})'.format('+' if int(cut_sign * sig_sign) == 1 else '-', prop_id[(di, lci, pci)], 
+                                        '+' if -int(sig_sign) == 1 else '-', 
+                                        '0' if momp == '' else momp)
+
+                            for pi, p in enumerate(l.propagators):
+                                # TODO: recycle propagator ids if the functional form is the same!
+                                powmod = '' if p.power == 1 else '^' +  str(p.power)
+                                if (1, (li, pi)) in co:
+                                    propagators.append('2*E{0}'.format(prop_id[(di, li, pi)]))
+                                    r.append('prop({0},1,ltd{1},0,E{1}){2}'.format(propcount, prop_id[(di, li, pi)], powmod))
+                                    if p.power > 1:
+                                        # add derivative prescription
+                                        der.append('ltd{},{}'.format(prop_id[(di,li, pi)], p.power - 1))
+                                elif (-1, (li, pi)) in co:
+                                    propagators.append('-2*E{0}'.format(prop_id[(di, li, pi)]))
+                                    r.append('prop({0},-1,ltd{1},0,-E{1}){2}'.format(propcount, prop_id[(di, li, pi)], powmod))
+                                    if p.power > 1:
+                                        der.append('ltd{},{}'.format(prop_id[(di, li, pi)], p.power - 1))
+                                else:
+                                    momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(di, li, pi)]][1], prop_mom_in_lmb[prop_id[(di, li, pi)]][2]), True)
+                                    r.append('prop({0},{1},E{2}+energies({3})){4}*prop({5},{1},-E{2}+energies({3})){4}'.format(propcount, energy, prop_id[(di, li, pi)],
+                                        '0' if momp == '' else momp, powmod, propcount + 1))
+
+                                    propagators.append('{}+E{}+energies({})'.format(energy_full, prop_id[(di, li, pi)], '0' if momp == '' else momp))
+                                    propagators.append('{}-E{}+energies({})'.format(energy_full, prop_id[(di, li, pi)], '0' if momp == '' else momp))
+                                    propcount += 1
+                                propcount += 1
+                        diagres.append('{}*{}{}{}({})'.format(
+                            ltd_closure_factor,
+                            'ltdcbtolmb({})*'.format(','.join(m)) if len(m) > 0 else '',
+                            'ltdenergy({})*'.format(','.join(ltdenergy)) if len(ltdenergy) > 0 else '',
+                            'der({})*'.format(','.join(der))  if len(der) > 0 else '',
+                            '*'.join(r) if len(r) > 0 else '1'))
+
+                    res.append('\n\t\t\t+'.join(diagres))
+                    loops += diag_info['graph'].n_loops
+                    signature_offset += diag_info['graph'].n_loops
+
+                res = '\n\t\t*'.join(['({})'.format(l) for l in res])
+
+                self.integrand_info[diag_set['id']] = (energy_map, constants, loops)
+                max_diag_id = max(max_diag_id, diag_set['id'])
+                integrand_body += 'Fill ltdtopo({}) = (-1)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n);\n'.format(diag_set['id'],
+                    loops, ','.join(c[0] for c in constants), ','.join(propagators), ','.join(energies), res)
+
+        with open(pjoin(workspace, 'ltdtable_{}.h'.format(numerator_call)), 'w') as f:
+            f.write("""
+Auto S invd, E, shift, ltd;
+S r, s;
+CF a, num, ncmd, conf1, replace, energies, ellipsoids, ltdcbtolmb, ltdenergy, constants;
+NF allenergies;
+Set invdset: invd0,...,invd40;
+CTable ltdtopo(0:{});
+
+{}
+""".format(max_diag_id, integrand_body))
+
     def generate_integrand(self, topo, workspace, numerator_call):
         """Construct a table of integrand descriptors"""
         integrand_body = ''
@@ -873,14 +1028,14 @@ aGraph=%s;
 
                 self.integrand_info[diag_set['id']] = (energy_map, constants, loops)
                 max_diag_id = max(max_diag_id, diag_set['id'])
-                integrand_body += 'Fill pftopo({}) = constants({})*\nenergies({})*\nellipsoids({})*(\n{});\n'.format(diag_set['id'],
+                integrand_body += 'Fill pftopo({}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(diag_set['id'],
                     ','.join(c[0] for c in constants), ','.join(energies), resden, res)
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
 Auto S invd, E, shift;
 S r, s;
-CF a, num, ncmd, conf1, ellipsoids, replace, constants;
+CF a, num, ncmd, conf1, ellipsoids, allenergies, replace, constants;
 NF energies;
 CTable pftopo(0:{});
 
@@ -901,7 +1056,7 @@ CTable pftopo(0:{});
             return 0
 
     def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
-        generate_integrand= True, workspace=None):
+        integrand_type=None, workspace=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
 
@@ -978,10 +1133,14 @@ CTable pftopo(0:{});
                 if bar:
                     bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
-                        final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace)
+                        final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace,
+                        integrand_type=integrand_type)
 
-        if generate_integrand:
-            self.generate_integrand(topo, workspace, call_signature_ID)
+        if integrand_type is not None:
+            if integrand_type == "LTD":
+                self.generate_ltd_integrand(topo, workspace, numerator_call)
+            if integrand_type == "PF":
+                self.generate_integrand(topo, workspace, numerator_call)
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
@@ -1282,7 +1441,8 @@ class FORMSuperGraphIsomorphicList(list):
             #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
         return multiplicity    
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None ):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None,
+            integrand_type=None):
         for i, g in enumerate(self):
             # Now we generate the squared topology only for the first isomorphic graph
             # to obtain the replacement rules for the bubble.
@@ -1290,7 +1450,7 @@ class FORMSuperGraphIsomorphicList(list):
             # numerator 
             if i==0:
                 r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
-                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar)
+                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type)
             else:
                 g.replacement_rules = self[0].replacement_rules
         #print(r)
@@ -1398,7 +1558,6 @@ class FORMSuperGraphList(list):
             full_graph_list = full_graph_list[:first]
 
         if not cuts is None:
-            print(cuts)
             graph_filtered = {'DUMP':[], 'KEEP':[]}
             with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(full_graph_list),variables={'keep': '0', 'drop':'0'}) as bar:
                 for sgid, graph in enumerate(full_graph_list):
@@ -1615,7 +1774,7 @@ class FORMSuperGraphList(list):
         # TODO: Dump to Python dict
         pass
 
-    def generate_integrand_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header=""):
+    def generate_integrand_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", integrand_type=None):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -1638,8 +1797,6 @@ class FORMSuperGraphList(list):
         conf_exp = re.compile(r'conf\(([^)]*)\)\n')
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
-
-        FORM_vars={}
 
         # TODO: multiprocess this loop
         all_numerator_ids = []
@@ -1665,7 +1822,6 @@ class FORMSuperGraphList(list):
                     bar.update(i_graph='%d'%(i_graph+1), i_lmb='%d'%(i_lmb+1))
                     i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
                     all_numerator_ids.append(i)
-                    FORM_vars['SGID']='%d'%i
                     time_before = time.time()
 
                     with open(pjoin(root_output_path, 'workspace', 'out_integrand_{}.proto_c'.format(i))) as f:
@@ -1699,7 +1855,8 @@ class FORMSuperGraphList(list):
                         energy_secs = conf_sec.split('#ENERGIES')[1]
                         energy_secs = energy_secs.replace('\n', '')
                         energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
-                        const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2*E{}'.format(i) for i in range(len(mom_map)))
+                        if integrand_type == "PF":
+                            const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2*E{}'.format(i) for i in range(len(mom_map)))
                         if const_code == '':
                             const_code = '1'
 
@@ -1797,7 +1954,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(numerator_code%header_map)
 
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", generate_integrand=True, optimization_lvl=3):
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", integrand_type=None, optimization_lvl=3):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -1823,6 +1980,8 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
         FORM_vars={'OPTIMLVL': [1,1,2,4][optimization_lvl]}
+        if integrand_type is not None:
+            FORM_vars['INTEGRAND'] = integrand_type
 
         # TODO: multiprocess this loop
         max_buffer_size = 0
@@ -2026,10 +2185,11 @@ int %(header)sget_rank(int diag, int conf) {{
 
         writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.h'%header_map)).write(header_code%header_map)
 
-        if generate_integrand:
-            self.generate_integrand_functions(root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None)
+        if integrand_type is not None:
+            self.generate_integrand_functions(root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, integrand_type=integrand_type)
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None):
+    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
+        integrand_type=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
         topo_collection = {
@@ -2052,7 +2212,7 @@ int %(header)sget_rank(int diag, int conf) {{
                 bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, 
-                                                            workspace=workspace, bar=bar):
+                                                            workspace=workspace, bar=bar, integrand_type=integrand_type):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         'multiplicity': g[0].multiplicity
@@ -2088,7 +2248,7 @@ int %(header)sget_rank(int diag, int conf) {{
                 bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids,
-                                                            workspace=workspace, bar=bar):
+                                                            workspace=workspace, bar=bar, integrand_type=integrand_type):
                     topo_collection['topologies'].append({
                         'name': g.name,
                         'multiplicity': g.multiplicity,
@@ -2361,7 +2521,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", optimization_lvl=3):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, optimization_lvl=3):
         assert(header in ['MG', 'QG', ''])
 
         params = {
@@ -2386,7 +2546,9 @@ class FORMProcessor(object):
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
             additional_overall_factor=additional_overall_factor,
-            params=params,workspace=workspace, header=header, optimization_lvl=optimization_lvl)
+            params=params,workspace=workspace, header=header,
+            integrand_type=integrand_type,
+            optimization_lvl=optimization_lvl)
 
     @classmethod
     def compile(cls, root_output_path, arg=[]):
@@ -2402,9 +2564,11 @@ class FORMProcessor(object):
             logger.warning(("\n%sYou are running FORM_processing directly from the __main__ of FORM_processing.py.\n"+
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
-    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None):
+    def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
+        integrand_type=None):
         self.super_graphs_list.generate_squared_topology_files(
-            root_output_path, self.model, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace
+            root_output_path, self.model, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace,
+            integrand_type=integrand_type
         )
 
 

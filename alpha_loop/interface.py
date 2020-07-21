@@ -103,6 +103,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
             'FORM_processing_output_format' : None,
+            # Select if the FORM integrand is the "PF" expression or "LTD" expression, or None
+            'FORM_integrand_type' : "PF",
             # Select what to compile of the FORM output. Default is ['all']
             'FORM_compile_arg' : ['all'],
             # Optimization level for the FORM processing and compilation. 0 to 3
@@ -237,8 +239,12 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.alphaLoop_options['FORM_compile_arg'] = [value]
         elif key == 'FORM_compile_optimization':
             if not value in [str(opt_n) for opt_n in range(4)]:
-                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_optimizaiton' should be between 0 and 3, not %s"%value)
+                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_optimization' should be between 0 and 3, not %s"%value)
             self.alphaLoop_options['FORM_compile_optimization'] = int(value)
+        elif key == 'FORM_integrand_type':
+            if not value in ('PF', 'LTD', 'None'):
+                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_integrand_type' should be one of 'PF', 'LTD', 'None', not %s"%value)
+            self.alphaLoop_options['FORM_integrand_type'] = value if value in ('PF', 'LTD') else None
         elif key == 'include_self_energies_from_squared_amplitudes':
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for 'include_self_energies_from_squared_amplitudes' should be 'True' or 'False', not '%s'."%value)
