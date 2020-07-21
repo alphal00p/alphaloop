@@ -1,0 +1,300 @@
+
+
+**NewDiagram**
+<|"edges"->{in[1]->v[1],in[2]->v[1],v[2]->out[1],v[2]->out[2],v[2]->v[1]},"particleType"->{in[t[p1]],in[tbar[p2]],out[gluon[p3]],out[gluon[p4]],gluon},"momentumMap"->{in[p1],in[p2],out[p3],out[p4],-p1-p2},"numerator"->+1*
+ in[t[p1,-1] ]*
+ in[tbar[p2,-3] ]*
+ out[ gluon[p3,-2] ]*
+ out[ gluon[p4,-4] ]*
+prop[gluon[-p1-p2,{1,2}] ]*
+ v [ tbar[p2,-3 ],gluon[-p1-p2,1 ],t[p1,-1 ]]*
+ v [ gluon[-p3,-2 ],gluon[-p4,-4 ],gluon[p1+p2,2 ]],
+"PYedges"-><|
+-1+4-><|
+    "name"->"q1",
+    "PDG"-> 6,
+    "type"-> "in",
+    "momentum"-> p1,
+    "indices"-> {-1+4+1},
+    "vertices"-> {-1+4+1,1+4}
+ |>,
+-3+4-><|
+    "name"->"q2",
+    "PDG"-> -6,
+    "type"-> "in",
+    "momentum"-> p2,
+    "indices"-> {-3+4+1},
+    "vertices"-> {-3+4+1,1+4}
+ |>,
+-2+4-><|
+    "name"-> "q3",
+    "PDG"-> 21,
+    "type"-> "out",
+    "momentum"-> p3,
+    "indices"-> {-2+4+1},
+    "vertices"->{2+4,-2+4+1}
+ |>,
+-4+4-><|
+    "name"-> "q4",
+    "PDG"-> 21,
+    "type"-> "out",
+    "momentum"-> p4,
+    "indices"-> {-4+4+1},
+    "vertices"->{2+4,-4+4+1}
+ |>,
+1+4-><|
+    "name"->"p1",
+    "PDG"-> 21,
+    "type"-> "virtual",
+    "momentum"-> "-p1-p2",
+    "indices"-> {2+4+1,1+4+1},
+    "vertices"->{2+4,1+4}
+ |>
+|>,
+"PYnodes"-><|
+ -1+4+1-><|
+    "PDGs"-> {6},
+    "momenta"-> {p1},
+    "indices"-> {-1+4+1},
+    "vertex_id"-> -1,
+    "edge_ids"-> {-1+4}
+ |>,
+ -3+4+1-><|
+    "PDGs"-> {-6},
+    "momenta"-> {p2},
+    "indices"-> {-3+4+1},
+    "vertex_id"-> -1,
+    "edge_ids"-> {-3+4}
+ |>,
+ -2+4+1-><|
+    "PDGs"-> {21},
+    "momenta"-> {p3},
+    "indices"-> {-2+4+1},
+    "vertex_id"-> -2,
+    "edge_ids"-> {-2+4}
+ |>,
+ -4+4+1-><|
+    "PDGs"-> {21},
+    "momenta"-> {p4},
+    "indices"-> {-4+4+1},
+    "vertex_id"-> -2,
+    "edge_ids"-> {-4+4}
+ |>,
+ 1+4-><|
+    "PDGs"-> {-6,21,6},
+    "momenta"-> {p2,-p1-p2,p1},
+    "indices"-> {-3+4+1,1+4+1,-1+4+1},
+    "vertex_id"-> 0,
+    "edge_ids"-> {-3+4,1+4,-1+4}
+    |>,
+ 2+4-><|
+    "PDGs"-> {21,21,21},
+    "momenta"-> {-p3,-p4,p1+p2},
+    "indices"-> {-2+4+1,-4+4+1,2+4+1},
+    "vertex_id"-> 0,
+    "edge_ids"-> {-2+4,-4+4,1+4}
+    |>
+|>,
+"overall_factor"-> "+1",
+"in_momenta"->{p1,p2},
+"out_momenta"->{"p3","p4"}|>
+
+**NewDiagram**
+<|"edges"->{in[1]->v[1],in[2]->v[2],v[1]->out[1],v[2]->out[2],v[1]->v[2]},"particleType"->{in[t[p1]],in[tbar[p2]],out[gluon[p3]],out[gluon[p4]],t},"momentumMap"->{in[p1],in[p2],out[p3],out[p4],p1-p3},"numerator"->+1*
+ in[t[p1,-1] ]*
+ in[tbar[p2,-3] ]*
+ out[ gluon[p3,-2] ]*
+ out[ gluon[p4,-4] ]*
+prop[t[p1-p3,{1,2}] ]*
+ v [ tbar[-p1+p3,2 ],gluon[-p3,-2 ],t[p1,-1 ]]*
+ v [ tbar[p2,-3 ],gluon[-p4,-4 ],t[p1-p3,1 ]],
+"PYedges"-><|
+-1+4-><|
+    "name"->"q1",
+    "PDG"-> 6,
+    "type"-> "in",
+    "momentum"-> p1,
+    "indices"-> {-1+4+1},
+    "vertices"-> {-1+4+1,1+4}
+ |>,
+-3+4-><|
+    "name"->"q2",
+    "PDG"-> -6,
+    "type"-> "in",
+    "momentum"-> p2,
+    "indices"-> {-3+4+1},
+    "vertices"-> {-3+4+1,2+4}
+ |>,
+-2+4-><|
+    "name"-> "q3",
+    "PDG"-> 21,
+    "type"-> "out",
+    "momentum"-> p3,
+    "indices"-> {-2+4+1},
+    "vertices"->{1+4,-2+4+1}
+ |>,
+-4+4-><|
+    "name"-> "q4",
+    "PDG"-> 21,
+    "type"-> "out",
+    "momentum"-> p4,
+    "indices"-> {-4+4+1},
+    "vertices"->{2+4,-4+4+1}
+ |>,
+1+4-><|
+    "name"->"p1",
+    "PDG"-> 6,
+    "type"-> "virtual",
+    "momentum"-> "p1-p3",
+    "indices"-> {2+4+1,1+4+1},
+    "vertices"->{1+4,2+4}
+ |>
+|>,
+"PYnodes"-><|
+ -1+4+1-><|
+    "PDGs"-> {6},
+    "momenta"-> {p1},
+    "indices"-> {-1+4+1},
+    "vertex_id"-> -1,
+    "edge_ids"-> {-1+4}
+ |>,
+ -3+4+1-><|
+    "PDGs"-> {-6},
+    "momenta"-> {p2},
+    "indices"-> {-3+4+1},
+    "vertex_id"-> -1,
+    "edge_ids"-> {-3+4}
+ |>,
+ -2+4+1-><|
+    "PDGs"-> {21},
+    "momenta"-> {p3},
+    "indices"-> {-2+4+1},
+    "vertex_id"-> -2,
+    "edge_ids"-> {-2+4}
+ |>,
+ -4+4+1-><|
+    "PDGs"-> {21},
+    "momenta"-> {p4},
+    "indices"-> {-4+4+1},
+    "vertex_id"-> -2,
+    "edge_ids"-> {-4+4}
+ |>,
+ 1+4-><|
+    "PDGs"-> {-6,21,6},
+    "momenta"-> {-p1+p3,-p3,p1},
+    "indices"-> {2+4+1,-2+4+1,-1+4+1},
+    "vertex_id"-> 0,
+    "edge_ids"-> {1+4,-2+4,-1+4}
+    |>,
+ 2+4-><|
+    "PDGs"-> {-6,21,6},
+    "momenta"-> {p2,-p4,p1-p3},
+    "indices"-> {-3+4+1,-4+4+1,1+4+1},
+    "vertex_id"-> 0,
+    "edge_ids"-> {-3+4,-4+4,1+4}
+    |>
+|>,
+"overall_factor"-> "+1",
+"in_momenta"->{p1,p2},
+"out_momenta"->{"p3","p4"}|>
+
+**NewDiagram**
+<|"edges"->{in[1]->v[1],in[2]->v[2],v[2]->out[1],v[1]->out[2],v[1]->v[2]},"particleType"->{in[t[p1]],in[tbar[p2]],out[gluon[p3]],out[gluon[p4]],t},"momentumMap"->{in[p1],in[p2],out[p3],out[p4],p1-p4},"numerator"->+1*
+ in[t[p1,-1] ]*
+ in[tbar[p2,-3] ]*
+ out[ gluon[p3,-2] ]*
+ out[ gluon[p4,-4] ]*
+prop[t[p1-p4,{1,2}] ]*
+ v [ tbar[-p1+p4,2 ],gluon[-p4,-4 ],t[p1,-1 ]]*
+ v [ tbar[p2,-3 ],gluon[-p3,-2 ],t[p1-p4,1 ]],
+"PYedges"-><|
+-1+4-><|
+    "name"->"q1",
+    "PDG"-> 6,
+    "type"-> "in",
+    "momentum"-> p1,
+    "indices"-> {-1+4+1},
+    "vertices"-> {-1+4+1,1+4}
+ |>,
+-3+4-><|
+    "name"->"q2",
+    "PDG"-> -6,
+    "type"-> "in",
+    "momentum"-> p2,
+    "indices"-> {-3+4+1},
+    "vertices"-> {-3+4+1,2+4}
+ |>,
+-2+4-><|
+    "name"-> "q3",
+    "PDG"-> 21,
+    "type"-> "out",
+    "momentum"-> p3,
+    "indices"-> {-2+4+1},
+    "vertices"->{2+4,-2+4+1}
+ |>,
+-4+4-><|
+    "name"-> "q4",
+    "PDG"-> 21,
+    "type"-> "out",
+    "momentum"-> p4,
+    "indices"-> {-4+4+1},
+    "vertices"->{1+4,-4+4+1}
+ |>,
+1+4-><|
+    "name"->"p1",
+    "PDG"-> 6,
+    "type"-> "virtual",
+    "momentum"-> "p1-p4",
+    "indices"-> {2+4+1,1+4+1},
+    "vertices"->{1+4,2+4}
+ |>
+|>,
+"PYnodes"-><|
+ -1+4+1-><|
+    "PDGs"-> {6},
+    "momenta"-> {p1},
+    "indices"-> {-1+4+1},
+    "vertex_id"-> -1,
+    "edge_ids"-> {-1+4}
+ |>,
+ -3+4+1-><|
+    "PDGs"-> {-6},
+    "momenta"-> {p2},
+    "indices"-> {-3+4+1},
+    "vertex_id"-> -1,
+    "edge_ids"-> {-3+4}
+ |>,
+ -2+4+1-><|
+    "PDGs"-> {21},
+    "momenta"-> {p3},
+    "indices"-> {-2+4+1},
+    "vertex_id"-> -2,
+    "edge_ids"-> {-2+4}
+ |>,
+ -4+4+1-><|
+    "PDGs"-> {21},
+    "momenta"-> {p4},
+    "indices"-> {-4+4+1},
+    "vertex_id"-> -2,
+    "edge_ids"-> {-4+4}
+ |>,
+ 1+4-><|
+    "PDGs"-> {-6,21,6},
+    "momenta"-> {-p1+p4,-p4,p1},
+    "indices"-> {2+4+1,-4+4+1,-1+4+1},
+    "vertex_id"-> 0,
+    "edge_ids"-> {1+4,-4+4,-1+4}
+    |>,
+ 2+4-><|
+    "PDGs"-> {-6,21,6},
+    "momenta"-> {p2,-p3,p1-p4},
+    "indices"-> {-3+4+1,-2+4+1,1+4+1},
+    "vertex_id"-> 0,
+    "edge_ids"-> {-3+4,-2+4,1+4}
+    |>
+|>,
+"overall_factor"-> "+1",
+"in_momenta"->{p1,p2},
+"out_momenta"->{"p3","p4"}|>
+
+

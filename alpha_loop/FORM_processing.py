@@ -789,7 +789,7 @@ aGraph=%s;
             cut_momenta_fixed = self.cut_momenta,
             num_cut_loops=self.num_cut_loops    
         )
-    
+
 
 
         # check if cut is possible
@@ -993,6 +993,9 @@ class FORMSuperGraphIsomorphicList(list):
 
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
+    
+
+
 
     def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
@@ -1034,11 +1037,12 @@ class FORMSuperGraphIsomorphicList(list):
             selected_workspace = workspace
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
+            shutil.copy(pjoin(plugin_path,"color_basis.frm"),pjoin(selected_workspace,'color_basis.frm'))
+            shutil.copy(pjoin(plugin_path,"amp_numerator.frm"),pjoin(selected_workspace,'amp_numerator.frm'))
             FORM_source = pjoin(selected_workspace,'numerator.frm')
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             f.write('L F = {};'.format(form_input))
-
         r = subprocess.run(' '.join([
                 FORM_processing_options["FORM_path"],
                 ]+
@@ -1394,6 +1398,8 @@ class FORMSuperGraphList(list):
             shutil.copy(pjoin(plugin_path,"multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
+
+
             FORM_source = pjoin(selected_workspace,'multiplicity.frm')
 
             with progressbar.ProgressBar(

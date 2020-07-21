@@ -1,0 +1,1 @@
+L F = (gs^2*ii^3*gamma(diracInd(2),cpol(2,0,sunA(6)),diracInd(6))*gamma(diracInd(7),cpol(1,0,sunA(8)),diracInd(4))*(gamma(diracInd(6),p1-k1,diracInd(7))+d(diracInd(6),diracInd(7))*masses(6))*sunTF(sunF(7),sunA(6),sunA(8),sunF(9))*uSpinor(1,diracInd(4))*vbarSpinor(1,diracInd(2)))*(hermconjugate(1));

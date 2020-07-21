@@ -1008,12 +1008,10 @@ class TopologyGenerator(object):
 
         # since edges could be flipped, we create an new shift map
         new_shift_map = copy.deepcopy(shift_map)
-
         for prop, (edge_name, v1, v2) in zip(self.propagators, self.edge_map_lin):
             if prop == ():
                 # external momentum
                 continue
-
             mass = 0. if edge_name not in mass_map else mass_map[edge_name]
 
             # construct the signature
@@ -1025,7 +1023,6 @@ class TopologyGenerator(object):
                     signature[self.loop_momenta.index(mom)] = s
                 else:
                     q += numpy.array(ext_mom[self.edge_map_lin[mom][0]]) * s
-
             # we keep the direction of the loop momenta of the graph in the loop graph, so we need to flip
             # all edges that depend on one loop momentum and have negative sign
             should_flip = len([e for e in signature if e != 0]) == 1 and next(e == -1 for e in signature if e != 0)
