@@ -309,6 +309,23 @@ class FORMSuperGraph(object):
             else:
                 return model.get_particle(pdg).get_name()
 
+        node_key_to_node_name = {}
+        def get_node_label(node_key):
+            if node_key in node_key_to_node_name:
+                return node_key_to_node_name[node_key]
+            node = self.nodes[node_key]
+            if 'renormalisation_vertex_n_loops' in node:
+                label = 'UV%dL'%node['renormalisation_vertex_n_loops']
+                label += '%dP'%node['renormalisation_vertex_n_shrunk_edges']
+                # If that label is not unique, then prefix it the actual key.
+                if label in node_key_to_node_name.values():
+                    label = '%s_%s'%(str(node_key),label)
+            else:
+                label = str(node_key)
+
+            node_key_to_node_name[node_key] = label
+            return label
+
         # Generate edge list
         edge_template = """Labeled[Style[CreateEdge["%(in_node)s","%(out_node)s",%(edge_key)d]%(edge_style)s,%(edge_color)s,Thickness[%(thickness)f]],"%(edge_label)s"]"""
         all_edge_definitions = []
@@ -324,8 +341,8 @@ class FORMSuperGraph(object):
                 edge_repl_dict['thickness'] = 0.005
             else:
                 edge_repl_dict['thickness'] = 0.002
-            edge_repl_dict['in_node'] = str(edge_key[0])
-            edge_repl_dict['out_node'] = str(edge_key[1])
+            edge_repl_dict['in_node'] = get_node_label(edge_key[0])
+            edge_repl_dict['out_node'] = get_node_label(edge_key[1])
             edge_repl_dict['edge_key'] = edge_key[2]
             edge_repl_dict['arrow_style'] = 'Arrow' if not is_LMB else 'HalfFilledDoubleArrow'
             edge_repl_dict['arrow_size'] = 0.015 if not is_LMB else 0.025
@@ -2538,6 +2555,12 @@ int %(header)sget_rank(int diag, int conf) {{
             # fuse vertices
             if ee['vertices'][0] != ee['vertices'][1]:
                 node = nodes[ee['vertices'][0]]
+                # START TEMPORARY HACK
+                # Mark this node as being shrunk. Eventually there will be a more general way of handling
+                # multiple effective shrunk renormalisation nodes. For now, I just flag it here as one-loop
+                node['renormalisation_vertex_n_loops'] = 1
+                node['renormalisation_vertex_n_shrunk_edges'] = len(edges_to_shrink)
+                # END TEMPORARY HACK
                 for na in ee['vertices'][1:]:
                     n = nodes[na]
                     for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
