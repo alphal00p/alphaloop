@@ -27,7 +27,7 @@ CTable logmasses(-30:30);
 CTable charges(-30:30);
 
 #ifndef `OPTIMLVL'
-    #define OPTIMLVL "3"
+    #define OPTIMLVL "4"
 #endif 
 
 #ifndef `OPTIMITERATIONS'
@@ -769,7 +769,11 @@ endargument;
 
 * Optimize the output
         Format C;
-        Format O`OPTIMLVL',stats=off,saIter=`OPTIMITERATIONS';
+        #if `OPTIMLVL' > 1
+            Format O`OPTIMLVL',method=CSEGreedy,stats=off,saIter=`OPTIMITERATIONS';
+        #else
+            Format O1,stats=off;
+        #endif
         #Optimize FF`ext'
         #write<out_integrand_`SGID'.proto_c> "%O"
         #write<out_integrand_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
@@ -851,7 +855,7 @@ Hide F;
 
 * Optimize the output
     Format C;
-    Format O`OPTIMLVL',stats=off,saIter=`OPTIMITERATIONS';
+    Format O`OPTIMLVL',stats=off,method=CSEGreedy,saIter=`OPTIMITERATIONS';
     #Optimize FF`ext'
     #write<out_`SGID'.proto_c> "%O"
     B+ <Z{`energysymbolstart' + 1}_>,...,<Z`energysymbolend'_>;
