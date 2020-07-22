@@ -1407,13 +1407,14 @@ class FORMSuperGraphIsomorphicList(list):
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             f.write('L F = {};'.format(form_input))
 
-        r = subprocess.run(' '.join([
+        FORM_cmd = ' '.join([
                 FORM_processing_options["FORM_path"],
                 ]+
                 [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ] +
                 [ '-M', '-l'] +
                 [ FORM_source, ]
-            ),
+        )
+        r = subprocess.run(FORM_cmd,
             shell=True,
             cwd=selected_workspace,
             capture_output=True)
@@ -1422,8 +1423,11 @@ class FORMSuperGraphIsomorphicList(list):
 
         # return the code for the numerators
         if not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
-            raise FormProcessingError("FORM failed to produce an output for super graph ID=%d. Output file not found at '%s'."%
-                                                                    (i_graph,pjoin(selected_workspace,'out_%d.proto_c'%i_graph)))
+            raise FormProcessingError(
+                    ( "FORM failed to produce an output for super graph ID=%d. Output file not found at '%s'."%
+                                                                    (i_graph,pjoin(selected_workspace,'out_%d.proto_c'%i_graph)))+
+                "\nFORM command:\n%s"%FORM_cmd
+            )
 
         with open(pjoin(selected_workspace,'out_%d.proto_c'%i_graph), 'r') as f:
             num_code = f.read()
