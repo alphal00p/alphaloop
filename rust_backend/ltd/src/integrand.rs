@@ -48,6 +48,7 @@ pub struct IntegrandStatistics {
     pub running_max_coordinate_re: [f64; 3 * MAX_LOOP],
     pub running_max_coordinate_im: [f64; 3 * MAX_LOOP],
     pub running_max_stability: (f64, f64),
+    pub integrand_evaluation_timing: u128,
 }
 
 impl IntegrandStatistics {
@@ -66,6 +67,7 @@ impl IntegrandStatistics {
             running_max_coordinate_re: [0.; 3 * MAX_LOOP],
             running_max_coordinate_im: [0.; 3 * MAX_LOOP],
             running_max_stability: (0., 0.),
+            integrand_evaluation_timing: 0,
         }
     }
 
@@ -76,6 +78,7 @@ impl IntegrandStatistics {
         self.unstable_f128_point_count += other.unstable_f128_point_count;
         self.nan_point_count += other.nan_point_count;
         self.total_sample_time += other.total_sample_time;
+        self.integrand_evaluation_timing += other.integrand_evaluation_timing;
 
         if self.running_max_re.2 < other.running_max_re.2 {
             self.running_max_re = other.running_max_re;
@@ -100,6 +103,7 @@ impl IntegrandStatistics {
         other.unstable_f128_point_count = 0;
         other.nan_point_count = 0;
         other.total_sample_time = 0.;
+        other.integrand_evaluation_timing = 0;
     }
 }
 
@@ -441,9 +445,13 @@ impl<I: IntegrandImplementation> Integrand<I> {
         }
 
         let mut event_manager = std::mem::replace(&mut self.event_manager, EventManager::default());
-
         let mut cache = std::mem::replace(&mut self.cache, I::Cache::default());
+
+        event_manager.integrand_evaluation_timing = 0;
         let mut result = self.topologies[0].evaluate_float(x, &mut cache, Some(&mut event_manager));
+        self.integrand_statistics.integrand_evaluation_timing += event_manager.integrand_evaluation_timing;
+        event_manager.integrand_evaluation_timing = 0;
+
         let (d, diff, min_rot, max_rot) = self.check_stability_float(
             x,
             result,

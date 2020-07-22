@@ -235,6 +235,17 @@ impl Dashboard {
                             integrand_statistics.total_sample_time
                                 / integrand_statistics.total_samples as f64
                         )),
+                        Text::raw(format!(
+                            "C evaluation time per f64 sample: {:.2}µs",
+                            if integrand_statistics.total_samples == 0 {
+                                0.
+                            } else {
+                                (integrand_statistics.integrand_evaluation_timing
+                                    / integrand_statistics.total_samples as u128)
+                                    as f64
+                                    / 1000.
+                            }
+                        )),
                         Text::styled(
                             format!(
                                 "Maximum weight influence: re={:.4e}, im={:.4e}",

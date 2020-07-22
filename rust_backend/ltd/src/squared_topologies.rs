@@ -15,6 +15,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
+use std::time::Instant;
 use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
 use utils::Signum;
@@ -1819,6 +1820,7 @@ impl SquaredTopology {
                                 .map(|_| T::zero())
                                 .collect();
 
+                        let time_start = Instant::now();
                         let len = T::get_numerator(
                             form_numerator.as_mut().unwrap(),
                             &scalar_products,
@@ -1827,6 +1829,11 @@ impl SquaredTopology {
                             diagram_set.id,
                             &mut form_numerator_buffer,
                         );
+
+                        if let Some(em) = event_manager {
+                            em.integrand_evaluation_timing +=
+                                Instant::now().duration_since(time_start).as_nanos();
+                        }
 
                         // the output of the FORM numerator is already in the reduced lb format
                         diag_cache[0].reduced_coefficient_lb[0].resize(len, Complex::zero());
@@ -1850,6 +1857,8 @@ impl SquaredTopology {
                 } else {
                     let mut form_integrand =
                         mem::replace(&mut self.form_integrand.form_integrand, None);
+
+                    let time_start = Instant::now();
                     let mut res = if let Some(call_signature) = &self.form_integrand.call_signature
                     {
                         let res = T::get_integrand(
@@ -1866,6 +1875,11 @@ impl SquaredTopology {
                         "No call signature for FORM integrand, but FORM integrand mode is enabled"
                     );
                     };
+
+                    if let Some(em) = event_manager {
+                        em.integrand_evaluation_timing +=
+                            Instant::now().duration_since(time_start).as_nanos();
+                    }
 
                     mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
 

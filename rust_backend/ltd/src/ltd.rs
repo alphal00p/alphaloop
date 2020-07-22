@@ -2803,7 +2803,8 @@ impl Topology {
                     && self.settings.deformation.scaling.source_branch_cut_m < 0.
                 {
                     eprintln!(
-                        "{} for prop {}, ll sig={:?}, ks={:?}: {}",
+                        "{}: {} for prop {}, ll sig={:?}, ks={:?}: {}",
+                        self.name,
                         "Branch cut detected".red(),
                         p.id,
                         ll.signature,

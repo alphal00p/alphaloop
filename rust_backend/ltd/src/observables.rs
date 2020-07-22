@@ -118,6 +118,7 @@ pub struct EventManager {
     pub accepted_event_counter: usize,
     pub rejected_event_counter: usize,
     pub no_phase_space_counter: usize,
+    pub integrand_evaluation_timing: u128,
     pub event_group_counter: usize,
     pub status_update_sender: Option<StatusUpdateSender>,
 }
@@ -170,6 +171,7 @@ impl EventManager {
             accepted_event_counter: 0,
             rejected_event_counter: 0,
             no_phase_space_counter: 0,
+            integrand_evaluation_timing: 0,
             event_group_counter: 0,
             status_update_sender: Some(status_update_sender),
         }
@@ -251,10 +253,12 @@ impl EventManager {
         self.rejected_event_counter += other.rejected_event_counter;
         self.no_phase_space_counter += other.no_phase_space_counter;
         self.event_group_counter += other.event_group_counter;
+        self.integrand_evaluation_timing = other.integrand_evaluation_timing;
         other.accepted_event_counter = 0;
         other.rejected_event_counter = 0;
         other.event_group_counter = 0;
         other.no_phase_space_counter = 0;
+        other.integrand_evaluation_timing = 0;
     }
 
     pub fn update_result(&mut self) {
