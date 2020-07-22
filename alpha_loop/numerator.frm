@@ -300,6 +300,7 @@ id pzero = 0; * Substitute the 0-momentum by 0
 * If the expression is empty (due to color), we still write a file
 #if ( termsin(F) == 0 )
     #write<out_`SGID'.proto_c> "#0 due to color\n"
+    #write<out_integrand_`SGID'.proto_c> "#0 due to color\n"
 #endif
 
 *************************************************
@@ -504,6 +505,12 @@ if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard; * keep only the ep^0 piece
 id ep^n? = 1;
 
 .sort:integrated-ct-2;
+
+* If the expression is empty (due to epsilon pole selection), we still write a file
+#if ( termsin(F) == 0 )
+    #write<out_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
+    #write<out_integrand_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
+#endif
 
 #ifdef `INTEGRAND'
     L FINTEGRAND = F;
