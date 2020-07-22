@@ -1234,7 +1234,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         
         #print(self.final_states)
         n_cuts = len(self.final_states)
-        overall_phase = -complex(-1.0,0.0)**n_cuts
+        virtual_loops = len(representative_proc['perturbation_couplings'])
+
+        overall_phase = -complex(-1.0,0.0)**(n_cuts + virtual_loops)
         if overall_phase.imag != 0:
             raise alphaLoopExporterError("No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
         else:
