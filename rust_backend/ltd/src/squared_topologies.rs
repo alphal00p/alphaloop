@@ -282,7 +282,7 @@ impl Clone for FORMNumerator {
     fn clone(&self) -> Self {
         FORMNumerator {
             call_signature: self.call_signature.clone(),
-            form_numerator: if self.call_signature.is_some() {
+            form_numerator: if self.form_numerator.is_some() {
                 Some(form_numerator::load())
             } else {
                 None
@@ -304,7 +304,7 @@ impl Clone for FORMIntegrand {
     fn clone(&self) -> Self {
         FORMIntegrand {
             call_signature: self.call_signature.clone(),
-            form_integrand: if self.call_signature.is_some() {
+            form_integrand: if self.form_integrand.is_some() {
                 Some(form_integrand::load())
             } else {
                 None
@@ -1058,11 +1058,11 @@ impl SquaredTopology {
         ];
 
         {
-            if squared_topo.form_integrand.call_signature.is_some() {
+            if settings.cross_section.numerator_source == NumeratorSource::FormIntegrand {
                 squared_topo.form_integrand.form_integrand = Some(form_integrand::load());
             }
 
-            if squared_topo.form_numerator.call_signature.is_some() {
+            if settings.cross_section.numerator_source == NumeratorSource::Form {
                 let diagram_id = squared_topo
                     .form_numerator
                     .call_signature
