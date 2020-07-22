@@ -494,13 +494,14 @@ endif;
 .sort:integrated-ct-1;
 
 Multiply replace_(D, 4 - 2 * ep);
-id ep^n1? = rat(ep^(n1-`SELECTEDEPSILONORDER'),1);
+id ep^n1? = rat(ep^n1,1);
 .sort:ep-collection;
 PolyRatFun rat(expand,ep,6);
 .sort:ep-expansion;
 PolyRatFun;
 id rat(x1?) = x1;
-if (count(ep, 1)) Discard; * keep only the ep^0 piece
+if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard; * keep only the ep^0 piece
+id ep^n? = 1;
 
 .sort:integrated-ct-2;
 
