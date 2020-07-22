@@ -14,6 +14,9 @@ loop_momentum = k;
 
 options = onshell, notadpole, nosnail;
 
+* coupling order
+%(coupling_order)s
+
 * final states
 %(final_states)s
 
