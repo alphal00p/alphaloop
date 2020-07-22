@@ -431,6 +431,10 @@ aGraph=%s;
         edge_name_to_key = {}
         # Relabel edges according to alphaLoop conventions:
         for edge_key, edge_data in topo_edges.items():
+            # Fix for QGRAF pipeline
+            if not isinstance(edge_key, tuple):
+                edge_key = (*edge_data['vertices'], edge_key) 
+          
             if edge_data['type'] == 'virtual':
                 if not edge_data['name'].startswith('p'):
                     edge_data['name'] = 'p%s'%edge_data['name']
@@ -483,6 +487,10 @@ aGraph=%s;
                     [ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ]
                 ] for edge_name, sig in signatures.items() }
             for edge_key, edge_data in self.edges.items():
+                # Fix for QGRAF pipeline
+                if not isinstance(edge_key, tuple):
+                    edge_key = (*edge_data['vertices'], edge_key) 
+          
                 edge_data['signature'] = signatures[edge_key]
                 edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(edge_data['signature'], set_outgoing_equal_to_incoming=False)
             for node_key, node_data in self.nodes.items():
@@ -531,6 +539,10 @@ aGraph=%s;
             # which identifies which additional LMB it corresponds to.
             other_LMB_super_graph.additional_lmbs = i_lmb+1
             for edge_key, edge_data in other_LMB_super_graph.edges.items():
+                # Fix for QGRAF pipeline
+                if not isinstance(edge_key, tuple):
+                    edge_key = (*edge_data['vertices'], edge_key) 
+          
                 edge_data['signature'] = other_lmb_signatures[edge_key]
                 edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(edge_data['signature'], set_outgoing_equal_to_incoming=False)
             for node_key, node_data in other_LMB_super_graph.nodes.items():
@@ -1140,15 +1152,15 @@ CTable pftopo(0:{});
             for i_lmb, (_,_,_,other_lmb_supergraph) in enumerate(self.additional_lmbs):
                 if bar:
                     bar.update(i_lmb='%d'%(i_lmb+2))
-                other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
+                other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call,
                         final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace,
                         integrand_type=integrand_type)
 
         if integrand_type is not None:
             if integrand_type == "LTD":
-                self.generate_ltd_integrand(topo, workspace, numerator_call)
+                self.generate_ltd_integrand(topo, workspace, call_signature_ID)
             if integrand_type == "PF":
-                self.generate_integrand(topo, workspace, numerator_call)
+                self.generate_integrand(topo, workspace, call_signature_ID)
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
