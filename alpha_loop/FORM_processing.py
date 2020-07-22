@@ -997,7 +997,7 @@ CTable ltdtopo(0:{});
 {}
 """.format(max_diag_id, integrand_body))
 
-    def generate_integrand(self, topo, workspace, numerator_call):
+    def generate_integrand(self, topo, workspace, numerator_call, progress_bar=None):
         """Construct a table of integrand descriptors"""
         integrand_body = ''
         max_diag_id = 0
@@ -1048,7 +1048,8 @@ CTable ltdtopo(0:{});
                 else:
                     pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
                                             name=str(diag_set['id']), shift_map=np.array(shift_map).T,
-                                            n_sg_loops=topo.topo.n_loops, ltd_index=len(cut['cuts']) - 1)
+                                            n_sg_loops=topo.topo.n_loops, ltd_index=len(cut['cuts']) - 1,
+                                            progress_bar = progress_bar)
                     pf.shifts_to_externals()
                     res = pf.to_FORM()
                     res = '\n'.join(['\t' + l for l in res.split('\n')])
@@ -1169,7 +1170,7 @@ CTable pftopo(0:{});
             if integrand_type == "LTD":
                 self.generate_ltd_integrand(topo, workspace, call_signature_ID)
             if integrand_type == "PF":
-                self.generate_integrand(topo, workspace, call_signature_ID)
+                self.generate_integrand(topo, workspace, call_signature_ID, progress_bar = bar)
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
@@ -2237,8 +2238,8 @@ int %(header)sget_rank(int diag, int conf) {{
         contributing_supergraphs = []
 
         non_zero_graph = 0
-        with progressbar.ProgressBar(prefix='Generating squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, {variables.timing} ms / supergraph) : '%len(self), 
-                max_value=len(self), variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb' : '0'} ) as bar:
+        with progressbar.ProgressBar(prefix='Generating squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, PF #{variables.PF_config}, {variables.timing} ms / supergraph) : '%len(self), 
+                max_value=len(self), variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb' : '0', 'PF_config': 'N/A'} ) as bar:
             total_time=0.0
             for i, g in enumerate(self):
                 time_before = time.time()

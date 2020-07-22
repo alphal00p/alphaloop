@@ -102,6 +102,7 @@ class PartialFractioning:
         self.ll_n_props = ll_n_props
         self.n_loops = len(signatures[0])
         self.name = kwargs.pop("name", "topo").lower().replace(' ', '_')
+        progress_bar = kwargs.pop("progress_bar", None)
         self.shift_map = kwargs.pop("shift_map", None)
         self.n_sg_loops = kwargs.pop("n_sg_loops", 0)
         self.ltd_index = kwargs.pop("ltd_index", 0)
@@ -141,18 +142,29 @@ class PartialFractioning:
         den_library = []
         self.pf_res = []
 
-        with progressbar.ProgressBar(prefix='PF starting energies: {variables.choose} : ', max_value=2**n_props, variables={'choose': 'N/A'}) as bar:
-            for n_choose, choose in enumerate(itertools.product([0, 1], repeat=n_props)):
+        if progress_bar is None:
+            bar = progressbar.ProgressBar(prefix='PF starting energies: {variables.choose} : ', max_value=2**n_props, variables={'choose': 'N/A'})
+        else:
+            bar = progress_bar
+
+        for n_choose, choose in enumerate(itertools.product([0, 1], repeat=n_props)):
+            if progress_bar is None:
                 bar.update(n_choose)
                 bar.update(choose="".join([str(c) for c in choose]))
-                product = [[], [[] for _ in range(self.n_loops)]]
-                for dpm, which in zip(zip(dens_plus, dens_minus), choose):
-                    product[0] += [dpm[which]]
+            else:
+                bar.update(PF_config="%d/%d"%(n_choose+1,2**n_props))
 
-                # factor coming from the initial partial fractioning into positive and negative energies
-                global_factor = (-1)**choose.count(0)
-                self.pf_res += self.pf_product(product,
-                                               global_factor=global_factor)
+            product = [[], [[] for _ in range(self.n_loops)]]
+            for dpm, which in zip(zip(dens_plus, dens_minus), choose):
+                product[0] += [dpm[which]]
+
+            # factor coming from the initial partial fractioning into positive and negative energies
+            global_factor = (-1)**choose.count(0)
+            self.pf_res += self.pf_product(product,
+                                            global_factor=global_factor)
+
+        if progress_bar is None:
+            bar.finish()
 
     # Map the to new triplet based on which denominator was integrated over
     def den_mapper(self, den_giver, den_receiver, residue_n):
