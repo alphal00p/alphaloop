@@ -2317,6 +2317,16 @@ int %(header)sget_rank(int diag, int conf) {{
         if len(in_pdgs)==2 and not is_external_bubble:
             return '1'
 
+        hardcoded_mass_parameters = {
+            6   : 'mass_t',
+            -6  : 'mass_t',
+        }
+        
+        hardcoded_log_quark_mass = {
+            6   : 'logmt',
+            -6  : 'logmt'
+        }
+
         def get_particle_mass(pdg):
             if pdg in hardcoded_mass_parameters:
                 return hardcoded_mass_parameters[pdg]
@@ -2338,16 +2348,6 @@ int %(header)sget_rank(int diag, int conf) {{
             'ep'  : 'ep',
             'mu_r': 'mu_r',
             'n_f' : '%d'%n_massless_quarks
-        }
-
-        hardcoded_mass_parameters = {
-            6   : 'mass_t',
-            -6  : 'mass_t',
-        }
-        
-        hardcoded_log_quark_mass = {
-            6   : 'logmt',
-            -6  : 'logmt'
         }
 
         delta_Z_massless_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*(-1/%(ep)s)'
