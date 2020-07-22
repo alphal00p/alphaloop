@@ -15,7 +15,7 @@ class SquaredTopologyGenerator:
         loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, jet_ids=None,
         MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), FORM_numerator={}, FORM_integrand={},
-        vertex_weights={}, edge_weights={}):
+        vertex_weights={}, edge_weights={}, generation_options={}):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
@@ -24,6 +24,7 @@ class SquaredTopologyGenerator:
         self.FORM_numerator = FORM_numerator
         self.FORM_integrand = FORM_integrand
         self.subgraphs_info = subgraphs_info
+        self.generation_options = generation_options
 
         # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
         # This is supported by adjusting the cb to lmb rotation matrix to be applied
@@ -84,7 +85,8 @@ class SquaredTopologyGenerator:
                     if diag_info['derivative']:
                         ew[diag_info['derivative'][1]] -= 1
 
-                    uv_limits = diag_info['graph'].construct_uv_limits(vw, ew)
+                    uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, 
+                                UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0) )
 
                     # give every subdiagram a globally unique id
                     for uv_limit in uv_limits:
@@ -145,10 +147,11 @@ class SquaredTopologyGenerator:
                 for uv_diag_set in uv_diag_sets:
                     uv_diag_set['integrated_ct'] = False
                     uv_diag_sets_with_integrated_ct.append(uv_diag_set)
-                    if any(di['uv_info'] is not None for di in uv_diag_set['diagram_info']):
-                        integrated_diag_set = copy.deepcopy(uv_diag_set)
-                        integrated_diag_set['integrated_ct'] = True
-                        uv_diag_sets_with_integrated_ct.append(integrated_diag_set)
+                    if self.generation_options.get('generate_integrated_UV_CTs',True):
+                        if any(di['uv_info'] is not None for di in uv_diag_set['diagram_info']):
+                            integrated_diag_set = copy.deepcopy(uv_diag_set)
+                            integrated_diag_set['integrated_ct'] = True
+                            uv_diag_sets_with_integrated_ct.append(integrated_diag_set)
 
                 uv_diagram_sets.extend(uv_diag_sets_with_integrated_ct)
 

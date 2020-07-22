@@ -313,7 +313,7 @@ class TopologyGenerator(object):
                 break
         return res
 
-    def contruct_uv_forest(self, vertex_weights, edge_weights):
+    def contruct_uv_forest(self, vertex_weights, edge_weights, UV_min_dod_to_subtract=0):
         """Construct the UV forest. The subgraphs in each spinney are order from smallest to largest, as this
         is the order in which they need to be Taylor expanded.
         """
@@ -371,10 +371,8 @@ class TopologyGenerator(object):
             loops = 0 if len(s) == 0 else len(s) - len(vertices) + 1
             dod += 4 * loops
 
-            # Adjust the depth of the UV subtraction here
-            #if dod >= 0:
-            #    dod += 1
-            if dod >= 0 and loops > 0:
+
+            if dod >= UV_min_dod_to_subtract and loops > 0:
                 div_subgraphs.append((s, dod))
 
         # create the forest from all UV subdivergences
@@ -394,9 +392,9 @@ class TopologyGenerator(object):
 
         return forest
 
-    def construct_uv_limits(self, vertex_weights, edge_weights):
+    def construct_uv_limits(self, vertex_weights, edge_weights, UV_min_dod_to_subtract=0):
         """Construct the uv limits by factorizing out all UV subgraphs from smallest to largest"""
-        f = self.contruct_uv_forest(vertex_weights, edge_weights)
+        f = self.contruct_uv_forest(vertex_weights, edge_weights, UV_min_dod_to_subtract=UV_min_dod_to_subtract)
         #print('subgraph forest', f)
 
         new_graphs = []
@@ -478,7 +476,7 @@ class TopologyGenerator(object):
 
                     # construct all different denominator configurations, ie, 
                     # raising of loop lines that have external momentum dependence)
-                    for d in range(dod + 1):
+                    for d in range(0,dod - UV_min_dod_to_subtract + 1):
                         # get all combinations of propagators
                         for c in combinations_with_replacement(range(len(loop_lines)), d):
                             gn = copy.deepcopy(uv_subgraph)

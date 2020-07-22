@@ -67,7 +67,10 @@ FORM_processing_options = {
     # If None, the reference LMB will be the one originally chosen.
     # If positive and equal to N, the Nth LMB will be used for the reference implementation of the supergraph.
     'reference_lmb' : None,
-    'FORM_call_sig_id_offset_for_additional_lmb' : 1000000
+    'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
+    'generate_integrated_UV_CTs' : True,
+    'generate_renormalisation_graphs' : True,
+    'UV_min_dod_to_subtract' : 0
 }
 
 # Can switch to tmpdir() if necessary at some point
@@ -1075,7 +1078,7 @@ CTable pftopo(0:{});
         else:
             return 0
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
+    def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
         integrand_type=None, workspace=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
@@ -1138,6 +1141,7 @@ CTable pftopo(0:{});
             FORM_integrand={'call_signature': {'id': call_signature_ID}},
             edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
             vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
+            generation_options=FORM_processing_options
         )
         # check if cut is possible
         if len(topo.cuts) == 0:
@@ -1152,7 +1156,7 @@ CTable pftopo(0:{});
             for i_lmb, (_,_,_,other_lmb_supergraph) in enumerate(self.additional_lmbs):
                 if bar:
                     bar.update(i_lmb='%d'%(i_lmb+2))
-                other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call,
+                other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
                         final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace,
                         integrand_type=integrand_type)
 
@@ -1349,7 +1353,7 @@ class FORMSuperGraphIsomorphicList(list):
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
@@ -1461,7 +1465,7 @@ class FORMSuperGraphIsomorphicList(list):
             #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
         return multiplicity    
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None,
+    def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None,
             integrand_type=None):
         for i, g in enumerate(self):
             # Now we generate the squared topology only for the first isomorphic graph
@@ -1469,7 +1473,7 @@ class FORMSuperGraphIsomorphicList(list):
             # The other elements of the isomorphic set are going to contribute only at the 
             # numerator 
             if i==0:
-                r = g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call, 
+                r = g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
                                 final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type)
             else:
                 g.replacement_rules = self[0].replacement_rules
@@ -1794,7 +1798,8 @@ class FORMSuperGraphList(list):
         # TODO: Dump to Python dict
         pass
 
-    def generate_integrand_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", integrand_type=None):
+    def generate_integrand_functions(self, root_output_path, additional_overall_factor='',
+                                    params={}, output_format='c', workspace=None, header="", integrand_type=None,process_definition=None):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -1974,7 +1979,8 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(numerator_code%header_map)
 
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", integrand_type=None):
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, 
+                                    output_format='c', workspace=None, header="", integrand_type=None,process_definition=None):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -2030,7 +2036,8 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
                     all_numerator_ids.append(i)
                     FORM_vars['SGID']='%d'%i
                     time_before = time.time()
-                    num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph)
+                    num = graph.generate_numerator_functions(additional_overall_factor,
+                                    workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition)
                     total_time += time.time()-time_before
                     num = num.replace('i_', 'I')
                     num = input_pattern.sub(r'lm[\1]', num)
@@ -2206,9 +2213,10 @@ int %(header)sget_rank(int diag, int conf) {{
         writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.h'%header_map)).write(header_code%header_map)
 
         if integrand_type is not None:
-            self.generate_integrand_functions(root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, integrand_type=integrand_type)
+            self.generate_integrand_functions(root_output_path, additional_overall_factor='', 
+                            params={}, output_format='c', workspace=None, integrand_type=integrand_type,process_definition=process_definition)
 
-    def generate_squared_topology_files(self, root_output_path, model, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
+    def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
         integrand_type=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
@@ -2230,7 +2238,7 @@ int %(header)sget_rank(int diag, int conf) {{
             for i, g in enumerate(self):
                 time_before = time.time()
                 bar.update(i_graph='%d'%(i+1))
-                if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
+                if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, 
                                                             workspace=workspace, bar=bar, integrand_type=integrand_type):
                     topo_collection['topologies'].append({
@@ -2257,7 +2265,10 @@ int %(header)sget_rank(int diag, int conf) {{
         if filter_non_contributing_graphs:
             self[:] = contributing_supergraphs
 
-        renormalization_graphs = self.generate_renormalization_graphs(model)
+        if FORM_processing_options['generate_renormalisation_graphs']:
+            renormalization_graphs = self.generate_renormalization_graphs(model,process_definition)
+        else:
+            renormalization_graphs = []
         self.extend([FORMSuperGraphIsomorphicList([g]) for g in renormalization_graphs])
 
         with progressbar.ProgressBar(prefix='Generating renormalization squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, {variables.timing} ms / supergraph) : '%len(renormalization_graphs), 
@@ -2266,7 +2277,7 @@ int %(header)sget_rank(int diag, int conf) {{
             for i, g in enumerate(renormalization_graphs):
                 time_before = time.time()
                 bar.update(i_graph='%d'%(i+1))
-                if g.generate_squared_topology_files(root_output_path, model, n_jets, numerator_call=non_zero_graph, 
+                if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids,
                                                             workspace=workspace, bar=bar, integrand_type=integrand_type):
                     topo_collection['topologies'].append({
@@ -2289,27 +2300,45 @@ int %(header)sget_rank(int diag, int conf) {{
 
         open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
 
-    def get_renormalization_vertex(self, in_pdgs, loop_count, model, is_external_bubble=False):
+    def get_renormalization_vertex(self, in_pdgs, loop_count, model, process_definition, is_external_bubble=False):
         
+        if loop_count != 1:
+            raise FormProcessingError("Renormalisation is currently implemented only at one-loop.")
+            
+        if any( model.get_particle(pdg).get('ghost') for pdg in in_pdgs):
+            # For now we absorbed all renormalisation constants into the gluon contribution so that we set the ghost 
+            # renormalisation conditions to zero. This implies that the local UV pole cancellation check must be done
+            # by combining the ghost and gluon supergraph with appropriate routing.
+            return '0'
+
+        # WARNING: All the things below are a SHAME and must be generalised as soon as we're done with the publication....
+
         # Internal renormalisation 2-point vertices are coded directly in numerator.frm
         if len(in_pdgs)==2 and not is_external_bubble:
             return '1'
 
+        def get_particle_mass(pdg):
+            if pdg in hardcoded_mass_parameters:
+                return hardcoded_mass_parameters[pdg]
+            return model.get_particle(pdg).get('mass')
+
         pdgs = sorted([abs(pdg) for pdg in in_pdgs],reverse=True)
         quark_pdgs = range(1,7)
 
+        active_quarks = [q_pdg for q_pdg in quark_pdgs if q_pdg not in process_definition.get('forbidden_particles')]
+        n_massless_quarks = len([1 for q_pdg in active_quarks if get_particle_mass(q_pdg).upper()=='ZERO' ])
+        massive_quark_pdgs = [ q_pdg for q_pdg in active_quarks if get_particle_mass(q_pdg).upper()!='ZERO' ]
+
         symbol_replacement_dict = {
             'C_F' : '(4/3)',
+            'T_F' : '(1/2)',
+            'C_A' : '3',
             'pi'  : 'pi',
             'gs'  : 'gs',
             'ep'  : 'ep',
-            'mu_r': 'mu_r'
+            'mu_r': 'mu_r',
+            'n_f' : '%d'%n_massless_quarks
         }
-
-        delta_Z_massless_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*(1/%(ep)s)'
-        delta_Z_massive_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*((1/%(ep)s)+4+3*(logmu - %(log_quark_mass)s))'
-
-        # All the things below are a shame and must be generalised as soon as we're done with the publication....
 
         hardcoded_mass_parameters = {
             6   : 'mass_t',
@@ -2321,41 +2350,150 @@ int %(header)sget_rank(int diag, int conf) {{
             -6  : 'logmt'
         }
 
-        def get_particle_mass(pdg):
-            if pdg in hardcoded_mass_parameters:
-                return hardcoded_mass_parameters[pdg]
-            return model.get_particle(pdg).get('mass')
+        delta_Z_massless_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*(-1/%(ep)s)'
+        delta_Z_massive_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*((-1/%(ep)s)-4-3*(logmu - %(log_quark_mass)s))'
+
+        # Note the many overall factors (1/2) come from the fact that the expressions are derived from the alpha couplings (i.e. g^2/4\pi)
+        # and not for the coupling g directly, so that a factor 1/2 is warranted.
+
+        delta_Z_gluon = []
+        # Add the gluon and ghost contribution to the gluon wavefunction renormalisation
+        delta_Z_gluon.append('( (1/2)*%(C_A)s*%(gs)s^2/48/%(pi)s^2 * ( 5/%(ep)s ) )'%symbol_replacement_dict)
+        # Add the massless quark contributions to the gluon wavefunction renormalisation
+        delta_Z_gluon.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( -4/%(ep)s ) )'%symbol_replacement_dict)
+        # Add the massive quark contribution to the gluon wavefunction renormalisation
+        for q_pdg in massive_quark_pdgs:
+            delta_Z_gluon.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( -4/%(ep)s - 4*(logmu - %(log_quark_mass)s) ) )'%(
+                dict(symbol_replacement_dict,**{
+                    'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
+                })
+            ))
+        # Combine all terms for the gluon wavefunction renormalisation
+        delta_Z_gluon = '(%s)'%('+'.join(delta_Z_gluon))
+
+        delta_g_s = []
+        # Add the gluon and ghost contribution to the strong coupling renormalisation
+        delta_g_s.append('( (1/2)*%(C_A)s*%(gs)s^2/48/%(pi)s^2 * ( -11/%(ep)s ) )'%symbol_replacement_dict)
+        # Add the massless quark contributions to the strong coupling renormalisation
+        delta_g_s.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( 4/%(ep)s ) )'%symbol_replacement_dict)
+        # Add the massive quark contribution to the strong coupling renormalisation
+        for q_pdg in massive_quark_pdgs:
+            delta_g_s.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( 4/%(ep)s + 4*(logmu - %(log_quark_mass)s) ) )'%(
+                dict(symbol_replacement_dict,**{
+                    'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
+                })
+            ))
+        # Combine all terms for the strong coupling renormalisation
+        delta_g_s = '(%s)'%('+'.join(delta_g_s))
+
+        # Combine all terms for the yukawa renormalisation
+        # WARNING: He consider here only contribution from the top and bottom as these are the only fermions we consider as
+        # having a yukawa interaction in the model, but we do allow for them to be massless and adjust the renormalisation accordingly.
+        potential_yukawa_quark_pdgs = [5,6]
+        active_yukawa_quarks = [q_pdg for q_pdg in potential_yukawa_quark_pdgs if q_pdg not in process_definition.get('forbidden_particles')]
+        n_massless_yukawa_quarks = len([1 for q_pdg in active_yukawa_quarks if get_particle_mass(q_pdg).upper()=='ZERO' ])
+        massive_yukawa_quark_pdgs = [ q_pdg for q_pdg in active_yukawa_quarks if get_particle_mass(q_pdg).upper()!='ZERO' ]
+
+        delta_yukawa = []
+        # Add the massless quark contributions to the yukawa renormalisation
+        delta_yukawa.append('( -(1/2)*%(n_f_yukawa)s*2*%(C_F)s*%(gs)s^2/16/%(pi)s^2 * ( 3/%(ep)s ) )'%(
+            dict(symbol_replacement_dict,**{
+                'n_f_yukawa':'%d'%n_massless_yukawa_quarks,
+            })
+        ))
+        # Add the massive quark contribution to the yukawa renormalisation
+        for q_pdg in massive_yukawa_quark_pdgs:
+            delta_yukawa.append('( - (1/2)*2*%(C_F)s*%(gs)s^2/16/%(pi)s^2 * ( 3/%(ep)s + 4 + 3*(logmu - %(log_quark_mass)s) ) )'%(
+                dict(symbol_replacement_dict,**{
+                    'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
+                })
+            ))
+        # Combine all terms for the yukawa renormalisation
+        delta_yukawa = '(%s)'%('+'.join(delta_yukawa))
+
+        ########################################################
+        # Now build the specified UV renormalisation vertices
+        ########################################################
 
         # quark self-energy
         if len(pdgs) == 2 and pdgs[0] in quark_pdgs and pdgs[1]==pdgs[0]:
             quark_mass = get_particle_mass(pdgs[0])
-            if loop_count == 1:
-                if quark_mass=='ZERO':
-                    res = ('+(%s)'%delta_Z_massless_quark)%symbol_replacement_dict
-                    res = res
-                    return res
-                else:
-                    res = ('+(%s)'%delta_Z_massive_quark)%(
-                        dict(symbol_replacement_dict,**{
-                            'quark_mass':quark_mass,
-                            'log_quark_mass':hardcoded_log_quark_mass[pdgs[0]],                            
-                        }))
-                    return res
+            if quark_mass=='ZERO':
+                res = ('(-(%s))'%delta_Z_massless_quark)%symbol_replacement_dict
+                res = res
+                return res
+            else:
+                res = ('(-(%s))'%delta_Z_massive_quark)%(
+                    dict(symbol_replacement_dict,**{
+                        'quark_mass':quark_mass,
+                        'log_quark_mass':hardcoded_log_quark_mass[pdgs[0]],                            
+                    }))
+                return res
 
-        # aqq vertex
-        if len(pdgs) == 3 and (pdgs[0] in [22,23,25]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
+        # gluon self-energy
+        if len(pdgs) == 2 and pdgs[0]==21 and pdgs[1]==pdgs[0]:
+            return '(-(%s))'%delta_Z_gluon
+
+        # a/z qq vertex
+        if len(pdgs) == 3 and (pdgs[0] in [22,23]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
             quark_mass = get_particle_mass(pdgs[1])
-            if loop_count == 1:
-                if quark_mass=='ZERO':
-                    res = ('-(2)*(1/2)*(%s)'%delta_Z_massless_quark)%symbol_replacement_dict
-                    return res
-                else:
-                    res = ('-(2)*(1/2)*(%s)'%delta_Z_massive_quark)%(
-                        dict(symbol_replacement_dict,**{
-                            'quark_mass':quark_mass,
-                            'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
-                        }))
-                    return res
+            if quark_mass=='ZERO':
+                res = ('(+(2)*(1/2)*(%s))'%delta_Z_massless_quark)%symbol_replacement_dict
+                return res
+            else:
+                res = ('(+(2)*(1/2)*(%s))'%delta_Z_massive_quark)%(
+                    dict(symbol_replacement_dict,**{
+                        'quark_mass':quark_mass,
+                        'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
+                    }))
+                return res
+
+        # hqq vertex
+        if len(pdgs) == 3 and (pdgs[0] in [25,]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
+            res = [ '(+%s)'%delta_yukawa, ]
+            quark_mass = get_particle_mass(pdgs[1])
+            if quark_mass=='ZERO':
+                res.append( ('(+(2)*(1/2)*(%s))'%delta_Z_massless_quark)%symbol_replacement_dict )
+            else:
+                res.append( ('(+(2)*(1/2)*(%s))'%delta_Z_massive_quark)%(
+                    dict(symbol_replacement_dict,**{
+                        'quark_mass':quark_mass,
+                        'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
+                    })) )
+            return '(%s)'%('+'.join(res))
+
+        # gqq vertex
+        if len(pdgs) == 3 and (pdgs[0] in [21,]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
+            res = [ 
+                '(+%s)'%delta_g_s, 
+                '(+%s)'%delta_Z_gluon
+            ]
+            quark_mass = get_particle_mass(pdgs[1])
+            if quark_mass=='ZERO':
+                res.append( ('(+(2)*(1/2)*(%s))'%delta_Z_massless_quark)%symbol_replacement_dict )
+            else:
+                res.append( ('(+(2)*(1/2)*(%s))'%delta_Z_massive_quark)%(
+                    dict(symbol_replacement_dict,**{
+                        'quark_mass':quark_mass,
+                        'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
+                    })) )
+            return '(%s)'%('+'.join(res))
+
+        # ggg vertex
+        if len(pdgs) == 3 and all(pdg==21 for pdg in pdgs):
+            res = [ 
+                '(+%s)'%delta_g_s,
+                '(+3*(%s))'%delta_Z_gluon,
+            ]
+            return '(%s)'%('+'.join(res))
+
+        # gggg vertex
+        if len(pdgs) == 4 and all(pdg==21 for pdg in pdgs):
+            res = [ 
+                '(+2*(%s))'%delta_g_s,
+                '(+4*(%s))'%delta_Z_gluon,
+            ]
+            return '(%s)'%('+'.join(res))
 
         return None
 
@@ -2393,7 +2531,7 @@ int %(header)sget_rank(int diag, int conf) {{
 
         return subgraph_pdgs
 
-    def generate_renormalization_graphs(self, model):
+    def generate_renormalization_graphs(self, model, process_definition):
         """Generate all required renormalization graphs for the graphs in the supergraph list"""
 
         import sympy as sp
@@ -2433,7 +2571,7 @@ int %(header)sget_rank(int diag, int conf) {{
                                 uv_effective_vertex_edges.append((edges_on_vertex, l))
                                 edge_pdgs = tuple(next(ee for ee in edges.values() if ee['name'] == e)['PDG'] for e in edges_on_vertex)
                                 is_external_bubble = ( (len(edges_on_vertex)==2) and any( (e in bubble_edges) for e in edges_on_vertex) )
-                                vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l, model, is_external_bubble=is_external_bubble)
+                                vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l, model, process_definition, is_external_bubble=is_external_bubble)
                                 if vertex_contrib is None:
                                     logger.warning("WARNING: unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
                                     #raise AssertionError("Unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
@@ -2566,6 +2704,15 @@ class FORMProcessor(object):
         else:
             self.repr_process = self.process_definition
 
+        if not FORM_processing_options['generate_integrated_UV_CTs']:
+            logger.warning('%s\n\nGeneration of integrated UV CTs is disabled per user request. Physical results will be incorrect.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
+        if not FORM_processing_options['generate_renormalisation_graphs']:
+            logger.warning('%s\n\nGeneration of renormalisation contributions is disabled per user request. Physical results will be incorrect.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
+        if FORM_processing_options['UV_min_dod_to_subtract']>0:
+            logger.warning('%s\n\nAs per user request, not all UV divegences will be locally subtracted. Numerical integration may be divergent in the UV.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
+        if FORM_processing_options['UV_min_dod_to_subtract']<0:
+            logger.warning('%s\n\nAs per user request, subleading UV divegences will also be locally subtracted. Very complicated integrands may result from this.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
+
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""
 
@@ -2599,18 +2746,20 @@ class FORMProcessor(object):
 
         additional_overall_factor = helicity_averaging_factor
         return self.super_graphs_list.generate_numerator_functions(
-            root_output_path, output_format=output_format,
+            root_output_path,
+            output_format=output_format,
             additional_overall_factor=additional_overall_factor,
             params=params,workspace=workspace, header=header,
-            integrand_type=integrand_type)
+            integrand_type=integrand_type,
+            process_definition=self.process_definition
+        )
 
     @classmethod
     def compile(cls, root_output_path, arg=[]):
 
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:
-                logger.info("Now compiling FORM-generated numerators...")
-                print(FORM_processing_options['compilation-options'])
+                logger.info("Now compiling FORM-generated numerators with options: %s ..."%(' '.join(FORM_processing_options['compilation-options'])))
                 misc.compile(arg=FORM_processing_options['compilation-options'] ,cwd=root_output_path,mode='cpp', nb_core=FORM_processing_options["cores"])
             except MadGraph5Error as e:
                 logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
@@ -2622,7 +2771,7 @@ class FORMProcessor(object):
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
         integrand_type=None):
         self.super_graphs_list.generate_squared_topology_files(
-            root_output_path, self.model, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace,
+            root_output_path, self.model, self.process_definition, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace,
             integrand_type=integrand_type
         )
 
