@@ -59,7 +59,7 @@ FORM_processing_options = {
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': multiprocessing.cpu_count(), 
-    'extra-options': '-D OPTIMITERATIONS=1000',
+    'extra-options': {'OPTIMITERATIONS': 1000},
     # If None, only consider the LMB originally chosen.
     # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
     # If negative consider all possible LMBs.
@@ -1384,6 +1384,8 @@ class FORMSuperGraphIsomorphicList(list):
         if FORM_vars is None or not all(opt in FORM_vars for opt in _MANDATORY_FORM_VARIABLES):
             raise FormProcessingError("The following variables must be supplied to FORM: %s"%str(_MANDATORY_FORM_VARIABLES))
 
+        FORM_vars.update(FORM_processing_options['extra-options'])
+
         i_graph = int(FORM_vars['SGID'])
 
         # write the form input to a file
@@ -1407,7 +1409,8 @@ class FORMSuperGraphIsomorphicList(list):
         r = subprocess.run(' '.join([
                 FORM_processing_options["FORM_path"],
                 ]+
-                [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
+                [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ] +
+                [ '-M', '-l'] +
                 [ FORM_source, ]
             ),
             shell=True,
@@ -2832,7 +2835,7 @@ if __name__ == "__main__":
 
     if args.cores > 1:
         FORM_processing_options['cores'] = args.cores
-    FORM_processing_options['extra-options'] = '-D OPTIMITERATIONS=' + str(args.optim_iter)
+    FORM_processing_options['extra-options'] = {'OPTIMITERATIONS': args.optim_iter}
 
     import alpha_loop.interface as interface
     cli = interface.alphaLoopInterface()

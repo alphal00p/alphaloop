@@ -1,5 +1,5 @@
 #-
-Off statistics;
+On statistics;
 On nospacesinnumbers;
 
 *--#[ setup :
