@@ -8,11 +8,11 @@ set_alphaLoop_option apply_graph_isomorphisms True
 # FROM processing
 set_alphaLoop_option FORM_processing_output_format c
 set_alphaLoop_option FORM_compile_arg numerator
-set_alphaLoop_option FORM_compile_optimization 0
+set_alphaLoop_option FORM_compile_optimization 3
 # QGRAF 
 set_alphaLoop_option qgraf_template_model epem
 set_FORM_option number_of_lmbs None
 qgraf_define j = d d~ g gh gh~
-qgraf_generate e+ e- > a >  j j /t u s c b QCD^2==1 QED^2==2 [QCD]
-!rm -rf TEST_QGRAF_epem_a_jj_NLO
-output qgraf TEST_QGRAF_epem_a_jj_NLO
+qgraf_generate e+ e- > a > j j j /t u s c b QCD^2==2 QED^2==2 [QCD]
+!rm -rf TEST_QGRAF_epem_a_jjj_NLO
+output qgraf TEST_QGRAF_epem_a_jjj_NLO

@@ -218,9 +218,11 @@ class FORMSuperGraph(object):
             for ce, cc in zip(cut_edges,cut_colors):
                 if cc == 'any':
                     continue
-                try:
-                    ec[ce].remove(cc[0])
-                except ValueError:
+                for color in cc:
+                    if color in ec[ce]:
+                        ec[ce].remove(color)
+                        break
+                else:
                     break
             else:
                 # Allow for Pure Virtual corrections
