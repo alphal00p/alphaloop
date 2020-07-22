@@ -56,6 +56,8 @@ plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 FORM_processing_options = {
     'FORM_path': 'form', 
+    # Define the extra aguments for the compilation
+    'compilation-options': [],
     'cores': multiprocessing.cpu_count(), 
     'extra-options': '-D OPTIMITERATIONS=1000',
     # If None, only consider the LMB originally chosen.
@@ -1960,7 +1962,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(numerator_code%header_map)
 
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", integrand_type=None, optimization_lvl=3):
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", integrand_type=None):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -1985,7 +1987,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
-        FORM_vars={'OPTIMLVL': [1,1,2,4][optimization_lvl]}
+        FORM_vars={}
         if integrand_type is not None:
             FORM_vars['INTEGRAND'] = integrand_type
 
@@ -2562,7 +2564,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, optimization_lvl=3):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None):
         assert(header in ['MG', 'QG', ''])
 
         params = {
@@ -2588,8 +2590,7 @@ class FORMProcessor(object):
             root_output_path, output_format=output_format,
             additional_overall_factor=additional_overall_factor,
             params=params,workspace=workspace, header=header,
-            integrand_type=integrand_type,
-            optimization_lvl=optimization_lvl)
+            integrand_type=integrand_type)
 
     @classmethod
     def compile(cls, root_output_path, arg=[]):
@@ -2597,7 +2598,8 @@ class FORMProcessor(object):
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:
                 logger.info("Now compiling FORM-generated numerators...")
-                misc.compile(arg=arg,cwd=root_output_path,mode='cpp', nb_core=FORM_processing_options["cores"])
+                print(FORM_processing_options['compilation-options'])
+                misc.compile(arg=FORM_processing_options['compilation-options'] ,cwd=root_output_path,mode='cpp', nb_core=FORM_processing_options["cores"])
             except MadGraph5Error as e:
                 logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
                     utils.bcolors.RED,str(e),utils.bcolors.ENDC))

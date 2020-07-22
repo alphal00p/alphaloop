@@ -399,7 +399,6 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             FORM_processor.generate_numerator_functions(FORM_output_path, 
                         output_format=self.alphaLoop_options['FORM_processing_output_format'],
                         workspace=FORM_workspace,
-                        optimization_lvl=self.alphaLoop_options['FORM_compile_optimization'],
                         integrand_type=self.alphaLoop_options['FORM_integrand_type']
             )
 
@@ -533,11 +532,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         # Compile FORM output if present
         FORM_output_dir = pjoin(self.dir_path,"FORM")
         if os.path.exists(FORM_output_dir):
-            FORM_processing.FORMProcessor.compile(
-                FORM_output_dir, 
-                arg=self.alphaLoop_options['FORM_compile_arg'] +\
-                 ['-e', 'OPTIMIZATION_LVL=%d'%self.alphaLoop_options['FORM_compile_optimization']])
-
+            FORM_processing.FORMProcessor.compile(FORM_output_dir)
     #===========================================================================
     # process exporter fortran switch between group and not grouped
     #===========================================================================
@@ -1333,7 +1328,6 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
                 output_format=self.alphaLoop_options['FORM_processing_output_format'],
                 workspace=FORM_workspace,
-                optimization_lvl=self.alphaLoop_options['FORM_compile_optimization'],
                 integrand_type=self.alphaLoop_options['FORM_integrand_type']
             )
 
@@ -1344,10 +1338,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                     pjoin(drawings_output_path,'Makefile'))
         form_processor.draw(drawings_output_path)
 
-        form_processor.compile(pjoin(self.dir_path,'FORM'),
-                arg=self.alphaLoop_options['FORM_compile_arg'] +\
-                 ['-e', 'OPTIMIZATION_LVL=%d'%self.alphaLoop_options['FORM_compile_optimization']])
-    
+        form_processor.compile(pjoin(self.dir_path,'FORM'))
     def get_cuts(self, representative_process):
         cuts=[]
         additional_loops = len(representative_process['perturbation_couplings'])
