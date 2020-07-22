@@ -640,6 +640,10 @@ endargument;
     id energy(p?) = penergy(p);
     id energies(p?) = penergy(p);
 
+    B+ penergy,spatial,energies,allenergies, ellipsoids, constants;
+    .sort:func-prep;
+    Keep brackets;
+
     argument ellipsoids;
         id energies(p?) = penergy(p);
     endargument;
@@ -656,7 +660,6 @@ endargument;
     chainin energync;
     id energync(?a)*constants = constants(?a);
 
-
     argument ellipsoids, constants;
         id energy(p?) = penergy(p);
     endargument;
@@ -672,7 +675,6 @@ endargument;
         endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=`i',`$MAXP'
-            id p`i'.p`j' = lm`$OFFSET';
             argument energies, ellipsoids, constants;
                 id p`i'.p`j' = lm`$OFFSET';
             endargument;
@@ -692,7 +694,6 @@ endargument;
         endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=1,`$MAXP'
-            id c`i'.p`j' = lm`$OFFSET';
             argument energies, ellipsoids, constants;
                 id c`i'.p`j' = lm`$OFFSET';
             endargument;
@@ -705,7 +706,6 @@ endargument;
         #enddo
 
         #do j=`i',`$MAXK'
-            id c`i'.c`j' = lm`$OFFSET';
             argument energies, ellipsoids, constants;
                 id c`i'.c`j' = lm`$OFFSET';
             endargument;
@@ -718,10 +718,36 @@ endargument;
         #enddo
     #enddo
 
-* TODO: write everything in terms of energies
-* cut energies, propagator energies, propagator shifts
+    .sort:conv-func;
+
+    #$OFFSET = 0;
+    #do i=1,`$MAXP'
+        #$OFFSET = $OFFSET + 1;
+        #do j=`i',`$MAXP'
+            id p`i'.p`j' = lm`$OFFSET';
+            #$OFFSET = $OFFSET + 2;
+        #enddo
+    #enddo
+
+    #do i=1,`$MAXK'
+        #$OFFSET = $OFFSET + 1;
+        #do j=1,`$MAXP'
+            id c`i'.p`j' = lm`$OFFSET';
+            #$OFFSET = $OFFSET + 2;
+        #enddo
+
+        #do j=`i',`$MAXK'
+            id c`i'.c`j' = lm`$OFFSET';
+            #$OFFSET = $OFFSET + 2;
+        #enddo
+    #enddo
+    .sort:conv-dots;
 
 * split off every energy configuration into a new expression
+    B+ conf;
+    .sort:conf-collect;
+    Keep brackets;
+
     id conf(?a) = conf(conf(?a));
     argtoextrasymbol tonumber,conf,1;
     #redefine oldextrasymbols "`extrasymbols_'"
@@ -799,6 +825,10 @@ endargument;
 #enddo
 
 * split off every energy configuration into a new expression
+B+ conf;
+.sort:conf-collect;
+Keep brackets;
+
 id conf(?a) = conf(conf(?a));
 argtoextrasymbol tonumber,conf,1;
 #redefine oldextrasymbols "`extrasymbols_'"
