@@ -1,5 +1,4 @@
 use amplitude::Amplitude;
-use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
 use dashboard::{StatusUpdate, StatusUpdateSender};
 use dual_num::{DualN, U10, U13, U16, U19, U4, U7};
@@ -798,13 +797,7 @@ impl IntegrandImplementation for Topology {
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
         _events: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
-        float,
-        Complex<float>,
-        Complex<float>,
-    ) {
+    ) -> Complex<float> {
         self.evaluate(x, cache.get())
     }
 
@@ -814,13 +807,7 @@ impl IntegrandImplementation for Topology {
         x: &'a [f64],
         cache: &mut LTDCacheAllPrecisions,
         _events: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]>,
-        f128::f128,
-        Complex<f128::f128>,
-        Complex<f128::f128>,
-    ) {
+    ) -> Complex<f128::f128> {
         self.evaluate(x, cache.get())
     }
 
@@ -835,6 +822,9 @@ impl Topology {
         &mut self,
         update_excluded_surfaces: bool,
     ) -> Vec<FixedDeformationLimit> {
+        if self.settings.general.debug > 1 {
+            println!("Determining overlap structure for {}", self.name);
+        }
         if self
             .surfaces
             .iter()
@@ -850,7 +840,7 @@ impl Topology {
             == 0
         {
             if self.settings.general.debug > 1 {
-                println!("No ellipsoids");
+                println!("  | no ellipsoids");
             }
             return vec![];
         }
@@ -868,11 +858,11 @@ impl Topology {
             constant_e_surfaces.clear();
 
             if self.settings.general.debug > 0 {
-                println!("Doing subspace {:?}", subspace);
+                println!("  | doing subspace {:?}", subspace);
             }
             if self.settings.general.debug > 1 {
                 println!(
-                    "Subspace basis: {:#?}",
+                    "  | subspace basis: {:#?}",
                     self.ltd_cut_options[subspace.0][subspace.1]
                 );
             }
@@ -964,7 +954,7 @@ impl Topology {
                     Some(inv) => b.transpose() * inv,
                     None => {
                         if self.settings.general.debug > 1 {
-                            println!("Surface {} factorizes", i);
+                            println!("  | surface {} factorizes", i);
                         }
                         // if the right inverse cannot be computed, it means that the e-surface in the subspace
                         // factorizes into the sum of two or more e-surfaces:
@@ -1099,7 +1089,7 @@ impl Topology {
         mem::swap(&mut subspaces, &mut self.subspaces);
 
         if self.settings.general.debug > 1 {
-            println!("deformation={:#?}", fixed_deformation);
+            println!("  | deformation={:#?}", fixed_deformation);
         }
 
         if update_excluded_surfaces {
@@ -1205,7 +1195,7 @@ impl Topology {
 
         let mut b_index = 0;
 
-        for m in 0..multiplier {
+        for _ in 0..multiplier {
             for &e_id in ellipsoid_ids {
                 p.b[b_index] = -ellipsoids[e_id].shift.t;
                 b_index += 1;

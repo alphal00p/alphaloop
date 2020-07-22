@@ -465,26 +465,26 @@ impl JetClustering {
 
         let index_offset = 2;
         if ext.len() == 5 {
-            let pt1 = ext[index_offset+0].pt();
-            let pt2 = ext[index_offset+1].pt();
-            let pt3 = ext[index_offset+2].pt();
-            let dr12 = ext[index_offset+0].deltaR(&ext[index_offset+1]);
-            let dr13 = ext[index_offset+0].deltaR(&ext[index_offset+2]);
-            let dr23 = ext[index_offset+1].deltaR(&ext[index_offset+2]);
+            let pt1 = ext[index_offset + 0].pt();
+            let pt2 = ext[index_offset + 1].pt();
+            let pt3 = ext[index_offset + 2].pt();
+            let dr12 = ext[index_offset + 0].delta_r(&ext[index_offset + 1]);
+            let dr13 = ext[index_offset + 0].delta_r(&ext[index_offset + 2]);
+            let dr23 = ext[index_offset + 1].delta_r(&ext[index_offset + 2]);
 
             // we have at least 2 jets
             if dr12 < self.d_r {
-                let m12 = ext[index_offset+0] + ext[index_offset+1];
+                let m12 = ext[index_offset + 0] + ext[index_offset + 1];
                 let pt12 = m12.pt();
                 self.ordered_pt.push(pt12);
                 self.ordered_pt.push(pt3);
             } else if dr13 < self.d_r {
-                let m13 = ext[index_offset+0] + ext[index_offset+2];
+                let m13 = ext[index_offset + 0] + ext[index_offset + 2];
                 let pt13 = m13.pt();
                 self.ordered_pt.push(pt13);
                 self.ordered_pt.push(pt2);
             } else if dr23 < self.d_r {
-                let m23 = ext[index_offset+1] + ext[index_offset+2];
+                let m23 = ext[index_offset + 1] + ext[index_offset + 2];
                 let pt23 = m23.pt();
                 self.ordered_pt.push(pt23);
                 self.ordered_pt.push(pt1);

@@ -3,7 +3,7 @@ extern crate ltd;
 
 #[cfg(test)]
 mod test_arbitrary_module_name {
-    // import relevant functions and variables 
+    // import relevant functions and variables
     use ltd::topologies::LoopLine;
 
     #[test]

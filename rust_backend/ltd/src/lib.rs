@@ -1,4 +1,4 @@
-#![recursion_limit = "128"]
+#[cfg(feature = "python_api")]
 #[macro_use]
 extern crate cpython;
 extern crate arrayvec;
@@ -35,7 +35,9 @@ extern crate dlopen_derive;
 use color_eyre::{Help, Report};
 use eyre::WrapErr;
 
-use num_traits::{Float, FloatConst, FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Num, Signed};
+#[cfg(feature = "python_api")]
+use num_traits::{One, ToPrimitive, Zero};
 use utils::Signum;
 use vector::{Field, RealNumberLike};
 
@@ -83,6 +85,7 @@ pub mod utils;
 
 #[cfg(feature = "python_api")]
 use arrayvec::ArrayVec;
+#[cfg(feature = "python_api")]
 use num::Complex;
 use serde::Deserialize;
 use std::fmt;
@@ -941,13 +944,13 @@ py_class!(class LTD |py| {
    }
 
    def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<float>(&x,
+        let res = self.topo(py).borrow_mut().evaluate::<float>(&x,
             &mut self.cache(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
    def evaluate_f128(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let (_, _k_def, _jac_para, _jac_def, res) = self.topo(py).borrow_mut().evaluate::<f128::f128>(&x,
+        let res = self.topo(py).borrow_mut().evaluate::<f128::f128>(&x,
             &mut self.cache_f128(py).borrow_mut());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }

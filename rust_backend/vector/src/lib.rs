@@ -814,7 +814,7 @@ impl<T: Float + Field> LorentzVector<T> {
 
     /// Compute pseudorapidity.
     #[inline]
-    pub fn pseudoRap(&self) -> T {
+    pub fn pseudo_rap(&self) -> T {
         let pt = self.pt();
         if pt < T::epsilon() && self.z.abs() < T::epsilon() {
             if self.z > T::zero() {
@@ -849,8 +849,8 @@ impl<T: Float + Field> LorentzVector<T> {
 
     /// Compute the deltaR separation with momentum p2.
     #[inline]
-    pub fn deltaR(&self, p2: &LorentzVector<T>) -> T {
-        let delta_eta = self.pseudoRap() - p2.pseudoRap();
+    pub fn delta_r(&self, p2: &LorentzVector<T>) -> T {
+        let delta_eta = self.pseudo_rap() - p2.pseudo_rap();
         let delta_phi = self.getdelphi(p2);
         (delta_eta * delta_eta + delta_phi * delta_phi).sqrt()
     }

@@ -8,7 +8,6 @@ use num::Complex;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use topologies::{Cut, LTDCache, LTDNumerator, Topology};
-use utils;
 use vector::{Field, LorentzVector};
 use FloatLike;
 use GeneralSettings;

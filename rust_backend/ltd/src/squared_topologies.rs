@@ -413,9 +413,8 @@ impl SquaredTopologySet {
             let filename = std::path::Path::new(&filename)
                 .with_file_name(topo.name)
                 .with_extension("yaml");
-            let mut squared_topology =
-                SquaredTopology::from_file(filename.to_str().unwrap(), settings)
-                    .wrap_err("Could not load subtopology file")?;
+            let squared_topology = SquaredTopology::from_file(filename.to_str().unwrap(), settings)
+                .wrap_err("Could not load subtopology file")?;
 
             let mut additional_topologies_for_topo = vec![];
             for t in topo.additional_lmbs {
@@ -568,13 +567,13 @@ impl SquaredTopologySet {
         */
         let n_topologies = self.topologies.len();
 
-        let mut n_Cutkosky_cuts_per_cut_cardinality = HashMap::<i32, i32>::new();
+        let mut n_cutkosky_cuts_per_cut_cardinality = HashMap::<i32, i32>::new();
         let mut n_diagrams_per_loop = HashMap::<i32, i32>::new();
-        let mut n_LTD_cuts_per_loop = HashMap::<i32, i32>::new();
+        let mut n_ltd_cuts_per_loop = HashMap::<i32, i32>::new();
 
         for topology in &self.topologies {
             for cutkosky_cuts in &topology.cutkosky_cuts {
-                *n_Cutkosky_cuts_per_cut_cardinality
+                *n_cutkosky_cuts_per_cut_cardinality
                     .entry(cutkosky_cuts.cuts.len() as i32)
                     .or_insert(0) += 1;
                 for diagram_set in &cutkosky_cuts.diagram_sets {
@@ -582,7 +581,7 @@ impl SquaredTopologySet {
                         *n_diagrams_per_loop
                             .entry(d_info.graph.n_loops as i32)
                             .or_insert(0) += 1;
-                        *n_LTD_cuts_per_loop
+                        *n_ltd_cuts_per_loop
                             .entry(d_info.graph.n_loops as i32)
                             .or_insert(0) += d_info.graph.ltd_cut_options.len() as i32;
                     }
@@ -590,11 +589,11 @@ impl SquaredTopologySet {
             }
         }
 
-        let mut tmp_vec: Vec<(i32, i32)> = n_LTD_cuts_per_loop
+        let mut tmp_vec: Vec<(i32, i32)> = n_ltd_cuts_per_loop
             .iter()
             .map(|(k, v)| (*k as i32, *v as i32))
             .collect();
-        let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
+        let tmp_sum: i32 = tmp_vec.iter().map(|(_k, v)| *v as i32).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
@@ -612,7 +611,7 @@ impl SquaredTopologySet {
             .iter()
             .map(|(k, v)| (*k as i32, *v as i32))
             .collect();
-        let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
+        let tmp_sum: i32 = tmp_vec.iter().map(|(_k, v)| *v as i32).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
@@ -626,11 +625,11 @@ impl SquaredTopologySet {
             )))
             .unwrap();
 
-        let mut tmp_vec: Vec<(i32, i32)> = n_Cutkosky_cuts_per_cut_cardinality
+        let mut tmp_vec: Vec<(i32, i32)> = n_cutkosky_cuts_per_cut_cardinality
             .iter()
             .map(|(k, v)| (*k as i32, *v as i32))
             .collect();
-        let tmp_sum: i32 = tmp_vec.iter().map(|(k, v)| *v as i32).sum();
+        let tmp_sum: i32 = tmp_vec.iter().map(|(_k, v)| *v as i32).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
@@ -667,13 +666,7 @@ impl SquaredTopologySet {
         x: &'a [f64],
         cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
         mut event_manager: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
-        T,
-        Complex<T>,
-        Complex<T>,
-    ) {
+    ) -> Complex<T> {
         // paramaterize and consider the result in a channel basis
         let n_loops = x.len() / 3;
         let mut k_channel = [LorentzVector::default(); MAX_LOOP];
@@ -793,10 +786,7 @@ impl SquaredTopologySet {
             result += channel_result;
         }
 
-        // we don't have a meaningful jacobian nor k_def
-        let k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> =
-            (0..n_loops).map(|_| LorentzVector::default()).collect();
-        (x, k_def, T::one(), Complex::one(), result)
+        result
     }
 
     pub fn evaluate<
@@ -807,13 +797,11 @@ impl SquaredTopologySet {
         x: &'a [f64],
         cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
         mut event_manager: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
-        T,
-        Complex<T>,
-        Complex<T>,
-    ) {
+    ) -> Complex<T> {
+        if self.settings.general.debug > 0 {
+            println!("x-space point: {:?}", x);
+        }
+
         if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty() {
             return self.multi_channeling(x, cache, event_manager);
         }
@@ -954,7 +942,7 @@ impl SquaredTopologySet {
             k_def.push(l.map(|x| Complex::new(x, T::zero())));
         }
 
-        (x, k_def, jac_para, Complex::one(), result)
+        result
     }
 }
 
@@ -2242,13 +2230,7 @@ impl IntegrandImplementation for SquaredTopologySet {
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
         event_manager: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
-        float,
-        Complex<float>,
-        Complex<float>,
-    ) {
+    ) -> Complex<float> {
         self.evaluate(x, cache.get(), event_manager)
     }
 
@@ -2258,13 +2240,7 @@ impl IntegrandImplementation for SquaredTopologySet {
         x: &'a [f64],
         cache: &mut SquaredTopologyCache,
         event_manager: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
-        f128,
-        Complex<f128>,
-        Complex<f128>,
-    ) {
+    ) -> Complex<f128> {
         self.evaluate(x, cache.get(), event_manager)
     }
 

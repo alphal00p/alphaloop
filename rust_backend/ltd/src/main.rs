@@ -26,7 +26,6 @@ pub extern crate mpi;
 use arrayvec::ArrayVec;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use color_eyre::{Help, Report};
-use eyre::WrapErr;
 use ltd::topologies::{Cut, CutList};
 use ltd::LorentzVector;
 use num_traits::real::Real;
@@ -1300,7 +1299,7 @@ fn inspect<'a>(
 
     // TODO: prevent code repetition
     if matches.is_present("use_f128") {
-        let (x, k_def, jac_para, jac_def, result) = match diagram {
+        let result = match diagram {
             Diagram::CrossSection(sqt) => {
                 let mut cache = sqt.create_caches();
                 sqt.clone().evaluate::<f128::f128>(&pt, &mut cache, None)
@@ -1311,35 +1310,9 @@ fn inspect<'a>(
             }
         };
 
-        match n_loops {
-            1 => {
-                println!(
-                    "result={:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
-                    result, x, k_def[0], jac_para, jac_def
-                );
-            }
-            2 => {
-                println!(
-                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result, x, k_def[0], k_def[1], jac_para, jac_def
-                        );
-            }
-            3 => {
-                println!(
-                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result,x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
-                    );
-            }
-            4 => {
-                println!(
-                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}n  | n={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result,x, k_def[0], k_def[1], k_def[2], k_def[3], jac_para, jac_def
-                    );
-            }
-            _ => {}
-        }
+        println!("result={:e}\n  | x={:?}\n", result, pt);
     } else {
-        let (x, k_def, jac_para, jac_def, result) = match diagram {
+        let result = match diagram {
             Diagram::CrossSection(sqt) => {
                 let mut cache = sqt.create_caches();
                 sqt.clone().evaluate::<float>(&pt, &mut cache, None)
@@ -1349,33 +1322,7 @@ fn inspect<'a>(
                 t.clone().evaluate::<float>(&pt, &mut cache)
             }
         };
-        match n_loops {
-            1 => {
-                println!(
-                    "result={:e}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
-                    result, x, k_def[0], jac_para, jac_def
-                );
-            }
-            2 => {
-                println!(
-                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result, x, k_def[0], k_def[1], jac_para, jac_def
-                        );
-            }
-            3 => {
-                println!(
-                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result,x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
-                    );
-            }
-            4 => {
-                println!(
-                        "result={:e}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}n  | n={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        result,x, k_def[0], k_def[1], k_def[2], k_def[3], jac_para, jac_def
-                    );
-            }
-            _ => {}
-        }
+        println!("result={:e}\n  | x={:?}\n", result, pt);
     }
 }
 

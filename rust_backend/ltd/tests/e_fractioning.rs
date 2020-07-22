@@ -34,6 +34,7 @@ mod partial_fractioning_multi_loops {
     fn test_pf_multi_loops_decagon() {
         //Dummy prop
         let propagator = Propagators {
+            uv: false,
             id: 0, // global id
             m_squared: 0.0,
             q: LorentzVector::default(),
@@ -61,6 +62,7 @@ mod partial_fractioning_multi_loops {
     fn test_pf_multi_loops_2loop() {
         //Dummy prop
         let propagator = Propagators {
+            uv: false,
             id: 0, // global id
             m_squared: 0.0,
             q: LorentzVector::default(),
@@ -92,6 +94,7 @@ mod partial_fractioning_multi_loops {
     fn test_pf_multi_loops_4loop() {
         //Dummy prop
         let propagator = Propagators {
+            uv: false,
             id: 0, // global id
             m_squared: 0.0,
             q: LorentzVector::default(),

@@ -507,7 +507,7 @@ impl Topology {
             }
         }
 
-        if self.settings.general.debug > 1 {
+        if external_momenta_set && self.settings.general.debug > 1 {
             println!("Surfaces for {}:", self.name);
         }
 
@@ -579,7 +579,7 @@ impl Topology {
             }
         }
 
-        if self.settings.general.debug > 1 {
+        if external_momenta_set && self.settings.general.debug > 1 {
             println!("Number of unique ellipsoids: {}", unique_ellipsoids);
         }
 
@@ -2633,6 +2633,8 @@ impl Topology {
             }
         }
 
+        //dbg!(&cache.propagator_powers, &derivative_map);
+
         // Set energy on the cut
         self.set_loop_momentum_energies(k_def, cut, mat, cache);
 
@@ -2812,6 +2814,8 @@ impl Topology {
 
                 cache.complex_prop_spatial[p.id] = cm;
                 cache.complex_cut_energies[p.id] = cm.sqrt();
+
+                // TODO: cache all required powers of the energies
             }
 
             let has_positive_cut = self.ltd_cut_structure.iter().any(|x| x[ll_index] == 1);
@@ -3192,13 +3196,7 @@ impl Topology {
         &mut self,
         x: &'a [f64],
         cache: &mut LTDCache<T>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
-        T,
-        Complex<T>,
-        Complex<T>,
-    ) {
+    ) -> Complex<T> {
         // parameterize
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut jac_para = T::one();
@@ -3229,7 +3227,7 @@ impl Topology {
         }
 
         // deform
-        let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
+        let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>;
         let mut jac_def = Complex::one();
 
         let r = if self.settings.general.multi_channeling {
@@ -3248,7 +3246,7 @@ impl Topology {
                 .compute_complex_cut_energies(&k_def[..self.n_loops], cache)
                 .is_err()
             {
-                return (x, k_def, jac_para, jac_def, Complex::default());
+                return Complex::default();
             }
 
             self.evaluate_all_dual_integrands(&mut k_def[..self.n_loops], cache)
@@ -3257,13 +3255,7 @@ impl Topology {
         let mut result = match r {
             Ok(v) => v,
             Err(_) => {
-                return (
-                    x,
-                    ArrayVec::default(),
-                    jac_para,
-                    jac_def,
-                    Complex::default(),
-                )
+                return Complex::default();
             }
         };
 
@@ -3283,20 +3275,13 @@ impl Topology {
         result *= jac_def * jac_para;
 
         if self.settings.general.use_amplitude {
-            (
-                x,
-                k_def,
-                jac_para,
-                jac_def,
-                result
-                    + Complex::new(
-                        Into::<T>::into(self.amplitude.int_ct[0].re),
-                        Into::<T>::into(self.amplitude.int_ct[0].im),
-                    ),
-            )
+            result
+                + Complex::new(
+                    Into::<T>::into(self.amplitude.int_ct[0].re),
+                    Into::<T>::into(self.amplitude.int_ct[0].im),
+                )
         } else {
-            // println!("RES {:e} {:e} {:e} {:e}",x[0],x[1],x[2],result);
-            (x, k_def, jac_para, jac_def, result)
+            result
         }
     }
 

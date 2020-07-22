@@ -1,5 +1,4 @@
-use arrayvec::ArrayVec;
-use color_eyre::{Help, Report};
+use color_eyre::Help;
 use dashboard::{StatusUpdate, StatusUpdateSender};
 use eyre::WrapErr;
 use f128::f128;
@@ -10,7 +9,6 @@ use observables::EventManager;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::time::Instant;
-use vector::LorentzVector;
 use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 
 pub trait IntegrandImplementation: Clone {
@@ -23,26 +21,14 @@ pub trait IntegrandImplementation: Clone {
         x: &'a [f64],
         cache: &mut Self::Cache,
         events: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]>,
-        float,
-        Complex<float>,
-        Complex<float>,
-    );
+    ) -> Complex<float>;
 
     fn evaluate_f128<'a>(
         &mut self,
         x: &'a [f64],
         cache: &mut Self::Cache,
         events: Option<&mut EventManager>,
-    ) -> (
-        &'a [f64],
-        ArrayVec<[LorentzVector<Complex<f128>>; MAX_LOOP]>,
-        f128,
-        Complex<f128>,
-        Complex<f128>,
-    );
+    ) -> Complex<f128>;
 
     fn create_cache(&self) -> Self::Cache;
 }
@@ -173,8 +159,7 @@ macro_rules! check_stability_precision {
                 println!("Evaluating integrand with rotated topologies");
             }
 
-            let (_, _k_def_rot, _jac_para_rot, _jac_def_rot, result_rot) =
-                rot_topo.$eval_fn(x, cache, Some(event_manager));
+            let result_rot = rot_topo.$eval_fn(x, cache, Some(event_manager));
 
             // compute the number of similar digits
             match self.settings.integrator.integrated_phase {
@@ -265,7 +250,6 @@ impl<I: IntegrandImplementation> Integrand<I> {
         id: usize,
     ) -> Integrand<I> {
         // create extra topologies with rotated kinematics to check the uncertainty
-        let mut rng = rand::thread_rng();
         let mut topologies = vec![topology.clone()];
 
         if settings.general.force_f128 {
@@ -318,13 +302,9 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
     fn print_info<T: FloatLike>(
         &mut self,
-        n_loops: usize,
         new_max: bool,
         unstable: bool,
         x: &[f64],
-        k_def: &ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]>,
-        jac_para: T,
-        jac_def: Complex<T>,
         result: Complex<T>,
         rot_result: Complex<T>,
         stable_digits: T,
@@ -340,53 +320,18 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 && (self.settings.general.screen_log_core == None
                     || self.settings.general.screen_log_core == Some(self.id));
 
-            match n_loops {
-                1 => {
-                    if log_to_screen {
-                        eprintln!(
-                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def
-                    );
-                    }
-                    writeln!(self.log, "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], jac_para, jac_def).unwrap();
-                }
-                2 => {
-                    if log_to_screen {
-                        eprintln!(
-                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def
-                    );
-                    }
-                    writeln!(self.log, "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], jac_para, jac_def).unwrap();
-                }
-                3 => {
-                    if log_to_screen {
-                        eprintln!(
-                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
-                    );
-                    }
-                    writeln!(self.log,
-                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], jac_para, jac_def
-                    ).unwrap();
-                }
-                4 => {
-                    if log_to_screen {
-                        eprintln!(
-                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | n={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], k_def[3], jac_para, jac_def
-                    );
-                    }
-                    writeln!(self.log,
-                        "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n  | k={:e}\n  | l={:e}\n  | m={:e}\n  | n={:e}\n  | jac_para={:e}, jac_def={:e}",
-                        sample_or_max, result, rot_result, stable_digits, x, k_def[0], k_def[1], k_def[2], k_def[3], jac_para, jac_def
-                    ).unwrap();
-                }
-                _ => {}
+            if log_to_screen {
+                eprintln!(
+                    "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n",
+                    sample_or_max, result, rot_result, stable_digits, x
+                );
             }
+            writeln!(
+                self.log,
+                "{}\n  | result={:e}, rot={:e}, stable digits={}\n  | x={:?}\n",
+                sample_or_max, result, rot_result, stable_digits, x
+            )
+            .unwrap();
         }
     }
 
@@ -498,8 +443,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         let mut event_manager = std::mem::replace(&mut self.event_manager, EventManager::default());
 
         let mut cache = std::mem::replace(&mut self.cache, I::Cache::default());
-        let (x, k_def, jac_para, jac_def, mut result) =
-            self.topologies[0].evaluate_float(x, &mut cache, Some(&mut event_manager));
+        let mut result = self.topologies[0].evaluate_float(x, &mut cache, Some(&mut event_manager));
         let (d, diff, min_rot, max_rot) = self.check_stability_float(
             x,
             result,
@@ -548,70 +492,17 @@ impl<I: IntegrandImplementation> Integrand<I> {
             event_manager.clear(false);
 
             if self.settings.general.integration_statistics {
-                let loops = self.n_loops;
-                self.print_info(
-                    loops, false, true, x, &k_def, jac_para, jac_def, min_rot, max_rot, d,
-                );
+                self.print_info(false, true, x, min_rot, max_rot, d);
             }
 
             if self.settings.general.log_quad_upgrade {
-                match self.n_loops {
-                    1 => writeln!(
-                        self.quadruple_upgrade_log,
-                        "{:?} {} {} {}",
-                        x, k_def[0].x.re, k_def[0].y.re, k_def[0].z.re
-                    )
-                    .unwrap(),
-                    2 => writeln!(
-                        self.quadruple_upgrade_log,
-                        "{} {} {} {} {} {}",
-                        k_def[0].x.re,
-                        k_def[0].y.re,
-                        k_def[0].z.re,
-                        k_def[1].x.re,
-                        k_def[1].y.re,
-                        k_def[1].z.re
-                    )
-                    .unwrap(),
-                    3 => writeln!(
-                        self.quadruple_upgrade_log,
-                        "{} {} {} {} {} {} {} {} {}",
-                        k_def[0].x.re,
-                        k_def[0].y.re,
-                        k_def[0].z.re,
-                        k_def[1].x.re,
-                        k_def[1].y.re,
-                        k_def[1].z.re,
-                        k_def[2].x.re,
-                        k_def[2].y.re,
-                        k_def[2].z.re
-                    )
-                    .unwrap(),
-                    4 => writeln!(
-                        self.quadruple_upgrade_log,
-                        "{} {} {} {} {} {} {} {} {} {} {} {}",
-                        k_def[0].x.re,
-                        k_def[0].y.re,
-                        k_def[0].z.re,
-                        k_def[1].x.re,
-                        k_def[1].y.re,
-                        k_def[1].z.re,
-                        k_def[2].x.re,
-                        k_def[2].y.re,
-                        k_def[2].z.re,
-                        k_def[3].x.re,
-                        k_def[3].y.re,
-                        k_def[3].z.re
-                    )
-                    .unwrap(),
-                    _ => {}
-                }
+                writeln!(self.quadruple_upgrade_log, "{:?}", x).unwrap();
                 self.quadruple_upgrade_log.flush().unwrap();
             }
 
             // compute the point again with f128 to see if it is stable then
             std::mem::swap(&mut self.cache, &mut cache);
-            let (_, k_def_f128, jac_para_f128, jac_def_f128, result_f128) =
+            let result_f128 =
                 self.topologies[0].evaluate_f128(x, &mut cache, Some(&mut event_manager));
             // NOTE: for this check we use a f64 rotation matrix at the moment!
             let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability_quad(
@@ -634,19 +525,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 || diff_f128 > NumCast::from(self.settings.general.absolute_precision).unwrap()
             {
                 if self.settings.general.integration_statistics {
-                    let loops = self.n_loops;
-                    self.print_info(
-                        loops,
-                        false,
-                        true,
-                        x,
-                        &k_def_f128,
-                        jac_para_f128,
-                        jac_def_f128,
-                        min_rot_f128,
-                        max_rot_f128,
-                        d_f128,
-                    );
+                    self.print_info(false, true, x, min_rot_f128, max_rot_f128, d_f128);
                 }
 
                 if !result_f128.is_finite() {
@@ -727,10 +606,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         }
 
         if self.settings.general.integration_statistics {
-            let loops = self.n_loops;
-            self.print_info(
-                loops, new_max, false, x, &k_def, jac_para, jac_def, min_rot, max_rot, d,
-            );
+            self.print_info(new_max, false, x, min_rot, max_rot, d);
         }
 
         event_manager.process_events(result, weight);
