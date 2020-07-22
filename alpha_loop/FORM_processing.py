@@ -2537,7 +2537,7 @@ int %(header)sget_rank(int diag, int conf) {{
         return None
 
     @classmethod
-    def shrink_edges(cls, edges, nodes, edges_to_shrink):
+    def shrink_edges(cls, edges, nodes, edges_to_shrink, bubble_external_shrinking_step=False):
         subgraph_pdgs = set()
         for ek in list(edges.keys()):
             ee = edges[ek]
@@ -2555,16 +2555,23 @@ int %(header)sget_rank(int diag, int conf) {{
             # fuse vertices
             if ee['vertices'][0] != ee['vertices'][1]:
                 node = nodes[ee['vertices'][0]]
-                # START TEMPORARY HACK
-                # Mark this node as being shrunk. Eventually there will be a more general way of handling
-                # multiple effective shrunk renormalisation nodes. For now, I just flag it here as one-loop
-                node['renormalisation_vertex_n_loops'] = 1
-                node['renormalisation_vertex_n_shrunk_edges'] = len(edges_to_shrink)
+                # START TEMPORARY HACK (Just for the node rendering purposes)
+                if not bubble_external_shrinking_step:
+                    # Mark this node as being shrunk. Eventually there will be a more general way of handling
+                    # multiple effective shrunk renormalisation nodes. For now, I just flag it here as one-loop
+                    node['renormalisation_vertex_n_loops'] = 1
+                    node['renormalisation_vertex_n_shrunk_edges'] = len(edges_to_shrink)
                 # END TEMPORARY HACK
                 for na in ee['vertices'][1:]:
                     n = nodes[na]
                     for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
                         node[g] = tuple(list(node[g]) + list(n[g]))
+                    # START TEMPORARY HACK (Just for the node rendering purposes)
+                    if bubble_external_shrinking_step:
+                        for g in ['renormalisation_vertex_n_loops', 'renormalisation_vertex_n_shrunk_edges']:
+                            if g not in node and g in n:
+                                node[g] = n[g]
+                    # END TEMPORARY HACK
                     del nodes[na]
 
                 vert_to_replace = ee['vertices'][1]
@@ -2639,7 +2646,7 @@ int %(header)sget_rank(int diag, int conf) {{
                                     vertex_factors.append('(' + vertex_contrib + ')')
 
                     # shrink the UV subgraph in the edge list
-                    subgraph_pdgs = self.shrink_edges(edges, nodes, diag_set['uv_propagators'])
+                    subgraph_pdgs = self.shrink_edges(edges, nodes, diag_set['uv_propagators'],bubble_external_shrinking_step=False)
 
                     # BEGIN PIECE OF MULTIPLICITY HACK
                     is_made_of_gluons_only = set(subgraph_pdgs)==set([21,])
@@ -2725,7 +2732,7 @@ int %(header)sget_rank(int diag, int conf) {{
                             break
                     else:
                         # remove all bubble edges, since they will cancel with the effective vertex
-                        subgraph_pdgs = self.shrink_edges(edges, nodes, bubble_edges)
+                        subgraph_pdgs = self.shrink_edges(edges, nodes, bubble_edges, bubble_external_shrinking_step=True)
                         
                         # set the correct particle ordering for all the edges
                         for n in nodes.values():

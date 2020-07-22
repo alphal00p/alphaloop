@@ -584,7 +584,7 @@ impl SquaredTopologySet {
                             .or_insert(0) += 1;
                         *n_ltd_cuts_per_loop
                             .entry(d_info.graph.n_loops as i32)
-                            .or_insert(0) += d_info.graph.ltd_cut_options.len() as i32;
+                            .or_insert(0) += d_info.graph.ltd_cut_options.iter().map(|v| v.len() as i32).sum::<i32>().max(1);
                     }
                 }
             }
