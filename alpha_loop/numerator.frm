@@ -494,7 +494,7 @@ endif;
 .sort:integrated-ct-1;
 
 Multiply replace_(D, 4 - 2 * ep);
-id ep^n1? = rat(ep^n1,1);
+id ep^n1? = rat(ep^(n1-`SELECTEDEPSILONORDER'),1);
 .sort:ep-collection;
 PolyRatFun rat(expand,ep,6);
 .sort:ep-expansion;

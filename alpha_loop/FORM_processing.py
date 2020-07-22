@@ -70,7 +70,8 @@ FORM_processing_options = {
     'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
     'generate_integrated_UV_CTs' : True,
     'generate_renormalisation_graphs' : True,
-    'UV_min_dod_to_subtract' : 0
+    'UV_min_dod_to_subtract' : 0,
+    'selected_epsilon_UV_order' : 0
 }
 
 # Can switch to tmpdir() if necessary at some point
@@ -1164,7 +1165,7 @@ CTable pftopo(0:{});
                     bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
                         final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace,
-                        integrand_type=integrand_type)
+                        bar=bar, integrand_type=integrand_type)
 
         if integrand_type is not None:
             if integrand_type == "LTD":
@@ -1363,7 +1364,7 @@ class FORMSuperGraphIsomorphicList(list):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
-        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA']
+        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER']
 
         if FORM_vars is None:
             raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
@@ -2014,7 +2015,9 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
-        FORM_vars={}
+        FORM_vars={
+            'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order']
+        }
         if integrand_type is not None:
             FORM_vars['INTEGRAND'] = integrand_type
 
@@ -2280,8 +2283,8 @@ int %(header)sget_rank(int diag, int conf) {{
             renormalization_graphs = []
         self.extend([FORMSuperGraphIsomorphicList([g]) for g in renormalization_graphs])
 
-        with progressbar.ProgressBar(prefix='Generating renormalization squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, {variables.timing} ms / supergraph) : '%len(renormalization_graphs), 
-                max_value=len(renormalization_graphs), variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb' : '0'} ) as bar:
+        with progressbar.ProgressBar(prefix='Generating renormalization squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, PF #{variables.PF_config}, {variables.timing} ms / supergraph) : '%len(renormalization_graphs), 
+                max_value=len(renormalization_graphs), variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb' : '0', 'PF_config': 'N/A'} ) as bar:
             total_time=0.0
             for i, g in enumerate(renormalization_graphs):
                 time_before = time.time()
@@ -2372,6 +2375,12 @@ int %(header)sget_rank(int diag, int conf) {{
         delta_Z_gluon.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( -4/%(ep)s ) )'%symbol_replacement_dict)
         # Add the massive quark contribution to the gluon wavefunction renormalisation
         for q_pdg in massive_quark_pdgs:
+
+            if q_pdg not in hardcoded_log_quark_mass:
+                raise FormProcessingError( 
+                    ("There is not hard-coded symbol for the logarithm of the mass of particle with PDG=%d.\n"%q_pdg)+
+                    "Are you sure you did not to specify forbidden particles in your process definition, using the / x y z syntax?")
+
             delta_Z_gluon.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( -4/%(ep)s - 4*(logmu - %(log_quark_mass)s) ) )'%(
                 dict(symbol_replacement_dict,**{
                     'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
@@ -2750,7 +2759,10 @@ class FORMProcessor(object):
             logger.warning('%s\n\nAs per user request, not all UV divegences will be locally subtracted. Numerical integration may be divergent in the UV.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
         if FORM_processing_options['UV_min_dod_to_subtract']<0:
             logger.warning('%s\n\nAs per user request, subleading UV divegences will also be locally subtracted. Very complicated integrands may result from this.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
-
+        if FORM_processing_options['selected_epsilon_UV_order']!=0:
+            logger.warning('%s\n\nAs per user request, the selected epsilon order to be exported will be %d. This must be for pole cancellation check only. \n\n%s'%(
+                                                        utils.bcolors.RED, FORM_processing_options['selected_epsilon_UV_order'], utils.bcolors.ENDC))
+    
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""
 
