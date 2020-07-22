@@ -110,7 +110,12 @@ class FORMSuperGraph(object):
         # VxVV (e.g. W+ W- a )
         ( -3, 3, 3 ): (1, 0, 2),
         # Fx F
-        (-2, 2): (0, 1)
+        (-2, 2): (0, 1),
+        # V V
+        (-3,3): (0,1),
+        (3,3): (0,1),
+        # S S
+        (1,1): (0,1)
     }
 
     _include_momentum_routing_in_rendering=False
