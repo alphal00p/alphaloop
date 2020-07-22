@@ -2561,6 +2561,10 @@ int %(header)sget_rank(int diag, int conf) {{
                     vertex_factors = []
                     uv_effective_vertex_edges = []
 
+                    # BEGIN PIECE OF MULTIPLICITY HACK
+                    has_pure_external_gluon_effective_vertex = False
+                    # END PIECE OF MULTIPLICITY HACK
+
                     # Compute the bubble edges so as to be able to determine if the bubble to computed the renormalisation vertex for is "internal" or "external".
                     bubble_edges = set()
                     for c in cut_info['cuts']:
@@ -2576,6 +2580,10 @@ int %(header)sget_rank(int diag, int conf) {{
                                 edges_on_vertex = [e[0] for e in graph.edge_map_lin if v in e[1:]]
                                 uv_effective_vertex_edges.append((edges_on_vertex, l))
                                 edge_pdgs = tuple(next(ee for ee in edges.values() if ee['name'] == e)['PDG'] for e in edges_on_vertex)
+                                # BEGIN PIECE OF MULTIPLICITY HACK
+                                if not has_pure_external_gluon_effective_vertex:
+                                    has_pure_external_gluon_effective_vertex = set(edge_pdgs)==set([21,])
+                                # END PIECE OF MULTIPLICITY HACK
                                 is_external_bubble = ( (len(edges_on_vertex)==2) and any( (e in bubble_edges) for e in edges_on_vertex) )
                                 vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l, model, process_definition, is_external_bubble=is_external_bubble)
                                 if vertex_contrib is None:
@@ -2593,6 +2601,10 @@ int %(header)sget_rank(int diag, int conf) {{
 
                     # shrink the UV subgraph in the edge list
                     subgraph_pdgs = self.shrink_edges(edges, nodes, diag_set['uv_propagators'])
+
+                    # BEGIN PIECE OF MULTIPLICITY HACK
+                    is_made_of_gluons_only = set(subgraph_pdgs)==set([21,])
+                    # END PIECE OF MULTIPLICITY HACK
 
                     # Recomputed the bubble edges now the that UV subgraph has been shrunk, they will be removed at the end
                     bubble_edges = set()
@@ -2648,12 +2660,29 @@ int %(header)sget_rank(int diag, int conf) {{
                         v_colors[vertex_map.index(n)] = l
 
                     for (ref_graph, ref_v_colors, ref_e_colors),  ref_ren_graph in renormalization_graphs:
+
+                        # BEGIN PIECE OF MULTIPLICITY HACK
+                        # If this loop super graph is a multi-gluon one but does not contain only gluons in its loop content
+                        # then we skip it here immediately as we want to instead use the loop graphs with gluon only as a 
+                        # representative so that we can inherit the right symmetry factor
+                        if has_pure_external_gluon_effective_vertex and not is_made_of_gluons_only:
+                            break
+                        # END PIECE OF MULTIPLICITY HACK
+
                         if ref_graph.get_isomorphisms_vf2(g,
                             color1=ref_v_colors,
                             color2=v_colors,
                             edge_color1=ref_e_colors,
                             edge_color2=edge_colors) != []:
-                            assert(multiplicity == ref_ren_graph.multiplicity)
+
+                            # BEGIN PIECE OF MULTIPLICITY HACK
+                            if not has_pure_external_gluon_effective_vertex:
+                                if multiplicity != ref_ren_graph.multiplicity:
+                                    raise FormProcessingError(
+                                        "Two loop SG mapped to the same renormalisation graph have "+
+                                        "different multiplicities even though it is expected that they should not.")
+                            # END PIECE OF MULTIPLICITY HACK
+                            
                             break
                     else:
                         # remove all bubble edges, since they will cancel with the effective vertex
