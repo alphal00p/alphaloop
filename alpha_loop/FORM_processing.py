@@ -1869,7 +1869,7 @@ class FORMSuperGraphList(list):
                         mom_map, constants, loops = graph[0].integrand_info[conf_id]
                         const_secs = conf_sec.split('#CONSTANTS')[1]
                         const_secs = const_secs.replace('\n', '')
-                        const_code = '*'.join('\t({}+{})'.format(e, mass) for e, (_, mass) in zip(const_secs.split(','), constants) if e != '')
+                        const_code = '*'.join('\t({}-{})'.format(e, mass) for e, (_, mass) in zip(const_secs.split(','), constants) if e != '')
 
                         # parse the energies
                         energy_secs = conf_sec.split('#ENERGIES')[1]
