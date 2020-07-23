@@ -176,13 +176,14 @@ id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
 * delta_Z vertex
-id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = ((4/3)*gs^2/16/pi^2) * i_ * (1/ep) * gamma(dirac[idx1], p1, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
+id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = ((4/3)*gs^2/16/pi^2) * i_ * (1/ep) * gamma(dirac[idx1], p2, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
 id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = ((4/3)*gs^2/16/pi^2) * i_ * ( 
-      (1/ep + 4 + 3*(logmu - logmasses(x1)) ) * gamma(dirac[idx1], p1, dirac[idx2]) 
+      (1/ep + 4 + 3*(logmu - logmasses(x1)) ) * gamma(dirac[idx1], p2, dirac[idx2]) 
     + (3/ep + 4 + 3*(logmu - logmasses(x1)) ) * masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) * d_(colF[idx1], colF[idx2]);
 
 * The version below is for contributions to the gluon wavefunction from g, gh and top quark only, so it is good for e+ e- > h t t~ j / u d c s b
-id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) =  i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
+* MUST CHECK IF (p1.p1)*d_(lorentz[idx1], lorentz[idx2]) is CORRECT AND ONE DOES NOT NEED p1(lorentz[idx1]) * p1(lorentz[idx2]) instead
+id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) =  i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
      (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
     +( (1/2)*(1/2)*gs^2/48/pi^2 * ( -4/ep - 4*(logmu - logmt) ) ))
 );
