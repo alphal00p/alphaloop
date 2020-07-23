@@ -2353,8 +2353,8 @@ int %(header)sget_rank(int diag, int conf) {{
 
         # WARNING: All the things below are a SHAME and must be generalised as soon as we're done with the publication....
 
-        # Internal renormalisation 2-point vertices are coded directly in numerator.frm
-        if len(in_pdgs)==2 and not is_external_bubble:
+        # All renormalisation 2-point vertices are for now coded up directly in numerator.frm
+        if len(in_pdgs)==2: #and not is_external_bubble:
             return '1'
 
         hardcoded_mass_parameters = {
@@ -2409,7 +2409,7 @@ int %(header)sget_rank(int diag, int conf) {{
                     ("There is not hard-coded symbol for the logarithm of the mass of particle with PDG=%d.\n"%q_pdg)+
                     "Are you sure you did not to specify forbidden particles in your process definition, using the / x y z syntax?")
 
-            delta_Z_gluon.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( -4/%(ep)s - 4*(logmu - %(log_quark_mass)s) ) )'%(
+            delta_Z_gluon.append('( (1/2)*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( -4/%(ep)s - 4*(logmu - %(log_quark_mass)s) ) )'%(
                 dict(symbol_replacement_dict,**{
                     'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
                 })
@@ -2424,7 +2424,7 @@ int %(header)sget_rank(int diag, int conf) {{
         delta_g_s.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( 4/%(ep)s ) )'%symbol_replacement_dict)
         # Add the massive quark contribution to the strong coupling renormalisation
         for q_pdg in massive_quark_pdgs:
-            delta_g_s.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( 4/%(ep)s + 4*(logmu - %(log_quark_mass)s) ) )'%(
+            delta_g_s.append('( (1/2)*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( 4/%(ep)s + 4*(logmu - %(log_quark_mass)s) ) )'%(
                 dict(symbol_replacement_dict,**{
                     'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
                 })
@@ -2461,24 +2461,26 @@ int %(header)sget_rank(int diag, int conf) {{
         # Now build the specified UV renormalisation vertices
         ########################################################
 
+#       Self-energies are for now coded up direclty in numerator.frm
+
         # quark self-energy
-        if len(pdgs) == 2 and pdgs[0] in quark_pdgs and pdgs[1]==pdgs[0]:
-            quark_mass = get_particle_mass(pdgs[0])
-            if quark_mass=='ZERO':
-                res = ('(-(%s))'%delta_Z_massless_quark)%symbol_replacement_dict
-                res = res
-                return res
-            else:
-                res = ('(-(%s))'%delta_Z_massive_quark)%(
-                    dict(symbol_replacement_dict,**{
-                        'quark_mass':quark_mass,
-                        'log_quark_mass':hardcoded_log_quark_mass[pdgs[0]],                            
-                    }))
-                return res
+#        if len(pdgs) == 2 and pdgs[0] in quark_pdgs and pdgs[1]==pdgs[0]:
+#            quark_mass = get_particle_mass(pdgs[0])
+#            if quark_mass=='ZERO':
+#                res = ('(-(%s))'%delta_Z_massless_quark)%symbol_replacement_dict
+#                res = res
+#                return res
+#            else:
+#                res = ('(-(%s))'%delta_Z_massive_quark)%(
+#                    dict(symbol_replacement_dict,**{
+#                        'quark_mass':quark_mass,
+#                        'log_quark_mass':hardcoded_log_quark_mass[pdgs[0]],                            
+#                    }))
+#                return res
 
         # gluon self-energy
-        if len(pdgs) == 2 and pdgs[0]==21 and pdgs[1]==pdgs[0]:
-            return '(-(%s))'%delta_Z_gluon
+#        if len(pdgs) == 2 and pdgs[0]==21 and pdgs[1]==pdgs[0]:
+#            return '(-(%s))'%delta_Z_gluon
 
         # a/z qq vertex
         if len(pdgs) == 3 and (pdgs[0] in [22,23]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
