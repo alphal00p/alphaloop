@@ -90,7 +90,7 @@ Fill charges(-5) = 1/3; * b
 Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
-S D, ep;
+S D, ep(:3);
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext;
@@ -334,6 +334,7 @@ B+ uv;
 .sort:bubble-treatment;
 Keep brackets;
 
+* TODO: do the local UV construction in the cmb
 argument uv;
    repeat;
 * all subgraphs without dependencies can be treated at the same time
@@ -379,7 +380,12 @@ argument uv;
     endif;
 endargument;
 id uv(x?) = x;
-.sort:uv-treatment;
+.sort:local-uv-treatment;
+
+* convert the polynomial to the cut momentum basis
+id conf(x?,cmb(?a$x),?b) = conf(x,?b)*replace_(?a);
+Multiply cmb($x); * store a copy for the integrand routine
+.sort:cmb;
 
 * compute the integrated UV counterterm
 * FIXME: we are not given the complete denominator: denominators that have no external momentum dependence are not in the subgraph
@@ -535,9 +541,7 @@ id ep^n? = 1;
     #endif
 #endif
 
-* convert the polynomial to the cut momentum basis
-id conf(x?,cmb(?a),?b) = conf(x,?b)*replace_(?a);
-.sort:cmb;
+id cmb(?a) = replace_(?a);
 
 * now extract the energy components of the LTD loop variables
 id k1?.k2? = g(k1, k2);
