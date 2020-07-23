@@ -621,11 +621,13 @@ class TopologyGenerator(object):
         split_graphs = []
         for g in graphs:
             # bubble: 2 external momenta only
-            if len(g.ext) == 2 and len(g.edge_map_lin) > 2:
+            # a single vertex is also considered a bubble
+            if len(g.ext) == 2 and len(g.edge_map_lin) >= 2:
                 g.inherit_loop_momentum_basis(self)
                 ext = g.ext[0]
 
                 bubble_momenta = tuple(sorted(g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i not in g.ext))
+                bubble_ext_momenta = tuple(sorted(g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i in g.ext))
 
                 # take the derivative by raising the propagator of every propagator that has the bubble momentum
                 dep_momenta = [g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i not in g.ext
@@ -642,7 +644,7 @@ class TopologyGenerator(object):
                     g1.powers[x] = 2
                     bubble_derivatives.append({
                         'graph':  g1,
-                        'bubble_momenta': bubble_momenta,
+                        'bubble_momenta': (bubble_momenta, bubble_ext_momenta),
                         'derivative': (cut_mom, x),
                         'conjugate_deformation': g.conjugate
                     })
@@ -650,7 +652,7 @@ class TopologyGenerator(object):
                 # the g itself will have the derivative of the numerator
                 bubble_derivatives.append({
                     'graph':  g,
-                    'bubble_momenta': bubble_momenta,
+                    'bubble_momenta': (bubble_momenta, bubble_ext_momenta),
                     'derivative': (cut_mom, cut_mom),
                     'conjugate_deformation': g.conjugate
                 })

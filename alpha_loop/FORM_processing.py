@@ -1328,8 +1328,15 @@ CTable pftopo(0:{});
         # replace external momentum in all bubble vertices and edges with a dummy momentum
         # TODO: there is an awful lot of string manipulation here...
         mommap = []
-        for i, (bubble_edges, (cut_edge, bubble_derivative_edges)) in enumerate(bubble_to_cut.items()):
+        for i, ((bubble_edges, bubble_ext_edges), (cut_edge, bubble_derivative_edges)) in enumerate(bubble_to_cut.items()):
             ce = next(ee for ee in self.edges.values() if ee['name'] == cut_edge)
+
+            if len(bubble_derivative_edges) == 0:
+                # the bubble is a single vertex: update it
+                bubble_v = next(v for v in self.nodes.values() if set(self.edges[eid]['name'] for eid in v['edge_ids']) == set(bubble_ext_edges))
+                bubble_v['momenta'] = ('pbubble' + str(i) if bubble_v['momenta'][0] == ce['momentum'] else '-pbubble' + str(i),
+                    'pbubble' + str(i) if bubble_v['momenta'][1] == ce['momentum'] else '-pbubble' + str(i))
+
             for edge in bubble_derivative_edges:
                 e = next(ee for ee in self.edges.values() if ee['name'] == edge)
 
@@ -2732,7 +2739,7 @@ int %(header)sget_rank(int diag, int conf) {{
                             break
                     else:
                         # remove all bubble edges, since they will cancel with the effective vertex
-                        subgraph_pdgs = self.shrink_edges(edges, nodes, bubble_edges, bubble_external_shrinking_step=True)
+                        #subgraph_pdgs = self.shrink_edges(edges, nodes, bubble_edges, bubble_external_shrinking_step=True)
                         
                         # set the correct particle ordering for all the edges
                         for n in nodes.values():
