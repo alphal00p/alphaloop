@@ -321,7 +321,7 @@ if __name__ == "__main__":
         WORKSPACE = pjoin(VALIDATION_PATH, '%s_%s' % (process_name, suffix))
     elif os.path.exists(args.process):
         aL_process_output = args.process
-        WORKSPACE = pjoin(VALIDATION_PATH, 'EXT_%s_%s' % (process_name, suffix))
+        WORKSPACE = pjoin(VALIDATION_PATH, process_name)
     else:
         raise ValueError(
             "Process definition must be a name or path not %s"%process_name)
