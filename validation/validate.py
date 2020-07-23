@@ -183,8 +183,12 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                     err_path, out_path))
 
     with open(log_path, 'w' if force else 'a') as stdlog:
-        if not log_info['IntegrandStatistics']:
-            log_info['IntegrandStatistics']['running_max_stability'] = list(log_info['IntegrandStatistics']['running_max_stability'])
+        if not log_info['IntegrandStatistics'] is None:
+            for k, v in log_info['IntegrandStatistics'].items():
+                if isinstance(v,tuple):
+                    v = list(v)
+                    log_info['IntegrandStatistics'][k] = list(v)
+#            log_info['IntegrandStatistics']['running_max_stability'] = list(log_info['IntegrandStatistics']['running_max_stability'])
         yaml.dump([log_info], stdlog, default_flow_style=None)
 
 
@@ -244,7 +248,8 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = ArgumentParser()
-    parser.add_argument("--process", dest="process", help="process name")
+    parser.add_argument("--process", dest="process", 
+                        help="define either a process_name form the card/ subfolder or a path to a alphaLoop@MG5 folder")
     parser.add_argument("-g", "--generate", action="store_true", dest="generate", default=False,
                         help="Generate alphaLoop output")
     parser.add_argument("--force", action="store_true", dest="force", default=False,
@@ -282,7 +287,7 @@ if __name__ == "__main__":
         raise ValueError(
             "\nNeed to specify at leas one of --run, --collect, --generate and --validate\n")
 
-    process_name = args.process
+    process_name = os.path.basename(re.sub(r'/$','',args.process))
     suffix = args.order
     CORES = args.cores
     # Integrator Settings
@@ -310,11 +315,17 @@ if __name__ == "__main__":
     hyper_settings['CrossSection']['gs'] = 1.2177157847767195
 
     # Define paths to executables, files and workspace
-    aL_process_output = pjoin(MG_PATH, 'TEST_QGRAF_%s_%s' %
-                              (process_name, suffix))
-    CROSS_SECTION_SET = pjoin(aL_process_output, 'Rust_inputs',
-                              'all_QG_supergraphs.yaml')
-    WORKSPACE = pjoin(VALIDATION_PATH, '%s_%s' % (process_name, suffix))
+    if os.path.exists(pjoin(VALIDATION_PATH, 'cards', "%s_%s.aL"%(process_name, suffix))):
+        aL_process_output = pjoin(MG_PATH, 'TEST_QGRAF_%s_%s' %
+                                  (process_name, suffix))
+        WORKSPACE = pjoin(VALIDATION_PATH, '%s_%s' % (process_name, suffix))
+    elif os.path.exists(args.process):
+        aL_process_output = args.process
+        WORKSPACE = pjoin(VALIDATION_PATH, 'EXT_%s_%s' % (process_name, suffix))
+    else:
+        raise ValueError(
+            "Process definition must be a name or path not %s"%process_name)
+
     COLLECTION_PATH = pjoin(WORKSPACE, "%s_%s_results.csv" %
                             (process_name, 'nocut' if args.min_jets == 0 else args.min_jpt))
     MG5 = pjoin(MG_PATH, 'bin', 'mg5_aMC')
@@ -323,7 +334,7 @@ if __name__ == "__main__":
     #############
     #  Generate
     #############
-    if args.generate:
+    if args.generate and not os.path.exists(args.process):
         if os.path.exists(aL_process_output) and not args.force:
             print(
                 "\033[1;32;48mSkip generation use --force to regenerate!\033[0m")
@@ -331,6 +342,12 @@ if __name__ == "__main__":
             r = subprocess.run([MG5, '--mode=alphaloop', CARD],
                                cwd=MG_PATH,
                                capture_output=False)
+    
+    # Define the path to the cross section files
+    CROSS_SECTION_SET = pjoin(aL_process_output, 'Rust_inputs', 'all_QG_supergraphs.yaml')
+    if not os.path.exists(CROSS_SECTION_SET):
+        print("Cannot find all_QG_supergraphs.yaml trying with %s.yaml"%process_name)
+        CROSS_SECTION_SET = pjoin(aL_process_output, 'Rust_inputs', '%s.yaml'%process_name)
 
     # load instructions
     try:
@@ -351,6 +368,12 @@ if __name__ == "__main__":
         Path(pjoin(WORKSPACE, 'hyperparameters')).mkdir(
             parents=True, exist_ok=True)
         sg_list = [topo['name'] for topo in instructions['topologies']]
+       
+        # check when selected if the diag_name is valid 
+        if args.diag_name is not None and not args.diag_name in sg_list:
+            raise ValueError(
+                    "diag name must be one of: {}".format(sg_list))
+            
         for sg_id, sg_name in enumerate(sg_list):
             VEGAS_STATE_FILE = pjoin(WORKSPACE, "%s_%s_%s_state.dat" %
                                      (process_name, 'nocut' if args.min_jets == 0 else args.min_jpt, sg_name))
