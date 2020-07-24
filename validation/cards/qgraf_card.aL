@@ -7,19 +7,16 @@ set_alphaLoop_option consider_vertex_id_in_graph_isomorphism False
 set_alphaLoop_option apply_graph_isomorphisms True
 
 # Memory limit (max 1T)
-set_alphaLoop_option virtual_memory 100G
-set_alphaLoop_option FORM_compile_cores 10
+set_alphaLoop_option virtual_memory %(virtual_memory)s
+set_alphaLoop_option FORM_compile_cores %(FORM_compile_cores)d
 
 # FORM options
 set_alphaLoop_option FORM_processing_output_format c
-set_alphaLoop_option FORM_compile_optimization 3 
-set_alphaLoop_option FORM_compile_arg all 
+set_alphaLoop_option FORM_compile_optimization %(FORM_compile_optimization)s 
+set_alphaLoop_option FORM_compile_arg %(FORM_compile_arg)s 
 
 # QGRAF model 
-set_alphaLoop_option qgraf_template_model epem
+set_alphaLoop_option qgraf_template_model %(qgraf_template_model)s
 
 # Process
-qgraf_generate e+ e- > a > h t t~ d d~ /u s c b QCD^2==2 QED^2==3 []
-!rm -rf TEST_QGRAF_epem_a_httxddx_LO
-output qgraf TEST_QGRAF_epem_a_httxddx_LO
-
+%(process_commands)s

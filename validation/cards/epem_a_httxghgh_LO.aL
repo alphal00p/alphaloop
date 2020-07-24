@@ -19,7 +19,7 @@ set_alphaLoop_option FORM_compile_arg all
 set_alphaLoop_option qgraf_template_model epem
 
 # Process
-qgraf_generate e+ e- > a > h t t~ d d~ /u s c b QCD^2==2 QED^2==3 []
-!rm -rf TEST_QGRAF_epem_a_httxddx_LO
-output qgraf TEST_QGRAF_epem_a_httxddx_LO
+qgraf_generate e+ e- > a > h t t~ gh gh~ /d u s c b QCD^2==1 QED^2==3 []
+!rm -rf TEST_QGRAF_epem_a_httxghgh_LO
+output qgraf TEST_QGRAF_epem_a_httxghgh_LO
 
