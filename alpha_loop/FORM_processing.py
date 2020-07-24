@@ -1143,7 +1143,7 @@ CTable pftopo(0:{});
         n_loops = len(self.edges) - len(self.nodes) + 1
         for loop_var in range(n_loops):
             lm = next((ee['name'], ee['signature'][0][loop_var]) for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
-                sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
+                sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] == 1)
             loop_momenta.append(lm)
 
         if isinstance(self.additional_lmbs, list):
