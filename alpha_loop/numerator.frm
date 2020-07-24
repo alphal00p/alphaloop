@@ -181,8 +181,8 @@ id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = (-1) * i_
 
 * the finite part needs to be checked, also because the factor 4/3 on the pole of the mass correction is pure fudge for now.
 id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (-1) * i_ * ((4/3)*gs^2/16/pi^2) * ( 
-      (1/ep + UVRenormFINITE*(4 + 3*(logmu - logmasses(x1))) ) * gamma(dirac[idx1], p2, dirac[idx2]) 
-    + ((-4/3)*3/ep + UVRenormFINITE*(4 + 3*(logmu - logmasses(x1))) ) * masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) * d_(colF[idx1], colF[idx2]);
+      (1/ep + UVRenormFINITE*(4 + 3*(logmu - logmasses(x1))) ) * ( -gamma(dirac[idx1], p1, dirac[idx2]) - masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) 
+    + (-3/ep + UVRenormFINITE*(-4 - 3*(logmu - logmasses(x1))) ) * masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) * d_(colF[idx1], colF[idx2]);
 
 * The version below is for contributions to the gluon wavefunction from g, gh and top quark only, so it is good for e+ e- > h t t~ j / u d c s b
 * MUST CHECK IF (p1.p1)*d_(lorentz[idx1], lorentz[idx2]) is CORRECT AND ONE DOES NOT NEED p1(lorentz[idx1]) * p1(lorentz[idx2]) instead
