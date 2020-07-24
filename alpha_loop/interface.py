@@ -99,6 +99,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'consider_vertex_id_in_graph_isomorphism' : False,
             # Select which templete to use for qgraf generation:
             'qgraf_template_model': 'epem',
+            # filter qgraf output based on cuts
+            'qgraf_cut_filter': False,
             # Loop induced processes will enforce the presence of at least two virtual corrections:
             'loop_induced': False,
             # Veto some field from the QGRAF generation
@@ -250,6 +252,11 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("alphaLoop option 'loop_induced' should be 'True' or 'False', not %s"%value)
             self.alphaLoop_options['loop_induced'] = value.upper() == 'TRUE'
+        elif key == 'qgraf_cut_filter':
+            if value.upper() not in ['TRUE','FALSE']:
+                raise alphaLoopInvalidCmd("Specified value for '%s' should be 'True' or 'False', not '%s'."%(key,value))
+            bool_val = (value.upper()=='TRUE')
+            self.alphaLoop_options[key] = bool_val
         elif key == 'qgraf_template_model':
             if value not in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.keys():
                 raise alphaLoopInvalidCmd("QGraf template model '{}' not supported.\nTry models (: example)\n{}"\

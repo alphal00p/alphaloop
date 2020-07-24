@@ -1282,7 +1282,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         computed_model.set_parameters_and_couplings(
                                             pjoin(self.dir_path,'Source','MODEL','param_card.dat'))        
 
-        cuts = self.get_cuts(representative_proc)
+        if self.alphaLoop_options['qgraf_cut_filter']:
+            cuts = self.get_cuts(representative_proc)
+        else:
+            cuts = None
 
         FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
         Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
