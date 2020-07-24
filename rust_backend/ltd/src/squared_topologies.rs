@@ -1884,7 +1884,7 @@ impl SquaredTopology {
                 let params = [
                     Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
                     T::zero(),
-                    Into::<T>::into(self.settings.cross_section.mu_r_sq),
+                    Into::<T>::into(self.settings.cross_section.mu_r_sq.sqrt()),
                     T::zero(),
                     Into::<T>::into(self.settings.cross_section.gs),
                     T::zero(),
