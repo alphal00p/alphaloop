@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
 use std::time::Instant;
+use topologies::FixedDeformationLimit;
 use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
 use utils::Signum;
@@ -339,6 +340,8 @@ pub struct SquaredTopology {
     pub form_numerator: FORMNumerator,
     #[serde(rename = "FORM_integrand")]
     pub form_integrand: FORMIntegrand,
+    #[serde(skip_deserializing)]
+    pub is_stability_check_topo: bool,
 }
 
 #[derive(Clone)]
@@ -435,9 +438,10 @@ impl SquaredTopologySet {
                 let filename = std::path::Path::new(&filename)
                     .with_file_name(t)
                     .with_extension("yaml");
-                let additional_squared_topology =
+                let mut additional_squared_topology =
                     SquaredTopology::from_file(filename.to_str().unwrap(), settings)
                         .wrap_err("Could not load subtopology file")?;
+                additional_squared_topology.is_stability_check_topo = true;
                 stability_topologies_for_topo.push(additional_squared_topology);
             }
             stability_topologies.push(stability_topologies_for_topo);
@@ -510,7 +514,11 @@ impl SquaredTopologySet {
         let rotated_topologies: Vec<_> = self
             .topologies
             .iter()
-            .map(|t| t.rotate(angle, axis))
+            .map(|t| {
+                let mut stab_t = t.rotate(angle, axis);
+                stab_t.is_stability_check_topo = true;
+                stab_t
+            })
             .collect();
         let mut c = self.multi_channeling_channels.clone();
 
@@ -553,8 +561,13 @@ impl SquaredTopologySet {
         self.topologies.iter().map(|t| t.n_loops).max().unwrap()
     }
 
-    pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<Vec<LTDCache<T>>>>> {
-        self.topologies.iter().map(|t| t.create_caches()).collect()
+    pub fn create_caches<T: FloatLike>(&self) -> SquaredTopologyCache<T> {
+        SquaredTopologyCache {
+            topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
+            deformation_vector_cache: vec![],
+            current_supergraph: 0,
+            current_deformation_index: 0,
+        }
     }
 
     pub fn print_info(&self, status_update_sender: &mut StatusUpdateSender) {
@@ -568,33 +581,32 @@ impl SquaredTopologySet {
         */
         let n_topologies = self.topologies.len();
 
-        let mut n_cutkosky_cuts_per_cut_cardinality = HashMap::<i32, i32>::new();
-        let mut n_diagrams_per_loop = HashMap::<i32, i32>::new();
-        let mut n_ltd_cuts_per_loop = HashMap::<i32, i32>::new();
+        let mut n_cutkosky_cuts_per_cut_cardinality = HashMap::new();
+        let mut n_diagrams_per_loop = HashMap::new();
+        let mut n_ltd_cuts_per_loop = HashMap::new();
 
         for topology in &self.topologies {
             for cutkosky_cuts in &topology.cutkosky_cuts {
                 *n_cutkosky_cuts_per_cut_cardinality
-                    .entry(cutkosky_cuts.cuts.len() as i32)
+                    .entry(cutkosky_cuts.cuts.len())
                     .or_insert(0) += 1;
                 for diagram_set in &cutkosky_cuts.diagram_sets {
                     for d_info in &diagram_set.diagram_info {
-                        *n_diagrams_per_loop
-                            .entry(d_info.graph.n_loops as i32)
-                            .or_insert(0) += 1;
-                        *n_ltd_cuts_per_loop
-                            .entry(d_info.graph.n_loops as i32)
-                            .or_insert(0) += d_info.graph.ltd_cut_options.iter().map(|v| v.len() as i32).sum::<i32>().max(1);
+                        *n_diagrams_per_loop.entry(d_info.graph.n_loops).or_insert(0) += 1;
+                        *n_ltd_cuts_per_loop.entry(d_info.graph.n_loops).or_insert(0) += d_info
+                            .graph
+                            .ltd_cut_options
+                            .iter()
+                            .map(|v| v.len())
+                            .sum::<usize>()
+                            .max(1);
                     }
                 }
             }
         }
 
-        let mut tmp_vec: Vec<(i32, i32)> = n_ltd_cuts_per_loop
-            .iter()
-            .map(|(k, v)| (*k as i32, *v as i32))
-            .collect();
-        let tmp_sum: i32 = tmp_vec.iter().map(|(_k, v)| *v as i32).sum();
+        let mut tmp_vec: Vec<_> = n_ltd_cuts_per_loop.into_iter().collect();
+        let tmp_sum: usize = tmp_vec.iter().map(|(_, v)| *v).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
@@ -608,11 +620,8 @@ impl SquaredTopologySet {
             )))
             .unwrap();
 
-        let mut tmp_vec: Vec<(i32, i32)> = n_diagrams_per_loop
-            .iter()
-            .map(|(k, v)| (*k as i32, *v as i32))
-            .collect();
-        let tmp_sum: i32 = tmp_vec.iter().map(|(_k, v)| *v as i32).sum();
+        let mut tmp_vec: Vec<_> = n_diagrams_per_loop.into_iter().collect();
+        let tmp_sum: usize = tmp_vec.iter().map(|(_, v)| *v).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
@@ -626,11 +635,9 @@ impl SquaredTopologySet {
             )))
             .unwrap();
 
-        let mut tmp_vec: Vec<(i32, i32)> = n_cutkosky_cuts_per_cut_cardinality
-            .iter()
-            .map(|(k, v)| (*k as i32, *v as i32))
-            .collect();
-        let tmp_sum: i32 = tmp_vec.iter().map(|(_k, v)| *v as i32).sum();
+        let mut tmp_vec: Vec<(usize, usize)> =
+            n_cutkosky_cuts_per_cut_cardinality.into_iter().collect();
+        let tmp_sum: usize = tmp_vec.iter().map(|(_, v)| *v).sum();
         tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
         status_update_sender
             .send(StatusUpdate::Message(format!(
@@ -665,7 +672,7 @@ impl SquaredTopologySet {
     >(
         &mut self,
         x: &'a [f64],
-        cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
+        cache: &mut SquaredTopologyCache<T>,
         mut event_manager: Option<&mut EventManager>,
     ) -> Complex<T> {
         // paramaterize and consider the result in a channel basis
@@ -755,12 +762,14 @@ impl SquaredTopologySet {
 
             // evaluate the integrand in this channel
             let mut channel_result = Complex::zero();
-            for ((t, cache), &m) in self
+            for (current_supergraph, (t, &m)) in self
                 .topologies
                 .iter_mut()
-                .zip_eq(cache.iter_mut())
                 .zip_eq(&self.multiplicity)
+                .enumerate()
             {
+                cache.current_supergraph = current_supergraph;
+
                 // undo the jacobian for unused dimensions
                 let mut jac_correction = T::one();
                 for i in t.n_loops..n_loops {
@@ -796,11 +805,17 @@ impl SquaredTopologySet {
     >(
         &mut self,
         x: &'a [f64],
-        cache: &mut [Vec<Vec<Vec<LTDCache<T>>>>],
+        cache: &mut SquaredTopologyCache<T>,
         mut event_manager: Option<&mut EventManager>,
     ) -> Complex<T> {
         if self.settings.general.debug > 0 {
             println!("x-space point: {:?}", x);
+        }
+
+        // clear the deformation cache
+        cache.current_deformation_index = 0;
+        if !self.is_stability_check_topo {
+            cache.deformation_vector_cache.clear();
         }
 
         if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty() {
@@ -859,13 +874,15 @@ impl SquaredTopologySet {
 
         let mut result = Complex::zero();
         let mut event_counter = 0;
-        for (((t, cache), &m), extra_topos) in self
+        for (current_supergraph, ((t, &m), extra_topos)) in self
             .topologies
             .iter_mut()
-            .zip_eq(cache.iter_mut())
             .zip_eq(&self.multiplicity)
             .zip_eq(self.additional_topologies.iter_mut())
+            .enumerate()
         {
+            cache.current_supergraph = current_supergraph;
+
             if self.settings.general.debug > 0 {
                 println!("Evaluating supergraph {}", t.name);
             }
@@ -947,27 +964,47 @@ impl SquaredTopologySet {
     }
 }
 
+#[derive(Default)]
+pub struct SquaredTopologyCache<T: FloatLike> {
+    topology_cache: Vec<Vec<Vec<Vec<LTDCache<T>>>>>,
+    deformation_vector_cache: Vec<Vec<FixedDeformationLimit>>,
+    current_supergraph: usize,
+    current_deformation_index: usize,
+}
+
+impl<T: FloatLike> SquaredTopologyCache<T> {
+    pub fn get_topology_cache(
+        &mut self,
+        cut_index: usize,
+        diagram_set_index: usize,
+        diagram_index: usize,
+    ) -> &mut LTDCache<T> {
+        &mut self.topology_cache[self.current_supergraph][cut_index][diagram_set_index]
+            [diagram_index]
+    }
+}
+
 /// Cache for squared topology sets.
 #[derive(Default)]
-pub struct SquaredTopologyCache {
-    float_cache: Vec<Vec<Vec<Vec<LTDCache<float>>>>>,
-    quad_cache: Vec<Vec<Vec<Vec<LTDCache<f128>>>>>,
+pub struct SquaredTopologyCacheCollection {
+    float_cache: SquaredTopologyCache<float>,
+    quad_cache: SquaredTopologyCache<f128>,
 }
 
 pub trait CachePrecisionSelector<T: FloatLike> {
-    fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<T>>>>>;
+    fn get(&mut self) -> &mut SquaredTopologyCache<T>;
 }
 
-impl CachePrecisionSelector<float> for SquaredTopologyCache {
+impl CachePrecisionSelector<float> for SquaredTopologyCacheCollection {
     #[inline]
-    fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<float>>>>> {
+    fn get(&mut self) -> &mut SquaredTopologyCache<float> {
         &mut self.float_cache
     }
 }
 
-impl CachePrecisionSelector<f128> for SquaredTopologyCache {
+impl CachePrecisionSelector<f128> for SquaredTopologyCacheCollection {
     #[inline]
-    fn get(&mut self) -> &mut Vec<Vec<Vec<Vec<LTDCache<f128>>>>> {
+    fn get(&mut self) -> &mut SquaredTopologyCache<f128> {
         &mut self.quad_cache
     }
 }
@@ -1332,7 +1369,7 @@ impl SquaredTopology {
     >(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
-        caches: &mut [Vec<Vec<LTDCache<T>>>],
+        cache: &mut SquaredTopologyCache<T>,
         event_manager: &mut Option<&mut EventManager>,
     ) -> Complex<T> {
         debug_assert_eq!(
@@ -1415,7 +1452,7 @@ impl SquaredTopology {
                     &mut rescaled_loop_momenta,
                     &mut subgraph_loop_momenta,
                     &mut k_def[..self.n_loops],
-                    &mut caches[cut_index],
+                    cache,
                     event_manager,
                     cut_index,
                     scaling,
@@ -1452,7 +1489,7 @@ impl SquaredTopology {
         rescaled_loop_momenta: &mut [LorentzVector<T>],
         subgraph_loop_momenta: &mut [LorentzVector<T>],
         k_def: &mut [LorentzVector<Complex<T>>],
-        cache: &mut [Vec<LTDCache<T>>],
+        cache: &mut SquaredTopologyCache<T>,
         event_manager: &mut Option<&mut EventManager>,
         cut_index: usize,
         scaling: T,
@@ -1628,9 +1665,7 @@ impl SquaredTopology {
         let mut def_jacobian = Complex::one();
         // regenerate the evaluation of the exponent map of the numerator since the loop momenta have changed
         let mut regenerate_momenta = true;
-        for (uv_index, (diagram_set, diag_cache)) in
-            cutkosky_cuts.diagram_sets.iter_mut().zip(cache).enumerate()
-        {
+        for (diag_set_index, diagram_set) in cutkosky_cuts.diagram_sets.iter_mut().enumerate() {
             if let Some(sid) = selected_diagram_set {
                 if sid != diagram_set.id {
                     continue;
@@ -1655,14 +1690,60 @@ impl SquaredTopology {
                 subgraph.update_ellipsoids();
 
                 if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-                    if uv_index == 0
+                    if diag_set_index == 0
                         || !self
                             .settings
                             .cross_section
                             .inherit_deformation_for_uv_counterterm
                     {
-                        subgraph.fixed_deformation =
-                            subgraph.determine_ellipsoid_overlap_structure(true);
+                        // the stability topologies will inherit the sources
+                        if !self.is_stability_check_topo {
+                            subgraph.fixed_deformation =
+                                subgraph.determine_ellipsoid_overlap_structure(true);
+
+                            cache
+                                .deformation_vector_cache
+                                .push(subgraph.fixed_deformation.clone());
+                        } else {
+                            subgraph.fixed_deformation = cache.deformation_vector_cache
+                                [cache.current_deformation_index]
+                                .clone();
+
+                            // rotate the fixed deformation vectors
+                            let rot_matrix = &self.rotation_matrix;
+                            for d_lim in &mut subgraph.fixed_deformation {
+                                for d in &mut d_lim.deformation_per_overlap {
+                                    for source in &mut d.deformation_sources {
+                                        let old_x = source.x;
+                                        let old_y = source.y;
+                                        let old_z = source.z;
+                                        source.x = rot_matrix[0][0] * old_x
+                                            + rot_matrix[0][1] * old_y
+                                            + rot_matrix[0][2] * old_z;
+                                        source.y = rot_matrix[1][0] * old_x
+                                            + rot_matrix[1][1] * old_y
+                                            + rot_matrix[1][2] * old_z;
+                                        source.z = rot_matrix[2][0] * old_x
+                                            + rot_matrix[2][1] * old_y
+                                            + rot_matrix[2][2] * old_z;
+                                    }
+                                }
+                            }
+
+                            // update the excluded surfaces
+                            for ex in &mut subgraph.all_excluded_surfaces {
+                                *ex = false;
+                            }
+
+                            for d_lim in &mut subgraph.fixed_deformation {
+                                for d in &d_lim.deformation_per_overlap {
+                                    for surf_id in &d.excluded_surface_indices {
+                                        subgraph.all_excluded_surfaces[*surf_id] = true;
+                                    }
+                                }
+                            }
+                        }
+                        cache.current_deformation_index += 1;
 
                         if self.settings.general.debug > 0 {
                             // check if the overlap structure makes sense
@@ -1678,24 +1759,22 @@ impl SquaredTopology {
                 .settings
                 .cross_section
                 .inherit_deformation_for_uv_counterterm
-                || uv_index == 0
+                || diag_set_index == 0
             {
                 def_jacobian = Complex::one();
             }
 
             // compute the deformation vectors
             let mut k_def_index = cutkosky_cuts.cuts.len() - 1;
-            for (diagram_info, subgraph_cache) in diagram_set
-                .diagram_info
-                .iter_mut()
-                .zip_eq(diag_cache.iter_mut())
-            {
+            for (diagram_index, diagram_info) in diagram_set.diagram_info.iter_mut().enumerate() {
                 let subgraph = &diagram_info.graph;
+                let subgraph_cache =
+                    cache.get_topology_cache(cut_index, diag_set_index, diagram_index);
                 if !self
                     .settings
                     .cross_section
                     .inherit_deformation_for_uv_counterterm
-                    || uv_index == 0
+                    || diag_set_index == 0
                 {
                     // do the loop momentum map, which is expressed in the loop momentum basis
                     // the time component should not matter here
@@ -1758,6 +1837,8 @@ impl SquaredTopology {
 
                 subgraph_cache.cached_topology_integrand.clear();
             }
+
+            let first_subgraph_cache = cache.get_topology_cache(cut_index, diag_set_index, 0);
 
             if self.settings.cross_section.numerator_source == NumeratorSource::Form
                 || self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand
@@ -1836,8 +1917,8 @@ impl SquaredTopology {
                         }
 
                         // the output of the FORM numerator is already in the reduced lb format
-                        diag_cache[0].reduced_coefficient_lb[0].resize(len, Complex::zero());
-                        for (rlb, r) in diag_cache[0].reduced_coefficient_lb[0]
+                        first_subgraph_cache.reduced_coefficient_lb[0].resize(len, Complex::zero());
+                        for (rlb, r) in first_subgraph_cache.reduced_coefficient_lb[0]
                             .iter_mut()
                             .zip(form_numerator_buffer.chunks(2))
                         {
@@ -1902,7 +1983,7 @@ impl SquaredTopology {
                 diagram_set.numerator.evaluate_reduced_in_lb(
                     &k_def,
                     cutkosky_cuts.cuts.len() - 1,
-                    &mut diag_cache[0],
+                    first_subgraph_cache,
                     0,
                     regenerate_momenta,
                     false,
@@ -1910,14 +1991,13 @@ impl SquaredTopology {
                 regenerate_momenta = true; // false;
             }
 
-            let left_cache = &mut diag_cache[0];
             mem::swap(
-                &mut left_cache.reduced_coefficient_lb_supergraph[0],
-                &mut left_cache.reduced_coefficient_lb[0],
+                &mut first_subgraph_cache.reduced_coefficient_lb_supergraph[0],
+                &mut first_subgraph_cache.reduced_coefficient_lb[0],
             );
 
             let mut supergraph_coeff = mem::replace(
-                &mut diag_cache[0].reduced_coefficient_lb_supergraph[0],
+                &mut first_subgraph_cache.reduced_coefficient_lb_supergraph[0],
                 vec![],
             );
 
@@ -1949,12 +2029,11 @@ impl SquaredTopology {
                 }
 
                 let mut num_result = *coeff;
-                for (diagram_set, subgraph_cache) in diagram_set
-                    .diagram_info
-                    .iter_mut()
-                    .zip_eq(diag_cache.iter_mut())
+                for (diagram_index, diagram_set) in diagram_set.diagram_info.iter_mut().enumerate()
                 {
                     let subgraph = &mut diagram_set.graph;
+                    let subgraph_cache =
+                        cache.get_topology_cache(cut_index, diag_set_index, diagram_index);
                     // build the subgraph numerator
                     // TODO: build the reduced numerator directly
 
@@ -2106,9 +2185,10 @@ impl SquaredTopology {
                 result_complete_numerator += num_result * def_jacobian;
             }
 
+            let first_subgraph_cache = cache.get_topology_cache(cut_index, diag_set_index, 0);
             mem::swap(
                 &mut supergraph_coeff,
-                &mut diag_cache[0].reduced_coefficient_lb_supergraph[0],
+                &mut first_subgraph_cache.reduced_coefficient_lb_supergraph[0],
             );
 
             if self.settings.general.debug >= 1 {
@@ -2194,7 +2274,7 @@ impl SquaredTopology {
 }
 
 impl IntegrandImplementation for SquaredTopologySet {
-    type Cache = SquaredTopologyCache;
+    type Cache = SquaredTopologyCacheCollection;
 
     fn create_stability_check(&self, num_checks: usize) -> Vec<SquaredTopologySet> {
         let mut stability_topologies = vec![];
@@ -2242,7 +2322,7 @@ impl IntegrandImplementation for SquaredTopologySet {
     fn evaluate_float<'a>(
         &mut self,
         x: &'a [f64],
-        cache: &mut SquaredTopologyCache,
+        cache: &mut SquaredTopologyCacheCollection,
         event_manager: Option<&mut EventManager>,
     ) -> Complex<float> {
         self.evaluate(x, cache.get(), event_manager)
@@ -2252,17 +2332,27 @@ impl IntegrandImplementation for SquaredTopologySet {
     fn evaluate_f128<'a>(
         &mut self,
         x: &'a [f64],
-        cache: &mut SquaredTopologyCache,
+        cache: &mut SquaredTopologyCacheCollection,
         event_manager: Option<&mut EventManager>,
     ) -> Complex<f128> {
         self.evaluate(x, cache.get(), event_manager)
     }
 
     #[inline]
-    fn create_cache(&self) -> SquaredTopologyCache {
-        SquaredTopologyCache {
-            float_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
-            quad_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
+    fn create_cache(&self) -> SquaredTopologyCacheCollection {
+        SquaredTopologyCacheCollection {
+            float_cache: SquaredTopologyCache {
+                topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
+                deformation_vector_cache: vec![],
+                current_supergraph: 0,
+                current_deformation_index: 0,
+            },
+            quad_cache: SquaredTopologyCache {
+                topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
+                deformation_vector_cache: vec![],
+                current_supergraph: 0,
+                current_deformation_index: 0,
+            },
         }
     }
 }

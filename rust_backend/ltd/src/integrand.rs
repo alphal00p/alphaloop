@@ -156,8 +156,6 @@ macro_rules! check_stability_precision {
         let track_events = event_manager.track_events;
         event_manager.track_events = false;
 
-        // TODO: we are also findings the centers for the rotated topologies
-        // inherit them from the first topology
         for (rot_index, rot_topo) in self.topologies[1..num_samples].iter_mut().enumerate() {
             if self.settings.general.debug > 2 {
                 println!("Evaluating integrand with rotated topologies");
@@ -449,7 +447,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         event_manager.integrand_evaluation_timing = 0;
         let mut result = self.topologies[0].evaluate_float(x, &mut cache, Some(&mut event_manager));
-        self.integrand_statistics.integrand_evaluation_timing += event_manager.integrand_evaluation_timing;
+        self.integrand_statistics.integrand_evaluation_timing +=
+            event_manager.integrand_evaluation_timing;
         event_manager.integrand_evaluation_timing = 0;
 
         let (d, diff, min_rot, max_rot) = self.check_stability_float(
