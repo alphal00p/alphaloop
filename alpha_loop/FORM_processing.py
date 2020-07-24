@@ -120,7 +120,7 @@ class FORMSuperGraph(object):
     }
 
     _include_momentum_routing_in_rendering=False
-    _include_edge_name_in_rendering=False
+    _include_edge_name_in_rendering=True
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
     # Choose graph layout strategy. Interesting options are in comment.
     _graph_layout_strategy = '{"PackingLayout"->"ClosestPacking"}' 
@@ -2750,10 +2750,15 @@ int %(header)sget_rank(int diag, int conf) {{
                                 for n_keys in ('PDGs', 'indices', 'momenta', 'edge_ids'):
                                     n[n_keys] = tuple(n[n_keys][eo['index']] for eo in edge_order)
 
+                        # WARNING: Double-check that it is indeed always the right thing to do to inherit the overall factor
+                        # in the renormalisation graph from the reference one.
+
                         # add a new supergraph for this renormalization component
                         form_graph = FORMSuperGraph(name='{}_{}_renorm'.format(gs[0].name, diag_set['id']),
                                 edges=edges, nodes=nodes,
-                                overall_factor='({})'.format('*'.join(vertex_factors)), multiplicity=multiplicity)
+                                overall_factor='(%s)*(%s)'%(
+                                    gs[0].overall_factor, ('*'.join(vertex_factors))
+                                ), multiplicity=multiplicity)
 
                         # set a basis
                         topo_generator = LTD.ltd_utils.TopologyGenerator([(e['name'], e['vertices'][0], e['vertices'][1]) for e in edges.values()])

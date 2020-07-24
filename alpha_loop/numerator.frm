@@ -189,7 +189,7 @@ id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) =  i_ * (p1.p1) * d_(lorentz[idx1], 
 );
 
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
-* id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) =  i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
+* id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) =  i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
 *      (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
 *     +( (1/2)*1*(1/2)*gs^2/48/pi^2 * ( -4/ep ) ))
 * );
