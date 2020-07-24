@@ -71,7 +71,12 @@ FORM_processing_options = {
     'generate_integrated_UV_CTs' : True,
     'generate_renormalisation_graphs' : True,
     'UV_min_dod_to_subtract' : 0,
-    'selected_epsilon_UV_order' : 0
+    'selected_epsilon_UV_order' : 0,
+    # Select how to include the finite part of the renormalisation. Possible values are:
+    # a) 'together' : all contributions are ketp.
+    # b) 'only' : only the contribution from the finite part of the renormalisation is kept.
+    # c) 'removed' : the finitie part of the renormalisation is removed. 
+    'renormalisation_finite_terms' : 'together'
 }
 
 # Can switch to tmpdir() if necessary at some point
@@ -1388,7 +1393,7 @@ class FORMSuperGraphIsomorphicList(list):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
-        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER']
+        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD']
 
         if FORM_vars is None:
             raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
@@ -2046,6 +2051,22 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         FORM_vars={
             'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order']
         }
+
+        if FORM_processing_options['renormalisation_finite_terms']=='together':
+            # Keep all terms, so set the discared power to 0
+            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = 0
+        elif FORM_processing_options['renormalisation_finite_terms']=='only':
+            # Discard all terms not prefixed with UVRenormFinite, so set discarded power to -1
+            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = -1
+        elif FORM_processing_options['renormalisation_finite_terms']=='removed':
+            # Discard all terms prefixed with UVRenormFinite, so set discarded power to 1
+            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = 1
+        else:
+            raise FormProcessingError("The FORM processing option 'renormalisation_finite_terms' "+
+                                      "can only take the following value: 'together', 'only' or 'removed', but not '%s'."%FORM_processing_options['renormalisation_finite_terms'])
+
+        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD']
+
         if integrand_type is not None:
             FORM_vars['INTEGRAND'] = integrand_type
 
@@ -2391,11 +2412,12 @@ int %(header)sget_rank(int diag, int conf) {{
             'gs'  : 'gs',
             'ep'  : 'ep',
             'mu_r': 'mu_r',
-            'n_f' : '%d'%n_massless_quarks
+            'n_f' : '%d'%n_massless_quarks,
+            'UVRenormFINITE_marker': 'UVRenormFINITE'
         }
 
         delta_Z_massless_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*(-1/%(ep)s)'
-        delta_Z_massive_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*((-1/%(ep)s)-4-3*(logmu - %(log_quark_mass)s))'
+        delta_Z_massive_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*((-1/%(ep)s) + %(UVRenormFINITE_marker)s*(-4-3*(logmu - %(log_quark_mass)s)) )'
 
         # Note the many overall factors (1/2) come from the fact that the expressions are derived from the alpha couplings (i.e. g^2/4\pi)
         # and not for the coupling g directly, so that a factor 1/2 is warranted.
@@ -2413,7 +2435,7 @@ int %(header)sget_rank(int diag, int conf) {{
                     ("There is not hard-coded symbol for the logarithm of the mass of particle with PDG=%d.\n"%q_pdg)+
                     "Are you sure you did not to specify forbidden particles in your process definition, using the / x y z syntax?")
 
-            delta_Z_gluon.append('( (1/2)*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( -4/%(ep)s - 4*(logmu - %(log_quark_mass)s) ) )'%(
+            delta_Z_gluon.append('( (1/2)*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( -4/%(ep)s + %(UVRenormFINITE_marker)s*(-4*(logmu - %(log_quark_mass)s)) ) )'%(
                 dict(symbol_replacement_dict,**{
                     'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
                 })
@@ -2428,7 +2450,7 @@ int %(header)sget_rank(int diag, int conf) {{
         delta_g_s.append('( (1/2)*%(n_f)s*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( 4/%(ep)s ) )'%symbol_replacement_dict)
         # Add the massive quark contribution to the strong coupling renormalisation
         for q_pdg in massive_quark_pdgs:
-            delta_g_s.append('( (1/2)*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( 4/%(ep)s + 4*(logmu - %(log_quark_mass)s) ) )'%(
+            delta_g_s.append('( (1/2)*%(T_F)s*%(gs)s^2/48/%(pi)s^2 * ( 4/%(ep)s + %(UVRenormFINITE_marker)s*(4*(logmu - %(log_quark_mass)s)) ) )'%(
                 dict(symbol_replacement_dict,**{
                     'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
                 })
@@ -2453,7 +2475,7 @@ int %(header)sget_rank(int diag, int conf) {{
         ))
         # Add the massive quark contribution to the yukawa renormalisation
         for q_pdg in massive_yukawa_quark_pdgs:
-            delta_yukawa.append('( - (1/2)*2*%(C_F)s*%(gs)s^2/16/%(pi)s^2 * ( 3/%(ep)s + 4 + 3*(logmu - %(log_quark_mass)s) ) )'%(
+            delta_yukawa.append('( - (1/2)*2*%(C_F)s*%(gs)s^2/16/%(pi)s^2 * ( 3/%(ep)s + %(UVRenormFINITE_marker)s*(4 + 3*(logmu - %(log_quark_mass)s)) ) )'%(
                 dict(symbol_replacement_dict,**{
                     'log_quark_mass':hardcoded_log_quark_mass[q_pdg],
                 })
@@ -2814,7 +2836,11 @@ class FORMProcessor(object):
         if FORM_processing_options['selected_epsilon_UV_order']!=0:
             logger.warning('%s\n\nAs per user request, the selected epsilon order to be exported will be %d. This must be for pole cancellation check only. \n\n%s'%(
                                                         utils.bcolors.RED, FORM_processing_options['selected_epsilon_UV_order'], utils.bcolors.ENDC))
-    
+        if FORM_processing_options['renormalisation_finite_terms']!='together':
+            logger.warning(("%s\n\nAs per user request, the finite part of the renormalisation counterterms have been elected to be included "+
+                            "as '%s' (and not the default 'together'). Results will be incorrect if not post-processed.\n\n%s")%(
+                utils.bcolors.RED, FORM_processing_options['renormalisation_finite_terms'], utils.bcolors.ENDC))
+
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""
 

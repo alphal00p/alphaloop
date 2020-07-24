@@ -107,6 +107,7 @@ CF f, vx, vec, vec1;
 CF subs, configurations, conf, cmb, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv;
 
+S UVRenormFINITE;
 S integratedctflag, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
 Fill logmasses(6) = logmt;
 Fill logmasses(-6) = logmt;
@@ -180,14 +181,14 @@ id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = (-1) * i_
 
 * the finite part needs to be checked, also because the factor 4/3 on the pole of the mass correction is pure fudge for now.
 id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (-1) * i_ * ((4/3)*gs^2/16/pi^2) * ( 
-      (1/ep + 4 + 3*(logmu - logmasses(x1)) ) * gamma(dirac[idx1], p2, dirac[idx2]) 
-    + ((-4/3)*3/ep + 4 + 3*(logmu - logmasses(x1)) ) * masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) * d_(colF[idx1], colF[idx2]);
+      (1/ep + UVRenormFINITE*(4 + 3*(logmu - logmasses(x1))) ) * gamma(dirac[idx1], p2, dirac[idx2]) 
+    + ((-4/3)*3/ep + UVRenormFINITE*(4 + 3*(logmu - logmasses(x1))) ) * masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) * d_(colF[idx1], colF[idx2]);
 
 * The version below is for contributions to the gluon wavefunction from g, gh and top quark only, so it is good for e+ e- > h t t~ j / u d c s b
 * MUST CHECK IF (p1.p1)*d_(lorentz[idx1], lorentz[idx2]) is CORRECT AND ONE DOES NOT NEED p1(lorentz[idx1]) * p1(lorentz[idx2]) instead
 id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
      (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
-    +( (1/2)*(1/2)*gs^2/48/pi^2 * ( -4/ep - 4*(logmu - logmt) ) ))
+    +( (1/2)*(1/2)*gs^2/48/pi^2 * ( -4/ep + UVRenormFINITE*(-4*(logmu - logmt) )) ))
 );
 
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
@@ -524,6 +525,12 @@ PolyRatFun;
 id rat(x1?) = x1;
 if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard; * keep only the ep^0 piece
 id ep^n? = 1;
+#if `UVRENORMFINITEPOWERTODISCARD' > 0
+    if (count(UVRenormFINITE, 1) >= `UVRENORMFINITEPOWERTODISCARD') Discard; * Discard UVRenormFinite pieces up to some order
+#elseif  `UVRENORMFINITEPOWERTODISCARD' < 0
+    if (count(UVRenormFINITE, 1) < -`UVRENORMFINITEPOWERTODISCARD') Discard; * Keep UVRenormFinitiePieces up to some order
+#endif
+id UVRenormFINITE^n? = 1;
 
 .sort:integrated-ct-2;
 
