@@ -2780,7 +2780,7 @@ int %(header)sget_rank(int diag, int conf) {{
                         # in the renormalisation graph from the reference one.
 
                         # add a new supergraph for this renormalization component
-                        form_graph = FORMSuperGraph(name='{}_{}_renorm'.format(gs[0].name, diag_set['id']),
+                        form_graph = FORMSuperGraph(name='renorm_{}_DS{}'.format('_'.join(gsi.name for gsi in gs),diag_set['id']),
                                 edges=edges, nodes=nodes,
                                 overall_factor='(%s)*(%s)'%(
                                     gs[0].overall_factor, ('*'.join(vertex_factors))
