@@ -231,12 +231,9 @@ class FORMSuperGraph(object):
             
             # Check valid color cuts
             ec = copy.deepcopy(edge_colors)
-            for ci,(ce, cc) in enumerate(zip(cut_edges,cut_colors)):
-                if cc == 'any':
-                    if ci+1 == len(cut_edges):
-                        break
-                    else:
-                        continue
+            for ce, cc in zip(cut_edges,cut_colors):
+                if cc == any:
+                    continue
                 for color in cc:
                     if color in ec[ce]:
                         ec[ce].remove(color)
