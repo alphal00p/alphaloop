@@ -327,10 +327,10 @@ id configurations(x?) = x;
 id conf(?a,p?) = conf(?a) * penergy(p);
 id conf(?a,x?) = conf(?a) * x; * note the type difference
 
-* Taylor expand in pbubble_i^0
+* Take a single derivative in pbubble_i^0
 * FIXME: if the number of terms is 0 after differentiating, this configuration will not be created
 repeat;
-    id once der(p?) = der*replace_(p, p + pzero * x * penergy(p));
+    id once der(p?) = der*replace_(p, p + pzero * x);
     if ((count(der, 1)) && (count(x, 1) != 1)) Discard;
     id x = 1;
     id der = 1;
