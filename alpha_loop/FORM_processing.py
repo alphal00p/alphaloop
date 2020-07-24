@@ -2342,6 +2342,10 @@ int %(header)sget_rank(int diag, int conf) {{
 
     def get_renormalization_vertex(self, in_pdgs, loop_count, model, process_definition, is_external_bubble=False):
         
+        # This overall factor is an overall fudge which will need to be understood together with how exactly we must
+        # inherit the overall phase of the reference loop SG that this vertex is supposed to renormalised. 
+        overall_factor = '(-1)'
+
         if loop_count != 1:
             raise FormProcessingError("Renormalisation is currently implemented only at one-loop.")
             
@@ -2355,7 +2359,7 @@ int %(header)sget_rank(int diag, int conf) {{
 
         # All renormalisation 2-point vertices are for now coded up directly in numerator.frm
         if len(in_pdgs)==2: #and not is_external_bubble:
-            return '1'
+            return overall_factor
 
         hardcoded_mass_parameters = {
             6   : 'mass_t',
@@ -2485,16 +2489,16 @@ int %(header)sget_rank(int diag, int conf) {{
         # a/z qq vertex
         if len(pdgs) == 3 and (pdgs[0] in [22,23]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
             quark_mass = get_particle_mass(pdgs[1])
+            res = '%s*'%overall_factor
             if quark_mass=='ZERO':
-                res = ('(+(2)*(1/2)*(%s))'%delta_Z_massless_quark)%symbol_replacement_dict
-                return res
+                res += ('(+(2)*(1/2)*(%s))'%delta_Z_massless_quark)%symbol_replacement_dict
             else:
-                res = ('(+(2)*(1/2)*(%s))'%delta_Z_massive_quark)%(
+                res += ('(+(2)*(1/2)*(%s))'%delta_Z_massive_quark)%(
                     dict(symbol_replacement_dict,**{
                         'quark_mass':quark_mass,
                         'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
                     }))
-                return res
+            return '(%s)'%res
 
         # hqq vertex
         if len(pdgs) == 3 and (pdgs[0] in [25,]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
@@ -2508,7 +2512,7 @@ int %(header)sget_rank(int diag, int conf) {{
                         'quark_mass':quark_mass,
                         'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
                     })) )
-            return '(%s)'%('+'.join(res))
+            return '(%s*(%s))'%(overall_factor,('+'.join(res)))
 
         # gqq vertex
         if len(pdgs) == 3 and (pdgs[0] in [21,]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
@@ -2525,7 +2529,7 @@ int %(header)sget_rank(int diag, int conf) {{
                         'quark_mass':quark_mass,
                         'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
                     })) )
-            return '(%s)'%('+'.join(res))
+            return '(%s*(%s))'%(overall_factor,('+'.join(res)))
 
         # ggg vertex
         if len(pdgs) == 3 and all(pdg==21 for pdg in pdgs):
@@ -2533,7 +2537,7 @@ int %(header)sget_rank(int diag, int conf) {{
                 '(+%s)'%delta_g_s,
                 '(+3*(%s))'%delta_Z_gluon,
             ]
-            return '(%s)'%('+'.join(res))
+            return '(%s*(%s))'%(overall_factor,('+'.join(res)))
 
         # gggg vertex
         if len(pdgs) == 4 and all(pdg==21 for pdg in pdgs):
@@ -2541,7 +2545,7 @@ int %(header)sget_rank(int diag, int conf) {{
                 '(+2*(%s))'%delta_g_s,
                 '(+4*(%s))'%delta_Z_gluon,
             ]
-            return '(%s)'%('+'.join(res))
+            return '(%s*(%s))'%(overall_factor,('+'.join(res)))
 
         return None
 
