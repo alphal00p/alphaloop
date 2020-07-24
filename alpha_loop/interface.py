@@ -15,6 +15,7 @@ import math
 import timeit
 import functools
 import copy
+import resource
 
 #import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
@@ -66,6 +67,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         """ Define attributes of this class."""
         
         self.alphaLoop_options = {
+            # Set a soft limit for the vitual memory, default is no limit
+            'virtual_memory' : None,
             'perturbative_orders' : { 'QCD': 0 },
             # Offers the possibility of overwriting the requirement of final_state_pdgs. Set None to have this automatically set.
             'final_state_pdgs' : None,
@@ -105,6 +108,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'FORM_processing_output_format' : None,
             # Select if the FORM integrand is the "PF" expression or "LTD" expression, or None
             'FORM_integrand_type' : "PF",
+            # Limit nuber of cores used for compilation
+            'FORM_compile_cores': None, 
             # Select what to compile of the FORM output. Default is ['all']
             'FORM_compile_arg' : ['all'],
             # Optimization level for the FORM processing and compilation. 0 to 3
@@ -178,8 +183,23 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         args = self.split_arg(line)
         args, options = self.parse_set_option(args)
         key, value = args[:2]
-
-        if key == 'perturbative_orders':
+        
+        if key == 'virtual_memory':
+            vlimit_format = re.compile(r'^\d+(|B|K|M|G|T)$')
+            vlimit_conv = {'B': 1, 'K': 1024, 'M': 1024**2, 'G': 1024**3, 'T': 1024**3}
+            if vlimit_format.match(value) is None and value != '-1':
+                raise alphaLoopInvalidCmd("Virtual memory limit had to be an integer in bytes (possible explicit units B, K, M, G, T)")
+            if value[-1] in vlimit_conv.keys():
+                vlimit = int(value[:-1]) * vlimit_conv[value[-1]]
+            else:
+                vlimit = int(value)
+            # set soft limit, this applies to every subprocess as well
+            # Not sefe enough for 'make -j NCORES'
+            soft_limit,hard_limit=resource.getrlimit(resource.RLIMIT_AS)
+            resource.setrlimit(resource.RLIMIT_AS, (vlimit,hard_limit))
+            #print(resource.getrlimit(resource.RLIMIT_AS))
+            #os.system('ulimit -v')
+        elif key == 'perturbative_orders':
             try:
                 orders_dict = eval(value)
             except:
@@ -233,6 +253,14 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     .format(value,"\n".join(["\t%s: %s"%(k,v['example']) for k,v in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.items()]))
                 )
             self.alphaLoop_options['qgraf_template_model'] = value
+        elif key == 'FORM_compile_cores':
+            if not value.isdigit():
+                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_cores' takes values form 1 to %d. Not %s" % (multiprocessing.cpu_count(), value))
+            cores = int(value)
+            if cores > multiprocessing.cpu_count():
+                cores = multiprocessing.cpu_count()
+                logger.warning("Asking from more CORES then available. Overwriting the value to %s"%cores)
+            self.FORM_options['cores'] = cores
         elif key == 'FORM_compile_arg':
             if not value in ['integrand', 'numerator', 'all']:
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_output' should be one of 'numerator', 'integrand', 'all'")
