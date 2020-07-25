@@ -56,6 +56,7 @@ plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 FORM_processing_options = {
     'FORM_path': 'form', 
+    'tFORM_path': 'tform', 
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': multiprocessing.cpu_count(), 
@@ -206,10 +207,12 @@ class FORMSuperGraph(object):
 
         take_cuts = []
         cut_colors = []
+        n_optional = 0
         valid_cut = False
         for ci, cut in enumerate(cuts):
             cut_colors += [cut[0]] * cut[1]
             if cut[0] == 'any':
+                n_optional += cut[1]
                 take_cuts += [cut_edges[ci]+[None]] * cut[1]
             else:
                 take_cuts += [cut_edges[ci]] * cut[1]
@@ -219,6 +222,7 @@ class FORMSuperGraph(object):
         #print(outgoing_vertices)
         invalid_cuts = []
         count_checks = 0
+        #print(cuts)
         for cut_edges in product(*take_cuts):
             # When a valid is cut we know we need to keep this graph
             if valid_cut:
@@ -232,7 +236,7 @@ class FORMSuperGraph(object):
             # Check valid color cuts
             ec = copy.deepcopy(edge_colors)
             for ce, cc in zip(cut_edges,cut_colors):
-                if cc == any:
+                if cc == 'any':
                     continue
                 for color in cc:
                     if color in ec[ce]:
@@ -242,8 +246,8 @@ class FORMSuperGraph(object):
                     break
             else:
                 # Allow for Pure Virtual corrections
-                vitual_loops = cut_edges.count(None)
-                for _ in range(vitual_loops):
+                virtual_loops = cut_edges.count(None)
+                for _ in range(virtual_loops):
                     cut_edges = list(cut_edges)
                     cut_edges.remove(None)
                     cut_edges = tuple(cut_edges)
@@ -260,10 +264,11 @@ class FORMSuperGraph(object):
                     gtmp.delete_edges(gtmp.get_eid(*cut_edges[ci]))
                     if not gtmp.is_connected():
                         if ci+1 < len(cut_edges):
-                            # update invalid cuts
-                            new_veto = cut_edges[:ci+1]
-                            invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
-                            invalid_cuts += [new_veto]
+                            if ci+1 < len(cut_edges) - n_optional + virtual_loops:
+                                # update invalid cuts
+                                new_veto = cut_edges[:ci+1]
+                                invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
+                                invalid_cuts += [new_veto]
                             break
                         else:
                             # check that the vertices are correctly connected 
@@ -1484,10 +1489,11 @@ class FORMSuperGraphIsomorphicList(list):
                 FORM_vars['IDn'] = i_graph+1
                 f.write("L F1 = %s;\n"%reference)
                 f.write("L F2 = %s;\n"%mapped)
-                
+            
             r = subprocess.run(' '.join([
-                FORM_processing_options["FORM_path"],
+                FORM_processing_options["tFORM_path"],
                 ]+
+                ['-w%d' % FORM_processing_options['cores']]+
                 [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
                 [ form_source, ]
             ),
