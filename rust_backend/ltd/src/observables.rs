@@ -328,7 +328,7 @@ impl EventManager {
 #[derive(Default, Debug, Clone)]
 pub struct Event {
     pub kinematic_configuration: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
-    pub final_state_particle_ids: Vec<i8>,
+    pub final_state_particle_ids: Vec<isize>,
     pub integrand: Complex<f64>,
     pub weights: Vec<f64>,
 }

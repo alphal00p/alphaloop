@@ -214,7 +214,7 @@ pub struct CutkoskyCut {
     pub name: String,
     pub sign: i8,
     pub power: usize,
-    pub particle_id: i8,
+    pub particle_id: isize,
     pub signature: (Vec<i8>, Vec<i8>),
     pub m_squared: f64,
 }

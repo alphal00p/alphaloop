@@ -4,6 +4,7 @@ On nospacesinnumbers;
 
 *--#[ setup :
 
+#define PSI "1337"
 #define GLU "21"
 #define PHO "22"
 #define EP "-11"
@@ -164,6 +165,9 @@ id prop(x?{`QBAR'}, virtual, p?, idx1?, idx2?) = - i_ * (gamma(dirac[idx1], p, d
 id prop(`H', virtual, p?, idx1?, idx2?) = -i_;
 id prop(`H', in, p?, idx1?) = 1;
 id prop(`H', out, p?, idx1?) = 1;
+id prop(`PSI', virtual, p?, idx1?, idx2?) = -i_;
+id prop(`PSI', in, p?, idx1?) = 1;
+id prop(`PSI', out, p?, idx1?) = 1;
 
 .sort:feynman-rules-edges;
 
@@ -175,6 +179,7 @@ id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charge
 id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
+id vx(`PSI', `PSI', `PSI', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -i_;
 
 * delta_Z vertex
 id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = (-1) * i_ * ((4/3)*gs^2/16/pi^2) * (1/ep) * gamma(dirac[idx1], p2, dirac[idx2]) * d_(colF[idx1], colF[idx2]);

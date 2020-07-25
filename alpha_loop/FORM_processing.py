@@ -1136,7 +1136,7 @@ CTable pftopo(0:{});
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
-        particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
+        particle_masses = {e['name']: 0. if e['PDG'] == 1337 else model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
@@ -1547,6 +1547,62 @@ class FORMSuperGraphList(list):
                 self.append(g)
             else:
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
+
+    @classmethod
+    def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={}):
+        vertices = [v for e in edge_map_lin for v in e[1:]]
+
+        topo_generator = LTD.ltd_utils.TopologyGenerator(edge_map_lin, {})
+        topo_generator.generate_momentum_flow(loop_momenta_names)
+        sig = topo_generator.get_signature_map()
+
+        edges = {i: {
+            'PDG': 1337 if e[0] not in particle_ids else particle_ids[e[0]],
+            'indices': (1 + i * 2,) if vertices.count(e[1]) == 1 or vertices.count(e[2]) == 1 else (1 + i * 2, 1 + i * 2 + 1),
+            'signature': [sig[e[0]][0],
+                    [ i+o for i,o in zip(sig[e[0]] [1][:len(sig[e[0]] [1])//2], sig[e[0]] [1][len(sig[e[0]] [1])//2:])]],
+            'name': e[0],
+            'type': 'in' if e[0] in incoming_momentum_names else ('out' if vertices.count(e[1]) == 1 or vertices.count(e[2]) == 1 else 'virtual'),
+            'vertices': tuple(e[1:]),
+            } for i, e in enumerate(edge_map_lin)
+        }
+
+        nodes = {v: {
+            'PDGs': tuple(e['PDG'] if v == e['vertices'][1] or e['PDG'] == 1337 else model.get_particle(e['PDG']).get_anti_pdg_code() for e in edges.values() if v in e['vertices']),
+            'edge_ids': tuple(ei for ei, e in edges.items() if v in e['vertices']),
+            'indices': tuple(e['indices'][0] if v == e['indices'][0] or len(e['indices']) == 1 else e['indices'][1] for e in edges.values() if v in e['vertices']),
+            'momenta': tuple('DUMMY' for e in edges.values() if v in e['vertices']),
+            'vertex_id': -1 if vertices.count(v) == 1 else 100,
+            } for v in set(vertices)
+        }
+
+        for eid, e in edges.items():
+            e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
+            neg_mom =  FORMSuperGraph.momenta_decomposition_to_string([[-s for s in sp] for sp in e['signature']], set_outgoing_equal_to_incoming=False)
+
+            # TODO: why was this here?
+            #if len(e['vertices']) == 1:
+            #    continue
+
+            for i, vi in enumerate(e['vertices']):
+                e_index = nodes[vi]['edge_ids'].index(eid)
+                mom = list(nodes[vi]['momenta'])
+                mom[e_index] = neg_mom if i == 0 else e['momentum']
+                nodes[vi]['momenta'] = mom
+
+        # set the correct particle ordering for all the edges
+        for n in nodes.values():
+            if len(n['PDGs']) > 1 and all(nn != 1337 for nn in n['PDGs']):
+                edge_order = FORMSuperGraph.sort_edges(model, [{'PDG': pdg, 'index': i} for i, pdg in enumerate(n['PDGs'])])
+                for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
+                    n[g] = tuple(n[g][eo['index']] for eo in edge_order)
+
+
+        form_graph = FORMSuperGraph(name=name, edges = edges, nodes=nodes,
+                    overall_factor='4', # undo initial state averaging factor
+                    multiplicity = 1)
+        return FORMSuperGraphList([FORMSuperGraphIsomorphicList([form_graph])], name=name + '_set')
+
 
     @classmethod
     def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None, cuts=None):
@@ -2914,7 +2970,7 @@ if __name__ == "__main__":
    
     parser = argparse.ArgumentParser(description='Generate numerators with FORM and yaml for Rust.',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('diagrams_python_source', default=None, type=str,
+    parser.add_argument('--diagrams_python_source', default='None', type=str,
                         help='path to the python diagram output files.')
     parser.add_argument('--model', default='sm-no_widths', type=str,
                         help='Path to UFO model to load.')
@@ -2941,9 +2997,26 @@ if __name__ == "__main__":
     computed_model.set_parameters_and_couplings(args.restrict_card)        
     process_definition=cli.extract_process(args.process, proc_number=0)
 
-    super_graph_list = FORMSuperGraphList.from_dict(args.diagrams_python_source)
+    super_graph_list = FORMSuperGraphList.from_squared_topology([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
+            ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "Mercedes", ['q1'], computed_model,
+            loop_momenta_names=('p1', 'p2', 'p3'))
     form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
-    TMP_OUTPUT = pjoin(root_path,'TMPDIR')
+    TMP_OUTPUT = pjoin(root_path, 'TEST_' + super_graph_list.name.split('_')[0])
     Path(TMP_OUTPUT).mkdir(parents=True, exist_ok=True)
-    form_processor.generate_squared_topology_files(TMP_OUTPUT, 0, final_state_particle_ids=(6, 6, 25, 25))
-    form_processor.generate_numerator_functions(TMP_OUTPUT, output_format='c')
+    TMP_workspace = pjoin(TMP_OUTPUT, 'FORM', 'workspace')
+    Path(TMP_workspace).mkdir(parents=True, exist_ok=True)
+    TMP_FORM = pjoin(TMP_OUTPUT, 'FORM')
+    form_processor.generate_squared_topology_files(TMP_OUTPUT, 0,
+                workspace=TMP_workspace,
+                integrand_type='PF')
+    form_processor.generate_numerator_functions(TMP_FORM, output_format='c',
+                workspace=TMP_workspace,
+                integrand_type='PF')
+    # copy the makefile, stripping the first line
+    source_file = open('Templates/FORM_output_makefile', 'r')
+    source_file.readline()
+    with open(pjoin(TMP_FORM, 'Makefile'), 'w') as target_file:
+        shutil.copyfileobj(source_file, target_file)
+    Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
+    FORMProcessor.compile(TMP_FORM)
+
