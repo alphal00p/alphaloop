@@ -461,6 +461,7 @@ if __name__ == "__main__":
     #############
     #  Refine
     #############
+    import numpy as np
     if args.refine > 0:
         CALL_BASE_ARGS = [arg % args.__dict__ for arg in [sys.executable, os.path.basename(__file__),
                                                           "--process=%(process)s",
@@ -487,6 +488,22 @@ if __name__ == "__main__":
             ranked = pd.read_csv(COLLECTION_PATH).sort_values(by=['real_err'], ascending=False)
             print("\033[1;32;48mMoved down by %s positions!\033[0m"%(list(ranked['name']==worst_SG).index(True)))
             print("\033[1maL SGs ERROR SORT:\033[0m\n",ranked)
+
+            # alphaLoop result
+            aL_results = ranked
+            aL_total_res = aL_results[['real', 'imag']]\
+                .multiply(aL_results['multiplicity'], axis='index').sum()
+            aL_total_err = np.sqrt((aL_results[['real_err', 'imag_err']]
+                                    .multiply(aL_results['multiplicity'], axis='index')**2).sum())
+
+            aL_prec = [aL_total_err['real_err']/abs(aL_total_res['real'])]
+            aL_prec_imag = [aL_total_err['imag_err']/abs(aL_total_res['imag'])]
+            print("\t\033[1maL real res:\033[0m {:.5e} +/- {:.5e}".format(
+                aL_total_res['real'], aL_total_err['real_err']))
+            print("\t\033[1maL imag res:\033[0m {:.5e} +/- {:.5e}".format(
+                aL_total_res['imag'], aL_total_err['imag_err']))
+            print("\t\033[1maL real precision:\033[0m", aL_prec)
+            print("\t\033[1maL imag precision:\033[0m", aL_prec_imag)
             print()
     
     #############
@@ -526,13 +543,17 @@ if __name__ == "__main__":
         mg5_prec = bench_results['MCerror[pb]'] / \
             abs(bench_results['cross-section[pb]'])
         aL_prec = [aL_total_err['real_err']/abs(aL_total_res['real'])]
+        aL_prec_imag = [aL_total_err['imag_err']/abs(aL_total_res['imag'])]
         if not bench_results.empty:
             print("\t\033[1mMG res:\033[0m {:.5e} +/- {:.5e}".format(
                 bench_results['cross-section[pb]'].values[0],
                 bench_results['MCerror[pb]'].values[0]))
-        print("\t\033[1maL res:\033[0m {:.5e} +/- {:.5e}".format(
-            aL_total_res['real'], aL_total_err['real_err']))
+        print("\t\033[1maL real res:\033[0m {:.5e} +/- {:.5e}".format(
+                aL_total_res['real'], aL_total_err['real_err']))
+        print("\t\033[1maL imag res:\033[0m {:.5e} +/- {:.5e}".format(
+                aL_total_res['imag'], aL_total_err['imag_err']))
         print()
-        print("\t\033[1mMG precision:\033[0m", mg5_prec.values)
-        print("\t\033[1maL precision:\033[0m", aL_prec)
+        print("\t\033[1mMG precision     :\033[0m", mg5_prec.values)
+        print("\t\033[1maL real precision:\033[0m", aL_prec)
+        print("\t\033[1maL imag precision:\033[0m", aL_prec_imag)
         print("\t\033[1m|(MG-aL)/MG|:\033[0m", rel.values)
