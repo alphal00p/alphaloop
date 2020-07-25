@@ -13,7 +13,7 @@ set_alphaLoop_option apply_graph_isomorphisms True
 # And finally let us also enable the FORM processing of numerators
 set_alphaLoop_option FORM_processing_output_format c
 #set_alphaLoop_option supergraphs_selection [(1,2),(2,2)]
-set_FORM_option number_of_lmbs 0
+set_FORM_option number_of_lmbs -1 
 set_FORM_option reference_lmb 6
 generate e+ e- > a > d d~ g
 !rm -rf epem_a_ddx_paper_rendering 

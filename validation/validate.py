@@ -25,19 +25,13 @@ class ValidateError(Exception):
     pass
 # pandas float formatting
 pd.options.display.float_format = '{:e}'.format
-pd.options.display.max_rows = 1000
-pd.options.display.max_colwidth = 1000
-pd.options.display.max_columns = 100
-pd.options.display.expand_frame_repr = False
 
 # Define the number of cores to use for each integration
-CORES = 30
+CORES = 4
 
 # This are personal path that have to be fixed
-#AL_PATH = "/home/andrea/BitBucket/alphaloop/"
-AL_PATH = "/scratch/hirschva/MG5_aMC_v3_0_2_py3/PLUGIN/alphaloop/"
-#MG_PATH = "/home/andrea/Programs/MG5_aMC_v2_7_2_py3"
-MG_PATH = "/scratch/hirschva/MG5_aMC_v3_0_2_py3"
+AL_PATH = "/home/andrea/BitBucket/alphaloop/"
+MG_PATH = "/home/andrea/Programs/MG5_aMC_v2_7_2_py3"
 VALIDATION_PATH = pjoin(AL_PATH, 'validation')
 
 # Create Validation folder
@@ -128,9 +122,7 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                 'ElapsedTime': None, 'Cores': CORES}
     accepted = 0
     rejected = 0
-    # \u2713 --> v
-    # \u2717 --> x
-    with progressbar.ProgressBar(prefix='%s | {variables.accepted}v  {variables.rejected}x, res: {variables.real_result} : ' % sg_name,
+    with progressbar.ProgressBar(prefix='%s | {variables.accepted}\u2713  {variables.rejected}\u2717, res: {variables.real_result} : ' % sg_name,
                                  max_value=multi_settings['Integrator']['n_max'] if force else progressbar.UnknownLength,
                                  variables={'total_samples': '0',
                                             'accepted': '0',
@@ -160,9 +152,8 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                         chisq = 0
                     else:
                         chisq = float(split[split.index('\tchisq')+1])/df
-                    # \u03c7\xb2 -> chi2
                     bar.update(
-                        real_result="{:e} +- {:.2e} (chi2 {:.2f})".format(value, err, chisq))
+                        real_result="{:e} +- {:.2e} (\u03C7\u00B2 {:.2f})".format(value, err, chisq))
                     stdout.write(line)
                 elif 'IntegrandStatistics' in line:
                     log_info['IntegrandStatistics'] = parse_rust_dict(line)
