@@ -329,7 +329,7 @@ if __name__ == "__main__":
     hyper_settings['Integrator']['n_max'] = args.n_max
     hyper_settings['Integrator']['n_new'] = args.n_new
     hyper_settings['Integrator']['n_start'] = args.n_start
-    hyper_settings['Integrator']['n_increase'] = ags.n_increase
+    hyper_settings['Integrator']['n_increase'] = args.n_increase
     # Selector Settings
     hyper_settings['Selectors']['active_selectors'] = [
     ] if args.min_jets == 0 else ['jet']
@@ -486,9 +486,12 @@ if __name__ == "__main__":
             if r.returncode != 0:
                 raise ValidateError()
             ranked = pd.read_csv(COLLECTION_PATH).sort_values(by=['real_err'], ascending=False)
+            ranked['real_perc'] = abs((ranked['real_err']/ranked['real'])*100.0)
+            ranked['imag_perc'] = abs((ranked['imag_err']/ranked['imag'])*100.0)
             print("\033[1;32;48mMoved down by %s positions!\033[0m"%(list(ranked['name']==worst_SG).index(True)))
             print("\033[1maL SGs ERROR SORT:\033[0m\n",ranked)
-
+            print("\033[1maL SGs REL ERROR SORT:\033[0m\n",
+                                                  ranked.sort_values(by=['real_perc'], ascending=False))
             # alphaLoop result
             aL_results = ranked
             aL_total_res = aL_results[['real', 'imag']]\
@@ -529,13 +532,18 @@ if __name__ == "__main__":
 
         # alphaLoop result
         aL_results = pd.read_csv(COLLECTION_PATH)
-        print("\033[1maL SGs:\033[0m\n", aL_results)
+        aL_results['real_perc'] = abs((aL_results['real_err']/aL_results['real'])*100)
+        aL_results['imag_perc'] = abs((aL_results['imag_err']/aL_results['imag'])*100)
+
+#        print("\033[1maL SGs:\033[0m\n", aL_results)
         aL_total_res = aL_results[['real', 'imag']]\
             .multiply(aL_results['multiplicity'], axis='index').sum()
         aL_total_err = np.sqrt((aL_results[['real_err', 'imag_err']]
                                 .multiply(aL_results['multiplicity'], axis='index')**2).sum())
         print("\033[1maL SGs ERROR SORT:\033[0m\n",
               aL_results.sort_values(by=['real_err'], ascending=False))
+        print("\033[1maL SGs REL ERROR SORT:\033[0m\n",
+                              aL_results.sort_values(by=['real_perc'], ascending=False))
 
         print("\033[1mCompare:\033[0m")
         diff = (aL_total_res['real'] - bench_results['cross-section[pb]'])
