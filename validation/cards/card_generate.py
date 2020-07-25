@@ -90,7 +90,7 @@ processes['epem_a_ttxghgh'] = {
     'compile_arg': 'all'}
 
 processes['epem_a_httxgg'] = {
-    'cmd': 'e+ e- > a > h t t~ j j /d u s c b QCD^2==1 QED^2==3 []',
+    'cmd': 'e+ e- > a > h t t~ j j /d u s c b QCD^2==2 QED^2==3 []',
     'order': 'LO',
     'multiparticle': 'j = g gh gh~',
     'model': 'epem',
@@ -98,7 +98,7 @@ processes['epem_a_httxgg'] = {
     'compile_arg': 'all'}
 
 processes['epem_a_httxghgh'] = {
-    'cmd': 'e+ e- > a > h t t~ gh gh~ /d u s c b QCD^2==1 QED^2==3 []',
+    'cmd': 'e+ e- > a > h t t~ gh gh~ /d u s c b QCD^2==2 QED^2==3 []',
     'order': 'LO',
     'multiparticle': '',
     'model': 'epem',

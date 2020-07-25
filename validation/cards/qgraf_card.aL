@@ -16,6 +16,7 @@ set_alphaLoop_option FORM_compile_optimization %(FORM_compile_optimization)s
 set_alphaLoop_option FORM_compile_arg %(FORM_compile_arg)s 
 
 # QGRAF model 
+set_alphaLoop_option qgraf_cut_filter True
 set_alphaLoop_option qgraf_template_model %(qgraf_template_model)s
 
 # Process
