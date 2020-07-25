@@ -327,9 +327,9 @@ if __name__ == "__main__":
     hyper_settings['Integrator']['keep_state_file'] = True
     hyper_settings['Integrator']['load_from_state_file'] = True
     hyper_settings['Integrator']['n_max'] = args.n_max
-    hyper_settings['Integrator']['n_new'] = int(1e6)
-    hyper_settings['Integrator']['n_start'] = int(1e6)
-    hyper_settings['Integrator']['n_increase'] = int(1e6)
+    hyper_settings['Integrator']['n_new'] = args.n_new
+    hyper_settings['Integrator']['n_start'] = args.n_start
+    hyper_settings['Integrator']['n_increase'] = ags.n_increase
     # Selector Settings
     hyper_settings['Selectors']['active_selectors'] = [
     ] if args.min_jets == 0 else ['jet']
