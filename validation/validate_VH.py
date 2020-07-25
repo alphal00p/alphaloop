@@ -31,7 +31,7 @@ pd.options.display.max_columns = 100
 pd.options.display.expand_frame_repr = False
 
 # Define the number of cores to use for each integration
-CORES = 30
+CORES = 48
 
 # This are personal path that have to be fixed
 #AL_PATH = "/home/andrea/BitBucket/alphaloop/"
@@ -44,7 +44,7 @@ VALIDATION_PATH = pjoin(AL_PATH, 'validation')
 Path(VALIDATION_PATH).mkdir(parents=True, exist_ok=True)
 
 # Rust executable
-rALPHA = pjoin(AL_PATH, 'rust_backend', 'target', 'debug', 'ltd')
+rALPHA = pjoin(AL_PATH, 'rust_backend', 'target', 'release', 'ltd')
 
 
 def set_hyperparameters(process_name, sg_name, workspace=None, min_jets=0, multi_settings={}):
@@ -61,7 +61,6 @@ def set_hyperparameters(process_name, sg_name, workspace=None, min_jets=0, multi
         min_jpt = 'nocut'
     # Set some default values for the hyperparameter
     # Set values for General
-    hyperparameters['General']['deformation_strategy'] = 'none'
     hyperparameters['General']['topology'] = "%s_%s" % (sg_name, min_jpt)
     hyperparameters['General']['res_file_prefix'] = "%s_" % process_name
     hyperparameters['General']['log_file_prefix'] =\
@@ -74,7 +73,7 @@ def set_hyperparameters(process_name, sg_name, workspace=None, min_jets=0, multi
     hyperparameters['Integrator']['internal_parallelization'] = True
     hyperparameters['Integrator']['n_vec'] = int(1e4)
     # Set values for CrossSection
-    hyperparameters['CrossSection']['numerator_source'] = 'FORM'
+    hyperparameters['CrossSection']['numerator_source'] = 'FORM_integrand'
     hyperparameters['CrossSection']['picobarns'] = True
 
     # General settings can be parsed though the multi_settings valiable
@@ -259,6 +258,10 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--process", dest="process", 
                         help="define either a process_name form the card/ subfolder or a path to a alphaLoop@MG5 folder")
+    parser.add_argument("--phase", dest="phase",default="real",
+                        help="which phase to integral")
+    parser.add_argument("--deformation", dest="deformation", default="none",
+                        help="select deformation strategy")
     parser.add_argument("-g", "--generate", action="store_true", dest="generate", default=False,
                         help="Generate alphaLoop output")
     parser.add_argument("--force", action="store_true", dest="force", default=False,
@@ -278,8 +281,16 @@ if __name__ == "__main__":
                         help="Jet cutoff")
     parser.add_argument("--n_max", dest="n_max", default=int(1e9), type=int,
                         help="max number of evaluation with Vegas")
-    parser.add_argument("--multi_channeling", action="store_true", dest="multi_channeling", default=False,
+    parser.add_argument("--n_new", dest="n_new", default=int(1e5), type=int,
+                        help="n_new Vegas")
+    parser.add_argument("--n_start", dest="n_start", default=int(1e5), type=int,
+                        help="n_start Vegas")
+    parser.add_argument("--n_increase", dest="n_increase", default=int(1e5), type=int,
+                        help="n_increase Vegas")
+    parser.add_argument("--multi_channeling", action="store_true", dest="multi_channeling", default=True,
                         help="enable multi-channeling during integration")
+    parser.add_argument("--no_multi_channeling", action="store_false", dest="multi_channeling", default=True,
+                        help="Disable multi-channeling during integration")
     parser.add_argument("--cores", dest="cores", default=CORES, type=int,
                         help="number of cores used during integration")
     parser.add_argument("-@", dest="order", default='LO', type=str,
@@ -296,11 +307,21 @@ if __name__ == "__main__":
         raise ValueError(
             "\nNeed to specify at leas one of --run, --collect, --generate and --validate\n")
 
+    if args.n_new < 20:
+        args.n_new = int(10**args.n_new)
+    if args.n_max < 20:
+        args.n_max = int(10**args.n_max)
+    if args.n_increase < 20:
+        args.n_increase = int(10**args.n_increase)
+    if args.n_start < 20:
+        args.n_start = int(10**args.n_start)
+
     process_name = os.path.basename(re.sub(r'/$','',args.process))
     suffix = args.order
     CORES = args.cores
     # Integrator Settings
-    hyper_settings['Integrator']['integrated_phase'] = 'real'
+    hyper_settings['Integrator']['integrated_phase'] = args.phase
+    hyper_settings['General']['deformation_strategy'] = args.deformation
     hyper_settings['Integrator']['state_filename_prefix'] = "%s_%s_" % (
         process_name, "nocut" if args.min_jets == 0 else args.min_jpt)
     hyper_settings['Integrator']['keep_state_file'] = True

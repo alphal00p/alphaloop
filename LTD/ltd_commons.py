@@ -13,12 +13,12 @@ hyperparameters = HyperParameters({
     'General'       :   {
         # Consider a multi-channeling treatment of the integrand with shifted parametrisations regularising
         # integrable singularities for which one has no deformation.
-        'multi_channeling'      :   False,
+        'multi_channeling'      :   True,
         # Instead of None, one can specify here a list of indices, like 0,2,7 which corresponds to
         # the channel IDs to consider. A channel ID corresponds to its index in the list produced by the
         # cartesian product of the cut_structure with the propagators in each of the loop lines.
         'multi_channeling_channel': None,
-        'multi_channeling_including_massive_propagators': False,
+        'multi_channeling_including_massive_propagators': True,
         # Derive the overlap structure required for the fixed deformation in Rust.
         'derive_overlap_structure':  False,
         # can be additive, fixed, constant or none
@@ -27,7 +27,7 @@ hyperparameters = HyperParameters({
         # scale at which to use partial fractioning for the integrand
         # and choose whether or not to use the latest partial fractioning
         # implementation
-        'partial_fractioning_threshold' :  -1,
+        'partial_fractioning_threshold' :  -1.0e-99,
         'partial_fractioning_multiloop' :  True,
         'amplitude'             :  '',
         # specify the name of a python module that contains a function numerator(complex_loop_momenta)
@@ -48,17 +48,17 @@ hyperparameters = HyperParameters({
         # absolute precision, heavily dependent on integral value
         'absolute_precision'    :   1e+99,
         # force an f128 upgrade when a new weight is this threshold times the current maximum weight
-        'force_f128_for_large_weight_threshold': 1.,
+        'force_f128_for_large_weight_threshold': 1.0,
         # randomly shift each component in x-space by plus or minus stability_nudge_size
-        'stability_nudge_size'  :   0.,
+        'stability_nudge_size'  :   0.0,
         'unstable_point_warning_percentage'  :   1.,
         'numerical_instability_check': True,
-        'minimal_precision_to_skip_further_checks': 12.,
+        'minimal_precision_to_skip_further_checks': 99.,
         # return the unstable point only if it has more stable digits than specified below
-        'minimal_precision_for_returning_result': 10.,
+        'minimal_precision_for_returning_result': 5.,
         # number of samples to take for the numerical stability check
-        'num_f64_samples'       :   5,
-        'num_f128_samples'      :   5,
+        'num_f64_samples'       :   2,
+        'num_f128_samples'      :   2,
         # which core to log to screen, None logs all cores
         'screen_log_core'       :   1,
         # log max and unstable points to screen
@@ -81,13 +81,13 @@ hyperparameters = HyperParameters({
         'dashboard'         :   True,
         # The integrator can be vegas, divonne, cuhre or suave
         'integrator'        :   'vegas',
-        'n_start'           :   int(1.0e5),
-        'n_max'             :   int(1.0e10),
-        'n_increase'        :   int(1.0e5),
-        # can be set to high values for use with MPI or internal_parallelization, otherwise leave it at 1
-        'n_vec'             :   80,
+        'n_start'           :   int(1.0e6),
+        'n_max'             :   int(1.0e12),
+        'n_increase'        :   int(1.0e6),
+        # can be set to high values for use with MPI, otherwise leave it at 1
+        'n_vec'             :   10000,
         'seed'              :   1,
-        'integrated_phase'  :  'both',
+        'integrated_phase'  :  'real',
         'state_filename_prefix' :   None,
         'survey_n_points'   :   0,
         'survey_n_iterations':  0,
@@ -113,7 +113,7 @@ hyperparameters = HyperParameters({
 
     'Deformation'   :   {
         # can be constant, linear, sigmoid, or exp_dampening
-        'overall_scaling' : 'constant',
+        'overall_scaling' : 'linear',
         # fraction of e_cm used for scaling
         'overall_scaling_constant'  : 1.0,
         # A negative number indicates this normalisation is disabled
@@ -126,7 +126,7 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 10.0,
+            'lambda'                    : 1.0,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             # The expansion check strategy can either be
@@ -180,9 +180,9 @@ hyperparameters = HyperParameters({
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
             # dampen the deformation on pinches
-            'dampen_on_pinch': False,
+            'dampen_on_pinch': True,
             # dampen the deformation on pinches (if dampen_on_pinch is set) after the lambda scaling
-            'dampen_on_pinch_after_lambda': False,
+            'dampen_on_pinch_after_lambda': True,
             # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
             'm_ijs' : [],
             # localizes the deformation around the ellipsoids using an exponential function with variance a_ij
@@ -211,7 +211,7 @@ hyperparameters = HyperParameters({
         # Warning: log is badly behaved in the UV as it does not allow to probe that region enough. Keep linear for safety.
         'mapping'   :   'linear',
         # controls the UV behaviour of the spherical log map
-        'b'         :   1.0,
+        'b'         :   0.1,
         # rescale the input from [0,1] to [lo,hi]
         'input_rescaling' : [
             [[0. ,1.], [0., 1.], [0., 1.]],
@@ -234,11 +234,14 @@ hyperparameters = HyperParameters({
 
     'CrossSection'   :   {
         'incoming_momenta'                      :   [[500., 0., 0., 500.], [500., 0., 0., -500.]],
-        'm_uv_sq'                               :   16.,
-        'mu_r_sq'                               :   16.,
+#        'incoming_momenta'                      :   [[1., 0., 0., 1.], [1., 0., 0., -1.]],
+        'm_uv_sq'                               :   (100.0)**2,
+        'mu_r_sq'                               :   (100.0)**2,
+#        'm_uv_sq'                               :   (1.0)**2,
+#        'mu_r_sq'                               :   (1.0)**2,
         'gs'                                    :   1.2177157847767195,
         'picobarns'                             :   True,
-        'inherit_deformation_for_uv_counterterm':   False,
+        'inherit_deformation_for_uv_counterterm':   True,
         'do_rescaling'                          :   True,        
         'NormalisingFunction' : {
             # Two possible normalising functions for now: 'left_right_exponential' or 'right_exponential'
@@ -248,20 +251,20 @@ hyperparameters = HyperParameters({
             'spread'                            :   1.0,
         },
         # Can be yaml, FORM, FORM_integrand
-        'numerator_source'                      :   'yaml',
+        'numerator_source'                      :   'FORM_integrand',
         # compare locally against the same topology written in another loop momentum basis
         'compare_with_additional_topologies'    :   False,
     },
 
     'Observables'   :   {
         # options: Jet1PT, cross_section
-        'active_observables'        :   ['cross_section'],
+        'active_observables'        :   ['cross_section'],#,'Jet1PT'],
         'Jet1PT': {
             'x_min'                 :   0.,
             'x_max'                 :   0.8,
             'n_bins'                :   50,
             'dR'                    :   0.4,
-            'min_jpt'              :   0.,
+            'min_jpt'               :   0.,
             'use_fastjet'           :   True, 
             'write_to_file'         :   True,
             'filename'              :   'Jet1PT.HwU'
@@ -270,15 +273,15 @@ hyperparameters = HyperParameters({
 
     'Selectors'   :   {
         # options: jet
-        'active_selectors'          :   [],
+        'active_selectors'          :  [],
         'jet': {
-            'min_jets'              :   0,
+            'min_jets'              :   3,
             'max_jets'              :   100,
-            'min_j1pt'              :   0.,
+            'min_j1pt'              :   0.0,
             # A negative maximum means no cut is applied
-            'max_j1pt'              :   -1.,
+            'max_j1pt'              :   -1.0,
             'dR'                    :   0.4,
-            'min_jpt'              :   0.,
+            'min_jpt'               :   20.0,
             'use_fastjet'           :   True, 
         }
     },
