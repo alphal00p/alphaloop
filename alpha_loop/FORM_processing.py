@@ -2870,6 +2870,28 @@ int %(header)sget_rank(int diag, int conf) {{
                         renormalization_graphs.append(((g, v_colors, edge_colors), form_graph))
         return [g for _, g in renormalization_graphs]
 
+    def produce_output(self):
+        form_processor = FORMProcessor(self, computed_model, process_definition)
+        TMP_OUTPUT = pjoin(root_path, 'TEST_' + self.name.split('_')[0])
+        Path(TMP_OUTPUT).mkdir(parents=True, exist_ok=True)
+        TMP_workspace = pjoin(TMP_OUTPUT, 'FORM', 'workspace')
+        Path(TMP_workspace).mkdir(parents=True, exist_ok=True)
+        TMP_FORM = pjoin(TMP_OUTPUT, 'FORM')
+        #FORM_processing_options['compilation-options'] += ['-e', "OPTIMIZATION_LVL=2"]
+        form_processor.generate_squared_topology_files(TMP_OUTPUT, 0,
+                    workspace=TMP_workspace,
+                    integrand_type='PF')
+        form_processor.generate_numerator_functions(TMP_FORM, output_format='c',
+                    workspace=TMP_workspace,
+                    integrand_type='PF')
+        # copy the makefile, stripping the first line
+        source_file = open('Templates/FORM_output_makefile', 'r')
+        source_file.readline()
+        with open(pjoin(TMP_FORM, 'Makefile'), 'w') as target_file:
+            shutil.copyfileobj(source_file, target_file)
+        Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
+        FORMProcessor.compile(TMP_FORM)
+
 
 class FORMProcessor(object):
     """ A class for taking care of the processing of a list of FORMSuperGraphList.
@@ -2997,26 +3019,13 @@ if __name__ == "__main__":
     computed_model.set_parameters_and_couplings(args.restrict_card)        
     process_definition=cli.extract_process(args.process, proc_number=0)
 
-    super_graph_list = FORMSuperGraphList.from_squared_topology([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
+    # result is -2 Zeta[3] 3 Pi/(16 Pi^2)^3 = -5.75396*10^-6
+    mercedes = FORMSuperGraphList.from_squared_topology([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 3), ('p3', 3, 6),
             ('p4', 6, 5), ('p5', 5, 1), ('p6', 2, 4), ('p7', 3, 4), ('p8', 4, 5), ('q2', 6, 7)], "Mercedes", ['q1'], computed_model,
-            loop_momenta_names=('p1', 'p2', 'p3'))
-    form_processor = FORMProcessor(super_graph_list, computed_model, process_definition)
-    TMP_OUTPUT = pjoin(root_path, 'TEST_' + super_graph_list.name.split('_')[0])
-    Path(TMP_OUTPUT).mkdir(parents=True, exist_ok=True)
-    TMP_workspace = pjoin(TMP_OUTPUT, 'FORM', 'workspace')
-    Path(TMP_workspace).mkdir(parents=True, exist_ok=True)
-    TMP_FORM = pjoin(TMP_OUTPUT, 'FORM')
-    form_processor.generate_squared_topology_files(TMP_OUTPUT, 0,
-                workspace=TMP_workspace,
-                integrand_type='PF')
-    form_processor.generate_numerator_functions(TMP_FORM, output_format='c',
-                workspace=TMP_workspace,
-                integrand_type='PF')
-    # copy the makefile, stripping the first line
-    source_file = open('Templates/FORM_output_makefile', 'r')
-    source_file.readline()
-    with open(pjoin(TMP_FORM, 'Makefile'), 'w') as target_file:
-        shutil.copyfileobj(source_file, target_file)
-    Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
-    FORMProcessor.compile(TMP_FORM)
+            loop_momenta_names=('p1', 'p2', 'p3')).produce_output()
+
+    # result is -5 Zeta[5] 4 Pi/(16 Pi^2)^4 = -1.04773*10^-7
+    FORMSuperGraphList.from_squared_topology([('q1', 0, 1), ('p1', 1, 2), ('p2', 2, 7), ('p3', 7, 3), ('p4', 3, 6),
+        ('p5', 6, 5), ('p6', 5, 1), ('p7', 2, 4), ('p8', 3, 4), ('p9', 4, 5), ('p10', 7, 4), ('q2', 6, 8)],
+        "DoubleMercedes", ['q1'], computed_model, loop_momenta_names=('p1', 'p2', 'p3', 'p4')).produce_output()
 

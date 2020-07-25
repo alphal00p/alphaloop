@@ -180,6 +180,7 @@ id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 id vx(`PSI', `PSI', `PSI', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -i_;
+id vx(`PSI', `PSI', `PSI', `PSI', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = -i_;
 
 * delta_Z vertex
 id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = (-1) * i_ * ((4/3)*gs^2/16/pi^2) * (1/ep) * gamma(dirac[idx1], p2, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
