@@ -312,7 +312,10 @@ if __name__ == "__main__":
     if args.n_max < 20:
         args.n_max = int(10**args.n_max)
     if args.n_increase < 20:
-        args.n_increase = int(10**args.n_increase)
+        if args.n_increase == 0:
+            args.n_increase = 0
+        else:
+            args.n_increase = int(10**args.n_increase)
     if args.n_start < 20:
         args.n_start = int(10**args.n_start)
 
@@ -463,16 +466,33 @@ if __name__ == "__main__":
     #############
     import numpy as np
     if args.refine > 0:
-        CALL_BASE_ARGS = [arg % args.__dict__ for arg in [sys.executable, os.path.basename(__file__),
-                                                          "--process=%(process)s",
-                                                          "-@%(order)s",
-                                                          "--n_max=%(n_max)d",
-                                                          "--cores=%(cores)d",
-                                                          "--min_jets=%(min_jets)d",
-                                                          "--min_jpt=%(min_jpt)d"]]
-        if args.multi_channeling:
-            CALL_BASE_ARGS += ["--multi_channeling"]
+        #CALL_BASE_ARGS = [arg % args.__dict__ for arg in [sys.executable, os.path.basename(__file__),
+        #                                                  "--process=%(process)s",
+        #                                                  "-@%(order)s",
+        #                                                  "--n_max=%(n_max)d",
+        #                                                  "--cores=%(cores)d",
+        #                                                  "--min_jets=%(min_jets)d",
+        #                                                  "--min_jpt=%(min_jpt)d"]]
+        #if args.multi_channeling:
+        #    CALL_BASE_ARGS += ["--multi_channeling"]
         
+        #print("CALL_BASE_ARGS bef:",CALL_BASE_ARGS)
+        copied_arg = []
+        veto=False
+        for arg in sys.argv[1:]:
+            if veto:
+                veto=False
+                continue
+            if arg in ['--refine']:
+                veto=True
+                continue
+            if arg in ['-r','-c','-rc','-rcv','-cv','-rv','--collect','--run','--validate']:
+                continue
+            copied_arg.append(arg)
+
+        CALL_BASE_ARGS = [sys.executable, os.path.basename(__file__)]+copied_arg
+        #print("CALL_BASE_ARGS aft:",CALL_BASE_ARGS)
+        #stop
         # Collect
         r = subprocess.run(CALL_BASE_ARGS + ['-cv'])
         if r.returncode != 0:
@@ -491,7 +511,7 @@ if __name__ == "__main__":
             print("\033[1;32;48mMoved down by %s positions!\033[0m"%(list(ranked['name']==worst_SG).index(True)))
             print("\033[1maL SGs ERROR SORT:\033[0m\n",ranked)
             print("\033[1maL SGs REL ERROR SORT:\033[0m\n",
-                                                  ranked.sort_values(by=['real_perc'], ascending=False))
+                    ranked.sort_values(by=['real_perc'], ascending=False).iloc[:3])
             # alphaLoop result
             aL_results = ranked
             aL_total_res = aL_results[['real', 'imag']]\
@@ -543,7 +563,7 @@ if __name__ == "__main__":
         print("\033[1maL SGs ERROR SORT:\033[0m\n",
               aL_results.sort_values(by=['real_err'], ascending=False))
         print("\033[1maL SGs REL ERROR SORT:\033[0m\n",
-                              aL_results.sort_values(by=['real_perc'], ascending=False))
+                aL_results.sort_values(by=['real_perc'], ascending=False).iloc[:3])
 
         print("\033[1mCompare:\033[0m")
         diff = (aL_total_res['real'] - bench_results['cross-section[pb]'])
