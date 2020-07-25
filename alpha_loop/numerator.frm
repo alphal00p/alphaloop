@@ -186,16 +186,16 @@ id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (-1) * i_ *
 
 * The version below is for contributions to the gluon wavefunction from g, gh and top quark only, so it is good for e+ e- > h t t~ j / u d c s b
 * MUST CHECK IF (p1.p1)*d_(lorentz[idx1], lorentz[idx2]) is CORRECT AND ONE DOES NOT NEED p1(lorentz[idx1]) * p1(lorentz[idx2]) instead
-id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
-     (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
-    +( (1/2)*(1/2)*gs^2/48/pi^2 * ( -4/ep + UVRenormFINITE*(-4*(logmu - logmt) )) ))
-);
+*id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
+*     (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
+*    +( (1/2)*(1/2)*gs^2/48/pi^2 * ( -4/ep + UVRenormFINITE*(-4*(logmu - logmt) )) ))
+*);
 
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
-* id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
-*      (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
-*     +( (1/2)*1*(1/2)*gs^2/48/pi^2 * ( -4/ep ) ))
-* );
+id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
+      (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
+     +( (1/2)*1*(1/2)*gs^2/48/pi^2 * ( -4/ep ) ))
+);
 
 id D^n? = rat(D^n, 1);
 .sort:feynman-rules-vertices-1;
