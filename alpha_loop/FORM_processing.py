@@ -1178,7 +1178,8 @@ CTable pftopo(0:{});
             FORM_integrand={'call_signature': {'id': call_signature_ID}},
             edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
             vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
-            generation_options=FORM_processing_options
+            generation_options=FORM_processing_options,
+            analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None)
         )
         # check if cut is possible
         if len(topo.cuts) == 0:
@@ -2375,7 +2376,8 @@ int %(header)sget_rank(int diag, int conf) {{
                                                             workspace=workspace, bar=bar, integrand_type=integrand_type):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
-                        'benchmark_result': g[0].benchmark_result,
+                        # Let us not put it there but in the topology itself
+                        #'benchmark_result': g[0].benchmark_result,
                         'multiplicity': g[0].multiplicity
                         ,'additional_LMBs': [
                             {

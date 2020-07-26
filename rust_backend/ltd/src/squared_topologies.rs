@@ -664,6 +664,30 @@ impl SquaredTopologySet {
                 n_topologies
             )))
             .unwrap();
+
+        if n_topologies==1 {
+            if let Some(real_res) = self.topologies[0].topo.analytical_result_real {
+                if real_res!=0.0 {
+                    status_update_sender
+                    .send(StatusUpdate::Message(format!(
+                        "Target benchmark result (real) : {:+e}",
+                        real_res
+                    )))
+                    .unwrap();
+                }
+            }
+            if let Some(imag_res) = self.topologies[0].topo.analytical_result_imag {
+                if imag_res!=0.0 {
+                    status_update_sender
+                    .send(StatusUpdate::Message(format!(
+                        "Target benchmark result (imag) : {:+e}",
+                        imag_res
+                    )))
+                    .unwrap();
+                }
+            }
+        }
+
     }
 
     pub fn multi_channeling<
