@@ -2970,7 +2970,7 @@ class FORMProcessor(object):
             helicity_averaging_factor = "/" + str(helicity_averaging_factor)
             additional_overall_factor = helicity_averaging_factor
         else:
-            additional_overall_factor = '1'
+            additional_overall_factor = '*1'
 
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path,
