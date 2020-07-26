@@ -1674,7 +1674,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         form_processor.generate_numerator_functions(
             FORM_output_path, output_format=self.alphaLoop_options['FORM_processing_output_format'],
             workspace=FORM_workspace, header="", integrand_type=self.alphaLoop_options['FORM_integrand_type'],
-            include_hel_avg_factor=False
+            include_hel_avg_factor=1
         )
 
         # Draw

@@ -2947,7 +2947,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, include_hel_avg_factor=True):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, include_hel_avg_factor=None):
         assert(header in ['MG', 'QG', ''])
 
         params = {
@@ -2959,7 +2959,7 @@ class FORMProcessor(object):
             'pi': 'M_PI',
         }
 
-        if include_hel_avg_factor:
+        if include_hel_avg_factor is None:
             helicity_averaging_factor = 1
             for leg in self.repr_process.get('legs'):
                 # Skip final states
@@ -2970,7 +2970,7 @@ class FORMProcessor(object):
             helicity_averaging_factor = "/" + str(helicity_averaging_factor)
             additional_overall_factor = helicity_averaging_factor
         else:
-            additional_overall_factor = '*1'
+            additional_overall_factor = '*(%d)'%(int(include_hel_avg_factor))
 
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path,
