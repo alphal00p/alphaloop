@@ -144,6 +144,7 @@ class FORMSuperGraph(object):
         nodes=None,
         overall_factor="1",
         multiplicity=1,
+        benchmark_result=0.0,
     ):
         """ initialize a FORM SuperGraph from several options."""
 
@@ -152,6 +153,8 @@ class FORMSuperGraph(object):
         self.nodes = nodes
         self.overall_factor = overall_factor
         self.multiplicity = multiplicity
+        # Give the possibility of specifying a benchmark result to the output yaml file for future ref.
+        self.benchmark_result = benchmark_result
         # A hashable call signature
         self.call_identifier = call_identifier
         if name is None:
@@ -1549,7 +1552,7 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={}):
+    def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={},benchmark_result=0.0):
         vertices = [v for e in edge_map_lin for v in e[1:]]
 
         topo_generator = LTD.ltd_utils.TopologyGenerator(edge_map_lin, {})
@@ -1599,8 +1602,10 @@ class FORMSuperGraphList(list):
 
 
         form_graph = FORMSuperGraph(name=name, edges = edges, nodes=nodes,
-                    overall_factor='4', # undo initial state averaging factor
-                    multiplicity = 1)
+            overall_factor='1',
+            multiplicity = 1,
+            benchmark_result=benchmark_result
+        )
         return FORMSuperGraphList([FORMSuperGraphIsomorphicList([form_graph])], name=name + '_set')
 
 
@@ -2366,6 +2371,7 @@ int %(header)sget_rank(int diag, int conf) {{
                                                             workspace=workspace, bar=bar, integrand_type=integrand_type):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
+                        'benchmark_result': g[0].benchmark_result,
                         'multiplicity': g[0].multiplicity
                         ,'additional_LMBs': [
                             {
@@ -2935,7 +2941,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, include_hel_avg_factor=True):
         assert(header in ['MG', 'QG', ''])
 
         params = {
@@ -2947,16 +2953,19 @@ class FORMProcessor(object):
             'pi': 'M_PI',
         }
 
-        helicity_averaging_factor = 1
-        for leg in self.repr_process.get('legs'):
-            # Skip final states
-            if leg.get('state') is True:
-                continue
+        if include_hel_avg_factor:
+            helicity_averaging_factor = 1
+            for leg in self.repr_process.get('legs'):
+                # Skip final states
+                if leg.get('state') is True:
+                    continue
 
-            helicity_averaging_factor *= len(self.model.get_particle(leg.get('id')).get_helicity_states())
-        helicity_averaging_factor = "/" + str(helicity_averaging_factor)
+                helicity_averaging_factor *= len(self.model.get_particle(leg.get('id')).get_helicity_states())
+            helicity_averaging_factor = "/" + str(helicity_averaging_factor)
+            additional_overall_factor = helicity_averaging_factor
+        else:
+            additional_overall_factor = '1'
 
-        additional_overall_factor = helicity_averaging_factor
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path,
             output_format=output_format,

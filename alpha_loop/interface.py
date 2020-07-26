@@ -16,6 +16,7 @@ import timeit
 import functools
 import copy
 import resource
+import traceback
 
 #import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
@@ -674,7 +675,8 @@ utils.bcolors.RED,utils.bcolors.ENDC
 
         # TODO make this 82, -82 general
         self.alphaLoop_options['_jet_PDGs'] = tuple([
-            pdg for pdg in self._multiparticles['j'] ]+[82,-82])
+            pdg for pdg in self._multiparticles['j'] ]+
+            [82,-82])
         
         # Now generate the output directory structure:
         self.qgraf_exporter =  aL_exporters.HardCodedQGRAFExporter(
@@ -727,6 +729,123 @@ utils.bcolors.RED,utils.bcolors.ENDC
                 raise alphaLoopInterfaceError("A plugin output format must have been specified at this stage.")
 
         super(alphaLoopInterface,self).export(*args, **opts)
+
+
+    def do_output_LU_scalar(self, line):
+        """ Generates and directly output a Local Unitarity computation of the specified scalar topology."""
+
+        args = self.split_arg(line)
+
+        if len(args)<=1:
+            raise alphaLoopInvalidCmd("Missing mandatory first argument for output LU scalar which is the output directory name.")
+        
+        output_path = args.pop(0)
+
+        processed_args = {
+            'topology': None,
+            'name': 'DefaultLUScalarName',
+            'externals': None,
+            'lmb' : None,
+            'analytical_result': 0.0, 
+        }
+        mandatory_args = ['topology', 'externals']
+
+        # Group arguments in between the '--' specifiers.
+        # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z'
+        # into '--process=p p > d d~ z'.
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args)>0:
+                opt_args[-1] += ' %s'%arg
+            else:
+                new_args.append(arg)
+        
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=',1)
+                value = value.strip()
+            except ValueError:
+                key = arg
+                value = None
+        
+            if key == '--topology':
+                try:
+                    topology=eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified topology: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if not isinstance(topology, (tuple, list)):
+                    raise alphaLoopInvalidCmd("Specified topology must be a tuple or a list")
+                if any(
+                    ( (not isinstance(te,(tuple,list))) or (not isinstance(te[0],str)) or (not isinstance(te[1],int)) or (not isinstance(te[2],int)) )
+                    for te in topology ):
+                    raise alphaLoopInvalidCmd("Each element of the topology specified must be a tuple ('edge_name', node_int_id_left, node_int_id_right) ")                        
+
+                processed_args['topology'] = topology
+
+            if key == '--name':
+                if "'" in value or '"' in value:
+                    processed_args[key[2:]] = eval(value)
+                else:
+                    processed_args[key[2:]] = value
+            
+            if key == '--externals':
+                try:
+                    externals = eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified externals for this topology: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if not isinstance(externals, (tuple, list)) or any(not isinstance(el,str) for el in externals):
+                    raise alphaLoopInvalidCmd("Each element of the list of externals must be a string identifying the edge name.")                        
+
+                processed_args[key[2:]] = externals
+
+            if key == '--lmb':
+                try:
+                    lmb = eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified lmb for this topology: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if not isinstance(lmb, (tuple, list)) or any(not isinstance(el,str) for el in lmb):
+                    raise alphaLoopInvalidCmd("Each element of the list of lmb must be a string identifying the edge name.")                        
+
+                processed_args[key[2:]] = lmb
+
+            if key == '--analytical_result':
+                try:
+                    analytical_result = float(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Specified analytical result cannot be parsed to a float: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                processed_args[key[2:]] = analytical_result
+
+        for arg in mandatory_args:
+            if processed_args[arg] is None:
+                raise alphaLoopInvalidCmd("Missing mandatory option '%s' for command do_output_LU_scalar."%arg)
+
+
+        lu_scalar_exporter = aL_exporters.LUScalarTopologyExporter(
+            self,
+            output_path, processed_args['topology'], 
+            processed_args['externals'], processed_args['name'], 
+            processed_args['lmb'], self._curr_model, 
+            benchmark_result=processed_args['analytical_result'],
+            alphaLoop_options=self.alphaLoop_options,
+            MG5aMC_options=self.options
+        )
+
+        lu_scalar_exporter.output()
 
     ######################################################################
     #
