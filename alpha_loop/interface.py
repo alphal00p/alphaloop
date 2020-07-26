@@ -815,7 +815,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
                     raise alphaLoopInvalidCmd(
                         "Could not process specified lmb for this topology: %s"%value+
                         "\n The following Python intepreter error occured then: %s"%str(e))
-                if not isinstance(lmb, (tuple, list)) or any(not isinstance(el,str) for el in lmb):
+                if (lmb is not None) and (not isinstance(lmb, (tuple, list)) or any(not isinstance(el,str) for el in lmb)):
                     raise alphaLoopInvalidCmd("Each element of the list of lmb must be a string identifying the edge name.")                        
 
                 processed_args[key[2:]] = lmb

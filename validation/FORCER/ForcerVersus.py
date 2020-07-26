@@ -189,9 +189,25 @@ ST_FORCER_2P_5L.append(([(0, 1), (1, 2), (1, 3), (2, 4), (3, 5), (3, 6), (4, 5),
 ST_FORCER_2P_5L.append(([(0, 1), (1, 2), (1, 3), (2, 4), (3, 5), (3, 6), (4, 5), (4, 7), (5, 9), (6, 8), (6, 9), (7, 8), (7, 9), (8, 9), (2, 10)], "+ep^-1*z5"))
 ST_FORCER_2P_5L.append(([(0, 1), (1, 2), (1, 3), (2, 4), (3, 4), (3, 5), (4, 9), (5, 6), (5, 9), (6, 7), (6, 8), (7, 8), (7, 9), (8, 9), (2, 10)], "-1/4*ep^-1*z3"))
 
-def analytic_result(pole_string, n_loops):
-    r = eval(re.sub(r'z(\d+)',r'zeta(\1)', pole_string.replace("*ep^-1","").replace("ep^-1*","").replace("^","**")))
+def analytic_result(pole_string, n_loops,zetas=r'zeta(\1)'):
+    r = eval(re.sub(r'z(\d+)',zetas, pole_string.replace("*ep^-1","").replace("ep^-1*","").replace("^","**")))
     return r * n_loops * np.pi/(16.0 * np.pi**2)**n_loops
+
+
+_CARD_TEMPLATE=\
+"""import model aL_sm-no_widths
+set_alphaLoop_option FORM_processing_output_format c
+set_alphaLoop_option FORM_compile_arg all
+set_alphaLoop_option FORM_compile_optimization 0
+!rm -rf %(output_name)s 
+output_LU_scalar %(output_name)s \\
+ --topology=\\
+ %(topology)s \\
+ --name=%(topo_name)s \\
+ --analytical_result=%(analytical_result)s \\
+ --externals=%(externals)s \\
+ --lmb=%(lmb)s
+"""
 
 if __name__ == '__main__':
     Path(pjoin(root_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
@@ -199,8 +215,11 @@ if __name__ == '__main__':
     #regulating_mass = 1e-4
     regulating_mass = 0
 
+    generate_cards= True
+    generate_yaml = False
+
     #for n_loops in range(3,6):
-    for n_loops in range(3,5):
+    for n_loops in range(3,6):
         for n, (edges_raw, pole_string) in enumerate(ST_FORCER_LIBRARY[n_loops]):
             name = "STF_%dL_%d"%(n_loops, n)
             print("Creating %s"%name, end='\n')
@@ -214,9 +233,24 @@ if __name__ == '__main__':
             else:
                 LMB = None
             analytic_results['name'] += [name]
-            analytic_results['result'] += [analytic_result(pole_string, n_loops)]
-            external_momenta = {'q1': [1.0, 0.0, 0.0, 0.0], 'q2':[1.0, 0.0, 0.0, 0.0]}
-            stf_2P = SquaredTopologyGenerator(edges,
+
+            if generate_cards:
+                from sympy import zeta
+                card_path = os.path.join('cards','%dL'%n_loops,'%s.aL'%name)
+                with open(card_path,'w') as f:
+                    f.write(_CARD_TEMPLATE%{
+                        'output_name':'TEST_SCALAR_%s'%name,
+                        'topology': str(edges),
+                        'topo_name':name,
+                        'analytical_result':analytic_result(pole_string, n_loops,zetas=r'zeta(\1).evalf()'),
+                        'externals': str(incoming_momenta_names),
+                        'lmb': str(LMB)
+                    })
+
+            if generate_yaml:
+                analytic_results['result'] += [analytic_result(pole_string, n_loops)]                
+                external_momenta = {'q1': [1.0, 0.0, 0.0, 0.0], 'q2':[1.0, 0.0, 0.0, 0.0]}
+                stf_2P = SquaredTopologyGenerator(edges,
                                               name,
                                               incoming_momenta_names,
                                               n_jets,
@@ -224,9 +258,10 @@ if __name__ == '__main__':
                                               overall_numerator=1.0,
                                               masses={'p%d'%i: regulating_mass for i in range(1, len(edges_raw)-1)},
                                               loop_momenta_names=LMB,
-    )
-            stf_2P.export(pjoin(root_path,'Rust_inputs','%s.yaml'%name))
-    print("\x1b[2K\rInput YAML files for cross_section can be found in Rust_inputs")
+                )
+                stf_2P.export(pjoin(root_path,'Rust_inputs','%s.yaml'%name))
+    if generate_yaml:
+        print("\x1b[2K\rInput YAML files for cross_section can be found in Rust_inputs")
     
-    pd.DataFrame(analytic_results).to_csv("analytic_results.csv", index=False)
+        pd.DataFrame(analytic_results).to_csv("analytic_results.csv", index=False)
     

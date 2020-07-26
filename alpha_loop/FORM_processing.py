@@ -1455,15 +1455,19 @@ class FORMSuperGraphIsomorphicList(list):
             shell=True,
             cwd=selected_workspace,
             capture_output=True)
-        if r.returncode != 0:
-            raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
+        # TODO understand why FORM sometimes returns return_code 1 event though it apparently ran through fine
+        if r.returncode != 0 and not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
+            raise FormProcessingError("FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s"%(
+                    r.stdout.decode('UTF-8'),
+                    selected_workspace, FORM_cmd
+            ))
 
         # return the code for the numerators
         if not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
             raise FormProcessingError(
                     ( "FORM failed to produce an output for super graph ID=%d. Output file not found at '%s'."%
                                                                     (i_graph,pjoin(selected_workspace,'out_%d.proto_c'%i_graph)))+
-                "\nFORM command:\n%s"%FORM_cmd
+                "\nFORM command to reproduce:\ncd %s; %s"%(selected_workspace,FORM_cmd)
             )
 
         with open(pjoin(selected_workspace,'out_%d.proto_c'%i_graph), 'r') as f:
