@@ -122,26 +122,7 @@ Polyratfun rat;
 *--#] setup :
 
 * Load the diagrams
-*#include- input_`SGID'.h
-L F =    gamma(diracInd(2),p1 + p2 - 2*k1,diracInd(4))
-         *hermconjugate(1)
-         *uSpinor(p1,diracInd(4))
-         *vbarSpinor(p2,diracInd(2))
-         *sp(cpol(1,0,sunA(8)),cpol(2,0,sunA(6)))
-         *sunTF(sunF(7),sunA(11),sunF(9))
-         *sunTA(sunA(6),sunA(8),sunA(11))
-         *gs^2*ii^2
-         *rat(1,1)
-       +
-         gamma(diracInd(2),cpol(1,0,sunA(8)),diracInd(4))
-         *hermconjugate(1)
-         *uSpinor(p1,diracInd(4))
-         *vbarSpinor(p2,diracInd(2))
-         *sp(p1,cpol(2,0,sunA(6)))
-         *sunTF(sunF(7),sunA(11),sunF(9))
-         *sunTA(sunA(6),sunA(8),sunA(11))
-         *gs^2*ii^2
-         *rat(1,1);
+#include- input_`SGID'.h
 #$epsCount = 0;
 #$cepsCount = 0;
 #$vCount = 0;
@@ -149,9 +130,31 @@ L F =    gamma(diracInd(2),p1 + p2 - 2*k1,diracInd(4))
 #$uCount = 0;
 #$ubarCount = 0;
 *--#[ feynman-rules :
-
-Print +ss;
 .sort
+*do pre-counting in case the amplitude was proccessed already (e.g. by colorbasis. frm)
+#do i = 1,50
+        if ( (occurs(eps`i')>0) ) ; 
+            #$epsCount=$epsCount+1;
+        endif;
+        if ( (occurs(ceps`i')>0));
+            #$cepsCount=$cepsCount+1;
+        endif;
+        if ( (occurs(sU`i')>0) );
+          #$uCount=$uCount+1;
+        endif;
+        if ( (occurs(sV`i')>0) );
+          #$vCount=$vCount+1;
+        endif;
+        if ( (occurs(sUbar`i')>0) );  
+            #$ubarCount=$ubarCount+1;
+        endif;
+        if ( (occurs(sVbar`i')>0) );
+          #$vbarCount=$vbarCount+1;
+        endif;        
+        .sort        
+#enddo
+.sort
+
 *id hermconjugate(x?) = x;
 ************************************************
 * Implement the inteferences of scalar integrals
@@ -357,7 +360,7 @@ id sunTA(?a) = cOlf(?a);
     .sort
 #enddo
 id ii=i_;
-*Print;
+Print +ss;
 
 if (count(pol,1,cpol,1,uSpinor,1,vSpinor,1,ubarSpinor,1,vbarSpinor,1));
     Print "Unsubstituted polarization: %t";
@@ -416,9 +419,14 @@ Fill explSpinor(1) = penergy(p);
 Fill explSpinor(2) = spatialComp(p,1);
 Fill explSpinor(3) = spatialComp(p,2);
 Fill explSpinor(4) = spatialComp(p,3);
+Print +ss;
+.sort
 repeat id once gamma(?a,mud1?,?b)*gamma(?c,mud1?,?d) = sum_(y,0,3,gamma(?a,y,?b)*gamma(?c,y,?d));
 repeat id once spinor(p?,sd?diracdummy)*gamma(sd?diracdummy,?a) = sum_(y,1,4,spinor(p,y)*gamma(y,?a));
 repeat id once spinor(p?,sd?diracdummy)*gamma(?a,sd?diracdummy) = sum_(y,1,4,spinor(p,y)*gamma(?a,y));
+repeat id once spinor(p?,s?dirac)*gamma(s?dirac,?a) = sum_(y,1,4,spinor(p,y)*gamma(y,?a));
+repeat id once spinor(p?,s?dirac)*gamma(?a,s?dirac) = sum_(y,1,4,spinor(p,y)*gamma(?a,y));
+
 id spinor(p?,intSym?int_) = explSpinor(intSym,p);
 .sort
 

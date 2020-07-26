@@ -1,9 +1,0 @@
-{
-
-"color(T(cOli7,cOlj8,cOlj6,cOli9))":
-"gamma(s2,ceps1,p2,ceps2,s4)*spinor(sU1,s4)*spinor(sVbar1,s2)*i_*gs^2*rat(1,1)+
-gamma(s2,ceps1,k1,ceps2,s4)*spinor(sU1,s4)*spinor(sVbar1,s2)*i_*gs^2*rat(-1,1)+
-gamma(s2,ceps1,ceps2,s4)*spinor(sU1,s4)*spinor(sVbar1,s2)*i_*mass_t*gs^2*rat(-
-1,1)",
-
-}

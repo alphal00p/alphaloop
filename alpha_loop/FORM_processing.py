@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import copy
 import logging
 import os
@@ -129,6 +128,10 @@ class FORMSuperGraph(object):
         is_scalar = False,
         ext_momenta ={'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]},
         cut_momenta = {},
+        #  [[spinorU],[spinorUbar],[spinorV],[spinorVbar]]
+        spinors =[[],[],[],[]],
+        # [[pol], [cpol]]
+        polarizations = [[],[]]
     ):
         """ initialize a FORM SuperGraph from several options."""
 
@@ -144,7 +147,8 @@ class FORMSuperGraph(object):
         self.is_scalar = is_scalar
         self.ext_momenta = ext_momenta
         self.cut_momenta =cut_momenta
-
+        self.polarizations = polarizations
+        self.spinors = spinors
 
         # A hashable call signature
         self.call_identifier = call_identifier
@@ -787,7 +791,9 @@ aGraph=%s;
             edge_weights={e['name']: -4 for e in self.edges.values()},
             vertex_weights={nv: 0 for nv, n in self.nodes.items()},
             cut_momenta_fixed = self.cut_momenta,
-            num_cut_loops=self.num_cut_loops    
+            num_cut_loops=self.num_cut_loops,
+            spinors = self.spinors,
+            polarizations = self.polarizations    
         )
 
 
@@ -997,7 +1003,7 @@ class FORMSuperGraphIsomorphicList(list):
 
 
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,is_scalar=False):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
@@ -1033,13 +1039,21 @@ class FORMSuperGraphIsomorphicList(list):
         if workspace is None:
             selected_workspace = FORM_workspace
             FORM_source = pjoin(plugin_path,"numerator.frm")
+            if is_scalar:
+                FORM_source = pjoin(plugin_path,"amp_numerator.frm")
         else:
             selected_workspace = workspace
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             shutil.copy(pjoin(plugin_path,"color_basis.frm"),pjoin(selected_workspace,'color_basis.frm'))
             shutil.copy(pjoin(plugin_path,"amp_numerator.frm"),pjoin(selected_workspace,'amp_numerator.frm'))
+            shutil.copy(pjoin(plugin_path,"ChisholmIdentities.prc"),pjoin(selected_workspace,'ChisholmIdentities.prc'))
+            shutil.copy(pjoin(plugin_path,"definition_gamma_explicit.h"),pjoin(selected_workspace,'definition_gamma_explicit.h'))
+            
+            
             FORM_source = pjoin(selected_workspace,'numerator.frm')
+            if is_scalar:
+                FORM_source = pjoin(selected_workspace,'amp_numerator.frm')
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             f.write('L F = {};'.format(form_input))
@@ -1140,7 +1154,6 @@ class FORMSuperGraphList(list):
         FORMSuperGraphIsomorphicList instances, FORMSuperGraph, or LTD2SuperGraph instances."""
 
         self.name = name
-
         for g in graph_list:
             if isinstance(g, FORMSuperGraph):
                 self.append(FORMSuperGraphIsomorphicList([g]))
@@ -1150,7 +1163,13 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None,external_mom ={},num_fixed_loops=0,fixed_cut_mom={},is_scalar=False):
+    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None,external_mom ={},num_fixed_loops=0,fixed_cut_mom={},is_scalar=False,
+        spinorV = [],
+        spinorU = [],
+        spinorUbar =[],
+        spinorVbar = [],
+        pol =[],
+        cpol = []):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
         p = Path(dict_file_path)
@@ -1235,7 +1254,7 @@ class FORMSuperGraphList(list):
 
             form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
                         overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1),analytic_num = g.get('analytic_num',1),
-                        ext_momenta =external_mom, cut_momenta= fixed_cut_mom, is_scalar=is_scalar, num_cut_loops=num_fixed_loops)
+                        ext_momenta =external_mom, cut_momenta= fixed_cut_mom, is_scalar=is_scalar, num_cut_loops=num_fixed_loops, spinors= [[spinorU],[spinorUbar],[spinorV],[spinorVbar]], polarizations = [[pol],[cpol]])
             form_graph.derive_signatures()
             full_graph_list.append(form_graph)
 
@@ -1446,7 +1465,7 @@ class FORMSuperGraphList(list):
         # TODO: Dump to Python dict
         pass
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header=""):
+    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, output_format='c', workspace=None, header="", is_scalar=False):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -1499,7 +1518,8 @@ class FORMSuperGraphList(list):
                     all_numerator_ids.append(i)
                     FORM_vars['SGID']='%d'%i
                     time_before = time.time()
-                    num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph)
+                    
+                    num = graph.generate_numerator_functions(additional_overall_factor,workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,is_scalar=is_scalar)
                     total_time += time.time()-time_before
                     num = num.replace('i_', 'I')
                     num = input_pattern.sub(r'lm[\1]', num)
@@ -1700,7 +1720,7 @@ class FORMProcessor(object):
     Useful because many aspects common to all supergraphs and function do not belong to FORMSuperGraphList.
     """
 
-    def __init__(self, super_graphs_list, model, process_definition):
+    def __init__(self, super_graphs_list, model, process_definition, is_scalar=False):
         """ Specify aditional information such as the model that is useful for FORM processing."""
         self.super_graphs_list = super_graphs_list
         self.model = model
@@ -1710,6 +1730,7 @@ class FORMProcessor(object):
             self.repr_process = all_processes[0]
         else:
             self.repr_process = self.process_definition
+        self.is_scalar = is_scalar
 
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""
@@ -1721,7 +1742,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header=""):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", is_scalar=False):
         assert(header in ['MG', 'QG', ''])
 
         params = {
@@ -1740,12 +1761,11 @@ class FORMProcessor(object):
 
             helicity_averaging_factor *= len(self.model.get_particle(leg.get('id')).get_helicity_states())
         helicity_averaging_factor = "/" + str(helicity_averaging_factor)
-
         additional_overall_factor = helicity_averaging_factor
         return self.super_graphs_list.generate_numerator_functions(
             root_output_path, output_format=output_format,
             additional_overall_factor=additional_overall_factor,
-            params=params,workspace=workspace, header=header)
+            params=params,workspace=workspace, header=header, is_scalar=is_scalar)
 
     @classmethod
     def compile(cls, root_output_path):

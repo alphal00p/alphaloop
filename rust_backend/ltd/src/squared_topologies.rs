@@ -259,6 +259,12 @@ pub struct SquaredTopology {
     pub e_cm_squared: f64,
     pub overall_numerator: f64,
     pub external_momenta: Vec<LorentzVector<f64>>,
+    pub pol: Vec<LorentzVector<f64>>,
+    pub cpol: Vec<LorentzVector<f64>>,
+    pub spin_v: Vec<Vec<f64>>,
+    pub spin_vbar: Vec<Vec<f64>>,
+    pub spin_u: Vec<Vec<f64>>,
+    pub spin_ubar: Vec<Vec<f64>>,
     pub fixed_cut_momenta: Vec<Vec<f64>>,
     pub cutkosky_cuts: Vec<CutkoskyCuts>,
     #[serde(skip_deserializing)]
@@ -1937,12 +1943,19 @@ impl SquaredTopology {
                 if let Some(call_signature) = &self.form_numerator.call_signature {
                     let mut scalar_products: ArrayVec<[f64; MAX_LOOP * MAX_LOOP * 6]> =
                         ArrayVec::new();
-
+                    // ALWAYS PUSH RE AND IM PART
                     for (i1, e1) in self.external_momenta[..self.n_incoming_momenta]
                         .iter()
                         .enumerate()
                     {
                         scalar_products.push(e1.t);
+                        scalar_products.push(0.);
+                        // push all spacial components as in amp_numerator.frm
+                        scalar_products.push(e1.x);
+                        scalar_products.push(0.);
+                        scalar_products.push(e1.y);
+                        scalar_products.push(0.);
+                        scalar_products.push(e1.z);
                         scalar_products.push(0.);
                         for e2 in &self.external_momenta[i1..self.n_incoming_momenta] {
                             scalar_products.push(e1.dot(e2));
@@ -1953,6 +1966,14 @@ impl SquaredTopology {
                     for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
                         scalar_products.push(m1.t.re.to_f64().unwrap());
                         scalar_products.push(m1.t.im.to_f64().unwrap());
+                        // push all spacial components as in amp_numerator.frm
+                        scalar_products.push(m1.x.re.to_f64().unwrap());
+                        scalar_products.push(m1.x.im.to_f64().unwrap());
+                        scalar_products.push(m1.y.re.to_f64().unwrap());
+                        scalar_products.push(m1.y.im.to_f64().unwrap());
+                        scalar_products.push(m1.z.re.to_f64().unwrap());
+                        scalar_products.push(m1.z.im.to_f64().unwrap());
+                        
                         for e1 in &self.external_momenta[..self.n_incoming_momenta] {
                             let d = m1.dot(&e1.cast());
                             scalar_products.push(d.re.to_f64().unwrap());
@@ -1971,7 +1992,125 @@ impl SquaredTopology {
                             scalar_products.push(d.im.to_f64().unwrap());
                         }
                     }
+                    // polS
+                    for (i1, eps1) in self.pols[..self.n_pol]{
+                        scalar_products.push(eps1.t.re.to_f64().unwrap());
+                        scalar_products.push(eps1.t.im.to_f64().unwrap());
+                        // push all spacial components as in amp_numerator.frm
+                        scalar_products.push(eps1.x.re.to_f64().unwrap());
+                        scalar_products.push(eps1.x.im.to_f64().unwrap());
+                        scalar_products.push(eps1.y.re.to_f64().unwrap());
+                        scalar_products.push(eps1.y.im.to_f64().unwrap());
+                        scalar_products.push(eps1.z.re.to_f64().unwrap());
+                        scalar_products.push(eps1.z.im.to_f64().unwrap());
+                        // eps1*epsj
+                        for eps2 in &self.pols[i1..self.n_pol] {
+                            let d = eps1.dot(eps2);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+                        // eps1*loop-momentum
+                        for mm in k_def[..self.n_loops].iter() {
+                            let d = eps1.dot(mm);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                            let d = eps1.spatial_dot(mm);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+                        // eps*ext-mometum
+                        for pp in &self.external_momenta[..self.n_incoming_momenta]{
+                            let d = eps1.dot(pp);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+                        // eps*ceps
+                        for cep in &self.conjugate_pol[..n_cpol]{
+                            let d = eps1.dot(cep);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
 
+                    }
+                    // CONJUGATE polS
+                    // polS
+                    for (i1, ceps1) in self.conjugate_pols[..self.n_cpol]{
+                        scalar_products.push(ceps1.t.re.to_f64().unwrap());
+                        scalar_products.push(ceps1.t.im.to_f64().unwrap());
+                        // push all spacial components as in amp_numerator.frm
+                        scalar_products.push(ceps1.x.re.to_f64().unwrap());
+                        scalar_products.push(ceps1.x.im.to_f64().unwrap());
+                        scalar_products.push(ceps1.y.re.to_f64().unwrap());
+                        scalar_products.push(ceps1.y.im.to_f64().unwrap());
+                        scalar_products.push(ceps1.z.re.to_f64().unwrap());
+                        scalar_products.push(ceps1.z.im.to_f64().unwrap());
+                        // ceps1*cepsj
+                        for ceps2 in &self.pols[i1..self.n_cpol]{
+                            let d = ceps1.dot(ceps2);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+                        // ceps1*loop-momentum
+                        for mm in k_def[..self.n_loops].iter() {
+                            let d = ceps1.dot(mm);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                            let d = ceps1.spatial_dot(mm);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+                        // eps*ext-mometum
+                        for pp in &self.external_momenta[..self.n_incoming_momenta]{
+                            let d = ceps1.dot(pp);
+                            scalar_products.push(d.re.to_f64().unwrap());
+                            scalar_products.push(d.im.to_f64().unwrap());
+                        }
+                    }
+                    // SPINORS
+                    for (i1, sv) in self.spin_v[..self.n_spinv]{
+                        scalar_products.push(sv.t.re.to_f64().unwrap());
+                        scalar_products.push(sv.t.im.to_f64().unwrap());
+                        // push all spacial components as in amp_numerator.frm
+                        scalar_products.push(sv.x.re.to_f64().unwrap());
+                        scalar_products.push(sv.x.im.to_f64().unwrap());
+                        scalar_products.push(sv.y.re.to_f64().unwrap());
+                        scalar_products.push(sv.y.im.to_f64().unwrap());
+                        scalar_products.push(sv.z.re.to_f64().unwrap());
+                        scalar_products.push(sv.z.im.to_f64().unwrap());
+                    }
+                    for (i1, sv) in self.spin_vbar[..self.n_spinvbar]{
+                        scalar_products.push(sv.t.re.to_f64().unwrap());
+                        scalar_products.push(sv.t.im.to_f64().unwrap());
+                        // push all spacial components as in amp_numerator.frm
+                        scalar_products.push(sv.x.re.to_f64().unwrap());
+                        scalar_products.push(sv.x.im.to_f64().unwrap());
+                        scalar_products.push(sv.y.re.to_f64().unwrap());
+                        scalar_products.push(sv.y.im.to_f64().unwrap());
+                        scalar_products.push(sv.z.re.to_f64().unwrap());
+                        scalar_products.push(sv.z.im.to_f64().unwrap());
+                    }
+                    for (i1, sv) in self.spin_u[..self.n_spinu]{
+                        scalar_products.push(sv.t.re.to_f64().unwrap());
+                        scalar_products.push(sv.t.im.to_f64().unwrap());
+                        // push all spacial components as in amp_numerator.frm
+                        scalar_products.push(sv.x.re.to_f64().unwrap());
+                        scalar_products.push(sv.x.im.to_f64().unwrap());
+                        scalar_products.push(sv.y.re.to_f64().unwrap());
+                        scalar_products.push(sv.y.im.to_f64().unwrap());
+                        scalar_products.push(sv.z.re.to_f64().unwrap());
+                        scalar_products.push(sv.z.im.to_f64().unwrap());
+                    }
+                    for (i1, sv) in self.spin_ubar[..self.n_spinubar]{
+                        scalar_products.push(sv.t.re.to_f64().unwrap());
+                        scalar_products.push(sv.t.im.to_f64().unwrap());
+                        // push all spacial components as in amp_numerator.frm
+                        scalar_products.push(sv.x.re.to_f64().unwrap());
+                        scalar_products.push(sv.x.im.to_f64().unwrap());
+                        scalar_products.push(sv.y.re.to_f64().unwrap());
+                        scalar_products.push(sv.y.im.to_f64().unwrap());
+                        scalar_products.push(sv.z.re.to_f64().unwrap());
+                        scalar_products.push(sv.z.im.to_f64().unwrap());
+                    }
                     for m in &mut form_numerator_buffer {
                         *m = 0.;
                     }
