@@ -615,6 +615,17 @@ aGraph=%s;
 
             edge['signature'] = signature
 
+    def impose_signatures(self):
+
+        for eid, e in self.edges.items():
+            e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
+            neg_mom =  FORMSuperGraph.momenta_decomposition_to_string([[-s for s in sp] for sp in e['signature']], set_outgoing_equal_to_incoming=False)
+            for i, vi in enumerate(e['vertices']):
+                e_index = self.nodes[vi]['edge_ids'].index(eid)
+                mom = list(self.nodes[vi]['momenta'])
+                mom[e_index] = neg_mom if i == 0 else e['momentum']
+                self.nodes[vi]['momenta'] = mom
+
     @classmethod
     def sort_edges(cls, model, edges_to_sort):
         """ Sort the edges adjacent to a node so as to map the conventions
@@ -1647,7 +1658,7 @@ class FORMSuperGraphList(list):
                 g['nodes'] = new_nodes
                 g['edges'] = new_edges
 
-        # Check for the rooting of the loop momenta form the QGRAF OUTPUT
+        # Check for the rooting of the loop momenta from the QGRAF OUTPUT
         # If necessary flip the flow direction
         for name, g in zip(m.graph_names, m.graphs):
             n_loops = len(g['edges']) - len(g['nodes']) + 1
@@ -1691,6 +1702,43 @@ class FORMSuperGraphList(list):
                         overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1) )
             form_graph.derive_signatures()
             full_graph_list.append(form_graph)
+
+        # Adjust edge orientation of all repeated edges so that they have identical signatures
+        for g in full_graph_list:
+
+            # First detect edges that need flipping
+            all_signatures = {}
+            for e_key, e in g.edges.items():
+                pos_signature = tuple(tuple(s for s in sp) for sp in e['signature'])
+                neg_signature = tuple(tuple(-s for s in sp) for sp in e['signature'])
+                if pos_signature in all_signatures:
+                    all_signatures[pos_signature].append((e_key,+1))
+                elif neg_signature in all_signatures:
+                    all_signatures[neg_signature].append((e_key,-1))
+                else:
+                    all_signatures[pos_signature] = [(e_key,+1)]
+
+            for sig, edges in all_signatures.items():
+                for edge_key, sign in edges:
+                    if sign==+1:
+                        continue
+                    # For now we only allow to flip particles that are not fermionic otherwise 
+                    # special care must be taken when flipping an edge and normally fermionic lines
+                    # should already have been aligned at this stage.
+                    flipped_part = model.get_particle(g.edges[edge_key]['PDG'])
+                    if flipped_part.is_fermion():
+                        raise FormProcessingError("A *fermionic* repeated edge with oppoosite signatures was found. This should happen for bosons only.")
+
+                    g.edges[edge_key]['PDG'] = flipped_part.get_anti_pdg_code()
+                    g.edges[edge_key]['signature'] = [[-s for s in sp] for sp in g.edges[edge_key]['signature']]
+                    g.edges[edge_key]['vertices'] = [
+                        g.edges[edge_key]['vertices'][1],
+                        g.edges[edge_key]['vertices'][0],
+                    ]
+
+            # Now adust the string momenta of edges and nodes accordingly.            
+            g.impose_signatures()
+
 
         if first is not None:
             logger.info("Taking first {} supergraphs.".format(first))
@@ -2584,6 +2632,7 @@ int %(header)sget_rank(int diag, int conf) {{
 
         # a/z qq vertex
         if len(pdgs) == 3 and (pdgs[0] in [22,23]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
+            loop_multiplicity_factor = 1
             quark_mass = get_particle_mass(pdgs[1])
             res = '%s*'%overall_factor
             if quark_mass=='ZERO':
@@ -2594,10 +2643,11 @@ int %(header)sget_rank(int diag, int conf) {{
                         'quark_mass':quark_mass,
                         'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
                     }))
-            return '(%s)'%res
+            return '((1/%d)*%s)'%(loop_multiplicity_factor,res)
 
         # hqq vertex
         if len(pdgs) == 3 and (pdgs[0] in [25,]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
+            loop_multiplicity_factor = 1
             res = [ '(+%s)'%delta_yukawa, ]
             quark_mass = get_particle_mass(pdgs[1])
             if quark_mass=='ZERO':
@@ -2608,10 +2658,11 @@ int %(header)sget_rank(int diag, int conf) {{
                         'quark_mass':quark_mass,
                         'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
                     })) )
-            return '(%s*(%s))'%(overall_factor,('+'.join(res)))
+            return '((1/%d)*%s*(%s))'%(loop_multiplicity_factor,overall_factor,('+'.join(res)))
 
         # gqq vertex
         if len(pdgs) == 3 and (pdgs[0] in [21,]) and (pdgs[1] in quark_pdgs) and (pdgs[2]==pdgs[1]):
+            loop_multiplicity_factor = 2
             res = [ 
                 '(+%s)'%delta_g_s, 
                 '(+%s)'%delta_Z_gluon
@@ -2625,23 +2676,27 @@ int %(header)sget_rank(int diag, int conf) {{
                         'quark_mass':quark_mass,
                         'log_quark_mass':hardcoded_log_quark_mass[pdgs[1]],
                     })) )
-            return '(%s*(%s))'%(overall_factor,('+'.join(res)))
+            return '((1/%d)*%s*(%s))'%(loop_multiplicity_factor, overall_factor,('+'.join(res)))
 
         # ggg vertex
         if len(pdgs) == 3 and all(pdg==21 for pdg in pdgs):
+            # 2 per n_f, 2 per ghost and 1 for the gluon
+            loop_multiplicity_factor = 1 + 2 + 2 * n_massless_quarks
             res = [ 
                 '(+%s)'%delta_g_s,
                 '(+3*(%s))'%delta_Z_gluon,
             ]
-            return '(%s*(%s))'%(overall_factor,('+'.join(res)))
+            return '((1/%d)*%s*(%s))'%(loop_multiplicity_factor, overall_factor,('+'.join(res)))
 
         # gggg vertex
         if len(pdgs) == 4 and all(pdg==21 for pdg in pdgs):
+            # 6 per n_f, 6 per ghost and 3 for the gluon
+            loop_multiplicity_factor = 3 + 6 + 6 * n_massless_quarks
             res = [ 
                 '(+2*(%s))'%delta_g_s,
                 '(+4*(%s))'%delta_Z_gluon,
             ]
-            return '(%s*(%s))'%(overall_factor,('+'.join(res)))
+            return '((1/%d)*%s*(%s))'%(loop_multiplicity_factor,overall_factor,('+'.join(res)))
 
         return None
 
@@ -2770,9 +2825,10 @@ int %(header)sget_rank(int diag, int conf) {{
 
                     # compute the proper multiplicity by dividing out the symmetry factor of the UV divergent subgraphs
                     # TODO: make multi-loop and multi-uv subgraph compatible
+                    # In the new paradigm this is done automatically as it is divided out in the corresponding renormalisation counterterms.
                     multiplicity = gs[0].multiplicity
-                    if len(set([21, 22]) & subgraph_pdgs) == 0:
-                        multiplicity /= 2
+#                    if len(set([21, 22]) & subgraph_pdgs) == 0:
+#                        multiplicity /= 2
 
                     # set the correct particle ordering for all the edges
                     for n in nodes.values():
@@ -2784,6 +2840,8 @@ int %(header)sget_rank(int diag, int conf) {{
                     # check if the remaining graph is seen before
                     # NOTE: this must be exactly the same procedure as the graph isomorphic filtering,
                     # to obtain the correct multiplicity
+                    # TODO: The multiplicity factor must be computed accordingly to what was already done
+                    # at LO for the original loop SG, that is including the color factors as well.
                     g = igraph.Graph()
                     vertex_map = list(nodes.keys())
                     g.add_vertices(len(vertex_map))
@@ -2820,8 +2878,8 @@ int %(header)sget_rank(int diag, int conf) {{
                         # If this loop super graph is a multi-gluon one but does not contain only gluons in its loop content
                         # then we skip it here immediately as we want to instead use the loop graphs with gluon only as a 
                         # representative so that we can inherit the right symmetry factor
-                        if has_pure_external_gluon_effective_vertex and not is_made_of_gluons_only:
-                            break
+#                        if has_pure_external_gluon_effective_vertex and not is_made_of_gluons_only:
+#                            break
                         # END PIECE OF MULTIPLICITY HACK
 
                         if ref_graph.get_isomorphisms_vf2(g,
@@ -2830,12 +2888,16 @@ int %(header)sget_rank(int diag, int conf) {{
                             edge_color1=ref_e_colors,
                             edge_color2=edge_colors) != []:
 
+                            # Accumulate the multiplicity in the renormalisation SG since the right quantity
+                            # will be divided out in the definition of the renormalisation vertex
+                            ref_ren_graph.multiplicity += multiplicity
+
                             # BEGIN PIECE OF MULTIPLICITY HACK
-                            if not has_pure_external_gluon_effective_vertex:
-                                if multiplicity != ref_ren_graph.multiplicity:
-                                    raise FormProcessingError(
-                                        "Two loop SG mapped to the same renormalisation graph have "+
-                                        "different multiplicities even though it is expected that they should not.")
+#                            if not has_pure_external_gluon_effective_vertex:
+#                                if multiplicity != ref_ren_graph.multiplicity:
+#                                    raise FormProcessingError(
+#                                        "Two loop SG mapped to the same renormalisation graph have "+
+#                                        "different multiplicities even though it is expected that they should not.")
                             # END PIECE OF MULTIPLICITY HACK
                             
                             break
@@ -2880,6 +2942,7 @@ int %(header)sget_rank(int diag, int conf) {{
                                 nodes[vi]['momenta'] = mom
 
                         renormalization_graphs.append(((g, v_colors, edge_colors), form_graph))
+
         return [g for _, g in renormalization_graphs]
 
     def produce_output(self):
