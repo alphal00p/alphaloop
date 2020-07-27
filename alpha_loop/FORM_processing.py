@@ -379,7 +379,7 @@ class FORMSuperGraph(object):
             else:
                 color = "Gray"
             edge_repl_dict['edge_color'] = color
-            edge_label_pieces = [get_part_name(edge_data['PDG']),]
+            edge_label_pieces = ['psi' if edge_data['PDG'] == 1337 else get_part_name(edge_data['PDG']),]
             if 'name' in edge_data and self._include_edge_name_in_rendering:
                 edge_label_pieces.append(edge_data['name'])
             if self._include_momentum_routing_in_rendering:
@@ -1037,12 +1037,13 @@ CTable ltdtopo(0:{});
             for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
                 signatures, n_props, energy_map, energies, constants, shift_map = [], [], [], [], [], []
                 signature_offset = 0
-                loops = 0 # LTD loop count
+                total_ltd_loops = topo.topo.n_loops - len(cut['cuts']) + 1
                 for diag_info in loop_diag_set['diagram_info']:
                     for l in diag_info['graph'].loop_lines:
                         is_constant = all(s == 0 for s in l.signature)
                         if not is_constant:
-                            signatures.append([0]*signature_offset + list(l.signature)) # LTD signatures
+                            signatures.append([0]*signature_offset + list(l.signature) + [0]*(total_ltd_loops
+                                    - signature_offset - diag_info['graph'].n_loops)) # padded LTD signatures
                             n_props.append(sum(p.power for p in (l.propagators)))
                         for p in l.propagators:
                             # contruct the momentum in the LMB, using that LTD
@@ -1069,7 +1070,6 @@ CTable ltdtopo(0:{});
                                     shift_map.append(list(shift) + list(extshift))
                                 else:
                                     constants.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV'))
-                    loops += diag_info['graph'].n_loops
                     signature_offset += diag_info['graph'].n_loops
 
                 if len(signatures) == 0:
@@ -1086,7 +1086,7 @@ CTable ltdtopo(0:{});
                     res = '\n'.join(['\t' + l for l in res.split('\n')])
                     resden = ','.join(pf.den_library)
 
-                self.integrand_info[diag_set['id']] = (energy_map, constants, loops)
+                self.integrand_info[diag_set['id']] = (energy_map, constants, total_ltd_loops)
                 max_diag_id = max(max_diag_id, diag_set['id'])
                 integrand_body += 'Fill pftopo({}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(diag_set['id'],
                     ','.join(c[0] for c in constants), ','.join(energies), resden, res)
@@ -2904,6 +2904,12 @@ int %(header)sget_rank(int diag, int conf) {{
         Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
         FORMProcessor.compile(TMP_FORM)
 
+        drawings_output_path = pjoin(TMP_OUTPUT, 'Drawings')
+        Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
+        shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
+                    pjoin(drawings_output_path,'Makefile'))
+        form_processor.draw(drawings_output_path)
+
 
 class FORMProcessor(object):
     """ A class for taking care of the processing of a list of FORMSuperGraphList.
@@ -3044,3 +3050,7 @@ if __name__ == "__main__":
         ('p5', 6, 5), ('p6', 5, 1), ('p7', 2, 4), ('p8', 3, 4), ('p9', 4, 5), ('p10', 7, 4), ('q2', 6, 8)],
         "DoubleMercedes", ['q1'], computed_model, loop_momenta_names=('p1', 'p2', 'p3', 'p4')).produce_output()
 
+    # result is -5 /2 Zeta[5] 4 Pi/(16 Pi^2)^4 = -5.23865e-08
+    FORMSuperGraphList.from_squared_topology([('q1', 0, 1), ('p1', 1, 3), ('p2', 1, 4), ('p3',2, 3), ('p4', 2, 5),
+        ('p5', 3, 6), ('p6',4, 7), ('p7', 4, 8), ('p8', 5, 7), ('p9', 5, 8), ('p10', 6, 7), ('p11',6, 8), ('q2', 2, 9)],
+        "STF4L17", ['q1'], computed_model).produce_output()
