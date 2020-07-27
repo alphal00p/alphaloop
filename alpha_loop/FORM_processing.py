@@ -2758,10 +2758,10 @@ int %(header)sget_rank(int diag, int conf) {{
             pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
 
         renormalization_graphs = []
-        for gs in self:
+        for i_sg, gs in enumerate(self):
             squared_topology = gs[0].squared_topology
-            for cut_info in squared_topology.cuts:
-                for diag_set in cut_info['diagram_sets']:
+            for i_cut, cut_info in enumerate(squared_topology.cuts):
+                for i_diag_set, diag_set in enumerate(cut_info['diagram_sets']):
                     if len(diag_set['uv_propagators']) == 0:
                         continue
 
@@ -2872,7 +2872,7 @@ int %(header)sget_rank(int diag, int conf) {{
                         n = next(ni for ni, n in nodes.items() if set(v) == set(edges[e]['name'] for e in n['edge_ids']))
                         v_colors[vertex_map.index(n)] = l
 
-                    for (ref_graph, ref_v_colors, ref_e_colors),  ref_ren_graph in renormalization_graphs:
+                    for (ref_graph, ref_v_colors, ref_e_colors), ref_ren_graph in renormalization_graphs:
 
                         # BEGIN PIECE OF MULTIPLICITY HACK
                         # If this loop super graph is a multi-gluon one but does not contain only gluons in its loop content
@@ -2890,7 +2890,15 @@ int %(header)sget_rank(int diag, int conf) {{
 
                             # Accumulate the multiplicity in the renormalisation SG since the right quantity
                             # will be divided out in the definition of the renormalisation vertex
-                            ref_ren_graph.multiplicity += multiplicity
+                            # However we must not aggregate diagram sets from the same supergraph and same uv propgators
+                            if not any(
+                                (   ( self[o_sg][0].name == gs[0].name ) and 
+                                        ( set(self[o_sg][0].squared_topology.cuts[i_cut]['diagram_sets'][i_diag_set]['uv_propagators']) ==
+                                          set(diag_set['uv_propagators']) )
+                                )  for o_sg,o_cut,o_diag_set in ref_ren_graph.matching_loop_subdiags):
+                                    ref_ren_graph.multiplicity += multiplicity
+                                    ref_ren_graph.matching_loop_subdiags.append((i_sg,i_cut,i_diag_set))
+                                    ref_ren_graph.name += '_%sDS%d'%(gs[0].name,diag_set['id'])
 
                             # BEGIN PIECE OF MULTIPLICITY HACK
 #                            if not has_pure_external_gluon_effective_vertex:
@@ -2916,11 +2924,14 @@ int %(header)sget_rank(int diag, int conf) {{
                         # in the renormalisation graph from the reference one.
 
                         # add a new supergraph for this renormalization component
-                        form_graph = FORMSuperGraph(name='renorm_{}_DS{}'.format('_'.join(gsi.name for gsi in gs),diag_set['id']),
+                        form_graph = FORMSuperGraph(name='renorm_{}DS{}'.format(gs[0].name,diag_set['id']),
                                 edges=edges, nodes=nodes,
                                 overall_factor='(%s)*(%s)'%(
                                     gs[0].overall_factor, ('*'.join(vertex_factors))
                                 ), multiplicity=multiplicity)
+
+                        # Add a container with all SG names mapped to this renormalisation graph
+                        form_graph.matching_loop_subdiags = [(i_sg,i_cut,i_diag_set)]
 
                         # set a basis
                         topo_generator = LTD.ltd_utils.TopologyGenerator([(e['name'], e['vertices'][0], e['vertices'][1]) for e in edges.values()])
