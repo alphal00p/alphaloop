@@ -1607,7 +1607,7 @@ class FORMSuperGraphList(list):
 
 
         form_graph = FORMSuperGraph(name=name, edges = edges, nodes=nodes,
-            overall_factor='1',
+            overall_factor='-1', # there is an overall factor of -1 wrt Forcer, presumable due to the Wick rotation?
             multiplicity = 1,
             benchmark_result=benchmark_result
         )
