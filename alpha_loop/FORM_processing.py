@@ -2893,7 +2893,7 @@ int %(header)sget_rank(int diag, int conf) {{
                             # However we must not aggregate diagram sets from the same supergraph and same uv propgators
                             if not any(
                                 (   ( self[o_sg][0].name == gs[0].name ) and 
-                                        ( set(self[o_sg][0].squared_topology.cuts[i_cut]['diagram_sets'][i_diag_set]['uv_propagators']) ==
+                                        ( set(self[o_sg][0].squared_topology.cuts[o_cut]['diagram_sets'][o_diag_set]['uv_propagators']) ==
                                           set(diag_set['uv_propagators']) )
                                 )  for o_sg,o_cut,o_diag_set in ref_ren_graph.matching_loop_subdiags):
                                     ref_ren_graph.multiplicity += multiplicity

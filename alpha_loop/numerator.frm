@@ -184,7 +184,7 @@ id vx(`PSI', `PSI', `PSI', `PSI', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?
 
 * delta_Z vertex
 
-* The first multiplicity factor is always the loop multiplicity factor
+* The first multiplicity factor is always the loop multiplicity factor! It must be adjusted w.r.t to n_f!
 
 * massless quark
 id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1) * i_ * ((4/3)*gs^2/16/pi^2) * (1/ep) * gamma(dirac[idx1], p2, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
@@ -197,14 +197,14 @@ id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1
 
 * The version below is for contributions to the gluon wavefunction from g, gh and top quark only, so it is good for e+ e- > h t t~ j / u d c s b
 * MUST CHECK IF (p1.p1)*d_(lorentz[idx1], lorentz[idx2]) is CORRECT AND ONE DOES NOT NEED p1(lorentz[idx1]) * p1(lorentz[idx2]) instead
-*id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/5) * (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
+*id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
 *     (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
 *    +( (1/2)*(1/2)*gs^2/48/pi^2 * ( -4/ep + UVRenormFINITE*(-4*(logmu - logmt) )) ))
 *);
 
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
 * gluon
-id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/5) * (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
+id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
       (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
      +( (1/2)*1*(1/2)*gs^2/48/pi^2 * ( -4/ep ) ))
 );
