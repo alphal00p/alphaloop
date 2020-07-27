@@ -204,9 +204,23 @@ id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1
 
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
 * gluon
-id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
-      (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
-     +( (1/2)*1*(1/2)*gs^2/48/pi^2 * ( -4/ep ) ))
+id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1], colA[idx2]) * (gs^2/16/pi^2) * (
+    p1(lorentz[idx1]) * p1(lorentz[idx2]) * (
+* gluon contribution
+        ( (-11/2)*(1/ep) )
+* ghost contribution
+      + ( (1/2)*(1/ep) )
+    )
+    - (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * (
+* gluon contribution
+        ( (-19/4)*(1/ep) )
+* ghost contribution
+      + ( (-1/4)*(1/ep) )
+    )
+* quark contribution
+    +(p1(lorentz[idx1]) * p1(lorentz[idx2]) - (p1.p1) * d_(lorentz[idx1], lorentz[idx2])) * (
+        ( (2/3)*(1/ep) )
+    )
 );
 
 id D^n? = rat(D^n, 1);
