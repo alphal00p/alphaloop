@@ -665,29 +665,28 @@ impl SquaredTopologySet {
             )))
             .unwrap();
 
-        if n_topologies==1 {
+        if n_topologies == 1 {
             if let Some(real_res) = self.topologies[0].topo.analytical_result_real {
-                if real_res!=0.0 {
+                if real_res != 0.0 {
                     status_update_sender
-                    .send(StatusUpdate::Message(format!(
-                        "Target benchmark result (real) : {:+e}",
-                        real_res
-                    )))
-                    .unwrap();
+                        .send(StatusUpdate::Message(format!(
+                            "Target benchmark result (real) : {:+e}",
+                            real_res
+                        )))
+                        .unwrap();
                 }
             }
             if let Some(imag_res) = self.topologies[0].topo.analytical_result_imag {
-                if imag_res!=0.0 {
+                if imag_res != 0.0 {
                     status_update_sender
-                    .send(StatusUpdate::Message(format!(
-                        "Target benchmark result (imag) : {:+e}",
-                        imag_res
-                    )))
-                    .unwrap();
+                        .send(StatusUpdate::Message(format!(
+                            "Target benchmark result (imag) : {:+e}",
+                            imag_res
+                        )))
+                        .unwrap();
                 }
             }
         }
-
     }
 
     pub fn multi_channeling<
@@ -699,10 +698,27 @@ impl SquaredTopologySet {
         cache: &mut SquaredTopologyCache<T>,
         mut event_manager: Option<&mut EventManager>,
     ) -> Complex<T> {
+        let mut rng = thread_rng();
+        let mut xrot = [0.; MAX_LOOP * 3];
+
         // paramaterize and consider the result in a channel basis
         let n_loops = x.len() / 3;
         let mut k_channel = [LorentzVector::default(); MAX_LOOP];
         for i in 0..n_loops {
+            xrot[..x.len()].copy_from_slice(x);
+
+            if self.is_stability_check_topo && self.settings.general.stability_nudge_size > 0. {
+                for xi in xrot.iter_mut() {
+                    if rng.gen_bool(0.5) {
+                        *xi += self.settings.general.stability_nudge_size;
+                    } else {
+                        *xi -= self.settings.general.stability_nudge_size;
+                    }
+
+                    *xi = xi.max(0.).min(1.0);
+                }
+            }
+
             let (l_space, _) = Topology::parameterize::<T>(
                 &x[i * 3..(i + 1) * 3],
                 self.e_cm_squared,
