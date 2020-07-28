@@ -186,40 +186,54 @@ id vx(`PSI', `PSI', `PSI', `PSI', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?
 
 * The first multiplicity factor is always the loop multiplicity factor! It must be adjusted w.r.t to n_f!
 
-* massless quark
+* dZ massless quark
 id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1) * i_ * ((4/3)*gs^2/16/pi^2) * (1/ep) * gamma(dirac[idx1], p2, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
 
 * the finite part needs to be checked, also because the factor 4/3 on the pole of the mass correction is pure fudge for now.
-* massive quark
+* dZ massive quark
 id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1) * i_ * ((4/3)*gs^2/16/pi^2) * ( 
       (1/ep + UVRenormFINITE*(4 + 3*(logmu - logmasses(x1))) ) * ( -gamma(dirac[idx1], p1, dirac[idx2]) - masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) 
     + (-3/ep + UVRenormFINITE*(-4 - 3*(logmu - logmasses(x1))) ) * masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) * d_(colF[idx1], colF[idx2]);
 
-* The version below is for contributions to the gluon wavefunction from g, gh and top quark only, so it is good for e+ e- > h t t~ j / u d c s b
-* MUST CHECK IF (p1.p1)*d_(lorentz[idx1], lorentz[idx2]) is CORRECT AND ONE DOES NOT NEED p1(lorentz[idx1]) * p1(lorentz[idx2]) instead
-*id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]) * (
-*     (( (1/2)*3*gs^2/48/pi^2 * ( 5/ep ) )
-*    +( (1/2)*(1/2)*gs^2/48/pi^2 * ( -4/ep + UVRenormFINITE*(-4*(logmu - logmt) )) ))
-*);
+* dZ gluon
 
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
-* gluon
+**id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1], colA[idx2]) * (gs^2/16/pi^2) * (
+**    p1(lorentz[idx1]) * p1(lorentz[idx2]) * (
+* gluon contribution
+**        ( (-11)*(1/ep) )
+* ghost contribution
+**      + ( (-1/2)*(1/ep) )
+**    )
+**    - (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * (
+* gluon contribution
+**        ( (-19/2)*(1/ep) )
+* ghost contribution
+**      + ( (-1/2)*(1/ep) )
+**    )
+* one massive top quark contribution
+**    +(p1(lorentz[idx1]) * p1(lorentz[idx2]) - (p1.p1) * d_(lorentz[idx1], lorentz[idx2])) * (
+**        ( (+4/3) * ( (1/ep) + UVRenormFINITE* (logmu - logmt) ) )
+**    )
+**);
+
+* The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
 id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1], colA[idx2]) * (gs^2/16/pi^2) * (
     p1(lorentz[idx1]) * p1(lorentz[idx2]) * (
 * gluon contribution
-        ( (-11/2)*(1/ep) )
+        ( (-11)*(1/ep) )
 * ghost contribution
-      + ( (1/2)*(1/ep) )
+      + ( (-1/2)*(1/ep) )
     )
     - (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * (
 * gluon contribution
-        ( (-19/4)*(1/ep) )
+        ( (-19/2)*(1/ep) )
 * ghost contribution
-      + ( (-1/4)*(1/ep) )
+      + ( (-1/2)*(1/ep) )
     )
-* quark contribution
+* one massless quark contribution
     +(p1(lorentz[idx1]) * p1(lorentz[idx2]) - (p1.p1) * d_(lorentz[idx1], lorentz[idx2])) * (
-        ( (2/3)*(1/ep) )
+        (1)*( (+4/3)*(1/ep) )
     )
 );
 
