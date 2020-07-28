@@ -191,6 +191,8 @@ hyperparameters = HyperParameters({
             # use heuristics for the center finding instead of ECOS. Heuristics are built for one ellipsoid
             # and it will test when 0 is on the inside.
             'use_heuristic_centers': True,
+            # Introduce a radius variable into the SOCP problem and maximize it
+            'maximize_radius': False,
             # Normalize to each source
             'normalize_per_source': False,
             # Normalise the deformation of each subspace with the number of sources in that subspace

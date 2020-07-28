@@ -352,6 +352,7 @@ pub struct DeformationFixedSettings {
     pub normalisation_per_number_of_sources: bool,
     pub include_normal_source: bool,
     pub source_dampening_factor: f64,
+    pub maximize_radius: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

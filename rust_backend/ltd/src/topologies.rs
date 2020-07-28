@@ -1275,7 +1275,8 @@ impl Topology {
         }
 
         let focus_start = if minimize {
-            p.c[3 * var_count] += -1.; // maximize the radius, TODO: sign?
+            // minimize the radius. ECOS very rarely gives a proof of infeasibility if we maximize instead
+            p.c[3 * var_count] = 1.;
             3 * var_count + 1
         } else {
             3 * var_count
@@ -1499,7 +1500,7 @@ impl Topology {
         let mut radius = 0.;
 
         if self.socp_problem.radius_computation {
-            radius = self.socp_problem.sol_x[var_count * 3];
+            radius = -self.socp_problem.sol_x[var_count * 3];
         } else {
             // give a meausure for distance
             for (foc_count, foc_val) in self.socp_problem.c
@@ -1828,24 +1829,16 @@ impl Topology {
                 if r < origin_inside_radius {
                     origin_inside_radius = r;
                 }
-                if r < 0. {
-                    if self.settings.general.debug > 0 {
-                        println!("Origin not inside for {:?}: {}", e, r);
-                        let id = &self.surfaces[e.id].id;
-                        println!(
-                            "shift1={}",
-                            self.loop_lines[(id[0].0).0].propagators[(id[0].0).1].q
-                        );
-                        println!(
-                            "shift2={}",
-                            self.loop_lines[(id[1].0).0].propagators[(id[1].0).1].q
-                        );
-                    }
+                if r < 1e-10 {
                     break;
                 }
             }
 
             if origin_inside_radius > 0. {
+                if self.settings.general.debug > 0 {
+                    println!("Origin inside for all E-surface");
+                }
+
                 return vec![FixedDeformationOverlap {
                     deformation_sources: origin[..self.n_loops].to_vec(),
                     excluded_surface_ids: vec![],
@@ -1997,27 +1990,38 @@ impl Topology {
                 }
 
                 // try if a point inside is inside all other surfaces
-                let mut point_inside_all = false;
-                'o: for &o1 in &option_translated[..n] {
+                let mut best_point: Option<(usize, f64)> = None;
+                'on: for &o1 in &option_translated[..n] {
+                    let mut radius = self.e_cm_squared;
                     for &o2 in &option_translated[..n] {
                         if o1 == o2 {
                             continue;
                         }
 
-                        if self.evaluate_surface(
+                        let r = -self.evaluate_surface(
                             &ellipsoid_list[o1].point_on_the_inside,
                             &ellipsoid_list[o2],
-                        ) >= 0.
-                        {
-                            continue 'o;
+                        );
+
+                        if r < 1e-10 {
+                            continue 'on;
                         }
+
+                        radius = radius.min(r);
                     }
-                    point_inside_all = true;
-                    break;
+
+                    if best_point.is_none() || best_point.unwrap().1 < radius {
+                        best_point = Some((o1, radius));
+                    }
+
+                    // optimize the internal point if we use heuristical centers
+                    if !self.settings.deformation.fixed.use_heuristic_centers {
+                        break;
+                    }
                 }
 
-                let mut has_overlap = point_inside_all;
-                if !point_inside_all || self.settings.general.debug > 1 {
+                let mut has_overlap = best_point.is_some();
+                if best_point.is_none() || self.settings.general.debug > 1 {
                     self.construct_socp_problem(&option_translated[..n], ellipsoid_list, false);
 
                     // perform the ECOS test
@@ -2026,7 +2030,7 @@ impl Topology {
                     let r = self.socp_problem.solve_ecos();
                     has_overlap = r == 0 || r == -2 || r == 10;
 
-                    if point_inside_all && !has_overlap {
+                    if best_point.is_some() && !has_overlap {
                         panic!(
                             "ECOS claims no overlap, but there is a point inside all for {:?}",
                             &option_translated[..n]
@@ -2056,19 +2060,88 @@ impl Topology {
                 }
 
                 if has_overlap {
-                    // find centers with maximal radius
-                    let ti = Instant::now();
-                    self.construct_socp_problem(&option_translated[..n], ellipsoid_list, true);
-                    self.socp_problem.initialize_workspace_ecos();
-                    let r = self.socp_problem.solve_ecos();
-                    assert!(
-                        r == 0 || r == -2 || r == 10,
-                        "ECOS returns failure when it should find a center: {}",
-                        r
-                    );
-                    self.socp_problem.finish_ecos();
-                    ecos_time += Instant::now().duration_since(ti).as_nanos();
-                    problem_count += 1;
+                    let overlap = if self.settings.deformation.fixed.use_heuristic_centers
+                        && best_point.is_some()
+                    {
+                        let (point_e_id, radius) = best_point.unwrap();
+                        if self.settings.general.debug > 0 {
+                            println!(
+                                "Using internal point of E-surface {:?}: {}",
+                                point_e_id, radius
+                            );
+                        }
+
+                        let mut excluded_surface_indices = Vec::with_capacity(ellipsoid_list.len());
+                        for (i, e) in ellipsoid_list.iter().enumerate() {
+                            if !option_translated[..n].contains(&i) {
+                                excluded_surface_indices.push(e.id);
+                            }
+                        }
+
+                        let overlap = option_translated[..n]
+                            .iter()
+                            .map(|e_index| ellipsoid_list[*e_index].id)
+                            .collect();
+
+                        FixedDeformationOverlap {
+                            deformation_sources: ellipsoid_list[point_e_id].point_on_the_inside
+                                [..self.n_loops]
+                                .to_vec(),
+                            excluded_surface_ids: vec![],
+                            excluded_surface_indices,
+                            overlap: Some(overlap),
+                            radius,
+                        }
+                    } else {
+                        // find centers with maximal radius
+                        if self.settings.deformation.fixed.maximize_radius {
+                            let ti = Instant::now();
+
+                            self.construct_socp_problem(
+                                &option_translated[..n],
+                                ellipsoid_list,
+                                true,
+                            );
+
+                            self.socp_problem.initialize_workspace_ecos();
+                            let r = self.socp_problem.solve_ecos();
+                            if !(r == 0 || r == -2 || r == 10) {
+                                println!(
+                                    "ECOS cannot opimize radius for {}: {}. Falling back to default overlap finding.",
+                                    self.name, r
+                                );
+
+                                self.socp_problem.finish_ecos();
+                                self.construct_socp_problem(
+                                    &option_translated[..n],
+                                    ellipsoid_list,
+                                    false,
+                                );
+                                self.socp_problem.initialize_workspace_ecos();
+                                let r = self.socp_problem.solve_ecos();
+                                assert!(r == 0 || r == -2 || r == 10, "ECOS cannot find overlap");
+                            }
+                            self.socp_problem.finish_ecos();
+                            ecos_time += Instant::now().duration_since(ti).as_nanos();
+                            problem_count += 1;
+                        } else if best_point.is_some() {
+                            let ti = Instant::now();
+                            // no ECOS run has been performed yet
+                            self.construct_socp_problem(
+                                &option_translated[..n],
+                                ellipsoid_list,
+                                false,
+                            );
+                            self.socp_problem.initialize_workspace_ecos();
+                            let r = self.socp_problem.solve_ecos();
+                            self.socp_problem.finish_ecos();
+                            ecos_time += Instant::now().duration_since(ti).as_nanos();
+                            problem_count += 1;
+                            assert!(r == 0 || r == -2 || r == 10, "ECOS cannot find overlap");
+                        }
+
+                        self.build_deformation_overlap_info(&option_translated[..n], ellipsoid_list)
+                    };
 
                     for (i, &ei) in option[..n].iter().enumerate() {
                         for &ej in option[i + 1..n].iter() {
@@ -2079,12 +2152,7 @@ impl Topology {
                         }
                     }
 
-                    overlap_structure.push(
-                        self.build_deformation_overlap_info(
-                            &option_translated[..n],
-                            ellipsoid_list,
-                        ),
-                    );
+                    overlap_structure.push(overlap);
                 }
             }
         }
