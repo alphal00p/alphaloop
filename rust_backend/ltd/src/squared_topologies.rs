@@ -720,7 +720,7 @@ impl SquaredTopologySet {
             }
 
             let (l_space, _) = Topology::parameterize::<T>(
-                &x[i * 3..(i + 1) * 3],
+                &xrot[i * 3..(i + 1) * 3],
                 self.e_cm_squared,
                 i,
                 &self.settings,
