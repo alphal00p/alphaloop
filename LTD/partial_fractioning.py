@@ -156,7 +156,7 @@ class PartialFractioning:
 
             product = [[], [[] for _ in range(self.n_loops)]]
             for dpm, which in zip(zip(dens_plus, dens_minus), choose):
-                product[0] += [dpm[which]]
+                product[0] += [copy.deepcopy(dpm[which])]
 
             # factor coming from the initial partial fractioning into positive and negative energies
             global_factor = (-1)**choose.count(0)

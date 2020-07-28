@@ -3,7 +3,7 @@ import itertools
 import time
 import os
 import sys
-
+import copy
 
 class bcolors:
     HEADER = '\033[1;35;48m'
@@ -147,7 +147,7 @@ def print_info(method):
             else:
                 energies_product += "2{}E{}{}*".format(
                     bcolors.OKGREEN, i, bcolors.ENDC)
-                size+=1
+                size += 1
         size += len("(2πi)^{}".format(n_loops))
         print("{4:}{3:}(2πi)^{0:}\n{4:}{2:}\n{4:}   {1:}\n".format(
             n_loops, energies_product, '-'*size, ' '*((size-5)//2), '\t'))
@@ -271,7 +271,7 @@ def store_report(method):
                 print("Storing as FORM...({}/{})".format(pf_id+1, size), end="\r")
 
             # store factor
-            ss += "%+d"%cast_int(fact)
+            ss += "%+d" % cast_int(fact)
 
             # store denominators
             if prod != []:
@@ -286,7 +286,7 @@ def store_report(method):
                     except ValueError:
                         d_idx = len(den_library)
                         den_library += [den]
-                    ss += "*invd%d"%d_idx
+                    ss += "*invd%d" % d_idx
 
             # store numerator steps
             ss += "*num(ncmd("
@@ -299,7 +299,7 @@ def store_report(method):
                         if e != 0 and p != 0:
                             ss += "{:+}*E{}{:+}*p{}".format(cast_int(e), j, cast_int(p), j)
                     if i+1 == len(zs) and n+1 == len(num):
-                        ss += ") )"
+                        ss += "))"
                     elif i+1 == len(zs):
                         ss += "), ncmd("
                     else:
@@ -307,14 +307,14 @@ def store_report(method):
             ss += "\n"
         
 
-        with open("{}".format(file_name.replace(".frm",".den")), 'w') as f:
+        with open("{}".format(file_name.replace(".frm", ".den")), 'w') as f:
             ss_den = ""
-            for n,den in enumerate(den_library):
-                ss_den += "d%d = %s;\n"%(n,den)
+            for n, den in enumerate(den_library):
+                ss_den += "d%d = %s;\n" % (n, den)
             f.write(ss_den)
             f.close()
         with open("{}".format(file_name), 'w') as f:
-            f.write("%s;"%ss)
+            f.write("%s;" % ss)
             f.close()
         print("\033[KStored in {}  ".format(file_name))
  
@@ -627,7 +627,7 @@ def integrate_energies(ll_n_props, signatures, **kwargs):
     for choose in itertools.product([0, 1], repeat=n_props):
         product = [[], [[] for _ in range(n_loops)]]
         for dpm, which in zip(zip(dens_plus, dens_minus), choose):
-            product[0] += [dpm[which]]
+            product[0] += [copy.deepcopy(dpm[which])]
 
         # factor coming from the initial partial fractioning into positive and negative energies
         global_factor = (-1)**choose.count(0)
@@ -679,7 +679,7 @@ def pf_product(product, n_loops, r=0, global_factor=1.0, numerator=[]):
 
     result = []
     for mapping in res:
-        new_product = [left_product.copy(), product[1].copy()]
+        new_product = [copy.deepcopy(left_product), copy.deepcopy(product[1])]
         for pair in mapping[0]:
             new_product[0] += [den_mapper(product[0][pair[0]],
                                           product[0][pair[1]],
