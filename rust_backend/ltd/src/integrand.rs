@@ -487,13 +487,14 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         let mut stability = (d, 0.);
         let mut result_f128_option = None;
-        if self.settings.general.force_f128
-            || do_f128
-            || !result.is_finite()
-            || !min_rot.is_finite()
-            || !max_rot.is_finite()
-            || d < NumCast::from(self.settings.general.relative_precision_f64).unwrap()
-            || diff > NumCast::from(self.settings.general.absolute_precision).unwrap()
+        if self.settings.general.numerical_instability_check
+            && (self.settings.general.force_f128
+                || do_f128
+                || !result.is_finite()
+                || !min_rot.is_finite()
+                || !max_rot.is_finite()
+                || d < NumCast::from(self.settings.general.relative_precision_f64).unwrap()
+                || diff > NumCast::from(self.settings.general.absolute_precision).unwrap())
         {
             // clear events when there is instability
             event_manager.clear(false);
