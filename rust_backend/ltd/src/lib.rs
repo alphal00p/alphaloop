@@ -655,23 +655,23 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 py_class!(class CrossSection |py| {
     data squared_topology: RefCell<squared_topologies::SquaredTopology>;
     data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopologySet>>;
-    data caches: RefCell<Vec<Vec<Vec<topologies::LTDCache<float>>>>>;
-    data caches_f128: RefCell<Vec<Vec<Vec<topologies::LTDCache<f128::f128>>>>>;
+    data caches: RefCell<squared_topologies::SquaredTopologyCache<topol>>::LTDCache<float>>>>>;
+    data caches_f128: RefCell<squared_topologies::SquaredTopologyCache<f128::f128>>;
     data dashboard: RefCell<dashboard::Dashboard>;
 
     def __new__(_cls, squared_topology_file: &str, settings_file: &str)
     -> PyResult<CrossSection> {
+        use integrand::IntegrandImplementation;
+
         let settings = Settings::from_file(settings_file).unwrap();
         let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings).unwrap();
+        let squared_topology_set = squared_topologies::SquaredTopologySet::from_one(squared_topology.clone());
+        let squared_topologies::SquaredTopologyCacheCollection {float_cache, quad_cache} = squared_topology_set.create_cache();
         let dashboard = dashboard::Dashboard::minimal_dashboard();
         let integrand = integrand::Integrand::new(squared_topology.n_loops,
-            squared_topologies::SquaredTopologySet::from_one(squared_topology.clone()),
-            settings.clone(), true, dashboard.status_update_sender.clone(), 0);
+            squared_topology_set, settings.clone(), true, dashboard.status_update_sender.clone(), 0);
 
-        let caches = squared_topology.create_caches::<float>();
-        let caches_f128 = squared_topology.create_caches::<f128::f128>();
-
-        CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(integrand), RefCell::new(caches), RefCell::new(caches_f128),
+        CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(integrand), RefCell::new(float_cache), RefCell::new(quad_cache),
             RefCell::new(dashboard))
     }
 
@@ -742,7 +742,7 @@ py_class!(class CrossSection |py| {
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-        let cache = &mut *self.caches(py).borrow_mut()[cut_index];
+        let cache = &mut *self.caches(py).borrow_mut();
 
         let mut integrand = self.integrand(py).borrow_mut();
 
@@ -784,7 +784,7 @@ py_class!(class CrossSection |py| {
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-        let cache = &mut *self.caches_f128(py).borrow_mut()[cut_index];
+        let cache = &mut *self.caches_f128(py).borrow_mut();
 
         let mut integrand = self.integrand(py).borrow_mut();
 
@@ -826,7 +826,7 @@ py_class!(class CrossSection |py| {
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-        let cache = &mut *self.caches_f128(py).borrow_mut()[cut_index];
+        let cache = &mut *self.caches_f128(py).borrow_mut();
 
         let mut integrand = self.integrand(py).borrow_mut();
 

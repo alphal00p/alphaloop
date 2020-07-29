@@ -1274,7 +1274,7 @@ fn inspect<'a>(
         settings.general.screen_log_core = Some(1);
         settings.general.log_points_to_screen = true;
 
-        match diagram {
+        let result = match diagram {
             Diagram::CrossSection(sqt) => Integrand::new(
                 sqt.get_maximum_loop_count(),
                 sqt.clone(),
@@ -1294,6 +1294,7 @@ fn inspect<'a>(
             )
             .evaluate(&pt, 1., 1),
         };
+        println!("result={:e}\n  | x={:?}\n", result, pt);
         return;
     }
 

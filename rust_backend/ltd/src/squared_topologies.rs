@@ -1027,8 +1027,8 @@ impl<T: FloatLike> SquaredTopologyCache<T> {
 /// Cache for squared topology sets.
 #[derive(Default)]
 pub struct SquaredTopologyCacheCollection {
-    float_cache: SquaredTopologyCache<float>,
-    quad_cache: SquaredTopologyCache<f128>,
+    pub float_cache: SquaredTopologyCache<float>,
+    pub quad_cache: SquaredTopologyCache<f128>,
 }
 
 pub trait CachePrecisionSelector<T: FloatLike> {
