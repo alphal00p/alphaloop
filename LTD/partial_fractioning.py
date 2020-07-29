@@ -159,7 +159,8 @@ class PartialFractioning:
                 product[0] += [copy.deepcopy(dpm[which])]
 
             # factor coming from the initial partial fractioning into positive and negative energies
-            global_factor = (-1)**(choose.count(0) + self.n_loops)
+            # the (-1)**n_loops is already taken into account in alphaLoop
+            global_factor = (-1)**choose.count(0)
             self.pf_res += self.pf_product(product,
                                             global_factor=global_factor)
 

@@ -346,7 +346,7 @@ id color(x?) = x;
 * Set all external momenta on-shell
 * FIXME: incorrect for massive externals
 #do i=1,10
-    id p`i'.p`i' = 0;
+*    id p`i'.p`i' = 0;
 #enddo
 
 id pzero = 0; * Substitute the 0-momentum by 0

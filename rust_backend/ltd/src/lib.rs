@@ -611,6 +611,7 @@ pub struct CrossSectionSettings {
     pub m_uv_sq: f64,
     pub mu_r_sq: f64,
     pub gs: f64,
+    pub small_mass_sq: f64,
     pub incoming_momenta: Vec<LorentzVector<f64>>,
 }
 

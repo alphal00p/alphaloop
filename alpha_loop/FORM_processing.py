@@ -1076,11 +1076,11 @@ CTable ltdtopo(0:{});
                             for _ in range(p.power):
                                 # TODO: recycle energy computations when there are duplicate edges
                                 if not is_constant:
-                                    energy_map.append(p.m_squared if not p.uv else 'mUV*mUV')
+                                    energy_map.append((p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV')
                                     energies.append(totalmom)
                                     shift_map.append(list(shift) + list(extshift))
                                 else:
-                                    constants.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV'))
+                                    constants.append((totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV'))
                     signature_offset += diag_info['graph'].n_loops
 
                 if len(signatures) == 0:
@@ -2044,7 +2044,7 @@ class FORMSuperGraphList(list):
                         energy_secs = energy_secs.replace('\n', '')
                         energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
                         if integrand_type == "PF":
-                            const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2*E{}'.format(i) for i in range(len(mom_map)))
+                            const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2.*E{}'.format(i) for i in range(len(mom_map)))
                         if const_code == '':
                             const_code = '1'
 
@@ -2055,7 +2055,7 @@ class FORMSuperGraphList(list):
 
                         conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
                         returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
-                        conf_sec = return_exp.sub('return pow(2*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+                        conf_sec = return_exp.sub('return pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
 
                         # collect all temporary variables
                         temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
@@ -2380,6 +2380,7 @@ int %(header)sget_rank(int diag, int conf) {{
         params['mUV'] = 'params[0]'
         params['mu'] = 'params[1]'
         params['gs'] = 'params[2]'
+        params['small_mass_sq'] = 'params[3]'
 
         header_code = \
 """

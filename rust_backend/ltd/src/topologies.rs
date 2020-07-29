@@ -1831,7 +1831,7 @@ impl Topology {
                 if r < origin_inside_radius {
                     origin_inside_radius = r;
                 }
-                if r < 1e-10 {
+                if r * r < 1e-12 * self.e_cm_squared {
                     break;
                 }
             }
@@ -2005,7 +2005,7 @@ impl Topology {
                             &ellipsoid_list[o2],
                         );
 
-                        if r < 1e-10 {
+                        if r * r < 1e-12 * self.e_cm_squared {
                             continue 'on;
                         }
 

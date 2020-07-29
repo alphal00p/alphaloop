@@ -1059,8 +1059,27 @@ impl SquaredTopology {
             .wrap_err("Could not parse squared topology file")
             .suggestion("Is it a correct yaml file")?;
 
+        // update the UV mass and small mass in the squared topology
+        // this affects the multi-channeling
+        for ll in &mut squared_topo.topo.loop_lines {
+            for p in &mut ll.propagators {
+                if p.uv {
+                    p.m_squared = settings.cross_section.m_uv_sq;
+                }
+                if p.m_squared == 0. {
+                    p.m_squared = settings.cross_section.small_mass_sq;
+                }
+            }
+        }
+
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
+            for cut in &mut cutkosky_cuts.cuts {
+                if cut.m_squared == 0. {
+                    cut.m_squared = settings.cross_section.small_mass_sq;
+                }
+            }
+
             for diagram_set in &mut cutkosky_cuts.diagram_sets {
                 diagram_set.numerator = if diagram_set.numerator_tensor_coefficients.len() == 0
                     && diagram_set.numerator_tensor_coefficients_sparse.len() == 0
@@ -1093,6 +1112,9 @@ impl SquaredTopology {
                         for p in &mut ll.propagators {
                             if p.uv {
                                 p.m_squared = settings.cross_section.m_uv_sq;
+                            }
+                            if p.m_squared == 0. {
+                                p.m_squared = settings.cross_section.small_mass_sq;
                             }
                         }
                     }
@@ -1927,6 +1949,8 @@ impl SquaredTopology {
                     Into::<T>::into(self.settings.cross_section.mu_r_sq.sqrt()),
                     T::zero(),
                     Into::<T>::into(self.settings.cross_section.gs),
+                    T::zero(),
+                    Into::<T>::into(self.settings.cross_section.small_mass_sq),
                     T::zero(),
                 ];
 
