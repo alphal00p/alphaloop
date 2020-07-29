@@ -20,7 +20,7 @@ use vector::LorentzVector;
 use {
     AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike,
     OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
-    Settings, MAX_LOOP,
+    Settings, MAX_LOOP, IRHandling
 };
 
 use utils;
@@ -1306,6 +1306,54 @@ impl Topology {
             }
         }
 
+        // Setup a veto region at the intersection of pinched and non-pinched E-surfaces.
+        if self.settings.deformation.fixed.IR_handling_strategy != IRHandling::None {
+            let mut min_ellipse = DualN::from_real(Into::<T>::into(1e99));
+            let mut min_pinch = DualN::from_real(Into::<T>::into(1e99));
+            for (surf_index, s) in self.surfaces.iter().enumerate() {
+                if s.surface_type == SurfaceType::Hyperboloid || !s.exists || surf_index != s.group {
+                    continue;
+                }
+
+                let e = cache.ellipsoid_eval[surf_index].unwrap().powi(2);
+                let n = Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
+
+                let t = (e
+                    / (Into::<T>::into(
+                        self.settings.deformation.fixed.IR_k_com * self.e_cm_squared,
+                    ) + Into::<T>::into(
+                        self.settings.deformation.fixed.IR_k_shift,
+                    ) * n))
+                    .pow(Into::<T>::into(
+                        self.settings.deformation.fixed.IR_alpha,
+                    ));
+
+                if s.surface_type == SurfaceType::Ellipsoid && min_ellipse > t {
+                    min_ellipse = t;
+                }
+
+                if s.surface_type == SurfaceType::Pinch && min_ellipse > t {
+                    min_pinch = t;
+                }
+            }
+
+            if (min_ellipse.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_ellipse.powi(2))+
+                min_pinch.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_pinch.powi(2))
+            ) < Into::<T>::into(self.settings.deformation.fixed.IR_threshold.powi(2)) {
+                match self.settings.deformation.fixed.IR_handling_strategy {
+                    IRHandling::DismissPoint => {
+                        return DualN::from_real(T::nan()); // TODO: improve into a proper escalation
+                    }
+                    IRHandling::DismissDeformation => {
+                        return DualN::from_real(Into::<T>::into(0.)); // CHECK: this could cause a problem in the Jacobian!
+                    }
+                    IRHandling::None => {
+                        unreachable!();
+                    }
+                }
+            }
+        }
+        
         if sigma.is_zero() {
             lambda_sq.sqrt()
         } else {

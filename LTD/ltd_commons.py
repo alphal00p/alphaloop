@@ -188,6 +188,15 @@ hyperparameters = HyperParameters({
             'pinch_dampening_alpha': 1.,
             'pinch_dampening_k_com': 0.,
             'pinch_dampening_k_shift': 1.,
+            # Specify a strategy to veto small problematic regions close to IR singularities
+            # The strategy can either be "dismiss_point", "dismiss_deformation" or "none"
+            'IR_handling_strategy': 'dismiss_point',
+            'IR_alpha': 1.0,
+            'IR_k_com': 0.,
+            'IR_k_shift': 1.0,
+            'IR_beta_ellipse': 1.0,
+            'IR_beta_pinch': 1.0,
+            'IR_threshold': 1.0e-5,
             # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
             'm_ijs' : [],
             # localizes the deformation around the ellipsoids using an exponential function with variance a_ij

@@ -123,6 +123,43 @@ pub enum DeformationStrategy {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+pub enum IRHandling {
+    #[serde(rename = "dismiss_point")]
+    DismissPoint,
+    #[serde(rename = "dismiss_deformation")]
+    DismissDeformation,
+    #[serde(rename = "none")]
+    None,
+}
+
+impl From<&str> for IRHandling {
+    fn from(s: &str) -> Self {
+        match s {
+            "dismiss_point" => IRHandling::DismissPoint,
+            "dismiss_deformation" => IRHandling::DismissDeformation,
+            "none" => IRHandling::None,
+            _ => panic!("Unknown IR handling strategy {}", s),
+        }
+    }
+}
+
+impl fmt::Display for IRHandling {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            IRHandling::DismissPoint => write!(f, "dismiss_point"),
+            IRHandling::DismissDeformation => write!(f, "dismiss_deformation"),
+            IRHandling::None => write!(f, "none")
+        }
+    }
+}
+
+impl Default for IRHandling {
+    fn default() -> IRHandling {
+        IRHandling::None
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub enum ExpansionCheckStrategy {
     #[serde(rename = "first_lambda_order")]
     FirstLambdaOrder,
@@ -351,6 +388,13 @@ pub struct DeformationFixedSettings {
     pub pinch_dampening_alpha: f64,
     pub pinch_dampening_k_com: f64,
     pub pinch_dampening_k_shift: f64,
+    pub IR_handling_strategy: IRHandling,
+    pub IR_alpha: f64,
+    pub IR_k_com: f64,
+    pub IR_k_shift: f64,
+    pub IR_threshold: f64,
+    pub IR_beta_ellipse: f64,
+    pub IR_beta_pinch: f64,
     pub normalize_per_source: bool,
     pub normalisation_of_subspace_components: bool,
     pub normalisation_per_number_of_sources: bool,
