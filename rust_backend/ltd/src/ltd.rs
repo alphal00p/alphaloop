@@ -1285,8 +1285,18 @@ impl Topology {
                     continue;
                 }
 
-                let t = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
-                    / Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
+                let e = cache.ellipsoid_eval[surf_index].unwrap().powi(2);
+                let n = Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
+
+                let t = (e
+                    / (Into::<T>::into(
+                        self.settings.deformation.fixed.pinch_dampening_k_com * self.e_cm_squared,
+                    ) + Into::<T>::into(
+                        self.settings.deformation.fixed.pinch_dampening_k_shift,
+                    ) * n))
+                    .pow(Into::<T>::into(
+                        self.settings.deformation.fixed.pinch_dampening_alpha,
+                    ));
 
                 let sup = t / (t + mij_sq);
 
