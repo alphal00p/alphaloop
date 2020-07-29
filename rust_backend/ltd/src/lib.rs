@@ -655,7 +655,7 @@ py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
 py_class!(class CrossSection |py| {
     data squared_topology: RefCell<squared_topologies::SquaredTopology>;
     data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopologySet>>;
-    data caches: RefCell<squared_topologies::SquaredTopologyCache<topol>>::LTDCache<float>>>>>;
+    data caches: RefCell<squared_topologies::SquaredTopologyCache<f64>>;
     data caches_f128: RefCell<squared_topologies::SquaredTopologyCache<f128::f128>>;
     data dashboard: RefCell<dashboard::Dashboard>;
 
