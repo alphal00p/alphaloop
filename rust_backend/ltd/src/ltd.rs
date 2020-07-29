@@ -1687,11 +1687,12 @@ impl Topology {
             if surf.surface_type != SurfaceType::Pinch
                 || !self.settings.deformation.fixed.dampen_on_pinch
             {
-                if surf.surface_type != SurfaceType::Ellipsoid
+                if (self.settings.deformation.fixed.IR_handling_strategy == IRHandling::None) && (
+                    surf.surface_type != SurfaceType::Ellipsoid
                     || surf.group != i
                     || !surf.exists
                     || (!self.all_excluded_surfaces[i] && !self.settings.deformation.fixed.local)
-                    || cache.ellipsoid_eval[i].is_some()
+                    || cache.ellipsoid_eval[i].is_some() )
                 {
                     continue;
                 }
