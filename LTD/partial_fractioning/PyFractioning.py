@@ -630,7 +630,7 @@ def integrate_energies(ll_n_props, signatures, **kwargs):
             product[0] += [copy.deepcopy(dpm[which])]
 
         # factor coming from the initial partial fractioning into positive and negative energies
-        global_factor = (-1)**choose.count(0)
+        global_factor = (-1)**(choose.count(0) + n_loops)
         pf_res += pf_product(product, n_loops, global_factor=global_factor)
 
         print("Select: {} (Total: {})".format(choose, len(pf_res)), end='\r')
