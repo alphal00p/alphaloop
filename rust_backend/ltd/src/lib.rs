@@ -98,6 +98,7 @@ pub struct Scaling {
     pub softmin_sigma: f64,
     pub expansion_threshold: f64,
     pub branch_cut_m: f64,
+    pub branch_cut_alpha: f64,
     pub source_branch_cut_m: f64,
     pub branch_cut_check: bool,
     pub source_branch_cut_threshold: f64,
