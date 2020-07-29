@@ -1025,9 +1025,16 @@ impl Topology {
 
                 surface_shift.t = energy_shift;
 
-                if surface_shift.square() - mass_sum.powi(2) >= 1e-10 * self.e_cm_squared
+                if surface_shift.square() - mass_sum.powi(2) >= 1e-8 * self.e_cm_squared
                     && surface_shift.t < 0.
                 {
+                    if self.settings.general.debug > 0 {
+                        let r = surface_shift.square() - mass_sum.powi(2);
+                        if r < 1e-6 * self.e_cm_squared {
+                            println!("Small ellipsoid {} detected: {}", i, r);
+                        }
+                    }
+
                     let mut surface = ESurface {
                         id: i,
                         foci,

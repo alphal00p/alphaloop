@@ -675,14 +675,21 @@ impl Topology {
             // 4. surface_shift.t needs to have the opposite sign as in step 3.
             let mut exists = true;
             let mut is_pinch = false;
+            let size = surface_shift.square() - mass_sum.powi(2);
 
-            if surface_shift.square() - mass_sum.powi(2)
-                >= Into::<float>::into(-1e-13 * self.e_cm_squared)
+            if size >= Into::<float>::into(-1e-13 * self.e_cm_squared)
                 && surface_shift.t.multiply_sign(s.delta_sign) < float::zero()
             {
-                if surface_shift.square() - mass_sum.powi(2)
-                    < Into::<float>::into(1e-10 * self.e_cm_squared)
-                {
+                if self.settings.general.debug > 0 {
+                    if size > 1e-8 * self.e_cm_squared
+                        && size < 1e-6 * self.e_cm_squared
+                        && !mass_sum.is_zero()
+                    {
+                        println!("Small ellipsoid {} detected: {}", s.group, size);
+                    }
+                }
+
+                if size < Into::<float>::into(1e-8 * self.e_cm_squared) {
                     if mass_sum.is_zero() {
                         is_pinch = true;
                     } else {

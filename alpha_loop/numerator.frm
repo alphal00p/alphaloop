@@ -844,9 +844,9 @@ endargument;
 * Optimize the output
         Format C;
         #if `OPTIMLVL' > 1
-            Format O`OPTIMLVL',method=CSEGreedy,stats=off,saIter=`OPTIMITERATIONS';
+            Format O`OPTIMLVL',method=CSEGreedy,stats=on,saIter=`OPTIMITERATIONS';
         #else
-            Format O1,stats=off;
+            Format O1,stats=on;
         #endif
         #Optimize FF`ext'
         #write<out_integrand_`SGID'.proto_c> "%O"
@@ -929,7 +929,7 @@ Hide F;
 
 * Optimize the output
     Format C;
-    Format O`OPTIMLVL',stats=off,method=CSEGreedy,saIter=`OPTIMITERATIONS';
+    Format O`OPTIMLVL',stats=on,method=CSEGreedy,saIter=`OPTIMITERATIONS';
     #Optimize FF`ext'
     #write<out_`SGID'.proto_c> "%O"
     B+ <Z{`energysymbolstart' + 1}_>,...,<Z`energysymbolend'_>;
