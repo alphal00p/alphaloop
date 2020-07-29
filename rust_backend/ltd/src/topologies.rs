@@ -1025,7 +1025,7 @@ impl Topology {
 
                 surface_shift.t = energy_shift;
 
-                if surface_shift.square() - mass_sum.powi(2) >= -1e-13 * self.e_cm_squared
+                if surface_shift.square() - mass_sum.powi(2) >= 1e-10 * self.e_cm_squared
                     && surface_shift.t < 0.
                 {
                     let mut surface = ESurface {
@@ -1828,11 +1828,12 @@ impl Topology {
             let origin = [LorentzVector::default(); MAX_LOOP];
             for e in ellipsoid_list {
                 let r: f64 = -self.evaluate_surface(&origin[..self.n_loops], e);
+                if r <= 0. || r * r < 1e-10 * self.e_cm_squared {
+                    origin_inside_radius = -1.;
+                    break;
+                }
                 if r < origin_inside_radius {
                     origin_inside_radius = r;
-                }
-                if r <= 0. || r * r < 1e-12 * self.e_cm_squared {
-                    break;
                 }
             }
 
@@ -1942,7 +1943,7 @@ impl Topology {
 
                     if has_overlap != has_overlap_scs {
                         panic!(
-                            "Inconcistency between SCS and ECOS: {} vs {} for {:#?} and {:#?}",
+                            "Inconsistency between SCS and ECOS: {} vs {} for {:#?} and {:#?}",
                             has_overlap_scs, has_overlap, ellipsoid_list[i], ellipsoid_list[j],
                         );
                     }
@@ -2005,7 +2006,7 @@ impl Topology {
                             &ellipsoid_list[o2],
                         );
 
-                        if r <= 0. || r * r < 1e-12 * self.e_cm_squared {
+                        if r <= 0. || r * r < 1e-10 * self.e_cm_squared {
                             continue 'on;
                         }
 
@@ -2050,7 +2051,7 @@ impl Topology {
 
                         if has_overlap != has_overlap_scs {
                             panic!(
-                                "Inconcistency between SCS and ECOS: {} vs {} for {:?}",
+                                "Inconsistency between SCS and ECOS: {} vs {} for {:?}",
                                 has_overlap_scs,
                                 has_overlap,
                                 &option_translated[..n]
