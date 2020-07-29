@@ -5,7 +5,7 @@ use float;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
-use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Signed, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Pow, Signed, Zero};
 use partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
@@ -1098,7 +1098,9 @@ impl Topology {
                 // prevent a discontinuity in the cut delta by making sure that the real part of the cut propagator is > 0
                 // for that we need lambda_sq < (q_i^2^cut+m_i^2)/(kappa_i^cut^2)
                 if self.settings.deformation.scaling.branch_cut_check {
-                    let mut lambda_disc_sq = info.spatial_and_mass_sq / info.kappa_sq
+                    // use min(mass, UV mass) instead of the actual propagator mass,
+                    // such that UV propagators are also protected from crossing the branch cut
+                    let mut lambda_disc_sq = info.spatial_and_uv_mass_sq / info.kappa_sq
                         * DualN::from_real(Into::<T>::into(0.95));
 
                     if self.settings.deformation.scaling.branch_cut_m > 0. {
@@ -1111,6 +1113,10 @@ impl Topology {
                                     * Into::<T>::into(self.e_cm_squared)
                                     * Into::<T>::into(self.e_cm_squared));
                     }
+
+                    lambda_disc_sq = lambda_disc_sq.pow(Into::<T>::into(
+                        self.settings.deformation.scaling.branch_cut_alpha,
+                    ));
 
                     if sigma.is_zero() {
                         if lambda_disc_sq.abs() < lambda_sq {
@@ -1924,15 +1930,9 @@ impl Topology {
                     if d_lim.excluded_propagators.contains(&(ll_index, prop_index)) {
                         continue;
                     }
-                    let mut lambda_disc_sq = cache.cut_info[p.id].spatial_and_mass_sq
+                    let mut lambda_disc_sq = cache.cut_info[p.id].spatial_and_uv_mass_sq
                         / kappa_cut.spatial_squared_impr()
-                        * DualN::from_real(Into::<T>::into(0.95))
-                        * DualN::from_real(Into::<T>::into(
-                            self.settings
-                                .deformation
-                                .scaling
-                                .source_branch_cut_multiplier,
-                        ));
+                        * DualN::from_real(Into::<T>::into(0.95));
                     if self.settings.deformation.scaling.source_branch_cut_m > 0. {
                         let branch_cut_check_m = DualN::from_real(Into::<T>::into(
                             self.settings.deformation.scaling.source_branch_cut_m,
@@ -1944,6 +1944,15 @@ impl Topology {
                                     * Into::<T>::into(self.e_cm_squared)
                                     * Into::<T>::into(self.e_cm_squared));
                     }
+
+                    lambda_disc_sq = lambda_disc_sq.pow(Into::<T>::into(
+                        self.settings.deformation.scaling.branch_cut_alpha,
+                    )) * DualN::from_real(Into::<T>::into(
+                        self.settings
+                            .deformation
+                            .scaling
+                            .source_branch_cut_multiplier,
+                    ));
 
                     if lambda_disc_sq < lambda_sq {
                         lambda_sq = lambda_disc_sq;
@@ -2117,7 +2126,8 @@ impl Topology {
                     let q: LorentzVector<DualN<T, U>> = p.q.cast();
                     let mass = DualN::from_real(Into::<T>::into(p.m_squared));
 
-                    let cm = (mom + q).spatial_squared_impr() + mass;
+                    let mom_sq = (mom + q).spatial_squared_impr();
+                    let cm = mom_sq + mass;
                     let energy = cm.sqrt();
                     cache.cut_energies[p.id] = energy;
 
@@ -2126,6 +2136,10 @@ impl Topology {
                     info.momentum = mom + q;
                     info.real_energy = energy;
                     info.spatial_and_mass_sq = cm;
+                    info.spatial_and_uv_mass_sq = mom_sq
+                        + mass.min(DualN::from_real(Into::<T>::into(
+                            self.settings.cross_section.m_uv_sq,
+                        )));
                     // TODO: these two never change and can be set at the start!
                     info.shift = q;
                     info.mass = mass;

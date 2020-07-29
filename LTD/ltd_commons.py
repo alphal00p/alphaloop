@@ -143,6 +143,8 @@ hyperparameters = HyperParameters({
             # then directly be used as an input.
             'expansion_threshold'       : -0.3,
             'branch_cut_check'          : True,
+            # take the branch cut lambda to a higher power to dampen faster around focal points
+            'branch_cut_alpha'          : 1.0,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,

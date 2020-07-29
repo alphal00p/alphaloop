@@ -157,6 +157,7 @@ where
     pub momentum: LorentzVector<DualN<T, U>>,
     pub real_energy: DualN<T, U>,
     pub spatial_and_mass_sq: DualN<T, U>,
+    pub spatial_and_uv_mass_sq: DualN<T, U>,
     pub shift: LorentzVector<DualN<T, U>>,
     pub kappa: LorentzVector<DualN<T, U>>,
     pub kappa_sq: DualN<T, U>,
@@ -178,6 +179,7 @@ where
             momentum: LorentzVector::default(),
             real_energy: DualN::default(),
             spatial_and_mass_sq: DualN::default(),
+            spatial_and_uv_mass_sq: DualN::default(),
             shift: LorentzVector::default(),
             kappa: LorentzVector::default(),
             kappa_sq: DualN::default(),
@@ -2261,7 +2263,7 @@ impl SOCPProblem {
         let different = vec![false; max_ellipsoids];
 
         let num_constraints = max_ellipsoids + max_foci * 5;
-        let var_length = 3 * n_loops + max_foci;
+        let var_length = 3 * n_loops + max_foci + 1;
         let num_non_empty = max_ellipsoids * n_loops + max_foci + 5 * n_loops * max_foci;
 
         let focus_list = vec![(0, 0, 0, 0); max_foci];
