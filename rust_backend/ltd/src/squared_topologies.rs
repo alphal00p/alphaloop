@@ -21,7 +21,10 @@ use topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use utils;
 use utils::Signum;
 use vector::{LorentzVector, RealNumberLike};
-use {DeformationStrategy, FloatLike, NormalisingFunction, IRHandling, NumeratorSource, Settings, MAX_LOOP};
+use {
+    DeformationStrategy, FloatLike, IRHandling, NormalisingFunction, NumeratorSource, Settings,
+    MAX_LOOP,
+};
 
 mod form_numerator {
     use dlopen::wrapper::{Container, WrapperApi};
@@ -1887,17 +1890,18 @@ impl SquaredTopology {
                     k_def_index += subgraph.n_loops;
                 }
 
-                if (self.settings.deformation.fixed.IR_handling_strategy == IRHandling::None) {
-                    if subgraph
-                        .compute_complex_cut_energies(
-                            &k_def[k_def_index - subgraph.n_loops..k_def_index],
-                            subgraph_cache,
-                        )
-                        .is_err()
-                    {
+                if subgraph
+                    .compute_complex_cut_energies(
+                        &k_def[k_def_index - subgraph.n_loops..k_def_index],
+                        subgraph_cache,
+                    )
+                    .is_err()
+                {
+                    if self.settings.deformation.fixed.ir_handling_strategy == IRHandling::None {
                         panic!("NaN on cut energy");
                     }
                 }
+
                 subgraph_cache.cached_topology_integrand.clear();
             }
 

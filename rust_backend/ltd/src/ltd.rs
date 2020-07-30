@@ -18,9 +18,9 @@ use topologies::{
 use utils::Signum;
 use vector::LorentzVector;
 use {
-    AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike,
+    AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike, IRHandling,
     OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
-    Settings, MAX_LOOP, IRHandling
+    Settings, MAX_LOOP,
 };
 
 use utils;
@@ -1012,6 +1012,11 @@ impl Topology {
         let cache = cache.get_cache_mut();
 
         for ll in &self.loop_lines {
+            // skip loop lines without loop dependence
+            if ll.signature.iter().all(|&x| x == 0) {
+                continue;
+            }
+
             let mut kappa_cut = LorentzVector::default();
             for (kappa, &sign) in kappas.iter().zip_eq(ll.signature.iter()) {
                 kappa_cut += kappa.multiply_sign(sign);
@@ -1307,34 +1312,37 @@ impl Topology {
         }
 
         // Setup a veto region at the intersection of pinched and non-pinched E-surfaces.
-        if self.settings.deformation.fixed.IR_handling_strategy != IRHandling::None {
+        if self.settings.deformation.fixed.ir_handling_strategy != IRHandling::None {
             let mut min_ellipse = DualN::from_real(Into::<T>::into(1e99));
             let mut min_pinch = DualN::from_real(Into::<T>::into(1e99));
             for (surf_index, s) in self.surfaces.iter().enumerate() {
-                if s.surface_type == SurfaceType::Hyperboloid || !s.exists || surf_index != s.group {
+                if s.surface_type == SurfaceType::Hyperboloid || !s.exists || surf_index != s.group
+                {
                     continue;
                 }
-                if (s.surface_type == SurfaceType::Pinch && self.settings.deformation.fixed.IR_beta_pinch < 0. ) {
-                    continue
+                if s.surface_type == SurfaceType::Pinch
+                    && self.settings.deformation.fixed.ir_beta_pinch < 0.
+                {
+                    continue;
                 }
-                if (s.surface_type == SurfaceType::Ellipsoid && self.settings.deformation.fixed.IR_beta_ellipse < 0. ) {
-                    continue
+                if s.surface_type == SurfaceType::Ellipsoid
+                    && self.settings.deformation.fixed.ir_beta_ellipse < 0.
+                {
+                    continue;
                 }
-                
+
                 // TODO: the unwrap_or below is necessary for when a deformation is active but
                 // exactly zero because no E-surfaces exist! This case must be better handled!
-                let e = cache.ellipsoid_eval[surf_index].unwrap_or(DualN::from_real(Into::<T>::into(1e99))).powi(2);
+                let e = cache.ellipsoid_eval[surf_index]
+                    .unwrap_or(DualN::from_real(Into::<T>::into(1e99)))
+                    .powi(2);
                 let n = Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
                 let t = (e
                     / (Into::<T>::into(
-                        self.settings.deformation.fixed.IR_k_com * self.e_cm_squared,
-                    ) + Into::<T>::into(
-                        self.settings.deformation.fixed.IR_k_shift,
-                    ) * n))
-                    .pow(Into::<T>::into(
-                        self.settings.deformation.fixed.IR_alpha,
-                    ));
+                        self.settings.deformation.fixed.ir_k_com * self.e_cm_squared,
+                    ) + Into::<T>::into(self.settings.deformation.fixed.ir_k_shift) * n))
+                    .pow(Into::<T>::into(self.settings.deformation.fixed.ir_alpha));
 
                 if s.surface_type == SurfaceType::Ellipsoid && min_ellipse > t {
                     min_ellipse = t;
@@ -1345,37 +1353,39 @@ impl Topology {
                 }
             }
 
-            let mut min_E= DualN::from_real(Into::<T>::into(1e99));
-            if (self.settings.deformation.fixed.IR_beta_energy >= 0.) {
-
-                for (ll_index, ll) in self.loop_lines.iter().enumerate() {
-
-                    if (!ll.signature.iter().any(|&x| x != 0)) {
-                        continue
+            let mut min_e = DualN::from_real(Into::<T>::into(1e99));
+            if self.settings.deformation.fixed.ir_beta_energy >= 0. {
+                for ll in self.loop_lines.iter() {
+                    if ll.signature.iter().all(|&x| x == 0) {
+                        continue;
                     }
 
-                    for (prop_index, p) in ll.propagators.iter().enumerate() { 
-
-                        // let mut normalisedE = (cache.cut_info[p.id].momentum.real().spatial_squared() + cache.cut_info[p.id].mass) / self.e_cm_squared; 
-                        let mut normalisedE = cache.cut_info[p.id].spatial_and_mass_sq / Into::<T>::into(self.e_cm_squared); 
-                        if min_E > normalisedE {
-                            min_E = normalisedE;
+                    for p in ll.propagators.iter() {
+                        let normalised_e = cache.cut_info[p.id].spatial_and_mass_sq
+                            / Into::<T>::into(self.e_cm_squared);
+                        if min_e > normalised_e {
+                            min_e = normalised_e;
                         }
-
                     }
                 }
             }
 
-            let IR_proximity = if (
-                min_pinch.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_pinch.powi(2)) >
-                min_E.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_energy.powi(2)) ) {
-                min_E.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_energy.powi(2))
+            let ir_proximity = if min_pinch.powi(2)
+                * Into::<T>::into(self.settings.deformation.fixed.ir_beta_pinch.powi(2))
+                > min_e.powi(2)
+                    * Into::<T>::into(self.settings.deformation.fixed.ir_beta_energy.powi(2))
+            {
+                min_e.powi(2)
+                    * Into::<T>::into(self.settings.deformation.fixed.ir_beta_energy.powi(2))
             } else {
-                min_pinch.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_pinch.powi(2))
-            } + min_ellipse.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_ellipse.powi(2));
+                min_pinch.powi(2)
+                    * Into::<T>::into(self.settings.deformation.fixed.ir_beta_pinch.powi(2))
+            } + min_ellipse.powi(2)
+                * Into::<T>::into(self.settings.deformation.fixed.ir_beta_ellipse.powi(2));
 
-            if IR_proximity < Into::<T>::into(self.settings.deformation.fixed.IR_threshold.powi(2)) {
-                match self.settings.deformation.fixed.IR_handling_strategy {
+            if ir_proximity < Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
+            {
+                match self.settings.deformation.fixed.ir_handling_strategy {
                     IRHandling::DismissPoint => {
                         return DualN::from_real(T::nan()); // TODO: improve into a proper escalation
                     }
@@ -1388,7 +1398,7 @@ impl Topology {
                 }
             }
         }
-        
+
         if sigma.is_zero() {
             lambda_sq.sqrt()
         } else {
@@ -1722,12 +1732,13 @@ impl Topology {
             if surf.surface_type != SurfaceType::Pinch
                 || !self.settings.deformation.fixed.dampen_on_pinch
             {
-                if (self.settings.deformation.fixed.IR_handling_strategy == IRHandling::None) && (
-                    surf.surface_type != SurfaceType::Ellipsoid
-                    || surf.group != i
-                    || !surf.exists
-                    || (!self.all_excluded_surfaces[i] && !self.settings.deformation.fixed.local)
-                    || cache.ellipsoid_eval[i].is_some() )
+                if (self.settings.deformation.fixed.ir_handling_strategy == IRHandling::None)
+                    && (surf.surface_type != SurfaceType::Ellipsoid
+                        || surf.group != i
+                        || !surf.exists
+                        || (!self.all_excluded_surfaces[i]
+                            && !self.settings.deformation.fixed.local)
+                        || cache.ellipsoid_eval[i].is_some())
                 {
                     continue;
                 }
