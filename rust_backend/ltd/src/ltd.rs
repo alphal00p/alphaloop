@@ -1314,8 +1314,16 @@ impl Topology {
                 if s.surface_type == SurfaceType::Hyperboloid || !s.exists || surf_index != s.group {
                     continue;
                 }
-
-                let e = cache.ellipsoid_eval[surf_index].unwrap().powi(2);
+                if (s.surface_type == SurfaceType::Pinch && self.settings.deformation.fixed.IR_beta_pinch < 0. ) {
+                    continue
+                }
+                if (s.surface_type == SurfaceType::Ellipsoid && self.settings.deformation.fixed.IR_beta_ellipse < 0. ) {
+                    continue
+                }
+                
+                // TODO: the unwrap_or below is necessary for when a deformation is active but
+                // exactly zero because no E-surfaces exist! This case must be better handled!
+                let e = cache.ellipsoid_eval[surf_index].unwrap_or(DualN::from_real(Into::<T>::into(1e99))).powi(2);
                 let n = Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
                 let t = (e
@@ -1332,14 +1340,41 @@ impl Topology {
                     min_ellipse = t;
                 }
 
-                if s.surface_type == SurfaceType::Pinch && min_ellipse > t {
+                if s.surface_type == SurfaceType::Pinch && min_pinch > t {
                     min_pinch = t;
                 }
             }
 
-            if (min_ellipse.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_ellipse.powi(2))+
+            let mut min_E= DualN::from_real(Into::<T>::into(1e99));
+            if (self.settings.deformation.fixed.IR_beta_energy >= 0.) {
+
+                for (ll_index, ll) in self.loop_lines.iter().enumerate() {
+
+                    if (!ll.signature.iter().any(|&x| x != 0)) {
+                        continue
+                    }
+
+                    for (prop_index, p) in ll.propagators.iter().enumerate() { 
+
+                        // let mut normalisedE = (cache.cut_info[p.id].momentum.real().spatial_squared() + cache.cut_info[p.id].mass) / self.e_cm_squared; 
+                        let mut normalisedE = cache.cut_info[p.id].spatial_and_mass_sq / Into::<T>::into(self.e_cm_squared); 
+                        if min_E > normalisedE {
+                            min_E = normalisedE;
+                        }
+
+                    }
+                }
+            }
+
+            let IR_proximity = if (
+                min_pinch.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_pinch.powi(2)) >
+                min_E.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_energy.powi(2)) ) {
+                min_E.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_energy.powi(2))
+            } else {
                 min_pinch.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_pinch.powi(2))
-            ) < Into::<T>::into(self.settings.deformation.fixed.IR_threshold.powi(2)) {
+            } + min_ellipse.powi(2)*Into::<T>::into(self.settings.deformation.fixed.IR_beta_ellipse.powi(2));
+
+            if IR_proximity < Into::<T>::into(self.settings.deformation.fixed.IR_threshold.powi(2)) {
                 match self.settings.deformation.fixed.IR_handling_strategy {
                     IRHandling::DismissPoint => {
                         return DualN::from_real(T::nan()); // TODO: improve into a proper escalation
