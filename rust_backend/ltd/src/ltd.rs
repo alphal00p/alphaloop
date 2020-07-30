@@ -1383,17 +1383,27 @@ impl Topology {
             } + min_ellipse.powi(2)
                 * Into::<T>::into(self.settings.deformation.fixed.ir_beta_ellipse.powi(2));
 
-            if ir_proximity < Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
-            {
-                match self.settings.deformation.fixed.ir_handling_strategy {
-                    IRHandling::DismissPoint => {
-                        return DualN::from_real(T::nan()); // TODO: improve into a proper escalation
-                    }
-                    IRHandling::DismissDeformation => {
-                        return DualN::from_real(Into::<T>::into(0.)); // CHECK: this could cause a problem in the Jacobian!
-                    }
-                    IRHandling::None => {
-                        unreachable!();
+            if ( self.settings.deformation.fixed.ir_handling_strategy==IRHandling::DismissDeformation && 
+                 self.settings.deformation.fixed.ir_interpolation_length > 0.0) {
+                return ((
+                            (
+                                ir_proximity/Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
+                            )-Into::<T>::into(1.0)
+                    )/Into::<T>::into(self.settings.deformation.fixed.ir_interpolation_length))
+                    .min(DualN::from_real(Into::<T>::into(0.0))).max(DualN::from_real(Into::<T>::into(1.0)));
+            } else {
+                if ir_proximity < Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
+                {
+                    match self.settings.deformation.fixed.ir_handling_strategy {
+                        IRHandling::DismissPoint => {
+                            return DualN::from_real(T::nan()); // TODO: improve into a proper escalation
+                        }
+                        IRHandling::DismissDeformation => {
+                            return DualN::from_real(Into::<T>::into(0.));
+                        }
+                        IRHandling::None => {
+                            unreachable!();
+                        }
                     }
                 }
             }

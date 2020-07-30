@@ -392,6 +392,7 @@ pub struct DeformationFixedSettings {
     pub ir_alpha: f64,
     pub ir_k_com: f64,
     pub ir_k_shift: f64,
+    pub ir_interpolation_length: f64,
     pub ir_threshold: f64,
     pub ir_beta_energy: f64,
     pub ir_beta_ellipse: f64,
