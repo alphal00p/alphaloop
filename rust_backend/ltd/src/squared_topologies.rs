@@ -1725,9 +1725,21 @@ impl SquaredTopology {
             *kd = cut_mom.to_complex(true);
         }
 
+        let params = [
+            Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
+            T::zero(),
+            Into::<T>::into(self.settings.cross_section.mu_r_sq.sqrt()),
+            T::zero(),
+            Into::<T>::into(self.settings.cross_section.gs),
+            T::zero(),
+            Into::<T>::into(self.settings.cross_section.small_mass_sq),
+            T::zero(),
+        ];
+
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();
         let mut def_jacobian = Complex::one();
+        let mut scalar_products: ArrayVec<[T; MAX_LOOP * MAX_LOOP * 6]> = ArrayVec::new();
         // regenerate the evaluation of the exponent map of the numerator since the loop momenta have changed
         let mut regenerate_momenta = true;
         for (diag_set_index, diagram_set) in cutkosky_cuts.diagram_sets.iter_mut().enumerate() {
@@ -1910,54 +1922,50 @@ impl SquaredTopology {
             if self.settings.cross_section.numerator_source == NumeratorSource::Form
                 || self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand
             {
-                let mut scalar_products: ArrayVec<[T; MAX_LOOP * MAX_LOOP * 6]> = ArrayVec::new();
-
-                for (i1, e1) in external_momenta[..self.n_incoming_momenta]
-                    .iter()
-                    .enumerate()
+                if !self
+                    .settings
+                    .cross_section
+                    .inherit_deformation_for_uv_counterterm
+                    || diag_set_index == 0
                 {
-                    scalar_products.push(e1.t);
-                    scalar_products.push(T::zero());
-                    for e2 in &external_momenta[i1..self.n_incoming_momenta] {
-                        scalar_products.push(e1.dot(e2));
+                    scalar_products.clear();
+
+                    for (i1, e1) in external_momenta[..self.n_incoming_momenta]
+                        .iter()
+                        .enumerate()
+                    {
+                        scalar_products.push(e1.t);
                         scalar_products.push(T::zero());
-                        scalar_products.push(e1.spatial_dot(e2));
-                        scalar_products.push(T::zero());
+                        for e2 in &external_momenta[i1..self.n_incoming_momenta] {
+                            scalar_products.push(e1.dot(e2));
+                            scalar_products.push(T::zero());
+                            scalar_products.push(e1.spatial_dot(e2));
+                            scalar_products.push(T::zero());
+                        }
+                    }
+
+                    for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
+                        scalar_products.push(m1.t.re);
+                        scalar_products.push(m1.t.im);
+                        for e1 in &external_momenta[..self.n_incoming_momenta] {
+                            let d = m1.dot(&e1.cast());
+                            scalar_products.push(d.re);
+                            scalar_products.push(d.im);
+                            let d = m1.spatial_dot(&e1.cast());
+                            scalar_products.push(d.re);
+                            scalar_products.push(d.im);
+                        }
+
+                        for m2 in k_def[i1..self.n_loops].iter() {
+                            let d = m1.dot(m2);
+                            scalar_products.push(d.re);
+                            scalar_products.push(d.im);
+                            let d = m1.spatial_dot(m2);
+                            scalar_products.push(d.re);
+                            scalar_products.push(d.im);
+                        }
                     }
                 }
-
-                for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                    scalar_products.push(m1.t.re);
-                    scalar_products.push(m1.t.im);
-                    for e1 in &external_momenta[..self.n_incoming_momenta] {
-                        let d = m1.dot(&e1.cast());
-                        scalar_products.push(d.re);
-                        scalar_products.push(d.im);
-                        let d = m1.spatial_dot(&e1.cast());
-                        scalar_products.push(d.re);
-                        scalar_products.push(d.im);
-                    }
-
-                    for m2 in k_def[i1..self.n_loops].iter() {
-                        let d = m1.dot(m2);
-                        scalar_products.push(d.re);
-                        scalar_products.push(d.im);
-                        let d = m1.spatial_dot(m2);
-                        scalar_products.push(d.re);
-                        scalar_products.push(d.im);
-                    }
-                }
-
-                let params = [
-                    Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
-                    T::zero(),
-                    Into::<T>::into(self.settings.cross_section.mu_r_sq.sqrt()),
-                    T::zero(),
-                    Into::<T>::into(self.settings.cross_section.gs),
-                    T::zero(),
-                    Into::<T>::into(self.settings.cross_section.small_mass_sq),
-                    T::zero(),
-                ];
 
                 if self.settings.cross_section.numerator_source == NumeratorSource::Form {
                     let mut form_numerator =
