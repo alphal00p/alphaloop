@@ -748,7 +748,15 @@ impl SquaredTopologySet {
         let mut k_other_channel = [LorentzVector::default(); MAX_LOOP];
         let mut event_counter = 0;
         let mut result = Complex::zero();
-        for (channel, _, channel_shift) in &self.multi_channeling_channels {
+        for (channel_id, (channel, _, channel_shift)) in
+            self.multi_channeling_channels.iter().enumerate()
+        {
+            if let Some(selected_channel) = self.settings.general.multi_channeling_channel {
+                if selected_channel != channel_id as isize {
+                    continue;
+                }
+            }
+
             // transform to the loop momentum basis
             for (kk, r) in k_lmb[..n_loops].iter_mut().zip_eq(channel.chunks(n_loops)) {
                 *kk = LorentzVector::default();
