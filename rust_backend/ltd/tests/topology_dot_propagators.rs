@@ -51,7 +51,7 @@ fn cross_check(
     let mut k_def: ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = (0..topo.n_loops)
         .map(|i| k[i].map(|x| Complex::new(x, f128::f128::zero())))
         .collect();
-    topo.compute_complex_cut_energies(&k_def[..topo.n_loops], cache)
+    topo.populate_ltd_cache(&k_def[..topo.n_loops], cache)
         .unwrap();
 
     // Compute using standard LTD

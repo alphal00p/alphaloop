@@ -1155,7 +1155,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
 
                                 // do a full evaluation
                                 if topo
-                                    .compute_complex_cut_energies(&k_def, &mut cache)
+                                    .populate_ltd_cache(&k_def, &mut cache)
                                     .is_ok()
                                 {
                                     for (cuts, mat) in

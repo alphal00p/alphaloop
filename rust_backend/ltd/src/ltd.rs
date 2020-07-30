@@ -2919,7 +2919,7 @@ impl Topology {
     }
 
     /// Compute the complex cut energies and evaluate the cut loop lines
-    pub fn compute_complex_cut_energies<T: FloatLike>(
+    pub fn populate_ltd_cache<T: FloatLike>(
         &self,
         k_def: &[LorentzVector<Complex<T>>],
         cache: &mut LTDCache<T>,
@@ -3069,7 +3069,7 @@ impl Topology {
                     })
                     .collect();
 
-                self.compute_complex_cut_energies(&k_def[..self.n_loops], cache)?;
+                self.populate_ltd_cache(&k_def[..self.n_loops], cache)?;
 
                 // compute all multi-channeling factors
                 let mut other_cut_counter = 0;
@@ -3383,7 +3383,7 @@ impl Topology {
             jac_def = jac;
 
             if self
-                .compute_complex_cut_energies(&k_def[..self.n_loops], cache)
+                .populate_ltd_cache(&k_def[..self.n_loops], cache)
                 .is_err()
             {
                 return Complex::default();

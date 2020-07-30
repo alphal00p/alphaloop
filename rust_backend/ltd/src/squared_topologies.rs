@@ -1354,16 +1354,29 @@ impl SquaredTopology {
         incoming_energy: T,
         debug_level: usize,
     ) -> Option<[(T, T); 2]> {
+        let mut cut_info_cache = [(
+            LorentzVector::default(),
+            LorentzVector::default(),
+            T::zero(),
+            T::zero(),
+        ); MAX_LOOP + 4];
+
         // determine an overestimate of the t that solves the energy constraint
         // then -t and t should give two different solutions or do not converge
         let mut t_start = T::zero();
         let mut sum_k = T::zero();
-        for cut in &cutkosky_cuts.cuts {
+        for (cut_info, cut) in cut_info_cache[..cutkosky_cuts.cuts.len()]
+            .iter_mut()
+            .zip(&cutkosky_cuts.cuts)
+        {
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
             let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
             let k_norm_sq = k.spatial_squared();
-            t_start += Float::abs(k.spatial_dot(&shift)) / k_norm_sq;
+            let k_dot_shift = k.spatial_dot(&shift);
+            t_start += Float::abs(k_dot_shift) / k_norm_sq;
             sum_k += k_norm_sq.sqrt();
+
+            *cut_info = (k, shift, k_norm_sq, k_dot_shift);
         }
 
         t_start += incoming_energy / sum_k;
@@ -1375,13 +1388,16 @@ impl SquaredTopology {
                 let mut f = incoming_energy;
                 let mut df = T::zero();
 
-                for cut in &cutkosky_cuts.cuts {
-                    let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
-                    let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
-                    let energy =
-                        ((k * t + shift).spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
+                for (cut, cut_info) in cutkosky_cuts
+                    .cuts
+                    .iter()
+                    .zip(&cut_info_cache[..cutkosky_cuts.cuts.len()])
+                {
+                    let energy = ((cut_info.0 * t + cut_info.1).spatial_squared()
+                        + Into::<T>::into(cut.m_squared))
+                    .sqrt();
                     f -= energy;
-                    df -= (t * k.spatial_squared() + k.spatial_dot(&shift)) / energy;
+                    df -= (t * cut_info.2 + cut_info.3) / energy;
                 }
 
                 if debug_level > 4 {
@@ -1764,9 +1780,9 @@ impl SquaredTopology {
                 }
                 subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
 
-                subgraph.update_ellipsoids();
-
                 if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+                    subgraph.update_ellipsoids();
+
                     if diag_set_index == 0
                         || !self
                             .settings
@@ -1902,15 +1918,18 @@ impl SquaredTopology {
                     k_def_index += subgraph.n_loops;
                 }
 
-                if subgraph
-                    .compute_complex_cut_energies(
-                        &k_def[k_def_index - subgraph.n_loops..k_def_index],
-                        subgraph_cache,
-                    )
-                    .is_err()
-                {
-                    if self.settings.deformation.fixed.ir_handling_strategy == IRHandling::None {
-                        panic!("NaN on cut energy");
+                if self.settings.cross_section.numerator_source != NumeratorSource::FormIntegrand {
+                    if subgraph
+                        .populate_ltd_cache(
+                            &k_def[k_def_index - subgraph.n_loops..k_def_index],
+                            subgraph_cache,
+                        )
+                        .is_err()
+                    {
+                        if self.settings.deformation.fixed.ir_handling_strategy == IRHandling::None
+                        {
+                            panic!("NaN on cut energy");
+                        }
                     }
                 }
 
