@@ -1045,7 +1045,7 @@ py_class!(class LTD |py| {
         }
 
         // FIXME: recomputed every time
-        if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
+        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
 
@@ -1080,7 +1080,7 @@ py_class!(class LTD |py| {
         }
 
         // FIXME: recomputed every time
-        if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
+        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
 
@@ -1115,7 +1115,7 @@ py_class!(class LTD |py| {
         }
 
         // FIXME: recomputed every time
-        if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
+        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
 
@@ -1152,7 +1152,7 @@ py_class!(class LTD |py| {
         }
 
         // FIXME: recomputed every time
-        if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
+        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
 
@@ -1191,7 +1191,7 @@ py_class!(class LTD |py| {
         }
 
         // FIXME: recomputed every time
-        if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
+        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
 
@@ -1217,7 +1217,7 @@ py_class!(class LTD |py| {
         }
 
         // FIXME: recomputed every time
-        if topo.compute_complex_cut_energies(&moms, &mut cache).is_err() {
+        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
             return Ok((0., 0.));
         }
 
@@ -1242,7 +1242,7 @@ py_class!(class LTD |py| {
         }
 
         // FIXME: recomputed every time
-        topo.compute_complex_cut_energies(&moms, &mut cache).unwrap_or_else(|_| {println!("On-shell propagator detected");});
+        topo.populate_ltd_cache(&moms, &mut cache).unwrap_or_else(|_| {println!("On-shell propagator detected");});
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
@@ -1271,7 +1271,7 @@ py_class!(class LTD |py| {
         }
 
         // FIXME: recomputed every time
-        topo.compute_complex_cut_energies(&moms, &mut cache).unwrap_or_else(|_| {println!("On-shell propagator detected");});
+        topo.populate_ltd_cache(&moms, &mut cache).unwrap_or_else(|_| {println!("On-shell propagator detected");});
 
         let mat = &topo.cb_to_lmb_mat[cut_structure_index];
         let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
