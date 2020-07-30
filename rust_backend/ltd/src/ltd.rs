@@ -1383,14 +1383,17 @@ impl Topology {
             } + min_ellipse.powi(2)
                 * Into::<T>::into(self.settings.deformation.fixed.ir_beta_ellipse.powi(2));
 
-            if ( self.settings.deformation.fixed.ir_handling_strategy==IRHandling::DismissDeformation && 
-                 self.settings.deformation.fixed.ir_interpolation_length > 0.0) {
-                return ((
+            if   self.settings.deformation.fixed.ir_handling_strategy==IRHandling::DismissDeformation && 
+                 self.settings.deformation.fixed.ir_interpolation_length > 0.0 {
+                let sup = ((
                             (
                                 ir_proximity/Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
                             )-Into::<T>::into(1.0)
                     )/Into::<T>::into(self.settings.deformation.fixed.ir_interpolation_length))
                     .min(DualN::from_real(Into::<T>::into(0.0))).max(DualN::from_real(Into::<T>::into(1.0)));
+                if sup * sup < lambda_sq {
+                    lambda_sq = sup * sup;
+                }
             } else {
                 if ir_proximity < Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
                 {
