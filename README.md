@@ -11,7 +11,14 @@ wget https://launchpad.net/mg5amcnlo/2.0/2.7.x/+download/MG5aMC_3.0.2.beta.py3.t
 cd <MG_ROOT_PATH>/PLUGIN && git clone git@bitbucket.org:vahirschi/alphaloop.git
 ```
 
-then
+As many of our example generations use an internal model to alphaLoop, it is best to soft-link it in the models directory of MadGraph:
+
+```
+cd models
+ln -s ../PLUGIN/alphaloop/models/aL_sm .
+```
+
+Then
 
 ```sh
 cd alphaloop
