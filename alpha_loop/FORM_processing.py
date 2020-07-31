@@ -122,7 +122,21 @@ class FORMSuperGraph(object):
         (-3,3): (0,1),
         (3,3): (0,1),
         # S S
-        (1,1): (0,1)
+        (1,1): (0,1),
+        # S V V
+        (1,3,3): (0,1,2),
+        # S V V V
+        (1,3,3,3): (0,1,2,3),
+        # S V V V V
+        (1,3,3,3,3): (0,1,2,3,4),
+        # S S V V
+        (1,1,3,3): (0,1,2,3),
+        # S S V V V
+        (1,1,3,3,3): (0,1,2,3,4),
+        # S S S V V
+        (1,1,1,3,3): (0,1,2,3,4),
+        # S S S V V V
+        (1,1,1,3,3,3): (0,1,2,3,4,5)
     }
 
     _include_momentum_routing_in_rendering=False
@@ -2504,6 +2518,10 @@ int %(header)sget_rank(int diag, int conf) {{
         # All renormalisation 2-point vertices are for now coded up directly in numerator.frm
         if len(in_pdgs)==2: #and not is_external_bubble:
             return overall_factor
+
+        # No renormalisation for shrunk loop-induced vertices involving only gluons and the Higgs
+        if all(pdg in [21,25] for pdg in in_pdgs):
+            return '0'
 
         hardcoded_mass_parameters = {
             6   : 'mass_t',

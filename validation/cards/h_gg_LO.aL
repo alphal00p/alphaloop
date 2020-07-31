@@ -11,6 +11,6 @@ set_alphaLoop_option qgraf_template_model no_s
 set_alphaLoop_option loop_induced true
 set_FORM_option number_of_lmbs None
 #qgraf_define j = d d~ g gh gh~
-qgraf_generate h > g g /d u s c b QCD^2==3 QED^2==0 []
+qgraf_generate h > g g /d u s c b QCD^2==2 QED^2==1 []
 !rm -rf TEST_QGRAF_h_gg_LO
 output qgraf TEST_QGRAF_h_gg_LO
