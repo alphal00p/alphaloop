@@ -1,4 +1,5 @@
 use integrand::IntegrandStatistics;
+use num::Complex;
 use observables::EventInfo;
 use std::io;
 use std::sync::mpsc::{channel, Sender};
@@ -80,7 +81,7 @@ impl Dashboard {
         let mut mc_err_re = std::f64::EPSILON;
         let mut mc_err_im = std::f64::EPSILON;
 
-        let mut integrand_statistics = IntegrandStatistics::new(0, IntegratedPhase::Real);
+        let mut integrand_statistics = IntegrandStatistics::new(0, IntegratedPhase::Real, None);
         let mut event_info = EventInfo::default();
 
         terminal.clear().unwrap();
@@ -117,16 +118,40 @@ impl Dashboard {
                                 integrand_statistics.total_samples.separate_with_spaces()
                             )));
                         }
-                        integrator_update_messages.push(Text::raw(format!(
-                            " re: {} {:.2} χ²",
-                            utils::format_uncertainty(re, re_err),
-                            re_chi
-                        )));
-                        integrator_update_messages.push(Text::raw(format!(
-                            " im: {} {:.2} χ²",
-                            utils::format_uncertainty(im, im_err),
-                            im_chi
-                        )));
+
+                        let target = integrand_statistics.target.unwrap_or(Complex::default());
+
+                        if target.re != 0. {
+                            integrator_update_messages.push(Text::raw(format!(
+                                " re: {} {:.2} χ² Δ={:.2}σ, Δ={:.2}%",
+                                utils::format_uncertainty(re, re_err),
+                                re_chi,
+                                (target.re - re).abs() / re_err,
+                                (target.re - re).abs() / target.re.abs() * 100.,
+                            )));
+                        } else {
+                            integrator_update_messages.push(Text::raw(format!(
+                                " re: {} {:.2} χ²",
+                                utils::format_uncertainty(re, re_err),
+                                re_chi
+                            )));
+                        }
+
+                        if target.im != 0. {
+                            integrator_update_messages.push(Text::raw(format!(
+                                " im: {} {:.2} χ² Δ={:.2}σ, Δ={:.2}%",
+                                utils::format_uncertainty(im, im_err),
+                                im_chi,
+                                (target.im - im).abs() / im_err,
+                                (target.im - im).abs() / target.im.abs() * 100.,
+                            )));
+                        } else {
+                            integrator_update_messages.push(Text::raw(format!(
+                                " im: {} {:.2} χ²",
+                                utils::format_uncertainty(im, im_err),
+                                im_chi
+                            )));
+                        }
 
                         mc_err_re = re_err;
                         mc_err_im = im_err;

@@ -198,6 +198,7 @@ hyperparameters = HyperParameters({
             'ir_beta_ellipse': 1.0,
             'ir_beta_pinch': 1.0,
             'ir_threshold': 1.0e-8,
+            'ir_interpolation_length': 0.0,
             # if not empty, use a different m_ij per numerical surface id (the index in the surface list)
             'm_ijs' : [],
             # localizes the deformation around the ellipsoids using an exponential function with variance a_ij

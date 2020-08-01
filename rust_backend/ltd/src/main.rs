@@ -28,6 +28,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use color_eyre::{Help, Report};
 use ltd::topologies::{Cut, CutList};
 use ltd::LorentzVector;
+use num::Complex;
 use num_traits::real::Real;
 use num_traits::{NumCast, One, ToPrimitive, Zero};
 use rand::prelude::*;
@@ -579,6 +580,7 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
             true,
             status_update_sender,
             1,
+            None,
         )),
         Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
             topo.n_loops,
@@ -587,6 +589,7 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
             false,
             status_update_sender,
             1,
+            None,
         )),
     };
 
@@ -1154,10 +1157,7 @@ fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches
                                     .collect();
 
                                 // do a full evaluation
-                                if topo
-                                    .populate_ltd_cache(&k_def, &mut cache)
-                                    .is_ok()
-                                {
+                                if topo.populate_ltd_cache(&k_def, &mut cache).is_ok() {
                                     for (cuts, mat) in
                                         topo.ltd_cut_options.iter().zip(topo.cb_to_lmb_mat.iter())
                                     {
@@ -1282,6 +1282,7 @@ fn inspect<'a>(
                 true,
                 status_update_sender,
                 1,
+                None,
             )
             .evaluate(&pt, 1., 1),
             Diagram::Topology(topo) => Integrand::new(
@@ -1291,6 +1292,7 @@ fn inspect<'a>(
                 false,
                 status_update_sender,
                 1,
+                None,
             )
             .evaluate(&pt, 1., 1),
         };
@@ -1406,6 +1408,14 @@ fn main() -> Result<(), Report> {
                 .long("seed")
                 .value_name("SEED")
                 .help("Specify the integration seed"),
+        )
+        .arg(
+            Arg::with_name("target")
+                .long("target")
+                .multiple(true)
+                .allow_hyphen_values(true)
+                .value_name("TARGET")
+                .help("Specify the integration target a <real> <imag>"),
         )
         .arg(
             Arg::with_name("topology")
@@ -1566,6 +1576,17 @@ fn main() -> Result<(), Report> {
 
     if let Some(x) = matches.value_of("deformation_strategy") {
         settings.general.deformation_strategy = x.into();
+    }
+
+    let mut target = None;
+    if let Some(t) = matches.values_of("target") {
+        let tt: Vec<_> = t
+            .map(|x| f64::from_str(x.trim_end_matches(',')).unwrap())
+            .collect();
+        if tt.len() != 2 {
+            panic!("Expected two numbers for target");
+        }
+        target = Some(Complex::new(tt[0], tt[1]));
     }
 
     if !settings.observables.active_observables.is_empty()
@@ -1773,6 +1794,7 @@ fn main() -> Result<(), Report> {
                     true,
                     dashboard.status_update_sender.clone(),
                     i,
+                    target,
                 )),
                 Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
                     topo.n_loops,
@@ -1781,6 +1803,7 @@ fn main() -> Result<(), Report> {
                     false,
                     dashboard.status_update_sender.clone(),
                     i,
+                    target,
                 )),
             })
             .collect(),

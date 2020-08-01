@@ -793,6 +793,16 @@ impl IntegrandImplementation for Topology {
         topologies
     }
 
+    fn get_target(&self) -> Option<Complex<f64>> {
+        if self.analytical_result_real.is_some() || self.analytical_result_imag.is_some() {
+            return Some(Complex::new(
+                self.analytical_result_real.unwrap_or(0.),
+                self.analytical_result_imag.unwrap_or(0.),
+            ));
+        }
+        None
+    }
+
     #[inline]
     fn evaluate_float<'a>(
         &mut self,

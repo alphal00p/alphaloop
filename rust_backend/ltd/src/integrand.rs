@@ -16,6 +16,8 @@ pub trait IntegrandImplementation: Clone {
 
     fn create_stability_check(&self, num_checks: usize) -> Vec<Self>;
 
+    fn get_target(&self) -> Option<Complex<f64>>;
+
     fn evaluate_float<'a>(
         &mut self,
         x: &'a [f64],
@@ -36,6 +38,7 @@ pub trait IntegrandImplementation: Clone {
 #[derive(Debug, Copy, Clone)]
 pub struct IntegrandStatistics {
     pub phase: IntegratedPhase,
+    pub target: Option<Complex<f64>>,
     pub running_max_re: (float, Option<float>, float),
     pub running_max_im: (float, Option<float>, float),
     pub total_samples: usize,
@@ -52,9 +55,14 @@ pub struct IntegrandStatistics {
 }
 
 impl IntegrandStatistics {
-    pub fn new(n_loops: usize, phase: IntegratedPhase) -> IntegrandStatistics {
+    pub fn new(
+        n_loops: usize,
+        phase: IntegratedPhase,
+        target: Option<Complex<f64>>,
+    ) -> IntegrandStatistics {
         IntegrandStatistics {
             n_loops,
+            target,
             phase,
             running_max_re: (0., None, 0.),
             running_max_im: (0., None, 0.),
@@ -250,6 +258,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         track_events: bool,
         status_update_sender: StatusUpdateSender,
         id: usize,
+        target: Option<Complex<f64>>,
     ) -> Integrand<I> {
         // create extra topologies with rotated kinematics to check the uncertainty
         let mut topologies = vec![topology.clone()];
@@ -277,6 +286,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             integrand_statistics: IntegrandStatistics::new(
                 n_loops,
                 settings.integrator.integrated_phase,
+                target.or(topology.get_target()),
             ),
             log: BufWriter::new(
                 File::create(&log_filename)

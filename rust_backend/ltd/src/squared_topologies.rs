@@ -2422,6 +2422,25 @@ impl IntegrandImplementation for SquaredTopologySet {
         stability_topologies
     }
 
+    fn get_target(&self) -> Option<Complex<f64>> {
+        let mut target = Complex::zero();
+
+        for (t, m) in self.topologies.iter().zip(&self.multiplicity) {
+            if t.topo.analytical_result_real.is_some() || t.topo.analytical_result_imag.is_some() {
+                target += Complex::new(
+                    t.topo.analytical_result_real.unwrap_or(0.),
+                    t.topo.analytical_result_imag.unwrap_or(0.),
+                ) * *m;
+            }
+        }
+
+        if !target.is_zero() {
+            Some(target)
+        } else {
+            None
+        }
+    }
+
     #[inline]
     fn evaluate_float<'a>(
         &mut self,
