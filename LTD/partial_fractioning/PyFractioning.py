@@ -4,6 +4,7 @@ import time
 import os
 import sys
 import copy
+from functools import wraps 
 
 class bcolors:
     HEADER = '\033[1;35;48m'
@@ -31,6 +32,7 @@ class bcolors:
 #    DECORATORS
 #
 def timeit(method):
+    @wraps(method)
     def timed(*args, **kw):
         ts = time.time()
         result = method(*args, **kw)
@@ -42,16 +44,17 @@ def timeit(method):
             kw['log_time'][name] = elapsed
         else:
             if elapsed > 1000:
-                print("\033[K{} PF elements generated in {}s"
+                print("\033[K\t{} PF elements generated in {}s"
                       .format(len(result), elapsed/1000))
             else:
-                print("\033[K{} PF elements generated in {}ms"
+                print("\033[K\t{} PF elements generated in {}ms"
                       .format(len(result), elapsed))
         return result
     return timed
 
 
 def print_info(method):
+    @wraps(method)
     def pretty_print_topology(*args, **kw):
         n_props = args[0]
         signatures = args[1]
@@ -157,6 +160,7 @@ def print_info(method):
 
 
 def store_report(method):
+    @wraps(method)
     def store_it(*args, **kw):
         result = method(*args, **kw)
         n_loops = len(args[1][0])
@@ -166,26 +170,39 @@ def store_report(method):
             name = ""
 
         if output_type == 'mathematica':
-            file_name = 'pf_{}l_{}.m'.format(
-                n_loops, name.lower().replace(' ', '_'))
+            if kw.get('file_name','N/A') == 'N/A':
+                file_name = 'pf_{}l_{}.m'.format(
+                    n_loops, name.lower().replace(' ', '_'))
+            else:
+                file_name = '%s.m' % kw.get('file_name')
             store_report_mathematica(result, file_name)
         elif output_type == 'yaml':
-            file_name = 'pf_{}l_{}.yaml'.format(
-                n_loops, name.lower().replace(' ', '_'))
+            if kw.get('file_name','N/A') == 'N/A':
+                file_name = 'pf_{}l_{}.yaml'.format(
+                    n_loops, name.lower().replace(' ', '_'))
+            else:
+                file_name = '%s.yaml' % kw.get('file_name')
             store_report_yaml(result, file_name)
         elif output_type == 'FORM':
-            file_name = 'pf_{}l_{}.frm'.format(
-                n_loops, name.lower().replace(' ', '_'))
+            if kw.get('file_name','N/A') == 'N/A':
+                file_name = 'pf_{}l_{}.frm'.format(
+                    n_loops, name.lower().replace(' ', '_'))
+            else:
+                file_name = '%s.frm' % kw.get('file_name')
             store_report_form(result, file_name)
         elif output_type == 'pickle':
-            file_name = 'pf_{}l_{}.pkl'.format(
-                n_loops, name.lower().replace(' ', '_'))
+            if kw.get('file_name','N/A') == 'N/A':
+                file_name = 'pf_{}l_{}.pkl'.format(
+                    n_loops, name.lower().replace(' ', '_'))
+            else:
+                file_name = '%s.pkl' % kw.get('file_name')
             store_report_pkl(result, file_name)
         else:
             print(
                 "Skip storing. Valid output_type: ['mathematica','yaml','pickle','FORM']")
         return result
 
+    @wraps(method)
     def store_report_mathematica(res, file_name):
         ss = "{\n"
         t0 = time.time()
@@ -246,6 +263,7 @@ def store_report(method):
             f.close()
         print("\033[KStored in {}  ".format(file_name))
 
+    @wraps(method)
     def store_report_form(res, file_name):
         # For the moment convert coefficients to int
         def cast_int(f):
@@ -262,7 +280,7 @@ def store_report(method):
         for pf_id, (fact, prod, num) in enumerate(res):
             dt = int((time.time()-t0)*2) % 4
             if dt == 0:
-                print("Storing as FORM   ({}/{})".format(pf_id+1, size), end="\r")
+                print("\033[KStoring as FORM   ({}/{})".format(pf_id+1, size), end="\r")
             elif dt == 1:
                 print("Storing as FORM.  ({}/{})".format(pf_id+1, size), end="\r")
             elif dt == 2:
@@ -316,8 +334,9 @@ def store_report(method):
         with open("{}".format(file_name), 'w') as f:
             f.write("%s;" % ss)
             f.close()
-        print("\033[KStored in {}  ".format(file_name))
- 
+        print("\033[K\tStored in {}  ".format(file_name))
+
+    @wraps(method)
     def store_report_yaml(res, file_name):
         try:
             import yaml
@@ -348,6 +367,7 @@ def store_report(method):
                 yaml.dump([res[pf_id]], stream, default_flow_style=None)
         print("\033[KStored in {}  ".format(file_name))
 
+    @wraps(method)
     def store_report_pkl(res, file_name):
         try:
             import pickle
@@ -380,6 +400,7 @@ def store_report(method):
 
 
 def print_pretty_report(method):
+    @wraps(method)
     def print_report(*args, **kw):
         result = method(*args, **kw)
         n_loops = len(args[1][0])
