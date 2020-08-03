@@ -1671,40 +1671,37 @@ class FORMSuperGraphList(list):
                     new_edges[(node_names[edge_key[0]],node_names[edge_key[1]],edge_key[2])]=edge
                 g['nodes'] = new_nodes
                 g['edges'] = new_edges
-
-        # Check for the rooting of the loop momenta from the QGRAF OUTPUT
-        # If necessary flip the flow direction
-        for name, g in zip(m.graph_names, m.graphs):
-            n_loops = len(g['edges']) - len(g['nodes']) + 1
-            flows = []
-            for lms in {e['momentum'] for e in g['edges'].values() if 'p' not in e['momentum'] and e['momentum'].count('k') == 1}:
-                lm = lms.replace('-', '')
-                assert(re.match('^k[0-9]+$', lm))
-                if lm in flows or '-'+lm in flows:
-                    continue
-                flows += [lms]
-            assert(len(flows) == n_loops)
-            
-            for lms in flows:
-                if '-' not in lms:
-                    continue
-                lm = lms.replace('-', '')
-                if verbose:
-                    logger.info("QGraf remap loop momentum {} for graph {}: {} -> {}".format(lm, name, lm, lms))
-                subs = [('^-'+lm, 'TMP'),('\+'+lm, '-TMP'), ('-'+lm, '+TMP'), ('^'+lm, '-TMP'), ('TMP', lm)]
-                for e in g['edges'].values():
-                    for sub in subs:
-                        e['momentum'] = re.sub(*sub, e['momentum'])
-                for n in g['nodes'].values():
-                    # skip if external
+            else:
+                # if the diagram comes from QGRAF then we want to rectify the flow of the loop momenta such 
+                # that there is consistency within the same loop line
+                topo_generator = LTD.ltd_utils.TopologyGenerator([(e['name'], e['vertices'][0], e['vertices'][1]) for e in g['edges'].values()])
+                topo_generator.generate_momentum_flow()
+                smap = topo_generator.get_signature_map()
+                for _, e in g['edges'].items():
+                    #print("\t",e['momentum'], " -> ", FORMSuperGraph.momenta_decomposition_to_string(smap[e['name']], set_outgoing_equal_to_incoming=True))
+                    e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(smap[e['name']], set_outgoing_equal_to_incoming=True)
+                for _, n in g['nodes'].items():
                     if n['vertex_id'] < 0:
                         continue
-                    moms = list(n['momenta'])
-                    for sub in subs:
-                        for n_mom in range(len(moms)):
-                            moms[n_mom] = re.sub(*sub, moms[n_mom])
-                    n['momenta'] = tuple(moms)
-        
+                    new_moms = []
+                    for idx, eid in zip(n['indices'], n['edge_ids']):
+                        if g['edges'][eid]['type'] == 'in':
+                            sgn = 1
+                        elif g['edges'][eid]['type'] == 'out':
+                            sgn = -1
+                        else:
+                            sgn = 2*g['edges'][eid]['indices'].index(idx)-1
+                    
+                        if not sgn in [1, -1]:
+                            raise ValueError
+                        
+                        signature = [sgn * x for x in smap[g['edges'][eid]['name']][0]]
+                        shifts = [sgn * x for x in smap[g['edges'][eid]['name']][1]]
+                        new_moms += [FORMSuperGraph.momenta_decomposition_to_string([signature, shifts], set_outgoing_equal_to_incoming=True)]
+                    #print("\t\t",n['momenta'])
+                    #print("\t\t",tuple(new_moms))
+                    n['momenta'] = tuple(new_moms)
+
         full_graph_list = []
         for i, g in enumerate(m.graphs):
             if hasattr(m,'graph_names'):
