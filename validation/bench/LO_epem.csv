@@ -25,4 +25,9 @@ MG,LO,epem_a_httxgg,100,0.4,10kunwgt.evts.,9.306e-07,1.262e-09,-
 MG,LO,epem_a_httxgg,20,0.4,10kunwgt.evts.,5.619e-05,6.909e-08,-
 MG,LO,epem_a_httxddx,100,0.4,10kunwgt.evts.,2.861e-08,3.637e-11,-
 MG,LO,epem_a_httxddx,20,0.4,10kunwgt.evts.,1.67e-06,1.645e-09,-
-
+MG,LO,epem_a_ttxghgh,100,0.4,10kunwgt.evts.,-8.706e-06,3.06e-08,-
+MG,LO,epem_a_ttxghgh,20,0.4,10kunwgt.evts.,-1.604e-4,5.17e-07,-
+MG,LO,epem_a_ttxghghg,100,0.4,10kunwgt.evts.,-2.382e-07,8.34e-10,-
+MG,LO,epem_a_ttxghghg,20,0.4,10kunwgt.evts.,-5.803e-05,1.90e-07,-
+MG,LO,epem_a_httxghgh,100,0.4,10kunwgt.evts.,-1.453e-08,2.23e-10,-
+MG,LO,epem_a_httxghgh,20,0.4,10kunwgt.evts.,-7.708e-07,3.19e-09,-
