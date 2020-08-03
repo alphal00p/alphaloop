@@ -156,9 +156,15 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
                         real_result="{:e} +- {:.2e} (\u03C7\u00B2 {:.2f})".format(value, err, chisq))
                     stdout.write(line)
                 elif 'IntegrandStatistics' in line:
-                    log_info['IntegrandStatistics'] = parse_rust_dict(line)
+                    rust_dict = parse_rust_dict(line)
+                    if not rust_dict is None:
+                        log_info['IntegrandStatistics'] = rust_dict
                 elif 'EventInfo' in line:
-                    log_info['EventInfo'] = parse_rust_dict(line)
+                    rust_dict = parse_rust_dict(line)
+                    if not rust_dict is None:
+                        log_info['EventInfo'] = rust_dict
+                    if log_info['EventInfo'] is None or log_info['IntegrandStatistics'] is None:
+                        continue
                     total_events = log_info['IntegrandStatistics']['total_samples']
                     accepted = log_info['EventInfo']['accepted_event_counter']
                     rejected = log_info['EventInfo']['rejected_event_counter']
@@ -194,7 +200,10 @@ def run_super_graph(process_name, sg_name, aL_path_output, suffix='', multi_sett
 
 def parse_rust_dict(rust_dict_string):
     """ Parse the printed output of rust into a python dict """
-    rust_dict = re.search(r'\{(.*)\}', rust_dict_string).group(0)
+    try:
+        rust_dict = re.search(r'\{(.*)\}', rust_dict_string).group(0)
+    except AttributeError:
+        return None
     rust_dict = re.sub(
         r'Complex \{ re: (.*?), im: (.*?)\}', r'[\1, \2]', rust_dict)
     rust_dict = re.sub(
