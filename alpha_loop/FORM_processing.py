@@ -1752,10 +1752,14 @@ class FORMSuperGraphList(list):
 
                     g.edges[edge_key]['PDG'] = flipped_part.get_anti_pdg_code()
                     g.edges[edge_key]['signature'] = [[-s for s in sp] for sp in g.edges[edge_key]['signature']]
-                    g.edges[edge_key]['vertices'] = [
+                    g.edges[edge_key]['indices'] = tuple([
+                        g.edges[edge_key]['indices'][1],
+                        g.edges[edge_key]['indices'][0],
+                    ])
+                    g.edges[edge_key]['vertices'] = tuple([
                         g.edges[edge_key]['vertices'][1],
                         g.edges[edge_key]['vertices'][0],
-                    ]
+                    ])
 
             # Now adust the string momenta of edges and nodes accordingly.            
             g.impose_signatures()
