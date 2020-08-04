@@ -1677,10 +1677,11 @@ class FORMSuperGraphList(list):
                 topo_generator = LTD.ltd_utils.TopologyGenerator([(e['name'], e['vertices'][0], e['vertices'][1]) for e in g['edges'].values()])
                 topo_generator.generate_momentum_flow()
                 smap = topo_generator.get_signature_map()
-                for _, e in g['edges'].items():
+                for e_key, e in g['edges'].items():
                     #print("\t",e['momentum'], " -> ", FORMSuperGraph.momenta_decomposition_to_string(smap[e['name']], set_outgoing_equal_to_incoming=True))
                     e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(smap[e['name']], set_outgoing_equal_to_incoming=True)
-                for _, n in g['nodes'].items():
+                    #print(m.graphs[i]['edges'][e_key])
+                for n_key, n in g['nodes'].items():
                     if n['vertex_id'] < 0:
                         continue
                     new_moms = []
@@ -1701,6 +1702,7 @@ class FORMSuperGraphList(list):
                     #print("\t\t",n['momenta'])
                     #print("\t\t",tuple(new_moms))
                     n['momenta'] = tuple(new_moms)
+                    #print("\t\t",m.graphs[i]['nodes'][n_key]['momenta'])
 
         full_graph_list = []
         for i, g in enumerate(m.graphs):
@@ -1727,7 +1729,15 @@ class FORMSuperGraphList(list):
                 elif neg_signature in all_signatures:
                     all_signatures[neg_signature].append((e_key,-1))
                 else:
-                    all_signatures[pos_signature] = [(e_key,+1)]
+                    if pos_signature[0].count(0) == len(pos_signature[0]) - 1 and\
+                        pos_signature[1].count(0) == len(pos_signature[1]):
+                        if next(s for s in pos_signature[0] if s != 0) < 0:
+                            all_signatures[neg_signature] = [(e_key, -1)]
+                            break
+                        else:
+                            all_signatures[pos_signature] = [(e_key,+1)]
+                    else:
+                        all_signatures[pos_signature] = [(e_key,+1)]
 
             for sig, edges in all_signatures.items():
                 for edge_key, sign in edges:
