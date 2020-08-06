@@ -13,7 +13,7 @@ lto = "thin"
 
 [features]
 higher_loops = []
-python_api = ["cpython"]
+python_api = ["pyo3"]
 use_f128 = []
 use_mpi = ["mpi"]
 
@@ -21,7 +21,7 @@ use_mpi = ["mpi"]
 crate-type = ["cdylib", "lib"]
 name = "ltd"
 
-[dependencies.cpython]
+[dependencies.pyo3]
 features = ["extension-module"]
 optional = true
 version = "*"
@@ -41,7 +41,7 @@ f128 = {git = "https://github.com/benruijl/f128"}
 fnv = "1.0.6"
 itertools = "0.8"
 libc = "*"
-lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", features = ["serde_support", "dual_num_support", "f128_support", "cpython_support"]}
+lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", features = ["serde_support", "dual_num_support", "f128_support", "pyo3_support"]}
 mpi = {git = "https://github.com/bsteinb/rsmpi", optional = true}
 mpolynomial = {git = "https://github.com/apelloni/mpolynomial", branch = "master"}
 nalgebra = "0.18"

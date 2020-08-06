@@ -1,12 +1,7 @@
 #[macro_use]
 extern crate itertools;
 #[cfg(feature = "python_api")]
-#[macro_use]
-extern crate cpython;
-#[cfg(feature = "python_api")]
-use cpython::{exc, PyErr, PyResult};
-#[cfg(feature = "python_api")]
-use std::cell::RefCell;
+use pyo3::prelude::*;
 #[macro_use]
 extern crate dlopen_derive;
 extern crate nalgebra as na;
@@ -674,94 +669,140 @@ impl Settings {
 
 // add bindings to the generated python module
 #[cfg(feature = "python_api")]
-py_module_initializer!(ltd, initltd, PyInit_ltd, |py, m| {
-    m.add(py, "__doc__", "LTD")?;
-    m.add_class::<LTD>(py)?;
-    m.add_class::<CrossSection>(py)?;
+#[pymodule]
+fn ltd(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<PythonLTD>()?;
+    m.add_class::<PythonCrossSection>()?;
     Ok(())
-});
+}
 
 #[cfg(feature = "python_api")]
-py_class!(class CrossSection |py| {
-    data squared_topology: RefCell<squared_topologies::SquaredTopology>;
-    data integrand: RefCell<integrand::Integrand<squared_topologies::SquaredTopologySet>>;
-    data caches: RefCell<squared_topologies::SquaredTopologyCache<f64>>;
-    data caches_f128: RefCell<squared_topologies::SquaredTopologyCache<f128::f128>>;
-    data dashboard: RefCell<dashboard::Dashboard>;
+#[pyclass(name = CrossSection)]
+struct PythonCrossSection {
+    squared_topology: squared_topologies::SquaredTopology,
+    integrand: integrand::Integrand<squared_topologies::SquaredTopologySet>,
+    caches: squared_topologies::SquaredTopologyCache<f64>,
+    caches_f128: squared_topologies::SquaredTopologyCache<f128::f128>,
+    _dashboard: dashboard::Dashboard,
+}
 
-    def __new__(_cls, squared_topology_file: &str, settings_file: &str)
-    -> PyResult<CrossSection> {
+#[cfg(feature = "python_api")]
+#[pymethods]
+impl PythonCrossSection {
+    #[new]
+    fn new(squared_topology_file: &str, settings_file: &str) -> PythonCrossSection {
         use integrand::IntegrandImplementation;
 
         let settings = Settings::from_file(settings_file).unwrap();
-        let squared_topology = squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings).unwrap();
-        let squared_topology_set = squared_topologies::SquaredTopologySet::from_one(squared_topology.clone());
-        let squared_topologies::SquaredTopologyCacheCollection {float_cache, quad_cache} = squared_topology_set.create_cache();
+        let squared_topology =
+            squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings)
+                .unwrap();
+        let squared_topology_set =
+            squared_topologies::SquaredTopologySet::from_one(squared_topology.clone());
+        let squared_topologies::SquaredTopologyCacheCollection {
+            float_cache,
+            quad_cache,
+        } = squared_topology_set.create_cache();
         let dashboard = dashboard::Dashboard::minimal_dashboard();
-        let integrand = integrand::Integrand::new(squared_topology.n_loops,
-            squared_topology_set, settings.clone(), true, dashboard.status_update_sender.clone(), 0, None);
+        let integrand = integrand::Integrand::new(
+            squared_topology.n_loops,
+            squared_topology_set,
+            settings.clone(),
+            true,
+            dashboard.status_update_sender.clone(),
+            0,
+            None,
+        );
 
-        CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(integrand), RefCell::new(float_cache), RefCell::new(quad_cache),
-            RefCell::new(dashboard))
+        PythonCrossSection {
+            squared_topology,
+            integrand,
+            caches: float_cache,
+            caches_f128: quad_cache,
+            _dashboard: dashboard,
+        }
     }
 
-    def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.integrand(py).borrow_mut().evaluate(&x, 1.0, 1);
+    fn evaluate_integrand(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
+        let res = self.integrand.evaluate(&x, 1.0, 1);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def evaluate(&self, loop_momenta: Vec<LorentzVector<f64>>) -> PyResult<(f64, f64)> {
-        let mut integrand = self.integrand(py).borrow_mut();
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&loop_momenta, &mut *self.caches(py).borrow_mut(), &mut Some(&mut integrand.event_manager));
+    fn evaluate(&mut self, loop_momenta: Vec<LorentzVector<f64>>) -> PyResult<(f64, f64)> {
+        let res = self.squared_topology.evaluate_mom(
+            &loop_momenta,
+            &mut self.caches,
+            &mut Some(&mut self.integrand.event_manager),
+        );
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def get_scaling(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize) -> PyResult<Option<((f64, f64), (f64, f64))>> {
-        let squared_topo = &mut self.squared_topology(py).borrow_mut();
+    fn get_scaling(
+        &mut self,
+        loop_momenta: Vec<LorentzVector<f64>>,
+        cut_index: usize,
+    ) -> PyResult<Option<((f64, f64), (f64, f64))>> {
+        let incoming_energy = self.squared_topology.external_momenta
+            [..self.squared_topology.n_incoming_momenta]
+            .iter()
+            .map(|m| m.t)
+            .sum();
 
-        let incoming_energy = squared_topo.external_momenta[..squared_topo.n_incoming_momenta]
-        .iter()
-        .map(|m| m.t)
-        .sum();
-
-        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
+        let mut moms: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(l.cast());
         }
 
-        let mut ext = Vec::with_capacity(squared_topo.external_momenta.len());
-        for e in &squared_topo.external_momenta[..squared_topo.external_momenta.len()] {
+        let mut ext = Vec::with_capacity(self.squared_topology.external_momenta.len());
+        for e in
+            &self.squared_topology.external_momenta[..self.squared_topology.external_momenta.len()]
+        {
             ext.push(e.cast());
         }
 
-        let cutkosky_cuts = &squared_topo.cutkosky_cuts[cut_index];
+        let cutkosky_cuts = &self.squared_topology.cutkosky_cuts[cut_index];
 
         let scaling = squared_topologies::SquaredTopology::find_scaling(
             cutkosky_cuts,
             &ext,
-            &moms[..squared_topo.n_loops],
+            &moms[..self.squared_topology.n_loops],
             f128::f128::from_f64(incoming_energy).unwrap(),
-            squared_topo.settings.general.debug,
+            self.squared_topology.settings.general.debug,
         );
 
-        Ok(scaling.map(|x| ((x[0].0.to_f64().unwrap(), x[0].1.to_f64().unwrap()), (x[1].0.to_f64().unwrap(), x[1].1.to_f64().unwrap()))))
+        Ok(scaling.map(|x| {
+            (
+                (x[0].0.to_f64().unwrap(), x[0].1.to_f64().unwrap()),
+                (x[1].0.to_f64().unwrap(), x[1].1.to_f64().unwrap()),
+            )
+        }))
     }
 
-    def evaluate_f128(&self, loop_momenta: Vec<LorentzVector<f64>>) -> PyResult<(f64, f64)> {
-        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
+    fn evaluate_f128(&mut self, loop_momenta: Vec<LorentzVector<f64>>) -> PyResult<(f64, f64)> {
+        let mut moms: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(l.cast());
         }
 
-        let mut integrand = self.integrand(py).borrow_mut();
-        let res = self.squared_topology(py).borrow_mut().evaluate_mom(&moms, &mut *self.caches_f128(py).borrow_mut(), &mut Some(&mut integrand.event_manager));
+        let res = self.squared_topology.evaluate_mom(
+            &moms,
+            &mut self.caches_f128,
+            &mut Some(&mut self.integrand.event_manager),
+        );
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def evaluate_cut(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64, diagram_set: Option<usize> = None) -> PyResult<(f64, f64)> {
-        let mut squared_topology = self.squared_topology(py).borrow_mut();
-
-        let mut external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = squared_topology
+    #[args(diagram_set = "None")]
+    fn evaluate_cut(
+        &mut self,
+        loop_momenta: Vec<LorentzVector<f64>>,
+        cut_index: usize,
+        scaling: f64,
+        scaling_jac: f64,
+        diagram_set: Option<usize>,
+    ) -> PyResult<(f64, f64)> {
+        let mut external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = self
+            .squared_topology
             .external_momenta
             .iter()
             .map(|m| m.map(|c| c.into()))
@@ -772,20 +813,17 @@ py_class!(class CrossSection |py| {
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-        let cache = &mut *self.caches(py).borrow_mut();
 
-        let mut integrand = self.integrand(py).borrow_mut();
-
-        let n_loops = squared_topology.n_loops;
-        let res = squared_topology.evaluate_cut(
+        let n_loops = self.squared_topology.n_loops;
+        let res = self.squared_topology.evaluate_cut(
             &loop_momenta,
             &mut cut_momenta,
             &mut external_momenta,
             &mut rescaled_loop_momenta,
             &mut subgraph_loop_momenta,
             &mut k_def[..n_loops],
-            cache,
-            &mut Some(&mut integrand.event_manager),
+            &mut self.caches,
+            &mut Some(&mut self.integrand.event_manager),
             cut_index,
             scaling,
             scaling_jac,
@@ -795,15 +833,22 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-   def evaluate_cut_f128(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, scaling: f64, scaling_jac: f64, diagram_set: Option<usize> = None) -> PyResult<(f64, f64)> {
-        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
+    #[args(diagram_set = "None")]
+    fn evaluate_cut_f128(
+        &mut self,
+        loop_momenta: Vec<LorentzVector<f64>>,
+        cut_index: usize,
+        scaling: f64,
+        scaling_jac: f64,
+        diagram_set: Option<usize>,
+    ) -> PyResult<(f64, f64)> {
+        let mut moms: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(l.cast());
         }
 
-        let mut squared_topology = self.squared_topology(py).borrow_mut();
-
-        let mut external_momenta: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = squared_topology
+        let mut external_momenta: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = self
+            .squared_topology
             .external_momenta
             .iter()
             .map(|m| m.map(|c| c.into()))
@@ -814,20 +859,16 @@ py_class!(class CrossSection |py| {
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-        let cache = &mut *self.caches_f128(py).borrow_mut();
-
-        let mut integrand = self.integrand(py).borrow_mut();
-
-        let n_loops = squared_topology.n_loops;
-        let res = squared_topology.evaluate_cut(
+        let n_loops = self.squared_topology.n_loops;
+        let res = self.squared_topology.evaluate_cut(
             &moms,
             &mut cut_momenta,
             &mut external_momenta,
             &mut rescaled_loop_momenta,
             &mut subgraph_loop_momenta,
             &mut k_def[..n_loops],
-            cache,
-            &mut Some(&mut integrand.event_manager),
+            &mut self.caches_f128,
+            &mut Some(&mut self.integrand.event_manager),
             cut_index,
             f128::f128::from_f64(scaling).unwrap(),
             f128::f128::from_f64(scaling_jac).unwrap(),
@@ -837,15 +878,20 @@ py_class!(class CrossSection |py| {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def get_cut_deformation(&self, loop_momenta: Vec<LorentzVector<f64>>, cut_index: usize, diagram_set: Option<usize> = None) -> PyResult<Vec<LorentzVector<Complex<f64>>>> {
-        let mut moms : ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
+    #[args(diagram_set = "None")]
+    fn get_cut_deformation(
+        &mut self,
+        loop_momenta: Vec<LorentzVector<f64>>,
+        cut_index: usize,
+        diagram_set: Option<usize>,
+    ) -> PyResult<Vec<LorentzVector<Complex<f64>>>> {
+        let mut moms: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(l.cast());
         }
 
-        let mut squared_topology = self.squared_topology(py).borrow_mut();
-
-        let mut external_momenta: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = squared_topology
+        let mut external_momenta: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = self
+            .squared_topology
             .external_momenta
             .iter()
             .map(|m| m.map(|c| c.into()))
@@ -856,95 +902,162 @@ py_class!(class CrossSection |py| {
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-        let cache = &mut *self.caches_f128(py).borrow_mut();
+        let incoming_energy = self.squared_topology.external_momenta
+            [..self.squared_topology.n_incoming_momenta]
+            .iter()
+            .map(|m| m.t)
+            .sum();
 
-        let mut integrand = self.integrand(py).borrow_mut();
-
-        let incoming_energy = squared_topology.external_momenta[..squared_topology.n_incoming_momenta]
-        .iter()
-        .map(|m| m.t)
-        .sum();
-
-        let cutkosky_cuts = &squared_topology.cutkosky_cuts[cut_index];
+        let cutkosky_cuts = &self.squared_topology.cutkosky_cuts[cut_index];
 
         let scaling = squared_topologies::SquaredTopology::find_scaling(
             cutkosky_cuts,
             &external_momenta,
-            &moms[..squared_topology.n_loops],
+            &moms[..self.squared_topology.n_loops],
             f128::f128::from_f64(incoming_energy).unwrap(),
-            squared_topology.settings.general.debug,
-        ).ok_or_else(
-            || PyErr::new::<exc::TypeError, _>(
-                py,
-                "No scaling could be obtained",
-            )
-        )?;
+            self.squared_topology.settings.general.debug,
+        )
+        .ok_or_else(|| pyo3::exceptions::ValueError::py_err("No scaling could be obtained"))?;
 
-        let max_cuts = squared_topology.n_loops + 1;
+        let max_cuts = self.squared_topology.n_loops + 1;
         let num_cuts = cutkosky_cuts.cuts.len();
-        squared_topology.evaluate_cut(
+        self.squared_topology.evaluate_cut(
             &moms,
             &mut cut_momenta,
             &mut external_momenta,
             &mut rescaled_loop_momenta,
             &mut subgraph_loop_momenta,
             &mut k_def[..max_cuts],
-            cache,
-            &mut Some(&mut integrand.event_manager),
+            &mut self.caches_f128,
+            &mut Some(&mut self.integrand.event_manager),
             cut_index,
             scaling[1].0,
             scaling[1].1,
             diagram_set,
         );
 
-        let def = k_def[num_cuts - 1..max_cuts - 1].iter().map(|k| k.map(|d| Complex::new(d.re.into(), d.im.into()))).collect();
+        let def = k_def[num_cuts - 1..max_cuts - 1]
+            .iter()
+            .map(|k| k.map(|d| Complex::new(d.re.into(), d.im.into())))
+            .collect();
         Ok(def)
     }
 
-    def parameterize(&self, x: Vec<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::parameterize::<float>(&x, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
-        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    fn parameterize(
+        &mut self,
+        x: Vec<f64>,
+        loop_index: usize,
+        e_cm_squared: f64,
+    ) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::parameterize::<float>(
+            &x,
+            e_cm_squared,
+            loop_index,
+            &self.squared_topology.settings,
+        );
+        Ok((
+            x[0].to_f64().unwrap(),
+            x[1].to_f64().unwrap(),
+            x[2].to_f64().unwrap(),
+            jac.to_f64().unwrap(),
+        ))
     }
 
-    def parameterize_f128(&self, x: Vec<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::parameterize::<f128::f128>(&x, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
-        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    fn parameterize_f128(
+        &mut self,
+        x: Vec<f64>,
+        loop_index: usize,
+        e_cm_squared: f64,
+    ) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::parameterize::<f128::f128>(
+            &x,
+            e_cm_squared,
+            loop_index,
+            &self.squared_topology.settings,
+        );
+        Ok((
+            x[0].to_f64().unwrap(),
+            x[1].to_f64().unwrap(),
+            x[2].to_f64().unwrap(),
+            jac.to_f64().unwrap(),
+        ))
     }
 
-    def inv_parameterize(&self, loop_momentum: LorentzVector<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::inv_parametrize::<float>(&loop_momentum, e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
-        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    fn inv_parameterize(
+        &mut self,
+        loop_momentum: LorentzVector<f64>,
+        loop_index: usize,
+        e_cm_squared: f64,
+    ) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::inv_parametrize::<float>(
+            &loop_momentum,
+            e_cm_squared,
+            loop_index,
+            &self.squared_topology.settings,
+        );
+        Ok((
+            x[0].to_f64().unwrap(),
+            x[1].to_f64().unwrap(),
+            x[2].to_f64().unwrap(),
+            jac.to_f64().unwrap(),
+        ))
     }
 
-    def inv_parameterize_f128(&self, loop_momentum: LorentzVector<f64>, loop_index: usize, e_cm_squared: f64) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&loop_momentum.cast(), e_cm_squared, loop_index, &self.squared_topology(py).borrow().settings);
-        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    fn inv_parameterize_f128(
+        &mut self,
+        loop_momentum: LorentzVector<f64>,
+        loop_index: usize,
+        e_cm_squared: f64,
+    ) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(
+            &loop_momentum.cast(),
+            e_cm_squared,
+            loop_index,
+            &self.squared_topology.settings,
+        );
+        Ok((
+            x[0].to_f64().unwrap(),
+            x[1].to_f64().unwrap(),
+            x[2].to_f64().unwrap(),
+            jac.to_f64().unwrap(),
+        ))
     }
-});
+}
 
 #[cfg(feature = "python_api")]
-py_class!(class LTD |py| {
-    data topo: RefCell<topologies::Topology>;
-    data integrand: RefCell<integrand::Integrand<topologies::Topology>>;
-    data cache: RefCell<topologies::LTDCache<float>>;
-    data cache_f128: RefCell<topologies::LTDCache<f128::f128>>;
-    data dashboard: RefCell<dashboard::Dashboard>;
+#[pyclass(name = LTD)]
+struct PythonLTD {
+    topo: topologies::Topology,
+    integrand: integrand::Integrand<topologies::Topology>,
+    cache: topologies::LTDCache<float>,
+    cache_f128: topologies::LTDCache<f128::f128>,
+    _dashboard: dashboard::Dashboard,
+}
 
-    def __new__(_cls, topology_file: &str, top_name: &str, amplitude_file: &str, amp_name: &str, settings_file: &str)
-    -> PyResult<LTD> {
+#[cfg(feature = "python_api")]
+#[pymethods]
+impl PythonLTD {
+    #[new]
+    fn new(
+        topology_file: &str,
+        top_name: &str,
+        amplitude_file: &str,
+        amp_name: &str,
+        settings_file: &str,
+    ) -> PyResult<PythonLTD> {
         let mut settings = Settings::from_file(settings_file).unwrap();
         let mut topologies = topologies::Topology::from_file(topology_file, &settings).unwrap();
         let mut topo = topologies.remove(top_name).expect("Unknown topology");
         topo.process(true);
         //Skip amplitude with no name is set
-        let mut amp= amplitude::Amplitude::default();
+        let mut amp = amplitude::Amplitude::default();
         if amp_name == "" {
             settings.general.use_amplitude = false;
         } else {
             let mut amplitudes = amplitude::Amplitude::from_file(amplitude_file).unwrap();
             settings.general.use_amplitude = true;
-            amp=amplitudes.remove(amp_name).expect("Unknown amplitude");
-            assert_eq!(amp.topology,top_name);
+            amp = amplitudes.remove(amp_name).expect("Unknown amplitude");
+            assert_eq!(amp.topology, top_name);
             amp.process(&settings.general);
         }
 
@@ -953,280 +1066,540 @@ py_class!(class LTD |py| {
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
         let dashboard = dashboard::Dashboard::minimal_dashboard();
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), false, dashboard.status_update_sender.clone(), 0, None);
+        let integrand = integrand::Integrand::new(
+            topo.n_loops,
+            topo.clone(),
+            settings.clone(),
+            false,
+            dashboard.status_update_sender.clone(),
+            0,
+            None,
+        );
 
-        LTD::create_instance(py, RefCell::new(topo), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128),
-            RefCell::new(dashboard))
+        Ok(PythonLTD {
+            topo,
+            integrand,
+            cache,
+            cache_f128,
+            _dashboard: dashboard,
+        })
     }
 
-    def __copy__(&self) -> PyResult<LTD> {
-        let topo = self.topo(py).borrow();
-        let settings = self.integrand(py).borrow().settings.clone();
+    fn __copy__(&self) -> PyResult<PythonLTD> {
         let dashboard = dashboard::Dashboard::minimal_dashboard();
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, false, dashboard.status_update_sender.clone(), 0, None);
-        let cache = topologies::LTDCache::<float>::new(&topo);
-        let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128), RefCell::new(dashboard))
+        let integrand = integrand::Integrand::new(
+            self.topo.n_loops,
+            self.topo.clone(),
+            self.topo.settings.clone(),
+            false,
+            dashboard.status_update_sender.clone(),
+            0,
+            None,
+        );
+        let cache = topologies::LTDCache::<float>::new(&self.topo);
+        let cache_f128 = topologies::LTDCache::<f128::f128>::new(&self.topo);
+        Ok(PythonLTD {
+            topo: self.topo.clone(),
+            integrand,
+            cache,
+            cache_f128,
+            _dashboard: dashboard,
+        })
     }
 
-   def evaluate_integrand(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.integrand(py).borrow_mut().evaluate(&x, 1.0, 1);
+    fn evaluate_integrand(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
+        let res = self.integrand.evaluate(&x, 1.0, 1);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
-   }
+    }
 
-   def evaluate(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.topo(py).borrow_mut().evaluate::<float>(&x,
-            &mut self.cache(py).borrow_mut());
+    fn evaluate(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
+        let res = self.topo.evaluate::<float>(&x, &mut self.cache);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-   def evaluate_f128(&self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.topo(py).borrow_mut().evaluate::<f128::f128>(&x,
-            &mut self.cache_f128(py).borrow_mut());
+    fn evaluate_f128(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
+        let res = self.topo.evaluate::<f128::f128>(&x, &mut self.cache_f128);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def parameterize(&self, x: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
-        let t = self.topo(py).borrow();
-        let (x, jac) = topologies::Topology::parameterize::<float>(&x, t.e_cm_squared, loop_index, &t.settings);
-        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    fn parameterize(&self, x: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::parameterize::<float>(
+            &x,
+            self.topo.e_cm_squared,
+            loop_index,
+            &self.topo.settings,
+        );
+        Ok((
+            x[0].to_f64().unwrap(),
+            x[1].to_f64().unwrap(),
+            x[2].to_f64().unwrap(),
+            jac.to_f64().unwrap(),
+        ))
     }
 
-    def parameterize_f128(&self, x: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
-        let t = self.topo(py).borrow();
-        let (x, jac) = topologies::Topology::parameterize::<f128::f128>(&x, t.e_cm_squared, loop_index, &t.settings);
-        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    fn parameterize_f128(&self, x: Vec<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::parameterize::<f128::f128>(
+            &x,
+            self.topo.e_cm_squared,
+            loop_index,
+            &self.topo.settings,
+        );
+        Ok((
+            x[0].to_f64().unwrap(),
+            x[1].to_f64().unwrap(),
+            x[2].to_f64().unwrap(),
+            jac.to_f64().unwrap(),
+        ))
     }
 
-    def inv_parameterize(&self, loop_momentum: LorentzVector<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
-        let t = self.topo(py).borrow();
-        let (x, jac) = topologies::Topology::inv_parametrize::<float>(&loop_momentum, t.e_cm_squared, loop_index, &t.settings);
-        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    fn inv_parameterize(
+        &self,
+        loop_momentum: LorentzVector<f64>,
+        loop_index: usize,
+    ) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::inv_parametrize::<float>(
+            &loop_momentum,
+            self.topo.e_cm_squared,
+            loop_index,
+            &self.topo.settings,
+        );
+        Ok((
+            x[0].to_f64().unwrap(),
+            x[1].to_f64().unwrap(),
+            x[2].to_f64().unwrap(),
+            jac.to_f64().unwrap(),
+        ))
     }
 
-    def inv_parameterize_f128(&self, loop_momentum: LorentzVector<f64>, loop_index: usize) -> PyResult<(f64, f64, f64, f64)> {
-        let t = self.topo(py).borrow();
-        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(&loop_momentum.cast(), t.e_cm_squared, loop_index, &t.settings);
-        Ok((x[0].to_f64().unwrap(), x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), jac.to_f64().unwrap()))
+    fn inv_parameterize_f128(
+        &self,
+        loop_momentum: LorentzVector<f64>,
+        loop_index: usize,
+    ) -> PyResult<(f64, f64, f64, f64)> {
+        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(
+            &loop_momentum.cast(),
+            self.topo.e_cm_squared,
+            loop_index,
+            &self.topo.settings,
+        );
+        Ok((
+            x[0].to_f64().unwrap(),
+            x[1].to_f64().unwrap(),
+            x[2].to_f64().unwrap(),
+            jac.to_f64().unwrap(),
+        ))
     }
 
-    def evaluate_cut(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
-        let topo = self.topo(py).borrow();
-        let mut cache = self.cache(py).borrow_mut();
-
-        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
+    fn evaluate_cut(
+        &mut self,
+        loop_momenta: Vec<Vec<(f64, f64)>>,
+        cut_structure_index: usize,
+        cut_index: usize,
+    ) -> PyResult<(f64, f64)> {
+        let mut moms: ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(float::zero(), float::zero()),
-                Complex::new(float::from_f64(l[0].0).unwrap(), float::from_f64(l[0].1).unwrap()),
-                Complex::new(float::from_f64(l[1].0).unwrap(), float::from_f64(l[1].1).unwrap()),
-                Complex::new(float::from_f64(l[2].0).unwrap(), float::from_f64(l[2].1).unwrap())));
+                Complex::new(
+                    float::from_f64(l[0].0).unwrap(),
+                    float::from_f64(l[0].1).unwrap(),
+                ),
+                Complex::new(
+                    float::from_f64(l[1].0).unwrap(),
+                    float::from_f64(l[1].1).unwrap(),
+                ),
+                Complex::new(
+                    float::from_f64(l[2].0).unwrap(),
+                    float::from_f64(l[2].1).unwrap(),
+                ),
+            ));
         }
 
         // FIXME: recomputed every time
-        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
+        if self
+            .topo
+            .populate_ltd_cache(&moms, &mut self.cache)
+            .is_err()
+        {
             return Ok((0., 0.));
         }
 
-        let use_partial_fractioning = topo.settings.general.partial_fractioning_threshold >= 0.0
+        let use_partial_fractioning = self.topo.settings.general.partial_fractioning_threshold
+            >= 0.0
             && moms.len() > 0
             && moms[0].real().spatial_distance()
-                > topo.settings.general.partial_fractioning_threshold;
+                > self.topo.settings.general.partial_fractioning_threshold;
 
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true, use_partial_fractioning);
+        self.topo.numerator.evaluate_reduced_in_lb(
+            &moms,
+            0,
+            &mut self.cache,
+            0,
+            true,
+            use_partial_fractioning,
+        );
 
-        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
-        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
+        let mat = &self.topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &self.topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        match topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache, true, 0) {
+        match self.topo.evaluate_cut::<float>(
+            &mut moms,
+            &self.topo.numerator,
+            cut,
+            mat,
+            &mut self.cache,
+            true,
+            0,
+        ) {
             Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
-            Err(_) => Ok((0., 0.))
+            Err(_) => Ok((0., 0.)),
         }
     }
 
-    def evaluate_cut_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
-        let topo = self.topo(py).borrow();
-        let mut cache = self.cache_f128(py).borrow_mut();
-
-        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
+    fn evaluate_cut_f128(
+        &mut self,
+        loop_momenta: Vec<Vec<(f64, f64)>>,
+        cut_structure_index: usize,
+        cut_index: usize,
+    ) -> PyResult<(f64, f64)> {
+        let mut moms: ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(f128::f128::zero(), f128::f128::zero()),
-                Complex::new(f128::f128::from_f64(l[0].0).unwrap(), f128::f128::from_f64(l[0].1).unwrap()),
-                Complex::new(f128::f128::from_f64(l[1].0).unwrap(), f128::f128::from_f64(l[1].1).unwrap()),
-                Complex::new(f128::f128::from_f64(l[2].0).unwrap(), f128::f128::from_f64(l[2].1).unwrap())));
+                Complex::new(
+                    f128::f128::from_f64(l[0].0).unwrap(),
+                    f128::f128::from_f64(l[0].1).unwrap(),
+                ),
+                Complex::new(
+                    f128::f128::from_f64(l[1].0).unwrap(),
+                    f128::f128::from_f64(l[1].1).unwrap(),
+                ),
+                Complex::new(
+                    f128::f128::from_f64(l[2].0).unwrap(),
+                    f128::f128::from_f64(l[2].1).unwrap(),
+                ),
+            ));
         }
 
         // FIXME: recomputed every time
-        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
+        if self
+            .topo
+            .populate_ltd_cache(&moms, &mut self.cache_f128)
+            .is_err()
+        {
             return Ok((0., 0.));
         }
 
-        let use_partial_fractioning = topo.settings.general.partial_fractioning_threshold >= 0.0
-        && moms.len() > 0
-        && moms[0].real().spatial_distance()
-            > f128::f128::from_f64(topo.settings.general.partial_fractioning_threshold).unwrap();
+        let use_partial_fractioning = self.topo.settings.general.partial_fractioning_threshold
+            >= 0.0
+            && moms.len() > 0
+            && moms[0].real().spatial_distance()
+                > f128::f128::from_f64(self.topo.settings.general.partial_fractioning_threshold)
+                    .unwrap();
 
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true, use_partial_fractioning);
+        self.topo.numerator.evaluate_reduced_in_lb(
+            &moms,
+            0,
+            &mut self.cache_f128,
+            0,
+            true,
+            use_partial_fractioning,
+        );
 
-        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
-        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
+        let mat = &self.topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &self.topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        match topo.evaluate_cut::<f128::f128>(&mut moms, &topo.numerator, cut, mat, &mut cache, true, 0) {
+        match self.topo.evaluate_cut::<f128::f128>(
+            &mut moms,
+            &self.topo.numerator,
+            cut,
+            mat,
+            &mut self.cache_f128,
+            true,
+            0,
+        ) {
             Ok(res) => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
-            Err(_) => Ok((0., 0.))
+            Err(_) => Ok((0., 0.)),
         }
     }
 
-    def evaluate_cut_ct(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
-        let topo = self.topo(py).borrow();
-        let mut cache = self.cache(py).borrow_mut();
-
-        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
+    fn evaluate_cut_ct(
+        &mut self,
+        loop_momenta: Vec<Vec<(f64, f64)>>,
+        cut_structure_index: usize,
+        cut_index: usize,
+    ) -> PyResult<(f64, f64)> {
+        let mut moms: ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(float::zero(), float::zero()),
-                Complex::new(float::from_f64(l[0].0).unwrap(), float::from_f64(l[0].1).unwrap()),
-                Complex::new(float::from_f64(l[1].0).unwrap(), float::from_f64(l[1].1).unwrap()),
-                Complex::new(float::from_f64(l[2].0).unwrap(), float::from_f64(l[2].1).unwrap())));
+                Complex::new(
+                    float::from_f64(l[0].0).unwrap(),
+                    float::from_f64(l[0].1).unwrap(),
+                ),
+                Complex::new(
+                    float::from_f64(l[1].0).unwrap(),
+                    float::from_f64(l[1].1).unwrap(),
+                ),
+                Complex::new(
+                    float::from_f64(l[2].0).unwrap(),
+                    float::from_f64(l[2].1).unwrap(),
+                ),
+            ));
         }
 
         // FIXME: recomputed every time
-        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
+        if self
+            .topo
+            .populate_ltd_cache(&moms, &mut self.cache)
+            .is_err()
+        {
             return Ok((0., 0.));
         }
 
-        let use_partial_fractioning = topo.settings.general.partial_fractioning_threshold >= 0.0
-        && moms.len() > 0
-        && moms[0].real().spatial_distance()
-            > topo.settings.general.partial_fractioning_threshold;
+        let use_partial_fractioning = self.topo.settings.general.partial_fractioning_threshold
+            >= 0.0
+            && moms.len() > 0
+            && moms[0].real().spatial_distance()
+                > self.topo.settings.general.partial_fractioning_threshold;
 
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true, use_partial_fractioning); //NOTE: Only necessary when k_vec is changed
+        self.topo.numerator.evaluate_reduced_in_lb(
+            &moms,
+            0,
+            &mut self.cache,
+            0,
+            true,
+            use_partial_fractioning,
+        ); //NOTE: Only necessary when k_vec is changed
 
-        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
-        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
-        let v = topo.evaluate_cut::<float>(&mut moms, &topo.numerator, cut, mat, &mut cache, true, 0).unwrap();
+        let mat = &self.topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &self.topo.ltd_cut_options[cut_structure_index][cut_index];
+        let v = self
+            .topo
+            .evaluate_cut::<float>(
+                &mut moms,
+                &self.topo.numerator,
+                cut,
+                mat,
+                &mut self.cache,
+                true,
+                0,
+            )
+            .unwrap();
         // get the loop line result from the cache if possible
-        let r = 2.0 * cache.complex_cut_energies[cut_index];
-        let ct = topo.counterterm::<float>(&moms[..topo.n_loops], r, cut_index, &mut cache);
+        let r = 2.0 * self.cache.complex_cut_energies[cut_index];
+        let ct = self.topo.counterterm::<float>(
+            &moms[..self.topo.n_loops],
+            r,
+            cut_index,
+            &mut self.cache,
+        );
 
         let res = v * (ct + float::one());
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    def evaluate_cut_ct_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
-        let topo = self.topo(py).borrow();
-        let mut cache = self.cache_f128(py).borrow_mut();
-
-        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
+    fn evaluate_cut_ct_f128(
+        &mut self,
+        loop_momenta: Vec<Vec<(f64, f64)>>,
+        cut_structure_index: usize,
+        cut_index: usize,
+    ) -> PyResult<(f64, f64)> {
+        let mut moms: ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(f128::f128::zero(), f128::f128::zero()),
-                Complex::new(f128::f128::from_f64(l[0].0).unwrap(), f128::f128::from_f64(l[0].1).unwrap()),
-                Complex::new(f128::f128::from_f64(l[1].0).unwrap(), f128::f128::from_f64(l[1].1).unwrap()),
-                Complex::new(f128::f128::from_f64(l[2].0).unwrap(), f128::f128::from_f64(l[2].1).unwrap())));
+                Complex::new(
+                    f128::f128::from_f64(l[0].0).unwrap(),
+                    f128::f128::from_f64(l[0].1).unwrap(),
+                ),
+                Complex::new(
+                    f128::f128::from_f64(l[1].0).unwrap(),
+                    f128::f128::from_f64(l[1].1).unwrap(),
+                ),
+                Complex::new(
+                    f128::f128::from_f64(l[2].0).unwrap(),
+                    f128::f128::from_f64(l[2].1).unwrap(),
+                ),
+            ));
         }
 
         // FIXME: recomputed every time
-        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
+        if self
+            .topo
+            .populate_ltd_cache(&moms, &mut self.cache_f128)
+            .is_err()
+        {
             return Ok((0., 0.));
         }
 
-        let use_partial_fractioning = topo.settings.general.partial_fractioning_threshold >= 0.0
-        && moms.len() > 0
-        && moms[0].real().spatial_distance()
-            > f128::f128::from_f64(topo.settings.general.partial_fractioning_threshold).unwrap();
+        let use_partial_fractioning = self.topo.settings.general.partial_fractioning_threshold
+            >= 0.0
+            && moms.len() > 0
+            && moms[0].real().spatial_distance()
+                > f128::f128::from_f64(self.topo.settings.general.partial_fractioning_threshold)
+                    .unwrap();
 
         // Prepare numerator
-        topo.numerator.evaluate_reduced_in_lb(&moms, 0, &mut cache, 0, true, use_partial_fractioning); //NOTE: Only necessary when k_vec is changed
+        self.topo.numerator.evaluate_reduced_in_lb(
+            &moms,
+            0,
+            &mut self.cache_f128,
+            0,
+            true,
+            use_partial_fractioning,
+        ); //NOTE: Only necessary when k_vec is changed
 
-        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
-        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
-        let v = topo.evaluate_cut::<f128::f128>(&mut moms, &topo.numerator, cut, mat, &mut cache, true, 0).unwrap();
+        let mat = &self.topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &self.topo.ltd_cut_options[cut_structure_index][cut_index];
+        let v = self
+            .topo
+            .evaluate_cut::<f128::f128>(
+                &mut moms,
+                &self.topo.numerator,
+                cut,
+                mat,
+                &mut self.cache_f128,
+                true,
+                0,
+            )
+            .unwrap();
         // get the loop line result from the cache if possible
-        let r = cache.complex_cut_energies[cut_index] * f128::f128::from_f64(2.0).unwrap();
-        let ct = topo.counterterm::<f128::f128>(&moms[..topo.n_loops], r, cut_index, &mut cache);
+        let r =
+            self.cache_f128.complex_cut_energies[cut_index] * f128::f128::from_f64(2.0).unwrap();
+        let ct = self.topo.counterterm::<f128::f128>(
+            &moms[..self.topo.n_loops],
+            r,
+            cut_index,
+            &mut self.cache_f128,
+        );
 
-        match v*(Complex::new(f128::f128::from_f64(1.0).unwrap(), f128::f128::zero())+ct){
+        match v * (Complex::new(f128::f128::from_f64(1.0).unwrap(), f128::f128::zero()) + ct) {
             res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
         }
     }
 
-   def evaluate_amplitude_cut(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
-        let mut topo = self.topo(py).borrow_mut();
-        topo.settings.general.use_amplitude = true;
-        let mut cache = self.cache(py).borrow_mut();
-
-        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
+    fn evaluate_amplitude_cut(
+        &mut self,
+        loop_momenta: Vec<Vec<(f64, f64)>>,
+        cut_structure_index: usize,
+        cut_index: usize,
+    ) -> PyResult<(f64, f64)> {
+        let mut moms: ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(0.0, 0.0),
                 Complex::new(l[0].0, l[0].1),
                 Complex::new(l[1].0, l[1].1),
-                Complex::new(l[2].0, l[2].1)));
+                Complex::new(l[2].0, l[2].1),
+            ));
         }
 
         // FIXME: recomputed every time
-        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
+        if self
+            .topo
+            .populate_ltd_cache(&moms, &mut self.cache)
+            .is_err()
+        {
             return Ok((0., 0.));
         }
 
-        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
-        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
-        match topo.evaluate_amplitude_cut::<float>(&mut moms, cut, mat, &mut cache).unwrap() {
+        let mat = &self.topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &self.topo.ltd_cut_options[cut_structure_index][cut_index];
+        match self
+            .topo
+            .evaluate_amplitude_cut::<float>(&mut moms, cut, mat, &mut self.cache)
+            .unwrap()
+        {
             res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
         }
     }
 
-   def evaluate_amplitude_cut_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<(f64, f64)> {
-        let mut topo = self.topo(py).borrow_mut();
-        topo.settings.general.use_amplitude = true;
-        let mut cache = self.cache_f128(py).borrow_mut();
-
-        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
+    fn evaluate_amplitude_cut_f128(
+        &mut self,
+        loop_momenta: Vec<Vec<(f64, f64)>>,
+        cut_structure_index: usize,
+        cut_index: usize,
+    ) -> PyResult<(f64, f64)> {
+        let mut moms: ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(f128::f128::zero(), f128::f128::zero()),
-                Complex::new(f128::f128::from_f64(l[0].0).unwrap(), f128::f128::from_f64(l[0].1).unwrap()),
-                Complex::new(f128::f128::from_f64(l[1].0).unwrap(), f128::f128::from_f64(l[1].1).unwrap()),
-                Complex::new(f128::f128::from_f64(l[2].0).unwrap(), f128::f128::from_f64(l[2].1).unwrap())));
+                Complex::new(
+                    f128::f128::from_f64(l[0].0).unwrap(),
+                    f128::f128::from_f64(l[0].1).unwrap(),
+                ),
+                Complex::new(
+                    f128::f128::from_f64(l[1].0).unwrap(),
+                    f128::f128::from_f64(l[1].1).unwrap(),
+                ),
+                Complex::new(
+                    f128::f128::from_f64(l[2].0).unwrap(),
+                    f128::f128::from_f64(l[2].1).unwrap(),
+                ),
+            ));
         }
 
         // FIXME: recomputed every time
-        if topo.populate_ltd_cache(&moms, &mut cache).is_err() {
+        if self
+            .topo
+            .populate_ltd_cache(&moms, &mut self.cache_f128)
+            .is_err()
+        {
             return Ok((0., 0.));
         }
 
-        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
-        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
-        match topo.evaluate_amplitude_cut::<f128::f128>(&mut moms, cut, mat, &mut cache).unwrap() {
+        let mat = &self.topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &self.topo.ltd_cut_options[cut_structure_index][cut_index];
+        match self
+            .topo
+            .evaluate_amplitude_cut::<f128::f128>(&mut moms, cut, mat, &mut self.cache_f128)
+            .unwrap()
+        {
             res => Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap())),
         }
     }
 
-       def get_loop_momentum_energies(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<Vec<(f64, f64)>> {
-        let topo = self.topo(py).borrow();
-        let mut cache = self.cache(py).borrow_mut();
-
-        let mut moms : ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
+    fn get_loop_momentum_energies(
+        &mut self,
+        loop_momenta: Vec<Vec<(f64, f64)>>,
+        cut_structure_index: usize,
+        cut_index: usize,
+    ) -> PyResult<Vec<(f64, f64)>> {
+        let mut moms: ArrayVec<[LorentzVector<Complex<float>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(float::zero(), float::zero()),
-                Complex::new(float::from_f64(l[0].0).unwrap(), float::from_f64(l[0].1).unwrap()),
-                Complex::new(float::from_f64(l[1].0).unwrap(), float::from_f64(l[1].1).unwrap()),
-                Complex::new(float::from_f64(l[2].0).unwrap(), float::from_f64(l[2].1).unwrap())));
+                Complex::new(
+                    float::from_f64(l[0].0).unwrap(),
+                    float::from_f64(l[0].1).unwrap(),
+                ),
+                Complex::new(
+                    float::from_f64(l[1].0).unwrap(),
+                    float::from_f64(l[1].1).unwrap(),
+                ),
+                Complex::new(
+                    float::from_f64(l[2].0).unwrap(),
+                    float::from_f64(l[2].1).unwrap(),
+                ),
+            ));
         }
 
         // FIXME: recomputed every time
-        topo.populate_ltd_cache(&moms, &mut cache).unwrap_or_else(|_| {println!("On-shell propagator detected");});
+        self.topo
+            .populate_ltd_cache(&moms, &mut self.cache)
+            .unwrap_or_else(|_| {
+                println!("On-shell propagator detected");
+            });
 
-        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
-        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
+        let mat = &self.topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &self.topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        topo.set_loop_momentum_energies::<float>(&mut moms, cut, mat, &cache);
+        self.topo
+            .set_loop_momentum_energies::<float>(&mut moms, cut, mat, &self.cache);
 
         let mut res = Vec::with_capacity(moms.len());
         for l in moms {
@@ -1236,26 +1609,43 @@ py_class!(class LTD |py| {
         Ok(res)
     }
 
-    def get_loop_momentum_energies_f128(&self, loop_momenta: Vec<Vec<(f64,f64)>>, cut_structure_index: usize, cut_index: usize) -> PyResult<Vec<(f64, f64)>> {
-        let topo = self.topo(py).borrow();
-        let mut cache = self.cache_f128(py).borrow_mut();
-
-        let mut moms : ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
+    fn get_loop_momentum_energies_f128(
+        &mut self,
+        loop_momenta: Vec<Vec<(f64, f64)>>,
+        cut_structure_index: usize,
+        cut_index: usize,
+    ) -> PyResult<Vec<(f64, f64)>> {
+        let mut moms: ArrayVec<[LorentzVector<Complex<f128::f128>>; MAX_LOOP]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(LorentzVector::from_args(
                 Complex::new(f128::f128::zero(), f128::f128::zero()),
-                Complex::new(f128::f128::from_f64(l[0].0).unwrap(), f128::f128::from_f64(l[0].1).unwrap()),
-                Complex::new(f128::f128::from_f64(l[1].0).unwrap(), f128::f128::from_f64(l[1].1).unwrap()),
-                Complex::new(f128::f128::from_f64(l[2].0).unwrap(), f128::f128::from_f64(l[2].1).unwrap())));
+                Complex::new(
+                    f128::f128::from_f64(l[0].0).unwrap(),
+                    f128::f128::from_f64(l[0].1).unwrap(),
+                ),
+                Complex::new(
+                    f128::f128::from_f64(l[1].0).unwrap(),
+                    f128::f128::from_f64(l[1].1).unwrap(),
+                ),
+                Complex::new(
+                    f128::f128::from_f64(l[2].0).unwrap(),
+                    f128::f128::from_f64(l[2].1).unwrap(),
+                ),
+            ));
         }
 
         // FIXME: recomputed every time
-        topo.populate_ltd_cache(&moms, &mut cache).unwrap_or_else(|_| {println!("On-shell propagator detected");});
+        self.topo
+            .populate_ltd_cache(&moms, &mut self.cache_f128)
+            .unwrap_or_else(|_| {
+                println!("On-shell propagator detected");
+            });
 
-        let mat = &topo.cb_to_lmb_mat[cut_structure_index];
-        let cut = &topo.ltd_cut_options[cut_structure_index][cut_index];
+        let mat = &self.topo.cb_to_lmb_mat[cut_structure_index];
+        let cut = &self.topo.ltd_cut_options[cut_structure_index][cut_index];
 
-        topo.set_loop_momentum_energies::<f128::f128>(&mut moms, cut, mat, &cache);
+        self.topo
+            .set_loop_momentum_energies::<f128::f128>(&mut moms, cut, mat, &self.cache_f128);
 
         let mut res = Vec::with_capacity(moms.len());
         for l in moms {
@@ -1265,47 +1655,59 @@ py_class!(class LTD |py| {
         Ok(res)
     }
 
-    def deform(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(Vec<(f64, f64, f64)>, f64, f64)> {
-        let topo = self.topo(py).borrow();
-        let mut cache = self.cache(py).borrow_mut();
-
+    fn deform(
+        &mut self,
+        loop_momenta: Vec<Vec<f64>>,
+    ) -> PyResult<(Vec<(f64, f64, f64)>, f64, f64)> {
         let mut moms = Vec::with_capacity(loop_momenta.len());
         for l in loop_momenta {
-            moms.push(LorentzVector::from_args(float::zero(),
+            moms.push(LorentzVector::from_args(
+                float::zero(),
                 float::from_f64(l[0]).unwrap(),
                 float::from_f64(l[1]).unwrap(),
-                float::from_f64(l[2]).unwrap()));
+                float::from_f64(l[2]).unwrap(),
+            ));
         }
 
-        let (res, jac) = topo.deform::<float>(&moms, &mut cache);
+        let (res, jac) = self.topo.deform::<float>(&moms, &mut self.cache);
 
         let mut r = Vec::with_capacity(moms.len());
-        for x in res[..topo.n_loops].iter() {
-            r.push((x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), x[3].to_f64().unwrap()));
+        for x in res[..self.topo.n_loops].iter() {
+            r.push((
+                x[1].to_f64().unwrap(),
+                x[2].to_f64().unwrap(),
+                x[3].to_f64().unwrap(),
+            ));
         }
 
         Ok((r, jac.re.to_f64().unwrap(), jac.im.to_f64().unwrap()))
     }
 
-    def deform_f128(&self, loop_momenta: Vec<Vec<f64>>) -> PyResult<(Vec<(f64, f64, f64)>, f64, f64)> {
-        let topo = self.topo(py).borrow();
-        let mut cache = self.cache_f128(py).borrow_mut();
-
+    fn deform_f128(
+        &mut self,
+        loop_momenta: Vec<Vec<f64>>,
+    ) -> PyResult<(Vec<(f64, f64, f64)>, f64, f64)> {
         let mut moms = Vec::with_capacity(loop_momenta.len());
         for l in loop_momenta {
-            moms.push(LorentzVector::from_args(f128::f128::zero(),
+            moms.push(LorentzVector::from_args(
+                f128::f128::zero(),
                 f128::f128::from_f64(l[0]).unwrap(),
                 f128::f128::from_f64(l[1]).unwrap(),
-                f128::f128::from_f64(l[2]).unwrap()));
+                f128::f128::from_f64(l[2]).unwrap(),
+            ));
         }
 
-        let (res, jac) = topo.deform::<f128::f128>(&moms, &mut cache);
+        let (res, jac) = self.topo.deform::<f128::f128>(&moms, &mut self.cache_f128);
 
         let mut r = Vec::with_capacity(moms.len());
-        for x in res[..topo.n_loops].iter() {
-            r.push((x[1].to_f64().unwrap(), x[2].to_f64().unwrap(), x[3].to_f64().unwrap()));
+        for x in res[..self.topo.n_loops].iter() {
+            r.push((
+                x[1].to_f64().unwrap(),
+                x[2].to_f64().unwrap(),
+                x[3].to_f64().unwrap(),
+            ));
         }
 
         Ok((r, jac.re.to_f64().unwrap(), jac.im.to_f64().unwrap()))
     }
-});
+}
