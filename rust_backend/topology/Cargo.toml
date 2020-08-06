@@ -1,6 +1,0 @@
-[package]
-name = "topology"
-version = "0.1.0"
-authors = ["Ben Ruijl <benruyl@gmail.com>"]
-
-[dependencies]

@@ -1,45 +1,24 @@
+#[macro_use]
+extern crate itertools;
 #[cfg(feature = "python_api")]
 #[macro_use]
 extern crate cpython;
-extern crate arrayvec;
-extern crate dual_num;
-extern crate mpolynomial;
-#[macro_use]
-extern crate itertools;
-extern crate color_eyre;
-extern crate eyre;
-extern crate fnv;
-extern crate num;
-extern crate serde;
-extern crate serde_yaml;
-extern crate vector;
-
 #[cfg(feature = "python_api")]
 use cpython::{exc, PyErr, PyResult};
 #[cfg(feature = "python_api")]
 use std::cell::RefCell;
-extern crate colored;
-extern crate cuba;
-extern crate dlopen;
-extern crate f128;
-extern crate libc;
-extern crate nalgebra as na;
-extern crate num_traits;
-extern crate rand;
-extern crate scs;
-extern crate thousands;
-extern crate tui;
 #[macro_use]
 extern crate dlopen_derive;
+extern crate nalgebra as na;
 
 use color_eyre::{Help, Report};
 use eyre::WrapErr;
 
+use lorentz_vector::{Field, RealNumberLike};
 use num_traits::{Float, FloatConst, FromPrimitive, Num, Signed};
 #[cfg(feature = "python_api")]
 use num_traits::{One, ToPrimitive, Zero};
 use utils::Signum;
-use vector::{Field, RealNumberLike};
 
 pub const MAX_LOOP: usize = 4;
 pub const MAX_PROP: usize = 10;
@@ -85,12 +64,12 @@ pub mod utils;
 
 #[cfg(feature = "python_api")]
 use arrayvec::ArrayVec;
+pub use lorentz_vector::LorentzVector;
 #[cfg(feature = "python_api")]
 use num::Complex;
 use serde::Deserialize;
 use std::fmt;
 use std::fs::File;
-pub use vector::LorentzVector;
 
 #[derive(Debug, Copy, Default, Clone, PartialEq, Deserialize)]
 pub struct Scaling {
@@ -148,7 +127,7 @@ impl fmt::Display for IRHandling {
         match self {
             IRHandling::DismissPoint => write!(f, "dismiss_point"),
             IRHandling::DismissDeformation => write!(f, "dismiss_deformation"),
-            IRHandling::None => write!(f, "none")
+            IRHandling::None => write!(f, "none"),
         }
     }
 }
@@ -720,7 +699,7 @@ py_class!(class CrossSection |py| {
         let squared_topologies::SquaredTopologyCacheCollection {float_cache, quad_cache} = squared_topology_set.create_cache();
         let dashboard = dashboard::Dashboard::minimal_dashboard();
         let integrand = integrand::Integrand::new(squared_topology.n_loops,
-            squared_topology_set, settings.clone(), true, dashboard.status_update_sender.clone(), 0);
+            squared_topology_set, settings.clone(), true, dashboard.status_update_sender.clone(), 0, None);
 
         CrossSection::create_instance(py, RefCell::new(squared_topology), RefCell::new(integrand), RefCell::new(float_cache), RefCell::new(quad_cache),
             RefCell::new(dashboard))
@@ -974,7 +953,7 @@ py_class!(class LTD |py| {
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
         let dashboard = dashboard::Dashboard::minimal_dashboard();
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), false, dashboard.status_update_sender.clone(), 0);
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings.clone(), false, dashboard.status_update_sender.clone(), 0, None);
 
         LTD::create_instance(py, RefCell::new(topo), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128),
             RefCell::new(dashboard))
@@ -984,7 +963,7 @@ py_class!(class LTD |py| {
         let topo = self.topo(py).borrow();
         let settings = self.integrand(py).borrow().settings.clone();
         let dashboard = dashboard::Dashboard::minimal_dashboard();
-        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, false, dashboard.status_update_sender.clone(), 0);
+        let integrand = integrand::Integrand::new(topo.n_loops, topo.clone(), settings, false, dashboard.status_update_sender.clone(), 0, None);
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
         LTD::create_instance(py, RefCell::new(topo.clone()), RefCell::new(integrand), RefCell::new(cache), RefCell::new(cache_f128), RefCell::new(dashboard))

@@ -13,7 +13,7 @@ use ltd::MAX_LOOP;
 use num::Complex;
 use num_traits::{NumCast, One, ToPrimitive, Zero};
 use rand::prelude::*;
-use vector::LorentzVector;
+use lorentz_vector::LorentzVector;
 
 type TestFloat = f128::f128;
 //type TestFloat = f64;

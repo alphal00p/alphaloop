@@ -1,29 +1,28 @@
+use crate::partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
+use crate::topologies::{
+    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, SOCPProblem, Surface,
+    SurfaceType, Topology,
+};
+use crate::utils::Signum;
+use crate::{
+    float, AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike, IRHandling,
+    OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
+    Settings, MAX_LOOP,
+};
 use arrayvec::ArrayVec;
 use colored::Colorize;
 use dual_num::{DimName, DualN};
-use float;
 use itertools::Itertools;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Pow, Signed, Zero};
-use partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
 use std::cmp::Ordering;
-use topologies::{
-    CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, SOCPProblem, Surface,
-    SurfaceType, Topology,
-};
-use utils::Signum;
-use vector::LorentzVector;
-use {
-    AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike, IRHandling,
-    OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
-    Settings, MAX_LOOP,
-};
+use lorentz_vector::LorentzVector;
 
-use utils;
+use crate::utils;
 
 type Dual4<T> = DualN<T, dual_num::U4>;
 type Dual7<T> = DualN<T, dual_num::U7>;
@@ -1383,19 +1382,22 @@ impl Topology {
             } + min_ellipse.powi(2)
                 * Into::<T>::into(self.settings.deformation.fixed.ir_beta_ellipse.powi(2));
 
-            if   self.settings.deformation.fixed.ir_handling_strategy==IRHandling::DismissDeformation && 
-                 self.settings.deformation.fixed.ir_interpolation_length > 0.0 {
-                let sup = ((
-                            (
-                                ir_proximity/Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
-                            )-Into::<T>::into(1.0)
-                    )/Into::<T>::into(self.settings.deformation.fixed.ir_interpolation_length))
-                    .min(DualN::from_real(Into::<T>::into(0.0))).max(DualN::from_real(Into::<T>::into(1.0)));
+            if self.settings.deformation.fixed.ir_handling_strategy
+                == IRHandling::DismissDeformation
+                && self.settings.deformation.fixed.ir_interpolation_length > 0.0
+            {
+                let sup = (((ir_proximity
+                    / Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2)))
+                    - Into::<T>::into(1.0))
+                    / Into::<T>::into(self.settings.deformation.fixed.ir_interpolation_length))
+                .min(DualN::from_real(Into::<T>::into(0.0)))
+                .max(DualN::from_real(Into::<T>::into(1.0)));
                 if sup * sup < lambda_sq {
                     lambda_sq = sup * sup;
                 }
             } else {
-                if ir_proximity < Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
+                if ir_proximity
+                    < Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2))
                 {
                     match self.settings.deformation.fixed.ir_handling_strategy {
                         IRHandling::DismissPoint => {

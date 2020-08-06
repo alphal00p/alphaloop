@@ -1,12 +1,12 @@
-use dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::squared_topologies::CutkoskyCut;
+use crate::{FloatLike, JetSliceSettings, ObservableMode, SelectorMode, Settings};
 use itertools::Itertools;
 use libc::{c_double, c_int, c_void};
 use num::Complex;
-use squared_topologies::CutkoskyCut;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use vector::LorentzVector;
-use {FloatLike, JetSliceSettings, ObservableMode, SelectorMode, Settings};
+use lorentz_vector::LorentzVector;
 
 mod fjcore {
     use libc::{c_double, c_int, c_void};
@@ -538,9 +538,10 @@ impl EventSelector for JetSelector {
         //println!("clustering: {:#?}",self.clustering);
         self.clustering.ordered_pt.len() >= self.jet_selector_settings.min_jets
             && self.clustering.ordered_pt.len() <= self.jet_selector_settings.max_jets
-            && self.clustering.ordered_pt[0] >= self.jet_selector_settings.min_j1pt
-            && (self.jet_selector_settings.max_j1pt < 0.0
-                || (self.clustering.ordered_pt[0] <= self.jet_selector_settings.max_j1pt))
+            && (self.clustering.ordered_pt.len() == 0
+                || (self.clustering.ordered_pt[0] >= self.jet_selector_settings.min_j1pt
+                    && (self.jet_selector_settings.max_j1pt < 0.0
+                        || (self.clustering.ordered_pt[0] <= self.jet_selector_settings.max_j1pt))))
     }
 }
 

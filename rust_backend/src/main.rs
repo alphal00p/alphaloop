@@ -1,24 +1,7 @@
-extern crate arrayvec;
-extern crate clap;
-extern crate cuba;
-extern crate dual_num;
 #[macro_use]
 extern crate itertools;
-extern crate color_eyre;
-extern crate colored;
 #[macro_use]
 extern crate eyre;
-extern crate f128;
-extern crate ltd;
-extern crate nalgebra as na;
-extern crate num;
-extern crate num_traits;
-extern crate rand;
-extern crate rayon;
-extern crate serde;
-extern crate serde_yaml;
-extern crate termion;
-extern crate tui;
 
 #[cfg(feature = "use_mpi")]
 pub extern crate mpi;
@@ -26,8 +9,8 @@ pub extern crate mpi;
 use arrayvec::ArrayVec;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use color_eyre::{Help, Report};
+use lorentz_vector::LorentzVector;
 use ltd::topologies::{Cut, CutList};
-use ltd::LorentzVector;
 use num::Complex;
 use num_traits::real::Real;
 use num_traits::{NumCast, One, ToPrimitive, Zero};

@@ -1,6 +1,8 @@
-use integrand::IntegrandStatistics;
+use crate::integrand::IntegrandStatistics;
+use crate::observables::EventInfo;
+use crate::utils;
+use crate::IntegratedPhase;
 use num::Complex;
-use observables::EventInfo;
 use std::io;
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
@@ -11,8 +13,6 @@ use tui::style::{Color, Modifier, Style};
 use tui::symbols::Marker;
 use tui::widgets::{Axis, Block, Borders, Chart, Dataset, List, Paragraph, Text};
 use tui::{backend::TermionBackend, Terminal};
-use utils;
-use IntegratedPhase;
 
 pub type StatusUpdateSender = Sender<StatusUpdate>;
 

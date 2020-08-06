@@ -1,18 +1,19 @@
-use amplitude::Amplitude;
+use crate::amplitude::Amplitude;
+use crate::dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::integrand::IntegrandImplementation;
+use crate::observables::EventManager;
+use crate::partial_fractioning::PFCache;
+use crate::partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
+use crate::utils;
+use crate::{float, FloatLike, Settings, MAX_LOOP};
 use color_eyre::{Help, Report};
-use dashboard::{StatusUpdate, StatusUpdateSender};
 use dual_num::{DualN, U10, U13, U16, U19, U4, U7};
 use eyre::WrapErr;
-use float;
 use fnv::FnvHashMap;
-use integrand::IntegrandImplementation;
 use itertools::Itertools;
 use mpolynomial::MPolynomial;
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, One, Signed, ToPrimitive, Zero};
-use observables::EventManager;
-use partial_fractioning::PFCache;
-use partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use rand::Rng;
 use scs;
 use serde::Deserialize;
@@ -23,10 +24,8 @@ use std::mem;
 use std::ptr;
 use std::slice;
 use std::time::Instant;
-use utils;
 use utils::Signum;
-use vector::LorentzVector;
-use {FloatLike, Settings, MAX_LOOP};
+use lorentz_vector::LorentzVector;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SurfaceType {

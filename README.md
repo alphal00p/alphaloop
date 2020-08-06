@@ -39,9 +39,14 @@ Then
 ```sh
 cd ..
 cd rust_backend
-cargo build --bin ltd 
+cargo build 
 ```
-to compile the rust backend. Optionally, `build --release`, for a slightly faster version.
+to compile the Rust backend. Optionally, `build --release`, for a slightly faster version.
+
+To use the Python API of the Rust backend, compile with the Python API support:
+```sh
+cargo build --release --features "python_api"
+```
 
 Make sure to install the python dependencies
 ```
@@ -65,7 +70,7 @@ python3.7 ./bin/mg5_aMC --debug --mode=alphaloop PLUGIN/alphaloop/examples/epem_
 and integrate from the `rust_backend` folder with:
 
 ```sh
-env MG_NUMERATOR_PATH=../../MG5_aMC_v2_7_2_py3/TEST_epem_a_ddxg/ cargo run --bin ltd -- --cross_section_set ../../MG5_aMC_v2_7_2_py3/TEST_epem_a_ddxg/FORM/Rust_inputs/all_MG_supergraphs.yaml --debug 0 -c 16
+env MG_NUMERATOR_PATH=../../MG5_aMC_v2_7_2_py3/TEST_epem_a_ddxg/ cargo run -- --cross_section_set ../../MG5_aMC_v2_7_2_py3/TEST_epem_a_ddxg/FORM/Rust_inputs/all_MG_supergraphs.yaml --debug 0 -c 16
 ```
 
 You may have to include the following to your library path:

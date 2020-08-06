@@ -13,7 +13,7 @@ use ltd::utils::test_utils::{get_test_topology, numeriacal_eq};
 use ltd::MAX_LOOP;
 use num::Complex;
 use num_traits::{NumCast, One, ToPrimitive, Zero};
-use vector::LorentzVector;
+use lorentz_vector::LorentzVector;
 
 fn cross_check(
     topo: &mut Topology,

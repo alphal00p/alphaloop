@@ -1,30 +1,29 @@
+use crate::dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::integrand::IntegrandImplementation;
+use crate::observables::EventManager;
+use crate::topologies::FixedDeformationLimit;
+use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
+use crate::utils;
+use crate::{
+    float, DeformationStrategy, FloatLike, IRHandling, NormalisingFunction, NumeratorSource,
+    Settings, MAX_LOOP,
+};
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
-use dashboard::{StatusUpdate, StatusUpdateSender};
 use dlopen::wrapper::Container;
 use eyre::WrapErr;
 use f128::f128;
-use float;
-use integrand::IntegrandImplementation;
 use itertools::Itertools;
+use lorentz_vector::{LorentzVector, RealNumberLike};
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
-use observables::EventManager;
 use rand::{thread_rng, Rng};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
 use std::time::Instant;
-use topologies::FixedDeformationLimit;
-use topologies::{Cut, LTDCache, LTDNumerator, Topology};
-use utils;
 use utils::Signum;
-use vector::{LorentzVector, RealNumberLike};
-use {
-    DeformationStrategy, FloatLike, IRHandling, NormalisingFunction, NumeratorSource, Settings,
-    MAX_LOOP,
-};
 
 mod form_numerator {
     use dlopen::wrapper::{Container, WrapperApi};

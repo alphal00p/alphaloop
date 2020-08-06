@@ -1,16 +1,57 @@
-[workspace]
-members = [
-	"vector",
-	"deformation",
-	"integrand",
-	"integrator",
-	"topology",
-	"ltd",
-]
+[package]
+authors = ["Ben Ruijl <benruyl@gmail.com>"]
+edition = "2018"
+name = "ltd"
+version = "0.1.0"
 
 [profile.dev]
-opt-level=2
+opt-level = 2
 
 [profile.release]
 codegen-units = 1
 lto = "thin"
+
+[features]
+higher_loops = []
+python_api = ["cpython"]
+use_f128 = []
+use_mpi = ["mpi"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ltd"
+
+[dependencies.cpython]
+features = ["extension-module"]
+optional = true
+version = "*"
+
+[dependencies]
+arrayvec = {version = "^0.5"}# features = ["array-sizes-129-255"]
+clap = "*"
+color-eyre = {version = "^0.3", default-features = false}
+colored = "1.8"
+cuba = "^0.2"
+dlopen = "*"
+dlopen_derive = "*"
+dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dualn"}
+ecos-rs = "*"
+eyre = "^0.4"
+f128 = {git = "https://github.com/benruijl/f128"}
+fnv = "1.0.6"
+itertools = "0.8"
+libc = "*"
+lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", features = ["serde_support", "dual_num_support", "f128_support", "cpython_support"]}
+mpi = {git = "https://github.com/bsteinb/rsmpi", optional = true}
+mpolynomial = {git = "https://github.com/apelloni/mpolynomial", branch = "master"}
+nalgebra = "0.18"
+num = "0.3"
+num-traits = "0.2.12"
+rand = "*"
+rayon = "*"
+scs-rs = "*"
+serde = {version = "1.0", features = ["derive"]}
+serde_yaml = "*"
+termion = "*"
+thousands = "0.2.0"
+tui = "^0.9.0"

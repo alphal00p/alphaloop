@@ -1,9 +1,9 @@
 use arrayvec::ArrayVec;
 use num::Complex;
-use topologies::{LTDCache, Topology};
-use utils;
-use vector::LorentzVector;
-use FloatLike;
+use crate::topologies::{LTDCache, Topology};
+use crate::utils;
+use lorentz_vector::LorentzVector;
+use crate::FloatLike;
 
 impl Topology {
     #[inline]

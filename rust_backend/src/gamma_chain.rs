@@ -1,6 +1,6 @@
+use crate::FloatLike;
 use num::Complex;
-use vector::LorentzVector;
-use FloatLike;
+use lorentz_vector::LorentzVector;
 
 pub struct GammaChain<'a, T: FloatLike> {
     vbar: &'a [Complex<T>],

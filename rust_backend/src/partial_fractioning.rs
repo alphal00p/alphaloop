@@ -1,10 +1,9 @@
+use crate::topologies::{LTDCache, LTDNumerator, LoopLine};
+use crate::{FloatLike, MAX_LOOP, MAX_PROP};
 use itertools::Itertools;
 use mpolynomial::MPolynomial;
 use num::traits::Zero;
 use num::Complex;
-use topologies::{LTDCache, LTDNumerator, LoopLine};
-use FloatLike;
-use {MAX_LOOP, MAX_PROP};
 
 #[derive(Default, Debug, Clone)]
 pub struct PartialFractioning {
@@ -380,9 +379,9 @@ impl PartialFractioning {
     ) -> Complex<T> {
         // make sure that numerator.evaluate_reduced_in_lb has been called before this function
         // is not done here to avoid multiple calls in the case of amplitudes
-        let mut result: na::Complex<T> = Complex::default();
+        let mut result: Complex<T> = Complex::default();
         // Compute the overall factor coming from partial fractioning
-        let mut norm: na::Complex<T> = Complex::new(-T::one(), T::zero());
+        let mut norm: Complex<T> = Complex::new(-T::one(), T::zero());
         let mut min_index = self.n_props_deg;
         for p in ll[0].propagators.iter() {
             // Build the map to read the indices in PartialFractioningMonomial
@@ -1235,9 +1234,9 @@ impl PartialFractioningMultiLoops {
     ) -> Complex<T> {
         // WARNING: make sure that numerator.evaluate_reduced_in_lb has been called before this function
         // is not done here to avoid multiple calls in the case of amplitudes
-        let mut result: na::Complex<T> = Complex::default();
+        let mut result: Complex<T> = Complex::default();
         // Compute the overall factor coming from partial fractioning
-        let mut norm: na::Complex<T> = Complex::new(T::one(), T::zero());
+        let mut norm: Complex<T> = Complex::new(T::one(), T::zero());
         let mut min_index = self.n_props_deg;
         for ll in loop_lines.iter().rev() {
             //for ll in loop_lines.iter() {

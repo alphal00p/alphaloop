@@ -2,7 +2,7 @@ extern crate ltd;
 extern crate vector;
 use ltd::partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use ltd::topologies::{LoopLine, Propagators};
-use vector::LorentzVector;
+use lorentz_vector::LorentzVector;
 
 // Testing the one-loop version of E-fractioning
 mod partial_fractioning {

@@ -1,3 +1,4 @@
+use crate::{FloatLike, MAX_LOOP};
 use dual_num::DualN;
 use f128::f128;
 use itertools::Itertools;
@@ -6,10 +7,8 @@ use num_traits::{Float, Num, NumAssign, NumCast};
 use num_traits::{Inv, One, Zero};
 use std::cmp::{Ord, Ordering};
 use std::ops::Neg;
-use vector::RealNumberLike;
-use vector::{Field, LorentzVector};
-use FloatLike;
-use MAX_LOOP;
+use lorentz_vector::RealNumberLike;
+use lorentz_vector::{Field, LorentzVector};
 
 const MAX_DIMENSION: usize = MAX_LOOP * 3;
 
@@ -342,13 +341,13 @@ pub fn next_combination_with_replacement(state: &mut [usize], max_entry: usize) 
 pub mod test_utils {
     extern crate eyre;
 
+    use crate::topologies::Topology;
+    use crate::{DeformationStrategy, Settings};
     use color_eyre::Help;
     use num::Complex;
     use num_traits::cast::FromPrimitive;
     use num_traits::Float;
     use std::fmt::{Debug, LowerExp};
-    use topologies::Topology;
-    use {DeformationStrategy, Settings};
 
     pub fn get_test_topology(topology_file: &str, topology_name: &str) -> Topology {
         // Import settings and disable the deformation

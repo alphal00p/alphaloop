@@ -1,15 +1,14 @@
+use crate::dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::observables::EventManager;
+use crate::{float, FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 use color_eyre::Help;
-use dashboard::{StatusUpdate, StatusUpdateSender};
 use eyre::WrapErr;
 use f128::f128;
-use float;
 use num::Complex;
 use num_traits::{Float, FromPrimitive, NumCast, ToPrimitive, Zero};
-use observables::EventManager;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::time::Instant;
-use {FloatLike, IntegratedPhase, Settings, MAX_LOOP};
 
 pub trait IntegrandImplementation: Clone {
     type Cache: Default;

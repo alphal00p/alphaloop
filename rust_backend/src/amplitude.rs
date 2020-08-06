@@ -1,16 +1,15 @@
+use crate::gamma_chain::GammaChain;
+use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
+use crate::{FloatLike, GeneralSettings};
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
 use eyre::WrapErr;
 use fnv::FnvHashMap;
-use gamma_chain::GammaChain;
 use itertools::Itertools;
 use num::Complex;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use topologies::{Cut, LTDCache, LTDNumerator, Topology};
-use vector::{Field, LorentzVector};
-use FloatLike;
-use GeneralSettings;
+use lorentz_vector::{Field, LorentzVector};
 
 #[allow(
     non_snake_case,
