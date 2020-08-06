@@ -568,6 +568,7 @@ impl SquaredTopologySet {
         SquaredTopologyCache {
             topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
             deformation_vector_cache: vec![],
+            scalar_products: vec![],
             current_supergraph: 0,
             current_deformation_index: 0,
         }
@@ -1018,6 +1019,7 @@ impl SquaredTopologySet {
 #[derive(Default)]
 pub struct SquaredTopologyCache<T: FloatLike> {
     topology_cache: Vec<Vec<Vec<Vec<LTDCache<T>>>>>,
+    scalar_products: Vec<T>,
     deformation_vector_cache: Vec<Vec<FixedDeformationLimit>>,
     current_supergraph: usize,
     current_deformation_index: usize,
@@ -1763,7 +1765,7 @@ impl SquaredTopology {
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();
         let mut def_jacobian = Complex::one();
-        let mut scalar_products: ArrayVec<[T; MAX_LOOP * MAX_LOOP * 6]> = ArrayVec::new();
+
         // regenerate the evaluation of the exponent map of the numerator since the loop momenta have changed
         let mut regenerate_momenta = true;
         for (diag_set_index, diagram_set) in cutkosky_cuts.diagram_sets.iter_mut().enumerate() {
@@ -1944,8 +1946,6 @@ impl SquaredTopology {
                 subgraph_cache.cached_topology_integrand.clear();
             }
 
-            let first_subgraph_cache = cache.get_topology_cache(cut_index, diag_set_index, 0);
-
             if self.settings.cross_section.numerator_source == NumeratorSource::Form
                 || self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand
             {
@@ -1955,41 +1955,41 @@ impl SquaredTopology {
                     .inherit_deformation_for_uv_counterterm
                     || diag_set_index == 0
                 {
-                    scalar_products.clear();
+                    cache.scalar_products.clear();
 
                     for (i1, e1) in external_momenta[..self.n_incoming_momenta]
                         .iter()
                         .enumerate()
                     {
-                        scalar_products.push(e1.t);
-                        scalar_products.push(T::zero());
+                        cache.scalar_products.push(e1.t);
+                        cache.scalar_products.push(T::zero());
                         for e2 in &external_momenta[i1..self.n_incoming_momenta] {
-                            scalar_products.push(e1.dot(e2));
-                            scalar_products.push(T::zero());
-                            scalar_products.push(e1.spatial_dot(e2));
-                            scalar_products.push(T::zero());
+                            cache.scalar_products.push(e1.dot(e2));
+                            cache.scalar_products.push(T::zero());
+                            cache.scalar_products.push(e1.spatial_dot(e2));
+                            cache.scalar_products.push(T::zero());
                         }
                     }
 
                     for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                        scalar_products.push(m1.t.re);
-                        scalar_products.push(m1.t.im);
+                        cache.scalar_products.push(m1.t.re);
+                        cache.scalar_products.push(m1.t.im);
                         for e1 in &external_momenta[..self.n_incoming_momenta] {
                             let d = m1.dot(&e1.cast());
-                            scalar_products.push(d.re);
-                            scalar_products.push(d.im);
+                            cache.scalar_products.push(d.re);
+                            cache.scalar_products.push(d.im);
                             let d = m1.spatial_dot(&e1.cast());
-                            scalar_products.push(d.re);
-                            scalar_products.push(d.im);
+                            cache.scalar_products.push(d.re);
+                            cache.scalar_products.push(d.im);
                         }
 
                         for m2 in k_def[i1..self.n_loops].iter() {
                             let d = m1.dot(m2);
-                            scalar_products.push(d.re);
-                            scalar_products.push(d.im);
+                            cache.scalar_products.push(d.re);
+                            cache.scalar_products.push(d.im);
                             let d = m1.spatial_dot(m2);
-                            scalar_products.push(d.re);
-                            scalar_products.push(d.im);
+                            cache.scalar_products.push(d.re);
+                            cache.scalar_products.push(d.im);
                         }
                     }
                 }
@@ -2008,7 +2008,7 @@ impl SquaredTopology {
                         let time_start = Instant::now();
                         let len = T::get_numerator(
                             form_numerator.as_mut().unwrap(),
-                            &scalar_products,
+                            &cache.scalar_products,
                             &params,
                             call_signature.id,
                             diagram_set.id,
@@ -2019,6 +2019,9 @@ impl SquaredTopology {
                             em.integrand_evaluation_timing +=
                                 Instant::now().duration_since(time_start).as_nanos();
                         }
+
+                        let first_subgraph_cache =
+                            cache.get_topology_cache(cut_index, diag_set_index, 0);
 
                         // the output of the FORM numerator is already in the reduced lb format
                         first_subgraph_cache.reduced_coefficient_lb[0].resize(len, Complex::zero());
@@ -2048,7 +2051,7 @@ impl SquaredTopology {
                     {
                         let res = T::get_integrand(
                             form_integrand.as_mut().unwrap(),
-                            &scalar_products,
+                            &cache.scalar_products,
                             &params,
                             call_signature.id,
                             diagram_set.id,
@@ -2078,6 +2081,8 @@ impl SquaredTopology {
                     continue;
                 }
             }
+
+            let first_subgraph_cache = cache.get_topology_cache(cut_index, diag_set_index, 0);
 
             if self.settings.cross_section.numerator_source == NumeratorSource::Yaml {
                 // evaluate the cut numerator with the spatial parts of all loop momenta and
@@ -2467,12 +2472,14 @@ impl IntegrandImplementation for SquaredTopologySet {
             float_cache: SquaredTopologyCache {
                 topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
                 deformation_vector_cache: vec![],
+                scalar_products: vec![],
                 current_supergraph: 0,
                 current_deformation_index: 0,
             },
             quad_cache: SquaredTopologyCache {
                 topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
                 deformation_vector_cache: vec![],
+                scalar_products: vec![],
                 current_supergraph: 0,
                 current_deformation_index: 0,
             },
