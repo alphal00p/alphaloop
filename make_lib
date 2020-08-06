@@ -4,14 +4,6 @@
 UNAME_S=$(uname -s)
 PWD=$(pwd)
 
-if [ `grep -rin '#default = \[\"python_api\"\]' rust_backend/ltd/Cargo.toml | wc -l` -eq 1 ]
-then
-	echo 'Befoe running this script, you must uncomment the line:'
-	echo '   #default = ["python_api"]'
-	echo 'in rust_backend/ltd/Cargo.toml'
-	exit 0
-fi
-
 MODE=$1
 [ -z "$MODE" ] && MODE=debug
 
@@ -21,14 +13,8 @@ BUILD=$2
 
 case ${UNAME_S} in
     Linux*)
-	SO_DEFORMATION=target/$MODE/libdeformation.so
-	SO_INTEGRATOR=target/$MODE/libintegrator.so
-	SO_INTEGRAND=target/$MODE/libintegrand.so
 	SO_LTD=target/$MODE/libltd.so;;
     Darwin*)
-	SO_DEFORMATION=target/$MODE/libdeformation.dylib
-	SO_INTEGRATOR=target/$MODE/libintegrator.dylib
-	SO_INTEGRAND=target/$MODE/libintegrand.dylib
 	SO_LTD=target/$MODE/libltd.dylib;;
     *)
 	echo "UNKNOWN:${UNAME_S}"
@@ -40,15 +26,11 @@ cd rust_backend/
 
 if [ "$MODE" == debug ]; then
 	echo "Running in debug mode"
-	cargo build -p $BUILD
+	cargo build --lib --features="python_api" -p $BUILD
 else
 	echo "Running in release mode"
-	cargo build --release -p $BUILD
+	cargo build --lib --features="python_api" --release -p $BUILD
 fi
 
-#Rename them to be called from MadGraph
-#cp ${SO_DEFORMATION} ../deformation.so
-#cp ${SO_INTEGRAND} ../integrand.so
-#cp ${SO_INTEGRATOR} ../integrator.so
 cp ${SO_LTD} ../ltd.so
 

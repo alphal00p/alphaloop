@@ -43,9 +43,8 @@ cargo build
 ```
 to compile the Rust backend. Optionally, `build --release`, for a slightly faster version.
 
-To use the Python API of the Rust backend, compile with the Python API support:
-```sh
-cargo build --release --features "python_api"
+To use the Python API of the Rust backend, compile with the Python API support using the following script:
+```sh make_lib
 ```
 
 Make sure to install the python dependencies
