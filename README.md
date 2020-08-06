@@ -70,7 +70,7 @@ python3.7 ./bin/mg5_aMC --debug --mode=alphaloop PLUGIN/alphaloop/examples/epem_
 and integrate from the `rust_backend` folder with:
 
 ```sh
-env MG_NUMERATOR_PATH=../../MG5_aMC_v2_7_2_py3/TEST_epem_a_ddxg/ cargo run -- --cross_section_set ../../MG5_aMC_v2_7_2_py3/TEST_epem_a_ddxg/FORM/Rust_inputs/all_MG_supergraphs.yaml --debug 0 -c 16
+cargo run -- --cross_section_set ../../MG5_aMC_v2_7_2_py3/TEST_epem_a_ddxg/FORM/Rust_inputs/all_MG_supergraphs.yaml --debug 0 -c 16
 ```
 
 You may have to include the following to your library path:

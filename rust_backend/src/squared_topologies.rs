@@ -22,12 +22,14 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
+use std::path::Path;
 use std::time::Instant;
 use utils::Signum;
 
 mod form_numerator {
     use dlopen::wrapper::{Container, WrapperApi};
     use libc::{c_double, c_int};
+    use std::path::PathBuf;
 
     pub trait GetNumerator {
         fn get_numerator(
@@ -116,13 +118,11 @@ mod form_numerator {
         unsafe { api_container.get_rank(diag as i32, conf as i32) as usize }
     }
 
-    pub fn load() -> Container<FORMNumeratorAPI> {
-        let path = std::env::var("MG_NUMERATOR_PATH")
-            .expect("MG_NUMERATOR_PATH needs to be set in the mg_numerator mode.");
-
+    pub fn load(base_path: &str) -> Container<FORMNumeratorAPI> {
+        let mut lib_path = PathBuf::from(&base_path);
+        lib_path.push("lib/libFORM_numerators.so");
         let container: Container<FORMNumeratorAPI> =
-            unsafe { Container::load(&(path.clone() + "lib/libFORM_numerators.so")) }
-                .expect("Could not open library or load symbols");
+            unsafe { Container::load(lib_path) }.expect("Could not open library or load symbols");
 
         container
     }
@@ -132,6 +132,7 @@ mod form_integrand {
     use dlopen::wrapper::{Container, WrapperApi};
     use libc::{c_double, c_int};
     use num::Complex;
+    use std::path::PathBuf;
 
     pub trait GetIntegrand {
         fn get_integrand(
@@ -199,13 +200,11 @@ mod form_integrand {
         ) -> Complex<f128::f128>,
     }
 
-    pub fn load() -> Container<FORMIntegrandAPI> {
-        let path = std::env::var("MG_NUMERATOR_PATH")
-            .expect("MG_NUMERATOR_PATH needs to be set in the mg_numerator mode.");
-
+    pub fn load(base_path: &str) -> Container<FORMIntegrandAPI> {
+        let mut lib_path = PathBuf::from(&base_path);
+        lib_path.push("lib/libFORM_integrands.so");
         let container: Container<FORMIntegrandAPI> =
-            unsafe { Container::load(&(path.clone() + "lib/libFORM_integrands.so")) }
-                .expect("Could not open library or load symbols");
+            unsafe { Container::load(lib_path) }.expect("Could not open library or load symbols");
 
         container
     }
@@ -280,14 +279,17 @@ pub struct FORMNumerator {
     pub form_numerator_buffer: Vec<f64>,
     #[serde(skip_deserializing)]
     pub form_numerator_buffer_size: usize,
+    #[serde(default)]
+    pub base_path: String,
 }
 
 impl Clone for FORMNumerator {
     fn clone(&self) -> Self {
         FORMNumerator {
             call_signature: self.call_signature.clone(),
+            base_path: self.base_path.clone(),
             form_numerator: if self.form_numerator.is_some() {
-                Some(form_numerator::load())
+                Some(form_numerator::load(&self.base_path))
             } else {
                 None
             },
@@ -302,14 +304,17 @@ pub struct FORMIntegrand {
     call_signature: Option<FORMIntegrandCallSignature>,
     #[serde(skip_deserializing)]
     pub form_integrand: Option<Container<form_integrand::FORMIntegrandAPI>>,
+    #[serde(default)]
+    pub base_path: String,
 }
 
 impl Clone for FORMIntegrand {
     fn clone(&self) -> Self {
         FORMIntegrand {
             call_signature: self.call_signature.clone(),
+            base_path: self.base_path.clone(),
             form_integrand: if self.form_integrand.is_some() {
-                Some(form_integrand::load())
+                Some(form_integrand::load(&self.base_path))
             } else {
                 None
             },
@@ -1157,58 +1162,90 @@ impl SquaredTopology {
             [float::zero(), float::zero(), float::one()],
         ];
 
-        {
-            if settings.cross_section.numerator_source == NumeratorSource::FormIntegrand {
-                squared_topo.form_integrand.form_integrand = Some(form_integrand::load());
-            }
+        let base_path = std::env::var("MG_NUMERATOR_PATH")
+            .or_else(|_| {
+                let mut pb = Path::new(filename)
+                    .parent()
+                    .ok_or("no parent")?
+                    .parent()
+                    .ok_or("no parent")?
+                    .to_path_buf();
+                let mut pb_alt = Path::new(filename)
+                    .parent()
+                    .ok_or("no parent")?
+                    .parent()
+                    .ok_or("no parent")?
+                    .parent()
+                    .ok_or("no parent")?
+                    .to_path_buf();
+                pb.push("lib");
+                pb_alt.push("lib");
+                if pb.exists() {
+                    pb.pop();
+                    Ok(pb.into_os_string().into_string().map_err(|_| "bad path")?)
+                } else if pb_alt.exists() {
+                    pb_alt.pop();
+                    Ok(pb_alt
+                        .into_os_string()
+                        .into_string()
+                        .map_err(|_| "bad path")?)
+                } else {
+                    Err("Cannot determine root folder")
+                }
+            })
+            .expect("Cannot determine base folder from filename. Use MG_NUMERATOR_PATH");
 
-            if settings.cross_section.numerator_source == NumeratorSource::Form {
-                let diagram_id = squared_topo
-                    .form_numerator
-                    .call_signature
-                    .as_ref()
-                    .unwrap()
-                    .id;
-                squared_topo.form_numerator.form_numerator = Some(form_numerator::load());
+        if settings.cross_section.numerator_source == NumeratorSource::FormIntegrand {
+            squared_topo.form_integrand.base_path = base_path.clone();
+            squared_topo.form_integrand.form_integrand = Some(form_integrand::load(&base_path));
+        }
 
-                let max_buffer_size = form_numerator::get_buffer_size(
-                    squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
-                );
+        if settings.cross_section.numerator_source == NumeratorSource::Form {
+            squared_topo.form_numerator.base_path = base_path.clone();
+            let diagram_id = squared_topo
+                .form_numerator
+                .call_signature
+                .as_ref()
+                .unwrap()
+                .id;
+            squared_topo.form_numerator.form_numerator = Some(form_numerator::load(&base_path));
 
-                for cut in &mut squared_topo.cutkosky_cuts {
-                    for diagram_set in cut.diagram_sets.iter_mut() {
-                        let rank = form_numerator::get_rank(
-                            squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
-                            diagram_id,
-                            diagram_set.id,
-                        );
+            let max_buffer_size = form_numerator::get_buffer_size(
+                squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
+            );
 
-                        // for the FORM numerator, the output is provided in the
-                        // basis of the ltd momenta
-                        let n_ltd = diagram_set
-                            .diagram_info
-                            .iter()
-                            .map(|diagram_info| diagram_info.graph.n_loops)
-                            .sum();
+            for cut in &mut squared_topo.cutkosky_cuts {
+                for diagram_set in cut.diagram_sets.iter_mut() {
+                    let rank = form_numerator::get_rank(
+                        squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
+                        diagram_id,
+                        diagram_set.id,
+                    );
 
-                        if n_ltd > 0 {
-                            diagram_set.numerator =
-                                LTDNumerator::from_sparse(n_ltd, &[(vec![0; rank], (0., 0.))]);
-                        }
+                    // for the FORM numerator, the output is provided in the
+                    // basis of the ltd momenta
+                    let n_ltd = diagram_set
+                        .diagram_info
+                        .iter()
+                        .map(|diagram_info| diagram_info.graph.n_loops)
+                        .sum();
 
-                        squared_topo.form_numerator.form_numerator_buffer_size = max_buffer_size;
-                        squared_topo.form_numerator.form_numerator_buffer =
-                            vec![0.; max_buffer_size];
+                    if n_ltd > 0 {
+                        diagram_set.numerator =
+                            LTDNumerator::from_sparse(n_ltd, &[(vec![0; rank], (0., 0.))]);
+                    }
 
-                        // also give the subgraph numerators the proper size
-                        // TODO: set the proper rank of only the variables of the subgraph
-                        for diagram_info in &mut diagram_set.diagram_info {
-                            if diagram_info.graph.n_loops > 0 {
-                                diagram_info.graph.numerator = LTDNumerator::from_sparse(
-                                    diagram_info.graph.n_loops,
-                                    &[(vec![0; rank], (0., 0.))],
-                                );
-                            }
+                    squared_topo.form_numerator.form_numerator_buffer_size = max_buffer_size;
+                    squared_topo.form_numerator.form_numerator_buffer = vec![0.; max_buffer_size];
+
+                    // also give the subgraph numerators the proper size
+                    // TODO: set the proper rank of only the variables of the subgraph
+                    for diagram_info in &mut diagram_set.diagram_info {
+                        if diagram_info.graph.n_loops > 0 {
+                            diagram_info.graph.numerator = LTDNumerator::from_sparse(
+                                diagram_info.graph.n_loops,
+                                &[(vec![0; rank], (0., 0.))],
+                            );
                         }
                     }
                 }
