@@ -155,6 +155,8 @@ pub enum NormalisingFunction {
     RightExponential,
     #[serde(rename = "left_right_exponential")]
     LeftRightExponential,
+    #[serde(rename = "left_right_polynomial")]
+    LeftRightPolynomial,
     #[serde(rename = "none")]
     None,
 }
@@ -212,6 +214,7 @@ impl From<&str> for NormalisingFunction {
         match s {
             "right_exponential" => NormalisingFunction::RightExponential,
             "left_right_exponential" => NormalisingFunction::LeftRightExponential,
+            "left_right_polynomial" => NormalisingFunction::LeftRightPolynomial,
             "none" => NormalisingFunction::None,
             _ => panic!("Unknown normalising function {}", s),
         }
@@ -226,6 +229,9 @@ impl fmt::Display for NormalisingFunction {
             }
             NormalisingFunction::LeftRightExponential => {
                 write!(f, "exponential dampening to the left and right")
+            }
+            NormalisingFunction::LeftRightPolynomial => {
+                write!(f, "polynomial dampening to the left and right")
             }
             NormalisingFunction::None => write!(f, "No normalising function"),
         }

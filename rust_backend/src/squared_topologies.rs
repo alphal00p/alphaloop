@@ -1700,6 +1700,23 @@ impl SquaredTopology {
                         Into::<T>::into(0.27973176363304485456919761407082204777),
                     )
                 }
+                NormalisingFunction::LeftRightPolynomial => {
+                    // Only support center and spread at 1 for now
+                    assert_eq!(self.settings.cross_section.normalising_function.center, 1.,
+                        "For now the left-right polynomial normalising function only support a center at 1.0.");
+                    assert!(self.settings.cross_section.normalising_function.spread>1.,
+                        "The left-right polynomial normalising function only support a spread larger than 1.0.");
+                    let sigma = Into::<T>::into(self.settings.cross_section.normalising_function.spread);
+                    (
+                        Float::powf(scaling, sigma) /
+                        (Into::<T>::into(1.0) + Float::powf(scaling, Into::<T>::into(2.0)*sigma) ),
+                        <T as FloatConst>::PI() / (
+                            Into::<T>::into(2.0)*sigma*(
+                                <T as FloatConst>::PI() / ( Into::<T>::into(2.0)*sigma )
+                            ).cos()
+                        )
+                    )
+                }
                 NormalisingFunction::None => (Into::<T>::into(1.0), Into::<T>::into(1.0)),
             };
             scaling_result *=

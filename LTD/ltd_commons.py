@@ -261,7 +261,7 @@ hyperparameters = HyperParameters({
         'inherit_deformation_for_uv_counterterm':   False,
         'do_rescaling'                          :   True,        
         'NormalisingFunction' : {
-            # Two possible normalising functions for now: 'left_right_exponential' or 'right_exponential'
+            # Two possible normalising functions for now: 'left_right_exponential', 'left_right_polynomial' or 'right_exponential'
             # The former dampens both t=0 and t=infty, while the second only dampens t=infty
             'name'                              :   'left_right_exponential',
             'center'                            :   1.0,
