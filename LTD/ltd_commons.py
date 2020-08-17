@@ -42,6 +42,8 @@ hyperparameters = HyperParameters({
         'numerical_threshold'   :   0.,
         # always evaluate in f128
         'force_f128'            :   False,
+        # reject unstable points based on f64 samples only
+        'force_f64'             :   False,
         # number of digits that should be the same between integrand and rotated version
         'relative_precision_f64'    :   4.,
         'relative_precision_f128'   :   8.,

@@ -498,95 +498,103 @@ impl<I: IntegrandImplementation> Integrand<I> {
         let mut result_f128_option = None;
         if self.settings.general.numerical_instability_check
             && (self.settings.general.force_f128
-                || do_f128
+                || (do_f128 && !self.settings.general.force_f64)
                 || !result.is_finite()
                 || !min_rot.is_finite()
                 || !max_rot.is_finite()
                 || d < NumCast::from(self.settings.general.relative_precision_f64).unwrap()
                 || diff > NumCast::from(self.settings.general.absolute_precision).unwrap())
         {
-            // clear events when there is instability
-            event_manager.clear(false);
+            if self.settings.general.force_f64 {
+                // the point if f64 unstable and we don't upgrade, so we reject the point
+                result = Complex::default();
+                event_manager.clear(true);
+                self.integrand_statistics.unstable_point_count += 1;
+            } else {
+                // clear events when there is instability
+                event_manager.clear(false);
 
-            if self.settings.general.integration_statistics {
-                self.print_info(false, true, x, min_rot, max_rot, d);
-            }
-
-            if self.settings.general.log_quad_upgrade {
-                writeln!(self.quadruple_upgrade_log, "{:?}", x).unwrap();
-                self.quadruple_upgrade_log.flush().unwrap();
-            }
-
-            // compute the point again with f128 to see if it is stable then
-            std::mem::swap(&mut self.cache, &mut cache);
-            let result_f128 =
-                self.topologies[0].evaluate_f128(x, &mut cache, Some(&mut event_manager));
-            // NOTE: for this check we use a f64 rotation matrix at the moment!
-            let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability_quad(
-                x,
-                result_f128,
-                self.settings.general.relative_precision_f128,
-                self.settings.general.num_f128_samples,
-                &mut cache,
-                &mut event_manager,
-            );
-            std::mem::swap(&mut self.cache, &mut cache);
-            self.integrand_statistics.unstable_point_count += 1;
-            stability = (stability.0, d_f128.to_f64().unwrap());
-            result_f128_option = Some(result_f128);
-
-            if !result_f128.is_finite()
-                || !min_rot_f128.is_finite()
-                || !max_rot_f128.is_finite()
-                || d_f128 < NumCast::from(self.settings.general.relative_precision_f128).unwrap()
-                || diff_f128 > NumCast::from(self.settings.general.absolute_precision).unwrap()
-            {
                 if self.settings.general.integration_statistics {
-                    self.print_info(false, true, x, min_rot_f128, max_rot_f128, d_f128);
+                    self.print_info(false, true, x, min_rot, max_rot, d);
                 }
 
-                if !result_f128.is_finite() {
-                    self.status_update_sender
-                        .send(StatusUpdate::Message(format!("NaN point {:?}", x)))
-                        .unwrap();
+                if self.settings.general.log_quad_upgrade {
+                    writeln!(self.quadruple_upgrade_log, "{:?}", x).unwrap();
+                    self.quadruple_upgrade_log.flush().unwrap();
+                }
 
-                    self.integrand_statistics.nan_point_count += 1;
-                    event_manager.clear(true); // throw away all events and treat them as rejected
-                    result = Complex::default();
-                } else {
-                    self.integrand_statistics.unstable_f128_point_count += 1;
-                    //println!("f128 fail : x={:?}, min result={}, max result={}", x, min_rot_f128, max_rot_f128);
+                // compute the point again with f128 to see if it is stable then
+                std::mem::swap(&mut self.cache, &mut cache);
+                let result_f128 =
+                    self.topologies[0].evaluate_f128(x, &mut cache, Some(&mut event_manager));
+                // NOTE: for this check we use a f64 rotation matrix at the moment!
+                let (d_f128, diff_f128, min_rot_f128, max_rot_f128) = self.check_stability_quad(
+                    x,
+                    result_f128,
+                    self.settings.general.relative_precision_f128,
+                    self.settings.general.num_f128_samples,
+                    &mut cache,
+                    &mut event_manager,
+                );
+                std::mem::swap(&mut self.cache, &mut cache);
+                self.integrand_statistics.unstable_point_count += 1;
+                stability = (stability.0, d_f128.to_f64().unwrap());
+                result_f128_option = Some(result_f128);
 
-                    if d_f128
-                        > NumCast::from(
-                            self.settings.general.minimal_precision_for_returning_result,
-                        )
-                        .unwrap()
-                    {
-                        result = Complex::new(
-                            <float as NumCast>::from(result_f128.re).unwrap(),
-                            <float as NumCast>::from(result_f128.im).unwrap(),
-                        );
-                    } else {
+                if !result_f128.is_finite()
+                    || !min_rot_f128.is_finite()
+                    || !max_rot_f128.is_finite()
+                    || d_f128
+                        < NumCast::from(self.settings.general.relative_precision_f128).unwrap()
+                    || diff_f128 > NumCast::from(self.settings.general.absolute_precision).unwrap()
+                {
+                    if self.settings.general.integration_statistics {
+                        self.print_info(false, true, x, min_rot_f128, max_rot_f128, d_f128);
+                    }
+
+                    if !result_f128.is_finite() {
                         self.status_update_sender
-                            .send(StatusUpdate::Message(format!(
-                                "Unstable quad point {:?}: {:.5e}",
-                                x,
-                                result_f128 * f128::from_f64(weight).unwrap()
-                            )))
+                            .send(StatusUpdate::Message(format!("NaN point {:?}", x)))
                             .unwrap();
 
+                        self.integrand_statistics.nan_point_count += 1;
                         event_manager.clear(true); // throw away all events and treat them as rejected
                         result = Complex::default();
+                    } else {
+                        self.integrand_statistics.unstable_f128_point_count += 1;
+                        //println!("f128 fail : x={:?}, min result={}, max result={}", x, min_rot_f128, max_rot_f128);
+
+                        if d_f128
+                            > NumCast::from(
+                                self.settings.general.minimal_precision_for_returning_result,
+                            )
+                            .unwrap()
+                        {
+                            result = Complex::new(
+                                <float as NumCast>::from(result_f128.re).unwrap(),
+                                <float as NumCast>::from(result_f128.im).unwrap(),
+                            );
+                        } else {
+                            self.status_update_sender
+                                .send(StatusUpdate::Message(format!(
+                                    "Unstable quad point {:?}: {:.5e}",
+                                    x,
+                                    result_f128 * f128::from_f64(weight).unwrap()
+                                )))
+                                .unwrap();
+
+                            event_manager.clear(true); // throw away all events and treat them as rejected
+                            result = Complex::default();
+                        }
                     }
+                } else {
+                    // we have saved the integration!
+                    // TODO: also modify the other parameters for the print_info below?
+                    result = Complex::new(
+                        <float as NumCast>::from(result_f128.re).unwrap(),
+                        <float as NumCast>::from(result_f128.im).unwrap(),
+                    );
                 }
-            } else {
-                // we have saved the integration!
-                // TODO: also modify the other parameters for the print_info below?
-                result = Complex::new(
-                    <float as NumCast>::from(result_f128.re).unwrap(),
-                    <float as NumCast>::from(result_f128.im).unwrap(),
-                );
             }
         } else {
             self.integrand_statistics.regular_point_count += 1;

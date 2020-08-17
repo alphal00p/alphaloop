@@ -512,6 +512,7 @@ pub struct GeneralSettings {
     pub unstable_point_warning_percentage: f64,
     pub numerical_threshold: f64,
     pub force_f128: bool,
+    pub force_f64: bool,
     pub relative_precision_f64: f64,
     pub relative_precision_f128: f64,
     pub absolute_precision: f64,
