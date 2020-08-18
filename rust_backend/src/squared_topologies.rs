@@ -565,7 +565,11 @@ impl SquaredTopologySet {
     }
 
     pub fn get_maximum_loop_count(&self) -> usize {
-        self.topologies.iter().map(|t| t.n_loops).max().unwrap()
+        self.topologies
+            .iter()
+            .map(|t| t.n_loops - self.settings.cross_section.fixed_cut_momenta.len())
+            .max()
+            .unwrap()
     }
 
     pub fn create_caches<T: FloatLike>(&self) -> SquaredTopologyCache<T> {
@@ -874,7 +878,11 @@ impl SquaredTopologySet {
             cache.deformation_vector_cache.clear();
         }
 
-        if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty() {
+        // for amplitudes, multi-channeling is handled at the LTD level
+        if self.settings.general.multi_channeling
+            && !self.multi_channeling_channels.is_empty()
+            && self.settings.cross_section.fixed_cut_momenta.is_empty()
+        {
             return self.multi_channeling(x, cache, event_manager);
         }
 
@@ -882,7 +890,8 @@ impl SquaredTopologySet {
         let mut xrot = [0.; MAX_LOOP * 3];
 
         // jointly parameterize all squared topologies
-        let n_loops = x.len() / 3;
+        let n_fixed = self.settings.cross_section.fixed_cut_momenta.len();
+        let n_loops = x.len() / 3 + n_fixed;
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut para_jacs = [T::one(); MAX_LOOP];
         let mut jac_para = T::one();
@@ -901,18 +910,32 @@ impl SquaredTopologySet {
                 }
             }
 
-            // set the loop index to i + 1 so that we can also shift k
-            let (l_space, jac) = Topology::parameterize(
-                &xrot[i * 3..(i + 1) * 3],
-                self.e_cm_squared, // NOTE: taking e_cm from the first graph
-                i,
-                &self.settings,
-            );
+            let (l_energy, (l_space, jac)) = if i < n_loops - n_fixed {
+                // set the loop index to i + 1 so that we can also shift k
+                (
+                    T::zero(),
+                    Topology::parameterize(
+                        &xrot[i * 3..(i + 1) * 3],
+                        self.e_cm_squared, // NOTE: taking e_cm from the first graph
+                        i,
+                        &self.settings,
+                    ),
+                )
+            } else {
+                let m = self.settings.cross_section.fixed_cut_momenta[i + n_fixed - n_loops].cast();
+                (
+                    m.t,
+                    (
+                        [m.x, m.y, m.z],
+                        (Into::<T>::into(2.) * <T as FloatConst>::PI()).powi(4),
+                    ),
+                )
+            };
 
             // there could be some rounding here
             let rot = &self.rotation_matrix;
             k[i] = LorentzVector::from_args(
-                T::zero(),
+                l_energy,
                 <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
                     + <T as NumCast>::from(rot[0][1]).unwrap() * l_space[1]
                     + <T as NumCast>::from(rot[0][2]).unwrap() * l_space[2],
@@ -1162,38 +1185,42 @@ impl SquaredTopology {
             [float::zero(), float::zero(), float::one()],
         ];
 
-        let base_path = std::env::var("MG_NUMERATOR_PATH")
-            .or_else(|_| {
-                let mut pb = Path::new(filename)
-                    .parent()
-                    .ok_or("no parent")?
-                    .parent()
-                    .ok_or("no parent")?
-                    .to_path_buf();
-                let mut pb_alt = Path::new(filename)
-                    .parent()
-                    .ok_or("no parent")?
-                    .parent()
-                    .ok_or("no parent")?
-                    .parent()
-                    .ok_or("no parent")?
-                    .to_path_buf();
-                pb.push("lib");
-                pb_alt.push("lib");
-                if pb.exists() {
-                    pb.pop();
-                    Ok(pb.into_os_string().into_string().map_err(|_| "bad path")?)
-                } else if pb_alt.exists() {
-                    pb_alt.pop();
-                    Ok(pb_alt
-                        .into_os_string()
-                        .into_string()
-                        .map_err(|_| "bad path")?)
-                } else {
-                    Err("Cannot determine root folder")
-                }
-            })
-            .expect("Cannot determine base folder from filename. Use MG_NUMERATOR_PATH");
+        let base_path = if settings.cross_section.numerator_source == NumeratorSource::Yaml {
+            String::new()
+        } else {
+            std::env::var("MG_NUMERATOR_PATH")
+                .or_else(|_| {
+                    let mut pb = Path::new(filename)
+                        .parent()
+                        .ok_or("no parent")?
+                        .parent()
+                        .ok_or("no parent")?
+                        .to_path_buf();
+                    let mut pb_alt = Path::new(filename)
+                        .parent()
+                        .ok_or("no parent")?
+                        .parent()
+                        .ok_or("no parent")?
+                        .parent()
+                        .ok_or("no parent")?
+                        .to_path_buf();
+                    pb.push("lib");
+                    pb_alt.push("lib");
+                    if pb.exists() {
+                        pb.pop();
+                        Ok(pb.into_os_string().into_string().map_err(|_| "bad path")?)
+                    } else if pb_alt.exists() {
+                        pb_alt.pop();
+                        Ok(pb_alt
+                            .into_os_string()
+                            .into_string()
+                            .map_err(|_| "bad path")?)
+                    } else {
+                        Err("Cannot determine root folder")
+                    }
+                })
+                .expect("Cannot determine base folder from filename. Use MG_NUMERATOR_PATH")
+        };
 
         if settings.cross_section.numerator_source == NumeratorSource::FormIntegrand {
             squared_topo.form_integrand.base_path = base_path.clone();
@@ -1534,7 +1561,9 @@ impl SquaredTopology {
                 );
             }
 
-            let scaling_solutions = if self.settings.cross_section.do_rescaling {
+            let scaling_solutions = if self.settings.cross_section.do_rescaling
+                && self.settings.cross_section.fixed_cut_momenta.is_empty()
+            {
                 let incoming_energy = external_momenta[..self.n_incoming_momenta]
                     .iter()
                     .map(|m| m.t)
@@ -1642,13 +1671,16 @@ impl SquaredTopology {
                 &external_momenta[..self.external_momenta.len()],
             );
             *cut_mom = k * scaling + *shift;
-            let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
-            cut_mom.t = energy.multiply_sign(cut.sign);
-            // add (-2 pi i)/(2E)^power for every cut
-            scaling_result *=
-                num::Complex::new(T::zero(), -Into::<T>::into(2.0) * <T as FloatConst>::PI())
-                    / (Into::<T>::into(2.0) * energy).powi(cut.power as i32);
-            cut_energies_summed += energy;
+
+            if self.settings.cross_section.fixed_cut_momenta.is_empty() {
+                let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
+                cut_mom.t = energy.multiply_sign(cut.sign);
+                // add (-2 pi i)/(2E)^power for every cut
+                scaling_result *=
+                    num::Complex::new(T::zero(), -Into::<T>::into(2.0) * <T as FloatConst>::PI())
+                        / (Into::<T>::into(2.0) * energy).powi(cut.power as i32);
+                cut_energies_summed += energy;
+            }
         }
 
         if self.settings.general.debug >= 1 {
@@ -1658,7 +1690,9 @@ impl SquaredTopology {
             println!("  | scaling_jac = {}", scaling_jac);
         }
 
-        if self.settings.cross_section.do_rescaling {
+        if self.settings.cross_section.do_rescaling
+            && self.settings.cross_section.fixed_cut_momenta.is_empty()
+        {
             // h is any function that integrates to 1
             let (h, h_norm) = match self.settings.cross_section.normalising_function.name {
                 NormalisingFunction::RightExponential => {
@@ -1706,15 +1740,16 @@ impl SquaredTopology {
                         "For now the left-right polynomial normalising function only support a center at 1.0.");
                     assert!(self.settings.cross_section.normalising_function.spread>1.,
                         "The left-right polynomial normalising function only support a spread larger than 1.0.");
-                    let sigma = Into::<T>::into(self.settings.cross_section.normalising_function.spread);
+                    let sigma =
+                        Into::<T>::into(self.settings.cross_section.normalising_function.spread);
                     (
-                        Float::powf(scaling, sigma) /
-                        (Into::<T>::into(1.0) + Float::powf(scaling, Into::<T>::into(2.0)*sigma) ),
-                        <T as FloatConst>::PI() / (
-                            Into::<T>::into(2.0)*sigma*(
-                                <T as FloatConst>::PI() / ( Into::<T>::into(2.0)*sigma )
-                            ).cos()
-                        )
+                        Float::powf(scaling, sigma)
+                            / (Into::<T>::into(1.0)
+                                + Float::powf(scaling, Into::<T>::into(2.0) * sigma)),
+                        <T as FloatConst>::PI()
+                            / (Into::<T>::into(2.0)
+                                * sigma
+                                * (<T as FloatConst>::PI() / (Into::<T>::into(2.0) * sigma)).cos()),
                     )
                 }
                 NormalisingFunction::None => (Into::<T>::into(1.0), Into::<T>::into(1.0)),
@@ -1730,10 +1765,14 @@ impl SquaredTopology {
                 *rlm = lm * scaling;
             }
         } else {
-            // set 0th component of external momenta to the sum of the cuts
-            // NOTE: we assume 1->1 here and that it is outgoing
-            external_momenta[0].t = cut_energies_summed;
-            external_momenta[1].t = cut_energies_summed;
+            if self.settings.cross_section.fixed_cut_momenta.is_empty() {
+                // set 0th component of external momenta to the sum of the cuts
+                // NOTE: we assume 1->1 here and that it is outgoing
+                external_momenta[0].t = cut_energies_summed;
+                external_momenta[1].t = cut_energies_summed;
+            }
+
+            rescaled_loop_momenta[..self.n_loops].copy_from_slice(loop_momenta);
         }
 
         let mut constants = Complex::one();
@@ -1747,19 +1786,21 @@ impl SquaredTopology {
             self.n_loops,
         );
 
-        // multiply the flux factor
-        constants /= if self.n_incoming_momenta == 2 {
-            Into::<T>::into(2.)
-                * (SquaredTopology::lambda(
-                    (external_momenta[0] + external_momenta[1]).square(),
-                    external_momenta[0].square(),
-                    external_momenta[1].square(),
-                ))
-                .sqrt()
-        } else {
-            let e_cm = external_momenta[0].square().sqrt();
-            e_cm * Into::<T>::into(2.0)
-        };
+        if self.settings.cross_section.fixed_cut_momenta.is_empty() {
+            // multiply the flux factor
+            constants /= if self.n_incoming_momenta == 2 {
+                Into::<T>::into(2.)
+                    * (SquaredTopology::lambda(
+                        (external_momenta[0] + external_momenta[1]).square(),
+                        external_momenta[0].square(),
+                        external_momenta[1].square(),
+                    ))
+                    .sqrt()
+            } else {
+                let e_cm = external_momenta[0].square().sqrt();
+                e_cm * Into::<T>::into(2.0)
+            };
+        }
 
         if self.settings.cross_section.picobarns {
             // return a weight in picobarns (from GeV^-2)

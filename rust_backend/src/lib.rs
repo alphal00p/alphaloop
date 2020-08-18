@@ -643,6 +643,7 @@ pub struct CrossSectionSettings {
     pub gs: f64,
     pub small_mass_sq: f64,
     pub incoming_momenta: Vec<LorentzVector<f64>>,
+    pub fixed_cut_momenta: Vec<LorentzVector<f64>>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

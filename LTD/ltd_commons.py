@@ -254,6 +254,8 @@ hyperparameters = HyperParameters({
 
     'CrossSection'   :   {
         'incoming_momenta'                      :   [[500., 0., 0., 500.], [500., 0., 0., -500.]],
+        # used to compute an amplitude instead of a cross section
+        'fixed_cut_momenta'                     :   [],
         'm_uv_sq'                               :   16.,
         'mu_r_sq'                               :   16.,
         'gs'                                    :   1.2177157847767195,
