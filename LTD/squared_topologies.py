@@ -15,7 +15,8 @@ class SquaredTopologyGenerator:
         loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, jet_ids=None,
         MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), FORM_numerator={}, FORM_integrand={},
-        vertex_weights={}, edge_weights={}, generation_options={},analytic_result=None):
+        vertex_weights={}, edge_weights={}, generation_options={},analytic_result=None,
+        default_kinematics=None):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
@@ -25,6 +26,8 @@ class SquaredTopologyGenerator:
         self.FORM_integrand = FORM_integrand
         self.subgraphs_info = subgraphs_info
         self.generation_options = generation_options
+
+        self.default_kinematics = default_kinematics
 
         # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
         # This is supported by adjusting the cb to lmb rotation matrix to be applied
@@ -45,7 +48,7 @@ class SquaredTopologyGenerator:
             )
 
         cutkosky_cuts = self.topo.find_cutkosky_cuts(n_jets, incoming_momentum_names, final_state_particle_ids, 
-                                                        particle_ids, PDGs_in_jet=jet_ids)
+                                    particle_ids, PDGs_in_jet=jet_ids)
 
         self.cuts = [self.topo.bubble_cuts(c, incoming_momentum_names) for c in cutkosky_cuts]
 
@@ -295,6 +298,7 @@ class SquaredTopologyGenerator:
             'overall_numerator': self.overall_numerator,
             'n_incoming_momenta': len(self.incoming_momenta),
             'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
+            'default_fixed_cut_momenta': [] if self.default_kinematics is None else self.default_kinematics,
             'topo': self.loop_topo.to_flat_format(),
             'MG_numerator': self.MG_numerator,
             'FORM_numerator': self.FORM_numerator,

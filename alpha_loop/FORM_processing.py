@@ -159,6 +159,8 @@ class FORMSuperGraph(object):
         overall_factor="1",
         multiplicity=1,
         benchmark_result=0.0,
+        default_kinematics=None,
+        effective_vertex_id=None
     ):
         """ initialize a FORM SuperGraph from several options."""
 
@@ -176,6 +178,8 @@ class FORMSuperGraph(object):
         else:
             self.name = name
 
+        self.default_kinematics = default_kinematics
+        self.effective_vertex_id = effective_vertex_id
         self.squared_topology = None
         self.replacement_rules = None
         self.integrand_info = {}
@@ -189,7 +193,7 @@ class FORMSuperGraph(object):
             ([allowd pdg], n) : to ensure to cut "n" times particles contained 
                                 in the pdg list
             ('any', n)        : cut "n" edges that could be anything 
-                                (usefull for extra real radiations)
+                                (useful for extra real radiations)
         example: e+e- > ggh @NLO => [([21],2), ([25],1), ('any',1)]
         """
         g = igraph.Graph()
@@ -651,11 +655,14 @@ aGraph=%s;
         identities = [ ( p.get('spin') * (1 if p.get('is_part') else -1) , position ) for position, p in enumerate(edge_particles) ]
         identities.sort(key=lambda el: el[0])
         canonical_identifier = tuple([identity for identity, position in identities])
-
-        if canonical_identifier not in cls._FORM_Feynman_rules_conventions:
-            raise FormProcessingError("Conventions for FORM Feynman rules of signature {} not specifed.".format(canonical_identifier))
         
-        new_position = cls._FORM_Feynman_rules_conventions[canonical_identifier]
+        # Always put in the trivial rules for multiscalar n-point vertex
+        if all(i==1 for i in canonical_identifier):
+            new_position = list(range(len(canonical_identifier)))
+        elif canonical_identifier not in cls._FORM_Feynman_rules_conventions:
+            raise FormProcessingError("Conventions for FORM Feynman rules of signature {} not specifed.".format(canonical_identifier))
+        else:
+            new_position = cls._FORM_Feynman_rules_conventions[canonical_identifier]
 
         return [ edges_to_sort[identities[position][1]] for position in new_position ]
 
@@ -1189,6 +1196,13 @@ CTable pftopo(0:{});
         else:
             call_signature_ID = self.additional_lmbs*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+numerator_call
 
+        # If effective_vertex_id is specified, we will only consider the CC cut that cuts all internal edges connecting to that vertex id
+        cut_filter = []
+        if self.effective_vertex_id is not None:
+            cut_filter.append( tuple( edge_data['name' ] for edge_key, edge_data in self.edges.items() if self.effective_vertex_id in edge_data['vertices'] and edge_data['type']=='virtual' ) )
+        from pprint import pprint
+        pprint(cut_filter)
+
         topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
             self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
             loop_momenta_names=tuple([l for l,s in loop_momenta]),
@@ -1204,7 +1218,9 @@ CTable pftopo(0:{});
             edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
             vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
             generation_options=FORM_processing_options,
-            analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None)
+            analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
+            default_kinematics=self.default_kinematics,
+            cut_filter=cut_filter
         )
         # check if cut is possible
         if len(topo.cuts) == 0:
@@ -1582,7 +1598,8 @@ class FORMSuperGraphList(list):
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
     @classmethod
-    def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={},benchmark_result=0.0):
+    def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={},benchmark_result=0.0, 
+                                default_kinematics=None, effective_vertex_id=None):
         vertices = [v for e in edge_map_lin for v in e[1:]]
 
         topo_generator = LTD.ltd_utils.TopologyGenerator(edge_map_lin, {})
@@ -1634,7 +1651,9 @@ class FORMSuperGraphList(list):
         form_graph = FORMSuperGraph(name=name, edges = edges, nodes=nodes,
             overall_factor='-1', # there is an overall factor of -1 wrt Forcer, presumable due to the Wick rotation?
             multiplicity = 1,
-            benchmark_result=benchmark_result
+            benchmark_result=benchmark_result,
+            default_kinematics=default_kinematics,
+            effective_vertex_id=effective_vertex_id
         )
         return FORMSuperGraphList([FORMSuperGraphIsomorphicList([form_graph])], name=name + '_set')
 

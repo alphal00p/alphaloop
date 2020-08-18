@@ -1571,7 +1571,6 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                         n_graph += 1
                     f.write(line+'\n')
 
-
 class LUScalarTopologyExporter(QGRAFExporter):
 
     def __init__(self, cli, output_path, topology, externals, name, lmb, model, benchmark_result=0.0, **opts):
@@ -1659,6 +1658,222 @@ class LUScalarTopologyExporter(QGRAFExporter):
         form_sg_list = FORM_processing.FORMSuperGraphList.from_squared_topology(
             self.topology, self.name, self.externals, computed_model, loop_momenta_names=self.lmb,
             benchmark_result=self.benchmark_result
+        )
+
+        form_processor = FORM_processing.FORMProcessor(form_sg_list, computed_model, process_definition)
+
+        FORM_output_path = pjoin(self.dir_path,'FORM')
+        FORM_workspace = pjoin(FORM_output_path,'workspace')
+        form_processor.generate_squared_topology_files(
+            pjoin(self.dir_path,'Rust_inputs'), 0, final_state_particle_ids=(), jet_ids=None, 
+            filter_non_contributing_graphs=False, workspace=FORM_workspace,
+            integrand_type=self.alphaLoop_options['FORM_integrand_type']
+        )
+
+        form_processor.generate_numerator_functions(
+            FORM_output_path, output_format=self.alphaLoop_options['FORM_processing_output_format'],
+            workspace=FORM_workspace, header="", integrand_type=self.alphaLoop_options['FORM_integrand_type'],
+            include_hel_avg_factor=1
+        )
+
+        # Draw
+        drawings_output_path = pjoin(self.dir_path, 'Drawings')
+        Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
+        shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
+                    pjoin(drawings_output_path,'Makefile'))
+        form_processor.draw(drawings_output_path)
+
+        # Compile
+        shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
+                    pjoin(FORM_output_path, 'Makefile'))
+        form_processor.compile(FORM_output_path)
+
+
+class ScalarIntegralTopologyExporter(QGRAFExporter):
+
+    def __init__(self, cli, output_path, topology, externals, default_kinematics, masses, name, lmb, model, benchmark_result=0.0,  numerator=None, **opts):
+        
+        self.alphaLoop_options = opts.pop('alphaLoop_options',{})
+        self.MG5aMC_options = opts.pop('MG5aMC_options',{})
+        self.cli = cli
+        self.dir_path = os.path.abspath(output_path)
+        self.topology = topology
+        self.externals = externals
+        self.default_kinematics = default_kinematics
+        self.masses = masses
+        self.name = name
+        self.lmb = lmb
+        self.benchmark_result = benchmark_result
+
+        # TODO add support for masses and numerators
+        if masses is not None:
+            raise alphaLoopExporterError("No support yet for masses in ScalarIntegralTopologyExporter.")
+        if numerator is not None:
+            raise alphaLoopExporterError("No support yet for numerators in ScalarIntegralTopologyExporter.")
+
+        self.model = copy.deepcopy(model)
+        self.model['particles'].append(base_objects.Particle({
+            'name': 'psi',
+            'antiname': 'psi',
+            'spin' : 1,
+            'color': 1,
+            # We can think of generalising the pipeline for massive scalars too.
+            'mass': 'ZERO',
+            'width': 'ZERO', 
+            'pdg_code': 1337,
+            'line': 'dashed',
+            'is_part':True,
+            'self_antipart': True
+        }))
+        # We must add the scalar particle to it!
+        self.model.reset_dictionaries()
+
+    def build_output_directory(self):
+
+        Path(self.dir_path).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Cards')).mkdir(parents=True, exist_ok=True)
+        # TODO add param_card in Source
+
+        Path(pjoin(self.dir_path,'lib')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'FORM')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'FORM','workspace')).mkdir(parents=True, exist_ok=True)
+
+        Path(pjoin(self.dir_path,'Source')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Source','MODEL')).mkdir(parents=True, exist_ok=True)
+        shutil.copy(pjoin(plugin_path, 'Templates', 'Source_make_opts'), 
+                    pjoin(self.dir_path, 'Source','make_opts'))
+
+        # Fix makefiles compiler definition
+        self.replace_make_opt_c_compiler(self.MG5aMC_options['cpp_compiler'])
+
+    def create_squared_topology(self):
+        """ Creates and LU squared effective topology from a scalar integral topology."""
+
+        # This function must return the following info
+        squared_topology_info = {
+            'squared_topology': None,
+            'lmb': None,
+            'externals': None,
+            'effective_vertex_id': None,
+            'default_kinematics': None
+        }
+
+        # Create a map of the edge name to nodes connected
+        edges_map = {e: (u, v) for e,u,v in self.topology}
+        external_edges = {}
+        internal_edges = []
+        for e, nodes in edges_map.items():
+            lone_nodes = [ n for n in nodes if all(n not in other_nodes for e_i, other_nodes in edges_map.items() if e_i!=e) ]
+            if len(lone_nodes)==2:
+                raise alphaLoopExporterError("Edge '%s' of the topology is completely disconnected."%e)
+            elif len(lone_nodes)==1:
+                external_edges[e] = lone_nodes[0]
+            else:           
+                internal_edges.append(e)
+    
+        # First scan the externals of the scalar integral topology and make sure they are properly oriented.
+        incoming_nodes = []
+        for incoming_edge in self.externals[0]:
+            if incoming_edge not in external_edges:
+                raise alphaLoopExporterError("Specified external incoming edge '%s' could not be found."%incoming_edge)
+            if external_edges[incoming_edge] != edges_map[incoming_edge][0]:
+                raise alphaLoopExporterError("Incorrect direction for incoming external edge '%s'."%incoming_edge)
+            incoming_nodes.append(external_edges[incoming_edge])
+
+        outgoing_nodes = []
+        for outgoing_edge in self.externals[1]:
+            if outgoing_edge not in external_edges:
+                raise alphaLoopExporterError("Specified external outgoing edge '%s' could not be found."%outgoing_edge)
+            if external_edges[outgoing_edge] != edges_map[outgoing_edge][1]:
+                raise alphaLoopExporterError("Incorrect direction for outgoing external edge '%s'."%outgoing_edge)
+            outgoing_nodes.append(external_edges[outgoing_edge])
+
+        # Now sew external outgoing edges with an effective vertex.
+        # First copy edges that will remain in the squared topology
+        squared_topology_info['squared_topology'] = [(e, edges_map[e][0], edges_map[e][1]) for e in internal_edges+list(self.externals[0])]
+        
+        # Create the effectie node ID
+        max_node_id = 0
+        for u,v in edges_map.values():
+            max_node_id = max(max_node_id,u,v)
+        max_node_id += 1
+        effective_node_id = max_node_id
+        squared_topology_info['effective_vertex_id']=effective_node_id
+
+        # Connect the outgoing externals to the effective node_id
+        for outgoing_edge in self.externals[1]:
+            # Overwrite the external node to be that of the effective node id instead
+            squared_topology_info['squared_topology'].append( (outgoing_edge, edges_map[outgoing_edge][0], effective_node_id) )
+
+        # The externals are simply the specified incoming edges
+        squared_topology_info['externals'] = list(self.externals[0])
+
+        # Create copies of the incoming edges
+        external_incoming_number = 1
+        while 'q%i'%external_incoming_number in edges_map:
+            external_incoming_number +=1
+        for _in_node in incoming_nodes:
+            max_node_id += 1
+            squared_topology_info['externals'].append('q%i'%external_incoming_number)
+            squared_topology_info['squared_topology'].append( ('q%i'%external_incoming_number, effective_node_id, max_node_id) )
+            external_incoming_number += 1
+
+        # Combine the user's specified LMB with the LMB from the externals
+        squared_topology_info['lmb'] = list(self.lmb) + list(self.externals[1])[:-1]
+
+        # Fill in the specified default kinematics as a two-tuple of list of momenta
+        squared_topology_info['default_kinematics'] = [
+            [ self.default_kinematics[incoming_edge] for incoming_edge in self.externals[0] ],
+            [ self.default_kinematics[outgoing_edge] for outgoing_edge in list(self.externals[1])[:-1] ],
+        ]
+
+        return squared_topology_info
+
+    def output(self):
+
+        # Generate all supergraphs using QGRAF
+        self.build_output_directory()
+
+        # Process supergraph numerators with FORM and output result in the process output.
+        write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
+        model_builder = alphaLoopModelConverter(self.model, write_dir)
+        model_builder.build([])
+        shutil.copy(
+            pjoin(self.dir_path,'Source','MODEL','param_card.dat'),
+            pjoin(self.dir_path,'Cards','param_card.dat'),
+        )
+        shutil.copy(
+            pjoin(self.dir_path,'Source','MODEL','ident_card.dat'),
+            pjoin(self.dir_path,'Cards','ident_card.dat'),
+        )
+
+        # Example of how to access information directly from a param_card.dat
+        #        param_card = check_param_card.ParamCard(pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
+        #        misc.sprint(param_card.get_value('mass',25))
+        #        misc.sprint(param_card.get_value('width',25))
+        #        misc.sprint(param_card.get_value('yukawa',6))
+        #        misc.sprint(param_card.get_value('sminputs',1)) # aEWM1
+        #        misc.sprint(param_card.get_value('sminputs',2)) # Gf
+        #        misc.sprint(param_card.get_value('sminputs',3)) # aS
+
+        computed_model = model_reader.ModelReader(self.model)
+        computed_model.set_parameters_and_couplings(
+                                            pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
+
+        # Dummy process definition is good enough in this case.
+        process_definition=self.cli.extract_process('e+ e- > a > d d~', proc_number=0)
+
+        # We now need to create a squared topology from the provided scalar integral topology
+        squared_topology_info = self.create_squared_topology()
+
+        form_sg_list = FORM_processing.FORMSuperGraphList.from_squared_topology(
+            squared_topology_info['squared_topology'], self.name, 
+            squared_topology_info['externals'], computed_model, 
+            loop_momenta_names=squared_topology_info['lmb'],
+            benchmark_result=self.benchmark_result,
+            default_kinematics=squared_topology_info['default_kinematics'],
+            effective_vertex_id=squared_topology_info['effective_vertex_id'],
         )
 
         form_processor = FORM_processing.FORMProcessor(form_sg_list, computed_model, process_definition)

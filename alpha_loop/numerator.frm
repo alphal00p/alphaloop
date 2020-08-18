@@ -179,8 +179,9 @@ id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charge
 id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
-id vx(`PSI', `PSI', `PSI', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -i_;
-id vx(`PSI', `PSI', `PSI', `PSI', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = i_;
+#do i=3,20
+id vx(<x1?{`PSI',}>,...,<x`i'?{`PSI',}>, p1?, ...,p`i'?, idx1?, ..., idx`i'?) = (-1)^(`i')*i_;
+#enddo
 
 * delta_Z vertex
 

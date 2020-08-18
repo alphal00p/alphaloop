@@ -847,6 +847,159 @@ utils.bcolors.RED,utils.bcolors.ENDC
 
         lu_scalar_exporter.output()
 
+    def do_output_scalar_integral(self, line):
+        """ Generates and directly output a scalar integal topology as a mock-up of a LU integrand (with or without numerator).
+        """
+
+        args = self.split_arg(line)
+
+        if len(args)<=1:
+            raise alphaLoopInvalidCmd("Missing mandatory first argument for output LU scalar which is the output directory name.")
+        
+        output_path = args.pop(0)
+
+        processed_args = {
+            'topology': None,
+            'name': 'DefaultScalarIntegralName',
+            'externals': None,
+            'default_kinematics': None,
+            'lmb' : None,
+            'masses': None,
+            'analytical_result': 0.0, 
+        }
+        mandatory_args = ['topology', 'externals']
+
+        # Group arguments in between the '--' specifiers.
+        # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z'
+        # into '--process=p p > d d~ z'.
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args)>0:
+                opt_args[-1] += ' %s'%arg
+            else:
+                new_args.append(arg)
+        
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=',1)
+                value = value.strip()
+            except ValueError:
+                key = arg
+                value = None
+        
+            if key == '--topology':
+                try:
+                    topology=eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified topology: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if not isinstance(topology, (tuple, list)):
+                    raise alphaLoopInvalidCmd("Specified topology must be a tuple or a list")
+                if any(
+                    ( (not isinstance(te,(tuple,list))) or (not isinstance(te[0],str)) or (not isinstance(te[1],int)) or (not isinstance(te[2],int)) )
+                    for te in topology ):
+                    raise alphaLoopInvalidCmd("Each element of the topology specified must be a tuple ('edge_name', node_int_id_left, node_int_id_right) ")                        
+
+                processed_args['topology'] = topology
+
+            if key == '--name':
+                if "'" in value or '"' in value:
+                    processed_args[key[2:]] = eval(value)
+                else:
+                    processed_args[key[2:]] = value
+            
+            if key == '--externals':
+                try:
+                    externals = eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified externals for this topology: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if (not isinstance(externals, (tuple, list))) or (not len(externals)==2) or \
+                    any(not isinstance(el,str) for el in externals[0]) or \
+                    any(not isinstance(el,str) for el in externals[1]):
+                    raise alphaLoopInvalidCmd("Each element of each of the two lists provided in the 2-tuple 'externals' must be a string identifying the edge name.")                        
+
+                processed_args[key[2:]] = externals
+
+            if key == '--default_kinematics':
+                try:
+                    default_kinematics = eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified default kinematics for this scalar integral: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+
+                if not isinstance(default_kinematics, dict) or any(not isinstance(k,str) for k in default_kinematics.keys()) or \
+                    any( (not isinstance(v, (tuple, list)) or any( len(v)!=4 or not isinstance(vi,float) for vi in v) ) for v in default_kinematics.values()):
+                    raise alphaLoopInvalidCmd("Keys of the default_kinematics provided must identify the edge name and values must be four-tuples specifying the kinematics.")                        
+
+                processed_args[key[2:]] = default_kinematics
+
+            if key == '--masses':
+                try:
+                    masses = eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified default kinematics for this scalar integral: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if not isinstance(masses, dict) or any(not isinstance(k,str) for k in masses.keys()) or \
+                    any( not isinstance(mi,float) for mi in masses.values()):
+                    raise alphaLoopInvalidCmd("Keys of the masses dictionary provided must identify the edge name and values must be a float specifying the mass.")                        
+
+                processed_args[key[2:]] = masses
+
+            if key == '--lmb':
+                try:
+                    lmb = eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified lmb for this topology: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if (lmb is not None) and (not isinstance(lmb, (tuple, list)) or any(not isinstance(el,str) for el in lmb)):
+                    raise alphaLoopInvalidCmd("Each element of the list of lmb must be a string identifying the edge name.")                        
+
+                processed_args[key[2:]] = lmb
+
+            if key == '--analytical_result':
+                try:
+                    analytical_result = float(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Specified analytical result cannot be parsed to a float: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                processed_args[key[2:]] = analytical_result
+
+        for arg in mandatory_args:
+            if processed_args[arg] is None:
+                raise alphaLoopInvalidCmd("Missing mandatory option '%s' for command do_output_LU_scalar."%arg)
+
+
+        scalar_integral_exporter = aL_exporters.ScalarIntegralTopologyExporter(
+            self,
+            output_path, processed_args['topology'], 
+            processed_args['externals'], 
+            processed_args['default_kinematics'],
+            processed_args['masses'],
+            processed_args['name'], 
+            processed_args['lmb'], self._curr_model, 
+            benchmark_result=processed_args['analytical_result'],
+            alphaLoop_options=self.alphaLoop_options,
+            MG5aMC_options=self.options
+        )
+
+        scalar_integral_exporter.output()
+
     ######################################################################
     #
     # Example of the implementation of a trivial function 'hello_world'
