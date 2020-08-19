@@ -11,6 +11,7 @@ import time
 import numpy as np
 from itertools import combinations_with_replacement
 from collections import OrderedDict
+import glob as glob_module
 
 import progressbar
 from itertools import chain, product
@@ -183,6 +184,9 @@ class FORMSuperGraph(object):
         self.squared_topology = None
         self.replacement_rules = None
         self.integrand_info = {}
+
+        # Will be filled in during FORM generation
+        self.code_generation_statistics = None
 
         # Store copies of self for different choices of LMB to be used for cross-check.
         self.additional_lmbs = []
@@ -1200,8 +1204,6 @@ CTable pftopo(0:{});
         cut_filter = []
         if self.effective_vertex_id is not None:
             cut_filter.append( tuple( edge_data['name' ] for edge_key, edge_data in self.edges.items() if self.effective_vertex_id in edge_data['vertices'] and edge_data['type']=='virtual' ) )
-        from pprint import pprint
-        pprint(cut_filter)
 
         topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
             self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
@@ -1439,6 +1441,99 @@ class FORMSuperGraphIsomorphicList(list):
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
 
+    def analyze_FORM_output(self, FORM_stdout, FORM_vars):
+        """ Analyze the FORM otuput to gather statistics about the generation."""
+
+        code_generation_statistics = {}
+
+        original_op_count_re = re.compile("^\*\*\* STATS: original\s*(?P<npower>\d+)P\s*(?P<nmult>\d+)M\s*(?P<nadd>\d+)A.*$")
+        optimized_op_count_re = re.compile("^\*\*\* STATS: optimized\s*(?P<npower>\d+)P\s*(?P<nmult>\d+)M\s*(?P<nadd>\d+)A.*$")
+
+        accumulation_mode = None
+        current_optimized = None
+        for line in FORM_stdout.split('\n'):
+            if 'START integrand' in line:
+                accumulation_mode = 'integrand_%s'%FORM_vars['INTEGRAND']
+                continue
+            if 'END integrand' in line:
+                # register last displayed optimized count
+                if current_optimized is not None:
+                    if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
+                        code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
+                    else:
+                        for k, v in current_optimized:
+                            code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
+                # Reset curent_optimized
+                current_optimized = None
+                accumulation_mode = None
+                continue
+            if 'START numerator' in line:
+                accumulation_mode = 'numerator'
+                continue
+            if 'END numerator' in line:
+                # register last displayed optimized count
+                if current_optimized is not None:
+                    if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
+                        code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
+                    else:
+                        for k, v in current_optimized:
+                            code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
+                # Reset curent_optimized
+                current_optimized = None
+                accumulation_mode = None
+                continue
+            if accumulation_mode is None:
+                continue
+
+            original_op_count_match = original_op_count_re.match(line)
+            if original_op_count_match is not None:
+                # register last displayed optimized count
+                if current_optimized is not None:
+                    if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
+                        code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
+                    else:
+                        for k, v in current_optimized:
+                            code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
+                # Then register new original op count
+                orig_op_count = {
+                    'additions': int(original_op_count_match.group('nadd')),
+                    'multiplications': int(original_op_count_match.group('nmult')),
+                    'powers': int(original_op_count_match.group('npower'))
+                }
+                if '%s_original_op_count'%accumulation_mode not in code_generation_statistics:
+                    code_generation_statistics['%s_original_op_count'%accumulation_mode] = orig_op_count
+                else:
+                    for k, v in orig_op_count:
+                        code_generation_statistics['%s_original_op_count'%accumulation_mode][k] += v
+                # Reset curent_optimized
+                current_optimized = None
+                continue
+
+            optimized_op_count_match = optimized_op_count_re.match(line)            
+            if optimized_op_count_match is not None:
+                # Overwrite the new value from the current optimized nop
+                current_optimized = {
+                    'additions': int(optimized_op_count_match.group('nadd')),
+                    'multiplications': int(optimized_op_count_match.group('nmult')),
+                    'powers': int(optimized_op_count_match.group('npower'))
+                }
+
+        #print(FORM_stdout)
+        #print(code_generation_statistics)
+
+        # Add the compression level metric if the necessary info is present.
+        for info in ['numerator','integand_LTD','integand_PF']:
+            if ('%s_original_op_count'%info in code_generation_statistics) and ('%s_optimized_op_count'%info in code_generation_statistics):
+                for op_type in ['additions','multiplications','powers']:
+                    compression = 0.
+                    if code_generation_statistics['%s_original_op_count'%info][op_type]!=0:
+                        compression = 100.0*(1.-(float(code_generation_statistics['%s_optimized_op_count'%info][op_type])/float(code_generation_statistics['%s_original_op_count'%info][op_type])))
+                    if '%s_compression_percentage'%info not in code_generation_statistics:
+                        code_generation_statistics['%s_compression_percentage'%info] = {}
+                    code_generation_statistics['%s_compression_percentage'%info][op_type]=float('%.2f'%compression)
+
+        return code_generation_statistics
+
     def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
@@ -1497,8 +1592,11 @@ class FORMSuperGraphIsomorphicList(list):
             shell=True,
             cwd=selected_workspace,
             capture_output=True)
+
         # TODO understand why FORM sometimes returns return_code 1 event though it apparently ran through fine
-        if r.returncode != 0 and not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
+        characteristic_super_graph.code_generation_statistics = self.analyze_FORM_output(r.stdout.decode("utf-8"), FORM_vars)
+
+        if r.returncode != 0 or not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
             raise FormProcessingError("FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s"%(
                     r.stdout.decode('UTF-8'),
                     selected_workspace, FORM_cmd
@@ -1597,6 +1695,32 @@ class FORMSuperGraphList(list):
             else:
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
 
+        self.code_generation_statistics = {}
+
+    def aggregate_code_generation_statistics(self):
+        """ Combine the FORM code generation statistics from all SG in this list."""
+        
+        for sg in self:
+            for iso_sg in sg:
+                for k, v in iso_sg.code_generation_statistics.items():
+                    if 'compression_percentage' in k:
+                        continue
+                    if k in self.code_generation_statistics:
+                        self.code_generation_statistics[k] += v
+                    else:
+                        self.code_generation_statistics[k] = v
+
+        # Add the compression level metric if the necessary info is present.
+        for info in ['numerator','integrand_LTD','integrand_PF']:
+            if ('%s_original_op_count'%info in self.code_generation_statistics) and ('%s_optimized_op_count'%info in self.code_generation_statistics):
+                for op_type in ['additions','multiplications','powers']:
+                    compression = 0.
+                    if self.code_generation_statistics['%s_original_op_count'%info][op_type]!=0:
+                        compression = 100.0*(1.-(float(self.code_generation_statistics['%s_optimized_op_count'%info][op_type])/float(self.code_generation_statistics['%s_original_op_count'%info][op_type])))
+                    if '%s_compression_percentage'%info not in self.code_generation_statistics:
+                        self.code_generation_statistics['%s_compression_percentage'%info] = {}
+                    self.code_generation_statistics['%s_compression_percentage'%info][op_type]=float('%.2f'%compression)
+
     @classmethod
     def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={},benchmark_result=0.0, 
                                 default_kinematics=None, effective_vertex_id=None):
@@ -1647,14 +1771,15 @@ class FORMSuperGraphList(list):
                 for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
                     n[g] = tuple(n[g][eo['index']] for eo in edge_order)
 
-
-        form_graph = FORMSuperGraph(name=name, edges = edges, nodes=nodes,
+        form_graph = FORMSuperGraph(
+            name=name, edges=edges, nodes=nodes,
             overall_factor='-1', # there is an overall factor of -1 wrt Forcer, presumable due to the Wick rotation?
             multiplicity = 1,
             benchmark_result=benchmark_result,
             default_kinematics=default_kinematics,
             effective_vertex_id=effective_vertex_id
         )
+
         return FORMSuperGraphList([FORMSuperGraphIsomorphicList([form_graph])], name=name + '_set')
 
 
@@ -2185,9 +2310,16 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
     )
         writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(numerator_code%header_map)
 
+        integrand_C_source_size = 0.
+        for fpath in glob_module.glob(pjoin(root_output_path,'*integrand*')):
+            integrand_C_source_size += os.path.getsize(fpath)
+
+        self.code_generation_statistics['integrand_C_source_size_in_kB'] = int(integrand_C_source_size/1000.0)
 
     def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, 
                                     output_format='c', workspace=None, header="", integrand_type=None,process_definition=None):
+
+        start_time = time.time()
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
@@ -2438,9 +2570,17 @@ int %(header)sget_rank(int diag, int conf) {{
 
         writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.h'%header_map)).write(header_code%header_map)
 
+        numerator_C_source_size = 0.
+        for fpath in glob_module.glob(pjoin(root_output_path,'*numerator*')):
+            numerator_C_source_size += os.path.getsize(fpath)
+        self.code_generation_statistics['numerator_C_source_size_in_kB'] = int(numerator_C_source_size/1000.0)
+
         if integrand_type is not None:
             self.generate_integrand_functions(root_output_path, additional_overall_factor='', 
                             params={}, output_format='c', workspace=None, integrand_type=integrand_type,process_definition=process_definition)
+
+        generation_time = time.time() - start_time
+        self.code_generation_statistics['generation_time_in_s'] = float('%.1f'%generation_time)
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
         integrand_type=None):
@@ -3101,7 +3241,7 @@ class FORMProcessor(object):
         else:
             additional_overall_factor = '*(%d)'%(int(include_hel_avg_factor))
 
-        return self.super_graphs_list.generate_numerator_functions(
+        res = self.super_graphs_list.generate_numerator_functions(
             root_output_path,
             output_format=output_format,
             additional_overall_factor=additional_overall_factor,
@@ -3109,6 +3249,23 @@ class FORMProcessor(object):
             integrand_type=integrand_type,
             process_definition=self.process_definition
         )
+
+        self.super_graphs_list.aggregate_code_generation_statistics()
+        self.report_generation_statistics(root_output_path=root_output_path)
+    
+        return res
+
+    def report_generation_statistics(self,root_output_path=None):
+
+        # TODO improve formatting
+        logger.info("Generation statistics:\n%s%s%s"%(
+            utils.bcolors.GREEN,
+            pformat(self.super_graphs_list.code_generation_statistics),
+            utils.bcolors.ENDC
+        ))
+        
+        if root_output_path is not None:
+            open(pjoin(root_output_path,'generation_statistics.txt'),'w').write(pformat(self.super_graphs_list.code_generation_statistics))
 
     @classmethod
     def compile(cls, root_output_path, arg=[]):

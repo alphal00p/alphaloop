@@ -1621,6 +1621,13 @@ class LUScalarTopologyExporter(QGRAFExporter):
         # Fix makefiles compiler definition
         self.replace_make_opt_c_compiler(self.MG5aMC_options['cpp_compiler'])
 
+    def get_sg_list(self,computed_model):
+
+        return FORM_processing.FORMSuperGraphList.from_squared_topology(
+            self.topology, self.name, self.externals, computed_model, loop_momenta_names=self.lmb,
+            benchmark_result=self.benchmark_result
+        )
+
     def output(self):
 
         # Generate all supergraphs using QGRAF
@@ -1655,10 +1662,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         # Dummy process definition is good enough in this case.
         process_definition=self.cli.extract_process('e+ e- > a > d d~', proc_number=0)
 
-        form_sg_list = FORM_processing.FORMSuperGraphList.from_squared_topology(
-            self.topology, self.name, self.externals, computed_model, loop_momenta_names=self.lmb,
-            benchmark_result=self.benchmark_result
-        )
+        form_sg_list = self.get_sg_list(computed_model)
 
         form_processor = FORM_processing.FORMProcessor(form_sg_list, computed_model, process_definition)
 
@@ -1688,64 +1692,21 @@ class LUScalarTopologyExporter(QGRAFExporter):
                     pjoin(FORM_output_path, 'Makefile'))
         form_processor.compile(FORM_output_path)
 
-
-class ScalarIntegralTopologyExporter(QGRAFExporter):
+class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):
 
     def __init__(self, cli, output_path, topology, externals, default_kinematics, masses, name, lmb, model, benchmark_result=0.0,  numerator=None, **opts):
         
-        self.alphaLoop_options = opts.pop('alphaLoop_options',{})
-        self.MG5aMC_options = opts.pop('MG5aMC_options',{})
-        self.cli = cli
-        self.dir_path = os.path.abspath(output_path)
-        self.topology = topology
-        self.externals = externals
         self.default_kinematics = default_kinematics
-        self.masses = masses
-        self.name = name
-        self.lmb = lmb
-        self.benchmark_result = benchmark_result
-
         # TODO add support for masses and numerators
         if masses is not None:
             raise alphaLoopExporterError("No support yet for masses in ScalarIntegralTopologyExporter.")
+        self.masses = masses
+
         if numerator is not None:
             raise alphaLoopExporterError("No support yet for numerators in ScalarIntegralTopologyExporter.")
+        self.numerator = numerator
 
-        self.model = copy.deepcopy(model)
-        self.model['particles'].append(base_objects.Particle({
-            'name': 'psi',
-            'antiname': 'psi',
-            'spin' : 1,
-            'color': 1,
-            # We can think of generalising the pipeline for massive scalars too.
-            'mass': 'ZERO',
-            'width': 'ZERO', 
-            'pdg_code': 1337,
-            'line': 'dashed',
-            'is_part':True,
-            'self_antipart': True
-        }))
-        # We must add the scalar particle to it!
-        self.model.reset_dictionaries()
-
-    def build_output_directory(self):
-
-        Path(self.dir_path).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'Cards')).mkdir(parents=True, exist_ok=True)
-        # TODO add param_card in Source
-
-        Path(pjoin(self.dir_path,'lib')).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'FORM')).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'FORM','workspace')).mkdir(parents=True, exist_ok=True)
-
-        Path(pjoin(self.dir_path,'Source')).mkdir(parents=True, exist_ok=True)
-        Path(pjoin(self.dir_path,'Source','MODEL')).mkdir(parents=True, exist_ok=True)
-        shutil.copy(pjoin(plugin_path, 'Templates', 'Source_make_opts'), 
-                    pjoin(self.dir_path, 'Source','make_opts'))
-
-        # Fix makefiles compiler definition
-        self.replace_make_opt_c_compiler(self.MG5aMC_options['cpp_compiler'])
+        super(ScalarIntegralTopologyExporter, self).__init__(cli, output_path, topology, externals, name, lmb, model, benchmark_result=benchmark_result, **opts)
 
     def create_squared_topology(self):
         """ Creates and LU squared effective topology from a scalar integral topology."""
@@ -1830,44 +1791,12 @@ class ScalarIntegralTopologyExporter(QGRAFExporter):
 
         return squared_topology_info
 
-    def output(self):
-
-        # Generate all supergraphs using QGRAF
-        self.build_output_directory()
-
-        # Process supergraph numerators with FORM and output result in the process output.
-        write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
-        model_builder = alphaLoopModelConverter(self.model, write_dir)
-        model_builder.build([])
-        shutil.copy(
-            pjoin(self.dir_path,'Source','MODEL','param_card.dat'),
-            pjoin(self.dir_path,'Cards','param_card.dat'),
-        )
-        shutil.copy(
-            pjoin(self.dir_path,'Source','MODEL','ident_card.dat'),
-            pjoin(self.dir_path,'Cards','ident_card.dat'),
-        )
-
-        # Example of how to access information directly from a param_card.dat
-        #        param_card = check_param_card.ParamCard(pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
-        #        misc.sprint(param_card.get_value('mass',25))
-        #        misc.sprint(param_card.get_value('width',25))
-        #        misc.sprint(param_card.get_value('yukawa',6))
-        #        misc.sprint(param_card.get_value('sminputs',1)) # aEWM1
-        #        misc.sprint(param_card.get_value('sminputs',2)) # Gf
-        #        misc.sprint(param_card.get_value('sminputs',3)) # aS
-
-        computed_model = model_reader.ModelReader(self.model)
-        computed_model.set_parameters_and_couplings(
-                                            pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
-
-        # Dummy process definition is good enough in this case.
-        process_definition=self.cli.extract_process('e+ e- > a > d d~', proc_number=0)
+    def get_sg_list(self,computed_model):
 
         # We now need to create a squared topology from the provided scalar integral topology
         squared_topology_info = self.create_squared_topology()
 
-        form_sg_list = FORM_processing.FORMSuperGraphList.from_squared_topology(
+        return FORM_processing.FORMSuperGraphList.from_squared_topology(
             squared_topology_info['squared_topology'], self.name, 
             squared_topology_info['externals'], computed_model, 
             loop_momenta_names=squared_topology_info['lmb'],
@@ -1875,31 +1804,3 @@ class ScalarIntegralTopologyExporter(QGRAFExporter):
             default_kinematics=squared_topology_info['default_kinematics'],
             effective_vertex_id=squared_topology_info['effective_vertex_id'],
         )
-
-        form_processor = FORM_processing.FORMProcessor(form_sg_list, computed_model, process_definition)
-
-        FORM_output_path = pjoin(self.dir_path,'FORM')
-        FORM_workspace = pjoin(FORM_output_path,'workspace')
-        form_processor.generate_squared_topology_files(
-            pjoin(self.dir_path,'Rust_inputs'), 0, final_state_particle_ids=(), jet_ids=None, 
-            filter_non_contributing_graphs=False, workspace=FORM_workspace,
-            integrand_type=self.alphaLoop_options['FORM_integrand_type']
-        )
-
-        form_processor.generate_numerator_functions(
-            FORM_output_path, output_format=self.alphaLoop_options['FORM_processing_output_format'],
-            workspace=FORM_workspace, header="", integrand_type=self.alphaLoop_options['FORM_integrand_type'],
-            include_hel_avg_factor=1
-        )
-
-        # Draw
-        drawings_output_path = pjoin(self.dir_path, 'Drawings')
-        Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
-        shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
-                    pjoin(drawings_output_path,'Makefile'))
-        form_processor.draw(drawings_output_path)
-
-        # Compile
-        shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
-                    pjoin(FORM_output_path, 'Makefile'))
-        form_processor.compile(FORM_output_path)

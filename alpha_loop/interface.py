@@ -822,11 +822,11 @@ utils.bcolors.RED,utils.bcolors.ENDC
 
             if key == '--analytical_result':
                 try:
-                    analytical_result = float(value)
+                    analytical_result = complex(value)
                 except Exception as e:
                     traceback.print_exc()
                     raise alphaLoopInvalidCmd(
-                        "Specified analytical result cannot be parsed to a float: %s"%value+
+                        "Specified analytical result cannot be parsed to a complex: %s"%value+
                         "\n The following Python intepreter error occured then: %s"%str(e))
                 processed_args[key[2:]] = analytical_result
 
@@ -972,11 +972,11 @@ utils.bcolors.RED,utils.bcolors.ENDC
 
             if key == '--analytical_result':
                 try:
-                    analytical_result = float(value)
+                    analytical_result = complex(value)
                 except Exception as e:
                     traceback.print_exc()
                     raise alphaLoopInvalidCmd(
-                        "Specified analytical result cannot be parsed to a float: %s"%value+
+                        "Specified analytical result cannot be parsed to a complex: %s"%value+
                         "\n The following Python intepreter error occured then: %s"%str(e))
                 processed_args[key[2:]] = analytical_result
 

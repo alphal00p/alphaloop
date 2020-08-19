@@ -831,6 +831,7 @@ endargument;
     Hide FINTEGRAND;
     #redefine energysymbolstart "`extrasymbols_'"
     #do ext={`oldextrasymbols'+1}, `energysymbolstart'
+        #write "START integrand"
         #$conf = extrasymbol_(`ext');
         #write<out_integrand_`SGID'.proto_c> "#CONF\n%$", $conf;
         L FF`ext' = FINTEGRAND[conf(`ext')];
@@ -859,6 +860,7 @@ endargument;
         Format O0;
         Format normal;
         Drop FF`ext';
+        #write "END integrand"
     #enddo
     .sort
     Unhide F;
@@ -914,8 +916,10 @@ argtoextrasymbol tonumber,conf,1;
 B+ conf;
 .sort:conf-1;
 Hide F;
+
 #redefine energysymbolstart "`extrasymbols_'"
 #do ext={`oldextrasymbols'+1}, `energysymbolstart'
+    #write "START numerator"
     delete extrasymbols>`energysymbolstart'; * clear all extra symbols from the last configuration
     #$conf = extrasymbol_(`ext');
     #write<out_`SGID'.proto_c> "#CONF\n%$", $conf;
@@ -947,5 +951,6 @@ Hide F;
     Format O0;
     Format normal;
     Drop FF`ext';
+    #write "END numerator"
 #enddo
 .end
