@@ -1627,6 +1627,10 @@ class LUScalarTopologyExporter(QGRAFExporter):
             self.topology, self.name, self.externals, computed_model, loop_momenta_names=self.lmb,
             benchmark_result=self.benchmark_result
         )
+    
+    def get_overall_factor(self):
+
+        return '1'
 
     def output(self):
 
@@ -1677,7 +1681,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         form_processor.generate_numerator_functions(
             FORM_output_path, output_format=self.alphaLoop_options['FORM_processing_output_format'],
             workspace=FORM_workspace, header="", integrand_type=self.alphaLoop_options['FORM_integrand_type'],
-            include_hel_avg_factor=1
+            force_overall_factor=self.get_overall_factor()
         )
 
         # Draw
@@ -1707,6 +1711,9 @@ class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):
         self.numerator = numerator
 
         super(ScalarIntegralTopologyExporter, self).__init__(cli, output_path, topology, externals, name, lmb, model, benchmark_result=benchmark_result, **opts)
+
+        # We now need to create a squared topology from the provided scalar integral topology
+        self.squared_topology_info = self.create_squared_topology()
 
     def create_squared_topology(self):
         """ Creates and LU squared effective topology from a scalar integral topology."""
@@ -1789,18 +1796,22 @@ class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):
             [ self.default_kinematics[outgoing_edge] for outgoing_edge in list(self.externals[1])[:-1] ],
         ]
 
+        # We must divide the (-i)^N of the N-point effective mock-up scalar vertex on the right of the cutkosky cut.
+        squared_topology_info['overall_factor'] = 1./(complex(0,1.)*((-1)**(len(self.externals[0])+len(self.externals[1]))))
+
         return squared_topology_info
 
     def get_sg_list(self,computed_model):
 
-        # We now need to create a squared topology from the provided scalar integral topology
-        squared_topology_info = self.create_squared_topology()
-
         return FORM_processing.FORMSuperGraphList.from_squared_topology(
-            squared_topology_info['squared_topology'], self.name, 
-            squared_topology_info['externals'], computed_model, 
-            loop_momenta_names=squared_topology_info['lmb'],
+            self.squared_topology_info['squared_topology'], self.name, 
+            self.squared_topology_info['externals'], computed_model, 
+            loop_momenta_names=self.squared_topology_info['lmb'],
             benchmark_result=self.benchmark_result,
-            default_kinematics=squared_topology_info['default_kinematics'],
-            effective_vertex_id=squared_topology_info['effective_vertex_id'],
+            default_kinematics=self.squared_topology_info['default_kinematics'],
+            effective_vertex_id=self.squared_topology_info['effective_vertex_id'],
         )
+
+    def get_overall_factor(self):
+        res = '(%d)+(%d*i_)'%(self.squared_topology_info['overall_factor'].real,self.squared_topology_info['overall_factor'].imag)
+        return res
