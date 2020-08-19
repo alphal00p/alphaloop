@@ -94,6 +94,26 @@ for resource in resources_to_link:
     if not os.path.exists(pjoin(FORM_workspace,resource)):
         utils.ln(pjoin(plugin_path,resource),starting_dir=FORM_workspace)
 
+#TODO Remove once FORM will have fixed its C output bug
+def temporary_fix_FORM_output(FORM_output):
+
+    new_output = []
+    previous_line = None
+    for line in FORM_output.split('\n'):
+        if line.startswith('      _ +=  '):
+            line = '      %s'%line[12:]
+            if previous_line is not None:
+                new_output.append(previous_line[:-1])
+            previous_line = line
+        else:
+            if previous_line is not None:
+                new_output.append(previous_line)
+            previous_line = line
+    if previous_line is not None:
+        new_output.append(previous_line)
+    
+    return '\n'.join(new_output)
+
 class FormProcessingError(MadGraph5Error):
     """ Error for the FORM processing phase."""
     pass
@@ -1063,7 +1083,7 @@ Auto S invd, E, shift, ltd;
 S r, s;
 CF a, num, ncmd, conf1, replace, energies, ellipsoids, ltdcbtolmb, ltdenergy, constants;
 NF allenergies;
-Set invdset: invd0,...,invd400;
+Set invdset: invd0,...,invd10000;
 CTable ltdtopo(0:{});
 
 {}
@@ -1621,6 +1641,9 @@ class FORMSuperGraphIsomorphicList(list):
 
         with open(pjoin(selected_workspace,'out_%d.proto_c'%i_graph), 'r') as f:
             num_code = f.read()
+
+        # TODO Remove when FORM will have fixed its C output bug
+        num_code = temporary_fix_FORM_output(num_code)
 
         return num_code
 
@@ -2192,6 +2215,9 @@ class FORMSuperGraphList(list):
 
                     with open(pjoin(root_output_path, 'workspace', 'out_integrand_{}.proto_c'.format(i))) as f:
                         num = f.read()
+
+                    # TODO Remove when FORM will have fixed its C output bug
+                    num = temporary_fix_FORM_output(num)
 
                     total_time += time.time()-time_before
                     num = num.replace('i_', 'I')

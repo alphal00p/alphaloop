@@ -5,6 +5,16 @@ set_alphaLoop_option FORM_integrand_type LTD
 set_alphaLoop_option FORM_compile_optimization 3
 set_FORM_option optimisation_strategy 'CSEgreedy'
 set_FORM_option extra-options {'OPTIMITERATIONS':1000}
+set_FORM_option FORM_setup {\
+'MaxTermSize':'10M',\
+'Workspace':'100G',\
+'LargeSize':'20G',\
+'SmallSize':'1G',\
+'TermsInSmall':'10M',\
+'SortIOSize':'2M',\
+'ScratchSize':'10G'\
+}
+set_FORM_option extra-options {'OPTIMITERATIONS':1000}
 !rm -rf TEST_SCALAR_INTEGRAL_2x2_FISHNET_LTD 
 output_scalar_integral TEST_SCALAR_INTEGRAL_2x2_FISHNET_LTD \
  --topology=[ \
