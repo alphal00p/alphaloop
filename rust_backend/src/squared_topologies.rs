@@ -341,6 +341,7 @@ pub struct SquaredTopology {
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
     pub topo: Topology,
+    pub default_fixed_cut_momenta: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
     #[serde(default)]
     pub multi_channeling_bases: Vec<MultiChannelingBasis>,
     #[serde(rename = "FORM_numerator")]
@@ -678,22 +679,22 @@ impl SquaredTopologySet {
             .unwrap();
 
         if n_topologies == 1 {
-            if let Some(real_res) = self.topologies[0].topo.analytical_result_real {
-                if real_res != 0.0 {
-                    status_update_sender
-                        .send(StatusUpdate::Message(format!(
-                            "Target benchmark result (real) : {:+e}",
-                            real_res
-                        )))
-                        .unwrap();
-                }
-            }
             if let Some(imag_res) = self.topologies[0].topo.analytical_result_imag {
                 if imag_res != 0.0 {
                     status_update_sender
                         .send(StatusUpdate::Message(format!(
                             "Target benchmark result (imag) : {:+e}",
                             imag_res
+                        )))
+                        .unwrap();
+                }
+            }
+            if let Some(real_res) = self.topologies[0].topo.analytical_result_real {
+                if real_res != 0.0 {
+                    status_update_sender
+                        .send(StatusUpdate::Message(format!(
+                            "Target benchmark result (real) : {:+e}",
+                            real_res
                         )))
                         .unwrap();
                 }
@@ -872,9 +873,11 @@ impl SquaredTopologySet {
             println!("x-space point: {:?}", x);
         }
 
-        // clear the deformation cache
+        // clear the deformation cache for non-stability topologies, unless
+        // we are integrating an amplitude, since the deformation is fixed
         cache.current_deformation_index = 0;
-        if !self.is_stability_check_topo {
+        if !self.is_stability_check_topo && self.settings.cross_section.fixed_cut_momenta.is_empty()
+        {
             cache.deformation_vector_cache.clear();
         }
 
@@ -1162,13 +1165,23 @@ impl SquaredTopology {
             }
         }
 
+        // overwrite an empty list of fixed cut momenta in the topology settings if there is a default
+        if settings.cross_section.fixed_cut_momenta.is_empty() {
+            squared_topo.settings.cross_section.fixed_cut_momenta =
+                squared_topo.default_fixed_cut_momenta.1.clone();
+        }
+
         // set the external momenta and e_cm
-        squared_topo.external_momenta = settings.cross_section.incoming_momenta.clone();
-        squared_topo
-            .external_momenta
-            .extend(&settings.cross_section.incoming_momenta);
+        let incoming_momenta = if settings.cross_section.incoming_momenta.is_empty() {
+            &squared_topo.default_fixed_cut_momenta.0
+        } else {
+            &settings.cross_section.incoming_momenta
+        };
+
+        squared_topo.external_momenta = incoming_momenta.clone();
+        squared_topo.external_momenta.extend(incoming_momenta);
         let mut sum_incoming = LorentzVector::default();
-        for m in &settings.cross_section.incoming_momenta {
+        for m in incoming_momenta {
             sum_incoming += *m;
         }
         squared_topo.e_cm_squared = sum_incoming.square();
@@ -1894,7 +1907,12 @@ impl SquaredTopology {
                             .inherit_deformation_for_uv_counterterm
                     {
                         // the stability topologies will inherit the sources
-                        if !self.is_stability_check_topo {
+                        // amplitudes will also inherit the sources when they are computed once
+                        if !self.is_stability_check_topo
+                            && (cache.current_deformation_index
+                                >= cache.deformation_vector_cache.len()
+                                || self.settings.cross_section.fixed_cut_momenta.is_empty())
+                        {
                             subgraph.fixed_deformation =
                                 subgraph.determine_ellipsoid_overlap_structure(true);
 
