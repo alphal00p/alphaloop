@@ -1705,8 +1705,6 @@ class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):
             raise alphaLoopExporterError("No support yet for masses in ScalarIntegralTopologyExporter.")
         self.masses = masses
 
-        if numerator is not None:
-            raise alphaLoopExporterError("No support yet for numerators in ScalarIntegralTopologyExporter.")
         self.numerator = numerator
 
         super(ScalarIntegralTopologyExporter, self).__init__(cli, output_path, topology, externals, name, lmb, model, benchmark_result=benchmark_result, **opts)
@@ -1811,5 +1809,8 @@ class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):
         )
 
     def get_overall_factor(self):
-        res = '(%d)+(%d*i_)'%(self.squared_topology_info['overall_factor'].real,self.squared_topology_info['overall_factor'].imag)
-        return res
+        # Dress the overall factor with the numerator
+        return '((%d)+(%d*i_))*(%s)'%(
+            self.squared_topology_info['overall_factor'].real,self.squared_topology_info['overall_factor'].imag,
+            '1' if self.numerator is None else self.numerator
+        )

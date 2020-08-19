@@ -865,6 +865,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
             'default_kinematics': None,
             'lmb' : None,
             'masses': None,
+            'numerator': None,
             'analytical_result': 0.0, 
         }
         mandatory_args = ['topology', 'externals']
@@ -913,6 +914,12 @@ utils.bcolors.RED,utils.bcolors.ENDC
                 else:
                     processed_args[key[2:]] = value
             
+            if key == '--numerator':
+                if "'" in value or '"' in value:
+                    processed_args[key[2:]] = eval(value)
+                else:
+                    processed_args[key[2:]] = value
+
             if key == '--externals':
                 try:
                     externals = eval(value)
@@ -993,6 +1000,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
             processed_args['masses'],
             processed_args['name'], 
             processed_args['lmb'], self._curr_model, 
+            numerator=processed_args['numerator'],
             benchmark_result=processed_args['analytical_result'],
             alphaLoop_options=self.alphaLoop_options,
             MG5aMC_options=self.options
