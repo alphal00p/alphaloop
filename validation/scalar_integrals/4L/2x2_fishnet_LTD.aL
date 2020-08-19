@@ -30,5 +30,5 @@ output_scalar_integral TEST_SCALAR_INTEGRAL_2x2_FISHNET_LTD \
  --externals=[('q1','q2'),('pout3','pout4')] \
  --default_kinematics={'q1':[  1.2,  2.2,   1.0, 0.4 ],\
                        'q2':[  2.0, -5.2,   2.1, 0.0 ],\
-	                   'pout3':[ 1.6,  -0.1, 12.5, -2.4 ] }
+	                   'pout3':[ 1.6,  -0.1, 12.5, -2.4 ] } \
  --lmb=['p3','p4','p8','p9']
