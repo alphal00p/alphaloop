@@ -1775,14 +1775,13 @@ class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):
 
         # The externals are simply the specified incoming edges
         squared_topology_info['externals'] = list(self.externals[0])
-
+        
         # Create copies of the incoming edges
         external_incoming_number = 1
         while 'q%i'%external_incoming_number in edges_map:
             external_incoming_number +=1
         for _in_node in incoming_nodes:
             max_node_id += 1
-            squared_topology_info['externals'].append('q%i'%external_incoming_number)
             squared_topology_info['squared_topology'].append( ('q%i'%external_incoming_number, effective_node_id, max_node_id) )
             external_incoming_number += 1
 
