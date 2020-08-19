@@ -79,7 +79,11 @@ FORM_processing_options = {
     # b) 'only' : only the contribution from the finite part of the renormalisation is kept.
     # c) 'removed' : the finitie part of the renormalisation is removed. 
     'renormalisation_finite_terms' : 'together',
-    'optimisation_strategy' : 'CSEgreedy'
+    'optimisation_strategy' : 'CSEgreedy',
+    'FORM_setup': {
+        'MaxTermSize':'1M',
+        'Workspace':'1G'
+    }
 }
 
 # Can switch to tmpdir() if necessary at some point
@@ -1581,6 +1585,10 @@ class FORMSuperGraphIsomorphicList(list):
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             f.write('L F = {};'.format(form_input))
+
+        with open(pjoin(selected_workspace,'form.set'), 'w') as f:
+            content = [ '%s %s'%(k,str(v)) for k,v in FORM_processing_options["FORM_setup"].items() ]
+            f.write('\n'.join(content))
 
         FORM_cmd = ' '.join([
                 FORM_processing_options["FORM_path"],

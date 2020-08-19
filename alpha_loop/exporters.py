@@ -1784,7 +1784,10 @@ class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):
             external_incoming_number += 1
 
         # Combine the user's specified LMB with the LMB from the externals
-        squared_topology_info['lmb'] = list(self.lmb) + list(self.externals[1])[:-1]
+        if self.lmb is not None:
+            squared_topology_info['lmb'] = list(self.lmb) + list(self.externals[1])[:-1]
+        else:
+            squared_topology_info['lmb'] = None
 
         # Fill in the specified default kinematics as a two-tuple of list of momenta
         squared_topology_info['default_kinematics'] = [
