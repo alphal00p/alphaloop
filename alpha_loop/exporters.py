@@ -1629,8 +1629,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         )
     
     def get_overall_factor(self):
-
-        return '1'
+        return '-1' # there is an overall factor of -1 wrt Forcer, presumable due to the Wick rotation?
 
     def output(self):
 
@@ -1797,7 +1796,7 @@ class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):
         ]
 
         # We must divide the (-i)^N of the N-point effective mock-up scalar vertex on the right of the cutkosky cut.
-        squared_topology_info['overall_factor'] = 1./(complex(0,1.)*((-1)**(len(self.externals[0])+len(self.externals[1]))))
+        squared_topology_info['overall_factor'] = 1./(complex(0,-1.)**(len(self.externals[0])+len(self.externals[1])-2))
 
         return squared_topology_info
 
