@@ -1466,7 +1466,7 @@ class FORMSuperGraphIsomorphicList(list):
                     if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
                         code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
                     else:
-                        for k, v in current_optimized:
+                        for k, v in current_optimized.items():
                             code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
                 # Reset curent_optimized
                 current_optimized = None
@@ -1481,7 +1481,7 @@ class FORMSuperGraphIsomorphicList(list):
                     if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
                         code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
                     else:
-                        for k, v in current_optimized:
+                        for k, v in current_optimized.items():
                             code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
                 # Reset curent_optimized
                 current_optimized = None
@@ -1497,7 +1497,7 @@ class FORMSuperGraphIsomorphicList(list):
                     if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
                         code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
                     else:
-                        for k, v in current_optimized:
+                        for k, v in current_optimized.items():
                             code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
                 # Then register new original op count
                 orig_op_count = {
@@ -1508,7 +1508,7 @@ class FORMSuperGraphIsomorphicList(list):
                 if '%s_original_op_count'%accumulation_mode not in code_generation_statistics:
                     code_generation_statistics['%s_original_op_count'%accumulation_mode] = orig_op_count
                 else:
-                    for k, v in orig_op_count:
+                    for k, v in orig_op_count.items():
                         code_generation_statistics['%s_original_op_count'%accumulation_mode][k] += v
                 # Reset curent_optimized
                 current_optimized = None
