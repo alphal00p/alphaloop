@@ -3,6 +3,7 @@ set_alphaLoop_option FORM_processing_output_format c
 set_alphaLoop_option FORM_compile_arg all
 set_alphaLoop_option FORM_integrand_type PF
 set_alphaLoop_option FORM_compile_optimization 3
+set_FORM_option optimisation_strategy 'CSEgreedy'
 set_FORM_option extra-options {'OPTIMITERATIONS':1000}
 !rm -rf TEST_SCALAR_INTEGRAL_1L_HEXAGON_0 
 output_scalar_integral TEST_SCALAR_INTEGRAL_1L_HEXAGON_0 \

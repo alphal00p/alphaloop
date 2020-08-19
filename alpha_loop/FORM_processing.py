@@ -78,7 +78,8 @@ FORM_processing_options = {
     # a) 'together' : all contributions are ketp.
     # b) 'only' : only the contribution from the finite part of the renormalisation is kept.
     # c) 'removed' : the finitie part of the renormalisation is removed. 
-    'renormalisation_finite_terms' : 'together'
+    'renormalisation_finite_terms' : 'together',
+    'optimisation_strategy' : 'CSEgreedy'
 }
 
 # Can switch to tmpdir() if necessary at some point
@@ -1538,7 +1539,7 @@ class FORMSuperGraphIsomorphicList(list):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
-        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD']
+        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
 
         if FORM_vars is None:
             raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
@@ -2345,7 +2346,8 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
         FORM_vars={
-            'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order']
+            'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order'],
+            'OPTIMISATIONSTRATEGY':FORM_processing_options['optimisation_strategy']
         }
 
         if FORM_processing_options['renormalisation_finite_terms']=='together':
@@ -2361,7 +2363,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
             raise FormProcessingError("The FORM processing option 'renormalisation_finite_terms' "+
                                       "can only take the following value: 'together', 'only' or 'removed', but not '%s'."%FORM_processing_options['renormalisation_finite_terms'])
 
-        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD']
+        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
 
         if integrand_type is not None:
             FORM_vars['INTEGRAND'] = integrand_type

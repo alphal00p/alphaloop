@@ -4,6 +4,7 @@ set_alphaLoop_option FORM_compile_arg all
 set_alphaLoop_option FORM_integrand_type PF
 set_alphaLoop_option FORM_compile_optimization 3
 set_FORM_option extra-options {'OPTIMITERATIONS':1000}
+set_FORM_option optimisation_strategy 'CSEgreedy'
 !rm -rf TEST_SCALAR_INTEGRAL_1L_PENTAGON_NUMERATOR_0 
 output_scalar_integral TEST_SCALAR_INTEGRAL_1L_PENTAGON_NUMERATOR_0 \
  --topology=\

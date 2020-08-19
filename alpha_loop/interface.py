@@ -178,9 +178,13 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if key in self.FORM_options:
             if key=='renormalisation_finite_terms':
-                self.FORM_options[key]=str(value)
+                processed_value=str(value)
             else:
-                self.FORM_options[key]=eval(value)
+                processed_value=eval(value)
+            if isinstance(self.FORM_options[key],dict):
+                self.FORM_options[key].update(processed_value)
+            else:
+                self.FORM_options[key] = processed_value
         else:
             raise alphaLoopInvalidCmd("Specified FORM option '%s' not reckognized."%key)
 
