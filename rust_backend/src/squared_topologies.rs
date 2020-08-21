@@ -6,7 +6,7 @@ use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use crate::utils;
 use crate::{
     float, DeformationStrategy, FloatLike, IRHandling, NormalisingFunction, NumeratorSource,
-    Settings, MAX_LOOP,
+    Settings,
 };
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
@@ -25,6 +25,11 @@ use std::mem;
 use std::path::Path;
 use std::time::Instant;
 use utils::Signum;
+
+#[cfg(not(feature = "higher_loops"))]
+pub const MAX_SG_LOOP: usize = 4;
+#[cfg(feature = "higher_loops")]
+pub const MAX_SG_LOOP: usize = 10;
 
 mod form_numerator {
     use dlopen::wrapper::{Container, WrapperApi};
@@ -712,11 +717,12 @@ impl SquaredTopologySet {
         mut event_manager: Option<&mut EventManager>,
     ) -> Complex<T> {
         let mut rng = thread_rng();
-        let mut xrot = [0.; MAX_LOOP * 3];
+        let mut xrot = [0.; MAX_SG_LOOP * 3];
 
         // paramaterize and consider the result in a channel basis
-        let n_loops = x.len() / 3;
-        let mut k_channel = [LorentzVector::default(); MAX_LOOP];
+        let n_fixed = self.settings.cross_section.fixed_cut_momenta.len();
+        let n_loops = x.len() / 3 + n_fixed;
+        let mut k_channel = [LorentzVector::default(); MAX_SG_LOOP];
         for i in 0..n_loops {
             xrot[..x.len()].copy_from_slice(x);
 
@@ -732,16 +738,26 @@ impl SquaredTopologySet {
                 }
             }
 
-            let (l_space, _) = Topology::parameterize::<T>(
-                &xrot[i * 3..(i + 1) * 3],
-                self.e_cm_squared,
-                i,
-                &self.settings,
-            );
+            let (l_energy, l_space) = if i < n_loops - n_fixed {
+                // set the loop index to i + 1 so that we can also shift k
+                (
+                    T::zero(),
+                    Topology::parameterize(
+                        &xrot[i * 3..(i + 1) * 3],
+                        self.e_cm_squared,
+                        i,
+                        &self.settings,
+                    )
+                    .0,
+                )
+            } else {
+                let m = self.settings.cross_section.fixed_cut_momenta[i + n_fixed - n_loops].cast();
+                (m.t, [m.x, m.y, m.z])
+            };
 
             let rot = &self.rotation_matrix;
             k_channel[i] = LorentzVector::from_args(
-                T::zero(),
+                l_energy,
                 <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
                     + <T as NumCast>::from(rot[0][1]).unwrap() * l_space[1]
                     + <T as NumCast>::from(rot[0][2]).unwrap() * l_space[2],
@@ -754,8 +770,8 @@ impl SquaredTopologySet {
             );
         }
 
-        let mut k_lmb = [LorentzVector::default(); MAX_LOOP];
-        let mut k_other_channel = [LorentzVector::default(); MAX_LOOP];
+        let mut k_lmb = [LorentzVector::default(); MAX_SG_LOOP];
+        let mut k_other_channel = [LorentzVector::default(); MAX_SG_LOOP];
         let mut event_counter = 0;
         let mut result = Complex::zero();
         for (channel_id, (channel, _, channel_shift)) in
@@ -797,23 +813,29 @@ impl SquaredTopologySet {
 
                 let mut inv_jac_para = T::one();
                 for i in 0..n_loops {
-                    let rot = &self.rotation_matrix;
+                    let jac = if i < n_loops - n_fixed {
+                        let rot = &self.rotation_matrix;
 
-                    // undo the rotation
-                    let rotated = LorentzVector::from_args(
-                        T::zero(),
-                        <T as NumCast>::from(rot[0][0]).unwrap() * k_other_channel[i].x
-                            + <T as NumCast>::from(rot[1][0]).unwrap() * k_other_channel[i].y
-                            + <T as NumCast>::from(rot[2][0]).unwrap() * k_other_channel[i].z,
-                        <T as NumCast>::from(rot[0][1]).unwrap() * k_other_channel[i].x
-                            + <T as NumCast>::from(rot[1][1]).unwrap() * k_other_channel[i].y
-                            + <T as NumCast>::from(rot[2][1]).unwrap() * k_other_channel[i].z,
-                        <T as NumCast>::from(rot[0][2]).unwrap() * k_other_channel[i].x
-                            + <T as NumCast>::from(rot[1][2]).unwrap() * k_other_channel[i].y
-                            + <T as NumCast>::from(rot[2][2]).unwrap() * k_other_channel[i].z,
-                    );
-                    let (_, jac) =
-                        Topology::inv_parametrize(&rotated, self.e_cm_squared, i, &self.settings);
+                        // undo the rotation
+                        let rotated = LorentzVector::from_args(
+                            T::zero(),
+                            <T as NumCast>::from(rot[0][0]).unwrap() * k_other_channel[i].x
+                                + <T as NumCast>::from(rot[1][0]).unwrap() * k_other_channel[i].y
+                                + <T as NumCast>::from(rot[2][0]).unwrap() * k_other_channel[i].z,
+                            <T as NumCast>::from(rot[0][1]).unwrap() * k_other_channel[i].x
+                                + <T as NumCast>::from(rot[1][1]).unwrap() * k_other_channel[i].y
+                                + <T as NumCast>::from(rot[2][1]).unwrap() * k_other_channel[i].z,
+                            <T as NumCast>::from(rot[0][2]).unwrap() * k_other_channel[i].x
+                                + <T as NumCast>::from(rot[1][2]).unwrap() * k_other_channel[i].y
+                                + <T as NumCast>::from(rot[2][2]).unwrap() * k_other_channel[i].z,
+                        );
+
+                        Topology::inv_parametrize(&rotated, self.e_cm_squared, i, &self.settings).1
+                    } else {
+                        (Into::<T>::into(2.) * <T as FloatConst>::PI())
+                            .powi(4)
+                            .inv()
+                    };
 
                     inv_jac_para *= jac;
                 }
@@ -830,6 +852,10 @@ impl SquaredTopologySet {
                 .enumerate()
             {
                 cache.current_supergraph = current_supergraph;
+
+                if self.settings.general.debug > 0 {
+                    println!("Evaluating supergraph {} for channel {}", t.name, channel_id);
+                }
 
                 // undo the jacobian for unused dimensions
                 let mut jac_correction = T::one();
@@ -881,22 +907,18 @@ impl SquaredTopologySet {
             cache.deformation_vector_cache.clear();
         }
 
-        // for amplitudes, multi-channeling is handled at the LTD level
-        if self.settings.general.multi_channeling
-            && !self.multi_channeling_channels.is_empty()
-            && self.settings.cross_section.fixed_cut_momenta.is_empty()
-        {
+        if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty() {
             return self.multi_channeling(x, cache, event_manager);
         }
 
         let mut rng = thread_rng();
-        let mut xrot = [0.; MAX_LOOP * 3];
+        let mut xrot = [0.; MAX_SG_LOOP * 3];
 
         // jointly parameterize all squared topologies
         let n_fixed = self.settings.cross_section.fixed_cut_momenta.len();
         let n_loops = x.len() / 3 + n_fixed;
-        let mut k = [LorentzVector::default(); MAX_LOOP];
-        let mut para_jacs = [T::one(); MAX_LOOP];
+        let mut k = [LorentzVector::default(); MAX_SG_LOOP];
+        let mut para_jacs = [T::one(); MAX_SG_LOOP];
         let mut jac_para = T::one();
         for i in 0..n_loops {
             xrot[..x.len()].copy_from_slice(x);
@@ -990,8 +1012,8 @@ impl SquaredTopologySet {
                         println!("Evaluating additional topology {}", add_id);
                     }
 
-                    let mut add_ks = [LorentzVector::default(); MAX_LOOP];
-                    let external_momenta: ArrayVec<[LorentzVector<T>; MAX_LOOP]> =
+                    let mut add_ks = [LorentzVector::default(); MAX_SG_LOOP];
+                    let external_momenta: ArrayVec<[LorentzVector<T>; MAX_SG_LOOP]> =
                         t.external_momenta.iter().map(|e| e.cast()).collect();
 
                     for (add_k, row) in add_ks.iter_mut().zip(mat) {
@@ -1034,12 +1056,6 @@ impl SquaredTopologySet {
                     event_counter = em.event_buffer.len();
                 }
             }
-        }
-
-        // NOTE: there is no unique k_def anymore. it depends on the cut
-        let mut k_def: ArrayVec<[LorentzVector<Complex<T>>; MAX_LOOP]> = ArrayVec::default();
-        for l in &k[..n_loops] {
-            k_def.push(l.map(|x| Complex::new(x, T::zero())));
         }
 
         result
@@ -1327,6 +1343,27 @@ impl SquaredTopology {
             mcb.defining_propagators.sort();
         }
 
+        // make sure all except the last of the fixed cut momenta are in the basis
+        // to avoid duplicating channels
+        let mut fixed_cut_propagators = vec![];
+        if self.settings.cross_section.fixed_cut_momenta.len() > 0 {
+            // we only have 1 cutkosky cut set and we skip the dependent cut
+            'nextcut: for c in
+                self.cutkosky_cuts[0].cuts[..self.cutkosky_cuts[0].cuts.len() - 1].iter()
+            {
+                for (lli, ll) in self.topo.loop_lines.iter().enumerate() {
+                    for (pi, p) in ll.propagators.iter().enumerate() {
+                        if p.name == c.name {
+                            fixed_cut_propagators.push((lli, pi));
+                            continue 'nextcut;
+                        }
+                    }
+                }
+                println!("Could not find cut in topology: {}", c.name);
+            }
+            fixed_cut_propagators.sort();
+        }
+
         let mut multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> =
             vec![];
         for (cuts, mat) in self
@@ -1339,7 +1376,9 @@ impl SquaredTopology {
                 let mut lmb_to_cb_mat = vec![];
                 let mut cut_shifts = vec![];
 
-                if self.multi_channeling_bases.len() > 0 {
+                if self.multi_channeling_bases.len() > 0
+                    || self.settings.cross_section.fixed_cut_momenta.len() > 0
+                {
                     let cut_defining_propagators: Vec<(usize, usize)> = cut
                         .iter()
                         .enumerate()
@@ -1352,6 +1391,13 @@ impl SquaredTopology {
                         })
                         .sorted()
                         .collect();
+
+                    if !fixed_cut_propagators
+                        .iter()
+                        .all(|c| cut_defining_propagators.contains(c))
+                    {
+                        continue;
+                    }
 
                     if !self
                         .multi_channeling_bases
@@ -1445,7 +1491,7 @@ impl SquaredTopology {
             LorentzVector::default(),
             T::zero(),
             T::zero(),
-        ); MAX_LOOP + 4];
+        ); MAX_SG_LOOP];
 
         // determine an overestimate of the t that solves the energy constraint
         // then -t and t should give two different solutions or do not converge
@@ -1552,17 +1598,17 @@ impl SquaredTopology {
             0
         };
 
-        let mut external_momenta: ArrayVec<[LorentzVector<T>; MAX_LOOP]> = self
+        let mut external_momenta: ArrayVec<[LorentzVector<T>; MAX_SG_LOOP]> = self
             .external_momenta
             .iter()
             .map(|m| m.map(|c| c.into()))
             .collect();
 
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4]; // FIXME: bound may be too small
-        let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
+        let mut cut_momenta = [LorentzVector::default(); MAX_SG_LOOP];
+        let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_SG_LOOP];
 
-        let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
+        let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_SG_LOOP];
+        let mut k_def = [LorentzVector::default(); MAX_SG_LOOP];
         let mut result = Complex::zero();
         for cut_index in 0..self.cutkosky_cuts.len() {
             let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
@@ -1654,7 +1700,7 @@ impl SquaredTopology {
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         cut_momenta: &mut [LorentzVector<T>],
-        external_momenta: &mut ArrayVec<[LorentzVector<T>; MAX_LOOP]>,
+        external_momenta: &mut [LorentzVector<T>],
         rescaled_loop_momenta: &mut [LorentzVector<T>],
         subgraph_loop_momenta: &mut [LorentzVector<T>],
         k_def: &mut [LorentzVector<Complex<T>>],
@@ -1670,7 +1716,7 @@ impl SquaredTopology {
         let mut cut_energies_summed = T::zero();
         let mut scaling_result = Complex::one();
 
-        let mut shifts = [LorentzVector::default(); MAX_LOOP + 4];
+        let mut shifts = [LorentzVector::default(); MAX_SG_LOOP];
 
         // evaluate the cuts with the proper scaling
         for ((cut_mom, shift), cut) in cut_momenta[..cutkosky_cuts.cuts.len()]

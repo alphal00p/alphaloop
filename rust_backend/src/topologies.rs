@@ -92,6 +92,7 @@ impl Topology {
 pub struct Propagators {
     #[serde(skip_deserializing)]
     pub id: usize, // global id
+    pub name: String,
     pub m_squared: f64,
     pub q: LorentzVector<f64>,
     #[serde(default)]
@@ -472,8 +473,8 @@ pub struct LTDNumerator {
     pub reduced_size: usize,
     pub sorted_linear: Vec<Vec<usize>>,
     pub coefficient_index_map: Vec<(usize, usize)>,
-    pub coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
-    pub reduced_coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
+    pub coefficient_index_to_powers: Vec<Vec<u8>>,
+    pub reduced_coefficient_index_to_powers: Vec<Vec<u8>>,
     pub reduced_blocks: Vec<usize>,
     pub coefficients_modified: bool,
     pub non_empty_coeff_map_to_reduced_numerator: Vec<Vec<(usize, usize, Complex<f64>)>>,
@@ -487,7 +488,7 @@ pub struct ReducedLTDNumerator<T: FloatLike> {
     pub size: usize,
     //pub coefficient_index_map: Vec<(usize, usize)>,
     //pub coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
-    pub reduced_coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
+    pub reduced_coefficient_index_to_powers: Vec<Vec<u8>>,
     pub reduced_blocks: Vec<usize>,
 }
 

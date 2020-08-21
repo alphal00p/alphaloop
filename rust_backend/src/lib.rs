@@ -15,8 +15,10 @@ use num_traits::{Float, FloatConst, FromPrimitive, Num, Signed};
 use num_traits::{One, ToPrimitive, Zero};
 use utils::Signum;
 
-pub const MAX_LOOP: usize = 4;
-pub const MAX_PROP: usize = 10;
+#[cfg(not(feature = "higher_loops"))]
+pub const MAX_LOOP: usize = 2;
+#[cfg(feature = "higher_loops")]
+pub const MAX_LOOP: usize = 6;
 
 #[allow(non_camel_case_types)]
 #[cfg(feature = "use_f128")]

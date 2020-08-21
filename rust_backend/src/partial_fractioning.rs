@@ -1,5 +1,5 @@
 use crate::topologies::{LTDCache, LTDNumerator, LoopLine};
-use crate::{FloatLike, MAX_LOOP, MAX_PROP};
+use crate::{FloatLike, MAX_LOOP};
 use itertools::Itertools;
 use mpolynomial::MPolynomial;
 use num::traits::Zero;
@@ -59,7 +59,7 @@ impl<T: FloatLike> PFCache<T> {
                     size: 0,
                     string: "".to_string(),
                 },
-                block_fiter: vec![false; MAX_PROP],
+                block_fiter: vec![false; n_props_deg],
                 numerator: vec![0; n_props_deg],
                 numerator_size: 0,
                 numerator_index_map: vec![0; n_props_deg],

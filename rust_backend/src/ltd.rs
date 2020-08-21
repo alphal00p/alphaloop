@@ -13,6 +13,7 @@ use arrayvec::ArrayVec;
 use colored::Colorize;
 use dual_num::{DimName, DualN};
 use itertools::Itertools;
+use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::ops::inv::Inv;
 use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Pow, Signed, Zero};
@@ -20,7 +21,6 @@ use rand::rngs::StdRng;
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
 use std::cmp::Ordering;
-use lorentz_vector::LorentzVector;
 
 use crate::utils;
 
@@ -3498,9 +3498,9 @@ impl LTDNumerator {
 
         // Create the map that goes from the tensor index to the reduced repesentation
         // that uses only the energy components
-        let mut coefficient_index_to_powers = vec![[0; MAX_LOOP]];
+        let mut coefficient_index_to_powers = vec![vec![0; n_loops]];
         for indices in sorted_linear.iter() {
-            let mut key = [0; MAX_LOOP];
+            let mut key = vec![0; n_loops];
             for &n in indices.iter() {
                 if n % 4 == 0 {
                     key[n / 4] += 1;
@@ -3549,16 +3549,16 @@ impl LTDNumerator {
         for i in 1..=max_rank {
             reduced_size = (reduced_size * (n_loops + i)) / i
         }
-        let mut reduced_coefficient_index_to_powers = vec![[0; MAX_LOOP]; reduced_size];
+        let mut reduced_coefficient_index_to_powers = vec![vec![0; n_loops]; reduced_size];
         for pow_distribution in (0..=n_loops).combinations_with_replacement(max_rank) {
-            let mut key = [0; MAX_LOOP];
+            let mut key = vec![0; n_loops];
             for &n in pow_distribution.iter() {
                 if n != n_loops {
                     key[n] += 1;
                 }
             }
             reduced_coefficient_index_to_powers
-                [LTDNumerator::powers_to_position(&key, n_loops, &reduced_blocks)] = key;
+                [LTDNumerator::powers_to_position(&key, n_loops, &reduced_blocks)] = key.clone();
         }
 
         // Copy numerator coefficients into vector
@@ -3574,7 +3574,7 @@ impl LTDNumerator {
         for absorb_n_energies in 0..=n_loops {
             let mut numerator_map = vec![];
             let mut full_numerator_map = vec![];
-            let mut red_pows = [0; MAX_LOOP];
+            let mut red_pows = vec![0; n_loops];
             for (i, (&c, powers)) in numerator_coefficients
                 .iter()
                 .zip(coefficient_index_to_powers.iter())
@@ -3759,10 +3759,10 @@ impl LTDNumerator {
     /// the energy components of the loop momenta.
     pub fn change_monomial_basis<T: FloatLike>(
         &self,
-        powers: &[u8; MAX_LOOP],
+        powers: &[u8],
         mat: &Vec<i8>,
-        shifts: &[Complex<T>; MAX_LOOP],
-        basis: &mut [u8; MAX_LOOP],
+        shifts: &[Complex<T>],
+        basis: &mut [u8],
         coeff: Complex<T>,
         index: usize,
         cache: &mut LTDCache<T>,
