@@ -1738,7 +1738,11 @@ class FORMSuperGraphList(list):
                     if 'compression_percentage' in k:
                         continue
                     if k in self.code_generation_statistics:
-                        self.code_generation_statistics[k] += v
+                        if not isinstance(v, dict):
+                            self.code_generation_statistics[k] += v
+                        else:
+                            for kk, vv in v.items():
+                                self.code_generation_statistics[k][kk] += vv
                     else:
                         self.code_generation_statistics[k] = v
 
