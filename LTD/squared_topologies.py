@@ -298,7 +298,7 @@ class SquaredTopologyGenerator:
             'overall_numerator': self.overall_numerator,
             'n_incoming_momenta': len(self.incoming_momenta),
             'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
-            'default_fixed_cut_momenta': [] if self.default_kinematics is None else self.default_kinematics,
+            'default_fixed_cut_momenta': [[], []] if self.default_kinematics is None else self.default_kinematics,
             'topo': self.loop_topo.to_flat_format(),
             'MG_numerator': self.MG_numerator,
             'FORM_numerator': self.FORM_numerator,
