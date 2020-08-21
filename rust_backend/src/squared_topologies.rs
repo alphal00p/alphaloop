@@ -1196,11 +1196,11 @@ impl SquaredTopology {
 
         squared_topo.external_momenta = incoming_momenta.clone();
         squared_topo.external_momenta.extend(incoming_momenta);
-        let mut sum_incoming = LorentzVector::default();
+        let mut sum_incoming : lorentz_vector::LorentzVector<f64> = LorentzVector::default();
         for m in incoming_momenta {
             sum_incoming += *m;
         }
-        squared_topo.e_cm_squared = sum_incoming.square();
+        squared_topo.e_cm_squared = sum_incoming.square().abs();
 
         debug_assert_eq!(
             squared_topo.external_momenta.len(),
@@ -1850,13 +1850,13 @@ impl SquaredTopology {
             constants /= if self.n_incoming_momenta == 2 {
                 Into::<T>::into(2.)
                     * (SquaredTopology::lambda(
-                        (external_momenta[0] + external_momenta[1]).square(),
+                        (external_momenta[0] + external_momenta[1]).square().abs(),
                         external_momenta[0].square(),
                         external_momenta[1].square(),
                     ))
                     .sqrt()
             } else {
-                let e_cm = external_momenta[0].square().sqrt();
+                let e_cm = external_momenta[0].square().sqrt().abs();
                 e_cm * Into::<T>::into(2.0)
             };
         }
@@ -1878,9 +1878,9 @@ impl SquaredTopology {
         }
 
         let e_cm_sq = if self.n_incoming_momenta == 2 {
-            (external_momenta[0] + external_momenta[1]).square()
+            (external_momenta[0] + external_momenta[1]).square().abs()
         } else {
-            external_momenta[0].square()
+            external_momenta[0].square().abs()
         };
 
         if let Some(em) = event_manager {

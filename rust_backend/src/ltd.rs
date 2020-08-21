@@ -193,7 +193,7 @@ impl Topology {
             self.e_cm_squared = v.square_impr().abs();
             if self.e_cm_squared == 0. {
                 eprintln!("e_cm is zero: taking the abs of the spatial part instead");
-                self.e_cm_squared = self.external_kinematics[0].spatial_squared_impr();
+                self.e_cm_squared = self.external_kinematics[0].spatial_squared_impr().abs();
             }
 
             // determine the on-shell flag
