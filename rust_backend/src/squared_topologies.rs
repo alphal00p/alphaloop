@@ -535,22 +535,23 @@ impl SquaredTopologySet {
             .collect();
         let mut c = self.multi_channeling_channels.clone();
 
-        let rot_matrix = &self.rotation_matrix;
+        let rot_matrix = &rotated_topologies[0].rotation_matrix;
         for (_, _, shifts) in &mut c {
             for shift in shifts.iter_mut() {
-                shift.x = (rot_matrix[0][0] * shift.x
-                    + rot_matrix[0][1] * shift.y
-                    + rot_matrix[0][2] * shift.z)
+                let old_shift = shift.clone();
+                shift.x = (rot_matrix[0][0] * old_shift.x
+                    + rot_matrix[0][1] * old_shift.y
+                    + rot_matrix[0][2] * old_shift.z)
                     .to_f64()
                     .unwrap();
-                shift.y = (rot_matrix[1][0] * shift.x
-                    + rot_matrix[1][1] * shift.y
-                    + rot_matrix[1][2] * shift.z)
+                shift.y = (rot_matrix[1][0] * old_shift.x
+                    + rot_matrix[1][1] * old_shift.y
+                    + rot_matrix[1][2] * old_shift.z)
                     .to_f64()
                     .unwrap();
-                shift.z = (rot_matrix[2][0] * shift.x
-                    + rot_matrix[2][1] * shift.y
-                    + rot_matrix[2][2] * shift.z)
+                shift.z = (rot_matrix[2][0] * old_shift.x
+                    + rot_matrix[2][1] * old_shift.y
+                    + rot_matrix[2][2] * old_shift.z)
                     .to_f64()
                     .unwrap();
             }
@@ -854,7 +855,10 @@ impl SquaredTopologySet {
                 cache.current_supergraph = current_supergraph;
 
                 if self.settings.general.debug > 0 {
-                    println!("Evaluating supergraph {} for channel {}", t.name, channel_id);
+                    println!(
+                        "Evaluating supergraph {} for channel {}",
+                        t.name, channel_id
+                    );
                 }
 
                 // undo the jacobian for unused dimensions
