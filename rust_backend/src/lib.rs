@@ -715,7 +715,8 @@ impl PythonCrossSection {
         } = squared_topology_set.create_cache();
         let dashboard = dashboard::Dashboard::minimal_dashboard();
         let integrand = integrand::Integrand::new(
-            squared_topology.n_loops,
+            // squared_topology.n_loops,
+            squared_topology_set.get_maximum_loop_count(),
             squared_topology_set,
             settings.clone(),
             true,
