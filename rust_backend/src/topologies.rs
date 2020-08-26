@@ -2282,7 +2282,7 @@ impl SOCPProblem {
 
         let num_constraints = max_ellipsoids + max_foci * 5;
         let var_length = 3 * n_loops + max_foci + 1;
-        let num_non_empty = max_ellipsoids * n_loops + max_foci + 5 * n_loops * max_foci;
+        let num_non_empty = max_ellipsoids * n_loops + max_foci + 8 * n_loops * max_foci;
 
         let focus_list = vec![(0, 0, 0, 0); max_foci];
         let a_dense = vec![0.; num_constraints * var_length];
