@@ -323,7 +323,7 @@ class PartialFractioning:
                     for j, l in enumerate(num_step['lambdas']):
                         # LTD energy in the cut basis
                         if l != 0:
-                            ss += "{:+}*energies(c{})".format(cast_int(l), j + self.ltd_index)
+                            ss += "{:+}*energy(c{})".format(cast_int(l), j + 1 + self.ltd_index)
                     for (j, e) in enumerate(num_step['energies']):
                         if e != 0:
                             ss += "{:+}*E{}".format(cast_int(e), j)

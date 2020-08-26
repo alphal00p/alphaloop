@@ -1000,12 +1000,14 @@ aGraph=%s;
                         mat = [diag_info['graph'].loop_lines[li].signature for (_, (li, _)) in co]
                         if mat == []:
                             nmi = []
+                            cb_to_lmb = []
                         else:
-                            nmi = np.linalg.inv(np.array(mat).transpose())
+                            nmi = np.linalg.inv(np.array(mat).transpose()) # the tranpose matrix is used for signatures
+                            cb_to_lmb = np.linalg.inv(np.array(mat))
 
                         m = []
                         ltdenergy = ['ltd{0},{1}E{0}'.format(prop_id[(di, li, pi)], '+' if cut_sign == 1 else '-') for (cut_sign, (li, pi)) in co]
-                        for i, r in enumerate(nmi):
+                        for i, r in enumerate(cb_to_lmb):
                             mm = []
                             for (c, (_, (li, pi))) in zip(r, co):
                                 if c != 0:
@@ -1013,7 +1015,7 @@ aGraph=%s;
                                     if ext == '':
                                         ext = '0'
                                     
-                                    mm.append('{}ltd{}{}energies({})'.format('+' if c == 1 else '-', prop_id[(di, li, pi)], '-' if c == 1 else '+', ext))
+                                    mm.append('{}ltd{}{}energies({})'.format('' if c == 1 else '-', prop_id[(di, li, pi)], '-' if c == 1 else '+', ext))
                             m += ['c{}'.format(i + len(cut['cuts']) + signature_offset), '+'.join(mm)]
 
                         r = []
