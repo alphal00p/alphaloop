@@ -2232,6 +2232,7 @@ class FORMSuperGraphList(list):
 
                     confs = []
                     integrand_main_code = ''
+                    integrand_f128_main_code = ''
                     conf_secs = num.split('#CONF')
                     for conf_sec in conf_secs[1:]:
                         conf_sec = conf_sec.replace("#CONF\n", '')
@@ -2273,7 +2274,7 @@ class FORMSuperGraphList(list):
                         if len(temp_vars) > 0:
                             graph.is_zero = False
 
-                        main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
+                        main_code = '{}\n{}\n{}\n{}'.format(energy_code, integrated_ct_code, denom_code, conf_sec)
                         main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
                         integrand_main_code += '\nstatic inline double complex %(header)sevaluate_{}_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
@@ -2281,7 +2282,7 @@ class FORMSuperGraphList(list):
 
                         main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                         main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                        integrand_main_code += '\n' + '\nstatic inline __complex128 %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
+                        integrand_f128_main_code += '\n' + '\nstatic inline __complex128 %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
                             '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                         )
 
@@ -2299,7 +2300,7 @@ double complex %(header)sevaluate_{}(double complex lm[], double complex params[
         ))
 
 
-                    integrand_main_code += \
+                    integrand_f128_main_code += \
 """
 __complex128 %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf) {{
    switch(conf) {{
@@ -2315,9 +2316,10 @@ __complex128 %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[]
                     bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
                     bar.update(i_graph+1)
 
-                    writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand{}.c'%header_map).format(i)).write((numerator_header + integrand_main_code)%header_map)
+                    writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand{}_f64.c'%header_map).format(i)).write((numerator_header + integrand_main_code)%header_map)
+                    writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand_{}_f128.c'%header_map).format(i)).write((numerator_header + integrand_f128_main_code)%header_map)
 
-        numerator_code = \
+        integrand_code = \
 """
 #include <tgmath.h>
 #include <quadmath.h>
@@ -2349,7 +2351,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
     ['\t\tdefault: raise(SIGABRT);']
     )
     )
-        writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(numerator_code%header_map)
+        writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(integrand_code%header_map)
 
         integrand_C_source_size = 0.
         for fpath in glob_module.glob(pjoin(root_output_path,'*integrand*')):
@@ -2444,6 +2446,7 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
 
                     confs = []
                     numerator_main_code = ''
+                    numerator_main_code_f128 = ''
                     conf_secs = num.split('#CONF')
                     for conf_sec in conf_secs[1:]:
                         conf_sec = conf_sec.replace("#CONF\n", '')
@@ -2496,10 +2499,10 @@ __complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], i
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
                         ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
 
-                        numerator_main_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
-                        numerator_main_code_f128 = float_pattern.sub(r'\1q', numerator_main_code_f128)
-                        numerator_main_code += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}\n\treturn {};\n}}\n'.format(i, conf_id,
-                            '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_main_code_f128, max_index + 1
+                        numerator_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                        numerator_code_f128 = float_pattern.sub(r'\1q', numerator_code_f128)
+                        numerator_main_code_f128 += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}\n\treturn {};\n}}\n'.format(i, conf_id,
+                            '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_code_f128, max_index + 1
                         )
 
                     numerator_main_code += \
@@ -2540,7 +2543,26 @@ int %(header)sget_rank_{}(int conf) {{
                     bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
                     bar.update(i_graph+1)
 
-                    writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}.c'%header_map).format(i)).write((numerator_header + numerator_main_code)%header_map)
+                    writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f64.c'%header_map).format(i)).write((numerator_header + numerator_main_code)%header_map)
+
+                    numerator_main_code += \
+"""
+int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
+    switch(conf) {{
+{}
+    }}
+}}
+
+""".format(i,
+        '\n'.join(
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
+        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ))
+
+                    bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
+                    bar.update(i_graph+1)
+
+                    writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f128.c'%header_map).format(i)).write((numerator_header + numerator_main_code_f128)%header_map)
 
         numerator_code = \
 """
@@ -3315,7 +3337,10 @@ class FORMProcessor(object):
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:
                 logger.info("Now compiling FORM-generated numerators with options: %s ..."%(' '.join(FORM_processing_options['compilation-options'])))
+
+                t = time.time()
                 misc.compile(arg=FORM_processing_options['compilation-options'] ,cwd=root_output_path,mode='cpp', nb_core=FORM_processing_options["cores"])
+                logger.info("Compilation time: {:.2}s".format(time.time() - t))
             except MadGraph5Error as e:
                 logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
                     utils.bcolors.RED,str(e),utils.bcolors.ENDC))

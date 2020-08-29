@@ -285,6 +285,10 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_optimization' should be between 0 and 3, not %s"%value)
             self.FORM_options['compilation-options'] += ['-e', "OPTIMIZATION_LVL=%s"%value]
             self.FORM_options['extra-options']['OPTIMLVL'] = [1,2,4,4][int(value)]
+        elif key == 'FORM_compile_optimization_f128':
+            if not value in [str(opt_n) for opt_n in range(4)]:
+                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_optimization_f128' should be between 0 and 3, not %s"%value)
+            self.FORM_options['compilation-options'] += ['-e', "OPTIMIZATION_LVL_f128=%s"%value]
         elif key == 'FORM_integrand_type':
             if not value in ('PF', 'LTD', 'None'):
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_integrand_type' should be one of 'PF', 'LTD', 'None', not %s"%value)

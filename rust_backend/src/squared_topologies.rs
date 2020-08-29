@@ -1495,7 +1495,7 @@ impl SquaredTopology {
             LorentzVector::default(),
             T::zero(),
             T::zero(),
-        ); MAX_SG_LOOP];
+        ); MAX_SG_LOOP + 1];
 
         // determine an overestimate of the t that solves the energy constraint
         // then -t and t should give two different solutions or do not converge
