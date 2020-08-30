@@ -1,6 +1,7 @@
 use crate::amplitude::Amplitude;
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::integrand::IntegrandImplementation;
+use crate::integrand::IntegrandSample;
 use crate::observables::EventManager;
 use crate::partial_fractioning::PFCache;
 use crate::partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
@@ -10,7 +11,9 @@ use color_eyre::{Help, Report};
 use dual_num::{DualN, U10, U13, U16, U19, U4, U7};
 use eyre::WrapErr;
 use fnv::FnvHashMap;
+use havana::{ContinuousGrid, Grid};
 use itertools::Itertools;
+use lorentz_vector::LorentzVector;
 use mpolynomial::MPolynomial;
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, One, Signed, ToPrimitive, Zero};
@@ -25,7 +28,6 @@ use std::ptr;
 use std::slice;
 use std::time::Instant;
 use utils::Signum;
-use lorentz_vector::LorentzVector;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SurfaceType {
@@ -803,10 +805,14 @@ impl IntegrandImplementation for Topology {
         None
     }
 
+    fn create_grid(&self) -> Grid {
+        Grid::ContinuousGrid(ContinuousGrid::new(self.n_loops, 128))
+    }
+
     #[inline]
     fn evaluate_float<'a>(
         &mut self,
-        x: &'a [f64],
+        x: IntegrandSample<'a>,
         cache: &mut LTDCacheAllPrecisions,
         _events: Option<&mut EventManager>,
     ) -> Complex<float> {
@@ -816,7 +822,7 @@ impl IntegrandImplementation for Topology {
     #[inline]
     fn evaluate_f128<'a>(
         &mut self,
-        x: &'a [f64],
+        x: IntegrandSample<'a>,
         cache: &mut LTDCacheAllPrecisions,
         _events: Option<&mut EventManager>,
     ) -> Complex<f128::f128> {

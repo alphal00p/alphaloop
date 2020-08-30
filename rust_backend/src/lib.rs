@@ -16,7 +16,7 @@ use num_traits::{One, ToPrimitive, Zero};
 use utils::Signum;
 
 #[cfg(not(feature = "higher_loops"))]
-pub const MAX_LOOP: usize = 2;
+pub const MAX_LOOP: usize = 4;
 #[cfg(feature = "higher_loops")]
 pub const MAX_LOOP: usize = 6;
 
@@ -572,6 +572,8 @@ pub enum Integrator {
     Cuhre,
     #[serde(rename = "divonne")]
     Divonne,
+    #[serde(rename = "havana")]
+    Havana
 }
 
 impl Default for IntegratorSettings {
@@ -715,7 +717,6 @@ impl PythonCrossSection {
         } = squared_topology_set.create_cache();
         let dashboard = dashboard::Dashboard::minimal_dashboard();
         let integrand = integrand::Integrand::new(
-            // squared_topology.n_loops,
             squared_topology_set.get_maximum_loop_count(),
             squared_topology_set,
             settings.clone(),

@@ -26,7 +26,8 @@ use std::io::{BufWriter, Write};
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
 use ltd::amplitude::Amplitude;
-use ltd::integrand::Integrand;
+use ltd::integrand::IntegrandImplementation;
+use ltd::integrand::{Integrand, IntegrandSample};
 use ltd::squared_topologies::{SquaredTopology, SquaredTopologySet};
 use ltd::topologies::{LTDCache, LTDNumerator, Surface, SurfaceType, Topology};
 use ltd::utils::Signum;
@@ -34,6 +35,8 @@ use ltd::{float, FloatLike, IntegratedPhase, Integrator, Settings};
 
 use colored::*;
 use ltd::dashboard::{Dashboard, StatusUpdate, StatusUpdateSender};
+
+use havana::{AverageAndErrorAccumulator, Sample};
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -137,6 +140,115 @@ pub fn evaluate_points(
                     .immediate_send(scope, &f[..num_output]),
             );
         });
+    }
+}
+
+fn havana_integrate<'a, F>(settings: &Settings, user_data_generator: F) -> CubaResult
+where
+    F: Fn() -> UserData<'a>,
+{
+    let mut num_points = 0;
+
+    /*let n_max: usize = 10_000_000_000;
+
+    let s = settings.integrator.n_start as f64;
+    let i = settings.integrator.n_increase as f64;
+    let m = n_max as f64;
+    let mut samples = vec![
+        Sample::new();
+        (((i * i + 8. * i * m - 4. * i * s + 4. * s * s).sqrt() - i) / 2.) as usize
+    ];*/
+
+    let mut samples = vec![Sample::new(); settings.integrator.n_start];
+    let mut f = vec![0.; settings.integrator.n_start];
+    let mut integral = AverageAndErrorAccumulator::new();
+
+    let mut rng = rand::thread_rng();
+    //let mut grid = ContinuousGrid::new(n_loops * 3, 128);
+
+    let mut user_data = user_data_generator();
+
+    let mut grid = match &user_data.integrand[0] {
+        Integrands::Topology(t) => t.topologies[0].create_grid(),
+        Integrands::CrossSection(t) => t.topologies[0].create_grid(),
+    };
+
+    let mut iter = 1;
+    while num_points < settings.integrator.n_max {
+        let cur_points = settings.integrator.n_start + settings.integrator.n_increase * (iter - 1);
+        samples.resize(cur_points, Sample::new());
+        f.resize(cur_points, 0.);
+
+        for sample in &mut samples[..cur_points] {
+            grid.sample(&mut rng, sample);
+        }
+
+        let cores = user_data.integrand.len();
+        // the number of points per core for all cores but the last, which may have fewer
+        let nvec_per_core = cur_points / cores + 1;
+
+        user_data.integrand[..cores]
+            .into_par_iter()
+            .zip(f.par_chunks_mut(nvec_per_core))
+            .zip(samples.par_chunks(nvec_per_core))
+            .for_each(|((integrand_f, ff), xi)| {
+                for (ffi, s) in ff.iter_mut().zip(xi.iter()) {
+                    let fc = match integrand_f {
+                        Integrands::Topology(t) => {
+                            t.evaluate(IntegrandSample::Nested(s), s.get_weight(), iter)
+                        }
+                        Integrands::CrossSection(t) => {
+                            t.evaluate(IntegrandSample::Nested(s), s.get_weight(), iter)
+                        }
+                    };
+
+                    let f = match settings.integrator.integrated_phase {
+                        IntegratedPhase::Real => fc.re,
+                        IntegratedPhase::Imag => fc.im,
+                        IntegratedPhase::Both => unimplemented!(),
+                    };
+
+                    *ffi = f;
+                }
+            });
+
+        for (s, f) in samples[..cur_points].iter().zip(&f[..cur_points]) {
+            grid.add_training_sample(s, *f, false);
+            if let Sample::ContinuousGrid(w, _x) = s {
+                integral.add_sample(*f * *w);
+            }
+        }
+
+        grid.update(1.5, 128);
+
+        // now merge all statistics and observables into the first
+        let (first, others) = user_data.integrand[..cores].split_at_mut(1);
+        for i in others {
+            match (&mut first[0], i) {
+                (Integrands::CrossSection(i1), Integrands::CrossSection(i2)) => {
+                    i1.merge_statistics(i2)
+                }
+                (Integrands::Topology(i1), Integrands::Topology(i2)) => i1.merge_statistics(i2),
+                _ => unreachable!(),
+            }
+        }
+
+        match &mut user_data.integrand[0] {
+            Integrands::CrossSection(i) => i.broadcast_statistics(),
+            Integrands::Topology(i) => i.broadcast_statistics(),
+        }
+
+        iter += 1;
+        num_points += cur_points;
+    }
+
+    // TODO: support multiple dimensions in the ouput
+    CubaResult {
+        neval: settings.integrator.n_max as i64,
+        fail: 0,
+        result: vec![integral.avg],
+        error: vec![integral.err],
+        prob: vec![integral.chi_sq],
     }
 }
 
@@ -353,8 +465,10 @@ fn integrand(
                     };
 
                     let res = match integrand_f {
-                        Integrands::CrossSection(c) => c.evaluate(y, w, iter),
-                        Integrands::Topology(t) => t.evaluate(y, w, iter),
+                        Integrands::CrossSection(c) => {
+                            c.evaluate(IntegrandSample::Flat(y), w, iter)
+                        }
+                        Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(y), w, iter),
                     };
 
                     if res.is_finite() {
@@ -403,8 +517,8 @@ fn integrand(
             let w = if weight.len() > 0 { weight[i] } else { 1. };
 
             let res = match &mut user_data.integrand[(core + 1) as usize] {
-                Integrands::CrossSection(c) => c.evaluate(y, w, iter),
-                Integrands::Topology(t) => t.evaluate(y, w, iter),
+                Integrands::CrossSection(c) => c.evaluate(IntegrandSample::Flat(y), w, iter),
+                Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(y), w, iter),
             };
 
             if res.is_finite() {
@@ -591,8 +705,8 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
         }
 
         match &mut integrand {
-            Integrands::CrossSection(sqt) => sqt.evaluate(&x, 1., 1),
-            Integrands::Topology(t) => t.evaluate(&x, 1., 1),
+            Integrands::CrossSection(sqt) => sqt.evaluate(IntegrandSample::Flat(&x), 1., 1),
+            Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(&x), 1., 1),
         };
     }
 
@@ -1267,7 +1381,7 @@ fn inspect<'a>(
                 1,
                 None,
             )
-            .evaluate(&pt, 1., 1),
+            .evaluate(IntegrandSample::Flat(&pt), 1., 1),
             Diagram::Topology(topo) => Integrand::new(
                 topo.n_loops,
                 topo.clone(),
@@ -1277,7 +1391,7 @@ fn inspect<'a>(
                 1,
                 None,
             )
-            .evaluate(&pt, 1., 1),
+            .evaluate(IntegrandSample::Flat(&pt), 1., 1),
         };
         println!("result={:e}\n  | x={:?}\n", result, pt);
         return;
@@ -1288,11 +1402,13 @@ fn inspect<'a>(
         let result = match diagram {
             Diagram::CrossSection(sqt) => {
                 let mut cache = sqt.create_caches();
-                sqt.clone().evaluate::<f128::f128>(&pt, &mut cache, None)
+                sqt.clone()
+                    .evaluate::<f128::f128>(IntegrandSample::Flat(&pt), &mut cache, None)
             }
             Diagram::Topology(t) => {
                 let mut cache = LTDCache::<f128::f128>::new(&t);
-                t.clone().evaluate::<f128::f128>(&pt, &mut cache)
+                t.clone()
+                    .evaluate::<f128::f128>(IntegrandSample::Flat(&pt), &mut cache)
             }
         };
 
@@ -1301,11 +1417,13 @@ fn inspect<'a>(
         let result = match diagram {
             Diagram::CrossSection(sqt) => {
                 let mut cache = sqt.create_caches();
-                sqt.clone().evaluate::<float>(&pt, &mut cache, None)
+                sqt.clone()
+                    .evaluate::<float>(IntegrandSample::Flat(&pt), &mut cache, None)
             }
             Diagram::Topology(t) => {
                 let mut cache = LTDCache::<float>::new(&t);
-                t.clone().evaluate::<float>(&pt, &mut cache)
+                t.clone()
+                    .evaluate::<float>(IntegrandSample::Flat(&pt), &mut cache)
             }
         };
         println!("result={:e}\n  | x={:?}\n", result, pt);
@@ -1575,7 +1693,8 @@ fn main() -> Result<(), Report> {
     if !settings.observables.active_observables.is_empty()
         && ((cores > 1 && !settings.integrator.internal_parallelization)
             || (settings.integrator.integrator != Integrator::Vegas
-                && settings.integrator.integrator != Integrator::Suave))
+                && settings.integrator.integrator != Integrator::Suave
+                && settings.integrator.integrator != Integrator::Havana))
     {
         println!("Removing observable functions because we are not running in single core or because a not supported integrator is selected.");
         settings.observables.active_observables.clear();
@@ -1583,7 +1702,8 @@ fn main() -> Result<(), Report> {
 
     if settings.integrator.dashboard && !settings.integrator.internal_parallelization && cores > 0
         || (settings.integrator.integrator != Integrator::Vegas
-            && settings.integrator.integrator != Integrator::Suave)
+            && settings.integrator.integrator != Integrator::Suave
+            && settings.integrator.integrator != Integrator::Havana)
     {
         println!("Cannot use dashboard with Cuba parallelization and cores != 0 or an integrator other than Vegas or Suave");
         settings.integrator.dashboard = false;
@@ -1799,6 +1919,7 @@ fn main() -> Result<(), Report> {
     };
 
     let cuba_result = match settings.integrator.integrator {
+        Integrator::Havana => havana_integrate(&settings, user_data_generator),
         Integrator::Vegas => vegas_integrate(name, n_loops, &settings, ci, user_data_generator),
         Integrator::Suave => ci.suave(
             3 * n_loops,

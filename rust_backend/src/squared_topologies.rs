@@ -1,5 +1,5 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
-use crate::integrand::IntegrandImplementation;
+use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
 use crate::topologies::FixedDeformationLimit;
 use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
@@ -13,6 +13,7 @@ use color_eyre::{Help, Report};
 use dlopen::wrapper::Container;
 use eyre::WrapErr;
 use f128::f128;
+use havana::{ContinuousGrid, DiscreteGrid, Grid};
 use itertools::Itertools;
 use lorentz_vector::{LorentzVector, RealNumberLike};
 use num::Complex;
@@ -713,12 +714,28 @@ impl SquaredTopologySet {
         T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
     >(
         &mut self,
-        x: &'a [f64],
+        sample: IntegrandSample<'a>,
         cache: &mut SquaredTopologyCache<T>,
         mut event_manager: Option<&mut EventManager>,
     ) -> Complex<T> {
         let mut rng = thread_rng();
         let mut xrot = [0.; MAX_SG_LOOP * 3];
+
+        // obtain the sampled channel if one is provided
+        let (selected_channel, x) = match sample {
+            IntegrandSample::Flat(x) => (None, x),
+            IntegrandSample::Nested(x) => match x {
+                havana::Sample::ContinuousGrid(_, x) => (None, x.as_slice()),
+                havana::Sample::DiscreteGrid(_, selected_channel, sub_sample) => (
+                    Some(selected_channel[0]),
+                    match sub_sample.as_ref().unwrap().as_ref() {
+                        havana::Sample::ContinuousGrid(_, x) => x.as_slice(),
+                        _ => unreachable!(),
+                    },
+                ),
+                havana::Sample::MultiChannel(_, _, _) => unimplemented!(),
+            },
+        };
 
         // paramaterize and consider the result in a channel basis
         let n_fixed = self.settings.cross_section.fixed_cut_momenta.len();
@@ -778,6 +795,12 @@ impl SquaredTopologySet {
         for (channel_id, (channel, _, channel_shift)) in
             self.multi_channeling_channels.iter().enumerate()
         {
+            if let Some(selected_channel) = selected_channel {
+                if selected_channel != channel_id {
+                    continue;
+                }
+            }
+
             if let Some(selected_channel) = self.settings.general.multi_channeling_channel {
                 if selected_channel != channel_id as isize {
                     continue;
@@ -895,7 +918,7 @@ impl SquaredTopologySet {
         T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
     >(
         &mut self,
-        x: &'a [f64],
+        x: IntegrandSample<'a>,
         cache: &mut SquaredTopologyCache<T>,
         mut event_manager: Option<&mut EventManager>,
     ) -> Complex<T> {
@@ -914,6 +937,8 @@ impl SquaredTopologySet {
         if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty() {
             return self.multi_channeling(x, cache, event_manager);
         }
+
+        let x = x.to_flat();
 
         let mut rng = thread_rng();
         let mut xrot = [0.; MAX_SG_LOOP * 3];
@@ -2614,10 +2639,57 @@ impl IntegrandImplementation for SquaredTopologySet {
         }
     }
 
+    fn create_grid(&self) -> Grid {
+        if self.topologies.len() > 1 {
+            unimplemented!("Not supported yet");
+
+        // TODO: now we Monte Carlo sample over multi-channels first and then over toplogies
+        // we should switch that around and only consider the channels revelant to that topology
+        // Monte Carlo over topologies and multi-channeling channels
+        /*Grid::DiscreteGrid(DiscreteGrid::new(
+            &[self.topologies.len()],
+            (0..self.topologies.len())
+                .map(|_| {
+                    Grid::DiscreteGrid(DiscreteGrid::new(
+                        &[self.multi_channeling_channels.len()],
+                        (0..self.multi_channeling_channels.len())
+                            .map(|_| {
+                                Grid::ContinuousGrid(ContinuousGrid::new(
+                                    3 * self.get_maximum_loop_count(),
+                                    128,
+                                ))
+                            })
+                            .collect(),
+                    ))
+                })
+                .collect(),
+        ))*/
+        } else {
+            if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty()
+            {
+                // construct the discrete grid for multi-channeling
+                // TODO: now we can replace the loop counts by the actual loop counts needed per topology
+                Grid::DiscreteGrid(DiscreteGrid::new(
+                    &[self.multi_channeling_channels.len()],
+                    (0..self.multi_channeling_channels.len())
+                        .map(|_| {
+                            Grid::ContinuousGrid(ContinuousGrid::new(
+                                3 * self.get_maximum_loop_count(),
+                                128,
+                            ))
+                        })
+                        .collect(),
+                ))
+            } else {
+                Grid::ContinuousGrid(ContinuousGrid::new(3 * self.get_maximum_loop_count(), 128))
+            }
+        }
+    }
+
     #[inline]
     fn evaluate_float<'a>(
         &mut self,
-        x: &'a [f64],
+        x: IntegrandSample<'a>,
         cache: &mut SquaredTopologyCacheCollection,
         event_manager: Option<&mut EventManager>,
     ) -> Complex<float> {
@@ -2627,7 +2699,7 @@ impl IntegrandImplementation for SquaredTopologySet {
     #[inline]
     fn evaluate_f128<'a>(
         &mut self,
-        x: &'a [f64],
+        x: IntegrandSample<'a>,
         cache: &mut SquaredTopologyCacheCollection,
         event_manager: Option<&mut EventManager>,
     ) -> Complex<f128> {

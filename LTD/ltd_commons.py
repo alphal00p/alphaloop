@@ -81,7 +81,7 @@ hyperparameters = HyperParameters({
         'internal_parallelization'  : True,
         # Use the dashboard. Make sure to run Cuba with 0 cores or enable internal_parallelization.
         'dashboard'         :   True,
-        # The integrator can be vegas, divonne, cuhre or suave
+        # The integrator can be havana, vegas, divonne, cuhre or suave
         'integrator'        :   'vegas',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),

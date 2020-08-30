@@ -1,3 +1,4 @@
+use crate::integrand::IntegrandSample;
 use crate::partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use crate::topologies::{
     CacheSelector, Cut, CutList, LTDCache, LTDNumerator, LoopLine, SOCPProblem, Surface,
@@ -3338,12 +3339,14 @@ impl Topology {
 
     pub fn evaluate<'a, T: FloatLike>(
         &mut self,
-        x: &'a [f64],
+        x: IntegrandSample<'a>,
         cache: &mut LTDCache<T>,
     ) -> Complex<T> {
         // parameterize
         let mut k = [LorentzVector::default(); MAX_LOOP];
         let mut jac_para = T::one();
+
+        let x = x.to_flat();
         for i in 0..self.n_loops {
             // set the loop index to i + 1 so that we can also shift k
             let (l_space, jac) = Topology::parameterize(
