@@ -125,6 +125,8 @@ impl Topology {
     /// If `external_momenta_set` is true, the existence conditions
     /// for ellipsoids and e_cm are determined as well.
     pub fn process(&mut self, external_momenta_set: bool) {
+        assert!(self.n_loops <= MAX_LOOP, "MAX_LOOP is too small: it should be at least {}", self.n_loops);
+
         // construct the numerator
         self.numerator = if self.numerator_tensor_coefficients.len() == 0
             && self.numerator_tensor_coefficients_sparse.len() == 0

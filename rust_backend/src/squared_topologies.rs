@@ -1122,6 +1122,12 @@ impl SquaredTopology {
             .wrap_err("Could not parse squared topology file")
             .suggestion("Is it a correct yaml file")?;
 
+        assert!(
+            squared_topo.n_loops <= MAX_SG_LOOP,
+            "MAX_SG_LOOP is too small: it should be at least {}",
+            squared_topo.n_loops
+        );
+
         // update the UV mass and small mass in the squared topology
         // this affects the multi-channeling
         for ll in &mut squared_topo.topo.loop_lines {
@@ -1200,7 +1206,7 @@ impl SquaredTopology {
 
         squared_topo.external_momenta = incoming_momenta.clone();
         squared_topo.external_momenta.extend(incoming_momenta);
-        let mut sum_incoming : lorentz_vector::LorentzVector<f64> = LorentzVector::default();
+        let mut sum_incoming: lorentz_vector::LorentzVector<f64> = LorentzVector::default();
         for m in incoming_momenta {
             sum_incoming += *m;
         }
@@ -1608,7 +1614,7 @@ impl SquaredTopology {
             .map(|m| m.map(|c| c.into()))
             .collect();
 
-        let mut cut_momenta = [LorentzVector::default(); MAX_SG_LOOP];
+        let mut cut_momenta = [LorentzVector::default(); MAX_SG_LOOP + 1];
         let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_SG_LOOP];
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_SG_LOOP];
@@ -1720,13 +1726,13 @@ impl SquaredTopology {
         let mut cut_energies_summed = T::zero();
         let mut scaling_result = Complex::one();
 
-        let mut shifts = [LorentzVector::default(); MAX_SG_LOOP];
+        let mut shifts = [LorentzVector::default(); MAX_SG_LOOP + 1];
 
         // evaluate the cuts with the proper scaling
         for ((cut_mom, shift), cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
             .iter_mut()
-            .zip(shifts.iter_mut())
-            .zip(cutkosky_cuts.cuts.iter())
+            .zip(shifts[..cutkosky_cuts.cuts.len()].iter_mut())
+            .zip_eq(cutkosky_cuts.cuts.iter())
         {
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
             *shift = utils::evaluate_signature(
@@ -1901,7 +1907,7 @@ impl SquaredTopology {
 
         // for the evaluation of the numerator we need complex loop momenta of the supergraph.
         // the order is: cut momenta, momenta graph 1, ... graph n
-        for (kd, cut_mom) in k_def
+        for (kd, cut_mom) in k_def[..cutkosky_cuts.cuts.len() - 1]
             .iter_mut()
             .zip(&cut_momenta[..cutkosky_cuts.cuts.len() - 1])
         {
@@ -2068,7 +2074,7 @@ impl SquaredTopology {
 
                     for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
                         .iter()
-                        .zip(&kappas)
+                        .zip(&kappas[..subgraph.n_loops])
                     {
                         k_def[k_def_index] = if diagram_info.conjugate_deformation {
                             // take the complex conjugate of the deformation
@@ -2189,7 +2195,7 @@ impl SquaredTopology {
                         first_subgraph_cache.reduced_coefficient_lb[0].resize(len, Complex::zero());
                         for (rlb, r) in first_subgraph_cache.reduced_coefficient_lb[0]
                             .iter_mut()
-                            .zip(form_numerator_buffer.chunks(2))
+                            .zip_eq(form_numerator_buffer.chunks(2))
                         {
                             *rlb = Complex::new(Into::<T>::into(r[0]), Into::<T>::into(r[1]));
                         }
