@@ -2220,7 +2220,7 @@ impl SquaredTopology {
                         first_subgraph_cache.reduced_coefficient_lb[0].resize(len, Complex::zero());
                         for (rlb, r) in first_subgraph_cache.reduced_coefficient_lb[0]
                             .iter_mut()
-                            .zip_eq(form_numerator_buffer.chunks(2))
+                            .zip_eq(form_numerator_buffer[..2 * len].chunks(2))
                         {
                             *rlb = Complex::new(Into::<T>::into(r[0]), Into::<T>::into(r[1]));
                         }
@@ -2665,7 +2665,9 @@ impl IntegrandImplementation for SquaredTopologySet {
                 .collect(),
         ))*/
         } else {
-            if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty()
+            if self.settings.general.multi_channeling
+                && !self.multi_channeling_channels.is_empty()
+                && self.settings.general.multi_channeling_channel.is_none()
             {
                 // construct the discrete grid for multi-channeling
                 // TODO: now we can replace the loop counts by the actual loop counts needed per topology
