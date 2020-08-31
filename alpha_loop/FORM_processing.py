@@ -2274,7 +2274,7 @@ class FORMSuperGraphList(list):
                         if len(temp_vars) > 0:
                             graph.is_zero = False
 
-                        main_code = '{}\n{}\n{}\n{}'.format(energy_code, integrated_ct_code, denom_code, conf_sec)
+                        main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
                         main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
                         integrand_main_code += '\nstatic inline double complex %(header)sevaluate_{}_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
@@ -2513,12 +2513,6 @@ int %(header)sevaluate_{}(double complex lm[], double complex params[], int conf
     }}
 }}
 
-int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
-    switch(conf) {{
-{}
-    }}
-}}
-
 int %(header)sget_rank_{}(int conf) {{
    switch(conf) {{
 {}
@@ -2527,11 +2521,6 @@ int %(header)sget_rank_{}(int conf) {{
 """.format(i,
         '\n'.join(
         ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
-        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ),
-        i,
-        '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
         (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ),
         i,
@@ -2545,7 +2534,7 @@ int %(header)sget_rank_{}(int conf) {{
 
                     writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f64.c'%header_map).format(i)).write((numerator_header + numerator_main_code)%header_map)
 
-                    numerator_main_code += \
+                    numerator_main_code_f128 += \
 """
 int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
     switch(conf) {{
