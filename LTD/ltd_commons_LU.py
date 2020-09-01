@@ -86,6 +86,11 @@ hyperparameters = HyperParameters({
         'n_start'           :   int(1.0e4),
         'n_max'             :   int(1.0e12),
         'n_increase'        :   int(1.0e4),
+        'min_probability_per_bin'   : 0.1,
+        'min_samples_for_update'    : 1000,
+        'n_bins'            : 128,
+        'train_on_avg'      : False,
+        'learning_rate'     : 1.5,
         # can be set to high values for use with MPI, otherwise leave it at 1
         'n_vec'             :   1000,
         'seed'              :   1,

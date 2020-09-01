@@ -540,6 +540,11 @@ pub struct IntegratorSettings {
     pub n_increase: usize,
     pub n_max: usize,
     pub n_start: usize,
+    pub min_probability_per_bin: f64,
+    pub min_samples_for_update: usize,
+    pub n_bins: usize,
+    pub train_on_avg: bool,
+    pub learning_rate: f64,
     pub eps_rel: f64,
     pub eps_abs: f64,
     pub border: f64,
@@ -573,7 +578,7 @@ pub enum Integrator {
     #[serde(rename = "divonne")]
     Divonne,
     #[serde(rename = "havana")]
-    Havana
+    Havana,
 }
 
 impl Default for IntegratorSettings {
@@ -586,6 +591,11 @@ impl Default for IntegratorSettings {
             n_vec: 1,
             n_start: 10000,
             n_max: 10000000,
+            min_probability_per_bin: 0.1,
+            min_samples_for_update: 1000,
+            n_bins: 128,
+            train_on_avg: false,
+            learning_rate: 1.5,
             eps_rel: 1e-4,
             eps_abs: 0.,
             border: 1e-12,

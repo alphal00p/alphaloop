@@ -2677,13 +2677,19 @@ impl IntegrandImplementation for SquaredTopologySet {
                         .map(|_| {
                             Grid::ContinuousGrid(ContinuousGrid::new(
                                 3 * self.get_maximum_loop_count(),
-                                128,
+                                self.settings.integrator.n_bins,
+                                self.settings.integrator.min_samples_for_update,
                             ))
                         })
                         .collect(),
+                    self.settings.integrator.min_probability_per_bin,
                 ))
             } else {
-                Grid::ContinuousGrid(ContinuousGrid::new(3 * self.get_maximum_loop_count(), 128))
+                Grid::ContinuousGrid(ContinuousGrid::new(
+                    3 * self.get_maximum_loop_count(),
+                    self.settings.integrator.n_bins,
+                    self.settings.integrator.min_samples_for_update,
+                ))
             }
         }
     }

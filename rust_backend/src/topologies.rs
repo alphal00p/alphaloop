@@ -806,7 +806,11 @@ impl IntegrandImplementation for Topology {
     }
 
     fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(self.n_loops, 128))
+        Grid::ContinuousGrid(ContinuousGrid::new(
+            self.n_loops,
+            self.settings.integrator.n_bins,
+            self.settings.integrator.min_samples_for_update,
+        ))
     }
 
     #[inline]

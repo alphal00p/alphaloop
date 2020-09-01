@@ -213,13 +213,16 @@ where
             });
 
         for (s, f) in samples[..cur_points].iter().zip(&f[..cur_points]) {
-            grid.add_training_sample(s, *f, false);
+            grid.add_training_sample(s, *f, settings.integrator.train_on_avg);
             if let Sample::ContinuousGrid(w, _x) = s {
                 integral.add_sample(*f * *w);
             }
         }
 
-        grid.update(1.5, 128);
+        grid.update(
+            settings.integrator.learning_rate,
+            settings.integrator.n_bins,
+        );
 
         // now merge all statistics and observables into the first
         let (first, others) = user_data.integrand[..cores].split_at_mut(1);
@@ -236,6 +239,10 @@ where
         match &mut user_data.integrand[0] {
             Integrands::CrossSection(i) => i.broadcast_statistics(),
             Integrands::Topology(i) => i.broadcast_statistics(),
+        }
+
+        if let havana::Grid::DiscreteGrid(g) = &grid {
+            g.discrete_dimensions[0].plot("grid_disc.svg").unwrap();
         }
 
         iter += 1;
