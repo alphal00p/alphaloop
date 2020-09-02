@@ -578,26 +578,32 @@ id UVRenormFINITE^n? = 1;
 * If the expression is empty (due to epsilon pole selection), we still write a file
 #if ( termsin(F) == 0 )
     #write<out_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
-    #write<out_integrand_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
+    #write<out_integrand_PF_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
+    #write<out_integrand_LTD_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
 #endif
 
 #ifdef `INTEGRAND'
-    L FINTEGRAND = F;
-    .sort
+    #if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
+        L FINTEGRANDPF = F;
+        .sort
 
-    #if `INTEGRAND' == "PF"
         #include- pftable_`SGID'.h
         .sort:load-pf;
 
-        inexpression FINTEGRAND;
+        inexpression FINTEGRANDPF;
             id conf(n?,?a) = conf(n,?a)*pftopo(n);
             id pftopo(n?) = 0; * unrecognized topology
         endinexpression;
-    #elseif `INTEGRAND' == "LTD" 
+    #endif
+    #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
+        .sort
+        L FINTEGRANDLTD = F;
+        .sort
+
         #include- ltdtable_`SGID'.h
         .sort:load-pf;
 
-        inexpression FINTEGRAND;
+        inexpression FINTEGRANDLTD;
             id conf(n?,?a) = conf(n,?a)*ltdtopo(n);
             id ltdtopo(n?) = 0; * unrecognized topology
         endinexpression;
@@ -624,14 +630,19 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
 * Construction of the integrand
 *********************************************
 #ifdef `INTEGRAND'
+    #if (`INTEGRAND' == "both")
+        Hide FINTEGRANDPF;
+    #endif
+
     Hide F;
     .sort
 
+#if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
 * transform the LTD energies back to normal energies
     id energy(f(?a)) = energy(?a);
     chainout energy;
     id energy(c0) = 1;
-#if (`INTEGRAND' == "LTD")
+
     repeat id ltdcbtolmb(?a,c1?,x?,?b)*energy(c1?) = x*ltdcbtolmb(?a,c1,x,?b);
     id ltdcbtolmb(?a) = 1;
 
@@ -677,7 +688,17 @@ endargument;
 
 .sort:integrand-ltd;
 
-#elseif (`INTEGRAND' == "PF")
+#if (`INTEGRAND' == "both")
+    UnHide FINTEGRANDPF;
+    Hide FINTEGRANDLTD;
+#endif
+#endif
+
+#if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
+    id energy(f(?a)) = energy(?a);
+    chainout energy;
+    id energy(c0) = 1;
+
 * apply the numerator procedure
     Multiply conf1;
     #do i = 0,{`NFINALMOMENTA'-1}
@@ -708,6 +729,10 @@ endargument;
 
     id conf(n?)*conf1(?a) = conf(n, ?a);
 
+    #if (`INTEGRAND' == "both")
+        .sort
+        UnHide FINTEGRANDLTD;
+    #endif
 #endif
 
 * fill in the shifts
@@ -823,49 +848,57 @@ endargument;
     .sort:conf-collect;
     Keep brackets;
 
-    id conf(?a) = conf(conf(?a));
-    argtoextrasymbol tonumber,conf,1;
-    #redefine oldextrasymbols "`extrasymbols_'"
-    B+ conf;
-    .sort:conf-1;
-    Hide FINTEGRAND;
-    #redefine energysymbolstart "`extrasymbols_'"
-    #do ext={`oldextrasymbols'+1}, `energysymbolstart'
-        #write "START integrand"
-        #$conf = extrasymbol_(`ext');
-        #write<out_integrand_`SGID'.proto_c> "#CONF\n%$", $conf;
-        L FF`ext' = FINTEGRAND[conf(`ext')];
-        id ellipsoids(?a$ellipsoids) = 1;
-        id energies(?a$energies) = 1;
-        id constants(?a$constants) = 1;
+    #do INTEGRANDTYPE = {PF,LTD}
+    #if (`INTEGRAND' == `INTEGRANDTYPE') || (`INTEGRAND' == "both")
+        Hide;
+        UNHide FINTEGRAND`INTEGRANDTYPE';
+        NHide FINTEGRAND`INTEGRANDTYPE';
         .sort
-        #write<out_integrand_`SGID'.proto_c> "#CONSTANTS\n%$\n#CONSTANTS", $constants
-        #write<out_integrand_`SGID'.proto_c> "#ENERGIES\n%$\n#ENERGIES", $energies
-        #write<out_integrand_`SGID'.proto_c> "#ELLIPSOIDS\n%$\n#ELLIPSOIDS",$ellipsoids
 
+        id conf(?a) = conf(conf(?a));
+        argtoextrasymbol tonumber,conf,1;
+        #redefine oldextrasymbols "`extrasymbols_'"
+        B+ conf;
+        .sort:conf-1;
+        Hide FINTEGRAND`INTEGRANDTYPE';
+        #redefine energysymbolstart "`extrasymbols_'"
+        #do ext={`oldextrasymbols'+1}, `energysymbolstart'
+            #write "START integrand"
+            #$conf = extrasymbol_(`ext');
+            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#CONF\n%$", $conf;
+            L FF`ext' = FINTEGRAND`INTEGRANDTYPE'[conf(`ext')];
+            id ellipsoids(?a$ellipsoids) = 1;
+            id energies(?a$energies) = 1;
+            id constants(?a$constants) = 1;
+            .sort
+            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#CONSTANTS\n%$\n#CONSTANTS", $constants
+            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ENERGIES\n%$\n#ENERGIES", $energies
+            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ELLIPSOIDS\n%$\n#ELLIPSOIDS",$ellipsoids
 * Optimize the output
-        Format C;
-        #if `OPTIMLVL' > 1
-            Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
-        #else
-            Format O1,stats=on;
-        #endif
-        #Optimize FF`ext'
-        #write<out_integrand_`SGID'.proto_c> "%O"
-        #write<out_integrand_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
-        .sort:optim-`ext'-1;
+            Format C;
+            #if `OPTIMLVL' > 1
+                Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
+            #else
+                Format O1,stats=on;
+            #endif
+            #Optimize FF`ext'
+            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "%O"
+            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
+            .sort:optim-`ext'-1;
 
-        #clearoptimize;
-        .sort:optim-`ext'-2;
-        Format O0;
-        Format normal;
-        Drop FF`ext';
-        #write "END integrand"
+            #clearoptimize;
+            .sort:optim-`ext'-2;
+            Format O0;
+            Format normal;
+            Drop FF`ext';
+            #write "END integrand"
+        #enddo
+        .sort
+        Drop FINTEGRAND`INTEGRANDTYPE';
+        delete extrasymbols>`oldextrasymbols';
+    #endif
     #enddo
-    .sort
     Unhide F;
-    Drop FINTEGRAND;
-    delete extrasymbols>`oldextrasymbols';
 #endif
 
 *********************************************

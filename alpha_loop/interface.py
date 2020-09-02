@@ -290,9 +290,9 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_optimization_f128' should be between 0 and 3, not %s"%value)
             self.FORM_options['compilation-options'] += ['-e', "OPTIMIZATION_LVL_f128=%s"%value]
         elif key == 'FORM_integrand_type':
-            if not value in ('PF', 'LTD', 'None'):
+            if not value in ('PF', 'LTD', 'both', 'None'):
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_integrand_type' should be one of 'PF', 'LTD', 'None', not %s"%value)
-            self.alphaLoop_options['FORM_integrand_type'] = value if value in ('PF', 'LTD') else None
+            self.alphaLoop_options['FORM_integrand_type'] = value if value in ('PF', 'both', 'LTD') else None
         elif key == 'include_self_energies_from_squared_amplitudes':
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for 'include_self_energies_from_squared_amplitudes' should be 'True' or 'False', not '%s'."%value)

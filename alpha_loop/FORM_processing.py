@@ -208,7 +208,7 @@ class FORMSuperGraph(object):
         self.effective_vertex_id = effective_vertex_id
         self.squared_topology = None
         self.replacement_rules = None
-        self.integrand_info = {}
+        self.integrand_info = {'PF': {}, 'LTD': {}}
 
         # Will be filled in during FORM generation
         self.code_generation_statistics = None
@@ -1074,7 +1074,7 @@ aGraph=%s;
 
                 res = '\n\t\t*'.join(['({})'.format(l) for l in res])
 
-                self.integrand_info[diag_set['id']] = (energy_map, constants, loops)
+                self.integrand_info['LTD'][diag_set['id']] = (energy_map, constants, loops)
                 max_diag_id = max(max_diag_id, diag_set['id'])
                 integrand_body += 'Fill ltdtopo({}) = (-1)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n);\n'.format(diag_set['id'],
                     loops, ','.join(c[0] for c in constants), ','.join(propagators), ','.join(energies), res)
@@ -1149,7 +1149,7 @@ CTable ltdtopo(0:{});
                     res = '\n'.join(['\t' + l for l in res.split('\n')])
                     resden = ','.join(pf.den_library)
 
-                self.integrand_info[diag_set['id']] = (energy_map, constants, total_ltd_loops)
+                self.integrand_info['PF'][diag_set['id']] = (energy_map, constants, total_ltd_loops)
                 max_diag_id = max(max_diag_id, diag_set['id'])
                 integrand_body += 'Fill pftopo({}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(diag_set['id'],
                     ','.join(c[0] for c in constants), ','.join(energies), resden, res)
@@ -1269,9 +1269,9 @@ CTable pftopo(0:{});
                         bar=bar, integrand_type=integrand_type)
 
         if integrand_type is not None:
-            if integrand_type == "LTD":
+            if integrand_type == "both" or integrand_type == "LTD":
                 self.generate_ltd_integrand(topo, workspace, call_signature_ID)
-            if integrand_type == "PF":
+            if integrand_type == "both" or integrand_type == "PF":
                 self.generate_integrand(topo, workspace, call_signature_ID, progress_bar = bar)
 
         if write_yaml:
@@ -2169,10 +2169,13 @@ class FORMSuperGraphList(list):
         pass
 
     def generate_integrand_functions(self, root_output_path, additional_overall_factor='',
-                                    params={}, output_format='c', workspace=None, header="", integrand_type=None,process_definition=None):
+                                    params={}, output_format='c', workspace=None, header="", integrand_type=None, process_definition=None):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
         files rooted in the specified root_output_path."""
+
+        if integrand_type is None:
+            return
 
         if len(self)==0:
             raise FormProcessingError("Cannot generat numerators for an empty list of supergraphs.")
@@ -2193,131 +2196,137 @@ class FORMSuperGraphList(list):
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
+        integrand_type_list = [integrand_type] if integrand_type != 'both' else ['PF', 'LTD']
+
         # TODO: multiprocess this loop
-        all_numerator_ids = []
-        with progressbar.ProgressBar(
-            prefix = 'Processing integrand (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}) with FORM ({variables.timing} ms / supergraph) : '%len(self),
-            max_value=len(self),
-            variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb': '0'}
-            ) as bar:
-            total_time = 0.
+        all_numerator_ids = {'PF': [], 'LTD': []}
 
-            for i_graph, graph in enumerate(self):
-                graph.is_zero = True
+        for itype in integrand_type_list:
+            with progressbar.ProgressBar(
+                prefix = 'Processing %s integrand (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}) with FORM ({variables.timing} ms / supergraph) : '%(itype, len(self)),
+                max_value=len(self),
+                variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb': '0'}
+                ) as bar:
+                total_time = 0.
 
-                graphs_to_process = []
-                if isinstance(graph[0].additional_lmbs,list) and graph[0].additional_lmbs != []:
-                    graphs_to_process.append( (0,i_graph,graph[0]) )
-                    graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in graph[0].additional_lmbs])
-                else:
-                    # By setting the active graph to None we will then sum overall members of the iso set.
-                    graphs_to_process.append( (0,i_graph, None) )
-                bar.update(max_lmb='%d'%len(graphs_to_process))
-                for i_lmb, i_g, active_graph in graphs_to_process:
-                    bar.update(i_graph='%d'%(i_graph+1), i_lmb='%d'%(i_lmb+1))
-                    i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
-                    all_numerator_ids.append(i)
-                    time_before = time.time()
+                for i_graph, graph in enumerate(self):
+                    graph.is_zero = True
 
-                    with open(pjoin(root_output_path, 'workspace', 'out_integrand_{}.proto_c'.format(i))) as f:
-                        num = f.read()
+                    graphs_to_process = []
+                    if isinstance(graph[0].additional_lmbs,list) and graph[0].additional_lmbs != []:
+                        graphs_to_process.append( (0,i_graph,graph[0]) )
+                        graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in graph[0].additional_lmbs])
+                    else:
+                        # By setting the active graph to None we will then sum overall members of the iso set.
+                        graphs_to_process.append( (0,i_graph, None) )
+                    bar.update(max_lmb='%d'%len(graphs_to_process))
+                    for i_lmb, i_g, active_graph in graphs_to_process:
+                        bar.update(i_graph='%d'%(i_graph+1), i_lmb='%d'%(i_lmb+1))
+                        i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
+                        all_numerator_ids[itype].append(i)
+                        time_before = time.time()
 
-                    # TODO Remove when FORM will have fixed its C output bug
-                    num = temporary_fix_FORM_output(num)
+                        with open(pjoin(root_output_path, 'workspace', 'out_integrand_{}_{}.proto_c'.format(itype, i))) as f:
+                            num = f.read()
 
-                    total_time += time.time()-time_before
-                    num = num.replace('i_', 'I')
-                    num = input_pattern.sub(r'lm[\1]', num)
-                    num = num.replace('\nZ', '\n\tZ') # nicer indentation
+                        # TODO Remove when FORM will have fixed its C output bug
+                        num = temporary_fix_FORM_output(num)
 
-                    confs = []
-                    integrand_main_code = ''
-                    integrand_f128_main_code = ''
-                    conf_secs = num.split('#CONF')
-                    for conf_sec in conf_secs[1:]:
-                        conf_sec = conf_sec.replace("#CONF\n", '')
+                        total_time += time.time()-time_before
+                        num = num.replace('i_', 'I')
+                        num = input_pattern.sub(r'lm[\1]', num)
+                        num = num.replace('\nZ', '\n\tZ') # nicer indentation
 
-                        # parse the configuration id
-                        conf = list(conf_exp.finditer(conf_sec))[0].groups()[0].split(',')
-                        conf_id = int(conf[0])
-                        confs.append(conf_id)
+                        confs = []
+                        integrand_main_code = ''
+                        integrand_f128_main_code = ''
+                        conf_secs = num.split('#CONF')
+                        for conf_sec in conf_secs[1:]:
+                            conf_sec = conf_sec.replace("#CONF\n", '')
 
-                        conf_sec = conf_exp.sub('', conf_sec)
+                            # parse the configuration id
+                            conf = list(conf_exp.finditer(conf_sec))[0].groups()[0].split(',')
+                            conf_id = int(conf[0])
+                            confs.append(conf_id)
 
-                        # parse the constants
-                        mom_map, constants, loops = graph[0].integrand_info[conf_id]
-                        const_secs = conf_sec.split('#CONSTANTS')[1]
-                        const_secs = const_secs.replace('\n', '')
-                        const_code = '*'.join('\t({}-{})'.format(e, mass) for e, (_, mass) in zip(const_secs.split(','), constants) if e != '')
+                            conf_sec = conf_exp.sub('', conf_sec)
 
-                        # parse the energies
-                        energy_secs = conf_sec.split('#ENERGIES')[1]
-                        energy_secs = energy_secs.replace('\n', '')
-                        energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
-                        if integrand_type == "PF":
-                            const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2.*E{}'.format(i) for i in range(len(mom_map)))
-                        if const_code == '':
-                            const_code = '1'
+                            # parse the constants
+                            mom_map, constants, loops = graph[0].integrand_info[itype][conf_id]
+                            const_secs = conf_sec.split('#CONSTANTS')[1]
+                            const_secs = const_secs.replace('\n', '')
+                            const_code = '*'.join('\t({}-{})'.format(e, mass) for e, (_, mass) in zip(const_secs.split(','), constants) if e != '')
 
-                        # parse the denominators
-                        denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
-                        denom_secs = denom_secs.replace('\n', '')
-                        denom_code = '\n'.join('\tdouble complex invd{} = 1./({});'.format(i, d) for i, d in enumerate(denom_secs.split(',')) if d != '')
+                            # parse the energies
+                            energy_secs = conf_sec.split('#ENERGIES')[1]
+                            energy_secs = energy_secs.replace('\n', '')
+                            energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
+                            if itype == "PF":
+                                const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2.*E{}'.format(i) for i in range(len(mom_map)))
+                            if const_code == '':
+                                const_code = '1'
 
-                        conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
-                        returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
-                        conf_sec = return_exp.sub('*out = pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+                            # parse the denominators
+                            denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
+                            denom_secs = denom_secs.replace('\n', '')
+                            denom_code = '\n'.join('\tdouble complex invd{} = 1./({});'.format(i, d) for i, d in enumerate(denom_secs.split(',')) if d != '')
 
-                        # collect all temporary variables
-                        temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
+                            conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
+                            returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
+                            conf_sec = return_exp.sub('*out = pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
 
-                        if len(temp_vars) > 0:
-                            graph.is_zero = False
+                            # collect all temporary variables
+                            temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
 
-                        main_code = '{}\n{}\n{}\n{}'.format(energy_code, integrated_ct_code, denom_code, conf_sec)
-                        main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
-                        integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}\n{}}}'.format(i, conf_id,
-                            'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
-                        )
+                            if len(temp_vars) > 0:
+                                graph.is_zero = False
 
-                        main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
-                        main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                        integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}}}'.format(i, conf_id,
-                            '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
-                        )
+                            main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
+                            main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                            integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}\n{}}}'.format(itype, i, conf_id,
+                                'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
+                            )
 
-                    integrand_main_code += \
+                            main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                            main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
+                            integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}}}'.format(itype, i, conf_id,
+                                '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                            )
+
+                        integrand_main_code += \
 """
-void %(header)sevaluate_{}(double complex lm[], double complex params[], int conf, double complex* out) {{
+void %(header)sevaluate_{}_{}(double complex lm[], double complex params[], int conf, double complex* out) {{
    switch(conf) {{
 {}
     }}
 }}
-""".format(i,
+""".format(itype, i,
         '\n'.join(
-        ['\t\tcase {}: %(header)sevaluate_{}_{}(lm, params, out); return;'.format(conf, i, conf) for conf in sorted(confs)] +
+        ['\t\tcase {}: %(header)sevaluate_{}_{}_{}(lm, params, out); return;'.format(conf, itype, i, conf) for conf in sorted(confs)] +
         (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
 
 
-                    integrand_f128_main_code += \
+                        integrand_f128_main_code += \
 """
-void %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
+void %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
    switch(conf) {{
 {}
     }}
 }}
-""".format(i,
+""".format(itype, i,
         '\n'.join(
-        ['\t\tcase {}: %(header)sevaluate_{}_{}_f128(lm, params, out); return;'.format(conf, i, conf) for conf in sorted(confs)] +
+        ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_f128(lm, params, out); return;'.format(conf, itype, i, conf) for conf in sorted(confs)] +
         (['\t\tdefault: *out = 0.q;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
 
-                    bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
-                    bar.update(i_graph+1)
+                        bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
+                        bar.update(i_graph+1)
 
-                    writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand{}_f64.c'%header_map).format(i)).write((numerator_header + integrand_main_code)%header_map)
-                    writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand_{}_f128.c'%header_map).format(i)).write((numerator_header + integrand_f128_main_code)%header_map)
+                        writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand_{}_{}_f64.c'%header_map).format(itype, i)).write((numerator_header + integrand_main_code)%header_map)
+                        writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand_{}_{}_f128.c'%header_map).format(itype, i)).write((numerator_header + integrand_f128_main_code)%header_map)
+
+
 
         integrand_code = \
 """
@@ -2328,26 +2337,47 @@ void %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int co
 {}
 {}
 
-void %(header)sevaluate(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
+void %(header)sevaluate_PF(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
     switch(diag) {{
 {}
     }}
 }}
 
-void %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
+void %(header)sevaluate_PF_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
     switch(diag) {{
 {}
     }}
 }}
+
+void %(header)sevaluate_LTD(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
+    switch(diag) {{
+{}
+    }}
+}}
+
+void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
+    switch(diag) {{
+{}
+    }}
+}}
+
 """.format(
-    '\n'.join('void %(header)sevaluate_{}(double complex[], double complex[], int conf, double complex* out);'.format(i) for i in all_numerator_ids),
-    '\n'.join('void %(header)sevaluate_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);'.format(i) for i in all_numerator_ids),
+    '\n'.join('void %(header)sevaluate_{}_{}(double complex[], double complex[], int conf, double complex* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]),
+    '\n'.join('void %(header)sevaluate_{}_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]),
     '\n'.join(
-    ['\t\tcase {}: %(header)sevaluate_{}(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: %(header)sevaluate_PF_{}(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['PF']]+
     ['\t\tdefault: raise(SIGABRT);']
     ),
     '\n'.join(
-    ['\t\tcase {}: %(header)sevaluate_{}_f128(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: %(header)sevaluate_PF_{}_f128(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['PF']]+
+    ['\t\tdefault: raise(SIGABRT);']
+    ),
+    '\n'.join(
+    ['\t\tcase {}: %(header)sevaluate_LTD_{}(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['LTD']]+
+    ['\t\tdefault: raise(SIGABRT);']
+    ),
+    '\n'.join(
+    ['\t\tcase {}: %(header)sevaluate_LTD_{}_f128(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['LTD']]+
     ['\t\tdefault: raise(SIGABRT);']
     )
     )

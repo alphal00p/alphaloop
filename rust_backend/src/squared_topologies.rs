@@ -5,8 +5,8 @@ use crate::topologies::FixedDeformationLimit;
 use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use crate::utils;
 use crate::{
-    float, DeformationStrategy, FloatLike, IRHandling, NormalisingFunction, NumeratorSource,
-    Settings,
+    float, DeformationStrategy, FloatLike, IRHandling, IntegrandType, NormalisingFunction,
+    NumeratorSource, Settings,
 };
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
@@ -141,7 +141,17 @@ mod form_integrand {
     use std::path::PathBuf;
 
     pub trait GetIntegrand {
-        fn get_integrand(
+        fn get_integrand_ltd(
+            api_container: &mut Container<FORMIntegrandAPI>,
+            p: &[Self],
+            params: &[Self],
+            diag: usize,
+            conf: usize,
+        ) -> Complex<Self>
+        where
+            Self: std::marker::Sized;
+
+        fn get_integrand_pf(
             api_container: &mut Container<FORMIntegrandAPI>,
             p: &[Self],
             params: &[Self],
@@ -153,7 +163,7 @@ mod form_integrand {
     }
 
     impl GetIntegrand for f64 {
-        fn get_integrand(
+        fn get_integrand_ltd(
             api_container: &mut Container<FORMIntegrandAPI>,
             p: &[f64],
             params: &[f64],
@@ -162,7 +172,26 @@ mod form_integrand {
         ) -> Complex<f64> {
             unsafe {
                 let mut c = Complex::default();
-                api_container.evaluate(
+                api_container.evaluate_ltd(
+                    &p[0] as *const f64,
+                    &params[0] as *const f64,
+                    diag as i32,
+                    conf as i32,
+                    &mut c as *mut Complex<f64>,
+                );
+                c
+            }
+        }
+        fn get_integrand_pf(
+            api_container: &mut Container<FORMIntegrandAPI>,
+            p: &[f64],
+            params: &[f64],
+            diag: usize,
+            conf: usize,
+        ) -> Complex<f64> {
+            unsafe {
+                let mut c = Complex::default();
+                api_container.evaluate_pf(
                     &p[0] as *const f64,
                     &params[0] as *const f64,
                     diag as i32,
@@ -175,7 +204,7 @@ mod form_integrand {
     }
 
     impl GetIntegrand for f128::f128 {
-        fn get_integrand(
+        fn get_integrand_ltd(
             api_container: &mut Container<FORMIntegrandAPI>,
             p: &[f128::f128],
             params: &[f128::f128],
@@ -183,29 +212,67 @@ mod form_integrand {
             conf: usize,
         ) -> Complex<f128::f128> {
             unsafe {
-                let mut c = Complex::default();
-                api_container.evaluate_f128(
+                let mut c = Box::new(Complex::default());
+                api_container.evaluate_ltd_f128(
                     &p[0] as *const f128::f128,
                     &params[0] as *const f128::f128,
                     diag as i32,
                     conf as i32,
-                    &mut c as *mut Complex<f128::f128>,
+                    c.as_mut() as *mut Complex<f128::f128>,
                 );
-                c
+                *c
+            }
+        }
+
+        fn get_integrand_pf(
+            api_container: &mut Container<FORMIntegrandAPI>,
+            p: &[f128::f128],
+            params: &[f128::f128],
+            diag: usize,
+            conf: usize,
+        ) -> Complex<f128::f128> {
+            unsafe {
+                let mut c = Box::new(Complex::default());
+                api_container.evaluate_pf_f128(
+                    &p[0] as *const f128::f128,
+                    &params[0] as *const f128::f128,
+                    diag as i32,
+                    conf as i32,
+                    c.as_mut() as *mut Complex<f128::f128>,
+                );
+                *c
             }
         }
     }
 
     #[derive(WrapperApi)]
     pub struct FORMIntegrandAPI {
-        evaluate: unsafe extern "C" fn(
+        #[dlopen_name = "evaluate_LTD"]
+        evaluate_ltd: unsafe extern "C" fn(
             p: *const c_double,
             params: *const c_double,
             diag: c_int,
             conf: c_int,
             out: *mut Complex<c_double>,
         ),
-        evaluate_f128: unsafe extern "C" fn(
+        #[dlopen_name = "evaluate_LTD_f128"]
+        evaluate_ltd_f128: unsafe extern "C" fn(
+            p: *const f128::f128,
+            params: *const f128::f128,
+            diag: c_int,
+            conf: c_int,
+            out: *mut Complex<f128::f128>,
+        ),
+        #[dlopen_name = "evaluate_PF"]
+        evaluate_pf: unsafe extern "C" fn(
+            p: *const c_double,
+            params: *const c_double,
+            diag: c_int,
+            conf: c_int,
+            out: *mut Complex<c_double>,
+        ),
+        #[dlopen_name = "evaluate_PF_f128"]
+        evaluate_pf_f128: unsafe extern "C" fn(
             p: *const f128::f128,
             params: *const f128::f128,
             diag: c_int,
@@ -2250,13 +2317,22 @@ impl SquaredTopology {
                     let time_start = Instant::now();
                     let mut res = if let Some(call_signature) = &self.form_integrand.call_signature
                     {
-                        let res = T::get_integrand(
-                            form_integrand.as_mut().unwrap(),
-                            &cache.scalar_products,
-                            &params,
-                            call_signature.id,
-                            diagram_set.id,
-                        );
+                        let res = match self.settings.cross_section.integrand_type {
+                            IntegrandType::LTD => T::get_integrand_ltd(
+                                form_integrand.as_mut().unwrap(),
+                                &cache.scalar_products,
+                                &params,
+                                call_signature.id,
+                                diagram_set.id,
+                            ),
+                            IntegrandType::PF => T::get_integrand_pf(
+                                form_integrand.as_mut().unwrap(),
+                                &cache.scalar_products,
+                                &params,
+                                call_signature.id,
+                                diagram_set.id,
+                            ),
+                        };
 
                         Complex::new(Into::<T>::into(res.re), Into::<T>::into(res.im))
                     } else {

@@ -643,6 +643,20 @@ impl Default for NumeratorSource {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub enum IntegrandType {
+    #[serde(rename = "LTD")]
+    LTD,
+    #[serde(rename = "PF")]
+    PF,
+}
+
+impl Default for IntegrandType {
+    fn default() -> Self {
+        Self::PF
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct CrossSectionSettings {
     pub picobarns: bool,
@@ -651,6 +665,7 @@ pub struct CrossSectionSettings {
     pub normalising_function: NormalisingFunctionSettings,
     pub inherit_deformation_for_uv_counterterm: bool,
     pub numerator_source: NumeratorSource,
+    pub integrand_type: IntegrandType,
     pub compare_with_additional_topologies: bool,
     pub m_uv_sq: f64,
     pub mu_r_sq: f64,

@@ -283,6 +283,8 @@ hyperparameters = HyperParameters({
         },
         # Can be yaml, FORM, FORM_integrand
         'numerator_source'                      :   'FORM_integrand',
+        # Can be LTD, PF
+        'integrand_type'                        :   'PF',
         # compare locally against the same topology written in another loop momentum basis
         'compare_with_additional_topologies'    :   False,
     },
