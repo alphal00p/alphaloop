@@ -761,7 +761,9 @@ impl PythonCrossSection {
     }
 
     fn evaluate_integrand(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.integrand.evaluate(&x, 1.0, 1);
+        let res = self
+            .integrand
+            .evaluate(integrand::IntegrandSample::Flat(&x), 1.0, 1);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
@@ -1145,17 +1147,23 @@ impl PythonLTD {
     }
 
     fn evaluate_integrand(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.integrand.evaluate(&x, 1.0, 1);
+        let res = self
+            .integrand
+            .evaluate(integrand::IntegrandSample::Flat(&x), 1.0, 1);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
     fn evaluate(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.topo.evaluate::<float>(&x, &mut self.cache);
+        let res = self
+            .topo
+            .evaluate::<float>(integrand::IntegrandSample::Flat(&x), &mut self.cache);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
     fn evaluate_f128(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
-        let res = self.topo.evaluate::<f128::f128>(&x, &mut self.cache_f128);
+        let res = self
+            .topo
+            .evaluate::<f128::f128>(integrand::IntegrandSample::Flat(&x), &mut self.cache_f128);
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
