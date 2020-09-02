@@ -2196,7 +2196,7 @@ class FORMSuperGraphList(list):
         # TODO: multiprocess this loop
         all_numerator_ids = []
         with progressbar.ProgressBar(
-            prefix = 'Processing numerators (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}) with FORM ({variables.timing} ms / supergraph) : '%len(self),
+            prefix = 'Processing integrand (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}) with FORM ({variables.timing} ms / supergraph) : '%len(self),
             max_value=len(self),
             variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb': '0'}
             ) as bar:
@@ -2266,7 +2266,7 @@ class FORMSuperGraphList(list):
 
                         conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
                         returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
-                        conf_sec = return_exp.sub('return pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+                        conf_sec = return_exp.sub('*out = pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
 
                         # collect all temporary variables
                         temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
@@ -2274,43 +2274,43 @@ class FORMSuperGraphList(list):
                         if len(temp_vars) > 0:
                             graph.is_zero = False
 
-                        main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
+                        main_code = '{}\n{}\n{}\n{}'.format(energy_code, integrated_ct_code, denom_code, conf_sec)
                         main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
-                        integrand_main_code += '\nstatic inline double complex %(header)sevaluate_{}_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
+                        integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}\n{}}}'.format(i, conf_id,
                             'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                         )
 
                         main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                         main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                        integrand_f128_main_code += '\n' + '\nstatic inline __complex128 %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[]) {{\n\t{}\n{}}}'.format(i, conf_id,
+                        integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}}}'.format(i, conf_id,
                             '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                         )
 
                     integrand_main_code += \
 """
-double complex %(header)sevaluate_{}(double complex lm[], double complex params[], int conf) {{
+void %(header)sevaluate_{}(double complex lm[], double complex params[], int conf, double complex* out) {{
    switch(conf) {{
 {}
     }}
 }}
 """.format(i,
         '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, params);'.format(conf, i, conf) for conf in sorted(confs)] +
-        (['\t\tdefault: return 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ['\t\tcase {}: %(header)sevaluate_{}_{}(lm, params, out); return;'.format(conf, i, conf) for conf in sorted(confs)] +
+        (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
 
 
                     integrand_f128_main_code += \
 """
-__complex128 %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf) {{
+void %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
    switch(conf) {{
 {}
     }}
 }}
 """.format(i,
         '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params);'.format(conf, i, conf) for conf in sorted(confs)] +
-        (['\t\tdefault: return 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ['\t\tcase {}: %(header)sevaluate_{}_{}_f128(lm, params, out); return;'.format(conf, i, conf) for conf in sorted(confs)] +
+        (['\t\tdefault: *out = 0.q;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
 
                     bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
@@ -2328,26 +2328,26 @@ __complex128 %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[]
 {}
 {}
 
-double complex %(header)sevaluate(double complex lm[], double complex params[], int diag, int conf) {{
+void %(header)sevaluate(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
     switch(diag) {{
 {}
     }}
 }}
 
-__complex128 %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], int diag, int conf) {{
+void %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
     switch(diag) {{
 {}
     }}
 }}
 """.format(
-    '\n'.join('double complex %(header)sevaluate_{}(double complex[], double complex[], int conf);'.format(i) for i in all_numerator_ids),
-    '\n'.join('__complex128 %(header)sevaluate_{}_f128(__complex128[], __complex128[], int conf);'.format(i) for i in all_numerator_ids),
+    '\n'.join('void %(header)sevaluate_{}(double complex[], double complex[], int conf, double complex* out);'.format(i) for i in all_numerator_ids),
+    '\n'.join('void %(header)sevaluate_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);'.format(i) for i in all_numerator_ids),
     '\n'.join(
-    ['\t\tcase {}: return %(header)sevaluate_{}(lm, params, conf);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: %(header)sevaluate_{}(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     ),
     '\n'.join(
-    ['\t\tcase {}: return %(header)sevaluate_{}_f128(lm, params, conf);'.format(i, i) for i in all_numerator_ids]+
+    ['\t\tcase {}: %(header)sevaluate_{}_f128(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids]+
     ['\t\tdefault: raise(SIGABRT);']
     )
     )

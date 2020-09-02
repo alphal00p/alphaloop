@@ -161,12 +161,15 @@ mod form_integrand {
             conf: usize,
         ) -> Complex<f64> {
             unsafe {
+                let mut c = Complex::default();
                 api_container.evaluate(
                     &p[0] as *const f64,
                     &params[0] as *const f64,
                     diag as i32,
                     conf as i32,
-                )
+                    &mut c as *mut Complex<f64>,
+                );
+                c
             }
         }
     }
@@ -180,12 +183,15 @@ mod form_integrand {
             conf: usize,
         ) -> Complex<f128::f128> {
             unsafe {
+                let mut c = Complex::default();
                 api_container.evaluate_f128(
                     &p[0] as *const f128::f128,
                     &params[0] as *const f128::f128,
                     diag as i32,
                     conf as i32,
-                )
+                    &mut c as *mut Complex<f128::f128>,
+                );
+                c
             }
         }
     }
@@ -197,13 +203,15 @@ mod form_integrand {
             params: *const c_double,
             diag: c_int,
             conf: c_int,
-        ) -> Complex<c_double>,
+            out: *mut Complex<c_double>,
+        ),
         evaluate_f128: unsafe extern "C" fn(
             p: *const f128::f128,
             params: *const f128::f128,
             diag: c_int,
             conf: c_int,
-        ) -> Complex<f128::f128>,
+            out: *mut Complex<f128::f128>,
+        ),
     }
 
     pub fn load(base_path: &str) -> Container<FORMIntegrandAPI> {
