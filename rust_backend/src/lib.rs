@@ -516,14 +516,11 @@ pub struct GeneralSettings {
     #[serde(default)]
     pub use_amplitude: bool,
     pub amplitude: String,
-    pub unstable_point_warning_percentage: f64,
     pub numerical_threshold: f64,
     pub stability_checks: Vec<StabilityCheckSettings>,
     pub absolute_precision: f64,
     pub stability_nudge_size: f64,
     pub minimal_precision_for_returning_result: f64,
-    pub integration_statistics: bool,
-    pub statistics_interval: usize,
     pub debug: usize,
 }
 
