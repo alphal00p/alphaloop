@@ -322,9 +322,10 @@ impl Dashboard {
 
                     let weight_stats = vec![
                         Text::raw(format!(
-                            "Max re at level {}: {:e}\n",
-                            integrand_statistics.running_max_re.1,
-                            integrand_statistics.running_max_re.0
+                            "Max re at level {}: {:e} (weight: {:e})\n",
+                            integrand_statistics.running_max_re.2,
+                            integrand_statistics.running_max_re.0,
+                            integrand_statistics.running_max_re.1
                         )),
                         Text::raw(format!(
                             "Max re x: {:?}\n",
@@ -332,9 +333,10 @@ impl Dashboard {
                                 [..3 * integrand_statistics.n_loops]
                         )),
                         Text::raw(format!(
-                            "Max im at level {}: {:e}\n",
-                            integrand_statistics.running_max_im.1,
-                            integrand_statistics.running_max_im.0
+                            "Max im at level {}: {:e} (weight: {:e})\n",
+                            integrand_statistics.running_max_im.2,
+                            integrand_statistics.running_max_im.0,
+                            integrand_statistics.running_max_re.1
                         )),
                         Text::raw(format!(
                             "Max im x: {:?}\n",

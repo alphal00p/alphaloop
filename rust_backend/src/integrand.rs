@@ -69,8 +69,8 @@ pub trait IntegrandImplementation: Clone {
 pub struct IntegrandStatistics {
     pub phase: IntegratedPhase,
     pub target: Option<Complex<f64>>,
-    pub running_max_re: (f64, usize),
-    pub running_max_im: (f64, usize),
+    pub running_max_re: (f64, f64, usize),
+    pub running_max_im: (f64, f64, usize),
     pub total_samples: usize,
     pub nan_point_count: usize,
     pub unstable_point_count: Vec<usize>,
@@ -94,8 +94,8 @@ impl IntegrandStatistics {
             n_loops,
             target,
             phase,
-            running_max_re: (0., 0),
-            running_max_im: (0., 0),
+            running_max_re: (0., 0., 0),
+            running_max_im: (0., 0., 0),
             total_samples: 0,
             regular_point_count: 0,
             unstable_point_count: vec![0; num_stability_levels],
@@ -550,7 +550,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         }
 
         if self.integrand_statistics.running_max_re.0 < result.re.abs() * weight {
-            self.integrand_statistics.running_max_re = (result.re.abs() * weight, stability_level);
+            self.integrand_statistics.running_max_re = (result.re.abs() * weight, weight, stability_level);
             self.integrand_statistics.running_max_coordinate_re[..3 * self.n_loops]
                 .copy_from_slice(x.to_flat());
 
@@ -559,7 +559,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             }
         }
         if self.integrand_statistics.running_max_im.0 < result.im.abs() * weight {
-            self.integrand_statistics.running_max_im = (result.im.abs() * weight, stability_level);
+            self.integrand_statistics.running_max_im = (result.im.abs() * weight, weight, stability_level);
             self.integrand_statistics.running_max_coordinate_im[..3 * self.n_loops]
                 .copy_from_slice(x.to_flat());
 
