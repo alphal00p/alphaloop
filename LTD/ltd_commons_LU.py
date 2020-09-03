@@ -40,38 +40,43 @@ hyperparameters = HyperParameters({
         # only evaluate the cuts in this list. empty means all
         'cut_filter'            :   [],
         'numerical_threshold'   :   0.,
-        # always evaluate in f128
-        'force_f128'            :   False,
-        # reject unstable points based on f64 samples only
-        'force_f64'             :   False,
-        # number of digits that should be the same between integrand and rotated version
-        'relative_precision_f64'    :   4.,
-        'relative_precision_f128'   :   8.,
         # absolute precision, heavily dependent on integral value
         'absolute_precision'    :   1e+99,
-        # force an f128 upgrade when a new weight is this threshold times the current maximum weight
-        'force_f128_for_large_weight_threshold': 0.8,
         # randomly shift each component in x-space by plus or minus stability_nudge_size
         'stability_nudge_size'  :   -1.0e-13,
-        'unstable_point_warning_percentage'  :   1.,
-        'numerical_instability_check': True,
-        'minimal_precision_to_skip_further_checks': 99.,
         # return the unstable point only if it has more stable digits than specified below
         'minimal_precision_for_returning_result': 8.,
-        # number of samples to take for the numerical stability check
-        'num_f64_samples'       :   3,
-        'num_f128_samples'      :   3,
-        # which core to log to screen, None logs all cores
-        'screen_log_core'       :   1,
-        # log max and unstable points to screen
-        'log_points_to_screen'  :   False,
-        # log statistics to screen
-        'log_stats_to_screen'   :   False,
-        'log_file_prefix'       :   'stats/statistics',
+        # the stability pipeline
+        'stability_checks'      : [
+            {
+                # number of samples to take for the numerical stability check
+                'n_samples': 3,
+                'use_f128': False,
+                'use_pf': False,
+                # number of digits that should be the same between rotated versions
+                'relative_precision': 4.0,
+                # force an upgrade when a new weight is this threshold times the current maximum weight
+                'escalate_for_large_weight_threshold': 0.8,
+                'minimal_precision_to_skip_further_checks': 99.0
+            },
+            {            
+                'n_samples': 3,
+                'use_f128': False,
+                'use_pf': True,
+                'relative_precision': 4.0,
+                'escalate_for_large_weight_threshold': 0.8,
+                'minimal_precision_to_skip_further_checks': 99.0
+            },
+            {
+                'n_samples': 3,
+                'use_f128': True,
+                'use_pf': False,
+                'relative_precision': 8.0,
+                'escalate_for_large_weight_threshold': -1.,
+                'minimal_precision_to_skip_further_checks': 99.0
+            }
+        ],
         'res_file_prefix'       :   '',
-        'log_quad_upgrade'      :   False,
-        'integration_statistics':   False,
-        'statistics_interval'   :   10000,
         'debug'                 :   0
     },
 

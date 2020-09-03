@@ -1375,9 +1375,6 @@ fn inspect<'a>(
     }
 
     if matches.is_present("full_integrand") {
-        settings.general.screen_log_core = Some(1);
-        settings.general.log_points_to_screen = true;
-
         let result = match diagram {
             Diagram::CrossSection(sqt) => Integrand::new(
                 sqt.get_maximum_loop_count(),
@@ -1672,10 +1669,6 @@ fn main() -> Result<(), Report> {
 
     if let Some(x) = matches.value_of("state_filename_prefix") {
         settings.integrator.state_filename_prefix = serde::export::Some(x.to_owned());
-    }
-
-    if let Some(x) = matches.value_of("log_file_prefix") {
-        settings.general.log_file_prefix = x.to_owned();
     }
 
     if let Some(x) = matches.value_of("res_file_prefix") {

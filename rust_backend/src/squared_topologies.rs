@@ -2723,6 +2723,28 @@ impl IntegrandImplementation for SquaredTopologySet {
         }
     }
 
+    fn set_partial_fractioning(&mut self, enable: bool) {
+        for t in self.topologies.iter_mut() {
+            if enable {
+                t.settings.cross_section.integrand_type = IntegrandType::PF;
+            } else {
+                t.settings.cross_section.integrand_type = IntegrandType::LTD;
+            }
+
+            for cs in &mut t.cutkosky_cuts {
+                for ds in &mut cs.diagram_sets {
+                    for di in &mut ds.diagram_info {
+                        if enable {
+                            di.graph.settings.general.partial_fractioning_threshold = 1e-99;
+                        } else {
+                            di.graph.settings.general.partial_fractioning_threshold = -1.;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn create_grid(&self) -> Grid {
         if self.topologies.len() > 1 {
             unimplemented!("Not supported yet");

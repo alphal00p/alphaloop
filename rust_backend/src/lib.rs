@@ -489,16 +489,21 @@ pub struct ObservableSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+pub struct StabilityCheckSettings {
+    pub n_samples: usize,
+    pub use_f128: bool,
+    pub use_pf: bool,
+    pub relative_precision: f64,
+    pub escalate_for_large_weight_threshold: f64,
+    pub minimal_precision_to_skip_further_checks: f64,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
     pub multi_channeling_including_massive_propagators: bool,
-    pub log_file_prefix: String,
     pub res_file_prefix: String,
-    pub screen_log_core: Option<usize>,
-    pub log_points_to_screen: bool,
-    pub log_stats_to_screen: bool,
-    pub log_quad_upgrade: bool,
     pub derive_overlap_structure: bool,
     pub deformation_strategy: DeformationStrategy,
     pub mu_uv_sq_re_im: Vec<f64>,
@@ -513,18 +518,10 @@ pub struct GeneralSettings {
     pub amplitude: String,
     pub unstable_point_warning_percentage: f64,
     pub numerical_threshold: f64,
-    pub force_f128: bool,
-    pub force_f64: bool,
-    pub relative_precision_f64: f64,
-    pub relative_precision_f128: f64,
+    pub stability_checks: Vec<StabilityCheckSettings>,
     pub absolute_precision: f64,
-    pub force_f128_for_large_weight_threshold: f64,
     pub stability_nudge_size: f64,
-    pub numerical_instability_check: bool,
     pub minimal_precision_for_returning_result: f64,
-    pub minimal_precision_to_skip_further_checks: f64,
-    pub num_f64_samples: usize,
-    pub num_f128_samples: usize,
     pub integration_statistics: bool,
     pub statistics_interval: usize,
     pub debug: usize,

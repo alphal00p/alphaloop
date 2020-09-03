@@ -805,6 +805,14 @@ impl IntegrandImplementation for Topology {
         None
     }
 
+    fn set_partial_fractioning(&mut self, enable: bool) {
+        if enable {
+            self.settings.general.partial_fractioning_threshold = 1e-99;
+        } else {
+            self.settings.general.partial_fractioning_threshold = -1.;
+        }
+    }
+
     fn create_grid(&self) -> Grid {
         Grid::ContinuousGrid(ContinuousGrid::new(
             self.n_loops,

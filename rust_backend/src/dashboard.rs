@@ -81,7 +81,7 @@ impl Dashboard {
         let mut mc_err_re = std::f64::EPSILON;
         let mut mc_err_im = std::f64::EPSILON;
 
-        let mut integrand_statistics = IntegrandStatistics::new(0, IntegratedPhase::Real, None);
+        let mut integrand_statistics = IntegrandStatistics::new(0, IntegratedPhase::Real, 0, None);
         let mut event_info = EventInfo::default();
 
         terminal.clear().unwrap();
@@ -201,46 +201,41 @@ impl Dashboard {
                         .start_corner(Corner::BottomLeft);
                     f.render_widget(events_list, chunks_hor[0]);
 
-                    let stats = vec![
-                        Text::raw(format!(
-                            "Total points: {}",
-                            integrand_statistics.total_samples.separate_with_spaces()
-                        )),
-                        Text::styled(
+                    let mut stats = vec![Text::raw(format!(
+                        "Total points: {}",
+                        integrand_statistics.total_samples.separate_with_spaces()
+                    ))];
+
+                    for (level, &unstable_point) in
+                        integrand_statistics.unstable_point_count.iter().enumerate()
+                    {
+                        stats.push(Text::styled(
                             format!(
-                                "Unstable points: {} ({:.2}%)",
-                                integrand_statistics
-                                    .unstable_point_count
-                                    .separate_with_spaces(),
-                                integrand_statistics.unstable_point_count as f64
-                                    / integrand_statistics.total_samples as f64
+                                "Unstable point at level {}: {} ({:.2}%)",
+                                level,
+                                unstable_point.separate_with_spaces(),
+                                unstable_point as f64 / integrand_statistics.total_samples as f64
                                     * 100.
                             ),
-                            if integrand_statistics.unstable_point_count as f64
-                                / integrand_statistics.total_samples as f64
-                                > 0.01
-                            {
-                                Style::default().fg(Color::Yellow)
+                            if level + 1 == integrand_statistics.unstable_point_count.len() {
+                                if unstable_point > 0 {
+                                    Style::default().fg(Color::Red)
+                                } else {
+                                    Style::default()
+                                }
                             } else {
-                                Style::default()
+                                if unstable_point as f64 / integrand_statistics.total_samples as f64
+                                    > 0.01
+                                {
+                                    Style::default().fg(Color::Yellow)
+                                } else {
+                                    Style::default()
+                                }
                             },
-                        ),
-                        Text::styled(
-                            format!(
-                                "Unstable quad points: {} ({:.2}%)",
-                                integrand_statistics
-                                    .unstable_f128_point_count
-                                    .separate_with_spaces(),
-                                integrand_statistics.unstable_f128_point_count as f64
-                                    / integrand_statistics.total_samples as f64
-                                    * 100.
-                            ),
-                            if integrand_statistics.unstable_f128_point_count > 0 {
-                                Style::default().fg(Color::Red)
-                            } else {
-                                Style::default()
-                            },
-                        ),
+                        ));
+                    }
+
+                    stats.extend_from_slice(&[
                         Text::styled(
                             format!(
                                 "NaN points: {} ({:.2}%)",
@@ -274,15 +269,15 @@ impl Dashboard {
                         Text::styled(
                             format!(
                                 "Maximum weight influence: re={:.4e}, im={:.4e}",
-                                integrand_statistics.running_max_re.2.abs()
+                                integrand_statistics.running_max_re.0.abs()
                                     / (mc_err_re * integrand_statistics.total_samples as f64),
-                                integrand_statistics.running_max_im.2.abs()
+                                integrand_statistics.running_max_im.0.abs()
                                     / (mc_err_im * integrand_statistics.total_samples as f64)
                             ),
-                            if integrand_statistics.running_max_re.2.abs()
+                            if integrand_statistics.running_max_re.0.abs()
                                 / (mc_err_re * integrand_statistics.total_samples as f64)
                                 > 10.
-                                || integrand_statistics.running_max_im.2.abs()
+                                || integrand_statistics.running_max_im.0.abs()
                                     / (mc_err_im * integrand_statistics.total_samples as f64)
                                     > 10.
                             {
@@ -314,7 +309,7 @@ impl Dashboard {
                                 Style::default()
                             },
                         ),
-                    ];
+                    ]);
 
                     let stats_list = List::new(stats.into_iter())
                         .block(
@@ -327,12 +322,9 @@ impl Dashboard {
 
                     let weight_stats = vec![
                         Text::raw(format!(
-                            "Max re f64: {:e}\n",
+                            "Max re at level {}: {:e}\n",
+                            integrand_statistics.running_max_re.1,
                             integrand_statistics.running_max_re.0
-                        )),
-                        Text::raw(format!(
-                            "Max re f128: {:e}\n",
-                            integrand_statistics.running_max_re.1.unwrap_or(0.)
                         )),
                         Text::raw(format!(
                             "Max re x: {:?}\n",
@@ -340,12 +332,9 @@ impl Dashboard {
                                 [..3 * integrand_statistics.n_loops]
                         )),
                         Text::raw(format!(
-                            "Max im f64: {:e}\n",
+                            "Max im at level {}: {:e}\n",
+                            integrand_statistics.running_max_im.1,
                             integrand_statistics.running_max_im.0
-                        )),
-                        Text::raw(format!(
-                            "Max im f128: {:e}\n",
-                            integrand_statistics.running_max_im.1.unwrap_or(0.)
                         )),
                         Text::raw(format!(
                             "Max im x: {:?}\n",
@@ -353,9 +342,8 @@ impl Dashboard {
                                 [..3 * integrand_statistics.n_loops]
                         )),
                         Text::raw(format!(
-                            "Max stability f64 and f128: {:.3}, {:.3}",
-                            &integrand_statistics.running_max_stability.0,
-                            &integrand_statistics.running_max_stability.1
+                            "Max stability: {:.3}",
+                            integrand_statistics.running_max_stability
                         )),
                     ];
                     let weight_para = Paragraph::new(weight_stats.iter())

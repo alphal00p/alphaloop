@@ -109,8 +109,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
             'FORM_processing_output_format' : None,
-            # Select if the FORM integrand is the "PF" expression or "LTD" expression, or None
-            'FORM_integrand_type' : "PF",
+            # Select if the FORM integrand is the "PF" expression or "LTD" expression, both, or None
+            'FORM_integrand_type' : "both",
             # Limit nuber of cores used for compilation
             'FORM_compile_cores': None, 
             # Select what to compile of the FORM output. Default is ['all']
