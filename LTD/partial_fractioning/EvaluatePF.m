@@ -1,14 +1,14 @@
 (* ::Package:: *)
 
 (* ::Section:: *)
-(*Evaluate PF Expression*)
+(*Evaluate cLTD Expression*)
 
 
 (* ::Subsection::Closed:: *)
 (*Path*)
 
 
-$PFPATH = NotebookDirectory[];
+$CLTDPATH = NotebookDirectory[];
 
 
 (* ::Subsection::Closed:: *)
@@ -63,7 +63,7 @@ evaluate[{factor_,dens_List,zs_List},NumFunction_,vars_]:=Module[{
 ]
 
 ClearAll[prefactor]
-prefactor[dens_List,zs_List]:=1/Product[2 ToExpression["E"<>ToString[n]],{n,0,Length[Select[dens,#=!=1&]]+Apply[Plus,Map[Length[#]-1&,zs]]}];
+prefactor[dens_List,zs_List]:=1/Product[2 ToExpression["E"<>ToString[n]],{n,0,Length[Select[dens,#=!=1&]]+Apply[Plus,Map[Length[#]&,zs]]-1}];
 
 
 (* ::Subsection:: *)
@@ -76,7 +76,7 @@ prefactor[dens_List,zs_List]:=1/Product[2 ToExpression["E"<>ToString[n]],{n,0,Le
 
 ClearAll[pf,MyNum]
 (*Import instructions*)
-pf= Import[$PFPATH <> "pf_1l_box.m"]/.a_Real:>Rationalize[a];
+pf= Import[$CLTDPATH <> "cLTD_1l_box.m"]/.a_Real:>Rationalize[a];
 (*Define Numerator and Evaluate for different powers*)
 MyNum[x_]:=x^0; pf0=evaluate[#,MyNum,{k0}]&/@pf//Simplify//Cancel;
 MyNum[x_]:=x^1; pf1=evaluate[#,MyNum,{k0}]&/@pf//Simplify//Cancel;
@@ -84,7 +84,7 @@ MyNum[x_]:=x^2; pf2=evaluate[#,MyNum,{k0}]&/@pf//Simplify//Cancel;
 MyNum[x_]:=x^3; pf3=evaluate[#,MyNum,{k0}]&/@pf//Simplify//Cancel;
 
 
-(*Compute Residue Explicitely*)
+(*Compute Residue Explicitly*)
 ConvertNotation =  {e[n_]:>ToExpression["E"<>ToString[n]],p[n_]:>ToExpression["p"<>ToString[n]]};
 rExp=1/Product[k+e[i]+p[i],{i,0,3}]/Product[k-e[i]+p[i],{i,0,3}]/.ConvertNotation;
 resPositions = Table[-e[i]-p[i],{i,0,3}]/.ConvertNotation;
@@ -114,7 +114,7 @@ Cancel[vacuumBox/PFvacuumBox]
 
 ClearAll[pf,MyNum]
 (*Import instructions*)
-pf= Import[$PFPATH <> "pf_2l_sunrise.m"]/.a_Real:>Rationalize[a];
+pf= Import[$CLTDPATH <> "cLTD_2l_sunrise.m"]/.a_Real:>Rationalize[a];
 (*Define Numerator*)
 MyNum[x_,y_]:=c[1]x+c[2]y^2x^2
 (*MyNum[x_,y_]:=1*)
@@ -131,7 +131,7 @@ Monitor[pf2=Table[evaluate[pf[[ipf]], MyNum, {k0, k1}], {ipf, Length[pf]}], Perc
 
 
 ClearAll[pf, MyNum]
-pf = Import[$PFPATH <> "pf_2l_pentabox.m"]/.a_Real:>Rationalize[a]; 
+pf = Import[$CLTDPATH <> "cLTD_2l_pentabox.m"]/.a_Real:>Rationalize[a]; 
 MyNum[x_, y_] := x^2y^2
 (*MyNum[x_, y_] := 1*)
 (*Evaluate*)
@@ -152,7 +152,7 @@ Plus@@(blocks/.subDen)
 
 ClearAll[pf,MyNum]
 (*Import instructions*)
-pf= Import[$PFPATH <> "pf_4l_2x2fishnet.m"]/.a_Real:>Rationalize[a];
+pf= Import[$CLTDPATH <> "cLTD_4l_2x2_fishnet.m"]/.a_Real:>Rationalize[a];
 (*Define Numerator*)
 MyNum[x1_,x2_,x3_,x4_]:=1
 (*Evaluate*)
