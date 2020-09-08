@@ -1,23 +1,31 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::observables::EventManager;
 use crate::squared_topologies::MAX_SG_LOOP;
-use crate::{float, IntegratedPhase, Integrator, Settings};
+use crate::{float, IntegratedPhase, Settings};
 use f128::f128;
 use havana::{Grid, Sample};
 use num::Complex;
 use num_traits::{Float, FromPrimitive, NumCast, ToPrimitive, Zero};
+use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OwnedIntegrandSample {
+    Flat(f64, Vec<f64>),
+    Nested(Sample),
+}
+
+#[derive(Debug, Copy, Clone, Serialize)]
 pub enum IntegrandSample<'a> {
-    Flat(&'a [f64]),
+    Flat(f64, &'a [f64]),
+    #[serde(borrow)]
     Nested(&'a Sample),
 }
 
 impl<'a> IntegrandSample<'a> {
     pub fn to_flat(&self) -> &'a [f64] {
         match self {
-            IntegrandSample::Flat(x) => *x,
+            IntegrandSample::Flat(_, x) => *x,
             IntegrandSample::Nested(x) => match x {
                 Sample::ContinuousGrid(_w, v) => &v,
                 Sample::DiscreteGrid(_, _, s) => {
@@ -386,20 +394,8 @@ impl<I: IntegrandImplementation> Integrand<I> {
     }
 
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
-    pub fn evaluate(
-        &mut self,
-        x: IntegrandSample<'_>,
-        mut weight: f64,
-        iter: usize,
-    ) -> Complex<float> {
+    pub fn evaluate(&mut self, x: IntegrandSample<'_>, weight: f64, iter: usize) -> Complex<float> {
         let start_time = Instant::now(); // time the evaluation
-
-        // NOTE: only correct for Vegas
-        if self.settings.integrator.integrator != Integrator::Havana {
-            weight *= (self.settings.integrator.n_start
-                + (self.cur_iter - 1) * self.settings.integrator.n_increase)
-                as f64;
-        }
 
         if self.cur_iter != iter {
             // the first integrand accumulates all the results from the others

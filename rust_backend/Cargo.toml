@@ -28,10 +28,11 @@ version = "*"
 
 [dependencies]
 arrayvec = {version = "^0.5"}# features = ["array-sizes-129-255"]
+bincode = "*"
 clap = "*"
 color-eyre = {version = "^0.3", default-features = false}
 colored = "1.8"
-cuba = "^0.2"
+cuba = "^0.2.3"
 dlopen = "*"
 dlopen_derive = "*"
 dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dualn"}
@@ -39,11 +40,11 @@ ecos-rs = "*"
 eyre = "^0.4"
 f128 = {git = "https://github.com/benruijl/f128"}
 fnv = "1.0.6"
-havana = {git = "https://github.com/benruijl/havana", features = ["gridplotting"]}
+havana = {git = "https://github.com/benruijl/havana", features = ["gridplotting", "use_serde"]}
 itertools = "0.8"
 libc = "*"
 lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", features = ["serde_support", "dual_num_support", "f128_support", "pyo3_support"]}
-mpi = {git = "https://github.com/bsteinb/rsmpi", optional = true}
+mpi = {git = "https://github.com/rsmpi/rsmpi", optional = true}
 mpolynomial = {git = "https://github.com/apelloni/mpolynomial", branch = "master"}
 nalgebra = "0.18"
 num = "0.3"

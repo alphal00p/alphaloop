@@ -4,7 +4,13 @@ extern crate itertools;
 extern crate eyre;
 
 #[cfg(feature = "use_mpi")]
-pub extern crate mpi;
+use ltd::integrand::OwnedIntegrandSample;
+#[cfg(feature = "use_mpi")]
+use mpi::point_to_point::{Destination, Source};
+#[cfg(feature = "use_mpi")]
+use mpi::request::WaitGuard;
+#[cfg(feature = "use_mpi")]
+use mpi::topology::Communicator;
 
 use arrayvec::ArrayVec;
 use clap::{App, Arg, ArgMatches, SubCommand};
@@ -59,7 +65,7 @@ impl CubaResultDef {
     }
 }
 
-enum Integrands {
+pub enum Integrands {
     Topology(Integrand<Topology>),
     CrossSection(Integrand<SquaredTopologySet>),
 }
@@ -81,30 +87,43 @@ struct UserData<'a> {
 }
 
 #[cfg(feature = "use_mpi")]
-pub fn evaluate_points(
-    mut integrand: ltd::integrand::Integrand,
-    max_points: usize,
-    world: &mpi::topology::SystemCommunicator,
-) {
-    use mpi::point_to_point::{Destination, Source};
-    use mpi::request::WaitGuard;
-    use mpi::topology::Communicator;
-    use num_traits::ToPrimitive;
-
+pub fn evaluate_mpi_worker(mut integrand: Integrands, world: &mpi::topology::SystemCommunicator) {
     eprintln!("Slave started: {} rank", world.rank());
-    let mut f = vec![0.; max_points * 2];
+
+    let phase = match &integrand {
+        Integrands::CrossSection(t) => t.settings.integrator.integrated_phase,
+        Integrands::Topology(t) => t.settings.integrator.integrated_phase,
+    };
+
+    let mut f = vec![0.; 100];
+    let mut iter = 0;
     loop {
         // TODO: check status tag to break the loop
-        let (msg, _status) = world.any_process().receive_vec::<f64>();
+        let (msg, _status) = world.any_process().receive_vec();
+
+        let msg: Vec<OwnedIntegrandSample> = bincode::deserialize(&msg).unwrap();
+
+        if phase != IntegratedPhase::Both {
+            f.resize(msg.len(), 0.);
+        } else {
+            f.resize(msg.len() * 2, 0.);
+        };
 
         // compute all the points
-        for (i, x) in msg.chunks(3 * integrand.n_loops).enumerate() {
-            let res = match &mut user_data.integrand[(core + 1) as usize] {
-                Integrands::CrossSection(c) => c.evaluate(y),
-                Integrands::Topology(t) => t.evaluate(y),
+        for (i, owned_sample) in msg.iter().enumerate() {
+            let (s, w) = match owned_sample {
+                OwnedIntegrandSample::Flat(w, x) => (IntegrandSample::Flat(*w, x), *w),
+                OwnedIntegrandSample::Nested(x) => (IntegrandSample::Nested(x), x.get_weight()),
             };
+
+            // TODO: this iter number is not correct, but we are also not using it
+            let res = match &mut integrand {
+                Integrands::Topology(t) => t.evaluate(s, w, iter),
+                Integrands::CrossSection(t) => t.evaluate(s, w, iter),
+            };
+
             if res.is_finite() {
-                match integrand.settings.integrator.integrated_phase {
+                match phase {
                     IntegratedPhase::Real => {
                         f[i] = res.re.to_f64().unwrap();
                     }
@@ -117,7 +136,7 @@ pub fn evaluate_points(
                     }
                 }
             } else {
-                if integrand.settings.integrator.integrated_phase != IntegratedPhase::Both {
+                if phase != IntegratedPhase::Both {
                     f[i] = 0.
                 } else {
                     f[i * 2] = 0.;
@@ -126,19 +145,11 @@ pub fn evaluate_points(
             }
         }
 
-        let num_output = if integrand.settings.integrator.integrated_phase != IntegratedPhase::Both
-        {
-            msg.len() / (3 * integrand.n_loops)
-        } else {
-            msg.len() / (3 * integrand.n_loops) * 2
-        };
+        iter += 1;
 
         mpi::request::scope(|scope| {
-            let _sreq = WaitGuard::from(
-                world
-                    .process_at_rank(0)
-                    .immediate_send(scope, &f[..num_output]),
-            );
+            let _sreq =
+                WaitGuard::from(world.process_at_rank(0).immediate_send(scope, f.as_slice()));
         });
     }
 }
@@ -149,22 +160,11 @@ where
 {
     let mut num_points = 0;
 
-    /*let n_max: usize = 10_000_000_000;
-
-    let s = settings.integrator.n_start as f64;
-    let i = settings.integrator.n_increase as f64;
-    let m = n_max as f64;
-    let mut samples = vec![
-        Sample::new();
-        (((i * i + 8. * i * m - 4. * i * s + 4. * s * s).sqrt() - i) / 2.) as usize
-    ];*/
-
     let mut samples = vec![Sample::new(); settings.integrator.n_start];
     let mut f = vec![0.; settings.integrator.n_start];
     let mut integral = AverageAndErrorAccumulator::new();
 
     let mut rng = rand::thread_rng();
-    //let mut grid = ContinuousGrid::new(n_loops * 3, 128);
 
     let mut user_data = user_data_generator();
 
@@ -172,6 +172,9 @@ where
         Integrands::Topology(t) => t.topologies[0].create_grid(),
         Integrands::CrossSection(t) => t.topologies[0].create_grid(),
     };
+
+    #[cfg(feature = "use_mpi")]
+    let mut samples_per_worker = Vec::with_capacity(samples.len());
 
     let mut iter = 1;
     while num_points < settings.integrator.n_max {
@@ -185,8 +188,9 @@ where
 
         let cores = user_data.integrand.len();
         // the number of points per core for all cores but the last, which may have fewer
-        let nvec_per_core = cur_points / cores + 1;
+        let nvec_per_core = (cur_points - 1) / cores + 1;
 
+        #[cfg(not(feature = "use_mpi"))]
         user_data.integrand[..cores]
             .into_par_iter()
             .zip(f.par_chunks_mut(nvec_per_core))
@@ -212,6 +216,51 @@ where
                 }
             });
 
+        #[cfg(feature = "use_mpi")]
+        {
+            if user_data.world.size() == 0 {
+                panic!("No workers registered");
+            }
+
+            let workers = (user_data.world.size() - 1) as usize;
+            let n_samples_per_worker = (samples[..cur_points].len() - 1) / workers + 1; // the last worker may have less
+
+            samples_per_worker.clear();
+            for x in samples[..cur_points].chunks(n_samples_per_worker) {
+                let v: Vec<_> = x
+                    .iter()
+                    .map(|s| OwnedIntegrandSample::Nested(s.clone()))
+                    .collect();
+                samples_per_worker.push(bincode::serialize(&v).unwrap());
+            }
+
+            mpi::request::scope(|scope| {
+                for (i, x) in samples_per_worker.iter().enumerate() {
+                    let _sreq = WaitGuard::from(
+                        user_data
+                            .world
+                            .process_at_rank(i as i32 + 1)
+                            .immediate_send(scope, x.as_slice()),
+                    );
+                }
+            });
+
+            for _ in 0..workers {
+                let (msg, status) = user_data.world.any_process().receive_vec::<f64>();
+                let worker_id = status.source_rank() as usize - 1; // TODO: make sure it's positive
+
+                if user_data.integrated_phase == IntegratedPhase::Both {
+                    f[worker_id * n_samples_per_worker * 2
+                        ..worker_id * n_samples_per_worker * 2 + msg.len()]
+                        .copy_from_slice(&msg);
+                } else {
+                    f[worker_id * n_samples_per_worker
+                        ..worker_id * n_samples_per_worker + msg.len()]
+                        .copy_from_slice(&msg);
+                }
+            }
+        }
+
         for (s, f) in samples[..cur_points].iter().zip(&f[..cur_points]) {
             grid.add_training_sample(s, *f, settings.integrator.train_on_avg);
             integral.add_sample(*f * s.get_weight());
@@ -221,6 +270,7 @@ where
             settings.integrator.learning_rate,
             settings.integrator.n_bins,
         );
+        integral.update_iter();
 
         // now merge all statistics and observables into the first
         let (first, others) = user_data.integrand[..cores].split_at_mut(1);
@@ -234,10 +284,19 @@ where
             }
         }
 
+        #[cfg(not(feature = "use_mpi"))]
         match &mut user_data.integrand[0] {
             Integrands::CrossSection(i) => i.broadcast_statistics(),
             Integrands::Topology(i) => i.broadcast_statistics(),
         }
+
+        #[cfg(feature = "use_mpi")]
+        println!(
+            "Iteration {}:\n{} {:.2} χ²",
+            integral.cur_iter,
+            ltd::utils::format_uncertainty(integral.avg, integral.err),
+            integral.chi_sq / integral.cur_iter as f64,
+        );
 
         if let havana::Grid::DiscreteGrid(g) = &grid {
             g.discrete_dimensions[0].plot("grid_disc.svg").unwrap();
@@ -444,6 +503,15 @@ fn integrand(
     weight: &[f64],
     iter: usize,
 ) -> Result<(), &'static str> {
+    let integrator_settings = match &user_data.integrand[0] {
+        Integrands::CrossSection(t) => &t.settings.integrator,
+        Integrands::Topology(t) => &t.settings.integrator,
+    };
+
+    let n_start = integrator_settings.n_start;
+    let n_increase = integrator_settings.n_increase;
+
+    #[cfg(not(feature = "use_mpi"))]
     if user_data.internal_parallelization {
         let cores = user_data.integrand.len();
         // the number of points per core for all cores but the last, which may have fewer
@@ -464,16 +532,17 @@ fn integrand(
             .for_each(|(i, ((integrand_f, ff), xi))| {
                 for (ii, (y, fff)) in xi.chunks(3 * loops).zip(ff.chunks_mut(f_len)).enumerate() {
                     let w = if weight.len() > 0 {
-                        weight[i * nvec_per_core + ii]
+                        // NOTE: only correct for Vegas
+                        weight[i * nvec_per_core + ii] * (n_start + (iter - 1) * n_increase) as f64
                     } else {
                         1.
                     };
 
                     let res = match integrand_f {
                         Integrands::CrossSection(c) => {
-                            c.evaluate(IntegrandSample::Flat(y), w, iter)
+                            c.evaluate(IntegrandSample::Flat(w, y), w, iter)
                         }
-                        Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(y), w, iter),
+                        Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(w, y), w, iter),
                     };
 
                     if res.is_finite() {
@@ -517,13 +586,17 @@ fn integrand(
             Integrands::Topology(i) => i.broadcast_statistics(),
         }
     } else {
-        #[cfg(not(feature = "use_mpi"))]
         for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
-            let w = if weight.len() > 0 { weight[i] } else { 1. };
+            let w = if weight.len() > 0 {
+                // NOTE: only correct for Vegas
+                weight[i] * (n_start + (iter - 1) * n_increase) as f64
+            } else {
+                1.
+            };
 
             let res = match &mut user_data.integrand[(core + 1) as usize] {
-                Integrands::CrossSection(c) => c.evaluate(IntegrandSample::Flat(y), w, iter),
-                Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(y), w, iter),
+                Integrands::CrossSection(c) => c.evaluate(IntegrandSample::Flat(w, y), w, iter),
+                Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(w, y), w, iter),
             };
 
             if res.is_finite() {
@@ -557,66 +630,49 @@ fn integrand(
 
     #[cfg(feature = "use_mpi")]
     {
-        use mpi::point_to_point::{Destination, Source};
-        use mpi::request::WaitGuard;
-        use mpi::topology::Communicator;
+        if user_data.world.size() == 0 {
+            panic!("No workers registered");
+        }
 
         let workers = (user_data.world.size() - 1) as usize;
-        let segment_length = nvec / workers;
-        let point_length = 3 * user_data.n_loops;
+        let samples_per_worker = (weight.len() - 1) / workers + 1; // the last worker may have less
+
+        let mut samples = Vec::with_capacity(weight.len());
+        for (w, xx) in weight.iter().zip(x.chunks(3 * user_data.n_loops)) {
+            let w = w
+                * (integrator_settings.n_start + (iter - 1) * integrator_settings.n_increase)
+                    as f64;
+
+            samples.push(OwnedIntegrandSample::Flat(w, xx.to_vec()))
+        }
+
+        let mut d = Vec::with_capacity(samples.len());
+        for x in samples.chunks(samples_per_worker) {
+            d.push(bincode::serialize(&x).unwrap());
+        }
 
         mpi::request::scope(|scope| {
-            for i in 0..workers {
-                let extra_len = if i == workers - 1 {
-                    // last rank gets to do the rest term too
-                    (nvec % workers) * point_length
-                } else {
-                    0
-                };
-
-                if segment_length > 0 || extra_len > 0 {
-                    let _sreq = WaitGuard::from(
-                        user_data
-                            .world
-                            .process_at_rank(i as i32 + 1)
-                            .immediate_send(
-                                scope,
-                                &x[i * segment_length * point_length
-                                    ..(i + 1) * segment_length * point_length + extra_len],
-                            ),
-                    );
-                }
+            for (i, x) in d.iter().enumerate() {
+                let _sreq = WaitGuard::from(
+                    user_data
+                        .world
+                        .process_at_rank(i as i32 + 1)
+                        .immediate_send(scope, x.as_slice()),
+                );
             }
         });
 
-        let jobs = if segment_length == 0 { 1 } else { workers };
-        for _ in 0..jobs {
+        for _ in 0..workers {
             let (msg, status) = user_data.world.any_process().receive_vec::<f64>();
-            let worker_id = status.source_rank() as usize - 1; // TODO: make sure it's positive
+            let worker_id = status.source_rank() as usize - 1;
 
-            let len = if worker_id == workers - 1 {
-                // first rank gets to do the rest term too
-                nvec % workers + segment_length
+            if user_data.integrated_phase == IntegratedPhase::Both {
+                f[worker_id * samples_per_worker * 2
+                    ..worker_id * samples_per_worker * 2 + msg.len()]
+                    .copy_from_slice(&msg);
             } else {
-                segment_length
-            };
-
-            let start = if segment_length == 0 {
-                0
-            } else {
-                worker_id * segment_length
-            };
-
-            match user_data.integrated_phase {
-                IntegratedPhase::Real => {
-                    f[start..start + len].copy_from_slice(&msg[..len]);
-                }
-                IntegratedPhase::Imag => {
-                    f[start..start + len].copy_from_slice(&msg[..len]);
-                }
-                IntegratedPhase::Both => {
-                    f[start * 2..(start + len) * 2].copy_from_slice(&msg[..len * 2]);
-                }
+                f[worker_id * samples_per_worker..worker_id * samples_per_worker + msg.len()]
+                    .copy_from_slice(&msg);
             }
         }
     }
@@ -710,8 +766,8 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
         }
 
         match &mut integrand {
-            Integrands::CrossSection(sqt) => sqt.evaluate(IntegrandSample::Flat(&x), 1., 1),
-            Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(&x), 1., 1),
+            Integrands::CrossSection(sqt) => sqt.evaluate(IntegrandSample::Flat(1., &x), 1., 1),
+            Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(1., &x), 1., 1),
         };
     }
 
@@ -1383,7 +1439,7 @@ fn inspect<'a>(
                 1,
                 None,
             )
-            .evaluate(IntegrandSample::Flat(&pt), 1., 1),
+            .evaluate(IntegrandSample::Flat(1., &pt), 1., 1),
             Diagram::Topology(topo) => Integrand::new(
                 topo.n_loops,
                 topo.clone(),
@@ -1393,7 +1449,7 @@ fn inspect<'a>(
                 1,
                 None,
             )
-            .evaluate(IntegrandSample::Flat(&pt), 1., 1),
+            .evaluate(IntegrandSample::Flat(1., &pt), 1., 1),
         };
         println!("result={:e}\n  | x={:?}\n", result, pt);
         return;
@@ -1405,12 +1461,12 @@ fn inspect<'a>(
             Diagram::CrossSection(sqt) => {
                 let mut cache = sqt.create_caches();
                 sqt.clone()
-                    .evaluate::<f128::f128>(IntegrandSample::Flat(&pt), &mut cache, None)
+                    .evaluate::<f128::f128>(IntegrandSample::Flat(1., &pt), &mut cache, None)
             }
             Diagram::Topology(t) => {
                 let mut cache = LTDCache::<f128::f128>::new(&t);
                 t.clone()
-                    .evaluate::<f128::f128>(IntegrandSample::Flat(&pt), &mut cache)
+                    .evaluate::<f128::f128>(IntegrandSample::Flat(1., &pt), &mut cache)
             }
         };
 
@@ -1420,12 +1476,12 @@ fn inspect<'a>(
             Diagram::CrossSection(sqt) => {
                 let mut cache = sqt.create_caches();
                 sqt.clone()
-                    .evaluate::<float>(IntegrandSample::Flat(&pt), &mut cache, None)
+                    .evaluate::<float>(IntegrandSample::Flat(1., &pt), &mut cache, None)
             }
             Diagram::Topology(t) => {
                 let mut cache = LTDCache::<float>::new(&t);
                 t.clone()
-                    .evaluate::<float>(IntegrandSample::Flat(&pt), &mut cache)
+                    .evaluate::<float>(IntegrandSample::Flat(1., &pt), &mut cache)
             }
         };
         println!("result={:e}\n  | x={:?}\n", result, pt);
@@ -1711,6 +1767,12 @@ fn main() -> Result<(), Report> {
         settings.integrator.dashboard = false;
     }
 
+    #[cfg(feature = "use_mpi")]
+    {
+        settings.integrator.dashboard = false;
+        settings.integrator.internal_parallelization = false;
+    }
+
     let mut dashboard = Dashboard::new(settings.integrator.dashboard);
 
     let mut diagram = if let Some(cs_opt) = matches.value_of("cross_section") {
@@ -1802,26 +1864,46 @@ fn main() -> Result<(), Report> {
         }
     }
 
+    let n_loops = match &diagram {
+        Diagram::CrossSection(sqt) => sqt.get_maximum_loop_count(),
+        Diagram::Topology(t) => t.n_loops,
+    };
+
     #[cfg(feature = "use_mpi")]
     let (_universe, world) = {
-        use mpi::topology::Communicator;
-
         let universe = mpi::initialize().unwrap();
         let world = universe.world();
         let rank = world.rank();
 
-        println!("rank = {}", rank);
         // if we are not the root, we listen for jobs
         if rank != 0 {
-            evaluate_points(
-                Integrand::new(topo, settings.clone(), rank as usize),
-                settings.integrator.n_vec,
+            evaluate_mpi_worker(
+                match &diagram {
+                    Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
+                        sqt.get_maximum_loop_count(),
+                        sqt.clone(),
+                        settings.clone(),
+                        true,
+                        dashboard.status_update_sender.clone(),
+                        1,
+                        target,
+                    )),
+                    Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
+                        topo.n_loops,
+                        topo.clone(),
+                        settings.clone(),
+                        false,
+                        dashboard.status_update_sender.clone(),
+                        1,
+                        target,
+                    )),
+                },
                 &world,
             );
 
-            return;
+            return Ok(());
         } else {
-            cores = 1;
+            cores = 0;
         }
         (universe, world)
     };
@@ -1861,11 +1943,6 @@ fn main() -> Result<(), Report> {
             },
             settings.integrator.n_vec,
         );
-
-    let n_loops = match &diagram {
-        Diagram::CrossSection(sqt) => sqt.get_maximum_loop_count(),
-        Diagram::Topology(t) => t.n_loops,
-    };
 
     let name = &match &diagram {
         Diagram::CrossSection(sqt) => &sqt.name,

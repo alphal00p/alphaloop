@@ -803,7 +803,7 @@ impl SquaredTopologySet {
 
         // obtain the sampled channel if one is provided
         let (selected_channel, x) = match sample {
-            IntegrandSample::Flat(x) => (None, x),
+            IntegrandSample::Flat(_, x) => (None, x),
             IntegrandSample::Nested(x) => match x {
                 havana::Sample::ContinuousGrid(_, x) => (None, x.as_slice()),
                 havana::Sample::DiscreteGrid(_, selected_channel, sub_sample) => (
@@ -1043,7 +1043,7 @@ impl SquaredTopologySet {
 
         // obtain the sampled topology if one is provided
         let (selected_topology, sub_sample) = match sample {
-            IntegrandSample::Flat(x) => (None, IntegrandSample::Flat(x)),
+            IntegrandSample::Flat(w, x) => (None, IntegrandSample::Flat(w, x)),
             IntegrandSample::Nested(x) => match x {
                 havana::Sample::ContinuousGrid(_, _) => (None, IntegrandSample::Nested(x)),
                 havana::Sample::DiscreteGrid(_, selected_topology, sub_sample) => (
