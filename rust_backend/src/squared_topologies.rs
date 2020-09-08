@@ -425,6 +425,8 @@ pub struct SquaredTopology {
     pub default_fixed_cut_momenta: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
     #[serde(default)]
     pub multi_channeling_bases: Vec<MultiChannelingBasis>,
+    #[serde(skip_deserializing)]
+    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
     #[serde(rename = "FORM_numerator")]
     pub form_numerator: FORMNumerator,
     #[serde(rename = "FORM_integrand")]
@@ -471,17 +473,17 @@ pub struct SquaredTopologySetInput {
 
 impl SquaredTopologySet {
     pub fn from_one(mut squared_topology: SquaredTopology) -> SquaredTopologySet {
-        let channels = squared_topology.generate_multi_channeling_channels();
+        squared_topology.generate_multi_channeling_channels();
 
         SquaredTopologySet {
             name: squared_topology.name.clone(),
             settings: squared_topology.settings.clone(),
             e_cm_squared: squared_topology.e_cm_squared,
             rotation_matrix: squared_topology.rotation_matrix.clone(),
+            multi_channeling_channels: squared_topology.multi_channeling_channels.clone(),
             topologies: vec![squared_topology],
             additional_topologies: vec![vec![]],
             multiplicity: vec![1.],
-            multi_channeling_channels: channels,
             stability_check_topologies: vec![vec![]],
             is_stability_check_topo: false,
         }
@@ -565,12 +567,14 @@ impl SquaredTopologySet {
         let mut multi_channeling_channels = vec![];
         let mut max_loops = 0;
         for t in &mut self.topologies {
+            t.generate_multi_channeling_channels();
+
             if t.n_loops > max_loops {
                 multi_channeling_channels.clear();
                 max_loops = t.n_loops;
             }
             if t.n_loops == max_loops {
-                multi_channeling_channels.extend(t.generate_multi_channeling_channels());
+                multi_channeling_channels.extend(t.multi_channeling_channels.iter().cloned());
             }
         }
 
@@ -789,6 +793,7 @@ impl SquaredTopologySet {
         T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
     >(
         &mut self,
+        selected_topology: Option<usize>,
         sample: IntegrandSample<'a>,
         cache: &mut SquaredTopologyCache<T>,
         mut event_manager: Option<&mut EventManager>,
@@ -810,6 +815,12 @@ impl SquaredTopologySet {
                 ),
                 havana::Sample::MultiChannel(_, _, _) => unimplemented!(),
             },
+        };
+
+        let mut mc_channels = if let Some(t) = selected_topology {
+            std::mem::replace(&mut self.topologies[t].multi_channeling_channels, vec![])
+        } else {
+            std::mem::replace(&mut self.multi_channeling_channels, vec![])
         };
 
         // paramaterize and consider the result in a channel basis
@@ -867,9 +878,7 @@ impl SquaredTopologySet {
         let mut k_other_channel = [LorentzVector::default(); MAX_SG_LOOP];
         let mut event_counter = 0;
         let mut result = Complex::zero();
-        for (channel_id, (channel, _, channel_shift)) in
-            self.multi_channeling_channels.iter().enumerate()
-        {
+        for (channel_id, (channel, _, channel_shift)) in mc_channels.iter().enumerate() {
             if let Some(selected_channel) = selected_channel {
                 if selected_channel != channel_id {
                     continue;
@@ -897,7 +906,7 @@ impl SquaredTopologySet {
 
             // determine the normalization constant
             let mut normalization = T::zero();
-            for (_, other_channel_inv, other_channel_shift) in &self.multi_channeling_channels {
+            for (_, other_channel_inv, other_channel_shift) in &mc_channels {
                 // transform from the loop momentum basis to the other channel basis
                 for ((kk, r), shift) in k_other_channel[..n_loops]
                     .iter_mut()
@@ -950,6 +959,12 @@ impl SquaredTopologySet {
                 .zip_eq(&self.multiplicity)
                 .enumerate()
             {
+                if let Some(tt) = selected_topology {
+                    if current_supergraph != tt {
+                        continue;
+                    }
+                }
+
                 cache.current_supergraph = current_supergraph;
 
                 if self.settings.general.debug > 0 {
@@ -957,6 +972,22 @@ impl SquaredTopologySet {
                         "Evaluating supergraph {} for channel {}",
                         t.name, channel_id
                     );
+
+                    print!("Point in channel: ");
+                    for i in 0..n_loops {
+                        let (x, _) = Topology::inv_parametrize(
+                            &k_lmb[i],
+                            self.e_cm_squared,
+                            i,
+                            &self.settings,
+                        );
+                        if i > 0 {
+                            print!(", {}", x.iter().join(","));
+                        } else {
+                            print!("{}", x.iter().join(","));
+                        }
+                    }
+                    println!("");
                 }
 
                 // undo the jacobian for unused dimensions
@@ -985,6 +1016,15 @@ impl SquaredTopologySet {
             result += channel_result;
         }
 
+        if let Some(t) = selected_topology {
+            std::mem::swap(
+                &mut self.topologies[t].multi_channeling_channels,
+                &mut mc_channels,
+            );
+        } else {
+            std::mem::swap(&mut self.multi_channeling_channels, &mut mc_channels);
+        };
+
         result
     }
 
@@ -993,13 +1033,26 @@ impl SquaredTopologySet {
         T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
     >(
         &mut self,
-        x: IntegrandSample<'a>,
+        sample: IntegrandSample<'a>,
         cache: &mut SquaredTopologyCache<T>,
         mut event_manager: Option<&mut EventManager>,
     ) -> Complex<T> {
         if self.settings.general.debug > 0 {
-            println!("x-space point: {:?}", x);
+            println!("x-space point: {:?}", sample);
         }
+
+        // obtain the sampled topology if one is provided
+        let (selected_topology, sub_sample) = match sample {
+            IntegrandSample::Flat(x) => (None, IntegrandSample::Flat(x)),
+            IntegrandSample::Nested(x) => match x {
+                havana::Sample::ContinuousGrid(_, _) => (None, IntegrandSample::Nested(x)),
+                havana::Sample::DiscreteGrid(_, selected_topology, sub_sample) => (
+                    Some(selected_topology[0]),
+                    IntegrandSample::Nested(sub_sample.as_ref().unwrap().as_ref()),
+                ),
+                havana::Sample::MultiChannel(_, _, _) => unimplemented!(),
+            },
+        };
 
         // clear the deformation cache for non-stability topologies, unless
         // we are integrating an amplitude, since the deformation is fixed
@@ -1010,10 +1063,10 @@ impl SquaredTopologySet {
         }
 
         if self.settings.general.multi_channeling && !self.multi_channeling_channels.is_empty() {
-            return self.multi_channeling(x, cache, event_manager);
+            return self.multi_channeling(selected_topology, sub_sample, cache, event_manager);
         }
 
-        let x = x.to_flat();
+        let x = sub_sample.to_flat();
 
         let mut rng = thread_rng();
         let mut xrot = [0.; MAX_SG_LOOP * 3];
@@ -1089,6 +1142,12 @@ impl SquaredTopologySet {
             .zip_eq(self.additional_topologies.iter_mut())
             .enumerate()
         {
+            if let Some(tt) = selected_topology {
+                if current_supergraph != tt {
+                    continue;
+                }
+            }
+
             cache.current_supergraph = current_supergraph;
 
             if self.settings.general.debug > 0 {
@@ -1443,9 +1502,7 @@ impl SquaredTopology {
         cut_momentum
     }
 
-    pub fn generate_multi_channeling_channels(
-        &mut self,
-    ) -> Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> {
+    pub fn generate_multi_channeling_channels(&mut self) {
         // construct the channels from all loop momentum basis (i.e. the LTD cuts)
         self.topo.process(true);
 
@@ -1559,7 +1616,8 @@ impl SquaredTopology {
                 }
             }
         }
-        multi_channeling_channels
+
+        self.multi_channeling_channels = multi_channeling_channels;
     }
 
     pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<LTDCache<T>>>> {
@@ -2747,29 +2805,41 @@ impl IntegrandImplementation for SquaredTopologySet {
 
     fn create_grid(&self) -> Grid {
         if self.topologies.len() > 1 {
-            unimplemented!("Not supported yet");
-
-        // TODO: now we Monte Carlo sample over multi-channels first and then over toplogies
-        // we should switch that around and only consider the channels revelant to that topology
-        // Monte Carlo over topologies and multi-channeling channels
-        /*Grid::DiscreteGrid(DiscreteGrid::new(
-            &[self.topologies.len()],
-            (0..self.topologies.len())
-                .map(|_| {
-                    Grid::DiscreteGrid(DiscreteGrid::new(
-                        &[self.multi_channeling_channels.len()],
-                        (0..self.multi_channeling_channels.len())
-                            .map(|_| {
-                                Grid::ContinuousGrid(ContinuousGrid::new(
-                                    3 * self.get_maximum_loop_count(),
-                                    128,
-                                ))
-                            })
-                            .collect(),
-                    ))
-                })
-                .collect(),
-        ))*/
+            Grid::DiscreteGrid(DiscreteGrid::new(
+                &[self.topologies.len()],
+                self.topologies
+                    .iter()
+                    .map(|t| {
+                        if self.settings.general.multi_channeling
+                            && !t.multi_channeling_channels.is_empty()
+                            && self.settings.general.multi_channeling_channel.is_none()
+                        {
+                            // construct the discrete grid for multi-channeling
+                            // TODO: now we can replace the loop counts by the actual loop counts needed per topology
+                            Grid::DiscreteGrid(DiscreteGrid::new(
+                                &[t.multi_channeling_channels.len()],
+                                (0..t.multi_channeling_channels.len())
+                                    .map(|_| {
+                                        Grid::ContinuousGrid(ContinuousGrid::new(
+                                            3 * t.n_loops,
+                                            self.settings.integrator.n_bins,
+                                            self.settings.integrator.min_samples_for_update,
+                                        ))
+                                    })
+                                    .collect(),
+                                self.settings.integrator.min_probability_per_bin,
+                            ))
+                        } else {
+                            Grid::ContinuousGrid(ContinuousGrid::new(
+                                3 * self.get_maximum_loop_count(), // t.n_loops,
+                                self.settings.integrator.n_bins,
+                                self.settings.integrator.min_samples_for_update,
+                            ))
+                        }
+                    })
+                    .collect(),
+                self.settings.integrator.min_probability_per_bin,
+            ))
         } else {
             if self.settings.general.multi_channeling
                 && !self.multi_channeling_channels.is_empty()

@@ -22,13 +22,9 @@ impl<'a> IntegrandSample<'a> {
                 Sample::ContinuousGrid(_w, v) => &v,
                 Sample::DiscreteGrid(_, _, s) => {
                     if let Some(cs) = s {
-                        if let Sample::ContinuousGrid(_w, v) = cs.as_ref() {
-                            &v
-                        } else {
-                            unreachable!()
-                        }
+                        IntegrandSample::Nested(cs.as_ref()).to_flat()
                     } else {
-                        unreachable!()
+                        unreachable!("No continuous grid found in sample")
                     }
                 }
                 _ => unimplemented!(),
@@ -550,18 +546,21 @@ impl<I: IntegrandImplementation> Integrand<I> {
         }
 
         if self.integrand_statistics.running_max_re.0 < result.re.abs() * weight {
-            self.integrand_statistics.running_max_re = (result.re.abs() * weight, weight, stability_level);
-            self.integrand_statistics.running_max_coordinate_re[..3 * self.n_loops]
-                .copy_from_slice(x.to_flat());
+            self.integrand_statistics.running_max_re =
+                (result.re.abs() * weight, weight, stability_level);
+            // TODO: replace by full sample point logging
+            let len = x.to_flat().len(); // could be shorter than self.n_loops
+            self.integrand_statistics.running_max_coordinate_re[..len].copy_from_slice(x.to_flat());
 
             if self.settings.integrator.integrated_phase != IntegratedPhase::Imag {
                 self.integrand_statistics.running_max_stability = stable_digits;
             }
         }
         if self.integrand_statistics.running_max_im.0 < result.im.abs() * weight {
-            self.integrand_statistics.running_max_im = (result.im.abs() * weight, weight, stability_level);
-            self.integrand_statistics.running_max_coordinate_im[..3 * self.n_loops]
-                .copy_from_slice(x.to_flat());
+            self.integrand_statistics.running_max_im =
+                (result.im.abs() * weight, weight, stability_level);
+            let len = x.to_flat().len();
+            self.integrand_statistics.running_max_coordinate_im[..len].copy_from_slice(x.to_flat());
 
             if self.settings.integrator.integrated_phase != IntegratedPhase::Real {
                 self.integrand_statistics.running_max_stability = stable_digits;

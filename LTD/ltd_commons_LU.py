@@ -70,7 +70,7 @@ hyperparameters = HyperParameters({
             {
                 'n_samples': 3,
                 'use_f128': True,
-                'use_pf': False,
+                'use_pf': True,
                 'relative_precision': 8.0,
                 'escalate_for_large_weight_threshold': -1.,
                 'minimal_precision_to_skip_further_checks': 99.0

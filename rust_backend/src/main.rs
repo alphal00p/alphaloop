@@ -214,9 +214,7 @@ where
 
         for (s, f) in samples[..cur_points].iter().zip(&f[..cur_points]) {
             grid.add_training_sample(s, *f, settings.integrator.train_on_avg);
-            if let Sample::ContinuousGrid(w, _x) = s {
-                integral.add_sample(*f * *w);
-            }
+            integral.add_sample(*f * s.get_weight());
         }
 
         grid.update(
