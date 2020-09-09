@@ -30,4 +30,4 @@ output_scalar_integral TEST_SCALAR_INTEGRAL_2x2_FISHNET_PF_C \
  --default_kinematics={'q1':[  1.2,  2.2,   1.0, 0.4 ],\
                        'q2':[  2.0, -5.2,   2.1, 0.0 ],\
 	                   'pout3':[ 1.6,  -0.1, 12.5, -2.4 ] } \
- --lmb=['p4','p9','p7','p6']
+ --lmb=['p4','p9','p7','p8']
