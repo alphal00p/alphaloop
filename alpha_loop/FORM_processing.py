@@ -1140,6 +1140,9 @@ CTable ltdtopo(0:{});
                     res = '\t1\n'
                     resden = ''
                 else:
+                    #logger.info("Input to PF generator:\nn_props=%s\nsignatures=%s"%(
+                    #    pformat(n_props),pformat(signatures)
+                    #))
                     pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
                                             name=str(diag_set['id']), shift_map=np.array(shift_map).T,
                                             n_sg_loops=topo.topo.n_loops, ltd_index=len(cut['cuts']) - 1,
@@ -1611,7 +1614,7 @@ class FORMSuperGraphIsomorphicList(list):
         with open(pjoin(selected_workspace,'form.set'), 'w') as f:
             content = [ '%s %s'%(k,str(v)) for k,v in FORM_processing_options["FORM_setup"].items() ]
             f.write('\n'.join(content))
-
+ 
         FORM_cmd = ' '.join([
                 FORM_processing_options["FORM_path"],
                 ]+
@@ -1619,6 +1622,10 @@ class FORMSuperGraphIsomorphicList(list):
                 [ '-M', '-l'] +
                 [ FORM_source, ]
         )
+
+        with open(pjoin(selected_workspace,'FORM_run_cmd_%d.exe'%i_graph), 'w') as f:
+            f.write(FORM_cmd)
+
         r = subprocess.run(FORM_cmd,
             shell=True,
             cwd=selected_workspace,
