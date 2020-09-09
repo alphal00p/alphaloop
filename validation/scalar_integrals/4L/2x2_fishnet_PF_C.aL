@@ -14,8 +14,8 @@ set_FORM_option FORM_setup {\
 'ScratchSize':'10G'\
 }
 set_FORM_option extra-options {'OPTIMITERATIONS':1000}
-!rm -rf TEST_SCALAR_INTEGRAL_2x2_FISHNET_PF_A
-output_scalar_integral TEST_SCALAR_INTEGRAL_2x2_FISHNET_PF_A \
+!rm -rf TEST_SCALAR_INTEGRAL_2x2_FISHNET_PF_C
+output_scalar_integral TEST_SCALAR_INTEGRAL_2x2_FISHNET_PF_C \
  --topology=[ \
             ('q1', 101, 1), ('q2', 102, 7), ('pout3', 9, 103), ('pout4', 3, 104), \
             ('p1', 1, 2), ('p2', 2, 3), \
@@ -30,4 +30,4 @@ output_scalar_integral TEST_SCALAR_INTEGRAL_2x2_FISHNET_PF_A \
  --default_kinematics={'q1':[  1.2,  2.2,   1.0, 0.4 ],\
                        'q2':[  2.0, -5.2,   2.1, 0.0 ],\
 	                   'pout3':[ 1.6,  -0.1, 12.5, -2.4 ] } \
- --lmb=['p1','p12','p5','p8']
+ --lmb=['p4','p9','p7','p6']
