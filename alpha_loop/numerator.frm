@@ -488,11 +488,6 @@ if (count(integratedctflag, 1) > 0);
         exit "Critical error";
     endif;
 
-* Set all external momenta on-shell
-    #do i=1,10
-        id p`i'.p`i' = 0;
-    #enddo
-
     id vec(k1?,mu?)*vec(k2?,mu?) = k1.k2;
 
     id k1?.p0select = penergy(k1);
