@@ -1042,16 +1042,20 @@ impl SquaredTopologySet {
         }
 
         // obtain the sampled topology if one is provided
-        let (selected_topology, sub_sample) = match sample {
-            IntegrandSample::Flat(w, x) => (None, IntegrandSample::Flat(w, x)),
-            IntegrandSample::Nested(x) => match x {
-                havana::Sample::ContinuousGrid(_, _) => (None, IntegrandSample::Nested(x)),
-                havana::Sample::DiscreteGrid(_, selected_topology, sub_sample) => (
-                    Some(selected_topology[0]),
-                    IntegrandSample::Nested(sub_sample.as_ref().unwrap().as_ref()),
-                ),
-                havana::Sample::MultiChannel(_, _, _) => unimplemented!(),
-            },
+        let (selected_topology, sub_sample) = if self.topologies.len() > 1 {
+            match sample {
+                IntegrandSample::Flat(w, x) => (None, IntegrandSample::Flat(w, x)),
+                IntegrandSample::Nested(x) => match x {
+                    havana::Sample::ContinuousGrid(_, _) => (None, IntegrandSample::Nested(x)),
+                    havana::Sample::DiscreteGrid(_, selected_topology, sub_sample) => (
+                        Some(selected_topology[0]),
+                        IntegrandSample::Nested(sub_sample.as_ref().unwrap().as_ref()),
+                    ),
+                    havana::Sample::MultiChannel(_, _, _) => unimplemented!(),
+                },
+            }
+        } else {
+            (None, sample)
         };
 
         // clear the deformation cache for non-stability topologies, unless
@@ -1945,20 +1949,18 @@ impl SquaredTopology {
                     // Only support center and spread at 1 for now
                     assert_eq!(self.settings.cross_section.normalising_function.center, 1.,
                         "For now the left-right exponential normalising function only support a center at 1.0.");
-                    assert_eq!(self.settings.cross_section.normalising_function.spread, 1.,
-                        "For now the left-right exponential normalising function only support a spread set to 1.0.");
+
                     (
-                        (-((Float::powi(scaling, 2)
-                            + Float::powi(
-                                Into::<T>::into(
-                                    self.settings.cross_section.normalising_function.spread,
-                                ),
-                                2,
-                            ))
+                        (-(Into::<T>::into(
+                            self.settings.cross_section.normalising_function.spread,
+                        ) * (Float::powi(scaling, 2) + T::one())
                             / scaling))
                             .exp(),
-                        // 2 Sqrt[\[Sigma]] BesselK[1, 2 Sqrt[\[Sigma]]], with \[Sigma]=1
-                        Into::<T>::into(0.27973176363304485456919761407082204777),
+                        Into::<T>::into(
+                            2. * rgsl::bessel::K1(
+                                2. * self.settings.cross_section.normalising_function.spread,
+                            ),
+                        ),
                     )
                 }
                 NormalisingFunction::LeftRightPolynomial => {
