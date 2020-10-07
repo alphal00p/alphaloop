@@ -3074,7 +3074,13 @@ int %(header)sget_rank(int diag, int conf) {{
                                     has_pure_external_gluon_effective_vertex = set(edge_pdgs)==set([21,])
                                 # END PIECE OF MULTIPLICITY HACK
                                 is_external_bubble = ( (len(edges_on_vertex)==2) and any( (e in bubble_edges) for e in edges_on_vertex) )
+                                #misc.sprint(edge_pdgs)
+                                #misc.sprint(l)
+                                #misc.sprint(process_definition.nice_string())
+                                #misc.sprint(is_external_bubble)
                                 vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l, model, process_definition, is_external_bubble=is_external_bubble)
+                                #misc.sprint(vertex_contrib)
+
                                 if vertex_contrib is None:
                                     logger.warning("WARNING: unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
                                     #raise AssertionError("Unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
@@ -3084,9 +3090,13 @@ int %(header)sget_rank(int diag, int conf) {{
                                     # now it is also OK to simply let it return None with the above warning and use `0` as the numerator
                                     # for this renormalisation supergraph, so that it hopefully gets removed automatically at the time 
                                     # of explicitly building its numerator.
-                                    vertex_factors.append('0')
+                                    vertex_factors.append('(0)')
                                 else:
                                     vertex_factors.append('(' + vertex_contrib + ')')
+
+                    # If this cut and diag set receives no contribution, then ignore it
+                    if all(v=='(0)' for v in vertex_factors):
+                        continue
 
                     # shrink the UV subgraph in the edge list
                     subgraph_pdgs = self.shrink_edges(edges, nodes, diag_set['uv_propagators'],bubble_external_shrinking_step=False)
