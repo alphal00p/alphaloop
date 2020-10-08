@@ -22,7 +22,7 @@ On nospacesinnumbers;
 #define L "11,12,13"
 #define LBAR "-11,-12,-13"
 
-S vev;
+S vev, pi;
 
 Auto S mass;
 CTable masses(-30:30);
@@ -183,10 +183,10 @@ id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
-id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = - i_ * d_(colA[idx2], colA[idx3]) * ( -(gs^2)/(12*vev*(pi^2)) ) * (
+id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = - i_ * d_(colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 ) * (
     p3(lorentz[idx2])*p2(lorentz[idx3]) - p2.p3 * d_(lorentz[idx2], lorentz[idx3])
 );
-id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) * ( -(gs^2)/(12*vev*(pi^2)) ) * (
+id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 ) * (
     - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
     + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
     + d_(lorentz[idx2], lorentz[idx3]) * p2(lorentz[idx1])
@@ -276,7 +276,7 @@ repeat id vx(`GLU', `GLU', `GLU', `GLU', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?
     + cOlf(colAdum[i], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
         * (d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
 );
-repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = - counter(i + 1) * gs^2 * i_ * ( -(gs^2)/(12*vev*(pi^2)) ) * (
+repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = - counter(i + 1) * gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) * (
     + cOlf(colAdum[i], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[i])
         * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]))
     + cOlf(colAdum[i], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colAdum[i])
@@ -429,7 +429,7 @@ argument uv;
             repeat id uvconf1(p?)*uvconf1(p?) = uvconf1(p);
             id uvconf1(p?) = replace_(p, t * p);
 
-            argument uvprop,1;
+            argument uvprop,1,vxs;
                 id t = 1; * it could be that the LTD momentum also makes an appearance as an external momentum
             endargument;
 

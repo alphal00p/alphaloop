@@ -37,6 +37,8 @@ drop sF1, sF2;
 L isoCHECK = isoF * F1 - F2;
 .sort
 #if termsin(isoCHECK) != 0
+	print +s isoCHECK;
+	.sort;
 	exit "ISO CHECK FAIL: multiplicity factor not found";
 #endif
 print isoF;

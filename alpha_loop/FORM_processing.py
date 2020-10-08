@@ -2782,6 +2782,8 @@ int %(header)sget_rank(int diag, int conf) {{
 
     def get_renormalization_vertex(self, in_pdgs, loop_count, model, process_definition, is_external_bubble=False):
         
+        is_heft = (model.get('name')=='SM_HEFT')
+
         # This overall factor is an overall fudge which will need to be understood together with how exactly we must
         # inherit the overall phase of the reference loop SG that this vertex is supposed to renormalised. 
         overall_factor = '(-1)'
@@ -2802,7 +2804,7 @@ int %(header)sget_rank(int diag, int conf) {{
             return overall_factor
 
         # No renormalisation for shrunk loop-induced vertices involving only gluons and the Higgs
-        if all(pdg in [21,25] for pdg in in_pdgs):
+        if not is_heft and all(pdg in [21,25] for pdg in in_pdgs):
             return '0'
 
         hardcoded_mass_parameters = {
@@ -2838,6 +2840,7 @@ int %(header)sget_rank(int diag, int conf) {{
             'n_f' : '%d'%n_massless_quarks,
             'UVRenormFINITE_marker': 'UVRenormFINITE'
         }
+        symbol_replacement_dict['beta0'] = '(11-(2/3)*%(n_f)s)'%symbol_replacement_dict
 
         delta_Z_massless_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*(-1/%(ep)s)'
         delta_Z_massive_quark = '%(C_F)s*%(gs)s^2/16/%(pi)s^2*((-1/%(ep)s) + %(UVRenormFINITE_marker)s*(-4-3*(logmu - %(log_quark_mass)s)) )'
@@ -2880,6 +2883,8 @@ int %(header)sget_rank(int diag, int conf) {{
             ))
         # Combine all terms for the strong coupling renormalisation
         delta_g_s = '(%s)'%('+'.join(delta_g_s))
+
+        delta_g_heft = '( (%(gs)s^2/4/%(pi)s^2)*( -(1/%(ep)s)*%(beta0)s + 11/4 ) )'%symbol_replacement_dict
 
         # Combine all terms for the yukawa renormalisation
         # WARNING: He consider here only contribution from the top and bottom as these are the only fermions we consider as
@@ -2998,6 +3003,22 @@ int %(header)sget_rank(int diag, int conf) {{
                 '(+4*(%s))'%delta_Z_gluon,
             ]
             return '((1/%d)*%s*(%s))'%(loop_multiplicity_factor,overall_factor,('+'.join(res)))
+
+        # hgg, hggg and hgggg vertex
+        if all(pdg in [21,25] for pdg in in_pdgs) and in_pdgs.count(25)==1 and len(in_pdgs)<=5:
+            if len(in_pdgs)==3:
+                loop_multiplicity_factor = 4
+            elif len(in_pdgs)==4:
+                loop_multiplicity_factor = 15
+            elif len(in_pdgs)==5:
+                loop_multiplicity_factor = 69
+            else:
+                raise FormProcessingError("Unreachable")
+            res = [ 
+                '(+%s)'%delta_g_heft, 
+                '(+%d*(%s))'%(len(in_pdgs)-1,delta_Z_gluon)
+            ]
+            return '((1/%d)*%s*(%s))'%(loop_multiplicity_factor, overall_factor,('+'.join(res)))
 
         return None
 

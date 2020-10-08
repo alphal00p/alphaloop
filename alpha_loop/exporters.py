@@ -1284,6 +1284,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         computed_model.set_parameters_and_couplings(
                                             pjoin(self.dir_path,'Source','MODEL','param_card.dat'))        
 
+        # Assign the name of the model to be qgraf name, as it is useful for deciding between SM and HEFT renormalisation
+        computed_model.set('name',self.alphaLoop_options['qgraf_model'])
+
         if self.alphaLoop_options['qgraf_cut_filter']:
             cuts = self.get_cuts(representative_proc)
         else:
