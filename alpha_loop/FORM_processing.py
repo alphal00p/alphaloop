@@ -1340,13 +1340,26 @@ CTable pftopo(0:{});
                     external_momenta = set(m for e in uv_info['external_edges'] 
                         for m in self.momenta_decomposition_to_string(next(ee for ee in self.edges.values() if ee['name'] == e)['signature'], False)
                                 .replace('-', '+').split('+') if m != '')
-                    
-                    uv_props = []
-                    for i, uv_ll_props in enumerate(uv_info['loop_lines']):
-                        # loop through all parametric shifts of all the propagators in this loop line
-                        # find the associated LTD loop line
-                        ll_sig, propagators = next(ll for ll in loop_diag_info['uv_loop_lines'] if set(p[0] for p in ll[1]).issuperset(set(uv_ll_props)))
 
+                    # construct the vertex structure of the UV subgraph
+                    # TODO: are the LTD vertices reliable?
+                    vertex_structure = []
+                    subgraph_vertices = set(v for ll in loop_diag_info['graph'].loop_lines for v in (ll.start_node, ll.end_node))
+                    for v in subgraph_vertices:
+                        vertex = []
+                        for ll in loop_diag_info['graph'].loop_lines:
+                            for (dv, outgoing) in ((ll.start_node, 1), (ll.end_node, -1)):
+                                if v != dv:
+                                    continue
+                                loop_mom_sig = ''
+                                for s, lmm in zip(ll.signature, loop_diag_info['loop_momentum_map']):
+                                    if s != 0:
+                                        loop_mom_sig += '{}({})'.format('+' if s * outgoing == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
+                                vertex.append(loop_mom_sig)
+                        vertex_structure.append('vxs({})'.format(','.join(vertex)))
+
+                    uv_props = []
+                    for i, (ll_sig, propagators) in enumerate(loop_diag_info['uv_loop_lines']):
                         # the parametric shift is given in terms of external momenta of the subgraph
                         # translate the signature and param_shift to momenta of the supergraph
                         loop_mom_sig = ''
@@ -1358,6 +1371,7 @@ CTable pftopo(0:{});
                             ext_mom_sig = ''
 
                             if all(s == 0 for s in param_shift[1]):
+                                uv_props.append('uvprop({},t{},1)'.format(loop_mom_sig, i))
                                 continue
 
                             for (ext_index, s) in enumerate(param_shift[1]):
@@ -1379,10 +1393,11 @@ CTable pftopo(0:{});
                     if diag_set['integrated_ct']:
                         uv_props.append('integratedctflag')
 
-                    uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), '*'.join(uv_props))
+                    uv_conf = 'uvconf({},{},{},{}*{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), '*'.join(uv_props),
+                        '*'.join(vertex_structure))
                     uv_subgraphs.append('subgraph({}{},{})'.format(uv_info['graph_index'], 
-                    (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
-                    uv_conf))
+                        (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
+                        uv_conf))
 
                     if uv_subgraphs != []:
                         diag_set_uv_conf.append('*'.join(uv_subgraphs))
@@ -1605,6 +1620,8 @@ class FORMSuperGraphIsomorphicList(list):
         else:
             selected_workspace = workspace
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
+            shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
+            shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'numerator.frm')
 
@@ -2128,6 +2145,8 @@ class FORMSuperGraphList(list):
             selected_workspace = workspace
             shutil.copy(pjoin(plugin_path,"multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
+            shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
+            shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'multiplicity.frm')
 

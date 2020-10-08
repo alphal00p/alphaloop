@@ -104,7 +104,7 @@ Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop, replace;
-CF f, vx, vec, vec1;
+CF f, vx, vxs(s), vec, vec1;
 CF subs, configurations, conf, cmb, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv;
 
@@ -119,8 +119,6 @@ CT penergy;
 NF energync;
 Symbol ca,cf,nf,[dabc^2],[d4RR],[d4RA],[d4AA];
 
-S eulergamma, log4pi, pi;
-
 S  i, m, n, ALARM;
 
 #include- diacolor.h
@@ -131,6 +129,9 @@ Set colAdum: cOljj1,...,cOljj40;
 Polyratfun rat;
 
 *--#] setup :
+
+#include tensorreduce.frm
+#include integrateduv.frm
 
 * Load the diagrams
 #include- input_`SGID'.h
@@ -418,24 +419,32 @@ argument uv;
 * select the right denominator structure
             repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2);
             id uvprop(k?,t1?,n1?)*t1?^n2? = uvprop(k,n1 + n2)*t1^n2;
-* FIXME: we are not given the complete denominator: denominators that have no external momentum dependence are not in the subgraph
-            id uvprop(k?,t1?ts,n?) = uvprop(k, n + 1); * add one for the propagator without external momentum dependence
-            if (count(integratedctflag, 1) == 0) id uvprop(?a) = 1;
+            id uvprop(k?,t1?ts,n?) = uvprop(k, n);
+
+            Multiply replace_(vxs, vx);
+            if (count(integratedctflag, 1) == 0);
+                id uvprop(?a) = 1;
+                id vx(?a) = 1;
+            endif;
 
 * collect all uv propagators of the subgraph
             chainin uvprop;
+            id uvprop(?a) = uvprop(?a, 1);
+            repeat id vx(?a)*uvprop(?b,x?) = uvprop(?b, x*vx(?a));
+            Multiply replace_(vx, vxs);
 
             id uvconf(x?) = 1/x;
             id t?ts^n? = 0;
             id t = 1;
             id tmax = 1;
         endargument;
+        id uvconf1(?a) = uvconf(?a);
 
 * now fill in the subgraph evaluation into the supergraph
-        repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf1(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*x3));
+        repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*x3));
     endrepeat;
    
-    id uvconf1(x?,x1?) = x1;
+    id uvconf(x?,x1?) = x1;
     if (count(subgraph, 1));
         Print "Unsubstituted UV subgraph: %t";
         exit "Critical error";
@@ -456,128 +465,55 @@ id replace(?a) = replace_(?a);
 .sort:cmb-2;
 
 * compute the integrated UV counterterm
-if (count(integratedctflag, 1) > 0);
-    Multiply counter(mu1,...,mu20);
-    repeat id k1?.k2?*counter(mu?,?a) = vec(k1,mu)*vec(k2,mu)*counter(?a);
-
-* process the tensor reduction one subgraph at a time
-    id uvprop(?a) = uvconf(?a);
-    repeat;
-        id once uvconf(?a) = uvprop(?a);
-
+Multiply counter(1);
+repeat id k1?.k2?*counter(n?) = vec(k1,n)*vec(k2,n)*counter(n + 1);
 * convert every k^0 into k.p0select, where p0select is effectively (1,0,0,0)
-* TODO: is this safe in D dimensions? 
-        repeat id uvprop(k1?,n?)*penergy(k1?)*counter(mu?,?a) = uvprop(k1,n)*vec1(k1,mu)*vec(p0select,mu)*counter(?a);
-        id counter(?a) = 1;
-        repeat id uvprop(k1?,n?)*vec(k1?,mu?) = uvprop(k1,n)*vec1(k1,mu);
-        chainin vec1;
+* TODO: is this safe in D dimensions?  
+repeat id penergy(k1?)*counter(n?) = vec(k1,n)*vec(p0select,n)*counter(n + 1);
+id counter(x?) = 1;
 
-* tensor reduce the vacuum bubble
-        id vec1(k1?,mu1?) = 0;
-        id vec1(k1?,mu1?,k1?,mu2?) = k1.k1 * rat(1, D) * d_(mu1,mu2);
-        id vec1(k1?,mu1?,k1?,mu2?,k1?,mu3?) = 0;
-        id vec1(k1?,mu1?,k1?,mu2?,k1?,mu3?,k1?,mu4?) = k1.k1^2 * rat(1, D * (2+D)) * (d_(mu1,mu2) * d_(mu3,mu4)
-            + d_(mu1,mu3) * d_(mu2,mu4) + d_(mu1,mu4) * d_(mu2,mu3));
-        id vec1(k1?,mu1?,k1?,mu2?,k1?,mu3?,k1?,mu4?,k1?,mu5?) = 0;
-        id vec1(k1?,mu1?,k1?,mu2?,k1?,mu3?,k1?,mu4?,k1?,mu5?,k1?,mu6?) = k1.k1^3 * rat(1, D * (2+D) * (4+D)) * (
-            + d_(mu1,mu2)*d_(mu3,mu4)*d_(mu5,mu6)
-            + d_(mu1,mu2)*d_(mu3,mu5)*d_(mu4,mu6)
-            + d_(mu1,mu2)*d_(mu3,mu6)*d_(mu4,mu5)
-            + d_(mu1,mu3)*d_(mu2,mu4)*d_(mu5,mu6)
-            + d_(mu1,mu3)*d_(mu2,mu5)*d_(mu4,mu6)
-            + d_(mu1,mu3)*d_(mu2,mu6)*d_(mu4,mu5)
-            + d_(mu1,mu4)*d_(mu2,mu3)*d_(mu5,mu6)
-            + d_(mu1,mu4)*d_(mu2,mu5)*d_(mu3,mu6)
-            + d_(mu1,mu4)*d_(mu2,mu6)*d_(mu3,mu5)
-            + d_(mu1,mu5)*d_(mu2,mu3)*d_(mu4,mu6)
-            + d_(mu1,mu5)*d_(mu2,mu4)*d_(mu3,mu6)
-            + d_(mu1,mu5)*d_(mu2,mu6)*d_(mu3,mu4)
-            + d_(mu1,mu6)*d_(mu2,mu3)*d_(mu4,mu5)
-            + d_(mu1,mu6)*d_(mu2,mu4)*d_(mu3,mu5)
-            + d_(mu1,mu6)*d_(mu2,mu5)*d_(mu3,mu4));
-
-        id uvprop(?a) = uvconf1(?a);
-    endrepeat;
-    id uvconf1(?a) = uvprop(?a);
-
-    if (count(vec1, 1) > 0);
-        Print "Tensor reduction table insufficient: %t";
-        exit "Critical error";
-    endif;
-
-    id vec(k1?,mu?)*vec(k2?,mu?) = k1.k2;
-
-    id k1?.p0select = penergy(k1);
-
-endif;
-.sort:tensor-projection;
-if (count(integratedctflag, 1) > 0);
+id uvprop(?a) = uvconf(?a);
+#do i=1,1
     id integratedctflag = -1; * we add back the counterterm
 
+    id once uvconf(?a,x?) = uvprop(?a)*x;
+    if (count(uvprop,1)) redefine i "0";
+
+    Multiply replace_(vec, vec1); * consider all vectors as external
+    repeat id uvprop(k1?,n?)*vec1(k1?,n1?) = uvprop(k1,n)*vec(k1,n1);
+
+    #call TensorReduce()
+
+* contract all metrics
+    repeat id g(n1?,n2?)*g(n2?,n3?) = g(n1,n3);
+    id g(n1?,n1?) = rat(4-2*ep,1);
+    repeat id vec1(p1?,n1?)*g(n1?,n2?) = vec1(p1,n2);
+
+    id uvprop(?a) = uvconf1(?a);
+
+    .sort:tensor-projection-loop;
+
+    id uvconf1(?a) = uvprop(?a);
+
+    if (count(uvprop,1));
 * divide by the normalizing factor of the denominator that is added to the topology
 * this is always 1/(k^2 - m_UV^2)^3 = -i / (4 pi)^2 * 1/2 * 1/mUV^2
-    Multiply i_ * (4 * pi)^2 * 2 * mUV^2;
+        Multiply i_ * (4 * pi)^2 * 2 * mUV^2;
 
-* reduce the numerator
-    repeat id k1?.k1?*uvprop(k1?,n1?) = uvprop(k1, n1-1) + mUV^2 * uvprop(k1, n1);
-    id uvprop(k1?,n?) = uvprop(n);
-
-* 1-loop IBP
-    id uvprop(n1?{<1}) = 0;
-    repeat id uvprop(n1?{>1}) = uvprop(-1 + n1)*rat((2 + D - 2*n1), 2* (-1 + n1)) / mUV^2;
-    id uvprop(1) = mi1L1 * rat(1, ep) * mUV^2 * rat(2, D - 2);
-
-* TODO: take to the power of loops
-* normalize with 1/(4 pi e^-gamma)^ep
-    Multiply 1 + (eulergamma - log4pi)*rat(ep,1) + 1/2*(eulergamma^2 - 2*eulergamma*log4pi + log4pi^2)*rat(ep^2, 1) +
-        1/6*(eulergamma^3 - 3*eulergamma^2*log4pi + 3*log4pi*log4pi^2 - log4pi^3)*rat(ep^3, 1);
-* TODO: take to the power of loops
-* add mu^2-dependence
-    Multiply 1 + logmu * rat(ep, 1) + 1/2 * logmu^2 * rat(ep^2, 1) + 1/6 * logmu^3 * rat(ep^3, 1);
-endif;
+        #call IntegrateUV()
+    endif;
 
     Multiply replace_(D, 4 - 2 * ep);
     id ep^n1? = rat(ep^n1,1);
 
-    B+ mi1L1;
     .sort:ibp-reduction;
-    PolyRatFun rat(expand,ep,{1+`SELECTEDEPSILONORDER'});
-    Keep brackets;
+#enddo
 
-	id mi1L1 = rat(ep, 1) * (
-        cMi1L1EpsM1logmUV0*logmUV^0*rat(1,ep^1)
-        +cMi1L1Eps0logmUV0*logmUV^0*rat(ep^0,1)
-        +cMi1L1Eps0logmUV1*logmUV^1*rat(ep^0,1)
-        +cMi1L1Eps1logmUV0*logmUV^0*rat(ep^1,1)
-        +cMi1L1Eps1logmUV1*logmUV^1*rat(ep^1,1)
-        +cMi1L1Eps1logmUV2*logmUV^2*rat(ep^1,1)
-        +cMi1L1Eps2logmUV0*logmUV^0*rat(ep^2,1)
-        +cMi1L1Eps2logmUV1*logmUV^1*rat(ep^2,1)
-        +cMi1L1Eps2logmUV2*logmUV^2*rat(ep^2,1)
-        +cMi1L1Eps2logmUV3*logmUV^3*rat(ep^2,1)
-        +cMi1L1Eps3logmUV0*logmUV^0*rat(ep^3,1)
-        +cMi1L1Eps3logmUV1*logmUV^1*rat(ep^3,1)
-        +cMi1L1Eps3logmUV2*logmUV^2*rat(ep^3,1)
-        +cMi1L1Eps3logmUV3*logmUV^3*rat(ep^3,1)
-        +cMi1L1Eps3logmUV4*logmUV^4*rat(ep^3,1)
-        +alarmMi1L1*rat(ep^4,1)
-	);
+id vec1(k1?,n?)*vec1(k2?,n?) = k1.k2;
+id k1?.p0select = penergy(k1);
 
-    id cMi1L1EpsM1logmUV0= i_/(16*pi^2);
-    id cMi1L1Eps0logmUV0 = i_*(-eulergamma + log4pi)/(16*pi^2);
-    id cMi1L1Eps0logmUV1 = -i_/(16*pi^2);
-    id cMi1L1Eps1logmUV0 = i_*(6*eulergamma^2 + pi^2 - 12*eulergamma*log4pi + 6*log4pi^2)/(192*pi^2);
-    id cMi1L1Eps1logmUV1 = i_*(eulergamma - log4pi)/(16*pi^2);
-    id cMi1L1Eps1logmUV2 = i_/(32*pi^2);
-    id cMi1L1Eps2logmUV0 = i_*rat(267137567007244,17222977639926303);
-    id cMi1L1Eps2logmUV1 = i_*rat(-238365146153033,13782143439795685);
-    id cMi1L1Eps2logmUV2 = i_*rat(31591818988785,5106723491205427);
-    id cMi1L1Eps2logmUV3 = i_*rat(-26474513963629,25084126035084908);
-    id cMi1L1Eps3logmUV0 = i_*rat(99723921272160,7862278376418437);
-    id cMi1L1Eps3logmUV1 = i_*rat(-267137567007244,17222977639926303);
-    id cMi1L1Eps3logmUV2 = i_*rat(238365146153033,27564286879591370);
-    id cMi1L1Eps3logmUV3 = i_*rat(-10530606329595,5106723491205427);
-    id cMi1L1Eps3logmUV4 = i_*rat(3349661396909,12694975820195403);
+#call SubstituteMasters()
+
 .sort:integrated-ct-1;
 
 Multiply replace_(D, 4 - 2 * ep);
