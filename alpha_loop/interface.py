@@ -102,6 +102,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'qgraf_template_model': 'epem',
             # filter qgraf output based on cuts
             'qgraf_cut_filter': False,
+            # Specify qgraf model
+            'qgraf_model' : 'SM',
             # Loop induced processes will enforce the presence of at least two virtual corrections:
             'loop_induced': False,
             # Veto some field from the QGRAF generation
@@ -268,6 +270,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     .format(value,"\n".join(["\t%s: %s"%(k,v['example']) for k,v in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.items()]))
                 )
             self.alphaLoop_options['qgraf_template_model'] = value
+        elif key == 'qgraf_model':
+            self.alphaLoop_options['qgraf_model'] = value
         elif key == 'FORM_compile_cores':
             if not value.isdigit():
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_compile_cores' takes values form 1 to %d. Not %s" % (multiprocessing.cpu_count(), value))

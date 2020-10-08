@@ -22,6 +22,8 @@ On nospacesinnumbers;
 #define L "11,12,13"
 #define LBAR "-11,-12,-13"
 
+S vev;
+
 Auto S mass;
 CTable masses(-30:30);
 CTable logmasses(-30:30);
@@ -180,6 +182,19 @@ id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charge
 id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
+
+id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = - i_ * d_(colA[idx2], colA[idx3]) * ( -(gs^2)/(12*vev*(pi^2)) ) * (
+    p3(lorentz[idx2])*p2(lorentz[idx3]) - p2.p3 * d_(lorentz[idx2], lorentz[idx3])
+);
+id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) * ( -(gs^2)/(12*vev*(pi^2)) ) * (
+    - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
+    + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
+    + d_(lorentz[idx2], lorentz[idx3]) * p2(lorentz[idx1])
+    - d_(lorentz[idx1], lorentz[idx2]) * p2(lorentz[idx3])
+    - d_(lorentz[idx2], lorentz[idx3]) * p3(lorentz[idx1])
+    + d_(lorentz[idx1], lorentz[idx3]) * p3(lorentz[idx2])
+);
+
 #do i=3,20
 id vx(<x1?{`PSI',}>,...,<x`i'?{`PSI',}>, p1?, ...,p`i'?, idx1?, ..., idx`i'?) = (-1*i_)^(`i'-2);
 #enddo
@@ -261,6 +276,14 @@ repeat id vx(`GLU', `GLU', `GLU', `GLU', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?
     + cOlf(colAdum[i], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
         * (d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
 );
+repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = - counter(i + 1) * gs^2 * i_ * ( -(gs^2)/(12*vev*(pi^2)) ) * (
+    + cOlf(colAdum[i], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[i])
+        * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]))
+    + cOlf(colAdum[i], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colAdum[i])
+        * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
+    + cOlf(colAdum[i], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
+        * (d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
+);
 id counter(x?) = 1;
 
 if (count(vx, 1, prop, 1));
@@ -281,6 +304,8 @@ id  cOlTr = cOlNR;
 Multiply color(1);
 repeat id cOlTr(?a)*color(x?) = color(x * cOlTr(?a));
 repeat id cOlf(cOlj1?,cOlj2?,cOlj3?)*color(x?) = color(x * cOlf(cOlj1,cOlj2,cOlj3));
+repeat id cOlNA*color(x?) = color(x * cOlNA);
+repeat id cOlNR*color(x?) = color(x * cOlNR);
 B+ color;
 .sort:color-prep;
 Keep brackets;

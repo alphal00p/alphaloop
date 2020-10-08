@@ -1695,13 +1695,16 @@ class FORMSuperGraphIsomorphicList(list):
                 f.write("L F1 = %s;\n"%reference)
                 f.write("L F2 = %s;\n"%mapped)
             
-            r = subprocess.run(' '.join([
+            cmd = ' '.join([
                 FORM_processing_options["tFORM_path"],
                 ]+
                 ['-w%d' % FORM_processing_options['cores']]+
                 [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
                 [ form_source, ]
-            ),
+            )
+            #misc.sprint(cmd)
+            #misc.sprint(workspace)
+            r = subprocess.run(cmd,
             shell=True,
             cwd=workspace,
             capture_output=True)
@@ -3344,6 +3347,7 @@ class FORMProcessor(object):
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
             'gy': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
             'ghhh': 6. * self.model['parameter_dict']['mdl_lam'].real,
+            'vev': self.model['parameter_dict']['mdl_vev'].real,
             'pi': 'M_PI',
         }
 

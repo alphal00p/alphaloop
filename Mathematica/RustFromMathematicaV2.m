@@ -153,13 +153,16 @@ RFM$DYLDPATHS<>":'+os.environ.get('DYLD_LIBRARY_PATH','');"
 If[OptionValue[DEBUG],
 Print["Arguments="<>ToString[Arguments,InputForm]];
 Print["Prolog="<>SessionProlog];
-]
+];
 AppendTo[RFM$AllHooksStarted,StartExternalSession[<|
 "System"->"Python","Version"->"3","SessionProlog"->SessionProlog
 |>]
 ];
+If[OptionValue[DEBUG],Print["External session started."];];
 ExternalEvaluate[RFM$AllHooksStarted[[-1]],File[RFM$LTDFolder<>"/"<>"API_accessor.py"]];
+If[OptionValue[DEBUG],Print["API accessor evaluated."];];
 ExternalEvaluate[RFM$AllHooksStarted[[-1]],<|"Command"->"API_initialise","Arguments"->Arguments|>];
+If[OptionValue[DEBUG],Print["API accessor evaluated."];];
 RFM$AllHooksStarted[[-1]]
 ]
 

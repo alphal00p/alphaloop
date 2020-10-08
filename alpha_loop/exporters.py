@@ -1133,7 +1133,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
 class QGRAFExporter(object):
     
     qgraf_style = pjoin(plugin_src_path,'Templates','qgraf','orientedGraphPython.sty')
-    qgraf_model = pjoin(plugin_src_path,'Templates','qgraf','SM.dat')
+    qgraf_root_path = pjoin(plugin_src_path,'Templates','qgraf')
     qgraf_template_epem = pjoin(plugin_src_path,'Templates','qgraf','qgraf_epem.dat')
     qgraf_template_no_s = pjoin(plugin_src_path,'Templates','qgraf','qgraf_no_s.dat')
 
@@ -1219,6 +1219,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         self.dir_path = None
         self.qgraf_raw_output = None
         self.qgraf_output = None
+        self.qgraf_model = pjoin(self.qgraf_root_path, '%s.dat'%self.alphaLoop_options['qgraf_model'])
 
         if isinstance(process_definition, base_objects.ProcessDefinition):
             all_processes = list(proc for proc in process_definition)
@@ -1397,7 +1398,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
             dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
 
-        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
+        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','model.dat'))
         shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
         
         qgraf_output = pjoin(self.dir_path, 'qgraf/qgraf.dat')
@@ -1459,7 +1460,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
             dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
 
-        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
+        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','model.dat'))
         shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
         
         qgraf_output = pjoin(self.dir_path, 'qgraf/qgraf.dat')
@@ -1517,7 +1518,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
             dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
 
-        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','SM.dat'))
+        shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','model.dat'))
         shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
         
         qgraf_output = pjoin(self.dir_path, 'qgraf/qgraf.dat')

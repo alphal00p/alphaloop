@@ -1,7 +1,7 @@
 
 output = 'output.py';
 style = './orientedGraphPython.sty';
-model = './SM.dat';
+model = './model.dat';
 
 in = eplus[p1], eminus[p2]; 
 out = eplus[p1], eminus[p2];

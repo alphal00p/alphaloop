@@ -1,7 +1,7 @@
 
 output = 'output.py';
 style = './orientedGraphPython.sty';
-model = './SM.dat';
+model = './model.dat';
 
 * incoming states
 %(incoming_states)s
