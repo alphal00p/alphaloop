@@ -378,10 +378,19 @@ class SuperGraph(object):
         #misc.sprint(pformat(self.get_subgraphs_info()))
         #misc.sprint(pformat(dict(self.graph.edges)))
         try:
-            topo_generator.generate_momentum_flow(
-                loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]]
-            )
-            self.was_MG_LMB_valid = True
+            _HARDCODED_LMB = None
+            #_HARDCODED_LMB = ['cut6','Lp1','Lp3','Rp3']
+            if _HARDCODED_LMB is None:
+                self.was_MG_LMB_valid = True
+                topo_generator.generate_momentum_flow(
+                    loop_momenta=[self.graph.edges[c[1]]['name'] for c in self.cuts[:-1]]
+                )
+            else:
+                self.was_MG_LMB_valid = False
+                topo_generator.generate_momentum_flow(
+                    loop_momenta=_HARDCODED_LMB
+                )
+
 #            misc.sprint([v['name'] for k,v in self.graph.edges.items()])
 #            if self.call_signature['left_diagram_id']==2 and self.call_signature['right_diagram_id']==2:
 #                topo_generator.generate_momentum_flow(

@@ -1423,7 +1423,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         # Check if a1 a2 a3 ... > a4 a5 ...
         check_s_channel = representative_process.get('required_s_channels') == []
         if not check_s_channel:
-            raise alphaLoopExporterError("The command 'qgraf_generate' with model 'no_s' does not support this process.\nAvailable models (: example)"\
+            raise alphaLoopExporterError("The command 'qgraf_generate' with model 'no_s' does not support this process.\nAvailable models (: example)\n{}"\
                 .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))
             )
         if self.alphaLoop_options['loop_induced']:
@@ -1435,7 +1435,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         pdg_model_map = self.model['particles'].generate_dict()
         
         dict_replace = {}
-        dict_replace['n_loops'] = n_final_states - 1 + virtual_loops;
+        dict_replace['n_loops'] = n_final_states - 1 + virtual_loops
         
         # Veto particles that are forbidden
         dict_replace['vetos'] = ''
