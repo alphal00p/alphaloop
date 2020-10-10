@@ -108,7 +108,7 @@ Set lorentzdummy: mud1,...,mud40;
 CF gamma, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), vec, vec1;
 CF subs, configurations, conf, cmb, der, energy, spatial(s);
-CF subgraph, uvconf, uvconf1, uvprop, uv;
+CF subgraph, uvconf, uvconf1, uvprop, uv, integrateduv;
 
 S UVRenormFINITE;
 S integratedctflag, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
@@ -445,23 +445,23 @@ argument uv;
             repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2);
             id uvprop(k?,t1?,n1?)*t1?^n2? = uvprop(k,n1 + n2)*t1^n2;
             id uvprop(k?,t1?ts,n?) = uvprop(k, n);
+            id uvconf(x?) = 1/x;
+            id t?ts^n? = 0;
+            id t = 1;
+            id tmax = 1;
 
+* collect all uv propagators of the subgraph
             Multiply replace_(vxs, vx);
             if (count(integratedctflag, 1) == 0);
                 id uvprop(?a) = 1;
                 id vx(?a) = 1;
             endif;
 
-* collect all uv propagators of the subgraph
             chainin uvprop;
             id uvprop(?a) = uvprop(?a, 1);
             repeat id vx(?a)*uvprop(?b,x?) = uvprop(?b, x*vx(?a));
             Multiply replace_(vx, vxs);
-
-            id uvconf(x?) = 1/x;
-            id t?ts^n? = 0;
-            id t = 1;
-            id tmax = 1;
+            id uvprop(?a) = integrateduv(?a);
         endargument;
         id uvconf1(?a) = uvconf(?a);
 
@@ -497,11 +497,10 @@ repeat id k1?.k2?*counter(n?) = vec(k1,n)*vec(k2,n)*counter(n + 1);
 repeat id penergy(k1?)*counter(n?) = vec(k1,n)*vec(p0select,n)*counter(n + 1);
 id counter(x?) = 1;
 
-id uvprop(?a) = uvconf(?a);
 #do i=1,1
     id integratedctflag = -1; * we add back the counterterm
 
-    id once uvconf(?a,x?) = uvprop(?a)*x;
+    id once integrateduv(?a,x?) = uvprop(?a)*x;
     if (count(uvprop,1)) redefine i "0";
 
     Multiply replace_(vec, vec1); * consider all vectors as external
@@ -514,11 +513,7 @@ id uvprop(?a) = uvconf(?a);
     id g(n1?,n1?) = rat(4-2*ep,1);
     repeat id vec1(p1?,n1?)*g(n1?,n2?) = vec1(p1,n2);
 
-    id uvprop(?a) = uvconf1(?a);
-
     .sort:tensor-projection-loop;
-
-    id uvconf1(?a) = uvprop(?a);
 
     if (count(uvprop,1));
 * divide by the normalizing factor of the denominator that is added to the topology
@@ -537,15 +532,9 @@ id uvprop(?a) = uvconf(?a);
 id vec1(k1?,n?)*vec1(k2?,n?) = k1.k2;
 id k1?.p0select = penergy(k1);
 
+* Substitute the masters and expand in ep
 #call SubstituteMasters()
-
 .sort:integrated-ct-1;
-
-Multiply replace_(D, 4 - 2 * ep);
-
-.sort:ep-collection;
-PolyRatFun rat(expand,ep,`SELECTEDEPSILONORDER');
-.sort:ep-expansion;
 PolyRatFun;
 id rat(x1?) = x1;
 if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard; * keep only the ep^0 piece

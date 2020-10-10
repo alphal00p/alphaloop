@@ -3,6 +3,15 @@ S mapu;
 S eulergamma, log4pi, pi;
 CF uvid;
 
+* TODO: set the expansion depth to n+selected, where n is the power of the deepest pole of the entire diagram
+#define MAXPOLE "3"
+
+#procedure TruncateExpansion()
+    argument rat;
+        id ep^{`MAXPOLE'+`SELECTEDEPSILONORDER'+1} = 0;
+    endargument;
+#endprocedure
+
 #procedure IntegrateUV1L()
     if (match(vxs(k1?vector_,-k1?)));
 * reduce the numerator
@@ -102,8 +111,7 @@ CF uvid;
 
     B+ uvid;
     .sort:masters-1;
-* TODO: set the expansion depth to n+selected, where n is the power of the deepest pole of the entire diagram
-    PolyRatFun rat(expand,ep,{3+`SELECTEDEPSILONORDER'});
+    PolyRatFun rat(expand,ep,{`MAXPOLE'+`SELECTEDEPSILONORDER'});
     Keep brackets;
 
 * normalize with 1/(4 pi e^-gamma)^ep
@@ -115,9 +123,18 @@ CF uvid;
     id uvid(n?,n1?) = uvid(n,n1) * (1
         + logmu * rat(ep, 1) + 1/2 * logmu^2 * rat(ep^2, 1) + 1/6 * logmu^3 * rat(ep^3, 1))^n;
 
+    .sort
+    #call TruncateExpansion()
+
     B+ uvid;
     .sort:normalization;
     Keep brackets;
 
     #call Mastermi1L1()
+
+    .sort
+* at this stage all poles should be substituted
+    argument rat;
+        id ep^{`SELECTEDEPSILONORDER'+1} = 0;
+    endargument;
 #endprocedure

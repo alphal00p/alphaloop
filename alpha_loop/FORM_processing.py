@@ -1390,7 +1390,7 @@ CTable pftopo(0:{});
                         uv_sig = 't0^0'
                         uv_props = ['1']
 
-                    if diag_set['integrated_ct']:
+                    if diag_info['integrated_ct']:
                         uv_props.append('integratedctflag')
 
                     uv_conf = 'uvconf({},{},{},{}*{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), '*'.join(uv_props),

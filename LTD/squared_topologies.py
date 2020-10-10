@@ -118,6 +118,8 @@ class SquaredTopologyGenerator:
                     'uv_propagators': set(m for d in x for m in d['uv_propagators'])
                     } for x in product(*uv_diags)]
 
+                uv_diag_sets_with_integrated_ct = []
+
                 # unpack the factorized UV subgraphs
                 for uv_diag_set in uv_diag_sets:
                     unfolded_diag_info = []
@@ -145,18 +147,36 @@ class SquaredTopologyGenerator:
                                 'conjugate_deformation': di['conjugate_deformation']
                             })
 
-                    uv_diag_set['diagram_info'] = unfolded_diag_info
+                    # take the cartesian product over all local+integrated CT
+                    ct_opts = [[False] if (di['uv_info'] is None or not self.generation_options.get('generate_integrated_UV_CTs',True)) else [False, True] for di in unfolded_diag_info]
+                    print(ct_opts)
+                    for o in product(*ct_opts):
+                        new_diag_info = []
+                        for ictflag, uv_diag_info in zip(o, unfolded_diag_info):
+                            integrated_diag_info = copy.deepcopy(uv_diag_info)
+                            integrated_diag_info['integrated_ct'] = ictflag
+                            new_diag_info.append(integrated_diag_info)
+
+                        uv_diag_sets_with_integrated_ct.append(
+                            {
+                                'diagram_info': new_diag_info,
+                                'uv_spinney': copy.deepcopy(uv_diag_set['uv_spinney']),
+                                'uv_propagators': copy.deepcopy(uv_diag_set['uv_propagators']),
+                            }
+                        )
+
+                    #uv_diag_set['diagram_info'] = unfolded_diag_info
 
                 # add integrated counterterms to the diagram set
-                uv_diag_sets_with_integrated_ct = []
-                for uv_diag_set in uv_diag_sets:
-                    uv_diag_set['integrated_ct'] = False
-                    uv_diag_sets_with_integrated_ct.append(uv_diag_set)
-                    if self.generation_options.get('generate_integrated_UV_CTs',True):
-                        if any(di['uv_info'] is not None for di in uv_diag_set['diagram_info']):
-                            integrated_diag_set = copy.deepcopy(uv_diag_set)
-                            integrated_diag_set['integrated_ct'] = True
-                            uv_diag_sets_with_integrated_ct.append(integrated_diag_set)
+                #uv_diag_sets_with_integrated_ct = []
+                #for uv_diag_set in uv_diag_sets:
+                #    uv_diag_set['integrated_ct'] = False
+                #    uv_diag_sets_with_integrated_ct.append(uv_diag_set)
+                #    if self.generation_options.get('generate_integrated_UV_CTs',True):
+                #        if any(di['uv_info'] is not None for di in uv_diag_set['diagram_info']):
+                #            integrated_diag_set = copy.deepcopy(uv_diag_set)
+                #            integrated_diag_set['integrated_ct'] = True
+                #            uv_diag_sets_with_integrated_ct.append(integrated_diag_set)
 
                 uv_diagram_sets.extend(uv_diag_sets_with_integrated_ct)
 
@@ -164,7 +184,7 @@ class SquaredTopologyGenerator:
 
             diagram_sets = []
             for diag_set in uv_diagram_sets:
-                uv_name = ('_uv_' + ('integrated_' if diag_set['integrated_ct'] else '') +
+                uv_name = ('_uv_' + # + ('integrated_' if diag_set['integrated_ct'] else '')
                     '_'.join(diag_set['uv_propagators'])) if len(diag_set['uv_propagators']) > 0 else ''
                 numerator_sparse = []
 
@@ -237,7 +257,7 @@ class SquaredTopologyGenerator:
                             prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
                             ll.propagators = [prop]
 
-                    if diag_set['integrated_ct'] and diag_info['uv_info'] is not None:
+                    if diag_info['integrated_ct']:
                         # replace the graphs by finite vacuum bubbles
                         # the numerator will be the integrated CT
                         lm = [s.edge_map_lin[i][0] for i in s.loop_momenta]
