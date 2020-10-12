@@ -149,7 +149,7 @@ class SquaredTopologyGenerator:
 
                     # take the cartesian product over all local+integrated CT
                     ct_opts = [[False] if (di['uv_info'] is None or not self.generation_options.get('generate_integrated_UV_CTs',True)) else [False, True] for di in unfolded_diag_info]
-                    print(ct_opts)
+                    #print(ct_opts)
                     for o in product(*ct_opts):
                         new_diag_info = []
                         for ictflag, uv_diag_info in zip(o, unfolded_diag_info):
