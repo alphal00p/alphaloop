@@ -1176,7 +1176,9 @@ CTable pftopo(0:{});
 
     def get_node_scaling(self, pdgs):
         # only the triple gluon vertex and the ghost gluon vertex have a non-zero scaling
-        if pdgs == (21, 21, 21) or pdgs == (-82, 21, 82):
+        if pdgs == (25, 21, 21):
+            return 2
+        elif pdgs == (25, 21, 21, 21) or pdgs == (21, 21, 21) or pdgs == (-82, 21, 82):
             return 1
         else:
             return 0
