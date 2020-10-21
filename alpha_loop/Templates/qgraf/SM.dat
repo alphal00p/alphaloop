@@ -58,6 +58,7 @@
 
 * higgs
 [tbar,higgs,t; QCD_QED='1']
+[bbar,higgs,b; QCD_QED='1']
 
 * EFT
 *[higgs,gluon,gluon]

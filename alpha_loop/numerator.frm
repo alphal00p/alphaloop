@@ -25,7 +25,9 @@ On nospacesinnumbers;
 S vev, pi;
 
 Auto S mass;
+Auto S yukawa;
 CTable masses(-30:30);
+CTable gyq(-30:30);
 CTable logmasses(-30:30);
 CTable charges(-30:30);
 
@@ -36,6 +38,25 @@ CTable charges(-30:30);
 #ifndef `OPTIMITERATIONS'
     #define OPTIMITERATIONS "100"
 #endif
+
+Fill gyq(1) = yukawa_d; * d
+Fill gyq(2) = yukawa_u; * u
+Fill gyq(3) = yukawa_s; * s
+Fill gyq(4) = yukawa_c; * c
+Fill gyq(5) = yukawa_b; * b
+Fill gyq(6) = yukawa_t; * t
+Fill gyq(11) = 0; * e-
+Fill gyq(12) = 0; * mu-
+Fill gyq(13) = 0; * ta-
+Fill gyq(-1) = yukawa_d; * d
+Fill gyq(-2) = yukawa_u; * u
+Fill gyq(-3) = yukawa_s; * s
+Fill gyq(-4) = yukawa_c; * c
+Fill gyq(-5) = yukawa_b; * b
+Fill gyq(-6) = yukawa_t; * t
+Fill gyq(-11) = 0; * e+
+Fill gyq(-12) = 0; * mu+
+Fill gyq(-13) = 0; * ta+
 
 #ifndef `HEAVYFERMIONS'
 Fill masses(1) = 0;
@@ -73,6 +94,8 @@ Fill masses(-12) = mass_mu;
 Fill masses(-13) = mass_tau;
 #endif
 
+Fill masses(5) = mass_b;
+Fill masses(-5) = mass_b;
 Fill masses(6) = mass_t;
 Fill masses(-6) = mass_t;
 
@@ -98,7 +121,7 @@ V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext;
 Auto I mu=D,s=D;
-Symbol ge, gs, gy, ghhh, type, in, out, virtual;
+Symbol ge, gs, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
 Set dirac: s1,...,s40;
@@ -179,8 +202,8 @@ id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * 
 id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * i_ * cOlf(colA[idx3], colA[idx2], colA[idx1]) * (1/2) * (p3(lorentz[idx2])-p1(lorentz[idx2]));
 id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
 id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
-id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
-id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gy * i_ * d_(dirac[idx1], dirac[idx3]);
+id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_ * d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
 id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = - i_ * d_(colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 ) * (

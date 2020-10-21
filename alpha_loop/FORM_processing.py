@@ -1704,6 +1704,8 @@ class FORMSuperGraphIsomorphicList(list):
                 [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
                 [ form_source, ]
             )
+            with open(pjoin(workspace,'run_iso_checks.exe'), 'a') as f:
+                f.write(cmd+'\n')
             #misc.sprint(cmd)
             #misc.sprint(workspace)
             r = subprocess.run(cmd,
@@ -1715,7 +1717,8 @@ class FORMSuperGraphIsomorphicList(list):
 
             output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
             factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
-
+            with open(pjoin(workspace,'run_iso_checks.exe'), 'a') as f:
+                f.write('result: %s'%factor+'\n')
             if "rat" in factor:
                 raise FormProcessingError("Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
             else:
@@ -3366,9 +3369,11 @@ class FORMProcessor(object):
 
         params = {
             'mass_t': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
+            'mass_b': self.model['parameter_dict'][self.model.get_particle(5).get('mass')].real,
             'gs': self.model['parameter_dict']['G'].real,
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
-            'gy': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
+            'yukawa_t': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
+            'yukawa_b': self.model['parameter_dict']['mdl_yb'].real / math.sqrt(2.),
             'ghhh': 6. * self.model['parameter_dict']['mdl_lam'].real,
             'vev': self.model['parameter_dict']['mdl_vev'].real,
             'pi': 'M_PI',
