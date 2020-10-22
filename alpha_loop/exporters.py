@@ -1320,9 +1320,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             else:
                 final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
             
-            #print(n_jets)
-            #print(final_state_particle_ids)
-            #print(self.alphaLoop_options['_jet_PDGs'])
+            print(n_jets)
+            print(final_state_particle_ids)
+            print(self.alphaLoop_options['_jet_PDGs'])
             form_processor.generate_squared_topology_files(
                 pjoin(self.dir_path,'Rust_inputs'), n_jets, 
                 final_state_particle_ids=final_state_particle_ids,
@@ -1333,12 +1333,6 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 integrand_type=self.alphaLoop_options['FORM_integrand_type']
             )
 
-            form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
-                output_format=self.alphaLoop_options['FORM_processing_output_format'],
-                workspace=FORM_workspace,
-                integrand_type=self.alphaLoop_options['FORM_integrand_type']
-            )
-
         # Draw
         drawings_output_path = pjoin(self.dir_path, 'Drawings')
         Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
@@ -1346,7 +1340,16 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                     pjoin(drawings_output_path,'Makefile'))
         form_processor.draw(drawings_output_path)
 
+        if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
+
+            form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
+                output_format=self.alphaLoop_options['FORM_processing_output_format'],
+                workspace=FORM_workspace,
+                integrand_type=self.alphaLoop_options['FORM_integrand_type']
+            )
+
         form_processor.compile(pjoin(self.dir_path,'FORM'))
+
     def get_cuts(self, representative_process):
         cuts=[]
         additional_loops = len(representative_process['perturbation_couplings'])

@@ -10,9 +10,11 @@ set_alphaLoop_option apply_graph_isomorphisms True
 set_alphaLoop_option qgraf_template_model no_s 
 set_alphaLoop_option loop_induced true
 set_alphaLoop_option qgraf_cut_filter True
+set_alphaLoop_option n_jets 0
+set_alphaLoop_option final_state_pdgs (82,-82,21,21)
 set_FORM_option number_of_lmbs None
-set_FORM_option generate_integrated_UV_CTs True 
-#qgraf_define j = d d~ g gh gh~
+set_FORM_option generate_integrated_UV_CTs True
+qgraf_define j = d d~
 qgraf_generate h > gh gh~ g g / d u s c b QCD^2==4 QED^2==1 []
 !rm -rf h_jj_LO_ghghxgg
 output qgraf h_jj_LO_ghghxgg

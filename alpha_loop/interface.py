@@ -688,7 +688,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
         # TODO make this 82, -82 general
         self.alphaLoop_options['_jet_PDGs'] = tuple([
             pdg for pdg in self._multiparticles['j'] ]+
-            [82,-82])
+            [pdg for pdg in [82,-82] if pdg not in self.alphaLoop_options['final_state_pdgs']])
         
         # Now generate the output directory structure:
         self.qgraf_exporter =  aL_exporters.HardCodedQGRAFExporter(
