@@ -1573,10 +1573,12 @@ impl SquaredTopology {
                     if !self
                         .multi_channeling_bases
                         .iter()
-                        .all(|mcb| mcb.defining_propagators == cut_defining_propagators)
+                        .any(|mcb| mcb.defining_propagators.iter().all(
+                          |p| cut_defining_propagators.contains(p)))
                     {
                         continue;
                     }
+
                 }
 
                 let mut include = true;
