@@ -130,7 +130,7 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), vec, vec1;
-CF subs, configurations, conf, cmb, der, energy, spatial(s);
+CF subs, configurations, conf, cmb, diag, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvprop, uv, integrateduv;
 
 S UVRenormFINITE;
@@ -459,7 +459,7 @@ argument uv;
 * Taylor expand to the right depth
             repeat;
                 id once ifnomatch->skiptruncation uvprop(k?,t1?,p?)*t^x1?*tmax^x2? = uvprop(k,t1,1) * t^x1*tmax^x2 * theta_(x2-x1) *
-                    (1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t^4);
+                    (1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t1^4);
                 id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
                 label skiptruncation;
             endrepeat;
@@ -505,11 +505,17 @@ id uv(x?) = x;
 * store a copy for the integrand routine in cmb
 id conf(x?,cmb(?a),?b) = conf(x,?b)*replace(?a)*cmb(?a);
 
-AB+ cmb;
-.sort:cmb-1;
-Keep brackets; * make sure cmb is not replaced
-id replace(?a) = replace_(?a);
+* gradually transform the basis to prevent term blow-up
+#do i=1,1
+    id replace = 1;
+    if (count(replace,1)) redefine i "0";
 
+    AB+ cmb;
+    .sort:cmb-1;
+    Keep brackets; * make sure cmb is not replaced
+
+    id replace(p1?,p2?,?a) = replace_(p1,p2)*replace(?a);
+#enddo
 .sort:cmb-2;
 
 * compute the integrated UV counterterm
@@ -587,8 +593,8 @@ id UVRenormFINITE^n? = 1;
         .sort:load-pf;
 
         inexpression FINTEGRANDPF;
-            id conf(n?,?a) = conf(n,?a)*pftopo(n);
-            id pftopo(n?) = 0; * unrecognized topology
+*            id conf(n?,?a) = conf(n,?a)*pftopo(n);
+*            id pftopo(n?) = 0; * unrecognized topology
         endinexpression;
     #endif
     #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
@@ -606,7 +612,12 @@ id UVRenormFINITE^n? = 1;
     #endif
 #endif
 
-id cmb(?a) = replace_(?a);
+id cmb(?a) = cmb(?a)*replace(?a);
+AB+ cmb;
+.sort:cmb-1;
+Keep brackets; * make sure cmb is not replaced
+id replace(?a) = replace_(?a);
+.sort:cmb-2;
 
 * now extract the energy components of the LTD loop variables
 id k1?.k2? = g(k1, k2);
@@ -634,6 +645,9 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
     .sort
 
 #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
+    id diag(?a) = 1;
+    id cmb(?a) = 1;
+
 * transform the LTD energies back to normal energies
     id energy(f(?a)) = energy(?a);
     chainout energy;
@@ -645,7 +659,7 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
     if (count(energy,1));
         Print "Unsubstituted energies: %t";
         exit "Critical error";
-    endif;        
+    endif;
 
     id prop(?a) = prop(-1,?a);
     repeat id prop(x1?,x?,?a)*prop(x2?,x?,?a) = prop(x1+x2,x,?a);
@@ -691,15 +705,51 @@ endargument;
 #endif
 
 #if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
+    B energy,diag,cmb;
+    .sort
+    Keep brackets;
+
     id energy(f(?a)) = energy(?a);
     chainout energy;
     id energy(c0) = 1;
 
+* collect all the energies in the diagram
+    repeat id diag(?a,p1?,p2?,?b) = diag(?a,p1,0,p2,?b);
+    id diag(?a,p1?) = diag(?a,p1,0);
+
+    repeat id energy(k?)*diag(?a,k?,n?,?b) = diag(?a,k,n+1,?b);
+
+    if (count(energy,1));
+        Print "Energy left: %t";
+    endif;
+
+    if (count(cmb,1) == 0);
+        Print "FAIL: %t";
+    endif;
+
+    repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
+    id f(?a) = diag(?a);
+    argtoextrasymbol tonumber,diag,1;
+    #redefine oldextrasymbols "`extrasymbols_'"
+
+    .sort:diag-1;
+    #redefine diagend "`extrasymbols_'"
+    #do ext={`oldextrasymbols'+1},`diagend'
+        L diag{`ext'-`oldextrasymbols'} = extrasymbol_(`ext');
+    #enddo
+    #define diagcount "{`diagend'-`oldextrasymbols'}"
+
+    id diag(x1?,x2?,?a,x3?) = diag(?a)*pftopo(x1,x2)*x3*conf(-1,x1,x2);
+    id cmb(?a) = replace_(?a);
+    .sort:pf-splitoff;
+    Hide FINTEGRANDPF;
+
+
 * apply the numerator procedure
-    Multiply conf1;
     #do i = 0,{`NFINALMOMENTA'-1}
-        id conf(n?,p?,?a) = conf(n,?a)*f(p);
-        repeat id energy(p?)*f(p?) = x1*f(p);
+        id diag(p?,n?,?a) = diag(?a)*x1^n*f(p);
+        repeat id energy(p?)*f(p?) = x1*f(p); * energies could come from previous iteration
+        id f(p?) = 1;
         id once num(ncmd(?z),?x) =ncmd(?z)*num(?x);
         B+ ncmd, x1;
         .sort:collect-ncmd;
@@ -713,22 +763,29 @@ endargument;
         repeat id a(r?,s?,?z,x?) = -sum_(s1, s+1,r-nargs_(?z), a(r,s1,?z)*x^(s1-s-1));
         id a(r?,s?) = delta_(r,s);
         .sort:energy-`i';
-        id conf1(?a)*f(p?) = conf1(?a,p);
     #enddo
-    id num=1;
+    id diag = 1;
+    id num = 1;
 
 * check that the substitution is complete
-    if (count(ncmd, 1,num,1,a, 1, energy, 1));
+    if (count(ncmd, 1,num,1,a, 1, energy, 1, diag, 1));
         Print "Unsubstituted ncmd: %t";
         exit "Critical error";
     endif;
 
-    id conf(n?)*conf1(?a) = conf(n, ?a);
+    .sort
 
     #if (`INTEGRAND' == "both")
-        .sort
         UnHide FINTEGRANDLTD;
     #endif
+    UnHide FINTEGRANDPF;
+    .sort
+    Drop diag1,...,diag`diagcount';
+
+* now add all PF structures as a special conf
+    L FINTEGRANDPF = FINTEGRANDPF + <diag1*conf(-1)>+...+<diag`diagcount'*conf(-`diagcount')>;
+    id conf(x?)*conf(-1,?a) = conf(x,?a);
+    .sort
 #endif
 
 * fill in the shifts
@@ -849,7 +906,10 @@ endargument;
         Hide;
         UNHide FINTEGRAND`INTEGRANDTYPE';
         NHide FINTEGRAND`INTEGRANDTYPE';
+
+        B+ conf;
         .sort
+        Keep brackets;
 
         id conf(?a) = conf(conf(?a));
         argtoextrasymbol tonumber,conf,1;
@@ -863,20 +923,40 @@ endargument;
             #$conf = extrasymbol_(`ext');
             #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#CONF\n%$", $conf;
             L FF`ext' = FINTEGRAND`INTEGRANDTYPE'[conf(`ext')];
+
+            #if (`INTEGRANDTYPE' == "PF")
+                $isdenominator = 0;
+            #else
+                $isdenominator = 1;
+            #endif
+            inside $conf;
+                if (match(conf(x?{<0},?a))) $isdenominator = 1;
+            endinside;
+            $ellipsoids = 0;
+            $energies = 0;
+            $constants = 0;
             id ellipsoids(?a$ellipsoids) = 1;
             id energies(?a$energies) = 1;
             id constants(?a$constants) = 1;
             .sort
-            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#CONSTANTS\n%$\n#CONSTANTS", $constants
-            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ENERGIES\n%$\n#ENERGIES", $energies
-            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ELLIPSOIDS\n%$\n#ELLIPSOIDS",$ellipsoids
-* Optimize the output
-            Format C;
-            #if `OPTIMLVL' > 1
-                Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
-            #else
+            #if (`$isdenominator' == 1)
+                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#CONSTANTS\n%$\n#CONSTANTS", $constants
+                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ENERGIES\n%$\n#ENERGIES", $energies
+                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ELLIPSOIDS\n%$\n#ELLIPSOIDS",$ellipsoids
+
+* FIXME: for now, we don't optimize the PF denominators
+                Format C;
                 Format O1,stats=on;
-            #endif
+            #else
+                Format C;
+                #if `OPTIMLVL' > 1
+                    Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
+                #else
+                    Format O1,stats=on;
+                #endif
+            #endif 
+
+* Optimize the output
             #Optimize FF`ext'
             #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "%O"
             #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
@@ -900,6 +980,11 @@ endargument;
 *********************************************
 * Construction of optimized numerator C code
 *********************************************
+
+#if ((isdefined(NUMERATOR)) && (`NUMERATOR' == 1))
+
+id diag(?a) = 1;
+id cmb(?a) = 1;
 
 * Convert the dot products and energies to a symbol
 #$MAXK = `NFINALMOMENTA';
@@ -963,7 +1048,7 @@ Hide F;
 
 * Optimize the output
     Format C;
-    Format O`OPTIMLVL',stats=on,method=`OPTIMISATIONSTRATEGY',saIter=`OPTIMITERATIONS';
+    Format O1;*`OPTIMLVL',stats=on,method=`OPTIMISATIONSTRATEGY',saIter=`OPTIMITERATIONS';
     #Optimize FF`ext'
     #write<out_`SGID'.proto_c> "%O"
     B+ <Z{`energysymbolstart' + 1}_>,...,<Z`energysymbolend'_>;
@@ -982,4 +1067,7 @@ Hide F;
     Drop FF`ext';
     #write "END numerator"
 #enddo
+#else
+    #write<out_`SGID'.proto_c> "#not generated\n"
+#endif
 .end

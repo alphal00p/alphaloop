@@ -113,6 +113,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'FORM_processing_output_format' : None,
             # Select if the FORM integrand is the "PF" expression or "LTD" expression, both, or None
             'FORM_integrand_type' : "both",
+            'FORM_construct_numerator': False,
             # Limit nuber of cores used for compilation
             'FORM_compile_cores': None, 
             # Select what to compile of the FORM output. Default is ['all']
@@ -297,6 +298,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if not value in ('PF', 'LTD', 'both', 'None'):
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_integrand_type' should be one of 'PF', 'LTD', 'None', not %s"%value)
             self.alphaLoop_options['FORM_integrand_type'] = value if value in ('PF', 'both', 'LTD') else None
+        elif key == 'FORM_construct_numerator':
+            self.FORM_options['extra-options']['NUMERATOR'] = '1' if value else '0'
         elif key == 'include_self_energies_from_squared_amplitudes':
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for 'include_self_energies_from_squared_amplitudes' should be 'True' or 'False', not '%s'."%value)

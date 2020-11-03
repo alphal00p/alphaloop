@@ -61,7 +61,7 @@ FORM_processing_options = {
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': multiprocessing.cpu_count(), 
-    'extra-options': {'OPTIMITERATIONS': 1000},
+    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0},
     # If None, only consider the LMB originally chosen.
     # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
     # If negative consider all possible LMBs.
@@ -1094,19 +1094,20 @@ CTable ltdtopo(0:{});
     def generate_integrand(self, topo, workspace, numerator_call, progress_bar=None):
         """Construct a table of integrand descriptors"""
         integrand_body = ''
+        max_diag_set_id = 0
         max_diag_id = 0
 
         for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
             for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
-                signatures, n_props, energy_map, energies, constants, shift_map = [], [], [], [], [], []
                 signature_offset = 0
                 total_ltd_loops = topo.topo.n_loops - len(cut['cuts']) + 1
-                for diag_info in loop_diag_set['diagram_info']:
+                for diag_id, diag_info in enumerate(loop_diag_set['diagram_info']):
+                    signatures, n_props, energy_map, energies, constants, shift_map = [], [], [], [], [], []
+
                     for l in diag_info['graph'].loop_lines:
                         is_constant = all(s == 0 for s in l.signature)
                         if not is_constant:
-                            signatures.append([0]*signature_offset + list(l.signature) + [0]*(total_ltd_loops
-                                    - signature_offset - diag_info['graph'].n_loops)) # padded LTD signatures
+                            signatures.append(list(l.signature))
                             n_props.append(sum(p.power for p in (l.propagators)))
                         for p in l.propagators:
                             # contruct the momentum in the LMB, using that LTD
@@ -1133,29 +1134,33 @@ CTable ltdtopo(0:{});
                                     shift_map.append(list(shift) + list(extshift))
                                 else:
                                     constants.append((totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV'))
+
+                    if len(signatures) == 0:
+                        # no loop dependence for this cut
+                        res = '\t1\n'
+                        resden = ''
+                    else:
+                        #logger.info("Input to PF generator:\nn_props=%s\nsignatures=%s"%(
+                        #    pformat(n_props),pformat(signatures)
+                        #))
+                        pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
+                                                name=str(diag_set['id']), shift_map=np.array(shift_map).T,
+                                                n_sg_loops=topo.topo.n_loops, ltd_index=len(cut['cuts']) - 1 + signature_offset,
+                                                progress_bar = progress_bar)
+                        pf.shifts_to_externals() #shift_map=np.array(shift_map).T)
+                        res = pf.to_FORM()
+                        res = '\n'.join(['\t' + l for l in res.split('\n')])
+                        resden = ','.join(pf.den_library)
+
+                    global_diag_id = (diag_set['id'], diag_id)
+
                     signature_offset += diag_info['graph'].n_loops
 
-                if len(signatures) == 0:
-                    # no loop dependence for this cut
-                    res = '\t1\n'
-                    resden = ''
-                else:
-                    #logger.info("Input to PF generator:\nn_props=%s\nsignatures=%s"%(
-                    #    pformat(n_props),pformat(signatures)
-                    #))
-                    pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
-                                            name=str(diag_set['id']), shift_map=np.array(shift_map).T,
-                                            n_sg_loops=topo.topo.n_loops, ltd_index=len(cut['cuts']) - 1,
-                                            progress_bar = progress_bar)
-                    pf.shifts_to_externals()
-                    res = pf.to_FORM()
-                    res = '\n'.join(['\t' + l for l in res.split('\n')])
-                    resden = ','.join(pf.den_library)
-
-                self.integrand_info['PF'][diag_set['id']] = (energy_map, constants, total_ltd_loops)
-                max_diag_id = max(max_diag_id, diag_set['id'])
-                integrand_body += 'Fill pftopo({}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(diag_set['id'],
-                    ','.join(c[0] for c in constants), ','.join(energies), resden, res)
+                    self.integrand_info['PF'][global_diag_id] = (energy_map, constants, diag_info['graph'].n_loops)
+                    max_diag_set_id = max(max_diag_set_id, diag_set['id'])
+                    max_diag_id = max(max_diag_id, diag_id)
+                    integrand_body += 'Fill pftopo({},{}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(*global_diag_id,
+                        ','.join(c[0] for c in constants), ','.join(energies), resden, res)
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
@@ -1163,10 +1168,10 @@ Auto S invd, E, shift;
 S r, s;
 CF a, num, ncmd, conf1, ellipsoids, allenergies, replace, constants;
 NF energies;
-CTable pftopo(0:{});
+CTable pftopo(0:{},0:{});
 
 {}
-""".format(max_diag_id, integrand_body))
+""".format(max_diag_set_id, max_diag_id, integrand_body))
 
 
     def get_edge_scaling(self, pdg):
@@ -1296,8 +1301,16 @@ CTable pftopo(0:{});
             for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
                 trans = ['1']
                 diag_set_uv_conf = []
+                diag_momenta = []
 
-                for diag_info, loop_diag_info in zip(diag_set['diagram_info'], loop_diag_set['diagram_info']):
+                for diag_id, (diag_info, loop_diag_info) in enumerate(zip(diag_set['diagram_info'], loop_diag_set['diagram_info'])):
+                    diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in loop_diag_info['loop_momentum_map'])
+                    if not diag_info['integrated_ct']:
+                        if diag_moms != '':
+                            diag_momenta.append('diag({},{},{})'.format(diag_set['id'], diag_id, diag_moms))
+                        else:
+                            diag_momenta.append('diag({},{})'.format(diag_set['id'], diag_id))
+
                     der_edge = None
                     if diag_info['derivative'] is not None:
                         trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts
@@ -1423,7 +1436,10 @@ CTable pftopo(0:{});
                 # store which momenta are LTD momenta
                 conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join('c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops) )
 
-                conf = 'conf({},{},{},{})'.format(diag_set['id'], cmb_map, conf, '*'.join(trans))
+                if diag_momenta == []:
+                    diag_momenta = ['1']
+
+                conf = 'conf({},{},{},{})*{}'.format(diag_set['id'], cmb_map, conf, '*'.join(trans), '*'.join(diag_momenta))
                 if diag_set_uv_conf != []:
                     conf += '*\n    uv({})'.format('*'.join(diag_set_uv_conf))
 
@@ -2229,6 +2245,7 @@ class FORMSuperGraphList(list):
         conf_exp = re.compile(r'conf\(([^)]*)\)\n')
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
+        diag_pattern = re.compile(r'diag\((\d*)\)')
 
         integrand_type_list = [integrand_type] if integrand_type != 'both' else ['PF', 'LTD']
 
@@ -2280,52 +2297,83 @@ class FORMSuperGraphList(list):
 
                             # parse the configuration id
                             conf = list(conf_exp.finditer(conf_sec))[0].groups()[0].split(',')
-                            conf_id = int(conf[0])
-                            confs.append(conf_id)
-
                             conf_sec = conf_exp.sub('', conf_sec)
 
-                            # parse the constants
-                            mom_map, constants, loops = graph[0].integrand_info[itype][conf_id]
-                            const_secs = conf_sec.split('#CONSTANTS')[1]
-                            const_secs = const_secs.replace('\n', '')
-                            const_code = '*'.join('\t({}-{})'.format(e, mass) for e, (_, mass) in zip(const_secs.split(','), constants) if e != '')
+                            denominator_mode = int(conf[0]) < 0
+                            if denominator_mode:
+                                conf_id = (int(conf[1]), int(conf[2]))
+                                mom_map, constants, loops = graph[0].integrand_info[itype][conf_id]
+                            elif itype == "LTD":
+                                conf_id = int(conf[0])
+                                mom_map, constants, loops = graph[0].integrand_info['LTD'][conf_id]
 
-                            # parse the energies
-                            energy_secs = conf_sec.split('#ENERGIES')[1]
-                            energy_secs = energy_secs.replace('\n', '')
-                            energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
-                            if itype == "PF":
-                                const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2.*E{}'.format(i) for i in range(len(mom_map)))
-                            if const_code == '':
-                                const_code = '1'
+                            if denominator_mode or itype == "LTD":
+                                # parse the constants
+                                const_secs = conf_sec.split('#CONSTANTS')[1]
+                                const_secs = const_secs.replace('\n', '')
+                                const_code = '*'.join('\t({}-{})'.format(e, mass) for e, (_, mass) in zip(const_secs.split(','), constants) if e != '')
 
-                            # parse the denominators
-                            denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
-                            denom_secs = denom_secs.replace('\n', '')
-                            denom_code = '\n'.join('\tdouble complex invd{} = 1./({});'.format(i, d) for i, d in enumerate(denom_secs.split(',')) if d != '')
+                                # parse the energies
+                                energy_secs = conf_sec.split('#ENERGIES')[1]
+                                energy_secs = energy_secs.replace('\n', '')
+                                energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
+                                if itype == "PF":
+                                    const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2.*E{}'.format(i) for i in range(len(mom_map)))
+                                if const_code == '':
+                                    const_code = '1'
 
-                            conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
+                                # parse the denominators
+                                denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
+                                denom_secs = denom_secs.replace('\n', '')
+                                denom_code = '\n'.join('\tdouble complex invd{} = 1./({});'.format(i, d) for i, d in enumerate(denom_secs.split(',')) if d != '')
+                                conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
+
                             returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
-                            conf_sec = return_exp.sub('*out = pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+                            if int(conf[0]) < 0:
+                                conf_sec = return_exp.sub('return pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+                            elif itype == "LTD":
+                                conf_sec = return_exp.sub('*out = pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+                            else:
+                                conf_sec = return_exp.sub('*out = {};\n'.format(returnval), conf_sec)
 
-                            # collect all temporary variables
                             temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
 
-                            if len(temp_vars) > 0:
-                                graph.is_zero = False
+                            # TODO: inline?
+                            if int(conf[0]) < 0:
+                                main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
+                                main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                                integrand_main_code += '\ndouble complex diag_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(abs(int(conf[0])),
+                                    'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
+                                )
 
-                            main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
-                            main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
-                            integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}\n{}}}'.format(itype, i, conf_id,
-                                'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
-                            )
+                                main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                                main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
+                                integrand_f128_main_code += '\n' + '\n__complex128 diag_{}_f128(__complex128 lm[], __complex128 params[]) {{\n\t{}\n{}}}'.format(abs(int(conf[0])),
+                                    '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                                )
+                            else:
+                                confs.append(int(conf[0]))
 
-                            main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
-                            main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                            integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}}}'.format(itype, i, conf_id,
-                                '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
-                            )
+                                if len(temp_vars) > 0:
+                                    graph.is_zero = False
+
+                                if itype == "LTD":
+                                    main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
+                                else:
+                                    main_code = conf_sec
+
+                                main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                                main_code_with_diag_call =  diag_pattern.sub(r'diag_\1(lm, params)', main_code)
+                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}\n{}}}'.format(itype, i, int(conf[0]),
+                                    'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_diag_call
+                                )
+
+                                main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                                main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
+                                main_code_f128 = diag_pattern.sub(r'diag_\1_f128(lm, params)', main_code_f128)
+                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}}}'.format(itype, i, int(conf[0]),
+                                    '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                                )
 
                         integrand_main_code += \
 """
