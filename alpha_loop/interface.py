@@ -36,12 +36,20 @@ import madgraph.various.cluster as cluster
 import madgraph.core.color_algebra as color
 import madgraph.core.base_objects as base_objects
 
+_launch_usage = "launch [DIRPATH] [options]\n" + \
+         "-- integrate or test the alphaLoop output at DIRPATH.\n" + \
+         "   Example: launch MY_ALPHALOOP_OUTPUT \n"
+_launch_parser = misc.OptionParser(usage=_launch_usage)
+_launch_parser.add_option("--debug", dest="debug", default=0, type=int,
+                    help="debug level")
+
 import alpha_loop.utils as utils
 import alpha_loop.exporters as aL_exporters
 import alpha_loop.helas_call_writers as aL_helas_call_writers
 import alpha_loop.LTD_squared as LTD_squared
 import alpha_loop.madgraph_patches as madgraph_patches
 import alpha_loop.FORM_processing as FORM_processing
+import alpha_loop.run_interface as run_interface
 
 from madgraph.iolibs.files import cp, ln, mv
 
@@ -170,8 +178,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         logger.info('%sGeneral FORM processing options%s'%(utils.bcolors.GREEN, utils.bcolors.ENDC))
         logger.info('%s-----------------------%s'%(utils.bcolors.GREEN, utils.bcolors.ENDC))
         for opt in sorted(self.FORM_options.keys()):
-            logger.info('%-30s : %s'%(opt, str(self.FORM_options[opt])))
-
+            logger.info('%-30s : %s'%(opt, str(self.FORM_options[opt])))        
 
     def do_set_FORM_option(self, line):
         """ Logic for setting alphaLoop options."""
@@ -667,6 +674,61 @@ utils.bcolors.RED,utils.bcolors.ENDC
         logger.info('Model %s successfully patched so as to accomodate self-energy generations.'%model.get('name'))
         return
 
+    def check_launch(self, args, options):
+        """ Specify here sanity check for launch options."""
+        pass
+
+    def do_launch(self, line):
+        """ Start an alphaLoop run interface on an existing alphaLoop process output."""
+
+        args = self.split_arg(line)
+        # check argument validity and normalise argument
+        (launch_options, args) = _launch_parser.parse_args(args)
+        self.check_launch(args, launch_options)
+        launch_options = launch_options.__dict__
+
+        dir_path = os.path.abspath(pjoin(MG5DIR,args[0]))
+
+        alphaLoop_run_interface = run_interface.alphaLoopRunInterface(
+                            dir_path, self, launch_options=launch_options)
+        stop = self.define_child_cmd_interface(alphaLoop_run_interface)
+        return stop
+
+
+    def complete_launch(self, text, line, begidx, endidx,formatting=True):
+        """ complete the launch command"""
+        args = self.split_arg(line[0:begidx])
+
+        # Directory continuation
+        if args[-1].endswith(os.path.sep):
+            return self.path_completion(text,
+                                        pjoin(*[a for a in args if a.endswith(os.path.sep)]),
+                                        only_dirs = True)
+        # Format
+        if len(args) == 1:
+            out = {'Path from ./': self.path_completion(text, '.', only_dirs = True)}
+            if MG5DIR != os.path.realpath('.'):
+                out['Path from %s' % MG5DIR] =  self.path_completion(text,
+                                     MG5DIR, only_dirs = True, relative=False)
+
+        #option
+        if len(args) >= 2:
+            out={}
+
+        # Example of how to provide completion for options
+        #if line[0:begidx].endswith('--laststep='):
+        #    opt = ['parton', 'pythia', 'pgs','delphes','auto']
+        #    out['Options'] = self.list_completion(text, opt, line)
+        if False:
+            pass
+        else:
+            # List here all options
+            opt = []
+            out['Options'] = self.list_completion(text, opt, line)
+
+
+        return self.deal_multiple_categories(out,formatting)
+
     def do_qgraf_define(self, line):
         """ define specific multiparticles to be used at generation time. """
         self.do_define(line)
@@ -1060,7 +1122,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
 
         # The colored prompt screws up the terminal for some reason.
         #self.prompt = '\033[92mGGVV > \033[0m'
-        self.prompt = 'alphaLoop > '
+        self.prompt = "u'\u03B1Loop > "
 
         logger.info("\n\n%s\n"%self.get_alpha_loop_banner())
         logger.info("Loading default model for alphaLoop: sm")

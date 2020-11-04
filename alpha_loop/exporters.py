@@ -1320,9 +1320,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             else:
                 final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
             
-            print(n_jets)
-            print(final_state_particle_ids)
-            print(self.alphaLoop_options['_jet_PDGs'])
+            #print(n_jets)
+            #print(final_state_particle_ids)
+            #print(self.alphaLoop_options['_jet_PDGs'])
             form_processor.generate_squared_topology_files(
                 pjoin(self.dir_path,'Rust_inputs'), n_jets, 
                 final_state_particle_ids=final_state_particle_ids,
