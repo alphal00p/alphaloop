@@ -121,6 +121,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'FORM_processing_output_format' : None,
             # Select if the FORM integrand is the "PF" expression or "LTD" expression, both, or None
             'FORM_integrand_type' : "both",
+            # Select if the sum of diagram sets should be generated with 'nosum', 'onlysum', 'both'
+            'FORM_sum_diagram_sets': "nosum",
             'FORM_construct_numerator': False,
             # Limit nuber of cores used for compilation
             'FORM_compile_cores': None, 
@@ -305,6 +307,11 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if not value in ('PF', 'LTD', 'both', 'None'):
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_integrand_type' should be one of 'PF', 'LTD', 'None', not %s"%value)
             self.alphaLoop_options['FORM_integrand_type'] = value if value in ('PF', 'both', 'LTD') else None
+        elif key == 'FORM_sum_diagram_sets':
+            if not value in ('nosum', 'onlysum', 'both'):
+                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_sum_diagram_sets' should be one of 'nosum', 'onlysum', 'both', not %s"%value)
+            self.alphaLoop_options['FORM_sum_diagram_sets'] = value if value in ('nosum', 'onlysum', 'both') else None
+            self.FORM_options['extra-options']['SUMDIAGRAMSETS'] = value
         elif key == 'FORM_construct_numerator':
             if value.upper() not in ['TRUE','FALSE']:
                 raise alphaLoopInvalidCmd("Specified value for '%s' should be 'True' or 'False', not '%s'."%(key,value))

@@ -774,9 +774,6 @@ endargument;
 
     .sort
 
-    #if (`INTEGRAND' == "both")
-        UnHide FINTEGRANDLTD;
-    #endif
     UnHide FINTEGRANDPF;
     .sort
     Drop diag1,...,diag`diagcount';
@@ -784,7 +781,17 @@ endargument;
 * now add all PF structures as a special conf
     L FINTEGRANDPF = FINTEGRANDPF + <diag1*conf(-1)>+...+<diag`diagcount'*conf(-`diagcount')>;
     id conf(x?)*conf(-1,?a) = conf(x,?a);
+
+    #if (`SUMDIAGRAMSETS' == "onlysum")
+        id conf(x?{>=0},?a) = conf(1000);
+    #elseif (`SUMDIAGRAMSETS' == "both")
+        id conf(x?{>=0},?a) = conf(x,?a) + conf(1000);
+    #endif
+
     .sort
+    #if (`INTEGRAND' == "both")
+        UnHide FINTEGRANDLTD;
+    #endif
 #endif
 
 * fill in the shifts

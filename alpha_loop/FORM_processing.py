@@ -61,7 +61,7 @@ FORM_processing_options = {
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': multiprocessing.cpu_count(), 
-    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0},
+    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum'},
     # If None, only consider the LMB originally chosen.
     # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
     # If negative consider all possible LMBs.

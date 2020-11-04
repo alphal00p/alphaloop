@@ -2094,6 +2094,13 @@ impl SquaredTopology {
         // regenerate the evaluation of the exponent map of the numerator since the loop momenta have changed
         let mut regenerate_momenta = true;
         for (diag_set_index, diagram_set) in cutkosky_cuts.diagram_sets.iter_mut().enumerate() {
+            if self.settings.cross_section.integrand_type == IntegrandType::PF
+                && self.settings.cross_section.sum_diagram_sets
+                && diag_set_index > 0
+            {
+                continue;
+            }
+
             if let Some(sid) = selected_diagram_set {
                 if sid != diagram_set.id {
                     continue;
@@ -2392,7 +2399,11 @@ impl SquaredTopology {
                                 &cache.scalar_products,
                                 &params,
                                 call_signature.id,
-                                diagram_set.id,
+                                if self.settings.cross_section.sum_diagram_sets {
+                                    1000
+                                } else {
+                                    diagram_set.id
+                                },
                             ),
                         };
 
