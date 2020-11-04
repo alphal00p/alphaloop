@@ -2376,13 +2376,13 @@ class FORMSuperGraphList(list):
                             if int(conf[0]) < 0:
                                 main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
                                 main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
-                                integrand_main_code += '\ndouble complex diag_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(abs(int(conf[0])),
+                                integrand_main_code += '\nstatic double complex diag_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(abs(int(conf[0])),
                                     'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                                 )
 
                                 main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\n__complex128 diag_{}_f128(__complex128 lm[], __complex128 params[]) {{\n\t{}\n{}}}'.format(abs(int(conf[0])),
+                                integrand_f128_main_code += '\n' + '\nstatic __complex128 diag_{}_f128(__complex128 lm[], __complex128 params[]) {{\n\t{}\n{}}}'.format(abs(int(conf[0])),
                                     '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
                             else:
