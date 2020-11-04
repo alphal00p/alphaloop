@@ -290,6 +290,8 @@ hyperparameters = HyperParameters({
         'numerator_source'                      :   'FORM_integrand',
         # Can be LTD, PF
         'integrand_type'                        :   'PF',
+        # evaluate the C expression for the sum of diagrams
+        'sum_diagram_sets'                      :   False,
         # compare locally against the same topology written in another loop momentum basis
         'compare_with_additional_topologies'    :   False,
     },
