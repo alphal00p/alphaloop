@@ -982,13 +982,12 @@ aGraph=%s;
                             # TODO: recycle energy computations since Es will appear more than once
                             if not is_constant:
                                 prop_mom_in_lmb.append((lmp, shift, extshift))
-                                energy_map.append(p.m_squared if not p.uv else 'mUV*mUV')
+                                energy_map.append((p.m_squared if not p.uv else 'mUV*mUV', 1))
                                 energies.append(totalmom)
                                 shift_map.append(list(shift) + list(extshift))
 
-                            for _ in range(p.power):
-                                if is_constant:
-                                    constants.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV'))
+                            if is_constant:
+                                constants.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV', p.power))
 
                     diagres = []
                     # enumerate all cut options
@@ -1074,7 +1073,7 @@ aGraph=%s;
 
                 res = '\n\t\t*'.join(['({})'.format(l) for l in res])
 
-                self.integrand_info['LTD'][diag_set['id']] = (energy_map, constants, loops)
+                self.integrand_info['LTD'][diag_set['id']] = (energy_map, constants, loops, diag_set['id'])
                 max_diag_id = max(max_diag_id, diag_set['id'])
                 integrand_body += 'Fill ltdtopo({}) = (-1)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n);\n'.format(diag_set['id'],
                     loops, ','.join(c[0] for c in constants), ','.join(propagators), ','.join(energies), res)
@@ -1093,11 +1092,14 @@ CTable ltdtopo(0:{});
 
     def generate_integrand(self, topo, workspace, numerator_call, progress_bar=None):
         """Construct a table of integrand descriptors"""
+        topo_map = ''
         integrand_body = ''
         max_diag_set_id = 0
         max_diag_id = 0
 
         for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
+            unique_pf = {}
+
             for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
                 signature_offset = 0
                 total_ltd_loops = topo.topo.n_loops - len(cut['cuts']) + 1
@@ -1126,14 +1128,15 @@ CTable ltdtopo(0:{});
 
                             totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
 
-                            for _ in range(p.power):
-                                # TODO: recycle energy computations when there are duplicate edges
-                                if not is_constant:
-                                    energy_map.append((p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV')
+                            # recycle energy computations when there are duplicate edges
+                            if not is_constant:
+                                energy_map.append(((p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
+
+                                for _ in range(p.power):
                                     energies.append(totalmom)
                                     shift_map.append(list(shift) + list(extshift))
-                                else:
-                                    constants.append((totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV'))
+                            else:
+                                constants.append((totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
 
                     if len(signatures) == 0:
                         # no loop dependence for this cut
@@ -1156,11 +1159,17 @@ CTable ltdtopo(0:{});
 
                     signature_offset += diag_info['graph'].n_loops
 
-                    self.integrand_info['PF'][global_diag_id] = (energy_map, constants, diag_info['graph'].n_loops)
+                    pf_sig = (tuple(n_props), tuple(tuple(x) for x in signatures), tuple(tuple(x) for x in shift_map), tuple(energies), tuple(constants))
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, diag_id)
-                    integrand_body += 'Fill pftopo({},{}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(*global_diag_id,
-                        ','.join(c[0] for c in constants), ','.join(energies), resden, res)
+                    if pf_sig not in unique_pf:
+                        unique_pf[pf_sig] = global_diag_id
+
+                        integrand_body += 'Fill pftopo({},{}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(*global_diag_id,
+                            ','.join(c[0] for c in constants), ','.join(energies), resden, res)
+
+                    topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_pf[pf_sig])
+                    self.integrand_info['PF'][global_diag_id] = (energy_map, constants, diag_info['graph'].n_loops, unique_pf[pf_sig])
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
@@ -1169,9 +1178,12 @@ S r, s;
 CF a, num, ncmd, conf1, ellipsoids, allenergies, replace, constants;
 NF energies;
 CTable pftopo(0:{},0:{});
+CTable pfmap(0:{},0:{});
 
 {}
-""".format(max_diag_set_id, max_diag_id, integrand_body))
+
+{}
+""".format(max_diag_set_id, max_diag_id, max_diag_set_id, max_diag_id, topo_map, integrand_body))
 
 
     def get_edge_scaling(self, pdg):
@@ -1305,11 +1317,10 @@ CTable pftopo(0:{},0:{});
 
                 for diag_id, (diag_info, loop_diag_info) in enumerate(zip(diag_set['diagram_info'], loop_diag_set['diagram_info'])):
                     diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in loop_diag_info['loop_momentum_map'])
-                    if not diag_info['integrated_ct']:
-                        if diag_moms != '':
-                            diag_momenta.append('diag({},{},{})'.format(diag_set['id'], diag_id, diag_moms))
-                        else:
-                            diag_momenta.append('diag({},{})'.format(diag_set['id'], diag_id))
+                    if diag_moms != '':
+                        diag_momenta.append('diag({},{},{})'.format(diag_set['id'], diag_id, diag_moms))
+                    else:
+                        diag_momenta.append('diag({},{})'.format(diag_set['id'], diag_id))
 
                     der_edge = None
                     if diag_info['derivative'] is not None:
@@ -2302,23 +2313,46 @@ class FORMSuperGraphList(list):
                             denominator_mode = int(conf[0]) < 0
                             if denominator_mode:
                                 conf_id = (int(conf[1]), int(conf[2]))
-                                mom_map, constants, loops = graph[0].integrand_info[itype][conf_id]
+                                mom_map, constants, loops, orig_id = graph[0].integrand_info[itype][conf_id]
                             elif itype == "LTD":
                                 conf_id = int(conf[0])
-                                mom_map, constants, loops = graph[0].integrand_info['LTD'][conf_id]
+                                mom_map, constants, loops, orig_id = graph[0].integrand_info['LTD'][conf_id]
 
                             if denominator_mode or itype == "LTD":
                                 # parse the constants
                                 const_secs = conf_sec.split('#CONSTANTS')[1]
                                 const_secs = const_secs.replace('\n', '')
-                                const_code = '*'.join('\t({}-{})'.format(e, mass) for e, (_, mass) in zip(const_secs.split(','), constants) if e != '')
+                                const_code = '*'.join('\t({}-{})'.format(e, mass) if p == 1 else '\tpow({}-{},{})'.format(e, mass, p)
+                                    for e, (_, mass, p) in zip(const_secs.split(','), constants) if e != '')
 
                                 # parse the energies
                                 energy_secs = conf_sec.split('#ENERGIES')[1]
                                 energy_secs = energy_secs.replace('\n', '')
-                                energy_code = '\n'.join('\tdouble complex E{} = sqrt({}+{});'.format(i, e, mass) for i, (e, mass) in enumerate(zip(energy_secs.split(','), mom_map)) if e != '')
-                                if itype == "PF":
-                                    const_code = const_code + ('*' if len(const_code) > 0 and len(mom_map) > 0 else '') + '*'.join('2.*E{}'.format(i) for i in range(len(mom_map)))
+
+                                # some energies are repeated and we only keep the first
+                                energy_code = []
+                                energy_index = 0
+                                skip_next = 1
+                                energy_prefactor = []
+                                for j, e in enumerate(energy_secs.split(',')):
+                                    if e == '':
+                                        continue
+
+                                    skip_next -= 1
+                                    if skip_next != 0:
+                                        continue
+
+                                    (mass, p) = mom_map[energy_index]
+                                    skip_next += p
+                                    energy_index += 1
+                                    energy_code.append('\tdouble complex E{} = sqrt({}+{});'.format(j, e, mass))
+                                    if itype == "PF":
+                                        energy_prefactor.append('2.*E{}'.format(j) if p == 1 else 'pow(2.*E{},{})'.format(j, p))
+
+                                energy_code = '\n'.join(energy_code)
+                                energy_prefactor = '*'.join(energy_prefactor)
+                                const_code = const_code + ('*' if len(const_code) > 0 and len(energy_prefactor) > 0 else '') + energy_prefactor
+
                                 if const_code == '':
                                     const_code = '1'
 

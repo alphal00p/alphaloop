@@ -591,11 +591,6 @@ id UVRenormFINITE^n? = 1;
 
         #include- pftable_`SGID'.h
         .sort:load-pf;
-
-        inexpression FINTEGRANDPF;
-*            id conf(n?,?a) = conf(n,?a)*pftopo(n);
-*            id pftopo(n?) = 0; * unrecognized topology
-        endinexpression;
     #endif
     #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
         .sort
@@ -712,6 +707,10 @@ endargument;
     id energy(f(?a)) = energy(?a);
     chainout energy;
     id energy(c0) = 1;
+
+* map all diagrams to their unique representative
+    id diag(x1?,x2?,?a) = diag(pfmap(x1,x2),?a);
+    id diag(diag(?a),?b) = diag(?a,?b);
 
 * collect all the energies in the diagram
     repeat id diag(?a,p1?,p2?,?b) = diag(?a,p1,0,p2,?b);
