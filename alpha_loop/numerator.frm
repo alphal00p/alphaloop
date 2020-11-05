@@ -457,12 +457,19 @@ argument uv;
             endargument;
 
 * Taylor expand to the right depth
+* p carries a t dependence that determines the order
+* t1 determines the powers of the UV propagator
             repeat;
                 id once ifnomatch->skiptruncation uvprop(k?,t1?,p?)*t^x1?*tmax^x2? = uvprop(k,t1,1) * t^x1*tmax^x2 * theta_(x2-x1) *
-                    (1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p^2*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t1^4);
+                    (1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p.p*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t^4);
                 id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
                 label skiptruncation;
             endrepeat;
+
+            if (count(ALARM, 1));
+                Print "UV Taylor expansion depth exceeded.";
+                exit "";
+            endif;
 
 * select the right denominator structure
             repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2);

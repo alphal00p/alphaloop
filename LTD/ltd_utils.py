@@ -486,7 +486,7 @@ class TopologyGenerator(object):
                             graph_configuration = {
                                 'graph_index': graph_index,
                                 'subgraph_indices': subgraph_indices,
-                                'taylor_order': d,
+                                'taylor_order': dod - UV_min_dod_to_subtract, # maximum taylor order
                                 'derived_loop_lines': c,
                                 'external_edges': subgraph_external_edges,
                                 'loop_edges': subgraph_loop_edges,
