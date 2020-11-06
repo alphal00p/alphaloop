@@ -26,7 +26,7 @@ S vev, pi;
 
 Auto S mass;
 Auto S yukawa;
-CTable masses(-30:30);
+CTable masses(-99:99);
 CTable gyq(-30:30);
 CTable logmasses(-30:30);
 CTable charges(-30:30);
@@ -98,6 +98,8 @@ Fill masses(-12) = mass_mu;
 Fill masses(-13) = mass_tau;
 #endif
 
+Fill masses(-82) = 0;
+Fill masses(82) = 0;
 Fill masses(21) = 0;
 Fill masses(22) = 0;
 Fill masses(25) = mass_h;
