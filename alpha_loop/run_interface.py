@@ -183,7 +183,7 @@ class CrossSectionSet(dict):
 
     def summary_str(self):
         res = []
-        res.append(('Number of supergraphs','%d'%len(self)))
+        res.append(('Number of supergraphs','%d'%len(self['topologies'])))
         sorted_mult_SG = sorted(( (SG['multiplicity'],SG['name']) for SG in self['topologies']) ,key=lambda el:el[0])
         res.append(('Min multiplicity','%d (%s)'%(sorted_mult_SG[0][0],sorted_mult_SG[0][1])))
         res.append(('Max multiplicity','%d (%s)'%(sorted_mult_SG[-1][0],sorted_mult_SG[-1][1])))
