@@ -40,8 +40,10 @@ _launch_usage = "launch [DIRPATH] [options]\n" + \
          "-- integrate or test the alphaLoop output at DIRPATH.\n" + \
          "   Example: launch MY_ALPHALOOP_OUTPUT \n"
 _launch_parser = misc.OptionParser(usage=_launch_usage)
-_launch_parser.add_option("--debug", dest="debug", default=0, type=int,
-                    help="debug level")
+_launch_parser.add_option("-d","--debug", dest="debug", default=0, type=int,
+        help="debug level")
+_launch_parser.add_option("-r", "--reuse_hyperparametes", dest="reuse", type=str, default="NO_REUSE",
+        help="Work from existing yaml hyperparameter (value: 'default') file in workspace or specify path to one.")
 
 import alpha_loop.utils as utils
 import alpha_loop.exporters as aL_exporters

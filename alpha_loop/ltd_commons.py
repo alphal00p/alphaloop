@@ -1,8 +1,114 @@
 #!/usr/bin/env python3
 import os
 import sys
+import logging
 
-from ltd_utils import HyperParameters
+logger = logging.getLogger('alphaLoop.ltd_commons')
+
+#############################################################################################################
+# HyperParameters
+#############################################################################################################
+class HyperParameters(dict):
+
+    def __init__(self, *args, **opts):
+        super(HyperParameters, self).__init__(*args, **opts)
+
+    def to_flat_format(self):
+        """ Turn this instance into a flat dictionary made out of simple lists or dictionaries only."""
+        
+        # For now the hyperparameters dict is already supposed to be directly exportable to yaml
+        return dict(self)
+
+    @staticmethod
+    def from_flat_format(flat_dict):
+        """ Creates an instance of this class from a flat dictionary record."""
+        
+        # Directly get HyperParameters from the flat_dict
+        return HyperParameters(flat_dict)
+
+    def export_to(self, output_path, format='yaml'):
+        """ Exports these hyperparameters to a given format."""
+        
+        export_format = format.lower()
+        allowed_export_format = ['yaml']
+        if export_format not in ['yaml']:
+            raise BaseException("Hyperparameters can only be exported in the following formats: %s"%(', '.join(allowed_export_format)))
+
+        if export_format=='yaml':
+            try:
+                import yaml
+                from yaml import Loader, Dumper
+            except ImportError:
+                raise BaseException("Install yaml python module in order to export hyperparameters to yaml.")
+
+        if output_path is not None:
+            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
+        else:
+            return yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False)
+
+
+    def update_folder(self, folder, dict_update, allow_undefined=False):
+
+        for k, v in dict_update.items():
+            if k not in folder:
+                if not allow_undefined:
+                    logger.exception("Could not find specified directory '%s'."%k)
+                else:
+                    folder[k] = v
+            else:
+                if not isinstance(v, dict):
+                    folder[k] = v
+                else:
+                    self.update_folder(folder[k],v,allow_undefined=allow_undefined)
+
+    def update(self, dict_update, allow_undefined=False):
+        """Give the possibility of overwriting parameters with a dictionary."""
+
+        self.update_folder(self, dict_update, allow_undefined=allow_undefined)
+
+    def set_parameter(self, param, value, allow_undefined=False):
+        """Give the possibility of overwriting options by specifyin param path with format A.B.C..."""
+        
+        directories = param.split('.')
+        folder = self
+        for curr_dir in directories[:-1]:
+            try:
+                folder = folder[curr_dir]
+            except KeyError:
+                logger.exception("Could not find specified option directory '%s'."%curr_dir)
+                return False
+
+        # Set value specified
+        if (directories[-1] not in folder) and not allow_undefined:
+            logger.exception("Could not find specified option '%s' in folder '%s'."%(
+                directories[-1], '.'.join(directories[:-1])
+            ))
+            return False
+        else:
+            folder[directories[-1]] = value
+
+        return True
+
+    @staticmethod
+    def import_from(input_path, format='yaml'):
+        """ Imports this topology from a given format."""
+        
+        import_format = format.lower()
+        allowed_import_format = ['yaml']
+        if import_format not in ['yaml']:
+            raise BaseException("Hyperparameters can only be imported from the following formats: %s"%(', '.join(allowed_import_format)))
+
+        if import_format=='yaml':
+            try: 
+                import yaml
+                from yaml import Loader, Dumper
+            except ImportError:
+                raise BaseException("Install yaml python module in order to import hyperparameters from yaml.")
+ 
+        if '\n' in input_path:
+            return HyperParameters.from_flat_format(yaml.load(input_path, Loader=Loader))
+        else:
+            return HyperParameters.from_flat_format(yaml.load(open(input_path,'r'), Loader=Loader))
 
 #############################################################################################################
 # Define and store hyperparameters
@@ -328,7 +434,7 @@ def synchronize(root_dir = '', sync_topologies=False):
     # Synchronise the database of hard-coded topologies to the yaml data base that Rust can easily import
     # The synchronisation of topologies can take some time, so let's not do that just systematically
     if sync_topologies:
-        from topologies import hard_coded_topology_collection
+        from LTD.topologies import hard_coded_topology_collection
         hard_coded_topology_collection.export_to(os.path.join(root_dir, 'topologies.yaml'))
         print("Synchronised topologies.yaml")
     
