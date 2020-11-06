@@ -1395,9 +1395,10 @@ CTable pfmap(0:{},0:{});
 
                         for (edge_name, param_shift) in propagators:
                             ext_mom_sig = ''
+                            edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
 
                             if all(s == 0 for s in param_shift[1]):
-                                uv_props.append('uvprop({},t{},1)'.format(loop_mom_sig, i))
+                                uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
                                 continue
 
                             for (ext_index, s) in enumerate(param_shift[1]):
@@ -1410,7 +1411,7 @@ CTable pfmap(0:{},0:{});
                             # the edge may have a raised power due to the bubble derivative
                             power = 2 if edge_name == diag_info['derivative_edge'] else 1
                             for _ in range(power):
-                                uv_props.append('uvprop({},t{},{})'.format(loop_mom_sig, i, ext_mom_sig))
+                                uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, ext_mom_sig, edge_mass))
                     # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
                     if uv_props == []:
                         uv_sig = 't0^0'

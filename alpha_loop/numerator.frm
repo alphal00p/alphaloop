@@ -63,12 +63,14 @@ Fill masses(1) = 0;
 Fill masses(2) = 0;
 Fill masses(3) = 0;
 Fill masses(4) = 0;
-Fill masses(5) = 0;
+Fill masses(5) = mass_b;
+Fill masses(6) = mass_t;
 Fill masses(-1) = 0;
 Fill masses(-2) = 0;
 Fill masses(-3) = 0;
 Fill masses(-4) = 0;
-Fill masses(-5) = 0;
+Fill masses(-5) = mass_b;
+Fill masses(-6) = mass_t;
 Fill masses(11) = 0;
 Fill masses(12) = 0;
 Fill masses(13) = 0;
@@ -81,11 +83,13 @@ Fill masses(2) = mass_u;
 Fill masses(3) = mass_c;
 Fill masses(4) = mass_s;
 Fill masses(5) = mass_b;
+Fill masses(6) = mass_t;
 Fill masses(-1) = mass_d;
 Fill masses(-2) = mass_u;
 Fill masses(-3) = mass_c;
 Fill masses(-4) = mass_s;
 Fill masses(-5) = mass_b;
+Fill masses(-6) = mass_t;
 Fill masses(11) = mass_e;
 Fill masses(12) = mass_mu;
 Fill masses(13) = mass_tau;
@@ -94,11 +98,8 @@ Fill masses(-12) = mass_mu;
 Fill masses(-13) = mass_tau;
 #endif
 
-Fill masses(5) = mass_b;
-Fill masses(-5) = mass_b;
-Fill masses(6) = mass_t;
-Fill masses(-6) = mass_t;
-
+Fill masses(21) = 0;
+Fill masses(22) = 0;
 Fill masses(25) = mass_h;
 
 Fill charges(1) = -1/3; * d
@@ -456,12 +457,20 @@ argument uv;
                 id t = 1; * it could be that the LTD momentum also makes an appearance as an external momentum
             endargument;
 
-* Taylor expand to the right depth
+* Taylor expand the propagators to the right depth
 * p carries a t dependence that determines the order
 * t1 determines the powers of the UV propagator
+
+* expand the propagators without loop momentum dependence
+            id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 + (m^2-mUV^2) * t^2 * t1 + ALARM * t^4);
+            id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
             repeat;
-                id once ifnomatch->skiptruncation uvprop(k?,t1?,p?)*t^x1?*tmax^x2? = uvprop(k,t1,1) * t^x1*tmax^x2 * theta_(x2-x1) *
-                    (1 - 2 * k.p * t1 - p.p * t1 + 4*p.k^2 * t1^2 + 4*p.p*p.k * t1^2 - 8 * p.k^3 * t1^3 + ALARM * t^4);
+                id once ifnomatch->skiptruncation uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
+                    (1 +
+                     (- 2 * k.p - p.p + (m^2-mUV^2) * t^2) * t1 +
+                     (+ 4*p.k^2 + 4*p.p*p.k - 4*p.k*(m^2-mUV^2) * t^2) * t1^2 +
+                     (- 8 * p.k^3) * t1^3 +
+                     ALARM * t^4);
                 id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
                 label skiptruncation;
             endrepeat;
@@ -472,6 +481,7 @@ argument uv;
             endif;
 
 * select the right denominator structure
+            id uvprop(?a,m?) = uvprop(?a);
             repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2);
             id uvprop(k?,t1?,n1?)*t1?^n2? = uvprop(k,n1 + n2)*t1^n2;
             id uvprop(k?,t1?ts,n?) = uvprop(k, n);
@@ -615,10 +625,17 @@ id UVRenormFINITE^n? = 1;
 #endif
 
 id cmb(?a) = cmb(?a)*replace(?a);
-AB+ cmb;
-.sort:cmb-1;
-Keep brackets; * make sure cmb is not replaced
-id replace(?a) = replace_(?a);
+* gradually transform the basis to prevent term blow-up
+#do i=1,1
+    id replace = 1;
+    if (count(replace,1)) redefine i "0";
+
+    AB+ cmb;
+    .sort:cmb-1;
+    Keep brackets; * make sure cmb is not replaced
+
+    id replace(p1?,p2?,?a) = replace_(p1,p2)*replace(?a);
+#enddo
 .sort:cmb-2;
 
 * now extract the energy components of the LTD loop variables
