@@ -760,7 +760,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # The colored prompt screws up the terminal for some reason.
         #self.prompt = '\033[92mGGVV > \033[0m'
-        self.prompt = "u'\u03B1Loop @ %s > "%os.path.basename(self.dir_path)
+        self.prompt = "aLoop @ %s > "%os.path.basename(self.dir_path)
 
         # preloop mother
         madgraph_interface.CmdExtended.preloop(self)

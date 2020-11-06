@@ -1133,7 +1133,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
 
         # The colored prompt screws up the terminal for some reason.
         #self.prompt = '\033[92mGGVV > \033[0m'
-        self.prompt = "u'\u03B1Loop > "
+        self.prompt = "alphaLoop > "
 
         logger.info("\n\n%s\n"%self.get_alpha_loop_banner())
         logger.info("Loading default model for alphaLoop: sm")
