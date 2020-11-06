@@ -951,7 +951,7 @@ impl PythonCrossSection {
             f128::f128::from_f64(incoming_energy).unwrap(),
             self.squared_topology.settings.general.debug,
         )
-        .ok_or_else(|| pyo3::exceptions::ValueError::py_err("No scaling could be obtained"))?;
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("No scaling could be obtained"))?;
 
         let max_cuts = self.squared_topology.n_loops + 1;
         let num_cuts = cutkosky_cuts.cuts.len();

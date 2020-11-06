@@ -24,7 +24,7 @@ name = "ltd"
 [dependencies.pyo3]
 features = ["extension-module"]
 optional = true
-version = "*"
+version = "0.12"
 
 [dependencies]
 arrayvec = {version = "^0.5"}# features = ["array-sizes-129-255"]
