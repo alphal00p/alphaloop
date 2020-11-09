@@ -45,6 +45,7 @@ import alpha_loop.utils as utils
 from alpha_loop.ltd_commons import HyperParameters
 from alpha_loop.ltd_commons import hyperparameters as default_hyperparameters
 from LTD.vectors import Vector, LorentzVector, LorentzVectorList
+import LTD.ltd_utils as ltd_utils
 
 Colours = utils.bcolors
 
@@ -123,11 +124,11 @@ class RunHyperparameters(HyperParameters):
                 }
             ],
             # Can be yaml, FORM, FORM_integrand
-            'CrossSection.numerator_source'                      :   'yaml',
+            'CrossSection.numerator_source'                      :   'FORM_integrand',
             # Can be LTD, PF
             'CrossSection.integrand_type'                        :   'PF',
             # evaluate the C expression for the sum of diagrams
-            'CrossSection.sum_diagram_sets'                      :   True,
+            'CrossSection.sum_diagram_sets'                      :   False,
             # compare locally against the same topology written in another loop momentum basis
             'CrossSection.compare_with_additional_topologies'    :   False,
         }
@@ -305,6 +306,9 @@ class SuperGraph(dict):
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
 
+    def show_UV_statistics(self):
+        return "TODO"
+
     def show_timing_statistics(self):
         if ('DERIVED_timing_profile_f64' not in self) and ('DERIVED_timing_profile_f128' not in self):
             return "No timing profile information available."
@@ -395,6 +399,9 @@ class SuperGraphCollection(dict):
         res_str.append('')
 
         return '\n'.join(res_str)
+
+    def show_UV_statistics(self):
+        return "TODO"
 
     def show_timing_statistics(self):
 
@@ -589,14 +596,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
         t_start_profile = time.time()
         with progressbar.ProgressBar(
-                    prefix=("Timing profile: {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
-                           "cut ID: {variables.cut}/{variables.n_cuts}, Avg t per cut: {variables.t} [ms]"), 
-                    max_value=max_count,variables={
-                        'SG_name':'N/A', 'SG': '0', 'n_SG':len(selected_SGs),'cut':0, 
-                        'n_cuts': len(self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts']),
-                        't' : 'N/A'
-                    }
-                ) as bar:
+                prefix=("Timing profile: {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
+                        "cut ID: {variables.cut}/{variables.n_cuts}, Avg t per cut: {variables.t} [ms]"), 
+                max_value=max_count,variables={
+                    'SG_name':'N/A', 'SG': '0', 'n_SG':len(selected_SGs),'cut':0, 
+                    'n_cuts': len(self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts']),
+                    't' : 'N/A'
+                }
+            ) as bar:
             running_avg_time_per_cut = 0.0
             n_cuts = 0.0
             for i_SG, SG_name in enumerate(selected_SGs):
@@ -616,6 +623,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if args.n_points == 0:
                         t_start = time.time()
                         _res = rust_function(SG.get_random_x_input())
+                        misc.sprint(_res)
                         delta_t = time.time()-t_start
                         n_points = int(args.time/delta_t)
                     else:
@@ -658,7 +666,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 if len(scaling_solutions)==0:
                                     break
                                 scaling, scaling_jacobian = scaling_solutions.pop(0)
-                            cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
+                            _res = cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
                         delta_t = time.time()-t_start
                         t_cut = (delta_t/float(n_points))*1000.0
                         running_avg_time_per_cut += t_cut
@@ -667,9 +675,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         bar.update(bar.value+1)
 
                         cut['DERIVED_timing_profile_%s'%precision] = t_cut
-
-                misc.sprint("At iSG=%d"%i_SG)
-                time.sleep(1.0)
 
         delta_t = time.time()-t_start_profile
         logger.info("Timing profile completed in %d [s]."%(int(delta_t)))
@@ -680,6 +685,95 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             self.do_display('--timing')
 
+
+    #### UV PROFILE COMMAND
+    uv_profile_parser = ArgumentParser()
+    uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
+                    help='the name of a supergraph to display')
+    uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=0,
+                    help='force a certain number of points to be considered for the uv profile')
+    uv_profile_parser.add_argument("-t","--time", dest='time', type=float, default=5.0,
+                    help='target evaluation time per profile, in seconds.')
+    uv_profile_parser.add_argument(
+        "-f", "--f128", action="store_true", dest="f128", default=False,
+        help="Perfom the UV profile using f128 arithmetics.")
+    uv_profile_parser.add_argument(
+        "-sc", "--scale_cuts", action="store_true", dest="f128", default=False,
+        help="Include UV scaling of edges being cut.")
+    # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
+    @wrap_in_process()
+    @with_tmp_hyperparameters()
+    def do_uv_profile(self, line):
+        """ Automatically probe all UV limits of a process output."""
+        args = self.split_arg(line)
+        args = self.uv_profile_parser.parse_args(args)
+        
+        if args.SG_name is None:
+            selected_SGs = list(self.all_supergraphs.keys())
+        else:
+            selected_SGs = [args.SG_name,]
+
+        max_count = sum( len(self.all_supergraphs[SG_name]['cutkosky_cuts']) for SG_name in selected_SGs )
+        logger.info("Starting UV profile...")
+
+        # Prepare the run
+        UV_info_per_SG_and_cut = {}
+        for i_SG, SG_name in enumerate(selected_SGs):
+            UV_info_per_SG_and_cut[SG_name] = {}
+            SG = self.all_supergraphs[SG_name]
+            # First we must regenerate a TopologyGenerator instance for this supergraph
+            edges_list = SG['topo_edges']
+            SG_topo_gen = ltd_utils.TopologyGenerator(
+                [e[:-1] for e in edges_list],
+                powers = { e[0] : e[-1] for e in edges_list }
+            )
+            UV_info_per_SG_and_cut['SG_topo_gen'] = SG_topo_gen
+            edge_signatures = {}
+            for loop_line in SG['topo']['loop_lines']:
+                for prop in loop_line['propagators']:
+                    edge_signatures[prop['name']] = (loop_line['signature'], [-sig for sig in loop_line['signature']])
+
+            # Store the signature of each edge part of the LMBs w.r.t the defining LMB
+            all_LMBs = [ tuple(edges_list[i_edge][0] for i_edge in lmb) for lmb in SG_topo_gen.loop_momentum_bases()]
+            #misc.sprint("SG '%s' has %d LMBs."%(SG_name, len(all_LMBs)))
+
+            UV_info_per_SG_and_cut[SG_name]['cuts'] = []
+            UV_info_per_SG_and_cut[SG_name]['LMBs_to_probe'] = []
+            UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'] = {}
+            for LMB in all_LMBs:
+                for cut_ID, cut in enumerate(SG['cutkosky_cuts']):
+                    pass
+
+        # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
+        rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        t_start_profile = time.time()
+        with progressbar.ProgressBar(
+                prefix=("UV profile: {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
+                        "cut ID: {variables.cut}/{variables.n_cuts}"), 
+                max_value=max_count,variables={
+                    'SG_name':'N/A', 'SG': '0', 'n_SG':len(selected_SGs),'cut':0, 
+                    'n_cuts': len(self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'])
+                }
+            ) as bar:
+
+            for i_SG, SG_name in enumerate(selected_SGs):
+
+                bar.update(SG_name=SG_name)
+                bar.update(SG=i_SG)
+
+                #rust_worker = self.get_rust_worker(SG_name)
+                rust_worker = rust_workers[SG_name]
+                SG = self.all_supergraphs[SG_name]     
+
+        delta_t = time.time()-t_start_profile
+        logger.info("UV profile completed in %d [s]."%(int(delta_t)))
+        # Write out the results into processed topologies
+        self.all_supergraphs.export(pjoin(self.dir_path, self._rust_inputs_folder))
+        if len(selected_SGs)==1:
+            self.do_display('%s --uv'%selected_SGs[0])
+        else:
+            self.do_display('--uv')
+
     #### DISPLAY COMMAND
     display_parser = ArgumentParser()
     display_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
@@ -687,6 +781,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     display_parser.add_argument(
         '-t','--timing',action="store_true", dest="timing", default=False,
         help="Show timing profile information")
+    display_parser.add_argument(
+        '--uv',action="store_true", dest="uv", default=False,
+        help="Show UV profile information")
     display_parser.add_argument(
         "-f","--full", action="store_true", dest="full", default=False,
         help="exhaustively show information")
@@ -705,6 +802,19 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 logger.info("Overall timing profile for all supergraphs:\n%s"%(
                     self.all_supergraphs.show_timing_statistics()
                 ))
+
+        if args.uv:
+            if args.SG_name:
+                logger.info("UV profile for supergraph '%s':\n%s"%(
+                    args.SG_name, self.all_supergraphs[args.SG_name].show_UV_statistics()
+                ))
+            else:
+                logger.info("Overall UV profile for all supergraphs:\n%s"%(
+                    self.all_supergraphs.show_UV_statistics()
+                ))
+
+        # Only show general statistics when not showing anything else
+        if args.timing or args.uv:
             return
 
         if args.SG_name is None:
