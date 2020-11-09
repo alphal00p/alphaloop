@@ -322,6 +322,7 @@ class SquaredTopologyGenerator:
             'topo': self.loop_topo.to_flat_format(),
             'topo_edges' : [ list(e)+[ (self.topo.powers[e[0]] if i not in self.topo.ext else 0), ]
                                 for i, e in enumerate(self.topo.edge_map_lin) ],
+            'edge_signatures' : self.topo.get_signature_map(),
             'MG_numerator': self.MG_numerator,
             'FORM_numerator': self.FORM_numerator,
             'FORM_integrand': self.FORM_integrand,

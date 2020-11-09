@@ -1,3 +1,5 @@
+from scipy import stats
+import math
 import os
 
 #===============================================================================
@@ -18,6 +20,51 @@ class bcolors:
     DARKCYAN = '\033[36m'
     RED = '\033[91m'
     END = ENDC
+
+def compute_dod(sequence):
+    """ from a sequence of results in the format (scaling, complex(result)), determine the asymptotic scaling."""
+
+    _THRESHOLD = 0.01
+
+    xs = [math.log(abs(s[0])) for s in sequence]
+    ys = [math.log(abs(s[1])) for s in sequence]
+
+    slope, std_err = None, 0.0
+
+    n_points_considered = 0
+
+    if len(xs)<=5:
+        n_points_considered = len(xs)
+        slope, intercept, r_value, p_value, std_err = stats.linregress(xs,ys)
+    else:
+        n_entries = 5
+        new_slope, new_std_err = None, 0.0
+        while new_std_err<_THRESHOLD and n_entries<=len(xs):
+            slope = new_slope
+            std_err = new_std_err
+            new_slope, intercept, r_value, p_value, new_std_err = stats.linregress(xs[-n_entries:],ys[-n_entries:])
+            n_entries+=1
+        n_points_considered = n_entries
+
+        if slope is None or std_err>_THRESHOLD:
+            n_entries = 5
+            slope, std_err = None, 0.0
+            new_slope, new_std_err = None, 0.0
+            while new_std_err<_THRESHOLD and n_entries<=len(xs):
+                slope = new_slope
+                std_err = new_std_err
+                new_slope, intercept, r_value, p_value, new_std_err = stats.linregress(xs[:n_entries],ys[:n_entries])
+                n_entries+=1
+                if slope is not None and new_std_err > std_err:
+                    break
+            n_points_considered = n_entries
+        
+        if slope is None or std_err>_THRESHOLD:
+            n_points_considered = len(xs)
+            slope, intercept, r_value, p_value, std_err = stats.linregress(xs,ys)
+
+    # Return measured_slope, standard_error, number_of_points_considered, successful_fit
+    return slope, std_err, n_points_considered, (std_err < _THRESHOLD)
 
 def format_path(path):
     """Format the path in local format taking in entry a unix format"""
