@@ -590,7 +590,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             selected_SGs = [args.SG_name,]
         
-        max_count = sum( len(self.all_supergraphs[SG_name]['cutkosky_cuts']) for SG_name in selected_SGs )
+        max_count = sum( len(self.all_supergraphs[SG_name]['cutkosky_cuts']) for SG_name in selected_SGs )*(
+            2 if args.f128 else 1 )
         logger.info("Starting timing profile...")
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
         rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
@@ -623,7 +624,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if args.n_points == 0:
                         t_start = time.time()
                         _res = rust_function(SG.get_random_x_input())
-                        misc.sprint(_res)
                         delta_t = time.time()-t_start
                         n_points = int(args.time/delta_t)
                     else:
