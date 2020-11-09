@@ -457,6 +457,23 @@ def with_tmp_hyperparameters(options_to_overwrite=None):
     
     return add_hyperparameters_in_function
 
+# To be used as a decorator
+def wrap_in_process():
+    """ Decorate the function so as to automatically sandbox it in a separate Process."""
+    def wrap_function_in_process(f):
+        q=multiprocessing.Queue()
+        def fowarad_function_output_to_queue(*args):
+            print(args[1:],args[0])
+            q.put(f(*args[1:],**args[0]))
+        def modified_function(*args, **opts):
+            p = multiprocessing.Process(target=fowarad_function_output_to_queue, args=tuple([opts,]+list(args)))
+            p.start()
+            p.join()
+            return q.get()
+        return modified_function
+    
+    return wrap_function_in_process
+
 class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     """ Interface for steering the running of an alphaLoop output.
     We make it inherit from CmdShell so that launch_ext_prog does not attempt to start in WebMode."""
@@ -553,6 +570,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     timing_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Enable timing profile of the f128 output too.")
+    # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
+    @wrap_in_process()
     @with_tmp_hyperparameters()
     def do_timing_profile(self, line):
         """ Automatically timing profile a process output."""
@@ -564,8 +583,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             selected_SGs = [args.SG_name,]
         
-        max_count = sum( len(self.all_supergraphs[SG_name]) for SG_name in selected_SGs )
+        max_count = sum( len(self.all_supergraphs[SG_name]['cutkosky_cuts']) for SG_name in selected_SGs )
         logger.info("Starting timing profile...")
+        # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
+        rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
         t_start_profile = time.time()
         with progressbar.ProgressBar(
                     prefix=("Timing profile: {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
@@ -583,7 +604,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 bar.update(SG_name=SG_name)
                 bar.update(SG=i_SG)
 
-                rust_worker = self.get_rust_worker(SG_name)
+                #rust_worker = self.get_rust_worker(SG_name)
+                rust_worker = rust_workers[SG_name]
                 SG = self.all_supergraphs[SG_name]
                 E_cm = SG.get_E_cm(self.hyperparameters)
                 funcs_to_test = [('f64', rust_worker.evaluate)]
@@ -593,7 +615,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 for precision, rust_function in funcs_to_test:
                     if args.n_points == 0:
                         t_start = time.time()
-                        rust_function(SG.get_random_x_input())
+                        _res = rust_function(SG.get_random_x_input())
                         delta_t = time.time()-t_start
                         n_points = int(args.time/delta_t)
                     else:
@@ -645,6 +667,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         bar.update(bar.value+1)
 
                         cut['DERIVED_timing_profile_%s'%precision] = t_cut
+
+                misc.sprint("At iSG=%d"%i_SG)
+                time.sleep(1.0)
 
         delta_t = time.time()-t_start_profile
         logger.info("Timing profile completed in %d [s]."%(int(delta_t)))
