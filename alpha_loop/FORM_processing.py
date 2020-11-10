@@ -1649,10 +1649,6 @@ class FORMSuperGraphIsomorphicList(list):
             FORM_source = pjoin(plugin_path,"numerator.frm")
         else:
             selected_workspace = workspace
-            shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
-            shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
-            shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
-            shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'numerator.frm')
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
@@ -1666,7 +1662,7 @@ class FORMSuperGraphIsomorphicList(list):
                 FORM_processing_options["FORM_path"],
                 ]+
                 [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ] +
-                [ '-M', '-l'] +
+                [ '-M', '-l', '-C', 'numerator_%s.log'%i_graph] +
                 [ FORM_source, ]
         )
 
@@ -2519,6 +2515,13 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
 
         if output_format not in self.extension_names:
             raise FormProcessingError("This FORMSuperGraphList instance requires at least one entry for generating numerators.")
+
+        # copy all the source files before processing the numerators
+        if workspace is not None:
+            shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(workspace,'numerator.frm'))
+            shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(workspace,'tensorreduce.frm'))
+            shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(workspace,'integrateduv.frm'))
+            shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(workspace,'diacolor.h'))
 
         # add all numerators in one file and write the headers
         numerator_header = """#include <tgmath.h>

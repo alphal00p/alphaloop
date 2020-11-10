@@ -805,7 +805,9 @@ endargument;
     Drop diag1,...,diag`diagcount';
 
 * now add all PF structures as a special conf
-    L FINTEGRANDPF = FINTEGRANDPF + <diag1*conf(-1)>+...+<diag`diagcount'*conf(-`diagcount')>;
+    #if `diagcount' > 0
+        L FINTEGRANDPF = FINTEGRANDPF + <diag1*conf(-1)>+...+<diag`diagcount'*conf(-`diagcount')>;
+    #endif
     id conf(x?)*conf(-1,?a) = conf(x,?a);
 
     #if (`SUMDIAGRAMSETS' == "onlysum")
