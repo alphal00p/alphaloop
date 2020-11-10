@@ -464,15 +464,16 @@ argument uv;
 * t1 determines the powers of the UV propagator
 
 * expand the propagators without loop momentum dependence
-            id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 + (m^2-mUV^2) * t^2 * t1 + ALARM * t^4);
+            id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 - (mUV^2*t^2-m^2*t^2) * t1 + (mUV^2*t^2-m^2*t^2)^2 * t1^2 + ALARM * t^5);
             id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
             repeat;
                 id once ifnomatch->skiptruncation uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
                     (1 +
-                     (- 2 * k.p - p.p + (m^2-mUV^2) * t^2) * t1 +
-                     (+ 4*p.k^2 + 4*p.p*p.k - 4*p.k*(m^2-mUV^2) * t^2) * t1^2 +
-                     (- 8 * p.k^3) * t1^3 +
-                     ALARM * t^4);
+                     (-2*p.k-(p.p+mUV^2*t^2-m^2*t^2)) * t1 +
+                     (+4*p.k^2+4*p.k*(p.p+mUV^2*t^2-m^2*t^2)+(p.p+mUV^2*t^2-m^2*t^2)^2) * t1^2 +
+                     (-8*p.k^3-12*p.k^2*(p.p+mUV^2*t^2-m^2*t^2)) * t1^3 +
+                     (16*p.k^4) * t1^4
+                     ALARM * t^5);
                 id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
                 label skiptruncation;
             endrepeat;
