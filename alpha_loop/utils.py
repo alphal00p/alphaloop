@@ -1,6 +1,7 @@
 from scipy import stats
 import math
 import os
+import sys
 
 #===============================================================================
 # Class for string coloring
@@ -25,6 +26,13 @@ def compute_dod(sequence):
     """ from a sequence of results in the format (scaling, complex(result)), determine the asymptotic scaling."""
 
     _THRESHOLD = 0.01
+
+    # First filer zeros for the sequence
+    sequence = [s for s in sequence if abs(s[1])>0.]
+
+    # We should not perform a linear regression on less than three points
+    if len(sequence)<3:
+        return 0.0, 0.0, 0, False
 
     xs = [math.log(abs(s[0])) for s in sequence]
     ys = [math.log(abs(s[1])) for s in sequence]
@@ -110,3 +118,26 @@ def ln(file_pos, starting_dir='.', name='', log=True, cwd=None, abspath=False):
             print(error)
             print('Could not link %s at position: %s' % (file_pos, \
                                                 os.path.realpath(starting_dir)))
+
+class suppress_output: 
+    def __init__(self,suppress_stdout=False,suppress_stderr=False,active=None):
+        if active is not None:
+            suppress_stdout = active
+            suppress_stderr = active
+        self.suppress_stdout = suppress_stdout 
+        self.suppress_stderr = suppress_stderr 
+        self._stdout = None 
+        self._stderr = None
+    def __enter__(self): 
+        devnull = open(os.devnull, "w") 
+        if self.suppress_stdout: 
+            self._stdout = sys.stdout 
+            sys.stdout = devnull        
+        if self.suppress_stderr: 
+            self._stderr = sys.stderr 
+            sys.stderr = devnull 
+    def __exit__(self, *args): 
+        if self.suppress_stdout: 
+            sys.stdout = self._stdout 
+        if self.suppress_stderr: 
+            sys.stderr = self._stderr

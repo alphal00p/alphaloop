@@ -25,6 +25,7 @@ from argparse import ArgumentParser
 from pprint import pprint, pformat
 import progressbar
 from scipy import stats
+import glob
 
 #import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
@@ -235,10 +236,7 @@ class SuperGraph(dict):
 
     def get_random_x_input(self):
         """ Generates a random input with the right overall scale."""
-        return [
-                [ random.random() for _ in range(3) ]
-            for _ in range(self['topo']['n_loops'])
-        ]
+        return [ random.random() for _ in range(3*self['topo']['n_loops']) ]
 
     def get_random_momenta_input(self, E_cm):
         """ Generates a random input with the right overall scale."""
@@ -304,13 +302,10 @@ class SuperGraph(dict):
         res_str = []
         for k, v in res:
             if v!='':
-                res_str.append('%s%-40s%s : %s'%(Colours.GREEN,k,Colours.END,v))
+                res_str.append('%s%-80s%s : %s'%(Colours.GREEN,k,Colours.END,v))
             else:
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
-
-    def show_UV_statistics(self):
-        return "TODO"
 
     def show_timing_statistics(self):
         if ('DERIVED_timing_profile_f64' not in self) and ('DERIVED_timing_profile_f128' not in self):
@@ -342,6 +337,39 @@ class SuperGraph(dict):
         for k, v in res:
             if v!='':
                 res_str.append('%s%-40s%s : %s'%(Colours.GREEN,k,Colours.END,v))
+            else:
+                res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
+        return '\n'.join(res_str)
+
+    def show_UV_statistics(self):
+        if ('DERIVED_UV_dod' not in self):
+            return "No UV profile information available."
+
+        res = []
+        if len(self['DERIVED_UV_dod'])>0 and 'DERIVED_dod_consistency' in self:
+            res.append(("Consistency of dod between eval_integrand and eval_cuts", "%.4f (%.4f vs %.4f)"%self['DERIVED_dod_consistency']))
+        for k, v in self['DERIVED_UV_dod'].items():
+            res.append(('Sum over cuts dod for LMB=%s, UV_indices=%s'%(
+                ','.join(k[0]),str(k[1])
+            ),'%-7.4f +/- %-7.4f %s'%(
+                v[0],v[1], '%sPASS%s'%(Colours.GREEN, Colours.END) if v[-1] else '%sFAIL%s'%(Colours.RED, Colours.END)
+            )))
+        sorted_cut_evaluations = sorted(
+            [(i,k,v) for i, c in enumerate(self['cutkosky_cuts']) for k,v in c['DERIVED_UV_dod'].items()],
+            key = lambda el: el[2][0], reverse=True
+        )
+        for cut_ID, k, v in sorted_cut_evaluations:
+            res.append(('Cut dod for cut_ID=%d, LMB=%s, UV_indices=%s'%(
+                cut_ID, ','.join(k[0]),str(k[1])
+            ),'%-7.4f +/- %-7.4f %s'%(
+                v[0],v[1], '%sPASS%s'%(Colours.GREEN, Colours.END) if v[-1] else '%sFAIL%s'%(Colours.RED, Colours.END)
+            )))
+
+        res_str = []
+        max_len = (max(len(k) for k, v in res if v!='') if len(res)>0 else 45)+5
+        for k, v in res:
+            if v!='':
+                res_str.append(('%s%-{:d}s%s : %s'.format(max_len))%(Colours.GREEN,k,Colours.END,v))
             else:
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
@@ -404,7 +432,83 @@ class SuperGraphCollection(dict):
         return '\n'.join(res_str)
 
     def show_UV_statistics(self):
-        return "TODO"
+
+        res = []
+
+        all_SG_dods = sorted([
+            (SG_name,k,v) for SG_name,SG in self.items() for k,v in SG['DERIVED_UV_dod'].items() if 'DERIVED_UV_dod' in SG
+        ],key=lambda el: el[2][0], reverse=True)
+        fail_SG_dods = [ (SG_name,k,v) for SG_name,k,v in all_SG_dods if not v[-1] ]
+        all_SG_cut_dods = sorted([
+            (SG_name, cut_ID, k, v) for SG_name,SG in self.items() for cut_ID, cut in enumerate(SG['cutkosky_cuts'])
+            for k,v in cut['DERIVED_UV_dod'].items() if 'DERIVED_UV_dod' in cut
+        ],key=lambda el: el[3][0], reverse=True)
+        fail_SG_cut_dods = [ (SG_name, cut_ID, k, v) for SG_name,cut_ID,k,v in all_SG_cut_dods if not v[-1] ]
+        if len(all_SG_dods)==0 and len(all_SG_cut_dods)==0:
+            return "No UV profile information available."
+        
+        all_SG_dod_consistencies = sorted([
+            (SG_name,SG['DERIVED_dod_consistency']) for SG_name,SG in self.items() if 'DERIVED_dod_consistency' in SG
+        ],key=lambda el: abs(el[1][0]), reverse=True)
+
+        res.append(('Overall UV profile',''))
+        res.append(('-'*len(res[-1][0]),''))
+        res.append(('Total number of UV tests','%d'%(len(all_SG_dods)+len(all_SG_cut_dods))))
+        if len(all_SG_dod_consistencies)>0:
+            res.append(("Maximum inconsistency between dod of eval_integrand and eval_cuts", "%.4f (%.4f vs %.4f) (%s)"%(
+                all_SG_dod_consistencies[0][1][0],all_SG_dod_consistencies[0][1][1], 
+                all_SG_dod_consistencies[0][1][2], all_SG_dod_consistencies[0][0])) )
+        res.append(('Failed UV tests for summed cuts','%s%d%s%s'%(
+                Colours.GREEN if len(fail_SG_dods)==0 else Colours.RED, len(fail_SG_dods), Colours.END,
+                    (('\n'+'\n'.join('%-60s -> %s'%(
+                        '%s%s @ LMB=%s @ UV_indices=%s'%(
+                            Colours.RED, SG_name, ','.join(test_k[0]),str(test_k[1])
+                        ),
+                        'dod=%-6.4f +/- %-6.4f%s'%(
+                            test_v[0], test_v[1], Colours.END
+                        )
+                    ) 
+                    for SG_name, test_k, test_v in fail_SG_dods
+                )) if len(fail_SG_dods)>0 else '')
+            )
+        ))
+        res.append(('Failed UV tests for individual cuts','%s%d%s%s'%(
+                Colours.GREEN if len(fail_SG_cut_dods)==0 else Colours.RED, len(fail_SG_cut_dods), Colours.END,
+                    (('\n'+'\n'.join('%-60s -> %s'%(
+                            '%s%s @ cut_ID=%d @ LMB=%s @ UV_indices=%s'%(
+                                Colours.RED,SG_name, cut_ID, ','.join(test_k[0]),str(test_k[1])
+                        ),
+                            'dod=%-6.4f +/- %-64f%s'%(
+                                test_v[0], test_v[1], Colours.END
+                        )
+                    )
+                    for SG_name, cut_ID, test_k, test_v in fail_SG_cut_dods
+                )) if len(fail_SG_cut_dods)>0 else '')
+            )
+        ))
+        res.append(('Maximum dod for summed cuts over all SGs','%-6.4f +/- %-6.4f (%s @ LMB=%s @ UV_indices=%s)'%(
+            all_SG_dods[0][2][0], all_SG_dods[0][2][1],all_SG_dods[0][0], 
+            ','.join(all_SG_dods[0][1][0]), str(all_SG_dods[0][1][1]) )))
+        res.append(('Maximum dod for individual cuts','%-6.4f +/- %-6.4f (%s @ cut_ID=%d @ LMB=%s @ UV_indices=%s)'%(
+            all_SG_cut_dods[0][3][0], all_SG_cut_dods[0][3][1],all_SG_cut_dods[0][0],all_SG_cut_dods[0][1],
+            ','.join(all_SG_cut_dods[0][2][0]), str(all_SG_cut_dods[0][2][1]) )))
+
+        res_str = []
+
+        res_str.append('')
+        res_str.append('%s%s%s'%(Colours.BLUE,'Statistics for individual supergraphs',Colours.END))
+        for SG_name in sorted(list(self.keys())):
+            res_str.append("\nUV profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_UV_statistics()))
+
+        res_str.append('')
+        max_len = (max(len(k) for k, v in res if v!='') if len(res)>0 else 45)+5
+        for k, v in res:
+            if v!='':
+                res_str.append(('%s%-{:d}s%s : %s'.format(max_len))%(Colours.GREEN,k,Colours.END,v))
+            else:
+                res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
+
+        return '\n'.join(res_str)
 
     def show_timing_statistics(self):
 
@@ -602,6 +706,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         logger.info("Starting timing profile...")
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
         rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        if args.f128:
+            hyperparameters_backup=copy.deepcopy(self.hyperparameters)
+            for entry in self.hyperparameters['General']['stability_checks']:
+                entry['use_f128'] = True
+            rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            self.hyperparameters = hyperparameters_backup
+
         t_start_profile = time.time()
         with progressbar.ProgressBar(
                 prefix=("Timing profile: {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
@@ -621,11 +732,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 #rust_worker = self.get_rust_worker(SG_name)
                 rust_worker = rust_workers[SG_name]
+                if args.f128:
+                    rust_worker_f128 = rust_workers_f128[SG_name]
                 SG = self.all_supergraphs[SG_name]
                 E_cm = SG.get_E_cm(self.hyperparameters)
-                funcs_to_test = [('f64', rust_worker.evaluate)]
+                funcs_to_test = [('f64', rust_worker.evaluate_integrand)]
                 if args.f128:
-                    funcs_to_test.append(('f128', rust_worker.evaluate_f128))
+                    funcs_to_test.append(('f128', rust_worker_f128.evaluate_integrand))
 
                 for precision, rust_function in funcs_to_test:
                     if args.n_points == 0:
@@ -652,7 +765,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         if args.n_points == 0:
                             t_start = time.time()
                             random_momenta = SG.get_random_momenta_input(E_cm)
-                            scaling_solutions = list(get_scaling_function(random_momenta,cut_ID,))
+                            scaling_solutions = list(get_scaling_function(random_momenta,cut_ID))
                             scaling, scaling_jacobian = scaling_solutions.pop(0)
                             while scaling < 0.0:
                                 if len(scaling_solutions)==0:
@@ -667,7 +780,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         t_start = time.time()
                         for _ in range(n_points):
                             random_momenta = SG.get_random_momenta_input(E_cm)
-                            scaling_solutions = list(get_scaling_function(random_momenta,cut_ID,))
+                            scaling_solutions = list(get_scaling_function(random_momenta,cut_ID))
                             scaling, scaling_jacobian = scaling_solutions.pop(0)
                             while scaling < 0.0:
                                 if len(scaling_solutions)==0:
@@ -697,23 +810,48 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser = ArgumentParser()
     uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
-    uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=10,
+    uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=50,
                     help='force a certain number of points to be considered for the uv profile')
-    uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e7,
+    uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e4,
                     help='maximum UV scaling to consider')
-    uv_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e3,
+    uv_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e2,
                     help='minimum UV scaling to consider')
+    uv_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
+                    help='minimum required relative precision for returning a result.')
     uv_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
                     help='specify random seed')
+    uv_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=0,
+                    help='set target UV scaling (default=0)')
+    uv_profile_parser.add_argument("-hp","--h_power", dest='h_power', type=int, default=7,
+                    help='h function dampening power')
+    uv_profile_parser.add_argument("--LMB", dest='LMB', type=str, nargs='*', default=None,
+                    help='set LMB to consider')
+    uv_profile_parser.add_argument("--UV_indices", dest='UV_indices', type=int, nargs='*', default=None,
+                    help='set UV indices to consider')
     uv_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Perfom the UV profile using f128 arithmetics.")
     uv_profile_parser.add_argument(
+        "-sw", "--show_warnings", action="store_true", dest="show_warnings", default=False,
+        help="Show warnings about failed fits.")
+    uv_profile_parser.add_argument(
+        "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
+        help="Show rust warnings.")
+    uv_profile_parser.add_argument(
         "-sc", "--scale_cuts", action="store_true", dest="scale_cuts", default=False,
         help="Include UV scaling of edges being cut.")
+    uv_profile_parser.add_argument(
+        "-v", "--verbose", action="store_true", dest="verbose", default=False,
+        help="Enable verbose output.")
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
-    @with_tmp_hyperparameters()
+    @with_tmp_hyperparameters({
+        'Integrator.dashboard': False,
+        'General.minimal_precision_for_returning_result': 3,
+        'CrossSection.NormalisingFunction.name'         : 'left_right_polynomial',
+        'CrossSection.NormalisingFunction.center'       : 1.0,
+        'General.multi_channeling'                      : False
+    })
     def do_uv_profile(self, line):
         """ Automatically probe all UV limits of a process output."""
         args = self.split_arg(line)
@@ -724,10 +862,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             selected_SGs = [args.SG_name,]
 
-        logger.info("Starting UV profile...")
+        self.hyperparameters['CrossSection']['NormalisingFunction']['spread'] = args.h_power
+        if args.required_precision is None:
+            self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
+        else:
+            for entry in self.hyperparameters['General']['stability_checks']:
+                entry['relative_precision'] = args.required_precision
 
-        if args.seed != 0:
-            random.seed(args.seed)
+        logger.info("Starting UV profile...")
 
         # Compute the log-spaced sequence of rescaling
         scalings = [ 10.**(math.log10(args.min_scaling)+i*((math.log10(args.max_scaling)-math.log10(args.min_scaling))/(args.n_points-1))) 
@@ -751,35 +893,46 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             UV_info_per_SG_and_cut['SG_topo_gen'] = SG_topo_gen
             edge_signatures = SG['edge_signatures']
 
-            # Store the signature of each edge part of the LMBs w.r.t the defining LMB
-            all_LMBs = [ tuple(edges_list[i_edge][0] for i_edge in lmb) for lmb in SG_topo_gen.loop_momentum_bases()]
-            # Filter out all LMBs with the same loop momenta signatures
-            new_all_LMBS = []
-            signatures_encountered = []
-            for LMB in all_LMBs:
-                this_LMB_sig = sorted(edge_signatures[edge_name][0] for edge_name in LMB)
-                if this_LMB_sig not in signatures_encountered:
-                    signatures_encountered.append(this_LMB_sig)
-                    new_all_LMBS.append(LMB)
+            if args.LMB is not None and args.UV_indices is not None:
+                all_LMBs = [tuple(edge_name for edge_name in args.LMB)]
+            else:
+                # Store the signature of each edge part of the LMBs w.r.t the defining LMB
+                all_LMBs = [ tuple(edges_list[i_edge][0] for i_edge in lmb) for lmb in SG_topo_gen.loop_momentum_bases()]
+                # Filter out all LMBs with the same loop momenta signatures
+                new_all_LMBS = []
+                signatures_encountered = []
+                for LMB in all_LMBs:
+                    this_LMB_sig = sorted(edge_signatures[edge_name][0] for edge_name in LMB)
+                    if this_LMB_sig not in signatures_encountered:
+                        signatures_encountered.append(this_LMB_sig)
+                        new_all_LMBS.append(LMB)
+                all_LMBs = new_all_LMBS
 
             all_LMBs_and_UV_edge_indices_and_signatures = []
             # Then only include combination of UV_edges that yield different signature combinations
             UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'] = {}
-            signature_combinations_considered = []
+            # We must keep *all* signatures actually as it matters which other ones we keep fixed.
+            #signature_combinations_considered = []
             for LMB in all_LMBs:
                 # construct the cut basis to LTD loop momentum basis mapping
                 mat = [edge_signatures[edge_name][0] for edge_name in LMB]
                 transfo = np.linalg.inv(np.array(mat))
                 shifts = [[-p for p in edge_signatures[edge_name][1]] for edge_name in LMB]
                 UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'][LMB] = (transfo, shifts)
-                for UV_edge_indices in itertools.chain(*[
+                
+                if args.LMB is not None and args.UV_indices is not None:
+                    indices_list = [args.UV_indices,]
+                else:
+                    indices_list = itertools.chain(*[
                         itertools.combinations(list(range(len(LMB))),n_UV) for n_UV in range(1,len(LMB)+1)
-                    ]):
+                    ])
+                for UV_edge_indices in indices_list:
                     UV_edge_signatures = tuple([edge_signatures[LMB[UV_edge_index]][0] for UV_edge_index in UV_edge_indices])
-                    sorted_UV_edge_signatures = sorted(list(UV_edge_signatures))
-                    if sorted_UV_edge_signatures in signature_combinations_considered:
-                        continue
-                    signature_combinations_considered.append(sorted_UV_edge_signatures)
+                    # We must keep *all* signatures actually as it matters which other ones we keep fixed.
+                    #sorted_UV_edge_signatures = sorted(list(UV_edge_signatures))
+                    #if sorted_UV_edge_signatures in signature_combinations_considered:
+                    #    continue
+                    #signature_combinations_considered.append(sorted_UV_edge_signatures)
                     all_LMBs_and_UV_edge_indices_and_signatures.append((LMB, UV_edge_indices, UV_edge_signatures))
 
             UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'] = []
@@ -789,7 +942,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 added_UV_edges_to_probe=False
                 for cut_ID, cuts_info in enumerate(SG['cutkosky_cuts']):
                     # Rescaling in the UV a momenta part of the cuts will never yield a singularity
-                    if not args.scale_cuts and ( 
+                    if (args.LMB is None or args.UV_indices is None) and (not args.scale_cuts) and ( 
                         any( cut['signature'][0] in UV_edge_signatures for cut in cuts_info['cuts'] ) or
                         any( [-c for c in cut['signature'][0]] in UV_edge_signatures for cut in cuts_info['cuts'] )
                     ):
@@ -799,22 +952,30 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].append((LMB, UV_edge_indices))
                         added_UV_edges_to_probe = True
 
-
         max_count = sum( len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe']) + 
-                    len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts']) for SG_name in selected_SGs )
+                         len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts']) for SG_name in selected_SGs )
+
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
         rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        if args.f128:
+            hyperparameters_backup=copy.deepcopy(self.hyperparameters)
+            for entry in self.hyperparameters['General']['stability_checks']:
+                entry['use_f128'] = True
+            rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            self.hyperparameters = hyperparameters_backup
         t_start_profile = time.time()
         n_passed = 0
         n_failed = 0
+        n_fit_failed = 0
         with progressbar.ProgressBar(
-                prefix=("UV profile: {variables.passed}\u2713, {variables.failed}\u2717, {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
-                        "cut ID: {variables.cut}, UV edges: {variables.i_test}/{variables.n_tests} ({variables.uv_edge_names}) "), 
+                prefix=("UV profile: {variables.passed}\u2713, {variables.failed}\u2717, fit fails: {variables.fit_failed}, {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
+                        "cut ID: {variables.cut}, test #: {variables.i_test}/{variables.n_tests} (UV: {variables.uv_edge_names} fixed: {variables.fixed_edge_names}) "), 
                 max_value=max_count,variables={
-                    'passed': n_passed, 'failed': n_failed,
-                    'SG_name':selected_SGs[0], 'SG': 0, 'n_SG':len(selected_SGs),'cut':-1, 
+                    'passed': n_passed, 'failed': n_failed, 'fit_failed': n_fit_failed,
+                    'SG_name':selected_SGs[0], 'SG': 0, 'n_SG':len(selected_SGs),'cut':'sum', 
                     'i_test': 0, 'n_tests': len(UV_info_per_SG_and_cut[selected_SGs[0]]['UV_edges_to_probe']),
-                    'uv_edge_names': 'N/A'
+                    'uv_edge_names': 'N/A',
+                    'fixed_edge_names': 'N/A'
                 }
             ) as bar:
 
@@ -825,25 +986,32 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 bar.update(SG_name=SG_name)
                 bar.update(SG=i_SG+1)
-                bar.update(cut=-1)
+                bar.update(cut='sum')
                 bar.update(n_tests=len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe']))
                 bar.update(i_test=0)
                 bar.update(uv_edge_names='N/A')
 
                 #rust_worker = self.get_rust_worker(SG_name)
                 rust_worker = rust_workers[SG_name]
+                if args.f128:
+                    rust_worker_f128 = rust_workers_f128[SG_name]
                 SG = self.all_supergraphs[SG_name]  
 
+                if args.seed != 0:
+                    random.seed(args.seed)
+                random_momenta = SG.get_random_momenta_input(E_cm)
+                random_momenta = [ Vector(v) for v in random_momenta]
+
+                SG['DERIVED_UV_dod'] = {}
+                SG['DERIVED_dod_consistency'] = (0.0, 0.0, 0.0)
                 for i_test, (LMB, UV_edge_indices) in enumerate(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe']):
                     bar.update(i_test=i_test+1)
-                    bar.update(uv_edge_names=','.join(LMB[edge_index] for edge_index in UV_edge_indices))
+                    UV_edges_str = ','.join(LMB[edge_index] for edge_index in UV_edge_indices)
+                    bar.update(uv_edge_names=UV_edges_str)
+                    fixed_edges_str = ','.join(LMB[edge_index] for edge_index in range(len(LMB)) if edge_index not in UV_edge_indices)
+                    bar.update(fixed_edge_names=fixed_edges_str)
+                    if fixed_edges_str == '': fixed_edges_str = '[]'
 
-                    random_momenta = SG.get_random_momenta_input(E_cm)
-                    random_momenta = [ Vector(v) for v in random_momenta]
-                    rescaled_momenta_list = [ 
-                        [(scaling, v*scaling) if i_v in UV_edge_indices else v for i_v, v in enumerate(random_momenta)] 
-                        for scaling in scalings
-                    ]
                     results = []
                     for scaling in scalings:
                         rescaled_momenta = [ v*scaling if i_v in UV_edge_indices else v for i_v, v in enumerate(random_momenta)]
@@ -855,32 +1023,57 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             [list(rm+shift) for rm, shift in zip(rescaled_momenta,shifts)] )
                         # Now map these momenta in the defining LMB into x variables in the unit hypercube
                         xs_in_defining_LMB = []
+                        overall_jac = 1.0
                         for i_k, k in enumerate(rescaled_momenta_in_defining_LMB):
-                            if args.f128:
+                            # This is cheap, always do in f128
+                            if args.f128 or True:
                                 x1, x2, x3, jac = rust_worker.inv_parameterize_f128( list(k), i_k, E_cm**2)
                             else:
                                 x1, x2, x3, jac = rust_worker.inv_parameterize( list(k), i_k, E_cm**2)
-                            xs_in_defining_LMB.append([x1, x2, x3])
-                        if args.f128:
-                            res_re, res_im = rust_worker.evaluate_f128(xs_in_defining_LMB)
-                        else:
-                            res_re, res_im = rust_worker.evaluate(xs_in_defining_LMB)
-                        results.append( (scaling, complex(res_re, res_im)) )
-                    
-                    dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
-                    # Here we are in x-space, so we need to decrease the dod by one per loop momentum because of the conformal map.
-                    dod -= float(len(random_momenta))
+                            xs_in_defining_LMB.extend([x1, x2, x3])
+                            overall_jac *= jac
+                        #for k in rescaled_momenta_in_defining_LMB:
+                        #    misc.sprint(['%.16f'%k_i for k_i in k])
+                        #misc.sprint(xs_in_defining_LMB,E_cm)
+                        #with utils.Silence(active=(not args.show_rust_warnings)):
+                        with utils.suppress_output(active=(not args.show_rust_warnings)):
+                            if args.f128:
+                                res_re, res_im = rust_worker_f128.evaluate_integrand(xs_in_defining_LMB)
+                            else:
+                                res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
+                        # We must multiply by the overall jac to get a convergence UV scaling for dod = 0 as defined including line A).
+                        results.append( (scaling, complex(res_re, res_im)*overall_jac) )
 
-                    if not successful_fit:
-                        logger.critical("The fit for the UV scaling of SG '%s' with UV edges %s is unsuccessful (unstable). Found: %.3f +/- %.4f over %d points."%(
-                            SG_name, ', '.join(LMB[edge_index] for edge_index in UV_edge_indices), dod, standard_error, number_of_points_considered
-                        ))
-                    #logger.info("For SG '%s' and UV edges %s, dod measured is: %.3f +/- %.4f over %d points"%(
-                    #    SG_name, ', '.join(LMB[edge_index] for edge_index in UV_edge_indices), dod, standard_error, number_of_points_considered
+                    # Here we are in x-space, so the dod read is already the one we want.
+                    dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
+
+                    # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
+                    dod += 4*float(len(UV_edge_indices))
+
+                    # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
+                    test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
+
+                    do_debug = False
+                    if not successful_fit and dod > float(args.target_scaling)-2.0:
+                        if args.show_warnings:
+                            logger.critical("The fit for the UV scaling of SG '%s' with UV edges %s and fixed edges %s is unsuccessful (unstable). Found: %.3f +/- %.4f over %d points."%(
+                                SG_name, UV_edges_str, fixed_edges_str, dod, standard_error, number_of_points_considered
+                            ))
+                            do_debug = True
+                        n_fit_failed += 1
+                        bar.update(fit_failed=n_fit_failed)
+
+                    #logger.info("For SG '%s' and UV edges %s and fixed edges %s, dod measured is: %.3f +/- %.4f over %d points"%(
+                    #    SG_name, UV_edges_str, fixed_edges_str, dod, standard_error, number_of_points_considered
                     #))
 
-                    # We expect dod of at most five sigma above -1.0 for the integral to be convergent.
-                    test_passed = (dod < (-1.0+5.0*abs(standard_error)))
+                    if args.verbose or do_debug:
+                        logger.info("UV scaling of SG '%s' with UV edges %s and fixed edges %s :"%(
+                            SG_name, UV_edges_str, fixed_edges_str
+                        ))
+                        logger.info('\n'+'\n'.join('%-13.5e -> %-13.5e'%(
+                            r[0], abs(r[1])) for i_r, r in enumerate(results)))
+                        logger.info('%sdod= %.3f +/- %.3f%s'%(Colours.GREEN if test_passed else Colours.RED, dod, standard_error, Colours.END))
 
                     if test_passed:
                         n_passed += 1
@@ -890,14 +1083,71 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(failed=n_failed)
                     bar.update(bar.value+1)
 
+                    SG['DERIVED_UV_dod'][(tuple(LMB), tuple(UV_edge_indices))] = (dod, standard_error, test_passed)
+
                 bar.update(n_tests=len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts']))
+                for cut in SG['cutkosky_cuts']:
+                    cut['DERIVED_UV_dod'] = {}
                 for i_test, (cut_ID, LMB, UV_edge_indices) in enumerate(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts']):
                     bar.update(cut=cut_ID)
                     bar.update(i_test=i_test+1)
-                    bar.update(uv_edge_names=','.join(LMB[edge_index] for edge_index in UV_edge_indices))
+                    UV_edges_str = ','.join(LMB[edge_index] for edge_index in UV_edge_indices)
+                    bar.update(uv_edge_names=UV_edges_str)
+                    fixed_edges_str = ','.join(LMB[edge_index] for edge_index in range(len(LMB)) if edge_index not in UV_edge_indices)
+                    bar.update(fixed_edge_names=fixed_edges_str)
+                    if fixed_edges_str == '': fixed_edges_str = '[]'
 
-                    dod = 0.
-                    test_passed = True
+                    results = []
+                    LU_scalings = []
+                    for scaling in scalings:
+                        rescaled_momenta = [ v*scaling if i_v in UV_edge_indices else v for i_v, v in enumerate(random_momenta)]
+                        # Now transform the momentum configuration in this LMB into the defining LMB
+                        transfo, parametric_shifts = UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'][LMB]
+                        shifts = [ sum([external_momenta[i_shift]*shift 
+                                    for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
+                        rescaled_momenta_in_defining_LMB = transfo.dot(
+                            [list(rm+shift) for rm, shift in zip(rescaled_momenta,shifts)] )
+                        # Now obtain the rescaling for these momenta
+                        LU_scaling_solutions = list(rust_worker.get_scaling(rescaled_momenta_in_defining_LMB,cut_ID))
+                        LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                        while LU_scaling < 0.0:
+                            if len(LU_scaling_solutions)==0:
+                                break
+                            LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                        LU_scalings.append((LU_scaling, LU_scaling_jacobian))
+                        if args.f128:
+                            res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)                            
+                        else:
+                            res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)
+                        # Also divide the result by the UV scaling otherwise line A) below is incorrect
+                        # when the scaling is not a constant.
+                        results.append( (scaling, complex(res_re, res_im)/(LU_scaling**len(LMB))) )
+                    
+                    dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
+
+                    # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
+                    dod += 4*float(len(UV_edge_indices))
+
+                    # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
+                    test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
+
+                    do_debug = False
+                    if not successful_fit and (dod > float(args.target_scaling)-2.0):
+                        if args.show_warnings:
+                            logger.critical("The fit for the UV scaling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s is unsuccessful (unstable). Found: %.3f +/- %.4f over %d points."%(
+                                SG_name, cut_ID, UV_edges_str, fixed_edges_str, dod, standard_error, number_of_points_considered
+                            ))
+                            do_debug = True
+                        n_fit_failed += 1
+                        bar.update(fit_failed=n_fit_failed)
+
+                    if args.verbose or do_debug:
+                        logger.info("UV scaling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s :"%(
+                            SG_name, cut_ID, UV_edges_str, fixed_edges_str
+                        ))
+                        logger.info('\n'+'\n'.join('%-13.5e -> %-13.5e (LU scaling: %-13.5e , %-13.5e )'%(
+                            r[0], abs(r[1]), LU_scalings[i_r][0], LU_scalings[i_r][1]) for i_r, r in enumerate(results)))
+                        logger.info('%sdod= %.3f +/- %.3f%s'%(Colours.GREEN if test_passed else Colours.RED, dod, standard_error, Colours.END))
 
                     if test_passed:
                         n_passed += 1
@@ -907,13 +1157,31 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(failed=n_failed)
                     bar.update(bar.value+1)
 
+                    SG['cutkosky_cuts'][cut_ID]['DERIVED_UV_dod'][(tuple(LMB), tuple(UV_edge_indices))] = (dod, standard_error, test_passed)
+
+                evaluate_integrand_dod = max(v[0] for v in SG['DERIVED_UV_dod'].values()) if len(SG['DERIVED_UV_dod'])>0 else None
+                evaluate_cut_dod = None
+                for cut in SG['cutkosky_cuts']:
+                    cut_dod = max(v[0] for v in cut['DERIVED_UV_dod'].values()) if len(cut['DERIVED_UV_dod'])>0 else None
+                    if cut_dod is not None:
+                        if evaluate_cut_dod is None:
+                            evaluate_cut_dod = cut_dod
+                        else:
+                            evaluate_cut_dod = max(evaluate_cut_dod, cut_dod)
+                if evaluate_integrand_dod is not None and evaluate_cut_dod is not None:
+                    SG['DERIVED_dod_consistency'] = (evaluate_integrand_dod-evaluate_cut_dod,evaluate_integrand_dod,evaluate_cut_dod)
+                else:
+                    SG['DERIVED_dod_consistency'] = (0.0,0.0,0.0)
+
         delta_t = time.time()-t_start_profile
-        logger.info("UV profile completed in %d [s]: %s%d%s passed and %s failed."%(
+        logger.info("UV profile completed in %d [s]: %s%d%s passed and %s failed (and %s fit failed)."%(
             int(delta_t),
             Colours.GREEN,
             n_passed,
             Colours.END,
-            'none' if n_failed == 0 else '%s%d%s'%(Colours.RED, n_failed, Colours.END)
+            'none' if n_failed == 0 else '%s%d%s'%(Colours.RED, n_failed, Colours.END),
+            'no' if n_fit_failed == 0 else '%s%d%s'%(Colours.RED, n_fit_failed, Colours.END)
+
         ))
         logger.info("Writing out processed yaml supergaphs on disk...")
         # Write out the results into processed topologies
@@ -922,6 +1190,15 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.do_display('%s --uv'%selected_SGs[0])
         else:
             self.do_display('--uv')
+
+    def do_refresh_derived_data(self, line):
+        """ Remove all processed data, on disk as well."""
+
+        for file_path in glob.glob(pjoin(self.dir_path, self._rust_inputs_folder, 'PROCESSED_*.yaml')):
+            shutil.move(file_path, pjoin(self.dir_path, self._rust_inputs_folder,'BACKUP_%s'%(
+                os.path.basename(file_path)
+            )))
+        self.all_supergraphs = self.load_supergraphs()
 
     #### DISPLAY COMMAND
     display_parser = ArgumentParser()
@@ -954,8 +1231,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if args.uv:
             if args.SG_name:
+                sg_collection = SuperGraphCollection()
+                sg_collection[args.SG_name] = self.all_supergraphs[args.SG_name]
                 logger.info("UV profile for supergraph '%s':\n%s"%(
-                    args.SG_name, self.all_supergraphs[args.SG_name].show_UV_statistics()
+                    args.SG_name, sg_collection.show_UV_statistics()
                 ))
             else:
                 logger.info("Overall UV profile for all supergraphs:\n%s"%(
