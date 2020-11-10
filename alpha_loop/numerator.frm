@@ -472,7 +472,7 @@ argument uv;
                      (-2*p.k-(p.p+mUV^2*t^2-m^2*t^2)) * t1 +
                      (+4*p.k^2+4*p.k*(p.p+mUV^2*t^2-m^2*t^2)+(p.p+mUV^2*t^2-m^2*t^2)^2) * t1^2 +
                      (-8*p.k^3-12*p.k^2*(p.p+mUV^2*t^2-m^2*t^2)) * t1^3 +
-                     (16*p.k^4) * t1^4
+                     (16*p.k^4) * t1^4 +
                      ALARM * t^5);
                 id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
                 label skiptruncation;
