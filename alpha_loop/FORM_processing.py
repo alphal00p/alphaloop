@@ -60,7 +60,7 @@ FORM_processing_options = {
     'tFORM_path': 'tform', 
     # Define the extra aguments for the compilation
     'compilation-options': [],
-    'cores': multiprocessing.cpu_count(), 
+    'cores': 2, #multiprocessing.cpu_count(),
     'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum'},
     # If None, only consider the LMB originally chosen.
     # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
@@ -1766,6 +1766,174 @@ class FORMSuperGraphIsomorphicList(list):
         #print(r)
         return r
 
+    def generate_numerator_file(self, i_graph, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map):
+        timing = time.time()
+        self.is_zero = True
+
+        # add all numerators in one file and write the headers
+        numerator_header = """#include <tgmath.h>
+#include <quadmath.h>
+#include <signal.h>
+#include "{}numerator.h"
+""".format(header_map['header'])
+
+        FORM_vars={
+            'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order'],
+            'OPTIMISATIONSTRATEGY':FORM_processing_options['optimisation_strategy']
+        }
+
+        if FORM_processing_options['renormalisation_finite_terms']=='together':
+            # Keep all terms, so set the discared power to 0
+            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = 0
+        elif FORM_processing_options['renormalisation_finite_terms']=='only':
+            # Discard all terms not prefixed with UVRenormFinite, so set discarded power to -1
+            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = -1
+        elif FORM_processing_options['renormalisation_finite_terms']=='removed':
+            # Discard all terms prefixed with UVRenormFinite, so set discarded power to 1
+            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = 1
+        else:
+            raise FormProcessingError("The FORM processing option 'renormalisation_finite_terms' "+
+                                      "can only take the following value: 'together', 'only' or 'removed', but not '%s'."%FORM_processing_options['renormalisation_finite_terms'])
+
+        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
+
+        if integrand_type is not None:
+            FORM_vars['INTEGRAND'] = integrand_type
+
+        var_pattern = re.compile(r'Z\d*_')
+        input_pattern = re.compile(r'lm(\d*)')
+        energy_exp = re.compile(r'f\(([^)]*)\)\n')
+        split_number = re.compile(r'\\\n\s*')
+        return_exp = re.compile(r'return ([^;]*);\n')
+        float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
+
+        graphs_to_process = []
+        if isinstance(self[0].additional_lmbs,list) and self[0].additional_lmbs != []:
+            graphs_to_process.append( (0,i_graph,graph[0]) )
+            graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in self[0].additional_lmbs])
+        else:
+            # By setting the active graph to None we will then sum overall members of the iso set.
+            graphs_to_process.append( (0,i_graph, None) )
+
+        max_buffer_size = 0
+        for i_lmb, i_g, active_graph in graphs_to_process:
+            i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
+            FORM_vars['SGID']='%d'%i
+            time_before = time.time()
+            num = self.generate_numerator_functions(additional_overall_factor,
+                            workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition)
+            #total_time += time.time()-time_before
+            num = num.replace('i_', 'I')
+            num = input_pattern.sub(r'lm[\1]', num)
+            num = num.replace('\nZ', '\n\tZ') # nicer indentation
+
+            confs = []
+            numerator_main_code = ''
+            numerator_main_code_f128 = ''
+            conf_secs = num.split('#CONF')
+            for conf_sec in conf_secs[1:]:
+                conf_sec = conf_sec.replace("#CONF\n", '')
+
+                # collect all temporary variables
+                temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
+
+                # parse the configuration id
+                conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
+                conf_id = conf[0]
+                
+                ltd_vars = [v for v in conf[1:] if v != 'c0']
+                max_rank = 8 # FIXME: determine somehow
+                # create the dense polynomial in the LTD energies
+                numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
+
+                mono_secs = conf_sec.split('#NEWMONOMIAL')
+
+                num_body = energy_exp.sub('', '\n'.join(mono_secs[0].split('\n')[2:]))
+                
+                rank = 0
+                max_index = 0
+                return_statements = []
+                for mono_sec in mono_secs[1:]:
+                    mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
+                    mono_sec = split_number.sub('', mono_sec)
+                    # parse monomial powers and get the index in the polynomial in the LTD basis
+                    pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
+                    pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'c0'))
+                    rank = max(rank, len(pows))
+                    index = numerator_pows.index(pows)
+                    max_index = max(index, max_index)
+                    max_buffer_size = max(index, max_buffer_size)
+                    mono_sec = energy_exp.sub('', mono_sec)
+                    returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
+                    return_statements.append((index, return_exp.sub('\tout[{}] = {};'.format(index, returnval), mono_sec)))
+
+                for r in sorted(return_statements, key=lambda x: x[0]):
+                    num_body += r[1]
+
+                num_body = num_body.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+
+                confs.append((conf_id, rank))
+
+                if len(temp_vars) > 0:
+                    self.is_zero = False
+
+                numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
+                numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}'.format(i, conf_id,
+                    'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
+                ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
+
+                numerator_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                numerator_code_f128 = float_pattern.sub(r'\1q', numerator_code_f128)
+                numerator_main_code_f128 += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}\n\treturn {};\n}}\n'.format(i, conf_id,
+                    '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_code_f128, max_index + 1
+                )
+
+            numerator_main_code += \
+"""
+int %(header)sevaluate_{}(double complex lm[], double complex params[], int conf, double complex* out) {{
+   switch(conf) {{
+{}
+    }}
+}}
+
+int %(header)sget_rank_{}(int conf) {{
+   switch(conf) {{
+{}
+    }}
+}}
+""".format(i,
+        '\n'.join(
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
+        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ),
+        i,
+        '\n'.join(
+        ['\t\tcase {}: return {};'.format(conf, rank) for conf, rank in sorted(confs)] +
+        (['\t\tdefault: return 0;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ))
+
+            writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f64.c'%header_map).format(i)).write((numerator_header + numerator_main_code)%header_map)
+
+            numerator_main_code_f128 += \
+"""
+int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
+    switch(conf) {{
+{}
+    }}
+}}
+
+""".format(i,
+        '\n'.join(
+        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
+        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ))
+
+            writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f128.c'%header_map).format(i)).write((numerator_header + numerator_main_code_f128)%header_map)
+        return (i, max_buffer_size, self.is_zero, time.time() - timing, self[0].code_generation_statistics)
+
+    def generate_numerator_file_helper(args):
+        return args[0].generate_numerator_file(*args[1:])
+
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
 
@@ -2503,7 +2671,7 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
         self.code_generation_statistics['integrand_C_source_size_in_kB'] = int(integrand_C_source_size/1000.0)
 
     def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, 
-                                    output_format='c', workspace=None, header="", integrand_type=None,process_definition=None):
+                                    output_format='c', workspace=None, header="", integrand_type=None, process_definition=None):
 
         start_time = time.time()
         header_map = {'header': header}
@@ -2530,178 +2698,39 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
 #include "%(header)snumerator.h"
 """
 
-        var_pattern = re.compile(r'Z\d*_')
-        input_pattern = re.compile(r'lm(\d*)')
-        energy_exp = re.compile(r'f\(([^)]*)\)\n')
-        split_number = re.compile(r'\\\n\s*')
-        return_exp = re.compile(r'return ([^;]*);\n')
-        float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
-
-        FORM_vars={
-            'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order'],
-            'OPTIMISATIONSTRATEGY':FORM_processing_options['optimisation_strategy']
-        }
-
-        if FORM_processing_options['renormalisation_finite_terms']=='together':
-            # Keep all terms, so set the discared power to 0
-            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = 0
-        elif FORM_processing_options['renormalisation_finite_terms']=='only':
-            # Discard all terms not prefixed with UVRenormFinite, so set discarded power to -1
-            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = -1
-        elif FORM_processing_options['renormalisation_finite_terms']=='removed':
-            # Discard all terms prefixed with UVRenormFinite, so set discarded power to 1
-            FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = 1
-        else:
-            raise FormProcessingError("The FORM processing option 'renormalisation_finite_terms' "+
-                                      "can only take the following value: 'together', 'only' or 'removed', but not '%s'."%FORM_processing_options['renormalisation_finite_terms'])
-
-        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
-
-        if integrand_type is not None:
-            FORM_vars['INTEGRAND'] = integrand_type
-
-        # TODO: multiprocess this loop
         max_buffer_size = 0
         all_numerator_ids = []
+        processed_graph_counter = 0
+        total_time = 0.
         with progressbar.ProgressBar(
-            prefix = 'Processing numerators (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}) with FORM ({variables.timing} ms / supergraph) : '%len(self),
+            prefix = 'Processing numerators with FORM (graph {variables.i_graph}/%d, {variables.timing} ms / supergraph) : '%len(self),
             max_value=len(self),
-            variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb': '0'}
+            variables = {'timing' : 0, 'i_graph': 0}
             ) as bar:
-            total_time = 0.
 
-            for i_graph, graph in enumerate(self):
-                graph.is_zero = True
+            if FORM_processing_options["cores"] == 1:
+                graph_it = map(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
+                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map)
+                    for i, graph in enumerate(self)))
+            else:
+                pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
+                graph_it = pool.imap_unordered(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
+                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map)
+                    for i, graph in enumerate(self)))
 
-                graphs_to_process = []
-                if isinstance(graph[0].additional_lmbs,list) and graph[0].additional_lmbs != []:
-                    graphs_to_process.append( (0,i_graph,graph[0]) )
-                    graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in graph[0].additional_lmbs])
-                else:
-                    # By setting the active graph to None we will then sum overall members of the iso set.
-                    graphs_to_process.append( (0,i_graph, None) )
-                bar.update(max_lmb='%d'%len(graphs_to_process))
-                for i_lmb, i_g, active_graph in graphs_to_process:
-                    bar.update(i_graph='%d'%(i_graph+1), i_lmb='%d'%(i_lmb+1))
-                    i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
-                    all_numerator_ids.append(i)
-                    FORM_vars['SGID']='%d'%i
-                    time_before = time.time()
-                    num = graph.generate_numerator_functions(additional_overall_factor,
-                                    workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition)
-                    total_time += time.time()-time_before
-                    num = num.replace('i_', 'I')
-                    num = input_pattern.sub(r'lm[\1]', num)
-                    num = num.replace('\nZ', '\n\tZ') # nicer indentation
+            for (graph_index, max_buffer_graph, is_zero, timing, code_generation_statistics) in graph_it:
+                max_buffer_size = max(max_buffer_size, max_buffer_graph)
+                if is_zero:
+                    self[graph_index].is_zero = True
 
-                    confs = []
-                    numerator_main_code = ''
-                    numerator_main_code_f128 = ''
-                    conf_secs = num.split('#CONF')
-                    for conf_sec in conf_secs[1:]:
-                        conf_sec = conf_sec.replace("#CONF\n", '')
+                self[graph_index][0].code_generation_statistics = code_generation_statistics
 
-                        # collect all temporary variables
-                        temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
+                total_time += timing
+                processed_graph_counter += 1
+                bar.update(processed_graph_counter, i_graph=processed_graph_counter, timing='%d'%int((total_time/float(processed_graph_counter))*1000.0))
 
-                        # parse the configuration id
-                        conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
-                        conf_id = conf[0]
-                        
-                        ltd_vars = [v for v in conf[1:] if v != 'c0']
-                        max_rank = 8 # FIXME: determine somehow
-                        # create the dense polynomial in the LTD energies
-                        numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
-
-                        mono_secs = conf_sec.split('#NEWMONOMIAL')
-
-                        num_body = energy_exp.sub('', '\n'.join(mono_secs[0].split('\n')[2:]))
-                        
-                        rank = 0
-                        max_index = 0
-                        return_statements = []
-                        for mono_sec in mono_secs[1:]:
-                            mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
-                            mono_sec = split_number.sub('', mono_sec)
-                            # parse monomial powers and get the index in the polynomial in the LTD basis
-                            pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
-                            pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'c0'))
-                            rank = max(rank, len(pows))
-                            index = numerator_pows.index(pows)
-                            max_index = max(index, max_index)
-                            max_buffer_size = max(index, max_buffer_size)
-                            mono_sec = energy_exp.sub('', mono_sec)
-                            returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
-                            return_statements.append((index, return_exp.sub('\tout[{}] = {};'.format(index, returnval), mono_sec)))
-
-                        for r in sorted(return_statements, key=lambda x: x[0]):
-                            num_body += r[1]
-
-                        num_body = num_body.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
-
-                        confs.append((conf_id, rank))
-
-                        if len(temp_vars) > 0:
-                            graph.is_zero = False
-
-                        numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
-                        numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}'.format(i, conf_id,
-                            'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
-                        ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
-
-                        numerator_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
-                        numerator_code_f128 = float_pattern.sub(r'\1q', numerator_code_f128)
-                        numerator_main_code_f128 += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}\n\treturn {};\n}}\n'.format(i, conf_id,
-                            '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_code_f128, max_index + 1
-                        )
-
-                    numerator_main_code += \
-"""
-int %(header)sevaluate_{}(double complex lm[], double complex params[], int conf, double complex* out) {{
-   switch(conf) {{
-{}
-    }}
-}}
-
-int %(header)sget_rank_{}(int conf) {{
-   switch(conf) {{
-{}
-    }}
-}}
-""".format(i,
-        '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
-        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ),
-        i,
-        '\n'.join(
-        ['\t\tcase {}: return {};'.format(conf, rank) for conf, rank in sorted(confs)] +
-        (['\t\tdefault: return 0;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ))
-
-                    bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
-                    bar.update(i_graph+1)
-
-                    writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f64.c'%header_map).format(i)).write((numerator_header + numerator_main_code)%header_map)
-
-                    numerator_main_code_f128 += \
-"""
-int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
-    switch(conf) {{
-{}
-    }}
-}}
-
-""".format(i,
-        '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
-        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ))
-
-                    bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
-                    bar.update(i_graph+1)
-
-                    writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f128.c'%header_map).format(i)).write((numerator_header + numerator_main_code_f128)%header_map)
+            if FORM_processing_options["cores"] > 1:
+                pool.close()
 
         numerator_code = \
 """

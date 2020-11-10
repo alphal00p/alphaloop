@@ -604,13 +604,6 @@ id UVRenormFINITE^n? = 1;
 #endif
 
 #ifdef `INTEGRAND'
-    #if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
-        L FINTEGRANDPF = F;
-        .sort
-
-        #include- pftable_`SGID'.h
-        .sort:load-pf;
-    #endif
     #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
         .sort
         L FINTEGRANDLTD = F;
@@ -638,30 +631,36 @@ id cmb(?a) = cmb(?a)*replace(?a);
 
     id replace(p1?,p2?,?a) = replace_(p1,p2)*replace(?a);
 #enddo
-.sort:cmb-2;
 
 * now extract the energy components of the LTD loop variables
 id k1?.k2? = g(k1, k2);
-repeat id conf(x?,?a,k1?,?b)*penergy(k1?) = conf(x,?a,k1,?b)*energy(k1); * detect loop energies from the bubble derivative
-repeat id conf(x?,?a,k1?,?b)*g(k1?,k1?) = conf(x,?a,k1,?b)*(energy(k1)*energy(k1)-spatial(k1,k1));
-repeat id conf(x?,?a,k1?,?b,k2?,?c)*g(k1?,k2?) = conf(x,?a,k1,?b,k2,?c)*(energy(k1)*energy(k2)-spatial(k1,k2));
-repeat id conf(x?,?a,k?,?b)*g(k?,p?) = conf(x,?a,k,?b)*(energy(k)*penergy(p)-spatial(k,p));
+repeat id conf(x?,?a,k1?,?b)*g(k1?,k2?) = conf(x,?a,k1,?b)*f(k1,k2);
 id g(p1?,p2?) = p1.p2;
+symmetrize f;
+id f(?a) = f(?a,1);
+id f(?a,n1?)*f(?a,n2?) = f(?a,n1+n2);
+
+B+ f;
+.sort:energy-splitoff-1;
+Keep brackets;
+id f(k1?,k2?,n?) = (penergy(k1)*penergy(k2)-spatial(k1,k2))^n;
+
+B+ conf,penergy,energy;
+.sort:energy-splitoff-2;
+Keep brackets;
+
+repeat id conf(x?,?a,k1?,?b)*penergy(k1?) = conf(x,?a,k1,?b)*energy(k1);
 
 repeat id energy(?a)*energy(?b) = energy(?a,?b);
 symmetrize energy;
 id energy(?a) = energy(f(?a));
 if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are dealing with the constant term
-.sort:energy-splitoff;
+.sort:energy-splitoff-3;
 
 *********************************************
 * Construction of the integrand
 *********************************************
 #ifdef `INTEGRAND'
-    #if (`INTEGRAND' == "both")
-        Hide FINTEGRANDPF;
-    #endif
-
     Hide F;
     .sort
 
@@ -720,14 +719,17 @@ endargument;
 .sort:integrand-ltd;
 
 #if (`INTEGRAND' == "both")
-    UnHide FINTEGRANDPF;
     Hide FINTEGRANDLTD;
 #endif
 #endif
 
 #if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
-    B energy,diag,cmb;
     .sort
+    #include- pftable_`SGID'.h
+    L FINTEGRANDPF = F;
+
+    B energy,diag,cmb;
+    .sort:load-pf;
     Keep brackets;
 
     id energy(f(?a)) = energy(?a);
