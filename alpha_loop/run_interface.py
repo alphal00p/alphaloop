@@ -810,11 +810,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser = ArgumentParser()
     uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
-    uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=50,
+    uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=40,
                     help='force a certain number of points to be considered for the uv profile')
-    uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e4,
+    uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e8,
                     help='maximum UV scaling to consider')
-    uv_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e2,
+    uv_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e4,
                     help='minimum UV scaling to consider')
     uv_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
                     help='minimum required relative precision for returning a result.')
@@ -832,8 +832,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Perfom the UV profile using f128 arithmetics.")
     uv_profile_parser.add_argument(
-        "-sw", "--show_warnings", action="store_true", dest="show_warnings", default=False,
-        help="Show warnings about failed fits.")
+        "-nf", "--no_f128", action="store_true", dest="no_f128", default=False,
+        help="Forbid automatic promotion to f128.")
+    uv_profile_parser.add_argument(
+        "-nw", "--no_warnings", action="store_false", dest="show_warnings", default=True,
+        help="Do not show warnings about this profiling run.")
     uv_profile_parser.add_argument(
         "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
         help="Show rust warnings.")
@@ -941,12 +944,22 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for LMB, UV_edge_indices, UV_edge_signatures in all_LMBs_and_UV_edge_indices_and_signatures:
                 added_UV_edges_to_probe=False
                 for cut_ID, cuts_info in enumerate(SG['cutkosky_cuts']):
-                    # Rescaling in the UV a momenta part of the cuts will never yield a singularity
-                    if (args.LMB is None or args.UV_indices is None) and (not args.scale_cuts) and ( 
-                        any( cut['signature'][0] in UV_edge_signatures for cut in cuts_info['cuts'] ) or
-                        any( [-c for c in cut['signature'][0]] in UV_edge_signatures for cut in cuts_info['cuts'] )
-                    ):
-                        continue
+                    if (args.LMB is None or args.UV_indices is None) and (not args.scale_cuts):
+                        # Rescaling in the UV a momenta part of the cuts will never yield a singularity
+                        # First do a simple heuristics test
+                        if ( 
+                            any( cut['signature'][0] in UV_edge_signatures for cut in cuts_info['cuts'] ) or
+                            any( [-c for c in cut['signature'][0]] in UV_edge_signatures for cut in cuts_info['cuts'] )
+                        ):
+                            continue
+                        # And do an exact test otherwise
+                        transfo, parametric_shifts = UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'][LMB]
+                        prime_components = [1,3,5,7,11,13,17,19,23]
+                        UV_momenta = [ prime_components[UV_index] if UV_index in UV_edge_indices else 0 for UV_index in range(len(LMB)) ]
+                        UV_momenta_in_defining_LMB = transfo.dot(UV_momenta)
+                        if any( UV_momenta_in_defining_LMB.dot(cut['signature'][0])!=0 for cut in cuts_info['cuts'] ):
+                            continue
+
                     UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].append((cut_ID, LMB, UV_edge_indices))
                     if not added_UV_edges_to_probe:
                         UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].append((LMB, UV_edge_indices))
@@ -957,7 +970,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
         rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
-        if args.f128:
+        if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['use_f128'] = True
@@ -993,7 +1006,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 #rust_worker = self.get_rust_worker(SG_name)
                 rust_worker = rust_workers[SG_name]
-                if args.f128:
+                if args.f128 or not args.no_f128:
                     rust_worker_f128 = rust_workers_f128[SG_name]
                 SG = self.all_supergraphs[SG_name]  
 
@@ -1012,46 +1025,56 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(fixed_edge_names=fixed_edges_str)
                     if fixed_edges_str == '': fixed_edges_str = '[]'
 
-                    results = []
-                    for scaling in scalings:
-                        rescaled_momenta = [ v*scaling if i_v in UV_edge_indices else v for i_v, v in enumerate(random_momenta)]
-                        # Now transform the momentum configuration in this LMB into the defining LMB
-                        transfo, parametric_shifts = UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'][LMB]
-                        shifts = [ sum([external_momenta[i_shift]*shift 
-                                    for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
-                        rescaled_momenta_in_defining_LMB = transfo.dot(
-                            [list(rm+shift) for rm, shift in zip(rescaled_momenta,shifts)] )
-                        # Now map these momenta in the defining LMB into x variables in the unit hypercube
-                        xs_in_defining_LMB = []
-                        overall_jac = 1.0
-                        for i_k, k in enumerate(rescaled_momenta_in_defining_LMB):
-                            # This is cheap, always do in f128
-                            if args.f128 or True:
-                                x1, x2, x3, jac = rust_worker.inv_parameterize_f128( list(k), i_k, E_cm**2)
-                            else:
-                                x1, x2, x3, jac = rust_worker.inv_parameterize( list(k), i_k, E_cm**2)
-                            xs_in_defining_LMB.extend([x1, x2, x3])
-                            overall_jac *= jac
-                        #for k in rescaled_momenta_in_defining_LMB:
-                        #    misc.sprint(['%.16f'%k_i for k_i in k])
-                        #misc.sprint(xs_in_defining_LMB,E_cm)
-                        #with utils.Silence(active=(not args.show_rust_warnings)):
-                        with utils.suppress_output(active=(not args.show_rust_warnings)):
-                            if args.f128:
-                                res_re, res_im = rust_worker_f128.evaluate_integrand(xs_in_defining_LMB)
-                            else:
-                                res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
-                        # We must multiply by the overall jac to get a convergence UV scaling for dod = 0 as defined including line A).
-                        results.append( (scaling, complex(res_re, res_im)*overall_jac) )
+                    use_f128 = args.f128
+                    while True:
+                        results = []
+                        for scaling in scalings:
+                            rescaled_momenta = [ v*scaling if i_v in UV_edge_indices else v for i_v, v in enumerate(random_momenta)]
+                            # Now transform the momentum configuration in this LMB into the defining LMB
+                            transfo, parametric_shifts = UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'][LMB]
+                            shifts = [ sum([external_momenta[i_shift]*shift 
+                                        for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
+                            rescaled_momenta_in_defining_LMB = transfo.dot(
+                                [list(rm+shift) for rm, shift in zip(rescaled_momenta,shifts)] )
+                            # Now map these momenta in the defining LMB into x variables in the unit hypercube
+                            xs_in_defining_LMB = []
+                            overall_jac = 1.0
+                            for i_k, k in enumerate(rescaled_momenta_in_defining_LMB):
+                                # This is cheap, always do in f128
+                                if use_f128 or True:
+                                    x1, x2, x3, jac = rust_worker.inv_parameterize_f128( list(k), i_k, E_cm**2)
+                                else:
+                                    x1, x2, x3, jac = rust_worker.inv_parameterize( list(k), i_k, E_cm**2)
+                                xs_in_defining_LMB.extend([x1, x2, x3])
+                                overall_jac *= jac
+                            #for k in rescaled_momenta_in_defining_LMB:
+                            #    misc.sprint(['%.16f'%k_i for k_i in k])
+                            #misc.sprint(xs_in_defining_LMB,E_cm)
+                            #with utils.Silence(active=(not args.show_rust_warnings)):
+                            with utils.suppress_output(active=(not args.show_rust_warnings)):
+                                if use_f128:
+                                    res_re, res_im = rust_worker_f128.evaluate_integrand(xs_in_defining_LMB)
+                                else:
+                                    res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
+                            # We must multiply by the overall jac to get a convergence UV scaling for dod = 0 as defined including line A).
+                            results.append( (scaling, complex(res_re, res_im)*overall_jac) )
 
-                    # Here we are in x-space, so the dod read is already the one we want.
-                    dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
 
-                    # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
-                    dod += 4*float(len(UV_edge_indices))
+                        # Here we are in x-space, so the dod read is already the one we want.
+                        dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
 
-                    # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
-                    test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
+                        # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
+                        dod += 4*float(len(UV_edge_indices))
+
+                        # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
+                        test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
+
+                        if (successful_fit and test_passed) or use_f128:
+                            break
+                        elif not args.no_f128:
+                            use_f128 = True
+                        else:
+                            break
 
                     do_debug = False
                     if not successful_fit and dod > float(args.target_scaling)-2.0:
@@ -1097,41 +1120,62 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(fixed_edge_names=fixed_edges_str)
                     if fixed_edges_str == '': fixed_edges_str = '[]'
 
-                    results = []
-                    LU_scalings = []
-                    for scaling in scalings:
-                        rescaled_momenta = [ v*scaling if i_v in UV_edge_indices else v for i_v, v in enumerate(random_momenta)]
-                        # Now transform the momentum configuration in this LMB into the defining LMB
-                        transfo, parametric_shifts = UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'][LMB]
-                        shifts = [ sum([external_momenta[i_shift]*shift 
-                                    for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
-                        rescaled_momenta_in_defining_LMB = transfo.dot(
-                            [list(rm+shift) for rm, shift in zip(rescaled_momenta,shifts)] )
-                        # Now obtain the rescaling for these momenta
-                        LU_scaling_solutions = list(rust_worker.get_scaling(rescaled_momenta_in_defining_LMB,cut_ID))
-                        LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
-                        while LU_scaling < 0.0:
-                            if len(LU_scaling_solutions)==0:
-                                break
+                    use_f128 = args.f128
+                    while True:
+                        results = []
+                        LU_scalings = []
+                        for scaling in scalings:
+                            rescaled_momenta = [ v*scaling if i_v in UV_edge_indices else v for i_v, v in enumerate(random_momenta) ]
+                            # Now transform the momentum configuration in this LMB into the defining LMB
+                            transfo, parametric_shifts = UV_info_per_SG_and_cut[SG_name]['LMBs_to_defining_LMB_transfo'][LMB]
+                            shifts = [ sum([external_momenta[i_shift]*shift 
+                                        for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
+                            rescaled_momenta_in_defining_LMB = transfo.dot(
+                                [list(rm+shift) for rm, shift in zip(rescaled_momenta,shifts)] )
+                            # Now obtain the rescaling for these momenta
+                            LU_scaling_solutions = list(rust_worker.get_scaling(rescaled_momenta_in_defining_LMB,cut_ID))
                             LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
-                        LU_scalings.append((LU_scaling, LU_scaling_jacobian))
-                        if args.f128:
-                            res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)                            
+                            while LU_scaling < 0.0:
+                                if len(LU_scaling_solutions)==0:
+                                    break
+                                LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                            LU_scalings.append((LU_scaling, LU_scaling_jacobian))
+                            if use_f128:
+                                res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)                            
+                            else:
+                                res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)
+                            # Also divide the result by the UV scaling otherwise line A) below is incorrect
+                            # when the scaling is not a constant.
+                            #additional_t_scaling = LU_scaling**(-len(LMB))
+                            additional_t_scaling = 1.0
+                            results.append( (scaling, complex(res_re, res_im)*additional_t_scaling ) )
+                        
+                        dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
+
+                        # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
+                        dod += 4*float(len(UV_edge_indices))
+
+                        # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
+                        test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
+
+                        if (successful_fit and test_passed) or use_f128:
+                            break
+                        elif not args.no_f128:
+                            use_f128 = True
                         else:
-                            res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)
-                        # Also divide the result by the UV scaling otherwise line A) below is incorrect
-                        # when the scaling is not a constant.
-                        results.append( (scaling, complex(res_re, res_im)/(LU_scaling**len(LMB))) )
-                    
-                    dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
-
-                    # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
-                    dod += 4*float(len(UV_edge_indices))
-
-                    # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
-                    test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
+                            break
 
                     do_debug = False
+                    if not args.scale_cuts:
+                        t_sols = [LU_scaling[0] for LU_scaling in LU_scalings]
+                        t_variance = (max(t_sols)-min(t_sols))/((max(t_sols)+min(t_sols))/2.0)
+                        if t_variance > 1.0e-4:
+                            if args.show_warnings:
+                                logger.critical("UV profiling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s gives non-constant LU scaling. Found rel. vaiance of: %.5f over %d points."%(
+                                    SG_name, cut_ID, UV_edges_str, fixed_edges_str, t_variance, len(LU_scalings)
+                                ))
+                                do_debug = True
+
                     if not successful_fit and (dod > float(args.target_scaling)-2.0):
                         if args.show_warnings:
                             logger.critical("The fit for the UV scaling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s is unsuccessful (unstable). Found: %.3f +/- %.4f over %d points."%(
