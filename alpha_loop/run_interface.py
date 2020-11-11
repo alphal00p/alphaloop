@@ -810,11 +810,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser = ArgumentParser()
     uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
-    uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=40,
+    uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
                     help='force a certain number of points to be considered for the uv profile')
-    uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e8,
+    uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e4,
                     help='maximum UV scaling to consider')
-    uv_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e4,
+    uv_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e2,
                     help='minimum UV scaling to consider')
     uv_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
                     help='minimum required relative precision for returning a result.')
@@ -1057,7 +1057,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 else:
                                     res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
                             # We must multiply by the overall jac to get a convergence UV scaling for dod = 0 as defined including line A).
-                            results.append( (scaling, complex(res_re, res_im)*overall_jac) )
+                            results.append( (scaling, complex(res_re, res_im)*overall_jac ) )
 
 
                         # Here we are in x-space, so the dod read is already the one we want.
@@ -1330,6 +1330,22 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             raise alphaLoopInvalidRunCmd("Failed to set the following hyperparameter '%s'."%args.param_value[0])
         if args.write:
             self.hyperparameters.export_to(pjoin(self.dir_path, 'hyperparameters.yaml'))            
+
+    #### UV PROFILE COMMAND
+    integrate_parser = ArgumentParser()
+    integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
+                    help='the name of a supergraph to display')
+    integrate_parser.add_argument(
+        '-t','--timing',action="store_true", dest="timing", default=False,
+        help="Show timing profile information")
+    # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
+    @wrap_in_process()
+    @with_tmp_hyperparameters({
+        'Integrator.dashboard': False
+    })
+    def integrate_parser(self, line):
+        """ Integrate a given (set of) supergraphs using different sampling strategies."""
+        pass 
 
     ######################################################################
     #
