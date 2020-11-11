@@ -164,6 +164,9 @@ Polyratfun rat;
 * Load the diagrams
 #include- input_`SGID'.h
 
+.sort:load-input;
+Hide CONF;
+
 *--#[ feynman-rules :
 
 ************************************************
@@ -222,7 +225,7 @@ id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) 
 );
 
 #do i=3,20
-id vx(<x1?{`PSI',}>,...,<x`i'?{`PSI',}>, p1?, ...,p`i'?, idx1?, ..., idx`i'?) = (-1*i_)^(`i'-2);
+    id vx(<x1?{`PSI',}>,...,<x`i'?{`PSI',}>, p1?, ...,p`i'?, idx1?, ..., idx`i'?) = (-1*i_)^(`i'-2);
 #enddo
 
 * delta_Z vertex
@@ -417,7 +420,9 @@ id pzero = 0; * Substitute the 0-momentum by 0
 *************************************************
 
 * process all the configurations
-id configurations(x?) = x;
+L F = F * CONF;
+.sort
+Drop CONF;
 
 * multiply the numerator contribution of derivatives
 id conf(?a,p?) = conf(?a) * penergy(p);

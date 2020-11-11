@@ -81,8 +81,8 @@ FORM_processing_options = {
     'renormalisation_finite_terms' : 'together',
     'optimisation_strategy' : 'CSEgreedy',
     'FORM_setup': {
-        'MaxTermSize':'1M',
-        'Workspace':'1G'
+    #   'MaxTermSize':'100K',
+    #   'Workspace':'1G'
     }
 }
 
@@ -208,6 +208,7 @@ class FORMSuperGraph(object):
         self.effective_vertex_id = effective_vertex_id
         self.squared_topology = None
         self.replacement_rules = None
+        self.configurations = None
         self.integrand_info = {'PF': {}, 'LTD': {}}
 
         # Will be filled in during FORM generation
@@ -1097,9 +1098,8 @@ CTable ltdtopo(0:{});
         max_diag_set_id = 0
         max_diag_id = 0
 
+        unique_pf = {}
         for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
-            unique_pf = {}
-
             for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
                 signature_offset = 0
                 total_ltd_loops = topo.topo.n_loops - len(cut['cuts']) + 1
@@ -1497,7 +1497,7 @@ CTable pfmap(0:{},0:{});
         if len(mommap) > 0:
             self.replacement_rules = '*\n' + '*\n'.join(mommap)
 
-        self.replacement_rules += '*\nconfigurations(\n  +{})'.format('\n  +'.join(configurations))
+        self.configurations = '\n +'.join(configurations)
 
 
 class FORMSuperGraphIsomorphicList(list):
@@ -1652,6 +1652,7 @@ class FORMSuperGraphIsomorphicList(list):
             FORM_source = pjoin(selected_workspace,'numerator.frm')
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
+            f.write('L CONF = {};\n\n'.format(characteristic_super_graph.configurations))
             f.write('L F = {};'.format(form_input))
 
         with open(pjoin(selected_workspace,'form.set'), 'w') as f:
