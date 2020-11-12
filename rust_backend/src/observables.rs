@@ -3,10 +3,11 @@ use crate::squared_topologies::CutkoskyCut;
 use crate::{FloatLike, JetSliceSettings, ObservableMode, SelectorMode, Settings};
 use itertools::Itertools;
 use libc::{c_double, c_int, c_void};
+use lorentz_vector::LorentzVector;
 use num::Complex;
+use smallvec::SmallVec;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use lorentz_vector::LorentzVector;
 
 mod fjcore {
     use libc::{c_double, c_int, c_void};
@@ -118,7 +119,9 @@ pub struct EventManager {
     pub accepted_event_counter: usize,
     pub rejected_event_counter: usize,
     pub no_phase_space_counter: usize,
+    pub time_integrand_evaluation: bool,
     pub integrand_evaluation_timing: u128,
+    pub integrand_evaluation_timing_start: Option<std::time::Instant>,
     pub event_group_counter: usize,
     pub status_update_sender: Option<StatusUpdateSender>,
 }
@@ -171,7 +174,9 @@ impl EventManager {
             accepted_event_counter: 0,
             rejected_event_counter: 0,
             no_phase_space_counter: 0,
+            time_integrand_evaluation: false,
             integrand_evaluation_timing: 0,
+            integrand_evaluation_timing_start: None,
             event_group_counter: 0,
             status_update_sender: Some(status_update_sender),
         }
@@ -188,8 +193,7 @@ impl EventManager {
             return true;
         }
 
-        // TODO: recycle vectors from the buffer
-        let mut incoming_momenta = Vec::with_capacity(orig_incoming_momenta.len());
+        let mut incoming_momenta = SmallVec::new();
 
         // rotate all momenta with the inverse of the rotation matrix
         for e in orig_incoming_momenta {
@@ -201,8 +205,8 @@ impl EventManager {
             ));
         }
 
-        let mut outgoing_momenta = Vec::with_capacity(cut_info.len());
-        let mut final_state_particle_ids = Vec::with_capacity(cut_info.len());
+        let mut outgoing_momenta = SmallVec::new();
+        let mut final_state_particle_ids = SmallVec::new();
         for (cut_mom, cut) in cut_momenta[..cut_info.len()].iter().zip(cut_info.iter()) {
             // make sure all momenta are outgoing
             let e = cut_mom.cast::<f64>() * cut.sign as f64;
@@ -220,7 +224,7 @@ impl EventManager {
             kinematic_configuration: (incoming_momenta, outgoing_momenta),
             final_state_particle_ids,
             integrand: Complex::new(1., 0.),
-            weights: vec![0.],
+            weights: SmallVec::from_slice(&[0.]),
         };
 
         // run the event through the selectors
@@ -327,10 +331,13 @@ impl EventManager {
 
 #[derive(Default, Debug, Clone)]
 pub struct Event {
-    pub kinematic_configuration: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
-    pub final_state_particle_ids: Vec<isize>,
+    pub kinematic_configuration: (
+        SmallVec<[LorentzVector<f64>; 2]>,
+        SmallVec<[LorentzVector<f64>; 4]>,
+    ),
+    pub final_state_particle_ids: SmallVec<[isize; 5]>,
     pub integrand: Complex<f64>,
-    pub weights: Vec<f64>,
+    pub weights: SmallVec<[f64; 1]>,
 }
 
 pub enum Selectors {

@@ -1239,6 +1239,7 @@ pub struct SquaredTopologyCache<T: FloatLike> {
 }
 
 impl<T: FloatLike> SquaredTopologyCache<T> {
+    #[inline]
     pub fn get_topology_cache(
         &mut self,
         cut_index: usize,
@@ -1570,15 +1571,13 @@ impl SquaredTopology {
                         continue;
                     }
 
-                    if !self
-                        .multi_channeling_bases
-                        .iter()
-                        .any(|mcb| mcb.defining_propagators.iter().all(
-                          |p| cut_defining_propagators.contains(p)))
-                    {
+                    if !self.multi_channeling_bases.iter().any(|mcb| {
+                        mcb.defining_propagators
+                            .iter()
+                            .all(|p| cut_defining_propagators.contains(p))
+                    }) {
                         continue;
                     }
-
                 }
 
                 let mut include = true;
@@ -1890,20 +1889,17 @@ impl SquaredTopology {
         let mut cut_energies_summed = T::zero();
         let mut scaling_result = Complex::one();
 
-        let mut shifts = [LorentzVector::default(); MAX_SG_LOOP + 1];
-
         // evaluate the cuts with the proper scaling
-        for ((cut_mom, shift), cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
+        for (cut_mom, cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
             .iter_mut()
-            .zip(shifts[..cutkosky_cuts.cuts.len()].iter_mut())
             .zip_eq(cutkosky_cuts.cuts.iter())
         {
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
-            *shift = utils::evaluate_signature(
+            let shift = utils::evaluate_signature(
                 &cut.signature.1,
                 &external_momenta[..self.external_momenta.len()],
             );
-            *cut_mom = k * scaling + *shift;
+            *cut_mom = k * scaling + shift;
 
             if self.settings.cross_section.fixed_cut_momenta.is_empty() {
                 let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
@@ -1958,11 +1954,15 @@ impl SquaredTopology {
                         ) * (Float::powi(scaling, 2) + T::one())
                             / scaling))
                             .exp(),
-                        Into::<T>::into(
-                            2. * rgsl::bessel::K1(
-                                2. * self.settings.cross_section.normalising_function.spread,
-                            ),
-                        ),
+                        if self.settings.cross_section.normalising_function.spread == 1. {
+                            Into::<T>::into(0.27973176363304485456919761407082)
+                        } else {
+                            Into::<T>::into(
+                                2. * rgsl::bessel::K1(
+                                    2. * self.settings.cross_section.normalising_function.spread,
+                                ),
+                            )
+                        },
                     )
                 }
                 NormalisingFunction::LeftRightPolynomial => {
@@ -2107,91 +2107,98 @@ impl SquaredTopology {
                 }
             }
 
-            // set the shifts, which are expressed in the cut basis
+            let do_deformation = self.settings.general.deformation_strategy
+                == DeformationStrategy::Fixed
+                && (diag_set_index == 0
+                    || !self
+                        .settings
+                        .cross_section
+                        .inherit_deformation_for_uv_counterterm);
+
             for diagram_info in &mut diagram_set.diagram_info {
                 let subgraph = &mut diagram_info.graph;
-                for ll in &mut subgraph.loop_lines {
-                    for p in &mut ll.propagators {
-                        p.q = SquaredTopology::evaluate_signature(
-                            &p.parametric_shift,
-                            &external_momenta[..self.external_momenta.len()],
-                            &cut_momenta[..cutkosky_cuts.cuts.len()],
-                        )
-                        .map(|x| x.to_f64().unwrap());
+
+                if do_deformation
+                    || self.settings.cross_section.numerator_source
+                        != NumeratorSource::FormIntegrand
+                {
+                    // set the shifts, which are expressed in the cut basis
+                    for ll in &mut subgraph.loop_lines {
+                        for p in &mut ll.propagators {
+                            p.q = SquaredTopology::evaluate_signature(
+                                &p.parametric_shift,
+                                &external_momenta[..self.external_momenta.len()],
+                                &cut_momenta[..cutkosky_cuts.cuts.len()],
+                            )
+                            .map(|x| x.to_f64().unwrap());
+                        }
+                    }
+
+                    subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
+                }
+
+                if !do_deformation {
+                    subgraph.fixed_deformation.clear();
+                    continue;
+                }
+
+                subgraph.update_ellipsoids();
+
+                // the stability topologies will inherit the sources
+                // amplitudes will also inherit the sources when they are computed once
+                if !self.is_stability_check_topo
+                    && (cache.current_deformation_index >= cache.deformation_vector_cache.len()
+                        || self.settings.cross_section.fixed_cut_momenta.is_empty())
+                {
+                    subgraph.fixed_deformation =
+                        subgraph.determine_ellipsoid_overlap_structure(true);
+
+                    cache
+                        .deformation_vector_cache
+                        .push(subgraph.fixed_deformation.clone());
+                } else {
+                    subgraph.fixed_deformation =
+                        cache.deformation_vector_cache[cache.current_deformation_index].clone();
+
+                    // rotate the fixed deformation vectors
+                    let rot_matrix = &self.rotation_matrix;
+                    for d_lim in &mut subgraph.fixed_deformation {
+                        for d in &mut d_lim.deformation_per_overlap {
+                            for source in &mut d.deformation_sources {
+                                let old_x = source.x;
+                                let old_y = source.y;
+                                let old_z = source.z;
+                                source.x = rot_matrix[0][0] * old_x
+                                    + rot_matrix[0][1] * old_y
+                                    + rot_matrix[0][2] * old_z;
+                                source.y = rot_matrix[1][0] * old_x
+                                    + rot_matrix[1][1] * old_y
+                                    + rot_matrix[1][2] * old_z;
+                                source.z = rot_matrix[2][0] * old_x
+                                    + rot_matrix[2][1] * old_y
+                                    + rot_matrix[2][2] * old_z;
+                            }
+                        }
+                    }
+
+                    // update the excluded surfaces
+                    for ex in &mut subgraph.all_excluded_surfaces {
+                        *ex = false;
+                    }
+
+                    for d_lim in &mut subgraph.fixed_deformation {
+                        for d in &d_lim.deformation_per_overlap {
+                            for surf_id in &d.excluded_surface_indices {
+                                subgraph.all_excluded_surfaces[*surf_id] = true;
+                            }
+                        }
                     }
                 }
-                subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
+                cache.current_deformation_index += 1;
 
-                if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-                    subgraph.update_ellipsoids();
-
-                    if diag_set_index == 0
-                        || !self
-                            .settings
-                            .cross_section
-                            .inherit_deformation_for_uv_counterterm
-                    {
-                        // the stability topologies will inherit the sources
-                        // amplitudes will also inherit the sources when they are computed once
-                        if !self.is_stability_check_topo
-                            && (cache.current_deformation_index
-                                >= cache.deformation_vector_cache.len()
-                                || self.settings.cross_section.fixed_cut_momenta.is_empty())
-                        {
-                            subgraph.fixed_deformation =
-                                subgraph.determine_ellipsoid_overlap_structure(true);
-
-                            cache
-                                .deformation_vector_cache
-                                .push(subgraph.fixed_deformation.clone());
-                        } else {
-                            subgraph.fixed_deformation = cache.deformation_vector_cache
-                                [cache.current_deformation_index]
-                                .clone();
-
-                            // rotate the fixed deformation vectors
-                            let rot_matrix = &self.rotation_matrix;
-                            for d_lim in &mut subgraph.fixed_deformation {
-                                for d in &mut d_lim.deformation_per_overlap {
-                                    for source in &mut d.deformation_sources {
-                                        let old_x = source.x;
-                                        let old_y = source.y;
-                                        let old_z = source.z;
-                                        source.x = rot_matrix[0][0] * old_x
-                                            + rot_matrix[0][1] * old_y
-                                            + rot_matrix[0][2] * old_z;
-                                        source.y = rot_matrix[1][0] * old_x
-                                            + rot_matrix[1][1] * old_y
-                                            + rot_matrix[1][2] * old_z;
-                                        source.z = rot_matrix[2][0] * old_x
-                                            + rot_matrix[2][1] * old_y
-                                            + rot_matrix[2][2] * old_z;
-                                    }
-                                }
-                            }
-
-                            // update the excluded surfaces
-                            for ex in &mut subgraph.all_excluded_surfaces {
-                                *ex = false;
-                            }
-
-                            for d_lim in &mut subgraph.fixed_deformation {
-                                for d in &d_lim.deformation_per_overlap {
-                                    for surf_id in &d.excluded_surface_indices {
-                                        subgraph.all_excluded_surfaces[*surf_id] = true;
-                                    }
-                                }
-                            }
-                        }
-                        cache.current_deformation_index += 1;
-
-                        if self.settings.general.debug > 0 {
-                            // check if the overlap structure makes sense
-                            subgraph.check_fixed_deformation();
-                        }
-                    } else {
-                        subgraph.fixed_deformation = vec![];
-                    }
+                if self.settings.general.debug > 0 {
+                    // check if the overlap structure makes sense
+                    subgraph.check_fixed_deformation();
                 }
             }
 
@@ -2231,15 +2238,18 @@ impl SquaredTopology {
                                 loop_momenta
                             },
                         );
-
-                        shifts[k_def_index] = utils::evaluate_signature(
-                            &lmm.1,
-                            &external_momenta[..self.external_momenta.len()],
-                        );
                     }
 
-                    let (kappas, jac_def) =
-                        subgraph.deform(&subgraph_loop_momenta[..subgraph.n_loops], subgraph_cache);
+                    let (kappas, jac_def) = if self.settings.general.deformation_strategy
+                        == DeformationStrategy::Fixed
+                    {
+                        subgraph.deform(&subgraph_loop_momenta[..subgraph.n_loops], subgraph_cache)
+                    } else {
+                        (
+                            [LorentzVector::default(); crate::MAX_LOOP],
+                            Complex::new(T::one(), T::zero()),
+                        )
+                    };
 
                     for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
                         .iter()
@@ -2298,35 +2308,29 @@ impl SquaredTopology {
                         .iter()
                         .enumerate()
                     {
-                        cache.scalar_products.push(e1.t);
-                        cache.scalar_products.push(T::zero());
+                        cache.scalar_products.extend_from_slice(&[e1.t, T::zero()]);
                         for e2 in &external_momenta[i1..self.n_incoming_momenta] {
-                            cache.scalar_products.push(e1.dot(e2));
-                            cache.scalar_products.push(T::zero());
-                            cache.scalar_products.push(e1.spatial_dot(e2));
-                            cache.scalar_products.push(T::zero());
+                            let (d, ds) = e1.dot_spatial_dot(e2);
+                            cache
+                                .scalar_products
+                                .extend_from_slice(&[d, T::zero(), ds, T::zero()]);
                         }
                     }
 
                     for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                        cache.scalar_products.push(m1.t.re);
-                        cache.scalar_products.push(m1.t.im);
+                        cache.scalar_products.extend_from_slice(&[m1.t.re, m1.t.im]);
                         for e1 in &external_momenta[..self.n_incoming_momenta] {
-                            let d = m1.dot(&e1.cast());
-                            cache.scalar_products.push(d.re);
-                            cache.scalar_products.push(d.im);
-                            let d = m1.spatial_dot(&e1.cast());
-                            cache.scalar_products.push(d.re);
-                            cache.scalar_products.push(d.im);
+                            let (d, ds) = m1.dot_spatial_dot(&e1.cast());
+                            cache
+                                .scalar_products
+                                .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                         }
 
                         for m2 in k_def[i1..self.n_loops].iter() {
-                            let d = m1.dot(m2);
-                            cache.scalar_products.push(d.re);
-                            cache.scalar_products.push(d.im);
-                            let d = m1.spatial_dot(m2);
-                            cache.scalar_products.push(d.re);
-                            cache.scalar_products.push(d.im);
+                            let (d, ds) = m1.dot_spatial_dot(m2);
+                            cache
+                                .scalar_products
+                                .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                         }
                     }
                 }
@@ -2383,7 +2387,12 @@ impl SquaredTopology {
                     let mut form_integrand =
                         mem::replace(&mut self.form_integrand.form_integrand, None);
 
-                    let time_start = Instant::now();
+                    if let Some(em) = event_manager {
+                        if em.time_integrand_evaluation {
+                            em.integrand_evaluation_timing_start = Some(Instant::now());
+                        }
+                    }
+
                     let mut res = if let Some(call_signature) = &self.form_integrand.call_signature
                     {
                         let res = match self.settings.cross_section.integrand_type {
@@ -2415,8 +2424,10 @@ impl SquaredTopology {
                     };
 
                     if let Some(em) = event_manager {
-                        em.integrand_evaluation_timing +=
-                            Instant::now().duration_since(time_start).as_nanos();
+                        if let Some(s) = em.integrand_evaluation_timing_start.take() {
+                            em.integrand_evaluation_timing +=
+                                Instant::now().duration_since(s).as_nanos();
+                        }
                     }
 
                     mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
@@ -2804,13 +2815,15 @@ impl IntegrandImplementation for SquaredTopologySet {
                 t.settings.cross_section.integrand_type = IntegrandType::LTD;
             }
 
-            for cs in &mut t.cutkosky_cuts {
-                for ds in &mut cs.diagram_sets {
-                    for di in &mut ds.diagram_info {
-                        if enable {
-                            di.graph.settings.general.partial_fractioning_threshold = 1e-99;
-                        } else {
-                            di.graph.settings.general.partial_fractioning_threshold = -1.;
+            if self.settings.cross_section.numerator_source == NumeratorSource::Form {
+                for cs in &mut t.cutkosky_cuts {
+                    for ds in &mut cs.diagram_sets {
+                        for di in &mut ds.diagram_info {
+                            if enable {
+                                di.graph.settings.general.partial_fractioning_threshold = 1e-99;
+                            } else {
+                                di.graph.settings.general.partial_fractioning_threshold = -1.;
+                            }
                         }
                     }
                 }

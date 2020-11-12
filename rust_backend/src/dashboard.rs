@@ -257,11 +257,11 @@ impl Dashboard {
                         )),
                         Text::raw(format!(
                             "C evaluation time per f64 sample: {:.2}µs",
-                            if integrand_statistics.total_samples == 0 {
+                            if integrand_statistics.integrand_evaluation_timing_count == 0 {
                                 0.
                             } else {
                                 (integrand_statistics.integrand_evaluation_timing
-                                    / integrand_statistics.total_samples as u128)
+                                    / integrand_statistics.integrand_evaluation_timing_count as u128)
                                     as f64
                                     / 1000.
                             }

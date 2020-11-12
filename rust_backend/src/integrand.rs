@@ -85,6 +85,8 @@ pub struct IntegrandStatistics {
     pub running_max_coordinate_im: [f64; 3 * MAX_SG_LOOP],
     pub running_max_stability: f64,
     pub integrand_evaluation_timing: u128,
+    pub integrand_evaluation_timing_count: usize,
+    pub integrand_evaluation_timing_record: bool,
 }
 
 impl IntegrandStatistics {
@@ -109,6 +111,8 @@ impl IntegrandStatistics {
             running_max_coordinate_im: [0.; 3 * MAX_SG_LOOP],
             running_max_stability: 0.,
             integrand_evaluation_timing: 0,
+            integrand_evaluation_timing_count: 0,
+            integrand_evaluation_timing_record: true,
         }
     }
 
@@ -128,6 +132,7 @@ impl IntegrandStatistics {
         self.nan_point_count += other.nan_point_count;
         self.total_sample_time += other.total_sample_time;
         self.integrand_evaluation_timing += other.integrand_evaluation_timing;
+        self.integrand_evaluation_timing_count += other.integrand_evaluation_timing_count;
 
         if self.running_max_re.0 < other.running_max_re.0 {
             self.running_max_re = other.running_max_re;
@@ -151,6 +156,7 @@ impl IntegrandStatistics {
         other.nan_point_count = 0;
         other.total_sample_time = 0.;
         other.integrand_evaluation_timing = 0;
+        other.integrand_evaluation_timing_count = 0;
     }
 }
 
@@ -183,12 +189,19 @@ macro_rules! check_stability_precision {
         timing: bool,
     ) -> ($ty, $ty, Complex<$ty>, Complex<$ty>, bool) {
         event_manager.integrand_evaluation_timing = 0;
+        event_manager.time_integrand_evaluation = timing;
         let result = self.topologies[0].$eval_fn(x, cache, Some(event_manager));
+
         if timing {
             self.integrand_statistics.integrand_evaluation_timing +=
                 event_manager.integrand_evaluation_timing;
+            self.integrand_statistics.integrand_evaluation_timing_count += 1;
+            event_manager.integrand_evaluation_timing = 0;
+
+            // only record the first 60 timings since it's slow to time
+            // note: this only works when nvec > 60
+            self.integrand_statistics.integrand_evaluation_timing_record = self.integrand_statistics.integrand_evaluation_timing_count < 60;
         }
-        event_manager.integrand_evaluation_timing = 0;
 
         // even though the point may be stable, we may want to escalate if it's large
         let escalate = if escalate_for_large_weight_threshold > 0. {
@@ -457,7 +470,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
                     stability_check.minimal_precision_to_skip_further_checks,
                     &mut cache,
                     &mut event_manager,
-                    level == 0,
+                    level == 0 && self.integrand_statistics.integrand_evaluation_timing_record,
                 );
 
                 stable_digits = d;
