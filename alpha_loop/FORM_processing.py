@@ -1810,15 +1810,17 @@ class FORMSuperGraphIsomorphicList(list):
 
         graphs_to_process = []
         if isinstance(self[0].additional_lmbs,list) and self[0].additional_lmbs != []:
-            graphs_to_process.append( (0,i_graph,graph[0]) )
+            graphs_to_process.append( (0,i_graph, self[0]) )
             graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in self[0].additional_lmbs])
         else:
             # By setting the active graph to None we will then sum overall members of the iso set.
             graphs_to_process.append( (0,i_graph, None) )
 
         max_buffer_size = 0
+        all_ids = []
         for i_lmb, i_g, active_graph in graphs_to_process:
             i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
+            all_ids.append(i)
             FORM_vars['SGID']='%d'%i
             time_before = time.time()
             num = self.generate_numerator_functions(additional_overall_factor,
@@ -1930,7 +1932,7 @@ int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int con
         ))
 
             writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f128.c'%header_map).format(i)).write((numerator_header + numerator_main_code_f128)%header_map)
-        return (i, max_buffer_size, self.is_zero, time.time() - timing, self[0].code_generation_statistics)
+        return (i_graph, all_ids, max_buffer_size, self.is_zero, time.time() - timing, self[0].code_generation_statistics)
 
     def generate_numerator_file_helper(args):
         return args[0].generate_numerator_file(*args[1:])
@@ -2719,10 +2721,12 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
                     list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map)
                     for i, graph in enumerate(self)))
 
-            for (graph_index, max_buffer_graph, is_zero, timing, code_generation_statistics) in graph_it:
+            for (graph_index, num_ids, max_buffer_graph, is_zero, timing, code_generation_statistics) in graph_it:
                 max_buffer_size = max(max_buffer_size, max_buffer_graph)
                 if is_zero:
                     self[graph_index].is_zero = True
+                else:
+                    all_numerator_ids += num_ids
 
                 self[graph_index][0].code_generation_statistics = code_generation_statistics
 

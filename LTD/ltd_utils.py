@@ -393,12 +393,9 @@ class TopologyGenerator(object):
                     for m in subgraph_momenta:
                         sig = tuple(uv_subgraph.edge_map_lin[k[0]][0] for k in uv_subgraph.propagators[uv_subgraph.edge_name_map[m]] 
                             if uv_subgraph.edge_map_lin[k[0]][0] in subgraph_loop_edges)
-                        ext_sig = tuple(uv_subgraph.edge_map_lin[k[0]][0] for k in uv_subgraph.propagators[uv_subgraph.edge_name_map[m]]
-                            if uv_subgraph.edge_map_lin[k[0]][0] not in subgraph_loop_edges)
                         assert(len(sig) > 0)
-                        if len(ext_sig) > 0:
-                            # only add propagators that contain a shift
-                            loop_lines[sig].append(m)
+                        # note that also loop lines without shifts receive higher-order corrections
+                        loop_lines[sig].append(m)
                     loop_lines = [p for l, p in loop_lines.items()]
 
                     uv_vertices = []
