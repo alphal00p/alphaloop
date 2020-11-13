@@ -482,14 +482,14 @@ aGraph=%s;
             if node['vertex_id'] < 0:
                 continue
         
-            form_diag += '*\nvx({},{},{})'.format(
+            form_diag += '*\n vx({},{},{})'.format(
                 ','.join(str(p) for p in node['PDGs']),
                 ','.join(node['momenta']),
                 ','.join(str(i) for i in node['indices']),
             )
 
         for edge in self.edges.values():
-            form_diag += '*\nprop({},{},{},{})'.format(
+            form_diag += '*\n prop({},{},{},{})'.format(
                 edge['PDG'],
                 edge['type'],
                 edge['momentum'],
@@ -1309,7 +1309,10 @@ CTable pfmap(0:{},0:{});
         # collect the transformations of the bubble
         configurations = []
         bubble_to_cut = OrderedDict()
-        for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
+
+        uv_diagrams = []
+        for cut_index, (cut, cut_loop_topos) in enumerate(zip(topo.cuts, topo.cut_diagrams)):
+            last_cmb = ''
             for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
                 trans = ['1']
                 diag_set_uv_conf = []
@@ -1418,10 +1421,13 @@ CTable pfmap(0:{},0:{});
                         uv_props = ['1']
 
                     if diag_info['integrated_ct']:
-                        uv_props.append('integratedctflag')
+                        uv_sig += '*ICT'
 
-                    uv_conf = 'uvconf({},{},{},{}*{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), '*'.join(uv_props),
-                        '*'.join(vertex_structure))
+                    uv_conf_diag = 'uvconf({},{}*{})'.format(','.join(external_momenta), '*'.join(uv_props),'*'.join(vertex_structure))
+                    if uv_conf_diag not in uv_diagrams:
+                        uv_diagrams.append(uv_conf_diag)
+
+                    uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), uv_diagrams.index(uv_conf_diag))
                     uv_subgraphs.append('subgraph({}{},{})'.format(uv_info['graph_index'], 
                         (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
                         uv_conf))
@@ -1445,17 +1451,25 @@ CTable pfmap(0:{},0:{});
                     cmb_map.append(('k' + str(i + 1), s))
 
                 cmb_map = 'cmb({})'.format(','.join(d for c in cmb_map for d in c))
+
+                if last_cmb == '':
+                    last_cmb = cmb_map
+                if last_cmb != cmb_map:
+                    logger.warning("WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
+                    #raise AssertionError("Diagram sets do not have the same cmb")
+
                 # store which momenta are LTD momenta
                 conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join('c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops) )
 
                 if diag_momenta == []:
                     diag_momenta = ['1']
 
-                conf = 'conf({},{},{},{})*{}'.format(diag_set['id'], cmb_map, conf, '*'.join(trans), '*'.join(diag_momenta))
+                conf = 'conf({},{},{},{},{})*{}'.format(diag_set['id'], cut_index, cmb_map, conf, '*'.join(trans), '*'.join(diag_momenta))
                 if diag_set_uv_conf != []:
                     conf += '*\n    uv({})'.format('*'.join(diag_set_uv_conf))
 
                 configurations.append(conf)
+            configurations[-1] += '\n'
         
         # replace external momentum in all bubble vertices and edges with a dummy momentum
         # TODO: there is an awful lot of string manipulation here...
@@ -1497,7 +1511,7 @@ CTable pfmap(0:{},0:{});
         if len(mommap) > 0:
             self.replacement_rules = '*\n' + '*\n'.join(mommap)
 
-        self.configurations = '\n +'.join(configurations)
+        self.configurations = (uv_diagrams, '\n +'.join(configurations))
 
 
 class FORMSuperGraphIsomorphicList(list):
@@ -1652,8 +1666,11 @@ class FORMSuperGraphIsomorphicList(list):
             FORM_source = pjoin(selected_workspace,'numerator.frm')
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
-            f.write('L CONF = {};\n\n'.format(characteristic_super_graph.configurations))
-            f.write('L F = {};'.format(form_input))
+            (uv_conf, conf) = characteristic_super_graph.configurations
+            f.write('CTable uvdiag(0:{});\n'.format(len(uv_conf)))
+            f.write('{}\n\n'.format('\n'.join('Fill uvdiag({}) = {};'.format(i, uv) for i,uv in enumerate(uv_conf))))
+            f.write('L CONF =\n +{};\n\n'.format(conf))
+            f.write('L F = {}\n;'.format(form_input))
 
         with open(pjoin(selected_workspace,'form.set'), 'w') as f:
             content = [ '%s %s'%(k,str(v)) for k,v in FORM_processing_options["FORM_setup"].items() ]

@@ -2409,7 +2409,7 @@ impl SquaredTopology {
                                 &params,
                                 call_signature.id,
                                 if self.settings.cross_section.sum_diagram_sets {
-                                    1000
+                                    1000 + cut_index
                                 } else {
                                     diagram_set.id
                                 },

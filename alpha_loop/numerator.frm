@@ -134,10 +134,10 @@ Set lorentzdummy: mud1,...,mud40;
 CF gamma, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), vec, vec1;
 CF subs, configurations, conf, cmb, diag, der, energy, spatial(s);
-CF subgraph, uvconf, uvconf1, uvprop, uv, integrateduv;
+CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, integrateduv;
 
 S UVRenormFINITE;
-S integratedctflag, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
+S ICT, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
 Fill logmasses(6) = logmt;
 Fill logmasses(-6) = logmt;
 
@@ -455,7 +455,9 @@ argument uv;
 * multiply each graph with -1 to correctly subtract it
         id subgraph(x1?, x2?) = -uvconf1(x1, x2);
         argument uvconf1,2;
-            id uvconf(x1?,x2?,?a,x3?) = uvconf(x1) * tmax^x2 * uvconf1(?a) * x3;
+            id uvconf(x1?,x2?,?a,x3?) = uvconf2(x1) * tmax^x2 * uvconf1(?a) * uvdiag(x3);
+* uvdiag is filled in from the table and yields a uvconf
+            id uvconf(?a,x?) = x;
             chainout uvconf1;
             repeat id uvconf1(p?)*uvconf1(p?) = uvconf1(p);
             id uvconf1(p?) = replace_(p, t * p);
@@ -493,16 +495,18 @@ argument uv;
             repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2);
             id uvprop(k?,t1?,n1?)*t1?^n2? = uvprop(k,n1 + n2)*t1^n2;
             id uvprop(k?,t1?ts,n?) = uvprop(k, n);
-            id uvconf(x?) = 1/x;
+            id uvconf2(x?) = 1/x;
             id t?ts^n? = 0;
             id t = 1;
             id tmax = 1;
 
 * collect all uv propagators of the subgraph
             Multiply replace_(vxs, vx);
-            if (count(integratedctflag, 1) == 0);
+            if (count(ICT, 1) == 0);
                 id uvprop(?a) = 1;
                 id vx(?a) = 1;
+            else;
+                id 1/ICT = ICT;
             endif;
 
             chainin uvprop;
@@ -528,7 +532,7 @@ id uv(x?) = x;
 
 * convert the polynomial to the cut momentum basis
 * store a copy for the integrand routine in cmb
-id conf(x?,cmb(?a),?b) = conf(x,?b)*replace(?a)*cmb(?a);
+id conf(x?,x1?,cmb(?a),?b) = conf(x,x1,?b)*replace(?a)*cmb(?a);
 
 * gradually transform the basis to prevent term blow-up
 #do i=1,1
@@ -552,7 +556,7 @@ repeat id penergy(k1?)*counter(n?) = vec(k1,n)*vec(p0select,n)*counter(n + 1);
 id counter(x?) = 1;
 
 #do i=1,1
-    id integratedctflag = -1; * we add back the counterterm
+    id ICT = -1; * we add back the counterterm
 
     id once integrateduv(?a,x?) = uvprop(?a)*x;
     if (count(uvprop,1)) redefine i "0";
@@ -616,27 +620,28 @@ id UVRenormFINITE^n? = 1;
         .sort
 
         #include- ltdtable_`SGID'.h
-        .sort:load-pf;
+        .sort:load-ltd;
+        Hide F;
 
-        inexpression FINTEGRANDLTD;
-            id conf(n?,?a) = conf(n,?a)*ltdtopo(n);
-            id ltdtopo(n?) = 0; * unrecognized topology
-        endinexpression;
+        id conf(n?,n1?,?a) = conf(n,n1,?a)*ltdtopo(n);
+        id ltdtopo(n?) = 0; * unrecognized topology
+
+        id cmb(?a) = cmb(?a)*replace(?a);
+* gradually transform the basis to prevent term blow-up
+        #do i=1,1
+            id replace = 1;
+            if (count(replace,1)) redefine i "0";
+
+            AB+ cmb;
+            .sort:cmb-1;
+            Keep brackets; * make sure cmb is not replaced
+
+            id replace(p1?,p2?,?a) = replace_(p1,p2)*replace(?a);
+        #enddo
+        .sort
+        UnHide F;
     #endif
 #endif
-
-id cmb(?a) = cmb(?a)*replace(?a);
-* gradually transform the basis to prevent term blow-up
-#do i=1,1
-    id replace = 1;
-    if (count(replace,1)) redefine i "0";
-
-    AB+ cmb;
-    .sort:cmb-1;
-    Keep brackets; * make sure cmb is not replaced
-
-    id replace(p1?,p2?,?a) = replace_(p1,p2)*replace(?a);
-#enddo
 
 * now extract the energy components of the LTD loop variables
 id k1?.k2? = g(k1, k2);
@@ -819,9 +824,9 @@ endargument;
     id conf(x?)*conf(-1,?a) = conf(x,?a);
 
     #if (`SUMDIAGRAMSETS' == "onlysum")
-        id conf(x?{>=0},?a) = conf(1000);
+        id conf(x?{>=0},x1?,?a) = conf(1000 + x1);
     #elseif (`SUMDIAGRAMSETS' == "both")
-        id conf(x?{>=0},?a) = conf(x,?a) + conf(1000);
+        id conf(x?{>=0},x1?,?a) = conf(x,?a) + conf(1000 + x1);
     #endif
 
     .sort
