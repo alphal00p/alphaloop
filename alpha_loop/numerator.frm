@@ -450,14 +450,16 @@ Keep brackets;
 
 * TODO: do the local UV construction in the cmb
 argument uv;
+    id subgraph(?a,uvconf(?b,x?)) = subgraph(?a,uvconf(?b,uvdiag(x)));
+* uvdiag is filled in from the table and yields a uvconf
+    id subgraph(?a,uvconf(?b,uvconf(?c,x?))) = subgraph(?a,uvconf(?b,x));
+
    repeat;
 * all subgraphs without dependencies can be treated at the same time
 * multiply each graph with -1 to correctly subtract it
         id subgraph(x1?, x2?) = -uvconf1(x1, x2);
         argument uvconf1,2;
-            id uvconf(x1?,x2?,?a,x3?) = uvconf2(x1) * tmax^x2 * uvconf1(?a) * uvdiag(x3);
-* uvdiag is filled in from the table and yields a uvconf
-            id uvconf(?a,x?) = x;
+            id uvconf(x1?,x2?,?a,x3?) = uvconf2(x1) * tmax^x2 * uvconf1(?a) * x3;
             chainout uvconf1;
             repeat id uvconf1(p?)*uvconf1(p?) = uvconf1(p);
             id uvconf1(p?) = replace_(p, t * p);
