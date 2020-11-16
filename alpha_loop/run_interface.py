@@ -24,7 +24,6 @@ import itertools
 from argparse import ArgumentParser
 from pprint import pprint, pformat
 import progressbar
-from scipy import stats
 import glob
 
 #import matplotlib.pyplot as plt
@@ -135,6 +134,7 @@ class RunHyperparameters(HyperParameters):
             'CrossSection.sum_diagram_sets'                      :   False,
             # compare locally against the same topology written in another loop momentum basis
             'CrossSection.compare_with_additional_topologies'    :   False,
+            'CrossSection.inherit_deformation_for_uv_counterterm':   True
         }
 
         for param, value in alphaloop_run_interface_specific_params.items():
@@ -687,7 +687,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help="Enable timing profile of the f128 output too.")
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
-    @with_tmp_hyperparameters()
+    @with_tmp_hyperparameters({
+        'Integrator.dashboard': False,
+        'General.multi_channeling' : False
+    })
     def do_timing_profile(self, line):
         """ Automatically timing profile a process output."""
         args = self.split_arg(line)
@@ -705,6 +708,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             2 if args.f128 else 1 )
         logger.info("Starting timing profile...")
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
+        self.hyperparameters['General']['stability_checks']=[self.hyperparameters['General']['stability_checks'][0],]
+        self.hyperparameters['General']['stability_checks'][0]['use_f128']=False
+        self.hyperparameters['General']['stability_checks'][0]['n_samples']=1
+        self.hyperparameters['General']['stability_checks'][0]['relative_precision']=1.0e-99
+        self.hyperparameters['General']['stability_checks'][0]['escalate_for_large_weight_threshold']=-1.0
+        self.hyperparameters['General']['stability_checks'][0]['minimal_precision_to_skip_further_checks']=1.0e-99
         rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
         if args.f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
@@ -739,7 +748,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 funcs_to_test = [('f64', rust_worker.evaluate_integrand)]
                 if args.f128:
                     funcs_to_test.append(('f128', rust_worker_f128.evaluate_integrand))
-
                 for precision, rust_function in funcs_to_test:
                     if args.n_points == 0:
                         t_start = time.time()
@@ -751,7 +759,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     
                     t_start = time.time()
                     for _ in range(n_points):
-                        rust_function(SG.get_random_x_input())
+                        _res = rust_function(SG.get_random_x_input())
+                        #misc.sprint('A', _res)
                     delta_t = time.time()-t_start
 
                     SG['DERIVED_timing_profile_%s'%precision] = (delta_t/float(n_points))*1000.0
@@ -771,7 +780,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 if len(scaling_solutions)==0:
                                     break
                                 scaling, scaling_jacobian = scaling_solutions.pop(0)
-                            cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
+                            _res = cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
                             delta_t = time.time()-t_start
                             n_points = int(args.time/delta_t)
                         else:
@@ -787,6 +796,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     break
                                 scaling, scaling_jacobian = scaling_solutions.pop(0)
                             _res = cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
+                            #misc.sprint('B', _res)
                         delta_t = time.time()-t_start
                         t_cut = (delta_t/float(n_points))*1000.0
                         running_avg_time_per_cut += t_cut
@@ -812,15 +822,15 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='the name of a supergraph to display')
     uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
                     help='force a certain number of points to be considered for the uv profile')
-    uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e4,
+    uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e5,
                     help='maximum UV scaling to consider')
-    uv_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e2,
+    uv_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e3,
                     help='minimum UV scaling to consider')
     uv_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
                     help='minimum required relative precision for returning a result.')
     uv_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
                     help='specify random seed')
-    uv_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=0,
+    uv_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=-1,
                     help='set target UV scaling (default=0)')
     uv_profile_parser.add_argument("-hp","--h_power", dest='h_power', type=int, default=7,
                     help='h function dampening power')
@@ -1065,6 +1075,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                         # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
                         dod += 4*float(len(UV_edge_indices))
+                        # Subtract one to the dod so that it's interpretation matches the power counting in the original Minkowski graph,
+                        # i.e. -> dod=0 is a log divergence
+                        dod -= 1
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                         test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
@@ -1154,6 +1167,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                         # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
                         dod += 4*float(len(UV_edge_indices))
+                        # Subtract one to the dod so that it's interpretation matches the power counting in the original Minkowski graph,
+                        # i.e. -> dod=0 is a log divergence
+                        dod -= 1
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                         test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
@@ -1331,7 +1347,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.write:
             self.hyperparameters.export_to(pjoin(self.dir_path, 'hyperparameters.yaml'))            
 
-    #### UV PROFILE COMMAND
+    #### INTEGRATE COMMAND
     integrate_parser = ArgumentParser()
     integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
@@ -1343,9 +1359,39 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     @with_tmp_hyperparameters({
         'Integrator.dashboard': False
     })
-    def integrate_parser(self, line):
+    def do_integrate(self, line):
         """ Integrate a given (set of) supergraphs using different sampling strategies."""
-        pass 
+        
+        args = self.split_arg(line)
+        args = self.integrate_parser.parse_args(args)
+
+        logger.critical("NOT IMPLEMENTED YET")
+
+    #### INTEGRATE COMMAND
+    experiment_parser = ArgumentParser()
+    experiment_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
+                    help='The name of a supergraph to consider')
+    experiment_parser.add_argument(
+        '-e','--experiment', dest="experiment", type=str, default='default',
+        help="Which experiment to run")
+    # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
+    @wrap_in_process()
+    @with_tmp_hyperparameters({
+        'Integrator.dashboard': False
+    })
+    def do_experiment(self, line):
+        """ Integrate a given (set of) supergraphs using different sampling strategies."""
+        
+        args = self.split_arg(line)
+        args = self.integrate_parser.parse_args(args)
+
+        logger.critical("A PLACE TO PUT IN SOME EXPERIMENTS")
+
+        SG = self.all_supergraphs[args.SG_name]
+        E_cm = SG.get_E_cm(self.hyperparameters)
+        rust_worker = self.get_rust_worker(args.SG_name)
+        pass
+
 
     ######################################################################
     #
