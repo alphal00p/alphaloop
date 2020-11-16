@@ -507,8 +507,9 @@ class TopologyGenerator(object):
                 cutkosky_particles = tuple(sorted(abs(particle_ids[e]) if e in particle_ids else 0 for (e, _, _) in cutkosky_cut))
                 cutkosky_jet_particles = tuple(p for p in cutkosky_particles if p in PDGs_in_jet)
                 cutkosky_non_jet_particles = tuple(sorted(p for p in cutkosky_particles if p not in PDGs_in_jet))
+                assert(len(set(final_state_particle_ids) & set(PDGs_in_jet)) == 0)
 
-                if len(cutkosky_jet_particles) < n_jets or (len(final_state_particle_ids)>0 and (tuple(sorted(final_state_particle_ids)) != cutkosky_non_jet_particles)):
+                if len(cutkosky_jet_particles) < n_jets or tuple(sorted(final_state_particle_ids)) != cutkosky_non_jet_particles:
                     continue
 
                 # check if the cut is incoming our outgoing
