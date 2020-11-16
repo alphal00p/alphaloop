@@ -49,6 +49,11 @@ from alpha_loop.ltd_commons import HyperParameters
 from alpha_loop.ltd_commons import hyperparameters as default_hyperparameters
 from LTD.vectors import Vector, LorentzVector, LorentzVectorList
 import LTD.ltd_utils as ltd_utils
+import alpha_loop.integrator.sampler as sampler
+import alpha_loop.integrator.integrands as integrands
+import alpha_loop.integrator.integrators as integrators
+import alpha_loop.integrator.vegas3_integrator as vegas3_integrator
+import alpha_loop.integrator.pyCubaIntegrator as pyCubaIntegrator
 
 Colours = utils.bcolors
 
@@ -492,6 +497,11 @@ class SuperGraphCollection(dict):
         res.append(('Maximum dod for individual cuts','%-6.4f +/- %-6.4f (%s @ cut_ID=%d @ LMB=%s @ UV_indices=%s)'%(
             all_SG_cut_dods[0][3][0], all_SG_cut_dods[0][3][1],all_SG_cut_dods[0][0],all_SG_cut_dods[0][1],
             ','.join(all_SG_cut_dods[0][2][0]), str(all_SG_cut_dods[0][2][1]) )))
+        
+        allFailedSGNames = sorted(list(set([SG_name for SG_name,k,v in fail_SG_dods]+[SG_name for SG_name,cut_ID,k,v in fail_SG_cut_dods])))
+        res.append(('Non-converging supergraphs','%s(%d/%d)%s'%(
+            Colours.GREEN if len(allFailedSGNames)==0 else Colours.RED, len(allFailedSGNames),len(self),' : ' if len(allFailedSGNames)>0 else ''
+        )+'%s%s%s'%(Colours.RED, ', '.join(allFailedSGNames), Colours.END) ))
 
         res_str = []
 
@@ -851,8 +861,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
         help="Show rust warnings.")
     uv_profile_parser.add_argument(
+        "-sof", "--skip_once_failed", action="store_true", dest="skip_once_failed", default=True,
+        help="Skip the probing of a supergraph once it failed.")
+    uv_profile_parser.add_argument(
+        "-sf", "--show_fails", action="store_true", dest="show_fails", default=True,
+        help="Show exhaustive information for each fail.")
+    uv_profile_parser.add_argument(
         "-sc", "--scale_cuts", action="store_true", dest="scale_cuts", default=False,
         help="Include UV scaling of edges being cut.")
+    uv_profile_parser.add_argument("-n_max","--n_max", dest='n_max', type=int, default=-1,
+                    help='Set the maximum number of UV test to perform per cut (default: all)')
     uv_profile_parser.add_argument(
         "-v", "--verbose", action="store_true", dest="verbose", default=False,
         help="Enable verbose output.")
@@ -895,6 +913,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # Prepare the run
         UV_info_per_SG_and_cut = {}
         for i_SG, SG_name in enumerate(selected_SGs):
+
+            if args.seed != 0:
+                random.seed(args.seed)
+
             UV_info_per_SG_and_cut[SG_name] = {}
             SG = self.all_supergraphs[SG_name]
             # First we must regenerate a TopologyGenerator instance for this supergraph
@@ -950,6 +972,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'] = []
             UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'] = []
+            uv_probes_to_add_for_this_SG = []
+            uv_probes_to_add_for_this_cut = {}
             # Combination of loop momenta signatures considered
             for LMB, UV_edge_indices, UV_edge_signatures in all_LMBs_and_UV_edge_indices_and_signatures:
                 added_UV_edges_to_probe=False
@@ -970,10 +994,30 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         if any( UV_momenta_in_defining_LMB.dot(cut['signature'][0])!=0 for cut in cuts_info['cuts'] ):
                             continue
 
-                    UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].append((cut_ID, LMB, UV_edge_indices))
+#                    UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].append((cut_ID, LMB, UV_edge_indices))
+                    if cut_ID in uv_probes_to_add_for_this_cut:
+                        uv_probes_to_add_for_this_cut[cut_ID].append((cut_ID, LMB, UV_edge_indices))
+                    else:
+                        uv_probes_to_add_for_this_cut[cut_ID]=[(cut_ID, LMB, UV_edge_indices),]
                     if not added_UV_edges_to_probe:
-                        UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].append((LMB, UV_edge_indices))
+#                        UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].append((LMB, UV_edge_indices))
+                        uv_probes_to_add_for_this_SG.append((LMB, UV_edge_indices))
                         added_UV_edges_to_probe = True
+
+            if args.n_max <= 0:
+                for cut_ID in sorted(list(uv_probes_to_add_for_this_cut.keys())):
+                    UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(uv_probes_to_add_for_this_cut[cut_ID])
+                UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].extend(uv_probes_to_add_for_this_SG)
+            else:
+                for cut_ID in sorted(list(uv_probes_to_add_for_this_cut.keys())):
+                    if len(uv_probes_to_add_for_this_cut[cut_ID])<=args.n_max:
+                        UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(uv_probes_to_add_for_this_cut[cut_ID])
+                    else:
+                        UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(random.sample(uv_probes_to_add_for_this_cut[cut_ID],args.n_max))                        
+                if len(uv_probes_to_add_for_this_SG) <= args.n_max:
+                    UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].extend(uv_probes_to_add_for_this_SG)
+                else:
+                    UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].extend(random.sample(uv_probes_to_add_for_this_SG,args.n_max))
 
         max_count = sum( len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe']) + 
                          len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts']) for SG_name in selected_SGs )
@@ -990,11 +1034,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         n_passed = 0
         n_failed = 0
         n_fit_failed = 0
+        SG_passed = 0
+        SG_failed = 0
         with progressbar.ProgressBar(
-                prefix=("UV profile: {variables.passed}\u2713, {variables.failed}\u2717, fit fails: {variables.fit_failed}, {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
+                prefix=("UV profile: {variables.passed}\u2713, {variables.failed}\u2717, SG: {variables.SG_passed}\u2713, {variables.SG_failed}\u2717, fit fails: {variables.fit_failed}, {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
                         "cut ID: {variables.cut}, test #: {variables.i_test}/{variables.n_tests} (UV: {variables.uv_edge_names} fixed: {variables.fixed_edge_names}) "), 
                 max_value=max_count,variables={
-                    'passed': n_passed, 'failed': n_failed, 'fit_failed': n_fit_failed,
+                    'passed': n_passed, 'failed': n_failed, 'fit_failed': n_fit_failed, 'SG_passed': SG_passed, 'SG_failed': SG_failed,
                     'SG_name':selected_SGs[0], 'SG': 0, 'n_SG':len(selected_SGs),'cut':'sum', 
                     'i_test': 0, 'n_tests': len(UV_info_per_SG_and_cut[selected_SGs[0]]['UV_edges_to_probe']),
                     'uv_edge_names': 'N/A',
@@ -1003,6 +1049,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             ) as bar:
 
             for i_SG, SG_name in enumerate(selected_SGs):
+                skip_furhter_tests_in_this_SG = False
+                this_SG_failed = False
 
                 SG = self.all_supergraphs[SG_name]
                 E_cm = SG.get_E_cm(self.hyperparameters)
@@ -1033,6 +1081,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(uv_edge_names=UV_edges_str)
                     fixed_edges_str = ','.join(LMB[edge_index] for edge_index in range(len(LMB)) if edge_index not in UV_edge_indices)
                     bar.update(fixed_edge_names=fixed_edges_str)
+                    if skip_furhter_tests_in_this_SG:
+                        bar.update(cut='SKIP')
+                        bar.update(bar.value+1)
+                        continue
                     if fixed_edges_str == '': fixed_edges_str = '[]'
 
                     use_f128 = args.f128
@@ -1046,6 +1098,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                         for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
                             rescaled_momenta_in_defining_LMB = transfo.dot(
                                 [list(rm+shift) for rm, shift in zip(rescaled_momenta,shifts)] )
+
                             # Now map these momenta in the defining LMB into x variables in the unit hypercube
                             xs_in_defining_LMB = []
                             overall_jac = 1.0
@@ -1057,9 +1110,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     x1, x2, x3, jac = rust_worker.inv_parameterize( list(k), i_k, E_cm**2)
                                 xs_in_defining_LMB.extend([x1, x2, x3])
                                 overall_jac *= jac
-                            #for k in rescaled_momenta_in_defining_LMB:
-                            #    misc.sprint(['%.16f'%k_i for k_i in k])
-                            #misc.sprint(xs_in_defining_LMB,E_cm)
+#                            for k in rescaled_momenta_in_defining_LMB:
+#                                misc.sprint(['%.16f'%k_i for k_i in k])
+#                            misc.sprint(xs_in_defining_LMB,E_cm)
                             #with utils.Silence(active=(not args.show_rust_warnings)):
                             with utils.suppress_output(active=(not args.show_rust_warnings)):
                                 if use_f128:
@@ -1069,7 +1122,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             # We must multiply by the overall jac to get a convergence UV scaling for dod = 0 as defined including line A).
                             results.append( (scaling, complex(res_re, res_im)*overall_jac ) )
 
-
+#                        misc.sprint(results)
                         # Here we are in x-space, so the dod read is already the one we want.
                         dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
 
@@ -1102,13 +1155,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     #logger.info("For SG '%s' and UV edges %s and fixed edges %s, dod measured is: %.3f +/- %.4f over %d points"%(
                     #    SG_name, UV_edges_str, fixed_edges_str, dod, standard_error, number_of_points_considered
                     #))
-
-                    if args.verbose or do_debug:
-                        logger.info("UV scaling of SG '%s' with UV edges %s and fixed edges %s :"%(
-                            SG_name, UV_edges_str, fixed_edges_str
+                    if (args.verbose or do_debug) or (not test_passed and args.show_fails):
+                        logger.info("%s : UV scaling of SG '%s' with UV edges %s and fixed edges %s (--LMB %s --UV_indices %s):"%(
+                            '%sPASS%s'%(Colours.GREEN, Colours.END) if test_passed else '%sFAIL%s'%(Colours.RED, Colours.END), SG_name, 
+                            UV_edges_str, fixed_edges_str, ' '.join(LMB), ' '.join('%d'%uv_index for uv_index in UV_edge_indices)
                         ))
-                        logger.info('\n'+'\n'.join('%-13.5e -> %-13.5e'%(
-                            r[0], abs(r[1])) for i_r, r in enumerate(results)))
+                        if args.verbose or do_debug:
+                            logger.info('\n'+'\n'.join('%-13.5e -> %-13.5e'%(
+                                r[0], abs(r[1])) for i_r, r in enumerate(results)))
                         logger.info('%sdod= %.3f +/- %.3f%s'%(Colours.GREEN if test_passed else Colours.RED, dod, standard_error, Colours.END))
 
                     if test_passed:
@@ -1120,6 +1174,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(bar.value+1)
 
                     SG['DERIVED_UV_dod'][(tuple(LMB), tuple(UV_edge_indices))] = (dod, standard_error, test_passed)
+
+                    if not test_passed and args.skip_once_failed:
+                        skip_furhter_tests_in_this_SG = True
+                    if not test_passed and not this_SG_failed:
+                        SG_failed += 1
+                        bar.update(SG_failed=SG_failed)
+                        this_SG_failed = True
 
                 bar.update(n_tests=len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts']))
                 for cut in SG['cutkosky_cuts']:
@@ -1133,6 +1194,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(fixed_edge_names=fixed_edges_str)
                     if fixed_edges_str == '': fixed_edges_str = '[]'
 
+                    if skip_furhter_tests_in_this_SG:
+                        bar.update(cut='SKIP')
+                        bar.update(bar.value+1)
+                        continue
+
                     use_f128 = args.f128
                     while True:
                         results = []
@@ -1145,9 +1211,20 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                         for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
                             rescaled_momenta_in_defining_LMB = transfo.dot(
                                 [list(rm+shift) for rm, shift in zip(rescaled_momenta,shifts)] )
+
                             # Now obtain the rescaling for these momenta
-                            LU_scaling_solutions = list(rust_worker.get_scaling(rescaled_momenta_in_defining_LMB,cut_ID))
+                            LU_scaling_solutions = rust_worker.get_scaling(rescaled_momenta_in_defining_LMB,cut_ID)
+                            if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
+                                if args.show_warnings:
+                                    logger.warning("Could not find rescaling for UV profiling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s: %s\nInput LMB momenta: %s"%(
+                                        SG_name, cut_ID, UV_edges_str, fixed_edges_str, str(LU_scaling_solutions), str(rescaled_momenta_in_defining_LMB) ))
+                                continue
+                            LU_scaling_solutions = list(LU_scaling_solutions)
                             LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                            if LU_scaling>0.0 and args.show_warnings:
+                                logger.warning("Found unexpected rescaling solutions for UV profiling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s: %s\nInput LMB momenta: %s"%(
+                                    SG_name, cut_ID, UV_edges_str, fixed_edges_str, str(LU_scaling_solutions), str(rescaled_momenta_in_defining_LMB) ))
+
                             while LU_scaling < 0.0:
                                 if len(LU_scaling_solutions)==0:
                                     break
@@ -1201,12 +1278,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         n_fit_failed += 1
                         bar.update(fit_failed=n_fit_failed)
 
-                    if args.verbose or do_debug:
-                        logger.info("UV scaling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s :"%(
-                            SG_name, cut_ID, UV_edges_str, fixed_edges_str
+                    if args.verbose or do_debug or (not test_passed and args.show_fails):
+                        logger.info("%s : UV scaling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s (--LMB %s --UV_indices %s):"%(
+                            '%sPASS%s'%(Colours.GREEN, Colours.END) if test_passed else '%sFAIL%s'%(Colours.RED, Colours.END), SG_name, cut_ID, UV_edges_str, fixed_edges_str,
+                            ' '.join(LMB), ' '.join('%d'%uv_index for uv_index in UV_edge_indices)
                         ))
-                        logger.info('\n'+'\n'.join('%-13.5e -> %-13.5e (LU scaling: %-13.5e , %-13.5e )'%(
-                            r[0], abs(r[1]), LU_scalings[i_r][0], LU_scalings[i_r][1]) for i_r, r in enumerate(results)))
+                        if args.verbose or do_debug:
+                            logger.info('\n'+'\n'.join('%-13.5e -> %-13.5e (LU scaling: %-13.5e , %-13.5e )'%(
+                                r[0], abs(r[1]), LU_scalings[i_r][0], LU_scalings[i_r][1]) for i_r, r in enumerate(results)))
                         logger.info('%sdod= %.3f +/- %.3f%s'%(Colours.GREEN if test_passed else Colours.RED, dod, standard_error, Colours.END))
 
                     if test_passed:
@@ -1218,6 +1297,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(bar.value+1)
 
                     SG['cutkosky_cuts'][cut_ID]['DERIVED_UV_dod'][(tuple(LMB), tuple(UV_edge_indices))] = (dod, standard_error, test_passed)
+
+                    if not test_passed and args.skip_once_failed:
+                        skip_furhter_tests_in_this_SG = True
+                    if not test_passed and not this_SG_failed:
+                        SG_failed += 1
+                        bar.update(SG_failed=SG_failed)
+                        this_SG_failed = True
 
                 evaluate_integrand_dod = max(v[0] for v in SG['DERIVED_UV_dod'].values()) if len(SG['DERIVED_UV_dod'])>0 else None
                 evaluate_cut_dod = None
@@ -1232,6 +1318,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     SG['DERIVED_dod_consistency'] = (evaluate_integrand_dod-evaluate_cut_dod,evaluate_integrand_dod,evaluate_cut_dod)
                 else:
                     SG['DERIVED_dod_consistency'] = (0.0,0.0,0.0)
+
+                if not this_SG_failed:
+                    SG_passed += 1
+                    bar.update(SG_passed=SG_passed)          
 
         delta_t = time.time()-t_start_profile
         logger.info("UV profile completed in %d [s]: %s%d%s passed and %s failed (and %s fit failed)."%(
@@ -1351,9 +1441,39 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser = ArgumentParser()
     integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
+    integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='flat', 
+                    choices=('flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
+    integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
+                    choices=('naive','vegas', 'vegas3'), help='Specify the integrator (default: %(default)s)')
+    integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
+                    choices=('left_right_polynomial',), help='Specify the h-function to use (default: %(default)s)')
+    integrate_parser.add_argument('-hfs','--h_function_sigma', metavar='h_function_sigma', type=int, default=3, 
+                    help='Spread of the h-function, higher=steeper (default: %(default)s).')
+    integrate_parser.add_argument('-v','--verbosity', metavar='verbosity', type=int, default=0,choices=(0,1,2,3),
+                    help='verbosity level (default: %(default)s).')
+    integrate_parser.add_argument('-c','--n_cores', metavar='n_cores', type=int, default=multiprocessing.cpu_count(),
+                    help='Number of cores to parallelize on (default: %(default)s).')
+    integrate_parser.add_argument('-nis','--n_iterations_survey', metavar='n_iterations_survey', type=int, default=10,
+                    help='Number of iteration for the survey stage (default: %(default)s).')
+    integrate_parser.add_argument('-nir','--n_iterations_refine', metavar='n_iterations_refine', type=int, default=5,
+                    help='Number of iteration for the refine stage (default: %(default)s).')
+    integrate_parser.add_argument('-nps','--n_points_survey', metavar='n_points_survey', type=int, default=int(1.0e5),
+                    help='Number of sample points per iteration for the survey stage (default: %(default)s).')
+    integrate_parser.add_argument('-npr','--n_points_refine', metavar='n_points_refine', type=int, default=int(1.0e5),
+                    help='Number of sample points per iteration for the refine stage (default: %(default)s).')
+    integrate_parser.add_argument('--n_max', metavar='n_max', type=int, default=-1,
+                    help='Maximum number of sample points in Vegas (default: as per hyperparameters).')
+    integrate_parser.add_argument('--n_start', metavar='n_start', type=int, default=-1,
+                    help='Starting number of sample points in Vegas (default: as per hyperparameters).')
+    integrate_parser.add_argument('--n_increase', metavar='n_increase', type=int, default=-1,
+                    help='Starting number of sample points in Vegas (default: as per hyperparameters).')
+    integrate_parser.add_argument('-bs','--batch_size', metavar='batch_size', type=int, default=-1,
+                    help='Batch size for parallelisation (default: as per hyperparameters n_vec).')
+    integrate_parser.add_argument('--seed', metavar='seed', type=int, default=0,
+                    help='Specify the random seed for the integration (default: %(default)s).')
     integrate_parser.add_argument(
-        '-t','--timing',action="store_true", dest="timing", default=False,
-        help="Show timing profile information")
+        '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
+        help="Enable multichanneling (default: as per hyperparameters)")
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({
@@ -1364,10 +1484,110 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         
         args = self.split_arg(line)
         args = self.integrate_parser.parse_args(args)
+        if args.h_function == 'left_right_polynomial':
+            selected_h_function = sampler.HFunction(args.h_function_sigma, debug=args.verbosity)
+        else:
+            raise alphaLoopInvalidRunCmd("Unsupported h-function specification: %s'."%args.h_function)
 
-        logger.critical("NOT IMPLEMENTED YET")
+        if args.n_cores > 1:
+            runner = cluster.MultiCore(args.n_cores)
+        else:
+            runner = cluster.onecore
 
-    #### INTEGRATE COMMAND
+        if args.n_start < 0:
+            args.n_start = self.hyperparameters['Integrator']['n_start']
+        if args.n_max < 0:
+            args.n_max = self.hyperparameters['Integrator']['n_max']
+        if args.n_increase < 0:
+            args.n_increase = self.hyperparameters['Integrator']['n_increase']
+        if args.batch_size < 0:
+            args.batch_size = self.hyperparameters['Integrator']['n_vec']
+
+        if args.seed > 0:
+            random.seed(args.seed)
+
+        if args.integrator == 'naive':
+            selected_integrator = integrators.SimpleMonteCarloIntegrator
+            integrator_options = {
+                 'n_iterations' : args.n_iterations_refine,
+                 'n_points_per_iterations' : args.n_points_survey,
+                 'verbosity' : args.verbosity+1
+            }
+        elif args.integrator == 'vegas':
+            selected_integrator = pyCubaIntegrator.pyCubaIntegrator
+            integrator_options = {
+                 'cluster' : runner,
+                 'max_eval' : args.max_eval,
+                 'n_start' : args.n_start,
+                 'n_increase' : args.n_increase,
+                 'n_batch' : args.batch_size
+            }
+        elif args.integrator == 'vegas3':
+            selected_integrator = vegas3_integrator.Vegas3Integrator
+            integrator_options = {
+                 'cluster' : runner,
+                 'verbosity' : args.verbosity+2,
+                 'seed' : args.seed,
+                 'n_iterations_survey' : args.n_iterations_survey,
+                 'n_points_survey' : args.n_points_survey,
+                 'n_iterations_refine' : args.n_iterations_refine,
+                 'n_points_refine' : args.n_points_refine,
+                 'batch_size' : args.batch_size,
+            }
+
+        else:
+            raise alphaLoopInvalidRunCmd("Unsupported integrator specification: %s'."%args.integrator)
+
+        if args.sampling == 'test_h_function':
+
+            logger.info("Dummy integrand for testing h function:")
+
+            my_integrand = sampler.TestHFuncIntegrand( selected_h_function, debug=args.verbosity )
+
+            my_integrator = selected_integrator(my_integrand, **integrator_options)
+
+            result = my_integrator.integrate()
+
+            logger.info('')
+            logger.info("Result of the test integration using h function '%s' with %d function calls (target is 1.0): %.4e +/- %.2e"%(
+                args.h_function, my_integrator.tot_func_evals, result[0], result[1]))
+            logger.info('')
+            return
+
+        dimensions = integrands.DimensionList(
+                [ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) for i in range(1, n_loops*3) ]+
+                [ integrands.ContinuousDimension('t',lower_bound=0.0, upper_bound=1.0), ] 
+                )
+        my_PS_generator = None
+        try:
+            my_PS_generator = eval("generator_%s(dimensions, rust_worker, SG_info, model, selected_h_function, hyperparameters, debug=args.debug)"%args.run_mode)
+        except Exception as e:
+            logger.critical("Unreckognized run mode: '%s'"%args.run_mode)
+            raise
+
+        logger.info("Integrating '%s' with the parameterisation %s:"%(args.diag_name,args.run_mode))
+
+        SG = self.all_supergraphs[args.SG_name]
+        E_cm = SG.get_E_cm(self.hyperparameters)
+        rust_worker = self.get_rust_worker(args.SG_name)
+
+        my_integrand = integrator.DefaultALIntegrand(rust_worker, my_PS_generator, debug=args.verbosity)
+
+        my_integrator = integrator.vegas3.Vegas3Integrator(my_integrand, 
+                n_points_survey=args.n_points_survey, n_points_refine=args.n_points_refine, accuracy_target=None,
+                verbosity=args.verbosity, cluster=runner
+        )
+
+        result = my_integrator.integrate()
+
+        logger.info('')
+        logger.info("Result of integration using the '%s' parameterisation with %d function calls: %.7e +/- %.2e"%(
+            args.run_mode, my_integrator.tot_func_evals, result[0], result[1]))
+        logger.info('')
+
+
+
+    #### EXPERIMENT COMMAND
     experiment_parser = ArgumentParser()
     experiment_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='The name of a supergraph to consider')

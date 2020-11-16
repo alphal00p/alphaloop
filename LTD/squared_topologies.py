@@ -29,6 +29,7 @@ class SquaredTopologyGenerator:
 
         self.default_kinematics = default_kinematics
 
+        self.particle_ids = particle_ids
         # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
         # This is supported by adjusting the cb to lmb rotation matrix to be applied
         # before calling the numerator.
@@ -322,6 +323,7 @@ class SquaredTopologyGenerator:
             'topo': self.loop_topo.to_flat_format(),
             'topo_edges' : [ list(e)+[ (self.topo.powers[e[0]] if i not in self.topo.ext else 0), ]
                                 for i, e in enumerate(self.topo.edge_map_lin) ],
+            'edge_PDGs' : [[k,v] for k,v in self.particle_ids.items()],
             'edge_signatures' : self.topo.get_signature_map(),
             'MG_numerator': self.MG_numerator,
             'FORM_numerator': self.FORM_numerator,
