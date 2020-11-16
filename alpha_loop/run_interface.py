@@ -491,12 +491,14 @@ class SuperGraphCollection(dict):
                 )) if len(fail_SG_cut_dods)>0 else '')
             )
         ))
-        res.append(('Maximum dod for summed cuts over all SGs','%-6.4f +/- %-6.4f (%s @ LMB=%s @ UV_indices=%s)'%(
-            all_SG_dods[0][2][0], all_SG_dods[0][2][1],all_SG_dods[0][0], 
-            ','.join(all_SG_dods[0][1][0]), str(all_SG_dods[0][1][1]) )))
-        res.append(('Maximum dod for individual cuts','%-6.4f +/- %-6.4f (%s @ cut_ID=%d @ LMB=%s @ UV_indices=%s)'%(
-            all_SG_cut_dods[0][3][0], all_SG_cut_dods[0][3][1],all_SG_cut_dods[0][0],all_SG_cut_dods[0][1],
-            ','.join(all_SG_cut_dods[0][2][0]), str(all_SG_cut_dods[0][2][1]) )))
+        if len(all_SG_dods)>0:
+            res.append(('Maximum dod for summed cuts over all SGs','%-6.4f +/- %-6.4f (%s @ LMB=%s @ UV_indices=%s)'%(
+                all_SG_dods[0][2][0], all_SG_dods[0][2][1],all_SG_dods[0][0], 
+                ','.join(all_SG_dods[0][1][0]), str(all_SG_dods[0][1][1]) )))
+        if len(all_SG_cut_dods)>0:
+            res.append(('Maximum dod for individual cuts','%-6.4f +/- %-6.4f (%s @ cut_ID=%d @ LMB=%s @ UV_indices=%s)'%(
+                all_SG_cut_dods[0][3][0], all_SG_cut_dods[0][3][1],all_SG_cut_dods[0][0],all_SG_cut_dods[0][1],
+                ','.join(all_SG_cut_dods[0][2][0]), str(all_SG_cut_dods[0][2][1]) )))
         
         allFailedSGNames = sorted(list(set([SG_name for SG_name,k,v in fail_SG_dods]+[SG_name for SG_name,cut_ID,k,v in fail_SG_cut_dods])))
         res.append(('Non-converging supergraphs','%s(%d/%d)%s'%(
