@@ -1159,7 +1159,8 @@ CTable ltdtopo(0:{});
 
                     signature_offset += diag_info['graph'].n_loops
 
-                    pf_sig = (tuple(n_props), tuple(tuple(x) for x in signatures), tuple(tuple(x) for x in shift_map), tuple(energies), tuple(constants))
+                    pf_sig = (tuple(n_props), tuple(tuple(x) for x in signatures), tuple(tuple(x) for x in shift_map),
+                        tuple(energies), tuple(constants), tuple(energy_map))
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, diag_id)
                     if pf_sig not in unique_pf:
@@ -2847,7 +2848,7 @@ int %(header)sget_rank(int diag, int conf) {{
 
         # Set sensible jet_ids if none
         if jet_ids is None:
-            jet_ids=tuple(list(range(1,6))+list(range(-1,-6,-1))+[21,82,-82,])
+            jet_ids=tuple(list(range(1,6))+list(range(-1,-6,-1))+[21,82,-82,1337])
 
         contributing_supergraphs = []
 

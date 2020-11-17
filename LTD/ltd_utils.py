@@ -360,14 +360,17 @@ class TopologyGenerator(object):
                     highest_vertex = max(v for e in uv_subgraph_edges for v in e[1:]) + 1
                     for c in subgraph_external_edges:
                         (_, cut_v1, cut_v2) = next(e for e in g.edge_map_lin if e[0] == c)
-                        # TODO: what to do if the external edge is connected to the UV subgraph on both sides?
-                        # now we remove the connection on one of the sides. If we wouldn't, we would have to introduce
-                        # an edge with a new name that does not exist in the supergraph
+                        # add all external momenta to the UV subgraph
+                        # for some configurations an external edge connects with the UV subgraph
+                        # on both ends. In this case, we repeat the name
+                        # TODO: check if this does not have unwanted side-effects
                         if cut_v1 in subgraph_vertices:
                             uv_subgraph_edges.append((c, cut_v1, highest_vertex))
-                        else:
+                            highest_vertex += 1
+
+                        if cut_v2 in subgraph_vertices:
                             uv_subgraph_edges.append((c, highest_vertex, cut_v2))
-                        highest_vertex += 1
+                            highest_vertex += 1
 
                     uv_subgraph = TopologyGenerator(uv_subgraph_edges, powers=g.powers)
                     uv_subgraph.inherit_loop_momentum_basis(g)
@@ -449,7 +452,7 @@ class TopologyGenerator(object):
 
         # Let us use sane defaults
         if PDGs_in_jet is None:
-            PDGs_in_jet=(0,1,2,3,4,5,-1,-2,-3,-4,-5,21,82,-82)
+            PDGs_in_jet=(0,1,2,3,4,5,-1,-2,-3,-4,-5,21,82,-82,1337)
 
         if not self.spanning_trees:
             # if a final state particle only occurs once in the graph, we can always add the edge

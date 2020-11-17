@@ -26,7 +26,7 @@ S vev, pi;
 
 Auto S mass;
 Auto S yukawa;
-CTable masses(-99:99);
+CTable masses(-99:1338);
 CTable gyq(-30:30);
 CTable logmasses(-30:30);
 CTable charges(-30:30);
@@ -103,6 +103,7 @@ Fill masses(82) = 0;
 Fill masses(21) = 0;
 Fill masses(22) = 0;
 Fill masses(25) = mass_h;
+Fill masses(1337) = 0;
 
 Fill charges(1) = -1/3; * d
 Fill charges(2) = 2/3; * u
