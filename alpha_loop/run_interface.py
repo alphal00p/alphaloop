@@ -685,7 +685,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         return SG_collection
 
     #### TIMING PROFILE COMMAND
-    timing_profile_parser = ArgumentParser()
+    timing_profile_parser = ArgumentParser(prog='timing_profile')
     timing_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
     timing_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=0,
@@ -705,9 +705,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     })
     def do_timing_profile(self, line):
         """ Automatically timing profile a process output."""
+
+        if line=='help':
+            self.timing_profile_parser.print_help()
+            return 
+
         args = self.split_arg(line)
         args = self.timing_profile_parser.parse_args(args)
-        
+
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())
         else:
@@ -829,7 +834,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.do_display('--timing')
 
     #### UV PROFILE COMMAND
-    uv_profile_parser = ArgumentParser()
+    uv_profile_parser = ArgumentParser(prog='uv_profile')
     uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
     uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
@@ -887,6 +892,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     })
     def do_uv_profile(self, line):
         """ Automatically probe all UV limits of a process output."""
+
+        if line=='help':
+            self.uv_profile_parser.print_help()
+            return 
+
         args = self.split_arg(line)
         args = self.uv_profile_parser.parse_args(args)
         
@@ -1353,7 +1363,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.all_supergraphs = self.load_supergraphs()
 
     #### DISPLAY COMMAND
-    display_parser = ArgumentParser()
+    display_parser = ArgumentParser(prog='display')
     display_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
     display_parser.add_argument(
@@ -1367,6 +1377,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help="exhaustively show information")
     def do_display(self, line):
         """ display command """
+
+        if line=='help':
+            self.display_parser.print_help()
+            return 
+
         args = self.split_arg(line)
         args = self.display_parser.parse_args(args)
 
@@ -1418,7 +1433,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 logger.info("Summary of the supergraph %s%s%s:\n%s"%(Colours.GREEN, args.SG_name, Colours.END, self.all_supergraphs[args.SG_name].summary_str()))
 
     #### SET_HYPERPARAMETER COMMAND
-    set_hyperparameter_parser = ArgumentParser()
+    set_hyperparameter_parser = ArgumentParser(prog='set_hyperparameter')
     set_hyperparameter_parser.add_argument('param_value', metavar='param_value', type=str, nargs=2,
                     help='parameter name and value to set')
     set_hyperparameter_parser.add_argument(
@@ -1426,6 +1441,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help="Write hyperparameter to disk.")
     def do_set_hyperparameter(self, line):
         """ set_hyperparameter command """
+
+        if line=='help':
+            self.set_hyperparameter_parser.print_help()
+            return 
+
         args = self.split_arg(line)
         args = self.set_hyperparameter_parser.parse_args(args)
         try:
@@ -1440,7 +1460,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters.export_to(pjoin(self.dir_path, 'hyperparameters.yaml'))            
 
     #### INTEGRATE COMMAND
-    integrate_parser = ArgumentParser()
+    integrate_parser = ArgumentParser(prog='integrate')
     integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
     integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='flat', 
@@ -1483,9 +1503,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     })
     def do_integrate(self, line):
         """ Integrate a given (set of) supergraphs using different sampling strategies."""
-        
+
+        if line=='help':
+            self.integrate_parser.print_help()
+            return 
+
         args = self.split_arg(line)
         args = self.integrate_parser.parse_args(args)
+
         if args.h_function == 'left_right_polynomial':
             selected_h_function = sampler.HFunction(args.h_function_sigma, debug=args.verbosity)
         else:
@@ -1555,42 +1580,44 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 args.h_function, my_integrator.tot_func_evals, result[0], result[1]))
             logger.info('')
             return
+        else:
+            raise NotImplementedError
 
-        dimensions = integrands.DimensionList(
-                [ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) for i in range(1, n_loops*3) ]+
-                [ integrands.ContinuousDimension('t',lower_bound=0.0, upper_bound=1.0), ] 
-                )
-        my_PS_generator = None
-        try:
-            my_PS_generator = eval("generator_%s(dimensions, rust_worker, SG_info, model, selected_h_function, hyperparameters, debug=args.debug)"%args.run_mode)
-        except Exception as e:
-            logger.critical("Unreckognized run mode: '%s'"%args.run_mode)
-            raise
+        # dimensions = integrands.DimensionList(
+        #         [ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) for i in range(1, n_loops*3) ]+
+        #         [ integrands.ContinuousDimension('t',lower_bound=0.0, upper_bound=1.0), ] 
+        #         )
+        # my_PS_generator = None
+        # try:
+        #     my_PS_generator = eval("generator_%s(dimensions, rust_worker, SG_info, model, selected_h_function, hyperparameters, debug=args.debug)"%args.run_mode)
+        # except Exception as e:
+        #     logger.critical("Unreckognized run mode: '%s'"%args.run_mode)
+        #     raise
 
-        logger.info("Integrating '%s' with the parameterisation %s:"%(args.diag_name,args.run_mode))
+        # logger.info("Integrating '%s' with the parameterisation %s:"%(args.diag_name,args.run_mode))
 
-        SG = self.all_supergraphs[args.SG_name]
-        E_cm = SG.get_E_cm(self.hyperparameters)
-        rust_worker = self.get_rust_worker(args.SG_name)
+        # SG = self.all_supergraphs[args.SG_name]
+        # E_cm = SG.get_E_cm(self.hyperparameters)
+        # rust_worker = self.get_rust_worker(args.SG_name)
 
-        my_integrand = integrator.DefaultALIntegrand(rust_worker, my_PS_generator, debug=args.verbosity)
+        # my_integrand = integrator.DefaultALIntegrand(rust_worker, my_PS_generator, debug=args.verbosity)
 
-        my_integrator = integrator.vegas3.Vegas3Integrator(my_integrand, 
-                n_points_survey=args.n_points_survey, n_points_refine=args.n_points_refine, accuracy_target=None,
-                verbosity=args.verbosity, cluster=runner
-        )
+        # my_integrator = integrator.vegas3.Vegas3Integrator(my_integrand, 
+        #         n_points_survey=args.n_points_survey, n_points_refine=args.n_points_refine, accuracy_target=None,
+        #         verbosity=args.verbosity, cluster=runner
+        # )
 
-        result = my_integrator.integrate()
+        # result = my_integrator.integrate()
 
-        logger.info('')
-        logger.info("Result of integration using the '%s' parameterisation with %d function calls: %.7e +/- %.2e"%(
-            args.run_mode, my_integrator.tot_func_evals, result[0], result[1]))
-        logger.info('')
+        # logger.info('')
+        # logger.info("Result of integration using the '%s' parameterisation with %d function calls: %.7e +/- %.2e"%(
+        #     args.run_mode, my_integrator.tot_func_evals, result[0], result[1]))
+        # logger.info('')
 
 
 
     #### EXPERIMENT COMMAND
-    experiment_parser = ArgumentParser()
+    experiment_parser = ArgumentParser(prog='experiment')
     experiment_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='The name of a supergraph to consider')
     experiment_parser.add_argument(
@@ -1604,6 +1631,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     def do_experiment(self, line):
         """ Integrate a given (set of) supergraphs using different sampling strategies."""
         
+        if line=='help':
+            self.experiment_parser.print_help()
+            return 
+
         args = self.split_arg(line)
         args = self.integrate_parser.parse_args(args)
 
