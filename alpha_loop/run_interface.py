@@ -871,8 +871,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
         help="Show rust warnings.")
     uv_profile_parser.add_argument(
-        "-sof", "--skip_once_failed", action="store_true", dest="skip_once_failed", default=True,
-        help="Skip the probing of a supergraph once it failed.")
+        "-nsof", "--no_skip_once_failed", action="store_false", dest="skip_once_failed", default=True,
+        help="Do not skip the probing of a supergraph once it failed.")
     uv_profile_parser.add_argument(
         "-sf", "--show_fails", action="store_true", dest="show_fails", default=True,
         help="Show exhaustive information for each fail.")
@@ -1138,6 +1138,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 else:
                                     res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
                             # We must multiply by the overall jac to get a convergence UV scaling for dod = 0 as defined including line A).
+                            #overall_jac = 1.0
                             results.append( (scaling, complex(res_re, res_im)*overall_jac ) )
 
 #                        misc.sprint(results)
