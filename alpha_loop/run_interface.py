@@ -697,6 +697,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     timing_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Enable timing profile of the f128 output too.")
+    def help_timing_profile(self):
+        self.timing_profile_parser.print_help()
+        return
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({
@@ -881,6 +884,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser.add_argument(
         "-v", "--verbose", action="store_true", dest="verbose", default=False,
         help="Enable verbose output.")
+    def help_uv_profile(self):
+        self.uv_profile_parser.print_help()
+        return
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({
@@ -1375,6 +1381,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     display_parser.add_argument(
         "-f","--full", action="store_true", dest="full", default=False,
         help="exhaustively show information")
+    def help_display(self):
+        self.display_parser.print_help()
+        return
     def do_display(self, line):
         """ display command """
 
@@ -1439,6 +1448,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     set_hyperparameter_parser.add_argument(
         "-w", "--write", action="store_true", dest="write", default=False,
         help="Write hyperparameter to disk.")
+    def help_set_hyperparameter(self):
+        self.set_hyperparameter_parser.print_help()
+        return
     def do_set_hyperparameter(self, line):
         """ set_hyperparameter command """
 
@@ -1496,6 +1508,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
+    def help_integrate(self):
+        self.integrate_parser.print_help()
+        return
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({
@@ -1623,6 +1638,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     experiment_parser.add_argument(
         '-e','--experiment', dest="experiment", type=str, default='default',
         help="Which experiment to run")
+    def help_experiment(self):
+        self.experiment_parser.print_help()
+        return 
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({
