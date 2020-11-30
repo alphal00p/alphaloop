@@ -42,6 +42,7 @@ import alpha_loop.integrator.integrators as integrators
 from alpha_loop.integrator.integrators import IntegratorError
 import alpha_loop.integrator.integrands as integrands
 import alpha_loop.integrator.functions as functions
+import alpha_loop.utils as utils
 
 class tmpGlobal(object):
     """Designed so as to temporary add a global variable
@@ -90,7 +91,9 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         default_opts= {
            'algorithm':'Vegas',
            'verbosity':2,
-           'target_accuracy':1.0e-3}
+           'target_accuracy':1.0e-3,
+           'state_file_folder' : '.'
+        }
 
         # Number of cores to be used in Cuba.
         # Recover nb_core in the option'cluster'
@@ -280,14 +283,16 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         # we provide a method for safely setting its value
         self.n_iterations_performed = Value('i',0)
         self.n_integrand_calls = Value('i',0)
-        
+        # The threadsafe value above will be forward to the variable below at the end of "integrate"
+        self.tot_func_evals = 0
+
         # Also add a lock for when calling the observables, in order to avoid concurrency issues.
         self.observables_lock = threading.Lock()
         
         # Specify a path for the check_point file used by Cuba when running with the VEGAS
         # algorithm
-        self.vegas_check_point_file = pjoin(os.getcwd(),'cuba_vegas_check_point.dat')
-        self.vegas_check_point_file_last_run = pjoin(os.getcwd(),'cuba_vegas_check_point_last_run.dat')
+        self.vegas_check_point_file = pjoin(self.state_file_folder,'cuba_vegas_check_point.dat')
+        self.vegas_check_point_file_last_run = pjoin(self.state_file_folder,'cuba_vegas_check_point_last_run.dat')
 
     def set_stopped(self, value):
         with self.stopped.get_lock():
@@ -435,7 +440,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         if any(el is None for el in [source, destination, n_integrand_calls]):
             raise IntegratorError("Function write_vegas_grid of pyCubaIntegrator requires all of its options to be set.")
         
-        vegas_grid = { 'binary_grid'         : open(source,'r').read(),
+        vegas_grid = { 'binary_grid'         : open(source,'rb').read(),
                        'n_integrand_calls'   : n_integrand_calls,
                        'last_integration_results' : self.last_integration_results }
         
@@ -456,14 +461,10 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
             raise IntegratorError('pyCuba@Vegas could not read the grid from %s.'%source+
                 ' Make sure it was produced by the pyCubaIntegrator and not Cuba directly.')            
 
-        open(destination,'w').write(vegas_grid['binary_grid'])
+        open(destination,'wb').write(vegas_grid['binary_grid'])
         self.last_integration_results = vegas_grid['last_integration_results']
 
         return vegas_grid['n_integrand_calls']
-
-    def listen_to_keyboard_interrupt(self):
-        """ Thread to make sure that a keyboard interrupt is properly intercepted."""
-        c
 
 
     def integrate(self):
@@ -553,7 +554,7 @@ less statistics using one core only.
                 # Check if the survey was asked for
                 if self.n_start_survey > 0 and self.max_eval_survey > 0:
                     logger.info('--------------------------------')
-                    logger.info('%sNow running cuba@Vegas survey...%s'%(misc.bcolors.GREEN,misc.bcolors.ENDC))
+                    logger.info('%sNow running cuba@Vegas survey...%s'%(utils.bcolors.GREEN,utils.bcolors.ENDC))
                     logger.info('--------------------------------')
                     # During the survey, it is sub-optimal to fill in histograms, and we therefore disable here
                     # until the refine stage is reached.
@@ -606,14 +607,14 @@ less statistics using one core only.
 
                 # Make sure to reset the iteration count to 0 and increment the number of
                 # integrand calls we are starting from
-                starting_n_integrand_calls += self.n_iterations_performed.value
+                starting_n_integrand_calls += self.n_integrand_calls.value
                 self.n_iterations_performed.value = 0
                 
                 # Check if the refine was asked for and if the survey didn't abort
                 if self.n_start > 0 and self.max_eval > 0 and not self.stopped.value:
                     # Now run the refine
                     logger.info('--------------------------------')
-                    logger.info('%sNow running cuba@Vegas refine...%s'%(misc.bcolors.GREEN,misc.bcolors.ENDC))
+                    logger.info('%sNow running cuba@Vegas refine...%s'%(utils.bcolors.GREEN,utils.bcolors.ENDC))
                     logger.info('--------------------------------')
                     try:
                         self.last_integration_results = pycuba.Vegas(
@@ -657,8 +658,8 @@ less statistics using one core only.
                     if self.keep_last_run_state_file:
                         logger.info('')
                         logger.info("If you want to run Cuba@Vegas from the last point where it stopped,"+
-                            " launch again with the option:\n   %s--load_grids=%s%s"%(
-                                misc.bcolors.BLUE, self.vegas_check_point_file_last_run, misc.bcolors.ENDC))
+                            " launch again with the option:\n   %s--load_grids %s%s"%(
+                                utils.bcolors.BLUE, self.vegas_check_point_file_last_run, utils.bcolors.ENDC))
                         logger.info('')
                         self.write_vegas_grid(
                                 source            = self.vegas_check_point_file, 
@@ -741,6 +742,9 @@ less statistics using one core only.
             for i_integrand, integrand in enumerate(self.integrands):
                 integrand.apply_observables = apply_observables_for_integrands_back_up[i_integrand]
         
+        # Update the total of evaluations
+        self.tot_func_evals = self.n_integrand_calls.value
+
         return result
         
 if __name__ == '__main__':

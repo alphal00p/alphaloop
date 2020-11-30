@@ -5,6 +5,8 @@ import os
 from multiprocessing import Value 
 import time
 from pprint import pformat
+import time
+import random
 
 import progressbar
 import yaml
@@ -125,8 +127,8 @@ class HFunction(object):
             fprime2=self.CDF_double_prime,
             maxiter=self.max_iteration)
 
-    
-        if self.debug or not root_result.converged:
+        PDF = self.PDF(root_result.root)
+        if self.debug or not root_result.converged or PDF==0.:
             logger.debug("--------------------------------------------------------------")
             logger.debug("Numerical solver called with x=%.16e"%x)
             logger.debug("CDF(bracket[0]),CDF(bracket[1])=%.16e,%.16e"%(self.CDF(bracket[0],x),self.CDF(bracket[1],x)))
@@ -140,7 +142,7 @@ class HFunction(object):
             logger.debug("PDF of for that t solution: %.16e"%self.PDF(root_result.root))
             logger.debug("--------------------------------------------------------------")
         
-        return root_result.root, 1./self.PDF(root_result.root)
+        return root_result.root, 1./PDF
 
 class TestHFuncIntegrand(integrands.VirtualIntegrand):
     """An integrand for this phase-space volume test."""
@@ -165,7 +167,6 @@ class TestHFuncIntegrand(integrands.VirtualIntegrand):
 
         x = list(continuous_inputs)[0]
         t, wgt = self.h_function(x)
-
 
         final_res = (1./(1+t**2))*(1./(math.pi/2.)) * wgt
 

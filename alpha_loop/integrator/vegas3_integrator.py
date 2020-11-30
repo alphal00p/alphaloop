@@ -52,7 +52,7 @@ from madgraph import InvalidCmd, MadGraph5Error, MG5DIR
 from multiprocessing import Value, Array
 
 MPI_ACTIVE = False
-MPI_SIZE = 0
+MPI_SIZE = 1
 MPI_RANK = 0 
 
 if MPI_ACTIVE:

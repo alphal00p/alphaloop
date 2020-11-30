@@ -441,12 +441,12 @@ class SuperGraphCollection(dict):
         res = []
 
         all_SG_dods = sorted([
-            (SG_name,k,v) for SG_name,SG in self.items() for k,v in SG['DERIVED_UV_dod'].items() if 'DERIVED_UV_dod' in SG
+            (SG_name,k,v) for SG_name,SG in self.items() if 'DERIVED_UV_dod' in SG for k,v in SG['DERIVED_UV_dod'].items()
         ],key=lambda el: el[2][0], reverse=True)
         fail_SG_dods = [ (SG_name,k,v) for SG_name,k,v in all_SG_dods if not v[-1] ]
         all_SG_cut_dods = sorted([
             (SG_name, cut_ID, k, v) for SG_name,SG in self.items() for cut_ID, cut in enumerate(SG['cutkosky_cuts'])
-            for k,v in cut['DERIVED_UV_dod'].items() if 'DERIVED_UV_dod' in cut
+            if 'DERIVED_UV_dod' in cut for k,v in cut['DERIVED_UV_dod'].items()
         ],key=lambda el: el[3][0], reverse=True)
         fail_SG_cut_dods = [ (SG_name, cut_ID, k, v) for SG_name,cut_ID,k,v in all_SG_cut_dods if not v[-1] ]
         if len(all_SG_dods)==0 and len(all_SG_cut_dods)==0:
@@ -1496,8 +1496,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Number of sample points per iteration for the survey stage (default: %(default)s).')
     integrate_parser.add_argument('-npr','--n_points_refine', metavar='n_points_refine', type=int, default=int(1.0e5),
                     help='Number of sample points per iteration for the refine stage (default: %(default)s).')
-    integrate_parser.add_argument('--n_max', metavar='n_max', type=int, default=-1,
+    integrate_parser.add_argument('--n_max', metavar='n_max', type=int, default=int(1.0e7),
                     help='Maximum number of sample points in Vegas (default: as per hyperparameters).')
+    integrate_parser.add_argument('--n_max_survey', metavar='n_max_survey', type=int, default=-1,
+                    help='Maximum number of sample points in Vegas for survey (default: no survey).')
+    integrate_parser.add_argument('--target_accuracy_survey', metavar='target_accuracy_survey', type=float, default=1.0e-5,
+                    help='Target accuracy for Vegas survey stage (default: %(default)f).')
+    integrate_parser.add_argument('--target_accuracy', metavar='target_accuracy', type=float, default=1.0e-5,
+                    help='Target accuracy for Vegas refine stage (default: %(default)f).')
+    integrate_parser.add_argument('--load_grids', metavar='load_grids', type=str, default=None,
+                    help='Specify a Vegas grid file to load from. (default: None).')
     integrate_parser.add_argument('--n_start', metavar='n_start', type=int, default=-1,
                     help='Starting number of sample points in Vegas (default: as per hyperparameters).')
     integrate_parser.add_argument('--n_increase', metavar='n_increase', type=int, default=-1,
@@ -1560,10 +1568,18 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_integrator = pyCubaIntegrator.pyCubaIntegrator
             integrator_options = {
                  'cluster' : runner,
-                 'max_eval' : args.max_eval,
+                 'max_eval' : args.n_max,
                  'n_start' : args.n_start,
                  'n_increase' : args.n_increase,
-                 'n_batch' : args.batch_size
+                 'n_start_survey' : args.n_start,
+                 'n_increase_survey' : args.n_increase,
+                 'n_batch' : args.batch_size,
+                 'state_file_folder' : pjoin(self.dir_path, self._run_workspace_folder),
+                 'max_eval_survey' : args.n_max_survey,
+                 'target_accuracy_survey' :args.target_accuracy_survey,
+                 'target_accuracy' :args.target_accuracy,
+                 'load_grids' : args.load_grids,
+                 'n_vec' : 1,
             }
         elif args.integrator == 'vegas3':
             selected_integrator = vegas3_integrator.Vegas3Integrator
