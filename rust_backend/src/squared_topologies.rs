@@ -5,8 +5,7 @@ use crate::topologies::FixedDeformationLimit;
 use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use crate::utils;
 use crate::{
-    float, DeformationStrategy, FloatLike, IRHandling, IntegrandType, NormalisingFunction,
-    NumeratorSource, Settings,
+    float, DeformationStrategy, FloatLike, IRHandling, IntegrandType, NormalisingFunction, Settings,
 };
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
@@ -31,108 +30,6 @@ use utils::Signum;
 pub const MAX_SG_LOOP: usize = 4;
 #[cfg(feature = "higher_loops")]
 pub const MAX_SG_LOOP: usize = 10;
-
-mod form_numerator {
-    use dlopen::wrapper::{Container, WrapperApi};
-    use libc::{c_double, c_int};
-    use std::path::PathBuf;
-
-    pub trait GetNumerator {
-        fn get_numerator(
-            api_container: &mut Container<FORMNumeratorAPI>,
-            p: &[Self],
-            params: &[Self],
-            diag: usize,
-            conf: usize,
-            poly: &mut [Self],
-        ) -> usize
-        where
-            Self: std::marker::Sized;
-    }
-
-    impl GetNumerator for f64 {
-        fn get_numerator(
-            api_container: &mut Container<FORMNumeratorAPI>,
-            p: &[f64],
-            params: &[f64],
-            diag: usize,
-            conf: usize,
-            poly: &mut [f64],
-        ) -> usize {
-            unsafe {
-                api_container.evaluate(
-                    &p[0] as *const f64,
-                    &params[0] as *const f64,
-                    diag as i32,
-                    conf as i32,
-                    &mut poly[0] as *mut f64,
-                ) as usize
-            }
-        }
-    }
-
-    impl GetNumerator for f128::f128 {
-        fn get_numerator(
-            api_container: &mut Container<FORMNumeratorAPI>,
-            p: &[f128::f128],
-            params: &[f128::f128],
-            diag: usize,
-            conf: usize,
-            poly: &mut [f128::f128],
-        ) -> usize {
-            unsafe {
-                api_container.evaluate_f128(
-                    &p[0] as *const f128::f128,
-                    &params[0] as *const f128::f128,
-                    diag as i32,
-                    conf as i32,
-                    &mut poly[0] as *mut f128::f128,
-                ) as usize
-            }
-        }
-    }
-
-    #[derive(WrapperApi)]
-    pub struct FORMNumeratorAPI {
-        evaluate: unsafe extern "C" fn(
-            p: *const c_double,
-            params: *const c_double,
-            diag: c_int,
-            conf: c_int,
-            out: *mut c_double,
-        ) -> c_int,
-        evaluate_f128: unsafe extern "C" fn(
-            p: *const f128::f128,
-            params: *const f128::f128,
-            diag: c_int,
-            conf: c_int,
-            out: *mut f128::f128,
-        ) -> c_int,
-        get_buffer_size: unsafe extern "C" fn() -> c_int,
-        get_rank: unsafe extern "C" fn(diag: c_int, conf: c_int) -> c_int,
-    }
-
-    pub fn get_buffer_size(api_container: &mut Container<FORMNumeratorAPI>) -> usize {
-        unsafe { api_container.get_buffer_size() as usize }
-    }
-
-    pub fn get_rank(
-        api_container: &mut Container<FORMNumeratorAPI>,
-        diag: usize,
-        conf: usize,
-    ) -> usize {
-        unsafe { api_container.get_rank(diag as i32, conf as i32) as usize }
-    }
-
-    pub fn load(base_path: &str) -> Container<FORMNumeratorAPI> {
-        let mut lib_path = PathBuf::from(&base_path);
-        lib_path.push("lib/libFORM_numerators.so");
-        let container: Container<FORMNumeratorAPI> =
-            unsafe { Container::load(lib_path) }.expect("Could not open library or load symbols");
-
-        container
-    }
-}
 
 mod form_integrand {
     use dlopen::wrapper::{Container, WrapperApi};
@@ -352,35 +249,6 @@ pub struct FORMIntegrandCallSignature {
 }
 
 #[derive(Deserialize)]
-pub struct FORMNumerator {
-    call_signature: Option<FORMNumeratorCallSignature>,
-    #[serde(skip_deserializing)]
-    pub form_numerator: Option<Container<form_numerator::FORMNumeratorAPI>>,
-    #[serde(skip_deserializing)]
-    pub form_numerator_buffer: Vec<f64>,
-    #[serde(skip_deserializing)]
-    pub form_numerator_buffer_size: usize,
-    #[serde(default)]
-    pub base_path: String,
-}
-
-impl Clone for FORMNumerator {
-    fn clone(&self) -> Self {
-        FORMNumerator {
-            call_signature: self.call_signature.clone(),
-            base_path: self.base_path.clone(),
-            form_numerator: if self.form_numerator.is_some() {
-                Some(form_numerator::load(&self.base_path))
-            } else {
-                None
-            },
-            form_numerator_buffer: self.form_numerator_buffer.clone(),
-            form_numerator_buffer_size: self.form_numerator_buffer_size,
-        }
-    }
-}
-
-#[derive(Deserialize)]
 pub struct FORMIntegrand {
     call_signature: Option<FORMIntegrandCallSignature>,
     #[serde(skip_deserializing)]
@@ -427,8 +295,6 @@ pub struct SquaredTopology {
     pub multi_channeling_bases: Vec<MultiChannelingBasis>,
     #[serde(skip_deserializing)]
     pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
-    #[serde(rename = "FORM_numerator")]
-    pub form_numerator: FORMNumerator,
     #[serde(rename = "FORM_integrand")]
     pub form_integrand: FORMIntegrand,
     #[serde(skip_deserializing)]
@@ -788,10 +654,7 @@ impl SquaredTopologySet {
         }
     }
 
-    pub fn multi_channeling<
-        'a,
-        T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
-    >(
+    pub fn multi_channeling<'a, T: form_integrand::GetIntegrand + FloatLike>(
         &mut self,
         selected_topology: Option<usize>,
         sample: IntegrandSample<'a>,
@@ -1028,10 +891,7 @@ impl SquaredTopologySet {
         result
     }
 
-    pub fn evaluate<
-        'a,
-        T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
-    >(
+    pub fn evaluate<'a, T: form_integrand::GetIntegrand + FloatLike>(
         &mut self,
         sample: IntegrandSample<'a>,
         cache: &mut SquaredTopologyCache<T>,
@@ -1388,99 +1248,41 @@ impl SquaredTopology {
             [float::zero(), float::zero(), float::one()],
         ];
 
-        let base_path = if settings.cross_section.numerator_source == NumeratorSource::Yaml {
-            String::new()
-        } else {
-            std::env::var("MG_NUMERATOR_PATH")
-                .or_else(|_| {
-                    let mut pb = Path::new(filename)
-                        .parent()
-                        .ok_or("no parent")?
-                        .parent()
-                        .ok_or("no parent")?
-                        .to_path_buf();
-                    let mut pb_alt = Path::new(filename)
-                        .parent()
-                        .ok_or("no parent")?
-                        .parent()
-                        .ok_or("no parent")?
-                        .parent()
-                        .ok_or("no parent")?
-                        .to_path_buf();
-                    pb.push("lib");
-                    pb_alt.push("lib");
-                    if pb.exists() {
-                        pb.pop();
-                        Ok(pb.into_os_string().into_string().map_err(|_| "bad path")?)
-                    } else if pb_alt.exists() {
-                        pb_alt.pop();
-                        Ok(pb_alt
-                            .into_os_string()
-                            .into_string()
-                            .map_err(|_| "bad path")?)
-                    } else {
-                        Err("Cannot determine root folder")
-                    }
-                })
-                .expect("Cannot determine base folder from filename. Use MG_NUMERATOR_PATH")
-        };
-
-        if settings.cross_section.numerator_source == NumeratorSource::FormIntegrand {
-            squared_topo.form_integrand.base_path = base_path.clone();
-            squared_topo.form_integrand.form_integrand = Some(form_integrand::load(&base_path));
-        }
-
-        if settings.cross_section.numerator_source == NumeratorSource::Form {
-            squared_topo.form_numerator.base_path = base_path.clone();
-            let diagram_id = squared_topo
-                .form_numerator
-                .call_signature
-                .as_ref()
-                .unwrap()
-                .id;
-            squared_topo.form_numerator.form_numerator = Some(form_numerator::load(&base_path));
-
-            let max_buffer_size = form_numerator::get_buffer_size(
-                squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
-            );
-
-            for cut in &mut squared_topo.cutkosky_cuts {
-                for diagram_set in cut.diagram_sets.iter_mut() {
-                    let rank = form_numerator::get_rank(
-                        squared_topo.form_numerator.form_numerator.as_mut().unwrap(),
-                        diagram_id,
-                        diagram_set.id,
-                    );
-
-                    // for the FORM numerator, the output is provided in the
-                    // basis of the ltd momenta
-                    let n_ltd = diagram_set
-                        .diagram_info
-                        .iter()
-                        .map(|diagram_info| diagram_info.graph.n_loops)
-                        .sum();
-
-                    if n_ltd > 0 {
-                        diagram_set.numerator =
-                            LTDNumerator::from_sparse(n_ltd, &[(vec![0; rank], (0., 0.))]);
-                    }
-
-                    squared_topo.form_numerator.form_numerator_buffer_size = max_buffer_size;
-                    squared_topo.form_numerator.form_numerator_buffer = vec![0.; max_buffer_size];
-
-                    // also give the subgraph numerators the proper size
-                    // TODO: set the proper rank of only the variables of the subgraph
-                    for diagram_info in &mut diagram_set.diagram_info {
-                        if diagram_info.graph.n_loops > 0 {
-                            diagram_info.graph.numerator = LTDNumerator::from_sparse(
-                                diagram_info.graph.n_loops,
-                                &[(vec![0; rank], (0., 0.))],
-                            );
-                        }
-                    }
+        let base_path = std::env::var("MG_NUMERATOR_PATH")
+            .or_else(|_| {
+                let mut pb = Path::new(filename)
+                    .parent()
+                    .ok_or("no parent")?
+                    .parent()
+                    .ok_or("no parent")?
+                    .to_path_buf();
+                let mut pb_alt = Path::new(filename)
+                    .parent()
+                    .ok_or("no parent")?
+                    .parent()
+                    .ok_or("no parent")?
+                    .parent()
+                    .ok_or("no parent")?
+                    .to_path_buf();
+                pb.push("lib");
+                pb_alt.push("lib");
+                if pb.exists() {
+                    pb.pop();
+                    Ok(pb.into_os_string().into_string().map_err(|_| "bad path")?)
+                } else if pb_alt.exists() {
+                    pb_alt.pop();
+                    Ok(pb_alt
+                        .into_os_string()
+                        .into_string()
+                        .map_err(|_| "bad path")?)
+                } else {
+                    Err("Cannot determine root folder")
                 }
-            }
-        }
+            })
+            .expect("Cannot determine base folder from filename. Use MG_NUMERATOR_PATH");
+
+        squared_topo.form_integrand.base_path = base_path.clone();
+        squared_topo.form_integrand.form_integrand = Some(form_integrand::load(&base_path));
 
         Ok(squared_topo)
     }
@@ -1750,9 +1552,7 @@ impl SquaredTopology {
         Some(solutions)
     }
 
-    pub fn evaluate_mom<
-        T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
-    >(
+    pub fn evaluate_mom<T: form_integrand::GetIntegrand + FloatLike>(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         cache: &mut SquaredTopologyCache<T>,
@@ -1867,9 +1667,7 @@ impl SquaredTopology {
         result
     }
 
-    pub fn evaluate_cut<
-        T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
-    >(
+    pub fn evaluate_cut<T: form_integrand::GetIntegrand + FloatLike>(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         cut_momenta: &mut [LorentzVector<T>],
@@ -2092,7 +1890,6 @@ impl SquaredTopology {
         let mut def_jacobian = Complex::one();
 
         // regenerate the evaluation of the exponent map of the numerator since the loop momenta have changed
-        let mut regenerate_momenta = true;
         for (diag_set_index, diagram_set) in cutkosky_cuts.diagram_sets.iter_mut().enumerate() {
             if self.settings.cross_section.integrand_type == IntegrandType::PF
                 && self.settings.cross_section.sum_diagram_sets
@@ -2118,10 +1915,7 @@ impl SquaredTopology {
             for diagram_info in &mut diagram_set.diagram_info {
                 let subgraph = &mut diagram_info.graph;
 
-                if do_deformation
-                    || self.settings.cross_section.numerator_source
-                        != NumeratorSource::FormIntegrand
-                {
+                if do_deformation {
                     // set the shifts, which are expressed in the cut basis
                     for ll in &mut subgraph.loop_lines {
                         for p in &mut ll.propagators {
@@ -2275,400 +2069,98 @@ impl SquaredTopology {
                     k_def_index += subgraph.n_loops;
                 }
 
-                if self.settings.cross_section.numerator_source != NumeratorSource::FormIntegrand {
-                    if subgraph
-                        .populate_ltd_cache(
-                            &k_def[k_def_index - subgraph.n_loops..k_def_index],
-                            subgraph_cache,
-                        )
-                        .is_err()
-                    {
-                        if self.settings.deformation.fixed.ir_handling_strategy == IRHandling::None
-                        {
-                            panic!("NaN on cut energy");
-                        }
-                    }
-                }
-
                 subgraph_cache.cached_topology_integrand.clear();
             }
 
-            if self.settings.cross_section.numerator_source == NumeratorSource::Form
-                || self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand
+            if !self
+                .settings
+                .cross_section
+                .inherit_deformation_for_uv_counterterm
+                || diag_set_index == 0
             {
-                if !self
-                    .settings
-                    .cross_section
-                    .inherit_deformation_for_uv_counterterm
-                    || diag_set_index == 0
+                cache.scalar_products.clear();
+
+                for (i1, e1) in external_momenta[..self.n_incoming_momenta]
+                    .iter()
+                    .enumerate()
                 {
-                    cache.scalar_products.clear();
-
-                    for (i1, e1) in external_momenta[..self.n_incoming_momenta]
-                        .iter()
-                        .enumerate()
-                    {
-                        cache.scalar_products.extend_from_slice(&[e1.t, T::zero()]);
-                        for e2 in &external_momenta[i1..self.n_incoming_momenta] {
-                            let (d, ds) = e1.dot_spatial_dot(e2);
-                            cache
-                                .scalar_products
-                                .extend_from_slice(&[d, T::zero(), ds, T::zero()]);
-                        }
-                    }
-
-                    for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                        cache.scalar_products.extend_from_slice(&[m1.t.re, m1.t.im]);
-                        for e1 in &external_momenta[..self.n_incoming_momenta] {
-                            let (d, ds) = m1.dot_spatial_dot(&e1.cast());
-                            cache
-                                .scalar_products
-                                .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
-                        }
-
-                        for m2 in k_def[i1..self.n_loops].iter() {
-                            let (d, ds) = m1.dot_spatial_dot(m2);
-                            cache
-                                .scalar_products
-                                .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
-                        }
+                    cache.scalar_products.extend_from_slice(&[e1.t, T::zero()]);
+                    for e2 in &external_momenta[i1..self.n_incoming_momenta] {
+                        let (d, ds) = e1.dot_spatial_dot(e2);
+                        cache
+                            .scalar_products
+                            .extend_from_slice(&[d, T::zero(), ds, T::zero()]);
                     }
                 }
 
-                if self.settings.cross_section.numerator_source == NumeratorSource::Form {
-                    let mut form_numerator =
-                        mem::replace(&mut self.form_numerator.form_numerator, None);
-                    let mut form_numerator_buffer =
-                        mem::replace(&mut self.form_numerator.form_numerator_buffer, vec![]);
-                    if let Some(call_signature) = &self.form_numerator.call_signature {
-                        let mut form_numerator_buffer: ArrayVec<[T; 100]> =
-                            (0..2 * self.form_numerator.form_numerator_buffer_size)
-                                .map(|_| T::zero())
-                                .collect();
-
-                        let time_start = Instant::now();
-                        let len = T::get_numerator(
-                            form_numerator.as_mut().unwrap(),
-                            &cache.scalar_products,
-                            &params,
-                            call_signature.id,
-                            diagram_set.id,
-                            &mut form_numerator_buffer,
-                        );
-
-                        if let Some(em) = event_manager {
-                            em.integrand_evaluation_timing +=
-                                Instant::now().duration_since(time_start).as_nanos();
-                        }
-
-                        let first_subgraph_cache =
-                            cache.get_topology_cache(cut_index, diag_set_index, 0);
-
-                        // the output of the FORM numerator is already in the reduced lb format
-                        first_subgraph_cache.reduced_coefficient_lb[0].resize(len, Complex::zero());
-                        for (rlb, r) in first_subgraph_cache.reduced_coefficient_lb[0]
-                            .iter_mut()
-                            .zip_eq(form_numerator_buffer[..2 * len].chunks(2))
-                        {
-                            *rlb = Complex::new(Into::<T>::into(r[0]), Into::<T>::into(r[1]));
-                        }
-                    } else {
-                        panic!(
-                        "No call signature for FORM numerator, but FORM numerator mode is enabled"
-                    );
+                for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
+                    cache.scalar_products.extend_from_slice(&[m1.t.re, m1.t.im]);
+                    for e1 in &external_momenta[..self.n_incoming_momenta] {
+                        let (d, ds) = m1.dot_spatial_dot(&e1.cast());
+                        cache
+                            .scalar_products
+                            .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                     }
 
-                    mem::swap(&mut form_numerator, &mut self.form_numerator.form_numerator);
-                    mem::swap(
-                        &mut form_numerator_buffer,
-                        &mut self.form_numerator.form_numerator_buffer,
-                    );
-                } else {
-                    let mut form_integrand =
-                        mem::replace(&mut self.form_integrand.form_integrand, None);
-
-                    if let Some(em) = event_manager {
-                        if em.time_integrand_evaluation {
-                            em.integrand_evaluation_timing_start = Some(Instant::now());
-                        }
+                    for m2 in k_def[i1..self.n_loops].iter() {
+                        let (d, ds) = m1.dot_spatial_dot(m2);
+                        cache
+                            .scalar_products
+                            .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                     }
-
-                    let mut res = if let Some(call_signature) = &self.form_integrand.call_signature
-                    {
-                        let res = match self.settings.cross_section.integrand_type {
-                            IntegrandType::LTD => T::get_integrand_ltd(
-                                form_integrand.as_mut().unwrap(),
-                                &cache.scalar_products,
-                                &params,
-                                call_signature.id,
-                                diagram_set.id,
-                            ),
-                            IntegrandType::PF => T::get_integrand_pf(
-                                form_integrand.as_mut().unwrap(),
-                                &cache.scalar_products,
-                                &params,
-                                call_signature.id,
-                                if self.settings.cross_section.sum_diagram_sets {
-                                    1000 + cut_index
-                                } else {
-                                    diagram_set.id
-                                },
-                            ),
-                        };
-
-                        Complex::new(Into::<T>::into(res.re), Into::<T>::into(res.im))
-                    } else {
-                        panic!(
-                        "No call signature for FORM integrand, but FORM integrand mode is enabled"
-                    );
-                    };
-
-                    if let Some(em) = event_manager {
-                        if let Some(s) = em.integrand_evaluation_timing_start.take() {
-                            em.integrand_evaluation_timing +=
-                                Instant::now().duration_since(s).as_nanos();
-                        }
-                    }
-
-                    mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
-
-                    res *= def_jacobian;
-
-                    if self.settings.general.debug >= 1 {
-                        println!("  | res diagram set {}: = {:e}", diagram_set.id, res);
-                    }
-
-                    diag_and_num_contributions += res;
-                    continue;
                 }
             }
 
-            let first_subgraph_cache = cache.get_topology_cache(cut_index, diag_set_index, 0);
+            let mut form_integrand = mem::replace(&mut self.form_integrand.form_integrand, None);
 
-            if self.settings.cross_section.numerator_source == NumeratorSource::Yaml {
-                // evaluate the cut numerator with the spatial parts of all loop momenta and
-                // the energy parts of the Cutkosky cuts.
-                // Store the reduced numerator in the left graph cache for now
-                // TODO: this is impractical
-                diagram_set.numerator.evaluate_reduced_in_lb(
-                    &k_def,
-                    cutkosky_cuts.cuts.len() - 1,
-                    first_subgraph_cache,
-                    0,
-                    regenerate_momenta,
-                    false,
-                );
-                regenerate_momenta = true; // false;
+            if let Some(em) = event_manager {
+                if em.time_integrand_evaluation {
+                    em.integrand_evaluation_timing_start = Some(Instant::now());
+                }
             }
 
-            mem::swap(
-                &mut first_subgraph_cache.reduced_coefficient_lb_supergraph[0],
-                &mut first_subgraph_cache.reduced_coefficient_lb[0],
-            );
-
-            let mut supergraph_coeff = mem::replace(
-                &mut first_subgraph_cache.reduced_coefficient_lb_supergraph[0],
-                vec![],
-            );
-
-            // evaluate the subgraphs for every monomial in the numerator
-            let mut result_complete_numerator = Complex::default();
-            for (coeff, powers) in supergraph_coeff.iter().zip(
-                &diagram_set.numerator.reduced_coefficient_index_to_powers
-                    [..diagram_set.numerator.reduced_size],
-            ) {
-                if coeff.is_zero() {
-                    continue;
-                }
-
-                // the yaml gives the numerator in the cb basis, the other methods in the LTD basis, consisting
-                // of only the LTD momenta
-                let mut ltd_index =
-                    if self.settings.cross_section.numerator_source == NumeratorSource::Yaml {
-                        cutkosky_cuts.cuts.len() - 1
-                    } else {
-                        0
-                    };
-
-                // only consider the coefficients that have no powers in the cutkosky cuts
-                // TODO: make a more efficient way of skipping the other contributions
-                assert!(powers[..ltd_index].iter().all(|p| *p == 0));
-
-                if self.settings.general.debug >= 1 {
-                    println!("  | monomial {:?} = {}", powers, coeff);
-                }
-
-                let mut num_result = *coeff;
-                for (diagram_index, diagram_set) in diagram_set.diagram_info.iter_mut().enumerate()
-                {
-                    let subgraph = &mut diagram_set.graph;
-                    let subgraph_cache =
-                        cache.get_topology_cache(cut_index, diag_set_index, diagram_index);
-                    // build the subgraph numerator
-                    // TODO: build the reduced numerator directly
-
-                    for n in &mut subgraph.numerator.coefficients {
-                        *n = Complex::zero();
-                    }
-
-                    let mut monomial_index = 0;
-
-                    if subgraph.n_loops == 0 {
-                        subgraph.numerator.coefficients[0] = Complex::one();
-                        subgraph.numerator.max_rank = 0;
-                    } else {
-                        // now set the coefficient to 1 for the current monomial in the subgraph
-                        // by mapping the powers in the reduced numerator back to the power pattern
-                        // of the complete numerator
-                        let mut subgraph_powers = [0; 10]; // TODO: make max rank a constant
-                        let mut power_index = 0;
-
-                        for (lmi, p) in powers[ltd_index..ltd_index + subgraph.n_loops]
-                            .iter()
-                            .enumerate()
-                        {
-                            for _ in 0..*p {
-                                subgraph_powers[power_index] = lmi * 4;
-                                power_index += 1;
-                            }
-                        }
-
-                        subgraph.numerator.max_rank = power_index; // FIXME: is this right?
-
-                        if power_index == 0 {
-                            subgraph.numerator.coefficients[0] = Complex::one();
+            let mut res = if let Some(call_signature) = &self.form_integrand.call_signature {
+                let res = match self.settings.cross_section.integrand_type {
+                    IntegrandType::LTD => T::get_integrand_ltd(
+                        form_integrand.as_mut().unwrap(),
+                        &cache.scalar_products,
+                        &params,
+                        call_signature.id,
+                        diagram_set.id,
+                    ),
+                    IntegrandType::PF => T::get_integrand_pf(
+                        form_integrand.as_mut().unwrap(),
+                        &cache.scalar_products,
+                        &params,
+                        call_signature.id,
+                        if self.settings.cross_section.sum_diagram_sets {
+                            1000 + cut_index
                         } else {
-                            monomial_index = subgraph.numerator.sorted_linear[..]
-                                .binary_search_by(|x| {
-                                    utils::compare_slice(&x[..], &subgraph_powers[..power_index])
-                                })
-                                .unwrap()
-                                + 1;
-                            subgraph.numerator.coefficients[monomial_index] += Complex::one();
-                        }
-                    }
+                            diagram_set.id
+                        },
+                    ),
+                };
 
-                    let reduced_pos = LTDNumerator::powers_to_position(
-                        &subgraph.numerator.coefficient_index_to_powers[monomial_index]
-                            [..subgraph.numerator.n_loops],
-                        subgraph.numerator.n_loops,
-                        &subgraph.numerator.reduced_blocks,
-                    );
+                Complex::new(Into::<T>::into(res.re), Into::<T>::into(res.im))
+            } else {
+                panic!("No call signature for FORM integrand, but FORM integrand mode is enabled");
+            };
 
-                    // update the non-empty coeff map to the single entry
-                    subgraph.numerator.non_empty_coeff_map_to_reduced_numerator[0].clear();
-                    subgraph.numerator.non_empty_coeff_map_to_reduced_numerator[0].push((
-                        monomial_index,
-                        reduced_pos,
-                        Complex::one(),
-                    ));
-
-                    // only compute the subdiagram with this numerator once
-                    let mut cached_res = None;
-                    for (i, r) in &subgraph_cache.cached_topology_integrand {
-                        if *i == monomial_index {
-                            cached_res = Some(*r);
-                            break;
-                        }
-                    }
-
-                    // Store coefficients in a multi variable polynomial
-                    if self.settings.general.partial_fractioning_threshold > 0.0 {
-                        subgraph_cache.reduced_coefficient_lb_mpoly.clear();
-                        for (c, pows) in subgraph_cache.reduced_coefficient_lb[0].iter().zip(
-                            subgraph.numerator.reduced_coefficient_index_to_powers
-                                [..subgraph.numerator.reduced_size]
-                                .iter(),
-                        ) {
-                            //println!("#{:?} -> {}", &pows[..subgraph.n_loops], c);
-                            subgraph_cache
-                                .reduced_coefficient_lb_mpoly
-                                .add(&pows[..subgraph.n_loops], *c);
-                            //println!(
-                            //    "\t->pows: {:?},\n\t->coeffs: {:?},\n\t->n_var: {}",
-                            //    subgraph_cache.reduced_coefficient_lb_mpoly.powers,
-                            //    subgraph_cache.reduced_coefficient_lb_mpoly.coeffs,
-                            //    subgraph_cache.reduced_coefficient_lb_mpoly.n_var
-                            //);
-                        }
-                    }
-                    let mut res = if cached_res.is_none() {
-                        let res = if subgraph.loop_lines.len() > 0 {
-                            subgraph
-                                .evaluate_all_dual_integrands::<T>(
-                                    if subgraph.n_loops != 0 {
-                                        if self.settings.cross_section.numerator_source
-                                            == NumeratorSource::Yaml
-                                        {
-                                            &mut k_def[ltd_index..ltd_index + subgraph.n_loops]
-                                        } else {
-                                            let start = cutkosky_cuts.cuts.len() - 1 + ltd_index;
-                                            &mut k_def[start..start + subgraph.n_loops]
-                                        }
-                                    } else {
-                                        &mut []
-                                    },
-                                    subgraph_cache,
-                                )
-                                .unwrap()
-                        } else {
-                            // if the graph has no propagators, it is one and not zero
-                            Complex::one()
-                        };
-
-                        subgraph_cache
-                            .cached_topology_integrand
-                            .push((monomial_index, res));
-                        res
-                    } else {
-                        cached_res.unwrap()
-                    };
-
-                    res *= utils::powi(
-                        num::Complex::new(
-                            T::zero(),
-                            Into::<T>::into(-2.) * <T as FloatConst>::PI(),
-                        ),
-                        subgraph.n_loops,
-                    ); // factor of delta cut
-
-                    num_result *= res;
-
-                    if self.settings.general.debug >= 1 {
-                        println!(
-                            "  | monomial {} res {} ({}l) = {:e}",
-                            monomial_index, subgraph.name, subgraph.n_loops, res
-                        );
-                    }
-
-                    ltd_index += subgraph.n_loops;
+            if let Some(em) = event_manager {
+                if let Some(s) = em.integrand_evaluation_timing_start.take() {
+                    em.integrand_evaluation_timing += Instant::now().duration_since(s).as_nanos();
                 }
-
-                if self.settings.general.debug >= 1 {
-                    println!("  | monomial result = {:e}", num_result * def_jacobian);
-                    println!(
-                        "  | monomial result full weight = {:e}",
-                        num_result * def_jacobian * scaling_result
-                    )
-                }
-
-                result_complete_numerator += num_result * def_jacobian;
             }
 
-            let first_subgraph_cache = cache.get_topology_cache(cut_index, diag_set_index, 0);
-            mem::swap(
-                &mut supergraph_coeff,
-                &mut first_subgraph_cache.reduced_coefficient_lb_supergraph[0],
-            );
+            mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
+
+            res *= def_jacobian;
 
             if self.settings.general.debug >= 1 {
-                println!(
-                    "  | res diagram set {}: = {:e}",
-                    diagram_set.id, result_complete_numerator
-                );
+                println!("  | res diagram set {}: = {:e}", diagram_set.id, res);
             }
 
-            diag_and_num_contributions += result_complete_numerator;
+            diag_and_num_contributions += res;
         }
 
         scaling_result *= diag_and_num_contributions;
@@ -2813,20 +2305,6 @@ impl IntegrandImplementation for SquaredTopologySet {
                 t.settings.cross_section.integrand_type = IntegrandType::PF;
             } else {
                 t.settings.cross_section.integrand_type = IntegrandType::LTD;
-            }
-
-            if self.settings.cross_section.numerator_source == NumeratorSource::Form {
-                for cs in &mut t.cutkosky_cuts {
-                    for ds in &mut cs.diagram_sets {
-                        for di in &mut ds.diagram_info {
-                            if enable {
-                                di.graph.settings.general.partial_fractioning_threshold = 1e-99;
-                            } else {
-                                di.graph.settings.general.partial_fractioning_threshold = -1.;
-                            }
-                        }
-                    }
-                }
             }
         }
     }

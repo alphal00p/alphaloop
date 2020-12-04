@@ -387,8 +387,6 @@ hyperparameters = HyperParameters({
             'center'                            :   1.0,
             'spread'                            :   1.0,
         },
-        # Can be yaml, FORM, FORM_integrand
-        'numerator_source'                      :   'yaml',
         # Can be LTD, PF
         'integrand_type'                        :   'PF',
         # evaluate the C expression for the sum of diagrams

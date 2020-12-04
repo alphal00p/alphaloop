@@ -622,22 +622,6 @@ pub struct NormalisingFunctionSettings {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-pub enum NumeratorSource {
-    #[serde(rename = "yaml")]
-    Yaml,
-    #[serde(rename = "FORM")]
-    Form,
-    #[serde(rename = "FORM_integrand")]
-    FormIntegrand,
-}
-
-impl Default for NumeratorSource {
-    fn default() -> Self {
-        Self::Yaml
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum IntegrandType {
     #[serde(rename = "LTD")]
     LTD,
@@ -658,7 +642,6 @@ pub struct CrossSectionSettings {
     #[serde(rename = "NormalisingFunction")]
     pub normalising_function: NormalisingFunctionSettings,
     pub inherit_deformation_for_uv_counterterm: bool,
-    pub numerator_source: NumeratorSource,
     pub integrand_type: IntegrandType,
     pub compare_with_additional_topologies: bool,
     pub m_uv_sq: f64,
