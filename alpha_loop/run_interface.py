@@ -1476,8 +1476,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser = ArgumentParser(prog='integrate')
     integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
-    integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='flat', 
-                    choices=('flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
+    integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='xs', 
+                    choices=('xs','rambo', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
     integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
                     choices=('naive','vegas', 'vegas3'), help='Specify the integrator (default: %(default)s)')
     integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
@@ -1517,6 +1517,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
+    integrate_parser.add_argument(
+        '-no_mc','--no_multichanneling',action="store_false", dest="multichanneling", default=False,
+        help="Disable multichanneling (default: as per hyperparameters)")
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -1534,6 +1537,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         args = self.split_arg(line)
         args = self.integrate_parser.parse_args(args)
+
+        self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
 
         if args.h_function == 'left_right_polynomial':
             selected_h_function = sampler.HFunction(args.h_function_sigma, debug=args.verbosity)
@@ -1599,7 +1604,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if args.sampling == 'test_h_function':
 
-            logger.info("Dummy integrand for testing h function:")
+            logger.info("Dummy integrand for testing h-function with integrator '%s':"%args.integrator)
 
             my_integrand = sampler.TestHFuncIntegrand( selected_h_function, debug=args.verbosity )
 
@@ -1608,45 +1613,56 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             result = my_integrator.integrate()
 
             logger.info('')
-            logger.info("Result of the test integration using h function '%s' with %d function calls (target is 1.0): %.4e +/- %.2e"%(
+            logger.info("Result of the test integration using h function %s with %d function calls (target is 1.0): %.4e +/- %.2e"%(
                 args.h_function, my_integrator.tot_func_evals, result[0], result[1]))
             logger.info('')
             return
         else:
-            raise NotImplementedError
+            SG_name = args.SG_name
+            if SG_name not in self.all_supergraphs:
+                raise alphaLoopInvalidRunCmd("Cannot find SG named in '%s' in the collection loaded."%SG_name)
+            
+            rust_worker = self.get_rust_worker(SG_name)
+            SG_info = self.all_supergraphs[SG_name]
 
-        # dimensions = integrands.DimensionList(
-        #         [ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) for i in range(1, n_loops*3) ]+
-        #         [ integrands.ContinuousDimension('t',lower_bound=0.0, upper_bound=1.0), ] 
-        #         )
-        # my_PS_generator = None
-        # try:
-        #     my_PS_generator = eval("generator_%s(dimensions, rust_worker, SG_info, model, selected_h_function, hyperparameters, debug=args.debug)"%args.run_mode)
-        # except Exception as e:
-        #     logger.critical("Unreckognized run mode: '%s'"%args.run_mode)
-        #     raise
+            logger.info("Integrating SG '%s' with sampler '%s' and integrator '%s':"%(
+                SG_name, args.sampling, args.integrator
+            ))
 
-        # logger.info("Integrating '%s' with the parameterisation %s:"%(args.diag_name,args.run_mode))
+            if args.sampling == 'xs':
 
-        # SG = self.all_supergraphs[args.SG_name]
-        # E_cm = SG.get_E_cm(self.hyperparameters)
-        # rust_worker = self.get_rust_worker(args.SG_name)
+                my_sampler = sampler.generator_aL( 
+                    integrands.DimensionList([ 
+                        integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
+                        for i_dim in range(1,SG_info['topo']['n_loops']*3+1) 
+                    ]),
+                    rust_worker,
+                    SG_info,
+                    self.alphaLoop_interface._curr_model,
+                    selected_h_function,
+                    self.hyperparameters,
+                    debug=args.verbosity,
+                )
 
-        # my_integrand = integrator.DefaultALIntegrand(rust_worker, my_PS_generator, debug=args.verbosity)
+                my_integrand = sampler.DefaultALIntegrand( rust_worker, my_sampler, 
+                    debug=args.verbosity, phase=self.hyperparameters['Integrator']['integrated_phase'] )
 
-        # my_integrator = integrator.vegas3.Vegas3Integrator(my_integrand, 
-        #         n_points_survey=args.n_points_survey, n_points_refine=args.n_points_refine, accuracy_target=None,
-        #         verbosity=args.verbosity, cluster=runner
-        # )
+                my_integrator = selected_integrator(my_integrand, **integrator_options)
 
-        # result = my_integrator.integrate()
+                result = my_integrator.integrate()
 
-        # logger.info('')
-        # logger.info("Result of integration using the '%s' parameterisation with %d function calls: %.7e +/- %.2e"%(
-        #     args.run_mode, my_integrator.tot_func_evals, result[0], result[1]))
-        # logger.info('')
+            logger.info('')
+            logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s"%(
+                utils.bcolors.GREEN, SG_name, utils.bcolors.ENDC,
+                utils.bcolors.GREEN,os.path.basename(self.dir_path), utils.bcolors.ENDC,
+                utils.bcolors.BLUE, args.sampling, utils.bcolors.ENDC,
+                utils.bcolors.BLUE, args.integrator, utils.bcolors.ENDC,
+                utils.bcolors.GREEN, my_integrator.tot_func_evals, utils.bcolors.ENDC,
+                utils.bcolors.GREEN, result[0], result[1], utils.bcolors.ENDC,
+            ))
+            logger.info('')
 
-
+            return
 
     #### EXPERIMENT COMMAND
     experiment_parser = ArgumentParser(prog='experiment')
